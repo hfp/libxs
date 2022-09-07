@@ -978,8 +978,8 @@ LIBXS_API void __wrap_free(void* ptr)
 #endif
 
 #if defined(LIBXS_MALLOC_HOOK_DYNAMIC) && ((defined(LIBXS_MALLOC) && (0 != LIBXS_MALLOC)) || defined(LIBXS_MALLOC_MOD))
-LIBXS_API LIBXS_ATTRIBUTE_WEAK LIBXS_ATTRIBUTE_MALLOC void* memalign(size_t /*alignment*/, size_t /*size*/) LIBXS_THROW;
-LIBXS_API LIBXS_ATTRIBUTE_WEAK LIBXS_ATTRIBUTE_MALLOC void* memalign(size_t alignment, size_t size) LIBXS_THROW
+LIBXS_API LIBXS_ATTRIBUTE_WEAK LIBXS_ATTRIBUTE_MALLOC void* memalign(size_t /*alignment*/, size_t /*size*/) LIBXS_NOEXCEPT;
+LIBXS_API LIBXS_ATTRIBUTE_WEAK LIBXS_ATTRIBUTE_MALLOC void* memalign(size_t alignment, size_t size) LIBXS_NOEXCEPT
 {
   void* result;
 # if defined(LIBXS_MALLOC_MMAP_HOOK)
@@ -990,8 +990,8 @@ LIBXS_API LIBXS_ATTRIBUTE_WEAK LIBXS_ATTRIBUTE_MALLOC void* memalign(size_t alig
   return result;
 }
 
-LIBXS_API LIBXS_ATTRIBUTE_WEAK LIBXS_ATTRIBUTE_MALLOC void* malloc(size_t /*size*/) LIBXS_THROW;
-LIBXS_API LIBXS_ATTRIBUTE_WEAK LIBXS_ATTRIBUTE_MALLOC void* malloc(size_t size) LIBXS_THROW
+LIBXS_API LIBXS_ATTRIBUTE_WEAK LIBXS_ATTRIBUTE_MALLOC void* malloc(size_t /*size*/) LIBXS_NOEXCEPT;
+LIBXS_API LIBXS_ATTRIBUTE_WEAK LIBXS_ATTRIBUTE_MALLOC void* malloc(size_t size) LIBXS_NOEXCEPT
 {
   void* result;
 # if defined(LIBXS_MALLOC_MMAP_HOOK)
@@ -1003,8 +1003,8 @@ LIBXS_API LIBXS_ATTRIBUTE_WEAK LIBXS_ATTRIBUTE_MALLOC void* malloc(size_t size) 
 }
 
 #if defined(LIBXS_MALLOC_HOOK_CALLOC)
-LIBXS_API LIBXS_ATTRIBUTE_WEAK LIBXS_ATTRIBUTE_MALLOC void* calloc(size_t /*num*/, size_t /*size*/) LIBXS_THROW;
-LIBXS_API LIBXS_ATTRIBUTE_WEAK LIBXS_ATTRIBUTE_MALLOC void* calloc(size_t num, size_t size) LIBXS_THROW
+LIBXS_API LIBXS_ATTRIBUTE_WEAK LIBXS_ATTRIBUTE_MALLOC void* calloc(size_t /*num*/, size_t /*size*/) LIBXS_NOEXCEPT;
+LIBXS_API LIBXS_ATTRIBUTE_WEAK LIBXS_ATTRIBUTE_MALLOC void* calloc(size_t num, size_t size) LIBXS_NOEXCEPT
 {
   void* result;
   const size_t nbytes = num * size;
@@ -1020,8 +1020,8 @@ LIBXS_API LIBXS_ATTRIBUTE_WEAK LIBXS_ATTRIBUTE_MALLOC void* calloc(size_t num, s
 #endif
 
 #if defined(LIBXS_MALLOC_HOOK_REALLOC)
-LIBXS_API LIBXS_ATTRIBUTE_WEAK void* realloc(void* /*ptr*/, size_t /*size*/) LIBXS_THROW;
-LIBXS_API LIBXS_ATTRIBUTE_WEAK void* realloc(void* ptr, size_t size) LIBXS_THROW
+LIBXS_API LIBXS_ATTRIBUTE_WEAK void* realloc(void* /*ptr*/, size_t /*size*/) LIBXS_NOEXCEPT;
+LIBXS_API LIBXS_ATTRIBUTE_WEAK void* realloc(void* ptr, size_t size) LIBXS_NOEXCEPT
 {
   void* result;
 # if defined(LIBXS_MALLOC_MMAP_HOOK)
@@ -1033,8 +1033,8 @@ LIBXS_API LIBXS_ATTRIBUTE_WEAK void* realloc(void* ptr, size_t size) LIBXS_THROW
 }
 #endif
 
-LIBXS_API LIBXS_ATTRIBUTE_WEAK void free(void* /*ptr*/) LIBXS_THROW;
-LIBXS_API LIBXS_ATTRIBUTE_WEAK void free(void* ptr) LIBXS_THROW
+LIBXS_API LIBXS_ATTRIBUTE_WEAK void free(void* /*ptr*/) LIBXS_NOEXCEPT;
+LIBXS_API LIBXS_ATTRIBUTE_WEAK void free(void* ptr) LIBXS_NOEXCEPT
 {
   INTERNAL_FREE_HOOK(ptr, NULL/*caller*/);
 }
