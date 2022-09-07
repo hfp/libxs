@@ -474,7 +474,7 @@ typedef enum libxs_atomic_kind {
 #     define LIBXS_SYNC_YIELD sched_yield()
 #   else
 #     if defined(__USE_GNU) || !defined(__BSD_VISIBLE)
-      LIBXS_EXTERN int pthread_yield(void) LIBXS_THROW;
+      LIBXS_EXTERN int pthread_yield(void) LIBXS_NOEXCEPT;
 #     else
       LIBXS_EXTERN void pthread_yield(void);
 #     endif
