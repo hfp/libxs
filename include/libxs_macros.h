@@ -413,6 +413,28 @@
 #   define LIBXS_RESTRICT
 # endif
 #endif /*LIBXS_RESTRICT*/
+#if defined(__THROW) && defined(__cplusplus)
+# define LIBXS_THROW __THROW
+#endif
+#if !defined(LIBXS_THROW)
+# define LIBXS_THROW
+#endif
+#if defined(__GNUC__) && LIBXS_VERSION2(4, 2) == LIBXS_VERSION2(__GNUC__, __GNUC_MINOR__) && \
+  !defined(__clang__) && !defined(__PGI) && !defined(__INTEL_COMPILER) && !defined(_CRAYC)
+# define LIBXS_NOTHROW LIBXS_THROW
+#else
+# define LIBXS_NOTHROW
+#endif
+#if defined(__cplusplus)
+# if (__cplusplus > 199711L)
+#   define LIBXS_NOEXCEPT noexcept
+# else
+#   define LIBXS_NOEXCEPT throw()
+# endif
+#else
+# define LIBXS_NOEXCEPT LIBXS_NOTHROW
+#endif
+
 #if !defined(LIBXS_PRAGMA)
 # if defined(LIBXS_INTEL_COMPILER) || defined(_MSC_VER)
 #   define LIBXS_PRAGMA(DIRECTIVE) __pragma(LIBXS_EXPAND(DIRECTIVE))
@@ -567,6 +589,9 @@
 # define LIBXS_EXPF(A) expf(A)
 # define LIBXS_LOGF(A) logf(A)
 #else
+# if !defined(_WIN32)
+LIBXS_EXTERN double erf(double) LIBXS_THROW;
+# endif
 # define LIBXS_POWF(A, B) ((float)pow((float)(A), (float)(B)))
 # define LIBXS_FREXPF(A, B) ((float)frexp((float)(A), B))
 # define LIBXS_ROUNDF(A) LIBXS_ROUNDX(float, A)
@@ -916,28 +941,6 @@ LIBXS_API_INLINE int libxs_nonconst_int(int i) { return i; }
 # define LIBXS_SNPRINTF(S, N, ...) snprintf(S, N, __VA_ARGS__)
 #else
 # define LIBXS_SNPRINTF(S, N, ...) sprintf((S) + /*unused*/(N) * 0, __VA_ARGS__)
-#endif
-
-#if defined(__THROW) && defined(__cplusplus)
-# define LIBXS_THROW __THROW
-#endif
-#if !defined(LIBXS_THROW)
-# define LIBXS_THROW
-#endif
-#if defined(__GNUC__) && LIBXS_VERSION2(4, 2) == LIBXS_VERSION2(__GNUC__, __GNUC_MINOR__) && \
-  !defined(__clang__) && !defined(__PGI) && !defined(__INTEL_COMPILER) && !defined(_CRAYC)
-# define LIBXS_NOTHROW LIBXS_THROW
-#else
-# define LIBXS_NOTHROW
-#endif
-#if defined(__cplusplus)
-# if (__cplusplus > 199711L)
-#   define LIBXS_NOEXCEPT noexcept
-# else
-#   define LIBXS_NOEXCEPT throw()
-# endif
-#else
-# define LIBXS_NOEXCEPT LIBXS_NOTHROW
 #endif
 
 #if defined(_WIN32)
