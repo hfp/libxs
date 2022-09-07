@@ -534,9 +534,12 @@ LIBXS_API int libxs_print_cmdline(FILE* stream, const char* prefix, const char* 
 # endif
   if (0 < argc) {
     int i = 1;
-    const char* cmd = strrchr(argv[0], '/');
-    if (NULL == cmd) cmd = strrchr(argv[0], '\\');
-    result += fprintf(stream, "%s%s", prefix, cmd + 1);
+#   if defined(_WIN32)
+    const char *const cmd = strrchr(argv[0], '\\');
+    result += fprintf(stream, "%s%s", prefix, NULL != cmd ? (cmd + 1) : argv[0]);
+#   else
+    result += fprintf(stream, "%s%s", prefix, argv[0]);
+#   endif
     for (; i < argc; ++i) result += fprintf(stream, " %s", argv[i]);
   }
 #endif
