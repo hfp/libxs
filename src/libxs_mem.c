@@ -521,6 +521,7 @@ LIBXS_API int libxs_print_cmdline(FILE* stream, const char* prefix, const char* 
         result += (int)fwrite('\0' != c ? &c : " ", 1, 1, stream);
       } while (1 == fread(&c, 1, 1, cmdline));
     }
+    fclose(cmdline);
   }
 #else
   char** argv = NULL;

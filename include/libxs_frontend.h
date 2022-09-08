@@ -467,7 +467,7 @@
   } \
   else { /* shuffle based initialization */ \
     const unsigned int libxs_matrng_maxval_ = ((unsigned int)NCOLS) * ((unsigned int)libxs_matrng_ld_); \
-    const TYPE libxs_matrng_maxval2_ = (TYPE)LIBXS_UPDIV(libxs_matrng_maxval_, 2); /* non-zero */ \
+    const TYPE libxs_matrng_maxval2_ = (unsigned int)LIBXS_UPDIV(libxs_matrng_maxval_, 2); /* non-zero */ \
     const TYPE libxs_matrng_inv_ = ((TYPE)(SCALE)) / libxs_matrng_maxval2_; \
     const size_t libxs_matrng_shuffle_ = libxs_shuffle(libxs_matrng_maxval_); \
     OMP(parallel for private(libxs_matrng_i_, libxs_matrng_j_)) \
