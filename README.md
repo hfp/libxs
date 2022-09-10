@@ -48,7 +48,7 @@ Plain [C code](https://github.com/hfp/libxs/blob/main/samples/hello/hello.c) as 
 Please have a look at [https://github.com/hfp/libxs/tree/main/include](https://github.com/hfp/libxs/tree/main/include) for all published functions. Get started with the following list of available domains and documented functionality:
 
 * MM: [Matrix Multiplication](#matrix-multiplication)
-* DNN: [Deep Neural Networks](https://github.com/hfp/libxs_dnn)
+* DNN: [Deep Neural Networks](#deep-neural-networks)
 * AUX: [Service Functions](#service-functions)
 * PERF: [Performance](#performance)
 * BE: [Backend](#jit-backend)
