@@ -26,7 +26,7 @@ nav:
 - Q&A: libxs_qna.md
 - LIBXS Domains:
   - "MM: Matrix Multiplication": libxs_mm.md
-  - "DNN: Deep Neural Networks": https://github.com/hfp/libxs_dnn
+  - "DNN: Deep Neural Networks": https://libxs.readthedocs.io/#deep-learning
   - "AUX: Service Functions": libxs_aux.md
   - "PROF: Performance Profiling": libxs_prof.md
   - "TUNE: Customization": libxs_tune.md
@@ -35,7 +35,7 @@ nav:
   - Collection: libxs_samples.md
 - Machine Learning (ML):
   - PlaidML tensor compiler: https://github.com/plaidml/plaidml
-  - Extension for PyTorch: https://github.com/hfp/libxs_dnn/tree/main/samples/conv1dopti_layer
+  - Extension for PyTorch: https://github.com/hfp/libxs/tree/main/samples/deeplearning/conv1dopti_layer
 - Scientific (HPC):
   - CP2K: cp2k.md
   - SeisSol: https://seissol.readthedocs.io/en/latest/compilation.html#installing-libxs
