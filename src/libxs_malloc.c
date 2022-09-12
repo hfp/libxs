@@ -60,10 +60,11 @@
 # else
 #   define LIBXS_MAP_JIT 0
 # endif
-LIBXS_EXTERN int ftruncate(int, off_t) LIBXS_NOEXCEPT;
 # if !defined(__cplusplus) || (__cplusplus <= 199711L)
+LIBXS_EXTERN int ftruncate(int, off_t) LIBXS_NOEXCEPT;
 LIBXS_EXTERN int mkstemp(char*) LIBXS_NOEXCEPT;
 # else
+LIBXS_EXTERN int ftruncate(int, off_t);
 LIBXS_EXTERN int mkstemp(char*);
 # endif
 #endif
