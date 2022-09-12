@@ -466,15 +466,17 @@ typedef enum libxs_atomic_kind {
 #     define LIBXS_SYNC_YIELD pthread_yield_np()
 #   elif defined(_POSIX_PRIORITY_SCHEDULING) || (defined(__GLIBC__) && defined(__GLIBC_MINOR__) \
       && LIBXS_VERSION2(2, 34) <= LIBXS_VERSION2(__GLIBC__, __GLIBC_MINOR__))
-#     if defined(__USE_GNU) || !defined(__BSD_VISIBLE)
-      LIBXS_EXTERN int sched_yield(void) LIBXS_THROW;
+#     if (defined(__USE_GNU) || !defined(__BSD_VISIBLE)) && \
+        (!defined(__cplusplus) || (__cplusplus <= 199711L))
+      LIBXS_EXTERN int sched_yield(void) LIBXS_NOEXCEPT;
 #     else
       LIBXS_EXTERN int sched_yield(void);
 #     endif
 #     define LIBXS_SYNC_YIELD sched_yield()
 #   else
-#     if defined(__USE_GNU) || !defined(__BSD_VISIBLE)
-      LIBXS_EXTERN int pthread_yield(void) LIBXS_THROW;
+#     if (defined(__USE_GNU) || !defined(__BSD_VISIBLE)) && \
+        (!defined(__cplusplus) || (__cplusplus <= 199711L))
+      LIBXS_EXTERN int pthread_yield(void) LIBXS_NOEXCEPT;
 #     else
       LIBXS_EXTERN void pthread_yield(void);
 #     endif
@@ -709,8 +711,13 @@ typedef enum libxs_atomic_kind {
 # if !defined(__CYGWIN__)
 #   define LIBXS_FLOCK(FILE) flockfile(FILE)
 #   define LIBXS_FUNLOCK(FILE) funlockfile(FILE)
-    LIBXS_EXTERN void flockfile(FILE*) LIBXS_THROW;
-    LIBXS_EXTERN void funlockfile(FILE*) LIBXS_THROW;
+#   if !defined(__cplusplus) || (__cplusplus <= 199711L)
+LIBXS_EXTERN void flockfile(FILE*) LIBXS_NOEXCEPT;
+LIBXS_EXTERN void funlockfile(FILE*) LIBXS_NOEXCEPT;
+#   else
+LIBXS_EXTERN void flockfile(FILE*);
+LIBXS_EXTERN void funlockfile(FILE*);
+#   endif
 # else /* Only available with __CYGWIN__ *and* C++0x. */
 #   define LIBXS_FLOCK(FILE)
 #   define LIBXS_FUNLOCK(FILE)
