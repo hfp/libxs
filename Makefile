@@ -861,7 +861,7 @@ endif
 
 .PHONY: generator
 generator: $(BINDIR)/libxs_gemm_generator
-$(BINDIR)/libxs_gemm_generator: $(BINDIR)/.make $(OBJFILES_GEN_GEMM_BIN) $(OUTDIR)/libxsgen.$(ILIBEXT)
+$(BINDIR)/libxs_gemm_generator: $(BINDIR)/.make $(OBJFILES_GEN_GEMM_BIN) $(OUTDIR)/libxsgen.$(LIBEXT)
 	$(LD) -o $@ $(OBJFILES_GEN_GEMM_BIN) $(call abslib,$(OUTDIR)/libxsgen.$(ILIBEXT)) \
 		$(call cleanld,$(NOBLAS_LDFLAGS) $(NOBLAS_CLDFLAGS))
 
@@ -902,7 +902,7 @@ ifneq (0,$(MIC))
 ifneq (0,$(MPSS))
 ifneq (,$(strip $(FC)))
 flib_mic: $(OUTDIR)/mic/libxsf.$(LIBEXT)
-$(OUTDIR)/mic/libxsf.$(LIBEXT): $(INCDIR)/mic/libxs.mod $(OUTDIR)/mic/libxs.$(ILIBEXT)
+$(OUTDIR)/mic/libxsf.$(LIBEXT): $(INCDIR)/mic/libxs.mod $(OUTDIR)/mic/libxs.$(LIBEXT)
 ifeq (0,$(STATIC))
 	$(LIB_FLD) -mmic $(FCMTFLAGS) $(call solink,$@,$(VERSION_MAJOR),$(VERSION_MINOR),$(VERSION_UPDATE),$(VERSION_API)) \
 		$(BLDDIR)/mic/libxs-mod.o $(call abslib,$(OUTDIR)/mic/libxs.$(ILIBEXT)) $(call cleanld,$(LDFLAGS) $(FLDFLAGS))
@@ -920,9 +920,9 @@ endif
 ifneq (,$(strip $(FC)))
 flib_hst: $(OUTDIR)/libxsf.pc
 ifneq (,$(filter-out Darwin,$(UNAME))$(filter-out 0,$(STATIC))$(filter-out 0,$(LNKSOFT)))
-$(OUTDIR)/libxsf.$(LIBEXT): $(INCDIR)/libxs.mod $(OUTDIR)/libxs.$(ILIBEXT)
+$(OUTDIR)/libxsf.$(LIBEXT): $(INCDIR)/libxs.mod $(OUTDIR)/libxs.$(LIBEXT)
 else
-$(OUTDIR)/libxsf.$(LIBEXT): $(INCDIR)/libxs.mod $(OUTDIR)/libxs.$(ILIBEXT) $(OUTDIR)/libxsext.$(ILIBEXT)
+$(OUTDIR)/libxsf.$(LIBEXT): $(INCDIR)/libxs.mod $(OUTDIR)/libxs.$(LIBEXT) $(OUTDIR)/libxsext.$(LIBEXT)
 endif
 ifeq (0,$(STATIC))
 ifneq (Darwin,$(UNAME))
@@ -950,7 +950,7 @@ endif
 ifneq (0,$(MIC))
 ifneq (0,$(MPSS))
 ext_mic: $(OUTDIR)/mic/libxsext.$(LIBEXT)
-$(OUTDIR)/mic/libxsext.$(LIBEXT): $(EXTOBJS_MIC) $(OUTDIR)/mic/libxs.$(ILIBEXT)
+$(OUTDIR)/mic/libxsext.$(LIBEXT): $(EXTOBJS_MIC) $(OUTDIR)/mic/libxs.$(LIBEXT)
 ifeq (0,$(STATIC))
 	$(LIB_LD) -mmic $(EXTLDFLAGS) $(call solink,$@,$(VERSION_MAJOR),$(VERSION_MINOR),$(VERSION_UPDATE),$(VERSION_API)) \
 		$(EXTOBJS_MIC) $(call abslib,$(OUTDIR)/mic/libxs.$(ILIBEXT)) $(call cleanld,$(LDFLAGS) $(CLDFLAGS))
@@ -963,7 +963,7 @@ endif
 
 .PHONY: ext_hst
 ext_hst: $(OUTDIR)/libxsext.pc
-$(OUTDIR)/libxsext.$(LIBEXT): $(OUTDIR)/libxs.$(ILIBEXT) $(EXTOBJS_HST)
+$(OUTDIR)/libxsext.$(LIBEXT): $(OUTDIR)/libxs.$(LIBEXT) $(EXTOBJS_HST)
 ifeq (0,$(STATIC))
 	$(LIB_LD) $(EXTLDFLAGS) $(call solink,$@,$(VERSION_MAJOR),$(VERSION_MINOR),$(VERSION_UPDATE),$(VERSION_API)) \
 		$(EXTOBJS_HST) $(call abslib,$(OUTDIR)/libxs.$(ILIBEXT)) $(call cleanld,$(LDFLAGS) $(CLDFLAGS))
