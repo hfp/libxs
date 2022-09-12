@@ -413,28 +413,6 @@
 #   define LIBXS_RESTRICT
 # endif
 #endif /*LIBXS_RESTRICT*/
-#if defined(__THROW) && defined(__cplusplus)
-# define LIBXS_THROW __THROW
-#endif
-#if !defined(LIBXS_THROW)
-# define LIBXS_THROW
-#endif
-#if defined(__GNUC__) && LIBXS_VERSION2(4, 2) == LIBXS_VERSION2(__GNUC__, __GNUC_MINOR__) && \
-  !defined(__clang__) && !defined(__PGI) && !defined(__INTEL_COMPILER) && !defined(_CRAYC)
-# define LIBXS_NOTHROW LIBXS_THROW
-#else
-# define LIBXS_NOTHROW
-#endif
-#if defined(__cplusplus)
-# if (__cplusplus > 199711L)
-#   define LIBXS_NOEXCEPT noexcept
-# else
-#   define LIBXS_NOEXCEPT throw()
-# endif
-#else
-# define LIBXS_NOEXCEPT LIBXS_NOTHROW
-#endif
-
 #if !defined(LIBXS_PRAGMA)
 # if defined(LIBXS_INTEL_COMPILER) || defined(_MSC_VER)
 #   define LIBXS_PRAGMA(DIRECTIVE) __pragma(LIBXS_EXPAND(DIRECTIVE))
@@ -589,9 +567,6 @@
 # define LIBXS_EXPF(A) expf(A)
 # define LIBXS_LOGF(A) logf(A)
 #else
-# if !defined(_WIN32)
-LIBXS_EXTERN double erf(double) LIBXS_NOEXCEPT;
-# endif
 # define LIBXS_POWF(A, B) ((float)pow((float)(A), (float)(B)))
 # define LIBXS_FREXPF(A, B) ((float)frexp((float)(A), B))
 # define LIBXS_ROUNDF(A) LIBXS_ROUNDX(float, A)
@@ -917,8 +892,20 @@ LIBXS_API_INLINE int libxs_nonconst_int(int i) { return i; }
 #include <float.h>
 #include <stdio.h>
 
-#if defined(LIBXS_OFFLOAD_TARGET)
-# pragma offload_attribute(pop)
+#if defined(__THROW)
+# define LIBXS_NOTHROW __THROW
+#endif
+#if defined(__cplusplus)
+# if (199711L < __cplusplus)
+#   define LIBXS_NOEXCEPT noexcept
+# else
+#   define LIBXS_NOEXCEPT throw()
+# endif
+#else
+# define LIBXS_NOEXCEPT
+#endif
+#if !defined(LIBXS_NOTHROW)
+# define LIBXS_NOTHROW
 #endif
 
 #if !defined(FLT_MAX)
@@ -947,6 +934,12 @@ LIBXS_API_INLINE int libxs_nonconst_int(int i) { return i; }
 # define LIBXS_PUTENV(A) _putenv(A)
 #else
 # define LIBXS_PUTENV(A) putenv(A)
+# define LIBXS_MKTEMP(A) mkstemp(A)
+# if !defined(_GNU_SOURCE) || (defined(__cplusplus) && 199711L > __cplusplus)
+LIBXS_EXTERN int mkstemp(char*) LIBXS_NOTHROW;
+# else
+LIBXS_EXTERN int mkstemp(char*);
+# endif
 #endif
 
 /* block must be after including above header files */
@@ -978,9 +971,6 @@ LIBXS_API_INLINE int libxs_nonconst_int(int i) { return i; }
 # endif
 #endif
 
-#if defined(LIBXS_OFFLOAD_TARGET)
-# pragma offload_attribute(push,target(LIBXS_OFFLOAD_TARGET))
-#endif
 #if defined(LIBXS_GLIBC_FPTYPES)
 # if defined(__cplusplus)
 #   undef __USE_MISC
@@ -996,6 +986,7 @@ LIBXS_API_INLINE int libxs_nonconst_int(int i) { return i; }
 #   endif
 # endif
 #endif
+
 #if !defined(LIBXS_NO_LIBM)
 # if (defined(LIBXS_INTEL_COMPILER) && (1800 <= LIBXS_INTEL_COMPILER)) \
   && !defined(_WIN32) /* error including dfp754.h */
@@ -1010,10 +1001,14 @@ LIBXS_API_INLINE int libxs_nonconst_int(int i) { return i; }
 #   define __STRICT_ANSI__ LIBXS_STRICT_ANSI
 #   undef LIBXS_STRICT_ANSI
 # endif
+# if (!defined(__STDC_VERSION__) || (199901L/*C99*/ > __STDC_VERSION__)) && !defined(_WIN32)
+LIBXS_EXTERN double erf(double) LIBXS_NOTHROW;
+# endif
 #endif
 #if !defined(M_PI)
 # define M_PI 3.14159265358979323846
 #endif
+
 #if defined(LIBXS_OFFLOAD_TARGET)
 # pragma offload_attribute(pop)
 #endif

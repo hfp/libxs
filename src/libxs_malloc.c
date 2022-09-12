@@ -60,13 +60,7 @@
 # else
 #   define LIBXS_MAP_JIT 0
 # endif
-# if !defined(__cplusplus) || (__cplusplus <= 199711L)
-LIBXS_EXTERN int ftruncate(int, off_t) LIBXS_NOEXCEPT;
-LIBXS_EXTERN int mkstemp(char*) LIBXS_NOEXCEPT;
-# else
-LIBXS_EXTERN int ftruncate(int, off_t);
-LIBXS_EXTERN int mkstemp(char*);
-# endif
+LIBXS_EXTERN int ftruncate(int, off_t) LIBXS_NOTHROW;
 #endif
 #if !defined(LIBXS_MALLOC_FINAL)
 # define LIBXS_MALLOC_FINAL 3
@@ -983,7 +977,7 @@ LIBXS_API void __wrap_free(void* ptr)
 #endif
 
 #if defined(LIBXS_MALLOC_HOOK_DYNAMIC) && ((defined(LIBXS_MALLOC) && (0 != LIBXS_MALLOC)) || defined(LIBXS_MALLOC_MOD))
-LIBXS_API LIBXS_ATTRIBUTE_WEAK LIBXS_ATTRIBUTE_MALLOC void* memalign(size_t /*alignment*/, size_t /*size*/) LIBXS_NOEXCEPT;
+LIBXS_API LIBXS_ATTRIBUTE_WEAK LIBXS_ATTRIBUTE_MALLOC void* memalign(size_t /*alignment*/, size_t /*size*/) LIBXS_NOTHROW;
 LIBXS_API LIBXS_ATTRIBUTE_WEAK LIBXS_ATTRIBUTE_MALLOC void* memalign(size_t alignment, size_t size) LIBXS_NOEXCEPT
 {
   void* result;
@@ -995,7 +989,7 @@ LIBXS_API LIBXS_ATTRIBUTE_WEAK LIBXS_ATTRIBUTE_MALLOC void* memalign(size_t alig
   return result;
 }
 
-LIBXS_API LIBXS_ATTRIBUTE_WEAK LIBXS_ATTRIBUTE_MALLOC void* malloc(size_t /*size*/) LIBXS_NOEXCEPT;
+LIBXS_API LIBXS_ATTRIBUTE_WEAK LIBXS_ATTRIBUTE_MALLOC void* malloc(size_t /*size*/) LIBXS_NOTHROW;
 LIBXS_API LIBXS_ATTRIBUTE_WEAK LIBXS_ATTRIBUTE_MALLOC void* malloc(size_t size) LIBXS_NOEXCEPT
 {
   void* result;
@@ -1008,7 +1002,7 @@ LIBXS_API LIBXS_ATTRIBUTE_WEAK LIBXS_ATTRIBUTE_MALLOC void* malloc(size_t size) 
 }
 
 #if defined(LIBXS_MALLOC_HOOK_CALLOC)
-LIBXS_API LIBXS_ATTRIBUTE_WEAK LIBXS_ATTRIBUTE_MALLOC void* calloc(size_t /*num*/, size_t /*size*/) LIBXS_NOEXCEPT;
+LIBXS_API LIBXS_ATTRIBUTE_WEAK LIBXS_ATTRIBUTE_MALLOC void* calloc(size_t /*num*/, size_t /*size*/) LIBXS_NOTHROW;
 LIBXS_API LIBXS_ATTRIBUTE_WEAK LIBXS_ATTRIBUTE_MALLOC void* calloc(size_t num, size_t size) LIBXS_NOEXCEPT
 {
   void* result;
@@ -1025,7 +1019,7 @@ LIBXS_API LIBXS_ATTRIBUTE_WEAK LIBXS_ATTRIBUTE_MALLOC void* calloc(size_t num, s
 #endif
 
 #if defined(LIBXS_MALLOC_HOOK_REALLOC)
-LIBXS_API LIBXS_ATTRIBUTE_WEAK void* realloc(void* /*ptr*/, size_t /*size*/) LIBXS_NOEXCEPT;
+LIBXS_API LIBXS_ATTRIBUTE_WEAK void* realloc(void* /*ptr*/, size_t /*size*/) LIBXS_NOTHROW;
 LIBXS_API LIBXS_ATTRIBUTE_WEAK void* realloc(void* ptr, size_t size) LIBXS_NOEXCEPT
 {
   void* result;
@@ -1038,7 +1032,7 @@ LIBXS_API LIBXS_ATTRIBUTE_WEAK void* realloc(void* ptr, size_t size) LIBXS_NOEXC
 }
 #endif
 
-LIBXS_API LIBXS_ATTRIBUTE_WEAK void free(void* /*ptr*/) LIBXS_NOEXCEPT;
+LIBXS_API LIBXS_ATTRIBUTE_WEAK void free(void* /*ptr*/) LIBXS_NOTHROW;
 LIBXS_API LIBXS_ATTRIBUTE_WEAK void free(void* ptr) LIBXS_NOEXCEPT
 {
   INTERNAL_FREE_HOOK(ptr, NULL/*caller*/);
@@ -1636,7 +1630,7 @@ LIBXS_API_INLINE void* internal_xmalloc_xmap(const char* dir, size_t size, int f
   }
   if (0 <= i && i < (int)sizeof(filename)) {
     /* coverity[secure_temp] */
-    i = mkstemp(filename);
+    i = LIBXS_MKTEMP(filename);
     if (0 <= i) {
       if (0 == unlink(filename) && 0 == ftruncate(i, size) /*&& 0 == chmod(filename, S_IRWXU)*/) {
         const int mflags = (flags | LIBXS_MAP_SHARED | LIBXS_MAP_JIT);
