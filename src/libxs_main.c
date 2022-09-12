@@ -82,11 +82,7 @@
 #endif
 
 #if !defined(_WIN32) && !defined(__CYGWIN__)
-# if !defined(__cplusplus) || (__cplusplus <= 199711L)
-LIBXS_EXTERN int posix_memalign(void**, size_t, size_t) LIBXS_NOEXCEPT;
-# else
-LIBXS_EXTERN int posix_memalign(void**, size_t, size_t);
-# endif
+LIBXS_EXTERN int posix_memalign(void**, size_t, size_t) LIBXS_NOTHROW;
 #endif
 
 /* flag fused into the memory address of a code version in case of non-JIT */
