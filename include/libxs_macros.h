@@ -892,6 +892,9 @@ LIBXS_API_INLINE int libxs_nonconst_int(int i) { return i; }
 #include <float.h>
 #include <stdio.h>
 
+#if !defined(__leaf__)
+# define __leaf__
+#endif
 #if defined(__THROW)
 # define LIBXS_NOTHROW __THROW
 #endif
