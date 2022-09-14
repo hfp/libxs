@@ -864,11 +864,15 @@ LIBXS_API_INLINE int libxs_nonconst_int(int i) { return i; }
 #   define LIBXS_ASSERT_MSG(EXPR, MSG) assert((EXPR) && *MSG)
 # endif
 #endif
-#if !defined(LIBXS_EXPECT_ELIDE)
-# define LIBXS_EXPECT_ELIDE(EXPR) do { \
-    /*const*/ int libxs_expect_elide_ = (EXPR); \
-    LIBXS_UNUSED(libxs_expect_elide_); \
+
+#if !defined(LIBXS_ELIDE_RESULT)
+# define LIBXS_ELIDE_RESULT(TYPE, EXPR) do { \
+    /*const*/ TYPE libxs_elide_result_ = (EXPR); \
+    LIBXS_UNUSED(libxs_elide_result_); \
   } while(0)
+#endif
+#if !defined(LIBXS_EXPECT_ELIDE)
+# define LIBXS_EXPECT_ELIDE(EXPR) LIBXS_ELIDE_RESULT(int, EXPR)
 #endif
 #if defined(NDEBUG)
 # define LIBXS_EXPECT LIBXS_EXPECT_ELIDE
