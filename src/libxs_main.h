@@ -364,10 +364,10 @@ typedef unsigned char libxs_descriptor_kind;
 
 /** All descriptor types, which are valid for code-registration. */
 LIBXS_EXTERN_C typedef union LIBXS_RETARGETABLE libxs_descriptor {
-  char data[LIBXS_DESCRIPTOR_MAXSIZE];
-  libxs_descriptor_kind kind; /* kind: must be the first member */
+  unsigned char data[LIBXS_DESCRIPTOR_MAXSIZE];
+  libxs_descriptor_kind kind; /* kind: must be the first member after "data" entry (above) */
   LIBXS_REGDESC(LIBXS_PACKED(struct) { libxs_descriptor_kind /*repeated kind*/ pad; , desc; });
-  LIBXS_PACKED(struct) { libxs_descriptor_kind /*repeated kind*/ pad; char desc[1]; } user;
+  LIBXS_PACKED(struct) { libxs_descriptor_kind /*repeated kind*/ pad; unsigned char size; unsigned char desc[1]; } user;
 } libxs_descriptor;
 
 LIBXS_EXTERN_C typedef struct LIBXS_RETARGETABLE libxs_build_request {
