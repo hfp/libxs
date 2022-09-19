@@ -9,13 +9,14 @@
 #include <libxs_source.h>
 
 
-int main(/*int argc, char* argv[]*/)
+int main(int argc, char* argv[])
 {
   char item[LIBXS_DESCRIPTOR_MAXSIZE];
   const libxs_blasint isize = sizeof(item);
   const libxs_blasint size = 1000, ntests = 1000;
   char *const data = (char*)malloc((size_t)isize * size);
   libxs_blasint i, j, k, s;
+  LIBXS_UNUSED(argc); LIBXS_UNUSED(argv);
 
   if (NULL != libxs_stristr("ends with b", "Begins with b")) return EXIT_FAILURE;
   if (NULL == libxs_stristr("in between of", "BeTwEEn")) return EXIT_FAILURE;
