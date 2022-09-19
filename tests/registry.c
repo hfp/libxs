@@ -9,7 +9,7 @@
 #include <libxs.h>
 
 
-int main(/*int argc, char* argv[]*/)
+int main(int argc, char* argv[])
 {
   int result = EXIT_SUCCESS;
   typedef struct key_type { int x, y, z; } key_type;
@@ -35,6 +35,7 @@ int main(/*int argc, char* argv[]*/)
   const int n = (int)sizeof(key) / (int)key_size;
   int i;
 #endif
+  LIBXS_UNUSED(argc); LIBXS_UNUSED(argv);
   if (EXIT_SUCCESS == result) { /* test for some expected failure */
     result = (NULL == libxs_xregister(key, /*too large*/LIBXS_DESCRIPTOR_MAXSIZE + 1,
       strlen(value[0]) + 1, value[0]) ? EXIT_SUCCESS : EXIT_FAILURE);
