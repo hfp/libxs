@@ -144,7 +144,7 @@ LIBXS_API void libxs_barrier_init(libxs_barrier* barrier, int tid)
       barrier->init_done = 1; /* true */
     }
     else {
-      while (0/*false*/ == barrier->init_done);
+      while (0/*false*/ == barrier->init_done) {} /* empty block instead of semicolon */
     }
 
     /* set required per-thread information */
@@ -169,7 +169,7 @@ LIBXS_API void libxs_barrier_init(libxs_barrier* barrier, int tid)
       barrier->init_done = 2;
     }
     else {
-      while (2 != barrier->init_done);
+      while (2 != barrier->init_done) {} /* empty block instead of semicolon */
     }
   }
 #endif
