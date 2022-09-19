@@ -544,7 +544,7 @@ LIBXS_EXTERN_C typedef LIBXS_RETARGETABLE void (*libxs_sgemm_function)(LIBXS_BLA
 LIBXS_EXTERN_C typedef LIBXS_RETARGETABLE void (*libxs_dgemv_function)(LIBXS_BLAS_SYMBOL_SIGNATURE(const*, *, double, gemv));
 LIBXS_EXTERN_C typedef LIBXS_RETARGETABLE void (*libxs_sgemv_function)(LIBXS_BLAS_SYMBOL_SIGNATURE(const*, *, float,  gemv));
 /** Helper function to consume arguments when called. */
-LIBXS_EXTERN_C typedef LIBXS_RETARGETABLE void (*libxs_sink_function)(LIBXS_VARIADIC);
+LIBXS_EXTERN_C typedef LIBXS_RETARGETABLE void (*libxs_sink_function)(const void*, ...);
 
 /** The original BLAS functions. */
 LIBXS_APIVAR_PUBLIC(/*volatile*/libxs_dgemm_batch_strided_function libxs_original_dgemm_batch_strided_function);
@@ -564,7 +564,7 @@ LIBXS_API libxs_sgemm_function libxs_original_sgemm(void);
 LIBXS_API libxs_dgemv_function libxs_original_dgemv(void);
 LIBXS_API libxs_sgemv_function libxs_original_sgemv(void);
 LIBXS_API libxs_sink_function libxs_blas_error(const char* symbol);
-LIBXS_API void libxs_sink(LIBXS_VARIADIC);
+LIBXS_API void libxs_sink(const void* arg, ...);
 
 #define libxs_blas_dgemm(TRANSA, TRANSB, M, N, K, ALPHA, A, LDA, B, LDB, BETA, C, LDC) \
   libxs_blas_gemm(LIBXS_DATATYPE_F64, LIBXS_DATATYPE_F64, \
