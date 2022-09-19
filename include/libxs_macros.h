@@ -942,10 +942,10 @@ LIBXS_API_INLINE int libxs_nonconst_int(int i) { return i; }
 #else
 # define LIBXS_PUTENV(A) putenv(A)
 # define LIBXS_MKTEMP(A) mkstemp(A)
-# if !defined(_GNU_SOURCE) || (defined(__GNUC__) && LIBXS_VERSION2(4, 3) > LIBXS_VERSION2(__GNUC__, __GNUC_MINOR__))
-LIBXS_EXTERN int mkstemp(char*) LIBXS_NOTHROW;
-# else
+# if defined(__clang__) || !defined(__GNUC__) || (defined(__GNUC__) && LIBXS_VERSION2(4, 3) <= LIBXS_VERSION2(__GNUC__, __GNUC_MINOR__))
 LIBXS_EXTERN int mkstemp(char*);
+# else
+LIBXS_EXTERN int mkstemp(char*) LIBXS_NOTHROW;
 # endif
 #endif
 
