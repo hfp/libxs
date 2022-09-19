@@ -310,7 +310,7 @@ LIBXS_EXTERN_C typedef union LIBXS_RETARGETABLE libxs_xcopykernel {
 } libxs_xcopykernel;
 
 LIBXS_EXTERN_C typedef union LIBXS_RETARGETABLE libxs_code_pointer {
-  void (*ptr_fn)(LIBXS_VARIADIC);
+  /*void (*ptr_fn)(const void*, ...);*/
   const void* ptr_const;
   void* ptr;
   uintptr_t uval;

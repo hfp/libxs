@@ -1447,9 +1447,9 @@ LIBXS_API LIBXS_ATTRIBUTE_DTOR void libxs_finalize(void)
 }
 
 
-LIBXS_API void libxs_sink(LIBXS_VARIADIC)
-{
-  /* does nothing else but sinking given arguments */
+LIBXS_API void libxs_sink(const void* arg, ...)
+{ /* does nothing else but sinking given arguments */
+  LIBXS_UNUSED(arg);
 }
 
 
