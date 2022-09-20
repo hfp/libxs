@@ -24,7 +24,11 @@ LIBXS_API PyObject* libxspy_get_target_arch(PyObject* self, PyObject* args);
 LIBXS_API PyObject* libxspy_get_target_arch(PyObject* self, PyObject* args)
 {
   LIBXS_UNUSED(self); LIBXS_UNUSED(args);
+# if (3 <= PY_MAJOR_VERSION)
+  return PyUnicode_InternFromString(libxs_get_target_arch());
+# else
   return PyString_InternFromString(libxs_get_target_arch());
+# endif
 }
 
 LIBXS_API PyObject* libxspy_set_target_arch(PyObject* self, PyObject* args);
@@ -108,9 +112,14 @@ LIBXS_API PyMODINIT_FUNC initlibxs(void)
       PyDoc_STR("Set the verbosity level.") },
     { NULL, NULL, 0, NULL } /* end of table */
   };
-  PyObject *const pymod = Py_InitModule3("libxs", pymethod_def, PyDoc_STR(
-    "Library targeting Intel Architecture for small, dense or "
-    "sparse matrix multiplications, and small convolutions."));
+# if (3 <= PY_MAJOR_VERSION)
+  static PyModuleDef pymodule_def = {
+    PyModuleDef_HEAD_INIT, "libxs", LIBXS_DESCRIPTION, /*keep state in global variables*/-1, pymethod_def
+  };
+  PyObject *const pymod = PyModule_Create(&pymodule_def);
+# else
+  PyObject *const pymod = Py_InitModule3("libxs", pymethod_def, PyDoc_STR(LIBXS_DESCRIPTION));
+# endif
   PyModule_AddIntConstant(pymod, "VERSION_API", LIBXS_VERSION2(LIBXS_VERSION_MAJOR, LIBXS_VERSION_MINOR));
   PyModule_AddIntConstant(pymod, "VERSION_ALL", LIBXS_VERSION_NUMBER);
   PyModule_AddIntConstant(pymod, "VERSION_MAJOR", LIBXS_VERSION_MAJOR);
@@ -133,6 +142,9 @@ LIBXS_API PyMODINIT_FUNC initlibxs(void)
   PyModule_AddIntConstant(pymod, "X86_AVX512_CLX", LIBXS_X86_AVX512_CLX);
   PyModule_AddIntConstant(pymod, "X86_AVX512_CPX", LIBXS_X86_AVX512_CPX);
   libxs_init(); /* initialize LIBXS */
+# if (3 <= PY_MAJOR_VERSION)
+  return pymod;
+# endif
 }
 
 #endif /*defined(__PYTHON) && defined(LIBXS_BUILD) && !defined(__STATIC)*/
