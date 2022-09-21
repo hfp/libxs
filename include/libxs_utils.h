@@ -384,10 +384,11 @@
                                 ((E15) << 16) | (E14), ((E13) << 16) | (E12), ((E11) << 16) | (E10),  ((E9) << 16) |  (E8), \
                                  ((E7) << 16) |  (E6),  ((E5) << 16) |  (E4),  ((E3) << 16) |  (E2),  ((E1) << 16) |  (E0))
 #endif
-#if defined(LIBXS_INTEL_COMPILER) \
+#if (defined(LIBXS_INTEL_COMPILER) \
   || (defined(__GNUC__) && LIBXS_VERSION2(7, 0) <= LIBXS_VERSION2(__GNUC__, __GNUC_MINOR__)) \
   || (defined(__clang__) && (!defined(__APPLE__) || !defined(__MACH__)) \
-      && LIBXS_VERSION2(4, 0) <= LIBXS_VERSION2(__clang_major__, __clang_minor__))
+      && LIBXS_VERSION2(4, 0) <= LIBXS_VERSION2(__clang_major__, __clang_minor__))) \
+  && defined(NDEBUG) /* avoid warning "maybe-uninitialized" due to undefined value init */
 # define LIBXS_INTRINSICS_MM512_MASK_I32GATHER_EPI32(A, B, C, D, E) _mm512_mask_i32gather_epi32(A, B, C, D, E)
 # define LIBXS_INTRINSICS_MM512_EXTRACTI64X4_EPI64(A, B) _mm512_extracti64x4_epi64(A, B)
 # define LIBXS_INTRINSICS_MM512_ABS_PS(A) _mm512_abs_ps(A)
