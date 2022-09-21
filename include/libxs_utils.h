@@ -320,7 +320,9 @@
 /** Include basic x86 intrinsics such as __rdtsc. */
 #if defined(LIBXS_INTRINSICS_INCLUDE) && !defined(LIBXS_INTRINSICS_DEBUG)
   LIBXS_PRAGMA_DIAG_PUSH()
-  LIBXS_PRAGMA_DIAG_OFF("-Wmaybe-uninitialized")
+# if defined(__GNUC__) && !defined(__clang__)
+    LIBXS_PRAGMA_DIAG_OFF("-Wmaybe-uninitialized")
+# endif
 # if defined(_WIN32)
 #   include <intrin.h>
 # elif defined(LIBXS_INTEL_COMPILER) || defined(_CRAYC) || defined(__clang__) || defined(__PGI)
