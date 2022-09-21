@@ -492,6 +492,22 @@
 # endif
 #endif
 
+#if !defined(__INTEL_COMPILER)
+# if defined(__clang__)
+#   define LIBXS_PRAGMA_DIAG_PUSH()     LIBXS_PRAGMA(clang diagnostic push)
+#   define LIBXS_PRAGMA_DIAG_POP()      LIBXS_PRAGMA(clang diagnostic pop)
+#   define LIBXS_PRAGMA_DIAG_OFF(DIAG)  LIBXS_PRAGMA(clang diagnostic ignored DIAG)
+# elif defined(__GNUC__) && LIBXS_VERSION2(4, 6) <= LIBXS_VERSION2(__GNUC__, __GNUC_MINOR__)
+#   define LIBXS_PRAGMA_DIAG_PUSH()     LIBXS_PRAGMA(GCC diagnostic push)
+#   define LIBXS_PRAGMA_DIAG_POP()      LIBXS_PRAGMA(GCC diagnostic pop)
+#   define LIBXS_PRAGMA_DIAG_OFF(DIAG)  LIBXS_PRAGMA(GCC diagnostic ignored DIAG)
+# else
+#   define LIBXS_PRAGMA_DIAG_PUSH()
+#   define LIBXS_PRAGMA_DIAG_POP()
+#   define LIBXS_PRAGMA_DIAG_OFF(DIAG)
+# endif
+#endif
+
 #if defined(LIBXS_INTEL_COMPILER)
 # define LIBXS_PRAGMA_OPTIMIZE_OFF LIBXS_PRAGMA(optimize("", off))
 # define LIBXS_PRAGMA_OPTIMIZE_ON  LIBXS_PRAGMA(optimize("", on))
