@@ -2312,10 +2312,6 @@ LIBXS_API_INLINE void internal_pad_descriptor(libxs_descriptor* desc, signed cha
 }
 
 
-#if defined(__GNUC__) && !defined(__clang__)
-LIBXS_PRAGMA_DIAG_PUSH()
-LIBXS_PRAGMA_DIAG_OFF("-Wmaybe-uninitialized")
-#endif
 LIBXS_API_INLINE libxs_code_pointer internal_find_code(libxs_descriptor* desc, size_t desc_size, size_t user_size)
 {
   libxs_code_pointer flux_entry = { 0 };
@@ -2544,9 +2540,6 @@ LIBXS_API_INLINE libxs_code_pointer internal_find_code(libxs_descriptor* desc, s
 #endif
   return flux_entry;
 }
-#if defined(__GNUC__) && !defined(__clang__)
-LIBXS_PRAGMA_DIAG_POP()
-#endif
 
 
 LIBXS_API_INTERN const libxs_kernel_xinfo* libxs_get_kernel_xinfo(libxs_code_pointer code,
