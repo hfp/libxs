@@ -276,7 +276,7 @@ LIBXS_APIVAR_PUBLIC_DEF(int libxs_nosync);
 
 LIBXS_API_INTERN void* libxs_memalign_internal(size_t alignment, size_t size)
 {
-  void* result;
+  void* result = NULL;
   LIBXS_ASSERT(LIBXS_ISPOT(alignment));
 #if defined(LIBXS_MALLOC_HOOK_INTRINSIC)
   result = _mm_malloc(size, alignment);
@@ -288,10 +288,8 @@ LIBXS_API_INTERN void* libxs_memalign_internal(size_t alignment, size_t size)
 #elif (defined(_WIN32) || defined(__CYGWIN__))
   LIBXS_UNUSED(alignment);
   result = malloc(size);
-#elif defined(NDEBUG)
-  LIBXS_EXPECT(0 == posix_memalign(&result, alignment, size));
 #else
-  if (0 != posix_memalign(&result, alignment, size)) result = NULL;
+  LIBXS_EXPECT(0 == posix_memalign(&result, alignment, size) || NULL == result);
 #endif
   return result;
 }
@@ -299,7 +297,7 @@ LIBXS_API_INTERN void* libxs_memalign_internal(size_t alignment, size_t size)
 
 LIBXS_API_INTERN LIBXS_ATTRIBUTE_WEAK void* __real_memalign(size_t alignment, size_t size)
 {
-  void* result;
+  void* result = NULL;
 #if defined(LIBXS_MALLOC_HOOK_DYNAMIC)
   if (NULL != libxs_malloc_fn.memalign.ptr) {
     result = libxs_malloc_fn.memalign.ptr(alignment, size);
