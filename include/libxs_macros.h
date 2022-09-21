@@ -504,11 +504,12 @@
 #   define LIBXS_PRAGMA_DIAG_POP()      LIBXS_PRAGMA(GCC diagnostic pop)
 #   define LIBXS_PRAGMA_DIAG_OFF(DIAG)  LIBXS_PRAGMA(GCC diagnostic ignored DIAG)
 #   define LIBXS_PRAGMA_DIAG
-# else
-#   define LIBXS_PRAGMA_DIAG_PUSH()
-#   define LIBXS_PRAGMA_DIAG_POP()
-#   define LIBXS_PRAGMA_DIAG_OFF(DIAG)
 # endif
+#endif
+#if !defined(LIBXS_PRAGMA_DIAG)
+# define LIBXS_PRAGMA_DIAG_PUSH()
+# define LIBXS_PRAGMA_DIAG_POP()
+# define LIBXS_PRAGMA_DIAG_OFF(DIAG)
 #endif
 
 #if defined(LIBXS_INTEL_COMPILER)

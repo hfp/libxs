@@ -230,7 +230,9 @@
 #   endif
 #   if defined(LIBXS_INTRINSICS_INCLUDE) && !defined(LIBXS_INTRINSICS_NONE) && !defined(LIBXS_INTRINSICS_DEBUG)
       LIBXS_PRAGMA_DIAG_PUSH()
+#     if defined(__GNUC__) && !defined(__clang__)
       LIBXS_PRAGMA_DIAG_OFF("-Wmaybe-uninitialized")
+#     endif
 #     include <immintrin.h>
       LIBXS_PRAGMA_DIAG_POP()
 #   endif /*defined(LIBXS_INTRINSICS_INCLUDE)*/
