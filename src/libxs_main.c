@@ -313,7 +313,7 @@ LIBXS_API_INTERN LIBXS_ATTRIBUTE_WEAK void* __real_memalign(size_t alignment, si
 
 LIBXS_API_INTERN LIBXS_ATTRIBUTE_WEAK void* __real_malloc(size_t size)
 {
-  void* result;
+  void* result = NULL;
 #if defined(LIBXS_MALLOC_HOOK_ALIGN)
   result = __real_memalign(libxs_alignment(size, 0/*auto*/), size);
 #else
