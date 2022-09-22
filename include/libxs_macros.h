@@ -825,8 +825,16 @@ LIBXS_API_INLINE int libxs_nonconst_int(int i) { return i; }
 #   endif
 # endif
 #endif
-#if !defined(_GNU_SOURCE) && defined(LIBXS_BUILD)
-# define _GNU_SOURCE
+#if defined(LIBXS_BUILD)
+# if !defined(_DEFAULT_SOURCE)
+#   define _DEFAULT_SOURCE
+# endif
+# if !defined(_XOPEN_SOURCE)
+#   define _XOPEN_SOURCE
+# endif
+# if !defined(_GNU_SOURCE)
+#   define _GNU_SOURCE
+# endif
 #endif
 #if !defined(__STDC_FORMAT_MACROS)
 # define __STDC_FORMAT_MACROS
@@ -967,6 +975,7 @@ LIBXS_EXTERN int mkstemp(char*);
 # else
 LIBXS_EXTERN int mkstemp(char*) LIBXS_NOTHROW;
 # endif
+LIBXS_EXTERN int putenv(char*) LIBXS_NOTHROW;
 #endif
 
 /* block must be after including above header files */
