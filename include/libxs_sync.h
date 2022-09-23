@@ -463,6 +463,8 @@ typedef enum libxs_atomic_kind {
 #   define LIBXS_TLS_SETVALUE(KEY, PTR) pthread_setspecific(KEY, PTR)
 #   define LIBXS_TLS_GETVALUE(KEY) pthread_getspecific(KEY)
 #   if defined(__APPLE__) && defined(__MACH__)
+      LIBXS_EXTERN void pthread_jit_write_protect_np(int) LIBXS_NOTHROW;
+      LIBXS_EXTERN void pthread_yield_np(void) LIBXS_NOTHROW;
 #     define LIBXS_SYNC_YIELD pthread_yield_np()
 #   elif defined(_POSIX_PRIORITY_SCHEDULING) || (defined(__GLIBC__) && defined(__GLIBC_MINOR__) \
       && LIBXS_VERSION2(2, 34) <= LIBXS_VERSION2(__GLIBC__, __GLIBC_MINOR__))
