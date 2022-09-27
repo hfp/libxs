@@ -274,7 +274,7 @@ LIBXS_EXTERN_C typedef struct iJIT_Method_Load_V2 {
     LIBXS_UNUSED(CALLER); \
     if (0 == (internal_malloc_kind & 1) || 0 >= internal_malloc_kind \
       /*|| (0 != LIBXS_ATOMIC_LOAD(&internal_malloc_recursive, LIBXS_ATOMIC_RELAXED))*/ \
-    ){ \
+    ) { \
       INTERNAL_FREE_REAL(PTR); \
     } \
     else { /* recognize pointers not issued by LIBXS */ \
@@ -579,7 +579,7 @@ LIBXS_API_INLINE internal_malloc_pool_type* internal_scratch_malloc_pool(const v
 #if 1 /* should be implied by non-zero counter */
         && NULL != pool->instance.buffer
 #endif
-      ){/* check if memory belongs to scratch domain or local domain */
+      ) {/* check if memory belongs to scratch domain or local domain */
 #if 1
         const size_t size = pool->instance.minsize;
 #else
