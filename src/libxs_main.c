@@ -643,7 +643,7 @@ LIBXS_API_INTERN void internal_dump(FILE* ostream, int urgent)
             LIBXS_EXPECT(EXIT_SUCCESS == sleep(seconds));
 #endif
           }
-          else for(;;) LIBXS_SYNC_YIELD;
+          else for (;;) LIBXS_SYNC_YIELD;
         }
       }
       if (NULL != file) {
