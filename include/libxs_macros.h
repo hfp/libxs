@@ -125,7 +125,6 @@
 
 /** Evaluates to true if the value falls into the interval [LO, HI]. */
 #define LIBXS_IS_INTEGER(TYPE, VALUE, LO, HI) ( \
-  /* coverity[same_on_both_sides] coverity[result_independent_of_operands] */ \
   ((LO) == (TYPE)(VALUE) || (LO) < (TYPE)(VALUE)) && (unsigned long long)(VALUE) <= (HI) && \
   ((0 <= (double)(VALUE) || (0 > (LO) && 0 < (HI)))))
 /** LIBXS_IS_TYPE: check value against type-range of TYPE. */
