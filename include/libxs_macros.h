@@ -140,22 +140,28 @@
 #define LIBXS_IS_UINT(VALUE) LIBXS_IS_INTEGER(unsigned int, VALUE, 0, UINT_MAX)
 #define LIBXS_IS_INT(VALUE) LIBXS_IS_INTEGER(/*signed*/int, VALUE, INT_MIN, INT_MAX)
 
+#if !defined(LIBXS_CAST_CHECK) && !defined(__COVERITY__) && 0
+# define LIBXS_CAST_CHECK LIBXS_ASSERT_MSG
+#else
+# define LIBXS_CAST_CHECK(A, B) 1
+#endif
+
 /**
  * LIBXS_CAST: Perform type-cast with following two advantages:
  *               (1) Make it easy to locate/find the type-cast.
  *               (2) Range-check to ensure fitting into type.
  */
-#define LIBXS_CAST_ULLONG(VALUE) ((unsigned long long)(LIBXS_ASSERT_MSG(LIBXS_IS_ULLONG(VALUE), "Value cannot be represented as ULLONG"), VALUE))
-#define LIBXS_CAST_LLONG(VALUE) ((/*signed*/long long)(LIBXS_ASSERT_MSG(LIBXS_IS_LLONG(VALUE), "Value cannot be represented as LLONG"), VALUE))
-#define LIBXS_CAST_ULONG(VALUE) ((unsigned long)(LIBXS_ASSERT_MSG(LIBXS_IS_ULONG(VALUE), "Value cannot be represented as ULONG"), VALUE))
-#define LIBXS_CAST_LONG(VALUE) ((/*signed*/long)(LIBXS_ASSERT_MSG(LIBXS_IS_LONG(VALUE), "Value cannot be represented as LONG"), VALUE))
-#define LIBXS_CAST_USHORT(VALUE) ((unsigned short)(LIBXS_ASSERT_MSG(LIBXS_IS_USHORT(VALUE), "Value cannot be represented as USHORT"), VALUE))
-#define LIBXS_CAST_SHORT(VALUE) ((/*signed*/short)(LIBXS_ASSERT_MSG(LIBXS_IS_SHORT(VALUE), "Value cannot be represented as SHORT"), VALUE))
-#define LIBXS_CAST_UCHAR(VALUE) ((unsigned char)(LIBXS_ASSERT_MSG(LIBXS_IS_UCHAR(VALUE), "Value cannot be represented as UCHAR"), VALUE))
-#define LIBXS_CAST_ICHAR(VALUE) ((signed char)(LIBXS_ASSERT_MSG(LIBXS_IS_ICHAR(VALUE), "Value cannot be represented as ICHAR"), VALUE))
-#define LIBXS_CAST_CHAR(VALUE) ((char)(LIBXS_ASSERT_MSG(LIBXS_IS_CHAR(VALUE), "Value cannot be represented as CHAR"), VALUE))
-#define LIBXS_CAST_UINT(VALUE) ((unsigned int)(LIBXS_ASSERT_MSG(LIBXS_IS_UINT(VALUE), "Value cannot be represented as UINT"), VALUE))
-#define LIBXS_CAST_INT(VALUE) ((/*signed*/int)(LIBXS_ASSERT_MSG(LIBXS_IS_INT(VALUE), "Value cannot be represented as INT"), VALUE))
+#define LIBXS_CAST_ULLONG(VALUE) ((unsigned long long)(LIBXS_CAST_CHECK(LIBXS_IS_ULLONG(VALUE), "Value cannot be represented as ULLONG"), VALUE))
+#define LIBXS_CAST_LLONG(VALUE) ((/*signed*/long long)(LIBXS_CAST_CHECK(LIBXS_IS_LLONG(VALUE), "Value cannot be represented as LLONG"), VALUE))
+#define LIBXS_CAST_ULONG(VALUE) ((unsigned long)(LIBXS_CAST_CHECK(LIBXS_IS_ULONG(VALUE), "Value cannot be represented as ULONG"), VALUE))
+#define LIBXS_CAST_LONG(VALUE) ((/*signed*/long)(LIBXS_CAST_CHECK(LIBXS_IS_LONG(VALUE), "Value cannot be represented as LONG"), VALUE))
+#define LIBXS_CAST_USHORT(VALUE) ((unsigned short)(LIBXS_CAST_CHECK(LIBXS_IS_USHORT(VALUE), "Value cannot be represented as USHORT"), VALUE))
+#define LIBXS_CAST_SHORT(VALUE) ((/*signed*/short)(LIBXS_CAST_CHECK(LIBXS_IS_SHORT(VALUE), "Value cannot be represented as SHORT"), VALUE))
+#define LIBXS_CAST_UCHAR(VALUE) ((unsigned char)(LIBXS_CAST_CHECK(LIBXS_IS_UCHAR(VALUE), "Value cannot be represented as UCHAR"), VALUE))
+#define LIBXS_CAST_ICHAR(VALUE) ((signed char)(LIBXS_CAST_CHECK(LIBXS_IS_ICHAR(VALUE), "Value cannot be represented as ICHAR"), VALUE))
+#define LIBXS_CAST_CHAR(VALUE) ((char)(LIBXS_CAST_CHECK(LIBXS_IS_CHAR(VALUE), "Value cannot be represented as CHAR"), VALUE))
+#define LIBXS_CAST_UINT(VALUE) ((unsigned int)(LIBXS_CAST_CHECK(LIBXS_IS_UINT(VALUE), "Value cannot be represented as UINT"), VALUE))
+#define LIBXS_CAST_INT(VALUE) ((/*signed*/int)(LIBXS_CAST_CHECK(LIBXS_IS_INT(VALUE), "Value cannot be represented as INT"), VALUE))
 
 #if (0 != LIBXS_ILP64)
 # define LIBXS_IS_BLASINT(VALUE) LIBXS_IS_LLONG(VALUE)
