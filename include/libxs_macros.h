@@ -140,10 +140,12 @@
 #define LIBXS_IS_UINT(VALUE) LIBXS_IS_INTEGER(unsigned int, VALUE, 0, UINT_MAX)
 #define LIBXS_IS_INT(VALUE) LIBXS_IS_INTEGER(/*signed*/int, VALUE, INT_MIN, INT_MAX)
 
-#if !defined(LIBXS_CAST_CHECK) && !defined(__COVERITY__) && 0
-# define LIBXS_CAST_CHECK LIBXS_ASSERT_MSG
-#else
-# define LIBXS_CAST_CHECK(A, B) 1
+#if !defined(LIBXS_CAST_CHECK)
+# if !defined(__COVERITY__) && 1
+#   define LIBXS_CAST_CHECK(EXPR, MSG) LIBXS_ASSERT_MSG(EXPR, MSG)
+# else
+#   define LIBXS_CAST_CHECK(EXPR, MSG) LIBXS_ASSERT_MSG(1, MSG)
+# endif
 #endif
 
 /**
