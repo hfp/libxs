@@ -1353,8 +1353,9 @@ LIBXS_API LIBXS_ATTRIBUTE_DTOR void libxs_finalize(void)
       for (i = 0; i < (LIBXS_CAPACITY_REGISTRY); ++i) {
         /*const*/ libxs_code_pointer code = registry[i];
         if (NULL != code.ptr_const) {
+          const libxs_descriptor_kind kind = LIBXS_DESCRIPTOR_KIND(registry_keys[i].entry.kind);
           /* check if the registered entity is a GEMM kernel */
-          switch (LIBXS_DESCRIPTOR_KIND(registry_keys[i].entry.kind)) {
+          switch (kind) {
             case LIBXS_KERNEL_KIND_MATMUL: {
               const libxs_gemm_descriptor *const desc = &registry_keys[i].entry.gemm.desc;
               if (1 < desc->m && 1 < desc->n) {
@@ -1374,7 +1375,7 @@ LIBXS_API LIBXS_ATTRIBUTE_DTOR void libxs_finalize(void)
             case LIBXS_KERNEL_KIND_USER: {
               ++internal_statistic_num_user;
             } break;
-            default: if (LIBXS_KERNEL_UNREGISTERED <= LIBXS_DESCRIPTOR_KIND(registry_keys[i].entry.kind)) {
+            default: if (LIBXS_KERNEL_UNREGISTERED <= kind) {
               ++errors;
             }
             else {
@@ -1398,10 +1399,7 @@ LIBXS_API LIBXS_ATTRIBUTE_DTOR void libxs_finalize(void)
             code.uval &= ~LIBXS_HASH_COLLISION; /* clear collision flag */
 #endif
             if (EXIT_SUCCESS == libxs_get_malloc_xinfo(code.ptr_const, &size, NULL/*flags*/, &buffer)) {
-              if (LIBXS_KERNEL_KIND_USER == LIBXS_DESCRIPTOR_KIND(registry_keys[i].entry.kind)
-                /* dump user-data just like JIT'ted code */
-                && 0 > libxs_verbosity)
-              {
+              if (LIBXS_KERNEL_KIND_USER == kind && 0 > libxs_verbosity) { /* dump user-data just like JIT'ted code */
                 char name[16] = "";
                 int nchar;
 #if defined(LIBXS_REGUSER_HASH)
@@ -2448,7 +2446,8 @@ LIBXS_API_INLINE libxs_code_pointer internal_find_code(libxs_descriptor* desc, s
               if (2 < mode) { /* arrived from collision state; now mark as collision */
                 libxs_code_pointer fix_entry;
 #   if (1 < INTERNAL_REGLOCK_MAXN)
-                fix_entry.ptr = LIBXS_ATOMIC_LOAD(&internal_registry[i0].ptr, LIBXS_ATOMIC_RELAXED);
+                fix_entry.ptr = (void*)LIBXS_ATOMIC(LIBXS_ATOMIC_LOAD, LIBXS_BITS)(
+                  &internal_registry[i0].ptr, LIBXS_ATOMIC_RELAXED);
 #   else
                 fix_entry = internal_registry[i0];
 #   endif
@@ -2456,7 +2455,8 @@ LIBXS_API_INLINE libxs_code_pointer internal_find_code(libxs_descriptor* desc, s
                 if (0 == (LIBXS_HASH_COLLISION & fix_entry.uval)) {
                   fix_entry.uval |= LIBXS_HASH_COLLISION; /* mark current entry as collision */
 #   if (1 < INTERNAL_REGLOCK_MAXN)
-                  LIBXS_ATOMIC_STORE(&internal_registry[i0].ptr, fix_entry.ptr, LIBXS_ATOMIC_RELAXED);
+                  LIBXS_ATOMIC(LIBXS_ATOMIC_STORE, LIBXS_BITS)(&internal_registry[i0].ptr,
+                    fix_entry.ptr, LIBXS_ATOMIC_RELAXED);
 #   else
                   internal_registry[i0] = fix_entry;
 #   endif
