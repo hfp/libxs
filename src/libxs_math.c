@@ -28,6 +28,16 @@
   (0 >= (DENREF) ? (FALLBACK) : ((NOMINATOR) / LIBXS_MATDIFF_DIV_DEN(DENREF)))
 
 
+LIBXS_API_INLINE double internal_matdiff_convert_bf16(libxs_bfloat16 in) {
+  float result; libxs_convert_bf16_f32(&in, &result, 1); return result;
+}
+
+
+LIBXS_API_INLINE double internal_matdiff_convert_bf8(libxs_bfloat8 in) {
+  float result; libxs_convert_bf8_f32(&in, &result, 1); return result;
+}
+
+
 LIBXS_API int libxs_matdiff(libxs_matdiff_info* info,
   libxs_datatype datatype, libxs_blasint m, libxs_blasint n, const void* ref, const void* tst,
   const libxs_blasint* ldref, const libxs_blasint* ldtst)
@@ -43,30 +53,68 @@ LIBXS_API int libxs_matdiff(libxs_matdiff_info* info,
     libxs_matdiff_clear(info);
     inf = info->min_ref;
     switch ((int)datatype) {
-      case LIBXS_DATATYPE_F64: {
-#       define LIBXS_MATDIFF_TEMPLATE_ELEM_TYPE double
+    case LIBXS_DATATYPE_I64: {
+#       define LIBXS_MATDIFF_TEMPLATE_TYPE2FP64(VALUE) ((double)(VALUE))
+#       define LIBXS_MATDIFF_TEMPLATE_ELEM_TYPE long long
 #       include "template/libxs_matdiff.h"
 #       undef  LIBXS_MATDIFF_TEMPLATE_ELEM_TYPE
-      } break;
-      case LIBXS_DATATYPE_F32: {
-#       define LIBXS_MATDIFF_TEMPLATE_ELEM_TYPE float
-#       include "template/libxs_matdiff.h"
-#       undef  LIBXS_MATDIFF_TEMPLATE_ELEM_TYPE
-      } break;
-      case LIBXS_DATATYPE_I32: {
+#       undef  LIBXS_MATDIFF_TEMPLATE_TYPE2FP64
+    } break;
+    case LIBXS_DATATYPE_I32: {
+#       define LIBXS_MATDIFF_TEMPLATE_TYPE2FP64(VALUE) ((double)(VALUE))
 #       define LIBXS_MATDIFF_TEMPLATE_ELEM_TYPE int
 #       include "template/libxs_matdiff.h"
 #       undef  LIBXS_MATDIFF_TEMPLATE_ELEM_TYPE
-      } break;
-      case LIBXS_DATATYPE_I16: {
+#       undef  LIBXS_MATDIFF_TEMPLATE_TYPE2FP64
+    } break;
+    case LIBXS_DATATYPE_I16: {
+#       define LIBXS_MATDIFF_TEMPLATE_TYPE2FP64(VALUE) ((double)(VALUE))
 #       define LIBXS_MATDIFF_TEMPLATE_ELEM_TYPE short
 #       include "template/libxs_matdiff.h"
 #       undef  LIBXS_MATDIFF_TEMPLATE_ELEM_TYPE
-      } break;
-      case LIBXS_DATATYPE_I8: {
+#       undef  LIBXS_MATDIFF_TEMPLATE_TYPE2FP64
+    } break;
+    case LIBXS_DATATYPE_I8: {
+#       define LIBXS_MATDIFF_TEMPLATE_TYPE2FP64(VALUE) ((double)(VALUE))
 #       define LIBXS_MATDIFF_TEMPLATE_ELEM_TYPE signed char
 #       include "template/libxs_matdiff.h"
 #       undef  LIBXS_MATDIFF_TEMPLATE_ELEM_TYPE
+#       undef  LIBXS_MATDIFF_TEMPLATE_TYPE2FP64
+    } break;
+    case LIBXS_DATATYPE_F64: {
+#       define LIBXS_MATDIFF_TEMPLATE_TYPE2FP64(VALUE) (VALUE)
+#       define LIBXS_MATDIFF_TEMPLATE_ELEM_TYPE double
+#       include "template/libxs_matdiff.h"
+#       undef  LIBXS_MATDIFF_TEMPLATE_ELEM_TYPE
+#       undef  LIBXS_MATDIFF_TEMPLATE_TYPE2FP64
+      } break;
+      case LIBXS_DATATYPE_F32: {
+#       define LIBXS_MATDIFF_TEMPLATE_TYPE2FP64(VALUE) (VALUE)
+#       define LIBXS_MATDIFF_TEMPLATE_ELEM_TYPE float
+#       include "template/libxs_matdiff.h"
+#       undef  LIBXS_MATDIFF_TEMPLATE_ELEM_TYPE
+#       undef  LIBXS_MATDIFF_TEMPLATE_TYPE2FP64
+      } break;
+      case LIBXS_DATATYPE_F16: {
+#       define LIBXS_MATDIFF_TEMPLATE_TYPE2FP64(VALUE) libxs_convert_f16_to_f32(VALUE)
+#       define LIBXS_MATDIFF_TEMPLATE_ELEM_TYPE libxs_float16
+#       include "template/libxs_matdiff.h"
+#       undef  LIBXS_MATDIFF_TEMPLATE_ELEM_TYPE
+#       undef  LIBXS_MATDIFF_TEMPLATE_TYPE2FP64
+      } break;
+      case LIBXS_DATATYPE_BF16: {
+#       define LIBXS_MATDIFF_TEMPLATE_TYPE2FP64(VALUE) internal_matdiff_convert_bf16(VALUE)
+#       define LIBXS_MATDIFF_TEMPLATE_ELEM_TYPE libxs_bfloat16
+#       include "template/libxs_matdiff.h"
+#       undef  LIBXS_MATDIFF_TEMPLATE_ELEM_TYPE
+#       undef  LIBXS_MATDIFF_TEMPLATE_TYPE2FP64
+      } break;
+      case LIBXS_DATATYPE_BF8: {
+#       define LIBXS_MATDIFF_TEMPLATE_TYPE2FP64(VALUE) internal_matdiff_convert_bf16(VALUE)
+#       define LIBXS_MATDIFF_TEMPLATE_ELEM_TYPE libxs_bfloat8
+#       include "template/libxs_matdiff.h"
+#       undef  LIBXS_MATDIFF_TEMPLATE_ELEM_TYPE
+#       undef  LIBXS_MATDIFF_TEMPLATE_TYPE2FP64
       } break;
       default: {
         static int error_once = 0;
