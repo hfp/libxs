@@ -127,6 +127,12 @@ int main(int argc, char* argv[])
     }
     else result = EXIT_FAILURE;
   }
+  if (EXIT_SUCCESS == result) {
+    const void* regentry = libxs_get_registry_begin(LIBXS_KERNEL_KIND_USER, NULL);
+    for (; NULL != regentry; regentry = libxs_get_registry_next(regentry, NULL)) {
+      libxs_release_kernel(regentry);
+    }
+  }
 #endif
   return result;
 }
