@@ -46,9 +46,15 @@ LIBXS_API void libxs_convert_bf16_f32(const libxs_bfloat16* in, float* out, unsi
 /** FP16<->FP32 conversion functions */
 LIBXS_API float libxs_convert_f16_to_f32( libxs_float16 in );
 LIBXS_API libxs_float16 libxs_convert_f32_to_f16( float in );
+LIBXS_API void libxs_rne_convert_fp32_f16(const float* in, libxs_float16* out, unsigned int len);
+LIBXS_API void libxs_convert_f16_f32(const libxs_float16* in, float* out, unsigned int length);
 /** BF8<->FP32 conversion functions */
 LIBXS_API void libxs_rne_convert_fp32_bf8(const float* in, libxs_bfloat8* out, unsigned int len);
 LIBXS_API void libxs_convert_bf8_f32(const libxs_bfloat8* in, float* out, unsigned int length);
 LIBXS_API void libxs_stochastic_convert_fp32_bf8(const float* in, libxs_bfloat8* out, unsigned int length);
+/** HF8<->FP32 conversion functions */
+LIBXS_API libxs_hfloat8 libxs_rne_convert_fp16_hf8( libxs_float16 inp );
+LIBXS_API void libxs_rne_convert_fp32_hf8(const float* in, libxs_hfloat8* out, unsigned int len);
+LIBXS_API void libxs_convert_hf8_f32(const libxs_hfloat8* in, float* out, unsigned int length);
 
 #endif /*LIBXS_LPFLT_QUANT_H*/
