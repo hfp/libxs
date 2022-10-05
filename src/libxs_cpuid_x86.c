@@ -350,11 +350,23 @@ LIBXS_API const char* libxs_cpuid_name(int id)
     case LIBXS_AARCH64_V82: {
       target_arch = "aarch64";
     } break;
-    case LIBXS_AARCH64_A64FX: {
-      target_arch = "a64fx";
-    } break;
     case LIBXS_AARCH64_APPL_M1: {
       target_arch = "appl_m1";
+    } break;
+    case LIBXS_AARCH64_SVE128: {
+      target_arch = "sve128";
+    } break;
+    case LIBXS_AARCH64_SVE256: {
+      target_arch = "sve256";
+    } break;
+    case LIBXS_AARCH64_NEOV1: {
+      target_arch = "neov1";
+    } break;
+    case LIBXS_AARCH64_SVE512: {
+      target_arch = "sve512";
+    } break;
+    case LIBXS_AARCH64_A64FX: {
+      target_arch = "a64fx";
     } break;
     case LIBXS_TARGET_ARCH_GENERIC: {
       target_arch = "generic";
@@ -393,12 +405,18 @@ LIBXS_API int libxs_cpuid_vlen32(int id)
   }
   else
 #elif defined(LIBXS_PLATFORM_AARCH64)
-  if (LIBXS_AARCH64_V81 == id ||
-      LIBXS_AARCH64_V82 == id ||
-      LIBXS_AARCH64_APPL_M1 == id) {
+  if (LIBXS_AARCH64_V81     == id ||
+      LIBXS_AARCH64_V82     == id ||
+      LIBXS_AARCH64_APPL_M1 == id ||
+      LIBXS_AARCH64_SVE128  == id) {
     result = 4;
   }
-  else if (LIBXS_AARCH64_A64FX == id) {
+  else if (LIBXS_AARCH64_SVE256 == id ||
+           LIBXS_AARCH64_NEOV1  == id ) {
+    result = 8;
+  }
+  else if (LIBXS_AARCH64_SVE512 == id ||
+           LIBXS_AARCH64_A64FX  == id) {
     result = 16;
   }
   else
