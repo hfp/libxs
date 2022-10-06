@@ -25,8 +25,10 @@ libxs_blas_sgemm_
 libxs_bsgemm_descriptor_init
 libxs_convert_bf16_f32
 libxs_convert_bf8_f32
+libxs_convert_f16_f32
 libxs_convert_f16_to_f32
 libxs_convert_f32_to_f16
+libxs_convert_hf8_f32
 libxs_cpuid
 libxs_cpuid_arm
 libxs_cpuid_name
@@ -286,8 +288,11 @@ libxs_release_scratch
 libxs_release_smmkernel
 libxs_remainder
 libxs_rnaz_convert_fp32_bf16
+libxs_rne_convert_fp16_hf8
 libxs_rne_convert_fp32_bf16
 libxs_rne_convert_fp32_bf8
+libxs_rne_convert_fp32_f16
+libxs_rne_convert_fp32_hf8
 libxs_rng_create_extstate
 libxs_rng_destroy_extstate
 libxs_rng_f32_seq
