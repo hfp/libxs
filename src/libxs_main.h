@@ -505,9 +505,6 @@ LIBXS_API void libxs_xfree(const void* memory, int check);
  */
 LIBXS_API_INTERN size_t libxs_format_value(char buffer[32], int buffer_size, size_t nbytes, const char scale[], const char* unit, int base);
 
-/** Returns the type-name of data-type (can be also libxs_datatype). */
-LIBXS_API_INTERN const char* libxs_typename(libxs_datatype datatype);
-
 /** Dump data and (optionally) checks attempt to dump different data into an existing file (unique). */
 LIBXS_API_INTERN int libxs_dump(const char* title, const char* name, const void* data, size_t size, int unique);
 

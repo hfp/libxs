@@ -63,9 +63,7 @@ LIBXS_API int libxs_get_target_archid(void);
 /** Set target architecture (id: see libxs_typedefs.h) for subsequent code generation (JIT). */
 LIBXS_API void libxs_set_target_archid(int id);
 
-/**
- * get typename string
- */
+/** Returns the type-name of data-type (can be also libxs_datatype). */
 LIBXS_API const char* libxs_get_typename(libxs_datatype datatype);
 
 /**

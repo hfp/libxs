@@ -164,13 +164,13 @@ LIBXS_API int libxs_matdiff(libxs_matdiff_info* info,
               NULL/*extension*/, 0/*extension_size*/);
             if ('-' == *env && '1' < env[1]) {
               printf("LIBXS MATDIFF (%s): m=%" PRIuPTR " n=%" PRIuPTR " ldi=%" PRIuPTR " ldo=%" PRIuPTR " failed.\n",
-                libxs_typename(datatype), (uintptr_t)m, (uintptr_t)n, (uintptr_t)ldr, (uintptr_t)ldt);
+                libxs_get_typename(datatype), (uintptr_t)m, (uintptr_t)n, (uintptr_t)ldr, (uintptr_t)ldt);
             }
           }
         }
         else if ('-' == *env && '1' < env[1] && NULL != tst) {
           printf("LIBXS MATDIFF (%s): m=%" PRIuPTR " n=%" PRIuPTR " ldi=%" PRIuPTR " ldo=%" PRIuPTR " passed.\n",
-            libxs_typename(datatype), (uintptr_t)m, (uintptr_t)n, (uintptr_t)ldr, (uintptr_t)ldt);
+            libxs_get_typename(datatype), (uintptr_t)m, (uintptr_t)n, (uintptr_t)ldr, (uintptr_t)ldt);
         }
       }
       if (0 == result_nan) {
