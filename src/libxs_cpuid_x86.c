@@ -393,16 +393,7 @@ LIBXS_API const char* libxs_cpuid_name(int id)
 LIBXS_API int libxs_cpuid_vlen32(int id)
 {
   int result;
-  if (LIBXS_X86_AVX512 <= id) {
-    result = 16;
-  }
-  else if (LIBXS_X86_AVX <= id) {
-    result = 8;
-  }
-  else if (LIBXS_X86_GENERIC <= id) {
-    result = 4;
-  }
-  else if (LIBXS_AARCH64_V81 == id
+  if (LIBXS_AARCH64_V81 == id
         || LIBXS_AARCH64_V82 == id
         || LIBXS_AARCH64_APPL_M1 == id
         || LIBXS_AARCH64_SVE128  == id)
@@ -418,6 +409,15 @@ LIBXS_API int libxs_cpuid_vlen32(int id)
         || LIBXS_AARCH64_A64FX  == id)
   {
     result = 16;
+  }
+  else if (LIBXS_X86_AVX512 <= id) {
+    result = 16;
+  }
+  else if (LIBXS_X86_AVX <= id) {
+    result = 8;
+  }
+  else if (LIBXS_X86_GENERIC <= id) {
+    result = 4;
   }
   else { /* scalar */
     result = 1;
