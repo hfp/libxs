@@ -1730,9 +1730,9 @@ LIBXS_API int libxs_dvalue(libxs_datatype datatype, const void* value, double* d
     switch ((int)datatype) {
       case LIBXS_DATATYPE_F64: *dvalue =         (*(const double   *)value); break;
       case LIBXS_DATATYPE_F32: *dvalue = (double)(*(const float    *)value); break;
-      case LIBXS_DATATYPE_I64: *dvalue = (double)(*(const long long*)value); break;
-      case LIBXS_DATATYPE_I32: *dvalue = (double)(*(const int      *)value); break;
-      case LIBXS_DATATYPE_I16: *dvalue = (double)(*(const short    *)value); break;
+      case LIBXS_DATATYPE_I64S: *dvalue = (double)(*(const long long*)value); break;
+      case LIBXS_DATATYPE_I32S: *dvalue = (double)(*(const int      *)value); break;
+      case LIBXS_DATATYPE_I16S: *dvalue = (double)(*(const short    *)value); break;
       case LIBXS_DATATYPE_I8:  *dvalue = (double)(*(const char     *)value); break;
       default: result = EXIT_FAILURE;
     }
@@ -1750,23 +1750,23 @@ LIBXS_API const char* libxs_get_typename(libxs_datatype datatype)
     case LIBXS_DATATYPE_F16:  return "f16";
     case LIBXS_DATATYPE_BF8:  return "bf8";
     case LIBXS_DATATYPE_HF8:  return "hf8";
-    case LIBXS_DATATYPE_I64:  return "i64";
-    case LIBXS_DATATYPE_I32:  return "i32";
-    case LIBXS_DATATYPE_I16:  return "i16";
+    case LIBXS_DATATYPE_I64S:  return "i64";
+    case LIBXS_DATATYPE_I32S:  return "i32";
+    case LIBXS_DATATYPE_I16S:  return "i16";
     case LIBXS_DATATYPE_I8:   return "i8";
     default: {
-      if (LIBXS_DATATYPE_I16 == LIBXS_GETENUM_INP(datatype) &&
-          LIBXS_DATATYPE_I32 == LIBXS_GETENUM_OUT(datatype))
+      if (LIBXS_DATATYPE_I16S == LIBXS_GETENUM_INP(datatype) &&
+          LIBXS_DATATYPE_I32S == LIBXS_GETENUM_OUT(datatype))
       {
         return "i16i32";
       }
-      else if (LIBXS_DATATYPE_I16 == LIBXS_GETENUM_INP(datatype) &&
+      else if (LIBXS_DATATYPE_I16S == LIBXS_GETENUM_INP(datatype) &&
                LIBXS_DATATYPE_F32 == LIBXS_GETENUM_OUT(datatype))
       {
         return "i16f32";
       }
       else if (LIBXS_DATATYPE_I8 == LIBXS_GETENUM_INP(datatype) &&
-               LIBXS_DATATYPE_I32 == LIBXS_GETENUM_OUT(datatype))
+               LIBXS_DATATYPE_I32S == LIBXS_GETENUM_OUT(datatype))
       {
         return "i8i32";
       }
