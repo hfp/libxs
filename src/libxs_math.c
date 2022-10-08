@@ -53,21 +53,21 @@ LIBXS_API int libxs_matdiff(libxs_matdiff_info* info,
     libxs_matdiff_clear(info);
     inf = info->min_ref;
     switch ((int)datatype) {
-    case LIBXS_DATATYPE_I64: {
+    case LIBXS_DATATYPE_I64S: {
 #       define LIBXS_MATDIFF_TEMPLATE_TYPE2FP64(VALUE) ((double)(VALUE))
 #       define LIBXS_MATDIFF_TEMPLATE_ELEM_TYPE long long
 #       include "template/libxs_matdiff.h"
 #       undef  LIBXS_MATDIFF_TEMPLATE_ELEM_TYPE
 #       undef  LIBXS_MATDIFF_TEMPLATE_TYPE2FP64
     } break;
-    case LIBXS_DATATYPE_I32: {
+    case LIBXS_DATATYPE_I32S: {
 #       define LIBXS_MATDIFF_TEMPLATE_TYPE2FP64(VALUE) ((double)(VALUE))
 #       define LIBXS_MATDIFF_TEMPLATE_ELEM_TYPE int
 #       include "template/libxs_matdiff.h"
 #       undef  LIBXS_MATDIFF_TEMPLATE_ELEM_TYPE
 #       undef  LIBXS_MATDIFF_TEMPLATE_TYPE2FP64
     } break;
-    case LIBXS_DATATYPE_I16: {
+    case LIBXS_DATATYPE_I16S: {
 #       define LIBXS_MATDIFF_TEMPLATE_TYPE2FP64(VALUE) ((double)(VALUE))
 #       define LIBXS_MATDIFF_TEMPLATE_ELEM_TYPE short
 #       include "template/libxs_matdiff.h"
