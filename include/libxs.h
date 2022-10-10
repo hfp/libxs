@@ -439,8 +439,8 @@ LIBXS_API void libxs_blas_gemm(
 template<typename T> struct LIBXS_RETARGETABLE libxs_datatype_enum          { static const libxs_datatype value = static_cast<libxs_datatype>(LIBXS_DATATYPE_UNSUPPORTED); };
 template<> struct LIBXS_RETARGETABLE libxs_datatype_enum<double>            { static const libxs_datatype value = LIBXS_DATATYPE_F64; };
 template<> struct LIBXS_RETARGETABLE libxs_datatype_enum<float>             { static const libxs_datatype value = LIBXS_DATATYPE_F32; };
-template<> struct LIBXS_RETARGETABLE libxs_datatype_enum<int>               { static const libxs_datatype value = LIBXS_DATATYPE_I32S; };
-template<> struct LIBXS_RETARGETABLE libxs_datatype_enum</*signed*/short>   { static const libxs_datatype value = LIBXS_DATATYPE_I16S; };
+template<> struct LIBXS_RETARGETABLE libxs_datatype_enum<int>               { static const libxs_datatype value = LIBXS_DATATYPE_I32; };
+template<> struct LIBXS_RETARGETABLE libxs_datatype_enum</*signed*/short>   { static const libxs_datatype value = LIBXS_DATATYPE_I16; };
 template<> struct LIBXS_RETARGETABLE libxs_datatype_enum<libxs_bfloat16>  { static const libxs_datatype value = LIBXS_DATATYPE_BF16; };
 template<> struct LIBXS_RETARGETABLE libxs_datatype_enum<Eigen::bfloat16>   { static const libxs_datatype value = LIBXS_DATATYPE_BF16; };
 template<> struct LIBXS_RETARGETABLE libxs_datatype_enum<signed char>       { static const libxs_datatype value = LIBXS_DATATYPE_I8; };
