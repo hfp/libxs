@@ -573,6 +573,11 @@
 #define LIBXS_CONST_VOID_PTR(A) *((const void**)&(A))
 #define LIBXS_EOR(ENUM_TYPE, ENUM, FLAG) ((ENUM_TYPE)(((int)(ENUM)) | ((int)(FLAG))))
 
+LIBXS_API_INLINE   signed long long libxs_widen_u32i64(unsigned int value) { return value; }
+LIBXS_API_INLINE unsigned long long libxs_widen_u32u64(unsigned int value) { return value; }
+#define LIBXS_WIDEN_U32I64(VALUE) libxs_widen_u32i64(LIBXS_CAST_UINT(VALUE))
+#define LIBXS_WIDEN_U32U64(VALUE) libxs_widen_u32i64(LIBXS_CAST_UINT(VALUE))
+
 /** Makes some functions available independent of C99 support. */
 #if defined(__STDC_VERSION__) && (199901L/*C99*/ <= __STDC_VERSION__)
 # if defined(__PGI)
