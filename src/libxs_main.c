@@ -1596,7 +1596,8 @@ LIBXS_API void libxs_set_target_arch(const char* arch)
       target_archid = LIBXS_X86_SSE3;
     }
     else if (arch == libxs_stristr(arch, "x86") || arch == libxs_stristr(arch, "x86_64")
-          || arch == libxs_stristr(arch, "x64") || arch == libxs_stristr(arch, "sse2"))
+          || arch == libxs_stristr(arch, "x64") || arch == libxs_stristr(arch, "sse2")
+          || arch == libxs_stristr(arch, "sse"))
     {
       target_archid = LIBXS_X86_GENERIC;
     }
