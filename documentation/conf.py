@@ -42,4 +42,5 @@ html_static_path = ["../.theme"]
 templates_path = ["_templates"]
 pygments_style = "sphinx"
 
-language = None
+#language = None
+language = "en"
