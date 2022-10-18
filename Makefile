@@ -1485,7 +1485,7 @@ install-minimal: libxs
 ifneq ($(PREFIX),$(ABSDIR))
 	@echo
 	@echo "LIBXS installing libraries..."
-	@mkdir -p $(PREFIX)/$(POUTDIR)
+	@$(MKDIR) -p $(PREFIX)/$(POUTDIR)
 	@$(CP) -va $(OUTDIR)/libxsnoblas.$(DLIBEXT)* $(PREFIX)/$(POUTDIR) 2>/dev/null || true
 	@$(CP) -v  $(OUTDIR)/libxsnoblas.$(SLIBEXT)  $(PREFIX)/$(POUTDIR) 2>/dev/null || true
 	@$(CP) -va $(OUTDIR)/libxsgen.$(DLIBEXT)* $(PREFIX)/$(POUTDIR) 2>/dev/null || true
@@ -1497,65 +1497,65 @@ ifneq ($(PREFIX),$(ABSDIR))
 	@$(CP) -va $(OUTDIR)/libxs.$(DLIBEXT)* $(PREFIX)/$(POUTDIR) 2>/dev/null || true
 	@$(CP) -v  $(OUTDIR)/libxs.$(SLIBEXT)  $(PREFIX)/$(POUTDIR) 2>/dev/null || true
 	@if [ -e $(OUTDIR)/mic/libxsnoblas.$(DLIBEXT) ]; then \
-		mkdir -p $(PREFIX)/$(POUTDIR)/mic; \
+		$(MKDIR) -p $(PREFIX)/$(POUTDIR)/mic; \
 		$(CP) -va $(OUTDIR)/mic/libxsnoblas.$(DLIBEXT)* $(PREFIX)/$(POUTDIR)/mic; \
 	fi
 	@if [ -e $(OUTDIR)/mic/libxsnoblas.$(SLIBEXT) ]; then \
-		mkdir -p $(PREFIX)/$(POUTDIR)/mic; \
+		$(MKDIR) -p $(PREFIX)/$(POUTDIR)/mic; \
 		$(CP) -v $(OUTDIR)/mic/libxsnoblas.$(SLIBEXT) $(PREFIX)/$(POUTDIR)/mic; \
 	fi
 	@if [ -e $(OUTDIR)/mic/libxsext.$(DLIBEXT) ]; then \
-		mkdir -p $(PREFIX)/$(POUTDIR)/mic; \
+		$(MKDIR) -p $(PREFIX)/$(POUTDIR)/mic; \
 		$(CP) -va $(OUTDIR)/mic/libxsext.$(DLIBEXT)* $(PREFIX)/$(POUTDIR)/mic; \
 	fi
 	@if [ -e $(OUTDIR)/mic/libxsext.$(SLIBEXT) ]; then \
-		mkdir -p $(PREFIX)/$(POUTDIR)/mic; \
+		$(MKDIR) -p $(PREFIX)/$(POUTDIR)/mic; \
 		$(CP) -v $(OUTDIR)/mic/libxsext.$(SLIBEXT) $(PREFIX)/$(POUTDIR)/mic; \
 	fi
 	@if [ -e $(OUTDIR)/mic/libxsf.$(DLIBEXT) ]; then \
-		mkdir -p $(PREFIX)/$(POUTDIR)/mic; \
+		$(MKDIR) -p $(PREFIX)/$(POUTDIR)/mic; \
 		$(CP) -va $(OUTDIR)/mic/libxsf.$(DLIBEXT)* $(PREFIX)/$(POUTDIR)/mic; \
 	fi
 	@if [ -e $(OUTDIR)/mic/libxsf.$(SLIBEXT) ]; then \
-		mkdir -p $(PREFIX)/$(POUTDIR)/mic; \
+		$(MKDIR) -p $(PREFIX)/$(POUTDIR)/mic; \
 		$(CP) -v $(OUTDIR)/mic/libxsf.$(SLIBEXT) $(PREFIX)/$(POUTDIR)/mic; \
 	fi
 	@if [ -e $(OUTDIR)/mic/libxs.$(DLIBEXT) ]; then \
-		mkdir -p $(PREFIX)/$(POUTDIR)/mic; \
+		$(MKDIR) -p $(PREFIX)/$(POUTDIR)/mic; \
 		$(CP) -va $(OUTDIR)/mic/libxs.$(DLIBEXT)* $(PREFIX)/$(POUTDIR)/mic; \
 	fi
 	@if [ -e $(OUTDIR)/mic/libxs.$(SLIBEXT) ]; then \
-		mkdir -p $(PREFIX)/$(POUTDIR)/mic; \
+		$(MKDIR) -p $(PREFIX)/$(POUTDIR)/mic; \
 		$(CP) -v $(OUTDIR)/mic/libxs.$(SLIBEXT) $(PREFIX)/$(POUTDIR)/mic; \
 	fi
 	@echo
 	@echo "LIBXS installing pkg-config and module files..."
-	@mkdir -p $(PREFIX)/$(PPKGDIR)
+	@$(MKDIR) -p $(PREFIX)/$(PPKGDIR)
 	@$(CP) -v $(OUTDIR)/*.pc $(PREFIX)/$(PPKGDIR) 2>/dev/null || true
 	@if [ ! -e $(PREFIX)/$(PMODDIR)/libxs.env ]; then \
-		mkdir -p $(PREFIX)/$(PMODDIR); \
+		$(MKDIR) -p $(PREFIX)/$(PMODDIR); \
 		$(CP) -v $(OUTDIR)/libxs.env $(PREFIX)/$(PMODDIR) 2>/dev/null || true; \
 	fi
 	@echo
 	@echo "LIBXS installing utilities..."
-	@mkdir -p $(PREFIX)
+	@$(MKDIR) -p $(PREFIX)
 	@$(CP) -v $(ROOTDIR)/Makefile.inc $(PREFIX) 2>/dev/null || true
 	@$(CP) -v $(ROOTDIR)/.mktmp.sh $(PREFIX) 2>/dev/null || true
 	@$(CP) -v $(ROOTDIR)/.flock.sh $(PREFIX) 2>/dev/null || true
 	@$(CP) -v $(ROOTDIR)/.state.sh $(PREFIX) 2>/dev/null || true
 	@echo
 	@echo "LIBXS installing stand-alone generators..."
-	@mkdir -p $(PREFIX)/$(PBINDIR)
+	@$(MKDIR) -p $(PREFIX)/$(PBINDIR)
 	@$(CP) -v $(BINDIR)/libxs_*_generator $(PREFIX)/$(PBINDIR) 2>/dev/null || true
 	@echo
 	@echo "LIBXS installing interface..."
-	@mkdir -p $(PREFIX)/$(PINCDIR)
+	@$(MKDIR) -p $(PREFIX)/$(PINCDIR)
 	@$(CP) -v $(INCDIR)/libxs*.h $(PREFIX)/$(PINCDIR) 2>/dev/null || true
 	@$(CP) -v $(INCDIR)/libxs.f $(PREFIX)/$(PINCDIR) 2>/dev/null || true
 	@$(CP) -v $(INCDIR)/*.mod* $(PREFIX)/$(PINCDIR) 2>/dev/null || true
 	@echo
 	@echo "LIBXS installing header-only..."
-	@mkdir -p $(PREFIX)/$(PSRCDIR)
+	@$(MKDIR) -p $(PREFIX)/$(PSRCDIR)
 	@$(CP) -r $(ROOTDIR)/$(SRCDIR)/* $(PREFIX)/$(PSRCDIR) >/dev/null 2>/dev/null || true
 endif
 
@@ -1564,13 +1564,13 @@ install: install-minimal
 ifneq ($(PREFIX),$(ABSDIR))
 	@echo
 	@echo "LIBXS installing documentation..."
-	@mkdir -p $(PREFIX)/$(PDOCDIR)
+	@$(MKDIR) -p $(PREFIX)/$(PDOCDIR)
 	@$(CP) -v $(ROOTDIR)/$(DOCDIR)/*.pdf $(PREFIX)/$(PDOCDIR)
 	@$(CP) -v $(ROOTDIR)/$(DOCDIR)/*.md $(PREFIX)/$(PDOCDIR)
 	@$(CP) -v $(ROOTDIR)/SECURITY.md $(PREFIX)/$(PDOCDIR)
 	@$(CP) -v $(ROOTDIR)/version.txt $(PREFIX)/$(PDOCDIR)
 	@sed "s/^\"//;s/\\\n\"$$//;/STATIC=/d" $(DIRSTATE)/.state >$(PREFIX)/$(PDOCDIR)/build.txt 2>/dev/null || true
-	@mkdir -p $(PREFIX)/$(LICFDIR)
+	@$(MKDIR) -p $(PREFIX)/$(LICFDIR)
 ifneq ($(call qapath,$(PREFIX)/$(PDOCDIR)/LICENSE.md),$(call qapath,$(PREFIX)/$(LICFDIR)/$(LICFILE)))
 	@$(MV) $(PREFIX)/$(PDOCDIR)/LICENSE.md $(PREFIX)/$(LICFDIR)/$(LICFILE)
 endif
@@ -1596,7 +1596,7 @@ install-dev: install-realall build-tests
 ifneq ($(PREFIX),$(ABSDIR))
 	@echo
 	@echo "LIBXS installing tests..."
-	@mkdir -p $(PREFIX)/$(PTSTDIR)
+	@$(MKDIR) -p $(PREFIX)/$(PTSTDIR)
 	@$(CP) -v $(basename $(wildcard $(ROOTDIR)/$(TSTDIR)/*.c)) $(PREFIX)/$(PTSTDIR) 2>/dev/null || true
 endif
 
@@ -1605,7 +1605,7 @@ install-artifacts: install-dev
 ifneq ($(PREFIX),$(ABSDIR))
 	@echo
 	@echo "LIBXS installing artifacts..."
-	@mkdir -p $(PREFIX)/$(PDOCDIR)/artifacts
+	@$(MKDIR) -p $(PREFIX)/$(PDOCDIR)/artifacts
 	@$(CP) -v $(DIRSTATE)/.state $(PREFIX)/$(PDOCDIR)/artifacts/make.txt
 endif
 
@@ -1736,7 +1736,7 @@ deb:
 		fi; \
 		tar xf $${ARCHIVE_NAME}_$${VERSION_ARCHIVE}.orig.tar.gz; \
 		cd $${ARCHIVE_NAME}-$${VERSION_ARCHIVE}; \
-		mkdir -p debian/source; cd debian/source; \
+		$(MKDIR) -p debian/source; cd debian/source; \
 		echo "3.0 (quilt)" >format; \
 		cd ..; \
 		echo "Source: $${ARCHIVE_NAME}" >control; \
