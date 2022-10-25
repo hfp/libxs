@@ -40,7 +40,7 @@ MV=$(command -v mv)
 NM=$(command -v nm)
 
 # GNU sed is desired (macOS)
-if [ "" = "${SED}" ]; then
+if [ ! "${SED}" ]; then
   SED=$(command -v sed)
 fi
 
@@ -66,18 +66,18 @@ then
               -e "s/^__libxs_MOD_libxs_/libxs_/")
             if [ "$(echo "${SYMBOL}" | ${SED} -n "/^libxs[^.]/p")" ]; then
               echo "${SYMBOL}" >>${ABINEW}
-            elif [ "" = "$(echo "${SYMBOL}" | ${SED} -n "/^__libxs_MOD___/p")" ] && \
-                 [ "" = "$(echo "${SYMBOL}" | ${SED} -n "/^__wrap_..*/p")" ] && \
-                 [ "" = "$(echo "${SYMBOL}" | ${SED} -n "/^internal_/p")" ] && \
-                 [ "" = "$(echo "${SYMBOL}" | ${SED} -n "/^libxs._/p")" ] && \
-                 [ "" = "$(echo "${SYMBOL}" | ${SED} -n "/^.gem._/p")" ] && \
-                 [ "" = "$(echo "${SYMBOL}" | ${SED} -n "/^memalign/p")" ] && \
-                 [ "" = "$(echo "${SYMBOL}" | ${SED} -n "/^realloc/p")" ] && \
-                 [ "" = "$(echo "${SYMBOL}" | ${SED} -n "/^malloc/p")" ] && \
-                 [ "" = "$(echo "${SYMBOL}" | ${SED} -n "/^free/p")" ] && \
-                 [ "" = "$(echo "${SYMBOL}" | ${SED} -n "/^_init/p")" ] && \
-                 [ "" = "$(echo "${SYMBOL}" | ${SED} -n "/^_fini/p")" ] && \
-                 [ "" = "$(echo "${SYMBOL}" | ${SED} -n "/^iJIT_/p")" ];
+            elif [ ! "$(echo "${SYMBOL}" | ${SED} -n "/^__libxs_MOD___/p")" ] && \
+                 [ ! "$(echo "${SYMBOL}" | ${SED} -n "/^__wrap_..*/p")" ] && \
+                 [ ! "$(echo "${SYMBOL}" | ${SED} -n "/^internal_/p")" ] && \
+                 [ ! "$(echo "${SYMBOL}" | ${SED} -n "/^libxs._/p")" ] && \
+                 [ ! "$(echo "${SYMBOL}" | ${SED} -n "/^.gem._/p")" ] && \
+                 [ ! "$(echo "${SYMBOL}" | ${SED} -n "/^memalign/p")" ] && \
+                 [ ! "$(echo "${SYMBOL}" | ${SED} -n "/^realloc/p")" ] && \
+                 [ ! "$(echo "${SYMBOL}" | ${SED} -n "/^malloc/p")" ] && \
+                 [ ! "$(echo "${SYMBOL}" | ${SED} -n "/^free/p")" ] && \
+                 [ ! "$(echo "${SYMBOL}" | ${SED} -n "/^_init/p")" ] && \
+                 [ ! "$(echo "${SYMBOL}" | ${SED} -n "/^_fini/p")" ] && \
+                 [ ! "$(echo "${SYMBOL}" | ${SED} -n "/^iJIT_/p")" ];
             then
               >&2 echo "ERROR: non-conforming function name"
               echo "${LIB} ->${SYMBOL}"
@@ -95,7 +95,7 @@ then
       echo "Note: LIBXS must be built with \"make STATIC=0 SYM|DBG=1\"!"
     fi
     REMOVED=$(${DIFF} --new-line-format="" --unchanged-line-format="" <(${SORT} ${ABICUR}) ${ABINEW})
-    if [ "" = "${REMOVED}" ]; then
+    if [ ! "${REMOVED}" ]; then
       ${CP} ${ABINEW} ${ABICUR}
       echo "Successfully completed."
     else
