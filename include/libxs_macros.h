@@ -553,7 +553,8 @@
 
 #define LIBXS_UPDIV(N, MULT) (((N) + ((MULT) - 1)) / (MULT))
 #define LIBXS_UP(N, MULT) (LIBXS_UPDIV(N, MULT) * (MULT))
-#define LIBXS_UP2(N, NPOT) (((N) + ((NPOT) - 1)) & ~((NPOT) - 1))
+#define LIBXS_LO2(N, NPOT) ((N) & ~((NPOT) - 1))
+#define LIBXS_UP2(N, NPOT) LIBXS_LO2((N) + ((NPOT) - 1), NPOT)
 #define LIBXS_ABS(A) (0 <= (A) ? (A) : -(A))
 #define LIBXS_MIN(A, B) ((A) < (B) ? (A) : (B))
 #define LIBXS_MAX(A, B) ((A) < (B) ? (B) : (A))
