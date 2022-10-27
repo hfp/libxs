@@ -246,6 +246,9 @@ LIBXS_API double libxs_matdiff_epsilon(const libxs_matdiff_info* input)
 LIBXS_API void libxs_matdiff_reduce(libxs_matdiff_info* output, const libxs_matdiff_info* input)
 {
   if (NULL != output && NULL != input) {
+    /* epsilon is determined before updating the output */
+    const double epsinp = libxs_matdiff_epsilon(input);
+    const double epsout = libxs_matdiff_epsilon(output);
     if (output->linf_abs <= input->linf_abs) {
       output->linf_abs = input->linf_abs;
       output->linf_rel = input->linf_rel;
@@ -283,7 +286,7 @@ LIBXS_API void libxs_matdiff_reduce(libxs_matdiff_info* output, const libxs_matd
     if (output->min_tst >= input->min_tst) {
       output->min_tst = input->min_tst;
     }
-    if (output->rsq > input->rsq || 1 < input->rsq) {
+    if (epsout < epsinp) {
       output->rsq = input->rsq;
       output->v_ref = input->v_ref;
       output->v_tst = input->v_tst;
