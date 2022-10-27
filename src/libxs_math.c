@@ -233,8 +233,8 @@ LIBXS_API double libxs_matdiff_epsilon(const libxs_matdiff_info* input)
       result = LIBXS_MIN(input->normf_rel, input->linf_abs) / input->rsq;
     }
     else {
-      const double a = LIBXS_MAX(input->norm1_abs, input->linf_abs);
-      const double b = LIBXS_MAX(input->normi_abs, input->l2_abs);
+      const double a = LIBXS_MIN(input->norm1_abs, input->normi_abs);
+      const double b = LIBXS_MAX(input->linf_abs, input->l2_abs);
       result = LIBXS_MAX(a, b);
     }
   }
