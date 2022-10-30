@@ -108,7 +108,7 @@ int main(int argc, char* argv[])
         raii(libxs_blasint asize_, libxs_blasint bsize_, libxs_blasint csize_, libxs_blasint size_)
           : a(new ITYPE[static_cast<size_t>(asize_)]), b(new ITYPE[static_cast<size_t>(bsize_)])
           , c(new OTYPE[static_cast<size_t>(csize_)]), d(new OTYPE[static_cast<size_t>(csize_)])
-          , m_size(static_cast<size_t>(size_)), m_shuffle(libxs_shuffle(static_cast<unsigned int>(size_)))
+          , m_size(static_cast<size_t>(size_)), m_shuffle(libxs_coprime2(static_cast<unsigned int>(size_)))
         {}
         ~raii() { delete[] a; delete[] b; delete[] c; delete[] d; }
 #if defined(RANDOMIZED)

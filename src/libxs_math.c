@@ -327,7 +327,7 @@ LIBXS_API void libxs_matdiff_clear(libxs_matdiff_info* info)
 }
 
 
-LIBXS_API size_t libxs_shuffle(unsigned int n)
+LIBXS_API size_t libxs_coprime2(unsigned int n)
 {
   const unsigned int s = (0 != (n & 1) ? ((n / 2 - 1) | 1) : ((n / 2) & ~1));
   const unsigned int d = (0 != (n & 1) ? 1 : 2);
@@ -631,21 +631,21 @@ LIBXS_API void LIBXS_FSYMBOL(libxs_matdiff_clear)(libxs_matdiff_info* info)
 
 
 /* implementation provided for Fortran 77 compatibility */
-LIBXS_API void LIBXS_FSYMBOL(libxs_shuffle)(long long* /*coprime*/, const int* /*n*/);
-LIBXS_API void LIBXS_FSYMBOL(libxs_shuffle)(long long* coprime, const int* n)
+LIBXS_API void LIBXS_FSYMBOL(libxs_coprime2)(long long* /*coprime*/, const int* /*n*/);
+LIBXS_API void LIBXS_FSYMBOL(libxs_coprime2)(long long* coprime, const int* n)
 {
 #if !defined(NDEBUG)
   static int error_once = 0;
   if (NULL != coprime && NULL != n && 0 <= *n)
 #endif
   {
-    *coprime = (long long)(libxs_shuffle((unsigned int)(*n)) & 0x7FFFFFFF);
+    *coprime = (long long)(libxs_coprime2((unsigned int)(*n)) & 0x7FFFFFFF);
   }
 #if !defined(NDEBUG)
   else if (0 != libxs_verbosity /* library code is expected to be mute */
     && 1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED))
   {
-    fprintf(stderr, "LIBXS ERROR: invalid arguments for libxs_shuffle specified!\n");
+    fprintf(stderr, "LIBXS ERROR: invalid arguments for libxs_coprime2 specified!\n");
   }
 #endif
 }
