@@ -67,8 +67,8 @@ LIBXS_API size_t libxs_lcm(size_t a, size_t b);
  */
 LIBXS_API int libxs_primes_u32(unsigned int num, unsigned int num_factors_n32[]);
 
-/** Calculate co-prime number <= n/2 (except: libxs_shuffle(0|1) == 0). */
-LIBXS_API size_t libxs_shuffle(unsigned int n);
+/** Calculate co-prime number <= n/2 (except: libxs_coprime2(0|1) == 0). */
+LIBXS_API size_t libxs_coprime2(unsigned int n);
 
 /**
  * Minimizes the waste, if "a" can only be processed in multiples of "b".
