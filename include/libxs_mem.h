@@ -11,43 +11,41 @@
 
 #include "libxs_macros.h"
 
-#if defined(__clang_analyzer__)
-# define LIBXS_MEMSET127(PTRDST, VALUE, SIZE) memset((void*)(PTRDST), VALUE, SIZE)
-#else
-# define LIBXS_MEMSET127(PTRDST, VALUE, SIZE) do { \
-  char *const libxs_memset127_dst_ = (char*)(PTRDST); \
-  union { size_t size; signed char size1; } libxs_memset127_; \
-  signed char libxs_memset127_i_; LIBXS_ASSERT((SIZE) <= 127); \
-  libxs_memset127_.size = (SIZE); \
-  LIBXS_PRAGMA_UNROLL \
-  for (libxs_memset127_i_ = 0; libxs_memset127_i_ < libxs_memset127_.size1; \
-    ++libxs_memset127_i_) \
+#define LIBXS_MEM127_LOOP(DST, SRC, SIZE, OP, NTS) do { \
+  const signed char libxs_memory127_loop_size_ = LIBXS_CAST_ICHAR(SIZE); \
+  signed char libxs_memory127_loop_i_; \
+  NTS(libxs_memory127_loop_dst_) LIBXS_PRAGMA_UNROLL \
+  for (libxs_memory127_loop_i_ = 0; \
+    libxs_memory127_loop_i_ < libxs_memory127_loop_size_; \
+    ++libxs_memory127_loop_i_) \
   { \
-    libxs_memset127_dst_[libxs_memset127_i_] = (char)(VALUE); \
+    OP(DST, SRC, libxs_memory127_loop_i_); \
   } \
 } while(0)
-#endif
-#define LIBXS_MEMZERO127(PTRDST) LIBXS_MEMSET127(PTRDST, '\0', sizeof(*(PTRDST)))
+#define LIBXS_MEM127_NTS(...)
 
-#define LIBXS_MEMCPY127_LOOP(PTRDST, PTRSRC, SIZE, NTS) do { \
-  const unsigned char *const libxs_memcpy127_loop_src_ = (const unsigned char*)(PTRSRC); \
-  unsigned char *const libxs_memcpy127_loop_dst_ = (unsigned char*)(PTRDST); \
-  signed char libxs_memcpy127_loop_i_; LIBXS_ASSERT((SIZE) <= 127); \
-  NTS(libxs_memcpy127_loop_dst_) LIBXS_PRAGMA_UNROLL \
-  for (libxs_memcpy127_loop_i_ = 0; libxs_memcpy127_loop_i_ < (signed char)(SIZE); \
-    ++libxs_memcpy127_loop_i_) \
-  { \
-    libxs_memcpy127_loop_dst_[libxs_memcpy127_loop_i_] = \
-    libxs_memcpy127_loop_src_[libxs_memcpy127_loop_i_]; \
-  } \
+#define LIBXS_MEMSET127_OP(DST, SRC, IDX) \
+  (((unsigned char*)(DST))[IDX] = (unsigned char)(SRC))
+#define LIBXS_MEMSET127(DST, SRC, SIZE) \
+  LIBXS_MEM127_LOOP(DST, SRC, SIZE, \
+  LIBXS_MEMSET127_OP, LIBXS_MEM127_NTS)
+#define LIBXS_MEMZERO127(DST) LIBXS_MEMSET127(DST, 0, sizeof(*(DST)))
+
+#define LIBXS_MEMCPY127_OP(DST, SRC, IDX) \
+  (((unsigned char*)(DST))[IDX] = ((const unsigned char*)(SRC))[IDX])
+#define LIBXS_MEMCPY127(DST, SRC, SIZE) \
+  LIBXS_MEM127_LOOP(DST, SRC, SIZE, \
+  LIBXS_MEMCPY127_OP, LIBXS_MEM127_NTS)
+#define LIBXS_ASSIGN127(DST, SRC) do { \
+  LIBXS_ASSERT(sizeof(*(SRC)) <= sizeof(*(DST))); \
+  LIBXS_MEMCPY127(DST, SRC, sizeof(*(SRC))); \
 } while(0)
-#define LIBXS_MEMCPY127_NTS(...)
-#define LIBXS_MEMCPY127(PTRDST, PTRSRC, SIZE) \
-  LIBXS_MEMCPY127_LOOP(PTRDST, PTRSRC, SIZE, LIBXS_MEMCPY127_NTS)
-#define LIBXS_ASSIGN127(PTRDST, PTRSRC) do { \
-  LIBXS_ASSERT(sizeof(*(PTRSRC)) <= sizeof(*(PTRDST))); \
-  LIBXS_MEMCPY127(PTRDST, PTRSRC, sizeof(*(PTRSRC))); \
-} while(0)
+
+#define LIBXS_MEMSWP127_OP(DST, SRC, IDX) \
+  LIBXS_ISWAP(((unsigned char*)(DST))[IDX], ((unsigned char*)(SRC))[IDX])
+#define LIBXS_MEMSWP127(DST, SRC, SIZE) \
+  LIBXS_MEM127_LOOP(DST, SRC, SIZE, \
+  LIBXS_MEMSWP127_OP, LIBXS_MEM127_NTS)
 
 
 /**
@@ -87,5 +85,11 @@ LIBXS_API const char* libxs_stristr(const char a[], const char b[]);
  * If zero is returned, nothing was printed (no prefix, no postfix).
  */
 LIBXS_API int libxs_print_cmdline(FILE* stream, const char* prefix, const char* postfix);
+
+/** In-place shuffle data given by typesize and count. */
+LIBXS_API void libxs_shuffle(void* data, size_t typesize, size_t count);
+
+/** Out-of-place shuffle data given by typesize and count. */
+LIBXS_API void libxs_shuffle2(void* dst, const void* src, size_t typesize, size_t count);
 
 #endif /*LIBXS_MEM_H*/
