@@ -29,6 +29,8 @@ libxs_convert_f16_f32
 libxs_convert_f16_to_f32
 libxs_convert_f32_to_f16
 libxs_convert_hf8_f32
+libxs_coprime2
+libxs_coprime2_
 libxs_cpuid
 libxs_cpuid_arm
 libxs_cpuid_name
@@ -325,7 +327,7 @@ libxs_sgemm3
 libxs_sgemm_
 libxs_sgemm_descriptor_init
 libxs_shuffle
-libxs_shuffle_
+libxs_shuffle2
 libxs_sink
 libxs_smmavailable
 libxs_smmcall
