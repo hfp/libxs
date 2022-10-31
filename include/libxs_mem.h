@@ -61,11 +61,13 @@ LIBXS_API int libxs_aligned(const void* ptr, const size_t* inc, int* alignment);
 LIBXS_API unsigned char libxs_diff(const void* a, const void* b, unsigned char size);
 
 /**
- * Calculates if there is a difference between "a" and "n x b".
- * Returns the index of the first match (or "n" in case of no match).
+ * Calculates the "difference" between "a" and "b"; "a" is taken "count" times into account.
+ * Returns the first match (index) of no difference (or "n" if "a" did not match).
+ * The hint determines the initial index searching for a difference, and it must
+ * be in bounds [0, count), but otherwise only impacts performance.
  */
-LIBXS_API unsigned int libxs_diff_n(const void* a, const void* bn, unsigned char size,
-  unsigned char stride, unsigned int hint, unsigned int n);
+LIBXS_API unsigned int libxs_diff_n(const void* a, const void* bn, unsigned char elemsize,
+  unsigned char stride, unsigned int hint, unsigned int count);
 
 /** Similar to memcmp (C standard library), but the result is conceptually only a boolean. */
 LIBXS_API int libxs_memcmp(const void* a, const void* b, size_t size);
@@ -86,10 +88,10 @@ LIBXS_API const char* libxs_stristr(const char a[], const char b[]);
  */
 LIBXS_API int libxs_print_cmdline(FILE* stream, const char* prefix, const char* postfix);
 
-/** In-place shuffle data given by typesize and count. */
-LIBXS_API void libxs_shuffle(void* data, size_t typesize, size_t count);
+/** In-place shuffling of data given by elemsize and count. */
+LIBXS_API void libxs_shuffle(void* data, size_t elemsize, size_t count);
 
-/** Out-of-place shuffle data given by typesize and count. */
-LIBXS_API void libxs_shuffle2(void* dst, const void* src, size_t typesize, size_t count);
+/** Out-of-place shuffling of data given by elemsize and count. */
+LIBXS_API void libxs_shuffle2(void* dst, const void* src, size_t elemsize, size_t count);
 
 #endif /*LIBXS_MEM_H*/
