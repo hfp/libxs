@@ -358,50 +358,50 @@ LIBXS_API unsigned char libxs_diff(const void* a, const void* b, unsigned char s
 }
 
 
-LIBXS_API unsigned int libxs_diff_n(const void* a, const void* bn, unsigned char size,
-  unsigned char stride, unsigned int hint, unsigned int n)
+LIBXS_API unsigned int libxs_diff_n(const void* a, const void* bn, unsigned char elemsize,
+  unsigned char stride, unsigned int hint, unsigned int count)
 {
   unsigned int result;
-  LIBXS_ASSERT(size <= stride);
+  LIBXS_ASSERT(elemsize <= stride);
 #if defined(LIBXS_MEM_STDLIB) && !defined(LIBXS_MEM_SW)
-  LIBXS_DIFF_N(unsigned int, result, memcmp, a, bn, size, stride, hint, n);
+  LIBXS_DIFF_N(unsigned int, result, memcmp, a, bn, elemsize, stride, hint, count);
 #else
 # if !defined(LIBXS_MEM_SW)
-  switch (size) {
+  switch (elemsize) {
     case 64: {
       LIBXS_DIFF_64_DECL(a64);
       LIBXS_DIFF_64_LOAD(a64, a);
-      LIBXS_DIFF_N(unsigned int, result, LIBXS_DIFF_64, a64, bn, size, stride, hint, n);
+      LIBXS_DIFF_N(unsigned int, result, LIBXS_DIFF_64, a64, bn, 64, stride, hint, count);
     } break;
     case 48: {
       LIBXS_DIFF_48_DECL(a48);
       LIBXS_DIFF_48_LOAD(a48, a);
-      LIBXS_DIFF_N(unsigned int, result, LIBXS_DIFF_48, a48, bn, size, stride, hint, n);
+      LIBXS_DIFF_N(unsigned int, result, LIBXS_DIFF_48, a48, bn, 48, stride, hint, count);
     } break;
     case 32: {
       LIBXS_DIFF_32_DECL(a32);
       LIBXS_DIFF_32_LOAD(a32, a);
-      LIBXS_DIFF_N(unsigned int, result, LIBXS_DIFF_32, a32, bn, size, stride, hint, n);
+      LIBXS_DIFF_N(unsigned int, result, LIBXS_DIFF_32, a32, bn, 32, stride, hint, count);
     } break;
     case 16: {
       LIBXS_DIFF_16_DECL(a16);
       LIBXS_DIFF_16_LOAD(a16, a);
-      LIBXS_DIFF_N(unsigned int, result, LIBXS_DIFF_16, a16, bn, size, stride, hint, n);
+      LIBXS_DIFF_N(unsigned int, result, LIBXS_DIFF_16, a16, bn, 16, stride, hint, count);
     } break;
     case 8: {
       LIBXS_DIFF_8_DECL(a8);
       LIBXS_DIFF_8_LOAD(a8, a);
-      LIBXS_DIFF_N(unsigned int, result, LIBXS_DIFF_8, a8, bn, size, stride, hint, n);
+      LIBXS_DIFF_N(unsigned int, result, LIBXS_DIFF_8, a8, bn, 8, stride, hint, count);
     } break;
     case 4: {
       LIBXS_DIFF_4_DECL(a4);
       LIBXS_DIFF_4_LOAD(a4, a);
-      LIBXS_DIFF_N(unsigned int, result, LIBXS_DIFF_4, a4, bn, size, stride, hint, n);
+      LIBXS_DIFF_N(unsigned int, result, LIBXS_DIFF_4, a4, bn, 4, stride, hint, count);
     } break;
     default:
 # endif
     {
-      LIBXS_DIFF_N(unsigned int, result, libxs_diff, a, bn, size, stride, hint, n);
+      LIBXS_DIFF_N(unsigned int, result, libxs_diff, a, bn, elemsize, stride, hint, count);
     }
 # if !defined(LIBXS_MEM_SW)
   }
@@ -551,41 +551,41 @@ LIBXS_API int libxs_print_cmdline(FILE* stream, const char* prefix, const char* 
 }
 
 
-LIBXS_API void libxs_shuffle(void* data, size_t typesize, size_t count)
+LIBXS_API void libxs_shuffle(void* data, size_t elemsize, size_t count)
 {
   const size_t shuffle = libxs_coprime2(count);
   size_t i = 0;
-  if (typesize < 128) {
+  if (elemsize < 128) {
     unsigned char *const inout = (unsigned char*)data;
-    for (; i < count; ++i) LIBXS_MEMSWP127(inout + ((shuffle * i) % count) * typesize, inout + i * typesize, typesize);
+    for (; i < count; ++i) LIBXS_MEMSWP127(inout + ((shuffle * i) % count) * elemsize, inout + i * elemsize, elemsize);
   }
   else {
     for (; i < count; ++i) {
-      unsigned char *const dst = (unsigned char*)data + typesize * ((shuffle * i) % count);
-      unsigned char *const src = (unsigned char*)data + typesize * i;
+      unsigned char *const dst = (unsigned char*)data + elemsize * ((shuffle * i) % count);
+      unsigned char *const src = (unsigned char*)data + elemsize * i;
       size_t j = 0;
-      for (; j < typesize; ++j) LIBXS_ISWAP(dst[j], src[j]);
+      for (; j < elemsize; ++j) LIBXS_ISWAP(dst[j], src[j]);
     }
   }
 }
 
 
-LIBXS_API void libxs_shuffle2(void* dst, const void* src, size_t typesize, size_t count)
+LIBXS_API void libxs_shuffle2(void* dst, const void* src, size_t elemsize, size_t count)
 {
   if (src != dst) {
     const size_t shuffle = libxs_coprime2(count);
     const char *const inp = (const char*)src;
     char *const out = (char*)dst;
     size_t i = 0;
-    if (typesize < 128) {
-      for (; i < count; ++i) LIBXS_MEMCPY127(out + typesize * ((shuffle * i) % count), inp + typesize * i, typesize);
+    if (elemsize < 128) {
+      for (; i < count; ++i) LIBXS_MEMCPY127(out + elemsize * ((shuffle * i) % count), inp + elemsize * i, elemsize);
     }
     else {
-      for (; i < count; ++i) memcpy(out + typesize * ((shuffle * i) % count), inp + typesize * i, typesize);
+      for (; i < count; ++i) memcpy(out + elemsize * ((shuffle * i) % count), inp + elemsize * i, elemsize);
     }
   }
   else {
-    libxs_shuffle(dst, typesize, count);
+    libxs_shuffle(dst, elemsize, count);
   }
 }
 
