@@ -11,41 +11,41 @@
 
 #include "libxs_macros.h"
 
-#define LIBXS_MEM127_LOOP(DST, SRC, SIZE, OP, NTS) do { \
+#define LIBXS_MEM127_LOOP(DST, SRC, SIZE, RHS, NTS) do { \
   const signed char libxs_memory127_loop_size_ = LIBXS_CAST_ICHAR(SIZE); \
-  signed char libxs_memory127_loop_i_; \
-  NTS(DST) LIBXS_PRAGMA_UNROLL \
-  for (libxs_memory127_loop_i_ = 0; \
-    libxs_memory127_loop_i_ < libxs_memory127_loop_size_; \
+  unsigned char *const LIBXS_RESTRICT libxs_memory127_loop_dst_ = (unsigned char*)(DST); \
+  signed char libxs_memory127_loop_i_ = 0; \
+  NTS(libxs_memory127_loop_dst_) LIBXS_PRAGMA_UNROLL \
+  for (; libxs_memory127_loop_i_ < libxs_memory127_loop_size_; \
     ++libxs_memory127_loop_i_) \
   { \
-    OP(DST, SRC, libxs_memory127_loop_i_); \
+    RHS(unsigned char, libxs_memory127_loop_dst_, SRC, libxs_memory127_loop_i_); \
   } \
 } while(0)
 #define LIBXS_MEM127_NTS(...)
 
-#define LIBXS_MEMSET127_OP(DST, SRC, IDX) \
-  (((unsigned char*)(DST))[IDX] = (unsigned char)(SRC))
+#define LIBXS_MEMSET127_RHS(TYPE, DST, SRC, IDX) \
+  ((DST)[IDX] = (TYPE)(SRC))
 #define LIBXS_MEMSET127(DST, SRC, SIZE) \
   LIBXS_MEM127_LOOP(DST, SRC, SIZE, \
-  LIBXS_MEMSET127_OP, LIBXS_MEM127_NTS)
+  LIBXS_MEMSET127_RHS, LIBXS_MEM127_NTS)
 #define LIBXS_MEMZERO127(DST) LIBXS_MEMSET127(DST, 0, sizeof(*(DST)))
 
-#define LIBXS_MEMCPY127_OP(DST, SRC, IDX) \
-  (((unsigned char*)(DST))[IDX] = ((const unsigned char*)(SRC))[IDX])
+#define LIBXS_MEMCPY127_RHS(TYPE, DST, SRC, IDX) \
+  ((DST)[IDX] = ((const TYPE *LIBXS_RESTRICT)(SRC))[IDX])
 #define LIBXS_MEMCPY127(DST, SRC, SIZE) \
   LIBXS_MEM127_LOOP(DST, SRC, SIZE, \
-  LIBXS_MEMCPY127_OP, LIBXS_MEM127_NTS)
+  LIBXS_MEMCPY127_RHS, LIBXS_MEM127_NTS)
 #define LIBXS_ASSIGN127(DST, SRC) do { \
   LIBXS_ASSERT(sizeof(*(SRC)) <= sizeof(*(DST))); \
   LIBXS_MEMCPY127(DST, SRC, sizeof(*(SRC))); \
 } while(0)
 
-#define LIBXS_MEMSWP127_OP(DST, SRC, IDX) \
-  LIBXS_ISWAP(((unsigned char*)(DST))[IDX], ((unsigned char*)(SRC))[IDX])
+#define LIBXS_MEMSWP127_RHS(TYPE, DST, SRC, IDX) \
+  LIBXS_ISWAP((DST)[IDX], ((TYPE *LIBXS_RESTRICT)(SRC))[IDX])
 #define LIBXS_MEMSWP127(DST, SRC, SIZE) \
   LIBXS_MEM127_LOOP(DST, SRC, SIZE, \
-  LIBXS_MEMSWP127_OP, LIBXS_MEM127_NTS)
+  LIBXS_MEMSWP127_RHS, LIBXS_MEM127_NTS)
 
 
 /**
