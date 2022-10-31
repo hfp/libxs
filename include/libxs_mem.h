@@ -14,9 +14,9 @@
 #define LIBXS_MEM127_LOOP(DST, SRC, SIZE, RHS, NTS) do { \
   const signed char libxs_memory127_loop_size_ = LIBXS_CAST_ICHAR(SIZE); \
   unsigned char *const LIBXS_RESTRICT libxs_memory127_loop_dst_ = (unsigned char*)(DST); \
-  signed char libxs_memory127_loop_i_ = 0; \
+  signed char libxs_memory127_loop_i_; \
   NTS(libxs_memory127_loop_dst_) LIBXS_PRAGMA_UNROLL \
-  for (; libxs_memory127_loop_i_ < libxs_memory127_loop_size_; \
+  for (libxs_memory127_loop_i_ = 0; libxs_memory127_loop_i_ < libxs_memory127_loop_size_; \
     ++libxs_memory127_loop_i_) \
   { \
     RHS(unsigned char, libxs_memory127_loop_dst_, SRC, libxs_memory127_loop_i_); \
@@ -88,10 +88,10 @@ LIBXS_API const char* libxs_stristr(const char a[], const char b[]);
  */
 LIBXS_API int libxs_print_cmdline(FILE* stream, const char* prefix, const char* postfix);
 
-/** In-place shuffling of data given by elemsize and count. */
+/** In-place shuffling of data (bijective) given by elemsize and count. */
 LIBXS_API void libxs_shuffle(void* data, size_t elemsize, size_t count);
 
-/** Out-of-place shuffling of data given by elemsize and count. */
+/** Out-of-place shuffling of data (bijective) given by elemsize and count. */
 LIBXS_API void libxs_shuffle2(void* dst, const void* src, size_t elemsize, size_t count);
 
 #endif /*LIBXS_MEM_H*/
