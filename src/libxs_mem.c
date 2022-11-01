@@ -551,49 +551,67 @@ LIBXS_API int libxs_print_cmdline(FILE* stream, const char* prefix, const char* 
 }
 
 
-LIBXS_API void libxs_shuffle(void* data, size_t elemsize, size_t count)
+LIBXS_API void libxs_shuffle(void* dst, const void* src, size_t elemsize, size_t count)
 {
-  unsigned char *const LIBXS_RESTRICT inout = (unsigned char*)data;
-  const size_t shuffle = libxs_coprime2(count);
-  size_t i = 0;
-  if (elemsize < 128) {
-    for (; i < count; ++i) {
-      size_t j = (shuffle * i) % count;
-      if (i > j) {
-        LIBXS_MEMSWP127(inout + elemsize * j, inout + elemsize * i, elemsize);
-      }
-    }
-  }
-  else {
-    for (; i < count; ++i) {
-      size_t j = (shuffle * i) % count;
-      if (i > j) {
-        unsigned char *const LIBXS_RESTRICT a = inout + elemsize * j;
-        unsigned char *const LIBXS_RESTRICT b = inout + elemsize * i;
-        for (j = 0; j < elemsize; ++j) LIBXS_ISWAP(a[j], b[j]);
-      }
-    }
-  }
-}
-
-
-LIBXS_API void libxs_shuffle2(void* dst, const void* src, size_t elemsize, size_t count)
-{
-  if (src != dst) {
+  const unsigned char *const LIBXS_RESTRICT inp = (const unsigned char*)src;
+  unsigned char *const LIBXS_RESTRICT out = (unsigned char*)dst;
+  const size_t size = elemsize * count;
+#if !defined(NDEBUG)
+  static int error_once = 0;
+  if (NULL != inp && NULL != out && ((out + size) <= inp || (inp + size) <= out))
+#endif
+  {
     const size_t shuffle = libxs_coprime2(count);
-    const char *const LIBXS_RESTRICT inp = (const char*)src;
-    char *const LIBXS_RESTRICT out = (char*)dst;
-    size_t i = 0;
+    size_t i = 0, j = 1;
     if (elemsize < 128) {
-      for (; i < count; ++i) LIBXS_MEMCPY127(out + elemsize * i, inp + elemsize * ((shuffle * i) % count), elemsize);
+      switch (elemsize) {
+        case 8: {
+          for (; i < size; i += elemsize, j += shuffle) {
+            if (count < j) j -= count;
+            *(unsigned long long*)(out + i) = *(const unsigned long long*)(inp + size - elemsize * j);
+          }
+        } break;
+        case 4: {
+          for (; i < size; i += elemsize, j += shuffle) {
+            if (count < j) j -= count;
+            *(unsigned int*)(out + i) = *(const unsigned int*)(inp + size - elemsize * j);
+          }
+        } break;
+        case 2: {
+          for (; i < size; i += elemsize, j += shuffle) {
+            if (count < j) j -= count;
+            *(unsigned short*)(out + i) = *(const unsigned short*)(inp + size - elemsize * j);
+          }
+        } break;
+        case 1: {
+          for (; i < size; i += elemsize, j += shuffle) {
+            if (count < j) j -= count;
+            out[i] = inp[size-elemsize*j];
+          }
+        } break;
+        default: {
+          for (; i < size; i += elemsize, j += shuffle) {
+            if (count < j) j -= count;
+            LIBXS_MEMCPY127(out + i, inp + size - elemsize * j, elemsize);
+          }
+        }
+      }
     }
     else {
-      for (; i < count; ++i) memcpy(out + elemsize * i, inp + elemsize * ((shuffle * i) % count), elemsize);
+      for (; i < size; i += elemsize, j += shuffle) {
+        if (count < j) j -= count;
+        memcpy(out + i, inp + size - elemsize * j, elemsize);
+      }
     }
   }
-  else {
-    libxs_shuffle(dst, elemsize, count);
+#if !defined(NDEBUG)
+  else if (1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED)) {
+    LIBXS_INIT
+    if (0 != libxs_verbosity) { /* library code is expected to be mute */
+      fprintf(stderr, "LIBXS ERROR: invalid arguments for libxs_shuffle specified!\n");
+    }
   }
+#endif
 }
 
 
@@ -611,10 +629,11 @@ LIBXS_API void LIBXS_FSYMBOL(libxs_xhash)(int* hash_seed, const void* data, cons
     *hash_seed = (int)(libxs_hash(data, (unsigned int)*size, (unsigned int)*hash_seed) & 0x7FFFFFFF/*sign-bit*/);
   }
 #if !defined(NDEBUG)
-  else if (0 != libxs_verbosity /* library code is expected to be mute */
-    && 1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED))
-  {
-    fprintf(stderr, "LIBXS ERROR: invalid arguments for libxs_xhash specified!\n");
+  else if (1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED)) {
+    LIBXS_INIT
+    if (0 != libxs_verbosity) { /* library code is expected to be mute */
+      fprintf(stderr, "LIBXS ERROR: invalid arguments for libxs_xhash specified!\n");
+    }
   }
 #endif
 }
@@ -632,10 +651,11 @@ LIBXS_API void LIBXS_FSYMBOL(libxs_xdiff)(int* result, const void* a, const void
     *result = libxs_memcmp(a, b, (size_t)*size);
   }
 #if !defined(NDEBUG)
-  else if (0 != libxs_verbosity /* library code is expected to be mute */
-    && 1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED))
-  {
-    fprintf(stderr, "LIBXS ERROR: invalid arguments for libxs_xdiff specified!\n");
+  else if (1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED)) {
+    LIBXS_INIT
+    if (0 != libxs_verbosity) { /* library code is expected to be mute */
+      fprintf(stderr, "LIBXS ERROR: invalid arguments for libxs_xdiff specified!\n");
+    }
   }
 #endif
 }
@@ -653,10 +673,11 @@ LIBXS_API void LIBXS_FSYMBOL(libxs_xclear)(void* dst, const int* size)
     LIBXS_MEMSET127(dst, 0, s);
   }
 #if !defined(NDEBUG)
-  else if (0 != libxs_verbosity /* library code is expected to be mute */
-    && 1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED))
-  {
-    fprintf(stderr, "LIBXS ERROR: invalid arguments for libxs_xclear specified!\n");
+  else if (1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED)) {
+    LIBXS_INIT
+    if (0 != libxs_verbosity) { /* library code is expected to be mute */
+      fprintf(stderr, "LIBXS ERROR: invalid arguments for libxs_xclear specified!\n");
+    }
   }
 #endif
 }
@@ -674,10 +695,11 @@ LIBXS_API void LIBXS_FSYMBOL(libxs_aligned)(int* result, const void* ptr, const 
     *result = libxs_aligned(ptr, &next, alignment);
   }
 #if !defined(NDEBUG)
-  else if (0 != libxs_verbosity /* library code is expected to be mute */
-    && 1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED))
-  {
-    fprintf(stderr, "LIBXS ERROR: invalid arguments for libxs_aligned specified!\n");
+  else if (1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED)) {
+    LIBXS_INIT
+    if (0 != libxs_verbosity) { /* library code is expected to be mute */
+      fprintf(stderr, "LIBXS ERROR: invalid arguments for libxs_aligned specified!\n");
+    }
   }
 #endif
 }
