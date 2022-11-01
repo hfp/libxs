@@ -88,10 +88,7 @@ LIBXS_API const char* libxs_stristr(const char a[], const char b[]);
  */
 LIBXS_API int libxs_print_cmdline(FILE* stream, const char* prefix, const char* postfix);
 
-/** In-place shuffling of data (bijective) given by elemsize and count. */
-LIBXS_API void libxs_shuffle(void* data, size_t elemsize, size_t count);
-
-/** Out-of-place shuffling of data (bijective) given by elemsize and count. */
-LIBXS_API void libxs_shuffle2(void* dst, const void* src, size_t elemsize, size_t count);
+/** Out-of-place shuffling of data given by elemsize and count. */
+LIBXS_API void libxs_shuffle(void* dst, const void* src, size_t elemsize, size_t count);
 
 #endif /*LIBXS_MEM_H*/

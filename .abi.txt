@@ -327,7 +327,6 @@ libxs_sgemm3
 libxs_sgemm_
 libxs_sgemm_descriptor_init
 libxs_shuffle
-libxs_shuffle2
 libxs_sink
 libxs_smmavailable
 libxs_smmcall
