@@ -81,7 +81,16 @@ LIBXS_API unsigned long long libxs_hash_string(const char string[]);
 /** Return the pointer to the 1st match of "b" in "a", or NULL (no match). */
 LIBXS_API const char* libxs_stristr(const char a[], const char b[]);
 
+/** Determines the number of calls to restore the original data (libxs_shuffle). */
+LIBXS_API size_t libxs_unshuffle(size_t count,
+  /* Shall be coprime to count (libxs_coprime2(count) if NULL). */
+  const size_t* shuffle);
+
 /** Out-of-place shuffling of data given by elemsize and count. */
-LIBXS_API void libxs_shuffle(void* dst, const void* src, size_t elemsize, size_t count);
+LIBXS_API void libxs_shuffle(void* dst, const void* src, size_t elemsize, size_t count,
+  /* Shall be coprime to count (libxs_coprime2(count) if NULL). */
+  const size_t* shuffle,
+  /* If NULL, the default value is one. */
+  const size_t* nrepeat);
 
 #endif /*LIBXS_MEM_H*/
