@@ -348,6 +348,7 @@ LIBXS_API size_t libxs_coprime2(size_t n)
     }
   }
   assert((0 == result && 1 >= n) || (result < n && 1 == libxs_gcd(result, n)));
+  assert(result <= (n / 2));
   return result;
 }
 
