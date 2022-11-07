@@ -81,13 +81,6 @@ LIBXS_API unsigned long long libxs_hash_string(const char string[]);
 /** Return the pointer to the 1st match of "b" in "a", or NULL (no match). */
 LIBXS_API const char* libxs_stristr(const char a[], const char b[]);
 
-/**
- * Print the command line arguments of the current process, and get the number of written
- * characters including the prefix, the postfix, but not the terminating NULL character.
- * If zero is returned, nothing was printed (no prefix, no postfix).
- */
-LIBXS_API int libxs_print_cmdline(FILE* stream, const char* prefix, const char* postfix);
-
 /** Out-of-place shuffling of data given by elemsize and count. */
 LIBXS_API void libxs_shuffle(void* dst, const void* src, size_t elemsize, size_t count);
 

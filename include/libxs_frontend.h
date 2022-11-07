@@ -492,6 +492,13 @@
 #define LIBXS_MATRNG_OMP(TYPE, SEED, DST, NROWS, NCOLS, LD, SCALE) \
   LIBXS_MATRNG_AUX(LIBXS_PRAGMA_OMP, TYPE, SEED, DST, NROWS, NCOLS, LD, SCALE)
 
+/**
+ * Print the command line arguments of the current process, and get the number of written
+ * characters including the prefix, the postfix, but not the terminating NULL character.
+ * If zero is returned, nothing was printed (no prefix, no postfix).
+ */
+LIBXS_API int libxs_print_cmdline(FILE* stream, const char* prefix, const char* postfix);
+
 /** Call libxs_gemm_print using LIBXS's GEMM-flags. */
 #define LIBXS_GEMM_PRINT(OSTREAM, PRECISION, FLAGS, M, N, K, DALPHA, A, LDA, B, LDB, DBETA, C, LDC) \
   LIBXS_GEMM_PRINT2(OSTREAM, PRECISION, PRECISION, FLAGS, M, N, K, DALPHA, A, LDA, B, LDB, DBETA, C, LDC)
