@@ -350,6 +350,7 @@ libxs_trace_info
 libxs_trace_init
 libxs_truncate_convert_f32_bf16
 libxs_typesize
+libxs_unshuffle
 libxs_wigemm_descriptor_init
 libxs_xclear_
 libxs_xdiff_
