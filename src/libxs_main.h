@@ -357,8 +357,8 @@ typedef enum libxs_build_kind {
 typedef uint64_t libxs_descriptor_kind;
 #else
 # define LIBXS_DESCRIPTOR_BIG(KIND) ((libxs_descriptor_kind)((KIND) | 0x80))
-# define LIBXS_DESCRIPTOR_ISBIG(KIND) ((int)((KIND) >> 7))
-# define LIBXS_DESCRIPTOR_KIND(KIND) ((int)((KIND) & 0x7F))
+# define LIBXS_DESCRIPTOR_ISBIG(KIND) ((unsigned char)((KIND) >> 7))
+# define LIBXS_DESCRIPTOR_KIND(KIND) ((unsigned char)((KIND) & 0x7F))
 typedef unsigned char libxs_descriptor_kind;
 #endif
 

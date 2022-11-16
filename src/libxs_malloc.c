@@ -709,10 +709,11 @@ LIBXS_API_INTERN void internal_scratch_malloc(void** memory, size_t size, size_t
           if (req_size <= pool_size) { /* fast path: draw from pool-buffer */
 # if (0 != LIBXS_SYNC) && defined(LIBXS_MALLOC_SCRATCH_JOIN)
             void *const headaddr = &pool->instance.head;
-            char *const head = (0 == internal_malloc_join
-              ? (pool->instance.head += alloc_size)
-              : ((char*)LIBXS_ATOMIC(LIBXS_ATOMIC_ADD_FETCH, LIBXS_BITS)(
+            const uintptr_t headint = (0 == internal_malloc_join
+              ? (uintptr_t)(pool->instance.head += alloc_size)
+              : (LIBXS_ATOMIC(LIBXS_ATOMIC_ADD_FETCH, LIBXS_BITS)(
                 (uintptr_t*)headaddr, alloc_size, LIBXS_ATOMIC_SEQ_CST)));
+            char *const head = (char*)headint;
 # else
             char *const head = (char*)(pool->instance.head += alloc_size);
 # endif
