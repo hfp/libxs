@@ -204,14 +204,14 @@ int main(int argc, char* argv[])
     const size_t c[] = { 0, 1,  8,  64,  64, 128, 128 };
     const int n = sizeof(a) / sizeof(*a);
     for (i = 0; i < n; ++i) {
-      if (LIBXS_UP2POT(a[i]) != b[i]) exit(EXIT_FAILURE);
-      if (LIBXS_LO2POT(a[i]) != c[i]) exit(EXIT_FAILURE);
-      if (LIBXS_ISPOT(a[i]) != (0 != a[i] && a[i] == LIBXS_UP2POT(a[i]))) exit(EXIT_FAILURE);
-      if (LIBXS_ISPOT(a[i]) != (0 != a[i] && a[i] == LIBXS_LO2POT(a[i]))) exit(EXIT_FAILURE);
-      if (LIBXS_ISPOT(b[i]) != (0 != b[i] && b[i] == LIBXS_UP2POT(b[i]))) exit(EXIT_FAILURE);
-      if (LIBXS_ISPOT(b[i]) != (0 != b[i] && b[i] == LIBXS_LO2POT(b[i]))) exit(EXIT_FAILURE);
-      if (LIBXS_ISPOT(c[i]) != (0 != c[i] && c[i] == LIBXS_UP2POT(c[i]))) exit(EXIT_FAILURE);
-      if (LIBXS_ISPOT(c[i]) != (0 != c[i] && c[i] == LIBXS_LO2POT(c[i]))) exit(EXIT_FAILURE);
+      if ((size_t)LIBXS_UP2POT(a[i]) != b[i]) exit(EXIT_FAILURE);
+      if ((size_t)LIBXS_LO2POT(a[i]) != c[i]) exit(EXIT_FAILURE);
+      if (LIBXS_ISPOT(a[i]) != (0 != a[i] && a[i] == (size_t)LIBXS_UP2POT(a[i]))) exit(EXIT_FAILURE);
+      if (LIBXS_ISPOT(a[i]) != (0 != a[i] && a[i] == (size_t)LIBXS_LO2POT(a[i]))) exit(EXIT_FAILURE);
+      if (LIBXS_ISPOT(b[i]) != (0 != b[i] && b[i] == (size_t)LIBXS_UP2POT(b[i]))) exit(EXIT_FAILURE);
+      if (LIBXS_ISPOT(b[i]) != (0 != b[i] && b[i] == (size_t)LIBXS_LO2POT(b[i]))) exit(EXIT_FAILURE);
+      if (LIBXS_ISPOT(c[i]) != (0 != c[i] && c[i] == (size_t)LIBXS_UP2POT(c[i]))) exit(EXIT_FAILURE);
+      if (LIBXS_ISPOT(c[i]) != (0 != c[i] && c[i] == (size_t)LIBXS_LO2POT(c[i]))) exit(EXIT_FAILURE);
     }
   }
 
