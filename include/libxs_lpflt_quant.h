@@ -34,7 +34,7 @@
 #define LIBXS_QUANT_FPHW_ROUND     80004
 
 /** some quantization helper functions,
-    @TODO need to be integrated better for all different ways of quantizations */
+    TODO: need to be integrated better for all different ways of quantizations */
 LIBXS_API void libxs_quantize_i16( float* in_buffer, short* out_buffer, int length, unsigned char add_shift, unsigned char* scf, int round_mode );
 LIBXS_API void libxs_dequantize_i16( short* in_buffer, float* out_buffer, int length, unsigned char scf );
 
