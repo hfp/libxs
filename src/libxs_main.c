@@ -3012,7 +3012,7 @@ LIBXS_API libxs_xmmfunction libxs_xmmdispatch(const libxs_gemm_descriptor* descr
     LIBXS_MEMZERO127(&wrap);
 #endif
     LIBXS_ASSIGN127(&wrap.gemm.desc, descriptor);
-    /* @TODO fix this code for the 3 kernel types we have
+    /* TODO: fix this code for the 3 kernel types we have
      * right now XGEMM ABI and BRGEMM go to 96 byte */
     wrap.kind = (libxs_descriptor_kind)(descriptor->flags < LIBXS_GEMM_FLAG_DESC_ISBIG
       ? ((libxs_descriptor_kind)LIBXS_KERNEL_KIND_MATMUL)
@@ -3046,7 +3046,7 @@ LIBXS_API libxs_gemmfunction libxs_dispatch_gemm_v2( const libxs_gemm_shape gemm
   libxs_xmmfunction result;
   libxs_gemm_descriptor *desc = NULL;
 
-  /* @TODO some checks */
+  /* TODO: some checks */
   if ( gemm_shape.a_in_type != gemm_shape.b_in_type ) {
     return NULL;
   }
@@ -3075,7 +3075,7 @@ LIBXS_API libxs_gemmfunction libxs_dispatch_brgemm_v2( const libxs_gemm_shape ge
   libxs_xmmfunction result;
   libxs_gemm_descriptor *desc = NULL;
 
-  /* @TODO some checks */
+  /* TODO: some checks */
   if ( gemm_shape.a_in_type != gemm_shape.b_in_type ) {
     return NULL;
   }
@@ -3128,7 +3128,7 @@ LIBXS_API libxs_gemmfunction_ext libxs_dispatch_brgemm_ext_v2( const libxs_gemm_
   libxs_xmmfunction result;
   libxs_gemm_descriptor *desc = NULL;
 
-  /* @TODO some checks */
+  /* TODO: some checks */
   if ( gemm_shape.a_in_type != gemm_shape.b_in_type ) {
     return NULL;
   }
@@ -3454,7 +3454,7 @@ LIBXS_API libxs_gemmfunction libxs_create_packed_spgemm_csr_v2(
   libxs_code_pointer result = { 0 };
   LIBXS_INIT
 
-  /* @TODO some checks */
+  /* TODO: some checks */
   if ( gemm_shape.a_in_type != gemm_shape.b_in_type ) {
     return NULL;
   }
@@ -3497,7 +3497,7 @@ LIBXS_API libxs_gemmfunction libxs_create_packed_spgemm_csc_v2(
   libxs_code_pointer result = { 0 };
   LIBXS_INIT
 
-  /* @TODO some checks */
+  /* TODO: some checks */
   if ( gemm_shape.a_in_type != gemm_shape.b_in_type ) {
     return NULL;
   }
@@ -3539,7 +3539,7 @@ LIBXS_API libxs_gemmfunction libxs_create_packed_gemm_ac_rm_v2( const libxs_gemm
   libxs_code_pointer result = { 0 };
   LIBXS_INIT
 
-  /* @TODO some checks */
+  /* TODO: some checks */
   if ( gemm_shape.a_in_type != gemm_shape.b_in_type ) {
     return NULL;
   }
@@ -3575,7 +3575,7 @@ LIBXS_API libxs_gemmfunction libxs_create_packed_gemm_bc_rm_v2( const libxs_gemm
   libxs_code_pointer result = { 0 };
   LIBXS_INIT
 
-  /* @TODO some checks */
+  /* TODO: some checks */
   if ( gemm_shape.a_in_type != gemm_shape.b_in_type ) {
     return NULL;
   }
@@ -3612,7 +3612,7 @@ LIBXS_API libxs_gemmfunction libxs_create_spgemm_csr_areg_v2( const libxs_gemm_s
   libxs_code_pointer result = { 0 };
   LIBXS_INIT
 
-  /* @TODO some checks */
+  /* TODO: some checks */
   if ( gemm_shape.a_in_type != gemm_shape.b_in_type ) {
     return NULL;
   }
@@ -3911,11 +3911,11 @@ LIBXS_API void LIBXS_FSYMBOL(libxs_xmmcall_prf)(
     if (NULL != fn->xmm)
 #endif
     {
-      /* @TODO fix prefetch */
+      /* TODO: fix prefetch */
       LIBXS_UNUSED( pa );
       LIBXS_UNUSED( pb );
       LIBXS_UNUSED( pc );
-      fn->xmm(a, b, c/*, pa, pb, pc*/); /* @TODO fix prefetch */
+      fn->xmm(a, b, c/*, pa, pb, pc*/); /* TODO: fix prefetch */
     }
 #if !defined(NDEBUG)
     else if (0 != libxs_verbosity /* library code is expected to be mute */
