@@ -230,7 +230,7 @@ LIBXS_EXTERN_C typedef struct iJIT_Method_Load_V2 {
 #if defined(LIBXS_MALLOC_HOOK) && defined(LIBXS_MALLOC) && (0 != LIBXS_MALLOC)
 # define INTERNAL_MEMALIGN_HOOK(RESULT, FLAGS, ALIGNMENT, SIZE, CALLER) do { \
     const int internal_memalign_hook_recursive_ = LIBXS_ATOMIC_ADD_FETCH( \
-      &internal_malloc_recursive, 1, LIBXS_ATOMIC_RELAXED); \
+      &internal_malloc_recursive, 1, LIBXS_ATOMIC_SEQ_CST); \
     if ( 1 < internal_memalign_hook_recursive_ /* protect against recursion */ \
       || 0 == (internal_malloc_kind & 1) || 0 >= internal_malloc_kind \
       || (internal_malloc_limit[0] > (SIZE)) \
@@ -248,11 +248,11 @@ LIBXS_EXTERN_C typedef struct iJIT_Method_Load_V2 {
         internal_scratch_malloc(&(RESULT), SIZE, ALIGNMENT, FLAGS, CALLER); \
       } \
     } \
-    LIBXS_ATOMIC_SUB_FETCH(&internal_malloc_recursive, 1, LIBXS_ATOMIC_RELAXED); \
+    LIBXS_ATOMIC_SUB_FETCH(&internal_malloc_recursive, 1, LIBXS_ATOMIC_SEQ_CST); \
   } while(0)
 # define INTERNAL_REALLOC_HOOK(RESULT, FLAGS, PTR, SIZE, CALLER) \
   if (0 == (internal_malloc_kind & 1) || 0 >= internal_malloc_kind \
-    /*|| (0 != LIBXS_ATOMIC_LOAD(&internal_malloc_recursive, LIBXS_ATOMIC_RELAXED))*/ \
+    /*|| (0 != LIBXS_ATOMIC_LOAD(&internal_malloc_recursive, LIBXS_ATOMIC_SEQ_CST))*/ \
     || (internal_malloc_limit[0] > (SIZE)) \
     || (internal_malloc_limit[1] < (SIZE) && 0 != internal_malloc_limit[1])) \
   { \
@@ -273,7 +273,7 @@ LIBXS_EXTERN_C typedef struct iJIT_Method_Load_V2 {
 # define INTERNAL_FREE_HOOK(PTR, CALLER) do { \
     LIBXS_UNUSED(CALLER); \
     if (0 == (internal_malloc_kind & 1) || 0 >= internal_malloc_kind \
-      /*|| (0 != LIBXS_ATOMIC_LOAD(&internal_malloc_recursive, LIBXS_ATOMIC_RELAXED))*/ \
+      /*|| (0 != LIBXS_ATOMIC_LOAD(&internal_malloc_recursive, LIBXS_ATOMIC_SEQ_CST))*/ \
     ) { \
       INTERNAL_FREE_REAL(PTR); \
     } \
@@ -2674,9 +2674,9 @@ LIBXS_API void libxs_pmalloc_init(size_t size, size_t* num, void* pool[], void* 
   LIBXS_ASSERT(0 < size && NULL != num && NULL != pool && NULL != storage);
   LIBXS_INIT /* CRC-facility must be initialized upfront */
   lock = internal_pmallocs + LIBXS_MOD2(LIBXS_CRCPTR(LIBXS_MALLOC_SEED, pool), LIBXS_MALLOC_NLOCKS);
-  LIBXS_ATOMIC_ACQUIRE(lock, LIBXS_SYNC_NPAUSE, LIBXS_ATOMIC_RELAXED);
+  LIBXS_ATOMIC_ACQUIRE(lock, LIBXS_SYNC_NPAUSE, LIBXS_ATOMIC_SEQ_CST);
   for (n = *num; i < n; ++i, p += size) pool[i] = p;
-  LIBXS_ATOMIC_RELEASE(lock, LIBXS_ATOMIC_RELAXED);
+  LIBXS_ATOMIC_RELEASE(lock, LIBXS_ATOMIC_SEQ_CST);
 }
 
 
@@ -2686,13 +2686,13 @@ LIBXS_API void* libxs_pmalloc(void* pool[], size_t* i)
   volatile int *const lock = internal_pmallocs + LIBXS_MOD2(hash, LIBXS_MALLOC_NLOCKS);
   void* pointer;
   LIBXS_ASSERT(NULL != pool && NULL != i);
-  LIBXS_ATOMIC_ACQUIRE(lock, LIBXS_SYNC_NPAUSE, LIBXS_ATOMIC_RELAXED);
+  LIBXS_ATOMIC_ACQUIRE(lock, LIBXS_SYNC_NPAUSE, LIBXS_ATOMIC_SEQ_CST);
   assert(0 < *i && ((size_t)-1) != *i); /* !LIBXS_ASSERT */
   pointer = pool[--(*i)];
 #if !defined(NDEBUG)
   pool[*i] = NULL;
 #endif
-  LIBXS_ATOMIC_RELEASE(lock, LIBXS_ATOMIC_RELAXED);
+  LIBXS_ATOMIC_RELEASE(lock, LIBXS_ATOMIC_SEQ_CST);
   LIBXS_ASSERT(NULL != pointer);
   return pointer;
 }
@@ -2703,8 +2703,8 @@ LIBXS_API void libxs_pfree(void* pointer, void* pool[], size_t* i)
   const unsigned int hash = LIBXS_CRCPTR(LIBXS_MALLOC_SEED, pool);
   volatile int *const lock = internal_pmallocs + LIBXS_MOD2(hash, LIBXS_MALLOC_NLOCKS);
   LIBXS_ASSERT(NULL != pointer && NULL != pool && NULL != i);
-  LIBXS_ATOMIC_ACQUIRE(lock, LIBXS_SYNC_NPAUSE, LIBXS_ATOMIC_RELAXED);
+  LIBXS_ATOMIC_ACQUIRE(lock, LIBXS_SYNC_NPAUSE, LIBXS_ATOMIC_SEQ_CST);
   assert(NULL == pool[*i]); /* !LIBXS_ASSERT */
   pool[(*i)++] = pointer;
-  LIBXS_ATOMIC_RELEASE(lock, LIBXS_ATOMIC_RELAXED);
+  LIBXS_ATOMIC_RELEASE(lock, LIBXS_ATOMIC_SEQ_CST);
 }

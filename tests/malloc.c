@@ -33,7 +33,7 @@ int main(void)
 {
   const size_t size_malloc = 2507, alignment = (2U << 20);
   libxs_malloc_info malloc_info;
-  int avalue, nerrors = 0, n;
+  int avalue, nerrors = 0;
 #if defined(CHECK_SCRATCH)
   const size_t size_scratch = (24U << 20);
   void *q, *r;
@@ -136,6 +136,7 @@ int main(void)
   if (NULL != s) { /* reallocate larger amount of memory */
     unsigned char* c = (unsigned char*)s;
     size_t i;
+    int n;
     avalue = 1 << LIBXS_INTRINSICS_BITSCANFWD64((uintptr_t)s);
     for (i = 0; i < size_malloc; ++i) c[i] = (unsigned char)LIBXS_MOD2(i, 256);
     s = libxs_realloc(size_malloc * 2, s);
@@ -249,4 +250,3 @@ int main(void)
     return EXIT_FAILURE;
   }
 }
-
