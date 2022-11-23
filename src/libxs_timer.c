@@ -50,7 +50,7 @@
       __asm__ __volatile__ ("rdtsc" : "=a"(CYCLE), "=d"(libxs_timer_rdtsc_hi_)); \
       CYCLE |= libxs_timer_rdtsc_hi_ << 32; \
     } while(0)
-# elif (defined(_rdtsc) || defined(_WIN32))
+# elif (defined(_rdtsc) || defined(_WIN32)) && defined(LIBXS_PLATFORM_X86)
 #   define LIBXS_TIMER_RDTSC(CYCLE) (CYCLE = __rdtsc())
 # endif
 #endif

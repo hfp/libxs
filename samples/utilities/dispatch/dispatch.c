@@ -18,7 +18,7 @@
 #if defined(_OPENMP)
 # include <omp.h>
 #endif
-#if defined(__MKL)
+#if defined(__MKL) && defined(LIBXS_PLATFORM_X86)
 # include <mkl.h>
 #endif
 #if defined(LIBXS_OFFLOAD_TARGET)
