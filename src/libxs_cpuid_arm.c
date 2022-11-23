@@ -20,48 +20,53 @@
 # pragma offload_attribute(pop)
 #endif
 
-#if !defined(LIBXS_CPUID_ARM_BASELINE) && 0
-# define LIBXS_CPUID_ARM_BASELINE LIBXS_AARCH64_V82
+#if !defined(LIBXS_CPUID_ARM_BASELINE)
+# if defined(__APPLE__) && defined(__arm64__) && 1
+#   define LIBXS_CPUID_ARM_BASELINE LIBXS_AARCH64_APPL_M1
+# elif 0
+#   define LIBXS_CPUID_ARM_BASELINE LIBXS_AARCH64_V82
+# endif
 #endif
 
-#if defined(_MSC_VER)
-# define LIBXS_CPUID_ARM_ENC16(OP0, OP1, CRN, CRM, OP2) ( \
-    (((OP0) & 1) << 14) | \
-    (((OP1) & 7) << 11) | \
-    (((CRN) & 15) << 7) | \
-    (((CRM) & 15) << 3) | \
-    (((OP2) & 7) << 0))
-# define ID_AA64ISAR1_EL1 LIBXS_CPUID_ARM_ENC16(0b11, 0b000, 0b0000, 0b0110, 0b001)
-# define ID_AA64PFR0_EL1  LIBXS_CPUID_ARM_ENC16(0b11, 0b000, 0b0000, 0b0100, 0b000)
-# define LIBXS_CPUID_ARM_MRS(RESULT, ID) RESULT = _ReadStatusReg(ID)
-#else
-# define LIBXS_CPUID_ARM_MRS(RESULT, ID) __asm__ __volatile__( \
-    "mrs %0," LIBXS_STRINGIFY(ID) : "=r"(RESULT))
-# define LIBXS_CPUID_ARM_CNTB(RESULT) __asm__ __volatile__( \
-    "cntb %0" : "=r"(RESULT))
-#endif
-
-
-#if defined(LIBXS_PLATFORM_AARCH64)
+#if defined(LIBXS_PLATFORM_AARCH64) && !defined(LIBXS_CPUID_ARM_BASELINE)
+# if defined(_MSC_VER)
+#   define LIBXS_CPUID_ARM_ENC16(OP0, OP1, CRN, CRM, OP2) ( \
+      (((OP0) & 1) << 14) | \
+      (((OP1) & 7) << 11) | \
+      (((CRN) & 15) << 7) | \
+      (((CRM) & 15) << 3) | \
+      (((OP2) & 7) << 0))
+#   define ID_AA64ISAR1_EL1 LIBXS_CPUID_ARM_ENC16(0b11, 0b000, 0b0000, 0b0110, 0b001)
+#   define ID_AA64PFR0_EL1  LIBXS_CPUID_ARM_ENC16(0b11, 0b000, 0b0000, 0b0100, 0b000)
+#   define LIBXS_CPUID_ARM_MRS(RESULT, ID) RESULT = _ReadStatusReg(ID)
+# else
+#   define LIBXS_CPUID_ARM_MRS(RESULT, ID) __asm__ __volatile__( \
+      "mrs %0," LIBXS_STRINGIFY(ID) : "=r"(RESULT))
+#   define LIBXS_CPUID_ARM_CNTB(RESULT) __asm__ __volatile__( \
+      "cntb %0" : "=r"(RESULT))
+# endif
 LIBXS_APIVAR_DEFINE(jmp_buf internal_cpuid_arm_jmp_buf);
-
 LIBXS_API_INTERN void internal_cpuid_arm_sigill(int /*signum*/);
 LIBXS_API_INTERN void internal_cpuid_arm_sigill(int signum) {
-  void (*const handler)(int) = signal(signum, internal_cpuid_arm_sigill);
+  void (* const handler)(int) = signal(signum, internal_cpuid_arm_sigill);
   LIBXS_ASSERT(SIGILL == signum);
   if (SIG_ERR != handler) longjmp(internal_cpuid_arm_jmp_buf, 1);
 }
 #endif
 
 
-#if defined(LIBXS_PLATFORM_AARCH64) && defined(LIBXS_CPUID_ARM_CNTB)
+#if defined(LIBXS_PLATFORM_AARCH64)
+# if defined(__has_builtin) && __has_builtin(__builtin_sve_svcntb)
+#   define libxs_svcntb __builtin_sve_svcntb
+# elif defined(LIBXS_CPUID_ARM_CNTB)
 LIBXS_API_INTERN int libxs_svcntb(void);
 LIBXS_API_INTERN LIBXS_ATTRIBUTE(target("arch=armv8-a+sve"))
-int libxs_svcntb(void) {
-  int result = 0;
+uint64_t libxs_svcntb(void) {
+  uint64_t result = 0;
   LIBXS_CPUID_ARM_CNTB(result);
   return result;
 }
+# endif
 #endif
 
 
@@ -71,10 +76,9 @@ LIBXS_API int libxs_cpuid_arm(libxs_cpuid_info* info)
 #if defined(LIBXS_PLATFORM_AARCH64)
   if (NULL != info) LIBXS_MEMZERO127(info);
   if (LIBXS_TARGET_ARCH_UNKNOWN == result) { /* avoid redetecting features */
-# if defined(__APPLE__) && defined(__arm64__)
-    /* TODO: integrate Apple specific flow into general flow (below) */
-    result = LIBXS_AARCH64_APPL_M1;
-# elif !defined(LIBXS_CPUID_ARM_BASELINE)
+# if defined(LIBXS_CPUID_ARM_BASELINE)
+    result = LIBXS_CPUID_ARM_BASELINE;
+# else
     void (*const handler)(int) = signal(SIGILL, internal_cpuid_arm_sigill);
     result = LIBXS_AARCH64_V81;
     if (SIG_ERR != handler) {
@@ -111,8 +115,6 @@ LIBXS_API int libxs_cpuid_arm(libxs_cpuid_info* info)
       /* restore original state */
       signal(SIGILL, handler);
     }
-# else
-    result = LIBXS_CPUID_ARM_BASELINE;
 # endif
   }
 #else
