@@ -19,7 +19,8 @@
 #include <cstdio>
 #include <vector>
 #include <cmath>
-#if defined(__MKL) || defined(MKL_DIRECT_CALL_SEQ) || defined(MKL_DIRECT_CALL)
+#if (defined(__MKL) || defined(MKL_DIRECT_CALL_SEQ) || defined(MKL_DIRECT_CALL)) && \
+    (defined(LIBXS_PLATFORM_X86))
 # include <mkl_service.h>
 # include <mkl.h>
 #endif
@@ -92,6 +93,8 @@ int main(int argc, char* argv[])
 #elif (defined(__MKL) || defined(MKL_DIRECT_CALL_SEQ) || defined(MKL_DIRECT_CALL)) && \
       (defined(LIBXS_MKL_VERSION2) && (LIBXS_VERSION2(11, 3) <= LIBXS_MKL_VERSION2))
     /*const*/ int check = 1;
+#else
+    const int check = 0;
 #endif
 
 #if defined(LIBXS_OFFLOAD_TARGET)

@@ -53,7 +53,7 @@
 # define LIBXS_PLATFORM_X86
 #endif
 #if !defined(LIBXS_PLATFORM_AARCH64) && \
-    (defined(__aarch64__) || defined(__arm64__))
+    (defined(__aarch64__) || defined(__arm64__) || defined(_M_ARM64))
 # define LIBXS_PLATFORM_AARCH64
 #endif
 #if !defined(LIBXS_PLATFORM_SUPPORTED)
@@ -66,12 +66,12 @@
 #if !defined(LIBXS_BITS)
 # if  (defined(__SIZEOF_PTRDIFF_T__) && 4 < (__SIZEOF_PTRDIFF_T__)) || \
       (defined(__SIZE_MAX__) && (4294967295U < (__SIZE_MAX__))) || \
+      (defined(__aarch64__) || defined(__arm64__)) || \
       (defined(__x86_64__) && 0 != (__x86_64__)) || \
       (defined(__amd64__) && 0 != (__amd64__)) || \
       (defined(_M_X64) || defined(_M_AMD64)) || \
-      (defined(_WIN64)) || \
-      (defined(__powerpc64)) || \
-      (defined(__aarch64__))
+      (defined(_WIN64) || defined(_M_ARM64)) || \
+      (defined(__powerpc64))
 #   define LIBXS_UNLIMITED 0xFFFFFFFFFFFFFFFF
 #   define LIBXS_BITS 64
 # elif !defined(LIBXS_PLATFORM_FORCE) && defined(NDEBUG)
