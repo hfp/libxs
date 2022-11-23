@@ -58,14 +58,16 @@ LIBXS_API_INTERN void internal_cpuid_arm_sigill(int signum) {
 #if defined(LIBXS_PLATFORM_AARCH64)
 # if defined(__has_builtin) && __has_builtin(__builtin_sve_svcntb)
 #   define libxs_svcntb __builtin_sve_svcntb
-# elif defined(LIBXS_CPUID_ARM_CNTB)
-LIBXS_API_INTERN int libxs_svcntb(void);
+# elif defined(LIBXS_CPUID_ARM_CNTB) && 0
+LIBXS_API_INTERN uint64_t libxs_svcntb(void);
 LIBXS_API_INTERN LIBXS_ATTRIBUTE(target("arch=armv8-a+sve"))
 uint64_t libxs_svcntb(void) {
   uint64_t result = 0;
   LIBXS_CPUID_ARM_CNTB(result);
   return result;
 }
+# else
+#   undef LIBXS_CPUID_ARM_CNTB
 # endif
 #endif
 
