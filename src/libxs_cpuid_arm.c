@@ -20,6 +20,10 @@
 # pragma offload_attribute(pop)
 #endif
 
+#if !defined(LIBXS_CPUID_ARM_BASELINE) && 0
+# define LIBXS_CPUID_ARM_BASELINE LIBXS_AARCH64_V82
+#endif
+
 #if defined(_MSC_VER)
 # define LIBXS_CPUID_ARM_ENC16(OP0, OP1, CRN, CRM, OP2) ( \
     (((OP0) & 1) << 14) | \
@@ -33,6 +37,8 @@
 #else
 # define LIBXS_CPUID_ARM_MRS(RESULT, ID) __asm__ __volatile__( \
     "mrs %0," LIBXS_STRINGIFY(ID) : "=r"(RESULT))
+# define LIBXS_CPUID_ARM_CNTB(RESULT) __asm__ __volatile__( \
+    "cntb %0" : "=r"(RESULT))
 #endif
 
 
@@ -40,11 +46,21 @@
 LIBXS_APIVAR_DEFINE(jmp_buf internal_cpuid_arm_jmp_buf);
 
 LIBXS_API_INTERN void internal_cpuid_arm_sigill(int /*signum*/);
-LIBXS_API_INTERN void internal_cpuid_arm_sigill(int signum)
-{
+LIBXS_API_INTERN void internal_cpuid_arm_sigill(int signum) {
   void (*const handler)(int) = signal(signum, internal_cpuid_arm_sigill);
   LIBXS_ASSERT(SIGILL == signum);
   if (SIG_ERR != handler) longjmp(internal_cpuid_arm_jmp_buf, 1);
+}
+#endif
+
+
+#if defined(LIBXS_PLATFORM_AARCH64) && defined(LIBXS_CPUID_ARM_CNTB)
+LIBXS_API_INTERN int libxs_svcntb(void);
+LIBXS_API_INTERN LIBXS_ATTRIBUTE(target("arch=armv8-a+sve"))
+int libxs_svcntb(void) {
+  int result = 0;
+  LIBXS_CPUID_ARM_CNTB(result);
+  return result;
 }
 #endif
 
@@ -53,39 +69,52 @@ LIBXS_API int libxs_cpuid_arm(libxs_cpuid_info* info)
 {
   static int result = LIBXS_TARGET_ARCH_UNKNOWN;
 #if defined(LIBXS_PLATFORM_AARCH64)
-# if defined(__APPLE__) && defined(__arm64__)
-  /* TODO: integrate Apple specific flow into general flow (below) */
   if (NULL != info) LIBXS_MEMZERO127(info);
-  result = LIBXS_AARCH64_APPL_M1;
-# else
-#if 0
   if (LIBXS_TARGET_ARCH_UNKNOWN == result) { /* avoid redetecting features */
+# if defined(__APPLE__) && defined(__arm64__)
+    /* TODO: integrate Apple specific flow into general flow (below) */
+    result = LIBXS_AARCH64_APPL_M1;
+# elif !defined(LIBXS_CPUID_ARM_BASELINE)
     void (*const handler)(int) = signal(SIGILL, internal_cpuid_arm_sigill);
     result = LIBXS_AARCH64_V81;
     if (SIG_ERR != handler) {
       uint64_t capability; /* 64-bit value */
       if (0 == setjmp(internal_cpuid_arm_jmp_buf)) {
         LIBXS_CPUID_ARM_MRS(capability, ID_AA64ISAR1_EL1);
-        if (0xF & capability) { /* DPB */
+        if (0 != (0xF & capability)) { /* DPB */
           result = LIBXS_AARCH64_V82;
+#   if defined(LIBXS_CPUID_ARM_CNTB)
           if (0 == setjmp(internal_cpuid_arm_jmp_buf)) {
             LIBXS_CPUID_ARM_MRS(capability, ID_AA64PFR0_EL1);
-            if (0xF & (capability >> 32)) { /* SVE */
-              result = LIBXS_AARCH64_A64FX;
+            if (0 != (0xF & (capability >> 32))) { /* SVE */
+              switch (libxs_svcntb()) {
+                case 16: result = LIBXS_AARCH64_SVE128; break;
+                case 32: result = LIBXS_AARCH64_SVE256; break;
+                case 64: /* SVE 512-bit */
+                  result = (1 == (0xF & (capability >> 16))
+                    ? LIBXS_AARCH64_A64FX /* FP16 */
+                    : LIBXS_AARCH64_SVE512);
+                  break;
+#     if defined(NDEBUG)
+                default: ;
+#     else
+                default: if (0 != libxs_verbosity) { /* library code is expected to be mute */
+                  fprintf(stderr, "LIBXS WARNING: libxs_cpuid_arm discovered an unexpected SVE vector length!\n");
+                }
+#     endif
+              }
             }
           }
+#   endif
         }
       }
       /* restore original state */
       signal(SIGILL, handler);
     }
-    if (NULL != info) LIBXS_MEMZERO127(info);
-  }
 # else
-  if (NULL != info) LIBXS_MEMZERO127(info);
-  result = LIBXS_AARCH64_V82;
+    result = LIBXS_CPUID_ARM_BASELINE;
 # endif
-# endif
+  }
 #else
 # if !defined(NDEBUG)
   static int error_once = 0;
