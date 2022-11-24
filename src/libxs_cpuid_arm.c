@@ -23,12 +23,12 @@
 #if !defined(LIBXS_CPUID_ARM_BASELINE)
 # if defined(__APPLE__) && defined(__arm64__) && 1
 #   define LIBXS_CPUID_ARM_BASELINE LIBXS_AARCH64_APPL_M1
-# elif 0
+# elif 1
 #   define LIBXS_CPUID_ARM_BASELINE LIBXS_AARCH64_V82
 # endif
 #endif
 
-#if defined(LIBXS_PLATFORM_AARCH64) && !defined(LIBXS_CPUID_ARM_BASELINE)
+#if defined(LIBXS_PLATFORM_AARCH64)
 # if defined(_MSC_VER)
 #   define LIBXS_CPUID_ARM_ENC16(OP0, OP1, CRN, CRM, OP2) ( \
       (((OP0) & 1) << 14) | \
@@ -38,6 +38,7 @@
       (((OP2) & 7) << 0))
 #   define ID_AA64ISAR1_EL1 LIBXS_CPUID_ARM_ENC16(0b11, 0b000, 0b0000, 0b0110, 0b001)
 #   define ID_AA64PFR0_EL1  LIBXS_CPUID_ARM_ENC16(0b11, 0b000, 0b0000, 0b0100, 0b000)
+#   define MIDR_EL1         LIBXS_CPUID_ARM_ENC16(0b11, 0b000, 0b0000, 0b0000, 0b000)
 #   define LIBXS_CPUID_ARM_MRS(RESULT, ID) RESULT = _ReadStatusReg(ID)
 # else
 #   define LIBXS_CPUID_ARM_MRS(RESULT, ID) __asm__ __volatile__( \
@@ -46,21 +47,31 @@
 LIBXS_APIVAR_DEFINE(jmp_buf internal_cpuid_arm_jmp_buf);
 LIBXS_API_INTERN void internal_cpuid_arm_sigill(int /*signum*/);
 LIBXS_API_INTERN void internal_cpuid_arm_sigill(int signum) {
-  void (* const handler)(int) = signal(signum, internal_cpuid_arm_sigill);
+  void (*const handler)(int) = signal(signum, internal_cpuid_arm_sigill);
   LIBXS_ASSERT(SIGILL == signum);
   if (SIG_ERR != handler) longjmp(internal_cpuid_arm_jmp_buf, 1);
 }
-LIBXS_API_INTERN uint64_t libxs_svcntb(void);
-LIBXS_API_INTERN uint64_t libxs_svcntb(void) {
+LIBXS_API_INTERN int libxs_cpuid_arm_svcntb(void);
+LIBXS_API_INTERN int libxs_cpuid_arm_svcntb(void) {
+  uint64_t result = 0;
+  if (0 == setjmp(internal_cpuid_arm_jmp_buf)) {
 # if defined(__has_builtin) && __has_builtin(__builtin_sve_svcntb) && 0
-  return __builtin_sve_svcntb();
+    result = __builtin_sve_svcntb();
 # elif !defined(_MSC_VER) /* TODO: improve condition */
-  register uint64_t result __asm__("r0");
-  __asm__ __volatile__(".byte 0xe0, 0xe3, 0x20, 0x04" /*cntb %0*/ : "=r"(result));
-  return result;
-# else
-  return 0;
+    register uint64_t r0 __asm__("r0");
+    __asm__ __volatile__(".byte 0xe0, 0xe3, 0x20, 0x04" /*cntb %0*/ : "=r"(r0));
+    result = r0;
 # endif
+  }
+  return (int)result;
+}
+LIBXS_API_INTERN char libxs_cpuid_arm_vendor(void);
+LIBXS_API_INTERN char libxs_cpuid_arm_vendor(void) {
+  uint64_t result = 0;
+  if (0 == setjmp(internal_cpuid_arm_jmp_buf)) {
+    LIBXS_CPUID_ARM_MRS(result, MIDR_EL1);
+  }
+  return (char)(0xFF & (result >> 24));
 }
 #endif
 
@@ -71,36 +82,54 @@ LIBXS_API int libxs_cpuid_arm(libxs_cpuid_info* info)
 #if defined(LIBXS_PLATFORM_AARCH64)
   if (NULL != info) LIBXS_MEMZERO127(info);
   if (LIBXS_TARGET_ARCH_UNKNOWN == result) { /* avoid redetecting features */
+    void (*const handler)(int) = signal(SIGILL, internal_cpuid_arm_sigill);
 # if defined(LIBXS_CPUID_ARM_BASELINE)
     result = LIBXS_CPUID_ARM_BASELINE;
 # else
-    void (*const handler)(int) = signal(SIGILL, internal_cpuid_arm_sigill);
     result = LIBXS_AARCH64_V81;
+# endif
     if (SIG_ERR != handler) {
-      uint64_t capability; /* 64-bit value */
+      uint64_t id_aa64isar1_el1 = 0;
       if (0 == setjmp(internal_cpuid_arm_jmp_buf)) {
-        LIBXS_CPUID_ARM_MRS(capability, ID_AA64ISAR1_EL1);
-        if (0 != (0xF & capability)) { /* DPB */
-          result = LIBXS_AARCH64_V82;
-          if (0 == setjmp(internal_cpuid_arm_jmp_buf)) {
-            LIBXS_CPUID_ARM_MRS(capability, ID_AA64PFR0_EL1);
-            if (0 != (0xF & (capability >> 32))) { /* SVE */
-              switch (libxs_svcntb()) {
-                case 16: result = LIBXS_AARCH64_SVE128; break;
-                case 32: result = LIBXS_AARCH64_SVE256; break;
-                case 64: /* SVE 512-bit */
-                  result = (1 == (0xF & (capability >> 16))
-                    ? LIBXS_AARCH64_A64FX /* FP16 */
-                    : LIBXS_AARCH64_SVE512);
-                  break;
-#   if defined(NDEBUG)
-                default: ;
-#   else
-                default: if (0 != libxs_verbosity) { /* library code is expected to be mute */
-                  fprintf(stderr, "LIBXS WARNING: libxs_cpuid_arm discovered an unexpected SVE vector length!\n");
-                }
-#   endif
+        LIBXS_CPUID_ARM_MRS(id_aa64isar1_el1, ID_AA64ISAR1_EL1);
+      }
+      if (LIBXS_AARCH64_V81 < result
+        || /* DPB */ 0 != (0xF & id_aa64isar1_el1))
+      {
+        uint64_t id_aa64pfr0_el1 = 0;
+        if (LIBXS_AARCH64_V82 > result) result = LIBXS_AARCH64_V82;
+        if (0 == setjmp(internal_cpuid_arm_jmp_buf)) {
+          LIBXS_CPUID_ARM_MRS(id_aa64pfr0_el1, ID_AA64PFR0_EL1);
+        }
+        else { /* let libxs_cpuid_arm_svcntb handle the error */
+          id_aa64pfr0_el1 = 0xF;
+          id_aa64pfr0_el1 <<= 32;
+        }
+        if (0 != (0xF & (id_aa64pfr0_el1 >> 32))) { /* SVE */
+          const int svcntb = libxs_cpuid_arm_svcntb();
+          switch (svcntb) {
+            case 16: { /* SVE 128-bit */
+              if (LIBXS_AARCH64_SVE128 > result) result = LIBXS_AARCH64_SVE128;
+            } break;
+            case 32: { /* SVE 256-bit */
+              const int sve256 = (1 == (0xF & (id_aa64isar1_el1 >> 44))
+                ? LIBXS_AARCH64_NEOV1 /* BF16 */
+                : LIBXS_AARCH64_SVE256);
+              if (sve256 > result) result = sve256;
+            } break;
+            case 64: { /* SVE 512-bit */
+              const char vendor = libxs_cpuid_arm_vendor();
+              if (('F' == vendor) /* Fujitsu */ || ('\0' == vendor
+                && 1 == (0xF & (id_aa64pfr0_el1 >> 16)) /* FP16 */))
+              {
+                if (LIBXS_AARCH64_A64FX > result) result = LIBXS_AARCH64_A64FX;
               }
+              else {
+                if (LIBXS_AARCH64_SVE512 > result) result = LIBXS_AARCH64_SVE512;
+              }
+            } break;
+            default: if (0 != libxs_verbosity && 0 != svcntb) { /* library code is expected to be mute */
+              fprintf(stderr, "LIBXS WARNING: discovered an unexpected SVE vector length!\n");
             }
           }
         }
@@ -108,7 +137,6 @@ LIBXS_API int libxs_cpuid_arm(libxs_cpuid_info* info)
       /* restore original state */
       signal(SIGILL, handler);
     }
-# endif
   }
 #else
 # if !defined(NDEBUG)
