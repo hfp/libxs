@@ -24,7 +24,7 @@
 # if defined(__APPLE__) && defined(__arm64__) && 1
 #   define LIBXS_CPUID_ARM_BASELINE LIBXS_AARCH64_APPL_M1
 # elif 1
-#   define LIBXS_CPUID_ARM_BASELINE LIBXS_AARCH64_V82
+#   define LIBXS_CPUID_ARM_BASELINE LIBXS_AARCH64_V81
 # endif
 #endif
 
@@ -57,17 +57,18 @@ LIBXS_API_INTERN void internal_cpuid_arm_sigill(int signum) {
 }
 LIBXS_API_INTERN int libxs_cpuid_arm_svcntb(void);
 LIBXS_API_INTERN int libxs_cpuid_arm_svcntb(void) {
-  uint64_t result = 0;
+  int result = 0;
   if (0 == setjmp(internal_cpuid_arm_jmp_buf)) {
 # if (defined(__has_builtin) && __has_builtin(__builtin_sve_svcntb)) && 0
-    result = __builtin_sve_svcntb();
-# elif !defined(_MSC_VER) && !defined(_CRAYC) /* TODO: improve condition */
-    register uint64_t r0 __asm__("r0");
-    __asm__ __volatile__(".byte 0xe0, 0xe3, 0x20, 0x04" /*cntb %0*/ : "=r"(r0));
-    result = r0;
+    const uint64_t vlen_bytes = __builtin_sve_svcntb();
+    if (0 < vlen_bytes && 256 >= vlen_bytes) result = (int)vlen_bytes;
+# elif !defined(_MSC_VER) /* TODO: improve condition */
+    register uint64_t vlen_bytes __asm__("x0") = 0;
+    __asm__ __volatile__(".byte 0xe0, 0xe3, 0x20, 0x04" /*cntb %0*/ : "=r"(vlen_bytes));
+    if (0 < vlen_bytes && 256 >= vlen_bytes) result = (int)vlen_bytes;
 # endif
   }
-  return (int)result;
+  return result;
 }
 LIBXS_API_INTERN char libxs_cpuid_arm_vendor(void);
 LIBXS_API_INTERN char libxs_cpuid_arm_vendor(void) {
@@ -127,7 +128,7 @@ LIBXS_API int libxs_cpuid_arm(libxs_cpuid_info* info)
               if ('F' == vendor) { /* Fujitsu */
                 if (LIBXS_AARCH64_A64FX > result) {
 # if defined(LIBXS_CPUID_ARM_CNTB_FALLBACK)
-                  if (0 != libxs_verbosity && 0 == no_access) { /* library code is expected to be mute */
+                  if (0 != libxs_verbosity && 0 == vlen_bytes) { /* library code is expected to be mute */
                     fprintf(stderr, "LIBXS WARNING: assuming SVE 512-bit vector length!\n");
                   }
 # endif
@@ -144,7 +145,13 @@ LIBXS_API int libxs_cpuid_arm(libxs_cpuid_info* info)
               }
             } break;
             default: if (0 != libxs_verbosity) { /* library code is expected to be mute */
-              fprintf(stderr, "LIBXS WARNING: discovered an unexpected SVE vector length!\n");
+              if (0 != no_access || 0 == vlen_bytes) {
+                fprintf(stderr, "LIBXS WARNING: cannot determine SVE vector length!\n");
+              }
+              else {
+                fprintf(stderr, "LIBXS WARNING: unexpected SVE %i-bit vector length!\n",
+                  vlen_bytes * 8);
+              }
             }
           }
         }
