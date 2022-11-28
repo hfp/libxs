@@ -16,7 +16,7 @@
 #endif
 #include <signal.h>
 #include <setjmp.h>
-#if !defined(_WIN32)
+#if !defined(_WIN32) && !defined(__linux__)
 # include <sys/sysctl.h>
 #endif
 #if defined(LIBXS_OFFLOAD_TARGET)
@@ -81,9 +81,9 @@ LIBXS_API_INTERN char libxs_cpuid_arm_vendor(char vendor[], size_t* vendor_size)
   }
   if (NULL != vendor_size && 0 != *vendor_size) {
     if (NULL != vendor) {
-# if !defined(_WIN32)
+# if !defined(_WIN32) && !defined(__linux__)
       if (0 != sysctlbyname("machdep.cpu.brand_string", vendor, vendor_size, NULL, 0) || 0 == *vendor_size) {
-        if (0 != sysctlbyname("hw.model", vendor, vendor_size, NULL, 0) || 0 == *vendor_size) {
+        if (0 != sysctl(HW_MODEL, vendor, vendor_size, NULL, 0) || 0 == *vendor_size) {
           *vendor_size = 0;
           *vendor = '\0';
         }
