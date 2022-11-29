@@ -2295,7 +2295,7 @@ LIBXS_API_INTERN int libxs_build(const libxs_build_request* request, unsigned in
         LIBXS_ASSERT(NULL != code->ptr && 0 == (LIBXS_CODE_STATIC & code->uval));
 #   if defined(__APPLE__) && defined(__arm64__)
         sys_icache_invalidate(code_buffer, total_size);
-#   elif defined(__aarch64__)
+#   elif defined(__aarch64__) && /*TODO*/!defined(_CRAYC)
 #     if defined(__clang__)
         __clear_cache(code_buffer, code_buffer + total_size);
 #     else
