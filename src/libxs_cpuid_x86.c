@@ -9,8 +9,18 @@
 #include <libxs_generator.h>
 #include <libxs_mem.h>
 #include <libxs_sync.h>
+#include <ctype.h>
 #if !defined(_WIN32)
 # include <sys/mman.h>
+#endif
+
+#define LIBXS_CPUID_CHECK(VALUE, CHECK) ((CHECK) == ((CHECK) & (VALUE)))
+
+#if !defined(LIBXS_CPUID_SYSCTL_BYNAME) && 1
+# define LIBXS_CPUID_SYSCTL_BYNAME "machdep.cpu.brand_string"
+#endif
+#if !defined(LIBXS_CPUID_PROC_CPUINFO) && 1
+# define LIBXS_CPUID_PROC_CPUINFO "model name"
 #endif
 
 #if defined(LIBXS_PLATFORM_X86)
@@ -55,8 +65,6 @@
 # endif
 #endif
 
-#define LIBXS_CPUID_CHECK(VALUE, CHECK) ((CHECK) == ((CHECK) & (VALUE)))
-
 #if defined(LIBXS_PLATFORM_X86)
 LIBXS_API_INTERN int libxs_cpuid_x86_amx_enable(void);
 # if defined(__linux__)
@@ -89,6 +97,51 @@ LIBXS_API_INTERN int libxs_cpuid_x86_amx_enable(void)
 }
 # endif
 #endif
+
+
+LIBXS_API_INTERN void libxs_cpuid_model(char model[], size_t* model_size)
+{
+  if (NULL != model_size && 0 != *model_size) {
+    if (NULL != model) {
+      size_t size = *model_size;
+      *model_size = 0;
+      *model = '\0';
+      { /* OS specific discovery */
+#if defined(_WIN32) /* TODO */
+        LIBXS_UNUSED(size);
+#else
+        FILE *const cpuinfo = fopen("/proc/cpuinfo", "r");
+        if (NULL != cpuinfo) {
+          while (NULL != fgets(model, (int)size, cpuinfo)) {
+            if (0 == strncmp(LIBXS_CPUID_PROC_CPUINFO, model, sizeof(LIBXS_CPUID_PROC_CPUINFO) - 1)) {
+              char* s = strchr(model, ':');
+              if (NULL != s) {
+                ++s; /* skip separator */
+                while (isspace(*s)) ++s;
+                *model_size = strlen(s);
+                memmove(model, s, *model_size);
+                s = strchr(model, '\n');
+                if (NULL != s) *s = '\0';
+                break;
+              }
+            }
+          }
+          fclose(cpuinfo);
+        }
+# if !defined(__linux__)
+        if (0 == *model_size && 0 == sysctlbyname(LIBXS_CPUID_SYSCTL_BYNAME, model, &size, NULL, 0)
+          && 0 != size)
+        {
+          *model_size = size;
+        }
+# endif
+#endif
+      }
+    }
+    else *model_size = 0; /* error */
+  }
+}
+
 
 LIBXS_API int libxs_cpuid_x86(libxs_cpuid_info* info)
 {
@@ -256,6 +309,9 @@ LIBXS_API int libxs_cpuid_x86(libxs_cpuid_info* info)
       }
 # endif
       if (NULL != info) {
+        size_t model_size = sizeof(info->model);
+        libxs_cpuid_model(info->model, &model_size);
+        LIBXS_ASSERT(0 != model_size || '\0' == *info->model);
         LIBXS_CPUID_X86(0x80000007, 0/*ecx*/, eax, ebx, ecx, edx);
         info->constant_tsc = LIBXS_CPUID_CHECK(edx, 0x00000100);
         info->has_context = has_context;
@@ -263,7 +319,7 @@ LIBXS_API int libxs_cpuid_x86(libxs_cpuid_info* info)
     }
   }
   else {
-    if (NULL != info) LIBXS_MEMZERO127(info);
+    if (NULL != info) memset(info, 0, sizeof(*info));
     result = LIBXS_X86_GENERIC;
   }
 #else
@@ -275,18 +331,21 @@ LIBXS_API int libxs_cpuid_x86(libxs_cpuid_info* info)
     fprintf(stderr, "LIBXS WARNING: libxs_cpuid_x86 called on non-x86 platform!\n");
   }
 # endif
-  if (NULL != info) LIBXS_MEMZERO127(info);
+  if (NULL != info) memset(info, 0, sizeof(*info));
 #endif
   return result;
 }
 
 
-LIBXS_API int libxs_cpuid(void)
+LIBXS_API int libxs_cpuid(libxs_cpuid_info* info)
 {
 #if defined(LIBXS_PLATFORM_X86)
-  return libxs_cpuid_x86(NULL/*info*/);
+  return libxs_cpuid_x86(info);
+#elif defined(LIBXS_PLATFORM_AARCH64)
+  return libxs_cpuid_arm(info);
 #else
-  return libxs_cpuid_arm(NULL/*info*/);
+  memset(info, 0, sizeof(info));
+  return LIBXS_TARGET_ARCH_UNKNOWN;
 #endif
 }
 

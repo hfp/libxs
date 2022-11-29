@@ -10,6 +10,7 @@
 #include <libxs_generator.h>
 #include <libxs_mem.h>
 #include <libxs_sync.h>
+#include "libxs_main.h"
 
 #if defined(LIBXS_OFFLOAD_TARGET)
 # pragma offload_attribute(push,target(LIBXS_OFFLOAD_TARGET))
@@ -74,31 +75,12 @@ LIBXS_API_INTERN int libxs_cpuid_arm_svcntb(void) {
   }
   return result;
 }
-LIBXS_API_INTERN char libxs_cpuid_arm_vendor(char vendor[], size_t* vendor_size);
-LIBXS_API_INTERN char libxs_cpuid_arm_vendor(char vendor[], size_t* vendor_size) {
+/* Call late (not upfront) since MIDR_EL1 failure cannot always be trapped. */
+LIBXS_API_INTERN char libxs_cpuid_arm_vendor(void);
+LIBXS_API_INTERN char libxs_cpuid_arm_vendor(void) {
   uint64_t result = 0;
   if (0 == setjmp(internal_cpuid_arm_jmp_buf)) {
     LIBXS_CPUID_ARM_MRS(result, MIDR_EL1);
-  }
-  if (NULL != vendor_size && 0 != *vendor_size) {
-    if (NULL != vendor) {
-# if !defined(_WIN32) && !defined(__linux__)
-      if (0 != sysctlbyname("machdep.cpu.brand_string", vendor, vendor_size, NULL, 0) || 0 == *vendor_size) {
-        /*const*/ int mib[] = { CTL_HW, HW_MODEL };
-        if (0 != sysctl(mib, sizeof(mib) / sizeof(*mib), vendor, vendor_size, NULL, 0) || 0 == *vendor_size) {
-          *vendor_size = 0;
-          *vendor = '\0';
-        }
-      }
-# else
-      *vendor_size = 0;
-      *vendor = '\0';
-# endif
-    }
-    else { /* error */
-      *vendor_size = 0;
-      result = 0;
-    }
   }
   return (char)(0xFF & (result >> 24));
 }
@@ -109,7 +91,10 @@ LIBXS_API int libxs_cpuid_arm(libxs_cpuid_info* info)
 {
   static int result = LIBXS_TARGET_ARCH_UNKNOWN;
 #if defined(LIBXS_PLATFORM_AARCH64)
-  if (NULL != info) LIBXS_MEMZERO127(info);
+  libxs_cpuid_info cpuid_info;
+  size_t model_size = sizeof(cpuid_info.model);
+  libxs_cpuid_model(cpuid_info.model, &model_size);
+  LIBXS_ASSERT(0 != model_size || '\0' == *cpuid_info.model);
   if (LIBXS_TARGET_ARCH_UNKNOWN == result) { /* avoid redetecting features */
     void (*const handler)(int) = signal(SIGILL, internal_cpuid_arm_sigill);
 # if defined(LIBXS_CPUID_ARM_BASELINE)
@@ -118,9 +103,6 @@ LIBXS_API int libxs_cpuid_arm(libxs_cpuid_info* info)
     result = LIBXS_AARCH64_V81;
 # endif
     if (SIG_ERR != handler) {
-      char vendor_string[1024];
-      size_t vendor_size = sizeof(vendor_string);
-      const char vendor = libxs_cpuid_arm_vendor(vendor_string, &vendor_size);
       uint64_t id_aa64isar1_el1 = 0;
       if (0 == setjmp(internal_cpuid_arm_jmp_buf)) {
         LIBXS_CPUID_ARM_MRS(id_aa64isar1_el1, ID_AA64ISAR1_EL1);
@@ -151,6 +133,7 @@ LIBXS_API int libxs_cpuid_arm(libxs_cpuid_info* info)
             case 0: /* fallback (hack) */
 # endif
             case 64: { /* SVE 512-bit */
+              const char vendor = libxs_cpuid_arm_vendor();
               if ('F' == vendor) { /* Fujitsu */
                 if (LIBXS_AARCH64_A64FX > result) {
 # if defined(LIBXS_CPUID_ARM_CNTB_FALLBACK)
@@ -183,8 +166,8 @@ LIBXS_API int libxs_cpuid_arm(libxs_cpuid_info* info)
         }
       }
 # if defined(__APPLE__) && defined(__arm64__)
-      else if (0 != vendor_size) { /* determine CPU based on vendor-string (everything else failed) */
-        if (LIBXS_AARCH64_APPL_M1 > result && 0 == strncmp("Apple M1", vendor_string, vendor_size)) {
+      else if (0 != model_size) { /* determine CPU based on vendor-string (everything else failed) */
+        if (LIBXS_AARCH64_APPL_M1 > result && 0 == strncmp("Apple M1", cpuid_info.model, model_size)) {
           result = LIBXS_AARCH64_APPL_M1;
         }
       }
@@ -193,6 +176,7 @@ LIBXS_API int libxs_cpuid_arm(libxs_cpuid_info* info)
       signal(SIGILL, handler);
     }
   }
+  if (NULL != info) memcpy(info, &cpuid_info, sizeof(cpuid_info));
 #else
 # if !defined(NDEBUG)
   static int error_once = 0;
@@ -202,7 +186,7 @@ LIBXS_API int libxs_cpuid_arm(libxs_cpuid_info* info)
     fprintf(stderr, "LIBXS WARNING: libxs_cpuid_arm called on non-ARM platform!\n");
   }
 # endif
-  if (NULL != info) LIBXS_MEMZERO127(info);
+  if (NULL != info) memset(info, 0, sizeof(*info));
 #endif
   return result;
 }
