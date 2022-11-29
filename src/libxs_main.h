@@ -511,6 +511,9 @@ LIBXS_API_INTERN int libxs_dump(const char* title, const char* name, const void*
 /** Services a build request, and (optionally) registers the code (use regindex=LIBXS_CAPACITY_REGISTRY for unmanaged code). */
 LIBXS_API_INTERN int libxs_build(const libxs_build_request* request, unsigned int regindex, libxs_code_pointer* code);
 
+/** Determines CPU-name using OS-specific instead of CPU-specific interfaces. */
+LIBXS_API_INTERN void libxs_cpuid_model(char model[], size_t* model_size);
+
 /** Returns the type-size of data-type (can be also libxs_datatype). */
 LIBXS_API unsigned char libxs_typesize(libxs_datatype datatype);
 

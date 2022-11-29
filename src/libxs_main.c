@@ -698,9 +698,9 @@ LIBXS_API_INTERN void internal_finalize(void)
       const int high_verbosity = (LIBXS_VERBOSITY_HIGH <= libxs_verbosity || 0 > libxs_verbosity);
       char number_format_buffer[32];
       libxs_scratch_info scratch_info;
-#if defined(LIBXS_PLATFORM_X86)
       libxs_cpuid_info info;
-      libxs_cpuid_x86(&info);
+      libxs_cpuid(&info);
+#if defined(LIBXS_PLATFORM_X86)
       if ((LIBXS_VERBOSITY_HIGH < libxs_verbosity || 0 > libxs_verbosity) &&
         0 == internal_cpuid_info.has_context && 0 != info.has_context)
       {
@@ -708,7 +708,11 @@ LIBXS_API_INTERN void internal_finalize(void)
       }
 #endif
       if (0 == internal_print_statistic(stderr, target_arch, 0/*DP*/, linebreak, 0) && 0 != linebreak && NULL != target_arch) {
-        fprintf(stderr, "\nLIBXS_TARGET: %s\n", target_arch);
+        fprintf(stderr, "\nLIBXS_TARGET: %s", target_arch);
+        if ((LIBXS_VERBOSITY_HIGH < libxs_verbosity || 0 > libxs_verbosity) && '\0' != *info.model) {
+          fprintf(stderr, " [%s]\n", info.model);
+        }
+        else fprintf(stderr, "\n");
       }
       if (0 != libxs_format_value(number_format_buffer, sizeof(number_format_buffer),
 #if defined(LIBXS_NTHREADS_USE) && defined(LIBXS_CACHE_MAXSIZE) && (0 < (LIBXS_CACHE_MAXSIZE))
@@ -1504,11 +1508,11 @@ LIBXS_API void libxs_set_target_archid(int id)
       target_archid = LIBXS_AARCH64_V81;
       break;
 #endif
-    default: target_archid = libxs_cpuid();
+    default: target_archid = libxs_cpuid(NULL);
   }
   LIBXS_ATOMIC_STORE(&libxs_target_archid, target_archid, LIBXS_ATOMIC_RELAXED);
   if (0 != libxs_verbosity) { /* library code is expected to be mute */
-    const int cpuid = libxs_cpuid();
+    const int cpuid = libxs_cpuid(NULL);
     if (cpuid < target_archid) {
       const char *const target_arch = libxs_cpuid_name(target_archid);
       fprintf(stderr, "LIBXS WARNING: \"%s\" code may fail to run on \"%s\"!\n",
@@ -1539,7 +1543,7 @@ LIBXS_API const char* libxsf_get_target_arch(int* length)
 
 LIBXS_API void libxs_set_target_arch(const char* arch)
 {
-  const int cpuid = libxs_cpuid();
+  const int cpuid = libxs_cpuid(NULL);
   int target_archid = LIBXS_TARGET_ARCH_UNKNOWN;
   if (NULL != arch && '\0' != *arch
     && arch != libxs_stristr(arch, "default")
@@ -2194,7 +2198,7 @@ LIBXS_API_INTERN int libxs_build(const libxs_build_request* request, unsigned in
             emu_amx = atoi(env_emu_amx);
           }
           if (emu_amx > 0) {
-            generated_code.arch = libxs_cpuid();
+            generated_code.arch = libxs_cpuid(NULL);
           }
         }
         LIBXS_NO_OFFLOAD(void, libxs_generator_mateltwise_kernel, &generated_code, request->descriptor.meltw);
@@ -2228,7 +2232,7 @@ LIBXS_API_INTERN int libxs_build(const libxs_build_request* request, unsigned in
             emu_amx = atoi(env_emu_amx);
           }
           if (emu_amx > 0) {
-            generated_code.arch = libxs_cpuid();
+            generated_code.arch = libxs_cpuid(NULL);
           }
         }
         LIBXS_NO_OFFLOAD(void, libxs_generator_matequation_kernel, &generated_code, request->descriptor.meqn);

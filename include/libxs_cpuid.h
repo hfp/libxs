@@ -47,15 +47,14 @@
 #define LIBXS_AARCH64_A64FX         2402 /* A64FX */
 #define LIBXS_AARCH64_ALLFEAT       2999
 
-#if defined(LIBXS_PLATFORM_X86)
-/** Zero-initialized structure; assumes conservative properties. */
+ /** Zero-initialized structure; assumes conservative properties. */
 LIBXS_EXTERN_C typedef struct LIBXS_RETARGETABLE libxs_cpuid_info {
+  char model[1024]; /** CPU-name (OS-specific implementation). */
+#if defined(LIBXS_PLATFORM_X86)
   int constant_tsc; /** Timer stamp counter is monotonic. */
   int has_context;  /** Context switches are permitted. */
-} libxs_cpuid_info;
-#else
-typedef int libxs_cpuid_info;
 #endif
+} libxs_cpuid_info;
 
 /** Returns the target architecture and instruction set extensions. */
 #if defined(__cplusplus) /* note: stay compatible with TF */
@@ -67,11 +66,15 @@ LIBXS_API int libxs_cpuid_arm(libxs_cpuid_info* info);
 #endif
 
 /**
- * Similar to libxs_cpuid_x86, but conceptually not x86-specific.
+ * Similar to libxs_cpuid_x86, but conceptually not arch-specific.
  * The actual code path (as used by LIBXS) is determined by
  * libxs_[get|set]_target_archid/libxs_[get|set]_target_arch.
  */
-LIBXS_API int libxs_cpuid(void);
+#if defined(__cplusplus)
+LIBXS_API int libxs_cpuid(libxs_cpuid_info* info = NULL);
+#else
+LIBXS_API int libxs_cpuid(libxs_cpuid_info* info);
+#endif
 
 /**
  * Names the CPU architecture given by CPUID.
