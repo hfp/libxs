@@ -113,7 +113,8 @@ LIBXS_API_INTERN void libxs_cpuid_model(char model[], size_t* model_size)
         FILE *const cpuinfo = fopen("/proc/cpuinfo", "r");
         if (NULL != cpuinfo) {
           while (NULL != fgets(model, (int)size, cpuinfo)) {
-            if (0 == strncmp(LIBXS_CPUID_PROC_CPUINFO, model, sizeof(LIBXS_CPUID_PROC_CPUINFO) - 1)) {
+            if (0 != strncmp(LIBXS_CPUID_PROC_CPUINFO, model, sizeof(LIBXS_CPUID_PROC_CPUINFO) - 1)) *model = '\0';
+            else {
               char* s = strchr(model, ':');
               if (NULL != s) {
                 ++s; /* skip separator */
