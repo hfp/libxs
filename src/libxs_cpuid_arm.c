@@ -17,10 +17,6 @@
 #endif
 #include <signal.h>
 #include <setjmp.h>
-#if !defined(_WIN32) && !defined(__linux__)
-# include <sys/sysctl.h>
-# include <sys/types.h>
-#endif
 #if defined(LIBXS_OFFLOAD_TARGET)
 # pragma offload_attribute(pop)
 #endif
