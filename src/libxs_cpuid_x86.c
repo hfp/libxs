@@ -9,6 +9,7 @@
 #include <libxs_generator.h>
 #include <libxs_mem.h>
 #include <libxs_sync.h>
+#include "libxs_main.h"
 #include <ctype.h>
 #if !defined(_WIN32)
 # if !defined(__linux__)
