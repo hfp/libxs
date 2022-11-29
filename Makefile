@@ -779,10 +779,21 @@ endif
 # build rules that include target flags
 $(eval $(call DEFINE_COMPILE_RULE,$(NOBLAS_HST),$(ROOTDIR)/$(SRCDIR)/libxs_ext.c,$(INCDIR)/libxs.h, \
   $(CTARGET) $(NOBLAS_CFLAGS) $(NOBLAS_FLAGS) $(NOBLAS_IFLAGS) $(DNOBLAS)))
+ifeq (0,$(CRAY))
 $(foreach OBJ,$(OBJFILES_HST),$(eval $(call DEFINE_COMPILE_RULE, \
   $(OBJ),$(patsubst %.o,$(ROOTDIR)/$(SRCDIR)/%.c,$(notdir $(OBJ))), \
   $(INCDIR)/libxs.h $(INCDIR)/libxs_source.h $(BLDDIR)/libxs_dispatch.h, \
   $(DFLAGS) $(IFLAGS) $(call applyif,1,libxs_main,$(OBJ),-I$(BLDDIR)) $(CTARGET) $(CFLAGS))))
+else
+$(foreach OBJ,$(filter-out $(BLDDIR)/intel64/libxs_mhd.o,$(OBJFILES_HST)),$(eval $(call DEFINE_COMPILE_RULE, \
+  $(OBJ),$(patsubst %.o,$(ROOTDIR)/$(SRCDIR)/%.c,$(notdir $(OBJ))), \
+  $(INCDIR)/libxs.h $(INCDIR)/libxs_source.h $(BLDDIR)/libxs_dispatch.h, \
+  $(DFLAGS) $(IFLAGS) $(call applyif,1,libxs_main,$(OBJ),-I$(BLDDIR)) $(CTARGET) $(CFLAGS))))
+$(foreach OBJ,$(BLDDIR)/intel64/libxs_mhd.o,$(eval $(call DEFINE_COMPILE_RULE, \
+  $(OBJ),$(patsubst %.o,$(ROOTDIR)/$(SRCDIR)/%.c,$(notdir $(OBJ))), \
+  $(INCDIR)/libxs.h $(INCDIR)/libxs_source.h $(BLDDIR)/libxs_dispatch.h, \
+  $(DFLAGS) $(IFLAGS) $(CTARGET) $(patsubst $(OPTFLAGS),$(OPTFLAG1),$(CFLAGS)))))
+endif
 $(foreach OBJ,$(KRNOBJS_HST),$(eval $(call DEFINE_COMPILE_RULE, \
   $(OBJ),$(patsubst %.o,$(BLDDIR)/%.c,$(notdir $(OBJ))), \
   $(INCDIR)/libxs.h $(INCDIR)/libxs_source.h, \
