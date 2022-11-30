@@ -99,6 +99,7 @@
 
 #if !defined(LIBXS_MALLOC_HOOK_STATIC) && \
     (defined(LIBXS_BUILD) && (1 < (LIBXS_BUILD))) /* GLIBC */ && \
+    (defined(LIBXS_MALLOC) && (0 != LIBXS_MALLOC)) && \
    (!defined(_WIN32)) /* TODO */
 # define LIBXS_MALLOC_HOOK_STATIC
 #endif
