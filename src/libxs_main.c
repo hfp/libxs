@@ -392,7 +392,7 @@ LIBXS_API_INTERN LIBXS_ATTRIBUTE_WEAK void __real_free(void* ptr)
 #endif
 #if defined(LIBXS_MALLOC_HOOK_INTRINSIC)
     { static int recursive = 0;
-      if (1 == LIBXS_ATOMIC_ADD_FETCH(&recursive, 1, LIBXS_ATOMIC_RELAXED)) _mm_free(ptr);
+      if (1 == LIBXS_ATOMIC_ADD_FETCH(&recursive, 1, LIBXS_ATOMIC_SEQ_CST)) _mm_free(ptr);
       else {
 # if (defined(LIBXS_BUILD) && (1 < (LIBXS_BUILD))) /* GLIBC */
         __libc_free(ptr);
@@ -400,7 +400,7 @@ LIBXS_API_INTERN LIBXS_ATTRIBUTE_WEAK void __real_free(void* ptr)
         free(ptr);
 # endif
       }
-      LIBXS_ATOMIC_SUB_FETCH(&recursive, 1, LIBXS_ATOMIC_RELAXED);
+      LIBXS_ATOMIC_SUB_FETCH(&recursive, 1, LIBXS_ATOMIC_SEQ_CST);
     }
 #elif (defined(LIBXS_BUILD) && (1 < (LIBXS_BUILD))) /* GLIBC */
     __libc_free(ptr);
@@ -825,7 +825,7 @@ LIBXS_API LIBXS_ATTRIBUTE_WEAK void _gfortran_stop_string(const char* /*message*
 LIBXS_API LIBXS_ATTRIBUTE_WEAK void _gfortran_stop_string(const char* message, int len, int quiet)
 { /* STOP termination handler for GNU Fortran runtime */
   static int once = 0;
-  if (1 == LIBXS_ATOMIC_ADD_FETCH(&once, 1, LIBXS_ATOMIC_RELAXED)) {
+  if (1 == LIBXS_ATOMIC_ADD_FETCH(&once, 1, LIBXS_ATOMIC_SEQ_CST)) {
     union { const void* dlsym; void (*ptr)(const char*, int, int); } stop;
     dlerror(); /* clear an eventual error status */
     stop.dlsym = dlsym(LIBXS_RTLD_NEXT, "_gfortran_stop_string");
@@ -840,7 +840,7 @@ LIBXS_API LIBXS_ATTRIBUTE_WEAK void for_stop_core(const char* /*message*/, int /
 LIBXS_API LIBXS_ATTRIBUTE_WEAK void for_stop_core(const char* message, int len)
 { /* STOP termination handler for Intel Fortran runtime */
   static int once = 0;
-  if (1 == LIBXS_ATOMIC_ADD_FETCH(&once, 1, LIBXS_ATOMIC_RELAXED)) {
+  if (1 == LIBXS_ATOMIC_ADD_FETCH(&once, 1, LIBXS_ATOMIC_SEQ_CST)) {
     union { const void* dlsym; void (*ptr)(const char*, int); } stop;
     dlerror(); /* clear an eventual error status */
     stop.dlsym = dlsym(LIBXS_RTLD_NEXT, "for_stop_core");
@@ -855,7 +855,7 @@ LIBXS_API LIBXS_ATTRIBUTE_WEAK void for_stop_core_quiet(void);
 LIBXS_API LIBXS_ATTRIBUTE_WEAK void for_stop_core_quiet(void)
 { /* STOP termination handler for Intel Fortran runtime */
   static int once = 0;
-  if (1 == LIBXS_ATOMIC_ADD_FETCH(&once, 1, LIBXS_ATOMIC_RELAXED)) {
+  if (1 == LIBXS_ATOMIC_ADD_FETCH(&once, 1, LIBXS_ATOMIC_SEQ_CST)) {
     union { const void* dlsym; void (*ptr)(void); } stop;
     dlerror(); /* clear an eventual error status */
     stop.dlsym = dlsym(LIBXS_RTLD_NEXT, "for_stop_core_quiet");
@@ -1144,7 +1144,7 @@ LIBXS_API_INTERN void internal_init(void)
 
 LIBXS_API LIBXS_ATTRIBUTE_CTOR void libxs_init(void)
 {
-  if (0 == LIBXS_ATOMIC_LOAD(&internal_registry, LIBXS_ATOMIC_RELAXED)) {
+  if (0 == LIBXS_ATOMIC_LOAD(&internal_registry, LIBXS_ATOMIC_SEQ_CST)) {
     static unsigned int ninit = 0, gid = 0;
     const unsigned int tid = LIBXS_ATOMIC_ADD_FETCH(&ninit, 1, LIBXS_ATOMIC_SEQ_CST);
     LIBXS_ASSERT(0 < tid);
@@ -1296,7 +1296,7 @@ LIBXS_API LIBXS_ATTRIBUTE_CTOR void libxs_init(void)
     }
     else /*if (gid != tid)*/ { /* avoid recursion */
       LIBXS_ASSERT(gid != tid);
-      while (2 > LIBXS_ATOMIC_LOAD(&libxs_ninit, LIBXS_ATOMIC_RELAXED)) LIBXS_SYNC_YIELD;
+      while (2 > LIBXS_ATOMIC_LOAD(&libxs_ninit, LIBXS_ATOMIC_SEQ_CST)) LIBXS_SYNC_YIELD;
       internal_init();
     }
 #if defined(LIBXS_PERF)
@@ -1311,7 +1311,7 @@ LIBXS_API LIBXS_ATTRIBUTE_NO_TRACE void libxs_finalize(void);
 LIBXS_API LIBXS_ATTRIBUTE_DTOR void libxs_finalize(void)
 {
   void *const regaddr = &internal_registry;
-  uintptr_t regptr = LIBXS_ATOMIC(LIBXS_ATOMIC_LOAD, LIBXS_BITS)((uintptr_t*)regaddr, LIBXS_ATOMIC_RELAXED);
+  uintptr_t regptr = LIBXS_ATOMIC(LIBXS_ATOMIC_LOAD, LIBXS_BITS)((uintptr_t*)regaddr, LIBXS_ATOMIC_SEQ_CST);
   libxs_code_pointer* registry = (libxs_code_pointer*)regptr;
   if (NULL != registry) {
     int i;
@@ -1331,7 +1331,7 @@ LIBXS_API LIBXS_ATTRIBUTE_DTOR void libxs_finalize(void)
     LIBXS_LOCK_ACQUIRE(LIBXS_REGLOCK, internal_reglock_ptr);
 # endif
 #endif
-    regptr = LIBXS_ATOMIC(LIBXS_ATOMIC_LOAD, LIBXS_BITS)((uintptr_t*)regaddr, LIBXS_ATOMIC_RELAXED);
+    regptr = LIBXS_ATOMIC(LIBXS_ATOMIC_LOAD, LIBXS_BITS)((uintptr_t*)regaddr, LIBXS_ATOMIC_SEQ_CST);
     registry = (libxs_code_pointer*)regptr;
     if (NULL != registry) {
       internal_regkey_type *const registry_keys = internal_registry_keys;
@@ -1351,7 +1351,7 @@ LIBXS_API LIBXS_ATTRIBUTE_DTOR void libxs_finalize(void)
       libxs_xcopy_finalize();
       libxs_gemm_finalize();
       /* coverity[check_return] */
-      LIBXS_ATOMIC_ADD_FETCH(&libxs_ninit, 1, LIBXS_ATOMIC_RELAXED); /* invalidate code cache (TLS) */
+      LIBXS_ATOMIC_ADD_FETCH(&libxs_ninit, 1, LIBXS_ATOMIC_SEQ_CST); /* invalidate code cache (TLS) */
 #if defined(LIBXS_NTHREADS_USE) && defined(LIBXS_CACHE_MAXSIZE) && (0 < (LIBXS_CACHE_MAXSIZE))
       internal_cache_buffer = NULL;
 #endif
@@ -2361,7 +2361,7 @@ LIBXS_API_INLINE libxs_code_pointer internal_find_code(libxs_descriptor* desc, s
   internal_cache_type *const cache = &internal_cache_buffer;
 # endif
   unsigned char cache_index;
-  const unsigned int ninit = LIBXS_ATOMIC_LOAD(&libxs_ninit, LIBXS_ATOMIC_RELAXED);
+  const unsigned int ninit = LIBXS_ATOMIC_LOAD(&libxs_ninit, LIBXS_ATOMIC_SEQ_CST);
   internal_pad_descriptor(desc, size);
   if (0 == is_big_desc) {
     LIBXS_DIFF_LOAD(LIBXS_DIFF_SIZE, xdesc, desc);
@@ -3675,7 +3675,7 @@ LIBXS_API void libxs_release_kernel(const void* kernel)
         {
           LIBXS_ASSERT(LIBXS_KERNEL_UNREGISTERED > info.kind);
           /* coverity[check_return] */
-          LIBXS_ATOMIC_ADD_FETCH(&libxs_ninit, 1, LIBXS_ATOMIC_RELAXED); /* invalidate code cache (TLS) */
+          LIBXS_ATOMIC_ADD_FETCH(&libxs_ninit, 1, LIBXS_ATOMIC_SEQ_CST); /* invalidate code cache (TLS) */
           internal_registry[regindex].ptr = NULL;
 #if !defined(NDEBUG)
           memset(internal_registry_keys + regindex, 0, sizeof(*internal_registry_keys));
