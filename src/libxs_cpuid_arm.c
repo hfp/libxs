@@ -82,6 +82,23 @@ LIBXS_API_INTERN char libxs_cpuid_arm_vendor(void) {
 }
 #endif
 
+LIBXS_API int libxs_cpuid_arm_use_bfdot(void)
+{
+#if defined(LIBXS_PLATFORM_X86)
+  return 0;
+#else
+  const char *const l_env_aarch64_bfdot = getenv("LIBXS_AARCH64_USE_BFDOT");
+  int result = 0;
+  if ( 0 == l_env_aarch64_bfdot ) {
+    result = 0;
+  } else {
+    if ( atoi(l_env_aarch64_bfdot) != 0 ) {
+      result = 1;
+    }
+  }
+  return result;
+#endif
+}
 
 LIBXS_API int libxs_cpuid_arm(libxs_cpuid_info* info)
 {

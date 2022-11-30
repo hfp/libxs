@@ -10,6 +10,7 @@
 #define LIBXS_CPUID_H
 
 #include "libxs_macros.h"
+#include "libxs_typedefs.h"
 
 /**
  * Enumerates the available target architectures and instruction
@@ -64,6 +65,19 @@ LIBXS_API int libxs_cpuid_arm(libxs_cpuid_info* info = NULL);
 LIBXS_API int libxs_cpuid_x86(libxs_cpuid_info* info);
 LIBXS_API int libxs_cpuid_arm(libxs_cpuid_info* info);
 #endif
+
+/**
+ * @TODO this might be limited lifetime API until we have a fully-fleged
+ * ARM CPU flags test
+ * Still it might be needed to overwrite BFMMLA with BFDOT for performance
+ * study reasons
+ */
+LIBXS_API int libxs_cpuid_arm_use_bfdot(void);
+
+/**
+ * return the VNNI/Dot-product/Matmul blocking for a specific
+ * architecture and datatype */
+LIBXS_API int libxs_cpuid_dot_pack_factor(libxs_datatype in_dtype);
 
 /**
  * Similar to libxs_cpuid_x86, but conceptually not arch-specific.
