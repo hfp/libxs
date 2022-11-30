@@ -6,6 +6,7 @@
 * Further information: https://github.com/hfp/libxs/                          *
 * SPDX-License-Identifier: BSD-3-Clause                                       *
 ******************************************************************************/
+#include <libxs_cpuid.h>
 #include <libxs_generator.h>
 #include <libxs_mem.h>
 #include <libxs_sync.h>
@@ -487,5 +488,50 @@ LIBXS_API int libxs_cpuid_vlen32(int id)
   else { /* scalar */
     result = 1;
   }
+  return result;
+}
+
+LIBXS_API int libxs_cpuid_dot_pack_factor(libxs_datatype in_dtype)
+{
+  int result = 0;
+#if defined(LIBXS_PLATFORM_X86)
+  if ( (in_dtype == LIBXS_DATATYPE_BF16) ||
+       (in_dtype == LIBXS_DATATYPE_F16)  ||
+       (in_dtype == LIBXS_DATATYPE_I16)     ) {
+    result = 2;
+  } else if ( (in_dtype == LIBXS_DATATYPE_BF8) ||
+              (in_dtype == LIBXS_DATATYPE_HF8) ||
+              (in_dtype == LIBXS_DATATYPE_I8)     ) {
+    result = 4;
+  } else {
+    result = 1;
+  }
+# else
+  if ( libxs_cpuid_arm_use_bfdot() != 0 ) {
+    if ( (in_dtype == LIBXS_DATATYPE_BF16) ||
+         (in_dtype == LIBXS_DATATYPE_F16)  ||
+         (in_dtype == LIBXS_DATATYPE_I16)     ) {
+      result = 2;
+    } else if ( (in_dtype == LIBXS_DATATYPE_BF8) ||
+                (in_dtype == LIBXS_DATATYPE_HF8) ||
+                (in_dtype == LIBXS_DATATYPE_I8)     ) {
+      result = 4;
+    } else {
+      result = 1;
+    }
+  } else {
+    if ( (in_dtype == LIBXS_DATATYPE_BF16) ||
+         (in_dtype == LIBXS_DATATYPE_F16)  ||
+         (in_dtype == LIBXS_DATATYPE_I16)     ) {
+      result = 4;
+    } else if ( (in_dtype == LIBXS_DATATYPE_BF8) ||
+                (in_dtype == LIBXS_DATATYPE_HF8) ||
+                (in_dtype == LIBXS_DATATYPE_I8)     ) {
+      result = 8;
+    } else {
+      result = 1;
+    }
+  }
+#endif
   return result;
 }
