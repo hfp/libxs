@@ -1391,8 +1391,13 @@ LIBXS_API_INTERN int libxs_xset_default_allocator(LIBXS_LOCK_TYPE(LIBXS_LOCK)* l
     libxs_malloc_function internal_malloc_fn = { NULL };
     libxs_free_function internal_free_fn = { NULL };
     const void* internal_allocator = NULL;
+#if defined(LIBXS_MALLOC_HOOK)
     internal_malloc_fn.function = __real_malloc;
     internal_free_fn.function = __real_free;
+#else
+    internal_malloc_fn.function = malloc;
+    internal_free_fn.function = free;
+#endif
     /*internal_allocator = NULL;*/
     if (NULL == malloc_fn.function && NULL == free_fn.function) {
       libxs_default_allocator_context = internal_allocator;
