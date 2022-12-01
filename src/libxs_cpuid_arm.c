@@ -106,10 +106,10 @@ LIBXS_API int libxs_cpuid_arm(libxs_cpuid_info* info)
   libxs_cpuid_model(cpuid_info.model, &model_size);
   LIBXS_ASSERT(0 != model_size || '\0' == *cpuid_info.model);
   if (LIBXS_TARGET_ARCH_UNKNOWN == result) { /* avoid redetecting features */
-    void (*const handler)(int) = signal(SIGILL, internal_cpuid_arm_sigill);
 # if defined(LIBXS_CPUID_ARM_BASELINE)
     result = LIBXS_CPUID_ARM_BASELINE;
 # else
+    void (* const handler)(int) = signal(SIGILL, internal_cpuid_arm_sigill);
 #   if defined(__APPLE__) && defined(__arm64__)
     result = LIBXS_AARCH64_APPL_M1;
 #   else
