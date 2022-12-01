@@ -174,7 +174,8 @@ LIBXS_API int libxs_matdiff(libxs_matdiff_info* info,
         }
       }
       if (0 == result_nan) {
-        info->rsq = LIBXS_MAX(0.0, 1.0 - LIBXS_MATDIFF_DIV(info->l2_abs, info->var_ref, info->l2_abs));
+        const double resrel = LIBXS_MATDIFF_DIV(info->l2_abs, info->var_ref, info->l2_abs);
+        info->rsq = LIBXS_MAX(0.0, 1.0 - resrel);
         if (0 != ntotal) { /* final variance */
           info->var_ref /= ntotal;
           info->var_tst /= ntotal;
