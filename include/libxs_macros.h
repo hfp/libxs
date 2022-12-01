@@ -613,7 +613,7 @@ LIBXS_API_INLINE unsigned long long libxs_widen_u32u64(unsigned int value) { ret
 # define LIBXS_SQRTF(A) ((float)sqrt((float)(A)))
 # define LIBXS_EXP2F(A) LIBXS_POWF(2, A)
 # define LIBXS_LOG2F(A) ((float)LIBXS_LOG2((float)(A)))
-# define LIBXS_FABSF(A) ((float)fabsf((float)(A)))
+# define LIBXS_FABSF(A) ((float)fabs((float)(A)))
 # define LIBXS_FABS(A) fabs(A)
 # define LIBXS_ERFF(A) ((float)erf((float)(A)))
 # define LIBXS_EXP2(A) pow(2.0, A)
