@@ -67,7 +67,7 @@ LIBXS_API int libxs_cpuid_arm(libxs_cpuid_info* info);
 #endif
 
 /**
- * @TODO this might be limited lifetime API until we have a fully-fleged
+ * TODO: this might be limited lifetime API until we have a fully-fleged
  * ARM CPU flags test
  * Still it might be needed to overwrite BFMMLA with BFDOT for performance
  * study reasons
