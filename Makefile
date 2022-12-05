@@ -107,10 +107,6 @@ STATIC ?= 1
 # 1: attempt to avoid dependencies if not referenced
 ASNEEDED ?= 0
 
-# 0: build according to the value of STATIC
-# 1: build according to STATIC=0 and STATIC=1
-SHARED ?= 0
-
 # -1: support intercepted malloc (disabled at runtime by default)
 #  0: disable intercepted malloc at compile-time
 # >0: enable intercepted malloc
@@ -345,9 +341,8 @@ HEADERS := $(wildcard $(ROOTDIR)/$(SRCDIR)/template/*.h) $(wildcard $(ROOTDIR)/$
           $(ROOTDIR)/include/libxs_timer.h \
           $(ROOTDIR)/include/libxs_typedefs.h
 SRCFILES_LIB := $(patsubst %,$(ROOTDIR)/$(SRCDIR)/%, \
-          libxs_main.c libxs_mem.c libxs_malloc.c libxs_hash.c libxs_math.c \
-          libxs_sync.c libxs_python.c libxs_mhd.c libxs_timer.c libxs_perf.c \
-          libxs_gemm.c libxs_xcopy.c libxs_fsspmdm.c libxs_rng.c libxs_lpflt_quant.c )
+          libxs_main.c libxs_mem.c libxs_malloc.c libxs_hash.c libxs_math.c libxs_sync.c libxs_mhd.c libxs_timer.c \
+          libxs_perf.c libxs_gemm.c libxs_xcopy.c libxs_fsspmdm.c libxs_rng.c libxs_lpflt_quant.c )
 SRCFILES_GEN_LIB := $(patsubst %,$(ROOTDIR)/$(SRCDIR)/%,$(notdir $(wildcard $(ROOTDIR)/$(SRCDIR)/generator_*.c)) \
           libxs_cpuid_arm.c libxs_cpuid_x86.c libxs_generator.c libxs_trace.c libxs_matrixeqn.c)
 
@@ -442,17 +437,9 @@ endif
 
 .PHONY: libxs
 ifeq (0,$(COMPATIBLE))
-ifeq (0,$(SHARED))
 libxs: lib generator
 else
-libxs: libs generator
-endif
-else
-ifeq (0,$(SHARED))
 libxs: lib
-else
-libxs: libs
-endif
 endif
 	$(information)
 ifneq (,$(filter _0_,_$(LNKSOFT)_))
@@ -864,12 +851,13 @@ module: module_hst module_mic
 .PHONY: build_generator_lib
 build_generator_lib: $(OUTDIR)/libxsgen.$(LIBEXT)
 $(OUTDIR)/libxsgen.$(LIBEXT): $(OBJFILES_GEN_LIB) $(OUTDIR)/libxs.env
-ifeq (0,$(STATIC))
-	$(LIB_LD) $(call solink,$@,$(VERSION_MAJOR),$(VERSION_MINOR),$(VERSION_UPDATE),$(VERSION_API)) \
-		$(OBJFILES_GEN_LIB) $(call cleanld,$(NOBLAS_LDFLAGS) $(NOBLAS_CLDFLAGS))
-else # static
+ifneq (0,$(STATIC))
 	@-rm -f $@
 	$(AR) -rs $@ $(OBJFILES_GEN_LIB)
+endif
+ifeq (0,$(ANALYZE))
+	$(LIB_SOLD) $(call solink,$@,$(VERSION_MAJOR),$(VERSION_MINOR),$(VERSION_UPDATE),$(VERSION_API)) \
+		$(OBJFILES_GEN_LIB) $(call cleanld,$(NOBLAS_LDFLAGS) $(NOBLAS_CLDFLAGS))
 endif
 
 .PHONY: generator
@@ -889,25 +877,27 @@ ifneq (0,$(MIC))
 ifneq (0,$(MPSS))
 clib_mic: $(OUTDIR)/mic/libxs.$(LIBEXT)
 $(OUTDIR)/mic/libxs.$(LIBEXT): $(OUTDIR)/mic/.make $(OBJFILES_MIC) $(KRNOBJS_MIC)
-ifeq (0,$(STATIC))
-	$(LIB_LD) -mmic $(call solink,$@,$(VERSION_MAJOR),$(VERSION_MINOR),$(VERSION_UPDATE),$(VERSION_API)) \
-		$(OBJFILES_MIC) $(KRNOBJS_MIC) $(call cleanld,$(LDFLAGS) $(CLDFLAGS))
-else # static
+ifneq (0,$(STATIC))
 	@-rm -f $@
-	$(AR) -rs $@ $(OBJFILES_MIC) $(KRNOBJS_MIC)
+	$(AR) -rs $@ $(call tailwords,$^)
+endif
+ifeq (0,$(ANALYZE))
+	$(LIB_SOLD) -mmic $(call solink,$@,$(VERSION_MAJOR),$(VERSION_MINOR),$(VERSION_UPDATE),$(VERSION_API)) \
+		$(call tailwords,$^) $(call cleanld,$(LDFLAGS) $(CLDFLAGS))
 endif
 endif
 endif
 
 .PHONY: clib_hst
 clib_hst: $(OUTDIR)/libxs.pc
-$(OUTDIR)/libxs.$(LIBEXT): $(OUTDIR)/.make $(OBJFILES_HST) $(OBJFILES_GEN_LIB) $(KRNOBJS_HST) $(LIBJITPROFILING)
-ifeq (0,$(STATIC))
-	$(LIB_LD) $(call solink,$@,$(VERSION_MAJOR),$(VERSION_MINOR),$(VERSION_UPDATE),$(VERSION_API)) \
-		$(OBJFILES_HST) $(OBJFILES_GEN_LIB) $(KRNOBJS_HST) $(LIBJITPROFILING) $(call cleanld,$(LDFLAGS) $(CLDFLAGS))
-else # static
+$(OUTDIR)/libxs.$(LIBEXT): $(OUTDIR)/.make $(OBJFILES_HST) $(OBJFILES_GEN_LIB) $(KRNOBJS_HST) $(OBJJITPROFILING)
+ifneq (0,$(STATIC))
 	@-rm -f $@
-	$(AR) -rs $@ $(OBJFILES_HST) $(OBJFILES_GEN_LIB) $(KRNOBJS_HST) $(OBJJITPROFILING)
+	$(AR) -rs $@ $(call tailwords,$^)
+endif
+ifeq (0,$(ANALYZE))
+	$(LIB_SOLD) $(call solink,$@,$(VERSION_MAJOR),$(VERSION_MINOR),$(VERSION_UPDATE),$(VERSION_API)) \
+		$(call tailwords,$^) $(call cleanld,$(LDFLAGS) $(CLDFLAGS))
 endif
 
 .PHONY: flib_mic
@@ -916,12 +906,13 @@ ifneq (0,$(MPSS))
 ifneq (,$(strip $(FC)))
 flib_mic: $(OUTDIR)/mic/libxsf.$(LIBEXT)
 $(OUTDIR)/mic/libxsf.$(LIBEXT): $(INCDIR)/mic/libxs.mod $(OUTDIR)/mic/libxs.$(LIBEXT)
-ifeq (0,$(STATIC))
-	$(LIB_FLD) -mmic $(FCMTFLAGS) $(call solink,$@,$(VERSION_MAJOR),$(VERSION_MINOR),$(VERSION_UPDATE),$(VERSION_API)) \
-		$(BLDDIR)/mic/libxs-mod.o $(call abslib,$(OUTDIR)/mic/libxs.$(ILIBEXT)) $(call cleanld,$(LDFLAGS) $(FLDFLAGS))
-else # static
+ifneq (0,$(STATIC))
 	@-rm -f $@
 	$(AR) -rs $@ $(BLDDIR)/mic/libxs-mod.o
+endif
+ifeq (0,$(ANALYZE))
+	$(LIB_SFLD) -mmic $(FCMTFLAGS) $(call solink,$@,$(VERSION_MAJOR),$(VERSION_MINOR),$(VERSION_UPDATE),$(VERSION_API)) \
+		$(BLDDIR)/mic/libxs-mod.o $(call abslib,$(OUTDIR)/mic/libxs.$(ILIBEXT)) $(call cleanld,$(LDFLAGS) $(FLDFLAGS))
 endif
 else
 .PHONY: $(OUTDIR)/mic/libxsf.$(LIBEXT)
@@ -937,23 +928,24 @@ $(OUTDIR)/libxsf.$(LIBEXT): $(INCDIR)/libxs.mod $(OUTDIR)/libxs.$(LIBEXT)
 else
 $(OUTDIR)/libxsf.$(LIBEXT): $(INCDIR)/libxs.mod $(OUTDIR)/libxs.$(LIBEXT) $(OUTDIR)/libxsext.$(LIBEXT)
 endif
-ifeq (0,$(STATIC))
+ifneq (0,$(STATIC))
+	@-rm -f $@
+	$(AR) -rs $@ $(BLDDIR)/intel64/libxs-mod.o
+endif
+ifeq (0,$(ANALYZE))
 ifneq (Darwin,$(UNAME))
-	$(LIB_FLD) $(FCMTFLAGS) $(call solink,$@,$(VERSION_MAJOR),$(VERSION_MINOR),$(VERSION_UPDATE),$(VERSION_API)) \
+	$(LIB_SFLD) $(FCMTFLAGS) $(call solink,$@,$(VERSION_MAJOR),$(VERSION_MINOR),$(VERSION_UPDATE),$(VERSION_API)) \
 		$(BLDDIR)/intel64/libxs-mod.o $(call abslib,$(OUTDIR)/libxs.$(ILIBEXT)) \
 		$(call cleanld,$(LDFLAGS) $(FLDFLAGS))
 else ifneq (0,$(LNKSOFT)) # macOS
-	$(LIB_FLD) $(FCMTFLAGS) $(call solink,$@,$(VERSION_MAJOR),$(VERSION_MINOR),$(VERSION_UPDATE),$(VERSION_API)) \
+	$(LIB_SFLD) $(FCMTFLAGS) $(call solink,$@,$(VERSION_MAJOR),$(VERSION_MINOR),$(VERSION_UPDATE),$(VERSION_API)) \
 		$(BLDDIR)/intel64/libxs-mod.o $(call abslib,$(OUTDIR)/libxs.$(ILIBEXT)) \
 		$(call cleanld,$(LDFLAGS) $(FLDFLAGS)) $(call linkopt,-U,_libxs_gemm_batch_omp_)
 else # macOS
-	$(LIB_FLD) $(FCMTFLAGS) $(call solink,$@,$(VERSION_MAJOR),$(VERSION_MINOR),$(VERSION_UPDATE),$(VERSION_API)) \
+	$(LIB_SFLD) $(FCMTFLAGS) $(call solink,$@,$(VERSION_MAJOR),$(VERSION_MINOR),$(VERSION_UPDATE),$(VERSION_API)) \
 		$(BLDDIR)/intel64/libxs-mod.o $(call abslib,$(OUTDIR)/libxsext.$(ILIBEXT)) $(call abslib,$(OUTDIR)/libxs.$(ILIBEXT)) \
 		$(call cleanld,$(LDFLAGS) $(FLDFLAGS))
 endif
-else # static
-	@-rm -f $@
-	$(AR) -rs $@ $(BLDDIR)/intel64/libxs-mod.o
 endif
 else
 .PHONY: $(OUTDIR)/libxsf.pc
@@ -964,12 +956,13 @@ ifneq (0,$(MIC))
 ifneq (0,$(MPSS))
 ext_mic: $(OUTDIR)/mic/libxsext.$(LIBEXT)
 $(OUTDIR)/mic/libxsext.$(LIBEXT): $(EXTOBJS_MIC) $(OUTDIR)/mic/libxs.$(LIBEXT)
-ifeq (0,$(STATIC))
-	$(LIB_LD) -mmic $(EXTLDFLAGS) $(call solink,$@,$(VERSION_MAJOR),$(VERSION_MINOR),$(VERSION_UPDATE),$(VERSION_API)) \
-		$(EXTOBJS_MIC) $(call abslib,$(OUTDIR)/mic/libxs.$(ILIBEXT)) $(call cleanld,$(LDFLAGS) $(CLDFLAGS))
-else # static
+ifneq (0,$(STATIC))
 	@-rm -f $@
 	$(AR) -rs $@ $(EXTOBJS_MIC)
+endif
+ifeq (0,$(ANALYZE))
+	$(LIB_SOLD) -mmic $(EXTLDFLAGS) $(call solink,$@,$(VERSION_MAJOR),$(VERSION_MINOR),$(VERSION_UPDATE),$(VERSION_API)) \
+		$(EXTOBJS_MIC) $(call abslib,$(OUTDIR)/mic/libxs.$(ILIBEXT)) $(call cleanld,$(LDFLAGS) $(CLDFLAGS))
 endif
 endif
 endif
@@ -977,12 +970,13 @@ endif
 .PHONY: ext_hst
 ext_hst: $(OUTDIR)/libxsext.pc
 $(OUTDIR)/libxsext.$(LIBEXT): $(OUTDIR)/libxs.$(LIBEXT) $(EXTOBJS_HST)
-ifeq (0,$(STATIC))
-	$(LIB_LD) $(EXTLDFLAGS) $(call solink,$@,$(VERSION_MAJOR),$(VERSION_MINOR),$(VERSION_UPDATE),$(VERSION_API)) \
-		$(EXTOBJS_HST) $(call abslib,$(OUTDIR)/libxs.$(ILIBEXT)) $(call cleanld,$(LDFLAGS) $(CLDFLAGS))
-else # static
+ifneq (0,$(STATIC))
 	@-rm -f $@
 	$(AR) -rs $@ $(EXTOBJS_HST)
+endif
+ifeq (0,$(ANALYZE))
+	$(LIB_SOLD) $(EXTLDFLAGS) $(call solink,$@,$(VERSION_MAJOR),$(VERSION_MINOR),$(VERSION_UPDATE),$(VERSION_API)) \
+		$(EXTOBJS_HST) $(call abslib,$(OUTDIR)/libxs.$(ILIBEXT)) $(call cleanld,$(LDFLAGS) $(CLDFLAGS))
 endif
 
 .PHONY: noblas_mic
@@ -990,12 +984,13 @@ ifneq (0,$(MIC))
 ifneq (0,$(MPSS))
 noblas_mic: $(OUTDIR)/mic/libxsnoblas.$(LIBEXT)
 $(OUTDIR)/mic/libxsnoblas.$(LIBEXT): $(NOBLAS_MIC)
-ifeq (0,$(STATIC))
-	$(LIB_LD) -mmic $(call solink,$@,$(VERSION_MAJOR),$(VERSION_MINOR),$(VERSION_UPDATE),$(VERSION_API)) \
-		$(NOBLAS_MIC) $(call cleanld,$(NOBLAS_LDFLAGS) $(NOBLAS_CLDFLAGS))
-else # static
+ifneq (0,$(STATIC))
 	@-rm -f $@
 	$(AR) -rs $@ $(NOBLAS_MIC)
+endif
+ifeq (0,$(ANALYZE))
+	$(LIB_SOLD) -mmic $(call solink,$@,$(VERSION_MAJOR),$(VERSION_MINOR),$(VERSION_UPDATE),$(VERSION_API)) \
+		$(NOBLAS_MIC) $(call cleanld,$(NOBLAS_LDFLAGS) $(NOBLAS_CLDFLAGS))
 endif
 endif
 endif
@@ -1003,12 +998,13 @@ endif
 .PHONY: noblas_hst
 noblas_hst: $(OUTDIR)/libxsnoblas.pc
 $(OUTDIR)/libxsnoblas.$(LIBEXT): $(NOBLAS_HST)
-ifeq (0,$(STATIC))
-	$(LIB_LD) $(call solink,$@,$(VERSION_MAJOR),$(VERSION_MINOR),$(VERSION_UPDATE),$(VERSION_API)) \
-		$(NOBLAS_HST) $(call cleanld,$(NOBLAS_LDFLAGS) $(NOBLAS_CLDFLAGS))
-else # static
+ifneq (0,$(STATIC))
 	@-rm -f $@
 	$(AR) -rs $@ $(NOBLAS_HST)
+endif
+ifeq (0,$(ANALYZE))
+	$(LIB_SOLD) $(call solink,$@,$(VERSION_MAJOR),$(VERSION_MINOR),$(VERSION_UPDATE),$(VERSION_API)) \
+		$(NOBLAS_HST) $(call cleanld,$(NOBLAS_LDFLAGS) $(NOBLAS_CLDFLAGS))
 endif
 
 # use dir not qdir to avoid quotes; also $(ROOTDIR)/$(SPLDIR) is relative
@@ -1807,7 +1803,6 @@ deb:
 			-e LICFILE=copyright \
 			-e LICFDIR=../.. \
 			-e SONAMELNK=1 \
-			-e SHARED=1 \
 			-e SYM=1 \
 			-us -uc; \
 	else \
