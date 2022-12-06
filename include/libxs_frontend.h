@@ -168,7 +168,8 @@
 #endif
 
 #if defined(LIBXS_BUILD)
-# if defined(LIBXS_BUILD_EXT) && !defined(__STATIC)
+# if defined(LIBXS_BUILD_EXT) && defined(_WINDLL) && \
+    (defined(_WIN32) || defined(__CYGWIN__) || defined(__MINGW32__))
 #   define LIBXS_BLAS_SYMBOL_VISIBILITY LIBXS_APIEXT
 # elif defined(LIBXS_NO_BLAS) && (1 == LIBXS_NO_BLAS)
 #   define LIBXS_BLAS_SYMBOL_VISIBILITY LIBXS_API
