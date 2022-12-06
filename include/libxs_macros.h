@@ -784,7 +784,7 @@ LIBXS_API_INLINE int libxs_nonconst_int(int i) { return i; }
     (defined(__GNUC__) || defined(__clang__))
 # define LIBXS_ATTRIBUTE_CTOR LIBXS_ATTRIBUTE(constructor)
 # define LIBXS_ATTRIBUTE_DTOR LIBXS_ATTRIBUTE(destructor)
-# define LIBXS_CTOR
+/*# define LIBXS_CTOR*/
 #else
 # define LIBXS_ATTRIBUTE_CTOR
 # define LIBXS_ATTRIBUTE_DTOR
