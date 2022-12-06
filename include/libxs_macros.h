@@ -323,10 +323,6 @@
 #endif
 #define LIBXS_RETARGETABLE LIBXS_OFFLOAD(LIBXS_OFFLOAD_TARGET)
 
-#if !defined(__STATIC) && !defined(_WINDLL) && (defined(_WIN32) || defined(__CYGWIN__) || defined(__MINGW32__))
-# define __STATIC
-#endif
-
 /* may include Clang and other compatible compilers */
 #if defined(__GNUC__) && !defined(_WIN32) && !defined(__CYGWIN__) && !defined(__MINGW32__)
 # define LIBXS_VISIBILITY_INTERNAL LIBXS_ATTRIBUTE(visibility("internal"))
@@ -347,7 +343,7 @@
 #endif
 
 /* Windows Dynamic Link Library (DLL) */
-#if !defined(__STATIC) && (defined(_WIN32) || defined(__CYGWIN__) || defined(__MINGW32__))
+#if defined(_WINDLL) && (defined(_WIN32) || defined(__CYGWIN__) || defined(__MINGW32__))
 # define LIBXS_VISIBILITY_EXPORT LIBXS_ATTRIBUTE(dllexport)
 # define LIBXS_VISIBILITY_IMPORT LIBXS_ATTRIBUTE(dllimport)
 #endif
@@ -783,9 +779,8 @@ LIBXS_API_INLINE int libxs_nonconst_int(int i) { return i; }
 # define LIBXS_ATTRIBUTE_WEAK_IMPORT
 #endif
 
-#if !defined(LIBXS_NO_CTOR) && !defined(LIBXS_CTOR) && \
+#if !defined(LIBXS_NO_CTOR) && !defined(LIBXS_CTOR) && defined(LIBXS_BUILD) && \
     (defined(__STDC_VERSION__) && (199901L <= __STDC_VERSION__)) && \
-    (defined(LIBXS_BUILD) && !defined(__STATIC)) && \
     (defined(__GNUC__) || defined(__clang__))
 # define LIBXS_ATTRIBUTE_CTOR LIBXS_ATTRIBUTE(constructor)
 # define LIBXS_ATTRIBUTE_DTOR LIBXS_ATTRIBUTE(destructor)

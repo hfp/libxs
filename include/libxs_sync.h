@@ -56,7 +56,7 @@
 
 /* permit thread-unsafe */
 #if !defined(LIBXS_SYNC_NONE) && ( \
-  (defined(__PGI) && (!defined(LIBXS_LIBATOMIC) || !defined(__STATIC))) || \
+  (defined(__PGI) && !defined(LIBXS_LIBATOMIC)) || \
   (defined(_CRAYC) && !defined(__GNUC__)))
 # define LIBXS_SYNC_NONE
 #endif
