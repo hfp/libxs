@@ -1944,8 +1944,8 @@ LIBXS_API_INTERN int libxs_build(const libxs_build_request* request, unsigned in
             br = 2;
           } else if ( (LIBXS_GEMM_FLAG_BATCH_REDUCE_STRIDE & request->descriptor.gemm->flags) > 1 ) {
             br = 3;
-            stride_a = request->descriptor.gemm->c1;
-            stride_b = request->descriptor.gemm->c2;
+            stride_a = (int)request->descriptor.gemm->c1;
+            stride_b = (int)request->descriptor.gemm->c2;
           } else {
             br = 0;
           }
