@@ -590,4 +590,3 @@ LIBXS_API_INTERN unsigned int libxs_crc32(unsigned int seed, const void* data, s
   return internal_hash_function(seed, data, size);
 #endif
 }
-
