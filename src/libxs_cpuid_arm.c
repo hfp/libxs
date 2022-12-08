@@ -123,7 +123,7 @@ LIBXS_API int libxs_cpuid_arm(libxs_cpuid_info* info)
       if (LIBXS_AARCH64_V82 <= result
         || /* DPB */ 0 != (0xF & id_aa64isar1_el1))
       {
-        uint64_t id_aa64pfr0_el1 = 0;
+        volatile uint64_t id_aa64pfr0_el1 = 0;
         volatile int no_access = 0; /* try libxs_cpuid_arm_svcntb */
         if (LIBXS_AARCH64_V82 > result) result = LIBXS_AARCH64_V82;
         if (0 == setjmp(internal_cpuid_arm_jmp_buf)) {
