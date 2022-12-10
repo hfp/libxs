@@ -1413,12 +1413,9 @@ ifneq (,$(wildcard $(BLDDIR))) # still exists
 	@-rm -f $(OBJECTS) $(FTNOBJS) $(SRCFILES_KERNELS) $(BLDDIR)/libxs_dispatch.h
 	@-rm -f $(BLDDIR)/*.gcno $(BLDDIR)/*.gcda $(BLDDIR)/*.gcov
 endif
-	@find . -type f \( -name .make -or -name .state \) -exec rm {} \;
-	@-rm -f $(ROOTDIR)/$(SCRDIR)/libxs_utilities.pyc
-	@-rm -rf $(ROOTDIR)/$(SCRDIR)/__pycache__
 
 .PHONY: realclean
-realclean:
+realclean: clean
 ifneq ($(call qapath,$(OUTDIR)),$(ROOTDIR))
 ifneq ($(call qapath,$(OUTDIR)),$(HEREDIR))
 	@-rm -rf $(OUTDIR)
@@ -1440,32 +1437,27 @@ endif
 ifneq (,$(wildcard $(BINDIR))) # still exists
 	@-rm -f $(BINDIR)/libxs_*_generator
 endif
+	@-rm -f $(INCDIR)/libxs_version.h
+	@-rm -f $(INCDIR)/libxs.modmic
+	@-rm -f $(INCDIR)/libxs.mod
+	@-rm -f $(INCDIR)/libxs.f
+
+.PHONY: deepclean
+deepclean: realclean
+	@find . -type f \( -name .make -or -name .state \) -exec rm {} \;
+	@-rm -f $(ROOTDIR)/$(SCRDIR)/libxs_utilities.pyc
+	@-rm -rf $(ROOTDIR)/$(SCRDIR)/__pycache__
 	@-rm -f $(ROOTDIR)/$(SPLDIR)/cp2k/cp2k-perf.sh
 	@-rm -f $(ROOTDIR)/$(UTLDIR)/smmbench/smmf-perf.sh
 	@-rm -f $(ROOTDIR)/$(SPLDIR)/nek/grad-perf.sh
 	@-rm -f $(ROOTDIR)/$(SPLDIR)/nek/axhm-perf.sh
 	@-rm -f $(ROOTDIR)/$(SPLDIR)/nek/rstr-perf.sh
-	@-rm -f $(INCDIR)/libxs_version.h
-	@-rm -f $(INCDIR)/libxs.modmic
-	@-rm -f $(INCDIR)/libxs.mod
-	@-rm -f $(INCDIR)/libxs.f
 	@-rm -f $(HEREDIR)/python3
 
-.PHONY: clean-all
-clean-all: clean
-	@find $(ROOTDIR)/$(SPLDIR) $(ROOTDIR)/$(TSTDIR) -type f -name Makefile -exec $(FLOCK) {} \
-		"$(MAKE) --no-print-directory clean" \; 2>/dev/null || true
-
-.PHONY: realclean-all
-realclean-all: realclean
-	@find $(ROOTDIR)/$(SPLDIR) $(ROOTDIR)/$(TSTDIR) -type f -name Makefile -exec $(FLOCK) {} \
-		"$(MAKE) --no-print-directory realclean" \; 2>/dev/null || true
-
-.PHONY: deepclean
-deepclean: clean realclean
-
 .PHONY: distclean
-distclean: clean-all realclean-all
+distclean: deepclean
+	@find $(ROOTDIR)/$(SPLDIR) $(ROOTDIR)/$(TSTDIR) -type f -name Makefile -exec $(FLOCK) {} \
+		"$(MAKE) --no-print-directory deepclean" \; 2>/dev/null || true
 	@-rm -rf libxs*
 
 # keep original prefix (:)
