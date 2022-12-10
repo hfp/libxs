@@ -1145,17 +1145,18 @@ LIBXS_API_INTERN void internal_init(void)
 LIBXS_API LIBXS_ATTRIBUTE_CTOR void libxs_init(void)
 {
   if (0 == LIBXS_ATOMIC_LOAD(&internal_registry, LIBXS_ATOMIC_SEQ_CST)) {
-    static unsigned int ninit = 0, gid = 0;
-    const unsigned int tid = LIBXS_ATOMIC_ADD_FETCH(&ninit, 1, LIBXS_ATOMIC_SEQ_CST);
+    static unsigned int counter = 0, gid = 0;
+    const unsigned int tid = LIBXS_ATOMIC_ADD_FETCH(&counter, 1, LIBXS_ATOMIC_SEQ_CST);
     LIBXS_ASSERT(0 < tid);
     /* libxs_ninit (1: initialization started, 2: library initialized, higher: to invalidate code-TLS) */
     if (1 == tid) {
       libxs_timer_tickint s0 = libxs_timer_tick_rtc(); /* warm-up */
       libxs_timer_tickint t0 = libxs_timer_tick_tsc(); /* warm-up */
       s0 = libxs_timer_tick_rtc(); t0 = libxs_timer_tick_tsc(); /* start timing */
-      assert(0 == LIBXS_ATOMIC_LOAD(&libxs_ninit, LIBXS_ATOMIC_SEQ_CST)); /* !LIBXS_ASSERT */
-      /* coverity[check_return] */
-      LIBXS_ATOMIC_ADD_FETCH(&libxs_ninit, 1, LIBXS_ATOMIC_SEQ_CST);
+      { const unsigned int ninit = LIBXS_ATOMIC_ADD_FETCH(&libxs_ninit, 1, LIBXS_ATOMIC_SEQ_CST);
+        LIBXS_UNUSED_NDEBUG(ninit);
+        assert(1 == ninit); /* !LIBXS_ASSERT */
+      }
       gid = tid; /* protect initialization */
       LIBXS_UNUSED_NDEBUG(gid);
 #if (0 != LIBXS_SYNC)
@@ -1290,9 +1291,10 @@ LIBXS_API LIBXS_ATTRIBUTE_CTOR void libxs_init(void)
           }
         }
       }
-      assert(1 == LIBXS_ATOMIC_LOAD(&libxs_ninit, LIBXS_ATOMIC_SEQ_CST)); /* !LIBXS_ASSERT */
-      /* coverity[check_return] */
-      LIBXS_ATOMIC_ADD_FETCH(&libxs_ninit, 1, LIBXS_ATOMIC_SEQ_CST);
+      { const unsigned int ninit = LIBXS_ATOMIC_ADD_FETCH(&libxs_ninit, 1, LIBXS_ATOMIC_SEQ_CST);
+        LIBXS_UNUSED_NDEBUG(ninit);
+        assert(2 == ninit); /* !LIBXS_ASSERT */
+      }
     }
     else /*if (gid != tid)*/ { /* avoid recursion */
       LIBXS_ASSERT(gid != tid);
