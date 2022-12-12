@@ -26,6 +26,7 @@ nav:
 - Q&A: libxs_qna.md
 - LIBXS Domains:
   - "MM: Matrix Multiplication": libxs_mm.md
+  - "TPP: Tensor Processing Primitives": libxs_tpp.md
   - "DNN: Deep Neural Networks": https://libxs.readthedocs.io/#deep-learning
   - "AUX: Service Functions": libxs_aux.md
   - "PROF: Performance Profiling": libxs_prof.md
