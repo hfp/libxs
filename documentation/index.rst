@@ -10,6 +10,7 @@
    PROF: Performance Profiling <libxs_prof.md>
    TUNE: Customization <libxs_tune.md>
    BE: Backend <libxs_be.md>
+   API: Application Programming Interface <libxs_api.md>
 
 .. toctree::
    :caption: Example Code
