@@ -40,6 +40,10 @@
 # pragma offload_attribute(pop)
 #endif
 
+/* used internally to reimplement certain exit-handler */
+#if !defined(LIBXS_EXIT_SUCCESS)
+# define LIBXS_EXIT_SUCCESS() exit(EXIT_SUCCESS)
+#endif
 #if !defined(LIBXS_CODE_MAXSIZE)
 # define LIBXS_CODE_MAXSIZE 131072
 #endif
@@ -819,7 +823,6 @@ LIBXS_API_INTERN void internal_finalize(void)
 #endif
 }
 
-
 #if defined(LIBXS_INTERCEPT_DYNAMIC)
 LIBXS_API LIBXS_ATTRIBUTE_WEAK void _gfortran_stop_string(const char* /*message*/, int /*len*/, int /*quiet*/);
 LIBXS_API LIBXS_ATTRIBUTE_WEAK void _gfortran_stop_string(const char* message, int len, int quiet)
@@ -832,7 +835,7 @@ LIBXS_API LIBXS_ATTRIBUTE_WEAK void _gfortran_stop_string(const char* message, i
     if (NULL != stop.dlsym) {
       stop.ptr(message, len, quiet);
     }
-    else exit(EXIT_SUCCESS); /* statically linked runtime */
+    else LIBXS_EXIT_SUCCESS(); /* statically linked runtime */
   }
 }
 
@@ -847,7 +850,7 @@ LIBXS_API LIBXS_ATTRIBUTE_WEAK void for_stop_core(const char* message, int len)
     if (NULL != stop.dlsym) {
       stop.ptr(message, len);
     }
-    else exit(EXIT_SUCCESS); /* statically linked runtime */
+    else LIBXS_EXIT_SUCCESS(); /* statically linked runtime */
   }
 }
 
@@ -862,7 +865,7 @@ LIBXS_API LIBXS_ATTRIBUTE_WEAK void for_stop_core_quiet(void)
     if (NULL != stop.dlsym) {
       stop.ptr();
     }
-    else exit(EXIT_SUCCESS); /* statically linked runtime */
+    else LIBXS_EXIT_SUCCESS(); /* statically linked runtime */
   }
 }
 #endif
