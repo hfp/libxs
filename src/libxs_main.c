@@ -1296,7 +1296,9 @@ LIBXS_API LIBXS_ATTRIBUTE_CTOR void libxs_init(void)
       }
       { const unsigned int ninit = LIBXS_ATOMIC_ADD_FETCH(&libxs_ninit, 1, LIBXS_ATOMIC_SEQ_CST);
         LIBXS_UNUSED_NDEBUG(ninit);
+#if 0
         assert(2 == ninit); /* !LIBXS_ASSERT */
+#endif
       }
     }
     else /*if (gid != tid)*/ { /* avoid recursion */
