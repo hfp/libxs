@@ -385,7 +385,7 @@ LIBXS_API const char* libxs_cpuid_name(int id)
       target_arch = "knl";
     } break;
     case LIBXS_X86_AVX512: {
-      /* TODO: rework BE to use target ID instead of set of strings (target_arch = "avx3") */
+      /* TODO: target_arch = "avx3" */
       target_arch = "hsw";
     } break;
     case LIBXS_X86_AVX512_VL256: {
