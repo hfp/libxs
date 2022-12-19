@@ -1131,9 +1131,7 @@ ifneq (0,$(INTEL))
     ifneq (Darwin,$(UNAME))
       SLDFLAGS += -static-libgcc
     endif
-    DFLAGS += -D__STATIC=1
   else ifneq (0,$(STATIC))
-    DFLAGS += -D__STATIC=$(STATIC)
     SLDFLAGS += -static
   endif
 else
@@ -1147,9 +1145,7 @@ else
         endif
       endif
     endif
-    DFLAGS += -D__STATIC=1
   else ifneq (0,$(STATIC))
-    DFLAGS += -D__STATIC=$(STATIC)
     ifeq (0,$(shell $(LD) -static -ldummydoesnotexist 2>&1 | grep -q "\-ldummydoesnotexist"; echo "$$?"))
       SLDFLAGS += -static
     endif

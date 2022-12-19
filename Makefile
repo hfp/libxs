@@ -886,7 +886,7 @@ endif
 endif
 
 .PHONY: clib_hst
-clib_hst: $(OUTDIR)/libxs.pc
+clib_hst: $(OUTDIR)/libxs-static.pc $(OUTDIR)/libxs.pc
 $(OUTDIR)/libxs.$(LIBEXT): $(OUTDIR)/.make $(OBJFILES_HST) $(OBJFILES_GEN_LIB) $(KRNOBJS_HST) $(LIBJITPROFILING)
 ifneq (0,$(STATIC))
 	@-rm -f $@
@@ -919,7 +919,7 @@ endif
 
 .PHONY: flib_hst
 ifneq (,$(strip $(FC)))
-flib_hst: $(OUTDIR)/libxsf.pc
+flib_hst: $(OUTDIR)/libxsf-static.pc $(OUTDIR)/libxsf.pc
 ifneq (,$(filter-out Darwin,$(UNAME))$(filter-out 0,$(STATIC))$(filter-out 0,$(LNKSOFT)))
 $(OUTDIR)/libxsf.$(LIBEXT): $(INCDIR)/libxs.mod $(OUTDIR)/libxs.$(LIBEXT)
 else
@@ -945,6 +945,7 @@ else # macOS
 endif
 endif
 else
+.PHONY: $(OUTDIR)/libxsf-static.pc
 .PHONY: $(OUTDIR)/libxsf.pc
 endif
 
@@ -965,7 +966,7 @@ endif
 endif
 
 .PHONY: ext_hst
-ext_hst: $(OUTDIR)/libxsext.pc
+ext_hst: $(OUTDIR)/libxsext-static.pc $(OUTDIR)/libxsext.pc
 $(OUTDIR)/libxsext.$(LIBEXT): $(OUTDIR)/libxs.$(LIBEXT) $(EXTOBJS_HST)
 ifneq (0,$(STATIC))
 	@-rm -f $@
@@ -993,7 +994,7 @@ endif
 endif
 
 .PHONY: noblas_hst
-noblas_hst: $(OUTDIR)/libxsnoblas.pc
+noblas_hst: $(OUTDIR)/libxsnoblas-static.pc $(OUTDIR)/libxsnoblas.pc
 $(OUTDIR)/libxsnoblas.$(LIBEXT): $(NOBLAS_HST)
 ifneq (0,$(STATIC))
 	@-rm -f $@
@@ -1636,6 +1637,85 @@ endif
 ALIAS_INCLUDEDIR := $(subst $$$$,$(if $(findstring $$$$/,$$$$$(PINCDIR)),,\$${prefix}/),$(subst $$$$$(ALIAS_PREFIX),\$${prefix},$$$$$(PINCDIR)))
 ALIAS_LIBDIR := $(subst $$$$,$(if $(findstring $$$$/,$$$$$(POUTDIR)),,\$${prefix}/),$(subst $$$$$(ALIAS_PREFIX),\$${prefix},$$$$$(POUTDIR)))
 
+$(OUTDIR)/libxs-static.pc: $(OUTDIR)/libxs.$(LIBEXT)
+	@echo "Name: libxs" >$@
+	@echo "Description: Specialized tensor operations" >>$@
+	@echo "URL: https://github.com/hfp/libxs/" >>$@
+	@echo "Version: $(VERSION_STRING)" >>$@
+	@echo >>$@
+	@echo "prefix=$(ALIAS_PREFIX)" >>$@
+	@echo "includedir=$(ALIAS_INCLUDEDIR)" >>$@
+	@echo "libdir=$(ALIAS_LIBDIR)" >>$@
+	@echo >>$@
+	@echo "Cflags: -I\$${includedir}" >>$@
+ifneq (,$(ALIAS_PRIVLIBS))
+ifneq (Windows_NT,$(UNAME))
+	@echo "Libs: -L\$${libdir} -l:libxs.$(SLIBEXT) $(ALIAS_PRIVLIBS)" >>$@
+else
+	@echo "Libs: -L\$${libdir} -lxsmm $(ALIAS_PRIVLIBS)" >>$@
+endif
+else # no private libraries
+	@echo "Libs: -L\$${libdir} -lxsmm" >>$@
+endif
+
+$(OUTDIR)/libxsf-static.pc: $(OUTDIR)/libxsf.$(LIBEXT)
+	@echo "Name: libxs/f" >$@
+	@echo "Description: LIBXS for Fortran" >>$@
+	@echo "URL: https://github.com/hfp/libxs/" >>$@
+	@echo "Version: $(VERSION_STRING)" >>$@
+	@echo >>$@
+	@echo "prefix=$(ALIAS_PREFIX)" >>$@
+	@echo "includedir=$(ALIAS_INCLUDEDIR)" >>$@
+	@echo "libdir=$(ALIAS_LIBDIR)" >>$@
+	@echo >>$@
+	@echo "Requires: libxsext-static" >>$@
+	@echo "Cflags: -I\$${includedir}" >>$@
+ifneq (Windows_NT,$(UNAME))
+	@echo "Libs: -L\$${libdir} -l:libxsf.$(SLIBEXT)" >>$@
+else
+	@echo "Libs: -L\$${libdir} -lxsmmf" >>$@
+endif
+
+$(OUTDIR)/libxsext-static.pc: $(OUTDIR)/libxsext.$(LIBEXT)
+	@echo "Name: libxs/ext" >$@
+	@echo "Description: LIBXS/multithreaded for OpenMP" >>$@
+	@echo "URL: https://github.com/hfp/libxs/" >>$@
+	@echo "Version: $(VERSION_STRING)" >>$@
+	@echo >>$@
+	@echo "prefix=$(ALIAS_PREFIX)" >>$@
+	@echo "includedir=$(ALIAS_INCLUDEDIR)" >>$@
+	@echo "libdir=$(ALIAS_LIBDIR)" >>$@
+	@echo >>$@
+	@echo "Requires: libxs-static" >>$@
+	@echo "Cflags: -I\$${includedir}" >>$@
+ifneq (,$(ALIAS_PRIVLIBS_EXT))
+ifneq (Windows_NT,$(UNAME))
+	@echo "Libs: -L\$${libdir} -l:libxsext.$(SLIBEXT) $(ALIAS_PRIVLIBS_EXT)" >>$@
+else
+	@echo "Libs: -L\$${libdir} -lxsmmext $(ALIAS_PRIVLIBS_EXT)" >>$@
+endif
+else # no private libraries
+	@echo "Libs: -L\$${libdir} -lxsmmext" >>$@
+endif
+
+$(OUTDIR)/libxsnoblas-static.pc: $(OUTDIR)/libxsnoblas.$(LIBEXT)
+	@echo "Name: libxs/noblas" >$@
+	@echo "Description: LIBXS substituted LAPACK/BLAS dependency" >>$@
+	@echo "URL: https://github.com/hfp/libxs/" >>$@
+	@echo "Version: $(VERSION_STRING)" >>$@
+	@echo >>$@
+	@echo "prefix=$(ALIAS_PREFIX)" >>$@
+	@echo "includedir=$(ALIAS_INCLUDEDIR)" >>$@
+	@echo "libdir=$(ALIAS_LIBDIR)" >>$@
+	@echo >>$@
+	@echo "Requires: libxs-static" >>$@
+	@echo "Cflags: -I\$${includedir}" >>$@
+ifneq (Windows_NT,$(UNAME))
+	@echo "Libs: -L\$${libdir} -l:libxsnoblas.$(SLIBEXT)" >>$@
+else
+	@echo "Libs: -L\$${libdir} -lxsmmnoblas" >>$@
+endif
+
 $(OUTDIR)/libxs.pc: $(OUTDIR)/libxs.$(LIBEXT)
 	@echo "Name: libxs" >$@
 	@echo "Description: Specialized tensor operations" >>$@
@@ -1648,12 +1728,8 @@ $(OUTDIR)/libxs.pc: $(OUTDIR)/libxs.$(LIBEXT)
 	@echo >>$@
 	@echo "Cflags: -I\$${includedir}" >>$@
 ifneq (,$(ALIAS_PRIVLIBS))
-	@if [ -e $(OUTDIR)/libxs.$(DLIBEXT) ]; then \
-		echo "Libs: -L\$${libdir} -lxsmm" >>$@; \
-		echo "Libs.private: $(ALIAS_PRIVLIBS)" >>$@; \
-	else \
-		echo "Libs: -L\$${libdir} -lxsmm $(ALIAS_PRIVLIBS)" >>$@; \
-	fi
+	@echo "Libs: -L\$${libdir} -lxsmm" >>$@
+	@echo "Libs.private: $(ALIAS_PRIVLIBS)" >>$@
 else # no private libraries
 	@echo "Libs: -L\$${libdir} -lxsmm" >>$@
 endif
@@ -1685,12 +1761,8 @@ $(OUTDIR)/libxsext.pc: $(OUTDIR)/libxsext.$(LIBEXT)
 	@echo "Requires: libxs" >>$@
 	@echo "Cflags: -I\$${includedir}" >>$@
 ifneq (,$(ALIAS_PRIVLIBS_EXT))
-	@if [ -e $(OUTDIR)/libxsext.$(DLIBEXT) ]; then \
-		echo "Libs: -L\$${libdir} -lxsmmext" >>$@; \
-		echo "Libs.private: $(ALIAS_PRIVLIBS_EXT)" >>$@; \
-	else \
-		echo "Libs: -L\$${libdir} -lxsmmext $(ALIAS_PRIVLIBS_EXT)" >>$@; \
-	fi
+	@echo "Libs: -L\$${libdir} -lxsmmext" >>$@
+	@echo "Libs.private: $(ALIAS_PRIVLIBS_EXT)" >>$@
 else # no private libraries
 	@echo "Libs: -L\$${libdir} -lxsmmext" >>$@
 endif
