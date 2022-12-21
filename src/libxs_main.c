@@ -1145,7 +1145,7 @@ LIBXS_API_INTERN void internal_init(void)
 }
 
 
-LIBXS_API LIBXS_ATTRIBUTE_CTOR void libxs_init(void)
+LIBXS_API_CTOR void libxs_init(void)
 {
   if (0 == LIBXS_ATOMIC_LOAD(&internal_registry, LIBXS_ATOMIC_SEQ_CST)) {
     static unsigned int counter = 0, gid = 0;
@@ -1317,7 +1317,7 @@ LIBXS_API LIBXS_ATTRIBUTE_CTOR void libxs_init(void)
 
 
 LIBXS_API LIBXS_ATTRIBUTE_NO_TRACE void libxs_finalize(void);
-LIBXS_API LIBXS_ATTRIBUTE_DTOR void libxs_finalize(void)
+LIBXS_API_DTOR void libxs_finalize(void)
 {
   void *const regaddr = &internal_registry;
   uintptr_t regptr = LIBXS_ATOMIC(LIBXS_ATOMIC_LOAD, LIBXS_BITS)((uintptr_t*)regaddr, LIBXS_ATOMIC_SEQ_CST);
