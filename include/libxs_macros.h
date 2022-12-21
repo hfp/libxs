@@ -779,7 +779,7 @@ LIBXS_API_INLINE int libxs_nonconst_int(int i) { return i; }
 # define LIBXS_ATTRIBUTE_WEAK_IMPORT
 #endif
 
-#if !defined(LIBXS_NO_CTOR) && !defined(LIBXS_CTOR) && defined(LIBXS_BUILD) && \
+#if !defined(LIBXS_NO_CTOR) && !defined(LIBXS_CTOR) && \
     (defined(__STDC_VERSION__) && (199901L <= __STDC_VERSION__)) && \
     (defined(__GNUC__) || defined(__clang__))
 # define LIBXS_ATTRIBUTE_CTOR LIBXS_ATTRIBUTE(constructor)
@@ -788,6 +788,14 @@ LIBXS_API_INLINE int libxs_nonconst_int(int i) { return i; }
 #else
 # define LIBXS_ATTRIBUTE_CTOR
 # define LIBXS_ATTRIBUTE_DTOR
+#endif
+
+#if defined(LIBXS_BUILD)
+# define LIBXS_API_CTOR LIBXS_API LIBXS_ATTRIBUTE_CTOR
+# define LIBXS_API_DTOR LIBXS_API LIBXS_ATTRIBUTE_DTOR
+#else
+# define LIBXS_API_CTOR LIBXS_API
+# define LIBXS_API_DTOR LIBXS_API
 #endif
 
 #if defined(__GNUC__) && !defined(__PGI) && !defined(__ibmxl__)
