@@ -1294,14 +1294,7 @@ LIBXS_API_CTOR void libxs_init(void)
           }
         }
       }
-      { const unsigned int ninit = LIBXS_ATOMIC_ADD_FETCH(&libxs_ninit, 1, LIBXS_ATOMIC_SEQ_CST);
-#if 1
-        LIBXS_UNUSED(ninit);
-#else
-        LIBXS_UNUSED_NDEBUG(ninit);
-        assert(2 == ninit); /* !LIBXS_ASSERT */
-#endif
-      }
+      LIBXS_EXPECT(0 < LIBXS_ATOMIC_ADD_FETCH(&libxs_ninit, 1, LIBXS_ATOMIC_SEQ_CST));
     }
     else /*if (gid != tid)*/ { /* avoid recursion */
       LIBXS_ASSERT(gid != tid);
@@ -1312,7 +1305,6 @@ LIBXS_API_CTOR void libxs_init(void)
     libxs_perf_init();
 #endif
   }
-  LIBXS_ASSERT(1 < libxs_ninit);
 }
 
 
