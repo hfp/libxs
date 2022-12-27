@@ -327,11 +327,7 @@ Please note that comparing performance results depends on whether the operands o
 
 <b>[11]&#160;</b>[https://github.com/intel/intel-extension-for-pytorch](https://github.com/intel/intel-extension-for-pytorch): Intel Extension for PyTorch aims for a smooth user experience of PyTorch on CPUs by the means of good performance. The extension pack started to rely on [LIBXS for achieving high performance on CPUs](https://arxiv.org/abs/2005.04680).
 
-<b>[12]&#160;</b>[https://www.tensorflow.org/](https://tensorflow.org/): <span>TensorFlow&trade;<span> is an open source software library for numerical computation using data flow graphs. TensorFlow was originally developed by researchers and engineers working on the Google Brain Team for the purposes of conducting machine learning and deep neural networks research. LIBXS was once [used](https://xconfigure.readthedocs.io/tf/) to increase the performance of TensorFlow on Intel hardware.
-
-<b>[13]&#160;</b>[https://github.com/IntelLabs/SkimCaffe](https://github.com/IntelLabs/SkimCaffe#skimcaffe-specific-description): SkimCaffe from Intel Labs is a Caffe branch for training of sparse CNNs, which provide 80-95% sparsity in convolutions and fully-connected layers. LIBXS's SPMDM domain (SParseMatrix-DenseMatrix multiplication) evolved from SkimCaffe, and since then LIBXS implements the sparse operations in SkimCaffe.
-
-<b>[14]&#160;</b>[https://github.com/baidu-research/DeepBench](https://github.com/baidu-research/DeepBench#deepbench): The primary purpose of DeepBench is to benchmark operations that are important to deep learning on different hardware platforms. LIBXS's DNN primitives have been [incorporated into DeepBench](https://github.com/baidu-research/DeepBench/tree/master/code/intel/convolution/libxs_conv) to demonstrate an increased performance of deep learning on Intel hardware.
+<b>[12]&#160;</b>[https://github.com/libxs/tpp-pytorch-extension](https://github.com/libxs/tpp-pytorch-extension): Intel(R) Tensor Processing Primitive extension for pytorch is an open source software library for integration Tensor Processing Primitive (TPP) into pytorch and aiming for a smooth user experience of PyTorch on CPUs by the means of good performance. Intel's MLPerf Training solutions levarage this [code](https://github.com/mlcommons/training_results_v2.1/tree/main/Intel/benchmarks/bert/implementations/pytorch-cpu).
 
 ### Automated Driving (AD)
 
