@@ -1,7 +1,7 @@
 name: "LIBXS"
 author: "Hans Pabst"
 github: "libxs/libxs"
-copyright: "Copyright (c) 2009-2022, LIBXS Contributors."
+copyright: "Copyright (c) 2009-2026, LIBXS Contributors."
 license: "BSD-3-Clause"
 description: "Library for specialized dense and sparse matrix operations, and deep learning primitives."
 categories = ["numerical"]
