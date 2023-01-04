@@ -2169,9 +2169,11 @@ OMPFLAG ?= $(NULL)
 
 # some stand-alone libomp versions can cause warnings
 ifneq (,$(filter 1 2,$(PEDANTIC)))
+ifeq (Darwin,$(UNAME))
 ifneq (,$(OMPFLAG))
 ifneq (0,$(CLANG))
   CFLAGS += -Wno-strict-prototypes
+endif
 endif
 endif
 endif
