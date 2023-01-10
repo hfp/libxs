@@ -9,17 +9,11 @@
 #include <libxs_timer.h>
 #include "libxs_main.h"
 
-#if defined(LIBXS_OFFLOAD_TARGET)
-# pragma offload_attribute(push,target(LIBXS_OFFLOAD_TARGET))
-#endif
 #if defined(_WIN32)
 # include <Windows.h>
 #elif defined(__GNUC__) || defined(__PGI) || defined(_CRAYC)
 # include <sys/time.h>
 # include <time.h>
-#endif
-#if defined(LIBXS_OFFLOAD_TARGET)
-# pragma offload_attribute(pop)
 #endif
 
 #if defined(__powerpc64__)

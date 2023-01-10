@@ -32,9 +32,6 @@
 # define LIBXS_INTRINSICS_STATIC
 #endif
 
-#if defined(LIBXS_OFFLOAD_TARGET)
-# pragma offload_attribute(push,target(LIBXS_OFFLOAD_TARGET))
-#endif
 
 /** https://github.com/intel/Immintrin-debug */
 #if !defined(LIBXS_INTRINSICS_DEBUG) && 0
@@ -1008,8 +1005,5 @@ LIBXS_API_INLINE LIBXS_INTRINSICS(LIBXS_X86_AVX512) __m512 LIBXS_INTRINSICS_MM51
 LIBXS_PRAGMA_OPTIMIZE_ON
 # endif
 #endif /*__AVX512F__*/
-#if defined(LIBXS_OFFLOAD_TARGET)
-# pragma offload_attribute(pop)
-#endif
 
 #endif /*LIBXS_INTRINSICS_X86_H*/

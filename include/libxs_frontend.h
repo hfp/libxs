@@ -54,24 +54,12 @@
 # if (0 != LIBXS_ILP64 && !defined(MKL_ILP64))
 #   error "Inconsistent ILP64 configuration detected!"
 # endif
-# if defined(LIBXS_OFFLOAD_BUILD)
-#   pragma offload_attribute(push,target(LIBXS_OFFLOAD_TARGET))
-#   include <mkl.h>
-#   pragma offload_attribute(pop)
-# else
-#   include <mkl.h>
-# endif
+# include <mkl.h>
 #endif
 /** __INTEL_MKL__ is needed later to fix some NOTHROW issue. */
 #if defined(__MKL) && !defined(__INTEL_MKL__) && defined(LIBXS_PLATFORM_X86) && \
     defined(NOTHROW)
-# if defined(LIBXS_OFFLOAD_BUILD)
-#   pragma offload_attribute(push,target(LIBXS_OFFLOAD_TARGET))
-#   include <mkl_version.h>
-#   pragma offload_attribute(pop)
-# else
-#   include <mkl_version.h>
-# endif
+# include <mkl_version.h>
 #endif
 
 /** Unfortunately calculation of INTEL_MKL_VERSION is not stable over time. */
@@ -176,7 +164,7 @@
 # endif
 #endif
 #if !defined(LIBXS_BLAS_SYMBOL_VISIBILITY)
-# define LIBXS_BLAS_SYMBOL_VISIBILITY LIBXS_EXTERN LIBXS_VISIBILITY_IMPORT LIBXS_RETARGETABLE
+# define LIBXS_BLAS_SYMBOL_VISIBILITY LIBXS_EXTERN LIBXS_VISIBILITY_IMPORT
 #endif
 
 #if defined(NOTHROW)
@@ -546,19 +534,19 @@ LIBXS_API void libxs_gemm_xprint(void* ostream,
   libxs_xmmfunction kernel, const void* a, const void* b, void* c);
 
 /** GEMM_BATCH_STRIDED: fallback prototype functions served by any compliant LAPACK/BLAS. */
-LIBXS_EXTERN_C typedef LIBXS_RETARGETABLE void (*libxs_dgemm_batch_strided_function)(LIBXS_BLAS_SYMBOL_SIGNATURE(const*, *, double, gemm_batch_strided));
-LIBXS_EXTERN_C typedef LIBXS_RETARGETABLE void (*libxs_sgemm_batch_strided_function)(LIBXS_BLAS_SYMBOL_SIGNATURE(const*, *, float, gemm_batch_strided));
+LIBXS_EXTERN_C typedef void (*libxs_dgemm_batch_strided_function)(LIBXS_BLAS_SYMBOL_SIGNATURE(const*, *, double, gemm_batch_strided));
+LIBXS_EXTERN_C typedef void (*libxs_sgemm_batch_strided_function)(LIBXS_BLAS_SYMBOL_SIGNATURE(const*, *, float, gemm_batch_strided));
 /** GEMM_BATCH: fallback prototype functions served by any compliant LAPACK/BLAS. */
-LIBXS_EXTERN_C typedef LIBXS_RETARGETABLE void (*libxs_dgemm_batch_function)(LIBXS_BLAS_SYMBOL_SIGNATURE(const*, *, double, gemm_batch));
-LIBXS_EXTERN_C typedef LIBXS_RETARGETABLE void (*libxs_sgemm_batch_function)(LIBXS_BLAS_SYMBOL_SIGNATURE(const*, *, float, gemm_batch));
+LIBXS_EXTERN_C typedef void (*libxs_dgemm_batch_function)(LIBXS_BLAS_SYMBOL_SIGNATURE(const*, *, double, gemm_batch));
+LIBXS_EXTERN_C typedef void (*libxs_sgemm_batch_function)(LIBXS_BLAS_SYMBOL_SIGNATURE(const*, *, float, gemm_batch));
 /** GEMM: fallback prototype functions served by any compliant LAPACK/BLAS. */
-LIBXS_EXTERN_C typedef LIBXS_RETARGETABLE void (*libxs_dgemm_function)(LIBXS_BLAS_SYMBOL_SIGNATURE(const*, *, double, gemm));
-LIBXS_EXTERN_C typedef LIBXS_RETARGETABLE void (*libxs_sgemm_function)(LIBXS_BLAS_SYMBOL_SIGNATURE(const*, *, float,  gemm));
+LIBXS_EXTERN_C typedef void (*libxs_dgemm_function)(LIBXS_BLAS_SYMBOL_SIGNATURE(const*, *, double, gemm));
+LIBXS_EXTERN_C typedef void (*libxs_sgemm_function)(LIBXS_BLAS_SYMBOL_SIGNATURE(const*, *, float,  gemm));
 /** GEMV: fallback prototype functions served by any compliant LAPACK/BLAS. */
-LIBXS_EXTERN_C typedef LIBXS_RETARGETABLE void (*libxs_dgemv_function)(LIBXS_BLAS_SYMBOL_SIGNATURE(const*, *, double, gemv));
-LIBXS_EXTERN_C typedef LIBXS_RETARGETABLE void (*libxs_sgemv_function)(LIBXS_BLAS_SYMBOL_SIGNATURE(const*, *, float,  gemv));
+LIBXS_EXTERN_C typedef void (*libxs_dgemv_function)(LIBXS_BLAS_SYMBOL_SIGNATURE(const*, *, double, gemv));
+LIBXS_EXTERN_C typedef void (*libxs_sgemv_function)(LIBXS_BLAS_SYMBOL_SIGNATURE(const*, *, float,  gemv));
 /** Helper function to consume arguments when called. */
-LIBXS_EXTERN_C typedef LIBXS_RETARGETABLE void (*libxs_sink_function)(const void*, ...);
+LIBXS_EXTERN_C typedef void (*libxs_sink_function)(const void*, ...);
 
 /** The original BLAS functions. */
 LIBXS_APIVAR_PUBLIC(/*volatile*/libxs_dgemm_batch_strided_function libxs_original_dgemm_batch_strided_function);

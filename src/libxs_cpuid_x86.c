@@ -48,7 +48,7 @@
     } while(0)
 # elif defined(__GNUC__) || !defined(_CRAYC)
 #   if (64 > (LIBXS_BITS))
-      LIBXS_EXTERN LIBXS_RETARGETABLE int __get_cpuid( /* prototype */
+      LIBXS_EXTERN int __get_cpuid( /* prototype */
         unsigned int, unsigned int*, unsigned int*, unsigned int*, unsigned int*);
 #     define LIBXS_XGETBV(XCR, EAX, EDX) (EAX) = (EDX) = 0xFFFFFFFF
 #     define LIBXS_CPUID_X86(FUNCTION, SUBFN, EAX, EBX, ECX, EDX) \

@@ -14,7 +14,7 @@
 
 typedef unsigned long long libxs_timer_tickint;
 
-LIBXS_EXTERN_C typedef struct LIBXS_RETARGETABLE libxs_timer_info {
+LIBXS_EXTERN_C typedef struct libxs_timer_info {
   int tsc;
 } libxs_timer_info;
 

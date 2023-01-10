@@ -24,9 +24,6 @@
  * code for every (internal) change of LIBXS. Please make sure to only rely on the
  * public interface as the internal implementation may change without notice.
  */
-#if defined(LIBXS_OFFLOAD_TARGET)
-# pragma offload_attribute(push,target(LIBXS_OFFLOAD_TARGET))
-#endif
 #include "../src/generator_aarch64_instructions.c"
 #include "../src/generator_common.c"
 #include "../src/generator_common_aarch64.c"
@@ -119,8 +116,5 @@
 #include "../src/libxs_timer.c"
 #include "../src/libxs_trace.c"
 #include "../src/libxs_xcopy.c"
-#if defined(LIBXS_OFFLOAD_TARGET)
-# pragma offload_attribute(pop)
-#endif
 
 #endif /*LIBXS_SOURCE_H*/

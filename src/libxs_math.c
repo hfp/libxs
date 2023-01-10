@@ -9,14 +9,8 @@
 #include <libxs_mhd.h>
 #include "libxs_main.h"
 
-#if defined(LIBXS_OFFLOAD_TARGET)
-# pragma offload_attribute(push,target(LIBXS_OFFLOAD_TARGET))
-#endif
 #if !defined(LIBXS_NO_LIBM)
 # include <math.h>
-#endif
-#if defined(LIBXS_OFFLOAD_TARGET)
-# pragma offload_attribute(pop)
 #endif
 
 /**

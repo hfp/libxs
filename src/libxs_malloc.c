@@ -10,9 +10,6 @@
 #include "libxs_main.h"
 #include "libxs_hash.h"
 
-#if defined(LIBXS_OFFLOAD_TARGET)
-# pragma offload_attribute(push,target(LIBXS_OFFLOAD_TARGET))
-#endif
 #if (defined(LIBXS_BUILD) && (1 < (LIBXS_BUILD)))
 # include <features.h>
 # include <malloc.h>
@@ -116,9 +113,6 @@ LIBXS_EXTERN_C typedef struct iJIT_Method_Load_V2 {
 #endif /*defined(LIBXS_VTUNE)*/
 #if !defined(LIBXS_MALLOC_XMAP_TEMPLATE)
 # define LIBXS_MALLOC_XMAP_TEMPLATE ".libxs_jit." LIBXS_MKTEMP_PATTERN
-#endif
-#if defined(LIBXS_OFFLOAD_TARGET)
-# pragma offload_attribute(pop)
 #endif
 #if defined(LIBXS_PERF)
 # include "libxs_perf.h"
@@ -361,7 +355,7 @@ LIBXS_EXTERN_C typedef struct iJIT_Method_Load_V2 {
 #endif
 
 
-LIBXS_EXTERN_C typedef struct LIBXS_RETARGETABLE internal_malloc_info_type {
+LIBXS_EXTERN_C typedef struct internal_malloc_info_type {
   libxs_free_function free;
   void *pointer, *reloc;
   const void* context;
@@ -380,7 +374,7 @@ LIBXS_EXTERN_C typedef struct LIBXS_RETARGETABLE internal_malloc_info_type {
 #endif
 } internal_malloc_info_type;
 
-LIBXS_EXTERN_C typedef union LIBXS_RETARGETABLE internal_malloc_pool_type {
+LIBXS_EXTERN_C typedef union internal_malloc_pool_type {
   char pad[LIBXS_MALLOC_SCRATCH_PADDING];
   struct {
     size_t minsize, counter, incsize;

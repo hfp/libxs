@@ -23,17 +23,17 @@
 
 
 /** Function types accepted for memory allocation (see libxs_*_allocator). */
-LIBXS_EXTERN_C typedef LIBXS_RETARGETABLE void* (*libxs_malloc_ctx)(size_t /*size*/, const void* /*context*/);
-LIBXS_EXTERN_C typedef LIBXS_RETARGETABLE void* (*libxs_malloc_fun)(size_t /*size*/);
-LIBXS_EXTERN_C typedef union LIBXS_RETARGETABLE libxs_malloc_function {
+LIBXS_EXTERN_C typedef void* (*libxs_malloc_ctx)(size_t /*size*/, const void* /*context*/);
+LIBXS_EXTERN_C typedef void* (*libxs_malloc_fun)(size_t /*size*/);
+LIBXS_EXTERN_C typedef union libxs_malloc_function {
   libxs_malloc_ctx ctx_form;
   libxs_malloc_fun function;
 } libxs_malloc_function;
 
 /** Function types accepted for releasing memory (see libxs_*_allocator). */
-LIBXS_EXTERN_C typedef LIBXS_RETARGETABLE void (*libxs_free_ctx)(void* /*buffer*/, const void* /*context*/);
-LIBXS_EXTERN_C typedef LIBXS_RETARGETABLE void (*libxs_free_fun)(void* /*buffer*/);
-LIBXS_EXTERN_C typedef union LIBXS_RETARGETABLE libxs_free_function {
+LIBXS_EXTERN_C typedef void (*libxs_free_ctx)(void* /*buffer*/, const void* /*context*/);
+LIBXS_EXTERN_C typedef void (*libxs_free_fun)(void* /*buffer*/);
+LIBXS_EXTERN_C typedef union libxs_free_function {
   libxs_free_ctx ctx_form;
   libxs_free_fun function;
 } libxs_free_function;
@@ -128,7 +128,7 @@ LIBXS_API void libxs_pfree(void* pointer, void* pool[], size_t* i);
 LIBXS_API void libxs_release_scratch(void);
 
 /** Information about a buffer (default memory domain). */
-LIBXS_EXTERN_C typedef struct LIBXS_RETARGETABLE libxs_malloc_info {
+LIBXS_EXTERN_C typedef struct libxs_malloc_info {
   /** Size of the buffer. */
   size_t size;
 } libxs_malloc_info;
@@ -137,7 +137,7 @@ LIBXS_EXTERN_C typedef struct LIBXS_RETARGETABLE libxs_malloc_info {
 LIBXS_API int libxs_get_malloc_info(const void* memory, libxs_malloc_info* info);
 
 /** Information about the scratch memory domain. */
-LIBXS_EXTERN_C typedef struct LIBXS_RETARGETABLE libxs_scratch_info {
+LIBXS_EXTERN_C typedef struct libxs_scratch_info {
   /** Watermark memory across pools (size), unsatisfied (local), and library-internal memory. */
   size_t size, local, internal;
   /** Pending allocations (not released). */
@@ -186,7 +186,7 @@ LIBXS_API size_t libxs_offset(const size_t offset[], const size_t shape[], size_
 #if defined(__cplusplus)
 
 /** RAII idiom to temporarily setup an allocator for the lifetime of the scope. */
-template<typename kind> class LIBXS_RETARGETABLE libxs_scoped_allocator {
+template<typename kind> class libxs_scoped_allocator {
 public:
   /** C'tor, which instantiates the new allocator (plain form). */
   libxs_scoped_allocator(libxs_malloc_fun malloc_fn, libxs_free_fun free_fn) {
@@ -220,7 +220,7 @@ protected: /* saved/previous allocator */
 };
 
 /** Allocator-kind to instantiate libxs_scoped_allocator<kind>. */
-struct LIBXS_RETARGETABLE libxs_default_allocator {
+struct libxs_default_allocator {
   static void set(const void* context,
     libxs_malloc_ctx malloc_ctx, libxs_free_ctx free_ctx,
     libxs_malloc_fun malloc_fun, libxs_free_fun free_fun)
@@ -243,7 +243,7 @@ struct LIBXS_RETARGETABLE libxs_default_allocator {
 };
 
 /** Allocator-kind to instantiate libxs_scoped_allocator<kind>. */
-struct LIBXS_RETARGETABLE libxs_scratch_allocator {
+struct libxs_scratch_allocator {
   static void set(const void* context,
     libxs_malloc_ctx malloc_ctx, libxs_free_ctx free_ctx,
     libxs_malloc_fun malloc_fun, libxs_free_fun free_fun)
@@ -285,7 +285,7 @@ namespace tensorflow {
  * of kind "libxs_default_allocator" makes the default memory
  * allocation of LIBXS subject to TensorFlow as well.
  */
-template<typename kind> class LIBXS_RETARGETABLE libxs_tf_allocator:
+template<typename kind> class libxs_tf_allocator:
   public libxs_scoped_allocator<kind>
 {
 public:

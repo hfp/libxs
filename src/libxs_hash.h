@@ -26,7 +26,7 @@
 
 
 /** Function type representing the CRC32 functionality. */
-LIBXS_EXTERN_C typedef LIBXS_RETARGETABLE unsigned int (*libxs_hash_function)(
+LIBXS_EXTERN_C typedef unsigned int (*libxs_hash_function)(
   unsigned int /*seed*/, const void* /*data*/, ... /*size*/);
 
 /** Initialize hash function module; not thread-safe. */
