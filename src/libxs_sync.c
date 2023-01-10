@@ -12,9 +12,6 @@
 # define LIBXS_SYNC_FUTEX
 #endif
 
-#if defined(LIBXS_OFFLOAD_TARGET)
-# pragma offload_attribute(push,target(LIBXS_OFFLOAD_TARGET))
-#endif
 #include <stdint.h>
 #if defined(_WIN32)
 # include <process.h>
@@ -24,9 +21,6 @@
 # endif
 # include <unistd.h>
 # include <time.h>
-#endif
-#if defined(LIBXS_OFFLOAD_TARGET)
-# pragma offload_attribute(pop)
 #endif
 
 #if !defined(LIBXS_SYNC_RWLOCK_BITS)
@@ -38,7 +32,7 @@
 #endif
 
 
-LIBXS_EXTERN_C typedef struct LIBXS_RETARGETABLE internal_sync_core_tag { /* per-core */
+LIBXS_EXTERN_C typedef struct internal_sync_core_tag { /* per-core */
   uint8_t id;
   volatile uint8_t core_sense;
   volatile uint8_t* thread_senses;
@@ -48,12 +42,12 @@ LIBXS_EXTERN_C typedef struct LIBXS_RETARGETABLE internal_sync_core_tag { /* per
   uint8_t sense;
 } internal_sync_core_tag;
 
-LIBXS_EXTERN_C typedef struct LIBXS_RETARGETABLE internal_sync_thread_tag { /* per-thread */
+LIBXS_EXTERN_C typedef struct internal_sync_thread_tag { /* per-thread */
   int core_tid;
   internal_sync_core_tag *core;
 } internal_sync_thread_tag;
 
-struct LIBXS_RETARGETABLE libxs_barrier {
+struct libxs_barrier {
   internal_sync_core_tag** cores;
   internal_sync_thread_tag** threads;
   int ncores, nthreads_per_core;

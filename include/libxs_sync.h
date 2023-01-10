@@ -721,7 +721,7 @@ LIBXS_EXTERN void funlockfile(FILE*) LIBXS_NOTHROW;
 
 
 /** Opaque type which represents a barrier. */
-LIBXS_EXTERN_C typedef struct LIBXS_RETARGETABLE libxs_barrier libxs_barrier;
+LIBXS_EXTERN_C typedef struct libxs_barrier libxs_barrier;
 
 /** Create barrier from one of the threads. */
 LIBXS_API libxs_barrier* libxs_barrier_create(int ncores, int nthreads_per_core);

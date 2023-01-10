@@ -12,14 +12,8 @@
 #include <libxs_sync.h>
 #include "libxs_main.h"
 
-#if defined(LIBXS_OFFLOAD_TARGET)
-# pragma offload_attribute(push,target(LIBXS_OFFLOAD_TARGET))
-#endif
 #include <signal.h>
 #include <setjmp.h>
-#if defined(LIBXS_OFFLOAD_TARGET)
-# pragma offload_attribute(pop)
-#endif
 
 #if !defined(LIBXS_CPUID_ARM_BASELINE) && 0
 # define LIBXS_CPUID_ARM_BASELINE LIBXS_AARCH64_NEOV1

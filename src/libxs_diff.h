@@ -122,7 +122,7 @@
 
 
 /** Function type representing the diff-functionality. */
-LIBXS_EXTERN_C typedef LIBXS_RETARGETABLE unsigned int (*libxs_diff_function)(
+LIBXS_EXTERN_C typedef unsigned int (*libxs_diff_function)(
   const void* /*a*/, const void* /*b*/, ... /*size*/);
 
 /** Compare two data blocks of 4 Byte each. */

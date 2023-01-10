@@ -116,13 +116,7 @@
 #endif
 
 #if defined(LIBXS_INTERCEPT_DYNAMIC)
-# if defined(LIBXS_OFFLOAD_TARGET)
-#   pragma offload_attribute(push,target(LIBXS_OFFLOAD_TARGET))
-# endif
 # include <dlfcn.h>
-# if defined(LIBXS_OFFLOAD_TARGET)
-#   pragma offload_attribute(pop)
-# endif
 # if !defined(RTLD_NEXT)
 #   define LIBXS_RTLD_NEXT ((void*)-1l)
 # else
@@ -209,7 +203,7 @@
 * Packed structure, which stores the argument description of GEMM routines.
 * The size of the structure is padded to LIBXS_DESCRIPTOR_MAXSIZE.
 */
-LIBXS_EXTERN_C LIBXS_PACKED(struct LIBXS_RETARGETABLE) libxs_gemm_descriptor {
+LIBXS_EXTERN_C LIBXS_PACKED(struct) libxs_gemm_descriptor {
   /** Extents of the matrix. */
   unsigned int m, n, k;
   /** Leading dimensions. */
@@ -257,7 +251,7 @@ LIBXS_EXTERN_C LIBXS_PACKED(struct LIBXS_RETARGETABLE) libxs_gemm_descriptor {
 };
 
 /** Packed structure storing the mateltw argument description. */
-LIBXS_EXTERN_C LIBXS_PACKED(struct LIBXS_RETARGETABLE) libxs_meltw_descriptor {
+LIBXS_EXTERN_C LIBXS_PACKED(struct) libxs_meltw_descriptor {
   /** LDx, M, and N. */
   unsigned int m, n, ldi, ldo, ldi2, ldi3;
   /** Size of data element. */
@@ -272,7 +266,7 @@ LIBXS_EXTERN_C LIBXS_PACKED(struct LIBXS_RETARGETABLE) libxs_meltw_descriptor {
   unsigned char operation;
 };
 
-LIBXS_EXTERN_C typedef struct LIBXS_RETARGETABLE LIBXS_MAY_ALIAS libxs_pspgemm_csr_descriptor {
+LIBXS_EXTERN_C typedef struct LIBXS_MAY_ALIAS libxs_pspgemm_csr_descriptor {
   const libxs_gemm_descriptor* gemm;
   const unsigned int* row_ptr;
   const unsigned int* column_idx;
@@ -280,7 +274,7 @@ LIBXS_EXTERN_C typedef struct LIBXS_RETARGETABLE LIBXS_MAY_ALIAS libxs_pspgemm_c
   unsigned int packed_width;
 } libxs_pspgemm_csr_descriptor;
 
-LIBXS_EXTERN_C typedef struct LIBXS_RETARGETABLE LIBXS_MAY_ALIAS libxs_pspgemm_csc_descriptor {
+LIBXS_EXTERN_C typedef struct LIBXS_MAY_ALIAS libxs_pspgemm_csc_descriptor {
   const libxs_gemm_descriptor* gemm;
   const unsigned int* column_ptr;
   const unsigned int* row_idx;
@@ -288,29 +282,29 @@ LIBXS_EXTERN_C typedef struct LIBXS_RETARGETABLE LIBXS_MAY_ALIAS libxs_pspgemm_c
   unsigned int packed_width;
 } libxs_pspgemm_csc_descriptor;
 
-LIBXS_EXTERN_C typedef struct LIBXS_RETARGETABLE LIBXS_MAY_ALIAS libxs_pgemm_ac_rm_descriptor {
+LIBXS_EXTERN_C typedef struct LIBXS_MAY_ALIAS libxs_pgemm_ac_rm_descriptor {
   const libxs_gemm_descriptor* gemm;
   unsigned int packed_width;
 } libxs_pgemm_ac_rm_descriptor;
 
-LIBXS_EXTERN_C typedef struct LIBXS_RETARGETABLE LIBXS_MAY_ALIAS libxs_pgemm_bc_rm_descriptor {
+LIBXS_EXTERN_C typedef struct LIBXS_MAY_ALIAS libxs_pgemm_bc_rm_descriptor {
   const libxs_gemm_descriptor* gemm;
   unsigned int packed_width;
 } libxs_pgemm_bc_rm_descriptor;
 
-LIBXS_EXTERN_C typedef struct LIBXS_RETARGETABLE LIBXS_MAY_ALIAS libxs_csr_reg_descriptor {
+LIBXS_EXTERN_C typedef struct LIBXS_MAY_ALIAS libxs_csr_reg_descriptor {
   const libxs_gemm_descriptor* gemm;
   const unsigned int* row_ptr;
   const unsigned int* column_idx;
   const void* values;
 } libxs_csr_reg_descriptor;
 
-LIBXS_EXTERN_C typedef union LIBXS_RETARGETABLE libxs_xcopykernel {
+LIBXS_EXTERN_C typedef union libxs_xcopykernel {
   libxs_meltwfunction_unary function;
   const void *ptr_const, *ptr;
 } libxs_xcopykernel;
 
-LIBXS_EXTERN_C typedef union LIBXS_RETARGETABLE libxs_code_pointer {
+LIBXS_EXTERN_C typedef union libxs_code_pointer {
   /*void (*ptr_fn)(const void*, ...);*/
   const void* ptr_const;
   void* ptr;
@@ -321,7 +315,7 @@ LIBXS_EXTERN_C typedef union LIBXS_RETARGETABLE libxs_code_pointer {
   libxs_matrix_eqn_function xmateqn;
 } libxs_code_pointer;
 
-struct LIBXS_RETARGETABLE libxs_fsspmdm {
+struct libxs_fsspmdm {
   int M, N, K, ldb, ldc, N_chunksize;
   libxs_gemmfunction kernel;
   libxs_datatype datatype;
@@ -329,7 +323,7 @@ struct LIBXS_RETARGETABLE libxs_fsspmdm {
 };
 
 /** Packed structure storing the mateltw argument description. */
-LIBXS_EXTERN_C LIBXS_PACKED(struct LIBXS_RETARGETABLE) libxs_meqn_descriptor {
+LIBXS_EXTERN_C LIBXS_PACKED(struct) libxs_meqn_descriptor {
   /** LDx, M, and N. */
   unsigned int m, n, ldo;
   /** Size of data element. */
@@ -364,14 +358,14 @@ typedef unsigned char libxs_descriptor_kind;
 #endif
 
 /** All descriptor types, which are valid for code-registration. */
-LIBXS_EXTERN_C typedef union LIBXS_RETARGETABLE libxs_descriptor {
+LIBXS_EXTERN_C typedef union libxs_descriptor {
   unsigned char data[LIBXS_DESCRIPTOR_MAXSIZE];
   libxs_descriptor_kind kind; /* kind: must be the first member after "data" entry (above) */
   LIBXS_REGDESC(LIBXS_PACKED(struct) { libxs_descriptor_kind /*repeated kind*/ pad; , desc; });
   LIBXS_PACKED(struct) { libxs_descriptor_kind /*repeated kind*/ pad; unsigned char size; unsigned char desc[1]; } user;
 } libxs_descriptor;
 
-LIBXS_EXTERN_C typedef struct LIBXS_RETARGETABLE libxs_build_request {
+LIBXS_EXTERN_C typedef struct libxs_build_request {
   union {
     const void *ptr_const, *ptr; /* raw content */
     LIBXS_REGDESC(LIBXS_REGDESC_DEFAULT, const*);
@@ -406,10 +400,10 @@ typedef enum libxs_malloc_flags {
       LIBXS_MALLOC_FLAG_MMAP    | LIBXS_MALLOC_FLAG_RWX
 } libxs_malloc_flags;
 
-LIBXS_EXTERN_C typedef LIBXS_RETARGETABLE void* (*libxs_realloc_fun)(void* /*ptr*/, size_t /*size*/);
+LIBXS_EXTERN_C typedef void* (*libxs_realloc_fun)(void* /*ptr*/, size_t /*size*/);
 
 #if defined(LIBXS_MALLOC_HOOK_DYNAMIC)
-LIBXS_EXTERN_C typedef struct LIBXS_RETARGETABLE libxs_malloc_fntype {
+LIBXS_EXTERN_C typedef struct libxs_malloc_fntype {
   union { const void* dlsym; void* (*ptr)(size_t, size_t);  } alignmem;
   union { const void* dlsym; void* (*ptr)(size_t, size_t);  } memalign;
   union { const void* dlsym; libxs_malloc_fun ptr;        } malloc;
@@ -426,15 +420,15 @@ LIBXS_APIVAR_PRIVATE(libxs_malloc_fntype libxs_malloc_fn);
 
 #if (defined(LIBXS_BUILD) && (1 < (LIBXS_BUILD)))
 /* prototypes for GLIBC internal implementation */
-LIBXS_EXTERN_C LIBXS_RETARGETABLE void* __libc_memalign(size_t alignment, size_t size);
-LIBXS_EXTERN_C LIBXS_RETARGETABLE void* __libc_malloc(size_t size);
+LIBXS_EXTERN_C void* __libc_memalign(size_t alignment, size_t size);
+LIBXS_EXTERN_C void* __libc_malloc(size_t size);
 #if defined(LIBXS_MALLOC_HOOK_CALLOC)
-LIBXS_EXTERN_C LIBXS_RETARGETABLE void* __libc_calloc(size_t num, size_t size);
+LIBXS_EXTERN_C void* __libc_calloc(size_t num, size_t size);
 #endif
 #if defined(LIBXS_MALLOC_HOOK_REALLOC)
-LIBXS_EXTERN_C LIBXS_RETARGETABLE void* __libc_realloc(void* ptr, size_t size);
+LIBXS_EXTERN_C void* __libc_realloc(void* ptr, size_t size);
 #endif
-LIBXS_EXTERN_C LIBXS_RETARGETABLE void  __libc_free(void* ptr);
+LIBXS_EXTERN_C void  __libc_free(void* ptr);
 #endif /*(defined(LIBXS_BUILD) && (1 < (LIBXS_BUILD)))*/
 LIBXS_API_INTERN void* libxs_memalign_internal(size_t alignment, size_t size);
 
@@ -518,7 +512,7 @@ LIBXS_API_INTERN void libxs_cpuid_model(char model[], size_t* model_size);
 /** Returns the type-size of data-type (can be also libxs_datatype). */
 LIBXS_API unsigned char libxs_typesize(libxs_datatype datatype);
 
-LIBXS_EXTERN_C typedef struct LIBXS_RETARGETABLE libxs_kernel_xinfo {
+LIBXS_EXTERN_C typedef struct libxs_kernel_xinfo {
   /** Non-zero if kernel is registered. */
   unsigned int registered;
   /** Number of FLoating Point OPerationS (FLOPS). */

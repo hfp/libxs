@@ -8,13 +8,7 @@
 ******************************************************************************/
 #include <libxs_mhd.h>
 #include "libxs_main.h" /* libxs_typesize */
-#if defined(LIBXS_OFFLOAD_TARGET)
-# pragma offload_attribute(push,target(LIBXS_OFFLOAD_TARGET))
-#endif
 #include <ctype.h>
-#if defined(LIBXS_OFFLOAD_TARGET)
-# pragma offload_attribute(pop)
-#endif
 
 #if !defined(LIBXS_MHD_MAX_LINELENGTH)
 # define LIBXS_MHD_MAX_LINELENGTH 1024

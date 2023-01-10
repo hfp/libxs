@@ -181,8 +181,7 @@ TIMEOUT := 30
 EXCLUDE_STATE := \
   DESTDIR PREFIX BINDIR CURDIR DOCDIR DOCEXT INCDIR LICFDIR OUTDIR TSTDIR TIMEOUT \
   PBINDIR PINCDIR POUTDIR PPKGDIR PMODDIR PSRCDIR PTSTDIR PSHRDIR PDOCDIR SCRDIR \
-  SPLDIR UTLDIR SRCDIR TEST VERSION_STRING DEPSTATIC ALIAS_% BLAS %_TARGET %ROOT \
-  MPSS KNC
+  SPLDIR UTLDIR SRCDIR TEST VERSION_STRING DEPSTATIC ALIAS_% BLAS %_TARGET %ROOT
 
 # fixed .state file directory (included by source)
 DIRSTATE := $(OUTDIR)/..
@@ -315,7 +314,6 @@ NINDICES := $(words $(INDICES))
 
 SRCFILES_KERNELS := $(patsubst %,$(BLDDIR)/mm_%.c,$(INDICES))
 KRNOBJS_HST := $(patsubst %,$(BLDDIR)/intel64/mm_%.o,$(INDICES))
-KRNOBJS_MIC := $(patsubst %,$(BLDDIR)/mic/mm_%.o,$(INDICES))
 
 HEADERS := $(wildcard $(ROOTDIR)/$(SRCDIR)/template/*.h) $(wildcard $(ROOTDIR)/$(SRCDIR)/*.h) \
           $(ROOTDIR)/$(SRCDIR)/libxs_hash.c \
@@ -336,7 +334,7 @@ HEADERS := $(wildcard $(ROOTDIR)/$(SRCDIR)/template/*.h) $(wildcard $(ROOTDIR)/$
           $(ROOTDIR)/include/libxs_typedefs.h
 SRCFILES_LIB := $(patsubst %,$(ROOTDIR)/$(SRCDIR)/%, \
           libxs_main.c libxs_mem.c libxs_malloc.c libxs_hash.c libxs_math.c libxs_sync.c libxs_mhd.c libxs_timer.c \
-          libxs_perf.c libxs_gemm.c libxs_xcopy.c libxs_fsspmdm.c libxs_rng.c libxs_lpflt_quant.c )
+          libxs_perf.c libxs_gemm.c libxs_xcopy.c libxs_fsspmdm.c libxs_rng.c libxs_lpflt_quant.c)
 SRCFILES_GEN_LIB := $(patsubst %,$(ROOTDIR)/$(SRCDIR)/%,$(notdir $(wildcard $(ROOTDIR)/$(SRCDIR)/generator_*.c)) \
           libxs_cpuid_arm.c libxs_cpuid_x86.c libxs_generator.c libxs_trace.c libxs_matrixeqn.c)
 
@@ -344,21 +342,16 @@ SRCFILES_GEN_GEMM_BIN := $(patsubst %,$(ROOTDIR)/$(SRCDIR)/%,libxs_generator_gem
 OBJFILES_GEN_GEMM_BIN := $(patsubst %,$(BLDDIR)/intel64/%.o,$(basename $(notdir $(SRCFILES_GEN_GEMM_BIN))))
 OBJFILES_GEN_LIB := $(patsubst %,$(BLDDIR)/intel64/%.o,$(basename $(notdir $(SRCFILES_GEN_LIB))))
 OBJFILES_HST := $(patsubst %,$(BLDDIR)/intel64/%.o,$(basename $(notdir $(SRCFILES_LIB))))
-OBJFILES_MIC := $(patsubst %,$(BLDDIR)/mic/%.o,$(basename $(notdir $(SRCFILES_LIB)))) $(BLDDIR)/mic/generator_common.o
 EXTOBJS_HST  := $(BLDDIR)/intel64/libxs_ext.o \
                $(BLDDIR)/intel64/libxs_ext_xcopy.o \
                $(BLDDIR)/intel64/libxs_ext_gemm.o
-EXTOBJS_MIC  := $(BLDDIR)/mic/libxs_ext.o \
-               $(BLDDIR)/mic/libxs_ext_xcopy.o \
-               $(BLDDIR)/mic/libxs_ext_gemm.o
 NOBLAS_HST   := $(BLDDIR)/intel64/libxs_noblas.o
-NOBLAS_MIC   := $(BLDDIR)/mic/libxs_noblas.o
 
 # list of object might be "incomplete" if not all code gen. FLAGS are supplied with clean target!
-OBJECTS := $(OBJFILES_GEN_LIB) $(OBJFILES_GEN_GEMM_BIN) $(OBJFILES_HST) $(OBJFILES_MIC) \
-          $(KRNOBJS_HST) $(KRNOBJS_MIC) $(EXTOBJS_HST) $(EXTOBJS_MIC) $(NOBLAS_HST) $(NOBLAS_MIC)
+OBJECTS := $(OBJFILES_GEN_LIB) $(OBJFILES_GEN_GEMM_BIN) $(OBJFILES_HST) \
+          $(KRNOBJS_HST) $(EXTOBJS_HST) $(NOBLAS_HST)
 ifneq (,$(strip $(FC)))
-  FTNOBJS := $(BLDDIR)/intel64/libxs-mod.o $(BLDDIR)/mic/libxs-mod.o
+  FTNOBJS := $(BLDDIR)/intel64/libxs-mod.o
 endif
 
 MSGJITPROFILING := 0
@@ -474,7 +467,7 @@ endif
 endif
 
 .PHONY: lib
-lib: headers lib_hst lib_mic
+lib: headers lib_hst
 
 .PHONY: libs
 libs: lib
@@ -499,9 +492,6 @@ interface: headers module
 
 .PHONY: winterface
 winterface: headers sources
-
-.PHONY: lib_mic
-lib_mic: clib_mic flib_mic ext_mic noblas_mic
 
 .PHONY: lib_hst
 lib_hst: clib_hst flib_hst ext_hst noblas_hst
@@ -553,9 +543,6 @@ ifneq (Windows_NT,$(UNAME)) # TODO: full support for Windows calling convention
     PREFETCH_TYPE := $(shell echo "$$((4|2))")
   endif
 endif
-ifeq (,$(PREFETCH_SCHEME_MIC)) # adopt host scheme
-  PREFETCH_SCHEME_MIC := $(PREFETCH_SCHEME)
-endif
 
 # Mapping build options to libxs_gemm_flags (see include/libxs_typedefs.h)
 #FLAGS := $(shell echo "$$((((0==$(ALPHA))*4) | ((0>$(ALPHA))*8) | ((0==$(BETA))*16) | ((0>$(BETA))*32)))")
@@ -596,7 +583,7 @@ $(INCDIR)/libxs_config.h: $(INCDIR)/.make $(ROOTDIR)/$(SRCDIR)/template/libxs_co
 	fi
 	@$(CP) $(filter $(ROOTDIR)/include/%.h,$(HEADERS)) $(INCDIR) 2>/dev/null || true
 	@$(PYTHON) $(ROOTDIR)/$(SCRDIR)/libxs_config.py $(ROOTDIR)/$(SRCDIR)/template/libxs_config.h \
-		$(MAKE_ILP64) $(OFFLOAD) $(CACHELINE) $(PRECISION) $(PREFETCH_TYPE) \
+		$(MAKE_ILP64) $(CACHELINE) $(PRECISION) $(PREFETCH_TYPE) \
 		$(shell echo "$$((0<$(THRESHOLD)?$(THRESHOLD):0))") $(shell echo "$$(($(THREADS)+$(OMP)))") \
 		$(JIT) $(FLAGS) $(ALPHA) $(BETA) $(WRAP) $(MALLOC) $(INDICES) >$@
 
@@ -629,10 +616,9 @@ $(INCDIR)/libxs.f: $(ROOTDIR)/$(SCRDIR)/libxs_interface.py \
 	@$(PYTHON) $(ROOTDIR)/$(SCRDIR)/libxs_interface.py $(ROOTDIR)/$(SRCDIR)/template/libxs.f \
 		$(shell echo "$$(($(PRECISION)+($(call qnum,$(FORTRAN),2)<<2)))") $(PREFETCH_TYPE) $(INDICES) | \
 	$(PYTHON) $(ROOTDIR)/$(SCRDIR)/libxs_config.py /dev/stdin \
-		$(MAKE_ILP64) $(OFFLOAD) $(CACHELINE) $(PRECISION) $(PREFETCH_TYPE) \
+		$(MAKE_ILP64) $(CACHELINE) $(PRECISION) $(PREFETCH_TYPE) \
 		$(shell echo "$$((0<$(THRESHOLD)?$(THRESHOLD):0))") $(shell echo "$$(($(THREADS)+$(OMP)))") \
-		$(JIT) $(FLAGS) $(ALPHA) $(BETA) $(WRAP) $(MALLOC) $(INDICES) | \
-	sed "/ATTRIBUTES OFFLOAD:MIC/d" >$@
+		$(JIT) $(FLAGS) $(ALPHA) $(BETA) $(WRAP) $(MALLOC) $(INDICES) >$@
 
 .PHONY: sources
 sources: $(SRCFILES_KERNELS) $(BLDDIR)/libxs_dispatch.h
@@ -695,7 +681,7 @@ endif
 endif # noarch
 	$(eval TMPFILE = $(shell $(MKTEMP) /tmp/.libxs_XXXXXX.mak))
 	@cat $@ | sed \
-		-e "s/void libxs_/LIBXS_API_INLINE LIBXS_RETARGETABLE void libxs_/" \
+		-e "s/void libxs_/LIBXS_API_INLINE void libxs_/" \
 		-e "s/#ifndef NDEBUG/$(SUPPRESS_UNUSED_PREFETCH_WARNINGS)#ifdef LIBXS_NEVER_DEFINED/" \
 		-e "s/#pragma message (\".*KERNEL COMPILATION ERROR in: \" __FILE__)/  $(SUPPRESS_UNUSED_VARIABLE_WARNINGS)/" \
 		-e "/#error No kernel was compiled, lacking support for current architecture?/d" \
@@ -724,25 +710,6 @@ ifneq (0,$(GLIBC))
   DFLAGS += -DLIBXS_BUILD=2
 else
   DFLAGS += -DLIBXS_BUILD=1
-endif
-
-ifneq (0,$(MIC))
-ifneq (0,$(MPSS))
-$(foreach OBJ,$(OBJFILES_MIC),$(eval $(call DEFINE_COMPILE_RULE, \
-  $(OBJ), $(patsubst %.o,$(ROOTDIR)/$(SRCDIR)/%.c,$(notdir $(OBJ))), \
-  $(INCDIR)/libxs.h $(INCDIR)/libxs_source.h $(BLDDIR)/libxs_dispatch.h,-mmic \
-  $(DFLAGS) $(IFLAGS) $(call applyif,1,libxs_main,$(OBJ),-I$(BLDDIR)) $(CFLAGS))))
-$(foreach OBJ,$(KRNOBJS_MIC),$(eval $(call DEFINE_COMPILE_RULE, \
-  $(OBJ), $(patsubst %.o,$(BLDDIR)/%.c,$(notdir $(OBJ))), \
-  $(INCDIR)/libxs.h $(INCDIR)/libxs_source.h,-mmic \
-  $(DFLAGS) $(IFLAGS) $(CFLAGS))))
-$(foreach OBJ,$(EXTOBJS_MIC),$(eval $(call DEFINE_COMPILE_RULE, \
-  $(OBJ), $(patsubst %.o,$(ROOTDIR)/$(SRCDIR)/%.c,$(notdir $(OBJ))), \
-  $(INCDIR)/libxs.h $(INCDIR)/libxs_source.h,-mmic \
-  $(DFLAGS) $(IFLAGS) $(EXTCFLAGS) $(CFLAGS))))
-$(eval $(call DEFINE_COMPILE_RULE,$(NOBLAS_MIC),$(ROOTDIR)/$(SRCDIR)/libxs_ext.c,$(INCDIR)/libxs.h,-mmic \
-  $(NOBLAS_CFLAGS) $(NOBLAS_FLAGS) $(NOBLAS_IFLAGS) $(DNOBLAS)))
-endif
 endif
 
 # build rules that include target flags
@@ -785,32 +752,6 @@ $(foreach OBJ,$(OBJFILES_GEN_GEMM_BIN),$(eval $(call DEFINE_COMPILE_RULE, \
   $(INCDIR)/libxs.h $(INCDIR)/libxs_source.h, \
   $(DFLAGS) $(IFLAGS) $(TGT_FLAGS) $(CFLAGS))))
 
-.PHONY: module_mic
-ifneq (0,$(MIC))
-ifneq (0,$(MPSS))
-ifneq (,$(strip $(FC)))
-module_mic: $(INCDIR)/mic/libxs.mod
-$(BLDDIR)/mic/libxs-mod.o: $(BLDDIR)/mic/.make $(INCDIR)/mic/.make $(INCDIR)/libxs.f
-	$(FC) $(DFLAGS) $(IFLAGS) $(FCMTFLAGS) $(FCFLAGS) -mmic -c $(INCDIR)/libxs.f -o $@ $(FMFLAGS) $(INCDIR)/mic
-$(INCDIR)/mic/libxs.mod: $(BLDDIR)/mic/libxs-mod.o
-	@if [ -e $(BLDDIR)/mic/LIBXS.mod ]; then $(CP) $(BLDDIR)/mic/LIBXS.mod $(INCDIR); fi
-	@if [ -e $(BLDDIR)/mic/libxs.mod ]; then $(CP) $(BLDDIR)/mic/libxs.mod $(INCDIR); fi
-	@if [ -e LIBXS.mod ]; then $(MV) LIBXS.mod $(INCDIR); fi
-	@if [ -e libxs.mod ]; then $(MV) libxs.mod $(INCDIR); fi
-	@-touch $@
-else
-.PHONY: $(BLDDIR)/mic/libxs-mod.o
-.PHONY: $(INCDIR)/mic/libxs.mod
-endif
-else
-.PHONY: $(BLDDIR)/mic/libxs-mod.o
-.PHONY: $(INCDIR)/mic/libxs.mod
-endif
-else
-.PHONY: $(BLDDIR)/mic/libxs-mod.o
-.PHONY: $(INCDIR)/mic/libxs.mod
-endif
-
 .PHONY: module_hst
 ifneq (,$(strip $(FC)))
 module_hst: $(INCDIR)/libxs.mod
@@ -828,7 +769,7 @@ else
 endif
 
 .PHONY: module
-module: module_hst module_mic
+module: module_hst
 
 .PHONY: build_generator_lib
 build_generator_lib: $(OUTDIR)/libxsgen.$(SLIBEXT) $(OUTDIR)/libxsgen.$(DLIBEXT)
@@ -853,21 +794,6 @@ $(LIBJITPROFILING): $(BLDDIR)/jitprofiling/.make
 	@cd $(BLDDIR)/jitprofiling; $(AR) x libjitprofiling.$(SLIBEXT)
 endif
 
-.PHONY: clib_mic
-ifneq (0,$(MIC))
-ifneq (0,$(MPSS))
-clib_mic: $(OUTDIR)/mic/libxs.$(SLIBEXT) $(OUTDIR)/mic/libxs.$(DLIBEXT)
-$(OUTDIR)/mic/libxs.$(SLIBEXT) $(OUTDIR)/mic/libxs.$(DLIBEXT): $(OUTDIR)/mic/.make $(OBJFILES_MIC) $(KRNOBJS_MIC)
-	$(MAKE_AR) $(OUTDIR)/mic/libxs.$(SLIBEXT) $(call tailwords,$^)
-ifeq (0,$(ANALYZE))
-	$(LIB_SOLD) -mmic $(call solink,$(OUTDIR)/mic/libxs.$(DLIBEXT),$(VERSION_MAJOR),$(VERSION_MINOR),$(VERSION_UPDATE),$(VERSION_API)) \
-		$(call tailwords,$^) $(call cleanld,$(LDFLAGS) $(CLDFLAGS))
-else
-.PHONY: $(OUTDIR)/mic/libxs.$(DLIBEXT)
-endif
-endif
-endif
-
 .PHONY: clib_hst
 clib_hst: $(OUTDIR)/libxs-static.pc $(OUTDIR)/libxs.pc
 $(OUTDIR)/libxs.$(SLIBEXT) $(OUTDIR)/libxs.$(DLIBEXT): $(OUTDIR)/.make $(OBJFILES_HST) $(OBJFILES_GEN_LIB) $(KRNOBJS_HST) $(LIBJITPROFILING)
@@ -877,25 +803,6 @@ ifeq (0,$(ANALYZE))
 		$(call tailwords,$^) $(call cleanld,$(LDFLAGS) $(CLDFLAGS))
 else
 .PHONY: $(OUTDIR)/libxs.$(DLIBEXT)
-endif
-
-.PHONY: flib_mic
-ifneq (0,$(MIC))
-ifneq (0,$(MPSS))
-ifneq (,$(strip $(FC)))
-flib_mic: $(OUTDIR)/mic/libxsf.$(SLIBEXT) $(OUTDIR)/mic/libxsf.$(DLIBEXT)
-$(OUTDIR)/mic/libxsf.$(SLIBEXT) $(OUTDIR)/mic/libxsf.$(DLIBEXT): $(INCDIR)/mic/libxs.mod $(OUTDIR)/mic/libxs.$(DLIBEXT)
-	$(MAKE_AR) $(OUTDIR)/mic/libxsf.$(SLIBEXT) $(BLDDIR)/mic/libxs-mod.o
-ifeq (0,$(ANALYZE))
-	$(LIB_SFLD) -mmic $(FCMTFLAGS) $(call solink,$(OUTDIR)/mic/libxsf.$(DLIBEXT),$(VERSION_MAJOR),$(VERSION_MINOR),$(VERSION_UPDATE),$(VERSION_API)) \
-		$(BLDDIR)/mic/libxs-mod.o $(call abslib,$(OUTDIR)/mic/libxs.$(ILIBEXT)) $(call cleanld,$(LDFLAGS) $(FLDFLAGS))
-else
-.PHONY: $(OUTDIR)/mic/libxsf.$(DLIBEXT)
-endif
-else
-.PHONY: $(OUTDIR)/mic/libxsf.$(SLIBEXT) $(OUTDIR)/mic/libxsf.$(DLIBEXT)
-endif
-endif
 endif
 
 .PHONY: flib_hst
@@ -924,21 +831,6 @@ else
 .PHONY: $(OUTDIR)/libxsf.$(SLIBEXT) $(OUTDIR)/libxsf.$(DLIBEXT)
 endif
 
-.PHONY: ext_mic
-ifneq (0,$(MIC))
-ifneq (0,$(MPSS))
-ext_mic: $(OUTDIR)/mic/libxsext.$(SLIBEXT) $(OUTDIR)/mic/libxsext.$(DLIBEXT)
-$(OUTDIR)/mic/libxsext.$(SLIBEXT) $(OUTDIR)/mic/libxsext.$(DLIBEXT): $(EXTOBJS_MIC) $(OUTDIR)/mic/libxs.$(DLIBEXT)
-	$(MAKE_AR) $(OUTDIR)/mic/libxsext.$(SLIBEXT) $(EXTOBJS_MIC)
-ifeq (0,$(ANALYZE))
-	$(LIB_SOLD) -mmic $(EXTLDFLAGS) $(call solink,$(OUTDIR)/mic/libxsext.$(DLIBEXT),$(VERSION_MAJOR),$(VERSION_MINOR),$(VERSION_UPDATE),$(VERSION_API)) \
-		$(EXTOBJS_MIC) $(call abslib,$(OUTDIR)/mic/libxs.$(ILIBEXT)) $(call cleanld,$(LDFLAGS) $(CLDFLAGS))
-else
-.PHONY: $(OUTDIR)/mic/libxsext.$(DLIBEXT)
-endif
-endif
-endif
-
 .PHONY: ext_hst
 ext_hst: $(OUTDIR)/libxsext-static.pc $(OUTDIR)/libxsext.pc
 $(OUTDIR)/libxsext.$(SLIBEXT) $(OUTDIR)/libxsext.$(DLIBEXT): $(OUTDIR)/libxs.$(DLIBEXT) $(EXTOBJS_HST)
@@ -948,21 +840,6 @@ ifeq (0,$(ANALYZE))
 		$(EXTOBJS_HST) $(call abslib,$(OUTDIR)/libxs.$(ILIBEXT)) $(call cleanld,$(LDFLAGS) $(CLDFLAGS))
 else
 .PHONY: $(OUTDIR)/libxsext.$(DLIBEXT)
-endif
-
-.PHONY: noblas_mic
-ifneq (0,$(MIC))
-ifneq (0,$(MPSS))
-noblas_mic: $(OUTDIR)/mic/libxsnoblas.$(SLIBEXT) $(OUTDIR)/mic/libxsnoblas.$(DLIBEXT)
-$(OUTDIR)/mic/libxsnoblas.$(SLIBEXT) $(OUTDIR)/mic/libxsnoblas.$(DLIBEXT): $(NOBLAS_MIC)
-	$(MAKE_AR) $(OUTDIR)/mic/libxsnoblas.$(SLIBEXT) $(NOBLAS_MIC)
-ifeq (0,$(ANALYZE))
-	$(LIB_SOLD) -mmic $(call solink,$(OUTDIR)/mic/libxsnoblas.$(DLIBEXT),$(VERSION_MAJOR),$(VERSION_MINOR),$(VERSION_UPDATE),$(VERSION_API)) \
-		$(NOBLAS_MIC) $(call cleanld,$(NOBLAS_LDFLAGS) $(NOBLAS_CLDFLAGS))
-else
-.PHONY: $(OUTDIR)/mic/libxsnoblas.$(DLIBEXT)
-endif
-endif
 endif
 
 .PHONY: noblas_hst
@@ -988,31 +865,21 @@ samples: $(DIRS_SAMPLES)
 $(DIRS_SAMPLES): lib_hst
 	@$(FLOCK) $@ "$(MAKE)"
 
-.PHONY: cp2k cp2k_mic
+.PHONY: cp2k
 cp2k: lib_hst
 	@$(FLOCK) $(ROOTDIR)/$(SPLDIR)/cp2k "$(MAKE) --no-print-directory"
-cp2k_mic: lib_mic
-	@$(FLOCK) $(ROOTDIR)/$(SPLDIR)/cp2k "$(MAKE) --no-print-directory KNC=1"
 
-.PHONY: nek nek_mic
+.PHONY: nek
 nek: lib_hst
 	@$(FLOCK) $(ROOTDIR)/$(SPLDIR)/nek "$(MAKE) --no-print-directory"
-nek_mic: lib_mic
-	@$(FLOCK) $(ROOTDIR)/$(SPLDIR)/nek "$(MAKE) --no-print-directory KNC=1"
 
-.PHONY: smm smm_mic
+.PHONY: smm
 smm: lib_hst
 	@$(FLOCK) $(ROOTDIR)/$(UTLDIR)/smmbench "$(MAKE) --no-print-directory"
-smm_mic: lib_mic
-	@$(FLOCK) $(ROOTDIR)/$(UTLDIR)/smmbench "$(MAKE) --no-print-directory KNC=1"
 
-# added for specfem sample
-# will need option: make MNK="5 25" ..
-.PHONY: specfem specfem_mic
+.PHONY: specfem
 specfem: lib_hst
 	@$(FLOCK) $(ROOTDIR)/$(SPLDIR)/specfem "$(MAKE) --no-print-directory"
-specfem_mic: lib_mic
-	@$(FLOCK) $(ROOTDIR)/$(SPLDIR)/specfem "$(MAKE) --no-print-directory KNC=1"
 
 $(ROOTDIR)/$(SPLDIR)/cp2k/cp2k-perf.sh: $(ROOTDIR)/$(SPLDIR)/cp2k/.make $(ROOTDIR)/Makefile
 	@echo "#!/usr/bin/env sh" >$@
@@ -1394,7 +1261,6 @@ ifneq ($(call qapath,$(OUTDIR)),$(HEREDIR))
 endif
 endif
 ifneq (,$(wildcard $(OUTDIR))) # still exists
-	@-rm -f $(OUTDIR)/mic/libxs*.$(SLIBEXT) $(OUTDIR)/mic/libxs*.$(DLIBEXT)*
 	@-rm -f $(OUTDIR)/libxs*.$(SLIBEXT) $(OUTDIR)/libxs*.$(DLIBEXT)*
 	@-rm -f $(OUTDIR)/libxs*.pc
 endif
@@ -1407,7 +1273,6 @@ ifneq (,$(wildcard $(BINDIR))) # still exists
 	@-rm -f $(BINDIR)/libxs_*_generator
 endif
 	@-rm -f $(INCDIR)/libxs_version.h
-	@-rm -f $(INCDIR)/libxs.modmic
 	@-rm -f $(INCDIR)/libxs.mod
 	@-rm -f $(INCDIR)/libxs.f
 
@@ -1466,38 +1331,6 @@ ifneq ($(PREFIX),$(ABSDIR))
 	@$(CP) -v  $(OUTDIR)/libxsf.$(SLIBEXT)  $(PREFIX)/$(POUTDIR) 2>/dev/null || true
 	@$(CP) -va $(OUTDIR)/libxs.$(DLIBEXT)* $(PREFIX)/$(POUTDIR) 2>/dev/null || true
 	@$(CP) -v  $(OUTDIR)/libxs.$(SLIBEXT)  $(PREFIX)/$(POUTDIR) 2>/dev/null || true
-	@if [ -e $(OUTDIR)/mic/libxsnoblas.$(DLIBEXT) ]; then \
-		$(MKDIR) -p $(PREFIX)/$(POUTDIR)/mic; \
-		$(CP) -va $(OUTDIR)/mic/libxsnoblas.$(DLIBEXT)* $(PREFIX)/$(POUTDIR)/mic; \
-	fi
-	@if [ -e $(OUTDIR)/mic/libxsnoblas.$(SLIBEXT) ]; then \
-		$(MKDIR) -p $(PREFIX)/$(POUTDIR)/mic; \
-		$(CP) -v $(OUTDIR)/mic/libxsnoblas.$(SLIBEXT) $(PREFIX)/$(POUTDIR)/mic; \
-	fi
-	@if [ -e $(OUTDIR)/mic/libxsext.$(DLIBEXT) ]; then \
-		$(MKDIR) -p $(PREFIX)/$(POUTDIR)/mic; \
-		$(CP) -va $(OUTDIR)/mic/libxsext.$(DLIBEXT)* $(PREFIX)/$(POUTDIR)/mic; \
-	fi
-	@if [ -e $(OUTDIR)/mic/libxsext.$(SLIBEXT) ]; then \
-		$(MKDIR) -p $(PREFIX)/$(POUTDIR)/mic; \
-		$(CP) -v $(OUTDIR)/mic/libxsext.$(SLIBEXT) $(PREFIX)/$(POUTDIR)/mic; \
-	fi
-	@if [ -e $(OUTDIR)/mic/libxsf.$(DLIBEXT) ]; then \
-		$(MKDIR) -p $(PREFIX)/$(POUTDIR)/mic; \
-		$(CP) -va $(OUTDIR)/mic/libxsf.$(DLIBEXT)* $(PREFIX)/$(POUTDIR)/mic; \
-	fi
-	@if [ -e $(OUTDIR)/mic/libxsf.$(SLIBEXT) ]; then \
-		$(MKDIR) -p $(PREFIX)/$(POUTDIR)/mic; \
-		$(CP) -v $(OUTDIR)/mic/libxsf.$(SLIBEXT) $(PREFIX)/$(POUTDIR)/mic; \
-	fi
-	@if [ -e $(OUTDIR)/mic/libxs.$(DLIBEXT) ]; then \
-		$(MKDIR) -p $(PREFIX)/$(POUTDIR)/mic; \
-		$(CP) -va $(OUTDIR)/mic/libxs.$(DLIBEXT)* $(PREFIX)/$(POUTDIR)/mic; \
-	fi
-	@if [ -e $(OUTDIR)/mic/libxs.$(SLIBEXT) ]; then \
-		$(MKDIR) -p $(PREFIX)/$(POUTDIR)/mic; \
-		$(CP) -v $(OUTDIR)/mic/libxs.$(SLIBEXT) $(PREFIX)/$(POUTDIR)/mic; \
-	fi
 	@echo
 	@echo "LIBXS installing pkg-config and module files..."
 	@$(MKDIR) -p $(PREFIX)/$(PPKGDIR)

@@ -173,7 +173,7 @@
 # define LIBXS_CAST_BLASINT(VALUE) LIBXS_CAST_INT(VALUE)
 #endif
 
-#if !defined(LIBXS_UNPACKED) && (defined(_CRAYC) || defined(LIBXS_OFFLOAD_BUILD) || \
+#if !defined(LIBXS_UNPACKED) && (defined(_CRAYC) || \
   (0 == LIBXS_SYNC)/*Windows: missing pack(pop) error*/)
 # define LIBXS_UNPACKED
 #endif
@@ -310,19 +310,6 @@
 # endif
 #endif
 
-#if defined(LIBXS_OFFLOAD_BUILD) && \
-  defined(__INTEL_OFFLOAD) && (!defined(_WIN32) || (1400 <= LIBXS_INTEL_COMPILER))
-# define LIBXS_OFFLOAD(A) LIBXS_ATTRIBUTE(target(A))
-# define LIBXS_NO_OFFLOAD(RTYPE, FN, ...) ((RTYPE (*)(LIBXS_VARIADIC))(FN))(__VA_ARGS__)
-# if !defined(LIBXS_OFFLOAD_TARGET)
-#   define LIBXS_OFFLOAD_TARGET mic
-# endif
-#else
-# define LIBXS_OFFLOAD(A)
-# define LIBXS_NO_OFFLOAD(RTYPE, FN, ...) (FN)(__VA_ARGS__)
-#endif
-#define LIBXS_RETARGETABLE LIBXS_OFFLOAD(LIBXS_OFFLOAD_TARGET)
-
 /* may include Clang and other compatible compilers */
 #if defined(__GNUC__) && !defined(_WIN32) && !defined(__CYGWIN__) && !defined(__MINGW32__)
 # define LIBXS_VISIBILITY_INTERNAL LIBXS_ATTRIBUTE(visibility("internal"))
@@ -358,7 +345,7 @@
 # define LIBXS_API_VISIBILITY_EXPORT
 # define LIBXS_API_VISIBILITY_IMPORT
 # define LIBXS_API_VISIBILITY_INTERN
-# define LIBXS_API_COMMON LIBXS_RETARGETABLE LIBXS_ATTRIBUTE_COMMON
+# define LIBXS_API_COMMON LIBXS_ATTRIBUTE_COMMON
 # define LIBXS_API_TARGET LIBXS_API_INLINE
 # define LIBXS_API_EXTERN LIBXS_EXTERN_C
 #else /* classic ABI */
@@ -375,14 +362,14 @@
 #   define LIBXS_API_VISIBILITY_IMPORT LIBXS_VISIBILITY_IMPORT
 #   define LIBXS_API_VISIBILITY_INTERN
 # endif
-# define LIBXS_API_COMMON LIBXS_RETARGETABLE
-# define LIBXS_API_TARGET LIBXS_RETARGETABLE
 # define LIBXS_API_EXTERN LIBXS_EXTERN
+# define LIBXS_API_COMMON
+# define LIBXS_API_TARGET
 #endif
 
 #define LIBXS_API_VISIBILITY(VISIBILITY) LIBXS_CONCATENATE(LIBXS_API_VISIBILITY_, VISIBILITY)
 #define LIBXS_APIVAR(DECL, VISIBILITY, EXTERN) EXTERN LIBXS_API_COMMON LIBXS_API_VISIBILITY(VISIBILITY) DECL
-#define LIBXS_API_INLINE LIBXS_INLINE LIBXS_RETARGETABLE
+#define LIBXS_API_INLINE LIBXS_INLINE
 #define LIBXS_API_DEF
 
 #if (!defined(__INTEL_COMPILER) || !defined(_WIN32))
@@ -886,10 +873,6 @@ LIBXS_API_INLINE int libxs_nonconst_int(int i) { return i; }
 # define __has_builtin(A) 0
 #endif
 
-#if defined(LIBXS_OFFLOAD_TARGET)
-# pragma offload_attribute(push,target(LIBXS_OFFLOAD_TARGET))
-#endif
-
 #if (0 != LIBXS_SYNC)
 # if defined(_WIN32) || defined(__CYGWIN__)
 #   include <windows.h>
@@ -1064,10 +1047,6 @@ LIBXS_EXTERN double erf(double) LIBXS_NOTHROW;
 #endif
 #if !defined(M_PI)
 # define M_PI 3.14159265358979323846
-#endif
-
-#if defined(LIBXS_OFFLOAD_TARGET)
-# pragma offload_attribute(pop)
 #endif
 
 #endif /*LIBXS_MACROS_H*/

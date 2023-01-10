@@ -17,9 +17,6 @@
 #endif
 #include "generator_common.h"
 
-#if defined(LIBXS_OFFLOAD_TARGET)
-# pragma offload_attribute(push,target(LIBXS_OFFLOAD_TARGET))
-#endif
 #if !defined(NDEBUG)
 # include <errno.h>
 #endif
@@ -35,9 +32,6 @@
 #if defined(__APPLE__)
 # include <libkern/OSCacheControl.h>
 # include <pthread.h>
-#endif
-#if defined(LIBXS_OFFLOAD_TARGET)
-# pragma offload_attribute(pop)
 #endif
 
 /* used internally to reimplement certain exit-handler */
@@ -125,12 +119,12 @@ LIBXS_EXTERN int posix_memalign(void**, size_t, size_t) LIBXS_NOTHROW;
 #     define LIBXS_CLEANUP_NTRY 7
 #   endif
 #   if LIBXS_LOCK_TYPE_ISPOD(LIBXS_REGLOCK)
-LIBXS_EXTERN_C typedef union LIBXS_RETARGETABLE internal_reglocktype {
+LIBXS_EXTERN_C typedef union internal_reglocktype {
   char pad[LIBXS_CACHELINE];
   LIBXS_LOCK_TYPE(LIBXS_REGLOCK) state;
 } internal_reglocktype;
 #   else
-LIBXS_EXTERN_C typedef union LIBXS_RETARGETABLE internal_reglocktype {
+LIBXS_EXTERN_C typedef union internal_reglocktype {
   LIBXS_LOCK_TYPE(LIBXS_REGLOCK) state;
 } internal_reglocktype;
 #   endif
@@ -203,19 +197,19 @@ LIBXS_APIVAR_DEFINE(LIBXS_LOCK_TYPE(LIBXS_REGLOCK)* internal_reglock_ptr);
 #endif
 
 
-LIBXS_EXTERN_C typedef struct LIBXS_RETARGETABLE internal_statistic_type {
+LIBXS_EXTERN_C typedef struct internal_statistic_type {
   unsigned int ntry, ncol, njit, nsta;
 } internal_statistic_type;
 
 #if defined(LIBXS_CACHE_MAXSIZE) && (0 < (LIBXS_CACHE_MAXSIZE))
-LIBXS_EXTERN_C typedef struct LIBXS_RETARGETABLE internal_cache_entry_type {
+LIBXS_EXTERN_C typedef struct internal_cache_entry_type {
   libxs_descriptor keys[LIBXS_CACHE_MAXSIZE];
   libxs_code_pointer code[LIBXS_CACHE_MAXSIZE];
   unsigned int id; /* to invalidate */
   unsigned char size, hit;
 } internal_cache_entry_type;
 
-LIBXS_EXTERN_C typedef union LIBXS_RETARGETABLE internal_cache_type {
+LIBXS_EXTERN_C typedef union internal_cache_type {
 # if defined(LIBXS_CACHE_PAD)
   char pad[LIBXS_UP2(sizeof(internal_cache_entry_type),LIBXS_CACHELINE)];
 # endif
@@ -227,7 +221,7 @@ LIBXS_APIVAR_DEFINE(internal_cache_type* internal_cache_buffer);
 # endif
 LIBXS_APIVAR_DEFINE(int internal_cache_size);
 #endif /*defined(LIBXS_CACHE_MAXSIZE) && (0 < (LIBXS_CACHE_MAXSIZE))*/
-LIBXS_EXTERN_C typedef union LIBXS_RETARGETABLE internal_regkey_type {
+LIBXS_EXTERN_C typedef union internal_regkey_type {
 #if defined(LIBXS_REGKEY_PAD)
   char pad[LIBXS_UP2(sizeof(libxs_descriptor), LIBXS_CACHELINE)];
 #endif
@@ -1926,7 +1920,7 @@ LIBXS_API_INTERN int libxs_build(const libxs_build_request* request, unsigned in
           }
         }
 # endif
-        LIBXS_NO_OFFLOAD(void, libxs_generator_gemm_kernel, &generated_code, request->descriptor.gemm);
+        libxs_generator_gemm_kernel(&generated_code, request->descriptor.gemm);
 # if !defined(LIBXS_VTUNE)
         if (0 > libxs_verbosity)
 # endif
@@ -2056,7 +2050,7 @@ LIBXS_API_INTERN int libxs_build(const libxs_build_request* request, unsigned in
             request->descriptor.pspgemm_csr->row_ptr[request->descriptor.pspgemm_csr->gemm->m] : request->descriptor.pspgemm_csr->row_ptr[request->descriptor.pspgemm_csr->gemm->k];
         const unsigned int gemm_factor = (request->descriptor.pspgemm_csr->gemm->lda == 0) ? request->descriptor.pspgemm_csr->gemm->n : request->descriptor.pspgemm_csr->gemm->m;
         extra.nflops = 2 * nnz * gemm_factor * request->descriptor.pspgemm_csr->packed_width;
-        LIBXS_NO_OFFLOAD(void, libxs_generator_packed_spgemm_csr_kernel, &generated_code, request->descriptor.pspgemm_csr->gemm,
+        libxs_generator_packed_spgemm_csr_kernel(&generated_code, request->descriptor.pspgemm_csr->gemm,
           request->descriptor.pspgemm_csr->row_ptr, request->descriptor.pspgemm_csr->column_idx, request->descriptor.pspgemm_csr->values, request->descriptor.pspgemm_csr->packed_width);
 # if !defined(LIBXS_VTUNE)
         if (0 > libxs_verbosity)
@@ -2087,7 +2081,7 @@ LIBXS_API_INTERN int libxs_build(const libxs_build_request* request, unsigned in
             request->descriptor.pspgemm_csc->column_ptr[request->descriptor.pspgemm_csc->gemm->k] : request->descriptor.pspgemm_csc->column_ptr[request->descriptor.pspgemm_csc->gemm->n];
         const unsigned int gemm_factor = (request->descriptor.pspgemm_csc->gemm->lda == 0) ? request->descriptor.pspgemm_csc->gemm->n : request->descriptor.pspgemm_csc->gemm->m;
         extra.nflops = 2 * nnz * gemm_factor * request->descriptor.pspgemm_csc->packed_width;
-        LIBXS_NO_OFFLOAD(void, libxs_generator_packed_spgemm_csc_kernel, &generated_code, request->descriptor.pspgemm_csc->gemm,
+        libxs_generator_packed_spgemm_csc_kernel(&generated_code, request->descriptor.pspgemm_csc->gemm,
           request->descriptor.pspgemm_csc->row_idx, request->descriptor.pspgemm_csc->column_ptr, request->descriptor.pspgemm_csc->values, request->descriptor.pspgemm_csc->packed_width);
 # if !defined(LIBXS_VTUNE)
         if (0 > libxs_verbosity)
@@ -2114,7 +2108,7 @@ LIBXS_API_INTERN int libxs_build(const libxs_build_request* request, unsigned in
           LIBXS_DATATYPE_F32 == /*LIBXS_GETENUM_OUT*/(request->descriptor.pgemmacrm->gemm->datatype))
       {
         extra.nflops = 2 * request->descriptor.pgemmacrm->packed_width * request->descriptor.pgemmacrm->gemm->m * request->descriptor.pgemmacrm->gemm->n * request->descriptor.pgemmacrm->gemm->k;
-        LIBXS_NO_OFFLOAD(void, libxs_generator_packed_gemm_ac_rm, &generated_code, request->descriptor.pgemmacrm->gemm, request->descriptor.pgemmacrm->packed_width);
+        libxs_generator_packed_gemm_ac_rm(&generated_code, request->descriptor.pgemmacrm->gemm, request->descriptor.pgemmacrm->packed_width);
 # if !defined(LIBXS_VTUNE)
         if (0 > libxs_verbosity)
 # endif
@@ -2140,7 +2134,7 @@ LIBXS_API_INTERN int libxs_build(const libxs_build_request* request, unsigned in
           LIBXS_DATATYPE_F32 == /*LIBXS_GETENUM_OUT*/(request->descriptor.pgemmbcrm->gemm->datatype))
       {
         extra.nflops = 2 * request->descriptor.pgemmbcrm->packed_width * request->descriptor.pgemmbcrm->gemm->m * request->descriptor.pgemmbcrm->gemm->n * request->descriptor.pgemmbcrm->gemm->k;
-        LIBXS_NO_OFFLOAD(void, libxs_generator_packed_gemm_bc_rm, &generated_code, request->descriptor.pgemmbcrm->gemm, request->descriptor.pgemmbcrm->packed_width);
+        libxs_generator_packed_gemm_bc_rm(&generated_code, request->descriptor.pgemmbcrm->gemm, request->descriptor.pgemmbcrm->packed_width);
 # if !defined(LIBXS_VTUNE)
         if (0 > libxs_verbosity)
 # endif
@@ -2168,7 +2162,7 @@ LIBXS_API_INTERN int libxs_build(const libxs_build_request* request, unsigned in
       {
         const unsigned int nnz = request->descriptor.sreg->row_ptr[request->descriptor.sreg->gemm->m];
         extra.nflops = 2 * libxs_cpuid_vlen32(libxs_target_archid)/2 * request->descriptor.sreg->gemm->n * nnz;
-        LIBXS_NO_OFFLOAD(void, libxs_generator_spgemm_csr_reg_kernel, &generated_code, request->descriptor.sreg->gemm,
+        libxs_generator_spgemm_csr_reg_kernel(&generated_code, request->descriptor.sreg->gemm,
           request->descriptor.sreg->row_ptr, request->descriptor.sreg->column_idx,
           (const double*)request->descriptor.sreg->values);
 # if !defined(LIBXS_VTUNE)
@@ -2204,7 +2198,7 @@ LIBXS_API_INTERN int libxs_build(const libxs_build_request* request, unsigned in
             generated_code.arch = libxs_cpuid(NULL);
           }
         }
-        LIBXS_NO_OFFLOAD(void, libxs_generator_mateltwise_kernel, &generated_code, request->descriptor.meltw);
+        libxs_generator_mateltwise_kernel(&generated_code, request->descriptor.meltw);
 # if !defined(LIBXS_VTUNE)
         if (0 > libxs_verbosity)
 # endif
@@ -2238,7 +2232,7 @@ LIBXS_API_INTERN int libxs_build(const libxs_build_request* request, unsigned in
             generated_code.arch = libxs_cpuid(NULL);
           }
         }
-        LIBXS_NO_OFFLOAD(void, libxs_generator_matequation_kernel, &generated_code, request->descriptor.meqn);
+        libxs_generator_matequation_kernel(&generated_code, request->descriptor.meqn);
 # if !defined(LIBXS_VTUNE)
         if (0 > libxs_verbosity)
 # endif

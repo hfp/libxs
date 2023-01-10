@@ -8,9 +8,6 @@
 ******************************************************************************/
 #include <libxs.h>
 
-#if defined(LIBXS_OFFLOAD_TARGET)
-# pragma offload_attribute(push,target(LIBXS_OFFLOAD_TARGET))
-#endif
 #include <inttypes.h>
 #include <stdlib.h>
 #include <string.h>
@@ -20,9 +17,6 @@
 #endif
 #if defined(__MKL) && defined(LIBXS_PLATFORM_X86)
 # include <mkl.h>
-#endif
-#if defined(LIBXS_OFFLOAD_TARGET)
-# pragma offload_attribute(pop)
 #endif
 
 #if !defined(MKLJIT) && defined(mkl_jit_create_dgemm) && \
@@ -92,8 +86,19 @@ int main(int argc, char* argv[])
   const libxs_blasint maxsize = LIBXS_CLMP((6 < argc && 0 < atoi(argv[6])) ? atoi(argv[6]) : default_maxsize, 1, MAXSIZE);
   const libxs_blasint minsize = LIBXS_CLMP((7 < argc && 0 < atoi(argv[7])) ? atoi(argv[7]) : default_minsize, 1, maxsize);
   const libxs_blasint range = maxsize - minsize + 1;
-  libxs_timer_tickint start, tcall, tcgen, tdsp0 = 0, tdsp1 = 0;
-  int result = EXIT_SUCCESS;
+  libxs_timer_tickint start, tcall = 0, tcgen = 0, tdsp0 = 0, tdsp1 = 0;
+
+  triplet* const rnd = (triplet*)(0 < size_total ? malloc(sizeof(triplet) * size_total) : NULL);
+  const size_t shuffle = libxs_coprime2(size_total);
+  const double alpha = 1, beta = 1;
+  int result = EXIT_SUCCESS, i, n;
+
+#if defined(MKLJIT)
+  void** const jitter = malloc(size_total * sizeof(void*));
+#else
+  const int prefetch = LIBXS_GEMM_PREFETCH_NONE;
+  const int flags = LIBXS_GEMM_FLAG_NONE;
+#endif
 
 #if 0 != LIBXS_JIT
   if (LIBXS_X86_GENERIC > libxs_get_target_archid()) {
@@ -102,24 +107,13 @@ int main(int argc, char* argv[])
 #else
   fprintf(stderr, "\n\tWarning: JIT support has been disabled at build time!\n");
 #endif
-#if defined(LIBXS_OFFLOAD_TARGET)
-# pragma offload target(LIBXS_OFFLOAD_TARGET)
-#endif
-  {
-    triplet *const rnd = (triplet*)(0 < size_total ? malloc(sizeof(triplet) * size_total) : NULL);
-    const size_t shuffle = libxs_coprime2(size_total);
-    const double alpha = 1, beta = 1;
-    int i, n;
 
+  if (
 #if defined(MKLJIT)
-    void* *const jitter = malloc(size_total * sizeof(void*));
-    if (NULL == jitter) exit(EXIT_FAILURE);
-#else
-    const int prefetch = LIBXS_GEMM_PREFETCH_NONE;
-    const int flags = LIBXS_GEMM_FLAG_NONE;
+    NULL != jitter &&
 #endif
-    if (NULL == rnd) exit(EXIT_FAILURE);
-
+    NULL != rnd)
+  {
     /* generate set of random numbers outside of any parallel region */
     for (i = 0; i < size_total; ++i) {
       const int r1 = rand(), r2 = rand(), r3 = rand();
@@ -337,11 +331,12 @@ int main(int argc, char* argv[])
     free(jitter); /* release array used to store dispatched code */
 #endif
   }
+  else result = EXIT_FAILURE;
 
   tcall = (tcall + (size_t)size_total * nrepeat - 1) / ((size_t)size_total * nrepeat);
   tdsp0 = (tdsp0 + (size_t)size_total * nrepeat - 1) / ((size_t)size_total * nrepeat);
   tdsp1 = (tdsp1 + (size_t)size_total * nrepeat - 1) / ((size_t)size_total * nrepeat);
-  tcgen = LIBXS_UPDIV(tcgen, size_total);
+  tcgen = LIBXS_UPDIV(tcgen, (libxs_timer_tickint)size_total);
   if (0 < tcall && 0 < tdsp0 && 0 < tdsp1 && 0 < tcgen) {
     const double tcall_ns = 1E9 * libxs_timer_duration(0, tcall), tcgen_ns = 1E9 * libxs_timer_duration(0, tcgen);
     const double tdsp0_ns = 1E9 * libxs_timer_duration(0, tdsp0), tdsp1_ns = 1E9 * libxs_timer_duration(0, tdsp1);
