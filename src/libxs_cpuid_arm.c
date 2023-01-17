@@ -24,6 +24,8 @@
 
 #if defined(LIBXS_PLATFORM_AARCH64)
 # if defined(_MSC_VER)
+#   pragma warning(push)
+#   pragma warning(disable: 4611)
 #   define LIBXS_CPUID_ARM_ENC16(OP0, OP1, CRN, CRM, OP2) ( \
       (((OP0) & 1) << 14) | \
       (((OP1) & 7) << 11) | \
@@ -198,3 +200,7 @@ LIBXS_API int libxs_cpuid_arm(libxs_cpuid_info* info)
 #endif
   return result;
 }
+
+#if defined(LIBXS_PLATFORM_AARCH64) && defined(_MSC_VER)
+# pragma warning(pop)
+#endif
