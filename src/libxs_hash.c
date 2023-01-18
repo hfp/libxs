@@ -488,7 +488,7 @@ LIBXS_API_INTERN void libxs_hash_init(int target_arch)
 
 LIBXS_API_INTERN void libxs_hash_finalize(void)
 {
-#if !defined(NDEBUG)
+#if !defined(NDEBUG) && 0
   internal_crc32_table = NULL;
   internal_hash_u32_function = NULL;
   internal_hash_u64_function = NULL;
