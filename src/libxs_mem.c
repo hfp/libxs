@@ -242,7 +242,7 @@ LIBXS_API_INTERN void libxs_memory_init(int target_arch)
 
 LIBXS_API_INTERN void libxs_memory_finalize(void)
 {
-#if !defined(NDEBUG) && !defined(LIBXS_MEM_SW)
+#if !defined(NDEBUG) && !defined(LIBXS_MEM_SW) && 0
   internal_diff_function = NULL;
   internal_memcmp_function = NULL;
 #endif
