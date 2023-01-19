@@ -1152,18 +1152,18 @@ $(DOCDIR)/libxs_qna.md: $(DOCDIR)/.make $(ROOTDIR)/Makefile $(ROOTDIR)/version.t
 	@wget -T $(TIMEOUT) -q -O $@ "https://raw.githubusercontent.com/wiki/libxs/libxs/Q&A.md"
 	@echo >>$@
 
-$(DOCDIR)/libxs.$(DOCEXT): $(DOCDIR)/.make $(ROOTDIR)/documentation/index.md \
-$(ROOTDIR)/documentation/libxs_mm.md $(ROOTDIR)/documentation/libxs_aux.md $(ROOTDIR)/documentation/libxs_prof.md \
-$(ROOTDIR)/documentation/libxs_tune.md $(ROOTDIR)/documentation/libxs_be.md $(ROOTDIR)/documentation/libxs_compat.md \
-$(ROOTDIR)/documentation/libxs_valid.md $(ROOTDIR)/documentation/libxs_qna.md
-	$(eval TMPFILE = $(shell $(MKTEMP) $(ROOTDIR)/documentation/.libxs_XXXXXX.tex))
+$(DOCDIR)/libxs.$(DOCEXT): $(DOCDIR)/.make $(ROOTDIR)/$(DOCDIR)/index.md \
+$(ROOTDIR)/$(DOCDIR)/libxs_mm.md $(ROOTDIR)/$(DOCDIR)/libxs_aux.md $(ROOTDIR)/$(DOCDIR)/libxs_prof.md \
+$(ROOTDIR)/$(DOCDIR)/libxs_tune.md $(ROOTDIR)/$(DOCDIR)/libxs_be.md $(ROOTDIR)/$(SCRDIR)/README.md \
+$(ROOTDIR)/$(DOCDIR)/libxs_compat.md $(ROOTDIR)/$(DOCDIR)/libxs_valid.md $(ROOTDIR)/$(DOCDIR)/libxs_qna.md
+	$(eval TMPFILE = $(shell $(MKTEMP) $(ROOTDIR)/$(DOCDIR)/.libxs_XXXXXX.tex))
 	@pandoc -D latex \
 	| sed \
 		-e 's/\(\\documentclass\[..*\]{..*}\)/\1\n\\pagenumbering{gobble}\n\\RedeclareSectionCommands[beforeskip=-1pt,afterskip=1pt]{subsection,subsubsection}/' \
 		-e 's/\\usepackage{listings}/\\usepackage{listings}\\lstset{basicstyle=\\footnotesize\\ttfamily,showstringspaces=false}/' \
 		-e 's/\(\\usepackage.*{hyperref}\)/\\usepackage[hyphens]{url}\n\1/' \
 		>$(TMPFILE)
-	@cd $(ROOTDIR)/documentation && ( \
+	@cd $(ROOTDIR)/$(DOCDIR) && ( \
 		iconv -t utf-8 index.md && echo && \
 		echo "# LIBXS Domains" && \
 		iconv -t utf-8 libxs_mm.md && echo && \
@@ -1176,6 +1176,7 @@ $(ROOTDIR)/documentation/libxs_valid.md $(ROOTDIR)/documentation/libxs_qna.md
 		sed "s/^\(##*\) /#\1 /" libxs_compat.md | iconv -t utf-8 && \
 		echo "## Validation" && \
 		sed "s/^\(##*\) /#\1 /" libxs_valid.md | iconv -t utf-8 && \
+		iconv -t utf-8 ../$(SCRDIR)/README.md && \
 		echo "## Q&A" && \
 		sed "s/^\(##*\) /#\1 /" libxs_qna.md | iconv -t utf-8; ) \
 	| sed \
@@ -1210,7 +1211,7 @@ $(DOCDIR)/libxs_samples.md: $(ROOTDIR)/Makefile $(ROOTDIR)/$(SPLDIR)/*/README.md
 		-e '1s/^/# [LIBXS Samples](https:\/\/github.com\/libxs\/libxs\/raw\/main\/documentation\/libxs_samples.pdf)\n\n/' \
 		>$@
 
-$(DOCDIR)/libxs_samples.$(DOCEXT): $(ROOTDIR)/documentation/libxs_samples.md
+$(DOCDIR)/libxs_samples.$(DOCEXT): $(ROOTDIR)/$(DOCDIR)/libxs_samples.md
 	$(eval TMPFILE = $(shell $(MKTEMP) .libxs_XXXXXX.tex))
 	@pandoc -D latex \
 	| sed \
@@ -1218,7 +1219,7 @@ $(DOCDIR)/libxs_samples.$(DOCEXT): $(ROOTDIR)/documentation/libxs_samples.md
 		-e 's/\\usepackage{listings}/\\usepackage{listings}\\lstset{basicstyle=\\footnotesize\\ttfamily,showstringspaces=false}/' \
 		-e 's/\(\\usepackage.*{hyperref}\)/\\usepackage[hyphens]{url}\n\1/' \
 		>$(TMPFILE)
-	@iconv -t utf-8 $(ROOTDIR)/documentation/libxs_samples.md \
+	@iconv -t utf-8 $(ROOTDIR)/$(DOCDIR)/libxs_samples.md \
 	| pandoc \
 		--template=$(TMPFILE) --listings \
 		-f gfm+subscript+superscript \
@@ -1237,7 +1238,7 @@ $(DOCDIR)/libxs.$(DOCEXT) \
 $(DOCDIR)/libxs_samples.$(DOCEXT)
 
 .PHONY: mkdocs
-mkdocs: $(ROOTDIR)/documentation/index.md $(ROOTDIR)/documentation/libxs_samples.md
+mkdocs: $(ROOTDIR)/$(DOCDIR)/index.md $(ROOTDIR)/$(DOCDIR)/libxs_samples.md
 	@mkdocs build --clean
 	@mkdocs serve
 
