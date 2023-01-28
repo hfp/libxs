@@ -680,7 +680,7 @@ ifneq (1,$(PRECISION))
 endif
 endif # noarch
 	$(eval TMPFILE = $(shell $(MKTEMP) /tmp/.libxs_XXXXXX.mak))
-	@cat $@ | sed \
+	@cat $@ | $(SED) \
 		-e "s/void libxs_/LIBXS_API_INLINE void libxs_/" \
 		-e "s/#ifndef NDEBUG/$(SUPPRESS_UNUSED_PREFETCH_WARNINGS)#ifdef LIBXS_NEVER_DEFINED/" \
 		-e "s/#pragma message (\".*KERNEL COMPILATION ERROR in: \" __FILE__)/  $(SUPPRESS_UNUSED_VARIABLE_WARNINGS)/" \
@@ -1133,7 +1133,7 @@ $(ROOTDIR)/$(SPLDIR)/nek/rstr-perf.txt: $(ROOTDIR)/$(SPLDIR)/nek/rstr-perf.sh li
 endif
 
 $(DOCDIR)/index.md: $(DOCDIR)/.make $(ROOTDIR)/Makefile $(ROOTDIR)/README.md
-	@sed $(ROOTDIR)/README.md \
+	@$(SED) $(ROOTDIR)/README.md \
 		-e 's/\[!\[..*\](..*)\](..*)//g' \
 		-e 's/\[\[..*\](..*)\]//g' \
 		-e "s/](${DOCDIR}\//](/g" \
@@ -1158,7 +1158,7 @@ $(ROOTDIR)/$(DOCDIR)/libxs_tune.md $(ROOTDIR)/$(DOCDIR)/libxs_be.md $(ROOTDIR)/$
 $(ROOTDIR)/$(DOCDIR)/libxs_compat.md $(ROOTDIR)/$(DOCDIR)/libxs_valid.md $(ROOTDIR)/$(DOCDIR)/libxs_qna.md
 	$(eval TMPFILE = $(shell $(MKTEMP) $(ROOTDIR)/$(DOCDIR)/.libxs_XXXXXX.tex))
 	@pandoc -D latex \
-	| sed \
+	| $(SED) \
 		-e 's/\(\\documentclass\[..*\]{..*}\)/\1\n\\pagenumbering{gobble}\n\\RedeclareSectionCommands[beforeskip=-1pt,afterskip=1pt]{subsection,subsubsection}/' \
 		-e 's/\\usepackage{listings}/\\usepackage{listings}\\lstset{basicstyle=\\footnotesize\\ttfamily,showstringspaces=false}/' \
 		-e 's/\(\\usepackage.*{hyperref}\)/\\usepackage[hyphens]{url}\n\1/' \
@@ -1173,13 +1173,13 @@ $(ROOTDIR)/$(DOCDIR)/libxs_compat.md $(ROOTDIR)/$(DOCDIR)/libxs_valid.md $(ROOTD
 		iconv -t utf-8 libxs_be.md && echo && \
 		echo "# Appendix" && \
 		echo "## Compatibility" && \
-		sed "s/^\(##*\) /#\1 /" libxs_compat.md | iconv -t utf-8 && \
+		$(SED) "s/^\(##*\) /#\1 /" libxs_compat.md | iconv -t utf-8 && \
 		echo "## Validation" && \
-		sed "s/^\(##*\) /#\1 /" libxs_valid.md | iconv -t utf-8 && \
+		$(SED) "s/^\(##*\) /#\1 /" libxs_valid.md | iconv -t utf-8 && \
 		iconv -t utf-8 ../$(SCRDIR)/README.md && \
 		echo "## Q&A" && \
-		sed "s/^\(##*\) /#\1 /" libxs_qna.md | iconv -t utf-8; ) \
-	| sed \
+		$(SED) "s/^\(##*\) /#\1 /" libxs_qna.md | iconv -t utf-8; ) \
+	| $(SED) \
 		-e 's/<sub>/~/g' -e 's/<\/sub>/~/g' \
 		-e 's/<sup>/^/g' -e 's/<\/sup>/^/g' \
 		-e 's/----*//g' \
@@ -1203,7 +1203,7 @@ $(DOCDIR)/libxs_samples.md: $(ROOTDIR)/Makefile $(ROOTDIR)/$(SPLDIR)/*/README.md
 	else \
 		cat $(SPLDIR)/*/README.md $(SPLDIR)/deeplearning/*/README.md $(UTLDIR)/*/README.md; \
 	fi \
-	| sed \
+	| $(SED) \
 		-e 's/^#/##/' \
 		-e 's/<sub>/~/g' -e 's/<\/sub>/~/g' \
 		-e 's/<sup>/^/g' -e 's/<\/sup>/^/g' \
@@ -1214,7 +1214,7 @@ $(DOCDIR)/libxs_samples.md: $(ROOTDIR)/Makefile $(ROOTDIR)/$(SPLDIR)/*/README.md
 $(DOCDIR)/libxs_samples.$(DOCEXT): $(ROOTDIR)/$(DOCDIR)/libxs_samples.md
 	$(eval TMPFILE = $(shell $(MKTEMP) .libxs_XXXXXX.tex))
 	@pandoc -D latex \
-	| sed \
+	| $(SED) \
 		-e 's/\(\\documentclass\[..*\]{..*}\)/\1\n\\pagenumbering{gobble}\n\\RedeclareSectionCommands[beforeskip=-1pt,afterskip=1pt]{subsection,subsubsection}/' \
 		-e 's/\\usepackage{listings}/\\usepackage{listings}\\lstset{basicstyle=\\footnotesize\\ttfamily,showstringspaces=false}/' \
 		-e 's/\(\\usepackage.*{hyperref}\)/\\usepackage[hyphens]{url}\n\1/' \
@@ -1362,7 +1362,7 @@ ifneq ($(PREFIX),$(ABSDIR))
 	@$(CP) -v $(ROOTDIR)/$(DOCDIR)/*.md $(PREFIX)/$(PDOCDIR)
 	@$(CP) -v $(ROOTDIR)/SECURITY.md $(PREFIX)/$(PDOCDIR)
 	@$(CP) -v $(ROOTDIR)/version.txt $(PREFIX)/$(PDOCDIR)
-	@sed "s/^\"//;s/\\\n\"$$//;/STATIC=/d" $(DIRSTATE)/.state >$(PREFIX)/$(PDOCDIR)/build.txt 2>/dev/null || true
+	@$(SED) "s/^\"//;s/\\\n\"$$//;/STATIC=/d" $(DIRSTATE)/.state >$(PREFIX)/$(PDOCDIR)/build.txt 2>/dev/null || true
 	@$(MKDIR) -p $(PREFIX)/$(LICFDIR)
 ifneq ($(call qapath,$(PREFIX)/$(PDOCDIR)/LICENSE.md),$(call qapath,$(PREFIX)/$(LICFDIR)/$(LICFILE)))
 	@$(MV) $(PREFIX)/$(PDOCDIR)/LICENSE.md $(PREFIX)/$(LICFDIR)/$(LICFILE)
@@ -1639,15 +1639,15 @@ deb:
 		echo "Depends: \$${shlibs:Depends}, \$${misc:Depends}" >>control; \
 		echo "Description: Specialized tensor operations" >>control; \
 		wget -T $(TIMEOUT) -qO- "https://api.github.com/repos/libxs/libxs/" \
-		| sed -n 's/ *\"description\": \"\(..*\)\".*/\1/p' \
-		| fold -s -w 79 | sed -e 's/^/ /' -e 's/[[:space:]][[:space:]]*$$//' >>control; \
+		| $(SED) -n 's/ *\"description\": \"\(..*\)\".*/\1/p' \
+		| fold -s -w 79 | $(SED) -e 's/^/ /' -e 's/[[:space:]][[:space:]]*$$//' >>control; \
 		echo "$${ARCHIVE_NAME} ($${VERSION_ARCHIVE}-$(VERSION_PACKAGE)) UNRELEASED; urgency=low" >changelog; \
 		echo >>changelog; \
 		wget -T $(TIMEOUT) -qO- "https://api.github.com/repos/libxs/libxs/releases/tags/$${VERSION_ARCHIVE}" \
-		| sed -n 's/ *\"body\": \"\(..*\)\".*/\1/p' \
-		| sed -e 's/\\r\\n/\n/g' -e 's/\\"/"/g' -e 's/\[\([^]]*\)\]([^)]*)/\1/g' \
-		| sed -n 's/^\* \(..*\)/\* \1/p' \
-		| fold -s -w 78 | sed -e 's/^/  /g' -e 's/^  \* /\* /' -e 's/^/  /' -e 's/[[:space:]][[:space:]]*$$//' >>changelog; \
+		| $(SED) -n 's/ *\"body\": \"\(..*\)\".*/\1/p' \
+		| $(SED) -e 's/\\r\\n/\n/g' -e 's/\\"/"/g' -e 's/\[\([^]]*\)\]([^)]*)/\1/g' \
+		| $(SED) -n 's/^\* \(..*\)/\* \1/p' \
+		| fold -s -w 78 | $(SED) -e 's/^/  /g' -e 's/^  \* /\* /' -e 's/^/  /' -e 's/[[:space:]][[:space:]]*$$//' >>changelog; \
 		echo >>changelog; \
 		echo " -- $${ARCHIVE_AUTHOR}  $${ARCHIVE_DATE}" >>changelog; \
 		echo "#!/usr/bin/make -f" >rules; \
