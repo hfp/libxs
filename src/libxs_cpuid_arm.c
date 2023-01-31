@@ -73,6 +73,19 @@ LIBXS_API_INTERN char libxs_cpuid_arm_vendor(void) {
 }
 #endif
 
+LIBXS_API unsigned int libxs_cpuid_arm_mmla_gemm_pack_b_to_vnnit_on_stack(void) {
+#if defined(LIBXS_PLATFORM_X86)
+  return 0;
+#else
+  const char *const l_env_b_vnnit_in_stack = getenv("LIBXS_AARCH64_MMLA_GEMM_B_INPUT_PACKING_ON_STACK");
+  unsigned int l_b_vnnit_in_stack = 0;
+  if ( 0 == l_env_b_vnnit_in_stack ) {
+  } else {
+    l_b_vnnit_in_stack = atoi(l_env_b_vnnit_in_stack);
+  }
+  return l_b_vnnit_in_stack;
+#endif
+}
 
 LIBXS_API int libxs_cpuid_arm_use_bfdot(void)
 {
