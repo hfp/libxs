@@ -66,13 +66,14 @@ LIBXS_API int libxs_cpuid_x86(libxs_cpuid_info* info);
 LIBXS_API int libxs_cpuid_arm(libxs_cpuid_info* info);
 #endif
 
+/**
+ * TODO: limited lifetime API until we have a fully-fleged ARM CPU flags test.
+ */
 LIBXS_API unsigned int libxs_cpuid_arm_mmla_gemm_pack_b_to_vnnit_on_stack(void);
 
 /**
- * TODO: this might be limited lifetime API until we have a fully-fleged
- * ARM CPU flags test
- * Still it might be needed to overwrite BFMMLA with BFDOT for performance
- * study reasons
+ * TODO: limited lifetime API until we have a fully-fleged ARM CPU flags test.
+ * Might be needed to overwrite BFMMLA with BFDOT for performance study.
  */
 LIBXS_API int libxs_cpuid_arm_use_bfdot(void);
 
