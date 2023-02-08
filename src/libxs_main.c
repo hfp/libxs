@@ -2247,6 +2247,7 @@ LIBXS_API_INTERN int libxs_build(const libxs_build_request* request, unsigned in
     } break;
     case LIBXS_BUILD_KIND_USER: break;
 # if !defined(NDEBUG) /* library code is expected to be mute */
+#   if !defined(__clang__)
     default: { /* unknown kind */
       static int error_once = 0;
       if (1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED)) {
@@ -2254,6 +2255,7 @@ LIBXS_API_INTERN int libxs_build(const libxs_build_request* request, unsigned in
       }
       /*result = EXIT_FAILURE;*/
     }
+#   endif
 # endif
   }
 
