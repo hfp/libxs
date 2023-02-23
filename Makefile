@@ -696,7 +696,7 @@ endif
 
 define DEFINE_COMPILE_RULE
 $(1): $(2) $(3) $(dir $(1))/.make
-#	@-rm -f $(1)
+# @-rm -f $(1)
 	-$(CC) $(if $(filter 0,$(WERROR)),$(4),$(filter-out $(WERROR_CFLAG),$(4)) $(WERROR_CFLAG)) -c $(2) -o $(1)
 	@if ! [ -e $(1) ]; then \
 		if [ "2" = "$(INTRINSICS)" ]; then \
@@ -1143,6 +1143,14 @@ $(DOCDIR)/index.md: $(DOCDIR)/.make $(ROOTDIR)/Makefile $(ROOTDIR)/README.md
 		-e 'N;/^\n$$/d;P;D' \
 		>$@
 
+$(DOCDIR)/libxs_scripts.md: $(DOCDIR)/.make $(ROOTDIR)/Makefile $(ROOTDIR)/$(SCRDIR)/README.md
+	@$(SED) $(ROOTDIR)/$(SCRDIR)/README.md \
+		-e 's/\[!\[..*\](..*)\](..*)//g' \
+		-e 's/\[\[..*\](..*)\]//g' \
+		-e "s/](${DOCDIR}\//](/g" \
+		-e 'N;/^\n$$/d;P;D' \
+		>$@
+
 $(DOCDIR)/libxs_compat.md: $(DOCDIR)/.make $(ROOTDIR)/Makefile $(ROOTDIR)/version.txt
 	@wget -T $(TIMEOUT) -q -O $@ "https://raw.githubusercontent.com/wiki/libxs/libxs/Compatibility.md"
 	@echo >>$@
@@ -1157,7 +1165,7 @@ $(DOCDIR)/libxs_qna.md: $(DOCDIR)/.make $(ROOTDIR)/Makefile $(ROOTDIR)/version.t
 
 $(DOCDIR)/libxs.$(DOCEXT): $(DOCDIR)/.make $(ROOTDIR)/$(DOCDIR)/index.md \
 $(ROOTDIR)/$(DOCDIR)/libxs_mm.md $(ROOTDIR)/$(DOCDIR)/libxs_aux.md $(ROOTDIR)/$(DOCDIR)/libxs_prof.md \
-$(ROOTDIR)/$(DOCDIR)/libxs_tune.md $(ROOTDIR)/$(DOCDIR)/libxs_be.md $(ROOTDIR)/$(SCRDIR)/README.md \
+$(ROOTDIR)/$(DOCDIR)/libxs_tune.md $(ROOTDIR)/$(DOCDIR)/libxs_be.md $(ROOTDIR)/$(DOCDIR)/libxs_scripts.md \
 $(ROOTDIR)/$(DOCDIR)/libxs_compat.md $(ROOTDIR)/$(DOCDIR)/libxs_valid.md $(ROOTDIR)/$(DOCDIR)/libxs_qna.md
 	$(eval TMPFILE = $(shell $(MKTEMP) $(ROOTDIR)/$(DOCDIR)/.libxs_XXXXXX.tex))
 	@pandoc -D latex \
@@ -1179,7 +1187,7 @@ $(ROOTDIR)/$(DOCDIR)/libxs_compat.md $(ROOTDIR)/$(DOCDIR)/libxs_valid.md $(ROOTD
 		$(SED) "s/^\(##*\) /#\1 /" libxs_compat.md | iconv -t utf-8 && \
 		echo "## Validation" && \
 		$(SED) "s/^\(##*\) /#\1 /" libxs_valid.md | iconv -t utf-8 && \
-		iconv -t utf-8 ../$(SCRDIR)/README.md && \
+		iconv -t utf-8 libxs_scripts.md && \
 		echo "## Q&A" && \
 		$(SED) "s/^\(##*\) /#\1 /" libxs_qna.md | iconv -t utf-8; ) \
 	| $(SED) \
