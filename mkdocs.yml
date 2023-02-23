@@ -19,10 +19,14 @@ theme:
     name: readthedocs
     custom_dir: .theme
 
+hooks:
+- .theme/ford.py
+
 nav:
 - Overview: index.md
 - Compatibility: libxs_compat.md
 - Validation: libxs_valid.md
+- Scripts: libxs_scripts.md
 - Q&A: libxs_qna.md
 - LIBXS Domains:
   - "MM: Matrix Multiplication": libxs_mm.md
@@ -32,6 +36,8 @@ nav:
   - "PROF: Performance Profiling": libxs_prof.md
   - "TUNE: Customization": libxs_tune.md
   - "BE: Backend": libxs_be.md
+- Fortran:
+  - Reference: fortran/module/libxs.html
 - Example Code:
   - Collection: libxs_samples.md
 - Machine Learning (ML):
