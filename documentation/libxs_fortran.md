@@ -8,7 +8,7 @@ project_download: https://github.com/hfp/libxs/releases/latest/
 favicon: ../.theme/img/favicon.png
 css: ../.theme/ford.css
 output_dir: fortran
-src_dir: ../include
+src_dir: ../src/template
 search: true
 
 <a href="../fortran/module/libxs.html" target="_blank">Reference Documentation</a>
