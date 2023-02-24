@@ -7,9 +7,8 @@
 # Further information: https://github.com/hfp/libxs/                          #
 # SPDX-License-Identifier: BSD-3-Clause                                       #
 ###############################################################################
-import mkdocs.plugins
+import mkdocs.plugins  # noqa: F401
 import ford
-import io
 
 
 def on_pre_build(config):
@@ -22,7 +21,7 @@ def on_pre_build(config):
         )
 
     if proj_data and proj_docs and md:
-        #with ford.stdout_redirector(io.StringIO()):  # quiet
+        # with ford.stdout_redirector(io.StringIO()):  # quiet
         ford.main(proj_data, proj_docs, md)
 
 
