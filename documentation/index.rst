@@ -2,14 +2,15 @@
 
 .. toctree::
    :caption: Overview
+   :hidden:
 
    Compatibility <libxs_compat.md>
    Validation <libxs_valid.md>
+   Scripts <libxs_scripts.md>
    Q&A <libxs_qna.md>
 
 .. toctree::
    :caption: LIBXS Domains
-   :hidden:
 
    MM: Matrix Multiplication <libxs_mm.md>
    TPP: Tensor Processing Primitives <libxs_tpp.md>
