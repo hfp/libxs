@@ -20,7 +20,7 @@ theme:
     custom_dir: .theme
 
 hooks:
-- .theme/ford.py
+- .theme/ford_hook.py
 
 nav:
 - Overview: index.md
@@ -37,7 +37,7 @@ nav:
   - "TUNE: Customization": libxs_tune.md
   - "BE: Backend": libxs_be.md
 - Fortran:
-  - Reference: ../fortran/module/libxs.html
+  - Reference: fortran/module/libxs.html
 - Example Code:
   - Collection: libxs_samples.md
 - Machine Learning (ML):
