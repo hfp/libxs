@@ -7,40 +7,38 @@
 # SPDX-License-Identifier: BSD-3-Clause                                       #
 ###############################################################################
 import sphinx_rtd_theme
+from cgitb import html
 import os
 
-project = 'LIBXS'
-copyright = '2009-2023, Intel Corporation.'
-author = 'Intel Corporation'
-user = os.environ.get('USER')
+project = "LIBXS"
+copyright = "2009-2023, Intel Corporation."
+author = "Intel Corporation"
+user = os.environ.get("USER")
 
 extensions = [
-    #"recommonmark",
-    "m2r2"
+    "recommonmark",
+    # "breathe",
+    # "m2r2",
 ]
 
 master_doc = "index"
 source_suffix = [
     ".rst",
-    #".md"
+    # ".md"
 ]
 
-exclude_patterns = [
-    "*-" + user + "-*.md",
-    "Thumbs.db",
-    ".DS_Store",
-    "_build"
-]
+exclude_patterns = ["*-" + user + "-*.md", "Thumbs.db", ".DS_Store", "_build"]
 
 html_theme = "sphinx_rtd_theme"
-html_theme_options = {
-    "navigation_depth": 2
-}
+html_theme_options = {"navigation_depth": 2}
 html_theme_path = [sphinx_rtd_theme.get_html_theme_path()]
 html_static_path = ["../.theme"]
 
 templates_path = ["_templates"]
 pygments_style = "sphinx"
 
-#language = None
+# language = None
 language = "en"
+
+# Breathe configuration
+breathe_default_project = project

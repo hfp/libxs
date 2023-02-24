@@ -1,4 +1,4 @@
-# Overview
+ Overview
 
 LIBXS's collection of [scripts](https://github.com/hfp/libxs/tree/main/scripts) consists of Python and Bash scripts falling into two categories:
 
@@ -7,9 +7,9 @@ LIBXS's collection of [scripts](https://github.com/hfp/libxs/tree/main/scripts) 
 
 Scripts related to configuring LIBXS are distributed with source code archives. Development tools mostly for software development purpose and are (indirectly) used by contributors, but some scripts are distributed by source code archives as well. The latter are mostly related to running tests (indirectly used by upstream maintainers, e.g., of Linux distributions).
 
-## Development Tools
+# Development
 
-### Parallel Execution
+## Parallel Execution
 
 The script `tool_pexec.sh` can execute commands read from standard input (see `-h` or `--help`). The execution may be concurrent on a per-command basis. The level of parallelism is determined automatically but can be adjusted (oversubscription, nested parallelism). By default, a separate logfile is written for every executed command which can be disabled (`-o /dev/null`). File I/O can become a bottleneck on distributed filesystems (e.g., NFS), or generally hinders nested parallelism (`-o /dev/null -k`).
 
@@ -22,7 +22,7 @@ seq 100 | xargs -I{} echo "echo \"{}\"" \
 
 The script considers an allow-list which permits certain error codes. Allow-lists can be automatically generated (`-u`).
 
-#### Performance Report
+### Performance Report
 
 The script `tool_report.py` collects performance results given in two possible formats: <span>(1)&#160;native</span> "telegram" format, and <span>(2)&#160;JSON</span> format. The script aims to avoid encoding domain knowledge. In fact, the collected information is not necessarily performance data but a time series in general. Usually, the script is not executed directly but launched using a wrapper supplying the authorization token and further adapting to the execution environment (setup):
 

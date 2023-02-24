@@ -1183,12 +1183,9 @@ $(ROOTDIR)/$(DOCDIR)/libxs_compat.md $(ROOTDIR)/$(DOCDIR)/libxs_valid.md $(ROOTD
 		iconv -t utf-8 libxs_tune.md && echo && \
 		iconv -t utf-8 libxs_be.md && echo && \
 		echo "# Appendix" && \
-		echo "## Compatibility" && \
 		$(SED) "s/^\(##*\) /#\1 /" libxs_compat.md | iconv -t utf-8 && \
-		echo "## Validation" && \
 		$(SED) "s/^\(##*\) /#\1 /" libxs_valid.md | iconv -t utf-8 && \
-		iconv -t utf-8 libxs_scripts.md && \
-		echo "## Q&A" && \
+		$(SED) "s/^\(##*\) /#\1 /" libxs_scripts.md | iconv -t utf-8 && \
 		$(SED) "s/^\(##*\) /#\1 /" libxs_qna.md | iconv -t utf-8; ) \
 	| $(SED) \
 		-e 's/<sub>/~/g' -e 's/<\/sub>/~/g' \
