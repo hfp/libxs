@@ -12,4 +12,4 @@ src_dir: ../include
 search: true
 page_dir: .
 
-Library for specialized tensor operations: [libxs.readthedocs.io/](https://libxs.readthedocs.io/)
+<a href="../fortran/module/libxs.html" target="_blank">Reference Documentation</a>
