@@ -181,7 +181,7 @@ TIMEOUT := 30
 EXCLUDE_STATE := \
   DESTDIR PREFIX BINDIR CURDIR DOCDIR DOCEXT INCDIR LICFDIR OUTDIR TSTDIR TIMEOUT \
   PBINDIR PINCDIR POUTDIR PPKGDIR PMODDIR PSRCDIR PTSTDIR PSHRDIR PDOCDIR SCRDIR \
-  SPLDIR UTLDIR SRCDIR TEST VERSION_STRING DEPSTATIC ALIAS_% BLAS %_TARGET %ROOT
+  SPLDIR UTLDIR SRCDIR TEST VERSION_STRING ALIAS_% BLAS %_TARGET %ROOT
 
 # fixed .state file directory (included by source)
 DIRSTATE := $(OUTDIR)/..
@@ -200,6 +200,17 @@ WCHECK := 1
 
 # include common Makefile artifacts
 include $(ROOTDIR)/Makefile.inc
+
+# 0: static, 1: shared, 2: static and shared
+ifneq (,$(filter-out file,$(origin STATIC)))
+  ifneq (0,$(STATIC))
+    BUILD := 0
+  else # shared
+    BUILD := 1
+  endif
+else # default
+  BUILD := 2
+endif
 
 # TRACE facility
 INSTRUMENT ?= $(TRACE)
@@ -316,7 +327,7 @@ INDICES ?= $(shell $(PYTHON) $(ROOTDIR)/$(SCRDIR)/libxs_utilities.py -1 $(THRESH
 NINDICES := $(words $(INDICES))
 
 SRCFILES_KERNELS := $(patsubst %,$(BLDDIR)/mm_%.c,$(INDICES))
-KRNOBJS_HST := $(patsubst %,$(BLDDIR)/intel64/mm_%.o,$(INDICES))
+KRNOBJS := $(patsubst %,$(BLDDIR)/intel64/mm_%.o,$(INDICES))
 
 HEADERS := $(wildcard $(ROOTDIR)/$(SRCDIR)/template/*.h) $(wildcard $(ROOTDIR)/$(SRCDIR)/*.h) \
           $(ROOTDIR)/$(SRCDIR)/libxs_hash.c \
@@ -344,15 +355,15 @@ SRCFILES_GEN_LIB := $(patsubst %,$(ROOTDIR)/$(SRCDIR)/%,$(notdir $(wildcard $(RO
 SRCFILES_GEN_GEMM_BIN := $(patsubst %,$(ROOTDIR)/$(SRCDIR)/%,libxs_generator_gemm_driver.c)
 OBJFILES_GEN_GEMM_BIN := $(patsubst %,$(BLDDIR)/intel64/%.o,$(basename $(notdir $(SRCFILES_GEN_GEMM_BIN))))
 OBJFILES_GEN_LIB := $(patsubst %,$(BLDDIR)/intel64/%.o,$(basename $(notdir $(SRCFILES_GEN_LIB))))
-OBJFILES_HST := $(patsubst %,$(BLDDIR)/intel64/%.o,$(basename $(notdir $(SRCFILES_LIB))))
-EXTOBJS_HST  := $(BLDDIR)/intel64/libxs_ext.o \
-               $(BLDDIR)/intel64/libxs_ext_xcopy.o \
-               $(BLDDIR)/intel64/libxs_ext_gemm.o
-NOBLAS_HST   := $(BLDDIR)/intel64/libxs_noblas.o
+OBJFILES_LIB := $(patsubst %,$(BLDDIR)/intel64/%.o,$(basename $(notdir $(SRCFILES_LIB))))
+OBJFILES_EXT := $(BLDDIR)/intel64/libxs_ext.o \
+                $(BLDDIR)/intel64/libxs_ext_xcopy.o \
+                $(BLDDIR)/intel64/libxs_ext_gemm.o
+NOBLAS_OBJ := $(BLDDIR)/intel64/libxs_noblas.o
 
 # list of object might be "incomplete" if not all code gen. FLAGS are supplied with clean target!
-OBJECTS := $(OBJFILES_GEN_LIB) $(OBJFILES_GEN_GEMM_BIN) $(OBJFILES_HST) \
-          $(KRNOBJS_HST) $(EXTOBJS_HST) $(NOBLAS_HST)
+OBJECTS := $(OBJFILES_GEN_LIB) $(OBJFILES_GEN_GEMM_BIN) $(OBJFILES_LIB) \
+          $(KRNOBJS) $(OBJFILES_EXT) $(NOBLAS_OBJ)
 ifneq (,$(strip $(FC)))
   FTNOBJS := $(BLDDIR)/intel64/libxs-mod.o
 endif
@@ -432,7 +443,7 @@ libxs: lib
 endif
 	$(information)
 ifneq (,$(filter _0_,_$(LNKSOFT)_))
-ifeq (0,$(DEPSTATIC))
+ifeq (0,$(STATIC))
 	$(info Building a shared library requires to link against BLAS)
 	$(info since a deferred choice is not implemented for this OS.)
 	$(info --------------------------------------------------------------------------------)
@@ -469,11 +480,11 @@ endif
 	$(info --------------------------------------------------------------------------------)
 endif
 
-.PHONY: lib
-lib: headers lib_hst
-
 .PHONY: libs
-libs: lib
+libs: clib flib elib noblas
+
+.PHONY: lib
+lib: libs
 
 .PHONY: all
 all: libxs
@@ -495,9 +506,6 @@ interface: headers module
 
 .PHONY: winterface
 winterface: headers sources
-
-.PHONY: lib_hst
-lib_hst: clib_hst flib_hst ext_hst noblas_hst
 
 PREFETCH_UID := 0
 PREFETCH_TYPE := 0
@@ -716,15 +724,15 @@ else
 endif
 
 # build rules that include target flags
-$(eval $(call DEFINE_COMPILE_RULE,$(NOBLAS_HST),$(ROOTDIR)/$(SRCDIR)/libxs_ext.c,$(INCDIR)/libxs.h, \
+$(eval $(call DEFINE_COMPILE_RULE,$(NOBLAS_OBJ),$(ROOTDIR)/$(SRCDIR)/libxs_ext.c,$(INCDIR)/libxs.h, \
   $(CTARGET) $(NOBLAS_CFLAGS) $(NOBLAS_FLAGS) $(NOBLAS_IFLAGS) $(DNOBLAS)))
 ifeq (0,$(CRAY))
-$(foreach OBJ,$(OBJFILES_HST),$(eval $(call DEFINE_COMPILE_RULE, \
+$(foreach OBJ,$(OBJFILES_LIB),$(eval $(call DEFINE_COMPILE_RULE, \
   $(OBJ),$(patsubst %.o,$(ROOTDIR)/$(SRCDIR)/%.c,$(notdir $(OBJ))), \
   $(INCDIR)/libxs.h $(INCDIR)/libxs_source.h $(BLDDIR)/libxs_dispatch.h, \
   $(DFLAGS) $(IFLAGS) $(call applyif,1,libxs_main,$(OBJ),-I$(BLDDIR)) $(CTARGET) $(CFLAGS))))
 else
-$(foreach OBJ,$(filter-out $(BLDDIR)/intel64/libxs_mhd.o,$(OBJFILES_HST)),$(eval $(call DEFINE_COMPILE_RULE, \
+$(foreach OBJ,$(filter-out $(BLDDIR)/intel64/libxs_mhd.o,$(OBJFILES_LIB)),$(eval $(call DEFINE_COMPILE_RULE, \
   $(OBJ),$(patsubst %.o,$(ROOTDIR)/$(SRCDIR)/%.c,$(notdir $(OBJ))), \
   $(INCDIR)/libxs.h $(INCDIR)/libxs_source.h $(BLDDIR)/libxs_dispatch.h, \
   $(DFLAGS) $(IFLAGS) $(call applyif,1,libxs_main,$(OBJ),-I$(BLDDIR)) $(CTARGET) $(CFLAGS))))
@@ -733,11 +741,11 @@ $(foreach OBJ,$(BLDDIR)/intel64/libxs_mhd.o,$(eval $(call DEFINE_COMPILE_RULE, \
   $(INCDIR)/libxs.h $(INCDIR)/libxs_source.h $(BLDDIR)/libxs_dispatch.h, \
   $(DFLAGS) $(IFLAGS) $(CTARGET) $(patsubst $(OPTFLAGS),$(OPTFLAG1),$(CFLAGS)))))
 endif
-$(foreach OBJ,$(KRNOBJS_HST),$(eval $(call DEFINE_COMPILE_RULE, \
+$(foreach OBJ,$(KRNOBJS),$(eval $(call DEFINE_COMPILE_RULE, \
   $(OBJ),$(patsubst %.o,$(BLDDIR)/%.c,$(notdir $(OBJ))), \
   $(INCDIR)/libxs.h $(INCDIR)/libxs_source.h, \
   $(DFLAGS) $(IFLAGS) $(CTARGET) $(CFLAGS))))
-$(foreach OBJ,$(EXTOBJS_HST),$(eval $(call DEFINE_COMPILE_RULE, \
+$(foreach OBJ,$(OBJFILES_EXT),$(eval $(call DEFINE_COMPILE_RULE, \
   $(OBJ),$(patsubst %.o,$(ROOTDIR)/$(SRCDIR)/%.c,$(notdir $(OBJ))), \
   $(INCDIR)/libxs.h $(INCDIR)/libxs_source.h, \
   $(DFLAGS) $(IFLAGS) $(CTARGET) $(EXTCFLAGS) $(CFLAGS))))
@@ -755,9 +763,9 @@ $(foreach OBJ,$(OBJFILES_GEN_GEMM_BIN),$(eval $(call DEFINE_COMPILE_RULE, \
   $(INCDIR)/libxs.h $(INCDIR)/libxs_source.h, \
   $(DFLAGS) $(IFLAGS) $(TGT_FLAGS) $(CFLAGS))))
 
-.PHONY: module_hst
+.PHONY: module
 ifneq (,$(strip $(FC)))
-module_hst: $(INCDIR)/libxs.mod
+module: $(INCDIR)/libxs.mod
 $(BLDDIR)/intel64/libxs-mod.o: $(BLDDIR)/intel64/.make $(INCDIR)/libxs.f
 	$(FC) $(DFLAGS) $(IFLAGS) $(FCMTFLAGS) $(filter-out $(FFORM_FLAG),$(FCFLAGS)) $(FTARGET) \
 		-c $(INCDIR)/libxs.f -o $@ $(FMFLAGS) $(INCDIR)
@@ -772,14 +780,16 @@ else
 .PHONY: $(INCDIR)/libxs.mod
 endif
 
-.PHONY: module
-module: module_hst
-
 .PHONY: build_generator_lib
 build_generator_lib: $(OUTDIR)/libxsgen.$(SLIBEXT) $(OUTDIR)/libxsgen.$(DLIBEXT)
-$(OUTDIR)/libxsgen.$(SLIBEXT) $(OUTDIR)/libxsgen.$(DLIBEXT): $(OBJFILES_GEN_LIB) $(OUTDIR)/libxs.env
+ifeq (,$(filter-out 0 2,$(BUILD)))
+$(OUTDIR)/libxsgen.$(SLIBEXT): $(OBJFILES_GEN_LIB) $(OUTDIR)/libxs.env
 	$(MAKE_AR) $(OUTDIR)/libxsgen.$(SLIBEXT) $(OBJFILES_GEN_LIB)
-ifeq (0,$(ANALYZE))
+else
+.PHONY: $(OUTDIR)/libxsgen.$(SLIBEXT)
+endif
+ifeq (0,$(filter-out 1 2,$(BUILD))$(ANALYZE))
+$(OUTDIR)/libxsgen.$(DLIBEXT): $(OBJFILES_GEN_LIB) $(OUTDIR)/libxs.env
 	$(LIB_SOLD) $(call solink,$(OUTDIR)/libxsgen.$(DLIBEXT),$(VERSION_MAJOR),$(VERSION_MINOR),$(VERSION_UPDATE),$(VERSION_API)) \
 		$(OBJFILES_GEN_LIB) $(call cleanld,$(NOBLAS_LDFLAGS) $(NOBLAS_CLDFLAGS))
 else
@@ -798,23 +808,33 @@ $(LIBJITPROFILING): $(BLDDIR)/jitprofiling/.make
 	@cd $(BLDDIR)/jitprofiling; $(AR) x libjitprofiling.$(SLIBEXT)
 endif
 
-.PHONY: clib_hst
-clib_hst: $(OUTDIR)/libxs-static.pc $(OUTDIR)/libxs.pc
-$(OUTDIR)/libxs.$(SLIBEXT) $(OUTDIR)/libxs.$(DLIBEXT): $(OUTDIR)/.make $(OBJFILES_HST) $(OBJFILES_GEN_LIB) $(KRNOBJS_HST) $(LIBJITPROFILING)
+.PHONY: clib
+clib: $(OUTDIR)/libxs-static.pc $(OUTDIR)/libxs-shared.pc
+ifeq (,$(filter-out 0 2,$(BUILD)))
+$(OUTDIR)/libxs.$(SLIBEXT): $(OUTDIR)/.make $(OBJFILES_LIB) $(OBJFILES_GEN_LIB) $(KRNOBJS) $(LIBJITPROFILING)
 	$(MAKE_AR) $(OUTDIR)/libxs.$(SLIBEXT) $(call tailwords,$^)
-ifeq (0,$(ANALYZE))
+else
+.PHONY: $(OUTDIR)/libxs.$(SLIBEXT)
+endif
+ifeq (0,$(filter-out 1 2,$(BUILD))$(ANALYZE))
+$(OUTDIR)/libxs.$(DLIBEXT): $(OUTDIR)/.make $(OBJFILES_LIB) $(OBJFILES_GEN_LIB) $(KRNOBJS) $(LIBJITPROFILING)
 	$(LIB_SOLD) $(call solink,$(OUTDIR)/libxs.$(DLIBEXT),$(VERSION_MAJOR),$(VERSION_MINOR),$(VERSION_UPDATE),$(VERSION_API)) \
 		$(call tailwords,$^) $(call cleanld,$(LDFLAGS) $(CLDFLAGS))
 else
 .PHONY: $(OUTDIR)/libxs.$(DLIBEXT)
 endif
 
-.PHONY: flib_hst
+.PHONY: flib
 ifneq (,$(strip $(FC)))
-flib_hst: $(OUTDIR)/libxsf-static.pc $(OUTDIR)/libxsf.pc
-$(OUTDIR)/libxsf.$(SLIBEXT) $(OUTDIR)/libxsf.$(DLIBEXT): $(INCDIR)/libxs.mod $(OUTDIR)/libxs.$(DLIBEXT) $(OUTDIR)/libxsext.$(DLIBEXT)
+flib: $(OUTDIR)/libxsf-static.pc $(OUTDIR)/libxsf-shared.pc
+ifeq (,$(filter-out 0 2,$(BUILD)))
+$(OUTDIR)/libxsf.$(SLIBEXT): $(INCDIR)/libxs.mod $(OUTDIR)/libxs.$(DLIBEXT) $(OUTDIR)/libxsext.$(DLIBEXT)
 	$(MAKE_AR) $(OUTDIR)/libxsf.$(SLIBEXT) $(BLDDIR)/intel64/libxs-mod.o
-ifeq (0,$(ANALYZE))
+else
+.PHONY: $(OUTDIR)/libxsf.$(SLIBEXT)
+endif
+ifeq (0,$(filter-out 1 2,$(BUILD))$(ANALYZE))
+$(OUTDIR)/libxsf.$(DLIBEXT): $(INCDIR)/libxs.mod $(OUTDIR)/libxs.$(DLIBEXT) $(OUTDIR)/libxsext.$(DLIBEXT)
 ifneq (Darwin,$(UNAME))
 	$(LIB_SFLD) $(FCMTFLAGS) $(call solink,$(OUTDIR)/libxsf.$(DLIBEXT),$(VERSION_MAJOR),$(VERSION_MINOR),$(VERSION_UPDATE),$(VERSION_API)) \
 		$(BLDDIR)/intel64/libxs-mod.o $(call abslib,$(OUTDIR)/libxs.$(ILIBEXT)) \
@@ -835,24 +855,34 @@ else
 .PHONY: $(OUTDIR)/libxsf.$(SLIBEXT) $(OUTDIR)/libxsf.$(DLIBEXT)
 endif
 
-.PHONY: ext_hst
-ext_hst: $(OUTDIR)/libxsext-static.pc $(OUTDIR)/libxsext.pc
-$(OUTDIR)/libxsext.$(SLIBEXT) $(OUTDIR)/libxsext.$(DLIBEXT): $(OUTDIR)/libxs.$(DLIBEXT) $(EXTOBJS_HST)
-	$(MAKE_AR) $(OUTDIR)/libxsext.$(SLIBEXT) $(EXTOBJS_HST)
-ifeq (0,$(ANALYZE))
+.PHONY: elib
+elib: $(OUTDIR)/libxsext-static.pc $(OUTDIR)/libxsext-shared.pc
+ifeq (,$(filter-out 0 2,$(BUILD)))
+$(OUTDIR)/libxsext.$(SLIBEXT): $(OUTDIR)/libxs.$(DLIBEXT) $(OBJFILES_EXT)
+	$(MAKE_AR) $(OUTDIR)/libxsext.$(SLIBEXT) $(OBJFILES_EXT)
+else
+.PHONY: $(OUTDIR)/libxsext.$(SLIBEXT)
+endif
+ifeq (0,$(filter-out 1 2,$(BUILD))$(ANALYZE))
+$(OUTDIR)/libxsext.$(DLIBEXT): $(OUTDIR)/libxs.$(DLIBEXT) $(OBJFILES_EXT)
 	$(LIB_SOLD) $(EXTLDFLAGS) $(call solink,$(OUTDIR)/libxsext.$(DLIBEXT),$(VERSION_MAJOR),$(VERSION_MINOR),$(VERSION_UPDATE),$(VERSION_API)) \
-		$(EXTOBJS_HST) $(call abslib,$(OUTDIR)/libxs.$(ILIBEXT)) $(call cleanld,$(LDFLAGS) $(CLDFLAGS))
+		$(OBJFILES_EXT) $(call abslib,$(OUTDIR)/libxs.$(ILIBEXT)) $(call cleanld,$(LDFLAGS) $(CLDFLAGS))
 else
 .PHONY: $(OUTDIR)/libxsext.$(DLIBEXT)
 endif
 
-.PHONY: noblas_hst
-noblas_hst: $(OUTDIR)/libxsnoblas-static.pc $(OUTDIR)/libxsnoblas.pc
-$(OUTDIR)/libxsnoblas.$(SLIBEXT) $(OUTDIR)/libxsnoblas.$(DLIBEXT): $(NOBLAS_HST)
-	$(MAKE_AR) $(OUTDIR)/libxsnoblas.$(SLIBEXT) $(NOBLAS_HST)
-ifeq (0,$(ANALYZE))
+.PHONY: noblas
+noblas: $(OUTDIR)/libxsnoblas-static.pc $(OUTDIR)/libxsnoblas-shared.pc
+ifeq (,$(filter-out 0 2,$(BUILD)))
+$(OUTDIR)/libxsnoblas.$(SLIBEXT): $(NOBLAS_OBJ)
+	$(MAKE_AR) $(OUTDIR)/libxsnoblas.$(SLIBEXT) $(NOBLAS_OBJ)
+else
+.PHONY: $(OUTDIR)/libxsnoblas.$(SLIBEXT)
+endif
+ifeq (0,$(filter-out 1 2,$(BUILD))$(ANALYZE))
+$(OUTDIR)/libxsnoblas.$(DLIBEXT): $(NOBLAS_OBJ)
 	$(LIB_SOLD) $(call solink,$(OUTDIR)/libxsnoblas.$(DLIBEXT),$(VERSION_MAJOR),$(VERSION_MINOR),$(VERSION_UPDATE),$(VERSION_API)) \
-		$(NOBLAS_HST) $(call cleanld,$(NOBLAS_LDFLAGS) $(NOBLAS_CLDFLAGS))
+		$(NOBLAS_OBJ) $(call cleanld,$(NOBLAS_LDFLAGS) $(NOBLAS_CLDFLAGS))
 else
 .PHONY: $(OUTDIR)/libxsnoblas.$(DLIBEXT)
 endif
@@ -866,23 +896,23 @@ DIRS_SAMPLES := $(dir $(shell find $(ROOTDIR)/$(SPLDIR) -type f -name Makefile \
 
 .PHONY: samples $(DIRS_SAMPLES)
 samples: $(DIRS_SAMPLES)
-$(DIRS_SAMPLES): lib_hst
+$(DIRS_SAMPLES): libs
 	@$(FLOCK) $@ "$(MAKE)"
 
 .PHONY: cp2k
-cp2k: lib_hst
+cp2k: libs
 	@$(FLOCK) $(ROOTDIR)/$(SPLDIR)/cp2k "$(MAKE) --no-print-directory"
 
 .PHONY: nek
-nek: lib_hst
+nek: libs
 	@$(FLOCK) $(ROOTDIR)/$(SPLDIR)/nek "$(MAKE) --no-print-directory"
 
 .PHONY: smm
-smm: lib_hst
+smm: libs
 	@$(FLOCK) $(ROOTDIR)/$(UTLDIR)/smmbench "$(MAKE) --no-print-directory"
 
 .PHONY: specfem
-specfem: lib_hst
+specfem: libs
 	@$(FLOCK) $(ROOTDIR)/$(SPLDIR)/specfem "$(MAKE) --no-print-directory"
 
 $(ROOTDIR)/$(SPLDIR)/cp2k/cp2k-perf.sh: $(ROOTDIR)/$(SPLDIR)/cp2k/.make $(ROOTDIR)/Makefile
@@ -1100,22 +1130,22 @@ test: tests
 drytest: build-tests
 
 .PHONY: build-tests
-build-tests: lib_hst
+build-tests: libs
 	@$(FLOCK) $(ROOTDIR)/$(TSTDIR) "$(MAKE) --no-print-directory"
 
 .PHONY: tests
-tests: lib_hst
+tests: libs
 	@$(FLOCK) $(ROOTDIR)/$(TSTDIR) "$(MAKE) --no-print-directory test"
 
 .PHONY: test-cp2k
 test-cp2k: $(ROOTDIR)/$(SPLDIR)/cp2k/cp2k-test.txt
-$(ROOTDIR)/$(SPLDIR)/cp2k/cp2k-test.txt: $(ROOTDIR)/$(SPLDIR)/cp2k/cp2k-perf.sh lib_hst cp2k
+$(ROOTDIR)/$(SPLDIR)/cp2k/cp2k-test.txt: $(ROOTDIR)/$(SPLDIR)/cp2k/cp2k-perf.sh libs cp2k
 	@$(FLOCK) $(call qdir,$@) "./cp2k-perf.sh $(call qndir,$@) $(shell echo $$(($(TESTSIZE)*128)))"
 
 .PHONY: test-smm
 ifneq (,$(strip $(FC)))
 test-smm: $(ROOTDIR)/$(UTLDIR)/smmbench/smm-test.txt
-$(ROOTDIR)/$(UTLDIR)/smmbench/smm-test.txt: $(ROOTDIR)/$(UTLDIR)/smmbench/smmf-perf.sh lib_hst smm
+$(ROOTDIR)/$(UTLDIR)/smmbench/smm-test.txt: $(ROOTDIR)/$(UTLDIR)/smmbench/smmf-perf.sh libs smm
 	@$(FLOCK) $(call qdir,$@) "./smmf-perf.sh $(call qndir,$@) $(shell echo $$(($(TESTSIZE)*-128)))"
 endif
 
@@ -1125,13 +1155,13 @@ test-nek: \
 	$(ROOTDIR)/$(SPLDIR)/nek/axhm-perf.txt \
 	$(ROOTDIR)/$(SPLDIR)/nek/grad-perf.txt \
 	$(ROOTDIR)/$(SPLDIR)/nek/rstr-perf.txt
-$(ROOTDIR)/$(SPLDIR)/nek/axhm-perf.txt: $(ROOTDIR)/$(SPLDIR)/nek/axhm-perf.sh lib_hst
+$(ROOTDIR)/$(SPLDIR)/nek/axhm-perf.txt: $(ROOTDIR)/$(SPLDIR)/nek/axhm-perf.sh libs
 	@$(FLOCK) $(ROOTDIR)/$(SPLDIR)/nek "$(MAKE) --no-print-directory axhm"
 	@$(FLOCK) $(ROOTDIR)/$(SPLDIR)/nek "./axhm-perf.sh $(call qndir,$@) $(shell echo $$(($(TESTSIZE)*-128)))"
-$(ROOTDIR)/$(SPLDIR)/nek/grad-perf.txt: $(ROOTDIR)/$(SPLDIR)/nek/grad-perf.sh lib_hst
+$(ROOTDIR)/$(SPLDIR)/nek/grad-perf.txt: $(ROOTDIR)/$(SPLDIR)/nek/grad-perf.sh libs
 	@$(FLOCK) $(ROOTDIR)/$(SPLDIR)/nek "$(MAKE) --no-print-directory grad"
 	@$(FLOCK) $(ROOTDIR)/$(SPLDIR)/nek "./grad-perf.sh $(call qndir,$@) $(shell echo $$(($(TESTSIZE)*-128)))"
-$(ROOTDIR)/$(SPLDIR)/nek/rstr-perf.txt: $(ROOTDIR)/$(SPLDIR)/nek/rstr-perf.sh lib_hst
+$(ROOTDIR)/$(SPLDIR)/nek/rstr-perf.txt: $(ROOTDIR)/$(SPLDIR)/nek/rstr-perf.sh libs
 	@$(FLOCK) $(ROOTDIR)/$(SPLDIR)/nek "$(MAKE) --no-print-directory rstr"
 	@$(FLOCK) $(ROOTDIR)/$(SPLDIR)/nek "./rstr-perf.sh $(call qndir,$@) $(shell echo $$(($(TESTSIZE)*-128)))"
 endif
@@ -1448,9 +1478,10 @@ ifneq (Darwin,$(UNAME))
   ALIAS_PRIVLIBS_EXT := -fopenmp
 endif
 
-ALIAS_INCLUDEDIR := $(subst $$$$,$(if $(findstring $$$$/,$$$$$(PINCDIR)),,\$${prefix}/),$(subst $$$$$(ALIAS_PREFIX),\$${prefix},$$$$$(PINCDIR)))
+ALIAS_INCDIR := $(subst $$$$,$(if $(findstring $$$$/,$$$$$(PINCDIR)),,\$${prefix}/),$(subst $$$$$(ALIAS_PREFIX),\$${prefix},$$$$$(PINCDIR)))
 ALIAS_LIBDIR := $(subst $$$$,$(if $(findstring $$$$/,$$$$$(POUTDIR)),,\$${prefix}/),$(subst $$$$$(ALIAS_PREFIX),\$${prefix},$$$$$(POUTDIR)))
 
+ifeq (,$(filter-out 0 2,$(BUILD)))
 $(OUTDIR)/libxs-static.pc: $(OUTDIR)/libxs.$(SLIBEXT)
 	@echo "Name: libxs" >$@
 	@echo "Description: Specialized tensor operations" >>$@
@@ -1458,20 +1489,27 @@ $(OUTDIR)/libxs-static.pc: $(OUTDIR)/libxs.$(SLIBEXT)
 	@echo "Version: $(VERSION_STRING)" >>$@
 	@echo >>$@
 	@echo "prefix=$(ALIAS_PREFIX)" >>$@
-	@echo "includedir=$(ALIAS_INCLUDEDIR)" >>$@
+	@echo "includedir=$(ALIAS_INCDIR)" >>$@
 	@echo "libdir=$(ALIAS_LIBDIR)" >>$@
 	@echo >>$@
 	@echo "Cflags: -I\$${includedir}" >>$@
-ifneq (,$(ALIAS_PRIVLIBS))
-ifneq (Windows_NT,$(UNAME))
+  ifneq (,$(ALIAS_PRIVLIBS))
+  ifneq (Windows_NT,$(UNAME))
 	@echo "Libs: -L\$${libdir} -l:libxs.$(SLIBEXT) $(ALIAS_PRIVLIBS)" >>$@
-else
+  else
 	@echo "Libs: -L\$${libdir} -lxsmm $(ALIAS_PRIVLIBS)" >>$@
-endif
-else # no private libraries
+  endif
+  else # no private libraries
 	@echo "Libs: -L\$${libdir} -lxsmm" >>$@
+  endif
+  ifeq (,$(filter-out 0 2,$(BUILD)))
+	@ln -fs $(notdir $@) $(OUTDIR)/libxs.pc
+  endif
+else
+.PHONY: $(OUTDIR)/libxs-static.pc
 endif
 
+ifeq (,$(filter-out 0 2,$(BUILD)))
 $(OUTDIR)/libxsf-static.pc: $(OUTDIR)/libxsf.$(SLIBEXT)
 	@echo "Name: libxs/f" >$@
 	@echo "Description: LIBXS for Fortran" >>$@
@@ -1479,17 +1517,24 @@ $(OUTDIR)/libxsf-static.pc: $(OUTDIR)/libxsf.$(SLIBEXT)
 	@echo "Version: $(VERSION_STRING)" >>$@
 	@echo >>$@
 	@echo "prefix=$(ALIAS_PREFIX)" >>$@
-	@echo "includedir=$(ALIAS_INCLUDEDIR)" >>$@
+	@echo "includedir=$(ALIAS_INCDIR)" >>$@
 	@echo "libdir=$(ALIAS_LIBDIR)" >>$@
 	@echo >>$@
 	@echo "Requires: libxsext-static" >>$@
 	@echo "Cflags: -I\$${includedir}" >>$@
-ifneq (Windows_NT,$(UNAME))
+  ifneq (Windows_NT,$(UNAME))
 	@echo "Libs: -L\$${libdir} -l:libxsf.$(SLIBEXT)" >>$@
-else
+  else
 	@echo "Libs: -L\$${libdir} -lxsmmf" >>$@
+  endif
+  ifeq (,$(filter-out 0 2,$(BUILD)))
+	@ln -fs $(notdir $@) $(OUTDIR)/libxsf.pc
+  endif
+else
+.PHONY: $(OUTDIR)/libxsf-static.pc
 endif
 
+ifeq (,$(filter-out 0 2,$(BUILD)))
 $(OUTDIR)/libxsext-static.pc: $(OUTDIR)/libxsext.$(SLIBEXT)
 	@echo "Name: libxs/ext" >$@
 	@echo "Description: LIBXS/multithreaded for OpenMP" >>$@
@@ -1497,21 +1542,28 @@ $(OUTDIR)/libxsext-static.pc: $(OUTDIR)/libxsext.$(SLIBEXT)
 	@echo "Version: $(VERSION_STRING)" >>$@
 	@echo >>$@
 	@echo "prefix=$(ALIAS_PREFIX)" >>$@
-	@echo "includedir=$(ALIAS_INCLUDEDIR)" >>$@
+	@echo "includedir=$(ALIAS_INCDIR)" >>$@
 	@echo "libdir=$(ALIAS_LIBDIR)" >>$@
 	@echo >>$@
 	@echo "Requires: libxs-static" >>$@
 	@echo "Cflags: -I\$${includedir}" >>$@
-ifneq (,$(ALIAS_PRIVLIBS_EXT))
-ifneq (Windows_NT,$(UNAME))
+  ifneq (,$(ALIAS_PRIVLIBS_EXT))
+  ifneq (Windows_NT,$(UNAME))
 	@echo "Libs: -L\$${libdir} -l:libxsext.$(SLIBEXT) $(ALIAS_PRIVLIBS_EXT)" >>$@
-else
+  else
 	@echo "Libs: -L\$${libdir} -lxsmmext $(ALIAS_PRIVLIBS_EXT)" >>$@
-endif
-else # no private libraries
+  endif
+  else # no private libraries
 	@echo "Libs: -L\$${libdir} -lxsmmext" >>$@
+  endif
+  ifeq (,$(filter-out 0 2,$(BUILD)))
+	@ln -fs $(notdir $@) $(OUTDIR)/libxsext.pc
+  endif
+else
+.PHONY: $(OUTDIR)/libxsext-static.pc
 endif
 
+ifeq (,$(filter-out 0 2,$(BUILD)))
 $(OUTDIR)/libxsnoblas-static.pc: $(OUTDIR)/libxsnoblas.$(SLIBEXT)
 	@echo "Name: libxs/noblas" >$@
 	@echo "Description: LIBXS substituted LAPACK/BLAS dependency" >>$@
@@ -1519,81 +1571,115 @@ $(OUTDIR)/libxsnoblas-static.pc: $(OUTDIR)/libxsnoblas.$(SLIBEXT)
 	@echo "Version: $(VERSION_STRING)" >>$@
 	@echo >>$@
 	@echo "prefix=$(ALIAS_PREFIX)" >>$@
-	@echo "includedir=$(ALIAS_INCLUDEDIR)" >>$@
+	@echo "includedir=$(ALIAS_INCDIR)" >>$@
 	@echo "libdir=$(ALIAS_LIBDIR)" >>$@
 	@echo >>$@
 	@echo "Requires: libxs-static" >>$@
 	@echo "Cflags: -I\$${includedir}" >>$@
-ifneq (Windows_NT,$(UNAME))
+  ifneq (Windows_NT,$(UNAME))
 	@echo "Libs: -L\$${libdir} -l:libxsnoblas.$(SLIBEXT)" >>$@
-else
+  else
 	@echo "Libs: -L\$${libdir} -lxsmmnoblas" >>$@
+  endif
+  ifeq (,$(filter-out 0 2,$(BUILD)))
+	@ln -fs $(notdir $@) $(OUTDIR)/libxsnoblas.pc
+  endif
+else
+.PHONY: $(OUTDIR)/libxsnoblas-static.pc
 endif
 
-$(OUTDIR)/libxs.pc: $(OUTDIR)/libxs.$(DLIBEXT)
+ifeq (,$(filter-out 1 2,$(BUILD)))
+$(OUTDIR)/libxs-shared.pc: $(OUTDIR)/libxs.$(DLIBEXT)
 	@echo "Name: libxs" >$@
 	@echo "Description: Specialized tensor operations" >>$@
 	@echo "URL: https://github.com/hfp/libxs/" >>$@
 	@echo "Version: $(VERSION_STRING)" >>$@
 	@echo >>$@
 	@echo "prefix=$(ALIAS_PREFIX)" >>$@
-	@echo "includedir=$(ALIAS_INCLUDEDIR)" >>$@
+	@echo "includedir=$(ALIAS_INCDIR)" >>$@
 	@echo "libdir=$(ALIAS_LIBDIR)" >>$@
 	@echo >>$@
 	@echo "Cflags: -I\$${includedir}" >>$@
-ifneq (,$(ALIAS_PRIVLIBS))
+  ifneq (,$(ALIAS_PRIVLIBS))
 	@echo "Libs: -L\$${libdir} -lxsmm" >>$@
 	@echo "Libs.private: $(ALIAS_PRIVLIBS)" >>$@
-else # no private libraries
+  else # no private libraries
 	@echo "Libs: -L\$${libdir} -lxsmm" >>$@
+  endif
+  ifeq (,$(filter-out 1,$(BUILD)))
+	@ln -fs $(notdir $@) $(OUTDIR)/libxs.pc
+  endif
+else
+.PHONY: $(OUTDIR)/libxs-shared.pc
 endif
 
-$(OUTDIR)/libxsf.pc: $(OUTDIR)/libxsf.$(DLIBEXT)
+ifeq (,$(filter-out 1 2,$(BUILD)))
+$(OUTDIR)/libxsf-shared.pc: $(OUTDIR)/libxsf.$(DLIBEXT)
 	@echo "Name: libxs/f" >$@
 	@echo "Description: LIBXS for Fortran" >>$@
 	@echo "URL: https://github.com/hfp/libxs/" >>$@
 	@echo "Version: $(VERSION_STRING)" >>$@
 	@echo >>$@
 	@echo "prefix=$(ALIAS_PREFIX)" >>$@
-	@echo "includedir=$(ALIAS_INCLUDEDIR)" >>$@
+	@echo "includedir=$(ALIAS_INCDIR)" >>$@
 	@echo "libdir=$(ALIAS_LIBDIR)" >>$@
 	@echo >>$@
 	@echo "Requires: libxsext" >>$@
 	@echo "Cflags: -I\$${includedir}" >>$@
 	@echo "Libs: -L\$${libdir} -lxsmmf" >>$@
+  ifeq (,$(filter-out 1,$(BUILD)))
+	@ln -fs $(notdir $@) $(OUTDIR)/libxsf.pc
+  endif
+else
+.PHONY: $(OUTDIR)/libxsf-shared.pc
+endif
 
-$(OUTDIR)/libxsext.pc: $(OUTDIR)/libxsext.$(DLIBEXT)
+ifeq (,$(filter-out 1 2,$(BUILD)))
+$(OUTDIR)/libxsext-shared.pc: $(OUTDIR)/libxsext.$(DLIBEXT)
 	@echo "Name: libxs/ext" >$@
 	@echo "Description: LIBXS/multithreaded for OpenMP" >>$@
 	@echo "URL: https://github.com/hfp/libxs/" >>$@
 	@echo "Version: $(VERSION_STRING)" >>$@
 	@echo >>$@
 	@echo "prefix=$(ALIAS_PREFIX)" >>$@
-	@echo "includedir=$(ALIAS_INCLUDEDIR)" >>$@
+	@echo "includedir=$(ALIAS_INCDIR)" >>$@
 	@echo "libdir=$(ALIAS_LIBDIR)" >>$@
 	@echo >>$@
 	@echo "Requires: libxs" >>$@
 	@echo "Cflags: -I\$${includedir}" >>$@
-ifneq (,$(ALIAS_PRIVLIBS_EXT))
+  ifneq (,$(ALIAS_PRIVLIBS_EXT))
 	@echo "Libs: -L\$${libdir} -lxsmmext" >>$@
 	@echo "Libs.private: $(ALIAS_PRIVLIBS_EXT)" >>$@
-else # no private libraries
+  else # no private libraries
 	@echo "Libs: -L\$${libdir} -lxsmmext" >>$@
+  endif
+  ifeq (,$(filter-out 1,$(BUILD)))
+	@ln -fs $(notdir $@) $(OUTDIR)/libxsext.pc
+  endif
+else
+.PHONY: $(OUTDIR)/libxsext-shared.pc
 endif
 
-$(OUTDIR)/libxsnoblas.pc: $(OUTDIR)/libxsnoblas.$(DLIBEXT)
+ifeq (,$(filter-out 1 2,$(BUILD)))
+$(OUTDIR)/libxsnoblas-shared.pc: $(OUTDIR)/libxsnoblas.$(DLIBEXT)
 	@echo "Name: libxs/noblas" >$@
 	@echo "Description: LIBXS substituted LAPACK/BLAS dependency" >>$@
 	@echo "URL: https://github.com/hfp/libxs/" >>$@
 	@echo "Version: $(VERSION_STRING)" >>$@
 	@echo >>$@
 	@echo "prefix=$(ALIAS_PREFIX)" >>$@
-	@echo "includedir=$(ALIAS_INCLUDEDIR)" >>$@
+	@echo "includedir=$(ALIAS_INCDIR)" >>$@
 	@echo "libdir=$(ALIAS_LIBDIR)" >>$@
 	@echo >>$@
 	@echo "Requires: libxs" >>$@
 	@echo "Cflags: -I\$${includedir}" >>$@
 	@echo "Libs: -L\$${libdir} -lxsmmnoblas" >>$@
+  ifeq (,$(filter-out 1,$(BUILD)))
+	@ln -fs $(notdir $@) $(OUTDIR)/libxsnoblas.pc
+  endif
+else
+.PHONY: $(OUTDIR)/libxsnoblas-shared.pc
+endif
 
 $(OUTDIR)/libxs.env: $(OUTDIR)/.make $(INCDIR)/libxs.h
 	@echo "#%Module1.0" >$@
