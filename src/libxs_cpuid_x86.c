@@ -491,6 +491,21 @@ LIBXS_API int libxs_cpuid_vlen32(int id)
   return result;
 }
 
+LIBXS_API int libxs_cpuid_x86_amx_gemm_enforce_mx1_tile_blocking(void) {
+  int result = 0;
+#if defined(LIBXS_PLATFORM_X86)
+  const char *const l_env_x86_amx_gemm_enforce_mx1_tile_blocking = getenv("LIBXS_X86_AMX_GEMM_ENFORCE_Mx1_TILE_BLOCKING");
+  if ( 0 == l_env_x86_amx_gemm_enforce_mx1_tile_blocking ) {
+    result = 0;
+  } else {
+    if ( atoi(l_env_x86_amx_gemm_enforce_mx1_tile_blocking) != 0 ) {
+      result = 1;
+    }
+  }
+#endif
+  return result;
+}
+
 LIBXS_API int libxs_cpuid_dot_pack_factor(libxs_datatype in_dtype)
 {
   int result = 0;
