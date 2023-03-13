@@ -61,7 +61,8 @@ int main(int argc, char* argv[])
     LIBXS_BLAS_CONST libxs_blasint k = (4 < argc ? std::atoi(argv[4]) : m);
     LIBXS_BLAS_CONST libxs_blasint n = (3 < argc ? std::atoi(argv[3]) : k);
     const libxs_blasint q = (5 < argc ? std::atoi(argv[5]) : 0/*auto*/);
-    const libxs_blasint nrepeat = (6 < argc ? std::atoi(argv[6]) : (0 >= q ? 13 : 1));
+    const libxs_blasint nrepeat = ((6 < argc && 0 < std::atoi(argv[6]))
+      ? std::atoi(argv[6]) : (0 >= q ? 13 : 1));
 
     LIBXS_BLAS_CONST libxs_blasint lda = m, ldb = k, ldc = m;
     LIBXS_BLAS_CONST char transa = 'N', transb = 'N';
