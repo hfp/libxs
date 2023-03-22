@@ -67,12 +67,12 @@ LIBXS_API int libxs_cpuid_arm(libxs_cpuid_info* info);
 #endif
 
 /**
- * TODO: limited lifetime API until we have a fully-fleged ARM CPU flags test.
+ * TODO: limited lifetime API until we have a fully-fledged ARM CPU flags test.
  */
 LIBXS_API unsigned int libxs_cpuid_arm_mmla_gemm_pack_b_to_vnnit_on_stack(void);
 
 /**
- * TODO: limited lifetime API until we have a fully-fleged ARM CPU flags test.
+ * TODO: limited lifetime API until we have a fully-fledged ARM CPU flags test.
  * Might be needed to overwrite BFMMLA with BFDOT for performance study.
  */
 LIBXS_API int libxs_cpuid_arm_use_bfdot(void);
@@ -81,7 +81,7 @@ LIBXS_API int libxs_cpuid_x86_amx_gemm_enforce_mx1_tile_blocking(void);
 /**
  * return the VNNI/Dot-product/Matmul blocking for a specific
  * architecture and datatype */
-LIBXS_API int libxs_cpuid_dot_pack_factor(libxs_datatype in_dtype);
+LIBXS_API int libxs_cpuid_dot_pack_factor(libxs_datatype datatype);
 
 /**
  * Similar to libxs_cpuid_x86, but conceptually not arch-specific.

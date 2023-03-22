@@ -506,42 +506,44 @@ LIBXS_API int libxs_cpuid_x86_amx_gemm_enforce_mx1_tile_blocking(void) {
   return result;
 }
 
-LIBXS_API int libxs_cpuid_dot_pack_factor(libxs_datatype in_dtype)
+LIBXS_API int libxs_cpuid_dot_pack_factor(libxs_datatype datatype)
 {
+  /* handle signed and unsigned types */
+  const int type = LIBXS_GETENUM_INP(datatype);
   int result = 0;
 #if defined(LIBXS_PLATFORM_X86)
-  if ( (in_dtype == LIBXS_DATATYPE_BF16) ||
-       (in_dtype == LIBXS_DATATYPE_F16)  ||
-       (in_dtype == LIBXS_DATATYPE_I16)     ) {
+  if ( (type == LIBXS_DATATYPE_BF16) ||
+       (type == LIBXS_DATATYPE_F16)  ||
+       (type == LIBXS_DATATYPE_I16)     ) {
     result = 2;
-  } else if ( (in_dtype == LIBXS_DATATYPE_BF8) ||
-              (in_dtype == LIBXS_DATATYPE_HF8) ||
-              (in_dtype == LIBXS_DATATYPE_I8)     ) {
+  } else if ( (type == LIBXS_DATATYPE_BF8) ||
+              (type == LIBXS_DATATYPE_HF8) ||
+              (type == LIBXS_DATATYPE_I8)     ) {
     result = 4;
   } else {
     result = 1;
   }
 # else
   if ( libxs_cpuid_arm_use_bfdot() != 0 ) {
-    if ( (in_dtype == LIBXS_DATATYPE_BF16) ||
-         (in_dtype == LIBXS_DATATYPE_F16)  ||
-         (in_dtype == LIBXS_DATATYPE_I16)     ) {
+    if ( (type == LIBXS_DATATYPE_BF16) ||
+         (type == LIBXS_DATATYPE_F16)  ||
+         (type == LIBXS_DATATYPE_I16)     ) {
       result = 2;
-    } else if ( (in_dtype == LIBXS_DATATYPE_BF8) ||
-                (in_dtype == LIBXS_DATATYPE_HF8) ||
-                (in_dtype == LIBXS_DATATYPE_I8)     ) {
+    } else if ( (type == LIBXS_DATATYPE_BF8) ||
+                (type == LIBXS_DATATYPE_HF8) ||
+                (type == LIBXS_DATATYPE_I8)     ) {
       result = 4;
     } else {
       result = 1;
     }
   } else {
-    if ( (in_dtype == LIBXS_DATATYPE_BF16) ||
-         (in_dtype == LIBXS_DATATYPE_F16)  ||
-         (in_dtype == LIBXS_DATATYPE_I16)     ) {
+    if ( (type == LIBXS_DATATYPE_BF16) ||
+         (type == LIBXS_DATATYPE_F16)  ||
+         (type == LIBXS_DATATYPE_I16)     ) {
       result = 4;
-    } else if ( (in_dtype == LIBXS_DATATYPE_BF8) ||
-                (in_dtype == LIBXS_DATATYPE_HF8) ||
-                (in_dtype == LIBXS_DATATYPE_I8)     ) {
+    } else if ( (type == LIBXS_DATATYPE_BF8) ||
+                (type == LIBXS_DATATYPE_HF8) ||
+                (type == LIBXS_DATATYPE_I8)     ) {
       result = 8;
     } else {
       result = 1;
