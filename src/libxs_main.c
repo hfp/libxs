@@ -2663,8 +2663,8 @@ LIBXS_API int libxs_get_mmkernel_info(libxs_xmmfunction kernel, libxs_mmkernel_i
     if (NULL != libxs_get_kernel_xinfo(code, &desc, NULL/*code_size*/) &&
         NULL != desc && LIBXS_KERNEL_KIND_MATMUL == LIBXS_DESCRIPTOR_KIND(desc->kind))
     {
-      info->iprecision = (libxs_datatype)LIBXS_GETENUM_UNP(desc->gemm.desc.datatype);
-      info->oprecision = (libxs_datatype)LIBXS_GETENUM_UOT(desc->gemm.desc.datatype);
+      info->iprecision = (libxs_datatype)LIBXS_GETENUM_INP(desc->gemm.desc.datatype);
+      info->oprecision = (libxs_datatype)LIBXS_GETENUM_OUT(desc->gemm.desc.datatype);
       info->prefetch = (libxs_gemm_prefetch_type)desc->gemm.desc.prefetch;
       info->flags = desc->gemm.desc.flags;
       info->lda = desc->gemm.desc.lda;
