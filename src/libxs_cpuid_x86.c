@@ -157,7 +157,7 @@ LIBXS_API int libxs_cpuid_x86(libxs_cpuid_info* info)
   unsigned int eax, ebx, ecx, edx;
   LIBXS_CPUID_X86(0, 0/*ecx*/, eax, ebx, ecx, edx);
   if (1 <= eax) { /* CPUID max. leaf */
-    /* avoid redetecting features but redetect on request (info given) */
+    /* avoid re-detecting features but re-detect on request (info given) */
     if (LIBXS_TARGET_ARCH_UNKNOWN == result || NULL != info) {
       int feature_cpu = LIBXS_X86_GENERIC, feature_os = LIBXS_X86_GENERIC, has_context = 0;
       unsigned int maxleaf = eax;
