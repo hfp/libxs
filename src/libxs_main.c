@@ -17,6 +17,7 @@
 #endif
 #include "generator_common.h"
 
+#include <signal.h>
 #if !defined(NDEBUG)
 # include <errno.h>
 #endif
@@ -817,6 +818,15 @@ LIBXS_API_INTERN void internal_finalize(void)
 #endif
 }
 
+
+LIBXS_API_INTERN void internal_libxs_sigabrt(int /*signum*/);
+LIBXS_API_INTERN void internal_libxs_sigabrt(int signum) {
+  void (*const handler)(int) = signal(signum, SIG_DFL);
+  LIBXS_ASSERT(SIGABRT == signum);
+  if (SIG_ERR != handler) internal_finalize();
+}
+
+
 #if defined(LIBXS_INTERCEPT_DYNAMIC)
 LIBXS_API LIBXS_ATTRIBUTE_WEAK void _gfortran_stop_string(const char* /*message*/, int /*len*/, int /*quiet*/);
 LIBXS_API LIBXS_ATTRIBUTE_WEAK void _gfortran_stop_string(const char* message, int len, int quiet)
@@ -1238,7 +1248,8 @@ LIBXS_API_CTOR void libxs_init(void)
 #endif
       }
       { /* calibrate timer */
-        int register_termination_proc;
+        void (*result_handle_abrt)(int) = SIG_ERR;
+        int result_handle_exit = EXIT_SUCCESS;
         libxs_timer_tickint s1, t1;
         internal_init(); /* must be first to initialize verbosity, etc. */
         if (INTERNAL_SINGLETON(internal_singleton_handle)) { /* after internal_init */
@@ -1251,7 +1262,8 @@ LIBXS_API_CTOR void libxs_init(void)
           libxs_timer_scale = libxs_timer_duration_rtc(s0, s1) / (t1 - t0);
         }
 #endif
-        register_termination_proc = atexit(internal_finalize);
+        result_handle_abrt = signal(SIGABRT, internal_libxs_sigabrt);
+        result_handle_exit = atexit(internal_finalize);
         s1 = libxs_timer_tick_rtc(); t1 = libxs_timer_tick_tsc(); /* final timing */
         /* set timer-scale and determine start of the "uptime" (shown at termination) */
         if (t0 < t1 && 0.0 < libxs_timer_scale) {
@@ -1274,7 +1286,7 @@ LIBXS_API_CTOR void libxs_init(void)
           libxs_timer_scale = 0;
         }
         if (0 != libxs_verbosity) { /* library code is expected to be mute */
-          if (EXIT_SUCCESS != register_termination_proc) {
+          if (SIG_ERR == result_handle_abrt || EXIT_SUCCESS != result_handle_exit) {
             fprintf(stderr, "LIBXS ERROR: failed to register termination procedure!\n");
           }
           if (0 == libxs_timer_scale
