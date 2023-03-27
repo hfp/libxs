@@ -34,7 +34,7 @@
 # include <pthread.h>
 #endif
 
-/* used internally to reimplement certain exit-handler */
+/* used internally to re-implement certain exit-handler */
 #if !defined(LIBXS_EXIT_SUCCESS)
 # define LIBXS_EXIT_SUCCESS() exit(EXIT_SUCCESS)
 #endif
@@ -2185,7 +2185,7 @@ LIBXS_API_INTERN int libxs_build(const libxs_build_request* request, unsigned in
     case LIBXS_BUILD_KIND_MELTW: { /* matcopy kernel */
       LIBXS_ASSERT(NULL != request->descriptor.meltw);
       {
-        /* dispatch eltwise code with AVX512_BF16 by demoting seemlessly to the current CPU arch */
+        /* dispatch eltwise code with AVX512_BF16 by demoting seamlessly to the current CPU arch */
         if ( ( generated_code.arch >= LIBXS_X86_AVX512_SPR ) &&
              ( generated_code.arch <= LIBXS_X86_ALLFEAT )       ) {
           int emu_amx = 0;
@@ -2219,7 +2219,7 @@ LIBXS_API_INTERN int libxs_build(const libxs_build_request* request, unsigned in
     case LIBXS_BUILD_KIND_MEQN: { /* matequation kernel */
       LIBXS_ASSERT(NULL != request->descriptor.meltw);
       {
-        /* dispatch eltwise code with AVX512_BF16 by demoting seemlessly to the current CPU arch */
+        /* dispatch eltwise code with AVX512_BF16 by demoting seamlessly to the current CPU arch */
         if ( ( generated_code.arch >= LIBXS_X86_AVX512_SPR ) &&
              ( generated_code.arch <= LIBXS_X86_ALLFEAT )       ) {
           int emu_amx = 0;
