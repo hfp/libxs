@@ -27,6 +27,8 @@
 #define LIBXS_X86_AVX               1005
 #define LIBXS_X86_AVX2              1006
 #define LIBXS_X86_AVX2_ADL          1007
+#define LIBXS_X86_AVX2_SRF          1008
+#define LIBXS_X86_AVX512_VL128      1041
 #define LIBXS_X86_AVX512_VL256      1051
 #define LIBXS_X86_AVX512_VL256_CLX  1052
 #define LIBXS_X86_AVX512_VL256_CPX  1053
@@ -37,6 +39,7 @@
 #define LIBXS_X86_AVX512_CLX        1105
 #define LIBXS_X86_AVX512_CPX        1106
 #define LIBXS_X86_AVX512_SPR        1107
+#define LIBXS_X86_AVX512_GNR        1108
 #define LIBXS_X86_ALLFEAT           1999
 #define LIBXS_AARCH64_V81           2001 /* Baseline */
 #define LIBXS_AARCH64_V82           2002 /* A64FX minus SVE */
