@@ -200,6 +200,9 @@ LIBXS_API int libxs_cpuid_x86(libxs_cpuid_info* info)
                       feature_cpu = LIBXS_X86_AVX512_CPX;
                       if (LIBXS_CPUID_CHECK(edx, 0x03400000)) { /* AMX-TILE, AMX-INT8, AMX-BF16 */
                         feature_cpu = LIBXS_X86_AVX512_SPR;
+                        if (LIBXS_CPUID_CHECK(eax, 0x00200000)) { /* AMX-FP16 */
+                          feature_cpu = LIBXS_X86_AVX512_GNR;
+                        }
                       }
                     }
                     else feature_cpu = LIBXS_X86_AVX512_CLX; /* CLX */
@@ -222,6 +225,9 @@ LIBXS_API int libxs_cpuid_x86(libxs_cpuid_info* info)
                 LIBXS_CPUID_X86(7, 1/*ecx*/, eax, ebx, ecx2, edx2);
                 if (LIBXS_CPUID_CHECK(eax, 0x00000010)) { /* AVX_VNNI */
                   feature_cpu = LIBXS_X86_AVX2_ADL;
+                  if (LIBXS_CPUID_CHECK(edx2, 0x00000030)) { /* AVX-VNNI-INT8, AVX-NE-CONVERT */
+                    feature_cpu = LIBXS_X86_AVX2_SRF;
+                  }
                 }
               }
             }
@@ -254,7 +260,7 @@ LIBXS_API int libxs_cpuid_x86(libxs_cpuid_info* info)
         if (LIBXS_X86_AVX <= feature_cpu) {
           LIBXS_XGETBV(0, eax, edx);
           if (LIBXS_CPUID_CHECK(eax, 0x00000006)) { /* OS XSAVE 256-bit */
-            feature_os = LIBXS_MIN(LIBXS_X86_AVX2_ADL, feature_cpu);
+            feature_os = LIBXS_MIN(LIBXS_X86_AVX2_SRF, feature_cpu);
             if (LIBXS_CPUID_CHECK(eax, 0x000000E0)) { /* OS XSAVE 512-bit */
               feature_os = LIBXS_MIN(LIBXS_X86_AVX512_CPX, feature_cpu);
               if (LIBXS_X86_AVX512_SPR <= feature_cpu && 7 <= maxleaf
@@ -366,6 +372,9 @@ LIBXS_API const char* libxs_cpuid_name(int id)
 {
   const char* target_arch = NULL;
   switch (id) {
+    case LIBXS_X86_AVX512_GNR: {
+      target_arch = "gnr";
+    } break;
     case LIBXS_X86_AVX512_SPR: {
       target_arch = "spr";
     } break;
@@ -385,7 +394,6 @@ LIBXS_API const char* libxs_cpuid_name(int id)
       target_arch = "knl";
     } break;
     case LIBXS_X86_AVX512: {
-      /* TODO: target_arch = "avx3" */
       target_arch = "hsw";
     } break;
     case LIBXS_X86_AVX512_VL256: {
@@ -396,6 +404,9 @@ LIBXS_API const char* libxs_cpuid_name(int id)
     } break;
     case LIBXS_X86_AVX512_VL256_CPX: {
       target_arch = "avx512_vl256_cpx";
+    } break;
+    case LIBXS_X86_AVX2_SRF: {
+      target_arch = "srf";
     } break;
     case LIBXS_X86_AVX2_ADL: {
       target_arch = "adl";
