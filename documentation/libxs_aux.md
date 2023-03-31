@@ -54,7 +54,7 @@ libxs_timer_tickint libxs_timer_ncycles(
 
 ### User-Data Dispatch
 
-To register a user-defined key-value pair with LIBXS's fast key-value store, the key must be binary reproducible. Structured key-data (`struct` or `class` type which can be padded in a compiler-specific fashion) must be completely cleared, i.e., all gaps may be zero-filled before initializing data members (`memset(&mykey, 0, sizeof(mykey))`). This is because some compilers can leave padded data uninitialized, which breaks binary reproducible keys, hence the flow is: claring heterogeneous keys (struct), initialization (members), and registration. The size of the key is arbitrary but limited to LIBXS_DESCRIPTOR_MAXSIZE (96 Byte), and the size of the value can be of an arbitrary size. The given value is copied and may be initialized at registration-time or when dispatched. Registered data is released at program termination but can be manually unregistered and released (`libxs_xrelease`), e.g., to register a larger value for an existing key.
+To register a user-defined key-value pair with LIBXS's fast key-value store, the key must be binary reproducible. Structured key-data (`struct` or `class` type which can be padded in a compiler-specific fashion) must be completely cleared, i.e., all gaps may be zero-filled before initializing data members (`memset(&mykey, 0, sizeof(mykey))`). This is because some compilers can leave padded data uninitialized, which breaks binary reproducible keys, hence the flow is: clear heterogeneous keys (struct), initialize data-members, and register. The size of the key is arbitrary but limited to LIBXS_DESCRIPTOR_MAXSIZE (96 Byte), and the size of the value can be of an arbitrary size. The given value is copied and may be initialized at registration-time or when dispatched. Registered data is released at program termination but can be manually unregistered and released (`libxs_xrelease`), e.g., to register a larger value for an existing key.
 
 ```C
 void* libxs_xregister(const void* key, size_t key_size, size_t value_size, const void* value_init);
@@ -78,7 +78,7 @@ FUNCTION libxs_xdispatch(key, keysize)
 END FUNCTION
 ```
 
-**Note**: This functionality can be used to, e.g., dispatch multiple kernels in one step if a code location relies on multiple kernels. This way, one can pay the cost of dispatch one time per task rather than according to the number of JIT-kernels used by this task. However, the functionality is not limited to multiple kernels but any data can be registered and queried. User-data dispatch uses the same implementation as regular code-dispatch.
+**Note**: This functionality can be used to, e.g., dispatch multiple kernels in one step if a code location relies on multiple kernels. This way, one can pay the cost of dispatch one time per task rather than according to the number of JIT-kernels used by this task. However, the functionality is not limited to multiple kernels, but any data can be registered and queried. User-data dispatch uses the same implementation as regular code-dispatch.
 
 ### Memory Allocation
 
@@ -110,7 +110,7 @@ void libxs_set_scratch_limit(size_t nbytes);
 size_t libxs_get_scratch_limit(void);
 ```
 
-By establishing a pool of "temporary" memory, the cost of repeated allocation and deallocation cycles is avoided when the watermark is reached. The scratch memory is scope-oriented with a limited number of pools for buffers of different life-time or held for different threads. The [verbose mode](index.md#verbose-mode) with a verbosity level of at least two (LIBXS_VERBOSE=2) shows some statistics about the populated scratch memory.
+By establishing a pool of "temporary" memory, the cost of repeated allocation and deallocation cycles is avoided when the watermark is reached. The scratch memory is scope-oriented with a limited number of pools for buffers of different lifetime or held for different threads. The [verbose mode](index.md#verbose-mode) with a verbosity level of at least two (LIBXS_VERBOSE=2) shows some statistics about the populated scratch memory.
 
 ```bash
 Scratch: 173 MB (mallocs=5, pools=1)
@@ -142,7 +142,7 @@ In the above case, a single channel (gray-scale) 202x134-image is described with
 
 LIBXS comes with a number of light-weight abstraction layers (macro and API-based), which are distinct from the internal API (include files in [src](https://github.com/hfp/libxs/tree/main/src) directory) and that are exposed for general use (and hence part of the [include](https://github.com/hfp/libxs/tree/main/include) directory).
 
-The synchronization layer is mainly based on macros: LIBXS_LOCK_\* provide spin-locks, mutexes, and reader-writer locks (LIBXS_LOCK_SPINLOCK, LIBXS_LOCK_MUTEX, and LIBXS_LOCK_RWLOCK respectively). Usually the spin-lock is also named LIBXS_LOCK_DEFAULT. The implementation is intentionally based on OS-native primitives unless LIBXS is reconfigured (per LIBXS_LOCK_SYSTEM) or built using `make OMP=1` (using OpenMP inside of the library is not recommended). The life-cycle of a lock looks like:
+The synchronization layer is mainly based on macros: LIBXS_LOCK_\* provide spin-locks, mutexes, and reader-writer locks (LIBXS_LOCK_SPINLOCK, LIBXS_LOCK_MUTEX, and LIBXS_LOCK_RWLOCK respectively). Usually the spin-lock is also named LIBXS_LOCK_DEFAULT. The implementation is intentionally based on OS-native primitives unless LIBXS is reconfigured (per LIBXS_LOCK_SYSTEM) or built using `make OMP=1` (using OpenMP inside of the library is not recommended). The life cycle of a lock looks like:
 
 ```C
 /* attribute variable and lock variable */

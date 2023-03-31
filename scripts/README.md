@@ -64,7 +64,7 @@ fi
 2. Populate an entry (JSON-block or telegram) under a "build number", "category", and "case".
 3. Plot "execution time" over the history of build numbers.
 
-There are several command line options to customize each of the above steps (`--help` or `-h`):
+There are several command-line options to customize each of the above steps (`--help` or `-h`):
 
 * To only plot data (already collected), use `-i ""` to omit a network connection.
 * To query, e.g., ResNet-50 results, use `-y resnet-50` (case-insensitive).
@@ -75,7 +75,7 @@ There are several command line options to customize each of the above steps (`--
 * Create a PDF (vector graphics have infinite resolution), use `-g myreport.pdf`.
 * Adjust pixel resolution, aspect ratio, or density, use `-d 1200x800`.
 
-The level of verbosity (`-v`) can be adjusted (0: quiet, 1: automation, 2: progress). Default verbosity shows progress (downloading results) whereas "automation" allows to further automate reports, e.g., get the filename of the generated plot (errors are generally printed to `stderr`). Loading a logfile into the database directly can serve two purposes: <span>(1)&#160;debugging</span> the supported format like "telegram" or JSON, and <span>(2)&#160;offline</span> operation. The latter can be also useful if for instance a CI-agents produces a log, i.e., it can load into the database right away. Command line options also allow for "exact placement" (`-j`) by specifying the build number supposed to take the loaded data (data is appended by default, i.e., it is assumed to be a new build or the build number is incremented). In general, data is not duplicated underneath a build of the category or the actual data matches an existing entry.
+The level of verbosity (`-v`) can be adjusted (0: quiet, 1: automation, 2: progress). Default verbosity shows progress (downloading results) whereas "automation" allows to further automate reports, e.g., get the filename of the generated plot (errors are generally printed to `stderr`). Loading a logfile into the database directly can serve two purposes: <span>(1)&#160;debugging</span> the supported format like "telegram" or JSON, and <span>(2)&#160;offline</span> operation. The latter can be also useful if for instance a CI-agents produces a log, i.e., it can load into the database right away. Command-line options also allow for "exact placement" (`-j`) by specifying the build number supposed to take the loaded data (data is appended by default, i.e., it is assumed to be a new build, or the build number is incremented).
 
 <a name="performance-report-examples"></a>Examples (omit `-i ""` if downloading results is desired):
 

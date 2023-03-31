@@ -41,7 +41,7 @@ Plain [C code](https://github.com/hfp/libxs/blob/main/samples/hello/hello.c) as 
 
 <a name="what-is-a-small-matrix-multiplication"></a>**What is a small matrix multiplication?** When characterizing the problem-size by using the M, N, and K parameters, a problem-size suitable for LIBXS falls approximately within <i>(M&#160;N&#160;K)<sup>1/3</sup>&#160;&lt;=&#160;64</i> (which illustrates that non-square matrices or even "tall and skinny" shapes are covered as well). The library is typically used to generate code up to the specified [threshold](documentation/libxs_tune.md#auto-dispatch). Raising the threshold may not only generate excessive amounts of code (due to unrolling in M or K dimension), but also miss to implement a tiling scheme to effectively utilize the cache hierarchy. For auto-dispatched problem-sizes above the configurable threshold (explicitly JIT'ted code is **not** subject to the threshold), LIBXS is falling back to BLAS. In terms of GEMM, the supported kernels are limited to *Alpha := 1*, *Beta := \{ 1, 0 \}*, and *TransA := 'N'*.
 
-<a name="what-is-a-small-convolution"></a>**What is a small convolution?** In the last years, new workloads such as deep learning and more specifically convolutional neural networks (CNN) emerged and are pushing the limits of today's hardware. One of the expensive kernels is a small convolution with certain kernel sizes such that calculations in the frequency space is not the most efficient method when compared with direct convolutions. LIBXS's current support for convolutions aims for an easy to use invocation of small (direct) convolutions, which are intended for CNN training and classification.
+<a name="what-is-a-small-convolution"></a>**What is a small convolution?** In the last years, new workloads such as deep learning and more specifically convolutional neural networks (CNN) emerged and are pushing the limits of today's hardware. One of the expensive kernels is a small convolution with certain kernel sizes such that calculations in the frequency space is not the most efficient method when compared with direct convolutions. LIBXS's current support for convolutions aims for an easy-to-use invocation of small (direct) convolutions, which are intended for CNN training and classification.
 
 # Overview<a name="general-interface"></a>
 
@@ -199,7 +199,7 @@ Above, LIBXS_DEFAULT_CONFIG is propagated to dependent code (`PUBLIC`) and furth
 
 ## Link Instructions
 
-Using the [classic ABI](#classic-library-abi) (including [Fortran](#fortran) code), requires linking LIBXS against the application. The library is agnostic with respect to the threading-runtime, and therefore an application is free to use any threading runtime (e.g., OpenMP). The library is also thread-safe, and multiple application threads can call LIBXS's routines concurrently. Enabling OpenMP for LIBXS's main library is supported as well (OMP=1), and mostly affects the synchronization primitives used inside of the library. All of the "omp" functionality (function postfix) is served by the `libxsext` library, which is automatically built with OpenMP enabled. When using this "omp" functionality, `libxsext` needs to be present at the link line.
+Using the [classic ABI](#classic-library-abi) (including [Fortran](#fortran) code), requires linking LIBXS against the application. The library is agnostic with respect to the threading-runtime, and therefore an application is free to use any threading runtime (e.g., OpenMP). The library is also thread-safe, and multiple application threads can call LIBXS's routines concurrently. Enabling OpenMP for LIBXS's main library is supported as well (OMP=1), and mostly affects the synchronization primitives used inside of the library. All the "omp" functionality (function postfix) is served by the `libxsext` library, which is automatically built with OpenMP enabled. When using this "omp" functionality, `libxsext` needs to be present at the link line.
 
 <a name="table-of-libraries"></a>Library | Purpose
 :-------------|---------
@@ -217,7 +217,7 @@ pkg-config libxs --libs
 
 Similarly, an application is free to choose any BLAS or LAPACK library (if the link model available on the OS supports this), and therefore linking GEMM routines when linking LIBXS itself (by supplying BLAS=1&#124;2) may prevent a user from making this decision at the time of linking the actual application. To use LIBXS without GEMM-related functionality, any BLAS-dependency can be removed in two ways: <span>(1)&#160;building</span> a special library with `make BLAS=0`, or <span>(2)&#160;linking</span> the application against the `libxsnoblas` library. If an application however uses BLAS already, the [Call Wrapper](documentation/libxs_mm.md#call-wrapper) can be used to intercept existing BLAS calls (and to rely on LIBXS instead).
 
-**Note**: LIBXS does not support to dynamically link `libxs` or `libxsext` ("so"), when BLAS is linked statically ("a"). If BLAS is linked statically, the static version of LIBXS must be used!
+**Note**: LIBXS does not support to dynamically link `libxs` or `libxsext` ("so") when BLAS is linked statically ("a"). If BLAS is linked statically, the static version of LIBXS must be used!
 
 ### Installation
 
@@ -249,7 +249,7 @@ The library handles errors with mechanisms available to the C programming langua
 
 ### Verbose Mode
 
-The [verbose mode](documentation/libxs_aux.md#getting-and-setting-the-verbosity) (level of verbosity) allows for an insight into the code dispatch mechanism by receiving a small tabulated statistic as soon as the library terminates. The design point for this functionality is to not impact the performance of any critical code path, i.e., verbose mode is always enabled and does not require symbols (SYM=1) or debug code (DBG=1). The statistics appears (`stderr`) when the environment variable LIBXS_VERBOSE is set to a non-zero value. For example:
+The [verbose mode](documentation/libxs_aux.md#getting-and-setting-the-verbosity) (level of verbosity) allows for an insight into the code dispatch mechanism by receiving a small, tabulated statistic as soon as the library terminates. The design point for this functionality is to not impact the performance of any critical code path, i.e., verbose mode is always enabled and does not require symbols (SYM=1) or debug code (DBG=1). The statistics appears (`stderr`) when the environment variable LIBXS_VERBOSE is set to a non-zero value. For example:
 
 ```bash
 LIBXS_VERBOSE=1 ./myapplication
@@ -261,11 +261,11 @@ HSW/SP      TRY    JIT    STA    COL
  24..128      3      3      0      0
 ```
 
-The tables are distinct between single-precision and double-precision, but either table is pruned if all counters are zero. If both tables are pruned, the library shows the code path which would have been used for JIT'ting the code: `LIBXS_TARGET=hsw` (otherwise the code path is shown in the table's header). The actual counters are collected for three buckets: small kernels (<span>MNK<sup>1/3</sup>&#160;&lt;=&#160;13</span>), medium-sized kernels (<span>13&#160;&lt;&#160;MNK<sup>1/3</sup>&#160;&lt;=&#160;23</span>), and larger kernels (<span>23&#160;&lt;&#160;MNK<sup>1/3</sup>&#160;&lt;=&#160;64</span>; the actual upper bound depends on LIBXS_MAX_MNK as selected at compile-time). Keep in mind, that "larger" is supposedly still small in terms of arithmetic intensity (which grows linearly with the kernel size). Unfortunately, the arithmetic intensity depends on the way a kernel is used (which operands are loaded/stored into main memory) and it is not performance-neutral to collect this information.
+The tables are distinct between single-precision and double-precision, but either table is pruned if all counters are zero. If both tables are pruned, the library shows the code path which would have been used for JIT'ting the code: `LIBXS_TARGET=hsw` (otherwise the code path is shown in the table's header). The actual counters are collected for three buckets: small kernels (<span>MNK<sup>1/3</sup>&#160;&lt;=&#160;13</span>), medium-sized kernels (<span>13&#160;&lt;&#160;MNK<sup>1/3</sup>&#160;&lt;=&#160;23</span>), and larger kernels (<span>23&#160;&lt;&#160;MNK<sup>1/3</sup>&#160;&lt;=&#160;64</span>; the actual upper bound depends on LIBXS_MAX_MNK as selected at compile-time). Keep in mind, that "larger" is supposedly still small in terms of arithmetic intensity (which grows linearly with the kernel size). Unfortunately, the arithmetic intensity depends on the way a kernel is used (which operands are loaded/stored into main memory), and it is not performance-neutral to collect this information.
 
 The TRY counter represents all attempts to register statically generated kernels, and all attempts to dynamically generate and register kernels. The TRY counter includes rejected JIT requests due to unsupported GEMM arguments. The JIT and STA counters distinct the successful cases of the afore mentioned event (TRY) into dynamically (JIT) and statically (STA) generated code. In case the capacity (<span>O(*n*)&#160;=&#160;10<sup>5</sup></span>) of the code registry is exhausted, no more kernels can be registered although further attempts are not prevented. Registering many kernels (<span>O(*n*)&#160;=&#160;10<sup>3</sup></span>) may ramp the number of hash key collisions (COL), which can degrade performance. The latter is prevented if the small thread-local cache is utilized effectively.
 
-Since explicitly JIT-generated code (`libxs_?mmdispatch`) does not fall under the THRESHOLD criterion, the above table is extended by one line if large kernels have been requested. This indicates a missing threshold-criterion (customized dispatch), or asks for cache-blocking the matrix multiplication. Setting a verbosity level of at least two summarizes the number of registered JIT-generated kernels, which includes the total size and counters for GEMM, MCOPY (matrix copy), and TCOPY (matrix transpose) kernels.
+Since explicitly JIT-generated code (`libxs_?mmdispatch`) does not fall under the THRESHOLD criterion, the above table is extended by one line if large kernels have been requested. This indicates a missing threshold-criterion (customized dispatch) or asks for cache-blocking the matrix multiplication. Setting a verbosity level of at least two summarizes the number of registered JIT-generated kernels, which includes the total size and counters for GEMM, MCOPY (matrix copy), and TCOPY (matrix transpose) kernels.
 
 ```bash
 Registry: 20 MB (gemm=0 mcopy=14 tcopy=0)
@@ -273,7 +273,7 @@ Registry: 20 MB (gemm=0 mcopy=14 tcopy=0)
 
 If the call-wrapper is used, an additional runtime statistic becomes available (see [Call Wrapper](documentation/libxs_mm.md#call-wrapper)).
 
-<a name="objdump"></a>**Note**: Setting LIBXS_VERBOSE to a negative value will binary-dump each generated JIT kernel to a file with each file being named like the function name shown in [Intel VTune](documentation/libxs_prof.md#intelvtuneamplifier). Disassembly of the raw binary files can be accomplished by:
+<a name="objdump"></a>**Note**: Setting LIBXS_VERBOSE to a negative value dumps each generated JIT kernel to a file (binary) with each file being named like the function name shown in [Intel VTune](documentation/libxs_prof.md#intelvtuneamplifier). Disassembly of the raw binary files can be accomplished by:
 
 ```bash
 objdump -D -b binary -m i386 -M x86-64 [JIT-dump-file]
@@ -327,7 +327,7 @@ Please note that comparing performance results depends on whether the operands o
 
 <b>[11]&#160;</b>[https://github.com/intel/intel-extension-for-pytorch](https://github.com/intel/intel-extension-for-pytorch): Intel Extension for PyTorch aims for a smooth user experience of PyTorch on CPUs by the means of good performance. The extension pack started to rely on [LIBXS for achieving high performance on CPUs](https://arxiv.org/abs/2005.04680).
 
-<b>[12]&#160;</b>[https://github.com/libxs/tpp-pytorch-extension](https://github.com/libxs/tpp-pytorch-extension): Intel(R) Tensor Processing Primitive Extension for pytorch is an open source software library the integrates Tensor Processing Primitives ([TPP](https://arxiv.org/abs/2104.05755)) into pytorch. It is aiming for a smooth user experience of PyTorch on CPUs by the means of good performance. Intel's MLPerf Training submission codes levarage this [project](https://github.com/mlcommons/training_results_v2.1/tree/main/Intel/benchmarks/bert/implementations/pytorch-cpu).
+<b>[12]&#160;</b>[https://github.com/libxs/tpp-pytorch-extension](https://github.com/libxs/tpp-pytorch-extension): Intel(R) Tensor Processing Primitive Extension for pytorch is an open source software library the integrates Tensor Processing Primitives ([TPP](https://arxiv.org/abs/2104.05755)) into pytorch. It is aiming for a smooth user experience of PyTorch on CPUs by the means of good performance. Intel's MLPerf Training submission codes leverage this [project](https://github.com/mlcommons/training_results_v2.1/tree/main/Intel/benchmarks/bert/implementations/pytorch-cpu).
 
 <b>[13]&#160;</b>[https://github.com/hfp/libxs-dnn](https://github.com/hfp/libxs-dnn): LIBXS-DNN is an open source software library that demonstrates how Tensor Processing Primitives ([TPP](https://arxiv.org/abs/2104.05755)) can be used to implement various deep learning primitives such as convolutions, linear layers or even pooling and norming. Due to the use of TPP not a single line of platform-specific code is needed. 
 
