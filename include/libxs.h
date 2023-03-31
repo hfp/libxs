@@ -430,7 +430,7 @@ LIBXS_API void libxs_blas_gemm(
   const void* b, const libxs_blasint* ldb,
   const void* beta, void* c, const libxs_blasint* ldc);
 
-#if !defined(LIBXS_DEFAULT_CONFIG) && !defined(LIBXS_SOURCE_H)
+#if !defined(LIBXS_DEFAULT_CONFIG) && (!defined(LIBXS_SOURCE_H) || defined(LIBXS_CONFIGURED))
 
 #endif /*!defined(LIBXS_DEFAULT_CONFIG)*/
 #if defined(__cplusplus)
