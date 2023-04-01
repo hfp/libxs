@@ -563,13 +563,15 @@ LIBXS_API_INLINE void internal_register_static_code(
         i = LIBXS_MOD2(i + 1, LIBXS_CAPACITY_REGISTRY);
         if (NULL == registry[i].ptr_const) break;
       } while (i != i0);
-#if defined(LIBXS_HASH_COLLISION) /* mark entry as a collision */
-      dst_entry->uval |= LIBXS_HASH_COLLISION;
-#endif
-      dst_entry = registry + i; /* update destination */
-      internal_update_mmstatistic(desc, 0, 1/*collision*/, 0, 0);
       /* out of capacity (no registry slot available) */
-      LIBXS_ASSERT(NULL == dst_entry->ptr_const || i == i0);
+      LIBXS_ASSERT(NULL == registry[i].ptr_const || i == i0);
+      if (NULL == registry[i].ptr_const) { /* registry not exhausted */
+        internal_update_mmstatistic(desc, 0, 1/*collision*/, 0, 0);
+#if defined(LIBXS_HASH_COLLISION) /* mark entry as a collision */
+        dst_entry->uval |= LIBXS_HASH_COLLISION;
+#endif
+        dst_entry = registry + i; /* update destination */
+      }
     }
     if (NULL == dst_entry->ptr_const) { /* registry not exhausted */
       internal_registry_keys[i].entry.kind = LIBXS_KERNEL_KIND_MATMUL;
@@ -2546,6 +2548,7 @@ LIBXS_API_INLINE libxs_code_pointer internal_find_code(libxs_descriptor* desc, s
             } while (i != i0);
             if (i == i0) { /* out of capacity (no registry slot available) */
               diff = 0; /* do not use break if inside of locked region */
+              build = EXIT_FAILURE;
             }
             flux_entry.ptr = NULL; /* no result */
           }
