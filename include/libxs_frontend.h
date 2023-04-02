@@ -68,9 +68,6 @@
 # define LIBXS_MKL_VERSION2 LIBXS_VERSION2(__INTEL_MKL__, __INTEL_MKL_MINOR__)
 #endif
 
-/** Automatically select a prefetch-strategy (libxs_get_gemm_xprefetch, etc.). */
-#define LIBXS_PREFETCH_AUTO -1
-
 /** Append "_omp" postfix to the given symbol. */
 #define LIBXS_USEOMP(FUNCTION) LIBXS_CONCATENATE(FUNCTION, _omp)
 
