@@ -2548,7 +2548,9 @@ LIBXS_API_INLINE libxs_code_pointer internal_find_code(libxs_descriptor* desc, s
             } while (i != i0);
             if (i == i0) { /* out of capacity (no registry slot available) */
               diff = 0; /* do not use break if inside of locked region */
+#if !defined(NDEBUG) && (0 != LIBXS_JIT)
               build = EXIT_FAILURE;
+#endif
             }
             flux_entry.ptr = NULL; /* no result */
           }
