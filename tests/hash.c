@@ -54,6 +54,18 @@ int main(void)
     result = EXIT_FAILURE;
   }
 
+  h2 = h1 >> 16;
+  if ((libxs_crc32_u16(h2, &h1) & 0xFFFF) !=
+      (libxs_crc32_u16(h1 & 0xFFFF, &h2) & 0xFFFF))
+  {
+    result = EXIT_FAILURE;
+  }
+
+  h2 = libxs_crc32_u16(h2, &h1) & 0xFFFF;
+  if (h2 != libxs_hash16(h1)) {
+    result = EXIT_FAILURE;
+  }
+
   if (seed != libxs_hash(NULL/*data*/, 0/*size*/, seed)) {
     result = EXIT_FAILURE;
   }

@@ -17,6 +17,8 @@
 #define LIBXS_CRCPTR(SEED, PTR) LIBXS_CRC32U(LIBXS_BITS)(SEED, &(PTR))
 /** Map number of Bytes to number of bits. */
 #define LIBXS_CRC32(N) LIBXS_CONCATENATE(libxs_crc32_b, N)
+#define libxs_crc32_b1 libxs_crc32_u8
+#define libxs_crc32_b2 libxs_crc32_u16
 #define libxs_crc32_b4 libxs_crc32_u32
 #define libxs_crc32_b8 libxs_crc32_u64
 #define libxs_crc32_b16 libxs_crc32_u128
@@ -33,6 +35,8 @@ LIBXS_EXTERN_C typedef unsigned int (*libxs_hash_function)(
 LIBXS_API_INTERN void libxs_hash_init(int target_arch);
 LIBXS_API_INTERN void libxs_hash_finalize(void);
 
+LIBXS_API_INTERN unsigned int libxs_crc32_u8(unsigned int seed, const void* value, ...);
+LIBXS_API_INTERN unsigned int libxs_crc32_u16(unsigned int seed, const void* value, ...);
 LIBXS_API_INTERN unsigned int libxs_crc32_u32(unsigned int seed, const void* value, ...);
 LIBXS_API_INTERN unsigned int libxs_crc32_u64(unsigned int seed, const void* value, ...);
 LIBXS_API_INTERN unsigned int libxs_crc32_u128(unsigned int seed, const void* value, ...);

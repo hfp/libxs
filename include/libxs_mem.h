@@ -74,6 +74,8 @@ LIBXS_API int libxs_memcmp(const void* a, const void* b, size_t size);
 
 /** Calculate a hash value for the given buffer and seed; accepts NULL-buffer. */
 LIBXS_API unsigned int libxs_hash(const void* data, unsigned int size, unsigned int seed);
+LIBXS_API unsigned int libxs_hash8(unsigned int data);
+LIBXS_API unsigned int libxs_hash16(unsigned int data);
 
 /** Calculate a 64-bit hash for the given character string; accepts NULL-string. */
 LIBXS_API unsigned long long libxs_hash_string(const char string[]);

@@ -443,6 +443,19 @@ LIBXS_API unsigned int libxs_hash(const void* data, unsigned int size, unsigned 
 }
 
 
+LIBXS_API unsigned int libxs_hash8(unsigned int data)
+{
+  const unsigned int hash = libxs_hash16(data);
+  return libxs_crc32_u8(hash >> 8, &hash) & 0xFF;
+}
+
+
+LIBXS_API unsigned int libxs_hash16(unsigned int data)
+{
+  return libxs_crc32_u16(data >> 16, &data) & 0xFFFF;
+}
+
+
 LIBXS_API unsigned long long libxs_hash_string(const char string[])
 {
   unsigned long long result;
