@@ -39,6 +39,20 @@ int main(int argc, char* argv[])
   if (EXIT_SUCCESS == result && NULL != libxs_stristr("aa", NULL)) result = EXIT_FAILURE;
   if (EXIT_SUCCESS == result && NULL != libxs_stristr(NULL, NULL)) result = EXIT_FAILURE;
 
+  /* check libxs_strimatch */
+  if (EXIT_SUCCESS == result && 2 != libxs_strimatch("Co Product A", "Corp Prod B")) result = EXIT_FAILURE;
+  if (EXIT_SUCCESS == result && 2 != libxs_strimatch("Corp Prod B", "Co Product A")) result = EXIT_FAILURE;
+  if (EXIT_SUCCESS == result && 3 != libxs_strimatch("Co Product A", "Corp Prod AA")) result = EXIT_FAILURE;
+  if (EXIT_SUCCESS == result && 3 != libxs_strimatch("Corp Prod AA", "Co Product A")) result = EXIT_FAILURE;
+  if (EXIT_SUCCESS == result && 3 != libxs_strimatch("Corp Prod AA", "Co Product A")) result = EXIT_FAILURE;
+  if (EXIT_SUCCESS == result && 3 != libxs_strimatch("Co Product A", "Corp Prod AA")) result = EXIT_FAILURE;
+  if (EXIT_SUCCESS == result && 3 != libxs_strimatch("Corp Prod A", "Co Product A")) result = EXIT_FAILURE;
+  if (EXIT_SUCCESS == result && 3 != libxs_strimatch("Co Product A", "Corp Prod A")) result = EXIT_FAILURE;
+  if (EXIT_SUCCESS == result && 3 != libxs_strimatch("C Product A", "Cor Prod AA")) result = EXIT_FAILURE;
+  if (EXIT_SUCCESS == result && 3 != libxs_strimatch("Cor Prod AA", "C Product A")) result = EXIT_FAILURE;
+  if (EXIT_SUCCESS == result && 1 != libxs_strimatch("aaaa", "A A A A")) result = EXIT_FAILURE;
+  if (EXIT_SUCCESS == result && 1 != libxs_strimatch("A A A A", "aaaa")) result = EXIT_FAILURE;
+
   /* check LIBXS_MEMCPY127 and libxs_diff_n */
   if (EXIT_SUCCESS == result) {
     libxs_blasint i = 0;
