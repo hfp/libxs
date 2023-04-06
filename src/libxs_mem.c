@@ -518,7 +518,7 @@ LIBXS_API const char* libxs_stristr(const char a[], const char b[])
 
 LIBXS_API_INLINE int internal_isbreak(char c, const char delims[])
 {
-  const char s[] = { c, '\0' };
+  char s[2] = { '\0' }; s[0] = c;
   return NULL != strpbrk(s, delims);
 }
 
