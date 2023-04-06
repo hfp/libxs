@@ -88,8 +88,9 @@ LIBXS_API const char* libxs_stristr(const char a[], const char b[]);
  * Count the number of words in A (or B) with match in B (or A) respectively (case-insensitive).
  * Can be used to score the equality of A and B on a word-basis. The result is independent of
  * A-B or B-A order (symmetry). The score cannot exceed the number of words in A or B.
+ * Optional delimiters determine characters splitting words (can be NULL).
  */
-LIBXS_API int libxs_strimatch(const char a[], const char b[]);
+LIBXS_API int libxs_strimatch(const char a[], const char b[], const char delims[]);
 
 /** Determines the number of calls to restore the original data (libxs_shuffle). */
 LIBXS_API size_t libxs_unshuffle(size_t count,
