@@ -481,29 +481,68 @@ LIBXS_API unsigned long long libxs_hash_string(const char string[])
 }
 
 
-LIBXS_API const char* libxs_stristr(const char a[], const char b[])
+LIBXS_API const char* libxs_stristrn(const char a[], const char b[], size_t maxlen)
 {
   const char* result = NULL;
-  if (NULL != a && NULL != b && '\0' != *a && '\0' != *b) {
+  if (NULL != a && NULL != b && '\0' != *a && '\0' != *b && 0 != maxlen) {
     do {
       if (tolower(*a) != tolower(*b)) {
         ++a;
       }
       else {
         const char* c = b;
+        size_t i = 0;
         result = a;
-        while ('\0' != *++a && '\0' != *++c) {
-          if (tolower(*a) != tolower(*c)) {
+        while ('\0' != *++a && '\0' != c[++i] && i != maxlen) {
+          if (tolower(*a) != tolower(c[i])) {
             result = NULL;
             break;
           }
         }
-        if ('\0' != c[0] && '\0' != c[1]) {
+        if ('\0' != c[i] && '\0' != c[i+1] && c[i] != c[i+1] && i != maxlen) {
           result = NULL;
         }
         else break;
       }
     } while ('\0' != *a);
+  }
+  return result;
+}
+
+
+LIBXS_API const char* libxs_stristr(const char a[], const char b[])
+{
+  return libxs_stristrn(a, b, (size_t)-1);
+}
+
+
+LIBXS_API int libxs_strimatch(const char a[], const char b[])
+{
+  int result = 0;
+  if (NULL != a && NULL != b && '\0' != *a && '\0' != *b) {
+    const char *c, *tmp;
+    int nwords = 0;
+    size_t m, n;
+    do {
+      while (isspace(*b)) ++b; /* left-trim */
+      tmp = b;
+      while ('\0' != *tmp && !isspace(*tmp)) ++tmp;
+      m = tmp - b;
+      c = libxs_stristrn(a, b, LIBXS_MIN(1, m));
+      if (NULL != c) {
+        const char *d = c;
+        while ('\0' != *d && !isspace(*d)) ++d;
+        n = d - c;
+        if (1 >= n || NULL != libxs_stristrn(c, b, LIBXS_MIN(m, n))) ++result;
+      }
+      b = tmp;
+    } while ('\0' != *b);
+    do { /* count number of words */
+      while (isspace(*a)) ++a; /* left-trim */
+      if ('\0' != *a) ++nwords;
+      while ('\0' != *a && !isspace(*a)) ++a;
+    } while ('\0' != *a);
+    if (nwords < result) result = nwords;
   }
   return result;
 }
