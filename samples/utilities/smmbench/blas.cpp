@@ -142,7 +142,7 @@ int main(int argc, char* argv[])
 #     pragma omp parallel for schedule(static)
 #endif
     for (libxs_blasint i = 0; i < s; ++i) {
-      LIBXS_GEMM_SYMBOL(ITYPE)(&transa, &transb, &m, &n, &k,
+      LIBXS_BLAS_FUNCTION(ITYPE,OTYPE,gemm)(&transa, &transb, &m, &n, &k,
         &alpha, a + static_cast<size_t>(asize) * helper.shuffle(i), &lda, b + static_cast<size_t>(bsize) * helper.shuffle(i), &ldb,
           &beta, c + static_cast<size_t>(csize) * i, &ldc);
     }
@@ -161,7 +161,7 @@ int main(int argc, char* argv[])
       c_array[i] = d + static_cast<size_t>(csize) * i;
     }
     // additional warm-up (also to eventually match the Gold result)
-    LIBXS_TPREFIX(ITYPE,gemm_batch)(&transa, &transb, &m, &n, &k,
+    LIBXS_BLAS_FUNCTION(ITYPE,OTYPE,gemm_batch)(&transa, &transb, &m, &n, &k,
       &alpha, &a_array[0], &lda, &b_array[0], &ldb,
         &beta, &c_array[0], &ldc, &group_count, &s);
 #endif
@@ -175,7 +175,7 @@ int main(int argc, char* argv[])
 #         pragma omp parallel for num_threads(nthreads) schedule(static)
 #endif
         for (libxs_blasint i = 0; i < s; ++i) {
-          LIBXS_GEMM_SYMBOL(ITYPE)(&transa, &transb, &m, &n, &k,
+          LIBXS_BLAS_FUNCTION(ITYPE,OTYPE,gemm)(&transa, &transb, &m, &n, &k,
             &alpha, a + static_cast<size_t>(asize) * helper.shuffle(i), &lda, b + static_cast<size_t>(bsize) * helper.shuffle(i), &ldb,
               &beta, c + static_cast<size_t>(csize) * i, &ldc);
         }
@@ -195,7 +195,7 @@ int main(int argc, char* argv[])
       fprintf(stdout, "Indirect (A,B,C)...\n");
       const unsigned long long start = libxs_timer_tick();
       for (libxs_blasint r = 0; r < nrepeat; ++r) {
-        LIBXS_TPREFIX(ITYPE,gemm_batch)(&transa, &transb, &m, &n, &k,
+        LIBXS_BLAS_FUNCTION(ITYPE,OTYPE,gemm_batch)(&transa, &transb, &m, &n, &k,
           &alpha, &a_array[0], &lda, &b_array[0], &ldb,
             &beta, &c_array[0], &ldc, &group_count, &s);
       }
@@ -233,7 +233,7 @@ int main(int argc, char* argv[])
 #         pragma omp parallel for num_threads(nthreads) schedule(static)
 #endif
         for (libxs_blasint i = 0; i < s; ++i) {
-          LIBXS_GEMM_SYMBOL(ITYPE)(&transa, &transb, &m, &n, &k,
+          LIBXS_BLAS_FUNCTION(ITYPE,OTYPE,gemm)(&transa, &transb, &m, &n, &k,
             &alpha, a + static_cast<size_t>(asize) * helper.shuffle(i), &lda, b, &ldb,
               &beta, c + static_cast<size_t>(csize) * i, &ldc);
         }
@@ -258,7 +258,7 @@ int main(int argc, char* argv[])
       }
       const unsigned long long start = libxs_timer_tick();
       for (libxs_blasint r = 0; r < nrepeat; ++r) {
-        LIBXS_TPREFIX(ITYPE, gemm_batch)(&transa, &transb, &m, &n, &k,
+        LIBXS_BLAS_FUNCTION(ITYPE,OTYPE,gemm_batch)(&transa, &transb, &m, &n, &k,
           &alpha, &a_array[0], &lda, &b_array[0], &ldb,
             &beta, &c_array[0], &ldc, &group_count, &s);
       }
@@ -296,7 +296,7 @@ int main(int argc, char* argv[])
 #         pragma omp parallel for num_threads(nthreads) schedule(static)
 #endif
         for (libxs_blasint i = 0; i < s; ++i) {
-          LIBXS_GEMM_SYMBOL(ITYPE)(&transa, &transb, &m, &n, &k,
+          LIBXS_BLAS_FUNCTION(ITYPE,OTYPE,gemm)(&transa, &transb, &m, &n, &k,
             &alpha, a, &lda, b + static_cast<size_t>(bsize) * helper.shuffle(i), &ldb,
               &beta, c + static_cast<size_t>(csize) * i, &ldc);
         }
@@ -321,7 +321,7 @@ int main(int argc, char* argv[])
       }
       const unsigned long long start = libxs_timer_tick();
       for (libxs_blasint r = 0; r < nrepeat; ++r) {
-        LIBXS_TPREFIX(ITYPE, gemm_batch)(&transa, &transb, &m, &n, &k,
+        LIBXS_BLAS_FUNCTION(ITYPE,OTYPE,gemm_batch)(&transa, &transb, &m, &n, &k,
           &alpha, &a_array[0], &lda, &b_array[0], &ldb,
             &beta, &c_array[0], &ldc, &group_count, &s);
       }
@@ -363,7 +363,7 @@ int main(int argc, char* argv[])
 #if defined(_OPENMP) /* attempt to write to disjunct cachelines */
           if (0 == check) j = omp_get_thread_num() * chunksize * csize;
 #endif
-          LIBXS_GEMM_SYMBOL(ITYPE)(&transa, &transb, &m, &n, &k,
+          LIBXS_BLAS_FUNCTION(ITYPE,OTYPE,gemm)(&transa, &transb, &m, &n, &k,
             &alpha, a + static_cast<size_t>(asize) * helper.shuffle(i), &lda, b + static_cast<size_t>(bsize) * helper.shuffle(i), &ldb,
               &beta, c + j, &ldc);
         }
@@ -400,7 +400,7 @@ int main(int argc, char* argv[])
 #endif
       const unsigned long long start = libxs_timer_tick();
       for (libxs_blasint r = 0; r < nrepeat; ++r) {
-        LIBXS_TPREFIX(ITYPE, gemm_batch)(&transa, &transb, &m, &n, &k,
+        LIBXS_BLAS_FUNCTION(ITYPE,OTYPE,gemm_batch)(&transa, &transb, &m, &n, &k,
           &alpha, &a_array[0], &lda, &b_array[0], &ldb,
             &beta, &c_array[0], &ldc, &group_count, &s);
       }
@@ -436,7 +436,7 @@ int main(int argc, char* argv[])
 #if defined(_OPENMP) /* attempt to write to disjunct cachelines */
           if (0 == check) j = omp_get_thread_num() * chunksize * csize;
 #endif
-          LIBXS_GEMM_SYMBOL(ITYPE)(&transa, &transb, &m, &n, &k,
+          LIBXS_BLAS_FUNCTION(ITYPE,OTYPE,gemm)(&transa, &transb, &m, &n, &k,
             &alpha, a, &lda, b, &ldb, &beta, c + j, &ldc);
         }
       }
@@ -470,7 +470,7 @@ int main(int argc, char* argv[])
 #endif
       const unsigned long long start = libxs_timer_tick();
       for (libxs_blasint r = 0; r < nrepeat; ++r) {
-        LIBXS_TPREFIX(ITYPE, gemm_batch)(&transa, &transb, &m, &n, &k,
+        LIBXS_BLAS_FUNCTION(ITYPE,OTYPE,gemm_batch)(&transa, &transb, &m, &n, &k,
           &alpha, &a_array[0], &lda, &b_array[0], &ldb,
             &beta, &c_array[0], &ldc, &group_count, &s);
       }
