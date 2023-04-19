@@ -9,9 +9,6 @@
 #include "libxs_hash.h"
 #include "libxs_main.h"
 
-#if !defined(LIBXS_HASH_ALIGNMENT)
-# define LIBXS_HASH_ALIGNMENT 8
-#endif
 
 #define LIBXS_HASH_U64(FN, SEED, BEGIN, END) do { \
   const uint8_t *const end = (NULL != (END) ? ((END) - 7) : NULL); \
@@ -48,51 +45,24 @@
 # define LIBXS_HASH_CRC32_U64(SEED, PVALUE) _mm_crc32_u64(SEED, *(const uint64_t*)(PVALUE))
 #endif
 
-#define LIBXS_HASH_UNALIGNED(FN64, FN32, FN16, FN8, SEED, DATA, SIZE) do { \
+#define LIBXS_HASH(FN64, FN32, FN16, FN8, SEED, DATA, SIZE) do { \
   const uint8_t *begin = (const uint8_t*)(DATA); \
   const uint8_t *const endb = begin + (SIZE); \
+  if (0 == LIBXS_MOD2((uintptr_t)(DATA), 8)) { \
+    const uint8_t *const enda = LIBXS_ALIGN(begin, 8); \
+    if ((SIZE) > (size_t)(endb - enda)) { /* peel */ \
+      LIBXS_HASH_U32(FN32, SEED, begin, enda); \
+      LIBXS_HASH_U16(FN16, SEED, begin, enda); \
+      LIBXS_HASH_U8(FN8, SEED, begin, enda); \
+    } \
+    LIBXS_ASSUME_ALIGNED(begin, 8); \
+  } \
   LIBXS_HASH_U64(FN64, SEED, begin, endb); \
   LIBXS_HASH_U32(FN32, SEED, begin, endb); \
   LIBXS_HASH_U16(FN16, SEED, begin, endb); \
   return begin == endb ? (SEED) : FN8(SEED, begin); \
 } while(0)
 
-#if defined(LIBXS_HASH_ALIGNMENT) && 8 < (LIBXS_HASH_ALIGNMENT)
-# define LIBXS_HASH(FN64, FN32, FN16, FN8, SEED, DATA, SIZE) do { \
-    const uint8_t *begin = (const uint8_t*)(DATA); \
-    const uint8_t *const endb = begin + (SIZE); \
-    const uint8_t *const enda = LIBXS_ALIGN(begin, LIBXS_HASH_ALIGNMENT); \
-    if ((SIZE) > (size_t)(endb - enda)) { \
-      LIBXS_HASH_U64(FN64, SEED, begin, enda); \
-      LIBXS_HASH_U32(FN32, SEED, begin, enda); \
-      LIBXS_HASH_U16(FN16, SEED, begin, enda); \
-      LIBXS_HASH_U8(FN8, SEED, begin, enda); \
-    } \
-    LIBXS_ASSUME_ALIGNED(begin, LIBXS_HASH_ALIGNMENT); \
-    LIBXS_HASH_U64(FN64, SEED, begin, endb); \
-    LIBXS_HASH_U32(FN32, SEED, begin, endb); \
-    LIBXS_HASH_U16(FN16, SEED, begin, endb); \
-    return begin == endb ? (SEED) : FN8(SEED, begin); \
-  } while(0)
-#elif defined(LIBXS_HASH_ALIGNMENT) && 1 < (LIBXS_HASH_ALIGNMENT)
-# define LIBXS_HASH(FN64, FN32, FN16, FN8, SEED, DATA, SIZE) do { \
-    const uint8_t *begin = (const uint8_t*)(DATA); \
-    const uint8_t *const endb = begin + (SIZE); \
-    const uint8_t *const enda = LIBXS_ALIGN(begin, LIBXS_HASH_ALIGNMENT); \
-    if ((SIZE) > (size_t)(endb - enda)) { \
-      LIBXS_HASH_U32(FN32, SEED, begin, enda); \
-      LIBXS_HASH_U16(FN16, SEED, begin, enda); \
-      LIBXS_HASH_U8(FN8, SEED, begin, enda); \
-    } \
-    LIBXS_ASSUME_ALIGNED(begin, LIBXS_HASH_ALIGNMENT); \
-    LIBXS_HASH_U64(FN64, SEED, begin, endb); \
-    LIBXS_HASH_U32(FN32, SEED, begin, endb); \
-    LIBXS_HASH_U16(FN16, SEED, begin, endb); \
-    return begin == endb ? (SEED) : FN8(SEED, begin); \
-  } while(0)
-#else
-# define LIBXS_HASH LIBXS_HASH_UNALIGNED
-#endif
 
 typedef uint32_t internal_crc32_entry_type[256];
 LIBXS_APIVAR_DEFINE(const internal_crc32_entry_type* internal_crc32_table);

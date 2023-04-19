@@ -6,11 +6,10 @@
 * Further information: https://github.com/hfp/libxs/                          *
 * SPDX-License-Identifier: BSD-3-Clause                                       *
 ******************************************************************************/
-#include <libxs_mem.h>
+#include <libxs.h>
+#include "libxs_main.h"
 #include "libxs_hash.h"
 #include "libxs_diff.h"
-#include "libxs_main.h"
-
 #include <ctype.h>
 
 #if !defined(LIBXS_MEM_STDLIB) && 0
@@ -25,6 +24,40 @@
 LIBXS_APIVAR_DEFINE(unsigned char (*internal_diff_function)(const void*, const void*, unsigned char));
 LIBXS_APIVAR_DEFINE(int (*internal_memcmp_function)(const void*, const void*, size_t));
 #endif
+
+
+LIBXS_API unsigned char libxs_typesize(libxs_datatype datatype)
+{
+  const unsigned char result = (unsigned char)LIBXS_TYPESIZE(datatype);
+  if (0 != result) {
+    return result;
+  }
+  else {
+    static int error_once = 0;
+    LIBXS_ASSERT_MSG(0, "unsupported data type");
+    if (1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED)) {
+      fprintf(stderr, "LIBXS ERROR: unsupported data type!\n");
+    }
+    return 1; /* avoid to return 0 to avoid div-by-zero in static analysis of depending code */
+  }
+}
+
+
+LIBXS_API size_t libxs_offset(const size_t offset[], const size_t shape[], size_t ndims, size_t* size)
+{
+  size_t result = 0, size1 = 0;
+  if (0 != ndims && NULL != shape) {
+    size_t i;
+    result = (NULL != offset ? offset[0] : 0);
+    size1 = shape[0];
+    for (i = 1; i < ndims; ++i) {
+      result += (NULL != offset ? offset[i] : 0) * size1;
+      size1 *= shape[i];
+    }
+  }
+  if (NULL != size) *size = size1;
+  return result;
+}
 
 
 LIBXS_API int libxs_aligned(const void* ptr, const size_t* inc, int* alignment)
@@ -456,26 +489,32 @@ LIBXS_API unsigned int libxs_hash16(unsigned int data)
 }
 
 
+LIBXS_API unsigned int libxs_hash32(unsigned long long data)
+{
+  return libxs_crc32_u32(data >> 32, &data) & 0xFFFFFFFF;
+}
+
+
 LIBXS_API unsigned long long libxs_hash_string(const char string[])
 {
   unsigned long long result;
   const size_t length = (NULL != string ? strlen(string) : 0);
   if (sizeof(result) < length) {
-    const size_t length2 = length / 2;
+    const size_t length2 = LIBXS_MAX(length / 2, sizeof(result));
     unsigned int hash32, seed32 = 0; /* seed=0: match else-optimization */
     LIBXS_INIT
     seed32 = libxs_crc32(seed32, string, length2);
     hash32 = libxs_crc32(seed32, string + length2, length - length2);
     result = hash32; result = (result << 32) | seed32;
   }
-  else { /* reinterpret directly as hash value */
-#if 1
-    result = (unsigned long long)string;
-#else
+  else if (sizeof(result) != length) {
     char *const s = (char*)&result; signed char i;
     for (i = 0; i < (signed char)length; ++i) s[i] = string[i];
     for (; i < (signed char)sizeof(result); ++i) s[i] = 0;
-#endif
+  }
+  else { /* reinterpret directly as hash value */
+    LIBXS_ASSERT(NULL != string);
+    result = *(unsigned long long*)string;
   }
   return result;
 }
