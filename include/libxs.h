@@ -11,6 +11,12 @@
 
 #include "libxs_config.h"
 
+#if !defined(LIBXS_DESCRIPTION)
+# define LIBXS_DESCRIPTION \
+    "Library for specialized dense and sparse matrix " \
+    "operations, and deep learning primitives."
+#endif
+
 /**
  * Strings to denote the version of LIBXS (libxs_config.h).
  * LIBXS_VERSION: Name of the version (stringized version numbers).
@@ -436,21 +442,21 @@ LIBXS_API void libxs_blas_gemm(
 #if defined(__cplusplus)
 
 /** Map built-in type to libxs_datatype (libxs_datatype_enum). */
-template<typename T> struct libxs_datatype_enum          { static const libxs_datatype value = static_cast<libxs_datatype>(LIBXS_DATATYPE_UNSUPPORTED); };
-template<> struct libxs_datatype_enum<double>            { static const libxs_datatype value = LIBXS_DATATYPE_F64; };
-template<> struct libxs_datatype_enum<float>             { static const libxs_datatype value = LIBXS_DATATYPE_F32; };
-template<> struct libxs_datatype_enum<int>               { static const libxs_datatype value = LIBXS_DATATYPE_I32; };
-template<> struct libxs_datatype_enum</*signed*/short>   { static const libxs_datatype value = LIBXS_DATATYPE_I16; };
-template<> struct libxs_datatype_enum<libxs_bfloat16>  { static const libxs_datatype value = LIBXS_DATATYPE_BF16; };
-template<> struct libxs_datatype_enum<Eigen::bfloat16>   { static const libxs_datatype value = LIBXS_DATATYPE_BF16; };
-template<> struct libxs_datatype_enum<signed char>       { static const libxs_datatype value = LIBXS_DATATYPE_I8; };
-template<> struct libxs_datatype_enum<unsigned char>     { static const libxs_datatype value = LIBXS_DATATYPE_I8; };
-template<> struct libxs_datatype_enum<char>              { static const libxs_datatype value = LIBXS_DATATYPE_I8; };
+template<typename T> struct libxs_datatype_enum         { static const libxs_datatype value = static_cast<libxs_datatype>(LIBXS_DATATYPE_UNSUPPORTED); };
+template<> struct libxs_datatype_enum<double>           { static const libxs_datatype value = LIBXS_DATATYPE_F64; };
+template<> struct libxs_datatype_enum<float>            { static const libxs_datatype value = LIBXS_DATATYPE_F32; };
+template<> struct libxs_datatype_enum<int>              { static const libxs_datatype value = LIBXS_DATATYPE_I32; };
+template<> struct libxs_datatype_enum</*signed*/short>  { static const libxs_datatype value = LIBXS_DATATYPE_I16; };
+template<> struct libxs_datatype_enum<libxs_bfloat16> { static const libxs_datatype value = LIBXS_DATATYPE_BF16; };
+template<> struct libxs_datatype_enum<Eigen::bfloat16>  { static const libxs_datatype value = LIBXS_DATATYPE_BF16; };
+template<> struct libxs_datatype_enum<signed char>      { static const libxs_datatype value = LIBXS_DATATYPE_I8; };
+template<> struct libxs_datatype_enum<unsigned char>    { static const libxs_datatype value = LIBXS_DATATYPE_I8; };
+template<> struct libxs_datatype_enum<char>             { static const libxs_datatype value = LIBXS_DATATYPE_I8; };
 
 /** Determine default output type based on the input-type. */
-template<typename INP_TYPE> struct libxs_gemm_default_output   { typedef INP_TYPE type; };
-template<> struct libxs_gemm_default_output</*signed*/short>   { typedef int type; };
-template<> struct libxs_gemm_default_output<libxs_bfloat16>  { typedef float type; };
+template<typename INP_TYPE> struct libxs_gemm_default_output  { typedef INP_TYPE type; };
+template<> struct libxs_gemm_default_output</*signed*/short>  { typedef int type; };
+template<> struct libxs_gemm_default_output<libxs_bfloat16> { typedef float type; };
 
 /** Default-initialize libxs_gemm_param structure for the given prefetch-strategy. */
 template<int PREFETCH> inline/*superfluous*/ void libxs_mmfunction_prefetch(
@@ -472,7 +478,7 @@ template<> inline/*superfluous*/ void libxs_mmfunction_prefetch<LIBXS_PREFETCH_N
 
 /** Construct and execute a specialized function. */
 template<typename INP_TYPE, typename OUT_TYPE = typename libxs_gemm_default_output<INP_TYPE>::type,
-  int PREFETCH_DEFAULT = LIBXS_PREFETCH_AUTO>
+  int PREFETCH_DEFAULT = LIBXS_PREFETCH/*LIBXS_PREFETCH_AUTO*/>
 class libxs_mmfunction {
   /*retargetable*/ libxs_xmmfunction m_function;
 public:
@@ -480,12 +486,13 @@ public:
   typedef OUT_TYPE otype;
 public:
   libxs_mmfunction() { m_function.ptr = NULL; }
-  libxs_mmfunction(libxs_blasint m, libxs_blasint n, libxs_blasint k, int flags = LIBXS_FLAGS) {
+  libxs_mmfunction(libxs_blasint m, libxs_blasint n, libxs_blasint k) {
     const libxs_blasint lda = m, ldb = k, ldc = m;
     const libxs_gemm_shape gemm_shape = libxs_create_gemm_shape(m, n, k, lda, ldb, ldc,
       libxs_datatype_enum<itype>::value, libxs_datatype_enum<itype>::value,
       libxs_datatype_enum<otype>::value, libxs_datatype_enum<otype>::value);
-    m_function.gemm = libxs_dispatch_gemm_v2(gemm_shape, static_cast<libxs_bitfield>(flags), PREFETCH_DEFAULT);
+    m_function.gemm = libxs_dispatch_gemm_v2(gemm_shape, 0/*flags*/,
+      static_cast<libxs_bitfield>(PREFETCH_DEFAULT));
   }
   libxs_mmfunction(int flags, libxs_blasint m, libxs_blasint n, libxs_blasint k, int prefetch = PREFETCH_DEFAULT) {
     const libxs_blasint lda = m, ldb = k, ldc = m;
@@ -538,7 +545,6 @@ public:
     args.a.primary = const_cast<itype*>(a);
     args.b.primary = const_cast<itype*>(b);
     args.c.primary = c;
-    /*if (LIBXS_PREFETCH_NONE != PREFETCH_DEFAULT)*/
     libxs_mmfunction_prefetch<PREFETCH_DEFAULT>(m_function, args);
     LIBXS_ASSERT(NULL != m_function.ptr_const);
     m_function.gemm(&args);
