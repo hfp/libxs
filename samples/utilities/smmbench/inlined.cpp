@@ -7,7 +7,6 @@
 * SPDX-License-Identifier: BSD-3-Clause                                       *
 ******************************************************************************/
 #include <libxs_source.h>
-
 #include <algorithm>
 #include <stdexcept>
 #include <cstdlib>
