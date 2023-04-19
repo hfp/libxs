@@ -6,15 +6,8 @@
 * Further information: https://github.com/hfp/libxs/                          *
 * SPDX-License-Identifier: BSD-3-Clause                                       *
 ******************************************************************************/
-#if !defined(INCLUDE_LIBXS_LAST)
-# include <libxs.h>
-# include <libxs_intrinsics_x86.h>
-#endif
-#include <math.h>
-#if defined(INCLUDE_LIBXS_LAST)
-# include <libxs.h>
-# include <libxs_intrinsics_x86.h>
-#endif
+#include <libxs_intrinsics_x86.h>
+#include <libxs.h>
 
 #define N 1000000
 
@@ -76,8 +69,10 @@ int main(int argc, char* argv[])
 
   for (i = -128; i < 127; ++i) {
     const float a = libxs_sexp2_i8((signed char)i);
-    const float b = LIBXS_EXP2F((float)i);
-    if (LIBXS_NEQ(a, b)) exit(EXIT_FAILURE);
+    const float b = libxs_sexp2_i8i(i);
+    const float c = LIBXS_EXP2F((float)i);
+    if (LIBXS_NEQ(a, c)) exit(EXIT_FAILURE);
+    if (LIBXS_NEQ(b, c)) exit(EXIT_FAILURE);
   }
 
   for (i = 0; i < (N); ++i) {

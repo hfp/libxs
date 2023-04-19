@@ -14,8 +14,8 @@
 # define FPRINTF(STREAM, ...) do {} while(0)
 #endif
 
-#if !defined(ELEM_TYPE)
-# define ELEM_TYPE int
+#if !defined(ELEMTYPE)
+# define ELEMTYPE int
 #endif
 
 
@@ -27,14 +27,14 @@
 int main(void)
 {
   const unsigned int seed = 1975, size = 2507;
-  const unsigned int n512 = 512 / (8 * sizeof(ELEM_TYPE));
+  const unsigned int n512 = 512 / (8 * sizeof(ELEMTYPE));
   unsigned int s = LIBXS_UP(size, n512), i, h1, h2;
   int result = EXIT_SUCCESS;
-  const ELEM_TYPE* value;
+  const ELEMTYPE* value;
 
-  ELEM_TYPE *const data = (ELEM_TYPE*)libxs_malloc(sizeof(ELEM_TYPE) * s);
+  ELEMTYPE *const data = (ELEMTYPE*)libxs_malloc(sizeof(ELEMTYPE) * s);
   if (NULL == data) s = 0;
-  for (i = 0; i < s; ++i) data[i] = (ELEM_TYPE)(rand() - ((RAND_MAX) >> 1));
+  for (i = 0; i < s; ++i) data[i] = (ELEMTYPE)(rand() - ((RAND_MAX) >> 1));
 
   h1 = libxs_crc32_u64(seed, data);
   h2 = libxs_crc32_u32(seed, data);
@@ -44,7 +44,7 @@ int main(void)
     result = EXIT_FAILURE;
   }
 
-  h1 = libxs_crc32(seed, data, sizeof(ELEM_TYPE) * s);
+  h1 = libxs_crc32(seed, data, sizeof(ELEMTYPE) * s);
   h2 = seed; value = data;
   for (i = 0; i < s; i += n512) {
     h2 = libxs_crc32_u512(h2, value + i);
@@ -71,6 +71,15 @@ int main(void)
   }
 
   if (0 != libxs_hash_string(NULL/*string*/)) {
+    result = EXIT_FAILURE;
+  }
+  if ('1' != libxs_hash_string("1")) {
+    result = EXIT_FAILURE;
+  }
+  if (4050765991979987505ULL != libxs_hash_string("12345678")) {
+    result = EXIT_FAILURE;
+  }
+  if (3199039660 != libxs_hash32(libxs_hash_string("01234567890"))) {
     result = EXIT_FAILURE;
   }
 
