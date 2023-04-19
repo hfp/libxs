@@ -10,11 +10,6 @@
 #define LIBXS_MAIN_H
 
 #include <libxs.h>
-/**
- * TF includes src/libxs_main.h and uses LIBXS's sync primitives
- * without including libxs_sync. However, libxs_sync.h shall be
- * an explicit include separate from including libxs.h.
- */
 #include <libxs_sync.h>
 
 /** Allow external definition to enable testing corner cases (exhausted registry space). */
@@ -508,9 +503,6 @@ LIBXS_API_INTERN int libxs_build(const libxs_build_request* request, unsigned in
 
 /** Determines CPU-name using OS-specific instead of CPU-specific interfaces. */
 LIBXS_API_INTERN void libxs_cpuid_model(char model[], size_t* model_size);
-
-/** Returns the type-size of data-type (can be also libxs_datatype). */
-LIBXS_API unsigned char libxs_typesize(libxs_datatype datatype);
 
 LIBXS_EXTERN_C typedef struct libxs_kernel_xinfo {
   /** Non-zero if kernel is registered. */

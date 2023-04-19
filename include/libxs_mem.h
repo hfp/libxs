@@ -48,6 +48,15 @@
   LIBXS_MEMSWP127_RHS, LIBXS_MEM127_NTS)
 
 
+/** Returns the type-size of data-type (can be also libxs_datatype). */
+LIBXS_API unsigned char libxs_typesize(libxs_datatype datatype);
+
+/**
+ * Calculate the linear offset of the n-dimensional (ndims) offset (can be NULL),
+ * and the (optional) linear size of the corresponding shape.
+ */
+LIBXS_API size_t libxs_offset(const size_t offset[], const size_t shape[], size_t ndims, size_t* size);
+
 /**
  * Check if pointer is SIMD-aligned and optionally consider the next access (increment in Bytes).
  * Optionally calculates the alignment of the given pointer in Bytes.
@@ -76,6 +85,7 @@ LIBXS_API int libxs_memcmp(const void* a, const void* b, size_t size);
 LIBXS_API unsigned int libxs_hash(const void* data, unsigned int size, unsigned int seed);
 LIBXS_API unsigned int libxs_hash8(unsigned int data);
 LIBXS_API unsigned int libxs_hash16(unsigned int data);
+LIBXS_API unsigned int libxs_hash32(unsigned long long data);
 
 /** Calculate a 64-bit hash for the given character string; accepts NULL-string. */
 LIBXS_API unsigned long long libxs_hash_string(const char string[]);

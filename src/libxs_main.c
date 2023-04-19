@@ -6,12 +6,12 @@
 * Further information: https://github.com/hfp/libxs/                          *
 * SPDX-License-Identifier: BSD-3-Clause                                       *
 ******************************************************************************/
+#include "libxs_main.h"
 #include "libxs_trace.h"
 #include "libxs_xcopy.h"
 #include "libxs_gemm.h"
 #include "libxs_hash.h"
 #include "libxs_diff.h"
-#include "libxs_main.h"
 #if defined(LIBXS_PERF)
 # include "libxs_perf.h"
 #endif
@@ -598,7 +598,8 @@ LIBXS_API_INTERN void internal_release_scratch(void)
 
 
 /* Caution: cannot be used multiple times in a single expression! */
-LIBXS_API_INTERN size_t libxs_format_value(char buffer[32], int buffer_size, size_t nbytes, const char scale[], const char* unit, int base)
+LIBXS_API_INTERN size_t libxs_format_value(char buffer[32],
+  int buffer_size, size_t nbytes, const char scale[], const char* unit, int base)
 {
   const int len = (NULL != scale ? ((int)strlen(scale)) : 0);
   const int m = LIBXS_INTRINSICS_BITSCANBWD64(nbytes) / base, n = LIBXS_MIN(m, len);
@@ -1737,23 +1738,6 @@ LIBXS_API void libxs_set_gemm_auto_prefetch(libxs_gemm_prefetch_type strategy)
   if (0 == internal_gemm_auto_prefetch_locked) { /* LIBXS_GEMM_PREFETCH environment takes precedence */
     LIBXS_ATOMIC_STORE(&libxs_gemm_auto_prefetch_default, strategy, LIBXS_ATOMIC_RELAXED);
     LIBXS_ATOMIC_STORE(&libxs_gemm_auto_prefetch, strategy, LIBXS_ATOMIC_RELAXED);
-  }
-}
-
-
-LIBXS_API unsigned char libxs_typesize(libxs_datatype datatype)
-{
-  const unsigned char result = (unsigned char)LIBXS_TYPESIZE(datatype);
-  if (0 != result) {
-    return result;
-  }
-  else {
-    static int error_once = 0;
-    LIBXS_ASSERT_MSG(0, "unsupported data type");
-    if (1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED)) {
-      fprintf(stderr, "LIBXS ERROR: unsupported data type!\n");
-    }
-    return 1; /* avoid to return 0 to avoid div-by-zero in static analysis of depending code */
   }
 }
 
@@ -3064,14 +3048,6 @@ LIBXS_API libxs_xmmfunction libxs_xmmdispatch(const libxs_gemm_descriptor* descr
       wrap.gemm.desc.prefetch = (unsigned char)gemm_prefetch;
     }
     result = internal_find_code(&wrap, sizeof(*descriptor), 0/*user_size*/).xgemm;
-#if defined(_DEBUG)
-    if (LIBXS_VERBOSITY_HIGH <= libxs_verbosity && INT_MAX != libxs_verbosity && NULL != result.xmm) {
-      LIBXS_STDIO_ACQUIRE();
-      fprintf(stderr, "\nLIBXS: ");
-      libxs_gemm_xprint(stderr, result, NULL/*a*/, NULL/*b*/, NULL/*c*/);
-      LIBXS_STDIO_RELEASE();
-    }
-#endif
   }
 #if !defined(NDEBUG)
   else { /* quietly accept NULL-descriptor */
