@@ -165,6 +165,7 @@ libxs_get_typename
 libxs_get_verbosity
 libxs_hash
 libxs_hash16
+libxs_hash32
 libxs_hash8
 libxs_hash_char
 libxs_hash_i32
