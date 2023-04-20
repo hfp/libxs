@@ -10,6 +10,7 @@
 #define LIBXS_MAIN_H
 
 #include <libxs.h>
+#include <libxs_mem.h>
 #include <libxs_sync.h>
 
 /** Allow external definition to enable testing corner cases (exhausted registry space). */
