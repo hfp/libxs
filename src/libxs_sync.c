@@ -6,6 +6,7 @@
 * Further information: https://github.com/hfp/libxs/                          *
 * SPDX-License-Identifier: BSD-3-Clause                                       *
 ******************************************************************************/
+#include <libxs_sync.h>
 #include "libxs_main.h"
 
 #if !defined(LIBXS_SYNC_FUTEX) && defined(__linux__) && defined(__USE_GNU)

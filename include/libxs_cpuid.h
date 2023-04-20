@@ -9,7 +9,6 @@
 #ifndef LIBXS_CPUID_H
 #define LIBXS_CPUID_H
 
-#include "libxs_macros.h"
 #include "libxs_typedefs.h"
 
 /**
