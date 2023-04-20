@@ -490,11 +490,15 @@ LIBXS_API int libxs_xmalloc(void** memory, size_t size, size_t alignment, int fl
 /** Release memory, which was allocated using libxs_[*]malloc. */
 LIBXS_API void libxs_xfree(const void* memory, int check);
 
+/** Determines the given value in double-precision (EXIT_SUCCESS if value is NULL). */
+LIBXS_API int libxs_dvalue(libxs_datatype datatype, const void* value, double* dvalue);
+
 /**
  * Format for instance an amount of Bytes like libxs_format_value(result, sizeof(result), nbytes, "KMGT", "B", 10).
  * The value returned is in requested/determined unit so that the user can decide about printing the buffer.
  */
-LIBXS_API_INTERN size_t libxs_format_value(char buffer[32], int buffer_size, size_t nbytes, const char scale[], const char* unit, int base);
+LIBXS_API_INTERN size_t libxs_format_value(char buffer[32],
+  int buffer_size, size_t nbytes, const char scale[], const char* unit, int base);
 
 /** Dump data and (optionally) checks attempt to dump different data into an existing file (unique). */
 LIBXS_API_INTERN int libxs_dump(const char* title, const char* name, const void* data, size_t size, int unique);
