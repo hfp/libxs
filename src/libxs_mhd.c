@@ -7,7 +7,7 @@
 * SPDX-License-Identifier: BSD-3-Clause                                       *
 ******************************************************************************/
 #include <libxs_mhd.h>
-#include "libxs_main.h" /* libxs_typesize */
+#include <libxs_mem.h>
 #include <ctype.h>
 
 #if !defined(LIBXS_MHD_MAX_LINELENGTH)
