@@ -1474,12 +1474,6 @@ LIBXS_API_DTOR void libxs_finalize(void)
 }
 
 
-LIBXS_API void libxs_sink(const void* arg, ...)
-{ /* does nothing else but sinking given arguments */
-  LIBXS_UNUSED(arg);
-}
-
-
 LIBXS_API int libxs_get_target_archid(void)
 {
   LIBXS_INIT
