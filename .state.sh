@@ -7,7 +7,7 @@
 # Further information: https://github.com/hfp/libxs/                          #
 # SPDX-License-Identifier: BSD-3-Clause                                       #
 ###############################################################################
-
+# shellcheck disable=SC2086
 MKDIR=$(command -v mkdir)
 DIFF=$(command -v diff)
 UNIQ=$(command -v uniq)
