@@ -100,6 +100,7 @@ LIBXS_API int libxs_get_meltwkernel_info(libxs_xmeltwfunction kernel, libxs_melt
 
 /** Receive information about JIT-generated code (kernel or registry entry). */
 LIBXS_API int libxs_get_kernel_info(const void* kernel, libxs_kernel_info* info);
+
 /** Get information about the code registry. */
 LIBXS_API int libxs_get_registry_info(libxs_registry_info* info);
 /** Enumerate registry by kind (e.g., LIBXS_KERNEL_KIND_USER); can be NULL (no such kind). */
@@ -441,57 +442,70 @@ LIBXS_API void libxs_blas_gemm(
 #endif /*!defined(LIBXS_DEFAULT_CONFIG)*/
 #if defined(__cplusplus)
 
-/** Map built-in type to libxs_datatype (libxs_datatype_enum). */
+/** Map built-in type to libxs_datatype (libxs_datatype_enum). TODO: LP-types shall rely on struct for proper overload in C++. */
 template<typename T> struct libxs_datatype_enum         { static const libxs_datatype value = static_cast<libxs_datatype>(LIBXS_DATATYPE_UNSUPPORTED); };
 template<> struct libxs_datatype_enum<double>           { static const libxs_datatype value = LIBXS_DATATYPE_F64; };
 template<> struct libxs_datatype_enum<float>            { static const libxs_datatype value = LIBXS_DATATYPE_F32; };
 template<> struct libxs_datatype_enum<int>              { static const libxs_datatype value = LIBXS_DATATYPE_I32; };
+template<> struct libxs_datatype_enum<unsigned int>     { static const libxs_datatype value = LIBXS_DATATYPE_U32; };
 template<> struct libxs_datatype_enum</*signed*/short>  { static const libxs_datatype value = LIBXS_DATATYPE_I16; };
 template<> struct libxs_datatype_enum<libxs_bfloat16> { static const libxs_datatype value = LIBXS_DATATYPE_BF16; };
 template<> struct libxs_datatype_enum<Eigen::bfloat16>  { static const libxs_datatype value = LIBXS_DATATYPE_BF16; };
+template<> struct libxs_datatype_enum<libxs_bfloat8>  { static const libxs_datatype value = LIBXS_DATATYPE_BF8; };
 template<> struct libxs_datatype_enum<signed char>      { static const libxs_datatype value = LIBXS_DATATYPE_I8; };
-template<> struct libxs_datatype_enum<unsigned char>    { static const libxs_datatype value = LIBXS_DATATYPE_I8; };
 template<> struct libxs_datatype_enum<char>             { static const libxs_datatype value = LIBXS_DATATYPE_I8; };
 
-/** Determine default output type based on the input-type. */
+/** Determine default output type based on the input-type. TODO: LP-types shall rely on struct for proper overload in C++. */
 template<typename INP_TYPE> struct libxs_gemm_default_output  { typedef INP_TYPE type; };
-template<> struct libxs_gemm_default_output</*signed*/short>  { typedef int type; };
 template<> struct libxs_gemm_default_output<libxs_bfloat16> { typedef float type; };
+template<> struct libxs_gemm_default_output<Eigen::bfloat16>  { typedef float type; };
+template<> struct libxs_gemm_default_output<libxs_bfloat8>  { typedef float type; };
+template<> struct libxs_gemm_default_output</*signed*/short>  { typedef int type; };
+template<> struct libxs_gemm_default_output<signed char>      { typedef int type; };
+template<> struct libxs_gemm_default_output<char>             { typedef int type; };
 
 /** Default-initialize libxs_gemm_param structure for the given prefetch-strategy. */
 template<int PREFETCH> inline/*superfluous*/ void libxs_mmfunction_prefetch(
-  const libxs_xmmfunction& function, libxs_gemm_param& args)
+  const libxs_gemmfunction& function, libxs_gemm_param& args)
 {
   libxs_mmkernel_info info;
-  if (0/*EXIT_SUCCESS*/ == libxs_get_mmkernel_info(function, &info) && LIBXS_PREFETCH_NONE != info.prefetch) {
+  libxs_xmmfunction xmm;
+  xmm.gemm = function;
+  LIBXS_ASSERT(LIBXS_GEMM_PREFETCH_NONE != PREFETCH);
+  if (0/*EXIT_SUCCESS*/ == libxs_get_mmkernel_info(xmm, &info) && LIBXS_GEMM_PREFETCH_NONE != info.prefetch) {
     const size_t itypesize = LIBXS_TYPESIZE(info.iprecision), otypesize = LIBXS_TYPESIZE(info.oprecision);
     args.a.quaternary = static_cast<char*>(args.a.primary) + itypesize * info.m * info.k;
     args.b.quaternary = static_cast<char*>(args.b.primary) + itypesize * info.k * info.n;
     args.c.quaternary = static_cast<char*>(args.c.primary) + otypesize * info.m * info.n;
   }
 }
-template<> inline/*superfluous*/ void libxs_mmfunction_prefetch<LIBXS_PREFETCH_NONE>(
-  const libxs_xmmfunction& function, libxs_gemm_param& args)
+template<> inline/*superfluous*/ void libxs_mmfunction_prefetch<LIBXS_GEMM_PREFETCH_NONE>(
+  const libxs_gemmfunction& function, libxs_gemm_param& args)
 {
-  LIBXS_UNUSED(function); LIBXS_UNUSED(args);
+  LIBXS_UNUSED(function);
+#if defined(NDEBUG)
+  LIBXS_UNUSED(args);
+#else
+  args.a.quaternary = args.b.quaternary = args.c.quaternary = NULL;
+#endif
 }
 
 /** Construct and execute a specialized function. */
 template<typename INP_TYPE, typename OUT_TYPE = typename libxs_gemm_default_output<INP_TYPE>::type,
   int PREFETCH_DEFAULT = LIBXS_PREFETCH/*LIBXS_PREFETCH_AUTO*/>
 class libxs_mmfunction {
-  /*retargetable*/ libxs_xmmfunction m_function;
+  /*retargetable*/ libxs_gemmfunction m_function;
 public:
   typedef INP_TYPE itype;
   typedef OUT_TYPE otype;
 public:
-  libxs_mmfunction() { m_function.ptr = NULL; }
+  libxs_mmfunction() { m_function = NULL; }
   libxs_mmfunction(libxs_blasint m, libxs_blasint n, libxs_blasint k) {
     const libxs_blasint lda = m, ldb = k, ldc = m;
     const libxs_gemm_shape gemm_shape = libxs_create_gemm_shape(m, n, k, lda, ldb, ldc,
       libxs_datatype_enum<itype>::value, libxs_datatype_enum<itype>::value,
       libxs_datatype_enum<otype>::value, libxs_datatype_enum<otype>::value);
-    m_function.gemm = libxs_dispatch_gemm_v2(gemm_shape, 0/*flags*/,
+    m_function = libxs_dispatch_gemm_v2(gemm_shape, 0/*flags*/,
       static_cast<libxs_bitfield>(PREFETCH_DEFAULT));
   }
   libxs_mmfunction(int flags, libxs_blasint m, libxs_blasint n, libxs_blasint k, int prefetch = PREFETCH_DEFAULT) {
@@ -499,7 +513,7 @@ public:
     const libxs_gemm_shape gemm_shape = libxs_create_gemm_shape(m, n, k, lda, ldb, ldc,
       libxs_datatype_enum<itype>::value, libxs_datatype_enum<itype>::value,
       libxs_datatype_enum<otype>::value, libxs_datatype_enum<otype>::value);
-    m_function.gemm = libxs_dispatch_gemm_v2(gemm_shape,
+    m_function = libxs_dispatch_gemm_v2(gemm_shape,
       static_cast<libxs_bitfield>(flags),
       static_cast<libxs_bitfield>(prefetch));
   }
@@ -508,7 +522,7 @@ public:
     const libxs_gemm_shape gemm_shape = libxs_create_gemm_shape(m, n, k, lda, ldb, ldc,
       libxs_datatype_enum<itype>::value, libxs_datatype_enum<itype>::value,
       libxs_datatype_enum<otype>::value, libxs_datatype_enum<otype>::value);
-    m_function.gemm = (LIBXS_GEMM_NO_BYPASS(flags, alpha, beta) ? libxs_dispatch_gemm_v2(gemm_shape,
+    m_function = (LIBXS_GEMM_NO_BYPASS(flags, alpha, beta) ? libxs_dispatch_gemm_v2(gemm_shape,
       static_cast<libxs_bitfield>(flags | (LIBXS_NEQ(0, beta) ? 0 : LIBXS_GEMM_FLAG_BETA_0)),
       static_cast<libxs_bitfield>(prefetch)) : NULL);
   }
@@ -518,7 +532,7 @@ public:
     const libxs_gemm_shape gemm_shape = libxs_create_gemm_shape(m, n, k, lda, ldb, ldc,
       libxs_datatype_enum<itype>::value, libxs_datatype_enum<itype>::value,
       libxs_datatype_enum<otype>::value, libxs_datatype_enum<otype>::value);
-    m_function.gemm = libxs_dispatch_gemm_v2(gemm_shape,
+    m_function = libxs_dispatch_gemm_v2(gemm_shape,
       static_cast<libxs_bitfield>(flags),
       static_cast<libxs_bitfield>(prefetch));
   }
@@ -529,16 +543,16 @@ public:
     const libxs_gemm_shape gemm_shape = libxs_create_gemm_shape(m, n, k, lda, ldb, ldc,
       libxs_datatype_enum<itype>::value, libxs_datatype_enum<itype>::value,
       libxs_datatype_enum<otype>::value, libxs_datatype_enum<otype>::value);
-    m_function.gemm = (LIBXS_GEMM_NO_BYPASS(flags, alpha, beta) ? libxs_dispatch_gemm_v2(gemm_shape,
+    m_function = (LIBXS_GEMM_NO_BYPASS(flags, alpha, beta) ? libxs_dispatch_gemm_v2(gemm_shape,
       static_cast<libxs_bitfield>(flags | (LIBXS_NEQ(0, beta) ? 0 : LIBXS_GEMM_FLAG_BETA_0)),
       static_cast<libxs_bitfield>(prefetch)) : NULL);
   }
 public:
-  const libxs_xmmfunction& kernel() const {
+  const libxs_gemmfunction& kernel() const {
     return m_function;
   }
   operator const void*() const {
-    return NULL != m_function.ptr_const ? this : NULL;
+    return NULL != m_function ? this : NULL;
   }
   void operator()(const itype* a, const itype* b, otype* c) const {
     libxs_gemm_param args;
@@ -546,8 +560,8 @@ public:
     args.b.primary = const_cast<itype*>(b);
     args.c.primary = c;
     libxs_mmfunction_prefetch<PREFETCH_DEFAULT>(m_function, args);
-    LIBXS_ASSERT(NULL != m_function.ptr_const);
-    m_function.gemm(&args);
+    LIBXS_ASSERT(NULL != m_function);
+    m_function(&args);
   }
   void operator()(const itype* a, const itype* b, otype* c, const itype* pa, const itype* pb, const otype* pc) const {
     libxs_gemm_param args;
@@ -557,8 +571,8 @@ public:
     args.a.quaternary = const_cast<itype*>(pa);
     args.b.quaternary = const_cast<itype*>(pb);
     args.c.quaternary = const_cast<otype*>(pc);
-    LIBXS_ASSERT(NULL != m_function.ptr_const);
-    m_function.gemm(&args);
+    LIBXS_ASSERT(NULL != m_function);
+    m_function(&args);
   }
 };
 

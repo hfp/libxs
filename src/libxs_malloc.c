@@ -2237,7 +2237,7 @@ LIBXS_API_INTERN int libxs_malloc_attrib(void** memory, int flags, const char* n
           if (0 > libxs_verbosity) { /* avoid dump if just the profiler is enabled */
             LIBXS_EXPECT(EXIT_SUCCESS == libxs_dump("LIBXS-JIT-DUMP", name, code_ptr,
               /* dump executable code without constant data (apply_size vs info_size) */
-              apply_size, 1/*unique*/));
+              apply_size, 1/*unique*/, 0/*overwrite*/));
           }
 #if defined(LIBXS_VTUNE)
           if (iJIT_SAMPLING_ON == iJIT_IsProfilingActive()) {
