@@ -500,8 +500,11 @@ LIBXS_API int libxs_dvalue(libxs_datatype datatype, const void* value, double* d
 LIBXS_API_INTERN size_t libxs_format_value(char buffer[32],
   int buffer_size, size_t nbytes, const char scale[], const char* unit, int base);
 
-/** Dump data and (optionally) checks attempt to dump different data into an existing file (unique). */
-LIBXS_API_INTERN int libxs_dump(const char* title, const char* name, const void* data, size_t size, int unique);
+/**
+ * Dump data, (optionally) check attempt to dump different data into an existing file (unique),
+ * or (optionally) permit overwriting an existing file.
+ */
+LIBXS_API_INTERN int libxs_dump(const char* title, const char* name, const void* data, size_t size, int unique, int overwrite);
 
 /** Services a build request, and (optionally) registers the code (use regindex=LIBXS_CAPACITY_REGISTRY for unmanaged code). */
 LIBXS_API_INTERN int libxs_build(const libxs_build_request* request, unsigned int regindex, libxs_code_pointer* code);

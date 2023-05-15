@@ -827,13 +827,17 @@ LIBXS_API_INTERN void internal_libxs_sigabrt(int /*signum*/);
 LIBXS_API_INTERN void internal_libxs_sigabrt(int signum) {
   LIBXS_ASSERT(SIGABRT == signum);
   if (SIG_ERR != internal_libxs_prvabrt) {
+    libxs_verbosity = LIBXS_MAX(LIBXS_VERBOSITY_HIGH + 1, libxs_verbosity);
     internal_finalize();
     if (NULL != internal_libxs_prvabrt) {
       internal_libxs_prvabrt(SIGABRT);
     }
     else {
       void (*const default_handler)(int) = signal(signum, SIG_DFL);
-      if (NULL != default_handler && SIG_ERR != default_handler) {
+      if (internal_libxs_sigabrt != default_handler /* recursion */
+        && SIG_ERR != default_handler
+        && NULL != default_handler)
+      {
         default_handler(SIGABRT);
       }
     }
@@ -1441,7 +1445,8 @@ LIBXS_API_DTOR void libxs_finalize(void)
 #endif
                 nchar = LIBXS_SNPRINTF(name, sizeof(name), "%010u.user", id);
                 if (0 < nchar && (int)sizeof(name) > nchar) {
-                  LIBXS_EXPECT(EXIT_SUCCESS == libxs_dump("LIBXS-USER-DUMP", name, code.ptr_const, size, 0/*unique*/));
+                  LIBXS_EXPECT(EXIT_SUCCESS == libxs_dump("LIBXS-USER-DUMP",
+                    name, code.ptr_const, size, 0/*unique*/, 0/*overwrite*/));
                 }
               }
 #if !defined(NDEBUG)
@@ -1820,11 +1825,11 @@ LIBXS_API_INLINE void internal_get_typesize_string(char buffer[4], int buffer_si
 }
 
 
-LIBXS_API_INTERN int libxs_dump(const char* title, const char* name, const void* data, size_t size, int unique)
+LIBXS_API_INTERN int libxs_dump(const char* title, const char* name, const void* data, size_t size, int unique, int overwrite)
 {
   int result;
   if (NULL != name && '\0' != *name && NULL != data && 0 != size) {
-    FILE* data_file = fopen(name, "rb");
+    FILE* data_file = ((0 != unique || 0 == overwrite) ? fopen(name, "rb") : NULL);
     int diff = 0, result_close;
     if (NULL == data_file) { /* file does not exist */
       data_file = fopen(name, "wb");
@@ -1853,7 +1858,7 @@ LIBXS_API_INTERN int libxs_dump(const char* title, const char* name, const void*
     if (EXIT_SUCCESS == result && NULL != title && '\0' != *title) {
       fprintf(stderr, "%s(ptr:file) %p : %s\n", title, data, name);
     }
-    if (0 != diff) { /* override existing dump and warn about erroneous condition */
+    if (0 != diff) { /* overwrite existing dump and warn about erroneous condition */
       fprintf(stderr, "LIBXS ERROR: %s is not a unique filename!\n", name);
       data_file = fopen(name, "wb");
       if (NULL != data_file) { /* dump data into a file */
