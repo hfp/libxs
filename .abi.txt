@@ -6,9 +6,6 @@ libxs_barrier_create
 libxs_barrier_destroy
 libxs_barrier_init
 libxs_barrier_wait
-libxs_bbgemm_descriptor_init
-libxs_bgemm_descriptor_init
-libxs_bigemm_descriptor_init
 libxs_blas_dgemm0
 libxs_blas_dgemm1
 libxs_blas_dgemm2
@@ -22,7 +19,6 @@ libxs_blas_sgemm1
 libxs_blas_sgemm2
 libxs_blas_sgemm3
 libxs_blas_sgemm_
-libxs_bsgemm_descriptor_init
 libxs_convert_bf16_f32
 libxs_convert_bf8_f32
 libxs_convert_f16_f32
@@ -66,7 +62,6 @@ libxs_dgemm1
 libxs_dgemm2
 libxs_dgemm3
 libxs_dgemm_
-libxs_dgemm_descriptor_init
 libxs_diff
 libxs_diff_16
 libxs_diff_32
@@ -113,11 +108,7 @@ libxs_gemm_batch_omp
 libxs_gemm_batch_omp_
 libxs_gemm_batch_task
 libxs_gemm_batch_task_
-libxs_gemm_descriptor_dinit
-libxs_gemm_descriptor_dinit2
 libxs_gemm_descriptor_init
-libxs_gemm_descriptor_init2
-libxs_gemm_descriptor_init3
 libxs_gemm_dprint
 libxs_gemm_dprint2
 libxs_gemm_groups
@@ -332,7 +323,6 @@ libxs_sgemm1
 libxs_sgemm2
 libxs_sgemm3
 libxs_sgemm_
-libxs_sgemm_descriptor_init
 libxs_shuffle
 libxs_sink
 libxs_smmavailable
@@ -360,7 +350,6 @@ libxs_trace_init
 libxs_truncate_convert_f32_bf16
 libxs_typesize
 libxs_unshuffle
-libxs_wigemm_descriptor_init
 libxs_xclear_
 libxs_xdiff_
 libxs_xdispatch
