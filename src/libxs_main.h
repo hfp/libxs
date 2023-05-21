@@ -157,37 +157,36 @@
 # define LIBXS_GEMM_DESCRIPTOR_DIM_CHECK(M, N, K)
 #endif
 
+/** TODO double check it's save to not set the descriptor to zero
+ *we saw issues with re-jit due to different hash */
+#if 0
 #if defined(LIBXS_UNPACKED) || !defined(NDEBUG)
 # define LIBXS_DESCRIPTOR_CLEAR_AUX(DST, SIZE, FLAGS) LIBXS_MEMSET127(DST, 0, SIZE)
 #else
 # define LIBXS_DESCRIPTOR_CLEAR_AUX(DST, SIZE, FLAGS) \
     /*if (LIBXS_GEMM_FLAG_DESC_ISBIG <= (FLAGS)) LIBXS_MEMSET127(DST, 0, SIZE)*/
 #endif
+#else
+#define LIBXS_DESCRIPTOR_CLEAR_AUX(DST, SIZE, FLAGS) LIBXS_MEMSET127(DST, 0, SIZE)
+#endif
 #define LIBXS_DESCRIPTOR_CLEAR(BLOB) \
   LIBXS_ASSERT((LIBXS_DESCRIPTOR_MAXSIZE) == sizeof(*(BLOB))); \
   LIBXS_DESCRIPTOR_CLEAR_AUX(BLOB, LIBXS_DESCRIPTOR_MAXSIZE, 0)
 
 /** Low-level/internal GEMM descriptor initialization. */
-#define LIBXS_GEMM_DESCRIPTOR(DESCRIPTOR, DATA_TYPE, FLAGS, M, N, K, LDA, LDB, LDC, ALPHA, BETA, PREFETCH) \
+#define LIBXS_GEMM_DESCRIPTOR(DESCRIPTOR, DATA_TYPE0, DATA_TYPE1, DATA_TYPE2, FLAGS, M, N, K, LDA, LDB, LDC, PREFETCH) \
   LIBXS_GEMM_DESCRIPTOR_DIM_CHECK(M, N, K); LIBXS_GEMM_DESCRIPTOR_DIM_CHECK(LDA, LDB, LDC); \
   LIBXS_DESCRIPTOR_CLEAR_AUX(&(DESCRIPTOR), sizeof(DESCRIPTOR), FLAGS); \
-  (DESCRIPTOR).datatype = (unsigned char)(DATA_TYPE); (DESCRIPTOR).prefetch = (unsigned char)(PREFETCH); \
-  (DESCRIPTOR).flags = (unsigned int)((FLAGS) | (LIBXS_NEQ(0, BETA) ? 0 : LIBXS_GEMM_FLAG_BETA_0)); \
+  (DESCRIPTOR).datatype[0] = (unsigned char)(DATA_TYPE0); (DESCRIPTOR).datatype[1] = (unsigned char)(DATA_TYPE1); \
+  (DESCRIPTOR).datatype[2] = (unsigned char)(DATA_TYPE2); (DESCRIPTOR).prefetch = (unsigned char)(PREFETCH); \
+  (DESCRIPTOR).flags = (unsigned int)(FLAGS); \
   (DESCRIPTOR).m   = (unsigned int)(M);   (DESCRIPTOR).n   = (unsigned int)(N);   (DESCRIPTOR).k   = (unsigned int)(K); \
   (DESCRIPTOR).lda = (unsigned int)(LDA); (DESCRIPTOR).ldb = (unsigned int)(LDB); (DESCRIPTOR).ldc = (unsigned int)(LDC)
 
-/** Similar to LIBXS_GEMM_DESCRIPTOR, but separately taking the input-/output-precision. */
-#define LIBXS_GEMM_DESCRIPTOR2(DESCRIPTOR, IPREC, OPREC, FLAGS, M, N, K, LDA, LDB, LDC, ALPHA, BETA, PREFETCH) \
-  LIBXS_GEMM_DESCRIPTOR(DESCRIPTOR, LIBXS_GETENUM(IPREC, OPREC), FLAGS, M, N, K, LDA, LDB, LDC, ALPHA, BETA, PREFETCH)
-
 /** Declare and construct a GEMM descriptor. */
-#define LIBXS_GEMM_DESCRIPTOR_TYPE(DESCRIPTOR, DATA_TYPE, FLAGS, M, N, K, LDA, LDB, LDC, ALPHA, BETA, PREFETCH) \
-  libxs_gemm_descriptor DESCRIPTOR; LIBXS_GEMM_DESCRIPTOR(DESCRIPTOR, DATA_TYPE, \
-    FLAGS, M, N, K, LDA, LDB, LDC, ALPHA, BETA, PREFETCH)
-
-/** Similar to LIBXS_GEMM_DESCRIPTOR_TYPE, but separately taking the input-/output-precision. */
-#define LIBXS_GEMM_DESCRIPTOR2_TYPE(DESCRIPTOR, IPREC, OPREC, FLAGS, M, N, K, LDA, LDB, LDC, ALPHA, BETA, PREFETCH) \
-  LIBXS_GEMM_DESCRIPTOR_TYPE(DESCRIPTOR, LIBXS_GETENUM(IPREC, OPREC), FLAGS, M, N, K, LDA, LDB, LDC, ALPHA, BETA, PREFETCH)
+#define LIBXS_GEMM_DESCRIPTOR_TYPE(DESCRIPTOR, DATA_TYPE0, DATA_TYPE1, DATA_TYPE2, FLAGS, M, N, K, LDA, LDB, LDC, PREFETCH) \
+  libxs_gemm_descriptor DESCRIPTOR; LIBXS_GEMM_DESCRIPTOR(DESCRIPTOR, DATA_TYPE0, DATA_TYPE1, DATA_TYPE2 \
+    FLAGS, M, N, K, LDA, LDB, LDC, PREFETCH)
 
 #define LIBXS_REGDESC_DEFAULT
 #define LIBXS_REGDESC(START, MODIFIER) \
@@ -209,7 +208,7 @@ LIBXS_EXTERN_C LIBXS_PACKED(struct) libxs_gemm_descriptor {
   /** Prefetch strategy. */
   unsigned char prefetch;
   /** Denotes the data-type. */
-  unsigned char datatype;
+  unsigned char datatype[3];
   /**
    * Do not reorder elements between above and below blocks!
    */
@@ -559,5 +558,4 @@ LIBXS_APIVAR_PRIVATE(double libxs_timer_scale);
 LIBXS_APIVAR_PRIVATE(unsigned int libxs_statistic_num_spmdm);
 /** Counts the maximum number of thread that have been active. */
 LIBXS_APIVAR_PRIVATE(unsigned int libxs_thread_count);
-
 #endif /*LIBXS_MAIN_H*/
