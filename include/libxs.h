@@ -88,11 +88,6 @@ LIBXS_API int libxs_get_verbosity(void);
  */
 LIBXS_API void libxs_set_verbosity(int level);
 
-/** Get the default prefetch strategy. */
-LIBXS_API libxs_gemm_prefetch_type libxs_get_gemm_auto_prefetch(void);
-/** Set the default prefetch strategy. */
-LIBXS_API void libxs_set_gemm_auto_prefetch(libxs_gemm_prefetch_type strategy);
-
 /** Get information about the matrix multiplication kernel. */
 LIBXS_API int libxs_get_mmkernel_info(libxs_xmmfunction kernel, libxs_mmkernel_info* info);
 /** Get information about the matrix eltwise kernel. */
@@ -156,28 +151,6 @@ LIBXS_API libxs_dmmfunction libxs_dmmdispatch_v2( const libxs_blasint m, const l
 LIBXS_API libxs_smmfunction libxs_smmdispatch_v2( const libxs_blasint m, const libxs_blasint n, const libxs_blasint k,
                                                      const libxs_blasint* lda, const libxs_blasint* ldb, const libxs_blasint* ldc,
                                                      const int* basicflags );
-
-/** Query or JIT-generate SMM-kernel; returns NULL if it does not exist or if JIT is not supported (double-precision). */
-LIBXS_API libxs_dmmfunction libxs_dmmdispatch(libxs_blasint m, libxs_blasint n, libxs_blasint k,
-  const libxs_blasint* lda, const libxs_blasint* ldb, const libxs_blasint* ldc,
-  const double* alpha, const double* beta, const int* flags, const int* prefetch);
-/** Query or JIT-generate SMM-kernel; returns NULL if it does not exist or if JIT is not supported (single-precision). */
-LIBXS_API libxs_smmfunction libxs_smmdispatch(libxs_blasint m, libxs_blasint n, libxs_blasint k,
-  const libxs_blasint* lda, const libxs_blasint* ldb, const libxs_blasint* ldc,
-  const float* alpha, const float* beta, const int* flags, const int* prefetch);
-
-/** Helper for tuning the given gemm_flags for batches of SMMs (NTS-hint). */
-LIBXS_API libxs_bitfield libxs_gemm_batch_flags(
-  int gemm_flags, const libxs_gemm_shape* gemm_shape, const void* c,
-  /**
-   * If the returned value is larger than zero, the vector-length (in Bytes)
-   * is larger than C's element-width and it can be used to check against a
-   * stride of subsequent C-addresses, i.e., there is sufficient alignment
-   * if 0 == LIBXS_MOD2(stride_in_byte, *vlen) and the tuned flag
-   * can be adopted.
-   * The vlen argument can be NULL if no further check is desired.
-   */
-  int* vlen);
 
 /**
  * Process a series of SMMs (batch). See also libxs_gemm_batch/omp.

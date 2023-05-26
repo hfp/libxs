@@ -427,7 +427,8 @@ LIBXS_API_INTERN size_t libxs_alignment(size_t size, size_t alignment)
 {
   size_t result;
   if ((LIBXS_MALLOC_ALIGNFCT * LIBXS_MALLOC_ALIGNMAX) <= size) {
-    result = libxs_lcm(0 == alignment ? (LIBXS_ALIGNMENT) : libxs_lcm(alignment, LIBXS_ALIGNMENT), LIBXS_MALLOC_ALIGNMAX);
+    result = libxs_lcm(0 == alignment ? (LIBXS_ALIGNMENT)
+      : libxs_lcm(alignment, LIBXS_ALIGNMENT), LIBXS_MALLOC_ALIGNMAX);
   }
   else { /* small-size request */
     if ((LIBXS_MALLOC_ALIGNFCT * LIBXS_ALIGNMENT) <= size) {
@@ -478,7 +479,8 @@ internal_malloc_info_type* internal_malloc_info(const void* memory, int check)
 #if defined(LIBXS_MALLOC_INFO_ALLOCSIZE)
         || (result->size_alloc < result->size)
 #endif
-        || (LIBXS_MAX(LIBXS_MAX(internal_malloc_public_max, internal_malloc_local_max), internal_malloc_private_max) < result->size
+        || (LIBXS_MAX(LIBXS_MAX(internal_malloc_public_max, internal_malloc_local_max),
+              internal_malloc_private_max) < result->size
             && 0 == (flags_px & result->flags)) || (0 == result->size)
         || (2 > libxs_ninit) /* before checksum calculation */
 #if !defined(LIBXS_MALLOC_CRC_OFF) /* last check: checksum over info */
@@ -490,6 +492,11 @@ internal_malloc_info_type* internal_malloc_info(const void* memory, int check)
 # endif
 #endif
       ) { /* mismatch */
+#if !defined(NDEBUG)
+        if (0 != libxs_verbosity) { /* library code is expected to be mute */
+          fprintf(stderr, "LIBXS ERROR: malloc/free mismatch!\n");
+        }
+#endif
         result = NULL;
       }
     }

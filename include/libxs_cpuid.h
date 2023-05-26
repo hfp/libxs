@@ -60,13 +60,8 @@ LIBXS_EXTERN_C typedef struct libxs_cpuid_info {
 } libxs_cpuid_info;
 
 /** Returns the target architecture and instruction set extensions. */
-#if defined(__cplusplus) /* note: stay compatible with TF */
-LIBXS_API int libxs_cpuid_x86(libxs_cpuid_info* info = NULL);
-LIBXS_API int libxs_cpuid_arm(libxs_cpuid_info* info = NULL);
-#else
-LIBXS_API int libxs_cpuid_x86(libxs_cpuid_info* info);
-LIBXS_API int libxs_cpuid_arm(libxs_cpuid_info* info);
-#endif
+LIBXS_API int libxs_cpuid_x86(libxs_cpuid_info* LIBXS_ARGDEF(info, NULL));
+LIBXS_API int libxs_cpuid_arm(libxs_cpuid_info* LIBXS_ARGDEF(info, NULL));
 
 /**
  * TODO: limited lifetime API until we have a fully-fledged ARM CPU flags test.
@@ -90,11 +85,7 @@ LIBXS_API int libxs_cpuid_dot_pack_factor(libxs_datatype datatype);
  * The actual code path (as used by LIBXS) is determined by
  * libxs_[get|set]_target_archid/libxs_[get|set]_target_arch.
  */
-#if defined(__cplusplus)
-LIBXS_API int libxs_cpuid(libxs_cpuid_info* info = NULL);
-#else
-LIBXS_API int libxs_cpuid(libxs_cpuid_info* info);
-#endif
+LIBXS_API int libxs_cpuid(libxs_cpuid_info* LIBXS_ARGDEF(info, NULL));
 
 /**
  * Names the CPU architecture given by CPUID.

@@ -9,7 +9,7 @@
 #ifndef LIBXS_MEM_H
 #define LIBXS_MEM_H
 
-#include <libxs_typedefs.h>
+#include "libxs_typedefs.h"
 
 #define LIBXS_MEM127_LOOP(DST, SRC, SIZE, RHS, NTS) do { \
   const signed char libxs_memory127_loop_size_ = LIBXS_CAST_ICHAR(SIZE); \
