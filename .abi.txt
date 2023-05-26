@@ -89,7 +89,6 @@ libxs_dmmcall
 libxs_dmmcall_abc
 libxs_dmmcall_prf
 libxs_dmmdispatch
-libxs_dmmdispatch_v2
 libxs_dsqrt
 libxs_dvalue
 libxs_finalize
@@ -132,9 +131,8 @@ libxs_generator_spgemm_csc_kernel
 libxs_generator_spgemm_csr_kernel
 libxs_generator_spgemm_csr_reg_kernel
 libxs_get_default_allocator
-libxs_get_gemm_auto_prefetch
 libxs_get_gemm_prefetch
-libxs_get_gemm_xprefetch
+libxs_get_gemm_typename
 libxs_get_kernel_info
 libxs_get_malloc
 libxs_get_malloc_info
@@ -303,7 +301,6 @@ libxs_rng_set_seed
 libxs_rng_u32
 libxs_scratch_malloc
 libxs_set_default_allocator
-libxs_set_gemm_auto_prefetch
 libxs_set_malloc
 libxs_set_scratch_allocator
 libxs_set_scratch_limit
@@ -330,7 +327,6 @@ libxs_smmcall
 libxs_smmcall_abc
 libxs_smmcall_prf
 libxs_smmdispatch
-libxs_smmdispatch_v2
 libxs_ssqrt
 libxs_stdio_acquire
 libxs_stdio_release

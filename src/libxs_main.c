@@ -94,13 +94,6 @@ LIBXS_EXTERN int posix_memalign(void**, size_t, size_t) LIBXS_NOTHROW;
 # define LIBXS_COLLISION_COUNT_STATIC
 #endif
 
-/** Helper macro determining the default prefetch strategy which is used for statically generated kernels. */
-#if (0 > LIBXS_PREFETCH) /* auto-prefetch (frontend) */ || (defined(_WIN32) || defined(__CYGWIN__))
-# define INTERNAL_PREFETCH LIBXS_GEMM_PREFETCH_NONE
-#else
-# define INTERNAL_PREFETCH ((libxs_gemm_prefetch_type)LIBXS_PREFETCH)
-#endif
-
 #if (0 != LIBXS_SYNC)
 # if !defined(INTERNAL_REGLOCK_MAXN)
 #   if defined(_MSC_VER)
@@ -242,7 +235,6 @@ LIBXS_APIVAR_DEFINE(unsigned int internal_statistic_mnk);
 LIBXS_APIVAR_DEFINE(unsigned int internal_statistic_num_gemv);
 LIBXS_APIVAR_DEFINE(unsigned int internal_statistic_num_meltw);
 LIBXS_APIVAR_DEFINE(unsigned int internal_statistic_num_user);
-LIBXS_APIVAR_DEFINE(int internal_gemm_auto_prefetch_locked);
 LIBXS_APIVAR_DEFINE(const char* internal_build_state);
 /** Time stamp (startup time of library). */
 LIBXS_APIVAR_DEFINE(libxs_timer_tickint internal_timer_start);
@@ -275,6 +267,7 @@ LIBXS_APIVAR_PRIVATE_DEF(unsigned int libxs_thread_count);
 /* definition of corresponding variables */
 LIBXS_APIVAR_PUBLIC_DEF(LIBXS_LOCK_TYPE(LIBXS_LOCK) libxs_lock_global);
 LIBXS_APIVAR_PUBLIC_DEF(int libxs_nosync);
+
 
 LIBXS_API_INTERN void* libxs_memalign_internal(size_t alignment, size_t size)
 {
@@ -546,7 +539,7 @@ LIBXS_API_INLINE void internal_register_static_code(
     const size_t size_desc = sizeof(libxs_gemm_descriptor);
     libxs_descriptor_blob blob;
     const libxs_gemm_descriptor *const desc = libxs_gemm_descriptor_init(&blob, precision, precision, precision, precision,
-      m, n, k, lda, ldb, ldc, LIBXS_FLAGS | ((LIBXS_BETA == 0) ? (LIBXS_GEMM_FLAG_BETA_0) : 0), INTERNAL_PREFETCH);
+      m, n, k, lda, ldb, ldc, LIBXS_FLAGS | ((LIBXS_BETA == 0) ? (LIBXS_GEMM_FLAG_BETA_0) : 0), LIBXS_GEMM_PREFETCH_NONE);
     unsigned int i = LIBXS_MOD2(
       libxs_crc32(LIBXS_HASH_SEED, desc, LIBXS_MIN(size_desc, size)),
       LIBXS_CAPACITY_REGISTRY);
@@ -1100,26 +1093,6 @@ LIBXS_API_INTERN void internal_init(void)
       memset(new_cache, 0, (LIBXS_NTHREADS_MAX) * sizeof(internal_cache_type));
 #endif
       libxs_xcopy_init(libxs_target_archid);
-      { const char *const env = getenv("LIBXS_GEMM_PREFETCH");
-#if (defined(_WIN32) || defined(__CYGWIN__))
-        libxs_gemm_auto_prefetch_default = INTERNAL_PREFETCH;
-#else
-        libxs_gemm_auto_prefetch_default = (0 == internal_statistic_ntry(0/*DP*/) && 0 == internal_statistic_ntry(1/*SP*/))
-          /* avoid special prefetch if static code is present, since such code uses INTERNAL_PREFETCH */
-          ? (((LIBXS_X86_AVX512 >= libxs_target_archid || LIBXS_X86_AVX512_CORE <= libxs_target_archid))
-            ? LIBXS_GEMM_PREFETCH_AL2BL2_VIA_C : LIBXS_GEMM_PREFETCH_BL2_VIA_C/*KNx*/)
-          : INTERNAL_PREFETCH;
-#endif
-        libxs_gemm_auto_prefetch = INTERNAL_PREFETCH;
-        if (NULL != env && '\0' != *env) { /* user input beyond auto-prefetch is always considered */
-          const int uid = atoi(env);
-          if (0 <= uid) {
-            libxs_gemm_auto_prefetch_default = libxs_gemm_uid2prefetch(uid);
-            libxs_gemm_auto_prefetch = libxs_gemm_auto_prefetch_default;
-            internal_gemm_auto_prefetch_locked = 1;
-          }
-        }
-      }
       for (i = 0; i < (LIBXS_CAPACITY_REGISTRY); ++i) ((libxs_code_pointer*)new_registry)[i].ptr = NULL;
       LIBXS_ASSERT(NULL == internal_registry && NULL == internal_registry_keys);
 #if defined(LIBXS_NTHREADS_USE) && defined(LIBXS_CACHE_MAXSIZE) && (0 < (LIBXS_CACHE_MAXSIZE))
@@ -1324,7 +1297,7 @@ LIBXS_API_CTOR void libxs_init(void)
       internal_init();
     }
 #if defined(LIBXS_PERF)
-    libxs_perf_init();
+    libxs_perf_init(libxs_timer_tick);
 #endif
   }
 }
@@ -1394,11 +1367,11 @@ LIBXS_API_DTOR void libxs_finalize(void)
                 const unsigned int nsta = (0 != (LIBXS_CODE_STATIC & code.uval) ? 1 : 0);
                 /* count whether kernel is static or JIT-code */
                 internal_update_mmstatistic(desc, 0, 0, njit, nsta);
+                ++rest;
               }
               else {
                 ++internal_statistic_num_gemv;
               }
-              ++rest;
             } break;
             case LIBXS_KERNEL_KIND_MELTW: {
               ++internal_statistic_num_meltw;
@@ -1725,21 +1698,6 @@ LIBXS_API void libxs_set_verbosity(int level)
 }
 
 
-LIBXS_API libxs_gemm_prefetch_type libxs_get_gemm_auto_prefetch(void)
-{
-  return (libxs_gemm_prefetch_type)libxs_gemm_auto_prefetch;
-}
-
-
-LIBXS_API void libxs_set_gemm_auto_prefetch(libxs_gemm_prefetch_type strategy)
-{
-  if (0 == internal_gemm_auto_prefetch_locked) { /* LIBXS_GEMM_PREFETCH environment takes precedence */
-    LIBXS_ATOMIC_STORE(&libxs_gemm_auto_prefetch_default, strategy, LIBXS_ATOMIC_RELAXED);
-    LIBXS_ATOMIC_STORE(&libxs_gemm_auto_prefetch, strategy, LIBXS_ATOMIC_RELAXED);
-  }
-}
-
-
 LIBXS_API int libxs_dvalue(libxs_datatype datatype, const void* value, double* dvalue)
 {
   int result = EXIT_SUCCESS;
@@ -1758,9 +1716,9 @@ LIBXS_API int libxs_dvalue(libxs_datatype datatype, const void* value, double* d
   return result;
 }
 
-LIBXS_API const char* libxs_get_gemm_typename(const unsigned char *datatype)
+LIBXS_API const char* libxs_get_gemm_typename(const unsigned char* datatype)
 {
-  int common_dt = (int)LIBXS_GEMM_GETENUM_ABC_COMMON_PREC(datatype);
+  const int common_dt = (int)LIBXS_GEMM_GETENUM_ABC_COMMON_PREC(datatype);
   switch (common_dt) {
     case LIBXS_DATATYPE_F64:  return "f64";
     case LIBXS_DATATYPE_F32:  return "f32";
@@ -1991,7 +1949,7 @@ LIBXS_API_INTERN int libxs_build(const libxs_build_request* request, unsigned in
         if (0 > libxs_verbosity)
 # endif
         {
-          const int uid = libxs_gemm_prefetch2uid((libxs_gemm_prefetch_type)request->descriptor.gemm->prefetch);
+          const int uid = request->descriptor.gemm->prefetch;
           const char *const tname = libxs_get_gemm_typename(request->descriptor.gemm->datatype);
           const char *const meltw_tname = libxs_get_typename((libxs_datatype)request->descriptor.gemm->meltw_datatype_aux);
           int typesigns = 0, br = 0, kernabi = 0, stride_a = 0, stride_b = 0;
@@ -2122,7 +2080,7 @@ LIBXS_API_INTERN int libxs_build(const libxs_build_request* request, unsigned in
         if (0 > libxs_verbosity)
 # endif
         {
-          const int uid = libxs_gemm_prefetch2uid((libxs_gemm_prefetch_type)request->descriptor.pspgemm_csr->gemm->prefetch);
+          const int uid = request->descriptor.pspgemm_csr->gemm->prefetch;
           const char *const tname = libxs_get_gemm_typename(request->descriptor.pspgemm_csr->gemm->datatype);
           /* adopt scheme which allows kernel names of LIBXS to appear in order (Intel VTune, etc.) */
           LIBXS_SNPRINTF(jit_name, sizeof(jit_name), "libxs_%s_%s_%c%c_%ux%ux%u_%u_%u_%u_w%u_a%i_b%i_p%i_nnz%u.pspgemm_csr", target_arch, tname,
@@ -2153,7 +2111,7 @@ LIBXS_API_INTERN int libxs_build(const libxs_build_request* request, unsigned in
         if (0 > libxs_verbosity)
 # endif
         {
-          const int uid = libxs_gemm_prefetch2uid((libxs_gemm_prefetch_type)request->descriptor.pspgemm_csc->gemm->prefetch);
+          const int uid = request->descriptor.pspgemm_csc->gemm->prefetch;
           const char *const tname = libxs_get_gemm_typename(request->descriptor.pspgemm_csc->gemm->datatype);
           /* adopt scheme which allows kernel names of LIBXS to appear in order (Intel VTune, etc.) */
           LIBXS_SNPRINTF(jit_name, sizeof(jit_name), "libxs_%s_%s_%c%c_%ux%ux%u_%u_%u_%u_w%u_a%i_b%i_p%i_nnz%u.pspgemm_csc", target_arch, tname,
@@ -2179,7 +2137,7 @@ LIBXS_API_INTERN int libxs_build(const libxs_build_request* request, unsigned in
         if (0 > libxs_verbosity)
 # endif
         {
-          const int uid = libxs_gemm_prefetch2uid((libxs_gemm_prefetch_type)request->descriptor.pgemmacrm->gemm->prefetch);
+          const int uid = request->descriptor.pgemmacrm->gemm->prefetch;
           const char *const tname = libxs_get_gemm_typename(request->descriptor.pgemmacrm->gemm->datatype);
           /* adopt scheme which allows kernel names of LIBXS to appear in order (Intel VTune, etc.) */
           LIBXS_SNPRINTF(jit_name, sizeof(jit_name), "libxs_%s_%s_%c%c_%ux%ux%u_%u_%u_%u_w%u_a%i_b%i_p%i.pgemmacrm", target_arch, tname,
@@ -2205,7 +2163,7 @@ LIBXS_API_INTERN int libxs_build(const libxs_build_request* request, unsigned in
         if (0 > libxs_verbosity)
 # endif
         {
-          const int uid = libxs_gemm_prefetch2uid((libxs_gemm_prefetch_type)request->descriptor.pgemmbcrm->gemm->prefetch);
+          const int uid = request->descriptor.pgemmbcrm->gemm->prefetch;
           const char *const tname = libxs_get_gemm_typename(request->descriptor.pgemmbcrm->gemm->datatype);
           /* adopt scheme which allows kernel names of LIBXS to appear in order (Intel VTune, etc.) */
           LIBXS_SNPRINTF(jit_name, sizeof(jit_name), "libxs_%s_%s_%c%c_%ux%ux%u_%u_%u_%u_w%u_a%i_b%i_p%i.pgemmbcrm", target_arch, tname,
@@ -2235,7 +2193,7 @@ LIBXS_API_INTERN int libxs_build(const libxs_build_request* request, unsigned in
         if (0 > libxs_verbosity)
 # endif
         {
-          const int uid = libxs_gemm_prefetch2uid((libxs_gemm_prefetch_type)request->descriptor.sreg->gemm->prefetch);
+          const int uid = request->descriptor.sreg->gemm->prefetch;
           const char *const tname = libxs_get_gemm_typename(request->descriptor.sreg->gemm->datatype);
           /* adopt scheme which allows kernel names of LIBXS to appear in order (Intel VTune, etc.) */
           LIBXS_SNPRINTF(jit_name, sizeof(jit_name), "libxs_%s_%s_%c%c_%ux%ux%u_%u_%u_%u_a%i_b%i_p%i.sreg", target_arch, tname,
@@ -3102,7 +3060,7 @@ LIBXS_API libxs_gemmfunction libxs_dispatch_gemm_v2( const libxs_gemm_shape gemm
     gemm_shape.b_in_type, gemm_shape.comp_type, gemm_shape.out_type,
     gemm_shape.m, gemm_shape.n, gemm_shape.k,
     gemm_shape.lda, gemm_shape.ldb, gemm_shape.ldc,
-    l_gemm_flags, libxs_get_gemm_xprefetch((const int*)&prefetch_flags));
+    l_gemm_flags, libxs_get_gemm_prefetch(prefetch_flags));
 
   /* JIT! */
   result = libxs_xmmdispatch(desc);
@@ -3142,7 +3100,7 @@ LIBXS_API libxs_gemmfunction libxs_dispatch_brgemm_v2( const libxs_gemm_shape ge
     gemm_shape.b_in_type, gemm_shape.comp_type, gemm_shape.out_type,
     gemm_shape.m, gemm_shape.n, gemm_shape.k,
     gemm_shape.lda, gemm_shape.ldb, gemm_shape.ldc,
-    l_gemm_flags, libxs_get_gemm_xprefetch((const int*)&prefetch_flags));
+    l_gemm_flags, libxs_get_gemm_prefetch(prefetch_flags));
 
   /* add more BRGEMM related fields */
   if ( (brgemm_config.br_type != LIBXS_GEMM_BATCH_REDUCE_NONE) ) {
@@ -3199,7 +3157,7 @@ LIBXS_API libxs_gemmfunction_ext libxs_dispatch_brgemm_ext_v2( const libxs_gemm_
     gemm_shape.b_in_type, gemm_shape.comp_type, gemm_shape.out_type,
     gemm_shape.m, gemm_shape.n, gemm_shape.k,
     gemm_shape.lda, gemm_shape.ldb, gemm_shape.ldc,
-    l_gemm_flags, libxs_get_gemm_xprefetch((const int*)&prefetch_flags));
+    l_gemm_flags, libxs_get_gemm_prefetch(prefetch_flags));
 
   /* add more BRGEMM related fields */
   if ( (brgemm_config.br_type != LIBXS_GEMM_BATCH_REDUCE_NONE) ) {
@@ -3263,7 +3221,7 @@ LIBXS_API libxs_dmmfunction libxs_dmmdispatch_v2( const libxs_blasint m, const l
     m, n, k,
     NULL != lda ? *lda : (0 == (LIBXS_GEMM_FLAG_TRANS_A & gemm_flags) ? m : k),
     NULL != ldb ? *ldb : (0 == (LIBXS_GEMM_FLAG_TRANS_B & gemm_flags) ? k : n),
-    NULL != ldc ? *ldc : m, gemm_flags, libxs_get_gemm_xprefetch(NULL));
+    NULL != ldc ? *ldc : m, gemm_flags, libxs_get_gemm_prefetch(LIBXS_PREFETCH_AUTO));
   /*const*/ libxs_xmmfunction result = libxs_xmmdispatch(desc);
   return result.dmm;
 }
@@ -3279,56 +3237,8 @@ LIBXS_API libxs_smmfunction libxs_smmdispatch_v2( const libxs_blasint m, const l
     m, n, k,
     NULL != lda ? *lda : (0 == (LIBXS_GEMM_FLAG_TRANS_A & gemm_flags) ? m : k),
     NULL != ldb ? *ldb : (0 == (LIBXS_GEMM_FLAG_TRANS_B & gemm_flags) ? k : n),
-    NULL != ldc ? *ldc : m, gemm_flags, libxs_get_gemm_xprefetch(NULL));
+    NULL != ldc ? *ldc : m, gemm_flags, libxs_get_gemm_prefetch(LIBXS_PREFETCH_AUTO));
   /*const*/ libxs_xmmfunction result = libxs_xmmdispatch(desc);
-  return result.smm;
-}
-
-
-LIBXS_API libxs_dmmfunction libxs_dmmdispatch(libxs_blasint m, libxs_blasint n, libxs_blasint k,
-  const libxs_blasint* lda, const libxs_blasint* ldb, const libxs_blasint* ldc,
-  const double* alpha, const double* beta, const int* flags, const int* prefetch)
-{
-  int gemm_flags = (NULL == flags ? LIBXS_FLAGS : *flags);
-  libxs_xmmfunction result;
-  result.ptr = NULL;
-  if ( NULL != alpha ) { if ( *alpha != 1 )                  { result.ptr = NULL; } }
-  if ( NULL != beta )  { if ( (*beta != 1) && (*beta != 0) ) { result.ptr = NULL; } }
-  gemm_flags |= (beta != NULL ) ? (( *beta == 0 ) ?  LIBXS_GEMM_FLAG_BETA_0 : 0 ) : 0;
-  {
-    libxs_descriptor_blob blob;
-    const libxs_gemm_descriptor *const desc = libxs_gemm_descriptor_init(&blob,
-      LIBXS_DATATYPE_F64, LIBXS_DATATYPE_F64, LIBXS_DATATYPE_F64, LIBXS_DATATYPE_F64,
-      m, n, k,
-      NULL != lda ? *lda : (0 == (LIBXS_GEMM_FLAG_TRANS_A & gemm_flags) ? m : k),
-      NULL != ldb ? *ldb : (0 == (LIBXS_GEMM_FLAG_TRANS_B & gemm_flags) ? k : n),
-      NULL != ldc ? *ldc : m, gemm_flags, libxs_get_gemm_xprefetch(prefetch));
-    result = libxs_xmmdispatch(desc);
-  }
-  return result.dmm;
-}
-
-
-LIBXS_API libxs_smmfunction libxs_smmdispatch(libxs_blasint m, libxs_blasint n, libxs_blasint k,
-  const libxs_blasint* lda, const libxs_blasint* ldb, const libxs_blasint* ldc,
-  const float* alpha, const float* beta, const int* flags, const int* prefetch)
-{
-  int gemm_flags = (NULL == flags ? LIBXS_FLAGS : *flags);
-  libxs_xmmfunction result;
-  result.ptr = NULL;
-  if ( NULL != alpha ) { if ( *alpha != 1 )                  { result.ptr = NULL; } }
-  if ( NULL != beta )  { if ( (*beta != 1) && (*beta != 0) ) { result.ptr = NULL; } }
-  gemm_flags |= (beta != NULL ) ? (( *beta == 0 ) ?  LIBXS_GEMM_FLAG_BETA_0 : 0 ) : 0;
-  {
-    libxs_descriptor_blob blob;
-    const libxs_gemm_descriptor *const desc = libxs_gemm_descriptor_init(&blob,
-      LIBXS_DATATYPE_F32, LIBXS_DATATYPE_F32, LIBXS_DATATYPE_F32, LIBXS_DATATYPE_F32,
-      m, n, k,
-      NULL != lda ? *lda : (0 == (LIBXS_GEMM_FLAG_TRANS_A & gemm_flags) ? m : k),
-      NULL != ldb ? *ldb : (0 == (LIBXS_GEMM_FLAG_TRANS_B & gemm_flags) ? k : n),
-      NULL != ldc ? *ldc : m, gemm_flags, libxs_get_gemm_xprefetch(prefetch));
-    result = libxs_xmmdispatch(desc);
-  }
   return result.smm;
 }
 
@@ -3539,7 +3449,7 @@ LIBXS_API libxs_gemmfunction libxs_create_packed_spgemm_csr_v2(
     gemm_shape.b_in_type, gemm_shape.comp_type, gemm_shape.out_type,
     gemm_shape.m, gemm_shape.n, gemm_shape.k,
     gemm_shape.lda, gemm_shape.ldb, gemm_shape.ldc,
-    l_gemm_flags, libxs_get_gemm_xprefetch((const int*)&prefetch_flags));
+    l_gemm_flags, libxs_get_gemm_prefetch(prefetch_flags));
 
   pspgemm_csr.gemm = desc;
   pspgemm_csr.row_ptr = row_ptr;
@@ -3582,7 +3492,7 @@ LIBXS_API libxs_gemmfunction libxs_create_packed_spgemm_csc_v2(
     gemm_shape.b_in_type, gemm_shape.comp_type, gemm_shape.out_type,
     gemm_shape.m, gemm_shape.n, gemm_shape.k,
     gemm_shape.lda, gemm_shape.ldb, gemm_shape.ldc,
-    l_gemm_flags, libxs_get_gemm_xprefetch((const int*)&prefetch_flags));
+    l_gemm_flags, libxs_get_gemm_prefetch(prefetch_flags));
 
   pspgemm_csc.gemm = desc;
   pspgemm_csc.column_ptr = column_ptr;
@@ -3621,7 +3531,7 @@ LIBXS_API libxs_gemmfunction libxs_create_packed_gemm_ac_rm_v2( const libxs_gemm
     gemm_shape.b_in_type, gemm_shape.comp_type, gemm_shape.out_type,
     gemm_shape.m, gemm_shape.n, gemm_shape.k,
     gemm_shape.lda, gemm_shape.ldb, gemm_shape.ldc,
-    l_gemm_flags, libxs_get_gemm_xprefetch((const int*)&prefetch_flags));
+    l_gemm_flags, libxs_get_gemm_prefetch(prefetch_flags));
 
   pgemmacrm.gemm = desc;
   pgemmacrm.packed_width = packed_width;
@@ -3657,7 +3567,7 @@ LIBXS_API libxs_gemmfunction libxs_create_packed_gemm_bc_rm_v2( const libxs_gemm
     gemm_shape.b_in_type, gemm_shape.comp_type, gemm_shape.out_type,
     gemm_shape.m, gemm_shape.n, gemm_shape.k,
     gemm_shape.lda, gemm_shape.ldb, gemm_shape.ldc,
-    l_gemm_flags, libxs_get_gemm_xprefetch((const int*)&prefetch_flags));
+    l_gemm_flags, libxs_get_gemm_prefetch(prefetch_flags));
 
   pgemmbcrm.gemm = desc;
   pgemmbcrm.packed_width = packed_width;
@@ -3697,7 +3607,7 @@ LIBXS_API libxs_gemmfunction libxs_create_spgemm_csr_areg_v2( const libxs_gemm_s
     gemm_shape.b_in_type, gemm_shape.comp_type, gemm_shape.out_type,
     gemm_shape.m, gemm_shape.n, gemm_shape.k,
     gemm_shape.lda, gemm_shape.ldb, gemm_shape.ldc,
-    l_gemm_flags, libxs_get_gemm_xprefetch((const int*)&prefetch_flags));
+    l_gemm_flags, libxs_get_gemm_prefetch(prefetch_flags));
   desc->c1 = max_N;
 
   sreg.gemm = desc;
@@ -3886,7 +3796,7 @@ LIBXS_API void LIBXS_FSYMBOL(libxs_xmmdispatch2)(intptr_t* fn, const int* aprec,
     const libxs_blasint kk = *k, nn = *n;
 #endif
     LIBXS_PRAGMA_FORCEINLINE
-    gemm_prefetch = libxs_get_gemm_xprefetch(prefetch);
+    gemm_prefetch = libxs_get_gemm_prefetch(NULL == prefetch ? LIBXS_PREFETCH_AUTO : *prefetch);
     if ( ctype == LIBXS_DATATYPE_F64 ) {
       const double dalpha = (alpha != NULL) ? *((const double*)alpha) : 1.0;
       const double dbeta  = (beta  != NULL) ? *((const double*)beta)  : 1.0;

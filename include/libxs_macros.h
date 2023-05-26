@@ -113,7 +113,7 @@
   (LIBXS_VERSION_NUMBER COMP LIBXS_VERSION4(MAJOR, MINOR, UPDATE, PATCH))
 
 /**
- * Macro to check minimum version requiremnts in code, for example:
+ * Macro to check minimum version requirements in code, for example:
  * #if LIBXS_VERSION_GE(1, 17, 0, 0)
  * // code requiring version 1.17 or later
  * #else
@@ -270,6 +270,8 @@
 # else
 #   define LIBXS_CALLER __FUNCNAME__
 # endif
+/** Function argument with default value (C++). */
+# define LIBXS_ARGDEF(ARG, DEF) ARG = DEF
 #else /* C */
 # define LIBXS_VARIADIC
 # define LIBXS_EXTERN extern
@@ -291,6 +293,8 @@
 #   define LIBXS_INLINE_KEYWORD
 #   define LIBXS_INLINE_FIXUP
 # endif
+/** Function argument with default value (C++). */
+# define LIBXS_ARGDEF(ARG, DEF) ARG
 /* LIBXS_ATTRIBUTE_USED: increases compile-time of header-only by a large factor */
 # define LIBXS_INLINE static LIBXS_INLINE_KEYWORD LIBXS_ATTRIBUTE_UNUSED
 #endif /*__cplusplus*/
@@ -538,6 +542,8 @@
 #define LIBXS_UP(N, MULT) (LIBXS_UPDIV(N, MULT) * (MULT))
 #define LIBXS_LO2(N, NPOT) ((N) & ~((NPOT) - 1))
 #define LIBXS_UP2(N, NPOT) LIBXS_LO2((N) + ((NPOT) - 1), NPOT)
+/** Examples: N+10%->UPF(N,1,10), N-10%->UPF(N,-1,10), N*90%->UPF(N,-1,10) */
+#define LIBXS_UPF(N, NOM, DEN) (((N) * ((DEN) + (NOM))) / (DEN))
 #define LIBXS_ABS(A) (0 <= (A) ? (A) : -(A))
 #define LIBXS_MIN(A, B) ((A) < (B) ? (A) : (B))
 #define LIBXS_MAX(A, B) ((A) < (B) ? (B) : (A))
@@ -553,7 +559,7 @@
 #define LIBXS_ISNAN(A)  LIBXS_NEQ(A, A)
 #define LIBXS_NOTNAN(A) LIBXS_FEQ(A, A)
 #define LIBXS_ROUNDX(TYPE, A) ((TYPE)((long long)(0 <= (A) ? ((double)(A) + 0.5) : ((double)(A) - 0.5))))
-#define LIBXS_NEARBYINTX(TYPE, A) ((TYPE)((long long)(LIBXS_ROUNDX(TYPE,((double)(A)/2.0))*2)))
+#define LIBXS_NEARBYINTX(TYPE, A) ((TYPE)((long long)(LIBXS_ROUNDX(TYPE, ((double)(A) / 2.0)) * 2)))
 #define LIBXS_CONST_VOID_PTR(A) *((const void**)&(A))
 #define LIBXS_EOR(ENUM_TYPE, ENUM, FLAG) ((ENUM_TYPE)(((int)(ENUM)) | ((int)(FLAG))))
 

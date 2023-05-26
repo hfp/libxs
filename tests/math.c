@@ -221,21 +221,48 @@ int main(int argc, char* argv[])
     }
   }
 
-  { /* check LIBXS_UPDIV, LIBXS_UP and LIBXS_UP2 */
-    const int ainp[] = { 0, 1, 3, 5, 127, 3000 };
-    const int aout[] = { 0, 1, 1, 1,  19,  429 };
-    const int binp[] = { 0, 1, 3, 5, 127, 3000 };
-    const int bout[] = { 0, 7, 7, 7, 133, 3003 };
-    const int cinp[] = { 0, 7, 8, 9, 127, 3000 };
-    const int cout[] = { 0, 0, 8, 8, 120, 3000 };
-    const int dinp[] = { 0, 1, 3, 5, 127, 3000 };
-    const int dout[] = { 0, 8, 8, 8, 128, 3000 };
-    const int n = sizeof(ainp) / sizeof(*ainp);
+  { /* check LIBXS_UPDIV */
+    const int inp[] = { 0, 1, 3, 5, 127, 3000 };
+    const int out[] = { 0, 1, 1, 1,  19,  429 };
+    const int n = sizeof(inp) / sizeof(*inp);
     for (i = 0; i < n; ++i) {
-      if (LIBXS_UPDIV(ainp[i], 7) != aout[i]) exit(EXIT_FAILURE);
-      if (LIBXS_UP(   binp[i], 7) != bout[i]) exit(EXIT_FAILURE);
-      if (LIBXS_LO2(  cinp[i], 8) != cout[i]) exit(EXIT_FAILURE);
-      if (LIBXS_UP2(  dinp[i], 8) != dout[i]) exit(EXIT_FAILURE);
+      if (LIBXS_UPDIV(inp[i], 7) != out[i]) exit(EXIT_FAILURE);
+    }
+  }
+
+  { /* check LIBXS_UP */
+    const int inp[] = { 0, 1, 3, 5, 127, 3000 };
+    const int out[] = { 0, 7, 7, 7, 133, 3003 };
+    const int n = sizeof(inp) / sizeof(*inp);
+    for (i = 0; i < n; ++i) {
+      if (LIBXS_UP(inp[i], 7) != out[i]) exit(EXIT_FAILURE);
+    }
+  }
+
+  { /* check LIBXS_LO2 */
+    const int inp[] = { 0, 7, 8, 9, 127, 3000 };
+    const int out[] = { 0, 0, 8, 8, 120, 3000 };
+    const int n = sizeof(inp) / sizeof(*inp);
+    for (i = 0; i < n; ++i) {
+      if (LIBXS_LO2(inp[i], 8) != out[i]) exit(EXIT_FAILURE);
+    }
+  }
+
+  { /* check LIBXS_UP2 */
+    const int inp[] = { 0, 1, 3, 5, 127, 3000 };
+    const int out[] = { 0, 8, 8, 8, 128, 3000 };
+    const int n = sizeof(inp) / sizeof(*inp);
+    for (i = 0; i < n; ++i) {
+      if (LIBXS_UP2(inp[i], 8) != out[i]) exit(EXIT_FAILURE);
+    }
+  }
+
+  { /* check LIBXS_UPF */
+    const int inp[] = { 0, 1, 3, 5, 127, 3000 };
+    const int out[] = { 0, 1, 3, 5, 130, 3090 };
+    const int n = sizeof(inp) / sizeof(*inp);
+    for (i = 0; i < n; ++i) {
+      if (LIBXS_UPF(inp[i], 3, 100) != out[i]) exit(EXIT_FAILURE);
     }
   }
 

@@ -572,10 +572,6 @@ LIBXS_API void libxs_sink(const void* arg, ...);
   libxs_blas_gemm(LIBXS_DATATYPE_F32, LIBXS_DATATYPE_F32, \
     TRANSA, TRANSB, M, N, K, ALPHA, A, LDA, B, LDB, BETA, C, LDC)
 
-/** Translates GEMM prefetch request into prefetch-enumeration (incl. FE's auto-prefetch). */
-LIBXS_API libxs_gemm_prefetch_type libxs_get_gemm_xprefetch(const int* prefetch);
-LIBXS_API libxs_gemm_prefetch_type libxs_get_gemm_prefetch(int prefetch);
-
 /** Determines the given value in double-precision (EXIT_SUCCESS if value is NULL). */
 LIBXS_API int libxs_dvalue(libxs_datatype datatype, const void* value, double* dvalue);
 
