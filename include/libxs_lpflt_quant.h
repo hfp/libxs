@@ -51,10 +51,11 @@ LIBXS_API void libxs_convert_f16_f32(const libxs_float16* in, float* out, unsign
 /** BF8<->FP32 conversion functions */
 LIBXS_API void libxs_rne_convert_fp32_bf8(const float* in, libxs_bfloat8* out, unsigned int len);
 LIBXS_API void libxs_convert_bf8_f32(const libxs_bfloat8* in, float* out, unsigned int length);
-LIBXS_API void libxs_stochastic_convert_fp32_bf8(const float* in, libxs_bfloat8* out, unsigned int length);
+LIBXS_API void libxs_stochastic_convert_fp32_bf8(const float* in, libxs_bfloat8* out, unsigned int length, void *rng_state, unsigned int start_seed_idx);
 /** HF8<->FP32 conversion functions */
 LIBXS_API libxs_hfloat8 libxs_rne_convert_fp16_hf8( libxs_float16 inp );
 LIBXS_API void libxs_rne_convert_fp32_hf8(const float* in, libxs_hfloat8* out, unsigned int len);
 LIBXS_API void libxs_convert_hf8_f32(const libxs_hfloat8* in, float* out, unsigned int length);
-
+/** internal api : xoshiro128 lfsr implementation */
+LIBXS_API_INTERN void libxs_lsfr_i32( unsigned int* rng_state, unsigned int* prng_out, const unsigned int seed_idx );
 #endif /*LIBXS_LPFLT_QUANT_H*/
