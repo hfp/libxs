@@ -3417,6 +3417,11 @@ LIBXS_API libxs_matrix_eqn_function libxs_dispatch_matrix_eqn_v2(
   const libxs_meqn_descriptor *const desc = libxs_meqn_descriptor_init(&blob,
     out_shape.type, out_shape.m, out_shape.n, out_shape.ld, (unsigned int)idx );
 
+  if (idx >= LIBXS_MAX_EQN_COUNT) {
+    fprintf(stderr, "Exceeded maximum number of equations (%d). Can't create requested equation...\n", LIBXS_MAX_EQN_COUNT);
+    return NULL;
+  }
+
   return libxs_dispatch_matrix_eqn_desc( desc );
 }
 
