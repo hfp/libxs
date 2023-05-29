@@ -19,12 +19,6 @@
 # define MAX_TOLPERC 12
 #endif
 
-#if defined(_WIN32)
-# include <Windows.h>
-#else
-# include <unistd.h>
-#endif
-
 
 LIBXS_INLINE int timer_sleep(unsigned int seconds)
 {

@@ -21,18 +21,22 @@
 #if !defined(NDEBUG)
 # include <errno.h>
 #endif
-#if defined(_WIN32)
-# include <Windows.h>
-#else
+#if !defined(_WIN32)
+# if defined(__GNUC__) || defined(__PGI) || defined(_CRAYC)
+#   include <sys/time.h>
+#   include <time.h>
+# endif
 # include <sys/types.h>
 # include <sys/mman.h>
 # include <sys/stat.h>
-# include <unistd.h>
 # include <fcntl.h>
 #endif
 #if defined(__APPLE__)
 # include <libkern/OSCacheControl.h>
 # include <pthread.h>
+#endif
+#if defined(__powerpc64__)
+# include <sys/platform/ppc.h>
 #endif
 
 /* used internally to re-implement certain exit-handler */
@@ -76,8 +80,8 @@
 #if !defined(LIBXS_AUTOPIN) && 0
 # define LIBXS_AUTOPIN
 #endif
-#if !defined(INTERNAL_DELIMS)
-# define INTERNAL_DELIMS ";,:"
+#if !defined(LIBXS_MAIN_DELIMS)
+# define LIBXS_MAIN_DELIMS ";,:"
 #endif
 
 #if !defined(_WIN32) && !defined(__CYGWIN__)
@@ -615,9 +619,9 @@ LIBXS_API_INTERN void internal_dump(FILE* ostream, int urgent)
   LIBXS_ASSERT_MSG(INTERNAL_SINGLETON(internal_singleton_handle), "Invalid handle");
   /* determine whether this instance is unique or not */
   if (NULL != env_dump_files && '\0' != *env_dump_files && 0 == urgent) { /* dump per-node info */
-    const char* filename = strtok(env_dump_files, INTERNAL_DELIMS);
+    const char* filename = strtok(env_dump_files, LIBXS_MAIN_DELIMS);
     char buffer[1024] = "";
-    for (; NULL != filename; filename = strtok(NULL, INTERNAL_DELIMS)) {
+    for (; NULL != filename; filename = strtok(NULL, LIBXS_MAIN_DELIMS)) {
       FILE* file = fopen(filename, "r");
       if (NULL != file) buffer[0] = '\0';
       else { /* parse keywords */
@@ -667,6 +671,55 @@ LIBXS_API_INTERN void internal_dump(FILE* ostream, int urgent)
       fprintf(ostream, "%s\n", internal_build_state);
     }
   }
+}
+
+
+LIBXS_API double libxs_timer_duration_rtc(libxs_timer_tickint tick0, libxs_timer_tickint tick1)
+{
+  double result = (double)LIBXS_DELTA(tick0, tick1);
+#if defined(_WIN32)
+  LARGE_INTEGER frequency;
+  QueryPerformanceFrequency(&frequency);
+  result /= (double)frequency.QuadPart;
+#elif defined(CLOCK_MONOTONIC)
+  result *= 1E-9;
+#else
+  result *= 1E-6;
+#endif
+  return result;
+}
+
+
+LIBXS_API libxs_timer_tickint libxs_timer_tick_rtc(void)
+{
+  libxs_timer_tickint result;
+#if defined(_WIN32)
+  LARGE_INTEGER t;
+  QueryPerformanceCounter(&t);
+  result = (libxs_timer_tickint)t.QuadPart;
+#elif defined(CLOCK_MONOTONIC)
+  struct timespec t;
+  clock_gettime(CLOCK_MONOTONIC, &t);
+  result = 1000000000ULL * t.tv_sec + t.tv_nsec;
+#else
+  struct timeval t;
+  gettimeofday(&t, 0);
+  result = 1000000ULL * t.tv_sec + t.tv_usec;
+#endif
+  return result;
+}
+
+
+LIBXS_API LIBXS_INTRINSICS(LIBXS_X86_GENERIC)
+libxs_timer_tickint libxs_timer_tick_tsc(void)
+{
+  libxs_timer_tickint result;
+#if defined(LIBXS_TIMER_RDTSC)
+  LIBXS_TIMER_RDTSC(result);
+#else
+  result = libxs_timer_tick_rtc();
+#endif
+  return result;
 }
 
 
@@ -764,8 +817,19 @@ LIBXS_API_INTERN void internal_finalize(void)
         }
       }
       if (LIBXS_VERBOSITY_HIGH < libxs_verbosity || 0 > libxs_verbosity) {
-        libxs_print_cmdline(stderr, "Command: ", "\n");
-        fprintf(stderr, "Uptime: %f s", libxs_timer_duration(internal_timer_start, libxs_timer_tick()));
+        const libxs_timer_tickint timer_end = libxs_timer_tick_tsc();
+        double uptime;
+#if defined(LIBXS_TIMER_RDTSC)
+        if (0 < libxs_timer_scale) {
+          uptime = (double)LIBXS_DELTA(internal_timer_start, timer_end) * libxs_timer_scale;
+        }
+        else
+#endif
+        {
+          uptime = libxs_timer_duration_rtc(internal_timer_start, timer_end);
+        }
+        libxs_print_cmdline(stderr, 0, "Command: ", "\n");
+        fprintf(stderr, "Uptime: %f s", uptime);
         if (1 < libxs_thread_count && INT_MAX == libxs_verbosity) {
           fprintf(stderr, " (nthreads=%u)", libxs_thread_count);
         }
@@ -1033,10 +1097,10 @@ LIBXS_API_INTERN void internal_init(void)
       const libxs_malloc_function null_malloc_fn = { 0 };
       const libxs_free_function null_free_fn = { 0 };
       char *const env_k = getenv("LIBXS_MALLOC"), *const env_t = getenv("LIBXS_MALLOC_LIMIT"), *end = NULL;
-      const char* env_i = (NULL != env_t ? strtok(env_t, INTERNAL_DELIMS) : NULL);
+      const char* env_i = (NULL != env_t ? strtok(env_t, LIBXS_MAIN_DELIMS) : NULL);
       size_t malloc_lo = internal_parse_nbytes(env_i, LIBXS_MALLOC_LIMIT, NULL/*valid*/);
       size_t malloc_hi = (NULL != env_i ? internal_parse_nbytes(
-        strtok(NULL, INTERNAL_DELIMS), LIBXS_SCRATCH_UNLIMITED, NULL/*valid*/) : LIBXS_SCRATCH_UNLIMITED);
+        strtok(NULL, LIBXS_MAIN_DELIMS), LIBXS_SCRATCH_UNLIMITED, NULL/*valid*/) : LIBXS_SCRATCH_UNLIMITED);
       const int malloc_kind = ((NULL == env_k || 0 == *env_k) ? 0/*disabled*/ : ((int)strtol(env_k, &end, 10)));
       libxs_xset_default_allocator(NULL/*lock*/, NULL/*context*/, null_malloc_fn, null_free_fn);
       libxs_xset_scratch_allocator(NULL/*lock*/, NULL/*context*/, null_malloc_fn, null_free_fn);
@@ -1049,9 +1113,9 @@ LIBXS_API_INTERN void internal_init(void)
       }
       else {
         int valid = 1;
-        env_i = strtok(env_k, INTERNAL_DELIMS);
+        env_i = strtok(env_k, LIBXS_MAIN_DELIMS);
         malloc_lo = internal_parse_nbytes(env_i, LIBXS_MALLOC_LIMIT, &valid);
-        env_i = (0 != valid ? strtok(NULL, INTERNAL_DELIMS) : NULL);
+        env_i = (0 != valid ? strtok(NULL, LIBXS_MAIN_DELIMS) : NULL);
         malloc_hi = (NULL != env_i
           ? internal_parse_nbytes(env_i, LIBXS_SCRATCH_UNLIMITED, &valid)
           : LIBXS_SCRATCH_UNLIMITED);
@@ -1297,7 +1361,7 @@ LIBXS_API_CTOR void libxs_init(void)
       internal_init();
     }
 #if defined(LIBXS_PERF)
-    libxs_perf_init(libxs_timer_tick);
+    libxs_perf_init(libxs_timer_tick_rtc);
 #endif
   }
 }
@@ -3681,17 +3745,20 @@ LIBXS_EXTERN int* _NSGetArgc(void);
 #endif
 
 
-LIBXS_API int libxs_print_cmdline(FILE* stream, const char* prefix, const char* postfix)
+LIBXS_API_INTERN int libxs_print_cmdline(void* buffer, size_t buffer_size, const char* prefix, const char* postfix)
 {
   int result = 0;
 #if defined(__linux__)
-  FILE* const cmdline = fopen("/proc/self/cmdline", "r");
+  FILE *const cmdline = fopen("/proc/self/cmdline", "r");
   if (NULL != cmdline) {
     char c;
     if (1 == fread(&c, 1, 1, cmdline) && '\0' != c) {
-      result += fprintf(stream, "%s", prefix);
+      result += (0 == buffer_size ? fprintf((FILE*)buffer, "%s", prefix)
+        : LIBXS_SNPRINTF((char*)buffer + result, buffer_size - result, "%s", prefix));
       do {
-        result += (int)fwrite('\0' != c ? &c : " ", 1, 1, stream);
+        const char d = '\0' != c ? c : ' ';
+        result += (0 == buffer_size ? fprintf((FILE*)buffer, "%c", d)
+          : LIBXS_SNPRINTF((char*)buffer + result, buffer_size - result, "%c", d));
       } while (1 == fread(&c, 1, 1, cmdline));
     }
     fclose(cmdline);
@@ -3708,17 +3775,24 @@ LIBXS_API int libxs_print_cmdline(FILE* stream, const char* prefix, const char* 
 # endif
   if (0 < argc) {
     int i = 1;
-#   if defined(_WIN32)
+# if defined(_WIN32)
     const char *const cmd = strrchr(argv[0], '\\');
-    result += fprintf(stream, "%s%s", prefix, NULL != cmd ? (cmd + 1) : argv[0]);
-#   else
-    result += fprintf(stream, "%s%s", prefix, argv[0]);
-#   endif
-    for (; i < argc; ++i) result += fprintf(stream, " %s", argv[i]);
+    const char *const exe = (NULL != cmd ? (cmd + 1) : argv[0]);
+    result += (0 == buffer_size ? fprintf((FILE*)buffer, "%s%s", prefix, exe)
+      : LIBXS_SNPRINTF((char*)buffer + result, buffer_size - result, "%s%s", prefix, exe));
+# else
+    result += (0 == buffer_size ? fprintf((FILE*)buffer, "%s%s", prefix, argv[0])
+      : LIBXS_SNPRINTF((char*)buffer + result, buffer_size - result, "%s%s", prefix, argv[0]));
+# endif
+    for (; i < argc; ++i) {
+      result += (0 == buffer_size ? fprintf((FILE*)buffer, " %s", argv[i])
+        : LIBXS_SNPRINTF((char*)buffer + result, buffer_size - result, " %s", argv[i]));
+    }
   }
 #endif
   if (0 < result) {
-    result += fprintf(stream, "%s", postfix);
+    result += (0 == buffer_size ? fprintf((FILE*)buffer, "%s", postfix)
+      : LIBXS_SNPRINTF((char*)buffer + result, buffer_size - result, "%s", postfix));
   }
   return result;
 }

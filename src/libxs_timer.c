@@ -9,102 +9,11 @@
 #include <libxs_timer.h>
 #include "libxs_main.h"
 
-#if defined(_WIN32)
-# include <Windows.h>
-#elif defined(__GNUC__) || defined(__PGI) || defined(_CRAYC)
-# include <sys/time.h>
-# include <time.h>
-#endif
-
-#if defined(__powerpc64__)
-# include <sys/platform/ppc.h>
-#endif
-
 #if !defined(LIBXS_TIMER_VERBOSE) && !defined(NDEBUG)
 # if !defined(LIBXS_PLATFORM_AARCH64) || !defined(__APPLE__)
 #   define LIBXS_TIMER_VERBOSE
 # endif
 #endif
-#if !defined(LIBXS_TIMER_TSC)
-# define LIBXS_TIMER_TSC
-#endif
-#if !defined(LIBXS_TIMER_WPC)
-# define LIBXS_TIMER_WPC
-#endif
-
-#if defined(LIBXS_TIMER_TSC)
-# if defined(__powerpc64__)
-#   define LIBXS_TIMER_RDTSC(CYCLE) do { \
-      CYCLE = __ppc_get_timebase(); \
-    } while(0)
-# elif ((defined(LIBXS_PLATFORM_X86) && (64 <= (LIBXS_BITS))) && \
-        (defined(__GNUC__) || defined(LIBXS_INTEL_COMPILER) || defined(__PGI)))
-#   define LIBXS_TIMER_RDTSC(CYCLE) do { \
-      libxs_timer_tickint libxs_timer_rdtsc_hi_; \
-      __asm__ __volatile__ ("rdtsc" : "=a"(CYCLE), "=d"(libxs_timer_rdtsc_hi_)); \
-      CYCLE |= libxs_timer_rdtsc_hi_ << 32; \
-    } while(0)
-# elif (defined(_rdtsc) || defined(_WIN32)) && defined(LIBXS_PLATFORM_X86)
-#   define LIBXS_TIMER_RDTSC(CYCLE) (CYCLE = __rdtsc())
-# endif
-#endif
-
-
-LIBXS_API_INTERN double libxs_timer_duration_rtc(libxs_timer_tickint tick0, libxs_timer_tickint tick1)
-{
-  double result = (double)LIBXS_DELTA(tick0, tick1);
-#if defined(_WIN32)
-# if defined(LIBXS_TIMER_WPC)
-  LARGE_INTEGER frequency;
-  QueryPerformanceFrequency(&frequency);
-  result /= (double)frequency.QuadPart;
-# else /* low resolution */
-  result *= 1E-3;
-# endif
-#elif defined(CLOCK_MONOTONIC)
-  result *= 1E-9;
-#else
-  result *= 1E-6;
-#endif
-  return result;
-}
-
-
-LIBXS_API_INTERN libxs_timer_tickint libxs_timer_tick_rtc(void)
-{
-  libxs_timer_tickint result;
-#if defined(_WIN32)
-# if defined(LIBXS_TIMER_WPC)
-  LARGE_INTEGER t;
-  QueryPerformanceCounter(&t);
-  result = (libxs_timer_tickint)t.QuadPart;
-# else /* low resolution */
-  result = (libxs_timer_tickint)GetTickCount64();
-# endif
-#elif defined(CLOCK_MONOTONIC)
-  struct timespec t;
-  clock_gettime(CLOCK_MONOTONIC, &t);
-  result = 1000000000ULL * t.tv_sec + t.tv_nsec;
-#else
-  struct timeval t;
-  gettimeofday(&t, 0);
-  result = 1000000ULL * t.tv_sec + t.tv_usec;
-#endif
-  return result;
-}
-
-
-LIBXS_API_INTERN LIBXS_INTRINSICS(LIBXS_X86_GENERIC)
-libxs_timer_tickint libxs_timer_tick_tsc(void)
-{
-  libxs_timer_tickint result;
-#if defined(LIBXS_TIMER_RDTSC)
-  LIBXS_TIMER_RDTSC(result);
-#else
-  result = libxs_timer_tick_rtc();
-#endif
-  return result;
-}
 
 
 LIBXS_API int libxs_get_timer_info(libxs_timer_info* info)

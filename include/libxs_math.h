@@ -46,7 +46,12 @@ LIBXS_API int libxs_matdiff(libxs_matdiff_info* info,
   libxs_datatype datatype, libxs_blasint m, libxs_blasint n, const void* ref, const void* tst,
   const libxs_blasint* ldref, const libxs_blasint* ldtst);
 
-/** Combine absolute and relative norms into a value which can be used to check against a margin. */
+/**
+ * Combine absolute and relative norms into a value which can be used to check against a margin.
+ * A file or directory path given per environment variable LIBXS_MATDIFF=/path/to/file stores
+ * the epsilon (followed by a line-break), which can be used to calibrate margins of a test case.
+ * LIBXS_MATDIFF can carry optional space-separated arguments used to amend the file entry.
+ */
 LIBXS_API double libxs_matdiff_epsilon(const libxs_matdiff_info* input);
 /**
  * Reduces input into output such that the difference is maintained or increased (max function).
@@ -122,7 +127,7 @@ LIBXS_API float libxs_sexp2_u8(unsigned char x);
 /**
 * Exponential function (base 2), which is limited to signed 8-bit input values.
 * This function reproduces bit-accurate results (single-precision).
-*/
+ */
 LIBXS_API float libxs_sexp2_i8(signed char x);
 
 /** Similar to libxs_sexp2_i8, but takes an integer as signed 8-bit value (check). */

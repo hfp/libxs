@@ -89,6 +89,7 @@ libxs_dmmcall
 libxs_dmmcall_abc
 libxs_dmmcall_prf
 libxs_dmmdispatch
+libxs_dmmdispatch_v2
 libxs_dsqrt
 libxs_dvalue
 libxs_finalize
@@ -245,7 +246,6 @@ libxs_pfree
 libxs_pmalloc
 libxs_pmalloc_init
 libxs_primes_u32
-libxs_print_cmdline
 libxs_product_limit
 libxs_ptr_b0
 libxs_ptr_b1
@@ -327,6 +327,7 @@ libxs_smmcall
 libxs_smmcall_abc
 libxs_smmcall_prf
 libxs_smmdispatch
+libxs_smmdispatch_v2
 libxs_ssqrt
 libxs_stdio_acquire
 libxs_stdio_release
@@ -336,9 +337,12 @@ libxs_strimatch
 libxs_stristr
 libxs_stristrn
 libxs_timer_duration
+libxs_timer_duration_rtc
 libxs_timer_ncycles
 libxs_timer_ncycles_
 libxs_timer_tick
+libxs_timer_tick_rtc
+libxs_timer_tick_tsc
 libxs_trace
 libxs_trace_finalize
 libxs_trace_info
