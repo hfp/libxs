@@ -9,10 +9,8 @@
 #ifndef LIBXS_TIMER_H
 #define LIBXS_TIMER_H
 
-#include "libxs_macros.h"
+#include "libxs_typedefs.h"
 
-
-typedef unsigned long long libxs_timer_tickint;
 
 LIBXS_EXTERN_C typedef struct libxs_timer_info {
   int tsc;

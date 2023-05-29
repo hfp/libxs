@@ -842,12 +842,12 @@ LIBXS_API_INLINE int libxs_nonconst_int(int i) { return i; }
 #   endif
 # endif
 #endif
-#if defined(LIBXS_BUILD)
+#if defined(LIBXS_BUILD) && !defined(_WIN32)
+# if !defined(_XOPEN_SOURCE) && 0
+#   define _XOPEN_SOURCE 500
+# endif
 # if !defined(_DEFAULT_SOURCE)
 #   define _DEFAULT_SOURCE
-# endif
-# if !defined(_XOPEN_SOURCE)
-#   define _XOPEN_SOURCE
 # endif
 # if !defined(_GNU_SOURCE)
 #   define _GNU_SOURCE
@@ -882,13 +882,13 @@ LIBXS_API_INLINE int libxs_nonconst_int(int i) { return i; }
 # define __has_builtin(A) 0
 #endif
 
-#if (0 != LIBXS_SYNC)
-# if defined(_WIN32) || defined(__CYGWIN__)
-#   include <windows.h>
-# else
-#   include <pthread.h>
-#   include <unistd.h>
-# endif
+#if (0 != LIBXS_SYNC) && !defined(_WIN32) && !defined(__CYGWIN__)
+# include <pthread.h>
+#endif
+#if defined(_WIN32) || defined(__CYGWIN__)
+# include <windows.h>
+#else
+# include <unistd.h>
 #endif
 #if !defined(LIBXS_ASSERT)
 # include <assert.h>

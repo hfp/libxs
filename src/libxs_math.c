@@ -8,9 +8,18 @@
 ******************************************************************************/
 #include <libxs_mhd.h>
 #include "libxs_main.h"
+#include <sys/types.h>
+#include <sys/stat.h>
 
-#if !defined(LIBXS_NO_LIBM)
-# include <math.h>
+#if !defined(LIBXS_MATH_DELIMS)
+# define LIBXS_MATH_DELIMS " \t;,:"
+#endif
+#if !defined(LIBXS_MATH_ISDIR)
+# if defined(S_IFDIR)
+#   define LIBXS_MATH_ISDIR(MODE) 0 != ((MODE) & (S_IFDIR))
+# else
+#   define LIBXS_MATH_ISDIR(MODE) S_ISDIR(MODE)
+# endif
 #endif
 
 /**
@@ -127,12 +136,13 @@ LIBXS_API int libxs_matdiff(libxs_matdiff_info* info,
       LIBXS_INIT
       if (NULL != env && 0 != *env && '0' != *env) {
         if ('-' != *env || (0 <= info->m && 0 <= info->n)) {
-          const char *const defaultname = (('0' < *env && '9' >= *env) || '-' == *env) ? "libxs_dump" : env;
+#if defined(LIBXS_MATHDIFF_MHD)
+          const char *const defaultname = ((('0' < *env && '9' >= *env) || '-' == *env) ? "libxs_dump" : env);
           const libxs_mhd_elemtype type_src = (libxs_mhd_elemtype)datatype;
           const libxs_mhd_elemtype type_dst = LIBXS_MIN(LIBXS_MHD_ELEMTYPE_F32, type_src);
+          char filename[256] = "";
           const int envi = atoi(env), reshape = (1 < envi || -1 > envi);
           size_t shape[2] = { 0 }, size[2] = { 0 };
-          char filename[256] = "";
           if (0 == reshape) {
             shape[0] = (size_t)mm; shape[1] = (size_t)nn;
             size[0] = (size_t)ldr; size[1] = (size_t)nn;
@@ -147,7 +157,9 @@ LIBXS_API int libxs_matdiff(libxs_matdiff_info* info,
           libxs_mhd_write(filename, NULL/*offset*/, shape, size, 2/*ndims*/, 1/*ncomponents*/,
             type_src, &type_dst, ref, NULL/*header_size*/, NULL/*extension_header*/,
             NULL/*extension*/, 0/*extension_size*/);
+#endif
           if (NULL != tst) {
+#if defined(LIBXS_MATHDIFF_MHD)
             if (0 == reshape) {
               size[0] = (size_t)ldt;
               size[1] = (size_t)nn;
@@ -156,6 +168,7 @@ LIBXS_API int libxs_matdiff(libxs_matdiff_info* info,
             libxs_mhd_write(filename, NULL/*offset*/, shape, size, 2/*ndims*/, 1/*ncomponents*/,
               type_src, &type_dst, tst, NULL/*header_size*/, NULL/*extension_header*/,
               NULL/*extension*/, 0/*extension_size*/);
+#endif
             if ('-' == *env && '1' < env[1]) {
               printf("LIBXS MATDIFF (%s): m=%" PRIuPTR " n=%" PRIuPTR " ldi=%" PRIuPTR " ldo=%" PRIuPTR " failed.\n",
                 libxs_get_typename(datatype), (uintptr_t)m, (uintptr_t)n, (uintptr_t)ldr, (uintptr_t)ldt);
@@ -224,6 +237,7 @@ LIBXS_API double libxs_matdiff_epsilon(const libxs_matdiff_info* input)
 {
   double result;
   if (NULL != input) {
+    const char *const matdiff_env = getenv("LIBXS_MATDIFF");
     if (0 < input->rsq) {
       result = LIBXS_MIN(input->normf_rel, input->linf_abs) / input->rsq;
     }
@@ -231,6 +245,54 @@ LIBXS_API double libxs_matdiff_epsilon(const libxs_matdiff_info* input)
       const double a = LIBXS_MIN(input->norm1_abs, input->normi_abs);
       const double b = LIBXS_MAX(input->linf_abs, input->l2_abs);
       result = LIBXS_MAX(a, b);
+    }
+    if (NULL != matdiff_env && '\0' != *matdiff_env) {
+      char buffer[4096];
+      struct stat stat_info;
+      size_t offset = strlen(matdiff_env) + 1;
+      char *const env = strncpy(buffer, matdiff_env, sizeof(buffer) - 1);
+      const char *arg = strtok(env, LIBXS_MATH_DELIMS), *filename = NULL;
+      if (0 == stat(arg, &stat_info) && LIBXS_MATH_ISDIR(stat_info.st_mode)) {
+        const int nchars = LIBXS_SNPRINTF(buffer + offset, sizeof(buffer) - offset,
+          "%s/libxs_matdiff.log", arg);
+        if (0 < nchars && (offset + nchars + 1) < sizeof(buffer)) {
+          filename = buffer + offset;
+          offset += nchars + 1;
+        }
+      }
+      else filename = arg; /* assume file */
+      if (NULL != filename) { /* bufferize output before file I/O */
+        const size_t begin = offset;
+        int nchars = ((2 * offset) < sizeof(buffer)
+          ? LIBXS_SNPRINTF(buffer + offset, sizeof(buffer) - offset, "%.17g", result)
+          : 0);
+        if (0 < nchars && (2 * (offset + nchars)) < sizeof(buffer)) {
+          offset += nchars;
+          arg = strtok(NULL, LIBXS_MATH_DELIMS);
+          while (NULL != arg) {
+            nchars = LIBXS_SNPRINTF(buffer + offset, sizeof(buffer) - offset, " %s", arg);
+            if (0 < nchars && (2 * (offset + nchars)) < sizeof(buffer)) offset += nchars;
+            else break;
+            arg = strtok(NULL, LIBXS_MATH_DELIMS);
+          }
+          if (NULL == arg) { /* all args consumed */
+            nchars = libxs_print_cmdline(buffer + offset, sizeof(buffer) - offset, " [", "]");
+            if (0 < nchars && (2 * (offset + nchars)) < sizeof(buffer)) {
+              FILE *const file = fopen(filename, "a");
+              if (NULL != file) {
+                buffer[offset + nchars] = '\n'; /* replace terminator */
+                fwrite(buffer + begin, 1, offset + nchars - begin + 1, file);
+                fclose(file);
+#if defined(_DEFAULT_SOURCE) || defined(_BSD_SOURCE) || \
+   (defined(_XOPEN_SOURCE) && (500 <= _XOPEN_SOURCE))
+                sync(); /* attempt to flush FS */
+#endif
+              }
+
+            }
+          }
+        }
+      }
     }
   }
   else result = 0;

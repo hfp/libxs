@@ -169,7 +169,7 @@ int main(int argc, char* argv[])
     switch (benchmark) {
     case 0: { // batched
       fprintf(stdout, "Batched (A,B,C)...\n");
-      const unsigned long long start = libxs_timer_tick();
+      const libxs_timer_tickint start = libxs_timer_tick();
       for (libxs_blasint r = 0; r < nrepeat; ++r) {
 #if defined(_OPENMP)
 #         pragma omp parallel for num_threads(nthreads) schedule(static)
@@ -180,7 +180,7 @@ int main(int argc, char* argv[])
               &beta, c + static_cast<size_t>(csize) * i, &ldc);
         }
       }
-      const unsigned long long ncycles = libxs_timer_ncycles(start, libxs_timer_tick());
+      const libxs_timer_tickint ncycles = libxs_timer_ncycles(start, libxs_timer_tick());
       const double duration = libxs_timer_duration(0, ncycles) / nrepeat;
       if (0 < duration && 0 != ncycles) {
         fprintf(stdout, "\tpseudo-perf.: %.1f %s/cycle\n", (2.0 * k - 1.0) * (static_cast<double>(s) * m * n) / ncycles, ops);
@@ -193,13 +193,13 @@ int main(int argc, char* argv[])
   (defined(LIBXS_MKL_VERSION2) && (LIBXS_VERSION2(11, 3) <= LIBXS_MKL_VERSION2))
     case 1: { // batched indirect
       fprintf(stdout, "Indirect (A,B,C)...\n");
-      const unsigned long long start = libxs_timer_tick();
+      const libxs_timer_tickint start = libxs_timer_tick();
       for (libxs_blasint r = 0; r < nrepeat; ++r) {
         LIBXS_BLAS_FUNCTION(ITYPE,OTYPE,gemm_batch)(&transa, &transb, &m, &n, &k,
           &alpha, &a_array[0], &lda, &b_array[0], &ldb,
             &beta, &c_array[0], &ldc, &group_count, &s);
       }
-      const unsigned long long ncycles = libxs_timer_ncycles(start, libxs_timer_tick());
+      const libxs_timer_tickint ncycles = libxs_timer_ncycles(start, libxs_timer_tick());
       const double duration = libxs_timer_duration(0, ncycles) / nrepeat;
       if (0 < duration && 0 != ncycles) {
         fprintf(stdout, "\tpseudo-perf.: %.1f %s/cycle\n", (2.0 * k - 1.0) * (static_cast<double>(s) * m * n) / ncycles, ops);
@@ -227,7 +227,7 @@ int main(int argc, char* argv[])
     break;
     case 2: { // streaming A and C
       fprintf(stdout, "Streamed (A,C)...\n");
-      const unsigned long long start = libxs_timer_tick();
+      const libxs_timer_tickint start = libxs_timer_tick();
       for (libxs_blasint r = 0; r < nrepeat; ++r) {
 #if defined(_OPENMP)
 #         pragma omp parallel for num_threads(nthreads) schedule(static)
@@ -238,7 +238,7 @@ int main(int argc, char* argv[])
               &beta, c + static_cast<size_t>(csize) * i, &ldc);
         }
       }
-      const unsigned long long ncycles = libxs_timer_ncycles(start, libxs_timer_tick());
+      const libxs_timer_tickint ncycles = libxs_timer_ncycles(start, libxs_timer_tick());
       const double duration = libxs_timer_duration(0, ncycles) / nrepeat;
       if (0 < duration && 0 != ncycles) {
         fprintf(stdout, "\tpseudo-perf.: %.1f %s/cycle\n", (2.0 * k - 1.0) * (static_cast<double>(s) * m * n) / ncycles, ops);
@@ -256,13 +256,13 @@ int main(int argc, char* argv[])
         b_array[i] = b;
         c_array[i] = d + static_cast<size_t>(csize) * i;
       }
-      const unsigned long long start = libxs_timer_tick();
+      const libxs_timer_tickint start = libxs_timer_tick();
       for (libxs_blasint r = 0; r < nrepeat; ++r) {
         LIBXS_BLAS_FUNCTION(ITYPE,OTYPE,gemm_batch)(&transa, &transb, &m, &n, &k,
           &alpha, &a_array[0], &lda, &b_array[0], &ldb,
             &beta, &c_array[0], &ldc, &group_count, &s);
       }
-      const unsigned long long ncycles = libxs_timer_ncycles(start, libxs_timer_tick());
+      const libxs_timer_tickint ncycles = libxs_timer_ncycles(start, libxs_timer_tick());
       const double duration = libxs_timer_duration(0, ncycles) / nrepeat;
       if (0 < duration && 0 != ncycles) {
         fprintf(stdout, "\tpseudo-perf.: %.1f %s/cycle\n", (2.0 * k - 1.0) * (static_cast<double>(s) * m * n) / ncycles, ops);
@@ -290,7 +290,7 @@ int main(int argc, char* argv[])
     break;
     case 4: { // streaming B and C
       fprintf(stdout, "Streamed (B,C)...\n");
-      const unsigned long long start = libxs_timer_tick();
+      const libxs_timer_tickint start = libxs_timer_tick();
       for (libxs_blasint r = 0; r < nrepeat; ++r) {
 #if defined(_OPENMP)
 #         pragma omp parallel for num_threads(nthreads) schedule(static)
@@ -301,7 +301,7 @@ int main(int argc, char* argv[])
               &beta, c + static_cast<size_t>(csize) * i, &ldc);
         }
       }
-      const unsigned long long ncycles = libxs_timer_ncycles(start, libxs_timer_tick());
+      const libxs_timer_tickint ncycles = libxs_timer_ncycles(start, libxs_timer_tick());
       const double duration = libxs_timer_duration(0, ncycles) / nrepeat;
       if (0 < duration && 0 != ncycles) {
         fprintf(stdout, "\tpseudo-perf.: %.1f %s/cycle\n", (2.0 * k - 1.0) * (static_cast<double>(s) * m * n) / ncycles, ops);
@@ -319,13 +319,13 @@ int main(int argc, char* argv[])
         b_array[i] = b + static_cast<size_t>(bsize) * helper.shuffle(i);
         c_array[i] = d + static_cast<size_t>(csize) * i;
       }
-      const unsigned long long start = libxs_timer_tick();
+      const libxs_timer_tickint start = libxs_timer_tick();
       for (libxs_blasint r = 0; r < nrepeat; ++r) {
         LIBXS_BLAS_FUNCTION(ITYPE,OTYPE,gemm_batch)(&transa, &transb, &m, &n, &k,
           &alpha, &a_array[0], &lda, &b_array[0], &ldb,
             &beta, &c_array[0], &ldc, &group_count, &s);
       }
-      const unsigned long long ncycles = libxs_timer_ncycles(start, libxs_timer_tick());
+      const libxs_timer_tickint ncycles = libxs_timer_ncycles(start, libxs_timer_tick());
       const double duration = libxs_timer_duration(0, ncycles) / nrepeat;
       if (0 < duration && 0 != ncycles) {
         fprintf(stdout, "\tpseudo-perf.: %.1f %s/cycle\n", (2.0 * k - 1.0) * (static_cast<double>(s) * m * n) / ncycles, ops);
@@ -353,7 +353,7 @@ int main(int argc, char* argv[])
     break;
     case 6: { // streaming A and B
       fprintf(stdout, "Streamed (A,B)...\n");
-      const unsigned long long start = libxs_timer_tick();
+      const libxs_timer_tickint start = libxs_timer_tick();
       for (libxs_blasint r = 0; r < nrepeat; ++r) {
 #if defined(_OPENMP)
 #         pragma omp parallel for num_threads(0 == check ? nthreads : 1) schedule(static)
@@ -368,7 +368,7 @@ int main(int argc, char* argv[])
               &beta, c + j, &ldc);
         }
       }
-      const unsigned long long ncycles = libxs_timer_ncycles(start, libxs_timer_tick());
+      const libxs_timer_tickint ncycles = libxs_timer_ncycles(start, libxs_timer_tick());
       const double duration = libxs_timer_duration(0, ncycles) / nrepeat;
       if (0 < duration && 0 != ncycles) {
         fprintf(stdout, "\tpseudo-perf.: %.1f %s/cycle\n", (2.0 * k - 1.0) * (static_cast<double>(s) * m * n) / ncycles, ops);
@@ -398,13 +398,13 @@ int main(int argc, char* argv[])
 #if defined(_OPENMP)
       omp_set_num_threads(0 == check ? nthreads : 1);
 #endif
-      const unsigned long long start = libxs_timer_tick();
+      const libxs_timer_tickint start = libxs_timer_tick();
       for (libxs_blasint r = 0; r < nrepeat; ++r) {
         LIBXS_BLAS_FUNCTION(ITYPE,OTYPE,gemm_batch)(&transa, &transb, &m, &n, &k,
           &alpha, &a_array[0], &lda, &b_array[0], &ldb,
             &beta, &c_array[0], &ldc, &group_count, &s);
       }
-      const unsigned long long ncycles = libxs_timer_ncycles(start, libxs_timer_tick());
+      const libxs_timer_tickint ncycles = libxs_timer_ncycles(start, libxs_timer_tick());
       const double duration = libxs_timer_duration(0, ncycles) / nrepeat;
       if (0 < duration && 0 != ncycles) {
         fprintf(stdout, "\tpseudo-perf.: %.1f %s/cycle\n", (2.0 * k - 1.0) * (static_cast<double>(s) * m * n) / ncycles, ops);
@@ -426,7 +426,7 @@ int main(int argc, char* argv[])
     break;
     case 8: { // cached
       fprintf(stdout, "Cached...\n");
-      const unsigned long long start = libxs_timer_tick();
+      const libxs_timer_tickint start = libxs_timer_tick();
       for (libxs_blasint r = 0; r < nrepeat; ++r) {
 #if defined(_OPENMP)
 #         pragma omp parallel for num_threads(0 == check ? nthreads : 1) schedule(static)
@@ -440,7 +440,7 @@ int main(int argc, char* argv[])
             &alpha, a, &lda, b, &ldb, &beta, c + j, &ldc);
         }
       }
-      const unsigned long long ncycles = libxs_timer_ncycles(start, libxs_timer_tick());
+      const libxs_timer_tickint ncycles = libxs_timer_ncycles(start, libxs_timer_tick());
       const double duration = libxs_timer_duration(0, ncycles) / nrepeat;
       if (0 < duration && 0 != ncycles) {
         fprintf(stdout, "\tpseudo-perf.: %.1f %s/cycle\n", (2.0 * k - 1.0) * (static_cast<double>(s) * m * n) / ncycles, ops);
@@ -468,13 +468,13 @@ int main(int argc, char* argv[])
 #if defined(_OPENMP)
       omp_set_num_threads(0 == check ? nthreads : 1);
 #endif
-      const unsigned long long start = libxs_timer_tick();
+      const libxs_timer_tickint start = libxs_timer_tick();
       for (libxs_blasint r = 0; r < nrepeat; ++r) {
         LIBXS_BLAS_FUNCTION(ITYPE,OTYPE,gemm_batch)(&transa, &transb, &m, &n, &k,
           &alpha, &a_array[0], &lda, &b_array[0], &ldb,
             &beta, &c_array[0], &ldc, &group_count, &s);
       }
-      const unsigned long long ncycles = libxs_timer_ncycles(start, libxs_timer_tick());
+      const libxs_timer_tickint ncycles = libxs_timer_ncycles(start, libxs_timer_tick());
       const double duration = libxs_timer_duration(0, ncycles) / nrepeat;
       if (0 < duration && 0 != ncycles) {
         fprintf(stdout, "\tpseudo-perf.: %.1f %s/cycle\n", (2.0 * k - 1.0) * (static_cast<double>(s) * m * n) / ncycles, ops);

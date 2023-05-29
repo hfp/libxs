@@ -120,6 +120,21 @@
 # endif
 #endif
 
+#if defined(__powerpc64__)
+# define LIBXS_TIMER_RDTSC(CYCLE) do { \
+    CYCLE = __ppc_get_timebase(); \
+  } while(0)
+#elif ((defined(LIBXS_PLATFORM_X86) && (64 <= (LIBXS_BITS))) && \
+      (defined(__GNUC__) || defined(LIBXS_INTEL_COMPILER) || defined(__PGI)))
+# define LIBXS_TIMER_RDTSC(CYCLE) do { \
+    libxs_timer_tickint libxs_timer_rdtsc_hi_; \
+    __asm__ __volatile__ ("rdtsc" : "=a"(CYCLE), "=d"(libxs_timer_rdtsc_hi_)); \
+    CYCLE |= libxs_timer_rdtsc_hi_ << 32; \
+  } while(0)
+#elif (defined(_rdtsc) || defined(_WIN32)) && defined(LIBXS_PLATFORM_X86)
+# define LIBXS_TIMER_RDTSC(CYCLE) (CYCLE = __rdtsc())
+#endif
+
 #if !defined(LIBXS_VERBOSITY_HIGH)
 # define LIBXS_VERBOSITY_HIGH 3 /* secondary warning or info-verbosity */
 #endif
@@ -129,19 +144,6 @@
 
 #if !defined(LIBXS_LOCK)
 # define LIBXS_LOCK LIBXS_LOCK_DEFAULT
-#endif
-
-#if !defined(LIBXS_EXT_MIN_NTASKS)
-# define LIBXS_MIN_NTASKS(NT) 1
-#endif
-#if !defined(LIBXS_OVERHEAD)
-# define LIBXS_OVERHEAD(NT) 0
-#endif
-#if !defined(LIBXS_NOOP_ARGS)
-# define LIBXS_NOOP_ARGS(...)
-#endif
-#if !defined(LIBXS_NOOP)
-# define LIBXS_NOOP
 #endif
 
 /** Check if M, N, K, or LDx fits into the descriptor. */
@@ -167,7 +169,7 @@
     /*if (LIBXS_GEMM_FLAG_DESC_ISBIG <= (FLAGS)) LIBXS_MEMSET127(DST, 0, SIZE)*/
 #endif
 #else
-#define LIBXS_DESCRIPTOR_CLEAR_AUX(DST, SIZE, FLAGS) LIBXS_MEMSET127(DST, 0, SIZE)
+# define LIBXS_DESCRIPTOR_CLEAR_AUX(DST, SIZE, FLAGS) LIBXS_MEMSET127(DST, 0, SIZE)
 #endif
 #define LIBXS_DESCRIPTOR_CLEAR(BLOB) \
   LIBXS_ASSERT((LIBXS_DESCRIPTOR_MAXSIZE) == sizeof(*(BLOB))); \
@@ -500,6 +502,14 @@ LIBXS_API_INTERN size_t libxs_format_value(char buffer[32],
   int buffer_size, size_t nbytes, const char scale[], const char* unit, int base);
 
 /**
+ * Print the command line arguments of the current process, and get the number of written
+ * characters including the prefix, the postfix, but not the terminating NULL character.
+ * If zero is returned, nothing was printed (no prefix, no postfix).
+ * If buffer_size is zero, buffer is assumed to be a FILE-pointer.
+ */
+LIBXS_API_INTERN int libxs_print_cmdline(void* buffer, size_t buffer_size, const char* prefix, const char* postfix);
+
+/**
  * Dump data, (optionally) check attempt to dump different data into an existing file (unique),
  * or (optionally) permit overwriting an existing file.
  */
@@ -522,11 +532,11 @@ LIBXS_EXTERN_C typedef struct libxs_kernel_xinfo {
 LIBXS_API_INTERN const libxs_kernel_xinfo* libxs_get_kernel_xinfo(libxs_code_pointer code, const libxs_descriptor** desc, size_t* code_size);
 
 /** Calculates duration in seconds from given RTC ticks. */
-LIBXS_API_INTERN double libxs_timer_duration_rtc(libxs_timer_tickint tick0, libxs_timer_tickint tick1);
+LIBXS_API double libxs_timer_duration_rtc(libxs_timer_tickint tick0, libxs_timer_tickint tick1);
 /** Returns the current tick of platform-specific real-time clock. */
-LIBXS_API_INTERN libxs_timer_tickint libxs_timer_tick_rtc(void);
+LIBXS_API libxs_timer_tickint libxs_timer_tick_rtc(void);
 /** Returns the current tick of a (monotonic) platform-specific counter. */
-LIBXS_API_INTERN libxs_timer_tickint libxs_timer_tick_tsc(void);
+LIBXS_API libxs_timer_tickint libxs_timer_tick_tsc(void);
 
 LIBXS_API_INTERN void libxs_memory_init(int target_arch);
 LIBXS_API_INTERN void libxs_memory_finalize(void);
