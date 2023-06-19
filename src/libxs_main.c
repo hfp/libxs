@@ -33,6 +33,7 @@
 #endif
 #if defined(__APPLE__)
 # include <libkern/OSCacheControl.h>
+/*# include <mach/mach_time.h>*/
 # include <pthread.h>
 #endif
 #if defined(__powerpc64__)
@@ -244,6 +245,11 @@ LIBXS_APIVAR_DEFINE(const char* internal_build_state);
 LIBXS_APIVAR_DEFINE(libxs_timer_tickint internal_timer_start);
 LIBXS_APIVAR_DEFINE(libxs_cpuid_info internal_cpuid_info);
 
+#define LIBXS_TIMER_DURATION_FDIV(A, B) ((double)(A) / (B))
+#define LIBXS_TIMER_DURATION_IDIV(A, B) ((A) <= (B) \
+  ? LIBXS_TIMER_DURATION_FDIV(A, B) \
+  : ((A) / (B) + LIBXS_TIMER_DURATION_FDIV((A) % (B), B)))
+
 #if defined(_WIN32)
 # define INTERNAL_SINGLETON_HANDLE HANDLE
 # define INTERNAL_SINGLETON(HANDLE) (NULL != (HANDLE))
@@ -253,8 +259,12 @@ LIBXS_APIVAR_DEFINE(libxs_cpuid_info internal_cpuid_info);
 LIBXS_APIVAR_DEFINE(char internal_singleton_fname[64]);
 #endif
 LIBXS_APIVAR_DEFINE(INTERNAL_SINGLETON_HANDLE internal_singleton_handle);
-LIBXS_APIVAR_DEFINE(void (*internal_libxs_prvabrt)(int));
 LIBXS_APIVAR_DEFINE(char internal_stdio_fname[64]);
+
+LIBXS_EXTERN_C typedef struct internal_sigentry_type {
+  int signum; void (*signal)(int);
+} internal_sigentry_type;
+LIBXS_APIVAR_DEFINE(internal_sigentry_type internal_sigentries[4]);
 
 /* definition of corresponding variables */
 LIBXS_APIVAR_PRIVATE_DEF(libxs_malloc_function libxs_default_malloc_fn);
@@ -676,37 +686,44 @@ LIBXS_API_INTERN void internal_dump(FILE* ostream, int urgent)
 
 LIBXS_API double libxs_timer_duration_rtc(libxs_timer_tickint tick0, libxs_timer_tickint tick1)
 {
-  double result = (double)LIBXS_DELTA(tick0, tick1);
+  const libxs_timer_tickint delta = LIBXS_DELTA(tick0, tick1);
 #if defined(_WIN32)
   LARGE_INTEGER frequency;
   QueryPerformanceFrequency(&frequency);
-  result /= (double)frequency.QuadPart;
+  return LIBXS_TIMER_DURATION_IDIV(delta, (libxs_timer_tickint)frequency.QuadPart);
 #elif defined(CLOCK_MONOTONIC)
-  result *= 1E-9;
+# if defined(__APPLE__) && 0
+  mach_timebase_info_data_t frequency;
+  mach_timebase_info(&frequency);
+  return LIBXS_TIMER_DURATION_IDIV(delta * frequency.numer, 1000000000ULL * frequency.denom);
+# else
+  return LIBXS_TIMER_DURATION_IDIV(delta, 1000000000ULL);
+# endif
 #else
-  result *= 1E-6;
+  return LIBXS_TIMER_DURATION_IDIV(delta, 1000000ULL);
 #endif
-  return result;
 }
 
 
 LIBXS_API libxs_timer_tickint libxs_timer_tick_rtc(void)
 {
-  libxs_timer_tickint result;
 #if defined(_WIN32)
   LARGE_INTEGER t;
   QueryPerformanceCounter(&t);
-  result = (libxs_timer_tickint)t.QuadPart;
+  return (libxs_timer_tickint)t.QuadPart;
 #elif defined(CLOCK_MONOTONIC)
+# if defined(__APPLE__) && 0
+  return mach_absolute_time();
+# else
   struct timespec t;
   clock_gettime(CLOCK_MONOTONIC, &t);
-  result = 1000000000ULL * t.tv_sec + t.tv_nsec;
+  return 1000000000ULL * t.tv_sec + t.tv_nsec;
+# endif
 #else
   struct timeval t;
   gettimeofday(&t, 0);
-  result = 1000000ULL * t.tv_sec + t.tv_usec;
+  return 1000000ULL * t.tv_sec + t.tv_usec;
 #endif
-  return result;
 }
 
 
@@ -747,13 +764,17 @@ LIBXS_API_INTERN void internal_finalize(void)
       char number_format_buffer[32];
       libxs_scratch_info scratch_info;
       libxs_cpuid_info info;
+#if defined(NDEBUG)
       libxs_cpuid(&info);
-#if defined(LIBXS_PLATFORM_X86)
+# if defined(LIBXS_PLATFORM_X86)
       if ((LIBXS_VERBOSITY_HIGH < libxs_verbosity || 0 > libxs_verbosity) &&
         0 == internal_cpuid_info.has_context && 0 != info.has_context)
       {
         fprintf(stderr, "\nLIBXS: CPU features have been promoted.");
       }
+# endif
+#else
+      memset(&info, 0, sizeof(info));
 #endif
       if (0 == internal_print_statistic(stderr, target_arch, 0/*DP*/, linebreak, 0) && 0 != linebreak && NULL != target_arch) {
         fprintf(stderr, "\nLIBXS_TARGET: %s", target_arch);
@@ -817,16 +838,16 @@ LIBXS_API_INTERN void internal_finalize(void)
         }
       }
       if (LIBXS_VERBOSITY_HIGH < libxs_verbosity || 0 > libxs_verbosity) {
-        const libxs_timer_tickint timer_end = libxs_timer_tick_tsc();
         double uptime;
 #if defined(LIBXS_TIMER_RDTSC)
         if (0 < libxs_timer_scale) {
-          uptime = (double)LIBXS_DELTA(internal_timer_start, timer_end) * libxs_timer_scale;
+          const libxs_timer_tickint timer_end = libxs_timer_tick_tsc();
+          uptime = libxs_timer_scale * LIBXS_DELTA(internal_timer_start, timer_end);
         }
         else
 #endif
         {
-          uptime = libxs_timer_duration_rtc(internal_timer_start, timer_end);
+          uptime = libxs_timer_duration_rtc(internal_timer_start, libxs_timer_tick_rtc());
         }
         libxs_print_cmdline(stderr, 0, "Command: ", "\n");
         fprintf(stderr, "Uptime: %f s", uptime);
@@ -879,22 +900,18 @@ LIBXS_API_INTERN void internal_finalize(void)
 }
 
 
-LIBXS_API_INTERN void internal_libxs_sigabrt(int /*signum*/);
-LIBXS_API_INTERN void internal_libxs_sigabrt(int signum) {
-  LIBXS_ASSERT(SIGABRT == signum);
-  if (SIG_ERR != internal_libxs_prvabrt) {
-    libxs_verbosity = LIBXS_MAX(LIBXS_VERBOSITY_HIGH + 1, libxs_verbosity);
-    internal_finalize();
-    if (NULL != internal_libxs_prvabrt) {
-      internal_libxs_prvabrt(SIGABRT);
-    }
-    else {
-      void (*const default_handler)(int) = signal(signum, SIG_DFL);
-      if (internal_libxs_sigabrt != default_handler /* recursion */
-        && SIG_ERR != default_handler
-        && NULL != default_handler)
-      {
-        default_handler(SIGABRT);
+LIBXS_API_INTERN void internal_libxs_signal(int /*signum*/);
+LIBXS_API_INTERN void internal_libxs_signal(int signum) {
+  int n = (int)(sizeof(internal_sigentries) / sizeof(*internal_sigentries)), i = 0;
+  for (; i < n; ++i) {
+    if (signum == internal_sigentries[i].signum) {
+      if (0 == libxs_get_tid()) {
+        libxs_verbosity = LIBXS_MAX(LIBXS_VERBOSITY_HIGH + 1, libxs_verbosity);
+        internal_finalize();
+        signal(signum,
+          (NULL == internal_sigentries[i].signal || SIG_ERR == internal_sigentries[i].signal)
+            ? SIG_DFL : internal_sigentries[i].signal); /* restore */
+        raise(signum);
       }
     }
   }
@@ -1309,13 +1326,16 @@ LIBXS_API_CTOR void libxs_init(void)
           internal_dump(stdout, 1/*urgent*/);
         }
         s1 = libxs_timer_tick_rtc(); t1 = libxs_timer_tick_tsc(); /* mid-timing */
-#if defined(LIBXS_PLATFORM_X86)
-        libxs_cpuid_x86(&internal_cpuid_info);
+#if defined(NDEBUG)
+        libxs_cpuid(&internal_cpuid_info);
         if (0 != internal_cpuid_info.constant_tsc && t0 < t1) {
           libxs_timer_scale = libxs_timer_duration_rtc(s0, s1) / (t1 - t0);
         }
 #endif
-        internal_libxs_prvabrt = signal(SIGABRT, internal_libxs_sigabrt);
+        internal_sigentries[0].signal = signal(SIGABRT, internal_libxs_signal);
+        internal_sigentries[0].signum = SIGABRT;
+        internal_sigentries[1].signal = signal(SIGSEGV, internal_libxs_signal);
+        internal_sigentries[1].signum = SIGSEGV;
         result_atexit = atexit(internal_finalize);
         s1 = libxs_timer_tick_rtc(); t1 = libxs_timer_tick_tsc(); /* final timing */
         /* set timer-scale and determine start of the "uptime" (shown at termination) */
@@ -1339,18 +1359,16 @@ LIBXS_API_CTOR void libxs_init(void)
           libxs_timer_scale = 0;
         }
         if (0 != libxs_verbosity) { /* library code is expected to be mute */
-          if (SIG_ERR == internal_libxs_prvabrt || EXIT_SUCCESS != result_atexit) {
+          if (EXIT_SUCCESS != result_atexit) {
             fprintf(stderr, "LIBXS ERROR: failed to register termination procedure!\n");
           }
-          if (0 == libxs_timer_scale
-#if defined(LIBXS_PLATFORM_X86)
-            && 0 == internal_cpuid_info.constant_tsc
-#endif
+#if defined(NDEBUG)
+          if (0 == libxs_timer_scale && 0 == internal_cpuid_info.constant_tsc
             && (LIBXS_VERBOSITY_WARN <= libxs_verbosity || 0 > libxs_verbosity))
           {
-            /* ARM: TSC is currently not implemented, hence warning shows up (if verbose) */
             fprintf(stderr, "LIBXS WARNING: timer is maybe not cycle-accurate!\n");
           }
+#endif
         }
       }
       LIBXS_EXPECT(0 < LIBXS_ATOMIC_ADD_FETCH(&libxs_ninit, 1, LIBXS_ATOMIC_SEQ_CST));
@@ -1600,7 +1618,6 @@ LIBXS_API const char* libxsf_get_target_arch(int* length)
 
 LIBXS_API void libxs_set_target_arch(const char* arch)
 {
-  const int cpuid = libxs_cpuid(NULL);
   int target_archid = LIBXS_TARGET_ARCH_UNKNOWN;
   if (NULL != arch && '\0' != *arch
     && arch != libxs_stristr(arch, "default")
@@ -1724,14 +1741,16 @@ LIBXS_API void libxs_set_target_arch(const char* arch)
         target_archid = LIBXS_TARGET_ARCH_GENERIC;
       }
       else {
-        target_archid = cpuid;
+        target_archid = libxs_cpuid(NULL);
       }
     }
   }
   else {
-    target_archid = cpuid;
+    target_archid = libxs_cpuid(NULL);
   }
-  if (cpuid < target_archid) { /* warn about code path if beyond CPUID */
+#if defined(NDEBUG)
+  if (libxs_cpuid(NULL) < target_archid) { /* warn about code path if beyond CPUID */
+    const int cpuid = libxs_cpuid(NULL);
     static int error_once = 0;
     if ( 0 != libxs_verbosity /* library code is expected to be mute */
       && 1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED))
@@ -1740,10 +1759,11 @@ LIBXS_API void libxs_set_target_arch(const char* arch)
       fprintf(stderr, "LIBXS WARNING: \"%s\" code will fail to run on \"%s\"!\n",
         target_arch, libxs_cpuid_name(cpuid));
     }
-#if 0 /* limit code path to confirmed features */
+# if 0 /* limit code path to confirmed features */
     target_archid = cpuid;
-#endif
+# endif
   }
+#endif
   LIBXS_ATOMIC_STORE(&libxs_target_archid, target_archid, LIBXS_ATOMIC_RELAXED);
 }
 
@@ -1780,7 +1800,8 @@ LIBXS_API int libxs_dvalue(libxs_datatype datatype, const void* value, double* d
   return result;
 }
 
-LIBXS_API const char* libxs_get_gemm_typename(const unsigned char* datatype)
+
+LIBXS_API_INLINE const char* libxs_get_gemm_typename(const unsigned char* datatype)
 {
   const int common_dt = (int)LIBXS_GEMM_GETENUM_ABC_COMMON_PREC(datatype);
   switch (common_dt) {
@@ -2073,7 +2094,7 @@ LIBXS_API_INTERN int libxs_build(const libxs_build_request* request, unsigned in
               br, stride_a, stride_b, (unsigned int)request->descriptor.gemm->c3, typesigns, tc_option,
               0 != (LIBXS_GEMM_FLAG_VNNI_A  & request->descriptor.gemm->flags) ? 1 : 0,
               0 != (LIBXS_GEMM_FLAG_VNNI_B  & request->descriptor.gemm->flags) ? 1 : 0,
-              0 != (LIBXS_GEMM_FLAG_VNNI_C  & request->descriptor.gemm->flags) ? 1 : 0 );
+              0 != (LIBXS_GEMM_FLAG_VNNI_C  & request->descriptor.gemm->flags) ? 1 : 0);
           } else if (kernabi == 2) {
             decompress_A = 0;
             sparsity_factor_A = 1;
@@ -2111,7 +2132,7 @@ LIBXS_API_INTERN int libxs_build(const libxs_build_request* request, unsigned in
               (unsigned int)request->descriptor.gemm->eltw_ap_param, (unsigned int)request->descriptor.gemm->eltw_ap_flags, request->descriptor.gemm->ldap,
               (unsigned int)request->descriptor.gemm->eltw_bp_param, (unsigned int)request->descriptor.gemm->eltw_bp_flags, request->descriptor.gemm->ldbp,
               (unsigned int)request->descriptor.gemm->eltw_cp_param, (unsigned int)request->descriptor.gemm->eltw_cp_flags, request->descriptor.gemm->ldcp, (unsigned int)request->descriptor.gemm->internal_flags_2,
-              decompress_A, sparsity_factor_A );
+              decompress_A, sparsity_factor_A);
           } else {
             /* adopt scheme which allows kernel names of LIBXS to appear in order (Intel VTune, etc.) */
             LIBXS_SNPRINTF(jit_name, sizeof(jit_name), "libxs_abi%i_%s_%s_%c%c_%ux%ux%u_%u_%u_%u_a%i_b%i_p%i_br%i_sa%d_sb%d_uh%u_si%i_tc-%s_avnni%i_bvnni%i_cvnni%i.mxm", kernabi, target_arch, tname,
@@ -2122,7 +2143,7 @@ LIBXS_API_INTERN int libxs_build(const libxs_build_request* request, unsigned in
               br, stride_a, stride_b, (unsigned int)request->descriptor.gemm->c3, typesigns, tc_option,
               0 != (LIBXS_GEMM_FLAG_VNNI_A  & request->descriptor.gemm->flags) ? 1 : 0,
               0 != (LIBXS_GEMM_FLAG_VNNI_B  & request->descriptor.gemm->flags) ? 1 : 0,
-              0 != (LIBXS_GEMM_FLAG_VNNI_C  & request->descriptor.gemm->flags) ? 1 : 0 );
+              0 != (LIBXS_GEMM_FLAG_VNNI_C  & request->descriptor.gemm->flags) ? 1 : 0);
           }
         }
       }
@@ -2360,7 +2381,7 @@ LIBXS_API_INTERN int libxs_build(const libxs_build_request* request, unsigned in
           internal_get_typesize_string(tsizename, sizeof(tsizename), request->descriptor.meqn->datatype);
           LIBXS_SNPRINTF(jit_name, sizeof(jit_name), "libxs_%s_tsize%s_%ux%u_%u_eqn-idx%u.meltw", target_arch, tsizename,
             request->descriptor.meqn->m, request->descriptor.meqn->n, request->descriptor.meqn->ldo,
-            (unsigned int)request->descriptor.meqn->eqn_idx );
+            (unsigned int)request->descriptor.meqn->eqn_idx);
         }
       }
     } break;
@@ -2403,10 +2424,10 @@ LIBXS_API_INTERN int libxs_build(const libxs_build_request* request, unsigned in
       result = libxs_malloc_attrib((void**)code_buffer_ptr,
         LIBXS_MALLOC_FLAG_X, jit_name, &data_size);
       if (EXIT_SUCCESS == result && 0 != data_size) { /* check for success */
-        const size_t data_padding = LIBXS_UP( code_size, LIBXS_PAGE_MINSIZE ) - code_size;
+        const size_t data_padding = LIBXS_UP(code_size, LIBXS_PAGE_MINSIZE) - code_size;
         void *const data_buffer = code_buffer + code_size + data_padding;
         /* attribute and protect constant data by setting only necessary flags */
-        result = libxs_malloc_xattrib(data_buffer, LIBXS_MALLOC_FLAG_R, data_size - data_padding );
+        result = libxs_malloc_xattrib(data_buffer, LIBXS_MALLOC_FLAG_R, data_size - data_padding);
       }
       if (EXIT_SUCCESS == result) { /* check for success */
         code->ptr = code_buffer; /* commit buffer */
@@ -3536,14 +3557,14 @@ LIBXS_API libxs_matrix_eqn_function libxs_dispatch_matrix_eqn_v2(
   const libxs_blasint idx, const libxs_meqn_arg_shape out_shape ) {
   libxs_descriptor_blob blob;
   const libxs_meqn_descriptor *const desc = libxs_meqn_descriptor_init(&blob,
-    out_shape.type, out_shape.m, out_shape.n, out_shape.ld, (unsigned int)idx );
+    out_shape.type, out_shape.m, out_shape.n, out_shape.ld, (unsigned int)idx);
 
   if (idx >= LIBXS_MAX_EQN_COUNT) {
     fprintf(stderr, "Exceeded maximum number of equations (%d). Can't create requested equation...\n", LIBXS_MAX_EQN_COUNT);
     return NULL;
   }
 
-  return libxs_dispatch_matrix_eqn_desc( desc );
+  return libxs_dispatch_matrix_eqn_desc(desc);
 }
 
 
@@ -3848,15 +3869,15 @@ LIBXS_API_INTERN int libxs_print_cmdline(void* buffer, size_t buffer_size, const
 #if defined(__linux__)
   FILE *const cmdline = fopen("/proc/self/cmdline", "r");
   if (NULL != cmdline) {
-    char c;
-    if (1 == fread(&c, 1, 1, cmdline) && '\0' != c) {
-      result += (0 == buffer_size ? fprintf((FILE*)buffer, "%s", prefix)
-        : LIBXS_SNPRINTF((char*)buffer + result, buffer_size - result, "%s", prefix));
-      do {
-        const char d = '\0' != c ? c : ' ';
-        result += (0 == buffer_size ? fprintf((FILE*)buffer, "%c", d)
-          : LIBXS_SNPRINTF((char*)buffer + result, buffer_size - result, "%c", d));
-      } while (1 == fread(&c, 1, 1, cmdline));
+    char a, b;
+    if (1 == fread(&a, 1, 1, cmdline) && '\0' != a) {
+      result = (0 == buffer_size ? fprintf((FILE*)buffer, "%s", prefix)
+        : LIBXS_SNPRINTF((char*)buffer, buffer_size, "%s", prefix));
+      while (1 == fread(&b, 1, 1, cmdline)) {
+        result += (0 == buffer_size ? fprintf((FILE*)buffer, "%c", a)
+          : LIBXS_SNPRINTF((char*)buffer + result, buffer_size - result, "%c", a));
+        a = ('\0' != b ? b : ' ');
+      };
     }
     fclose(cmdline);
   }
@@ -4094,9 +4115,9 @@ LIBXS_API void LIBXS_FSYMBOL(libxs_xmmcall_prf)(
 #endif
     {
       /* TODO: fix prefetch */
-      LIBXS_UNUSED( pa );
-      LIBXS_UNUSED( pb );
-      LIBXS_UNUSED( pc );
+      LIBXS_UNUSED(pa);
+      LIBXS_UNUSED(pb);
+      LIBXS_UNUSED(pc);
       fn->xmm(a, b, c/*, pa, pb, pc*/); /* TODO: fix prefetch */
     }
 #if !defined(NDEBUG)

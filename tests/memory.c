@@ -115,6 +115,29 @@ int main(int argc, char* argv[])
   }
 
   if (EXIT_SUCCESS == result) { /* check libxs_shuffle */
+    char a[sizeof(init)] = { 0 }, b[sizeof(init)] = { 0 };
+    const size_t size = sizeof(init);
+    memcpy(a, init, size);
+    LIBXS_EXPECT(EXIT_SUCCESS == libxs_shuffle(a, 1, size - 1, NULL, NULL));
+    LIBXS_EXPECT(EXIT_SUCCESS == libxs_shuffle2(b, init, 1, size - 1, NULL, NULL));
+    if (0 == strcmp(a, b)) {
+      const size_t r = libxs_unshuffle(size - 1, NULL);
+      size_t i = 0;
+      for (; i < r; ++i) {
+        libxs_shuffle(a, 1, size - 1, NULL, NULL);
+      }
+      if (0 != strcmp(a, init)) {
+        FPRINTF(stderr, "libxs_shuffle: data not restored!\n");
+        result = EXIT_FAILURE;
+      }
+    }
+    else {
+      FPRINTF(stderr, "libxs_shuffle: result does not match libxs_shuffle2!\n");
+      result = EXIT_FAILURE;
+    }
+  }
+
+  if (EXIT_SUCCESS == result) { /* check libxs_shuffle2 */
     char a[sizeof(init)], b[sizeof(init)];
     const size_t size = sizeof(init);
     size_t s = 0, i;
@@ -125,35 +148,35 @@ int main(int argc, char* argv[])
         const size_t r = libxs_unshuffle(s, &shuffle);
         int cmp;
         memset(a, 0, size); /* clear */
-        libxs_shuffle(a, init, 1, s, &shuffle, NULL);
+        LIBXS_EXPECT(EXIT_SUCCESS == libxs_shuffle2(a, init, 1, s, &shuffle, NULL));
         cmp = memcmp(a, init, s);
         if ((1 >= s || 0 == cmp) && (1 < s || 0 != cmp)) {
-          FPRINTF(stderr, "libxs_shuffle: data not shuffled or copy failed!\n");
+          FPRINTF(stderr, "libxs_shuffle2: data not shuffled or copy failed!\n");
           result = EXIT_FAILURE; break;
         }
         /* shuffle restores initial input */
         for (i = 0; i < r; ++i) {
           memset(b, 0, size); /* clear */
-          libxs_shuffle(b, a, 1, s, &shuffle, NULL);
+          LIBXS_EXPECT(EXIT_SUCCESS == libxs_shuffle2(b, a, 1, s, &shuffle, NULL));
           /* every shuffle is different from input */
           if (1 < s && 0 == memcmp(a, b, s)) {
-            FPRINTF(stderr, "libxs_shuffle: data not shuffled!\n");
+            FPRINTF(stderr, "libxs_shuffle2: data not shuffled!\n");
             result = EXIT_FAILURE; break;
           }
           if (0 == memcmp(b, init, s)) break; /* restored */
           else if (r == (i + 1)) {
-            FPRINTF(stderr, "libxs_shuffle: data not restored!\n");
+            FPRINTF(stderr, "libxs_shuffle2: data not restored!\n");
             result = EXIT_FAILURE;
           }
           memcpy(a, b, s);
         }
         if (EXIT_SUCCESS == result) {
           memset(a, 0, size); /* clear */
-          libxs_shuffle(a, init, 1, s, &shuffle, NULL);
+          LIBXS_EXPECT(EXIT_SUCCESS == libxs_shuffle2(a, init, 1, s, &shuffle, NULL));
           memset(b, 0, size); /* clear */
-          libxs_shuffle(b, a, 1, s, &shuffle, &r);
+          LIBXS_EXPECT(EXIT_SUCCESS == libxs_shuffle2(b, a, 1, s, &shuffle, &r));
           if (0 != memcmp(b, init, s)) {
-            FPRINTF(stderr, "libxs_shuffle: data not restored!\n");
+            FPRINTF(stderr, "libxs_shuffle2: data not restored!\n");
             result = EXIT_FAILURE;
             break;
           }
@@ -161,7 +184,7 @@ int main(int argc, char* argv[])
         else break; /* previous error */
       }
       else {
-        FPRINTF(stderr, "libxs_shuffle: shuffle argument not coprime!\n");
+        FPRINTF(stderr, "libxs_shuffle2: shuffle argument not coprime!\n");
         result = EXIT_FAILURE;
         break;
       }

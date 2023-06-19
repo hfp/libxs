@@ -53,8 +53,8 @@
  /** Zero-initialized structure; assumes conservative properties. */
 LIBXS_EXTERN_C typedef struct libxs_cpuid_info {
   char model[1024]; /** CPU-name (OS-specific implementation). */
-#if defined(LIBXS_PLATFORM_X86)
   int constant_tsc; /** Timer stamp counter is monotonic. */
+#if defined(LIBXS_PLATFORM_X86)
   int has_context;  /** Context switches are permitted. */
 #endif
 } libxs_cpuid_info;

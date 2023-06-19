@@ -89,7 +89,7 @@ int main(int argc, char* argv[])
       (defined(LIBXS_MKL_VERSION2) && (LIBXS_VERSION2(11, 3) <= LIBXS_MKL_VERSION2))
     /*const*/ int check = 1;
 #else
-    const int check = 0;
+    /*const*/ int check = 0;
 #endif
 #if defined(_OPENMP)
     const libxs_blasint chunksize = s / omp_get_max_threads();

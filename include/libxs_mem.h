@@ -102,16 +102,25 @@ LIBXS_API const char* libxs_stristr(const char a[], const char b[]);
  */
 LIBXS_API int libxs_strimatch(const char a[], const char b[], const char delims[]);
 
-/** Determines the number of calls to restore the original data (libxs_shuffle). */
-LIBXS_API size_t libxs_unshuffle(size_t count,
-  /* Shall be co-prime to count (libxs_coprime2(count) if NULL). */
-  const size_t* shuffle);
+/** Out-of-place shuffling of data given by elemsize and count. */
+LIBXS_API int libxs_shuffle(void* inout, size_t elemsize, size_t count,
+  /** Shall be co-prime to count-argument; uses libxs_coprime2(count) if shuffle=NULL. */
+  const size_t* shuffle,
+  /** If NULL, the default value is one. */
+  const size_t* nrepeat);
 
 /** Out-of-place shuffling of data given by elemsize and count. */
-LIBXS_API void libxs_shuffle(void* dst, const void* src, size_t elemsize, size_t count,
-  /* Shall be co-prime to count (libxs_coprime2(count) if NULL). */
+LIBXS_API int libxs_shuffle2(void* dst, const void* src, size_t elemsize, size_t count,
+  /** Shall be co-prime to count-argument; uses libxs_coprime2(count) if shuffle=NULL. */
   const size_t* shuffle,
-  /* If NULL, the default value is one. */
+  /** If NULL, the default value is one. */
   const size_t* nrepeat);
+
+/** Determines the number of calls to restore the original data (libxs_shuffle2). */
+LIBXS_API size_t libxs_unshuffle(
+  /** The number of elements to be unshuffled. */
+  size_t count,
+  /** Shall be co-prime to count-argument; uses libxs_coprime2(count) if shuffle=NULL. */
+  const size_t* shuffle);
 
 #endif /*LIBXS_MEM_H*/

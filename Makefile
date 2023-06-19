@@ -329,26 +329,35 @@ NINDICES := $(words $(INDICES))
 SRCFILES_KERNELS := $(patsubst %,$(BLDDIR)/mm_%.c,$(INDICES))
 KRNOBJS := $(patsubst %,$(BLDDIR)/intel64/mm_%.o,$(INDICES))
 
-HEADERS := $(wildcard $(ROOTDIR)/$(SRCDIR)/template/*.h) $(wildcard $(ROOTDIR)/$(SRCDIR)/*.h) \
-          $(ROOTDIR)/$(SRCDIR)/libxs_hash.c \
-          $(ROOTDIR)/include/libxs_cpuid.h \
-          $(ROOTDIR)/include/libxs_rng.h \
-          $(ROOTDIR)/include/libxs_lpflt_quant.h \
-          $(ROOTDIR)/include/libxs_frontend.h \
-          $(ROOTDIR)/include/libxs_fsspmdm.h \
-          $(ROOTDIR)/include/libxs_generator.h \
+HEADERS_UTILS := \
           $(ROOTDIR)/include/libxs_intrinsics_x86.h \
-          $(ROOTDIR)/include/libxs_macros.h \
-          $(ROOTDIR)/include/libxs_malloc.h \
-          $(ROOTDIR)/include/libxs_math.h \
-          $(ROOTDIR)/include/libxs_mem.h \
-          $(ROOTDIR)/include/libxs_mhd.h \
-          $(ROOTDIR)/include/libxs_sync.h \
+          $(ROOTDIR)/include/libxs_lpflt_quant.h \
           $(ROOTDIR)/include/libxs_timer.h \
-          $(ROOTDIR)/include/libxs_typedefs.h
+          $(ROOTDIR)/include/libxs_frontend.h \
+          $(ROOTDIR)/include/libxs_math.h \
+          $(ROOTDIR)/include/libxs_mhd.h \
+          $(NULL)
+HEADERS_MAIN := \
+          $(ROOTDIR)/include/libxs_generator.h \
+          $(ROOTDIR)/include/libxs_typedefs.h \
+          $(ROOTDIR)/include/libxs_fsspmdm.h \
+          $(ROOTDIR)/include/libxs_macros.h \
+          $(ROOTDIR)/include/libxs_mem.h \
+          $(ROOTDIR)/include/libxs_malloc.h \
+          $(ROOTDIR)/include/libxs_cpuid.h \
+          $(ROOTDIR)/include/libxs_math.h \
+          $(ROOTDIR)/include/libxs_sync.h \
+          $(NULL)
+HEADERS := \
+          $(wildcard $(ROOTDIR)/$(SRCDIR)/template/*.h) \
+          $(wildcard $(ROOTDIR)/$(SRCDIR)/*.h) \
+          $(ROOTDIR)/$(SRCDIR)/libxs_hash.c \
+          $(HEADERS_MAIN) $(HEADERS_UTILS)
 SRCFILES_LIB := $(patsubst %,$(ROOTDIR)/$(SRCDIR)/%, \
-          libxs_main.c libxs_mem.c libxs_malloc.c libxs_hash.c libxs_math.c libxs_sync.c libxs_mhd.c libxs_timer.c \
-          libxs_perf.c libxs_gemm.c libxs_xcopy.c libxs_fsspmdm.c libxs_rng.c libxs_lpflt_quant.c)
+          libxs_main.c libxs_mem.c libxs_malloc.c libxs_math.c libxs_fsspmdm.c \
+          libxs_hash.c libxs_sync.c libxs_perf.c libxs_gemm.c libxs_xcopy.c \
+          libxs_lpflt_quant.c libxs_timer.c \
+          libxs_rng.c libxs_mhd.c)
 SRCFILES_GEN_LIB := $(patsubst %,$(ROOTDIR)/$(SRCDIR)/%,$(notdir $(wildcard $(ROOTDIR)/$(SRCDIR)/generator_*.c)) \
           libxs_cpuid_arm.c libxs_cpuid_x86.c libxs_generator.c libxs_trace.c libxs_matrixeqn.c)
 
@@ -363,7 +372,7 @@ NOBLAS_OBJ := $(BLDDIR)/intel64/libxs_noblas.o
 
 # list of object might be "incomplete" if not all code gen. FLAGS are supplied with clean target!
 OBJECTS := $(OBJFILES_GEN_LIB) $(OBJFILES_GEN_GEMM_BIN) $(OBJFILES_LIB) \
-          $(KRNOBJS) $(OBJFILES_EXT) $(NOBLAS_OBJ)
+           $(KRNOBJS) $(OBJFILES_EXT) $(NOBLAS_OBJ)
 ifneq (,$(strip $(FC)))
   FTNOBJS := $(BLDDIR)/intel64/libxs-mod.o
 endif
@@ -592,7 +601,8 @@ $(INCDIR)/libxs_config.h: $(INCDIR)/.make $(ROOTDIR)/$(SRCDIR)/template/libxs_co
 	@if [ -e $(ROOTDIR)/.github/install.sh ]; then \
 		$(ROOTDIR)/.github/install.sh 2>/dev/null; \
 	fi
-	@$(CP) $(filter $(ROOTDIR)/include/%.h,$(HEADERS)) $(INCDIR) 2>/dev/null || true
+	@$(CP) $(HEADERS_UTILS) $(INCDIR) 2>/dev/null || true
+	@$(CP) $(HEADERS_MAIN) $(INCDIR) 2>/dev/null || true
 	@$(PYTHON) $(ROOTDIR)/$(SCRDIR)/libxs_config.py $(ROOTDIR)/$(SRCDIR)/template/libxs_config.h \
 		$(MAKE_ILP64) $(CACHELINE) $(PRECISION) $(PREFETCH_TYPE) \
 		$(shell echo "$$((0<$(THRESHOLD)?$(THRESHOLD):0))") $(shell echo "$$(($(THREADS)+$(OMP)))") \
@@ -662,16 +672,16 @@ endif
 	@echo >>$@
 	@echo >>$@
 ifneq (2,$(PRECISION))
-# $(GENGEMM) dense $@ libxs_s$(basename $(notdir $@))_knl $(MNVALUE) $(NMVALUE) $(KVALUE) $(MNVALUE) $(KVALUE) $(MNVALUE) $(ALPHA) $(BETA) 0 0 knl $(PREFETCH_SCHEME) SP
-# $(GENGEMM) dense $@ libxs_s$(basename $(notdir $@))_hsw $(MNVALUE) $(NMVALUE) $(KVALUE) $(MNVALUE) $(KVALUE) $(MNVALUE) $(ALPHA) $(BETA) 0 0 hsw $(PREFETCH_SCHEME) SP
-# $(GENGEMM) dense $@ libxs_s$(basename $(notdir $@))_snb $(MNVALUE) $(NMVALUE) $(KVALUE) $(MNVALUE) $(KVALUE) $(MNVALUE) $(ALPHA) $(BETA) 0 0 snb $(PREFETCH_SCHEME) SP
-# $(GENGEMM) dense $@ libxs_s$(basename $(notdir $@))_wsm $(MNVALUE) $(NMVALUE) $(KVALUE) $(MNVALUE) $(KVALUE) $(MNVALUE) $(ALPHA) $(BETA) 0 0 wsm $(PREFETCH_SCHEME) SP
+	$(GENGEMM) dense $@ libxs_s$(basename $(notdir $@))_knl $(MNVALUE) $(NMVALUE) $(KVALUE) $(MNVALUE) $(KVALUE) $(MNVALUE) $(ALPHA) $(BETA) 0 0 knl $(PREFETCH_SCHEME) SP
+	$(GENGEMM) dense $@ libxs_s$(basename $(notdir $@))_hsw $(MNVALUE) $(NMVALUE) $(KVALUE) $(MNVALUE) $(KVALUE) $(MNVALUE) $(ALPHA) $(BETA) 0 0 hsw $(PREFETCH_SCHEME) SP
+	$(GENGEMM) dense $@ libxs_s$(basename $(notdir $@))_snb $(MNVALUE) $(NMVALUE) $(KVALUE) $(MNVALUE) $(KVALUE) $(MNVALUE) $(ALPHA) $(BETA) 0 0 snb $(PREFETCH_SCHEME) SP
+	$(GENGEMM) dense $@ libxs_s$(basename $(notdir $@))_wsm $(MNVALUE) $(NMVALUE) $(KVALUE) $(MNVALUE) $(KVALUE) $(MNVALUE) $(ALPHA) $(BETA) 0 0 wsm $(PREFETCH_SCHEME) SP
 endif
 ifneq (1,$(PRECISION))
-# $(GENGEMM) dense $@ libxs_d$(basename $(notdir $@))_knl $(MNVALUE) $(NMVALUE) $(KVALUE) $(MNVALUE) $(KVALUE) $(MNVALUE) $(ALPHA) $(BETA) 0 0 knl $(PREFETCH_SCHEME) DP
-# $(GENGEMM) dense $@ libxs_d$(basename $(notdir $@))_hsw $(MNVALUE) $(NMVALUE) $(KVALUE) $(MNVALUE) $(KVALUE) $(MNVALUE) $(ALPHA) $(BETA) 0 0 hsw $(PREFETCH_SCHEME) DP
-# $(GENGEMM) dense $@ libxs_d$(basename $(notdir $@))_snb $(MNVALUE) $(NMVALUE) $(KVALUE) $(MNVALUE) $(KVALUE) $(MNVALUE) $(ALPHA) $(BETA) 0 0 snb $(PREFETCH_SCHEME) DP
-# $(GENGEMM) dense $@ libxs_d$(basename $(notdir $@))_wsm $(MNVALUE) $(NMVALUE) $(KVALUE) $(MNVALUE) $(KVALUE) $(MNVALUE) $(ALPHA) $(BETA) 0 0 wsm $(PREFETCH_SCHEME) DP
+	$(GENGEMM) dense $@ libxs_d$(basename $(notdir $@))_knl $(MNVALUE) $(NMVALUE) $(KVALUE) $(MNVALUE) $(KVALUE) $(MNVALUE) $(ALPHA) $(BETA) 0 0 knl $(PREFETCH_SCHEME) DP
+	$(GENGEMM) dense $@ libxs_d$(basename $(notdir $@))_hsw $(MNVALUE) $(NMVALUE) $(KVALUE) $(MNVALUE) $(KVALUE) $(MNVALUE) $(ALPHA) $(BETA) 0 0 hsw $(PREFETCH_SCHEME) DP
+	$(GENGEMM) dense $@ libxs_d$(basename $(notdir $@))_snb $(MNVALUE) $(NMVALUE) $(KVALUE) $(MNVALUE) $(KVALUE) $(MNVALUE) $(ALPHA) $(BETA) 0 0 snb $(PREFETCH_SCHEME) DP
+	$(GENGEMM) dense $@ libxs_d$(basename $(notdir $@))_wsm $(MNVALUE) $(NMVALUE) $(KVALUE) $(MNVALUE) $(KVALUE) $(MNVALUE) $(ALPHA) $(BETA) 0 0 wsm $(PREFETCH_SCHEME) DP
 endif
 endif # target
 else # noarch
@@ -684,10 +694,10 @@ endif
 	@echo >>$@
 	@echo >>$@
 ifneq (2,$(PRECISION))
-# $(GENGEMM) dense $@ libxs_s$(basename $(notdir $@))_$(GENTARGET) $(MNVALUE) $(NMVALUE) $(KVALUE) $(MNVALUE) $(KVALUE) $(MNVALUE) $(ALPHA) $(BETA) 0 0 $(GENTARGET) $(PREFETCH_SCHEME) SP
+	$(GENGEMM) dense $@ libxs_s$(basename $(notdir $@))_$(GENTARGET) $(MNVALUE) $(NMVALUE) $(KVALUE) $(MNVALUE) $(KVALUE) $(MNVALUE) $(ALPHA) $(BETA) 0 0 $(GENTARGET) $(PREFETCH_SCHEME) SP
 endif
 ifneq (1,$(PRECISION))
-# $(GENGEMM) dense $@ libxs_d$(basename $(notdir $@))_$(GENTARGET) $(MNVALUE) $(NMVALUE) $(KVALUE) $(MNVALUE) $(KVALUE) $(MNVALUE) $(ALPHA) $(BETA) 0 0 $(GENTARGET) $(PREFETCH_SCHEME) DP
+	$(GENGEMM) dense $@ libxs_d$(basename $(notdir $@))_$(GENTARGET) $(MNVALUE) $(NMVALUE) $(KVALUE) $(MNVALUE) $(KVALUE) $(MNVALUE) $(ALPHA) $(BETA) 0 0 $(GENTARGET) $(PREFETCH_SCHEME) DP
 endif
 endif # noarch
 	$(eval TMPFILE = $(shell $(MKTEMP) /tmp/.libxs_XXXXXX.mak))
@@ -1361,15 +1371,15 @@ ifneq ($(PREFIX),$(ABSDIR))
 	@echo
 	@echo "LIBXS installing libraries..."
 	@$(MKDIR) -p $(PREFIX)/$(POUTDIR)
-	@$(CP) -va $(OUTDIR)/libxsnoblas.$(DLIBEXT)* $(PREFIX)/$(POUTDIR) 2>/dev/null || true
+	@$(CP) -va $(OUTDIR)/libxsnoblas*.$(DLIBEXT)* $(PREFIX)/$(POUTDIR) 2>/dev/null || true
 	@$(CP) -v  $(OUTDIR)/libxsnoblas.$(SLIBEXT)  $(PREFIX)/$(POUTDIR) 2>/dev/null || true
-	@$(CP) -va $(OUTDIR)/libxsgen.$(DLIBEXT)* $(PREFIX)/$(POUTDIR) 2>/dev/null || true
+	@$(CP) -va $(OUTDIR)/libxsgen*.$(DLIBEXT)* $(PREFIX)/$(POUTDIR) 2>/dev/null || true
 	@$(CP) -v  $(OUTDIR)/libxsgen.$(SLIBEXT)  $(PREFIX)/$(POUTDIR) 2>/dev/null || true
-	@$(CP) -va $(OUTDIR)/libxsext.$(DLIBEXT)* $(PREFIX)/$(POUTDIR) 2>/dev/null || true
+	@$(CP) -va $(OUTDIR)/libxsext*.$(DLIBEXT)* $(PREFIX)/$(POUTDIR) 2>/dev/null || true
 	@$(CP) -v  $(OUTDIR)/libxsext.$(SLIBEXT)  $(PREFIX)/$(POUTDIR) 2>/dev/null || true
-	@$(CP) -va $(OUTDIR)/libxsf.$(DLIBEXT)* $(PREFIX)/$(POUTDIR) 2>/dev/null || true
+	@$(CP) -va $(OUTDIR)/libxsf*.$(DLIBEXT)* $(PREFIX)/$(POUTDIR) 2>/dev/null || true
 	@$(CP) -v  $(OUTDIR)/libxsf.$(SLIBEXT)  $(PREFIX)/$(POUTDIR) 2>/dev/null || true
-	@$(CP) -va $(OUTDIR)/libxs.$(DLIBEXT)* $(PREFIX)/$(POUTDIR) 2>/dev/null || true
+	@$(CP) -va $(OUTDIR)/libxs*.$(DLIBEXT)* $(PREFIX)/$(POUTDIR) 2>/dev/null || true
 	@$(CP) -v  $(OUTDIR)/libxs.$(SLIBEXT)  $(PREFIX)/$(POUTDIR) 2>/dev/null || true
 	@echo
 	@echo "LIBXS installing pkg-config and module files..."
@@ -1381,8 +1391,12 @@ ifneq ($(PREFIX),$(ABSDIR))
 	fi
 	@echo
 	@echo "LIBXS installing interface..."
-	@$(MKDIR) -p $(PREFIX)/$(PINCDIR)
-	@$(CP) -v $(INCDIR)/libxs*.h $(PREFIX)/$(PINCDIR) 2>/dev/null || true
+	@$(MKDIR) -p $(PREFIX)/$(PINCDIR)/utils
+	@$(CP) -v $(HEADERS_MAIN) $(PREFIX)/$(PINCDIR) 2>/dev/null || true
+	@$(CP) -v $(HEADERS_UTILS) $(PREFIX)/$(PINCDIR)/utils 2>/dev/null || true
+	@$(CP) -v $(INCDIR)/libxs_version.h $(PREFIX)/$(PINCDIR) 2>/dev/null || true
+	@$(CP) -v $(INCDIR)/libxs_config.h $(PREFIX)/$(PINCDIR) 2>/dev/null || true
+	@$(CP) -v $(INCDIR)/libxs.h $(PREFIX)/$(PINCDIR) 2>/dev/null || true
 	@$(CP) -v $(INCDIR)/libxs.f $(PREFIX)/$(PINCDIR) 2>/dev/null || true
 	@$(CP) -v $(INCDIR)/*.mod* $(PREFIX)/$(PINCDIR) 2>/dev/null || true
 	@echo
@@ -1396,6 +1410,10 @@ endif
 .PHONY: install
 install: install-minimal
 ifneq ($(PREFIX),$(ABSDIR))
+	@echo
+	@echo "LIBXS installing stand-alone generator..."
+	@$(MKDIR) -p $(PREFIX)/$(PBINDIR)
+	@$(CP) -v $(BINDIR)/libxs_*_generator $(PREFIX)/$(PBINDIR) 2>/dev/null || true
 	@echo
 	@echo "LIBXS installing documentation..."
 	@$(MKDIR) -p $(PREFIX)/$(PDOCDIR)
@@ -1414,17 +1432,13 @@ endif
 install-all: install build-tests
 ifneq ($(PREFIX),$(ABSDIR))
 	@echo
-	@echo "LIBXS installing stand-alone generators..."
-	@$(MKDIR) -p $(PREFIX)/$(PBINDIR)
-	@$(CP) -v $(BINDIR)/libxs_*_generator $(PREFIX)/$(PBINDIR) 2>/dev/null || true
-	@echo
 	@echo "LIBXS installing tests..."
 	@$(MKDIR) -p $(PREFIX)/$(PSHRDIR)/$(PTSTDIR)
 	@$(CP) -v $(basename $(wildcard $(ROOTDIR)/$(TSTDIR)/*.c)) $(PREFIX)/$(PSHRDIR)/$(PTSTDIR) 2>/dev/null || true
 endif
 
 .PHONY: install-dev
-install-dev: install-all
+install-dev: install
 ifneq ($(PREFIX),$(ABSDIR))
 	@echo
 	@echo "================================================================================"
@@ -1454,7 +1468,7 @@ ifneq ($(PREFIX),$(ABSDIR))
 endif
 
 .PHONY: install-realall
-install-realall: install-dev samples
+install-realall: install-all install-dev samples
 ifneq ($(PREFIX),$(ABSDIR))
 	@echo
 	@echo "LIBXS installing samples..."
