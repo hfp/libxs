@@ -263,6 +263,7 @@ int main(int argc, char* argv[])
     const int n = sizeof(inp) / sizeof(*inp);
     for (i = 0; i < n; ++i) {
       if (LIBXS_UPF(inp[i], 3, 100) != out[i]) exit(EXIT_FAILURE);
+      if (LIBXS_UPF(inp[i], -100, 100) != 0) exit(EXIT_FAILURE);
     }
   }
 

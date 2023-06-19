@@ -128,7 +128,7 @@
 
 /** Evaluates to true if the value falls into the interval [LO, HI]. */
 #define LIBXS_IS_INTEGER(TYPE, VALUE, LO, HI) ( \
-  ((LO) == (TYPE)(VALUE) || (LO) < (TYPE)(VALUE)) && (unsigned long long)(VALUE) <= (HI) && \
+  ((LO) == (TYPE)(VALUE) || (LO) < (TYPE)(VALUE)) && LIBXS_MIN(1ULL*(VALUE),HI) <= (HI) && \
   ((0 <= (double)(VALUE) || (0 > (LO) && 0 < (HI)))))
 /** LIBXS_IS_TYPE: check value against type-range of TYPE. */
 #define LIBXS_IS_ULLONG(VALUE) LIBXS_IS_INTEGER(unsigned long long, VALUE, 0, ULLONG_MAX)
@@ -241,7 +241,7 @@
 # define LIBXS_ATTRIBUTE_UNUSED LIBXS_ATTRIBUTE(unused)
 # define LIBXS_ATTRIBUTE_USED LIBXS_ATTRIBUTE(used)
 #else
-# if defined(_WIN32)
+# if defined(_WIN32) && !defined(LIBXS_PLATFORM_AARCH64)
 #   define LIBXS_ATTRIBUTE_COMMON LIBXS_ATTRIBUTE(selectany)
 # else
 #   define LIBXS_ATTRIBUTE_COMMON
@@ -841,6 +841,11 @@ LIBXS_API_INLINE int libxs_nonconst_int(int i) { return i; }
 #     define _CMATH_
 #   endif
 # endif
+# if !defined(LIBXS_PATH_SEPARATOR)
+#   define LIBXS_PATH_SEPARATOR '\\'
+# endif
+#elif !defined(LIBXS_PATH_SEPARATOR)
+# define LIBXS_PATH_SEPARATOR '/'
 #endif
 #if defined(LIBXS_BUILD) && !defined(_WIN32)
 # if !defined(_XOPEN_SOURCE) && 0
@@ -875,11 +880,13 @@ LIBXS_API_INLINE int libxs_nonconst_int(int i) { return i; }
 # endif
 #endif
 
-#if !defined(__has_feature) && !defined(__clang__)
+#if !defined(__clang__) || 1
+# if !defined(__has_feature)
 # define __has_feature(A) 0
-#endif
-#if !defined(__has_builtin) && !defined(__clang__)
-# define __has_builtin(A) 0
+# endif
+# if !defined(__has_builtin)
+#   define __has_builtin(A) 0
+# endif
 #endif
 
 #if (0 != LIBXS_SYNC) && !defined(_WIN32) && !defined(__CYGWIN__)

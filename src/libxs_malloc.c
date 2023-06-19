@@ -492,7 +492,10 @@ internal_malloc_info_type* internal_malloc_info(const void* memory, int check)
       ) { /* mismatch */
 #if !defined(NDEBUG)
         if (0 != libxs_verbosity) { /* library code is expected to be mute */
-          fprintf(stderr, "LIBXS ERROR: malloc/free mismatch!\n");
+          static int error_once = 0;
+          if (1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED)) {
+            fprintf(stderr, "LIBXS ERROR: malloc/free mismatch!\n");
+          }
         }
 #endif
         result = NULL;
@@ -1142,7 +1145,7 @@ LIBXS_API_INTERN int internal_xfree(const void* memory, internal_malloc_info_typ
     }
   }
 #if !defined(LIBXS_BUILD)
-  else if ((LIBXS_VERBOSITY_WARN <= libxs_verbosity || 0 > libxs_verbosity) /* library code is expected to be mute */
+  else if ((LIBXS_VERBOSITY_WARN <= libxs_verbosity || 0 > libxs_verbosity)
     && 1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED))
   {
     fprintf(stderr, "LIBXS WARNING: attempt to release memory from non-matching implementation!\n");
@@ -2191,14 +2194,48 @@ LIBXS_API_INTERN int libxs_malloc_xattrib(void* buffer, int flags, size_t size)
 #if defined(_WIN32)
       /* TODO: implement memory protection under Microsoft Windows */
 #else
-      result = mprotect(buffer, size/*entire memory region*/, PROT_READ);
+      const int result_mprotect = mprotect(buffer, size, PROT_READ);
+# if defined(__APPLE__) && defined(__arm64__)
+      if (EXIT_SUCCESS != result_mprotect) {
+        static int error_once = 0;
+        if ((LIBXS_VERBOSITY_HIGH <= libxs_verbosity || 0 > libxs_verbosity)
+          && 1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED))
+        {
+          fprintf(stderr, "LIBXS WARNING: failed to mark buffer as read-only!\n");
+        }
+      }
+# else
+      result = result_mprotect;
+# endif
 #endif
     }
     else { /* executable buffer requested */
 #if defined(_WIN32)
       /* TODO: implement memory protection under Microsoft Windows */
-#else
-      result = mprotect(buffer, size/*entire memory region*/, PROT_READ | PROT_EXEC);
+#else /* treat memory protection errors as soft error; ignore return value */
+# if defined(__APPLE__) && defined(__arm64__)
+      if (0 == (LIBXS_MALLOC_FLAG_W & flags)) {
+        pthread_jit_write_protect_np(1/*true*/);
+      }
+# else
+      const int result_mprotect = mprotect(buffer, size, PROT_READ | PROT_EXEC);
+      if (EXIT_SUCCESS != result_mprotect) {
+        static int error_once = 0;
+        if (0 != libxs_se) { /* hard-error in case of SELinux */
+          if (0 != libxs_verbosity /* library code is expected to be mute */
+            && 1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED))
+          {
+            fprintf(stderr, "LIBXS ERROR: failed to allocate an executable buffer!\n");
+          }
+          result = result_mprotect;
+        }
+        else if ((LIBXS_VERBOSITY_HIGH <= libxs_verbosity || 0 > libxs_verbosity) /* library code is expected to be mute */
+          && 1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED))
+        {
+          fprintf(stderr, "LIBXS WARNING: read-only request for JIT-buffer failed!\n");
+        }
+      }
+# endif
 #endif
     }
   }
@@ -2225,15 +2262,8 @@ LIBXS_API_INTERN int libxs_malloc_attrib(void** memory, int flags, const char* n
     if (0 == (LIBXS_MALLOC_FLAG_W & flags) || 0 != (LIBXS_MALLOC_FLAG_X & flags)) {
       const size_t alignment = (size_t)(((const char*)(*memory)) - ((const char*)buffer));
       const size_t alloc_size = apply_size + alignment;
-      int xattrib_result;
       if (0 == (LIBXS_MALLOC_FLAG_X & flags)) { /* data-buffer; non-executable */
-        xattrib_result = libxs_malloc_xattrib(buffer, flags, alloc_size);
-        if (EXIT_SUCCESS != xattrib_result
-          && (LIBXS_VERBOSITY_HIGH <= libxs_verbosity || 0 > libxs_verbosity)
-          && 1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED))
-        {
-          fprintf(stderr, "LIBXS WARNING: marking buffer as read-only failed!\n");
-        }
+        result = libxs_malloc_xattrib(buffer, flags, alloc_size);
       }
       else { /* executable buffer requested */
         void *const code_ptr = (NULL != info->reloc ? ((void*)(((char*)info->reloc) + alignment)) : *memory);
@@ -2301,29 +2331,8 @@ LIBXS_API_INTERN int libxs_malloc_attrib(void** memory, int flags, const char* n
             /* info size minus actual hash value */
             (unsigned int)(((char*)&info->hash) - ((char*)info))));
 #   endif
-# endif   /* treat memory protection errors as soft error; ignore return value */
-# if defined(__APPLE__) && defined(__arm64__)
-          if (0 == (LIBXS_MALLOC_FLAG_W & flags)) {
-            pthread_jit_write_protect_np(1/*true*/);
-          }
-# else
-          xattrib_result = libxs_malloc_xattrib(buffer, flags, alloc_size);
-          if (EXIT_SUCCESS != xattrib_result) {
-            if (0 != libxs_se) { /* hard-error in case of SELinux */
-              if (0 != libxs_verbosity /* library code is expected to be mute */
-                && 1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED))
-              {
-                fprintf(stderr, "LIBXS ERROR: failed to allocate an executable buffer!\n");
-              }
-              result = xattrib_result;
-            }
-            else if ((LIBXS_VERBOSITY_HIGH <= libxs_verbosity || 0 > libxs_verbosity) /* library code is expected to be mute */
-              && 1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED))
-            {
-              fprintf(stderr, "LIBXS WARNING: read-only request for JIT-buffer failed!\n");
-            }
-          }
 # endif
+          result = libxs_malloc_xattrib(buffer, flags, alloc_size);
         }
 #endif
       }

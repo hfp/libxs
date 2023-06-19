@@ -109,17 +109,17 @@ LIBXS_API void LIBXS_FSYMBOL(libxs_timer_ncycles)(libxs_timer_tickint* /*ncycles
 LIBXS_API void LIBXS_FSYMBOL(libxs_timer_ncycles)(libxs_timer_tickint* ncycles, const libxs_timer_tickint* tick0, const libxs_timer_tickint* tick1)
 {
 #if !defined(NDEBUG)
-  static int error_once = 0;
   if (NULL != ncycles && NULL != tick0 && NULL != tick1)
 #endif
   {
     *ncycles = libxs_timer_ncycles(*tick0, *tick1);
   }
 #if defined(LIBXS_TIMER_VERBOSE)
-  else if (0 != libxs_verbosity /* library code is expected to be mute */
-    && 1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED))
-  {
-    fprintf(stderr, "LIBXS ERROR: invalid arguments for libxs_timer_ncycles specified!\n");
+  else if (0 != libxs_verbosity) { /* library code is expected to be mute */
+    static int error_once = 0;
+    if (1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED)) {
+      fprintf(stderr, "LIBXS ERROR: invalid arguments for libxs_timer_ncycles specified!\n");
+    }
   }
 #endif
 }

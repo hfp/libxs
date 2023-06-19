@@ -41,6 +41,8 @@ LIBXS_EXTERN_C typedef struct libxs_matdiff_info {
  * Utility function to calculate a collection of scalar differences between two matrices (libxs_matdiff_info).
  * The location (m, n) of the largest difference (linf_abs) is recorded (also in case of NaN). In case of NaN,
  * differences are set to infinity. If no difference is discovered, the location (m, n) is negative (OOB).
+ * The return value does not judge the difference (norm) between reference and test data, but is about
+ * missing support for the requested data-type or otherwise invalid input.
  */
 LIBXS_API int libxs_matdiff(libxs_matdiff_info* info,
   libxs_datatype datatype, libxs_blasint m, libxs_blasint n, const void* ref, const void* tst,
