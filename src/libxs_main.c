@@ -1821,10 +1821,27 @@ LIBXS_API_INLINE const char* libxs_get_gemm_typename(const unsigned char* dataty
       {
         return "i16i32";
       }
+      else if (LIBXS_DATATYPE_I8 == LIBXS_GEMM_GETENUM_A_PREC(datatype) &&
+               LIBXS_DATATYPE_F16 == LIBXS_GEMM_GETENUM_B_PREC(datatype) &&
+               LIBXS_DATATYPE_F16 == LIBXS_GEMM_GETENUM_C_PREC(datatype))
+      {
+        return "i8f16f16";
+      }
+      else if (LIBXS_DATATYPE_I8 == LIBXS_GEMM_GETENUM_A_PREC(datatype) &&
+               LIBXS_DATATYPE_F16 == LIBXS_GEMM_GETENUM_B_PREC(datatype) &&
+               LIBXS_DATATYPE_F32 == LIBXS_GEMM_GETENUM_C_PREC(datatype))
+      {
+        return "i8f16f32";
+      }
       else if (LIBXS_DATATYPE_I16 == LIBXS_GEMM_GETENUM_AB_COMMON_PREC(datatype) &&
                LIBXS_DATATYPE_F32 == LIBXS_GEMM_GETENUM_C_PREC(datatype))
       {
         return "i16f32";
+      }
+      else if (LIBXS_DATATYPE_F16 == LIBXS_GEMM_GETENUM_AB_COMMON_PREC(datatype) &&
+               LIBXS_DATATYPE_F32 == LIBXS_GEMM_GETENUM_C_PREC(datatype))
+      {
+        return "f16f32";
       }
       else if (LIBXS_DATATYPE_I8 == LIBXS_GEMM_GETENUM_AB_COMMON_PREC(datatype) &&
                LIBXS_DATATYPE_I32 == LIBXS_GEMM_GETENUM_C_PREC(datatype))
@@ -3191,7 +3208,7 @@ LIBXS_API libxs_gemmfunction libxs_dispatch_gemm_v2( const libxs_gemm_shape gemm
 
   /* TODO: some checks */
   if ( gemm_shape.a_in_type != gemm_shape.b_in_type ) {
-    return NULL;
+    /*return NULL;*/
   }
 
   /* use the XGEMM ABI which utilizes an arg struct */
@@ -3220,7 +3237,7 @@ LIBXS_API libxs_gemmfunction libxs_dispatch_brgemm_v2( const libxs_gemm_shape ge
 
   /* TODO: some checks */
   if ( gemm_shape.a_in_type != gemm_shape.b_in_type ) {
-    return NULL;
+    /*return NULL;*/
   }
 
   /* use the XGEMM ABI which utilizes an arg struct */
