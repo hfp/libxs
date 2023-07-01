@@ -1833,6 +1833,18 @@ LIBXS_API_INLINE const char* libxs_get_gemm_typename(const unsigned char* dataty
       {
         return "i8f16f32";
       }
+      else if (LIBXS_DATATYPE_I8 == LIBXS_GEMM_GETENUM_A_PREC(datatype) &&
+               LIBXS_DATATYPE_BF16 == LIBXS_GEMM_GETENUM_B_PREC(datatype) &&
+               LIBXS_DATATYPE_BF16 == LIBXS_GEMM_GETENUM_C_PREC(datatype))
+      {
+        return "i8bf16bf16";
+      }
+      else if (LIBXS_DATATYPE_I8 == LIBXS_GEMM_GETENUM_A_PREC(datatype) &&
+               LIBXS_DATATYPE_BF16 == LIBXS_GEMM_GETENUM_B_PREC(datatype) &&
+               LIBXS_DATATYPE_F32 == LIBXS_GEMM_GETENUM_C_PREC(datatype))
+      {
+        return "i8bf16f32";
+      }
       else if (LIBXS_DATATYPE_I16 == LIBXS_GEMM_GETENUM_AB_COMMON_PREC(datatype) &&
                LIBXS_DATATYPE_F32 == LIBXS_GEMM_GETENUM_C_PREC(datatype))
       {
