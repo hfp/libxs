@@ -1800,6 +1800,25 @@ LIBXS_API int libxs_dvalue(libxs_datatype datatype, const void* value, double* d
   return result;
 }
 
+LIBXS_API_INLINE const char* libxs_get_i4gemm_typename(const unsigned char* datatype)
+{
+  if (LIBXS_DATATYPE_I8 == LIBXS_GEMM_GETENUM_A_PREC(datatype) &&
+           LIBXS_DATATYPE_F16 == LIBXS_GEMM_GETENUM_B_PREC(datatype) &&
+           LIBXS_DATATYPE_F16 == LIBXS_GEMM_GETENUM_C_PREC(datatype))
+  {
+    return "i4f16f16";
+  }
+  else if (LIBXS_DATATYPE_I8 == LIBXS_GEMM_GETENUM_A_PREC(datatype) &&
+           LIBXS_DATATYPE_F16 == LIBXS_GEMM_GETENUM_B_PREC(datatype) &&
+           LIBXS_DATATYPE_F32 == LIBXS_GEMM_GETENUM_C_PREC(datatype))
+  {
+    return "i4f16f32";
+  }
+  else {
+    return "void";
+  }
+}
+
 
 LIBXS_API_INLINE const char* libxs_get_gemm_typename(const unsigned char* datatype)
 {
@@ -1832,6 +1851,18 @@ LIBXS_API_INLINE const char* libxs_get_gemm_typename(const unsigned char* dataty
                LIBXS_DATATYPE_F32 == LIBXS_GEMM_GETENUM_C_PREC(datatype))
       {
         return "i8f16f32";
+      }
+      else if (LIBXS_DATATYPE_BF8 == LIBXS_GEMM_GETENUM_A_PREC(datatype) &&
+               LIBXS_DATATYPE_F16 == LIBXS_GEMM_GETENUM_B_PREC(datatype) &&
+               LIBXS_DATATYPE_F16 == LIBXS_GEMM_GETENUM_C_PREC(datatype))
+      {
+        return "bf8f16f16";
+      }
+      else if (LIBXS_DATATYPE_BF8 == LIBXS_GEMM_GETENUM_A_PREC(datatype) &&
+               LIBXS_DATATYPE_F16 == LIBXS_GEMM_GETENUM_B_PREC(datatype) &&
+               LIBXS_DATATYPE_F32 == LIBXS_GEMM_GETENUM_C_PREC(datatype))
+      {
+        return "bf8f16f32";
       }
       else if (LIBXS_DATATYPE_I8 == LIBXS_GEMM_GETENUM_A_PREC(datatype) &&
                LIBXS_DATATYPE_BF16 == LIBXS_GEMM_GETENUM_B_PREC(datatype) &&
@@ -2064,7 +2095,7 @@ LIBXS_API_INTERN int libxs_build(const libxs_build_request* request, unsigned in
 # endif
         {
           const int uid = request->descriptor.gemm->prefetch;
-          const char *const tname = libxs_get_gemm_typename(request->descriptor.gemm->datatype);
+          const char *const tname = ( ((LIBXS_GEMM_FLAG_INTERPRETE_A_AS_INT4_VNNI2 & request->descriptor.gemm->flags) == LIBXS_GEMM_FLAG_INTERPRETE_A_AS_INT4_VNNI2) ) ? libxs_get_i4gemm_typename(request->descriptor.gemm->datatype) : libxs_get_gemm_typename(request->descriptor.gemm->datatype);
           const char *const meltw_tname = libxs_get_typename((libxs_datatype)request->descriptor.gemm->meltw_datatype_aux);
           int typesigns = 0, br = 0, kernabi = 0, stride_a = 0, stride_b = 0;
           char tc_option[16] = { 0 };
