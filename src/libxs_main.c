@@ -1925,8 +1925,11 @@ LIBXS_API const char* libxs_get_typename(libxs_datatype datatype)
     case LIBXS_DATATYPE_HF8:  return "hf8";
     case LIBXS_DATATYPE_I64:  return "i64";
     case LIBXS_DATATYPE_I32:  return "i32";
+    case LIBXS_DATATYPE_U32:  return "u32";
     case LIBXS_DATATYPE_I16:  return "i16";
+    case LIBXS_DATATYPE_U16:  return "u16";
     case LIBXS_DATATYPE_I8:   return "i8";
+    case LIBXS_DATATYPE_IMPLICIT:   return "implicit";
     default: {
       if (LIBXS_DATATYPE_I16 == LIBXS_GETENUM_INP(datatype) &&
           LIBXS_DATATYPE_I32 == LIBXS_GETENUM_OUT(datatype))

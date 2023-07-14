@@ -93,9 +93,37 @@ LIBXS_API int libxs_matdiff(libxs_matdiff_info* info,
 #       undef LIBXS_MATDIFF_TEMPLATE_ELEM_TYPE
 #       undef LIBXS_MATDIFF_TEMPLATE_TYPE2FP64
       } break;
+      case LIBXS_DATATYPE_U32: {
+#       define LIBXS_MATDIFF_TEMPLATE_TYPE2FP64(VALUE) ((double)(VALUE))
+#       define LIBXS_MATDIFF_TEMPLATE_ELEM_TYPE unsigned int
+        if (0 == matdiff_shuffle) {
+#         include "template/libxs_matdiff.h"
+        }
+        else {
+#         define LIBXS_MATDIFF_SHUFFLE
+#         include "template/libxs_matdiff.h"
+#         undef LIBXS_MATDIFF_SHUFFLE
+        }
+#       undef LIBXS_MATDIFF_TEMPLATE_ELEM_TYPE
+#       undef LIBXS_MATDIFF_TEMPLATE_TYPE2FP64
+      } break;
       case LIBXS_DATATYPE_I16: {
 #       define LIBXS_MATDIFF_TEMPLATE_TYPE2FP64(VALUE) ((double)(VALUE))
 #       define LIBXS_MATDIFF_TEMPLATE_ELEM_TYPE short
+        if (0 == matdiff_shuffle) {
+#         include "template/libxs_matdiff.h"
+        }
+        else {
+#         define LIBXS_MATDIFF_SHUFFLE
+#         include "template/libxs_matdiff.h"
+#         undef LIBXS_MATDIFF_SHUFFLE
+        }
+#       undef LIBXS_MATDIFF_TEMPLATE_ELEM_TYPE
+#       undef LIBXS_MATDIFF_TEMPLATE_TYPE2FP64
+      } break;
+      case LIBXS_DATATYPE_U16: {
+#       define LIBXS_MATDIFF_TEMPLATE_TYPE2FP64(VALUE) ((double)(VALUE))
+#       define LIBXS_MATDIFF_TEMPLATE_ELEM_TYPE unsigned short
         if (0 == matdiff_shuffle) {
 #         include "template/libxs_matdiff.h"
         }
