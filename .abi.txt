@@ -31,6 +31,7 @@ libxs_cpuid
 libxs_cpuid_arm
 libxs_cpuid_arm_mmla_gemm_pack_b_to_vnnit_on_stack
 libxs_cpuid_arm_use_bfdot
+libxs_cpuid_arm_use_i8dot
 libxs_cpuid_dot_pack_factor
 libxs_cpuid_name
 libxs_cpuid_vlen32
