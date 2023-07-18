@@ -1891,6 +1891,11 @@ LIBXS_API_INLINE const char* libxs_get_gemm_typename(const unsigned char* dataty
       {
         return "i8i32";
       }
+      else if (LIBXS_DATATYPE_I8 == LIBXS_GEMM_GETENUM_AB_COMMON_PREC(datatype) &&
+               LIBXS_DATATYPE_F32 == LIBXS_GEMM_GETENUM_C_PREC(datatype))
+      {
+        return "i8f32";
+      }
       else if (LIBXS_DATATYPE_BF16 == LIBXS_GEMM_GETENUM_AB_COMMON_PREC(datatype) &&
                LIBXS_DATATYPE_F32 == LIBXS_GEMM_GETENUM_C_PREC(datatype))
       {

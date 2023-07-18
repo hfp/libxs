@@ -533,6 +533,17 @@ LIBXS_API int libxs_cpuid_dot_pack_factor(libxs_datatype datatype)
     result = 1;
   }
 # else
+  if ( (type == LIBXS_DATATYPE_BF16) ||
+       (type == LIBXS_DATATYPE_F16)  ||
+       (type == LIBXS_DATATYPE_I16)     ) {
+    result = 4;
+  } else if ( (type == LIBXS_DATATYPE_BF8) ||
+              (type == LIBXS_DATATYPE_HF8) ||
+              (type == LIBXS_DATATYPE_I8)     ) {
+    result = 8;
+  } else {
+    result = 1;
+  }
   if ( libxs_cpuid_arm_use_bfdot() != 0 ) {
     if ( (type == LIBXS_DATATYPE_BF16) ||
          (type == LIBXS_DATATYPE_F16)  ||
@@ -542,8 +553,13 @@ LIBXS_API int libxs_cpuid_dot_pack_factor(libxs_datatype datatype)
                 (type == LIBXS_DATATYPE_HF8) ||
                 (type == LIBXS_DATATYPE_I8)     ) {
       result = 4;
-    } else {
-      result = 1;
+    }
+  } else if ( libxs_cpuid_arm_use_i8dot() != 0 ) {
+    if ( type == LIBXS_DATATYPE_I16 ) {
+      result = 2;
+    } else if ( (type == LIBXS_DATATYPE_BF8) ||
+                (type == LIBXS_DATATYPE_I8)     ) {
+      result = 4;
     }
   } else {
     if ( (type == LIBXS_DATATYPE_BF16) ||
