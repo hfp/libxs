@@ -336,6 +336,7 @@ HEADERS_UTILS := \
           $(ROOTDIR)/include/libxs_frontend.h \
           $(ROOTDIR)/include/libxs_math.h \
           $(ROOTDIR)/include/libxs_mhd.h \
+          $(ROOTDIR)/include/libxs_rng.h \
           $(NULL)
 HEADERS_MAIN := \
           $(ROOTDIR)/include/libxs_generator.h \
