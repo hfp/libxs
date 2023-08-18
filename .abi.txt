@@ -91,6 +91,7 @@ libxs_dmmcall
 libxs_dmmcall_abc
 libxs_dmmcall_prf
 libxs_dmmdispatch
+libxs_dmmdispatch_v2
 libxs_dsqrt
 libxs_dvalue
 libxs_finalize
@@ -329,6 +330,7 @@ libxs_smmcall
 libxs_smmcall_abc
 libxs_smmcall_prf
 libxs_smmdispatch
+libxs_smmdispatch_v2
 libxs_ssqrt
 libxs_stdio_acquire
 libxs_stdio_release
