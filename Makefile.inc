@@ -353,6 +353,8 @@ ifeq (0,$(GNU))
       CC := icx
     endif
   endif
+else ifneq (,$(filter-out default undefined,$(origin CC) $(origin CXX) $(origin FC)))
+  $(info WARNING: GNU=$(GNU) was given but CC, CXX, or FC was specified!)
 endif
 
 # adopt extra flags from C if not set individually
@@ -1133,16 +1135,6 @@ else # non-Intel
   endif
 endif
 SLDFLAGS ?= $(NULL)
-
-LIBATOMIC ?= 0
-ifneq (0,$(THREADS))
-ifneq (0,$(LIBATOMIC))
-ifneq (,$(call ldclib,$(LD),$(SLDFLAGS),atomic))
-  LDFLAGS += $(call ldclib,$(LD),$(SLDFLAGS),atomic)
-  DFLAGS += -DLIBXS_LIBATOMIC
-endif
-endif
-endif
 
 LIBGFORTRAN := $(call libpath,$(FLD),$(SLDFLAGS),gfortran)
 LIBPTHREAD := $(call ldclib,$(LD),$(SLDFLAGS),pthread)
@@ -2134,6 +2126,16 @@ ifeq (,$(filter-out 0,$(COMPATIBLE) $(PGI)))
   endif
 else ifneq (0,$(PGI))
   LIBATOMIC ?= 1
+endif
+
+LIBATOMIC ?= 0
+ifneq (0,$(THREADS))
+ifneq (0,$(LIBATOMIC))
+ifneq (,$(call ldclib,$(LD),$(SLDFLAGS),atomic))
+  LDFLAGS += $(call ldclib,$(LD),$(SLDFLAGS),atomic)
+  DFLAGS += -DLIBXS_LIBATOMIC
+endif
+endif
 endif
 
 ifeq (0,$(shell INFILE=$$($(MKTEMP) /tmp/.libxs_XXXXXX.c) && \

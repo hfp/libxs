@@ -46,7 +46,7 @@ int main(int argc, char* argv[])
     for (i = 0; i < nrpt; ++i) {
       printf("-------------------------------------------------\n");
       /* initialize the data */
-      libxs_rng_seq(a, (libxs_blasint)nbytes);
+      libxs_rng_seq(a, nbytes);
       memcpy(b, a, nbytes); /* same content */
       /* benchmark libxs_diff (always strided) */
       if (elsize < 256) {
@@ -65,7 +65,7 @@ int main(int argc, char* argv[])
       { /* benchmark libxs_memcmp */
         libxs_timer_tickint start;
         /* reinitialize the data (flush caches) */
-        libxs_rng_seq(a, (libxs_blasint)nbytes);
+        libxs_rng_seq(a, nbytes);
         memcpy(b, a, nbytes); /* same content */
         start = libxs_timer_tick();
         if (stride == elsize && 0 == strided) {
@@ -87,7 +87,7 @@ int main(int argc, char* argv[])
       { /* benchmark stdlib's memcmp */
         libxs_timer_tickint start;
         /* reinitialize the data (flush caches) */
-        libxs_rng_seq(a, (libxs_blasint)nbytes);
+        libxs_rng_seq(a, nbytes);
         memcpy(b, a, nbytes); /* same content */
         start = libxs_timer_tick();
         if (stride == elsize && 0 == strided) {
