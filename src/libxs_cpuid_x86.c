@@ -205,16 +205,8 @@ LIBXS_API int libxs_cpuid_x86(libxs_cpuid_info* info)
                     }
                     else feature_cpu = LIBXS_X86_AVX512_CLX; /* CLX */
                   }
-                  else feature_cpu = LIBXS_X86_AVX512_CORE; /* SKX */
-                }
-                /* AVX512PF(0x04000000), AVX512ER(0x08000000) */
-                else if (LIBXS_CPUID_CHECK(ebx, 0x0C000000)) { /* AVX512-MIC */
-                  if (LIBXS_CPUID_CHECK(edx, 0x0000000C)) { /* KNM */
-                    feature_cpu = LIBXS_X86_AVX512_KNM;
-                  }
-                  else feature_cpu = LIBXS_X86_AVX512_MIC; /* KNL */
-                }
-                else feature_cpu = LIBXS_X86_AVX512; /* AVX512-Common */
+                  else feature_cpu = LIBXS_X86_AVX512_SKX; /* SKX */
+                } /* we don't target AVX512 COMMON for SKX & KNL */
               }
               else {
                 unsigned int edx2;
@@ -284,12 +276,7 @@ LIBXS_API int libxs_cpuid_x86(libxs_cpuid_info* info)
           ? "" : (((2 <= libxs_verbosity || 0 > libxs_verbosity) && LIBXS_MAX_STATIC_TARGET_ARCH < feature_cpu)
             ? "highly " : NULL));
         if (NULL != compiler_support) {
-          const int max_static_target_arch = LIBXS_MAX_STATIC_TARGET_ARCH;
-          const char *const name = libxs_cpuid_name( /* exclude MIC when running on Core processors */
-            (((LIBXS_X86_AVX512_MIC == max_static_target_arch) ||
-              (LIBXS_X86_AVX512_KNM == max_static_target_arch))
-                && (LIBXS_X86_AVX512_CORE <= feature_cpu))
-              ? LIBXS_X86_AVX2 : LIBXS_MAX_STATIC_TARGET_ARCH);
+          const char *const name = libxs_cpuid_name(LIBXS_MAX_STATIC_TARGET_ARCH);
           fprintf(stderr, "LIBXS WARNING: %soptimized non-JIT code paths are limited to \"%s\"!\n", compiler_support, name);
         }
 # endif
@@ -382,19 +369,10 @@ LIBXS_API const char* libxs_cpuid_name(int id)
     case LIBXS_X86_AVX512_CLX: {
       target_arch = "clx";
     } break;
-    case LIBXS_X86_AVX512_CORE: {
+    case LIBXS_X86_AVX512_SKX: {
       target_arch = "skx";
     } break;
-    case LIBXS_X86_AVX512_KNM: {
-      target_arch = "knm";
-    } break;
-    case LIBXS_X86_AVX512_MIC: {
-      target_arch = "knl";
-    } break;
-    case LIBXS_X86_AVX512: {
-      target_arch = "hsw";
-    } break;
-    case LIBXS_X86_AVX512_VL256: {
+    case LIBXS_X86_AVX512_VL256_SKX: {
       target_arch = "avx512_vl256";
     } break;
     case LIBXS_X86_AVX512_VL256_CLX: {
@@ -485,7 +463,7 @@ LIBXS_API int libxs_cpuid_vlen32(int id)
   {
     result = 16;
   }
-  else if (LIBXS_X86_AVX512 <= id) {
+  else if (LIBXS_X86_AVX512_SKX <= id) {
     result = 16;
   }
   else if (LIBXS_X86_AVX <= id) {
