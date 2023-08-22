@@ -1552,11 +1552,8 @@ LIBXS_API void libxs_set_target_archid(int id)
     case LIBXS_X86_AVX512_SPR:
     case LIBXS_X86_AVX512_CPX:
     case LIBXS_X86_AVX512_CLX:
-    case LIBXS_X86_AVX512_CORE:
-    case LIBXS_X86_AVX512_KNM:
-    case LIBXS_X86_AVX512_MIC:
-    case LIBXS_X86_AVX512:
-    case LIBXS_X86_AVX512_VL256:
+    case LIBXS_X86_AVX512_SKX:
+    case LIBXS_X86_AVX512_VL256_SKX:
     case LIBXS_X86_AVX512_VL256_CLX:
     case LIBXS_X86_AVX512_VL256_CPX:
     case LIBXS_X86_AVX2_ADL:
@@ -1636,7 +1633,7 @@ LIBXS_API void libxs_set_target_arch(const char* arch)
       target_archid = LIBXS_X86_AVX512_VL256_CLX;
     }
     else if (arch == libxs_stristr(arch, "avx512_vl256")) {
-      target_archid = LIBXS_X86_AVX512_VL256;
+      target_archid = LIBXS_X86_AVX512_VL256_SKX;
     }
     else if (arch == libxs_stristr(arch, "gnr")) {
       target_archid = LIBXS_X86_AVX512_GNR;
@@ -1651,16 +1648,10 @@ LIBXS_API void libxs_set_target_arch(const char* arch)
       target_archid = LIBXS_X86_AVX512_CLX;
     }
     else if (arch == libxs_stristr(arch, "skx") || arch == libxs_stristr(arch, "skl")
-          /* "avx3"/"avx512" previously enabled LIBXS_X86_AVX512 */
+          /* "avx3"/"avx512" previously enabled LIBXS_X86_AVX512_SKX */
           || arch == libxs_stristr(arch, "avx3") || arch == libxs_stristr(arch, "avx512"))
     {
-      target_archid = LIBXS_X86_AVX512_CORE;
-    }
-    else if (arch == libxs_stristr(arch, "knm")) {
-      target_archid = LIBXS_X86_AVX512_KNM;
-    }
-    else if (arch == libxs_stristr(arch, "knl") || arch == libxs_stristr(arch, "mic")) {
-      target_archid = LIBXS_X86_AVX512_MIC;
+      target_archid = LIBXS_X86_AVX512_SKX;
     }
     else if (arch == libxs_stristr(arch, "srf")) {
       target_archid = LIBXS_X86_AVX2_SRF;
@@ -2090,10 +2081,8 @@ LIBXS_API_INTERN int libxs_build(const libxs_build_request* request, unsigned in
            (16 >= (m * k) || 16 >= (k * n) || 16 >= (m * n)))
         {
           /* TODO: shall we update variable "target_arch" (name)? */
-          if ( libxs_target_archid >= LIBXS_X86_AVX512_CORE ) {
-            generated_code.arch = LIBXS_X86_AVX512_VL256;
-          } else {
-            generated_code.arch = LIBXS_X86_AVX2;
+          if ( libxs_target_archid >= LIBXS_X86_AVX512_SKX ) {
+            generated_code.arch = LIBXS_X86_AVX512_VL256_SKX;
           }
         }
 # endif
