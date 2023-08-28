@@ -77,7 +77,7 @@ LIBXS_API const char* libxs_get_typename(libxs_datatype datatype);
  * libxs_get_target_arch* functions, or as set by the LIBXS_TARGET environment variable.
  */
 LIBXS_API const char* libxs_get_target_arch(void);
-/** Set target architecture (arch="0|sse|snb|hsw|knl|knm|skx|clx|cpx", NULL/"0": CPUID). */
+/** Set target architecture (arch="0|sse|snb|hsw|skx|clx|cpx|spr", NULL/"0": CPUID). */
 LIBXS_API void libxs_set_target_arch(const char* arch);
 
 /** Get the level of verbosity. */
