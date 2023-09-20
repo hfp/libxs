@@ -71,7 +71,7 @@ LIBXS_API unsigned int libxs_cpuid_arm_mmla_gemm_pack_b_to_vnnit_on_stack(void);
  */
 LIBXS_API int libxs_cpuid_arm_use_bfdot(void);
 LIBXS_API int libxs_cpuid_x86_amx_gemm_enforce_mx1_tile_blocking(void);
-
+LIBXS_API unsigned int libxs_cpuid_x86_srf_gemm_set_n_max_blocking(void);
 LIBXS_API int libxs_cpuid_arm_use_i8dot(void);
 
 /**
