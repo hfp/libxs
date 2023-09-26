@@ -83,7 +83,6 @@ libxs_dispatch_matrix_eqn_desc
 libxs_dispatch_matrix_eqn_v2
 libxs_dispatch_meltw
 libxs_dispatch_meltw_binary_v2
-libxs_dispatch_meltw_opreduce_vecs_idx
 libxs_dispatch_meltw_ternary_v2
 libxs_dispatch_meltw_unary_v2
 libxs_dmmavailable

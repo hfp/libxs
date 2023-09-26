@@ -251,9 +251,6 @@ LIBXS_APIEXT void libxs_gemm_groups_omp(
 
 /** Code generation routine for matrix-eltwise using a descriptor. */
 LIBXS_API libxs_xmeltwfunction libxs_dispatch_meltw( const libxs_meltw_descriptor* descriptor );
-LIBXS_API libxs_meltwfunction_opreduce_vecs_idx libxs_dispatch_meltw_opreduce_vecs_idx( const libxs_blasint m, const libxs_blasint* ldi, const libxs_blasint* ldo,
-                                                                                              const libxs_datatype in_type, const libxs_datatype out_type, const libxs_datatype idx_type,
-                                                                                              const libxs_meltw_opreduce_vecs_flags flags, const unsigned short bcast_param );
 LIBXS_API libxs_meltw_unary_shape libxs_create_meltw_unary_shape( const libxs_blasint m, const libxs_blasint n,
                                                                         const libxs_blasint ldi, const libxs_blasint ldo,
                                                                         const libxs_datatype in0_type, const libxs_datatype out_type, const libxs_datatype comp_type );

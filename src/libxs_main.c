@@ -3464,26 +3464,6 @@ LIBXS_API libxs_xmeltwfunction libxs_dispatch_meltw(const libxs_meltw_descriptor
   return result;
 }
 
-LIBXS_API libxs_meltwfunction_opreduce_vecs_idx libxs_dispatch_meltw_opreduce_vecs_idx(
-  const libxs_blasint m, const libxs_blasint* ldi, const libxs_blasint* ldo,
-  const libxs_datatype in_type, const libxs_datatype out_type, const libxs_datatype idx_type,
-  const libxs_meltw_opreduce_vecs_flags flags, const unsigned short bcast_param )
-{
-  libxs_descriptor_blob blob;
-  libxs_blasint idx_dtype_size = libxs_typesize(idx_type);
-  unsigned short argidx_params = (unsigned short) (((flags & LIBXS_MELTW_FLAG_OPREDUCE_VECS_RECORD_ARGOP_OFF_VEC_0) | (flags & LIBXS_MELTW_FLAG_OPREDUCE_VECS_RECORD_ARGOP_OFF_VEC_1)) >> 16);
-  unsigned short bcast_shifted_params = (unsigned short) (bcast_param << 2);
-  unsigned short combined_params = argidx_params | bcast_shifted_params;
-  const libxs_meltw_descriptor *const desc = libxs_meltw_descriptor_init(&blob,
-    in_type, out_type, m, idx_dtype_size, (ldi == NULL) ? m : *ldi, (ldo == NULL) ? m : *ldo,
-    (unsigned short)flags, (unsigned short) combined_params, LIBXS_MELTW_OPERATION_OPREDUCE_VECS_IDX);
-
-  libxs_xmeltwfunction result = libxs_dispatch_meltw(desc);
-
-  return result.meltw_opreduce_vecs_idx;
-}
-
-
 LIBXS_API libxs_meltw_unary_shape libxs_create_meltw_unary_shape( const libxs_blasint m, const libxs_blasint n,
                                                                         const libxs_blasint ldi, const libxs_blasint ldo,
                                                                         const libxs_datatype in0_type, const libxs_datatype out_type, const libxs_datatype comp_type )
