@@ -6,55 +6,56 @@
 * Further information: https://github.com/hfp/libxs/                          *
 * SPDX-License-Identifier: BSD-3-Clause                                       *
 ******************************************************************************/
-#ifndef LIBXS_RNG_H
-#define LIBXS_RNG_H
-
-#include "libxs_typedefs.h"
+#ifndef LIBXS_UTILS_H
+#define LIBXS_UTILS_H
 
 /**
- * create a new external state for thread-save execution managed
- * by the user. We do not provide a function for drawing the random numbers
- * the user is supposed to call the LIBXS_INTRINSICS_MM512_RNG_EXTSTATE_PS
- * or LIBXS_INTRINSICS_MM512_RNG_XOSHIRO128P_EXTSTATE_EPI32 intrinsic.
- * */
-LIBXS_API unsigned int* libxs_rng_create_extstate(unsigned int/*uint32_t*/ seed);
+ * Any intrinsics interface (libxs_intrinsics_x86.h) shall be explicitly
+ * included, i.e., separate from libxs_utils.h.
+*/
+#include "utils/libxs_lpflt_quant.h"
+#include "utils/libxs_barrier.h"
+#include "utils/libxs_timer.h"
+#include "utils/libxs_math.h"
+#include "utils/libxs_mhd.h"
+
+#if defined(__BLAS) && (1 == __BLAS)
+# if defined(__OPENBLAS)
+    LIBXS_EXTERN void openblas_set_num_threads(int num_threads);
+#   define LIBXS_BLAS_INIT openblas_set_num_threads(1);
+# endif
+#endif
+#if !defined(LIBXS_BLAS_INIT)
+# define LIBXS_BLAS_INIT
+#endif
+
+/** Call libxs_gemm_print using LIBXS's GEMM-flags. */
+#define LIBXS_GEMM_PRINT(OSTREAM, PRECISION, FLAGS, M, N, K, DALPHA, A, LDA, B, LDB, DBETA, C, LDC) \
+  LIBXS_GEMM_PRINT2(OSTREAM, PRECISION, PRECISION, FLAGS, M, N, K, DALPHA, A, LDA, B, LDB, DBETA, C, LDC)
+#define LIBXS_GEMM_PRINT2(OSTREAM, IPREC, OPREC, FLAGS, M, N, K, DALPHA, A, LDA, B, LDB, DBETA, C, LDC) \
+  libxs_gemm_dprint2(OSTREAM, (libxs_datatype)(IPREC), (libxs_datatype)(OPREC), \
+    /* Use 'n' (instead of 'N') avoids warning about "no macro replacement within a character constant". */ \
+    (char)(0 == (LIBXS_GEMM_FLAG_TRANS_A & (FLAGS)) ? 'n' : 't'), \
+    (char)(0 == (LIBXS_GEMM_FLAG_TRANS_B & (FLAGS)) ? 'n' : 't'), \
+    M, N, K, DALPHA, A, LDA, B, LDB, DBETA, C, LDC)
 
 /**
- * return the size of the state such that users can save it
- * and recreate the same sequence of PRNG numbers.
+ * Utility function, which either prints information about the GEMM call
+ * or dumps (FILE/ostream=0) all input and output data into MHD files.
+ * The Meta Image Format (MHD) is suitable for visual inspection using,
+ * e.g., ITK-SNAP or ParaView.
  */
-LIBXS_API unsigned int libxs_rng_get_extstate_size(void);
+LIBXS_API void libxs_gemm_print(void* ostream,
+  libxs_datatype precision, const char* transa, const char* transb,
+  const libxs_blasint* m, const libxs_blasint* n, const libxs_blasint* k,
+  const void* alpha, const void* a, const libxs_blasint* lda,
+  const void* b, const libxs_blasint* ldb,
+  const void* beta, void* c, const libxs_blasint* ldc);
+LIBXS_API void libxs_gemm_print2(void* ostream,
+  libxs_datatype iprec, libxs_datatype oprec, const char* transa, const char* transb,
+  const libxs_blasint* m, const libxs_blasint* n, const libxs_blasint* k,
+  const void* alpha, const void* a, const libxs_blasint* lda,
+  const void* b, const libxs_blasint* ldb,
+  const void* beta, void* c, const libxs_blasint* ldc);
 
-/** free a previously created rng_avx512_extstate */
-LIBXS_API void libxs_rng_destroy_extstate(unsigned int* stateptr);
-
-/** Set the seed of libxs_rng_* (similar to srand). */
-LIBXS_API void libxs_rng_set_seed(unsigned int/*uint32_t*/ seed);
-
-/**
- * This SP-RNG is using xoshiro128+ 1.0, work done by
- * David Blackman and Sebastiano Vigna (vigna @ acm.org).
- * It is their best and fastest 32-bit generator for
- * 32-bit floating-point numbers. They suggest to use
- * its upper bits for floating-point generation, what
- * we do here and generate numbers in [0,1(.
- */
-LIBXS_API void libxs_rng_f32_seq(float* rngs, libxs_blasint count);
-
-/**
- * Returns a (pseudo-)random value based on rand/rand48 in the interval [0, n).
- * This function compensates for an n, which is not a factor of RAND_MAX.
- * Note: libxs_rng_set_seed must be used if one wishes to seed the generator.
- */
-LIBXS_API unsigned int libxs_rng_u32(unsigned int n);
-
-/** Sequence of random data based on libxs_rng_u32. */
-LIBXS_API void libxs_rng_seq(void* data, libxs_blasint nbytes);
-
-/**
- * Similar to libxs_rng_u32, but returns a DP-value in the interval [0, 1).
- * Note: libxs_rng_set_seed must be used if one wishes to seed the generator.
- */
-LIBXS_API double libxs_rng_f64(void);
-
-#endif /* LIBXS_RNG_H */
+#endif /*LIBXS_UTILS_H*/

@@ -6,8 +6,8 @@
 * Further information: https://github.com/hfp/libxs/                          *
 * SPDX-License-Identifier: BSD-3-Clause                                       *
 ******************************************************************************/
-#ifndef LIBXS_INTRINSICS_X86_H
-#define LIBXS_INTRINSICS_X86_H
+#ifndef LIBXS_UTILS_INTRINSICS_X86_H
+#define LIBXS_UTILS_INTRINSICS_X86_H
 
 #include "libxs_cpuid.h"
 
@@ -944,4 +944,4 @@ LIBXS_PRAGMA_OPTIMIZE_ON
 # endif
 #endif /*__AVX512F__*/
 
-#endif /*LIBXS_INTRINSICS_X86_H*/
+#endif /*LIBXS_UTILS_INTRINSICS_X86_H*/

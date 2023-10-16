@@ -720,20 +720,6 @@ LIBXS_EXTERN void funlockfile(FILE*) LIBXS_NOTHROW;
 #define LIBXS_STDIO_RELEASE() libxs_stdio_release()
 
 
-/** Opaque type which represents a barrier. */
-LIBXS_EXTERN_C typedef struct libxs_barrier libxs_barrier;
-
-/** Create barrier from one of the threads. */
-LIBXS_API libxs_barrier* libxs_barrier_create(int ncores, int nthreads_per_core);
-/** Initialize the barrier from each thread of the team. */
-LIBXS_API void libxs_barrier_init(libxs_barrier* barrier, int tid);
-/** Wait for the entire team to arrive. */
-LIBXS_API void libxs_barrier_wait(libxs_barrier* barrier, int tid);
-/** Destroy the resources associated with this barrier. */
-LIBXS_API void libxs_barrier_destroy(const libxs_barrier* barrier);
-/** DEPRECATED: use libxs_barrier_destroy instead. */
-#define libxs_barrier_release libxs_barrier_destroy
-
 /** Utility function to receive the process ID of the calling process. */
 LIBXS_API unsigned int libxs_get_pid(void);
 /**

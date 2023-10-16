@@ -95,6 +95,7 @@
 #include "../src/generator_spgemm_csr_asparse_reg.c"
 #include "../src/generator_spgemm_csr_reader.c"
 #include "../src/generator_x86_instructions.c"
+#include "../src/libxs_barrier.c"
 #include "../src/libxs_cpuid_arm.c"
 #include "../src/libxs_cpuid_x86.c"
 #include "../src/libxs_ext.c"
@@ -116,6 +117,7 @@
 #include "../src/libxs_sync.c"
 #include "../src/libxs_timer.c"
 #include "../src/libxs_trace.c"
+#include "../src/libxs_utils.c"
 #include "../src/libxs_xcopy.c"
 
 #endif /*LIBXS_SOURCE_H*/

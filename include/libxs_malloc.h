@@ -9,7 +9,7 @@
 #ifndef LIBXS_MALLOC_H
 #define LIBXS_MALLOC_H
 
-#include "libxs_mem.h"
+#include "libxs_macros.h"
 
 /** Include <tensorflow/core/public/version.h> prior to LIBXS otherwise the current TensorFlow API is assumed. */
 #if !defined(LIBXS_TF12) && (!defined(TF_VERSION_STRING) || \

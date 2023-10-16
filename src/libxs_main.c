@@ -3410,38 +3410,6 @@ LIBXS_API libxs_gemmfunction_ext libxs_dispatch_brgemm_ext_v2( const libxs_gemm_
 }
 
 
-LIBXS_API libxs_dmmfunction libxs_dmmdispatch_v2( const libxs_blasint m, const libxs_blasint n, const libxs_blasint k,
-                                                      const libxs_blasint* lda, const libxs_blasint* ldb, const libxs_blasint* ldc,
-                                                      const int* basicflags ) {
-  const int gemm_flags = (NULL == basicflags ? LIBXS_FLAGS : *basicflags); /* we leverage that basic flags and flags alias */
-  libxs_descriptor_blob blob;
-  const libxs_gemm_descriptor *const desc = libxs_gemm_descriptor_init(&blob,
-    LIBXS_DATATYPE_F64, LIBXS_DATATYPE_F64, LIBXS_DATATYPE_F64, LIBXS_DATATYPE_F64,
-    m, n, k,
-    NULL != lda ? *lda : (0 == (LIBXS_GEMM_FLAG_TRANS_A & gemm_flags) ? m : k),
-    NULL != ldb ? *ldb : (0 == (LIBXS_GEMM_FLAG_TRANS_B & gemm_flags) ? k : n),
-    NULL != ldc ? *ldc : m, gemm_flags, libxs_get_gemm_prefetch(LIBXS_PREFETCH_AUTO));
-  /*const*/ libxs_xmmfunction result = libxs_xmmdispatch(desc);
-  return result.dmm;
-}
-
-
-LIBXS_API libxs_smmfunction libxs_smmdispatch_v2( const libxs_blasint m, const libxs_blasint n, const libxs_blasint k,
-                                                      const libxs_blasint* lda, const libxs_blasint* ldb, const libxs_blasint* ldc,
-                                                      const int* basicflags ) {
-  const int gemm_flags = (NULL == basicflags ? LIBXS_FLAGS : *basicflags); /* we leverage that basic flags and flags alias */
-  libxs_descriptor_blob blob;
-  const libxs_gemm_descriptor *const desc = libxs_gemm_descriptor_init(&blob,
-    LIBXS_DATATYPE_F32, LIBXS_DATATYPE_F32, LIBXS_DATATYPE_F32, LIBXS_DATATYPE_F32,
-    m, n, k,
-    NULL != lda ? *lda : (0 == (LIBXS_GEMM_FLAG_TRANS_A & gemm_flags) ? m : k),
-    NULL != ldb ? *ldb : (0 == (LIBXS_GEMM_FLAG_TRANS_B & gemm_flags) ? k : n),
-    NULL != ldc ? *ldc : m, gemm_flags, libxs_get_gemm_prefetch(LIBXS_PREFETCH_AUTO));
-  /*const*/ libxs_xmmfunction result = libxs_xmmdispatch(desc);
-  return result.smm;
-}
-
-
 LIBXS_API libxs_xmeltwfunction libxs_dispatch_meltw(const libxs_meltw_descriptor* descriptor)
 {
   libxs_xmeltwfunction result;
