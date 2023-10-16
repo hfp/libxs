@@ -97,6 +97,22 @@
 #define LIBXS_EXPAND(...) __VA_ARGS__
 #define LIBXS_ELIDE(...)
 
+/** MKL_DIRECT_CALL requires to include the MKL interface. */
+#if (defined(MKL_DIRECT_CALL_SEQ) || defined(MKL_DIRECT_CALL) || \
+    (defined(__MKL) && !defined(LIBXS_BUILD) && \
+    (!defined(__BLAS) || (0 != __BLAS)))) && \
+    (defined(LIBXS_PLATFORM_X86))
+# if (0 != LIBXS_ILP64 && !defined(MKL_ILP64))
+#   error "Inconsistent ILP64 configuration detected!"
+# endif
+# include <mkl.h>
+#endif
+/** __INTEL_MKL__ is needed later to fix some NOTHROW issue. */
+#if defined(__MKL) && !defined(__INTEL_MKL__) && defined(LIBXS_PLATFORM_X86) && \
+    defined(NOTHROW)
+# include <mkl_version.h>
+#endif
+
 /** Use LIBXS_VERSION2 instead of LIBXS_VERSION3, e.g., if __GNUC_PATCHLEVEL__ or __clang_patchlevel__ is zero (0). */
 #define LIBXS_VERSION2(MAJOR, MINOR) ((MAJOR) * 10000 + (MINOR) * 100)
 #define LIBXS_VERSION3(MAJOR, MINOR, UPDATE) (LIBXS_VERSION2(MAJOR, MINOR) + (UPDATE))
@@ -125,6 +141,12 @@
 */
 #define LIBXS_VERSION_GE(MAJOR, MINOR, UPDATE, PATCH) \
   LIBXS_VERSION_CHECK(>=, MAJOR, MINOR, UPDATE, PATCH)
+
+/** Calculation of INTEL_MKL_VERSION has no continuous history. */
+#if defined(__INTEL_MKL__) && defined(__INTEL_MKL_MINOR__) && defined(__INTEL_MKL_UPDATE__)
+# define LIBXS_MKL_VERSION3 LIBXS_VERSION3(__INTEL_MKL__, __INTEL_MKL_MINOR__, __INTEL_MKL_UPDATE__)
+# define LIBXS_MKL_VERSION2 LIBXS_VERSION2(__INTEL_MKL__, __INTEL_MKL_MINOR__)
+#endif
 
 /** Evaluates to true if the value falls into the interval [LO, HI]. */
 #define LIBXS_IS_INTEGER(TYPE, VALUE, LO, HI) ( \
@@ -174,6 +196,194 @@
 #else /* LP64 */
 # define LIBXS_IS_BLASINT(VALUE) LIBXS_IS_INT(VALUE)
 # define LIBXS_CAST_BLASINT(VALUE) LIBXS_CAST_INT(VALUE)
+#endif
+
+/* Const-qualify BLAS functions */
+#if defined(LIBXS_BLAS_CONST)
+# undef LIBXS_BLAS_CONST
+# define LIBXS_BLAS_CONST const
+#elif defined(OPENBLAS_CONST)
+# define LIBXS_BLAS_CONST OPENBLAS_CONST
+#elif (defined(LIBXS_BLAS_NONCONST) || defined(__OPENBLAS) || defined(__OPENBLAS77)) \
+   && !defined(LIBXS_BUILD)
+# define LIBXS_BLAS_CONST
+#else
+# define LIBXS_BLAS_CONST const
+#endif
+
+/* Control BLAS dependency */
+#if !defined(LIBXS_NO_BLAS)
+# if (!defined(__BLAS) || (0 != __BLAS)) && \
+      !(defined(LIBXS_PLATFORM_AARCH64) && defined(_WIN32))
+#   define LIBXS_NO_BLAS 0
+#   define LIBXS_BLAS 1
+# else
+#   define LIBXS_NO_BLAS 1
+#   define LIBXS_BLAS 0
+# endif
+#endif
+
+#if defined(LIBXS_BUILD)
+# if defined(LIBXS_BUILD_EXT) && defined(_WINDLL) && \
+    (defined(_WIN32) || defined(__CYGWIN__) || defined(__MINGW32__))
+#   define LIBXS_BLAS_SYMBOL_VISIBILITY LIBXS_APIEXT
+# elif defined(LIBXS_NO_BLAS) && (1 == LIBXS_NO_BLAS)
+#   define LIBXS_BLAS_SYMBOL_VISIBILITY LIBXS_API
+# endif
+#endif
+#if !defined(LIBXS_BLAS_SYMBOL_VISIBILITY)
+# define LIBXS_BLAS_SYMBOL_VISIBILITY LIBXS_EXTERN LIBXS_VISIBILITY_IMPORT
+#endif
+
+#if defined(NOTHROW)
+# define LIBXS_BLAS_NOEXCEPT_AUX NOTHROW
+#else
+# define LIBXS_BLAS_NOEXCEPT_AUX LIBXS_NOEXCEPT
+#endif
+#define LIBXS_BLAS_NOEXCEPT(KIND) LIBXS_CONCATENATE(LIBXS_BLAS_NOEXCEPT_, KIND)
+#if defined(LIBXS_MKL_VERSION3) && (LIBXS_VERSION3(2020, 0, 2) <= LIBXS_MKL_VERSION3)
+# define LIBXS_BLAS_NOEXCEPT_gemm_batch_strided LIBXS_BLAS_NOEXCEPT_AUX
+# define LIBXS_BLAS_NOEXCEPT_gemm_batch LIBXS_BLAS_NOEXCEPT_AUX
+#else
+# define LIBXS_BLAS_NOEXCEPT_gemm_batch_strided
+# define LIBXS_BLAS_NOEXCEPT_gemm_batch
+#endif
+#define LIBXS_BLAS_NOEXCEPT_gemm LIBXS_BLAS_NOEXCEPT_AUX
+#define LIBXS_BLAS_NOEXCEPT_gemv LIBXS_BLAS_NOEXCEPT_AUX
+
+/** Construct BLAS-style prefixes. */
+#define LIBXS_TPREFIX_NAME(TYPE) LIBXS_CONCATENATE(LIBXS_TPREFIX_, TYPE)
+#define LIBXS_TPREFIX(TYPE, FUNCTION) LIBXS_CONCATENATE(LIBXS_TPREFIX_NAME(TYPE), FUNCTION)
+#define LIBXS_TPREFIX_doubledouble d
+#define LIBXS_TPREFIX_floatfloat s
+/** Defaults if only the input type is specified. */
+#define LIBXS_TPREFIX_double LIBXS_TPREFIX_doubledouble
+#define LIBXS_TPREFIX_float LIBXS_TPREFIX_floatfloat
+
+/* Construct prefix names, function type or dispatch function from given input and output types. */
+#define LIBXS_TPREFIX2(ITYPE, OTYPE, FUNCTION) LIBXS_TPREFIX(LIBXS_CONCATENATE(ITYPE, OTYPE), FUNCTION)
+
+/** Construct symbol name from a given real type name (float, double, etc.). */
+#define LIBXS_BLAS_SYMBOL(TYPE, KIND) LIBXS_FSYMBOL(LIBXS_TPREFIX(TYPE, KIND))
+#define LIBXS_CBLAS_SYMBOL LIBXS_TPREFIX
+
+#define LIBXS_BLAS_SYMBOL_SIGNATURE_gemm_batch_strided(CONST_STAR, STAR, TYPE) char CONST_STAR /*transa*/, char CONST_STAR /*transb*/, \
+  libxs_blasint CONST_STAR /*m*/, libxs_blasint CONST_STAR /*n*/, libxs_blasint CONST_STAR /*k*/, \
+  TYPE CONST_STAR /*alpha*/, TYPE CONST_STAR /*a*/, libxs_blasint CONST_STAR /*lda*/, libxs_blasint CONST_STAR /*stride_a*/, \
+                             TYPE CONST_STAR /*b*/, libxs_blasint CONST_STAR /*ldb*/, libxs_blasint CONST_STAR /*stride_b*/, \
+  TYPE CONST_STAR /*beta*/,  TYPE       STAR /*c*/, libxs_blasint CONST_STAR /*ldc*/, libxs_blasint CONST_STAR /*stride_c*/, \
+  libxs_blasint CONST_STAR /*batchsize*/
+#define LIBXS_BLAS_SYMBOL_SIGNATURE_gemm_batch(CONST_STAR, STAR, TYPE) char CONST_STAR /*transa*/, char CONST_STAR /*transb*/, \
+  libxs_blasint CONST_STAR, libxs_blasint CONST_STAR, libxs_blasint CONST_STAR, \
+  TYPE CONST_STAR, TYPE CONST_STAR STAR, libxs_blasint CONST_STAR, TYPE CONST_STAR STAR, libxs_blasint CONST_STAR, \
+  TYPE CONST_STAR, TYPE STAR STAR, libxs_blasint CONST_STAR, libxs_blasint CONST_STAR, libxs_blasint CONST_STAR
+#define LIBXS_BLAS_SYMBOL_SIGNATURE_gemm(CONST_STAR, STAR, TYPE) char CONST_STAR /*transa*/, char CONST_STAR /*transb*/, \
+  libxs_blasint CONST_STAR, libxs_blasint CONST_STAR, libxs_blasint CONST_STAR, TYPE CONST_STAR, TYPE CONST_STAR, libxs_blasint CONST_STAR, \
+  TYPE CONST_STAR, libxs_blasint CONST_STAR, TYPE CONST_STAR, TYPE STAR, libxs_blasint CONST_STAR
+#define LIBXS_BLAS_SYMBOL_SIGNATURE_gemv(CONST_STAR, STAR, TYPE) char CONST_STAR, libxs_blasint CONST_STAR, libxs_blasint CONST_STAR, \
+  TYPE CONST_STAR, TYPE CONST_STAR, libxs_blasint CONST_STAR, TYPE CONST_STAR, libxs_blasint CONST_STAR, \
+  TYPE CONST_STAR, TYPE STAR, libxs_blasint CONST_STAR
+#define LIBXS_BLAS_SYMBOL_SIGNATURE(CONST_STAR, STAR, TYPE, KIND) LIBXS_CONCATENATE(LIBXS_BLAS_SYMBOL_SIGNATURE_, KIND)(CONST_STAR, STAR, TYPE)
+#define LIBXS_BLAS_SYMBOL_FDECL(CONST_STAR, STAR, TYPE, KIND) LIBXS_BLAS_SYMBOL_VISIBILITY \
+  void LIBXS_BLAS_SYMBOL(TYPE, KIND)(LIBXS_BLAS_SYMBOL_SIGNATURE(CONST_STAR, STAR, TYPE, KIND)) LIBXS_BLAS_NOEXCEPT(KIND)
+#define LIBXS_BLAS_SYMBOL_CDECL(CONST_STAR, STAR, TYPE, KIND) LIBXS_BLAS_SYMBOL_VISIBILITY \
+  void LIBXS_CBLAS_SYMBOL(TYPE, KIND)(LIBXS_BLAS_SYMBOL_SIGNATURE(CONST_STAR, STAR, TYPE, KIND)) LIBXS_BLAS_NOEXCEPT(KIND)
+
+#define LIBXS_BLAS_DECL(TYPE, KIND, DECL) LIBXS_CONCATENATE(LIBXS_BLAS_, LIBXS_TPREFIX(TYPE, KIND))(DECL)
+#if !defined(MKL_DIRECT_CALL_SEQ) && !defined(MKL_DIRECT_CALL)
+# define LIBXS_BLAS_dgemm(DECL) DECL;
+# define LIBXS_BLAS_sgemm(DECL) DECL;
+# define LIBXS_BLAS_dgemv(DECL) DECL;
+# define LIBXS_BLAS_sgemv(DECL) DECL;
+#else
+# define LIBXS_BLAS_dgemm
+# define LIBXS_BLAS_sgemm
+# define LIBXS_BLAS_dgemv
+# define LIBXS_BLAS_sgemv
+#endif
+
+#if (0 != LIBXS_BLAS) /* BLAS available */
+# define LIBXS_BLAS_SYMBOL_DECL(TYPE, KIND) LIBXS_BLAS_DECL(TYPE, KIND, LIBXS_BLAS_SYMBOL_FDECL(LIBXS_BLAS_CONST*, *, TYPE, KIND))
+#else
+# define LIBXS_BLAS_SYMBOL_DECL(TYPE, KIND)
+#endif
+
+/** Map to appropriate BLAS function (or fallback). */
+#define LIBXS_BLAS_FUNCTION(ITYPE, OTYPE, FUNCTION) LIBXS_CONCATENATE(LIBXS_BLAS_FUNCTION_, LIBXS_TPREFIX2(ITYPE, OTYPE, FUNCTION))
+#if (0 != LIBXS_BLAS)
+# if defined(LIBXS_INIT_COMPLETED)
+#   define LIBXS_BLAS_FUNCTION_dgemm_batch_strided libxs_original_dgemm_batch_strided_function
+#   define LIBXS_BLAS_FUNCTION_sgemm_batch_strided libxs_original_sgemm_batch_strided_function
+#   define LIBXS_BLAS_FUNCTION_dgemm_batch libxs_original_dgemm_batch_function
+#   define LIBXS_BLAS_FUNCTION_sgemm_batch libxs_original_sgemm_batch_function
+#   define LIBXS_BLAS_FUNCTION_dgemm libxs_original_dgemm_function
+#   define LIBXS_BLAS_FUNCTION_sgemm libxs_original_sgemm_function
+#   define LIBXS_BLAS_FUNCTION_dgemv libxs_original_dgemv_function
+#   define LIBXS_BLAS_FUNCTION_sgemv libxs_original_sgemv_function
+# else
+#   define LIBXS_BLAS_FUNCTION_dgemm_batch_strided libxs_original_dgemm_batch_strided()
+#   define LIBXS_BLAS_FUNCTION_sgemm_batch_strided libxs_original_sgemm_batch_strided()
+#   define LIBXS_BLAS_FUNCTION_dgemm_batch libxs_original_dgemm_batch()
+#   define LIBXS_BLAS_FUNCTION_sgemm_batch libxs_original_sgemm_batch()
+#   define LIBXS_BLAS_FUNCTION_dgemm libxs_original_dgemm()
+#   define LIBXS_BLAS_FUNCTION_sgemm libxs_original_sgemm()
+#   define LIBXS_BLAS_FUNCTION_dgemv libxs_original_dgemv()
+#   define LIBXS_BLAS_FUNCTION_sgemv libxs_original_sgemv()
+# endif
+#else /* no BLAS */
+# define LIBXS_BLAS_FUNCTION_dgemm_batch_strided libxs_blas_error("dgemm_batch_strided")
+# define LIBXS_BLAS_FUNCTION_sgemm_batch_strided libxs_blas_error("sgemm_batch_strided")
+# define LIBXS_BLAS_FUNCTION_dgemm_batch libxs_blas_error("dgemm_batch")
+# define LIBXS_BLAS_FUNCTION_sgemm_batch libxs_blas_error("sgemm_batch")
+# define LIBXS_BLAS_FUNCTION_dgemm libxs_blas_error("dgemm")
+# define LIBXS_BLAS_FUNCTION_sgemm libxs_blas_error("sgemm")
+# define LIBXS_BLAS_FUNCTION_dgemv libxs_blas_error("dgemv")
+# define LIBXS_BLAS_FUNCTION_sgemv libxs_blas_error("sgemv")
+#endif
+
+/** Short-cut macros to construct desired BLAS function symbol. */
+#define LIBXS_GEMM_BATCH_STRIDED_SYMBOL(TYPE) LIBXS_BLAS_FUNCTION(TYPE, TYPE, gemm_batch_strided)
+#define LIBXS_GEMM_BATCH_SYMBOL(TYPE) LIBXS_BLAS_FUNCTION(TYPE, TYPE, gemm_batch)
+#define LIBXS_GEMM_SYMBOL(TYPE) LIBXS_BLAS_FUNCTION(TYPE, TYPE, gemm)
+#define LIBXS_GEMV_SYMBOL(TYPE) LIBXS_BLAS_FUNCTION(TYPE, TYPE, gemv)
+
+/** Consolidate BLAS-transpose into a set of flags. */
+#define LIBXS_GEMM_FLAGS(TRANSA, TRANSB) /* check for N/n rather than T/t since C/c is also valid! */ \
+   ((('n' == (TRANSA) || *"N" == (TRANSA)) ? LIBXS_GEMM_FLAG_NONE : LIBXS_GEMM_FLAG_TRANS_A) \
+  | (('n' == (TRANSB) || *"N" == (TRANSB)) ? LIBXS_GEMM_FLAG_NONE : LIBXS_GEMM_FLAG_TRANS_B))
+
+/** Allow NULL-requests (transposes) and map to some default. */
+#define LIBXS_GEMM_PFLAGS(TRANSA, TRANSB, DEFAULT) LIBXS_GEMM_FLAGS( \
+  NULL != ((const void*)(TRANSA)) ? (*(const char*)(TRANSA)) : (0 == (LIBXS_GEMM_FLAG_TRANS_A & (DEFAULT)) ? 'n' : 't'), \
+  NULL != ((const void*)(TRANSB)) ? (*(const char*)(TRANSB)) : (0 == (LIBXS_GEMM_FLAG_TRANS_B & (DEFAULT)) ? 'n' : 't')) \
+  | (~(LIBXS_GEMM_FLAG_TRANS_A | LIBXS_GEMM_FLAG_TRANS_B) & (DEFAULT))
+
+/** Consolidate CBLAS transpose requests into a set of flags. */
+#define LIBXS_GEMM_CFLAGS(TRANSA, TRANSB) /* check for N/n rather than T/t since C/c is also valid! */ \
+   ((CblasNoTrans == (TRANSA) ? LIBXS_GEMM_FLAG_NONE : LIBXS_GEMM_FLAG_TRANS_A) \
+  | (CblasNoTrans == (TRANSB) ? LIBXS_GEMM_FLAG_NONE : LIBXS_GEMM_FLAG_TRANS_B))
+
+/** Consolidate transpose requests into a set of flags. */
+#define LIBXS_GEMM_VNNI_FLAGS(TRANSA, TRANSB, VNNIA, VNNIB) /* check for N/n rather than T/t since C/c is also valid! */ \
+   ((('n' == (TRANSA) || *"N" == (TRANSA)) ? LIBXS_GEMM_FLAG_NONE : LIBXS_GEMM_FLAG_TRANS_A) \
+  | (('n' == (TRANSB) || *"N" == (TRANSB)) ? LIBXS_GEMM_FLAG_NONE : LIBXS_GEMM_FLAG_TRANS_B) \
+  | (('n' == (VNNIA) || *"N" == (VNNIA)) ? LIBXS_GEMM_FLAG_NONE : LIBXS_GEMM_FLAG_VNNI_A) \
+  | (('n' == (VNNIB) || *"N" == (VNNIB)) ? LIBXS_GEMM_FLAG_NONE : LIBXS_GEMM_FLAG_VNNI_B))
+
+/** Calculate problem size from M, N, and K using the correct integer type in order to cover the general case. */
+#define LIBXS_MNK_SIZE(M, N, K) (((size_t)(M)) * ((size_t)(N)) * ((size_t)(K)))
+/** Calculate total number of matrix-elements; matrices A, B, C are given per M, N, K, and emphasize (S) the C-size. */
+#define LIBXS_SIZE(M, N, K, S) \
+    (((size_t)(M) * (size_t)(K)) + ((size_t)(K) * (size_t)(N)) + \
+    (((size_t)(S) * (size_t)(M) * (size_t)(N))))
+/** Condition based on arithmetic intensity (AI) */
+#define LIBXS_SMM_AI(M, N, K, S, TYPESIZE) \
+    ((LIBXS_MNK_SIZE(M, N, K) * 2) <= ((size_t)(TYPESIZE) * 4/*AI*/ * LIBXS_SIZE(M, N, K, S)))
+/** Determine whether an SMM is suitable, i.e., small enough. */
+#if !defined(LIBXS_THRESHOLD_AI) /* traditional MNK-threshold */
+# define LIBXS_SMM(M, N, K, S, TYPESIZE) (LIBXS_MNK_SIZE(M, N, K) <= (LIBXS_MAX_MNK))
+#else /* threshold based on arithmetic intensity */
+# define LIBXS_SMM LIBXS_SMM_AI
 #endif
 
 #if !defined(LIBXS_UNPACKED) && (defined(_CRAYC) || \
@@ -738,6 +948,13 @@ LIBXS_API_INLINE int libxs_nonconst_int(int i) { return i; }
 /** Address of an ARRAY of TYPE (can be const-qualified) using linear index according to LIBXS_INDEX1. */
 #define LIBXS_ACCESS(NDIMS, TYPE, ARRAY, ...) (((TYPE*)(ARRAY)) + LIBXS_INDEX1(NDIMS, __VA_ARGS__))
 
+/** Compare types, e.g., real types. */
+#define LIBXS_EQUAL(T1, T2) LIBXS_CONCATENATE3(LIBXS_EQUAL_, T1, T2)
+#define LIBXS_EQUAL_floatfloat 1
+#define LIBXS_EQUAL_doubledouble 1
+#define LIBXS_EQUAL_floatdouble 0
+#define LIBXS_EQUAL_doublefloat 0
+
 #if !defined(LIBXS_UNUSED)
 # if 0
 #   define LIBXS_UNUSED(VARIABLE) LIBXS_PRAGMA(unused(VARIABLE))
@@ -766,6 +983,8 @@ LIBXS_API_INLINE int libxs_nonconst_int(int i) { return i; }
 # define LIBXS_PRAGMA_OMP(...)
 # define LIBXS_OMP_VAR(A)
 #endif
+/** Append "_omp" postfix to the given symbol. */
+#define LIBXS_USEOMP(FUNCTION) LIBXS_CONCATENATE(FUNCTION, _omp)
 
 #if defined(LIBXS_BUILD) && (defined(__GNUC__) || defined(__clang__)) && !defined(__CYGWIN__) && !defined(__MINGW32__)
 # define LIBXS_ATTRIBUTE_WEAK_IMPORT LIBXS_ATTRIBUTE(weak_import)

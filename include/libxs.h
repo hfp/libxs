@@ -38,22 +38,24 @@
 #define LIBXS_VERSION_PATCH  LIBXS_CONFIG_VERSION_PATCH
 
 /**
- * The following interfaces shall be explicitly included,
- * i.e., separate from libxs.h:
- * - libxs_intrinsics_x86.h
- * - libxs_cpuid.h
- * - libxs_sync.h
- * - libxs_mhd.h
+ * The utilities (libxs_utils.h) shall be explicitly
+ * included, i.e., separate from libxs.h.
 */
-#include "libxs_lpflt_quant.h"
 #include "libxs_generator.h"
-#include "libxs_frontend.h"
 #include "libxs_fsspmdm.h"
+#include "libxs_mem.h"
 #include "libxs_malloc.h"
 #include "libxs_cpuid.h"
-#include "libxs_timer.h"
 #include "libxs_math.h"
-#include "libxs_rng.h"
+#include "libxs_sync.h"
+
+#if (defined(LIBXS_INIT) || defined(LIBXS_CTOR))
+# undef LIBXS_INIT
+# define LIBXS_INIT LIBXS_ASSERT_MSG(1 < libxs_ninit, "LIBXS is not initialized");
+# define LIBXS_INIT_COMPLETED
+#else
+# define LIBXS_INIT if (2 > libxs_ninit) libxs_init();
+#endif
 
 
 /** Initialize the library; pay for setup cost at a specific point. */
@@ -143,14 +145,6 @@ LIBXS_API libxs_gemmfunction libxs_dispatch_brgemm_v2( const libxs_gemm_shape ge
 LIBXS_API libxs_gemmfunction_ext libxs_dispatch_brgemm_ext_v2( const libxs_gemm_shape gemm_shape, const libxs_bitfield gemm_flags,
                                                                   const libxs_bitfield prefetch_flags, const libxs_gemm_batch_reduce_config brgemm_config,
                                                                   const libxs_gemm_ext_unary_argops unary_argops, const libxs_gemm_ext_binary_postops binary_postops );
-/** Query or JIT-generate SMM-kernel; returns NULL if it does not exist or if JIT is not supported (double-precision). */
-LIBXS_API libxs_dmmfunction libxs_dmmdispatch_v2( const libxs_blasint m, const libxs_blasint n, const libxs_blasint k,
-                                                     const libxs_blasint* lda, const libxs_blasint* ldb, const libxs_blasint* ldc,
-                                                     const int* basicflags );
-/** Query or JIT-generate SMM-kernel; returns NULL if it does not exist or if JIT is not supported (single-precision). */
-LIBXS_API libxs_smmfunction libxs_smmdispatch_v2( const libxs_blasint m, const libxs_blasint n, const libxs_blasint k,
-                                                     const libxs_blasint* lda, const libxs_blasint* ldb, const libxs_blasint* ldc,
-                                                     const int* basicflags );
 
 /**
  * Process a series of SMMs (batch). See also libxs_gemm_batch/omp.
@@ -397,18 +391,6 @@ LIBXS_API void libxs_sgemm(const char* transa, const char* transb,
   const float* alpha, const float* a, const libxs_blasint* lda,
   const float* b, const libxs_blasint* ldb,
   const float* beta, float* c, const libxs_blasint* ldc);
-
-/**
- * General dense matrix multiplication, which re-exposes LAPACK/BLAS
- * but allows to rely on LIBXS's defaults (libxs_config.h)
- * when supplying NULL-arguments in certain places.
- */
-LIBXS_API void libxs_blas_gemm(
-  libxs_datatype iprec, libxs_datatype oprec, const char* transa, const char* transb,
-  const libxs_blasint* m, const libxs_blasint* n, const libxs_blasint* k,
-  const void* alpha, const void* a, const libxs_blasint* lda,
-  const void* b, const libxs_blasint* ldb,
-  const void* beta, void* c, const libxs_blasint* ldc);
 
 #if !defined(LIBXS_DEFAULT_CONFIG) && (!defined(LIBXS_SOURCE_H) || defined(LIBXS_CONFIGURED))
 
@@ -695,41 +677,40 @@ inline void libxs_gemm(const char* transa, const char* transb,
   libxs_sgemm(transa, transb, &m, &n, &k, alpha, a, lda, b, ldb, beta, c, ldc);
 }
 
-/** General dense matrix multiplication based on LAPACK/BLAS (double-precision). */
-inline void libxs_blas_gemm(const char* transa, const char* transb,
-  const libxs_blasint* m, const libxs_blasint* n, const libxs_blasint* k,
-  const double* alpha, const double* a, const libxs_blasint* lda,
-                       const double* b, const libxs_blasint* ldb,
-  const double* beta,        double* c, const libxs_blasint* ldc)
-{
-  libxs_blas_dgemm(transa, transb, m, n, k, alpha, a, lda, b, ldb, beta, c, ldc);
-}
-inline void libxs_blas_gemm(const char* transa, const char* transb,
-  /* by-value */ libxs_blasint m, libxs_blasint n, libxs_blasint k,
-  const double* alpha, const double* a, const libxs_blasint* lda,
-                       const double* b, const libxs_blasint* ldb,
-  const double* beta,        double* c, const libxs_blasint* ldc)
-{
-  libxs_blas_dgemm(transa, transb, &m, &n, &k, alpha, a, lda, b, ldb, beta, c, ldc);
-}
-
-/** General dense matrix multiplication based on LAPACK/BLAS (single-precision). */
-inline void libxs_blas_gemm(const char* transa, const char* transb,
-  const libxs_blasint* m, const libxs_blasint* n, const libxs_blasint* k,
-  const float* alpha, const float* a, const libxs_blasint* lda,
-                      const float* b, const libxs_blasint* ldb,
-  const float* beta,        float* c, const libxs_blasint* ldc)
-{
-  libxs_blas_sgemm(transa, transb, m, n, k, alpha, a, lda, b, ldb, beta, c, ldc);
-}
-inline void libxs_blas_gemm(const char* transa, const char* transb,
-  /* by-value */ libxs_blasint m, libxs_blasint n, libxs_blasint k,
-  const float* alpha, const float* a, const libxs_blasint* lda,
-                      const float* b, const libxs_blasint* ldb,
-  const float* beta,        float* c, const libxs_blasint* ldc)
-{
-  libxs_blas_sgemm(transa, transb, &m, &n, &k, alpha, a, lda, b, ldb, beta, c, ldc);
-}
-
 #endif /*__cplusplus*/
+/** GEMM_BATCH_STRIDED: fallback prototype functions served by any compliant LAPACK/BLAS. */
+LIBXS_EXTERN_C typedef void (*libxs_dgemm_batch_strided_function)(LIBXS_BLAS_SYMBOL_SIGNATURE(const*, *, double, gemm_batch_strided));
+LIBXS_EXTERN_C typedef void (*libxs_sgemm_batch_strided_function)(LIBXS_BLAS_SYMBOL_SIGNATURE(const*, *, float, gemm_batch_strided));
+/** GEMM_BATCH: fallback prototype functions served by any compliant LAPACK/BLAS. */
+LIBXS_EXTERN_C typedef void (*libxs_dgemm_batch_function)(LIBXS_BLAS_SYMBOL_SIGNATURE(const*, *, double, gemm_batch));
+LIBXS_EXTERN_C typedef void (*libxs_sgemm_batch_function)(LIBXS_BLAS_SYMBOL_SIGNATURE(const*, *, float, gemm_batch));
+/** GEMM: fallback prototype functions served by any compliant LAPACK/BLAS. */
+LIBXS_EXTERN_C typedef void (*libxs_dgemm_function)(LIBXS_BLAS_SYMBOL_SIGNATURE(const*, *, double, gemm));
+LIBXS_EXTERN_C typedef void (*libxs_sgemm_function)(LIBXS_BLAS_SYMBOL_SIGNATURE(const*, *, float, gemm));
+/** GEMV: fallback prototype functions served by any compliant LAPACK/BLAS. */
+LIBXS_EXTERN_C typedef void (*libxs_dgemv_function)(LIBXS_BLAS_SYMBOL_SIGNATURE(const*, *, double, gemv));
+LIBXS_EXTERN_C typedef void (*libxs_sgemv_function)(LIBXS_BLAS_SYMBOL_SIGNATURE(const*, *, float, gemv));
+
+/** The original BLAS functions. */
+LIBXS_APIVAR_PUBLIC(/*volatile*/libxs_dgemm_batch_strided_function libxs_original_dgemm_batch_strided_function);
+LIBXS_APIVAR_PUBLIC(/*volatile*/libxs_sgemm_batch_strided_function libxs_original_sgemm_batch_strided_function);
+LIBXS_APIVAR_PUBLIC(/*volatile*/libxs_dgemm_batch_function libxs_original_dgemm_batch_function);
+LIBXS_APIVAR_PUBLIC(/*volatile*/libxs_sgemm_batch_function libxs_original_sgemm_batch_function);
+LIBXS_APIVAR_PUBLIC(/*volatile*/libxs_dgemm_function libxs_original_dgemm_function);
+LIBXS_APIVAR_PUBLIC(/*volatile*/libxs_sgemm_function libxs_original_sgemm_function);
+LIBXS_APIVAR_PUBLIC(/*volatile*/libxs_dgemv_function libxs_original_dgemv_function);
+LIBXS_APIVAR_PUBLIC(/*volatile*/libxs_sgemv_function libxs_original_sgemv_function);
+LIBXS_API libxs_dgemm_batch_strided_function libxs_original_dgemm_batch_strided(void);
+LIBXS_API libxs_sgemm_batch_strided_function libxs_original_sgemm_batch_strided(void);
+LIBXS_API libxs_dgemm_batch_function libxs_original_dgemm_batch(void);
+LIBXS_API libxs_sgemm_batch_function libxs_original_sgemm_batch(void);
+LIBXS_API libxs_dgemm_function libxs_original_dgemm(void);
+LIBXS_API libxs_sgemm_function libxs_original_sgemm(void);
+LIBXS_API libxs_dgemv_function libxs_original_dgemv(void);
+LIBXS_API libxs_sgemv_function libxs_original_sgemv(void);
+
+/** Consume/sink arguments when called. */
+LIBXS_EXTERN_C typedef void (*libxs_sink_function)(const void*, ...);
+LIBXS_API libxs_sink_function libxs_blas_error(const char* symbol);
+
 #endif /*LIBXS_H*/

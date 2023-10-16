@@ -279,6 +279,14 @@ If the call-wrapper is used, an additional runtime statistic becomes available (
 objdump -D -b binary -m i386 -M x86-64 [JIT-dump-file]
 ```
 
+## Verification
+
+This section refers to testing correctness of an application using LIBXS utilities, i.e., using `libxs_matdiff` or `libxs_matdiff_epsilon` in particular. The former function (`libxs_matdiff`) compares two matrices (which can degenerate to vector shape), and yields a structure with information about the difference of both matrices (gold vs. test). The latter function (`libxs_matdiff_epsilon`) combines absolute and relative norms (given by afore mentioned structure) and calculates a scalar "epsilon" which can be used to check against a margin.
+
+Using `libxs_matdiff_epsilon` in an application exposes an environment variable `LIBXS_MATDIFF` which can specify a file or directory path (`LIBXS_MATDIFF=1` simply uses some filename as default). In any case, the application appends one line to the respective file for each call of `libxs_matdiff_epsilon`. A data record consists of the epsilon and the command line used to launch the application. A generated file can be further evaluated, e.g., `sort -gk1 libxs_matdiff.log | tail -n 10` which yields the largest ten epsilon values discovered along with the application's command line.
+
+The environment variable `LIBXS_MATDIFF` can carry optional space-separated arguments to amend each file entry like `export LIBXS_MATDIFF="libxs_matdiff.log hello world"`. In sophisticated cases this can be used to amend a value only known at runtime, e.g., the actual margin which is used to judge the epsilon (`putenv`).
+
 ## Performance
 
 <a name="profiling"></a>Profiling an application, which uses LIBXS's JIT-code is well-supported. The library supports <span>Intel&#160;VTune&#160;Amplifier</span> and <span>Linux&#160;perf</span>. Details are given on how to include profiler support, and how to run the application.

@@ -19,7 +19,7 @@
 # define LIBXS_MEM_SW
 #endif
 
-#define LIBXS_MEM_SHUFFLE_COPRIME(N) libxs_coprime2(N)
+#define LIBXS_MEM_SHUFFLE_COPRIME(N) libxs_coprime(N, (N) / 2)
 #define LIBXS_MEM_SHUFFLE(INOUT, ELEMSIZE, COUNT, SHUFFLE, NREPEAT) do { \
   unsigned char *const LIBXS_RESTRICT data = (unsigned char*)(INOUT); \
   const size_t c = (COUNT) - 1, c2 = ((COUNT) + 1) / 2; \

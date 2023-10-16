@@ -1,5 +1,10 @@
 # ROOTDIR avoid abspath to match Makefile targets
 ROOTDIR := $(subst //,,$(dir $(firstword $(MAKEFILE_LIST)))/)
+# Source and scripts locations
+ROOTINC := $(ROOTDIR)/include
+ROOTSCR := $(ROOTDIR)/scripts
+ROOTSRC := $(ROOTDIR)/src
+# Project directory structure
 INCDIR := include
 SCRDIR := scripts
 TSTDIR := tests
@@ -248,7 +253,7 @@ endif
 
 # necessary include directories
 IFLAGS += -I$(call quote,$(INCDIR))
-IFLAGS += -I$(call quote,$(ROOTDIR)/$(SRCDIR))
+IFLAGS += -I$(call quote,$(ROOTSRC))
 
 ifeq (,$(PYTHON))
   $(info --------------------------------------------------------------------------------)
@@ -256,13 +261,13 @@ ifeq (,$(PYTHON))
 endif
 
 # Version numbers according to interface (version.txt)
-VERSION_MAJOR ?= $(shell $(PYTHON) $(ROOTDIR)/$(SCRDIR)/libxs_utilities.py 1)
-VERSION_MINOR ?= $(shell $(PYTHON) $(ROOTDIR)/$(SCRDIR)/libxs_utilities.py 2)
-VERSION_UPDATE ?= $(shell $(PYTHON) $(ROOTDIR)/$(SCRDIR)/libxs_utilities.py 3)
+VERSION_MAJOR ?= $(shell $(PYTHON) $(ROOTSCR)/libxs_utilities.py 1)
+VERSION_MINOR ?= $(shell $(PYTHON) $(ROOTSCR)/libxs_utilities.py 2)
+VERSION_UPDATE ?= $(shell $(PYTHON) $(ROOTSCR)/libxs_utilities.py 3)
 VERSION_STRING ?= $(VERSION_MAJOR).$(VERSION_MINOR).$(VERSION_UPDATE)
-VERSION_API ?= $(shell $(PYTHON) $(ROOTDIR)/$(SCRDIR)/libxs_utilities.py 0 $(VERSION_STRING))
-VERSION_ALL ?= $(shell $(PYTHON) $(ROOTDIR)/$(SCRDIR)/libxs_utilities.py 0)
-VERSION_RELEASED ?= $(shell $(PYTHON) $(ROOTDIR)/$(SCRDIR)/libxs_utilities.py -1 $(VERSION_ALL))
+VERSION_API ?= $(shell $(PYTHON) $(ROOTSCR)/libxs_utilities.py 0 $(VERSION_STRING))
+VERSION_ALL ?= $(shell $(PYTHON) $(ROOTSCR)/libxs_utilities.py 0)
+VERSION_RELEASED ?= $(shell $(PYTHON) $(ROOTSCR)/libxs_utilities.py -1 $(VERSION_ALL))
 VERSION_RELEASE ?= HEAD
 VERSION_PACKAGE ?= 1
 
@@ -315,46 +320,46 @@ else # osx
   $(BINDIR)/libxs_gemm_generator
 endif
 
-INDICES ?= $(shell $(PYTHON) $(ROOTDIR)/$(SCRDIR)/libxs_utilities.py -1 $(THRESHOLD) $(words $(MNK)) $(MNK) $(words $(M)) $(words $(N)) $(M) $(N) $(K))
+INDICES ?= $(shell $(PYTHON) $(ROOTSCR)/libxs_utilities.py -1 $(THRESHOLD) $(words $(MNK)) $(MNK) $(words $(M)) $(words $(N)) $(M) $(N) $(K))
 NINDICES := $(words $(INDICES))
 
 SRCFILES_KERNELS := $(patsubst %,$(BLDDIR)/mm_%.c,$(INDICES))
 KRNOBJS := $(patsubst %,$(BLDDIR)/intel64/mm_%.o,$(INDICES))
 
 HEADERS_UTILS := \
-          $(ROOTDIR)/include/libxs_intrinsics_x86.h \
-          $(ROOTDIR)/include/libxs_lpflt_quant.h \
-          $(ROOTDIR)/include/libxs_timer.h \
-          $(ROOTDIR)/include/libxs_frontend.h \
-          $(ROOTDIR)/include/libxs_math.h \
-          $(ROOTDIR)/include/libxs_mhd.h \
-          $(ROOTDIR)/include/libxs_rng.h \
+          $(ROOTINC)/utils/libxs_lpflt_quant.h \
+          $(ROOTINC)/utils/libxs_barrier.h \
+          $(ROOTINC)/utils/libxs_timer.h \
+          $(ROOTINC)/utils/libxs_math.h \
+          $(ROOTINC)/utils/libxs_mhd.h \
           $(NULL)
 HEADERS_MAIN := \
-          $(ROOTDIR)/include/libxs_generator.h \
-          $(ROOTDIR)/include/libxs_typedefs.h \
-          $(ROOTDIR)/include/libxs_fsspmdm.h \
-          $(ROOTDIR)/include/libxs_macros.h \
-          $(ROOTDIR)/include/libxs_mem.h \
-          $(ROOTDIR)/include/libxs_malloc.h \
-          $(ROOTDIR)/include/libxs_cpuid.h \
-          $(ROOTDIR)/include/libxs_math.h \
-          $(ROOTDIR)/include/libxs_sync.h \
+          $(ROOTINC)/libxs_generator.h \
+          $(ROOTINC)/libxs_typedefs.h \
+          $(ROOTINC)/libxs_fsspmdm.h \
+          $(ROOTINC)/libxs_macros.h \
+          $(ROOTINC)/libxs_mem.h \
+          $(ROOTINC)/libxs_malloc.h \
+          $(ROOTINC)/libxs_cpuid.h \
+          $(ROOTINC)/libxs_math.h \
+          $(ROOTINC)/libxs_sync.h \
+          $(ROOTINC)/libxs_utils.h \
+          $(ROOTINC)/libxs_intrinsics_x86.h \
           $(NULL)
+HEADERS_SRC := $(wildcard $(ROOTSRC)/*.h)
 HEADERS := \
-          $(wildcard $(ROOTDIR)/$(SRCDIR)/template/*.h) \
-          $(wildcard $(ROOTDIR)/$(SRCDIR)/*.h) \
-          $(ROOTDIR)/$(SRCDIR)/libxs_hash.c \
-          $(HEADERS_MAIN) $(HEADERS_UTILS)
-SRCFILES_LIB := $(patsubst %,$(ROOTDIR)/$(SRCDIR)/%, \
+          $(wildcard $(ROOTSRC)/template/*.h) \
+          $(HEADERS_SRC) $(HEADERS_MAIN) $(HEADERS_UTILS)
+SRCFILES_LIB := $(patsubst %,$(ROOTSRC)/%, \
           libxs_main.c libxs_mem.c libxs_malloc.c libxs_math.c libxs_fsspmdm.c \
           libxs_hash.c libxs_sync.c libxs_perf.c libxs_gemm.c libxs_xcopy.c \
-          libxs_lpflt_quant.c libxs_timer.c \
+          libxs_utils.c libxs_lpflt_quant.c libxs_timer.c libxs_barrier.c \
           libxs_rng.c libxs_mhd.c)
-SRCFILES_GEN_LIB := $(patsubst %,$(ROOTDIR)/$(SRCDIR)/%,$(notdir $(wildcard $(ROOTDIR)/$(SRCDIR)/generator_*.c)) \
+SRCFILES_GEN_LIB := $(patsubst %,$(ROOTSRC)/%,$(notdir $(wildcard $(ROOTSRC)/generator_*.c)) \
           libxs_cpuid_arm.c libxs_cpuid_x86.c libxs_generator.c libxs_trace.c libxs_matrixeqn.c)
+SRCFILES := $(SRCFILES_LIB) $(SRCFILES_GEN_LIB) $(SRCFILES_KERNELS)
 
-SRCFILES_GEN_GEMM_BIN := $(patsubst %,$(ROOTDIR)/$(SRCDIR)/%,libxs_generator_gemm_driver.c)
+SRCFILES_GEN_GEMM_BIN := $(patsubst %,$(ROOTSRC)/%,libxs_generator_gemm_driver.c)
 OBJFILES_GEN_GEMM_BIN := $(patsubst %,$(BLDDIR)/intel64/%.o,$(basename $(notdir $(SRCFILES_GEN_GEMM_BIN))))
 OBJFILES_GEN_LIB := $(patsubst %,$(BLDDIR)/intel64/%.o,$(basename $(notdir $(SRCFILES_GEN_LIB))))
 OBJFILES_LIB := $(patsubst %,$(BLDDIR)/intel64/%.o,$(basename $(notdir $(SRCFILES_LIB))))
@@ -579,7 +584,7 @@ else # default (no OpenMP based synchronization)
 endif
 
 # auto-clean
-$(ROOTDIR)/$(SRCDIR)/template/libxs_config.h: $(ROOTDIR)/$(SCRDIR)/libxs_config.py $(ROOTDIR)/$(SCRDIR)/libxs_utilities.py \
+$(ROOTSRC)/template/libxs_config.h: $(ROOTSCR)/libxs_config.py $(ROOTSCR)/libxs_utilities.py \
                                                 $(ROOTDIR)/Makefile $(ROOTDIR)/Makefile.inc $(wildcard $(ROOTDIR)/.github/*) \
                                                 $(ROOTDIR)/version.txt
 	@-rm -f $(OUTDIR)/libxs*.$(SLIBEXT) $(OUTDIR)/libxs*.$(DLIBEXT)*
@@ -588,58 +593,65 @@ $(ROOTDIR)/$(SRCDIR)/template/libxs_config.h: $(ROOTDIR)/$(SCRDIR)/libxs_config.
 .PHONY: config
 config: $(INCDIR)/libxs_config.h $(INCDIR)/libxs_version.h
 
-$(INCDIR)/libxs_config.h: $(INCDIR)/.make $(ROOTDIR)/$(SRCDIR)/template/libxs_config.h $(DIRSTATE)/.state
+$(INCDIR)/libxs_config.h: $(ROOTSRC)/template/libxs_config.h $(DIRSTATE)/.state \
+                            $(INCDIR)/utils/.make $(SRCDIR)/.make $(SCRDIR)/.make
 	$(information)
 	$(info --- LIBXS build log)
 	@if [ -e $(ROOTDIR)/.github/install.sh ]; then \
 		$(ROOTDIR)/.github/install.sh 2>/dev/null; \
 	fi
-	@$(CP) $(HEADERS_UTILS) $(INCDIR) 2>/dev/null || true
+	@$(CP) -r $(ROOTSCR) . 2>/dev/null || true
+	@$(CP) $(ROOTDIR)/Makefile.inc . 2>/dev/null || true
+	@$(CP) $(ROOTDIR)/.mktmp.sh . 2>/dev/null || true
+	@$(CP) $(ROOTDIR)/.flock.sh . 2>/dev/null || true
+	@$(CP) $(ROOTDIR)/.state.sh . 2>/dev/null || true
 	@$(CP) $(HEADERS_MAIN) $(INCDIR) 2>/dev/null || true
-	@$(PYTHON) $(ROOTDIR)/$(SCRDIR)/libxs_config.py $(ROOTDIR)/$(SRCDIR)/template/libxs_config.h \
+	@$(CP) $(HEADERS_UTILS) $(INCDIR)/utils 2>/dev/null || true
+	@$(CP) $(SRCFILES) $(HEADERS_SRC) $(SRCDIR) 2>/dev/null || true
+	@$(PYTHON) $(ROOTSCR)/libxs_config.py $(ROOTSRC)/template/libxs_config.h \
 		$(MAKE_ILP64) $(CACHELINE) $(PRECISION) $(PREFETCH_TYPE) \
 		$(shell echo "$$((0<$(THRESHOLD)?$(THRESHOLD):0))") $(shell echo "$$(($(THREADS)+$(OMP)))") \
 		$(JIT) $(FLAGS) $(ALPHA) $(BETA) $(WRAP) $(MALLOC) $(INDICES) >$@
 
-$(INCDIR)/libxs_version.h: $(ROOTDIR)/$(SRCDIR)/template/libxs_config.h $(INCDIR)/.make \
-                             $(ROOTDIR)/$(SRCDIR)/template/libxs_version.h
-	@$(PYTHON) $(ROOTDIR)/$(SCRDIR)/libxs_config.py $(ROOTDIR)/$(SRCDIR)/template/libxs_version.h >$@
+$(INCDIR)/libxs_version.h: $(ROOTSRC)/template/libxs_config.h $(INCDIR)/.make \
+                             $(ROOTSRC)/template/libxs_version.h
+	@$(PYTHON) $(ROOTSCR)/libxs_config.py $(ROOTSRC)/template/libxs_version.h >$@
 
 .PHONY: cheader
 cheader: $(INCDIR)/libxs.h
-$(INCDIR)/libxs.h: $(ROOTDIR)/$(SCRDIR)/libxs_interface.py \
-                     $(ROOTDIR)/$(SRCDIR)/template/libxs.h \
+$(INCDIR)/libxs.h: $(ROOTSCR)/libxs_interface.py \
+                     $(ROOTSRC)/template/libxs.h \
                      $(INCDIR)/libxs_version.h \
                      $(INCDIR)/libxs_config.h \
                      $(HEADERS)
-	@$(PYTHON) $(ROOTDIR)/$(SCRDIR)/libxs_interface.py $(ROOTDIR)/$(SRCDIR)/template/libxs.h \
+	@$(PYTHON) $(ROOTSCR)/libxs_interface.py $(ROOTSRC)/template/libxs.h \
 		$(shell echo "$$(($(PRECISION)+($(call qnum,$(FORTRAN),2)<<2)))") $(PREFETCH_TYPE) $(INDICES) >$@
 
 .PHONY: cheader_only
 cheader_only: $(INCDIR)/libxs_source.h
-$(INCDIR)/libxs_source.h: $(INCDIR)/.make $(ROOTDIR)/$(SCRDIR)/libxs_source.sh $(INCDIR)/libxs.h
-	@$(ROOTDIR)/$(SCRDIR)/libxs_source.sh >$@
+$(INCDIR)/libxs_source.h: $(INCDIR)/.make $(ROOTSCR)/libxs_source.sh $(INCDIR)/libxs.h
+	@$(ROOTSCR)/libxs_source.sh >$@
 
 .PHONY: fheader
 fheader: $(INCDIR)/libxs.f
-$(INCDIR)/libxs.f: $(ROOTDIR)/$(SCRDIR)/libxs_interface.py \
-                     $(ROOTDIR)/$(SCRDIR)/libxs_config.py \
-                     $(ROOTDIR)/$(SRCDIR)/template/libxs.f \
+$(INCDIR)/libxs.f: $(ROOTSCR)/libxs_interface.py \
+                     $(ROOTSCR)/libxs_config.py \
+                     $(ROOTSRC)/template/libxs.f \
                      $(INCDIR)/libxs_version.h \
                      $(INCDIR)/libxs_config.h
-	@$(PYTHON) $(ROOTDIR)/$(SCRDIR)/libxs_interface.py $(ROOTDIR)/$(SRCDIR)/template/libxs.f \
+	@$(PYTHON) $(ROOTSCR)/libxs_interface.py $(ROOTSRC)/template/libxs.f \
 		$(shell echo "$$(($(PRECISION)+($(call qnum,$(FORTRAN),2)<<2)))") $(PREFETCH_TYPE) $(INDICES) \
-	| $(PYTHON) $(ROOTDIR)/$(SCRDIR)/libxs_config.py /dev/stdin \
+	| $(PYTHON) $(ROOTSCR)/libxs_config.py /dev/stdin \
 		$(MAKE_ILP64) $(CACHELINE) $(PRECISION) $(PREFETCH_TYPE) \
 		$(shell echo "$$((0<$(THRESHOLD)?$(THRESHOLD):0))") $(shell echo "$$(($(THREADS)+$(OMP)))") \
 		$(JIT) $(FLAGS) $(ALPHA) $(BETA) $(WRAP) $(MALLOC) $(INDICES) >$@
 
 .PHONY: sources
 sources: $(SRCFILES_KERNELS) $(BLDDIR)/libxs_dispatch.h
-$(BLDDIR)/libxs_dispatch.h: $(BLDDIR)/.make $(SRCFILES_KERNELS) $(ROOTDIR)/$(SCRDIR)/libxs_dispatch.py $(DIRSTATE)/.state
-	@$(PYTHON) $(call quote,$(ROOTDIR)/$(SCRDIR)/libxs_dispatch.py) $(call qapath,$(DIRSTATE)/.state) $(PRECISION) $(THRESHOLD) $(INDICES) >$@
+$(BLDDIR)/libxs_dispatch.h: $(BLDDIR)/.make $(SRCFILES_KERNELS) $(ROOTSCR)/libxs_dispatch.py $(DIRSTATE)/.state
+	@$(PYTHON) $(call quote,$(ROOTSCR)/libxs_dispatch.py) $(call qapath,$(DIRSTATE)/.state) $(PRECISION) $(THRESHOLD) $(INDICES) >$@
 
-$(BLDDIR)/%.c: $(BLDDIR)/.make $(INCDIR)/libxs.h $(BINDIR)/libxs_gemm_generator $(ROOTDIR)/$(SCRDIR)/libxs_utilities.py $(ROOTDIR)/$(SCRDIR)/libxs_specialized.py
+$(BLDDIR)/%.c: $(BLDDIR)/.make $(INCDIR)/libxs.h $(BINDIR)/libxs_gemm_generator $(ROOTSCR)/libxs_utilities.py $(ROOTSCR)/libxs_specialized.py
 ifneq (,$(strip $(SRCFILES_KERNELS)))
 	$(eval MVALUE := $(shell echo $(basename $(notdir $@)) | cut -d_ -f2))
 	$(eval NVALUE := $(shell echo $(basename $(notdir $@)) | cut -d_ -f3))
@@ -701,7 +713,7 @@ endif # noarch
 		-e "/#error No kernel was compiled, lacking support for current architecture?/d" \
 		-e "/#pragma message (\".*KERNEL COMPILATION WARNING: compiling ..* code on ..* or newer architecture: \" __FILE__)/d" \
 		| tr "~" "\n" >$(TMPFILE)
-	@$(PYTHON) $(ROOTDIR)/$(SCRDIR)/libxs_specialized.py $(PRECISION) $(MVALUE) $(NVALUE) $(KVALUE) $(PREFETCH_TYPE) >>$(TMPFILE)
+	@$(PYTHON) $(ROOTSCR)/libxs_specialized.py $(PRECISION) $(MVALUE) $(NVALUE) $(KVALUE) $(PREFETCH_TYPE) >>$(TMPFILE)
 	@$(MV) $(TMPFILE) $@
 endif
 
@@ -727,20 +739,20 @@ else
 endif
 
 # build rules that include target flags
-$(eval $(call DEFINE_COMPILE_RULE,$(NOBLAS_OBJ),$(ROOTDIR)/$(SRCDIR)/libxs_ext.c,$(INCDIR)/libxs.h, \
+$(eval $(call DEFINE_COMPILE_RULE,$(NOBLAS_OBJ),$(ROOTSRC)/libxs_ext.c,$(INCDIR)/libxs.h, \
   $(CTARGET) $(NOBLAS_CFLAGS) $(NOBLAS_FLAGS) $(NOBLAS_IFLAGS) $(DNOBLAS)))
 ifeq (0,$(CRAY))
 $(foreach OBJ,$(OBJFILES_LIB),$(eval $(call DEFINE_COMPILE_RULE, \
-  $(OBJ),$(patsubst %.o,$(ROOTDIR)/$(SRCDIR)/%.c,$(notdir $(OBJ))), \
+  $(OBJ),$(patsubst %.o,$(ROOTSRC)/%.c,$(notdir $(OBJ))), \
   $(INCDIR)/libxs.h $(INCDIR)/libxs_source.h $(BLDDIR)/libxs_dispatch.h, \
   $(DFLAGS) $(IFLAGS) $(call applyif,1,libxs_main,$(OBJ),-I$(BLDDIR)) $(CTARGET) $(CFLAGS))))
 else
 $(foreach OBJ,$(filter-out $(BLDDIR)/intel64/libxs_mhd.o,$(OBJFILES_LIB)),$(eval $(call DEFINE_COMPILE_RULE, \
-  $(OBJ),$(patsubst %.o,$(ROOTDIR)/$(SRCDIR)/%.c,$(notdir $(OBJ))), \
+  $(OBJ),$(patsubst %.o,$(ROOTSRC)/%.c,$(notdir $(OBJ))), \
   $(INCDIR)/libxs.h $(INCDIR)/libxs_source.h $(BLDDIR)/libxs_dispatch.h, \
   $(DFLAGS) $(IFLAGS) $(call applyif,1,libxs_main,$(OBJ),-I$(BLDDIR)) $(CTARGET) $(CFLAGS))))
 $(foreach OBJ,$(BLDDIR)/intel64/libxs_mhd.o,$(eval $(call DEFINE_COMPILE_RULE, \
-  $(OBJ),$(patsubst %.o,$(ROOTDIR)/$(SRCDIR)/%.c,$(notdir $(OBJ))), \
+  $(OBJ),$(patsubst %.o,$(ROOTSRC)/%.c,$(notdir $(OBJ))), \
   $(INCDIR)/libxs.h $(INCDIR)/libxs_source.h $(BLDDIR)/libxs_dispatch.h, \
   $(DFLAGS) $(IFLAGS) $(CTARGET) $(patsubst $(OPTFLAGS),$(OPTFLAG1),$(CFLAGS)))))
 endif
@@ -749,7 +761,7 @@ $(foreach OBJ,$(KRNOBJS),$(eval $(call DEFINE_COMPILE_RULE, \
   $(INCDIR)/libxs.h $(INCDIR)/libxs_source.h, \
   $(DFLAGS) $(IFLAGS) $(CTARGET) $(CFLAGS))))
 $(foreach OBJ,$(OBJFILES_EXT),$(eval $(call DEFINE_COMPILE_RULE, \
-  $(OBJ),$(patsubst %.o,$(ROOTDIR)/$(SRCDIR)/%.c,$(notdir $(OBJ))), \
+  $(OBJ),$(patsubst %.o,$(ROOTSRC)/%.c,$(notdir $(OBJ))), \
   $(INCDIR)/libxs.h $(INCDIR)/libxs_source.h, \
   $(DFLAGS) $(IFLAGS) $(CTARGET) $(EXTCFLAGS) $(CFLAGS))))
 
@@ -758,11 +770,11 @@ ifneq (0,$(TGT))
   TGT_FLAGS ?= $(CTARGET)
 endif
 $(foreach OBJ,$(OBJFILES_GEN_LIB),$(eval $(call DEFINE_COMPILE_RULE, \
-  $(OBJ),$(patsubst %.o,$(ROOTDIR)/$(SRCDIR)/%.c,$(notdir $(OBJ))), \
+  $(OBJ),$(patsubst %.o,$(ROOTSRC)/%.c,$(notdir $(OBJ))), \
   $(INCDIR)/libxs.h $(INCDIR)/libxs_source.h, \
   $(DFLAGS) $(IFLAGS) $(TGT_FLAGS) $(CFLAGS))))
 $(foreach OBJ,$(OBJFILES_GEN_GEMM_BIN),$(eval $(call DEFINE_COMPILE_RULE, \
-  $(OBJ),$(patsubst %.o,$(ROOTDIR)/$(SRCDIR)/%.c,$(notdir $(OBJ))), \
+  $(OBJ),$(patsubst %.o,$(ROOTSRC)/%.c,$(notdir $(OBJ))), \
   $(INCDIR)/libxs.h $(INCDIR)/libxs_source.h, \
   $(DFLAGS) $(IFLAGS) $(TGT_FLAGS) $(CFLAGS))))
 
@@ -1177,8 +1189,8 @@ $(DOCDIR)/index.md: $(DOCDIR)/.make $(ROOTDIR)/Makefile $(ROOTDIR)/README.md
 		-e 'N;/^\n$$/d;P;D' \
 		>$@
 
-$(DOCDIR)/libxs_scripts.md: $(DOCDIR)/.make $(ROOTDIR)/Makefile $(ROOTDIR)/$(SCRDIR)/README.md
-	@$(SED) $(ROOTDIR)/$(SCRDIR)/README.md \
+$(DOCDIR)/libxs_scripts.md: $(DOCDIR)/.make $(ROOTDIR)/Makefile $(ROOTSCR)/README.md
+	@$(SED) $(ROOTSCR)/README.md \
 		-e 's/\[!\[..*\](..*)\](..*)//g' \
 		-e 's/\[\[..*\](..*)\]//g' \
 		-e "s/](${DOCDIR}\//](/g" \
@@ -1322,8 +1334,8 @@ endif
 .PHONY: deepclean
 deepclean: realclean
 	@find . -type f \( -name .make -or -name .state \) -exec rm {} \;
-	@-rm -f $(ROOTDIR)/$(SCRDIR)/libxs_utilities.pyc
-	@-rm -rf $(ROOTDIR)/$(SCRDIR)/__pycache__
+	@-rm -f $(ROOTSCR)/libxs_utilities.pyc
+	@-rm -rf $(ROOTSCR)/__pycache__
 	@-rm -f $(ROOTDIR)/$(SPLDIR)/cp2k/cp2k-perf.sh
 	@-rm -f $(ROOTDIR)/$(UTLDIR)/smmbench/smmf-perf.sh
 	@-rm -f $(ROOTDIR)/$(SPLDIR)/nek/grad-perf.sh
@@ -1358,10 +1370,18 @@ ifneq ($(ALIAS_PREFIX),$(PREFIX))
   PMODDIR := $(PSHRDIR)
 endif
 
+# remove existing PREFIX
+CLEAN ?= 0
+
 .PHONY: install-minimal
 install-minimal: libxs
 ifneq ($(PREFIX),$(ABSDIR))
 	@echo
+ifneq (0,$(CLEAN))
+#ifneq (,$(findstring ?$(HOMEDIR),?$(call qapath,$(PREFIX))))
+	@if [ -d $(PREFIX) ]; then echo "LIBXS removing $(PREFIX)..." && rm -rf $(PREFIX) || true; fi
+#endif
+endif
 	@echo "LIBXS installing libraries..."
 	@$(MKDIR) -p $(PREFIX)/$(POUTDIR)
 	@$(CP) -va $(OUTDIR)/libxsnoblas*.$(DLIBEXT)* $(PREFIX)/$(POUTDIR) 2>/dev/null || true
@@ -1377,7 +1397,7 @@ ifneq ($(PREFIX),$(ABSDIR))
 	@echo
 	@echo "LIBXS installing pkg-config and module files..."
 	@$(MKDIR) -p $(PREFIX)/$(PPKGDIR)
-	@$(CP) -v $(OUTDIR)/*.pc $(PREFIX)/$(PPKGDIR) 2>/dev/null || true
+	@$(CP) -va $(OUTDIR)/*.pc $(PREFIX)/$(PPKGDIR) 2>/dev/null || true
 	@if [ ! -e $(PREFIX)/$(PMODDIR)/libxs.env ]; then \
 		$(MKDIR) -p $(PREFIX)/$(PMODDIR); \
 		$(CP) -v $(OUTDIR)/libxs.env $(PREFIX)/$(PMODDIR) 2>/dev/null || true; \
@@ -1385,19 +1405,19 @@ ifneq ($(PREFIX),$(ABSDIR))
 	@echo
 	@echo "LIBXS installing interface..."
 	@$(MKDIR) -p $(PREFIX)/$(PINCDIR)/utils
-	@$(CP) -v $(HEADERS_MAIN) $(PREFIX)/$(PINCDIR) 2>/dev/null || true
-	@$(CP) -v $(HEADERS_UTILS) $(PREFIX)/$(PINCDIR)/utils 2>/dev/null || true
-	@$(CP) -v $(INCDIR)/libxs_version.h $(PREFIX)/$(PINCDIR) 2>/dev/null || true
-	@$(CP) -v $(INCDIR)/libxs_config.h $(PREFIX)/$(PINCDIR) 2>/dev/null || true
-	@$(CP) -v $(INCDIR)/libxs.h $(PREFIX)/$(PINCDIR) 2>/dev/null || true
-	@$(CP) -v $(INCDIR)/libxs.f $(PREFIX)/$(PINCDIR) 2>/dev/null || true
-	@$(CP) -v $(INCDIR)/*.mod* $(PREFIX)/$(PINCDIR) 2>/dev/null || true
+	@$(CP) -v  $(HEADERS_MAIN) $(PREFIX)/$(PINCDIR) 2>/dev/null || true
+	@$(CP) -v  $(HEADERS_UTILS) $(PREFIX)/$(PINCDIR)/utils 2>/dev/null || true
+	@$(CP) -v  $(INCDIR)/libxs_version.h $(PREFIX)/$(PINCDIR) 2>/dev/null || true
+	@$(CP) -v  $(INCDIR)/libxs_config.h $(PREFIX)/$(PINCDIR) 2>/dev/null || true
+	@$(CP) -v  $(INCDIR)/libxs.h $(PREFIX)/$(PINCDIR) 2>/dev/null || true
+	@$(CP) -v  $(INCDIR)/libxs.f $(PREFIX)/$(PINCDIR) 2>/dev/null || true
+	@$(CP) -va $(INCDIR)/*.mod* $(PREFIX)/$(PINCDIR) 2>/dev/null || true
 	@echo
 	@echo "LIBXS installing header-only..."
 	@$(MKDIR) -p $(PREFIX)/$(PINCDIR)/$(PSRCDIR)
-	@$(CP) -r $(ROOTDIR)/$(SRCDIR)/* $(PREFIX)/$(PINCDIR)/$(PSRCDIR) >/dev/null 2>/dev/null || true
+	@$(CP) -r $(ROOTSRC)/* $(PREFIX)/$(PINCDIR)/$(PSRCDIR) >/dev/null 2>/dev/null || true
 # regenerate libxs_source.h
-	@$(ROOTDIR)/$(SCRDIR)/libxs_source.sh $(PSRCDIR) >$(PREFIX)/$(PINCDIR)/libxs_source.h
+	@$(ROOTSCR)/libxs_source.sh $(PSRCDIR) >$(PREFIX)/$(PINCDIR)/libxs_source.h
 endif
 
 .PHONY: install
@@ -1406,14 +1426,14 @@ ifneq ($(PREFIX),$(ABSDIR))
 	@echo
 	@echo "LIBXS installing stand-alone generator..."
 	@$(MKDIR) -p $(PREFIX)/$(PBINDIR)
-	@$(CP) -v $(BINDIR)/libxs_*_generator $(PREFIX)/$(PBINDIR) 2>/dev/null || true
+	@$(CP) -va $(BINDIR)/libxs_*_generator $(PREFIX)/$(PBINDIR) 2>/dev/null || true
 	@echo
 	@echo "LIBXS installing documentation..."
 	@$(MKDIR) -p $(PREFIX)/$(PDOCDIR)
-	@$(CP) -v $(ROOTDIR)/$(DOCDIR)/*.pdf $(PREFIX)/$(PDOCDIR)
-	@$(CP) -v $(ROOTDIR)/$(DOCDIR)/*.md $(PREFIX)/$(PDOCDIR)
-	@$(CP) -v $(ROOTDIR)/SECURITY.md $(PREFIX)/$(PDOCDIR)
-	@$(CP) -v $(ROOTDIR)/version.txt $(PREFIX)/$(PDOCDIR)
+	@$(CP) -va $(ROOTDIR)/$(DOCDIR)/*.pdf $(PREFIX)/$(PDOCDIR)
+	@$(CP) -va $(ROOTDIR)/$(DOCDIR)/*.md $(PREFIX)/$(PDOCDIR)
+	@$(CP) -v  $(ROOTDIR)/SECURITY.md $(PREFIX)/$(PDOCDIR)
+	@$(CP) -v  $(ROOTDIR)/version.txt $(PREFIX)/$(PDOCDIR)
 	@$(SED) "s/^\"//;s/\\\n\"$$//;/STATIC=/d" $(DIRSTATE)/.state >$(PREFIX)/$(PDOCDIR)/build.txt 2>/dev/null || true
 	@$(MKDIR) -p $(PREFIX)/$(LICFDIR)
 ifneq ($(call qapath,$(PREFIX)/$(PDOCDIR)/LICENSE.md),$(call qapath,$(PREFIX)/$(LICFDIR)/$(LICFILE)))
@@ -1433,14 +1453,16 @@ endif
 .PHONY: install-dev
 install-dev: install
 ifneq ($(PREFIX),$(ABSDIR))
-	@echo
-	@echo "================================================================================"
-	@echo "Installing development tools does not respect a common PREFIX, e.g., /usr/local."
-	@echo "For development, consider checking out https://github.com/hfp/libxs,"
-	@echo "or perform plain \"install\" (or \"install-all\")."
-	@echo "Hit CTRL-C to abort, or wait $(WAIT) seconds to continue."
-	@echo "--------------------------------------------------------------------------------"
-	@sleep $(WAIT)
+	@if test -t 0; then \
+		echo; \
+		echo "================================================================================"; \
+		echo "Installing development tools does not respect a common PREFIX, e.g., /usr/local."; \
+		echo "For development, consider checking out https://github.com/hfp/libxs,"; \
+		echo "or perform plain \"install\" (or \"install-all\")."; \
+		echo "Hit CTRL-C to abort, or wait $(WAIT) seconds to continue."; \
+		echo "--------------------------------------------------------------------------------"; \
+		sleep $(WAIT); \
+	fi
 	@echo
 	@echo "LIBXS installing utilities..."
 	@$(MKDIR) -p $(PREFIX)
@@ -1451,14 +1473,14 @@ ifneq ($(PREFIX),$(ABSDIR))
 	@echo
 	@echo "LIBXS tool scripts..."
 	@$(MKDIR) -p $(PREFIX)/$(SCRDIR)
-	@$(CP) -v $(ROOTDIR)/$(SCRDIR)/tool_envrestore.sh $(PREFIX)/$(SCRDIR) 2>/dev/null || true
-	@$(CP) -v $(ROOTDIR)/$(SCRDIR)/tool_getenvars.sh $(PREFIX)/$(SCRDIR) 2>/dev/null || true
-	@$(CP) -v $(ROOTDIR)/$(SCRDIR)/tool_cpuinfo.sh $(PREFIX)/$(SCRDIR) 2>/dev/null || true
-	@$(CP) -v $(ROOTDIR)/$(SCRDIR)/tool_logperf.sh $(PREFIX)/$(SCRDIR) 2>/dev/null || true
-	@$(CP) -v $(ROOTDIR)/$(SCRDIR)/tool_logrept.sh $(PREFIX)/$(SCRDIR) 2>/dev/null || true
-	@$(CP) -v $(ROOTDIR)/$(SCRDIR)/tool_report.py $(PREFIX)/$(SCRDIR) 2>/dev/null || true
-	@$(CP) -v $(ROOTDIR)/$(SCRDIR)/tool_pexec.sh $(PREFIX)/$(SCRDIR) 2>/dev/null || true
-	@$(CP) -v $(ROOTDIR)/$(SCRDIR)/tool_test.sh $(PREFIX)/$(SCRDIR) 2>/dev/null || true
+	@$(CP) -v $(ROOTSCR)/tool_envrestore.sh $(PREFIX)/$(SCRDIR) 2>/dev/null || true
+	@$(CP) -v $(ROOTSCR)/tool_getenvars.sh $(PREFIX)/$(SCRDIR) 2>/dev/null || true
+	@$(CP) -v $(ROOTSCR)/tool_cpuinfo.sh $(PREFIX)/$(SCRDIR) 2>/dev/null || true
+	@$(CP) -v $(ROOTSCR)/tool_logperf.sh $(PREFIX)/$(SCRDIR) 2>/dev/null || true
+	@$(CP) -v $(ROOTSCR)/tool_logrept.sh $(PREFIX)/$(SCRDIR) 2>/dev/null || true
+	@$(CP) -v $(ROOTSCR)/tool_report.py $(PREFIX)/$(SCRDIR) 2>/dev/null || true
+	@$(CP) -v $(ROOTSCR)/tool_pexec.sh $(PREFIX)/$(SCRDIR) 2>/dev/null || true
+	@$(CP) -v $(ROOTSCR)/tool_test.sh $(PREFIX)/$(SCRDIR) 2>/dev/null || true
 endif
 
 .PHONY: install-realall
@@ -1707,8 +1729,8 @@ $(OUTDIR)/libxs.env: $(OUTDIR)/.make $(INCDIR)/libxs.h
 .PHONY: deb
 deb:
 	@if [ "$$(command -v git)" ]; then \
-		VERSION_ARCHIVE_SONAME=$$($(PYTHON) $(ROOTDIR)/$(SCRDIR)/libxs_utilities.py 1); \
-		VERSION_ARCHIVE=$$($(PYTHON) $(ROOTDIR)/$(SCRDIR)/libxs_utilities.py 5); \
+		VERSION_ARCHIVE_SONAME=$$($(PYTHON) $(ROOTSCR)/libxs_utilities.py 1); \
+		VERSION_ARCHIVE=$$($(PYTHON) $(ROOTSCR)/libxs_utilities.py 5); \
 	fi; \
 	if [ "$${VERSION_ARCHIVE}" ] && [ "$${VERSION_ARCHIVE_SONAME}" ]; then \
 		ARCHIVE_AUTHOR_NAME="$$(git config user.name)"; \
