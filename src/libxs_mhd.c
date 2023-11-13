@@ -532,6 +532,8 @@ LIBXS_API int libxs_mhd_element_comparison(
 }
 
 
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wcast-qual"
 /* coverity[var_deref_op] */
 LIBXS_API_INLINE int internal_mhd_minmax(const void* data, size_t nelements,
   libxs_mhd_elemtype type, const void* minval, const void* maxval)
@@ -574,6 +576,7 @@ LIBXS_API_INLINE int internal_mhd_minmax(const void* data, size_t nelements,
   }
   return result;
 }
+#pragma GCC diagnostic pop
 
 
 LIBXS_API_INTERN int internal_mhd_read(FILE* /*file*/, void* /*data*/, const size_t /*size*/[], const size_t /*pitch*/[],
@@ -826,7 +829,7 @@ LIBXS_API_INTERN int internal_mhd_write(FILE* file, const void* data, const size
                 result = libxs_mhd_element_conversion(element, type, type_data, data, minval, maxval);
                 if (EXIT_SUCCESS == result) {
                   if (1 == fwrite(element, typesize, 1, file)) {
-                    data = ((char*)data) + typesize_data;
+                    data = ((const char*)data) + typesize_data;
                   }
                   else {
                     result = EXIT_FAILURE;
