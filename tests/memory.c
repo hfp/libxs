@@ -80,6 +80,19 @@ int main(int argc, char* argv[])
     }
   }
 
+  /* check libxs_offset */
+  if (EXIT_SUCCESS == result) {
+    const size_t shape[] = { 17, 13, 64, 4 }, ndims = sizeof(shape) / sizeof(*shape);
+    size_t size1 = 0, n;
+    for (n = 0; n < ndims && EXIT_SUCCESS == result; ++n) {
+      if (0 != libxs_offset(NULL, shape, n, NULL)) result = EXIT_FAILURE;
+    }
+    for (n = 0; n < ndims && EXIT_SUCCESS == result; ++n) {
+      const size_t offset1 = libxs_offset(shape, shape, n, &size1);
+      if (offset1 != size1) result = EXIT_FAILURE;
+    }
+  }
+
   /* check LIBXS_MEMCPY127 and libxs_diff_n */
   if (EXIT_SUCCESS == result) {
     char *const data = (char*)malloc(elemsize * count);

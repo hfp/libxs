@@ -36,15 +36,15 @@ int main(int argc, char* argv[])
         const ELEMTYPE gold0 = input[linear];
         const ELEMTYPE test0a = VLA_IJK_INDX(3, jk3, i, j, k, nj, nk);
         const void *const vjk3 = LIBXS_CONCATENATE(jk3, LIBXS_VLA_POSTFIX);
-        const void *const vpjk = LIBXS_ACCESS_RAW(3, sizeof(ELEMTYPE), vjk3, i, j, k, nj, nk);
+        const void *const vpjk = LIBXS_ACCESS_RO(3, sizeof(ELEMTYPE), vjk3, i, j, k, nj, nk);
         const ELEMTYPE test0b = *(const ELEMTYPE*)vpjk;
-        const ELEMTYPE test0c = *LIBXS_ACCESS(3, ELEMTYPE, vjk3, i, j, k, nj, nk);
+        const ELEMTYPE test0c = *LIBXS_ACCESS(3, const ELEMTYPE, vjk3, i, j, k, nj, nk);
         const ELEMTYPE gold1 = VLA_IJK_INDX(3, kj3, i, k, j, nk, nj);
         const ELEMTYPE test1a = VLA_IKJ_INDX(3, kj3, i, j, k, nj, nk);
         const void *const vkj3 = LIBXS_CONCATENATE(kj3, LIBXS_VLA_POSTFIX);
-        const void *const vpkj = LIBXS_ACCESS_RAW(3, sizeof(ELEMTYPE), vkj3, i, k, j, nk, nj);
+        const void *const vpkj = LIBXS_ACCESS_RO(3, sizeof(ELEMTYPE), vkj3, i, k, j, nk, nj);
         const ELEMTYPE test1b = *(const ELEMTYPE*)vpkj;
-        const ELEMTYPE test1c = *LIBXS_ACCESS(3, ELEMTYPE, vkj3, i, k, j, nk, nj);
+        const ELEMTYPE test1c = *LIBXS_ACCESS(3, const ELEMTYPE, vkj3, i, k, j, nk, nj);
         if (gold0 != LIBXS_VLA_ACCESS(1, in1, linear) ||
             gold0 != test0a || gold1 != test1a ||
             test0a != test0b || test0b != test0c ||

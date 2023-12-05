@@ -283,7 +283,7 @@ LIBXS_APIVAR_PUBLIC_DEF(LIBXS_LOCK_TYPE(LIBXS_LOCK) libxs_lock_global);
 LIBXS_APIVAR_PUBLIC_DEF(int libxs_nosync);
 
 
-LIBXS_API_INTERN void* libxs_memalign_internal(size_t alignment, size_t size)
+LIBXS_API_INTERN LIBXS_ATTRIBUTE_WEAK void* libxs_memalign_internal(size_t alignment, size_t size)
 {
   void* result = NULL;
   LIBXS_ASSERT(LIBXS_ISPOT(alignment));
@@ -849,7 +849,8 @@ LIBXS_API_INTERN void internal_finalize(void)
         {
           uptime = libxs_timer_duration_rtc(internal_timer_start, libxs_timer_tick_rtc());
         }
-        libxs_print_cmdline(stderr, 0, "Command: ", "\n");
+        fprintf(stderr, "Command (PID=%u): ", libxs_get_pid());
+        libxs_print_cmdline(stderr, 0, NULL/*prefix*/, "\n");
         fprintf(stderr, "Uptime: %f s", uptime);
         if (1 < libxs_thread_count && INT_MAX == libxs_verbosity) {
           fprintf(stderr, " (nthreads=%u)", libxs_thread_count);
@@ -3936,8 +3937,10 @@ LIBXS_API_INTERN int libxs_print_cmdline(void* buffer, size_t buffer_size, const
   if (NULL != cmdline) {
     char a, b;
     if (1 == fread(&a, 1, 1, cmdline) && '\0' != a) {
-      result = (0 == buffer_size ? fprintf((FILE*)buffer, "%s", prefix)
-        : LIBXS_SNPRINTF((char*)buffer, buffer_size, "%s", prefix));
+      if (NULL != prefix && '\0' != *prefix) {
+        result = (0 == buffer_size ? fprintf((FILE*)buffer, "%s", prefix)
+          : LIBXS_SNPRINTF((char*)buffer, buffer_size, "%s", prefix));
+      }
       while (1 == fread(&b, 1, 1, cmdline)) {
         result += (0 == buffer_size ? fprintf((FILE*)buffer, "%c", a)
           : LIBXS_SNPRINTF((char*)buffer + result, buffer_size - result, "%c", a));
@@ -3958,22 +3961,24 @@ LIBXS_API_INTERN int libxs_print_cmdline(void* buffer, size_t buffer_size, const
 # endif
   if (0 < argc) {
     int i = 1;
+    if (NULL != prefix && '\0' != *prefix) {
 # if defined(_WIN32)
-    const char *const cmd = strrchr(argv[0], '\\');
-    const char *const exe = (NULL != cmd ? (cmd + 1) : argv[0]);
-    result += (0 == buffer_size ? fprintf((FILE*)buffer, "%s%s", prefix, exe)
-      : LIBXS_SNPRINTF((char*)buffer + result, buffer_size - result, "%s%s", prefix, exe));
+      const char *const cmd = strrchr(argv[0], '\\');
+      const char *const exe = (NULL != cmd ? (cmd + 1) : argv[0]);
+      result += (0 == buffer_size ? fprintf((FILE*)buffer, "%s%s", prefix, exe)
+        : LIBXS_SNPRINTF((char*)buffer + result, buffer_size - result, "%s%s", prefix, exe));
 # else
-    result += (0 == buffer_size ? fprintf((FILE*)buffer, "%s%s", prefix, argv[0])
-      : LIBXS_SNPRINTF((char*)buffer + result, buffer_size - result, "%s%s", prefix, argv[0]));
+      result += (0 == buffer_size ? fprintf((FILE*)buffer, "%s%s", prefix, argv[0])
+        : LIBXS_SNPRINTF((char*)buffer + result, buffer_size - result, "%s%s", prefix, argv[0]));
 # endif
+    }
     for (; i < argc; ++i) {
       result += (0 == buffer_size ? fprintf((FILE*)buffer, " %s", argv[i])
         : LIBXS_SNPRINTF((char*)buffer + result, buffer_size - result, " %s", argv[i]));
     }
   }
 #endif
-  if (0 < result) {
+  if (0 < result && NULL != postfix && '\0' != *postfix) {
     result += (0 == buffer_size ? fprintf((FILE*)buffer, "%s", postfix)
       : LIBXS_SNPRINTF((char*)buffer + result, buffer_size - result, "%s", postfix));
   }

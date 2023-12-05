@@ -6,6 +6,7 @@
 * Further information: https://github.com/hfp/libxs/                          *
 * SPDX-License-Identifier: BSD-3-Clause                                       *
 ******************************************************************************/
+#include <libxs_mem.h>
 #include <libxs_utils.h>
 
 
@@ -16,6 +17,7 @@ int main(int argc, char* argv[])
   const int bw = LIBXS_MAX(2 < argc ? atoi(argv[2]) : 64, 1);
   const int bh = LIBXS_MAX(3 < argc ? atoi(argv[3]) : 64, 1);
   size_t ndims = 3, size[3], pitch[3], offset[3], ncomponents, header_size, extension_size;
+  libxs_mhd_element_handler_info dst_info;
   libxs_mhd_elemtype type;
   char data_filename[1024];
   void* data = NULL;
@@ -28,7 +30,7 @@ int main(int argc, char* argv[])
 
   /* Allocate data according to the header information. */
   if (EXIT_SUCCESS == result) {
-    size_t typesize;
+    size_t nelements = 0;
     pitch[0] = LIBXS_UP(size[0], bw);
     pitch[1] = LIBXS_UP(size[1], bh);
     pitch[2] = size[2];
@@ -36,13 +38,8 @@ int main(int argc, char* argv[])
     offset[0] = (pitch[0] - size[0]) / 2;
     offset[1] = (pitch[1] - size[1]) / 2;
     offset[2] = 0;
-    if (0 != libxs_mhd_typename(type, &typesize, NULL/*ctypename*/)) {
-      const size_t nelements = pitch[0] * (1 < ndims ? (pitch[1] * (2 < ndims ? pitch[2] : 1)) : 1);
-      data = malloc(ncomponents * nelements * typesize);
-    }
-    else {
-      result = EXIT_FAILURE;
-    }
+    nelements = pitch[0] * (1 < ndims ? (pitch[1] * (2 < ndims ? pitch[2] : 1)) : 1);
+    data = malloc(ncomponents * nelements * libxs_mhd_typesize(type));
   }
 
   /* perform tests with libxs_mhd_element_conversion (int2signed) */
@@ -50,25 +47,28 @@ int main(int argc, char* argv[])
     short src = 2507, src_min = 0, src_max = 5000;
     float dst_f32; /* destination range is implicit due to type */
     signed char dst_i8; /* destination range is implicit due to type */
+    LIBXS_MEMZERO127(&dst_info);
+    dst_info.type = LIBXS_MHD_ELEMTYPE_F32;
     result = libxs_mhd_element_conversion(
-      &dst_f32, LIBXS_MHD_ELEMTYPE_F32/*dst_type*/, LIBXS_MHD_ELEMTYPE_I16/*src_type*/,
+      &dst_f32, &dst_info, LIBXS_MHD_ELEMTYPE_I16/*src_type*/,
       &src, NULL/*src_min*/, NULL/*src_max*/);
     if (EXIT_SUCCESS == result && src != dst_f32) result = EXIT_FAILURE;
     if (EXIT_SUCCESS == result) {
       result = libxs_mhd_element_conversion(
-        &dst_f32, LIBXS_MHD_ELEMTYPE_F32/*dst_type*/, LIBXS_MHD_ELEMTYPE_I16/*src_type*/,
+        &dst_f32, &dst_info, LIBXS_MHD_ELEMTYPE_I16/*src_type*/,
         &src, &src_min, &src_max);
       if (EXIT_SUCCESS == result && src != dst_f32) result = EXIT_FAILURE;
     }
+    dst_info.type = LIBXS_MHD_ELEMTYPE_I8;
     if (EXIT_SUCCESS == result) {
       result = libxs_mhd_element_conversion(
-        &dst_i8, LIBXS_MHD_ELEMTYPE_I8/*dst_type*/, LIBXS_MHD_ELEMTYPE_I16/*src_type*/,
+        &dst_i8, &dst_info, LIBXS_MHD_ELEMTYPE_I16/*src_type*/,
         &src, NULL/*src_min*/, NULL/*src_max*/);
       if (EXIT_SUCCESS == result && LIBXS_MIN(127, src) != dst_i8) result = EXIT_FAILURE;
     }
     if (EXIT_SUCCESS == result) {
       result = libxs_mhd_element_conversion(
-        &dst_i8, LIBXS_MHD_ELEMTYPE_I8/*dst_type*/, LIBXS_MHD_ELEMTYPE_I16/*src_type*/,
+        &dst_i8, &dst_info, LIBXS_MHD_ELEMTYPE_I16/*src_type*/,
         &src, &src_min, &src_max);
       if (EXIT_SUCCESS == result && 64 != dst_i8) result = EXIT_FAILURE;
     }
@@ -79,38 +79,41 @@ int main(int argc, char* argv[])
     double src = 1975, src_min = -25071975, src_max = 1981;
     short dst_i16; /* destination range is implicit due to type */
     unsigned char dst_u8; /* destination range is implicit due to type */
+    dst_info.type = LIBXS_MHD_ELEMTYPE_I16;
     result = libxs_mhd_element_conversion(
-      &dst_i16, LIBXS_MHD_ELEMTYPE_I16/*dst_type*/, LIBXS_MHD_ELEMTYPE_F64/*src_type*/,
+      &dst_i16, &dst_info, LIBXS_MHD_ELEMTYPE_F64/*src_type*/,
       &src, NULL/*src_min*/, NULL/*src_max*/);
     if (EXIT_SUCCESS == result && src != dst_i16) result = EXIT_FAILURE;
     if (EXIT_SUCCESS == result) {
       result = libxs_mhd_element_conversion(
-        &dst_i16, LIBXS_MHD_ELEMTYPE_I16/*dst_type*/, LIBXS_MHD_ELEMTYPE_F64/*src_type*/,
+        &dst_i16, &dst_info, LIBXS_MHD_ELEMTYPE_F64/*src_type*/,
         &src, &src_min, &src_max);
       if (EXIT_SUCCESS == result && 2 != dst_i16) result = EXIT_FAILURE;
     }
+    dst_info.type = LIBXS_MHD_ELEMTYPE_U8;
     if (EXIT_SUCCESS == result) {
       result = libxs_mhd_element_conversion(
-        &dst_u8, LIBXS_MHD_ELEMTYPE_U8/*dst_type*/, LIBXS_MHD_ELEMTYPE_F64/*src_type*/,
+        &dst_u8, &dst_info, LIBXS_MHD_ELEMTYPE_F64/*src_type*/,
         &src, NULL/*src_min*/, NULL/*src_max*/);
       if (EXIT_SUCCESS == result && LIBXS_MIN(255, src) != dst_u8) result = EXIT_FAILURE;
     }
     if (EXIT_SUCCESS == result) {
       result = libxs_mhd_element_conversion(
-        &dst_u8, LIBXS_MHD_ELEMTYPE_U8/*dst_type*/, LIBXS_MHD_ELEMTYPE_F64/*src_type*/,
+        &dst_u8, &dst_info, LIBXS_MHD_ELEMTYPE_F64/*src_type*/,
         &src, &src_min, &src_max);
       if (EXIT_SUCCESS == result && 255 != dst_u8) result = EXIT_FAILURE;
     }
     if (EXIT_SUCCESS == result) {
       src = -src;
       result = libxs_mhd_element_conversion(
-        &dst_u8, LIBXS_MHD_ELEMTYPE_U8/*dst_type*/, LIBXS_MHD_ELEMTYPE_F64/*src_type*/,
+        &dst_u8, &dst_info, LIBXS_MHD_ELEMTYPE_F64/*src_type*/,
         &src, &src_min, &src_max);
       if (EXIT_SUCCESS == result && 0 != dst_u8) result = EXIT_FAILURE;
     }
+    dst_info.type = LIBXS_MHD_ELEMTYPE_I16;
     if (EXIT_SUCCESS == result) {
       result = libxs_mhd_element_conversion(
-        &dst_i16, LIBXS_MHD_ELEMTYPE_I16/*dst_type*/, LIBXS_MHD_ELEMTYPE_F64/*src_type*/,
+        &dst_i16, &dst_info, LIBXS_MHD_ELEMTYPE_F64/*src_type*/,
         &src, &src_min, &src_max);
       if (EXIT_SUCCESS == result && -3 != dst_i16) result = EXIT_FAILURE;
     }
@@ -119,39 +122,35 @@ int main(int argc, char* argv[])
   /* Read the data according to the header into the allocated buffer. */
   if (EXIT_SUCCESS == result) {
     result = libxs_mhd_read(data_filename,
-      offset, size, pitch, ndims, ncomponents, header_size, type, NULL/*type_data*/, data,
-      NULL/*handle_element*/, NULL/*extension*/, 0/*extension_size*/);
+      offset, size, pitch, ndims, ncomponents, header_size, type, data,
+      NULL/*info*/, NULL/*handler*/, NULL/*extension*/, 0/*extension_size*/);
   }
 
   /* Write the data into a new file; update header_size. */
   if (EXIT_SUCCESS == result) {
     result = libxs_mhd_write("mhd_test.mhd", NULL/*offset*/, pitch, pitch,
-      ndims, ncomponents, type, NULL/*no conversion*/, data, &header_size,
-      NULL/*extension_header*/,
-      NULL/*extension*/,
-      0/*extension_size*/);
+      ndims, ncomponents, type, data, NULL/*no conversion*/, NULL/*handler*/, &header_size,
+      NULL/*extension_header*/, NULL/*extension*/, 0/*extension_size*/);
   }
 
   /* Check the written data against the buffer. */
   if (EXIT_SUCCESS == result) {
     result = libxs_mhd_read(data_filename,
       offset, size, pitch, ndims, ncomponents, 0/*header_size*/,
-      type, NULL/*type*/, data, libxs_mhd_element_comparison,
+      type, data, NULL/*info*/, libxs_mhd_element_comparison,
       NULL/*extension*/, 0/*extension_size*/);
   }
 
   /* Check the written data against the buffer with conversion. */
   if (EXIT_SUCCESS == result) {
-    const libxs_mhd_elemtype tcomp = LIBXS_MHD_ELEMTYPE_F64;
     void* buffer = NULL;
-    size_t typesize;
-    if (0 != libxs_mhd_typename(tcomp, &typesize, NULL/*ctypename*/)) {
-      const size_t nelements = pitch[0] * (1 < ndims ? (pitch[1] * (2 < ndims ? pitch[2] : 1)) : 1);
-      buffer = malloc(ncomponents * nelements * typesize);
-    }
+    size_t nelements;
+    dst_info.type = LIBXS_MHD_ELEMTYPE_F64;
+    nelements = pitch[0] * (1 < ndims ? (pitch[1] * (2 < ndims ? pitch[2] : 1)) : 1);
+    buffer = malloc(ncomponents * nelements * libxs_mhd_typesize(dst_info.type));
     result = libxs_mhd_read(data_filename,
       offset, size, pitch, ndims, ncomponents, 0/*header_size*/,
-      type, &tcomp, buffer, NULL/*libxs_mhd_element_comparison*/,
+      type, buffer, &dst_info, NULL/*libxs_mhd_element_comparison*/,
       NULL/*extension*/, 0/*extension_size*/);
     free(buffer);
   }

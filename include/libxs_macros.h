@@ -97,6 +97,112 @@
 #define LIBXS_EXPAND(...) __VA_ARGS__
 #define LIBXS_ELIDE(...)
 
+ /** Use LIBXS_VERSION2 instead of LIBXS_VERSION3, e.g., if __GNUC_PATCHLEVEL__ or __clang_patchlevel__ is zero (0). */
+#define LIBXS_VERSION2(MAJOR, MINOR) ((MAJOR) * 10000 + (MINOR) * 100)
+#define LIBXS_VERSION3(MAJOR, MINOR, UPDATE) (LIBXS_VERSION2(MAJOR, MINOR) + (UPDATE))
+#define LIBXS_VERSION4(MAJOR, MINOR, UPDATE, PATCH) \
+  (((0x7F & (MAJOR)) << 24) | ((0x1F & (MINOR)) << 19) | ((0x1F & (UPDATE)) << 14) | (0x3FFF & (PATCH)))
+#define LIBXS_VERSION41(VERSION) (((VERSION) >> 24))
+#define LIBXS_VERSION42(VERSION) (((VERSION) >> 19) & 0x1F)
+#define LIBXS_VERSION43(VERSION) (((VERSION) >> 14) & 0x1F)
+#define LIBXS_VERSION44(VERSION) (((VERSION)) & 0x3FFF)
+
+#if !defined(LIBXS_VERSION_NUMBER)
+# define LIBXS_VERSION_NUMBER LIBXS_VERSION4(LIBXS_VERSION_MAJOR, \
+    LIBXS_VERSION_MINOR, LIBXS_VERSION_UPDATE, LIBXS_VERSION_PATCH)
+#endif
+#if !defined(LIBXS_VERSION_CHECK)
+# define LIBXS_VERSION_CHECK(COMP, MAJOR, MINOR, UPDATE, PATCH) \
+    (LIBXS_VERSION_NUMBER COMP LIBXS_VERSION4(MAJOR, MINOR, UPDATE, PATCH))
+#endif
+/**
+ * Macro to check minimum version requirements in code, for example:
+ * #if LIBXS_VERSION_GE(1, 17, 0, 0)
+ * // code requiring version 1.17 or later
+ * #else
+ * // fallback code
+ * #endif
+*/
+#define LIBXS_VERSION_GE(MAJOR, MINOR, UPDATE, PATCH) \
+  LIBXS_VERSION_CHECK(>=, MAJOR, MINOR, UPDATE, PATCH)
+
+/** Make LIBXS_PRAGMA available early. */
+#if defined(__cplusplus)
+# if (201103L <= __cplusplus) /*C99 compatibility*/
+#   define LIBXS_PRAGMA(DIRECTIVE) _Pragma(LIBXS_STRINGIFY(DIRECTIVE))
+# endif
+#else /* C */
+# if defined(__STDC_VERSION__) && (199901L <= __STDC_VERSION__) /*C99*/
+#   define LIBXS_PRAGMA(DIRECTIVE) _Pragma(LIBXS_STRINGIFY(DIRECTIVE))
+# elif defined(__GNUC__) /*|| defined(__clang__)*/
+#   define LIBXS_PRAGMA(DIRECTIVE) _Pragma(LIBXS_STRINGIFY(DIRECTIVE))
+# endif
+#endif /*__cplusplus*/
+#if !defined(LIBXS_PRAGMA)
+# if defined(LIBXS_INTEL_COMPILER) || defined(_MSC_VER)
+#   define LIBXS_PRAGMA(DIRECTIVE) __pragma(LIBXS_EXPAND(DIRECTIVE))
+# else
+#   define LIBXS_PRAGMA(DIRECTIVE)
+# endif
+#endif
+
+/** Allow control of diagnostics. */
+#if !defined(__INTEL_COMPILER)
+# if defined(__clang__)
+#   define LIBXS_PRAGMA_DIAG_PUSH()     LIBXS_PRAGMA(clang diagnostic push)
+#   define LIBXS_PRAGMA_DIAG_POP()      LIBXS_PRAGMA(clang diagnostic pop)
+#   define LIBXS_PRAGMA_DIAG_OFF(DIAG)  LIBXS_PRAGMA(clang diagnostic ignored DIAG)
+#   define LIBXS_PRAGMA_DIAG
+# elif defined(__GNUC__) && LIBXS_VERSION2(4, 6) <= LIBXS_VERSION2(__GNUC__, __GNUC_MINOR__)
+#   define LIBXS_PRAGMA_DIAG_PUSH()     LIBXS_PRAGMA(GCC diagnostic push)
+#   define LIBXS_PRAGMA_DIAG_POP()      LIBXS_PRAGMA(GCC diagnostic pop)
+#   define LIBXS_PRAGMA_DIAG_OFF(DIAG)  LIBXS_PRAGMA(GCC diagnostic ignored DIAG)
+#   define LIBXS_PRAGMA_DIAG
+# endif
+#endif
+#if !defined(LIBXS_PRAGMA_DIAG)
+# define LIBXS_PRAGMA_DIAG_PUSH()
+# define LIBXS_PRAGMA_DIAG_POP()
+# define LIBXS_PRAGMA_DIAG_OFF(DIAG)
+#endif
+#if defined(__GNUC__) || defined(__clang__)
+# define LIBXS_PRAGMA_DIAG_OFF_PEDANTIC() LIBXS_PRAGMA_DIAG_OFF("-Wpedantic")
+# define LIBXS_PRAGMA_DIAG_OFF_CASTQUAL() LIBXS_PRAGMA_DIAG_OFF("-Wcast-qual")
+# if (defined(__GNUC__) && !defined(__clang__)) || \
+      LIBXS_VERSION2(9, 0) <= LIBXS_VERSION2(__clang_major__, __clang_minor__)
+#   define LIBXS_PRAGMA_DIAG_OFF_FADDRESS() LIBXS_PRAGMA_DIAG_OFF("-Wframe-address")
+# endif
+# if defined(__clang__)
+#   define LIBXS_PRAGMA_DIAG_OFF_WUNKNOWN() LIBXS_PRAGMA_DIAG_OFF("-Wunknown-warning-option")
+# else
+#   define LIBXS_PRAGMA_DIAG_OFF_WUNKNOWN() LIBXS_PRAGMA_DIAG_OFF("-Wpragmas")
+# endif
+# define LIBXS_PRAGMA_DIAG_OFF_VARUNUSED() LIBXS_PRAGMA_DIAG_OFF("-Wunused-variable")
+#else
+# define LIBXS_PRAGMA_DIAG_OFF_PEDANTIC()
+# define LIBXS_PRAGMA_DIAG_OFF_CASTQUAL()
+# define LIBXS_PRAGMA_DIAG_OFF_WUNKNOWN()
+# define LIBXS_PRAGMA_DIAG_OFF_VARUNUSED()
+#endif
+#if !defined(LIBXS_PRAGMA_DIAG_OFF_FADDRESS)
+# define LIBXS_PRAGMA_DIAG_OFF_FADDRESS()
+#endif
+#if defined(LIBXS_INTEL_COMPILER)
+# define LIBXS_PRAGMA_OPTIMIZE_OFF LIBXS_PRAGMA(optimize("", off))
+# define LIBXS_PRAGMA_OPTIMIZE_ON  LIBXS_PRAGMA(optimize("", on))
+#elif defined(__clang__)
+# define LIBXS_PRAGMA_OPTIMIZE_OFF LIBXS_PRAGMA(clang optimize off)
+# define LIBXS_PRAGMA_OPTIMIZE_ON  LIBXS_PRAGMA(clang optimize on)
+#elif defined(__GNUC__)
+# define LIBXS_PRAGMA_OPTIMIZE_OFF LIBXS_PRAGMA(GCC push_options) LIBXS_PRAGMA(GCC optimize("O0"))
+# define LIBXS_PRAGMA_OPTIMIZE_ON  LIBXS_PRAGMA(GCC pop_options)
+#else
+# define LIBXS_PRAGMA_OPTIMIZE_OFF
+# define LIBXS_PRAGMA_OPTIMIZE_ON
+#endif
+
+LIBXS_PRAGMA_DIAG_PUSH()
+LIBXS_PRAGMA_DIAG_OFF_VARUNUSED()
 /** MKL_DIRECT_CALL requires to include the MKL interface. */
 #if (defined(MKL_DIRECT_CALL_SEQ) || defined(MKL_DIRECT_CALL) || \
     (defined(__MKL) && !defined(LIBXS_BUILD) && \
@@ -112,41 +218,12 @@
     defined(NOTHROW)
 # include <mkl_version.h>
 #endif
-
-/** Use LIBXS_VERSION2 instead of LIBXS_VERSION3, e.g., if __GNUC_PATCHLEVEL__ or __clang_patchlevel__ is zero (0). */
-#define LIBXS_VERSION2(MAJOR, MINOR) ((MAJOR) * 10000 + (MINOR) * 100)
-#define LIBXS_VERSION3(MAJOR, MINOR, UPDATE) (LIBXS_VERSION2(MAJOR, MINOR) + (UPDATE))
-#define LIBXS_VERSION4(MAJOR, MINOR, UPDATE, PATCH) \
-  (((0x7F & (MAJOR)) << 24) | ((0x1F & (MINOR)) << 19) | ((0x1F & (UPDATE)) << 14) | (0x3FFF & (PATCH)))
-#define LIBXS_VERSION41(VERSION) (((VERSION) >> 24))
-#define LIBXS_VERSION42(VERSION) (((VERSION) >> 19) & 0x1F)
-#define LIBXS_VERSION43(VERSION) (((VERSION) >> 14) & 0x1F)
-#define LIBXS_VERSION44(VERSION) (((VERSION)) & 0x3FFF)
-
-#if !defined(LIBXS_VERSION_NUMBER)
-# define LIBXS_VERSION_NUMBER LIBXS_VERSION4(LIBXS_VERSION_MAJOR, \
-    LIBXS_VERSION_MINOR, LIBXS_VERSION_UPDATE, LIBXS_VERSION_PATCH)
-#endif
-
-#define LIBXS_VERSION_CHECK(COMP, MAJOR, MINOR, UPDATE, PATCH) \
-  (LIBXS_VERSION_NUMBER COMP LIBXS_VERSION4(MAJOR, MINOR, UPDATE, PATCH))
-
-/**
- * Macro to check minimum version requirements in code, for example:
- * #if LIBXS_VERSION_GE(1, 17, 0, 0)
- * // code requiring version 1.17 or later
- * #else
- * // fallback code
- * #endif
-*/
-#define LIBXS_VERSION_GE(MAJOR, MINOR, UPDATE, PATCH) \
-  LIBXS_VERSION_CHECK(>=, MAJOR, MINOR, UPDATE, PATCH)
-
 /** Calculation of INTEL_MKL_VERSION has no continuous history. */
 #if defined(__INTEL_MKL__) && defined(__INTEL_MKL_MINOR__) && defined(__INTEL_MKL_UPDATE__)
 # define LIBXS_MKL_VERSION3 LIBXS_VERSION3(__INTEL_MKL__, __INTEL_MKL_MINOR__, __INTEL_MKL_UPDATE__)
 # define LIBXS_MKL_VERSION2 LIBXS_VERSION2(__INTEL_MKL__, __INTEL_MKL_MINOR__)
 #endif
+LIBXS_PRAGMA_DIAG_POP()
 
 /** Evaluates to true if the value falls into the interval [LO, HI]. */
 #define LIBXS_IS_INTEGER(TYPE, VALUE, LO, HI) ( \
@@ -490,7 +567,6 @@
 # define LIBXS_EXTERN extern
 # define LIBXS_EXTERN_C
 # if defined(__STDC_VERSION__) && (199901L <= __STDC_VERSION__) /*C99*/
-#   define LIBXS_PRAGMA(DIRECTIVE) _Pragma(LIBXS_STRINGIFY(DIRECTIVE))
 #   define LIBXS_CALLER __func__
 #   define LIBXS_RESTRICT restrict
 #   define LIBXS_INLINE_KEYWORD inline
@@ -499,7 +575,7 @@
 #   define LIBXS_FUNCNAME __FUNCTION__
 #   define LIBXS_INLINE_KEYWORD __inline
 #   define LIBXS_INLINE_FIXUP
-# elif defined(__GNUC__) && !defined(__STRICT_ANSI__)
+# elif (defined(__GNUC__) /*|| defined(__clang__)*/) && !defined(__STRICT_ANSI__)
 #   define LIBXS_CALLER __PRETTY_FUNCTION__
 # endif
 # if !defined(LIBXS_INLINE_KEYWORD)
@@ -621,14 +697,6 @@
 #   define LIBXS_RESTRICT
 # endif
 #endif /*LIBXS_RESTRICT*/
-#if !defined(LIBXS_PRAGMA)
-# if defined(LIBXS_INTEL_COMPILER) || defined(_MSC_VER)
-#   define LIBXS_PRAGMA(DIRECTIVE) __pragma(LIBXS_EXPAND(DIRECTIVE))
-# else
-#   define LIBXS_PRAGMA(DIRECTIVE)
-# endif
-#endif
-
 #if !defined(LIBXS_OPENMP_SIMD)
 # if defined(LIBXS_INTEL_COMPILER) && (1500 <= LIBXS_INTEL_COMPILER)
 #   define LIBXS_OPENMP_SIMD
@@ -701,39 +769,6 @@
 # endif
 #endif
 
-#if !defined(__INTEL_COMPILER)
-# if defined(__clang__)
-#   define LIBXS_PRAGMA_DIAG_PUSH()     LIBXS_PRAGMA(clang diagnostic push)
-#   define LIBXS_PRAGMA_DIAG_POP()      LIBXS_PRAGMA(clang diagnostic pop)
-#   define LIBXS_PRAGMA_DIAG_OFF(DIAG)  LIBXS_PRAGMA(clang diagnostic ignored DIAG)
-#   define LIBXS_PRAGMA_DIAG
-# elif defined(__GNUC__) && LIBXS_VERSION2(4, 6) <= LIBXS_VERSION2(__GNUC__, __GNUC_MINOR__)
-#   define LIBXS_PRAGMA_DIAG_PUSH()     LIBXS_PRAGMA(GCC diagnostic push)
-#   define LIBXS_PRAGMA_DIAG_POP()      LIBXS_PRAGMA(GCC diagnostic pop)
-#   define LIBXS_PRAGMA_DIAG_OFF(DIAG)  LIBXS_PRAGMA(GCC diagnostic ignored DIAG)
-#   define LIBXS_PRAGMA_DIAG
-# endif
-#endif
-#if !defined(LIBXS_PRAGMA_DIAG)
-# define LIBXS_PRAGMA_DIAG_PUSH()
-# define LIBXS_PRAGMA_DIAG_POP()
-# define LIBXS_PRAGMA_DIAG_OFF(DIAG)
-#endif
-
-#if defined(LIBXS_INTEL_COMPILER)
-# define LIBXS_PRAGMA_OPTIMIZE_OFF LIBXS_PRAGMA(optimize("", off))
-# define LIBXS_PRAGMA_OPTIMIZE_ON  LIBXS_PRAGMA(optimize("", on))
-#elif defined(__clang__)
-# define LIBXS_PRAGMA_OPTIMIZE_OFF LIBXS_PRAGMA(clang optimize off)
-# define LIBXS_PRAGMA_OPTIMIZE_ON  LIBXS_PRAGMA(clang optimize on)
-#elif defined(__GNUC__)
-# define LIBXS_PRAGMA_OPTIMIZE_OFF LIBXS_PRAGMA(GCC push_options) LIBXS_PRAGMA(GCC optimize("O0"))
-# define LIBXS_PRAGMA_OPTIMIZE_ON  LIBXS_PRAGMA(GCC pop_options)
-#else
-# define LIBXS_PRAGMA_OPTIMIZE_OFF
-# define LIBXS_PRAGMA_OPTIMIZE_ON
-#endif
-
 #if defined(_OPENMP) && (200805/*v3.0*/ <= _OPENMP) \
  && defined(NDEBUG) /* CCE complains for debug builds */
 # define LIBXS_OPENMP_COLLAPSE(N) collapse(N)
@@ -773,7 +808,6 @@
 #define LIBXS_NOTNAN(A) LIBXS_FEQ(A, A)
 #define LIBXS_ROUNDX(TYPE, A) ((TYPE)((long long)(0 <= (A) ? ((double)(A) + 0.5) : ((double)(A) - 0.5))))
 #define LIBXS_NEARBYINTX(TYPE, A) ((TYPE)((long long)(LIBXS_ROUNDX(TYPE, ((double)(A) / 2.0)) * 2)))
-#define LIBXS_CONST_VOID_PTR(A) *((const void**)&(A))
 #define LIBXS_EOR(ENUM_TYPE, ENUM, FLAG) ((ENUM_TYPE)(((int)(ENUM)) | ((int)(FLAG))))
 
 LIBXS_API_INLINE   signed long long libxs_widen_u32i64(unsigned int value) { return value; }
@@ -944,7 +978,8 @@ LIBXS_API_INLINE int libxs_nonconst_int(int i) { return i; }
 #endif
 
 /** Address of an ARRAY of elements (of TYPESIZE) using linear index according to LIBXS_INDEX1. */
-#define LIBXS_ACCESS_RAW(NDIMS, TYPESIZE, ARRAY, ...) ((void*)(((char*)(ARRAY)) + (TYPESIZE) * LIBXS_INDEX1(NDIMS, __VA_ARGS__)))
+#define LIBXS_ACCESS_RO(NDIMS, TYPESIZE, ARRAY, ...) ((const void*)(((const char*)(ARRAY)) + (TYPESIZE) * LIBXS_INDEX1(NDIMS, __VA_ARGS__)))
+#define LIBXS_ACCESS_RW(NDIMS, TYPESIZE, ARRAY, ...) ((void*)(((char*)(ARRAY)) + (TYPESIZE) * LIBXS_INDEX1(NDIMS, __VA_ARGS__)))
 /** Address of an ARRAY of TYPE (can be const-qualified) using linear index according to LIBXS_INDEX1. */
 #define LIBXS_ACCESS(NDIMS, TYPE, ARRAY, ...) (((TYPE*)(ARRAY)) + LIBXS_INDEX1(NDIMS, __VA_ARGS__))
 
@@ -986,7 +1021,8 @@ LIBXS_API_INLINE int libxs_nonconst_int(int i) { return i; }
 /** Append "_omp" postfix to the given symbol. */
 #define LIBXS_USEOMP(FUNCTION) LIBXS_CONCATENATE(FUNCTION, _omp)
 
-#if defined(LIBXS_BUILD) && (defined(__GNUC__) || defined(__clang__)) && !defined(__CYGWIN__) && !defined(__MINGW32__)
+#if defined(LIBXS_BUILD) && (defined(__GNUC__) || defined(__clang__)) && \
+   !defined(__CYGWIN__) && !defined(__MINGW32__) && !defined(_WIN32)
 # define LIBXS_ATTRIBUTE_WEAK_IMPORT LIBXS_ATTRIBUTE(weak_import)
 # define LIBXS_ATTRIBUTE_WEAK LIBXS_ATTRIBUTE(weak)
 #else
@@ -1151,8 +1187,11 @@ LIBXS_API_INLINE int libxs_nonconst_int(int i) { return i; }
 #else
 # define LIBXS_EXPECT_DEBUG LIBXS_EXPECT_ELIDE
 #endif
-#if defined(_OPENMP) && defined(LIBXS_SYNC_OMP)
+#if defined(_OPENMP) /*&& defined(LIBXS_SYNC_OMP)*/
+LIBXS_PRAGMA_DIAG_PUSH()
+LIBXS_PRAGMA_DIAG_OFF_PEDANTIC()
 # include <omp.h>
+LIBXS_PRAGMA_DIAG_POP()
 #endif
 #include <inttypes.h>
 #include <stdint.h>

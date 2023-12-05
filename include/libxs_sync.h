@@ -551,7 +551,7 @@ typedef enum libxs_atomic_kind {
  * libxs and libxsext are built with OpenMP support.
  */
 # if defined(_OPENMP) && defined(LIBXS_SYNC_OMP)
-#   include <omp.h>
+/*#   include <omp.h>*/
 #   if !defined(LIBXS_LOCK_SYSTEM_SPINLOCK)
 #     define LIBXS_LOCK_ACQUIRED_spin 1
 #     define LIBXS_LOCK_TYPE_ISPOD_spin 0
