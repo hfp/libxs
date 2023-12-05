@@ -242,10 +242,11 @@ LIBXS_API int libxs_matdiff(libxs_matdiff_info* info,
 #if defined(LIBXS_MATHDIFF_MHD)
           const char *const defaultname = ((('0' < *env && '9' >= *env) || '-' == *env) ? "libxs_dump" : env);
           const libxs_mhd_elemtype type_src = (libxs_mhd_elemtype)datatype;
-          const libxs_mhd_elemtype type_dst = LIBXS_MIN(LIBXS_MHD_ELEMTYPE_F32, type_src);
-          char filename[256] = "";
           const int envi = atoi(env), reshape = (1 < envi || -1 > envi);
           size_t shape[2] = { 0 }, size[2] = { 0 };
+          char filename[256] = "";
+          libxs_mhd_element_handler_info info_dst;
+          LIBXS_MEMZERO127(&info_dst);
           if (0 == reshape) {
             shape[0] = (size_t)mm; shape[1] = (size_t)nn;
             size[0] = (size_t)ldr; size[1] = (size_t)nn;
@@ -256,9 +257,10 @@ LIBXS_API int libxs_matdiff(libxs_matdiff_info* info,
             size[0] = shape[0];
             size[1] = shape[1];
           }
+          info_dst.type = LIBXS_MIN(LIBXS_MHD_ELEMTYPE_F32, type_src);
           LIBXS_SNPRINTF(filename, sizeof(filename), "%s-%p-ref.mhd", defaultname, ref);
           libxs_mhd_write(filename, NULL/*offset*/, shape, size, 2/*ndims*/, 1/*ncomponents*/,
-            type_src, &type_dst, ref, NULL/*header_size*/, NULL/*extension_header*/,
+            type_src, ref, &info_dst, NULL/*handler*/, NULL/*header_size*/, NULL/*extension_header*/,
             NULL/*extension*/, 0/*extension_size*/);
 #endif
           if (NULL != tst) {
@@ -269,7 +271,7 @@ LIBXS_API int libxs_matdiff(libxs_matdiff_info* info,
             }
             LIBXS_SNPRINTF(filename, sizeof(filename), "%s-%p-tst.mhd", defaultname, ref/*adopt ref-ptr*/);
             libxs_mhd_write(filename, NULL/*offset*/, shape, size, 2/*ndims*/, 1/*ncomponents*/,
-              type_src, &type_dst, tst, NULL/*header_size*/, NULL/*extension_header*/,
+              type_src, tst, &info_dst, NULL/*handler*/, NULL/*header_size*/, NULL/*extension_header*/,
               NULL/*extension*/, 0/*extension_size*/);
 #endif
             if ('-' == *env && '1' < env[1]) {
@@ -490,31 +492,38 @@ LIBXS_API void libxs_matdiff_clear(libxs_matdiff_info* info)
 LIBXS_API size_t libxs_coprime(size_t n, size_t minco)
 {
   const size_t s = (0 != (n & 1) ? ((LIBXS_MAX(minco, 1) - 1) | 1) : (minco & ~1));
-  const size_t d = (0 != (n & 1) ? 1 : 2);
-  size_t result = (1 < n ? 1 : 0), i;
-  for (i = (d < n ? (n - 1) : 0); d < i; i -= d) {
-    const size_t c = LIBXS_DELTA(s, i);
-    size_t a = n, b = c;
+  const size_t j = (0 != (n & 1) ? 1 : 2);
+  size_t result = (1 < n ? 1 : 0), g = 0, h = 1, i;
+  for (i = (j < n ? (n - 1) : 0); j < i; i -= j) {
+    const size_t d = LIBXS_DELTA(s, i);
+    size_t a = n, b = d;
     assert(i != s);
     do { /* GCD of initial A and initial B (result is in A) */
-      const size_t r = a % b;
-      a = b; b = r;
+      const size_t c = a % b;
+      a = b; b = c;
     } while (0 != b);
+    assert(0 != d);
     if (1 == a) {
-      result = c;
-      if (c <= minco) i = d; /* break */
+      const size_t r = n % d;
+      result = d;
+      if (g < r) {
+        g = r;
+        h = d;
+      }
+      if (d <= minco) {
+        i = j; /* break */
+      }
     }
   }
-  if (minco < result) result = 1;
+  if (minco < result) result = h;
   assert((0 == result && 1 >= n) || (result < n && 1 == libxs_gcd(result, n)));
-  assert(0 == minco || (result <= minco));
   return result;
 }
 
 
 LIBXS_API size_t libxs_coprime2(size_t n)
 {
-  return libxs_coprime(n, n / 2);
+  return libxs_coprime(n, libxs_isqrt_u64(n));
 }
 
 

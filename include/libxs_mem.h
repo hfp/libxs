@@ -41,14 +41,18 @@
   LIBXS_MEMCPY127(DST, SRC, sizeof(*(SRC))); \
 } while(0)
 
-#define LIBXS_MEMSWP127_RHS(TYPE, DST, SRC, IDX) \
-  LIBXS_ISWAP((DST)[IDX], ((TYPE*)(SRC))[IDX])
-#define LIBXS_MEMSWP127(DST, SRC, SIZE) do { \
-  LIBXS_ASSERT((DST) != (SRC)); \
-  LIBXS_MEM127_LOOP(DST, SRC, SIZE, \
+#define LIBXS_MEMSWP127_RHS(TYPE, A, B, IDX) \
+  LIBXS_ISWAP((A)[IDX], ((TYPE*)(B))[IDX])
+#define LIBXS_MEMSWP127(A, B, SIZE) do { \
+  LIBXS_ASSERT((A) != (B)); \
+  LIBXS_MEM127_LOOP(A, B, SIZE, \
   LIBXS_MEMSWP127_RHS, LIBXS_MEM127_NTS); \
 } while (0)
 
+/** Assigns SRC to DST (must be L-values). Can be used to cast const-qualifiers. */
+#define LIBXS_VALUE_ASSIGN(DST, SRC) LIBXS_ASSIGN127(&(DST), &(SRC))
+/** Swap two arbitrary-sized values (must be L-values) */
+#define LIBXS_VALUE_SWAP(A, B) LIBXS_MEMSWP127(&(A), &(B), sizeof(DST))
 
 /** Returns the type-size of data-type (can be also libxs_datatype). */
 LIBXS_API unsigned char libxs_typesize(libxs_datatype datatype);

@@ -119,7 +119,7 @@ LIBXS_API void libxs_pmalloc_init(size_t size, size_t* num, void* pool[], void* 
 /** Allocate from the given pool by using the original num-counter (libxs_pmalloc_init). */
 LIBXS_API void* libxs_pmalloc(void* pool[], size_t* i);
 /** Bring pointer back into the pool by using original num-counter (libxs_pmalloc_init). */
-LIBXS_API void libxs_pfree(void* pointer, void* pool[], size_t* i);
+LIBXS_API void libxs_pfree(const void* pointer, void* pool[], size_t* i);
 
 /**
  * Release the entire scratch memory regardless

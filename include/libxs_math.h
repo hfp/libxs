@@ -60,20 +60,20 @@
 /** GEMM exercising the compiler's code generation. TODO: only NN is supported and SP/DP matrices. */
 #define LIBXS_INLINE_XGEMM(ITYPE, OTYPE, TRANSA, TRANSB, M, N, K, ALPHA, A, LDA, B, LDB, BETA, C, LDC) do { \
   /* Use 'n' (instead of 'N') avoids warning about "no macro replacement within a character constant". */ \
-  const char libxs_inline_xgemm_transa_ = (char)(NULL != ((void*)(TRANSA)) ? (*(const char*)(TRANSA)) : \
+  const char libxs_inline_xgemm_transa_ = (char)(NULL != ((const void*)(TRANSA)) ? (*(const char*)(TRANSA)) : \
     (0 == (LIBXS_GEMM_FLAG_TRANS_A & LIBXS_FLAGS) ? 'n' : 't')); \
-  const char libxs_inline_xgemm_transb_ = (char)(NULL != ((void*)(TRANSB)) ? (*(const char*)(TRANSB)) : \
+  const char libxs_inline_xgemm_transb_ = (char)(NULL != ((const void*)(TRANSB)) ? (*(const char*)(TRANSB)) : \
     (0 == (LIBXS_GEMM_FLAG_TRANS_B & LIBXS_FLAGS) ? 'n' : 't')); \
   const libxs_blasint libxs_inline_xgemm_m_ = *(const libxs_blasint*)(M); /* must be specified */ \
-  const libxs_blasint libxs_inline_xgemm_k_ = (NULL != ((void*)(K)) ? (*(const libxs_blasint*)(K)) : libxs_inline_xgemm_m_); \
-  const libxs_blasint libxs_inline_xgemm_n_ = (NULL != ((void*)(N)) ? (*(const libxs_blasint*)(N)) : libxs_inline_xgemm_k_); \
-  const libxs_blasint libxs_inline_xgemm_lda_ = (NULL != ((void*)(LDA)) ? (*(const libxs_blasint*)(LDA)) : \
+  const libxs_blasint libxs_inline_xgemm_k_ = (NULL != ((const void*)(K)) ? (*(const libxs_blasint*)(K)) : libxs_inline_xgemm_m_); \
+  const libxs_blasint libxs_inline_xgemm_n_ = (NULL != ((const void*)(N)) ? (*(const libxs_blasint*)(N)) : libxs_inline_xgemm_k_); \
+  const libxs_blasint libxs_inline_xgemm_lda_ = (NULL != ((const void*)(LDA)) ? (*(const libxs_blasint*)(LDA)) : \
     (('n' == libxs_inline_xgemm_transa_ || *"N" == libxs_inline_xgemm_transa_) ? libxs_inline_xgemm_m_ : libxs_inline_xgemm_k_)); \
-  const libxs_blasint libxs_inline_xgemm_ldb_ = (NULL != ((void*)(LDB)) ? (*(const libxs_blasint*)(LDB)) : \
+  const libxs_blasint libxs_inline_xgemm_ldb_ = (NULL != ((const void*)(LDB)) ? (*(const libxs_blasint*)(LDB)) : \
     (('n' == libxs_inline_xgemm_transb_ || *"N" == libxs_inline_xgemm_transb_) ? libxs_inline_xgemm_k_ : libxs_inline_xgemm_n_)); \
-  const libxs_blasint libxs_inline_xgemm_ldc_ = (NULL != ((void*)(LDC)) ? (*(const libxs_blasint*)(LDC)) : libxs_inline_xgemm_m_); \
-  const OTYPE libxs_inline_xgemm_alpha_ = (NULL != ((void*)(ALPHA)) ? (*(const OTYPE*)(ALPHA)) : ((OTYPE)LIBXS_ALPHA)); \
-  const OTYPE libxs_inline_xgemm_beta_  = (NULL != ((void*)(BETA))  ? (*(const OTYPE*)(BETA))  : ((OTYPE)LIBXS_BETA)); \
+  const libxs_blasint libxs_inline_xgemm_ldc_ = (NULL != ((const void*)(LDC)) ? (*(const libxs_blasint*)(LDC)) : libxs_inline_xgemm_m_); \
+  const OTYPE libxs_inline_xgemm_alpha_ = (NULL != ((const void*)(ALPHA)) ? (*(const OTYPE*)(ALPHA)) : ((OTYPE)LIBXS_ALPHA)); \
+  const OTYPE libxs_inline_xgemm_beta_  = (NULL != ((const void*)(BETA))  ? (*(const OTYPE*)(BETA))  : ((OTYPE)LIBXS_BETA)); \
   libxs_blasint libxs_inline_xgemm_ni_, libxs_inline_xgemm_mi_ = 0, libxs_inline_xgemm_ki_; /* loop induction variables */ \
   LIBXS_ASSERT('n' == libxs_inline_xgemm_transa_ || *"N" == libxs_inline_xgemm_transa_); \
   LIBXS_ASSERT('n' == libxs_inline_xgemm_transb_ || *"N" == libxs_inline_xgemm_transb_); \
@@ -157,7 +157,7 @@ LIBXS_API int libxs_primes_u32(unsigned int num, unsigned int num_factors_n32[])
 
 /** Co-prime R of N such that R <= MinCo (libxs_coprime2(0|1) == 0). */
 LIBXS_API size_t libxs_coprime(size_t n, size_t minco);
-/** Co-prime R of N such that R <= N/2 (libxs_coprime2(0|1) == 0). */
+/** Co-prime R of N such that R <= SQRT(N) (libxs_coprime2(0|1) == 0). */
 LIBXS_API size_t libxs_coprime2(size_t n);
 
 /**

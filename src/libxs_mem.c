@@ -19,7 +19,7 @@
 # define LIBXS_MEM_SW
 #endif
 
-#define LIBXS_MEM_SHUFFLE_COPRIME(N) libxs_coprime(N, (N) / 2)
+#define LIBXS_MEM_SHUFFLE_COPRIME(N) libxs_coprime2(N)
 #define LIBXS_MEM_SHUFFLE(INOUT, ELEMSIZE, COUNT, SHUFFLE, NREPEAT) do { \
   unsigned char *const LIBXS_RESTRICT data = (unsigned char*)(INOUT); \
   const size_t c = (COUNT) - 1, c2 = ((COUNT) + 1) / 2; \
@@ -70,7 +70,7 @@ LIBXS_API size_t libxs_offset(const size_t offset[], const size_t shape[], size_
     result = (NULL != offset ? offset[0] : 0);
     size1 = shape[0];
     for (i = 1; i < ndims; ++i) {
-      result += (NULL != offset ? offset[i] : 0) * size1;
+      result += ((NULL != offset && 0 != offset[i]) ? (offset[i] - 1) : 0) * size1;
       size1 *= shape[i];
     }
   }
@@ -157,6 +157,7 @@ unsigned char internal_diff_avx2(const void* a, const void* b, unsigned char siz
 }
 
 
+#if defined(LIBXS_DIFF_AVX512_ENABLED)
 LIBXS_API_INLINE LIBXS_INTRINSICS(LIBXS_X86_AVX512_SKX)
 unsigned char internal_diff_avx512(const void* a, const void* b, unsigned char size)
 {
@@ -175,6 +176,7 @@ unsigned char internal_diff_avx512(const void* a, const void* b, unsigned char s
   return internal_diff_sw(a, b, size);
 #endif
 }
+#endif
 
 
 LIBXS_API_INLINE
@@ -237,6 +239,7 @@ int internal_memcmp_avx2(const void* a, const void* b, size_t size)
 }
 
 
+#if defined(LIBXS_DIFF_AVX512_ENABLED)
 LIBXS_API_INLINE LIBXS_INTRINSICS(LIBXS_X86_AVX512_SKX)
 int internal_memcmp_avx512(const void* a, const void* b, size_t size)
 {
@@ -255,6 +258,7 @@ int internal_memcmp_avx512(const void* a, const void* b, size_t size)
   return internal_memcmp_sw(a, b, size);
 #endif
 }
+#endif
 
 
 LIBXS_API_INTERN void libxs_memory_init(int target_arch)
