@@ -2324,6 +2324,32 @@ LIBXS_API_INTERN int libxs_build(const libxs_build_request* request, unsigned in
         }
       }
     } break;
+    case LIBXS_BUILD_KIND_PGEMM: { /* packed GEMM */
+      LIBXS_ASSERT(NULL != request->descriptor.pgemm && 0 != request->descriptor.pgemm->gemm);
+      /* only floating point */
+      if (LIBXS_DATATYPE_F64 == LIBXS_GEMM_GETENUM_ABC_COMMON_PREC(request->descriptor.pgemmacrm->gemm->datatype) ||
+          LIBXS_DATATYPE_F32 == LIBXS_GEMM_GETENUM_ABC_COMMON_PREC(request->descriptor.pgemmacrm->gemm->datatype))
+      {
+        extra.nflops = 2 * request->descriptor.pgemm->packed_width * request->descriptor.pgemm->gemm->m * request->descriptor.pgemm->gemm->n * request->descriptor.pgemm->gemm->k;
+        libxs_generator_packed_gemm(&generated_code, request->descriptor.pgemm->gemm, request->descriptor.pgemm->packed_width);
+# if !defined(LIBXS_VTUNE)
+        if (0 > libxs_verbosity)
+# endif
+        {
+          const int uid = request->descriptor.pgemm->gemm->prefetch;
+          const char *const tname = libxs_get_gemm_typename(request->descriptor.pgemm->gemm->datatype);
+          /* adopt scheme which allows kernel names of LIBXS to appear in order (Intel VTune, etc.) */
+          LIBXS_SNPRINTF(jit_name, sizeof(jit_name), "libxs_%s_%s_%c%c_%ux%ux%u_%u_%u_%u_w%u_a%i_b%i_p%i.pgemm", target_arch, tname,
+            0 == (LIBXS_GEMM_FLAG_TRANS_A & request->descriptor.pgemm->gemm->flags) ? 'n' : 't',
+            0 == (LIBXS_GEMM_FLAG_TRANS_B & request->descriptor.pgemm->gemm->flags) ? 'n' : 't',
+            request->descriptor.pgemm->gemm->m,   request->descriptor.pgemm->gemm->n,   request->descriptor.pgemm->gemm->k,
+            request->descriptor.pgemm->gemm->lda, request->descriptor.pgemm->gemm->ldb, request->descriptor.pgemm->gemm->ldc,
+            request->descriptor.pgemm->packed_width,
+            1, 0 != (LIBXS_GEMM_FLAG_BETA_0  & request->descriptor.pgemm->gemm->flags) ? 0 : 1,
+            uid);
+        }
+      }
+    } break;
     case LIBXS_BUILD_KIND_PGEMMRMAC: { /* packed GEMM, B regular matrix, row-major */
       LIBXS_ASSERT(NULL != request->descriptor.pgemmacrm && 0 != request->descriptor.pgemmacrm->gemm);
       /* only floating point */
@@ -3699,6 +3725,41 @@ LIBXS_API libxs_gemmfunction libxs_create_packed_spgemm_bcsc(
   return result.xgemm.gemm;
 }
 
+LIBXS_API libxs_gemmfunction libxs_create_packed_gemm( const libxs_gemm_shape gemm_shape,
+  const libxs_bitfield gemm_flags, const libxs_bitfield prefetch_flags, const libxs_blasint packed_width )
+{
+  int l_gemm_flags = (int)gemm_flags;
+  libxs_pgemm_descriptor pgemm /*= { 0 }*/;
+  libxs_build_request request /*= { 0 }*/;
+  libxs_descriptor_blob blob;
+  libxs_gemm_descriptor *desc = NULL;
+  libxs_code_pointer result = { 0 };
+  LIBXS_INIT
+
+  /* TODO: some checks */
+  if ( gemm_shape.a_in_type != gemm_shape.b_in_type ) {
+    return NULL;
+  }
+
+  /* use the XGEMM ABI which utilizes an arg struct */
+  l_gemm_flags |= LIBXS_GEMM_FLAG_USE_XGEMM_ABI;
+
+  /* build descriptor */
+  desc = libxs_gemm_descriptor_init(&blob, gemm_shape.a_in_type,
+    gemm_shape.b_in_type, gemm_shape.comp_type, gemm_shape.out_type,
+    gemm_shape.m, gemm_shape.n, gemm_shape.k,
+    gemm_shape.lda, gemm_shape.ldb, gemm_shape.ldc,
+    l_gemm_flags, libxs_get_gemm_prefetch(prefetch_flags));
+
+  pgemm.gemm = desc;
+  pgemm.packed_width = packed_width;
+  request.descriptor.pgemm = &pgemm;
+  request.kind = LIBXS_BUILD_KIND_PGEMM;
+  libxs_build(&request, LIBXS_CAPACITY_REGISTRY/*not managed*/, &result);
+
+  return result.xgemm.gemm;
+}
+
 LIBXS_API libxs_gemmfunction libxs_create_packed_gemm_ac_rm_v2( const libxs_gemm_shape gemm_shape,
   const libxs_bitfield gemm_flags, const libxs_bitfield prefetch_flags, const libxs_blasint packed_width )
 {
@@ -3733,7 +3794,6 @@ LIBXS_API libxs_gemmfunction libxs_create_packed_gemm_ac_rm_v2( const libxs_gemm
 
   return result.xgemm.gemm;
 }
-
 
 LIBXS_API libxs_gemmfunction libxs_create_packed_gemm_bc_rm_v2( const libxs_gemm_shape gemm_shape,
   const libxs_bitfield gemm_flags, const libxs_bitfield prefetch_flags, const libxs_blasint packed_width )
