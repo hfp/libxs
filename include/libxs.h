@@ -304,6 +304,14 @@ LIBXS_API libxs_gemmfunction libxs_create_packed_spgemm_bcsc(
   const libxs_gemm_shape gemm_shape, const libxs_bitfield gemm_flags, const libxs_bitfield prefetch_flags, const libxs_spgemm_config spgemm_config);
 
 /**
+ * Code generation routine for packed GEMM. In this case A is [K][M][packed], B is [K][N][packed] and C is [N][M][packed],
+ * that mans the  memory layout of the matricis is in SOA [row][col][packed].
+ * Call libxs_release_kernel in order to deallocate the JIT'ted code.
+ */
+LIBXS_API libxs_gemmfunction libxs_create_packed_gemm( const libxs_gemm_shape gemm_shape,
+  const libxs_bitfield gemm_flags, const libxs_bitfield prefetch_flags, const libxs_blasint packed_width );
+
+/**
  * Code generation routine for row-major format B matrix which is multiplied by a dense packed matrix (each element holds a SIMD-width
  * wide vector) and the result is another packed matrix. The memory layout of the SOA matrix is [row][col][packed].
  * here is no code cache, and user code has to manage the code pointers.
