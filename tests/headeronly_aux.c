@@ -27,7 +27,7 @@ LIBXS_EXTERN_C libxs_gemmfunction mmdispatch(libxs_blasint m, libxs_blasint n, l
 #else
   const libxs_gemm_shape gemm_shape = libxs_create_gemm_shape(m, n, k, m/*lda*/, k/*ldb*/, m/*ldc*/,
     LIBXS_DATATYPE(ITYPE), LIBXS_DATATYPE(ITYPE), LIBXS_DATATYPE(OTYPE), LIBXS_DATATYPE(OTYPE));
-  result = libxs_dispatch_gemm_v2(gemm_shape, LIBXS_GEMM_FLAG_NONE,
+  result = libxs_dispatch_gemm(gemm_shape, LIBXS_GEMM_FLAG_NONE,
     (libxs_bitfield)LIBXS_PREFETCH);
 #endif
   return result;

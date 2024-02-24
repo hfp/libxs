@@ -27,7 +27,7 @@ int main(void)
     m, n, k, m/*lda*/, k/*ldb*/, m/*ldc*/,
     LIBXS_DATATYPE(ITYPE), LIBXS_DATATYPE(ITYPE),
     LIBXS_DATATYPE(OTYPE), LIBXS_DATATYPE(OTYPE));
-  const libxs_gemmfunction fa = libxs_dispatch_gemm_v2(gemm_shape,
+  const libxs_gemmfunction fa = libxs_dispatch_gemm(gemm_shape,
     LIBXS_GEMM_FLAG_NONE, (libxs_bitfield)LIBXS_PREFETCH);
   const libxs_gemmfunction fb = mmdispatch(m, n, k);
   int result = EXIT_SUCCESS;

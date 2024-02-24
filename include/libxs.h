@@ -136,15 +136,17 @@ LIBXS_API libxs_gemm_ext_binary_postops libxs_create_gemm_ext_binary_postops( co
 /** Query or JIT-generate SMM-kernel; returns NULL if it does not exist or if JIT is not supported (descriptor form). */
 LIBXS_API libxs_xmmfunction libxs_xmmdispatch(const libxs_gemm_descriptor* descriptor);
 /** Query or JIT-generate SMM-kernel general mixed precision options and batch reduce; returns NULL if it does not exist or if JIT is not supported */
-LIBXS_API libxs_gemmfunction libxs_dispatch_gemm_v2( const libxs_gemm_shape gemm_shape, const libxs_bitfield gemm_flags,
+LIBXS_API libxs_gemmfunction libxs_dispatch_gemm( const libxs_gemm_shape gemm_shape, const libxs_bitfield gemm_flags,
                                                         const libxs_bitfield prefetch_flags );
 /** Query or JIT-generate BRGEMM-kernel general mixed precision options and batch reduce; returns NULL if it does not exist or if JIT is not supported */
-LIBXS_API libxs_gemmfunction libxs_dispatch_brgemm_v2( const libxs_gemm_shape gemm_shape, const libxs_bitfield gemm_flags,
+LIBXS_API libxs_gemmfunction libxs_dispatch_brgemm( const libxs_gemm_shape gemm_shape, const libxs_bitfield gemm_flags,
                                                           const libxs_bitfield prefetch_flags, const libxs_gemm_batch_reduce_config brgemm_config );
 /** Query or JIT-generate BRGEMM-kernel with fusion, general mixed precision options and batch reduce; returns NULL if it does not exist or if JIT is not supported */
-LIBXS_API libxs_gemmfunction_ext libxs_dispatch_brgemm_ext_v2( const libxs_gemm_shape gemm_shape, const libxs_bitfield gemm_flags,
+LIBXS_API libxs_gemmfunction_ext libxs_dispatch_brgemm_ext( const libxs_gemm_shape gemm_shape, const libxs_bitfield gemm_flags,
                                                                   const libxs_bitfield prefetch_flags, const libxs_gemm_batch_reduce_config brgemm_config,
                                                                   const libxs_gemm_ext_unary_argops unary_argops, const libxs_gemm_ext_binary_postops binary_postops );
+/** Query or JIT-generate Tileconfig kernles, if the machine doesn't support Intel AMX, the kernel can be still called */
+LIBXS_API libxs_tilecfgfunction libxs_dispatch_tilecfg_gemm( const libxs_gemm_shape gemm_shape, const libxs_bitfield gemm_flags );
 
 /**
  * Process a series of SMMs (batch). See also libxs_gemm_batch/omp.
@@ -254,31 +256,25 @@ LIBXS_API libxs_meltw_binary_shape libxs_create_meltw_binary_shape( const libxs_
 LIBXS_API libxs_meltw_ternary_shape libxs_create_meltw_ternary_shape( const libxs_blasint m, const libxs_blasint n,
                                                                             const libxs_blasint ldi, const libxs_blasint ldi2, const libxs_blasint ldi3, const libxs_blasint ldo,
                                                                             const libxs_datatype in0_type, const libxs_datatype in1_type, const libxs_datatype in2_type, const libxs_datatype out_type, const libxs_datatype comp_type );
-LIBXS_API libxs_meltwfunction_unary libxs_dispatch_meltw_unary_v2( const libxs_meltw_unary_type unary_type, const libxs_meltw_unary_shape unary_shape, const libxs_bitfield unary_flags );
-LIBXS_API libxs_meltwfunction_binary libxs_dispatch_meltw_binary_v2( const libxs_meltw_binary_type binary_type, const libxs_meltw_binary_shape binary_shape, const libxs_bitfield binary_flags );
-LIBXS_API libxs_meltwfunction_ternary libxs_dispatch_meltw_ternary_v2( const libxs_meltw_ternary_type ternary_type, const libxs_meltw_ternary_shape ternary_shape, const libxs_bitfield ternary_flags );
+LIBXS_API libxs_meltwfunction_unary libxs_dispatch_meltw_unary( const libxs_meltw_unary_type unary_type, const libxs_meltw_unary_shape unary_shape, const libxs_bitfield unary_flags );
+LIBXS_API libxs_meltwfunction_binary libxs_dispatch_meltw_binary( const libxs_meltw_binary_type binary_type, const libxs_meltw_binary_shape binary_shape, const libxs_bitfield binary_flags );
+LIBXS_API libxs_meltwfunction_ternary libxs_dispatch_meltw_ternary( const libxs_meltw_ternary_type ternary_type, const libxs_meltw_ternary_shape ternary_shape, const libxs_bitfield ternary_flags );
 
 /** matrix equation interface */
-LIBXS_API libxs_blasint libxs_matrix_eqn_create(void);
-LIBXS_API int libxs_matrix_eqn_push_back_arg( const libxs_blasint idx, const libxs_blasint m, const libxs_blasint n, const libxs_blasint ld,
-                                                  const libxs_blasint in_pos, const libxs_blasint offs_in_pos, const libxs_datatype dtype );
-LIBXS_API int libxs_matrix_eqn_push_back_unary_op( const libxs_blasint idx, const libxs_meltw_unary_type type, const libxs_meltw_unary_flags flags, const libxs_datatype dtype );
-LIBXS_API int libxs_matrix_eqn_push_back_binary_op( const libxs_blasint idx, const libxs_meltw_binary_type type, const libxs_meltw_binary_flags flags, const libxs_datatype dtype );
-LIBXS_API int libxs_matrix_eqn_push_back_ternary_op( const libxs_blasint idx, const libxs_meltw_ternary_type type, const libxs_meltw_ternary_flags flags, const libxs_datatype dtype );
-
+LIBXS_API libxs_blasint libxs_meqn_create(void);
 LIBXS_API libxs_meqn_arg_shape libxs_create_meqn_arg_shape( const libxs_blasint m, const libxs_blasint n, const libxs_blasint ld, const libxs_datatype type );
 LIBXS_API libxs_matrix_arg_attributes libxs_create_matrix_arg_attributes( const libxs_matrix_arg_type type, const libxs_matrix_arg_set_type set_type, const libxs_blasint set_cardinality_hint, const libxs_blasint set_stride_hint );
-LIBXS_API libxs_matrix_eqn_arg_metadata libxs_create_matrix_eqn_arg_metadata( const libxs_blasint eqn_idx, const libxs_blasint in_arg_pos );
-LIBXS_API libxs_matrix_eqn_op_metadata libxs_create_matrix_eqn_op_metadata( const libxs_blasint eqn_idx, const libxs_blasint op_arg_pos );
-LIBXS_API int libxs_matrix_eqn_push_back_arg_v2( const libxs_matrix_eqn_arg_metadata arg_metadata, const libxs_meqn_arg_shape arg_shape, libxs_matrix_arg_attributes arg_attr);
-LIBXS_API int libxs_matrix_eqn_push_back_unary_op_v2( const libxs_matrix_eqn_op_metadata op_metadata, const libxs_meltw_unary_type type, const libxs_datatype dtype, const libxs_bitfield flags);
-LIBXS_API int libxs_matrix_eqn_push_back_binary_op_v2( const libxs_matrix_eqn_op_metadata op_metadata, const libxs_meltw_binary_type type, const libxs_datatype dtype, const libxs_bitfield flags);
-LIBXS_API int libxs_matrix_eqn_push_back_ternary_op_v2( const libxs_matrix_eqn_op_metadata op_metadata, const libxs_meltw_ternary_type type, const libxs_datatype dtype, const libxs_bitfield flags);
+LIBXS_API libxs_meqn_arg_metadata libxs_create_meqn_arg_metadata( const libxs_blasint eqn_idx, const libxs_blasint in_arg_pos );
+LIBXS_API libxs_meqn_op_metadata libxs_create_meqn_op_metadata( const libxs_blasint eqn_idx, const libxs_blasint op_arg_pos );
+LIBXS_API int libxs_meqn_push_back_arg( const libxs_meqn_arg_metadata arg_metadata, const libxs_meqn_arg_shape arg_shape, libxs_matrix_arg_attributes arg_attr);
+LIBXS_API int libxs_meqn_push_back_unary_op( const libxs_meqn_op_metadata op_metadata, const libxs_meltw_unary_type type, const libxs_datatype dtype, const libxs_bitfield flags);
+LIBXS_API int libxs_meqn_push_back_binary_op( const libxs_meqn_op_metadata op_metadata, const libxs_meltw_binary_type type, const libxs_datatype dtype, const libxs_bitfield flags);
+LIBXS_API int libxs_meqn_push_back_ternary_op( const libxs_meqn_op_metadata op_metadata, const libxs_meltw_ternary_type type, const libxs_datatype dtype, const libxs_bitfield flags);
 
-LIBXS_API void libxs_matrix_eqn_tree_print( const libxs_blasint idx );
-LIBXS_API void libxs_matrix_eqn_rpn_print( const libxs_blasint idx );
-LIBXS_API libxs_matrix_eqn_function libxs_dispatch_matrix_eqn_desc( const libxs_meqn_descriptor* descriptor );
-LIBXS_API libxs_matrix_eqn_function libxs_dispatch_matrix_eqn_v2( const libxs_blasint idx, const libxs_meqn_arg_shape out_shape );
+LIBXS_API void libxs_meqn_tree_print( const libxs_blasint idx );
+LIBXS_API void libxs_meqn_rpn_print( const libxs_blasint idx );
+LIBXS_API libxs_meqn_function libxs_dispatch_meqn_desc( const libxs_meqn_descriptor* descriptor );
+LIBXS_API libxs_meqn_function libxs_dispatch_meqn( const libxs_blasint idx, const libxs_meqn_arg_shape out_shape );
 
 /**
  * Code generation routine for the CSR format which multiplies a dense SOA matrix (each element holds a SIMD-width
@@ -286,7 +282,7 @@ LIBXS_API libxs_matrix_eqn_function libxs_dispatch_matrix_eqn_v2( const libxs_bl
  * The result is always a SOA matrix. There is no code cache, and user code has to manage the code pointers.
  * Call libxs_release_kernel in order to deallocate the JIT'ted code.
  */
-LIBXS_API libxs_gemmfunction libxs_create_packed_spgemm_csr_v2(
+LIBXS_API libxs_gemmfunction libxs_create_packed_spgemm_csr(
   const libxs_gemm_shape gemm_shape, const libxs_bitfield gemm_flags, const libxs_bitfield prefetch_flags, const libxs_blasint packed_width,
   const unsigned int* row_ptr, const unsigned int* column_idx, const void* values);
 
@@ -296,12 +292,15 @@ LIBXS_API libxs_gemmfunction libxs_create_packed_spgemm_csr_v2(
  * The result is always a SOA matrix. There is no code cache, and user code has to manage the code pointers.
  * Call libxs_release_kernel in order to deallocate the JIT'ted code.
  */
-LIBXS_API libxs_gemmfunction libxs_create_packed_spgemm_csc_v2(
+LIBXS_API libxs_gemmfunction libxs_create_packed_spgemm_csc(
   const libxs_gemm_shape gemm_shape, const libxs_bitfield gemm_flags, const libxs_bitfield prefetch_flags, const libxs_blasint packed_width,
   const unsigned int* column_ptr, const unsigned int* row_idx, const void* values);
 
 LIBXS_API libxs_gemmfunction libxs_create_packed_spgemm_bcsc(
   const libxs_gemm_shape gemm_shape, const libxs_bitfield gemm_flags, const libxs_bitfield prefetch_flags, const libxs_spgemm_config spgemm_config);
+
+LIBXS_API libxs_tilecfgfunction libxs_create_tilecfg_packed_spgemm_bcsc(
+  const libxs_gemm_shape gemm_shape, const libxs_bitfield gemm_flags, const libxs_spgemm_config spgemm_config );
 
 /**
  * Code generation routine for packed GEMM. In this case A is [K][M][packed], B is [K][N][packed] and C is [N][M][packed],
@@ -317,7 +316,7 @@ LIBXS_API libxs_gemmfunction libxs_create_packed_gemm( const libxs_gemm_shape ge
  * here is no code cache, and user code has to manage the code pointers.
  * Call libxs_release_kernel in order to deallocate the JIT'ted code.
  */
-LIBXS_API libxs_gemmfunction libxs_create_packed_gemm_ac_rm_v2( const libxs_gemm_shape gemm_shape,
+LIBXS_API libxs_gemmfunction libxs_create_packed_gemm_ac_rm( const libxs_gemm_shape gemm_shape,
   const libxs_bitfield gemm_flags, const libxs_bitfield prefetch_flags, const libxs_blasint packed_width );
 
 /**
@@ -326,7 +325,7 @@ LIBXS_API libxs_gemmfunction libxs_create_packed_gemm_ac_rm_v2( const libxs_gemm
  * here is no code cache, and user code has to manage the code pointers.
  * Call libxs_release_kernel in order to deallocate the JIT'ted code.
  */
-LIBXS_API libxs_gemmfunction libxs_create_packed_gemm_bc_rm_v2( const libxs_gemm_shape gemm_shape,
+LIBXS_API libxs_gemmfunction libxs_create_packed_gemm_bc_rm( const libxs_gemm_shape gemm_shape,
   const libxs_bitfield gemm_flags, const libxs_bitfield prefetch_flags, const libxs_blasint packed_width );
 
 /**
@@ -334,7 +333,7 @@ LIBXS_API libxs_gemmfunction libxs_create_packed_gemm_bc_rm_v2( const libxs_gemm
  * The sparse matrix "a" is kept in registers.
  * Call libxs_release_kernel in order to deallocate the JIT'ted code.
  */
-LIBXS_API libxs_gemmfunction libxs_create_spgemm_csr_areg_v2( const libxs_gemm_shape gemm_shape,
+LIBXS_API libxs_gemmfunction libxs_create_spgemm_csr_areg( const libxs_gemm_shape gemm_shape,
   const libxs_bitfield gemm_flags, const libxs_bitfield prefetch_flags,
   const libxs_blasint max_N, const unsigned int* row_ptr, const unsigned int* column_idx, const double* values );
 
@@ -405,27 +404,13 @@ LIBXS_API void libxs_sgemm(const char* transa, const char* transb,
 #endif /*!defined(LIBXS_DEFAULT_CONFIG)*/
 #if defined(__cplusplus)
 
-/** Map built-in type to libxs_datatype (libxs_datatype_enum). TODO: LP-types shall rely on struct for proper overload in C++. */
+/** Map built-in type to libxs_datatype (libxs_datatype_enum). */
 template<typename T> struct libxs_datatype_enum         { static const libxs_datatype value = static_cast<libxs_datatype>(LIBXS_DATATYPE_UNSUPPORTED); };
 template<> struct libxs_datatype_enum<double>           { static const libxs_datatype value = LIBXS_DATATYPE_F64; };
 template<> struct libxs_datatype_enum<float>            { static const libxs_datatype value = LIBXS_DATATYPE_F32; };
-template<> struct libxs_datatype_enum<int>              { static const libxs_datatype value = LIBXS_DATATYPE_I32; };
-template<> struct libxs_datatype_enum<unsigned int>     { static const libxs_datatype value = LIBXS_DATATYPE_U32; };
-template<> struct libxs_datatype_enum</*signed*/short>  { static const libxs_datatype value = LIBXS_DATATYPE_I16; };
-template<> struct libxs_datatype_enum<libxs_bfloat16> { static const libxs_datatype value = LIBXS_DATATYPE_BF16; };
-template<> struct libxs_datatype_enum<Eigen::bfloat16>  { static const libxs_datatype value = LIBXS_DATATYPE_BF16; };
-template<> struct libxs_datatype_enum<libxs_bfloat8>  { static const libxs_datatype value = LIBXS_DATATYPE_BF8; };
-template<> struct libxs_datatype_enum<signed char>      { static const libxs_datatype value = LIBXS_DATATYPE_I8; };
-template<> struct libxs_datatype_enum<char>             { static const libxs_datatype value = LIBXS_DATATYPE_I8; };
 
-/** Determine default output type based on the input-type. TODO: LP-types shall rely on struct for proper overload in C++. */
+/** Determine default output type based on the input-type. */
 template<typename INP_TYPE> struct libxs_gemm_default_output  { typedef INP_TYPE type; };
-template<> struct libxs_gemm_default_output<libxs_bfloat16> { typedef float type; };
-template<> struct libxs_gemm_default_output<Eigen::bfloat16>  { typedef float type; };
-template<> struct libxs_gemm_default_output<libxs_bfloat8>  { typedef float type; };
-template<> struct libxs_gemm_default_output</*signed*/short>  { typedef int type; };
-template<> struct libxs_gemm_default_output<signed char>      { typedef int type; };
-template<> struct libxs_gemm_default_output<char>             { typedef int type; };
 
 /** Default-initialize libxs_gemm_param structure for the given prefetch-strategy. */
 template<int PREFETCH> inline/*superfluous*/ void libxs_mmfunction_prefetch(
@@ -468,7 +453,7 @@ public:
     const libxs_gemm_shape gemm_shape = libxs_create_gemm_shape(m, n, k, lda, ldb, ldc,
       libxs_datatype_enum<itype>::value, libxs_datatype_enum<itype>::value,
       libxs_datatype_enum<otype>::value, libxs_datatype_enum<otype>::value);
-    m_function = libxs_dispatch_gemm_v2(gemm_shape, 0/*flags*/,
+    m_function = libxs_dispatch_gemm(gemm_shape, 0/*flags*/,
       static_cast<libxs_bitfield>(PREFETCH_DEFAULT));
   }
   libxs_mmfunction(int flags, libxs_blasint m, libxs_blasint n, libxs_blasint k, int prefetch = PREFETCH_DEFAULT) {
@@ -476,7 +461,7 @@ public:
     const libxs_gemm_shape gemm_shape = libxs_create_gemm_shape(m, n, k, lda, ldb, ldc,
       libxs_datatype_enum<itype>::value, libxs_datatype_enum<itype>::value,
       libxs_datatype_enum<otype>::value, libxs_datatype_enum<otype>::value);
-    m_function = libxs_dispatch_gemm_v2(gemm_shape,
+    m_function = libxs_dispatch_gemm(gemm_shape,
       static_cast<libxs_bitfield>(flags),
       static_cast<libxs_bitfield>(prefetch));
   }
@@ -485,7 +470,7 @@ public:
     const libxs_gemm_shape gemm_shape = libxs_create_gemm_shape(m, n, k, lda, ldb, ldc,
       libxs_datatype_enum<itype>::value, libxs_datatype_enum<itype>::value,
       libxs_datatype_enum<otype>::value, libxs_datatype_enum<otype>::value);
-    m_function = (LIBXS_GEMM_NO_BYPASS(flags, alpha, beta) ? libxs_dispatch_gemm_v2(gemm_shape,
+    m_function = (LIBXS_GEMM_NO_BYPASS(flags, alpha, beta) ? libxs_dispatch_gemm(gemm_shape,
       static_cast<libxs_bitfield>(flags | (LIBXS_NEQ(0, beta) ? 0 : LIBXS_GEMM_FLAG_BETA_0)),
       static_cast<libxs_bitfield>(prefetch)) : NULL);
   }
@@ -495,7 +480,7 @@ public:
     const libxs_gemm_shape gemm_shape = libxs_create_gemm_shape(m, n, k, lda, ldb, ldc,
       libxs_datatype_enum<itype>::value, libxs_datatype_enum<itype>::value,
       libxs_datatype_enum<otype>::value, libxs_datatype_enum<otype>::value);
-    m_function = libxs_dispatch_gemm_v2(gemm_shape,
+    m_function = libxs_dispatch_gemm(gemm_shape,
       static_cast<libxs_bitfield>(flags),
       static_cast<libxs_bitfield>(prefetch));
   }
@@ -506,7 +491,7 @@ public:
     const libxs_gemm_shape gemm_shape = libxs_create_gemm_shape(m, n, k, lda, ldb, ldc,
       libxs_datatype_enum<itype>::value, libxs_datatype_enum<itype>::value,
       libxs_datatype_enum<otype>::value, libxs_datatype_enum<otype>::value);
-    m_function = (LIBXS_GEMM_NO_BYPASS(flags, alpha, beta) ? libxs_dispatch_gemm_v2(gemm_shape,
+    m_function = (LIBXS_GEMM_NO_BYPASS(flags, alpha, beta) ? libxs_dispatch_gemm(gemm_shape,
       static_cast<libxs_bitfield>(flags | (LIBXS_NEQ(0, beta) ? 0 : LIBXS_GEMM_FLAG_BETA_0)),
       static_cast<libxs_bitfield>(prefetch)) : NULL);
   }

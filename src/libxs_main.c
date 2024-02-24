@@ -1800,6 +1800,12 @@ LIBXS_API_INLINE const char* libxs_get_i4gemm_typename(const unsigned char* data
   {
     return "i4f16f16";
   }
+  if (LIBXS_DATATYPE_I8 == LIBXS_GEMM_GETENUM_A_PREC(datatype) &&
+           LIBXS_DATATYPE_I8 == LIBXS_GEMM_GETENUM_B_PREC(datatype) &&
+           LIBXS_DATATYPE_I32 == LIBXS_GEMM_GETENUM_C_PREC(datatype))
+  {
+    return "u4u8i32";
+  }
   else if (LIBXS_DATATYPE_I8 == LIBXS_GEMM_GETENUM_A_PREC(datatype) &&
            LIBXS_DATATYPE_F16 == LIBXS_GEMM_GETENUM_B_PREC(datatype) &&
            LIBXS_DATATYPE_F32 == LIBXS_GEMM_GETENUM_C_PREC(datatype))
@@ -1849,6 +1855,30 @@ LIBXS_API_INLINE const char* libxs_get_gemm_typename(const unsigned char* dataty
                LIBXS_DATATYPE_F16 == LIBXS_GEMM_GETENUM_C_PREC(datatype))
       {
         return "bf8f16f16";
+      }
+      else if (LIBXS_DATATYPE_BF8 == LIBXS_GEMM_GETENUM_A_PREC(datatype) &&
+               LIBXS_DATATYPE_BF16 == LIBXS_GEMM_GETENUM_B_PREC(datatype) &&
+               LIBXS_DATATYPE_BF16 == LIBXS_GEMM_GETENUM_C_PREC(datatype))
+      {
+        return "bf8bf16bf16";
+      }
+      else if (LIBXS_DATATYPE_BF8 == LIBXS_GEMM_GETENUM_A_PREC(datatype) &&
+               LIBXS_DATATYPE_BF16 == LIBXS_GEMM_GETENUM_B_PREC(datatype) &&
+               LIBXS_DATATYPE_F32 == LIBXS_GEMM_GETENUM_C_PREC(datatype))
+      {
+        return "bf8bf16f32";
+      }
+      else if (LIBXS_DATATYPE_HF8 == LIBXS_GEMM_GETENUM_A_PREC(datatype) &&
+               LIBXS_DATATYPE_BF16 == LIBXS_GEMM_GETENUM_B_PREC(datatype) &&
+               LIBXS_DATATYPE_BF16 == LIBXS_GEMM_GETENUM_C_PREC(datatype))
+      {
+        return "hf8bf16bf16";
+      }
+      else if (LIBXS_DATATYPE_HF8 == LIBXS_GEMM_GETENUM_A_PREC(datatype) &&
+               LIBXS_DATATYPE_BF16 == LIBXS_GEMM_GETENUM_B_PREC(datatype) &&
+               LIBXS_DATATYPE_F32 == LIBXS_GEMM_GETENUM_C_PREC(datatype))
+      {
+        return "hf8bf16f32";
       }
       else if (LIBXS_DATATYPE_BF8 == LIBXS_GEMM_GETENUM_A_PREC(datatype) &&
                LIBXS_DATATYPE_F16 == LIBXS_GEMM_GETENUM_B_PREC(datatype) &&
@@ -2036,7 +2066,7 @@ LIBXS_API_INTERN int libxs_build(const libxs_build_request* request, unsigned in
 #if !defined(__MIC__)
   const char * /*const*/ target_arch = libxs_cpuid_name(libxs_target_archid);
   /* large enough temporary buffer for generated code */
-  char jit_buffer[LIBXS_CODE_MAXSIZE] = { 0 }, jit_name[384] = { 0 };
+  char jit_buffer[LIBXS_CODE_MAXSIZE] = { 0 }, jit_name[384] = { 0 }, suffix_name[16] = { 0 };
   libxs_generated_code generated_code /*= { 0 }*/;
   libxs_kernel_xinfo extra /*= { 0 }*/;
 
@@ -2082,7 +2112,7 @@ LIBXS_API_INTERN int libxs_build(const libxs_build_request* request, unsigned in
            (16 >= (m * k) || 16 >= (k * n) || 16 >= (m * n)))
         {
           /* TODO: shall we update variable "target_arch" (name)? */
-          if ( libxs_target_archid >= LIBXS_X86_AVX512_SKX ) {
+          if ( libxs_target_archid >= LIBXS_X86_AVX512_SKX &&  ((request->descriptor.gemm->flags & LIBXS_GEMM_FLAG_DECOMPRESS_A_VIA_BITMASK) == 0) ) {
             generated_code.arch = LIBXS_X86_AVX512_VL256_SKX;
           }
         }
@@ -2093,7 +2123,7 @@ LIBXS_API_INTERN int libxs_build(const libxs_build_request* request, unsigned in
 # endif
         {
           const int uid = request->descriptor.gemm->prefetch;
-          const char *const tname = ( ((LIBXS_GEMM_FLAG_INTERPRETE_A_AS_INT4_VNNI2 & request->descriptor.gemm->flags) == LIBXS_GEMM_FLAG_INTERPRETE_A_AS_INT4_VNNI2) ) ? libxs_get_i4gemm_typename(request->descriptor.gemm->datatype) : libxs_get_gemm_typename(request->descriptor.gemm->datatype);
+          const char *const tname = (((LIBXS_GEMM_FLAG_INTERPRETE_A_AS_INT4_VNNI8_INTLV & request->descriptor.gemm->flags) == LIBXS_GEMM_FLAG_INTERPRETE_A_AS_INT4_VNNI8_INTLV)) ? libxs_get_i4gemm_typename(request->descriptor.gemm->datatype) : (( ((LIBXS_GEMM_FLAG_INTERPRETE_A_AS_INT4_VNNI2 & request->descriptor.gemm->flags) == LIBXS_GEMM_FLAG_INTERPRETE_A_AS_INT4_VNNI2) ) ? libxs_get_i4gemm_typename(request->descriptor.gemm->datatype) : libxs_get_gemm_typename(request->descriptor.gemm->datatype));
           const char *const meltw_tname = libxs_get_typename((libxs_datatype)request->descriptor.gemm->meltw_datatype_aux);
           int typesigns = 0, br = 0, kernabi = 0, stride_a = 0, stride_b = 0;
           char tc_option[16] = { 0 };
@@ -2142,9 +2172,14 @@ LIBXS_API_INTERN int libxs_build(const libxs_build_request* request, unsigned in
           } else {
             LIBXS_SNPRINTF(tc_option, sizeof(tc_option), "abid");
           }
+          if (request->descriptor.gemm->flags & LIBXS_GEMM_FLAG_DECOMPRESS_A_VIA_BITMASK) {
+            LIBXS_SNPRINTF(suffix_name, sizeof(suffix_name), "spmm");
+          } else {
+            LIBXS_SNPRINTF(suffix_name, sizeof(suffix_name), "mxm");
+          }
           if ( kernabi == 0 ) {
             /* adopt scheme which allows kernel names of LIBXS to appear in order (Intel VTune, etc.) */
-            LIBXS_SNPRINTF(jit_name, sizeof(jit_name), "libxs_abi%i_%s_%s_%c%c_%ux%ux%u_%u_%u_%u_a%i_b%i_p%i_br%i_sa%d_sb%d_uh%u_si%i_tc-%s_avnni%i_bvnni%i_cvnni%i.mxm", kernabi, target_arch, tname,
+            LIBXS_SNPRINTF(jit_name, sizeof(jit_name), "libxs_abi%i_%s_%s_%c%c_%ux%ux%u_%u_%u_%u_a%i_b%i_p%i_br%i_sa%d_sb%d_uh%u_si%i_tc-%s_avnni%i_bvnni%i_cvnni%i.%s", kernabi, target_arch, tname,
               0 == (LIBXS_GEMM_FLAG_TRANS_A & request->descriptor.gemm->flags) ? 'n' : 't',
               0 == (LIBXS_GEMM_FLAG_TRANS_B & request->descriptor.gemm->flags) ? 'n' : 't', m, n, k,
               request->descriptor.gemm->lda, request->descriptor.gemm->ldb, request->descriptor.gemm->ldc,
@@ -2152,7 +2187,7 @@ LIBXS_API_INTERN int libxs_build(const libxs_build_request* request, unsigned in
               br, stride_a, stride_b, (unsigned int)request->descriptor.gemm->c3, typesigns, tc_option,
               0 != (LIBXS_GEMM_FLAG_VNNI_A  & request->descriptor.gemm->flags) ? 1 : 0,
               0 != (LIBXS_GEMM_FLAG_VNNI_B  & request->descriptor.gemm->flags) ? 1 : 0,
-              0 != (LIBXS_GEMM_FLAG_VNNI_C  & request->descriptor.gemm->flags) ? 1 : 0);
+              0 != (LIBXS_GEMM_FLAG_VNNI_C  & request->descriptor.gemm->flags) ? 1 : 0, suffix_name);
           } else if (kernabi == 2) {
             decompress_A = 0;
             sparsity_factor_A = 1;
@@ -2176,7 +2211,7 @@ LIBXS_API_INTERN int libxs_build(const libxs_build_request* request, unsigned in
               sparsity_factor_A = 32;
             }
             /* adopt scheme which allows kernel names of LIBXS to appear in order (Intel VTune, etc.) */
-            LIBXS_SNPRINTF(jit_name, sizeof(jit_name), "libxs_abi%i_%s_%s_%c%c_%ux%ux%u_%u_%u_%u_a%i_b%i_p%i_br%i_sa%d_sb%d_uh%u_si%i_tc-%s_avnni%i_bvnni%i_cvnni%i_meopd%u-%s-mefld%u-meld%u-%u-%u_meopap%u-meflap%u-melap%u_meopbp%u-meflbp%u-melbp%u_meopcp%u-meflcp%u-melcp%u_mestore%u_decompress_A%i_spfactor%i.mxm", kernabi, target_arch, tname,
+            LIBXS_SNPRINTF(jit_name, sizeof(jit_name), "libxs_abi%i_%s_%s_%c%c_%ux%ux%u_%u_%u_%u_a%i_b%i_p%i_br%i_sa%d_sb%d_uh%u_si%i_tc-%s_avnni%i_bvnni%i_cvnni%i_meopd%u-%s-mefld%u-meld%u-%u-%u_meopap%u-meflap%u-melap%u_meopbp%u-meflbp%u-melbp%u_meopcp%u-meflcp%u-melcp%u_mestore%u_decompress_A%i_spfactor%i.%s", kernabi, target_arch, tname,
               0 == (LIBXS_GEMM_FLAG_TRANS_A & request->descriptor.gemm->flags) ? 'n' : 't',
               0 == (LIBXS_GEMM_FLAG_TRANS_B & request->descriptor.gemm->flags) ? 'n' : 't', m, n, k,
               request->descriptor.gemm->lda, request->descriptor.gemm->ldb, request->descriptor.gemm->ldc,
@@ -2190,10 +2225,10 @@ LIBXS_API_INTERN int libxs_build(const libxs_build_request* request, unsigned in
               (unsigned int)request->descriptor.gemm->eltw_ap_param, (unsigned int)request->descriptor.gemm->eltw_ap_flags, request->descriptor.gemm->ldap,
               (unsigned int)request->descriptor.gemm->eltw_bp_param, (unsigned int)request->descriptor.gemm->eltw_bp_flags, request->descriptor.gemm->ldbp,
               (unsigned int)request->descriptor.gemm->eltw_cp_param, (unsigned int)request->descriptor.gemm->eltw_cp_flags, request->descriptor.gemm->ldcp, (unsigned int)request->descriptor.gemm->internal_flags_2,
-              decompress_A, sparsity_factor_A);
+              decompress_A, sparsity_factor_A, suffix_name);
           } else {
             /* adopt scheme which allows kernel names of LIBXS to appear in order (Intel VTune, etc.) */
-            LIBXS_SNPRINTF(jit_name, sizeof(jit_name), "libxs_abi%i_%s_%s_%c%c_%ux%ux%u_%u_%u_%u_a%i_b%i_p%i_br%i_sa%d_sb%d_uh%u_si%i_tc-%s_avnni%i_bvnni%i_cvnni%i.mxm", kernabi, target_arch, tname,
+            LIBXS_SNPRINTF(jit_name, sizeof(jit_name), "libxs_abi%i_%s_%s_%c%c_%ux%ux%u_%u_%u_%u_a%i_b%i_p%i_br%i_sa%d_sb%d_uh%u_si%i_tc-%s_avnni%i_bvnni%i_cvnni%i.%s", kernabi, target_arch, tname,
               0 == (LIBXS_GEMM_FLAG_TRANS_A & request->descriptor.gemm->flags) ? 'n' : 't',
               0 == (LIBXS_GEMM_FLAG_TRANS_B & request->descriptor.gemm->flags) ? 'n' : 't', m, n, k,
               request->descriptor.gemm->lda, request->descriptor.gemm->ldb, request->descriptor.gemm->ldc,
@@ -2201,7 +2236,7 @@ LIBXS_API_INTERN int libxs_build(const libxs_build_request* request, unsigned in
               br, stride_a, stride_b, (unsigned int)request->descriptor.gemm->c3, typesigns, tc_option,
               0 != (LIBXS_GEMM_FLAG_VNNI_A  & request->descriptor.gemm->flags) ? 1 : 0,
               0 != (LIBXS_GEMM_FLAG_VNNI_B  & request->descriptor.gemm->flags) ? 1 : 0,
-              0 != (LIBXS_GEMM_FLAG_VNNI_C  & request->descriptor.gemm->flags) ? 1 : 0);
+              0 != (LIBXS_GEMM_FLAG_VNNI_C  & request->descriptor.gemm->flags) ? 1 : 0, suffix_name);
           }
         }
       }
@@ -3266,16 +3301,58 @@ LIBXS_API libxs_xmmfunction libxs_xmmdispatch(const libxs_gemm_descriptor* descr
 }
 
 
-LIBXS_API libxs_gemmfunction libxs_dispatch_gemm_v2( const libxs_gemm_shape gemm_shape, const libxs_bitfield gemm_flags,
-                                                           const libxs_bitfield prefetch_flags ) {
+LIBXS_API libxs_tilecfgfunction libxs_dispatch_tilecfg_gemm( const libxs_gemm_shape gemm_shape, const libxs_bitfield gemm_flags ) {
   int l_gemm_flags = (int)gemm_flags;
   libxs_descriptor_blob blob;
   libxs_xmmfunction result;
   libxs_gemm_descriptor *desc = NULL;
 
   /* TODO: some checks */
+#if 0
   if ( gemm_shape.a_in_type != gemm_shape.b_in_type ) {
-    /*return NULL;*/
+    return NULL;
+  }
+#endif
+  /* if we try to hoist tileconfig, this call should return NULL */
+  if ( (((LIBXS_GEMM_FLAG_NO_RESET_TILECONFIG & l_gemm_flags) != 0) && ((LIBXS_GEMM_FLAG_NO_SETUP_TILECONFIG & l_gemm_flags) != 0)) ||
+       (((LIBXS_GEMM_FLAG_NO_RESET_TILECONFIG & l_gemm_flags) == 0) && ((LIBXS_GEMM_FLAG_NO_SETUP_TILECONFIG & l_gemm_flags) == 0)) ) {
+    return NULL;
+  }
+
+  /* use the XGEMM ABI which utilizes an arg struct */
+  l_gemm_flags |= LIBXS_GEMM_FLAG_USE_XGEMM_ABI;
+
+  /* build descriptor */
+  desc = libxs_gemm_descriptor_init(&blob, gemm_shape.a_in_type,
+    gemm_shape.b_in_type, gemm_shape.comp_type, gemm_shape.out_type,
+    gemm_shape.m, gemm_shape.n, gemm_shape.k,
+    gemm_shape.lda, gemm_shape.ldb, gemm_shape.ldc,
+    l_gemm_flags, libxs_get_gemm_prefetch(0));
+
+  /* JIT! */
+  result = libxs_xmmdispatch(desc);
+
+  return result.tilecfg;
+}
+
+
+LIBXS_API libxs_gemmfunction libxs_dispatch_gemm( const libxs_gemm_shape gemm_shape, const libxs_bitfield gemm_flags,
+                                                        const libxs_bitfield prefetch_flags ) {
+  int l_gemm_flags = (int)gemm_flags;
+  libxs_descriptor_blob blob;
+  libxs_xmmfunction result;
+  libxs_gemm_descriptor *desc = NULL;
+
+  /* TODO: some checks */
+#if 0
+  if ( gemm_shape.a_in_type != gemm_shape.b_in_type ) {
+    return NULL;
+  }
+#endif
+  /* if we try to hoist tileconfig, this call should return NULL */
+  if ( (((LIBXS_GEMM_FLAG_NO_RESET_TILECONFIG & l_gemm_flags) != 0) && ((LIBXS_GEMM_FLAG_NO_SETUP_TILECONFIG & l_gemm_flags) == 0)) ||
+       (((LIBXS_GEMM_FLAG_NO_RESET_TILECONFIG & l_gemm_flags) == 0) && ((LIBXS_GEMM_FLAG_NO_SETUP_TILECONFIG & l_gemm_flags) != 0)) ) {
+    return NULL;
   }
 
   /* use the XGEMM ABI which utilizes an arg struct */
@@ -3295,7 +3372,7 @@ LIBXS_API libxs_gemmfunction libxs_dispatch_gemm_v2( const libxs_gemm_shape gemm
 }
 
 
-LIBXS_API libxs_gemmfunction libxs_dispatch_brgemm_v2( const libxs_gemm_shape gemm_shape, const libxs_bitfield gemm_flags,
+LIBXS_API libxs_gemmfunction libxs_dispatch_brgemm( const libxs_gemm_shape gemm_shape, const libxs_bitfield gemm_flags,
                                                            const libxs_bitfield prefetch_flags, const libxs_gemm_batch_reduce_config brgemm_config ) {
   int l_gemm_flags = (int)gemm_flags;
   libxs_descriptor_blob blob;
@@ -3303,8 +3380,15 @@ LIBXS_API libxs_gemmfunction libxs_dispatch_brgemm_v2( const libxs_gemm_shape ge
   libxs_gemm_descriptor *desc = NULL;
 
   /* TODO: some checks */
+#if 0
   if ( gemm_shape.a_in_type != gemm_shape.b_in_type ) {
-    /*return NULL;*/
+    return NULL;
+  }
+#endif
+  /* if we try to hoist tileconfig, this call should return NULL */
+  if ( (((LIBXS_GEMM_FLAG_NO_RESET_TILECONFIG & l_gemm_flags) != 0) && ((LIBXS_GEMM_FLAG_NO_SETUP_TILECONFIG & l_gemm_flags) == 0)) ||
+       (((LIBXS_GEMM_FLAG_NO_RESET_TILECONFIG & l_gemm_flags) == 0) && ((LIBXS_GEMM_FLAG_NO_SETUP_TILECONFIG & l_gemm_flags) != 0)) ) {
+    return NULL;
   }
 
   /* use the XGEMM ABI which utilizes an arg struct */
@@ -3351,7 +3435,7 @@ LIBXS_API libxs_gemmfunction libxs_dispatch_brgemm_v2( const libxs_gemm_shape ge
 }
 
 
-LIBXS_API libxs_gemmfunction_ext libxs_dispatch_brgemm_ext_v2( const libxs_gemm_shape gemm_shape, const libxs_bitfield gemm_flags,
+LIBXS_API libxs_gemmfunction_ext libxs_dispatch_brgemm_ext( const libxs_gemm_shape gemm_shape, const libxs_bitfield gemm_flags,
                                                                   const libxs_bitfield prefetch_flags, const libxs_gemm_batch_reduce_config brgemm_config,
                                                                   const libxs_gemm_ext_unary_argops unary_argops, const libxs_gemm_ext_binary_postops binary_postops ) {
   int l_gemm_flags = (int)gemm_flags;
@@ -3360,7 +3444,14 @@ LIBXS_API libxs_gemmfunction_ext libxs_dispatch_brgemm_ext_v2( const libxs_gemm_
   libxs_gemm_descriptor *desc = NULL;
 
   /* TODO: some checks */
+#if 0
   if ( gemm_shape.a_in_type != gemm_shape.b_in_type ) {
+    return NULL;
+  }
+#endif
+  /* if we try to hoist tileconfig, this call should return NULL */
+  if ( (((LIBXS_GEMM_FLAG_NO_RESET_TILECONFIG & l_gemm_flags) != 0) && ((LIBXS_GEMM_FLAG_NO_SETUP_TILECONFIG & l_gemm_flags) == 0)) ||
+       (((LIBXS_GEMM_FLAG_NO_RESET_TILECONFIG & l_gemm_flags) == 0) && ((LIBXS_GEMM_FLAG_NO_SETUP_TILECONFIG & l_gemm_flags) != 0)) ) {
     return NULL;
   }
 
@@ -3519,7 +3610,7 @@ LIBXS_API libxs_meltw_ternary_shape libxs_create_meltw_ternary_shape( const libx
 }
 
 
-LIBXS_API libxs_meltwfunction_unary libxs_dispatch_meltw_unary_v2( const libxs_meltw_unary_type unary_type, const libxs_meltw_unary_shape unary_shape, const libxs_bitfield unary_flags )
+LIBXS_API libxs_meltwfunction_unary libxs_dispatch_meltw_unary( const libxs_meltw_unary_type unary_type, const libxs_meltw_unary_shape unary_shape, const libxs_bitfield unary_flags )
 {
   libxs_descriptor_blob blob;
   const libxs_meltw_descriptor *const desc = libxs_meltw_descriptor_init2(&blob,
@@ -3533,7 +3624,7 @@ LIBXS_API libxs_meltwfunction_unary libxs_dispatch_meltw_unary_v2( const libxs_m
 }
 
 
-LIBXS_API libxs_meltwfunction_binary libxs_dispatch_meltw_binary_v2( const libxs_meltw_binary_type binary_type, const libxs_meltw_binary_shape binary_shape, const libxs_bitfield binary_flags )
+LIBXS_API libxs_meltwfunction_binary libxs_dispatch_meltw_binary( const libxs_meltw_binary_type binary_type, const libxs_meltw_binary_shape binary_shape, const libxs_bitfield binary_flags )
 {
   libxs_descriptor_blob blob;
   const libxs_meltw_descriptor *const desc = libxs_meltw_descriptor_init2(&blob,
@@ -3547,7 +3638,7 @@ LIBXS_API libxs_meltwfunction_binary libxs_dispatch_meltw_binary_v2( const libxs
 }
 
 
-LIBXS_API libxs_meltwfunction_ternary libxs_dispatch_meltw_ternary_v2( const libxs_meltw_ternary_type ternary_type, const libxs_meltw_ternary_shape ternary_shape, const libxs_bitfield ternary_flags )
+LIBXS_API libxs_meltwfunction_ternary libxs_dispatch_meltw_ternary( const libxs_meltw_ternary_type ternary_type, const libxs_meltw_ternary_shape ternary_shape, const libxs_bitfield ternary_flags )
 {
   libxs_descriptor_blob blob;
   const libxs_meltw_descriptor *const desc = libxs_meltw_descriptor_init2(&blob,
@@ -3561,8 +3652,8 @@ LIBXS_API libxs_meltwfunction_ternary libxs_dispatch_meltw_ternary_v2( const lib
 }
 
 
-LIBXS_API libxs_matrix_eqn_function libxs_dispatch_matrix_eqn_desc( const libxs_meqn_descriptor* descriptor ) {
-  libxs_matrix_eqn_function result;
+LIBXS_API libxs_meqn_function libxs_dispatch_meqn_desc( const libxs_meqn_descriptor* descriptor ) {
+  libxs_meqn_function result;
   LIBXS_INIT /* verbosity */
 #if !defined(LIBXS_UNPACKED) /* CCE/Classic */
   LIBXS_ASSERT((sizeof(*descriptor) + sizeof(libxs_descriptor_kind)) <= (LIBXS_DESCRIPTOR_MAXSIZE));
@@ -3570,7 +3661,7 @@ LIBXS_API libxs_matrix_eqn_function libxs_dispatch_matrix_eqn_desc( const libxs_
   if (NULL != descriptor) {
     libxs_descriptor wrap /*= { 0 }*/;
     /* check if equation is ready for JIT */
-    if (0 == libxs_matrix_eqn_is_ready_for_jit( descriptor->eqn_idx)) {
+    if (0 == libxs_meqn_is_ready_for_jit( descriptor->eqn_idx)) {
 #if defined(LIBXS_UNPACKED) /* CCE/Classic */
       LIBXS_MEMZERO127(&wrap);
 #endif
@@ -3585,7 +3676,7 @@ LIBXS_API libxs_matrix_eqn_function libxs_dispatch_matrix_eqn_desc( const libxs_
 }
 
 
-LIBXS_API libxs_matrix_eqn_function libxs_dispatch_matrix_eqn_v2(
+LIBXS_API libxs_meqn_function libxs_dispatch_meqn(
   const libxs_blasint idx, const libxs_meqn_arg_shape out_shape ) {
   libxs_descriptor_blob blob;
   const libxs_meqn_descriptor *const desc = libxs_meqn_descriptor_init(&blob,
@@ -3596,11 +3687,11 @@ LIBXS_API libxs_matrix_eqn_function libxs_dispatch_matrix_eqn_v2(
     return NULL;
   }
 
-  return libxs_dispatch_matrix_eqn_desc(desc);
+  return libxs_dispatch_meqn_desc(desc);
 }
 
 
-LIBXS_API libxs_gemmfunction libxs_create_packed_spgemm_csr_v2(
+LIBXS_API libxs_gemmfunction libxs_create_packed_spgemm_csr(
   const libxs_gemm_shape gemm_shape, const libxs_bitfield gemm_flags, const libxs_bitfield prefetch_flags, const libxs_blasint packed_width,
   const unsigned int* row_ptr, const unsigned int* column_idx, const void* values)
 {
@@ -3643,7 +3734,7 @@ LIBXS_API libxs_gemmfunction libxs_create_packed_spgemm_csr_v2(
 }
 
 
-LIBXS_API libxs_gemmfunction libxs_create_packed_spgemm_csc_v2(
+LIBXS_API libxs_gemmfunction libxs_create_packed_spgemm_csc(
   const libxs_gemm_shape gemm_shape, const libxs_bitfield gemm_flags, const libxs_bitfield prefetch_flags, const libxs_blasint packed_width,
   const unsigned int* column_ptr, const unsigned int* row_idx, const void* values)
 {
@@ -3704,6 +3795,11 @@ LIBXS_API libxs_gemmfunction libxs_create_packed_spgemm_bcsc(
   if ( gemm_shape.a_in_type != gemm_shape.b_in_type ) {
     return NULL;
   }
+  /* if we try to hoist tileconfig, this call should return NULL */
+  if ( (((LIBXS_GEMM_FLAG_NO_RESET_TILECONFIG & l_gemm_flags) != 0) && ((LIBXS_GEMM_FLAG_NO_SETUP_TILECONFIG & l_gemm_flags) == 0)) ||
+       (((LIBXS_GEMM_FLAG_NO_RESET_TILECONFIG & l_gemm_flags) == 0) && ((LIBXS_GEMM_FLAG_NO_SETUP_TILECONFIG & l_gemm_flags) != 0)) ) {
+    return NULL;
+  }
 
   /* use the XGEMM ABI which utilizes an arg struct */
   l_gemm_flags |= LIBXS_GEMM_FLAG_USE_XGEMM_ABI;
@@ -3724,6 +3820,51 @@ LIBXS_API libxs_gemmfunction libxs_create_packed_spgemm_bcsc(
   libxs_build(&request, LIBXS_CAPACITY_REGISTRY/*not managed*/, &result);
 
   return result.xgemm.gemm;
+}
+
+LIBXS_API libxs_tilecfgfunction libxs_create_tilecfg_packed_spgemm_bcsc(const libxs_gemm_shape gemm_shape, const libxs_bitfield gemm_flags, const libxs_spgemm_config spgemm_config)
+{
+  int l_gemm_flags = (int)gemm_flags;
+  const libxs_blasint packed_width = spgemm_config.packed_width;
+  const libxs_blasint bk = spgemm_config.bk;
+  const libxs_blasint bn = spgemm_config.bn;
+
+  libxs_pspgemm_bcsc_descriptor pspgemm_bcsc /*= { 0 }*/;
+  libxs_build_request request /*= { 0 }*/;
+  libxs_descriptor_blob blob;
+  libxs_gemm_descriptor *desc = NULL;
+  libxs_code_pointer result = { 0 };
+  LIBXS_INIT
+
+  /* TODO: some checks */
+  if ( gemm_shape.a_in_type != gemm_shape.b_in_type ) {
+    return NULL;
+  }
+  /* if we try to hoist tileconfig, this call should return NULL */
+  if ( (((LIBXS_GEMM_FLAG_NO_RESET_TILECONFIG & l_gemm_flags) != 0) && ((LIBXS_GEMM_FLAG_NO_SETUP_TILECONFIG & l_gemm_flags) != 0)) ||
+       (((LIBXS_GEMM_FLAG_NO_RESET_TILECONFIG & l_gemm_flags) == 0) && ((LIBXS_GEMM_FLAG_NO_SETUP_TILECONFIG & l_gemm_flags) == 0)) ) {
+    return NULL;
+  }
+
+  /* use the XGEMM ABI which utilizes an arg struct */
+  l_gemm_flags |= LIBXS_GEMM_FLAG_USE_XGEMM_ABI;
+
+  /* build descriptor */
+  desc = libxs_gemm_descriptor_init(&blob, gemm_shape.a_in_type,
+    gemm_shape.b_in_type, gemm_shape.comp_type, gemm_shape.out_type,
+    gemm_shape.m, gemm_shape.n, gemm_shape.k,
+    gemm_shape.lda, gemm_shape.ldb, gemm_shape.ldc,
+    l_gemm_flags, libxs_get_gemm_prefetch(0));
+
+  pspgemm_bcsc.gemm = desc;
+  pspgemm_bcsc.packed_width = packed_width;
+  pspgemm_bcsc.bk = bk;
+  pspgemm_bcsc.bn = bn;
+  request.descriptor.pspgemm_bcsc = &pspgemm_bcsc;
+  request.kind = LIBXS_BUILD_KIND_PSPGEMM_BCSC;
+  libxs_build(&request, LIBXS_CAPACITY_REGISTRY/*not managed*/, &result);
+
+  return result.xgemm.tilecfg;
 }
 
 LIBXS_API libxs_gemmfunction libxs_create_packed_gemm( const libxs_gemm_shape gemm_shape,
@@ -3761,7 +3902,7 @@ LIBXS_API libxs_gemmfunction libxs_create_packed_gemm( const libxs_gemm_shape ge
   return result.xgemm.gemm;
 }
 
-LIBXS_API libxs_gemmfunction libxs_create_packed_gemm_ac_rm_v2( const libxs_gemm_shape gemm_shape,
+LIBXS_API libxs_gemmfunction libxs_create_packed_gemm_ac_rm( const libxs_gemm_shape gemm_shape,
   const libxs_bitfield gemm_flags, const libxs_bitfield prefetch_flags, const libxs_blasint packed_width )
 {
   int l_gemm_flags = (int)gemm_flags;
@@ -3796,7 +3937,7 @@ LIBXS_API libxs_gemmfunction libxs_create_packed_gemm_ac_rm_v2( const libxs_gemm
   return result.xgemm.gemm;
 }
 
-LIBXS_API libxs_gemmfunction libxs_create_packed_gemm_bc_rm_v2( const libxs_gemm_shape gemm_shape,
+LIBXS_API libxs_gemmfunction libxs_create_packed_gemm_bc_rm( const libxs_gemm_shape gemm_shape,
   const libxs_bitfield gemm_flags, const libxs_bitfield prefetch_flags, const libxs_blasint packed_width )
 {
   int l_gemm_flags = (int)gemm_flags;
@@ -3832,7 +3973,7 @@ LIBXS_API libxs_gemmfunction libxs_create_packed_gemm_bc_rm_v2( const libxs_gemm
 }
 
 
-LIBXS_API libxs_gemmfunction libxs_create_spgemm_csr_areg_v2( const libxs_gemm_shape gemm_shape,
+LIBXS_API libxs_gemmfunction libxs_create_spgemm_csr_areg( const libxs_gemm_shape gemm_shape,
   const libxs_bitfield gemm_flags, const libxs_bitfield prefetch_flags,
   const libxs_blasint max_N, const unsigned int* row_ptr, const unsigned int* column_idx, const double* values )
 {
