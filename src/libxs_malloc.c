@@ -403,7 +403,7 @@ LIBXS_APIVAR_DEFINE(size_t internal_malloc_local_cur);
 LIBXS_APIVAR_DEFINE(int internal_malloc_recursive);
 /** 0: regular, 1/odd: intercept/scratch, otherwise: all/scratch */
 LIBXS_APIVAR_DEFINE(int internal_malloc_kind);
-LIBXS_APIVAR_DEFINE(volatile int internal_pmallocs[LIBXS_MALLOC_NLOCKS]);
+LIBXS_APIVAR_DEFINE(volatile int internal_malloc_plocks[LIBXS_MALLOC_NLOCKS]);
 #if defined(LIBXS_MALLOC_HOOK) && defined(LIBXS_MALLOC) && (0 != LIBXS_MALLOC)
 /* Interval of bytes that permit interception (internal_malloc_kind) */
 LIBXS_APIVAR_DEFINE(size_t internal_malloc_limit[2]);
@@ -2663,12 +2663,13 @@ LIBXS_API int libxs_get_malloc(size_t* lo, size_t* hi)
 
 LIBXS_API void libxs_pmalloc_init(size_t size, size_t* num, void* pool[], void* storage)
 {
+  const unsigned int hash = LIBXS_CRCPTR(LIBXS_MALLOC_SEED, pool);
   char* p = (char*)storage;
   volatile int* lock;
   size_t n, i = 0;
   LIBXS_ASSERT(0 < size && NULL != num && NULL != pool && NULL != storage);
   LIBXS_INIT /* CRC-facility must be initialized upfront */
-  lock = internal_pmallocs + LIBXS_MOD2(LIBXS_CRCPTR(LIBXS_MALLOC_SEED, pool), LIBXS_MALLOC_NLOCKS);
+  lock = internal_malloc_plocks + LIBXS_MOD2(hash, LIBXS_MALLOC_NLOCKS);
   LIBXS_ATOMIC_ACQUIRE(lock, LIBXS_SYNC_NPAUSE, LIBXS_ATOMIC_SEQ_CST);
   for (n = *num; i < n; ++i, p += size) pool[i] = p;
   LIBXS_ATOMIC_RELEASE(lock, LIBXS_ATOMIC_SEQ_CST);
@@ -2678,7 +2679,7 @@ LIBXS_API void libxs_pmalloc_init(size_t size, size_t* num, void* pool[], void* 
 LIBXS_API void* libxs_pmalloc(void* pool[], size_t* i)
 {
   const unsigned int hash = LIBXS_CRCPTR(LIBXS_MALLOC_SEED, pool);
-  volatile int *const lock = internal_pmallocs + LIBXS_MOD2(hash, LIBXS_MALLOC_NLOCKS);
+  volatile int *const lock = internal_malloc_plocks + LIBXS_MOD2(hash, LIBXS_MALLOC_NLOCKS);
   void* pointer;
   LIBXS_ASSERT(NULL != pool && NULL != i);
   LIBXS_ATOMIC_ACQUIRE(lock, LIBXS_SYNC_NPAUSE, LIBXS_ATOMIC_SEQ_CST);
@@ -2695,7 +2696,7 @@ LIBXS_API void libxs_pfree(const void* pointer, void* pool[], size_t* i)
   LIBXS_ASSERT(NULL != pool && NULL != i);
   if (NULL != pointer) {
     const unsigned int hash = LIBXS_CRCPTR(LIBXS_MALLOC_SEED, pool);
-    volatile int *const lock = internal_pmallocs + LIBXS_MOD2(hash, LIBXS_MALLOC_NLOCKS);
+    volatile int *const lock = internal_malloc_plocks + LIBXS_MOD2(hash, LIBXS_MALLOC_NLOCKS);
     LIBXS_ATOMIC_ACQUIRE(lock, LIBXS_SYNC_NPAUSE, LIBXS_ATOMIC_SEQ_CST);
     LIBXS_VALUE_ASSIGN(pool[*i], pointer); ++(*i);
     LIBXS_ATOMIC_RELEASE(lock, LIBXS_ATOMIC_SEQ_CST);
