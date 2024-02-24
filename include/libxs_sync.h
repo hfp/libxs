@@ -256,10 +256,10 @@ typedef enum libxs_atomic_kind {
 #   define LIBXS_ATOMIC_TRYLOCK(DST_PTR, KIND) /* matches bit-width of LIBXS_ATOMIC_LOCKTYPE */ \
             (0 == LIBXS_ATOMIC(LIBXS_ATOMIC_FETCH_OR, 8)(DST_PTR, 1, KIND))
 # endif
-# define LIBXS_ATOMIC_ACQUIRE(DST_PTR, NPAUSE, KIND) \
+# define LIBXS_ATOMIC_ACQUIRE(DST_PTR, NPAUSE, KIND) do { \
           LIBXS_ASSERT(0 == LIBXS_MOD2((uintptr_t)(DST_PTR), 4)); \
           while (!LIBXS_ATOMIC_TRYLOCK(DST_PTR, KIND)) LIBXS_SYNC_CYCLE(DST_PTR, 0/*free*/, NPAUSE); \
-          LIBXS_ASSERT_MSG(0 != *(DST_PTR), "LIBXS_ATOMIC_ACQUIRE")
+          LIBXS_ASSERT_MSG(0 != *(DST_PTR), "LIBXS_ATOMIC_ACQUIRE"); } while(0)
 # if !defined(LIBXS_SYNC_NPAUSE)
 #   define LIBXS_SYNC_NPAUSE 4096
 # endif
@@ -627,7 +627,7 @@ typedef enum libxs_atomic_kind {
 #     define LIBXS_LOCK_TYPE_ISPOD_spin 1
 #     define LIBXS_LOCK_TYPE_ISRW_spin 0
 #     define LIBXS_LOCK_TYPE_spin volatile LIBXS_ATOMIC_LOCKTYPE
-#     define LIBXS_LOCK_INIT_spin(LOCK, ATTR) { LIBXS_UNUSED(ATTR); (*(LOCK) = 0); }
+#     define LIBXS_LOCK_INIT_spin(LOCK, ATTR) do { LIBXS_UNUSED(ATTR); (*(LOCK) = 0); } while(0)
 #     define LIBXS_LOCK_DESTROY_spin(LOCK) LIBXS_UNUSED(LOCK)
 #     define LIBXS_LOCK_TRYLOCK_spin(LOCK) (LIBXS_LOCK_ACQUIRED_spin + !LIBXS_ATOMIC_TRYLOCK(LOCK, LIBXS_ATOMIC_RELAXED))
 #     define LIBXS_LOCK_ACQUIRE_spin(LOCK) LIBXS_ATOMIC_ACQUIRE(LOCK, LIBXS_SYNC_NPAUSE, LIBXS_ATOMIC_RELAXED)
@@ -644,7 +644,7 @@ typedef enum libxs_atomic_kind {
 #     define LIBXS_LOCK_TYPE_ISPOD_mutex 1
 #     define LIBXS_LOCK_TYPE_ISRW_mutex 0
 #     define LIBXS_LOCK_TYPE_mutex volatile LIBXS_ATOMIC_LOCKTYPE
-#     define LIBXS_LOCK_INIT_mutex(LOCK, ATTR) { LIBXS_UNUSED(ATTR); (*(LOCK) = 0); }
+#     define LIBXS_LOCK_INIT_mutex(LOCK, ATTR) do { LIBXS_UNUSED(ATTR); (*(LOCK) = 0); } while(0)
 #     define LIBXS_LOCK_DESTROY_mutex(LOCK) LIBXS_UNUSED(LOCK)
 #     define LIBXS_LOCK_TRYLOCK_mutex(LOCK) (LIBXS_LOCK_ACQUIRED_mutex + !LIBXS_ATOMIC_TRYLOCK(LOCK, LIBXS_ATOMIC_RELAXED))
 #     define LIBXS_LOCK_ACQUIRE_mutex(LOCK) LIBXS_ATOMIC_ACQUIRE(LOCK, LIBXS_SYNC_NPAUSE, LIBXS_ATOMIC_RELAXED)
@@ -661,7 +661,7 @@ typedef enum libxs_atomic_kind {
 #     define LIBXS_LOCK_TYPE_ISPOD_rwlock 1
 #     define LIBXS_LOCK_TYPE_ISRW_rwlock 0
 #     define LIBXS_LOCK_TYPE_rwlock volatile LIBXS_ATOMIC_LOCKTYPE
-#     define LIBXS_LOCK_INIT_rwlock(LOCK, ATTR) { LIBXS_UNUSED(ATTR); (*(LOCK) = 0); }
+#     define LIBXS_LOCK_INIT_rwlock(LOCK, ATTR) do { LIBXS_UNUSED(ATTR); (*(LOCK) = 0); } while(0)
 #     define LIBXS_LOCK_DESTROY_rwlock(LOCK) LIBXS_UNUSED(LOCK)
 #     define LIBXS_LOCK_TRYLOCK_rwlock(LOCK) (LIBXS_LOCK_ACQUIRED_rwlock + !LIBXS_ATOMIC_TRYLOCK(LOCK, LIBXS_ATOMIC_RELAXED))
 #     define LIBXS_LOCK_ACQUIRE_rwlock(LOCK) LIBXS_ATOMIC_ACQUIRE(LOCK, LIBXS_SYNC_NPAUSE, LIBXS_ATOMIC_RELAXED)
