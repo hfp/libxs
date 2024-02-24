@@ -56,7 +56,7 @@ int test(libxs_blasint m, libxs_blasint n, libxs_blasint k)
 #if defined(_OPENMP) && !defined(CHECK_PARALLEL_JIT)
 # pragma omp single
 #endif
-  kernel.gemm = libxs_dispatch_gemm_v2(gemm_shape, flags, LIBXS_GEMM_PREFETCH_NONE);
+  kernel.gemm = libxs_dispatch_gemm(gemm_shape, flags, LIBXS_GEMM_PREFETCH_NONE);
   if (NULL != kernel.ptr_const) {
     libxs_mmkernel_info info;
     result = libxs_get_mmkernel_info(kernel, &info);
@@ -179,7 +179,7 @@ int main(void)
         m, n, k, m/*lda*/, k/*ldb*/, m/*ldc*/,
         LIBXS_DATATYPE(ITYPE), LIBXS_DATATYPE(ITYPE),
         LIBXS_DATATYPE(OTYPE), LIBXS_DATATYPE(OTYPE));
-      f[i].gemm = libxs_dispatch_gemm_v2(gemm_shape, flags, prefetch);
+      f[i].gemm = libxs_dispatch_gemm(gemm_shape, flags, prefetch);
     }
   }
 
@@ -197,7 +197,7 @@ int main(void)
         LIBXS_DATATYPE(ITYPE), LIBXS_DATATYPE(ITYPE),
         LIBXS_DATATYPE(OTYPE), LIBXS_DATATYPE(OTYPE));
 
-      fi.gemm = libxs_dispatch_gemm_v2(gemm_shape, flags, prefetch);
+      fi.gemm = libxs_dispatch_gemm(gemm_shape, flags, prefetch);
       if (NULL != fi.ptr_const && NULL != f[i].ptr_const) {
         if (fi.ptr_const != f[i].ptr_const) {
           libxs_kernel_info a_info, b_info;

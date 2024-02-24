@@ -70,9 +70,11 @@ LIBXS_API unsigned int libxs_cpuid_arm_mmla_gemm_pack_b_to_vnnit_on_stack(void);
  * Might be needed to overwrite BFMMLA with BFDOT for performance study.
  */
 LIBXS_API int libxs_cpuid_arm_use_bfdot(void);
+LIBXS_API int libxs_cpuid_x86_use_high_prec_eltwise_approx(void);
 LIBXS_API int libxs_cpuid_x86_amx_gemm_enforce_mx1_tile_blocking(void);
 LIBXS_API unsigned int libxs_cpuid_x86_srf_gemm_set_n_max_blocking(void);
 LIBXS_API int libxs_cpuid_arm_use_i8dot(void);
+LIBXS_API int libxs_cpuid_x86_bf8_gemm_via_stack(void);
 
 /**
  * return the VNNI/Dot-product/Matmul blocking for a specific

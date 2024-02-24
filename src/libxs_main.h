@@ -187,18 +187,7 @@
 # define LIBXS_GEMM_DESCRIPTOR_DIM_CHECK(M, N, K)
 #endif
 
-/** TODO double check it's save to not set the descriptor to zero
- *we saw issues with re-jit due to different hash */
-#if 0
-#if defined(LIBXS_UNPACKED) || !defined(NDEBUG)
-# define LIBXS_DESCRIPTOR_CLEAR_AUX(DST, SIZE, FLAGS) LIBXS_MEMSET127(DST, 0, SIZE)
-#else
-# define LIBXS_DESCRIPTOR_CLEAR_AUX(DST, SIZE, FLAGS) \
-    /*if (LIBXS_GEMM_FLAG_DESC_ISBIG <= (FLAGS)) LIBXS_MEMSET127(DST, 0, SIZE)*/
-#endif
-#else
-# define LIBXS_DESCRIPTOR_CLEAR_AUX(DST, SIZE, FLAGS) LIBXS_MEMSET127(DST, 0, SIZE)
-#endif
+#define LIBXS_DESCRIPTOR_CLEAR_AUX(DST, SIZE, FLAGS) LIBXS_MEMSET127(DST, 0, SIZE)
 #define LIBXS_DESCRIPTOR_CLEAR(BLOB) \
   LIBXS_ASSERT((LIBXS_DESCRIPTOR_MAXSIZE) == sizeof(*(BLOB))); \
   LIBXS_DESCRIPTOR_CLEAR_AUX(BLOB, LIBXS_DESCRIPTOR_MAXSIZE, 0)
@@ -349,7 +338,7 @@ LIBXS_EXTERN_C typedef union libxs_code_pointer {
   intptr_t ival;
   libxs_xmmfunction xgemm; /* GEMM: smm, dmm, wimm, or void-function */
   libxs_xmeltwfunction xmateltw;
-  libxs_matrix_eqn_function xmateqn;
+  libxs_meqn_function xmateqn;
 } libxs_code_pointer;
 
 struct libxs_fsspmdm {

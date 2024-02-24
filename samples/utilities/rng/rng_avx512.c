@@ -7,6 +7,7 @@
 * SPDX-License-Identifier: BSD-3-Clause                                       *
 ******************************************************************************/
 #include <libxs.h>
+#include <libxs_utils.h>
 #include <libxs_intrinsics_x86.h>
 #include <stdio.h>
 
