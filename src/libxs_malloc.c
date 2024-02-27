@@ -2663,12 +2663,13 @@ LIBXS_API int libxs_get_malloc(size_t* lo, size_t* hi)
 
 LIBXS_API void libxs_pmalloc_init(size_t size, size_t* num, void* pool[], void* storage)
 {
-  const unsigned int hash = LIBXS_CRCPTR(LIBXS_MALLOC_SEED, pool);
   char* p = (char*)storage;
   volatile int* lock;
+  unsigned int hash;
   size_t n, i = 0;
   LIBXS_ASSERT(0 < size && NULL != num && NULL != pool && NULL != storage);
   LIBXS_INIT /* CRC-facility must be initialized upfront */
+  hash = LIBXS_CRCPTR(LIBXS_MALLOC_SEED, pool); /* after LIBXS_INIT */
   lock = internal_malloc_plocks + LIBXS_MOD2(hash, LIBXS_MALLOC_NLOCKS);
   LIBXS_ATOMIC_ACQUIRE(lock, LIBXS_SYNC_NPAUSE, LIBXS_ATOMIC_SEQ_CST);
   for (n = *num; i < n; ++i, p += size) pool[i] = p;
