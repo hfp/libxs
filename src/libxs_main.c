@@ -2322,18 +2322,17 @@ LIBXS_API_INTERN int libxs_build(const libxs_build_request* request, unsigned in
           char tname_print[16];
           if (strcmp(tname, "i8i32") == 0) {
             if (((LIBXS_GEMM_FLAG_A_UNSIGNED & request->descriptor.pspgemm_bcsc->gemm->flags) > 0) && ((LIBXS_GEMM_FLAG_B_UNSIGNED & request->descriptor.pspgemm_bcsc->gemm->flags) == 0)) {
-              sprintf(tname_print, "u8s8s32");
+              LIBXS_SNPRINTF(tname_print, sizeof(tname_print), "u8s8s32");
             } else if (((LIBXS_GEMM_FLAG_A_UNSIGNED & request->descriptor.pspgemm_bcsc->gemm->flags) == 0) && ((LIBXS_GEMM_FLAG_B_UNSIGNED & request->descriptor.pspgemm_bcsc->gemm->flags) > 0)) {
-              sprintf(tname_print, "s8u8s32");
+              LIBXS_SNPRINTF(tname_print, sizeof(tname_print), "s8u8s32");
             } else if (((LIBXS_GEMM_FLAG_A_UNSIGNED & request->descriptor.pspgemm_bcsc->gemm->flags) > 0) && ((LIBXS_GEMM_FLAG_B_UNSIGNED & request->descriptor.pspgemm_bcsc->gemm->flags) > 0)) {
-              sprintf(tname_print, "u8u8u32");
+              LIBXS_SNPRINTF(tname_print, sizeof(tname_print), "u8u8u32");
             } else {
-              sprintf(tname_print, "s8s8s32");
+              LIBXS_SNPRINTF(tname_print, sizeof(tname_print), "s8s8s32");
             }
           } else {
-            sprintf(tname_print, "%s", tname);
+            LIBXS_SNPRINTF(tname_print, sizeof(tname_print), "%s", tname);
           }
-
           /* query tileconfig options */
           if (((LIBXS_GEMM_FLAG_NO_RESET_TILECONFIG & request->descriptor.pspgemm_bcsc->gemm->flags) != 0) &&
               ((LIBXS_GEMM_FLAG_NO_SETUP_TILECONFIG & request->descriptor.pspgemm_bcsc->gemm->flags) == 0) ) {
