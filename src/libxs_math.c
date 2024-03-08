@@ -448,7 +448,7 @@ LIBXS_API void libxs_matdiff_reduce(libxs_matdiff_info* output, const libxs_matd
     if (output->min_tst >= input->min_tst) {
       output->min_tst = input->min_tst;
     }
-    if (epsout < epsinp) {
+    if (epsout <= epsinp) {
       output->rsq = input->rsq;
       output->v_ref = input->v_ref;
       output->v_tst = input->v_tst;
