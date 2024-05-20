@@ -821,13 +821,14 @@ ifneq (,$(strip $(LIBJITPROFILING)))
 $(LIBJITPROFILING): $(BLDDIR)/jitprofiling/.make
 	@$(CP) $(VTUNEROOT)/lib64/libjitprofiling.$(SLIBEXT) $(BLDDIR)/jitprofiling
 	@cd $(BLDDIR)/jitprofiling; $(AR) x libjitprofiling.$(SLIBEXT)
+    JITPROFILINGOBJ := $(BLDDIR)/jitprofiling/jitprofiling.o
 endif
 
 .PHONY: clib
 clib: $(OUTDIR)/libxs-static.pc $(OUTDIR)/libxs-shared.pc
 ifeq (,$(filter-out 0 2,$(BUILD)))
 $(OUTDIR)/libxs.$(SLIBEXT): $(OUTDIR)/.make $(OBJFILES_LIB) $(OBJFILES_GEN_LIB) $(KRNOBJS) $(LIBJITPROFILING)
-	$(MAKE_AR) $(OUTDIR)/libxs.$(SLIBEXT) $(call tailwords,$^)
+	$(MAKE_AR) $(OUTDIR)/libxs.$(SLIBEXT) $(call tailwords,$^) $(JITPROFILINGOBJ)
 else
 .PHONY: $(OUTDIR)/libxs.$(SLIBEXT)
 endif
