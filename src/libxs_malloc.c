@@ -2269,7 +2269,7 @@ LIBXS_API_INTERN int libxs_malloc_attrib(void** memory, int flags, const char* n
         LIBXS_ASSERT(0 != (LIBXS_MALLOC_FLAG_X & flags));
         if (NULL != name && '\0' != *name) { /* profiler support requested */
           if (0 > libxs_verbosity) { /* avoid dump if just the profiler is enabled */
-            LIBXS_EXPECT(EXIT_SUCCESS == libxs_dump("LIBXS-JIT-DUMP", name, code_ptr,
+            LIBXS_EXPECT_DEBUG(EXIT_SUCCESS == libxs_dump("LIBXS-JIT-DUMP", name, code_ptr,
               /* dump executable code without constant data (apply_size vs info_size) */
               apply_size, 1/*unique*/, 0/*overwrite*/));
           }
