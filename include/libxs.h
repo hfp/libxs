@@ -182,8 +182,6 @@ LIBXS_API void libxs_gemm_batch_task(libxs_datatype iprec, libxs_datatype oprec,
    * then the internal synchronization is omitted.
    */
   libxs_blasint batchsize,
-  /** If non-zero, indexes (or matrix addresses) are checked upfront (entire batch). */
-  int batchcheck,
   /** Task-ID (TID), and number of tasks. */
   /*unsigned*/int tid, /*unsigned*/int ntasks);
 
@@ -194,7 +192,7 @@ LIBXS_API void libxs_gemm_batch(libxs_datatype iprec, libxs_datatype oprec,
                      const void* b, const libxs_blasint* ldb, const libxs_blasint stride_b[],
   const void* beta,        void* c, const libxs_blasint* ldc, const libxs_blasint stride_c[],
   libxs_blasint index_stride, libxs_blasint index_base,
-  libxs_blasint batchsize, int batchcheck);
+  libxs_blasint batchsize);
 
 /** Process a series of SMMs (batch) with OpenMP (libxsext). See also libxs_gemm_batch_task. */
 LIBXS_APIEXT void libxs_gemm_batch_omp(libxs_datatype iprec, libxs_datatype oprec,
@@ -203,7 +201,7 @@ LIBXS_APIEXT void libxs_gemm_batch_omp(libxs_datatype iprec, libxs_datatype opre
                      const void* b, const libxs_blasint* ldb, const libxs_blasint stride_b[],
   const void* beta,        void* c, const libxs_blasint* ldc, const libxs_blasint stride_c[],
   libxs_blasint index_stride, libxs_blasint index_base,
-  libxs_blasint batchsize, int batchcheck);
+  libxs_blasint batchsize);
 
 /** Process a series of SMMs (batch) like gemm_batch_strided (LAPACK/BLAS). */
 LIBXS_API void libxs_gemm_strided(libxs_datatype iprec, libxs_datatype oprec,
@@ -231,7 +229,7 @@ LIBXS_API void libxs_gemm_groups(
   const void* alpha_array, const void* a_array[], const libxs_blasint lda_array[],
                            const void* b_array[], const libxs_blasint ldb_array[],
   const void* beta_array,        void* c_array[], const libxs_blasint ldc_array[],
-  const libxs_blasint ngroups, const libxs_blasint batchsize[], int batchcheck);
+  const libxs_blasint ngroups, const libxs_blasint batchsize[]);
 
 /**
  * Process a series of SMMs (batch) like gemm_batch (LAPACK/BLAS) with OpenMP (libxsext).
@@ -243,7 +241,7 @@ LIBXS_APIEXT void libxs_gemm_groups_omp(
   const void* alpha_array, const void* a_array[], const libxs_blasint lda_array[],
                            const void* b_array[], const libxs_blasint ldb_array[],
   const void* beta_array,        void* c_array[], const libxs_blasint ldc_array[],
-  const libxs_blasint ngroups, const libxs_blasint batchsize[], int batchcheck);
+  const libxs_blasint ngroups, const libxs_blasint batchsize[]);
 
 /** Code generation routine for matrix-eltwise using a descriptor. */
 LIBXS_API libxs_xmeltwfunction libxs_dispatch_meltw( const libxs_meltw_descriptor* descriptor );

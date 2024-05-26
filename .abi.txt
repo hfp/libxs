@@ -119,7 +119,6 @@ libxs_gcd
 libxs_gemm_batch
 libxs_gemm_batch_
 libxs_gemm_batch_blas
-libxs_gemm_batch_flags
 libxs_gemm_batch_kernel
 libxs_gemm_batch_omp
 libxs_gemm_batch_omp_
