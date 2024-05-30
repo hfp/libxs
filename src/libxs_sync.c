@@ -23,14 +23,6 @@
 # include <time.h>
 #endif
 
-#if !defined(LIBXS_SYNC_RWLOCK_BITS)
-# if defined(__MINGW32__)
-#   define LIBXS_SYNC_RWLOCK_BITS 32
-# else
-#   define LIBXS_SYNC_RWLOCK_BITS 16
-# endif
-#endif
-
 
 LIBXS_API unsigned int libxs_get_pid(void)
 {
