@@ -460,7 +460,12 @@ LIBXS_API void libxs_matdiff_reduce(libxs_matdiff_info* output, const libxs_matd
     output->avg_tst = 0.5 * (output->avg_tst + input->avg_tst);
     output->l1_ref += input->l1_ref;
     output->l1_tst += input->l1_tst;
-    ++output->r;
+    if (0 != output->r || 0 == input->r) {
+      ++output->r;
+    }
+    else {
+      output->r = input->r;
+    }
   }
   else {
     libxs_matdiff_clear(output);
