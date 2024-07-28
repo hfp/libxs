@@ -3230,7 +3230,7 @@ LIBXS_API libxs_gemm_shape libxs_create_gemm_shape( const libxs_blasint m, const
                                                           const libxs_datatype a_in_type, const libxs_datatype b_in_type, const libxs_datatype out_type, const libxs_datatype comp_type )
 {
   libxs_gemm_shape res /*= { 0 }*/;
-  LIBXS_ASSERT(m <= lda && k <= ldb && m <= ldc);
+
   res.m = m;
   res.n = n;
   res.k = k;
@@ -4256,8 +4256,9 @@ LIBXS_API void LIBXS_FSYMBOL(libxs_xmmdispatch2)(intptr_t* fn, const int* aprec,
     }
     LIBXS_PRAGMA_FORCEINLINE
     descriptor = libxs_gemm_descriptor_init(&blob, atype, btype, comptype, ctype, *m, nn, kk,
-      NULL != lda ? *lda : *m, NULL != ldb ? *ldb : kk, NULL != ldc ? *ldc : *m,
-      gemm_flags, gemm_prefetch);
+        NULL != lda ? *lda : (0 == (LIBXS_GEMM_FLAG_TRANS_A & gemm_flags) ? *m : kk),
+        NULL != ldb ? *ldb : (0 == (LIBXS_GEMM_FLAG_TRANS_B & gemm_flags) ? kk : nn),
+      *(NULL != ldc ? ldc : m), gemm_flags, gemm_prefetch);
 #if !defined(NDEBUG)
     if (NULL != descriptor)
 #endif
