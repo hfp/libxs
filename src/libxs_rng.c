@@ -270,9 +270,9 @@ LIBXS_API void libxs_gemm_print2(void* ostream,
   const int itransa = LIBXS_FLAGS & LIBXS_GEMM_FLAG_TRANS_A, itransb = LIBXS_FLAGS & LIBXS_GEMM_FLAG_TRANS_B;
   const char ctransa = (char)(NULL != transa ? (*transa) : (0 == itransa ? 'n' : 't'));
   const char ctransb = (char)(NULL != transb ? (*transb) : (0 == itransb ? 'n' : 't'));
-  const libxs_blasint ilda = (NULL != lda ? *lda : *m);
-  const libxs_blasint ildb = (NULL != ldb ? *ldb : kk);
-  const libxs_blasint ildc = (NULL != ldc ? *ldc : *m);
+  const libxs_blasint ilda = (NULL != lda ? *lda : (('n' == ctransa || 'N' == ctransa) ? *m : kk));
+  const libxs_blasint ildb = (NULL != ldb ? *ldb : (('n' == ctransb || 'N' == ctransb) ? kk : nn));
+  const libxs_blasint ildc = *(NULL != ldc ? ldc : m);
   libxs_mhd_elemtype mhd_elemtype = LIBXS_MHD_ELEMTYPE_UNKNOWN;
   char string_a[128] = "", string_b[128] = "", typeprefix = 0;
 
