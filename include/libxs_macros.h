@@ -792,6 +792,7 @@ LIBXS_PRAGMA_DIAG_POP()
 #define LIBXS_UP2(N, NPOT) LIBXS_LO2((N) + ((NPOT) - 1), NPOT)
 /** Examples: N+10%->UPF(N,1,10), N-10%->UPF(N,-1,10), N*90%->UPF(N,-1,10) */
 #define LIBXS_UPF(N, NOM, DEN) (((N) * ((DEN) + (NOM))) / (DEN))
+#define LIBXS_SIGN(A) (0 < (A) ? (1) : ( 0 == (A) ? (0) : (-1)))
 #define LIBXS_ABS(A) (0 <= (A) ? (A) : -(A))
 #define LIBXS_MIN(A, B) ((A) < (B) ? (A) : (B))
 #define LIBXS_MAX(A, B) ((A) < (B) ? (B) : (A))
