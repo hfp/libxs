@@ -19,7 +19,6 @@ libxs_blasint ii, jj;
 for (ii = 0; ii < nn; ++ii) {
   double comprj = 0, comptj = 0, compij = 0;
   double normrj = 0, normtj = 0, normij = 0;
-  double v0, v1;
 
   for (jj = 0; jj < mm; ++jj) {
 #if defined(LIBXS_MATDIFF_SHUFFLE)
@@ -57,13 +56,8 @@ for (ii = 0; ii < nn; ++ii) {
       /* maximum error relative to current value */
       if (info->linf_rel < dri) info->linf_rel = dri;
       /* sum of relative differences */
-      v0 = dri * dri;
-      if (inf > v0) {
-        v0 -= compd;
-        v1 = info->l2_rel + v0;
-        compd = (v1 - info->l2_rel) - v0;
-        info->l2_rel = v1;
-      }
+      LIBXS_PRAGMA_FORCEINLINE
+      libxs_kahan_sum(dri * dri, &info->l2_rel, &compd);
 
       /* row-wise sum of reference values with Kahan compensation */
       LIBXS_PRAGMA_FORCEINLINE
@@ -86,11 +80,8 @@ for (ii = 0; ii < nn; ++ii) {
       libxs_kahan_sum(ti * ti, &normft, &compft);
 
       /* Froebenius-norm of differences with Kahan compensation */
-      v0 = di * di;
-      if (inf > v0) {
-        LIBXS_PRAGMA_FORCEINLINE
-        libxs_kahan_sum(v0, &info->l2_abs, &compf);
-      }
+      LIBXS_PRAGMA_FORCEINLINE
+      libxs_kahan_sum(di * di, &info->l2_abs, &compf);
     }
     else { /* NaN */
       result_nan = ((LIBXS_NOTNAN(ri) && inf > ra) ? 1 : 2);
