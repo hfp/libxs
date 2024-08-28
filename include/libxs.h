@@ -468,7 +468,7 @@ public:
     const libxs_gemm_shape gemm_shape = libxs_create_gemm_shape(m, n, k, lda, ldb, ldc,
       libxs_datatype_enum<itype>::value, libxs_datatype_enum<itype>::value,
       libxs_datatype_enum<otype>::value, libxs_datatype_enum<otype>::value);
-    m_function = (LIBXS_GEMM_NO_BYPASS(flags, alpha, beta) ? libxs_dispatch_gemm(gemm_shape,
+    m_function = (LIBXS_GEMM_NO_BYPASS(gemm_shape, alpha, beta, flags) ? libxs_dispatch_gemm(gemm_shape,
       static_cast<libxs_bitfield>(flags | (LIBXS_NEQ(0, beta) ? 0 : LIBXS_GEMM_FLAG_BETA_0)),
       static_cast<libxs_bitfield>(prefetch)) : NULL);
   }
@@ -489,7 +489,7 @@ public:
     const libxs_gemm_shape gemm_shape = libxs_create_gemm_shape(m, n, k, lda, ldb, ldc,
       libxs_datatype_enum<itype>::value, libxs_datatype_enum<itype>::value,
       libxs_datatype_enum<otype>::value, libxs_datatype_enum<otype>::value);
-    m_function = (LIBXS_GEMM_NO_BYPASS(flags, alpha, beta) ? libxs_dispatch_gemm(gemm_shape,
+    m_function = (LIBXS_GEMM_NO_BYPASS(gemm_shape, alpha, beta, flags) ? libxs_dispatch_gemm(gemm_shape,
       static_cast<libxs_bitfield>(flags | (LIBXS_NEQ(0, beta) ? 0 : LIBXS_GEMM_FLAG_BETA_0)),
       static_cast<libxs_bitfield>(prefetch)) : NULL);
   }
