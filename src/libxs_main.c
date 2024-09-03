@@ -2183,12 +2183,12 @@ LIBXS_API_INTERN int libxs_build(const libxs_build_request* request, unsigned in
             kernabi = 0;
           }
           /* query A/B sign combinations */
-          if ( (LIBXS_GEMM_FLAG_A_UNSIGNED & request->descriptor.gemm->flags) > 1 ) {
-            typesigns = 1;
-          } else if ( (LIBXS_GEMM_FLAG_B_UNSIGNED & request->descriptor.gemm->flags) > 1 ) {
-            typesigns = 2;
-          } else if ( (LIBXS_GEMM_FLAG_AB_UNSIGNED & request->descriptor.gemm->flags) > 1 ) {
+          if ( (LIBXS_GEMM_FLAG_AB_UNSIGNED & request->descriptor.gemm->flags) == LIBXS_GEMM_FLAG_AB_UNSIGNED ) {
             typesigns = 3;
+          } else  if ( (LIBXS_GEMM_FLAG_A_UNSIGNED & request->descriptor.gemm->flags) == LIBXS_GEMM_FLAG_A_UNSIGNED ) {
+            typesigns = 1;
+          } else if ( (LIBXS_GEMM_FLAG_B_UNSIGNED & request->descriptor.gemm->flags) == LIBXS_GEMM_FLAG_B_UNSIGNED ) {
+            typesigns = 2;
           } else {
             typesigns = 0;
           }
