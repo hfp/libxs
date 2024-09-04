@@ -29,6 +29,7 @@ int main(void)
   const unsigned int seed = 1975, size = 2507;
   const unsigned int n512 = 512 / (8 * sizeof(ELEMTYPE));
   unsigned int s = LIBXS_UP(size, n512), i, h1, h2;
+  unsigned long long a, b;
   int result = EXIT_SUCCESS;
   const ELEMTYPE* value;
 
@@ -39,8 +40,10 @@ int main(void)
   h1 = libxs_crc32_u64(seed, data);
   h2 = libxs_crc32_u32(seed, data);
   h2 = libxs_crc32_u32(h2, (unsigned int*)data + 1);
-  if (h1 != h2) {
-    FPRINTF(stderr, "crc32_u32 or crc32_u64 is wrong\n");
+  a = h1;
+  b = h2;
+  if (a != b) {
+    FPRINTF(stderr, "ERROR line #%i: %llu != %llu\n", __LINE__, a, b);
     result = EXIT_FAILURE;
   }
 
@@ -49,37 +52,68 @@ int main(void)
   for (i = 0; i < s; i += n512) {
     h2 = libxs_crc32_u512(h2, value + i);
   }
-  if (h1 != h2) {
-    FPRINTF(stderr, "(crc32=%u) != (crc32_sw=%u)\n", h1, h2);
+  a = h1;
+  b = h2;
+  if (a != b) {
+    FPRINTF(stderr, "ERROR line #%i: %llu != %llu\n", __LINE__, a, b);
     result = EXIT_FAILURE;
   }
 
   h2 = h1 >> 16;
-  if ((libxs_crc32_u16(h2, &h1) & 0xFFFF) !=
-      (libxs_crc32_u16(h1 & 0xFFFF, &h2) & 0xFFFF))
-  {
+  a = libxs_crc32_u16(h2, &h1) & 0xFFFF;
+  b = libxs_crc32_u16(h1 & 0xFFFF, &h2) & 0xFFFF;
+  if (a != b) {
+    FPRINTF(stderr, "ERROR line #%i: %llu != %llu\n", __LINE__, a, b);
     result = EXIT_FAILURE;
   }
 
   h2 = libxs_crc32_u16(h2, &h1) & 0xFFFF;
-  if (h2 != libxs_hash16(h1)) {
+  a = h2;
+  b = libxs_hash16(h1);
+  if (a != b) {
+    FPRINTF(stderr, "ERROR line #%i: %llu != %llu\n", __LINE__, a, b);
     result = EXIT_FAILURE;
   }
 
-  if (seed != libxs_hash(NULL/*data*/, 0/*size*/, seed)) {
+  a = seed;
+  b = libxs_hash(NULL/*data*/, 0/*size*/, seed);
+  if (a != b) {
+    FPRINTF(stderr, "ERROR line #%i: %llu != %llu\n", __LINE__, a, b);
     result = EXIT_FAILURE;
   }
 
-  if (0 != libxs_hash_string(NULL/*string*/)) {
+  a = 0;
+  b = libxs_hash_string(NULL/*string*/);
+  if (a != b) {
+    FPRINTF(stderr, "ERROR line #%i: %llu != %llu\n", __LINE__, a, b);
     result = EXIT_FAILURE;
   }
-  if ('1' != libxs_hash_string("1")) {
+
+  a = '1';
+  b = libxs_hash_string("1");
+  if (a != b) {
+    FPRINTF(stderr, "ERROR line #%i: %llu != %llu\n", __LINE__, a, b);
     result = EXIT_FAILURE;
   }
-  if (4050765991979987505ULL != libxs_hash_string("12345678")) {
+
+  a = 4050765991979987505ULL;
+  b = libxs_hash_string("12345678");
+  if (a != b) {
+    FPRINTF(stderr, "ERROR line #%i: %llu != %llu\n", __LINE__, a, b);
     result = EXIT_FAILURE;
   }
-  if (3199039660 != libxs_hash32(libxs_hash_string("01234567890"))) {
+
+  a = 17777927841313886634ULL;
+  b = libxs_hash_string("01234567890");
+  if (a != b) {
+    FPRINTF(stderr, "ERROR line #%i: %llu != %llu\n", __LINE__, a, b);
+    result = EXIT_FAILURE;
+  }
+
+  a = 3199039660;
+  b = libxs_hash32(b);
+  if (a != b) {
+    FPRINTF(stderr, "ERROR line #%i: %llu != %llu\n", __LINE__, a, b);
     result = EXIT_FAILURE;
   }
 
