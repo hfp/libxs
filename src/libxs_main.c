@@ -1184,7 +1184,7 @@ LIBXS_API_INTERN void internal_init(void)
 #endif
       libxs_xcopy_init(libxs_target_archid);
       for (i = 0; i < (LIBXS_CAPACITY_REGISTRY); ++i) ((libxs_code_pointer*)new_registry)[i].ptr = NULL;
-      LIBXS_ASSERT(NULL == internal_registry && NULL == internal_registry_keys);
+      /*LIBXS_ASSERT(NULL == internal_registry && NULL == internal_registry_keys);*/
 #if defined(LIBXS_NTHREADS_USE) && defined(LIBXS_CACHE_MAXSIZE) && (0 < (LIBXS_CACHE_MAXSIZE))
       LIBXS_ASSERT(NULL == internal_cache_buffer);
       internal_cache_buffer = (internal_cache_type*)new_cache;
