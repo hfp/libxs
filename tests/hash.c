@@ -117,6 +117,20 @@ int main(void)
     result = EXIT_FAILURE;
   }
 
+  a = 22875;
+  b = libxs_hash16((unsigned int)b);
+  if (a != b) {
+    FPRINTF(stderr, "ERROR line #%i: %llu != %llu\n", __LINE__, a, b);
+    result = EXIT_FAILURE;
+  }
+
+  a = 237;
+  b = libxs_hash8((unsigned int)b);
+  if (a != b) {
+    FPRINTF(stderr, "ERROR line #%i: %llu != %llu\n", __LINE__, a, b);
+    result = EXIT_FAILURE;
+  }
+
   libxs_free(data);
 
   return result;

@@ -501,20 +501,22 @@ LIBXS_API unsigned int libxs_hash(const void* data, unsigned int size, unsigned 
 
 LIBXS_API unsigned int libxs_hash8(unsigned int data)
 {
-  const unsigned int hash = libxs_hash16(data);
-  return libxs_crc32_u8(hash >> 8, &hash) & 0xFF;
+  const unsigned char hash = (unsigned char)libxs_hash16(data);
+  return libxs_crc32_u8(data >> 8, &hash) & 0xFF;
 }
 
 
 LIBXS_API unsigned int libxs_hash16(unsigned int data)
 {
-  return libxs_crc32_u16(data >> 16, &data) & 0xFFFF;
+  const unsigned short hash = (unsigned short)data;
+  return libxs_crc32_u16(data >> 16, &hash) & 0xFFFF;
 }
 
 
 LIBXS_API unsigned int libxs_hash32(unsigned long long data)
 {
-  return libxs_crc32_u32(data >> 32, &data) & 0xFFFFFFFF;
+  const unsigned int hash = (unsigned int)data;
+  return libxs_crc32_u32(data >> 32, &hash) /*& 0xFFFFFFFF*/;
 }
 
 
