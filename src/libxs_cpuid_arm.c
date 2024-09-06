@@ -164,8 +164,11 @@ LIBXS_API int libxs_cpuid_arm(libxs_cpuid_info* info)
         if (0 != (0xF & (id_aa64pfr0_el1 >> 32)) || 0 != no_access) { /* SVE */
           const int vlen_bytes = libxs_cpuid_arm_svcntb();
           switch (vlen_bytes) {
-            case 16: { /* SVE 128-bit */
-              if (LIBXS_AARCH64_SVE128 > result) result = LIBXS_AARCH64_SVE128;
+            case 16: { /* SVE 256-bit */
+              const int sve128 = (1 == (0xF & (id_aa64isar1_el1 >> 44))
+                ? LIBXS_AARCH64_NEOV2 /* BF16 */
+                : LIBXS_AARCH64_SVE128);
+              if (sve128 > result) result = sve128;
             } break;
             case 32: { /* SVE 256-bit */
               const int sve256 = (1 == (0xF & (id_aa64isar1_el1 >> 44))
