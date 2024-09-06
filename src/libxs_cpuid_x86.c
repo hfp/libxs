@@ -409,6 +409,9 @@ LIBXS_API const char* libxs_cpuid_name(int id)
     case LIBXS_AARCH64_SVE128: {
       target_arch = "sve128";
     } break;
+    case LIBXS_AARCH64_NEOV2: {
+      target_arch = "neov2";
+    } break;
     case LIBXS_AARCH64_SVE256: {
       target_arch = "sve256";
     } break;
@@ -449,7 +452,8 @@ LIBXS_API int libxs_cpuid_vlen32(int id)
   if (LIBXS_AARCH64_V81 == id
         || LIBXS_AARCH64_V82 == id
         || LIBXS_AARCH64_APPL_M1 == id
-        || LIBXS_AARCH64_SVE128  == id)
+        || LIBXS_AARCH64_SVE128  == id
+        || LIBXS_AARCH64_NEOV2 == id )
   {
     result = 4;
   }
