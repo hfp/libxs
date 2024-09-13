@@ -37,7 +37,7 @@ for (ii = 0; ii < nn; ++ii) {
     if (ri > info->max_ref) info->max_ref = ri;
 
     if (LIBXS_NOTNAN(ti) && (inf > ta || ti == ri)) {
-      const double di = (NULL != real_tst ? LIBXS_DELTA(ri, ti) : 0);
+      const double di = ((NULL != real_tst && ta != ra) ? LIBXS_DELTA(ri, ti) : 0);
       const double dri = LIBXS_MATDIFF_DIV(di, ra, ta);
 
       /* minimum/maximum of test set */
@@ -140,11 +140,11 @@ if (0 == result_nan) {
 #else
       const libxs_blasint i = ii, j = jj;
 #endif
+      const double ti = (NULL != real_tst ? LIBXS_MATDIFF_TEMPLATE_TYPE2FP64(real_tst[i * ldt + j]) : 0);
       const double ri = LIBXS_MATDIFF_TEMPLATE_TYPE2FP64(real_ref[i*ldr+j]);
-      const double ti = (NULL != real_tst ? LIBXS_MATDIFF_TEMPLATE_TYPE2FP64(real_tst[i*ldt+j]) : 0);
-      const double di = (NULL != real_tst ? LIBXS_DELTA(ri, ti) : 0);
+      const double ta = LIBXS_ABS(ti), ra = LIBXS_ABS(ri);
+      const double di = ((NULL != real_tst && ta != ra) ? LIBXS_DELTA(ri, ti) : 0);
       const double rd = ri - info->avg_ref, td = ti - info->avg_tst;
-      const double ra = LIBXS_ABS(ri), ta = LIBXS_ABS(ti);
 
       /* variance of reference set with Kahan compensation */
       LIBXS_PRAGMA_FORCEINLINE
