@@ -884,8 +884,8 @@ else
 endif
 ifeq (0,$(filter-out 1 2,$(BUILD))$(ANALYZE))
 $(OUTDIR)/libxsext.$(DLIBEXT): $(OUTDIR)/libxs.$(DLIBEXT) $(OBJFILES_EXD)
-	$(LIB_SOLD) $(call solink_version,$(OUTDIR)/libxsext.$(DLIBEXT)) $(OBJFILES_EXD) $(call abslib,$(OUTDIR)/libxs.$(ILIBEXT)) \
-		$(call cleanld,$(LDFLAGS) $(CLDFLAGS) $(EXTLDFLAGS))
+	$(LIB_SOLD) $(call solink_version,$(OUTDIR)/libxsext.$(DLIBEXT)) $(OBJFILES_EXD) \
+		$(call abslib,$(OUTDIR)/libxs.$(ILIBEXT)) $(call cleanld,$(LDFLAGS) $(CLDFLAGS) $(EXTLDFLAGS))
 else
 .PHONY: $(OUTDIR)/libxsext.$(DLIBEXT)
 endif
