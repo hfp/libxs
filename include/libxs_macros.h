@@ -368,15 +368,19 @@ LIBXS_PRAGMA_DIAG_POP()
 
 #define LIBXS_BLAS_DECL(TYPE, KIND, DECL) LIBXS_CONCATENATE(LIBXS_BLAS_, LIBXS_TPREFIX(TYPE, KIND))(DECL)
 #if !defined(MKL_DIRECT_CALL_SEQ) && !defined(MKL_DIRECT_CALL)
+# define LIBXS_BLAS_dgemm_batch_strided(DECL) DECL;
+# define LIBXS_BLAS_dgemm_batch(DECL) DECL;
 # define LIBXS_BLAS_dgemm(DECL) DECL;
 # define LIBXS_BLAS_sgemm(DECL) DECL;
 # define LIBXS_BLAS_dgemv(DECL) DECL;
 # define LIBXS_BLAS_sgemv(DECL) DECL;
 #else
-# define LIBXS_BLAS_dgemm
-# define LIBXS_BLAS_sgemm
-# define LIBXS_BLAS_dgemv
-# define LIBXS_BLAS_sgemv
+# define LIBXS_BLAS_dgemm_batch_strided(DECL)
+# define LIBXS_BLAS_dgemm_batch(DECL)
+# define LIBXS_BLAS_dgemm(DECL)
+# define LIBXS_BLAS_sgemm(DECL)
+# define LIBXS_BLAS_dgemv(DECL)
+# define LIBXS_BLAS_sgemv(DECL)
 #endif
 
 #define LIBXS_BLAS_SYMBOL_FDECL(TYPE, KIND) LIBXS_BLAS_DECL(TYPE, KIND, LIBXS_BLAS_SYMBOL_FDECL_FORCE(LIBXS_BLAS_CONST*, *, TYPE, KIND))
@@ -416,10 +420,10 @@ LIBXS_PRAGMA_DIAG_POP()
 #endif
 
 /** Short-cut macros to construct desired BLAS function symbol. */
-#define LIBXS_GEMM_BATCH_STRIDED_SYMBOL(TYPE) LIBXS_BLAS_CSYMBOL(TYPE, gemm_batch_strided)
-#define LIBXS_GEMM_BATCH_SYMBOL(TYPE) LIBXS_BLAS_CSYMBOL(TYPE, gemm_batch)
-#define LIBXS_GEMM_SYMBOL(TYPE) LIBXS_BLAS_CSYMBOL(TYPE, gemm)
-#define LIBXS_GEMV_SYMBOL(TYPE) LIBXS_BLAS_CSYMBOL(TYPE, gemv)
+#define LIBXS_GEMM_BATCH_STRIDED_SYMBOL(TYPE) LIBXS_BLAS_FSYMBOL(TYPE, gemm_batch_strided)
+#define LIBXS_GEMM_BATCH_SYMBOL(TYPE) LIBXS_BLAS_FSYMBOL(TYPE, gemm_batch)
+#define LIBXS_GEMM_SYMBOL(TYPE) LIBXS_BLAS_FSYMBOL(TYPE, gemm)
+#define LIBXS_GEMV_SYMBOL(TYPE) LIBXS_BLAS_FSYMBOL(TYPE, gemv)
 
 /** Consolidate BLAS-transpose into a set of flags. */
 #define LIBXS_GEMM_FLAGS(TRANSA, TRANSB) /* check for N/n rather than T/t since C/c is also valid! */ \
