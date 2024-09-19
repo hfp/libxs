@@ -33,8 +33,8 @@ fi
 TMPF=$(mktemp)
 trap 'rm ${TMPF}' EXIT
 
-# enable interceptor for all cases (for the sake of testing)
-export LIBXS_GEMM_WRAP=${LIBXS_GEMM_WRAP:-5}
+# enable interceptor (5: all cases for the sake of testing)
+export LIBXS_GEMM_WRAP=5
 # set verbosity to check for generated kernels
 export LIBXS_VERBOSE=${LIBXS_VERBOSE:-3}
 
