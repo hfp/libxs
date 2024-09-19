@@ -39,9 +39,9 @@ LIBXS_BLAS_SYMBOL_FDECL(REALTYPE, gemm)
 # define GEMM LIBXS_GEMM_SYMBOL(REALTYPE)
 #endif
 
-#if !defined(GEMM_BATCH) && (defined(__OPENBLAS) || ( \
+#if !defined(GEMM_BATCH) && ( \
   (defined(__MKL) || defined(MKL_DIRECT_CALL_SEQ) || defined(MKL_DIRECT_CALL)) && \
-  (defined(LIBXS_MKL_VERSION2) && (LIBXS_VERSION2(11, 3) <= LIBXS_MKL_VERSION2))))
+  (defined(LIBXS_MKL_VERSION2) && (LIBXS_VERSION2(11, 3) <= LIBXS_MKL_VERSION2)))
 # define GEMM_BATCH LIBXS_GEMM_BATCH_SYMBOL(REALTYPE)
 LIBXS_BLAS_SYMBOL_FDECL(REALTYPE, gemm_batch)
 #endif
