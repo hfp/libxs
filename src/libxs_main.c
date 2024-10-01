@@ -1846,6 +1846,18 @@ LIBXS_API_INLINE const char* libxs_get_mxfpgemm_typename(const unsigned char* da
   {
     return "mxfp4f32";
   }
+  if (LIBXS_DATATYPE_I8 == LIBXS_GEMM_GETENUM_A_PREC(datatype) &&
+           LIBXS_DATATYPE_I8 == LIBXS_GEMM_GETENUM_B_PREC(datatype) &&
+           LIBXS_DATATYPE_BF16 == LIBXS_GEMM_GETENUM_C_PREC(datatype))
+  {
+    return "mxfp4i8bf16";
+  }
+  if (LIBXS_DATATYPE_I8 == LIBXS_GEMM_GETENUM_A_PREC(datatype) &&
+           LIBXS_DATATYPE_I8 == LIBXS_GEMM_GETENUM_B_PREC(datatype) &&
+           LIBXS_DATATYPE_F32 == LIBXS_GEMM_GETENUM_C_PREC(datatype))
+  {
+    return "mxfp4i8f32";
+  }
   else {
     return "void";
   }
@@ -2156,7 +2168,7 @@ LIBXS_API_INTERN int libxs_build(const libxs_build_request* request, unsigned in
 # endif
         {
           const int uid = request->descriptor.gemm->prefetch;
-          const char *const tname = (((LIBXS_GEMM_FLAG_INTERPRETE_A_AS_INT4_VNNI8_INTLV & request->descriptor.gemm->flags) == LIBXS_GEMM_FLAG_INTERPRETE_A_AS_INT4_VNNI8_INTLV)) ? libxs_get_i4gemm_typename(request->descriptor.gemm->datatype) : (( ((LIBXS_GEMM_FLAG_INTERPRETE_A_AS_INT4_VNNI2 & request->descriptor.gemm->flags) == LIBXS_GEMM_FLAG_INTERPRETE_A_AS_INT4_VNNI2) ) ? libxs_get_i4gemm_typename(request->descriptor.gemm->datatype) : (((LIBXS_GEMM_FLAG_INTERPRETE_A_AS_MXFP4_VNNI2 & request->descriptor.gemm->flags) == LIBXS_GEMM_FLAG_INTERPRETE_A_AS_MXFP4_VNNI2) ? libxs_get_mxfpgemm_typename(request->descriptor.gemm->datatype) : libxs_get_gemm_typename(request->descriptor.gemm->datatype)));
+          const char *const tname = (((LIBXS_GEMM_FLAG_INTERPRETE_A_AS_INT4_VNNI8_INTLV & request->descriptor.gemm->flags) == LIBXS_GEMM_FLAG_INTERPRETE_A_AS_INT4_VNNI8_INTLV)) ? libxs_get_i4gemm_typename(request->descriptor.gemm->datatype) : (( ((LIBXS_GEMM_FLAG_INTERPRETE_A_AS_INT4_VNNI2 & request->descriptor.gemm->flags) == LIBXS_GEMM_FLAG_INTERPRETE_A_AS_INT4_VNNI2) ) ? libxs_get_i4gemm_typename(request->descriptor.gemm->datatype) : (((LIBXS_GEMM_FLAG_INTERPRETE_A_AS_MXFP4_VNNI2 & request->descriptor.gemm->flags) == LIBXS_GEMM_FLAG_INTERPRETE_A_AS_MXFP4_VNNI2 || (LIBXS_GEMM_FLAG_INTERPRETE_A_AS_MXFP4_VNNI8_INTLV & request->descriptor.gemm->flags) == LIBXS_GEMM_FLAG_INTERPRETE_A_AS_MXFP4_VNNI8_INTLV ) ? libxs_get_mxfpgemm_typename(request->descriptor.gemm->datatype) : libxs_get_gemm_typename(request->descriptor.gemm->datatype)));
           const char *const meltw_tname = libxs_get_typename((libxs_datatype)request->descriptor.gemm->meltw_datatype_aux);
           int typesigns = 0, br = 0, kernabi = 0, stride_a = 0, stride_b = 0;
           char tc_option[16] = { 0 };
