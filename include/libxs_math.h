@@ -58,7 +58,7 @@
   LIBXS_MATRNG_AUX(LIBXS_PRAGMA_OMP, TYPE, SEED, DST, NROWS, NCOLS, LD, SCALE)
 
 /** GEMM exercising the compiler's code generation. TODO: only NN is supported and SP/DP matrices. */
-#define LIBXS_INLINE_XGEMM(ITYPE, OTYPE, TRANSA, TRANSB, M, N, K, ALPHA, A, LDA, B, LDB, BETA, C, LDC) do { \
+#define LIBXS_INLINE_XGEMM2(ITYPE, OTYPE, TRANSA, TRANSB, M, N, K, ALPHA, A, LDA, B, LDB, BETA, C, LDC) do { \
   /* Use 'n' (instead of 'N') avoids warning about "no macro replacement within a character constant". */ \
   const char libxs_inline_xgemm_transa_ = (char)(NULL != ((const void*)(TRANSA)) ? (*(const char*)(TRANSA)) : \
     (0 == (LIBXS_GEMM_FLAG_TRANS_A & LIBXS_FLAGS) ? 'n' : 't')); \
@@ -92,6 +92,9 @@
   } \
 } while(0)
 
+/** GEMM exercising the compiler's code generation. TODO: only NN is supported and SP/DP matrices. */
+#define  LIBXS_INLINE_XGEMM(TYPE, TRANSA, TRANSB, M, N, K, ALPHA, A, LDA, B, LDB, BETA, C, LDC) \
+  LIBXS_INLINE_XGEMM2(TYPE, TYPE, TRANSA, TRANSB, M, N, K, ALPHA, A, LDA, B, LDB, BETA, C, LDC)
 
 /**
  * Structure of differences with matrix norms according

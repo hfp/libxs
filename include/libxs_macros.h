@@ -383,41 +383,9 @@ LIBXS_PRAGMA_DIAG_POP()
 # define LIBXS_BLAS_sgemv(DECL)
 #endif
 
+/** Declare BLAS symbol by TYPE and KIND. */
 #define LIBXS_BLAS_SYMBOL_FDECL(TYPE, KIND) LIBXS_BLAS_DECL(TYPE, KIND, LIBXS_BLAS_SYMBOL_FDECL_FORCE(LIBXS_BLAS_CONST*, *, TYPE, KIND))
 #define LIBXS_BLAS_SYMBOL_CDECL(TYPE, KIND) LIBXS_BLAS_DECL(TYPE, KIND, LIBXS_BLAS_SYMBOL_CDECL_FORCE(LIBXS_BLAS_CONST*, *, TYPE, KIND))
-
-/** Map to appropriate BLAS function (or fallback). */
-#define LIBXS_BLAS_FUNCTION(ITYPE, OTYPE, FUNCTION) LIBXS_CONCATENATE(LIBXS_BLAS_FUNCTION_, LIBXS_TPREFIX2(ITYPE, OTYPE, FUNCTION))
-#if (0 != LIBXS_BLAS)
-# if defined(LIBXS_INIT_COMPLETED)
-#   define LIBXS_BLAS_FUNCTION_dgemm_batch_strided libxs_original_dgemm_batch_strided_function
-#   define LIBXS_BLAS_FUNCTION_sgemm_batch_strided libxs_original_sgemm_batch_strided_function
-#   define LIBXS_BLAS_FUNCTION_dgemm_batch libxs_original_dgemm_batch_function
-#   define LIBXS_BLAS_FUNCTION_sgemm_batch libxs_original_sgemm_batch_function
-#   define LIBXS_BLAS_FUNCTION_dgemm libxs_original_dgemm_function
-#   define LIBXS_BLAS_FUNCTION_sgemm libxs_original_sgemm_function
-#   define LIBXS_BLAS_FUNCTION_dgemv libxs_original_dgemv_function
-#   define LIBXS_BLAS_FUNCTION_sgemv libxs_original_sgemv_function
-# else
-#   define LIBXS_BLAS_FUNCTION_dgemm_batch_strided libxs_original_dgemm_batch_strided()
-#   define LIBXS_BLAS_FUNCTION_sgemm_batch_strided libxs_original_sgemm_batch_strided()
-#   define LIBXS_BLAS_FUNCTION_dgemm_batch libxs_original_dgemm_batch()
-#   define LIBXS_BLAS_FUNCTION_sgemm_batch libxs_original_sgemm_batch()
-#   define LIBXS_BLAS_FUNCTION_dgemm libxs_original_dgemm()
-#   define LIBXS_BLAS_FUNCTION_sgemm libxs_original_sgemm()
-#   define LIBXS_BLAS_FUNCTION_dgemv libxs_original_dgemv()
-#   define LIBXS_BLAS_FUNCTION_sgemv libxs_original_sgemv()
-# endif
-#else /* no BLAS */
-# define LIBXS_BLAS_FUNCTION_dgemm_batch_strided libxs_blas_error("dgemm_batch_strided")
-# define LIBXS_BLAS_FUNCTION_sgemm_batch_strided libxs_blas_error("sgemm_batch_strided")
-# define LIBXS_BLAS_FUNCTION_dgemm_batch libxs_blas_error("dgemm_batch")
-# define LIBXS_BLAS_FUNCTION_sgemm_batch libxs_blas_error("sgemm_batch")
-# define LIBXS_BLAS_FUNCTION_dgemm libxs_blas_error("dgemm")
-# define LIBXS_BLAS_FUNCTION_sgemm libxs_blas_error("sgemm")
-# define LIBXS_BLAS_FUNCTION_dgemv libxs_blas_error("dgemv")
-# define LIBXS_BLAS_FUNCTION_sgemv libxs_blas_error("sgemv")
-#endif
 
 /** Short-cut macros to construct desired BLAS function symbol. */
 #define LIBXS_GEMM_BATCH_STRIDED_SYMBOL(TYPE) LIBXS_BLAS_FSYMBOL(TYPE, gemm_batch_strided)
