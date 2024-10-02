@@ -679,39 +679,4 @@ inline void libxs_gemm(const char* transa, const char* transb,
 }
 
 #endif /*__cplusplus*/
-/** GEMM_BATCH_STRIDED: fallback prototype functions served by any compliant LAPACK/BLAS. */
-LIBXS_EXTERN_C typedef void (*libxs_dgemm_batch_strided_function)(LIBXS_BLAS_SYMBOL_SIGNATURE(const*, *, double, gemm_batch_strided));
-LIBXS_EXTERN_C typedef void (*libxs_sgemm_batch_strided_function)(LIBXS_BLAS_SYMBOL_SIGNATURE(const*, *, float, gemm_batch_strided));
-/** GEMM_BATCH: fallback prototype functions served by any compliant LAPACK/BLAS. */
-LIBXS_EXTERN_C typedef void (*libxs_dgemm_batch_function)(LIBXS_BLAS_SYMBOL_SIGNATURE(const*, *, double, gemm_batch));
-LIBXS_EXTERN_C typedef void (*libxs_sgemm_batch_function)(LIBXS_BLAS_SYMBOL_SIGNATURE(const*, *, float, gemm_batch));
-/** GEMM: fallback prototype functions served by any compliant LAPACK/BLAS. */
-LIBXS_EXTERN_C typedef void (*libxs_dgemm_function)(LIBXS_BLAS_SYMBOL_SIGNATURE(const*, *, double, gemm));
-LIBXS_EXTERN_C typedef void (*libxs_sgemm_function)(LIBXS_BLAS_SYMBOL_SIGNATURE(const*, *, float, gemm));
-/** GEMV: fallback prototype functions served by any compliant LAPACK/BLAS. */
-LIBXS_EXTERN_C typedef void (*libxs_dgemv_function)(LIBXS_BLAS_SYMBOL_SIGNATURE(const*, *, double, gemv));
-LIBXS_EXTERN_C typedef void (*libxs_sgemv_function)(LIBXS_BLAS_SYMBOL_SIGNATURE(const*, *, float, gemv));
-
-/** The original BLAS functions. */
-LIBXS_APIVAR_PUBLIC(/*volatile*/libxs_dgemm_batch_strided_function libxs_original_dgemm_batch_strided_function);
-LIBXS_APIVAR_PUBLIC(/*volatile*/libxs_sgemm_batch_strided_function libxs_original_sgemm_batch_strided_function);
-LIBXS_APIVAR_PUBLIC(/*volatile*/libxs_dgemm_batch_function libxs_original_dgemm_batch_function);
-LIBXS_APIVAR_PUBLIC(/*volatile*/libxs_sgemm_batch_function libxs_original_sgemm_batch_function);
-LIBXS_APIVAR_PUBLIC(/*volatile*/libxs_dgemm_function libxs_original_dgemm_function);
-LIBXS_APIVAR_PUBLIC(/*volatile*/libxs_sgemm_function libxs_original_sgemm_function);
-LIBXS_APIVAR_PUBLIC(/*volatile*/libxs_dgemv_function libxs_original_dgemv_function);
-LIBXS_APIVAR_PUBLIC(/*volatile*/libxs_sgemv_function libxs_original_sgemv_function);
-LIBXS_API libxs_dgemm_batch_strided_function libxs_original_dgemm_batch_strided(void);
-LIBXS_API libxs_sgemm_batch_strided_function libxs_original_sgemm_batch_strided(void);
-LIBXS_API libxs_dgemm_batch_function libxs_original_dgemm_batch(void);
-LIBXS_API libxs_sgemm_batch_function libxs_original_sgemm_batch(void);
-LIBXS_API libxs_dgemm_function libxs_original_dgemm(void);
-LIBXS_API libxs_sgemm_function libxs_original_sgemm(void);
-LIBXS_API libxs_dgemv_function libxs_original_dgemv(void);
-LIBXS_API libxs_sgemv_function libxs_original_sgemv(void);
-
-/** Consume/sink arguments when called. */
-LIBXS_EXTERN_C typedef void (*libxs_sink_function)(const void*, ...);
-LIBXS_API libxs_sink_function libxs_blas_error(const char* symbol);
-
 #endif /*LIBXS_H*/
