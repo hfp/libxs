@@ -443,6 +443,7 @@ LIBXS_PRAGMA_DIAG_POP()
 # else
 #   define LIBXS_INLINE_ALWAYS static __forceinline
 # endif
+# define LIBXS_INLINE_NEVER LIBXS_ATTRIBUTE(noinline)
 # define LIBXS_ALIGNED(DECL, N) LIBXS_ATTRIBUTE(align(N)) DECL
 # if !defined(LIBXS_UNPACKED)
 #   define LIBXS_PACKED(TYPE) LIBXS_PRAGMA(pack(1)) TYPE
@@ -451,6 +452,7 @@ LIBXS_PRAGMA_DIAG_POP()
 #elif (defined(__GNUC__) || defined(__clang__) || defined(__PGI))
 # define LIBXS_ATTRIBUTE(A) __attribute__((A))
 # define LIBXS_INLINE_ALWAYS LIBXS_ATTRIBUTE(always_inline) LIBXS_INLINE
+# define LIBXS_INLINE_NEVER LIBXS_ATTRIBUTE(noinline)
 # define LIBXS_ALIGNED(DECL, N) LIBXS_ATTRIBUTE(aligned(N)) DECL
 # if !defined(LIBXS_UNPACKED)
 #   define LIBXS_PACKED(TYPE) TYPE LIBXS_ATTRIBUTE(__packed__)
@@ -459,6 +461,7 @@ LIBXS_PRAGMA_DIAG_POP()
 #else
 # define LIBXS_ATTRIBUTE(A)
 # define LIBXS_INLINE_ALWAYS LIBXS_INLINE
+# define LIBXS_INLINE_NEVER
 # define LIBXS_ALIGNED(DECL, N) DECL
 # define LIBXS_CDECL
 #endif
