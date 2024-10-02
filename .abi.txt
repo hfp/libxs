@@ -332,7 +332,6 @@ libxs_sgemm3
 libxs_sgemm_
 libxs_shuffle
 libxs_shuffle2
-libxs_sink
 libxs_smmavailable
 libxs_smmcall
 libxs_smmcall_abc
