@@ -1231,7 +1231,7 @@ LIBXS_API_INTERN void internal_init(void)
 
 LIBXS_API_CTOR void libxs_init(void)
 {
-  if (0 == LIBXS_ATOMIC_LOAD(&internal_registry, LIBXS_ATOMIC_SEQ_CST)) {
+  if (NULL == (const void*)LIBXS_ATOMIC(LIBXS_ATOMIC_LOAD, LIBXS_BITS)(&internal_registry, LIBXS_ATOMIC_SEQ_CST)) {
     static unsigned int counter = 0, gid = 0;
     const unsigned int tid = LIBXS_ATOMIC_ADD_FETCH(&counter, 1, LIBXS_ATOMIC_SEQ_CST);
     LIBXS_ASSERT(0 < tid);
@@ -1397,9 +1397,8 @@ LIBXS_API_CTOR void libxs_init(void)
 LIBXS_API LIBXS_ATTRIBUTE_NO_TRACE void libxs_finalize(void);
 LIBXS_API_DTOR void libxs_finalize(void)
 {
-  void *const regaddr = &internal_registry;
-  uintptr_t regptr = LIBXS_ATOMIC(LIBXS_ATOMIC_LOAD, LIBXS_BITS)((uintptr_t*)regaddr, LIBXS_ATOMIC_SEQ_CST);
-  libxs_code_pointer* registry = (libxs_code_pointer*)regptr;
+  libxs_code_pointer* registry = (libxs_code_pointer*)LIBXS_ATOMIC(LIBXS_ATOMIC_LOAD, LIBXS_BITS)(
+    &internal_registry, LIBXS_ATOMIC_SEQ_CST);
   if (NULL != registry) {
     int i;
 #if (0 != LIBXS_SYNC)
@@ -1418,8 +1417,8 @@ LIBXS_API_DTOR void libxs_finalize(void)
     LIBXS_LOCK_ACQUIRE(LIBXS_REGLOCK, internal_reglock_ptr);
 # endif
 #endif
-    regptr = LIBXS_ATOMIC(LIBXS_ATOMIC_LOAD, LIBXS_BITS)((uintptr_t*)regaddr, LIBXS_ATOMIC_SEQ_CST);
-    registry = (libxs_code_pointer*)regptr;
+    registry = (libxs_code_pointer*)LIBXS_ATOMIC(LIBXS_ATOMIC_LOAD, LIBXS_BITS)(
+      &internal_registry, LIBXS_ATOMIC_SEQ_CST);
     if (NULL != registry) {
       internal_regkey_type *const registry_keys = internal_registry_keys;
 #if defined(LIBXS_NTHREADS_USE) && defined(LIBXS_CACHE_MAXSIZE) && (0 < (LIBXS_CACHE_MAXSIZE))
@@ -1443,7 +1442,7 @@ LIBXS_API_DTOR void libxs_finalize(void)
       internal_cache_buffer = NULL;
 #endif
       internal_registry_keys = NULL; /* make registry keys unavailable */
-      LIBXS_ATOMIC(LIBXS_ATOMIC_STORE_ZERO, LIBXS_BITS)((uintptr_t*)regaddr, LIBXS_ATOMIC_SEQ_CST);
+      LIBXS_ATOMIC(LIBXS_ATOMIC_STORE_ZERO, LIBXS_BITS)((uintptr_t*)&internal_registry, LIBXS_ATOMIC_SEQ_CST);
       internal_registry_nbytes = 0; internal_registry_nleaks = 0;
       for (i = 0; i < (LIBXS_CAPACITY_REGISTRY); ++i) {
         /*const*/ libxs_code_pointer code = registry[i];
