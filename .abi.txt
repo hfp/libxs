@@ -376,12 +376,4 @@ libxs_xregister
 libxs_xregister_
 libxs_xrelease
 libxs_xrelease_
-libxsext_original_dgemm
-libxsext_original_dgemm_batch
-libxsext_original_dgemm_batch_strided
-libxsext_original_dgemv
-libxsext_original_sgemm
-libxsext_original_sgemm_batch
-libxsext_original_sgemm_batch_strided
-libxsext_original_sgemv
 libxsf_get_target_arch
