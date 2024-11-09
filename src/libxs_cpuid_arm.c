@@ -24,6 +24,7 @@
 # if 0
 #   define LIBXS_CPUID_ARM_MODEL_FALLBACK
 # elif defined(__APPLE__) && defined(__arm64__)
+#   include <sys/sysctl.h>
 #   define LIBXS_CPUID_ARM_MODEL_FALLBACK
 # endif
 #endif
@@ -142,7 +143,20 @@ LIBXS_API int libxs_cpuid_arm(libxs_cpuid_info* info)
 # else
     void (*const handler)(int) = signal(SIGILL, internal_cpuid_arm_sigill);
 #   if defined(__APPLE__) && defined(__arm64__)
-    result = LIBXS_AARCH64_APPL_M1;
+    char device_type[64];
+    size_t size = sizeof(device_type);
+
+    if (sysctlbyname("hw.machine", &device_type, &size, NULL, 0) == 0) {
+      if(strncmp(device_type, "iPad", 4) == 0){
+        result = LIBXS_AARCH64_APPL_M4;
+      } else {
+        result = LIBXS_AARCH64_APPL_M1;
+      }
+    } else {
+      fprintf(stderr, "LIBXS WARNING: Apple CPU detection failed !\n");
+    }
+
+    return result;
 #   else
     result = LIBXS_AARCH64_V81;
 #   endif
