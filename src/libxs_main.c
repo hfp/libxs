@@ -1556,6 +1556,7 @@ LIBXS_API void libxs_set_target_archid(int id)
 {
   int target_archid = LIBXS_TARGET_ARCH_UNKNOWN;
   switch (id) {
+    case LIBXS_X86_AVX512_DMR:
     case LIBXS_X86_AVX512_GNR:
     case LIBXS_X86_AVX512_SPR:
     case LIBXS_X86_AVX512_CPX:
@@ -1642,6 +1643,9 @@ LIBXS_API void libxs_set_target_arch(const char* arch)
     }
     else if (arch == libxs_stristr(arch, "avx512_vl256")) {
       target_archid = LIBXS_X86_AVX512_VL256_SKX;
+    }
+    else if (arch == libxs_stristr(arch, "dmr")) {
+      target_archid = LIBXS_X86_AVX512_DMR;
     }
     else if (arch == libxs_stristr(arch, "gnr")) {
       target_archid = LIBXS_X86_AVX512_GNR;
