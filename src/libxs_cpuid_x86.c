@@ -458,7 +458,8 @@ LIBXS_API int libxs_cpuid_vlen32(int id)
         || LIBXS_AARCH64_V82 == id
         || LIBXS_AARCH64_APPL_M1 == id
         || LIBXS_AARCH64_SVE128  == id
-        || LIBXS_AARCH64_NEOV2 == id )
+        || LIBXS_AARCH64_NEOV2 == id
+        || LIBXS_AARCH64_APPL_M4 == id )
   {
     result = 4;
   }
@@ -468,8 +469,7 @@ LIBXS_API int libxs_cpuid_vlen32(int id)
     result = 8;
   }
   else if (LIBXS_AARCH64_SVE512 == id
-        || LIBXS_AARCH64_A64FX  == id
-        || LIBXS_AARCH64_APPL_M4 == id )
+        || LIBXS_AARCH64_A64FX  == id )
   {
     result = 16;
   }
