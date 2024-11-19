@@ -235,7 +235,7 @@ LIBXS_API int libxs_cpuid_x86(libxs_cpuid_info* info)
           {
             fprintf(stderr, "LIBXS WARNING: AMX state allocation in the OS failed!\n");
           }
-          feature_cpu = LIBXS_X86_AVX512_CLX;
+          feature_cpu = LIBXS_X86_AVX512_SPR - 1; /* LIBXS_X86_AVX512_CPX */
         }
       }
 # if !defined(LIBXS_INTRINSICS_DEBUG)
