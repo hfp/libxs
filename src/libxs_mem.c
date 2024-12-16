@@ -501,28 +501,32 @@ LIBXS_API unsigned int libxs_hash(const void* data, unsigned int size, unsigned 
 
 LIBXS_API unsigned int libxs_hash8(unsigned int data)
 {
-  const unsigned char hash = (unsigned char)libxs_hash16(data);
-  return libxs_crc32_u8(data >> 8, &hash) & 0xFF;
+  const unsigned int hash = libxs_hash16(data);
+  uint8_t tmp_data = (uint8_t)hash;
+  unsigned int tmp_seed = (unsigned int)(hash >> 8);
+  return libxs_crc32_u8(tmp_seed, &tmp_data) & 0xFF;
 }
 
 
 LIBXS_API unsigned int libxs_hash16(unsigned int data)
 {
-  const unsigned short hash = (unsigned short)data;
-  return libxs_crc32_u16(data >> 16, &hash) & 0xFFFF;
+  uint16_t tmp_data = (uint16_t)data;
+  unsigned int tmp_seed = (unsigned int)(data >> 16);
+  return libxs_crc32_u16(tmp_seed, &tmp_data) & 0xFFFF;
 }
 
 
 LIBXS_API unsigned int libxs_hash32(unsigned long long data)
 {
-  const unsigned int hash = (unsigned int)data;
-  return libxs_crc32_u32(data >> 32, &hash) /*& 0xFFFFFFFF*/;
+  uint32_t tmp_data = (uint32_t)data;
+  unsigned int tmp_seed = (unsigned int)(data >> 32);
+  return libxs_crc32_u32(tmp_seed, &tmp_data) & 0xFFFFFFFF;
 }
 
 
 LIBXS_API unsigned long long libxs_hash_string(const char string[])
 {
-  unsigned long long result;
+  unsigned long long result = 0;
   const size_t length = (NULL != string ? strlen(string) : 0);
   if (sizeof(result) < length) {
     const size_t length2 = LIBXS_MAX(length / 2, sizeof(result));
