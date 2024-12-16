@@ -62,12 +62,14 @@ LIBXS_API void libxs_rng_seq(void* data, size_t nbytes)
   }
   end = (unsigned char*)data + nbytes;
   if (dst < end) {
+    const size_t size = end - dst;
 #if defined(LIBXS_RNG_DRAND48)
     r = (unsigned int)lrand48();
 #else
     r = (unsigned int)rand();
 #endif
-    LIBXS_MEMCPY127(dst, &r, end - dst);
+    LIBXS_ASSERT(size < sizeof(r));
+    LIBXS_MEMCPY127(dst, &r, size);
   }
 }
 
