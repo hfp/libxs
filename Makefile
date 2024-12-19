@@ -358,8 +358,8 @@ SRCFILES_LIB := $(patsubst %,$(ROOTSRC)/%, \
           libxs_main.c libxs_mem.c libxs_malloc.c libxs_math.c libxs_fsspmdm.c \
           libxs_hash.c libxs_sync.c libxs_perf.c libxs_gemm.c libxs_xcopy.c \
           libxs_utils.c libxs_lpflt_quant.c libxs_timer.c libxs_barrier.c \
-          libxs_rng.c libxs_mhd.c)
-SRCFILES_GEN_LIB := $(patsubst %,$(ROOTSRC)/%,$(notdir $(wildcard $(ROOTSRC)/generator_*.c)) \
+          libxs_rng.c libxs_mhd.c generator_gemm_reference_impl.c generator_mateltwise_reference_impl.c generator_matequation_reference_impl.c generator_x86_reference.c generator_aarch64_reference.c)
+SRCFILES_GEN_LIB := $(patsubst %,$(ROOTSRC)/%,$(notdir $(filter-out $(ROOTSRC)/generator_x86_reference.c $(ROOTSRC)/generator_aarch64_reference.c $(ROOTSRC)/generator_gemm_reference_impl.c $(ROOTSRC)/generator_mateltwise_reference_impl.c $(ROOTSRC)/generator_matequation_reference_impl.c, $(wildcard $(ROOTSRC)/generator_*.c))) \
           libxs_cpuid_arm.c libxs_cpuid_x86.c libxs_generator.c libxs_trace.c libxs_matrixeqn.c)
 SRCFILES := $(SRCFILES_LIB) $(SRCFILES_GEN_LIB) $(SRCFILES_KERNELS)
 

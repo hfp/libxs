@@ -15,7 +15,6 @@
 # define LIBXS_RNG_DRAND48
 #endif
 
-
 LIBXS_API unsigned int libxs_rng_u32(unsigned int n)
 {
   unsigned int result;
