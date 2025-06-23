@@ -48,7 +48,7 @@ Plain [C code](https://github.com/hfp/libxs/blob/main/samples/hello/hello.c) as 
 Please have a look at [https://github.com/hfp/libxs/tree/main/include](https://github.com/hfp/libxs/tree/main/include) for all published functions. Get started with the following list of available domains and documented functionality:
 
 * MM: [Matrix Multiplication](#matrix-multiplication)
-* TPP: [Tensor Processing Primitives](libxs_tpp.md)
+* TPP: [Tensor Processing Primitives](https://github.com/hfp/libxs/blob/main/documentation/libxs_tpp.md)
 * DNN: [Deep Neural Networks](#deep-neural-networks)
 * AUX: [Service Functions](#service-functions)
 * PERF: [Performance](#performance)

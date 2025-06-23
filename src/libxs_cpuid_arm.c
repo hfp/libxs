@@ -120,6 +120,23 @@ LIBXS_API int libxs_cpuid_arm_use_i8dot(void)
 #endif
 }
 
+LIBXS_API int libxs_cpuid_arm_m4_use_neon_non_gemm(void){
+#if defined(LIBXS_PLATFORM_X86)
+  return 0;
+#else
+  const char *const l_env_use_neon = getenv("LIBXS_AARCH64_USE_NEON");
+  int result = 0;
+  if( 0 == l_env_use_neon){
+    result = 0;
+  } else {
+    if( atoi(l_env_use_neon) != 0){
+      result = 1;
+    }
+    }
+  return result;
+#endif
+}
+
 LIBXS_API int libxs_cpuid_arm(libxs_cpuid_info* info)
 {
   static int result = LIBXS_TARGET_ARCH_UNKNOWN;
@@ -143,14 +160,14 @@ LIBXS_API int libxs_cpuid_arm(libxs_cpuid_info* info)
 # else
     void (*const handler)(int) = signal(SIGILL, internal_cpuid_arm_sigill);
 #   if defined(__APPLE__) && defined(__arm64__)
-    char device_type[64];
-    size_t size = sizeof(device_type);
+    int sme_supported = 0;
+    size_t size = sizeof(sme_supported);
 
-    if (sysctlbyname("hw.machine", &device_type, &size, NULL, 0) == 0) {
-      if(strncmp(device_type, "iPad", 4) == 0){
-        result = LIBXS_AARCH64_APPL_M4;
+    if (sysctlbyname("hw.optional.arm.FEAT_SME", &sme_supported, &size, NULL, 0) == 0) {
+      if (sme_supported == 1 && libxs_cpuid_arm_m4_use_neon_non_gemm() == 0) {
+          result = LIBXS_AARCH64_APPL_M4;
       } else {
-        result = LIBXS_AARCH64_APPL_M1;
+          result = LIBXS_AARCH64_APPL_M1;
       }
     } else {
       fprintf(stderr, "LIBXS WARNING: Apple CPU detection failed !\n");

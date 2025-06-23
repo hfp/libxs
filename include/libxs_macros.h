@@ -59,11 +59,15 @@
     (defined(__aarch64__) || defined(__arm64__) || defined(_M_ARM64))
 # define LIBXS_PLATFORM_AARCH64
 #endif
+#if !defined(LIBXS_PLATFORM_RV64) && \
+    (defined(__riscv) && 64 == (__riscv_xlen))
+# define LIBXS_PLATFORM_RV64
+#endif
 #if !defined(LIBXS_PLATFORM_SUPPORTED)
-# if defined(LIBXS_PLATFORM_X86) || defined(LIBXS_PLATFORM_AARCH64)
+# if defined(LIBXS_PLATFORM_X86) || defined(LIBXS_PLATFORM_AARCH64) || defined(LIBXS_PLATFORM_RV64)
 #   define LIBXS_PLATFORM_SUPPORTED
 # elif !defined(LIBXS_PLATFORM_FORCE)
-#   error LIBXS requires X86_64, AArch64, or compatible CPUs!
+#   error LIBXS requires X86_64, AArch64, RV64 or compatible CPUs!
 # endif
 #endif
 #if !defined(LIBXS_BITS)
