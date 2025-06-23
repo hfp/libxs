@@ -146,7 +146,8 @@ OPT := $(patsubst O%,%,$(OPT))
 OPTFLAGS ?= -O$(OPT)
 OPTFLAG1 ?= -O$(shell echo "$$((1<$(OPT)?1:$(OPT)))")
 
-# Kind of Clang/GCC based analysis (thread, address, ...)
+# Kind of Clang/GCC based analysis:
+#   leak, address, undefined, thread
 SANITIZE ?= $(NULL)
 
 # VMAX=0 (default): Prefer default vector size
@@ -1090,6 +1091,15 @@ CXXLDFLAGS += $(XLIB_BEGIN) $(LIBC) $(XLIB_END)
 
 ifneq (0,$(INTEL))
   AR ?= xiar
+  ifneq (1,$(INTEL))
+  ifneq (,$(SANITIZE))
+    CXXFLAGS += -fsanitize=$(SANITIZE)
+    CFLAGS += -fsanitize=$(SANITIZE)
+    #FCFLAGS += -fsanitize=$(SANITIZE)
+    LDFLAGS += -fsanitize=$(SANITIZE)
+    SYM = 1
+  endif
+  endif
   ifneq (0,$(SYM))
     ifeq (1,$(SYM))
       CXXFLAGS += -g
@@ -1329,6 +1339,13 @@ ifneq (0,$(INTEL))
     CFLAGS += -D_Float128=__float128
   endif
 else # GCC assumed
+  ifneq (,$(SANITIZE))
+    CXXFLAGS += -fsanitize=$(SANITIZE)
+    CFLAGS += -fsanitize=$(SANITIZE)
+    FCFLAGS += -fsanitize=$(SANITIZE)
+    LDFLAGS += -fsanitize=$(SANITIZE)
+    SYM = 1
+  endif
   ifneq (0,$(SYM))
     ifeq (1,$(SYM))
       CXXFLAGS += -g
@@ -1347,22 +1364,6 @@ else # GCC assumed
       else
         FCFLAGS += -g
       endif
-      ifneq (2,$(SYM))
-        CXXFLAGS += -fsanitize=$(if $(SANITIZE),$(SANITIZE),thread)
-        CFLAGS += -fsanitize=$(if $(SANITIZE),$(SANITIZE),thread)
-        FCFLAGS += -fsanitize=$(if $(SANITIZE),$(SANITIZE),thread)
-        LDFLAGS += -fsanitize=$(if $(SANITIZE),$(SANITIZE),thread)
-        #LDFLAGS += $(call ldclib,$(LD),$(SLDFLAGS),tsan)
-      endif
-    endif
-    ifneq (,$(SANITIZE))
-    ifneq (,$(filter 1 2,$(SYM)))
-      CXXFLAGS += -fsanitize=$(SANITIZE)
-      CFLAGS += -fsanitize=$(SANITIZE)
-      FCFLAGS += -fsanitize=$(SANITIZE)
-      LDFLAGS += -fsanitize=$(SANITIZE)
-      #LDFLAGS += $(call ldclib,$(LD),$(SLDFLAGS),tsan)
-    endif
     endif
   endif
   ifeq (0,$(COMPATIBLE))
