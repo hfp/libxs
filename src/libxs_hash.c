@@ -48,7 +48,7 @@
 #define LIBXS_HASH(FN64, FN32, FN16, FN8, SEED, DATA, SIZE) do { \
   const uint8_t *begin = (const uint8_t*)(DATA); \
   const uint8_t *const endb = begin + (SIZE); \
-  if (0 == LIBXS_MOD2((uintptr_t)(DATA), 8)) { \
+  if (0 != LIBXS_MOD2((uintptr_t)(DATA), 8)) { \
     const uint8_t *const enda = LIBXS_ALIGN(begin, 8); \
     if ((SIZE) > (size_t)(endb - enda)) { /* peel */ \
       LIBXS_HASH_U32(FN32, SEED, begin, enda); \
