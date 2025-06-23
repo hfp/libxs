@@ -835,7 +835,7 @@ ifneq (,$(strip $(LIBJITPROFILING)))
 $(LIBJITPROFILING): $(BLDDIR)/jitprofiling/.make
 	@$(CP) $(VTUNEROOT)/lib64/libjitprofiling.$(SLIBEXT) $(BLDDIR)/jitprofiling
 	@cd $(BLDDIR)/jitprofiling; $(AR) x libjitprofiling.$(SLIBEXT)
-    JITPROFILINGOBJ := $(BLDDIR)/jitprofiling/jitprofiling.o
+  JITPROFILINGOBJ := $(BLDDIR)/jitprofiling/jitprofiling.o
 endif
 
 .PHONY: clib
