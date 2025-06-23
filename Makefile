@@ -358,13 +358,15 @@ SRCFILES_LIB := $(patsubst %,$(ROOTSRC)/%, \
           libxs_main.c libxs_mem.c libxs_malloc.c libxs_math.c libxs_fsspmdm.c \
           libxs_hash.c libxs_sync.c libxs_perf.c libxs_gemm.c libxs_xcopy.c \
           libxs_utils.c libxs_lpflt_quant.c libxs_timer.c libxs_barrier.c \
-          libxs_rng.c libxs_mhd.c generator_gemm_reference_impl.c generator_mateltwise_reference_impl.c generator_matequation_reference_impl.c generator_x86_reference.c generator_aarch64_reference.c)
-SRCFILES_GEN_LIB := $(patsubst %,$(ROOTSRC)/%,$(notdir $(filter-out $(ROOTSRC)/generator_x86_reference.c $(ROOTSRC)/generator_aarch64_reference.c $(ROOTSRC)/generator_gemm_reference_impl.c $(ROOTSRC)/generator_mateltwise_reference_impl.c $(ROOTSRC)/generator_matequation_reference_impl.c, $(wildcard $(ROOTSRC)/generator_*.c))) \
-          libxs_cpuid_arm.c libxs_cpuid_x86.c libxs_generator.c libxs_trace.c libxs_matrixeqn.c)
+          libxs_rng.c libxs_mhd.c generator_gemm_reference_impl.c generator_mateltwise_reference_impl.c generator_matequation_reference_impl.c generator_x86_reference.c generator_aarch64_reference.c generator_rv64_reference.c)
+SRCFILES_GEN_LIB := $(patsubst %,$(ROOTSRC)/%,$(notdir $(filter-out $(ROOTSRC)/generator_x86_reference.c $(ROOTSRC)/generator_aarch64_reference.c $(ROOTSRC)/generator_rv64_reference.c $(ROOTSRC)/generator_gemm_reference_impl.c $(ROOTSRC)/generator_mateltwise_reference_impl.c $(ROOTSRC)/generator_matequation_reference_impl.c, $(wildcard $(ROOTSRC)/generator_*.c))) \
+          libxs_cpuid_arm.c libxs_cpuid_x86.c libxs_cpuid_rv64.c libxs_generator.c libxs_trace.c libxs_matrixeqn.c)
 SRCFILES := $(SRCFILES_LIB) $(SRCFILES_GEN_LIB) $(SRCFILES_KERNELS)
 
 SRCFILES_GEN_GEMM_BIN := $(patsubst %,$(ROOTSRC)/%,libxs_generator_gemm_driver.c)
 OBJFILES_GEN_GEMM_BIN := $(patsubst %,$(BLDDIR)/intel64/%.o,$(basename $(notdir $(SRCFILES_GEN_GEMM_BIN))))
+SRCFILES_GEN_BINARYEXPORT_BIN := $(patsubst %,$(ROOTSRC)/%,libxs_binaryexport_generator.c)
+OBJFILES_GEN_BINARYEXPORT_BIN := $(patsubst %,$(BLDDIR)/intel64/%.o,$(basename $(notdir $(SRCFILES_GEN_BINARYEXPORT_BIN))))
 OBJFILES_GEN_LIB := $(patsubst %,$(BLDDIR)/intel64/%.o,$(basename $(notdir $(SRCFILES_GEN_LIB))))
 OBJFILES_LIB := $(patsubst %,$(BLDDIR)/intel64/%.o,$(basename $(notdir $(SRCFILES_LIB))))
 OBJFILES_EXS := $(BLDDIR)/intel64/libxs_ext_xcopy.o \
@@ -375,7 +377,7 @@ OBJFILES_EXT := $(if $(filter-out 0,$(WRAP_STATIC)),$(OBJFILES_EXD),$(OBJFILES_E
 NOBLAS_OBJ := $(BLDDIR)/intel64/libxs_noblas.o
 
 # list of object might be "incomplete" if not all code gen. FLAGS are supplied with clean target!
-OBJECTS := $(OBJFILES_GEN_LIB) $(OBJFILES_GEN_GEMM_BIN) $(OBJFILES_LIB) \
+OBJECTS := $(OBJFILES_GEN_LIB) $(OBJFILES_GEN_GEMM_BIN) $(OBJFILES_GEN_BINARYEXPORT_BIN) $(OBJFILES_LIB) \
            $(KRNOBJS) $(OBJFILES_EXD) $(NOBLAS_OBJ)
 ifneq (,$(strip $(FC)))
   FTNOBJS := $(BLDDIR)/intel64/libxs-mod.o
@@ -783,6 +785,10 @@ $(foreach OBJ,$(OBJFILES_GEN_GEMM_BIN),$(eval $(call DEFINE_COMPILE_RULE, \
   $(OBJ),$(patsubst %.o,$(ROOTSRC)/%.c,$(notdir $(OBJ))), \
   $(INCDIR)/libxs.h $(INCDIR)/libxs_source.h, \
   $(DFLAGS) $(IFLAGS) $(TGT_FLAGS) $(CFLAGS))))
+$(foreach OBJ,$(OBJFILES_GEN_BINARYEXPORT_BIN),$(eval $(call DEFINE_COMPILE_RULE, \
+  $(OBJ),$(patsubst %.o,$(ROOTSRC)/%.c,$(notdir $(OBJ))), \
+  $(INCDIR)/libxs.h $(INCDIR)/libxs_source.h, \
+  $(DFLAGS) $(IFLAGS) $(TGT_FLAGS) $(CFLAGS))))
 
 .PHONY: module
 ifneq (,$(strip $(FC)))
@@ -817,9 +823,13 @@ else
 endif
 
 .PHONY: generator
-generator: $(BINDIR)/libxs_gemm_generator
+generator: $(BINDIR)/libxs_gemm_generator $(BINDIR)/libxs_binaryexport_generator
 $(BINDIR)/libxs_gemm_generator: $(BINDIR)/.make $(OBJFILES_GEN_GEMM_BIN) $(OUTDIR)/libxsgen.$(LIBEXT)
 	$(LD) -o $@ $(OBJFILES_GEN_GEMM_BIN) $(call abslib,$(OUTDIR)/libxsgen.$(ILIBEXT)) $(call cleanld,$(NOBLAS_LDFLAGS) $(NOBLAS_CLDFLAGS))
+
+$(BINDIR)/libxs_binaryexport_generator: $(BINDIR)/.make $(OBJFILES_GEN_BINARYEXPORT_BIN) $(OUTDIR)/libxsgen.$(LIBEXT)
+	$(LD) -o $@ $(OBJFILES_GEN_BINARYEXPORT_BIN) $(call abslib,$(OUTDIR)/libxsgen.$(ILIBEXT)) \
+		$(call cleanld,$(NOBLAS_LDFLAGS) $(NOBLAS_CLDFLAGS))
 
 ifneq (,$(strip $(LIBJITPROFILING)))
 $(LIBJITPROFILING): $(BLDDIR)/jitprofiling/.make

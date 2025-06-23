@@ -49,6 +49,11 @@
 #define LIBXS_AARCH64_A64FX         2402 /* A64FX */
 #define LIBXS_AARCH64_APPL_M4       2501 /* Apple M4 SME without SVE*/
 #define LIBXS_AARCH64_ALLFEAT       2999
+#define LIBXS_RV64_MVL128           3001 /* RISCV 128-bit RVV */
+#define LIBXS_RV64_MVL256           3002 /* RISCV 256-bit RVV */
+#define LIBXS_RV64_MVL128_LMUL      3003 /* RISCV 128-bit RVV with non-unit LMUL */
+#define LIBXS_RV64_MVL256_LMUL      3004 /* RISCV 256-bit RVV witb non-unit LMUL */
+#define LIBXS_RV64_ALLFEAT          3999
 
  /** Zero-initialized structure; assumes conservative properties. */
 LIBXS_EXTERN_C typedef struct libxs_cpuid_info {
@@ -77,7 +82,6 @@ LIBXS_API int libxs_cpuid_x86_use_high_prec_eltwise_approx(void);
 LIBXS_API int libxs_cpuid_x86_amx_gemm_enforce_mx1_tile_blocking(void);
 LIBXS_API unsigned int libxs_cpuid_x86_srf_gemm_set_n_max_blocking(void);
 LIBXS_API int libxs_cpuid_arm_use_i8dot(void);
-LIBXS_API int libxs_cpuid_x86_bf8_gemm_via_stack(void);
 
 /**
  * return the VNNI/Dot-product/Matmul blocking for a specific
@@ -99,6 +103,11 @@ LIBXS_API int libxs_cpuid(libxs_cpuid_info* LIBXS_ARGDEF(info, NULL));
 LIBXS_API const char* libxs_cpuid_name(int id);
 
 /**
+ * Translate the CPU name to LIBXS's internal ID
+ */
+LIBXS_API int libxs_cpuid_id(const char* name);
+
+/**
  * SIMD vector length (VLEN) in 32-bit elements.
  * Do not use libxs_cpuid() to match the current CPU!
  * Use libxs_get_target_archid() instead.
@@ -111,5 +120,25 @@ LIBXS_API int libxs_cpuid_vlen32(int id);
  * Use libxs_get_target_archid() instead.
  */
 #define libxs_cpuid_vlen(ID) (4 * libxs_cpuid_vlen32(ID))
+
+LIBXS_API int libxs_cpuid_rv64(libxs_cpuid_info* LIBXS_ARGDEF(info, NULL));
+
+/* Get reuse A knob */
+LIBXS_API unsigned int libxs_cpuid_rv64_gemm_prefetch_reuse_a(void);
+
+/* Get reuse B knob */
+LIBXS_API unsigned int libxs_cpuid_rv64_gemm_prefetch_reuse_b(void);
+
+/* Get reuse C knob */
+LIBXS_API unsigned int libxs_cpuid_rv64_gemm_prefetch_reuse_c(void);
+
+/* Get prefetch A knob */
+LIBXS_API unsigned int libxs_cpuid_rv64_gemm_prefetch_a(void);
+
+/* Get prefetch B knob */
+LIBXS_API unsigned int libxs_cpuid_rv64_gemm_prefetch_b(void);
+
+/* Get prefetch stride of A knob */
+LIBXS_API unsigned int libxs_cpuid_rv64_gemm_m_prefetch_stride(void);
 
 #endif /*LIBXS_CPUID_H*/
