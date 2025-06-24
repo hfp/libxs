@@ -438,10 +438,10 @@ LIBXS_API_INLINE int LIBXS_INTRINSICS_BITSCANFWD64_SW(unsigned long long n) {
 # define LIBXS_INTRINSICS_BITSCANBWD64 LIBXS_INTRINSICS_BITSCANBWD64_SW
 # endif
 #elif defined(__GNUC__) && !defined(LIBXS_INTRINSICS_NONE)
-# define LIBXS_INTRINSICS_BITSCANFWD32(N) (0 != (N) ? __builtin_ctz(N) : 0)
-# define LIBXS_INTRINSICS_BITSCANFWD64(N) (0 != (N) ? __builtin_ctzll(N) : 0)
-# define LIBXS_INTRINSICS_BITSCANBWD32(N) (31 - (0 != (N) ?  __builtin_clz(N) : 0))
-# define LIBXS_INTRINSICS_BITSCANBWD64(N) (63 - (0 != (N) ? __builtin_clzll(N) : 0))
+# define LIBXS_INTRINSICS_BITSCANFWD32(N) (0 != (N) ? __builtin_ctz(N) : 32)
+# define LIBXS_INTRINSICS_BITSCANFWD64(N) (0 != (N) ? __builtin_ctzll(N) : 64)
+# define LIBXS_INTRINSICS_BITSCANBWD32(N) (0 != (N) ? (31 - __builtin_clz(N)) : 0)
+# define LIBXS_INTRINSICS_BITSCANBWD64(N) (0 != (N) ? (63 - __builtin_clzll(N)) : 0)
 #else /* fallback implementation */
 # define LIBXS_INTRINSICS_BITSCANFWD32 LIBXS_INTRINSICS_BITSCANFWD32_SW
 # define LIBXS_INTRINSICS_BITSCANFWD64 LIBXS_INTRINSICS_BITSCANFWD64_SW
