@@ -11,25 +11,26 @@
 
 
 #define LIBXS_HASH_U64(FN, SEED, BEGIN, END) do { \
-  const uint8_t *const end = (NULL != (END) ? ((END) - 7) : NULL); \
-  for (; (BEGIN) < end; (BEGIN) += 8) { LIBXS_ASSERT(NULL != (BEGIN) || NULL == (END)); \
+  for (; ((BEGIN) + 7) < (END); (BEGIN) += 8) { \
+    LIBXS_ASSERT(NULL != (BEGIN) && 0 == LIBXS_MOD2((uintptr_t)(BEGIN), 8)); \
     SEED = (uint32_t)FN(SEED, BEGIN); \
   } \
 } while(0)
 #define LIBXS_HASH_U32(FN, SEED, BEGIN, END) do { \
-  const uint8_t *const next = (BEGIN) + 4; \
-  if (next <= (END)) { LIBXS_ASSERT(NULL != (BEGIN) || NULL == (END)); \
-    SEED = FN(SEED, BEGIN); BEGIN = next; \
+  for (; ((BEGIN) + 3) < (END); (BEGIN) += 4) { \
+    LIBXS_ASSERT(NULL != (BEGIN) && 0 == LIBXS_MOD2((uintptr_t)(BEGIN), 4)); \
+    SEED = FN(SEED, BEGIN); \
   } \
 } while(0)
 #define LIBXS_HASH_U16(FN, SEED, BEGIN, END) do { \
-  const uint8_t *const next = (BEGIN) + 2; \
-  if (next <= (END)) { LIBXS_ASSERT(NULL != (BEGIN) || NULL == (END)); \
-    SEED = FN(SEED, BEGIN); BEGIN = next; \
+  for (; ((BEGIN) + 1) < (END); (BEGIN) += 2) { \
+    LIBXS_ASSERT(NULL != (BEGIN) && 0 == LIBXS_MOD2((uintptr_t)(BEGIN), 2)); \
+    SEED = FN(SEED, BEGIN); \
   } \
 } while(0)
 #define LIBXS_HASH_U8(FN, SEED, BEGIN, END) do { \
-  if ((BEGIN) < (END)) { LIBXS_ASSERT(NULL != (BEGIN) || NULL == (END)); \
+  LIBXS_ASSERT(NULL != (END)); \
+  for (; (BEGIN) < (END); ++(BEGIN)) { LIBXS_ASSERT(NULL != (BEGIN)); \
     SEED = FN(SEED, BEGIN); ++(BEGIN); \
   } \
 } while(0)
