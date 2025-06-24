@@ -103,28 +103,28 @@ int main(void)
     result = EXIT_FAILURE;
   }
 
-  a = 17777927841313886634ULL;
+  a = 10102565835886989738ULL;
   b = libxs_hash_string("01234567890");
   if (a != b) {
     FPRINTF(stderr, "ERROR line #%i: %llu != %llu\n", __LINE__, a, b);
     result = EXIT_FAILURE;
   }
 
-  a = 3199039660;
+  a = 1229145680;
   b = libxs_hash32(b);
   if (a != b) {
     FPRINTF(stderr, "ERROR line #%i: %llu != %llu\n", __LINE__, a, b);
     result = EXIT_FAILURE;
   }
 
-  a = 22875;
+  a = 25916;
   b = libxs_hash16((unsigned int)b);
   if (a != b) {
     FPRINTF(stderr, "ERROR line #%i: %llu != %llu\n", __LINE__, a, b);
     result = EXIT_FAILURE;
   }
 
-  a = 237;
+  a = 129;
   b = libxs_hash8((unsigned int)b);
   if (a != b) {
     FPRINTF(stderr, "ERROR line #%i: %llu != %llu\n", __LINE__, a, b);

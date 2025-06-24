@@ -536,14 +536,10 @@ LIBXS_API unsigned long long libxs_hash_string(const char string[])
     hash32 = libxs_crc32(seed32, string + length2, length - length2);
     result = hash32; result = (result << 32) | seed32;
   }
-  else if (sizeof(result) != length) {
+  else { /* length <= sizeof(result) */
     char *const s = (char*)&result; signed char i;
     for (i = 0; i < (signed char)length; ++i) s[i] = string[i];
     for (; i < (signed char)sizeof(result); ++i) s[i] = 0;
-  }
-  else { /* reinterpret directly as hash value */
-    LIBXS_ASSERT(NULL != string);
-    result = *(const unsigned long long*)string;
   }
   return result;
 }
