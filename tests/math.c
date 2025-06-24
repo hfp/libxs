@@ -78,7 +78,7 @@ int main(int argc, char* argv[])
 
   for (i = 0; i < (N); ++i) {
     const int r1 = (0 != i ? rand() : 0), r2 = (1 < i ? rand() : 0);
-    const double rd = 2.0 * (r1 * (r2 - RAND_MAX / 2)) / RAND_MAX;
+    const double rd = 2.0 * ((long long int)r1 * (r2 - RAND_MAX / 2)) / RAND_MAX;
     const unsigned long long r64 = scale64 * r1;
     const unsigned int r32 = scale32 * r1;
     double d1, d2, e1, e2, e3;
