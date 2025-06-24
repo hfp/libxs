@@ -116,8 +116,8 @@ LIBXS_EXTERN_C typedef struct iJIT_Method_Load_V2 {
 # include "libxs_perf.h"
 #endif
 
-#if !defined(LIBXS_MALLOC_ALIGNMAX)
-# define LIBXS_MALLOC_ALIGNMAX (2 << 20) /* 2 MB */
+#if !defined(LIBXS_MALLOC_ALIGNMAX_BITS)
+# define LIBXS_MALLOC_ALIGNMAX_BITS 21 /* 2 MB */
 #endif
 #if !defined(LIBXS_MALLOC_ALIGNFCT)
 # define LIBXS_MALLOC_ALIGNFCT 16
@@ -203,10 +203,10 @@ LIBXS_EXTERN_C typedef struct iJIT_Method_Load_V2 {
 
 #if defined(LIBXS_MALLOC_LOCK_ALL) && defined(LIBXS_MALLOC_LOCK_PAGES) && 0 != (LIBXS_MALLOC_LOCK_PAGES)
 # if 1 == (LIBXS_MALLOC_LOCK_PAGES) || !defined(MLOCK_ONFAULT) || !defined(SYS_mlock2)
-#   define INTERNAL_MALLOC_LOCK_PAGES(BUFFER, SIZE) if ((LIBXS_MALLOC_ALIGNFCT * LIBXS_MALLOC_ALIGNMAX) <= (SIZE)) \
+#   define INTERNAL_MALLOC_LOCK_PAGES(BUFFER, SIZE) if ((LIBXS_MALLOC_ALIGNFCT * (1 << LIBXS_MALLOC_ALIGNMAX_BITS)) <= (SIZE)) \
       mlock(BUFFER, SIZE)
 # else
-#   define INTERNAL_MALLOC_LOCK_PAGES(BUFFER, SIZE) if ((LIBXS_MALLOC_ALIGNFCT * LIBXS_MALLOC_ALIGNMAX) <= (SIZE)) \
+#   define INTERNAL_MALLOC_LOCK_PAGES(BUFFER, SIZE) if ((LIBXS_MALLOC_ALIGNFCT * (1 << LIBXS_MALLOC_ALIGNMAX_BITS)) <= (SIZE)) \
       syscall(SYS_mlock2, BUFFER, SIZE, MLOCK_ONFAULT)
 # endif
 #else
@@ -251,7 +251,8 @@ LIBXS_EXTERN_C typedef struct iJIT_Method_Load_V2 {
     INTERNAL_REALLOC_REAL(RESULT, PTR, SIZE); \
   } \
   else { \
-    const int nzeros = LIBXS_INTRINSICS_BITSCANFWD64((uintptr_t)(PTR)), alignment = 1 << nzeros; \
+    const int nzeros = LIBXS_INTRINSICS_BITSCANFWD64((uintptr_t)(PTR)); \
+    const int alignment = 1 << LIBXS_MIN(nzeros, LIBXS_MALLOC_ALIGNMAX_BITS); \
     LIBXS_ASSERT(0 == ((uintptr_t)(PTR) & ~(0xFFFFFFFFFFFFFFFF << nzeros))); \
     if (NULL == (CALLER)) { /* libxs_trace_caller_id may allocate memory */ \
       internal_scratch_malloc(&(PTR), SIZE, (size_t)alignment, FLAGS, \
@@ -424,9 +425,9 @@ LIBXS_APIVAR_DEFINE(size_t internal_malloc_plocked);
 LIBXS_API_INTERN size_t libxs_alignment(size_t size, size_t alignment)
 {
   size_t result;
-  if ((LIBXS_MALLOC_ALIGNFCT * LIBXS_MALLOC_ALIGNMAX) <= size) {
+  if ((LIBXS_MALLOC_ALIGNFCT * (1 << LIBXS_MALLOC_ALIGNMAX_BITS)) <= size) {
     result = libxs_lcm(0 == alignment ? (LIBXS_ALIGNMENT)
-      : libxs_lcm(alignment, LIBXS_ALIGNMENT), LIBXS_MALLOC_ALIGNMAX);
+      : libxs_lcm(alignment, LIBXS_ALIGNMENT), 1 << LIBXS_MALLOC_ALIGNMAX_BITS);
   }
   else { /* small-size request */
     if ((LIBXS_MALLOC_ALIGNFCT * LIBXS_ALIGNMENT) <= size) {
@@ -1600,10 +1601,10 @@ LIBXS_API_INLINE void internal_xmalloc_mhint(void* buffer, size_t size)
   /* issue no warning as a failure seems to be related to the kernel version */
   madvise(buffer, size, MADV_NORMAL/*MADV_RANDOM*/
 # if defined(MADV_NOHUGEPAGE) /* if not available, we then take what we got (THP) */
-    | ((LIBXS_MALLOC_ALIGNMAX * LIBXS_MALLOC_ALIGNFCT) > size ? MADV_NOHUGEPAGE : 0)
+    | ((LIBXS_MALLOC_ALIGNFCT * (1 << LIBXS_MALLOC_ALIGNMAX_BITS)) > size ? MADV_NOHUGEPAGE : 0)
 # endif
 # if defined(MADV_DONTDUMP)
-    | ((LIBXS_MALLOC_ALIGNMAX * LIBXS_MALLOC_ALIGNFCT) > size ? 0 : MADV_DONTDUMP)
+    | ((LIBXS_MALLOC_ALIGNFCT * (1 << LIBXS_MALLOC_ALIGNMAX_BITS)) > size ? 0 : MADV_DONTDUMP)
 # endif
   );
 #else
@@ -1795,7 +1796,7 @@ LIBXS_API int libxs_xmalloc(void** memory, size_t size, size_t alignment,
           alloc_pagesize = system_info.dwPageSize;
           alloc_alignmax = GetLargePageMinimum();
         }
-        if ((LIBXS_MALLOC_ALIGNMAX * LIBXS_MALLOC_ALIGNFCT) <= size) { /* attempt to use large pages */
+        if ((LIBXS_MALLOC_ALIGNFCT * (1 << LIBXS_MALLOC_ALIGNMAX_BITS)) <= size) { /* attempt to use large pages */
           HANDLE process_token;
           alloc_alignment = (NULL == info
             ? (0 == alignment ? alloc_alignmax : libxs_lcm(alignment, alloc_alignmax))
@@ -1846,14 +1847,14 @@ LIBXS_API int libxs_xmalloc(void** memory, size_t size, size_t alignment,
           | MAP_UNINITIALIZED /* unlikely available */
 # endif
 # if defined(MAP_NORESERVE)
-          | (LIBXS_MALLOC_ALIGNMAX < size ? 0 : MAP_NORESERVE)
+          | ((1 << LIBXS_MALLOC_ALIGNMAX_BITS) < size ? 0 : MAP_NORESERVE)
 # endif
 # if defined(MAP_32BIT)
           | ((0 != (LIBXS_MALLOC_FLAG_X & flags) && 0 != map32) ? MAP_32BIT : 0)
 # endif
 # if defined(MAP_HUGETLB) && defined(LIBXS_MALLOC_HUGE_PAGES)
           | ((0 == (LIBXS_MALLOC_FLAG_X & flags)
-            && ((LIBXS_MALLOC_ALIGNMAX * LIBXS_MALLOC_ALIGNFCT) <= size ||
+            && ((LIBXS_MALLOC_ALIGNFCT * (1 << LIBXS_MALLOC_ALIGNMAX_BITS)) <= size ||
               0 != (LIBXS_MALLOC_FLAG_PHUGE & flags))
             && (internal_malloc_hugetlb + size) < limit_hugetlb) ? MAP_HUGETLB : 0)
 # endif
@@ -2376,7 +2377,8 @@ LIBXS_API LIBXS_ATTRIBUTE_MALLOC void* libxs_aligned_malloc(size_t size, size_t 
 
 LIBXS_API void* libxs_realloc(size_t size, void* ptr)
 {
-  const int nzeros = LIBXS_INTRINSICS_BITSCANFWD64((uintptr_t)ptr), alignment = 1 << nzeros;
+  const int nzeros = LIBXS_INTRINSICS_BITSCANFWD64((uintptr_t)ptr);
+  const int alignment = 1 << LIBXS_MIN(nzeros, LIBXS_MALLOC_ALIGNMAX_BITS);
   LIBXS_ASSERT(0 == ((uintptr_t)ptr & ~(0xFFFFFFFFFFFFFFFF << nzeros)));
   LIBXS_INIT
   if (2 > internal_malloc_kind) {
