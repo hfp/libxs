@@ -3231,9 +3231,7 @@ LIBXS_API void* libxs_xregister(const void* key, size_t key_size,
   LIBXS_INIT /* verbosity */
   if (NULL != key && 0 < key_size && LIBXS_DESCRIPTOR_MAXSIZE >= (offset + key_size)) {
     void* dst;
-#if defined(LIBXS_UNPACKED) /* CCE/Classic */
-    LIBXS_MEMZERO127(&wrap);
-#elif defined(LIBXS_REGUSER_ALIGN)
+#if defined(LIBXS_UNPACKED) || defined(LIBXS_REGUSER_ALIGN)
     LIBXS_MEMSET127(&wrap, 0, offset);
 #endif
     LIBXS_MEMCPY127(wrap.data + offset, key, key_size);
@@ -3293,9 +3291,7 @@ LIBXS_API void* libxs_xdispatch(const void* key, size_t key_size)
   if (NULL != key && 0 < key_size && LIBXS_DESCRIPTOR_MAXSIZE >= (offset + key_size))
 #endif
   {
-#if defined(LIBXS_UNPACKED) /* CCE/Classic */
-    LIBXS_MEMZERO127(&wrap);
-#elif defined(LIBXS_REGUSER_ALIGN)
+#if defined(LIBXS_UNPACKED) || defined(LIBXS_REGUSER_ALIGN)
     LIBXS_MEMSET127(&wrap, 0, offset);
 #endif
     LIBXS_MEMCPY127(wrap.data + offset, key, key_size);
@@ -3330,15 +3326,14 @@ LIBXS_API libxs_xmmfunction libxs_xmmdispatch(const libxs_gemm_descriptor* descr
 {
   libxs_xmmfunction result;
   LIBXS_INIT /* verbosity */
-#if !defined(LIBXS_UNPACKED) /* CCE/Classic */
-  LIBXS_ASSERT((sizeof(*descriptor) + sizeof(libxs_descriptor_kind)) <= (LIBXS_DESCRIPTOR_MAXSIZE));
-#endif
 #if !defined(NDEBUG)
   if (NULL != descriptor)
 #endif
   {
     libxs_descriptor wrap /*= { 0 }*/;
-#if defined(LIBXS_UNPACKED) /* CCE/Classic */
+#if !defined(LIBXS_UNPACKED)
+    LIBXS_ASSERT((sizeof(*descriptor) + sizeof(libxs_descriptor_kind)) <= (LIBXS_DESCRIPTOR_MAXSIZE));
+#else /* CCE/Classic */
     LIBXS_MEMZERO127(&wrap);
 #endif
     LIBXS_ASSIGN127(&wrap.gemm.desc, descriptor);
@@ -3460,12 +3455,11 @@ LIBXS_API libxs_xmeltwfunction libxs_dispatch_meltw(const libxs_meltw_descriptor
 {
   libxs_xmeltwfunction result;
   LIBXS_INIT /* verbosity */
-#if !defined(LIBXS_UNPACKED) /* CCE/Classic */
-  LIBXS_ASSERT((sizeof(*descriptor) + sizeof(libxs_descriptor_kind)) <= (LIBXS_DESCRIPTOR_MAXSIZE));
-#endif
   if (NULL != descriptor) {
     libxs_descriptor wrap /*= { 0 }*/;
-#if defined(LIBXS_UNPACKED) /* CCE/Classic */
+#if !defined(LIBXS_UNPACKED)
+    LIBXS_ASSERT((sizeof(*descriptor) + sizeof(libxs_descriptor_kind)) <= (LIBXS_DESCRIPTOR_MAXSIZE));
+#else /* CCE/Classic */
     LIBXS_MEMZERO127(&wrap);
 #endif
     LIBXS_ASSIGN127(&wrap.meltw.desc, descriptor);
@@ -3524,14 +3518,13 @@ LIBXS_API libxs_meltwfunction_ternary libxs_dispatch_meltw_ternary( const libxs_
 LIBXS_API libxs_meqn_function libxs_dispatch_meqn_desc( const libxs_meqn_descriptor* descriptor ) {
   libxs_meqn_function result;
   LIBXS_INIT /* verbosity */
-#if !defined(LIBXS_UNPACKED) /* CCE/Classic */
-  LIBXS_ASSERT((sizeof(*descriptor) + sizeof(libxs_descriptor_kind)) <= (LIBXS_DESCRIPTOR_MAXSIZE));
-#endif
   if (NULL != descriptor) {
     libxs_descriptor wrap /*= { 0 }*/;
     /* check if equation is ready for JIT */
     if (0 == libxs_meqn_is_ready_for_jit( descriptor->eqn_idx)) {
-#if defined(LIBXS_UNPACKED) /* CCE/Classic */
+#if !defined(LIBXS_UNPACKED)
+      LIBXS_ASSERT((sizeof(*descriptor) + sizeof(libxs_descriptor_kind)) <= (LIBXS_DESCRIPTOR_MAXSIZE));
+#else /* CCE/Classic */
       LIBXS_MEMZERO127(&wrap);
 #endif
       LIBXS_ASSIGN127(&wrap.meqn.desc, descriptor);
