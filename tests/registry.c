@@ -89,15 +89,19 @@ int main(int argc, char* argv[])
     libxs_xrelease(key, key_size);
   }
   for (i = 0; i < n && EXIT_SUCCESS == result; ++i) { /* register all entries */
-    result = (NULL != libxs_xregister(key + i * 3, key_size,
+    const key_type *const ikey = key + i * 3;
+    assert(0 == LIBXS_MOD2((uintptr_t)ikey, sizeof(key_type)));
+    result = (NULL != libxs_xregister(ikey, key_size,
       strlen(value[i]) + 1, value[i]) ? EXIT_SUCCESS : EXIT_FAILURE);
   }
   if (EXIT_SUCCESS == result) {
     const void* regkey = NULL;
     const void* regentry = libxs_get_registry_begin(LIBXS_KERNEL_KIND_USER, &regkey);
+    assert(0 == LIBXS_MOD2((uintptr_t)regkey, sizeof(key_type)) || NULL == regentry);
     for (; NULL != regentry; regentry = libxs_get_registry_next(regentry, &regkey)) {
       const key_type *const ikey = (const key_type*)regkey;
       const char *const ivalue = (const char*)regentry;
+      assert(0 == LIBXS_MOD2((uintptr_t)regkey, sizeof(key_type)));
       result = EXIT_FAILURE;
       for (i = 0; i < n; ++i) {
         if (ikey[0/*x*/] == key[i*3+0/*x*/] && ikey[1/*y*/] == key[i*3+1/*y*/] && ikey[2/*z*/] == key[i*3+2/*z*/]) {
