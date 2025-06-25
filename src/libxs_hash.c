@@ -31,7 +31,7 @@
 #define LIBXS_HASH_U8(FN, SEED, BEGIN, END) do { \
   LIBXS_ASSERT(NULL != (END)); \
   for (; (BEGIN) < (END); ++(BEGIN)) { LIBXS_ASSERT(NULL != (BEGIN)); \
-    SEED = FN(SEED, BEGIN); ++(BEGIN); \
+    SEED = FN(SEED, BEGIN); \
   } \
 } while(0)
 
@@ -52,8 +52,7 @@
   const uint8_t *const endb = begin + (SIZE); \
   if (begin != enda) { /* peel */ \
     const uint8_t *const end = (enda < endb ? enda : endb); \
-    /* cannot use FN32 here due to unalignment */ \
-    LIBXS_HASH_U16(FN16, SEED, begin, end); \
+    /* FN32 and FN16 cannot be used due to potential unalignment */ \
     LIBXS_HASH_U8(FN8, SEED, begin, end); \
   } \
   LIBXS_HASH_U64(FN64, SEED, begin, endb); \
