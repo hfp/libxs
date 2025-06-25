@@ -3167,7 +3167,13 @@ LIBXS_API_INLINE void* internal_get_registry_entry(int i, libxs_kernel_kind kind
       const libxs_kernel_xinfo info = *(const libxs_kernel_xinfo*)result;
       const libxs_descriptor *const desc = &internal_registry_keys[info.registered].entry;
       if (LIBXS_DESCRIPTOR_KIND(desc->kind) == (int)kind) {
-        if (NULL != key) *key = desc->user.desc;
+        if (NULL != key) {
+          if (LIBXS_KERNEL_KIND_USER == kind) {
+            const size_t offset = LIBXS_UP2(desc->user.desc - desc->data, 4 < desc->user.size ? 8 : 4);
+            *key = desc->data + offset;
+          }
+          else *key = desc->user.desc;
+        }
         result = regentry.ptr;
         break;
       }
@@ -3209,21 +3215,23 @@ LIBXS_API void* libxs_xregister(const void* key, size_t key_size,
   size_t value_size, const void* value_init)
 {
   libxs_descriptor wrap /*= { 0 }*/;
-  const size_t key_size_reg = wrap.user.desc - (unsigned char*)&wrap.user.size + key_size;
+  const size_t offset = LIBXS_UP2(wrap.user.desc - wrap.data, 4 < key_size ? 8 : 4);
   static int error_once = 0;
   void* result;
   LIBXS_INIT /* verbosity */
-  if (NULL != key && 0 < key_size && LIBXS_DESCRIPTOR_MAXSIZE >= key_size_reg) {
+  if (NULL != key && 0 < key_size && LIBXS_DESCRIPTOR_MAXSIZE >= (offset + key_size)) {
     void* dst;
 #if defined(LIBXS_UNPACKED) /* CCE/Classic */
     LIBXS_MEMZERO127(&wrap);
+#else
+    LIBXS_MEMSET127(wrap.data, 0, offset);
 #endif
-    LIBXS_MEMCPY127(wrap.user.desc, key, key_size);
+    LIBXS_MEMCPY127(wrap.data + offset, key, key_size);
     wrap.user.size = LIBXS_CAST_UCHAR(key_size);
-    wrap.kind = (libxs_descriptor_kind)(LIBXS_DESCRIPTOR_SIGSIZE >= key_size_reg
+    wrap.kind = (libxs_descriptor_kind)(LIBXS_DESCRIPTOR_SIGSIZE >= (offset + key_size)
       ? ((libxs_descriptor_kind)LIBXS_KERNEL_KIND_USER)
       : LIBXS_DESCRIPTOR_BIG(LIBXS_KERNEL_KIND_USER));
-    dst = internal_find_code(&wrap, key_size_reg, value_size).ptr;
+    dst = internal_find_code(&wrap, offset + key_size, value_size).ptr;
     if (NULL != dst) {
       size_t size;
       if (EXIT_SUCCESS == libxs_get_malloc_xinfo(dst, &size, NULL/*flags*/, NULL/*extra*/)
@@ -3264,22 +3272,24 @@ LIBXS_API void* libxs_xregister(const void* key, size_t key_size,
 LIBXS_API void* libxs_xdispatch(const void* key, size_t key_size)
 {
   libxs_descriptor wrap /*= { 0 }*/;
-  const size_t key_size_reg = wrap.user.desc - (unsigned char*)&wrap.user.size + key_size;
+  const size_t offset = LIBXS_UP2(wrap.user.desc - wrap.data, 4 < key_size ? 8 : 4);
   void* result;
   LIBXS_INIT /* verbosity */
 #if !defined(NDEBUG)
-  if (NULL != key && 0 < key_size && LIBXS_DESCRIPTOR_MAXSIZE >= key_size_reg)
+  if (NULL != key && 0 < key_size && LIBXS_DESCRIPTOR_MAXSIZE >= (offset + key_size))
 #endif
   {
 #if defined(LIBXS_UNPACKED) /* CCE/Classic */
     LIBXS_MEMZERO127(&wrap);
+#else
+    LIBXS_MEMSET127(wrap.data, 0, offset);
 #endif
-    LIBXS_MEMCPY127(wrap.user.desc, key, key_size);
+    LIBXS_MEMCPY127(wrap.data + offset, key, key_size);
     wrap.user.size = LIBXS_CAST_UCHAR(key_size);
-    wrap.kind = (libxs_descriptor_kind)(LIBXS_DESCRIPTOR_SIGSIZE >= key_size_reg
+    wrap.kind = (libxs_descriptor_kind)(LIBXS_DESCRIPTOR_SIGSIZE >= (offset + key_size)
       ? ((libxs_descriptor_kind)LIBXS_KERNEL_KIND_USER)
       : LIBXS_DESCRIPTOR_BIG(LIBXS_KERNEL_KIND_USER));
-    result = internal_find_code(&wrap, key_size_reg, 0/*user_size*/).ptr;
+    result = internal_find_code(&wrap, offset + offset, 0/*user_size*/).ptr;
   }
 #if !defined(NDEBUG)
   else {
