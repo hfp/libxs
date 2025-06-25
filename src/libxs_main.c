@@ -69,6 +69,9 @@
 #if !defined(LIBXS_REGUSER_HASH) && 1
 # define LIBXS_REGUSER_HASH
 #endif
+#if !defined(LIBXS_REGUSER_ALIGN) && 0
+# define LIBXS_REGUSER_ALIGN
+#endif
 #if !defined(LIBXS_REGLOCK_TRY) && 0
 # define LIBXS_REGLOCK_TRY
 #endif
@@ -3168,11 +3171,14 @@ LIBXS_API_INLINE void* internal_get_registry_entry(int i, libxs_kernel_kind kind
       const libxs_descriptor *const desc = &internal_registry_keys[info.registered].entry;
       if (LIBXS_DESCRIPTOR_KIND(desc->kind) == (int)kind) {
         if (NULL != key) {
+#if defined(LIBXS_REGUSER_ALIGN)
           if (LIBXS_KERNEL_KIND_USER == kind) {
             const size_t offset = LIBXS_UP2(desc->user.desc - desc->data, 4 < desc->user.size ? 8 : 4);
             *key = desc->data + offset;
           }
-          else *key = desc->user.desc;
+          else
+#endif
+          *key = desc->user.desc;
         }
         result = regentry.ptr;
         break;
@@ -3215,7 +3221,11 @@ LIBXS_API void* libxs_xregister(const void* key, size_t key_size,
   size_t value_size, const void* value_init)
 {
   libxs_descriptor wrap /*= { 0 }*/;
+#if defined(LIBXS_REGUSER_ALIGN)
   const size_t offset = LIBXS_UP2(wrap.user.desc - wrap.data, 4 < key_size ? 8 : 4);
+#else
+  const size_t offset = wrap.user.desc - wrap.data;
+#endif
   static int error_once = 0;
   void* result;
   LIBXS_INIT /* verbosity */
@@ -3223,8 +3233,8 @@ LIBXS_API void* libxs_xregister(const void* key, size_t key_size,
     void* dst;
 #if defined(LIBXS_UNPACKED) /* CCE/Classic */
     LIBXS_MEMZERO127(&wrap);
-#else
-    LIBXS_MEMSET127(wrap.data, 0, offset);
+#elif defined(LIBXS_REGUSER_ALIGN)
+    LIBXS_MEMSET127(&wrap, 0, offset);
 #endif
     LIBXS_MEMCPY127(wrap.data + offset, key, key_size);
     wrap.user.size = LIBXS_CAST_UCHAR(key_size);
@@ -3272,7 +3282,11 @@ LIBXS_API void* libxs_xregister(const void* key, size_t key_size,
 LIBXS_API void* libxs_xdispatch(const void* key, size_t key_size)
 {
   libxs_descriptor wrap /*= { 0 }*/;
+#if defined(LIBXS_REGUSER_ALIGN)
   const size_t offset = LIBXS_UP2(wrap.user.desc - wrap.data, 4 < key_size ? 8 : 4);
+#else
+  const size_t offset = wrap.user.desc - wrap.data;
+#endif
   void* result;
   LIBXS_INIT /* verbosity */
 #if !defined(NDEBUG)
@@ -3281,8 +3295,8 @@ LIBXS_API void* libxs_xdispatch(const void* key, size_t key_size)
   {
 #if defined(LIBXS_UNPACKED) /* CCE/Classic */
     LIBXS_MEMZERO127(&wrap);
-#else
-    LIBXS_MEMSET127(wrap.data, 0, offset);
+#elif defined(LIBXS_REGUSER_ALIGN)
+    LIBXS_MEMSET127(&wrap, 0, offset);
 #endif
     LIBXS_MEMCPY127(wrap.data + offset, key, key_size);
     wrap.user.size = LIBXS_CAST_UCHAR(key_size);
