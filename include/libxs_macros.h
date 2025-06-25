@@ -438,7 +438,7 @@ LIBXS_PRAGMA_DIAG_POP()
 
 #if !defined(LIBXS_UNPACKED) && (defined(_CRAYC) || \
   (0 == LIBXS_SYNC)/*Windows: missing pack(pop) error*/)
-# define LIBXS_UNPACKED
+# define LIBXS_UNPACKED /* CCE/Classic */
 #endif
 #if defined(_WIN32) && !defined(__GNUC__) && !defined(__clang__)
 # define LIBXS_ATTRIBUTE(A) __declspec(A)
