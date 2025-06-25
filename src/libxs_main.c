@@ -3289,7 +3289,7 @@ LIBXS_API void* libxs_xdispatch(const void* key, size_t key_size)
     wrap.kind = (libxs_descriptor_kind)(LIBXS_DESCRIPTOR_SIGSIZE >= (offset + key_size)
       ? ((libxs_descriptor_kind)LIBXS_KERNEL_KIND_USER)
       : LIBXS_DESCRIPTOR_BIG(LIBXS_KERNEL_KIND_USER));
-    result = internal_find_code(&wrap, offset + offset, 0/*user_size*/).ptr;
+    result = internal_find_code(&wrap, offset + key_size, 0/*user_size*/).ptr;
   }
 #if !defined(NDEBUG)
   else {
