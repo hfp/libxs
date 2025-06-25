@@ -3312,7 +3312,6 @@ LIBXS_API void libxs_xrelease(const void* key, size_t key_size)
 }
 
 
-
 LIBXS_API libxs_xmmfunction libxs_xmmdispatch(const libxs_gemm_descriptor* descriptor)
 {
   libxs_xmmfunction result;
