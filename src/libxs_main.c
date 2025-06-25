@@ -69,7 +69,7 @@
 #if !defined(LIBXS_REGUSER_HASH) && 1
 # define LIBXS_REGUSER_HASH
 #endif
-#if !defined(LIBXS_REGUSER_ALIGN) && 0
+#if !defined(LIBXS_REGUSER_ALIGN) && 1
 # define LIBXS_REGUSER_ALIGN
 #endif
 #if !defined(LIBXS_REGLOCK_TRY) && 0
@@ -3239,7 +3239,7 @@ LIBXS_API void* libxs_xregister(const void* key, size_t key_size,
     wrap.kind = (libxs_descriptor_kind)(LIBXS_DESCRIPTOR_SIGSIZE >= (offset + key_size)
       ? ((libxs_descriptor_kind)LIBXS_KERNEL_KIND_USER)
       : LIBXS_DESCRIPTOR_BIG(LIBXS_KERNEL_KIND_USER));
-    dst = internal_find_code(&wrap, offset + key_size, value_size).ptr;
+    dst = internal_find_code(&wrap, offset + key_size - sizeof(libxs_descriptor_kind), value_size).ptr;
     if (NULL != dst) {
       size_t size;
       if (EXIT_SUCCESS == libxs_get_malloc_xinfo(dst, &size, NULL/*flags*/, NULL/*extra*/)
@@ -3299,7 +3299,7 @@ LIBXS_API void* libxs_xdispatch(const void* key, size_t key_size)
     wrap.kind = (libxs_descriptor_kind)(LIBXS_DESCRIPTOR_SIGSIZE >= (offset + key_size)
       ? ((libxs_descriptor_kind)LIBXS_KERNEL_KIND_USER)
       : LIBXS_DESCRIPTOR_BIG(LIBXS_KERNEL_KIND_USER));
-    result = internal_find_code(&wrap, offset + key_size, 0/*user_size*/).ptr;
+    result = internal_find_code(&wrap, offset + key_size - sizeof(libxs_descriptor_kind), 0/*user_size*/).ptr;
   }
 #if !defined(NDEBUG)
   else {
