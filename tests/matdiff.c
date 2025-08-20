@@ -71,7 +71,7 @@ int main(void)
     if (0.0000001 < LIBXS_ABS(di[0].linf_rel - 0.5600000)) result = EXIT_FAILURE;
     /* R-squared */
     if (0.0000001 < LIBXS_ABS(di[0].rsq - 0.9490077)) result = EXIT_FAILURE;
-    /* Location of maximum absolute error */
+    /* Location of maximum error */
     if (2 != di[0].m || 2 != di[0].n) result = EXIT_FAILURE;
     if (a[3*di[0].m+di[0].n] != di[0].v_ref) result = EXIT_FAILURE;
     if (b[3*di[0].m+di[0].n] != di[0].v_tst) result = EXIT_FAILURE;
@@ -105,7 +105,7 @@ int main(void)
     if (0.0000001 < LIBXS_ABS(di[1].linf_rel - 0.2222222)) result = EXIT_FAILURE;
     /* R-squared */
     if (0.0000001 < LIBXS_ABS(di[1].rsq - 0.9991717)) result = EXIT_FAILURE;
-    /* Location of maximum absolute error */
+    /* Location of maximum error */
     if (0 != di[1].m || 2 != di[1].n) result = EXIT_FAILURE;
     if (x[3*di[1].m+di[1].n] != di[1].v_ref) result = EXIT_FAILURE;
     if (y[3*di[1].m+di[1].n] != di[1].v_tst) result = EXIT_FAILURE;
@@ -139,7 +139,7 @@ int main(void)
     if (0.0000001 < LIBXS_ABS(di[2].linf_rel - 0.2222222)) result = EXIT_FAILURE;
     /* R-squared */
     if (0.0000001 < LIBXS_ABS(di[2].rsq - 0.9991717)) result = EXIT_FAILURE;
-    /* Location of maximum absolute error */
+    /* Location of maximum error */
     if (2 != di[2].m || 0 != di[2].n) result = EXIT_FAILURE;
     if (x[3*di[2].n+di[2].m] != di[2].v_ref) result = EXIT_FAILURE;
     if (y[3*di[2].n+di[2].m] != di[2].v_tst) result = EXIT_FAILURE;
@@ -173,7 +173,7 @@ int main(void)
     if (0.0000001 < LIBXS_ABS(di[3].linf_rel - 0.0200000)) result = EXIT_FAILURE;
     /* R-squared */
     if (0.0000001 < LIBXS_ABS(di[3].rsq - 0.9994000)) result = EXIT_FAILURE;
-    /* Location of maximum absolute error */
+    /* Location of maximum error */
     if (1 != di[3].m || 0 != di[3].n) result = EXIT_FAILURE;
     if (r[3*di[3].n+di[3].m] != di[3].v_ref) result = EXIT_FAILURE;
     if (t[3*di[3].n+di[3].m] != di[3].v_tst) result = EXIT_FAILURE;
@@ -207,7 +207,7 @@ int main(void)
     if (0.0000001 < LIBXS_ABS(di[4].linf_rel - 1.0000000)) result = EXIT_FAILURE;
     /* R-squared */
     if (0.0000001 < LIBXS_ABS(di[4].rsq + 0.0000000)) result = EXIT_FAILURE;
-    /* Location of maximum absolute error */
+    /* Location of maximum error */
     if (1 != di[4].m || 0 != di[4].n) result = EXIT_FAILURE;
     if (t[3*di[4].n+di[4].m] != di[4].v_ref) result = EXIT_FAILURE;
     if (r[3*di[4].n+di[4].m] != di[4].v_tst) result = EXIT_FAILURE;
@@ -241,14 +241,14 @@ int main(void)
     if (0.0000001 < LIBXS_ABS(di[5].linf_rel - 0.0000000)) result = EXIT_FAILURE;
     /* R-squared */
     if (0.0000001 < LIBXS_ABS(di[5].rsq - 1.0000000)) result = EXIT_FAILURE;
-    /* Location of maximum absolute error */
+    /* Location of maximum error */
     if (-1 != di[5].m || -1 != di[5].n) result = EXIT_FAILURE;
   }
 
   if (EXIT_SUCCESS == result) {
     const double epsilon = libxs_matdiff_epsilon(&diff);
     /* Epsilon (combined) */
-    if (0.0000001 < LIBXS_ABS(epsilon - 0.1132714)) result = EXIT_FAILURE;
+    if (0.0000001 < LIBXS_ABS(epsilon - 0.1075845)) result = EXIT_FAILURE;
     /* One-norm */
     if (0.0000001 < LIBXS_ABS(diff.norm1_abs - 3.1000000)) result = EXIT_FAILURE;
     if (0.0000001 < LIBXS_ABS(diff.norm1_rel - 0.0281818)) result = EXIT_FAILURE;
@@ -267,11 +267,11 @@ int main(void)
     if (0.0000001 < LIBXS_ABS(diff.linf_abs - 2.0000000)) result = EXIT_FAILURE;
     if (0.0000001 < LIBXS_ABS(diff.linf_rel - 0.2222222)) result = EXIT_FAILURE;
     /* R-squared */
-    if (0.0000001 < LIBXS_ABS(diff.rsq - 0.9490077)) result = EXIT_FAILURE;
-    /* Location of maximum absolute error */
-    if (2 != diff.m || 2 != diff.n) result = EXIT_FAILURE;
-    if (a[3*diff.m+diff.n] != diff.v_ref) result = EXIT_FAILURE;
-    if (b[3*diff.m+diff.n] != diff.v_tst) result = EXIT_FAILURE;
+    if (0.0000001 < LIBXS_ABS(diff.rsq - 0.9991717)) result = EXIT_FAILURE;
+    /* Location of maximum error */
+    if (2 != diff.m || 0 != diff.n) result = EXIT_FAILURE;
+    if (x[3*di[1].m+di[1].n] != di[1].v_ref) result = EXIT_FAILURE;
+    if (y[3*di[1].m+di[1].n] != di[1].v_tst) result = EXIT_FAILURE;
   }
 
   /* test inputs legally leading to an infinite large difference */
@@ -286,7 +286,7 @@ int main(void)
       if (epsilon != LIBXS_ABS(epsilon - v)) result = EXIT_FAILURE; /* infinity */
       /* R-squared */
       if (0 < d.rsq - 0) result = EXIT_FAILURE;
-      /* Location of maximum absolute error */
+      /* Location of maximum error */
       if (0 != d.m || 0 != d.n) result = EXIT_FAILURE;
     }
   }
