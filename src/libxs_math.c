@@ -409,11 +409,28 @@ LIBXS_API void libxs_matdiff_reduce(libxs_matdiff_info* output, const libxs_matd
 {
   if (NULL != output && NULL != input) {
     /* epsilon is determined before updating the output */
-    const double epsinp = libxs_matdiff_epsilon(input);
-    const double epsout = libxs_matdiff_epsilon(output);
-    if (output->linf_abs <= input->linf_abs) {
+    if (libxs_matdiff_epsilon(output) <= libxs_matdiff_epsilon(input)) {
+      const double ta = LIBXS_ABS(input->v_tst), ra = LIBXS_ABS(input->v_ref);
+      output->linf_abs = (ta != ra ? LIBXS_DELTA(input->v_ref, input->v_tst) : 0);
+      output->linf_rel = LIBXS_MATDIFF_DIV(output->linf_abs, ra, ta);
+      output->v_ref = input->v_ref;
+      output->v_tst = input->v_tst;
+      output->rsq = input->rsq;
+      output->m = input->m;
+      output->n = input->n;
+      output->i = input->r;
+    }
+    else if (output->linf_abs <= input->linf_abs
+          || output->linf_rel <= input->linf_rel)
+    {
       output->linf_abs = input->linf_abs;
       output->linf_rel = input->linf_rel;
+      output->v_ref = input->v_ref;
+      output->v_tst = input->v_tst;
+      output->rsq = input->rsq;
+      output->m = input->m;
+      output->n = input->n;
+      output->i = input->r;
     }
     if (output->norm1_abs <= input->norm1_abs) {
       output->norm1_abs = input->norm1_abs;
@@ -427,45 +444,19 @@ LIBXS_API void libxs_matdiff_reduce(libxs_matdiff_info* output, const libxs_matd
       output->l2_abs = input->l2_abs;
       output->l2_rel = input->l2_rel;
     }
-    if (output->normf_rel <= input->normf_rel) {
-      output->normf_rel = input->normf_rel;
-    }
-    if (output->var_ref <= input->var_ref) {
-      output->var_ref = input->var_ref;
-    }
-    if (output->var_tst <= input->var_tst) {
-      output->var_tst = input->var_tst;
-    }
-    if (output->max_ref <= input->max_ref) {
-      output->max_ref = input->max_ref;
-    }
-    if (output->max_tst <= input->max_tst) {
-      output->max_tst = input->max_tst;
-    }
-    if (output->min_ref >= input->min_ref) {
-      output->min_ref = input->min_ref;
-    }
-    if (output->min_tst >= input->min_tst) {
-      output->min_tst = input->min_tst;
-    }
-    if (epsout <= epsinp) {
-      output->rsq = input->rsq;
-      output->v_ref = input->v_ref;
-      output->v_tst = input->v_tst;
-      output->m = input->m;
-      output->n = input->n;
-      output->i = input->r;
-    }
+    if (output->normf_rel <= input->normf_rel) output->normf_rel = input->normf_rel;
+    if (output->var_ref <= input->var_ref) output->var_ref = input->var_ref;
+    if (output->var_tst <= input->var_tst) output->var_tst = input->var_tst;
+    if (output->max_ref <= input->max_ref) output->max_ref = input->max_ref;
+    if (output->max_tst <= input->max_tst) output->max_tst = input->max_tst;
+    if (output->min_ref >= input->min_ref) output->min_ref = input->min_ref;
+    if (output->min_tst >= input->min_tst) output->min_tst = input->min_tst;
     output->avg_ref = 0.5 * (output->avg_ref + input->avg_ref);
     output->avg_tst = 0.5 * (output->avg_tst + input->avg_tst);
     output->l1_ref += input->l1_ref;
     output->l1_tst += input->l1_tst;
-    if (0 != output->r || 0 == input->r) {
-      ++output->r;
-    }
-    else {
-      output->r = input->r;
-    }
+    if (0 != output->r || 0 == input->r) ++output->r;
+    else output->r = input->r;
   }
   else {
     libxs_matdiff_clear(output);
