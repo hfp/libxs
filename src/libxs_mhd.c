@@ -163,15 +163,6 @@
     case LIBXS_MHD_ELEMTYPE_F32: { \
       LIBXS_MHD_ELEMENT_CONVERSION_F(float, DST_TYPE, DST_INFO, DST_MIN, DST_MAX, PDST, SRC_ENUM, PSRC, PSRC_MIN, PSRC_MAX, RESULT); \
     } break; \
-    case LIBXS_MHD_ELEMTYPE_F16: { \
-      LIBXS_ASSERT_MSG(0, "Not implemented yet"); \
-    } break; \
-    case LIBXS_MHD_ELEMTYPE_BF16: { \
-      LIBXS_ASSERT_MSG(0, "Not implemented yet"); \
-    } break; \
-    case LIBXS_MHD_ELEMTYPE_BF8: { \
-      LIBXS_ASSERT_MSG(0, "Not implemented yet"); \
-    } break; \
     default: RESULT = EXIT_FAILURE; \
   } \
 } while(0)
@@ -183,9 +174,6 @@ LIBXS_API const char* libxs_mhd_typename(libxs_mhd_elemtype type, const char** c
   switch ((int)type) {
     case LIBXS_MHD_ELEMTYPE_F64:  { mhd_typename = "MET_DOUBLE";  c_typename = "double";             } break;
     case LIBXS_MHD_ELEMTYPE_F32:  { mhd_typename = "MET_FLOAT";   c_typename = "float";              } break;
-    case LIBXS_MHD_ELEMTYPE_F16:  { mhd_typename = "MET_HALF";    c_typename = "unsigned short";     } break;
-    case LIBXS_MHD_ELEMTYPE_BF16: { mhd_typename = "MET_BFLOAT";  c_typename = "unsigned short";     } break;
-    case LIBXS_MHD_ELEMTYPE_BF8:  { mhd_typename = "MET_BFLOAT8"; c_typename = "unsigned char";      } break;
     case LIBXS_MHD_ELEMTYPE_I64:  { mhd_typename = "MET_LONG";    c_typename = "signed long long";   } break;
     case LIBXS_MHD_ELEMTYPE_I32:  { mhd_typename = "MET_INT";     c_typename = "signed int";         } break;
     case LIBXS_MHD_ELEMTYPE_I16:  { mhd_typename = "MET_SHORT";   c_typename = "signed short";       } break;
@@ -209,15 +197,6 @@ LIBXS_API libxs_mhd_elemtype libxs_mhd_typeinfo(const char elemname[])
   }
   else if (0 == strcmp("MET_FLOAT", elemname)) {
     result = LIBXS_MHD_ELEMTYPE_F32;
-  }
-  else if (0 == strcmp("MET_HALF", elemname)) {
-    result = LIBXS_MHD_ELEMTYPE_F16;
-  }
-  else if (0 == strcmp("MET_BFLOAT", elemname)) {
-    result = LIBXS_MHD_ELEMTYPE_BF16;
-  }
-  else if (0 == strcmp("MET_BFLOAT8", elemname)) {
-    result = LIBXS_MHD_ELEMTYPE_BF8;
   }
   else if (0 == strcmp("MET_LONG", elemname)) {
     result = LIBXS_MHD_ELEMTYPE_I64;
@@ -461,15 +440,6 @@ LIBXS_API int libxs_mhd_element_conversion(void* dst, const libxs_mhd_element_ha
     case LIBXS_MHD_ELEMTYPE_F32: {
       LIBXS_MHD_ELEMENT_CONVERSION(float, dst_info, -1.0, 1.0, dst, src_type, src, src_min, src_max, result);
     } break;
-    case LIBXS_MHD_ELEMTYPE_F16: {
-      LIBXS_MHD_ELEMENT_CONVERSION(libxs_float16, dst_info, -1.0, 1.0, dst, src_type, src, src_min, src_max, result);
-    } break;
-    case LIBXS_MHD_ELEMTYPE_BF16: {
-      LIBXS_MHD_ELEMENT_CONVERSION(libxs_bfloat16, dst_info, -1.0, 1.0, dst, src_type, src, src_min, src_max, result);
-    } break;
-    case LIBXS_MHD_ELEMTYPE_BF8: {
-      LIBXS_MHD_ELEMENT_CONVERSION(libxs_bfloat8, dst_info, -1.0, 1.0, dst, src_type, src, src_min, src_max, result);
-    } break;
     case LIBXS_MHD_ELEMTYPE_I64: {
       LIBXS_MHD_ELEMENT_CONVERSION(long long, dst_info, -9223372036854775808.0, 9223372036854775807.0, dst, src_type, src, src_min, src_max, result);
     } break;
@@ -532,12 +502,6 @@ LIBXS_API_INLINE int internal_mhd_minmax(const void* data, size_t nelements,
         LIBXS_MHD_MINMAX(double, data, nelements, minval, maxval);              } break;
       case LIBXS_MHD_ELEMTYPE_F32: {
         LIBXS_MHD_MINMAX(float, data, nelements, minval, maxval);               } break;
-      case LIBXS_MHD_ELEMTYPE_F16: {
-        LIBXS_MHD_MINMAX(libxs_float16, data, nelements, minval, maxval);     } break;
-      case LIBXS_MHD_ELEMTYPE_BF16: {
-        LIBXS_MHD_MINMAX(libxs_bfloat16, data, nelements, minval, maxval);    } break;
-      case LIBXS_MHD_ELEMTYPE_BF8: {
-        LIBXS_MHD_MINMAX(libxs_bfloat8, data, nelements, minval, maxval);     } break;
       case LIBXS_MHD_ELEMTYPE_I64: {
         LIBXS_MHD_MINMAX(long long, data, nelements, minval, maxval);           } break;
       case LIBXS_MHD_ELEMTYPE_I32: {
