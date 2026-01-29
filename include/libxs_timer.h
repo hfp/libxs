@@ -6,8 +6,8 @@
 * Further information: https://github.com/hfp/libxs/                          *
 * SPDX-License-Identifier: BSD-3-Clause                                       *
 ******************************************************************************/
-#ifndef LIBXS_UTILS_TIMER_H
-#define LIBXS_UTILS_TIMER_H
+#ifndef LIBXS_TIMER_H
+#define LIBXS_TIMER_H
 
 #include "../libxs_typedefs.h"
 
@@ -34,4 +34,4 @@ LIBXS_API_INLINE libxs_timer_tickint libxs_timer_ncycles(libxs_timer_tickint tic
 /** Returns the duration (in seconds) between two values received by libxs_timer_tick. */
 LIBXS_API double libxs_timer_duration(libxs_timer_tickint tick0, libxs_timer_tickint tick1);
 
-#endif /*LIBXS_UTILS_TIMER_H*/
+#endif /*LIBXS_TIMER_H*/

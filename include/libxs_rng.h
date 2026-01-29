@@ -6,9 +6,8 @@
 * Further information: https://github.com/hfp/libxs/                          *
 * SPDX-License-Identifier: BSD-3-Clause                                       *
 ******************************************************************************/
-#ifndef LIBXS_UTILS_H
-#define LIBXS_UTILS_H
-
+#ifndef LIBXS_RNG_H
+#define LIBXS_RNG_H
 
 /** Helper macro to setup a matrix with some initial values. */
 #define LIBXS_MATRNG_AUX(OMP, TYPE, SEED, DST, NROWS, NCOLS, LD, SCALE) do { \
@@ -76,4 +75,4 @@ LIBXS_API double libxs_rng_f64(void);
 /** Sequence of random data based on libxs_rng_u32. */
 LIBXS_API void libxs_rng_seq(void* data, size_t nbytes);
 
-#endif /*LIBXS_UTILS_H*/
+#endif /*LIBXS_RNG_H*/

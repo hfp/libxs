@@ -7,7 +7,7 @@
 * SPDX-License-Identifier: BSD-3-Clause                                       *
 ******************************************************************************/
 #include <libxs_mem.h>
-#include <libxs_utils.h>
+#include <libxs_rng.h>
 
 
 int main(int argc, char* argv[])

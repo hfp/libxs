@@ -38,7 +38,7 @@
 #define LIBXS_VERSION_PATCH  LIBXS_CONFIG_VERSION_PATCH
 
 /**
- * The utilities (libxs_utils.h) shall be explicitly
+ * The utilities (libxs_rng.h) shall be explicitly
  * included, i.e., separate from libxs.h.
 */
 #include "libxs_generator.h"
