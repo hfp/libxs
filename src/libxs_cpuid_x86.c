@@ -191,13 +191,13 @@ LIBXS_API int libxs_cpuid_x86(libxs_cpuid_info* info)
       has_context = (LIBXS_STATIC_TARGET_ARCH >= feature_cpu || feature_os >= feature_cpu) ? 1 : 0;
       if (LIBXS_TARGET_ARCH_UNKNOWN == result && 0 != libxs_verbosity) { /* library code is expected to be mute */
 # if !defined(LIBXS_TARGET_ARCH)
-        const int target_vlen32 = libxs_cpuid_vlen32(feature_cpu);
-        const char *const compiler_support = (libxs_cpuid_vlen32(LIBXS_MAX_STATIC_TARGET_ARCH) < target_vlen32
+        const int target_vlen = libxs_cpuid_vlen(feature_cpu);
+        const char *const compiler_support = (libxs_cpuid_vlen(LIBXS_MAX_STATIC_TARGET_ARCH) < target_vlen
           ? "" : (((2 <= libxs_verbosity || 0 > libxs_verbosity) && LIBXS_MAX_STATIC_TARGET_ARCH < feature_cpu)
             ? "highly " : NULL));
         if (NULL != compiler_support) {
           const char *const name = libxs_cpuid_name(LIBXS_MAX_STATIC_TARGET_ARCH);
-          fprintf(stderr, "LIBXS WARNING: %soptimized non-JIT code paths are limited to \"%s\"!\n", compiler_support, name);
+          fprintf(stderr, "LIBXS WARNING: %soptimized code paths are limited to \"%s\"!\n", compiler_support, name);
         }
 # endif
 # if defined(__OPTIMIZE__) && !defined(NDEBUG)
@@ -294,15 +294,8 @@ LIBXS_API const char* libxs_cpuid_name(int id)
     case LIBXS_X86_SSE3: {
       target_arch = "sse3";
     } break;
-    case LIBXS_AARCH64_V81:
-    case LIBXS_AARCH64_V82: {
+    case LIBXS_AARCH64: {
       target_arch = "aarch64";
-    } break;
-    case LIBXS_AARCH64_APPL_M1: {
-      target_arch = "appl_m1";
-    } break;
-    case LIBXS_AARCH64_APPL_M4: {
-      target_arch = "appl_m4";
     } break;
     case LIBXS_AARCH64_SVE128: {
       target_arch = "sve128";
@@ -376,13 +369,7 @@ LIBXS_API int libxs_cpuid_id(const char* arch)
         || strcmp(arch, "arm_v81") == 0
         || strcmp(arch, "aarch64") == 0)
   {
-    target_archid = LIBXS_AARCH64_V81;
-  }
-  else if (strcmp(arch, "arm_v82") == 0) {
-    target_archid = LIBXS_AARCH64_V82;
-  }
-  else if (strcmp(arch, "appl_m1") == 0) {
-    target_archid = LIBXS_AARCH64_APPL_M1;
+    target_archid = LIBXS_AARCH64;
   }
   else if (strcmp(arch, "sve128") == 0) {
     target_archid = LIBXS_AARCH64_SVE128;
@@ -412,48 +399,37 @@ LIBXS_API int libxs_cpuid_id(const char* arch)
 }
 
 
-/**
- * This implementation also accounts for non-x86 platforms,
- * which not only allows to resolve any given ID but to
- * fallback gracefully (scalar).
- */
-LIBXS_API int libxs_cpuid_vlen32(int id)
+LIBXS_API int libxs_cpuid_vlen(int id)
 {
   int result;
   if (LIBXS_RV64_MVL128 == id)
   {
-    result = 4;
+    result = 16;
   }
   else if (LIBXS_RV64_MVL256 == id)
   {
-    result = 8;
+    result = 32;
   }
-  else if (LIBXS_AARCH64_V81 == id
-        || LIBXS_AARCH64_V82 == id
-        || LIBXS_AARCH64_APPL_M1 == id
-        || LIBXS_AARCH64_SVE128  == id)
-  {
-    result = 4;
+  else if (LIBXS_AARCH64 == id || LIBXS_AARCH64_SVE128  == id) {
+    result = 16;
   }
   else if (LIBXS_AARCH64_SVE256 == id) {
-    result = 8;
+    result = 32;
   }
-  else if (LIBXS_AARCH64_SVE512 == id
-        || LIBXS_AARCH64_APPL_M4 == id)
-  {
-    result = 16;
+  else if (LIBXS_AARCH64_SVE512 == id) {
+    result = 64;
   }
   else if (LIBXS_X86_AVX512 <= id) {
-    result = 16;
+    result = 64;
   }
   else if (LIBXS_X86_AVX <= id) {
-    result = 8;
+    result = 32;
   }
   else if (LIBXS_X86_GENERIC <= id) {
-    result = 4;
+    result = 16;
   }
   else { /* scalar */
-    result = 1;
+    result = 0;
   }
   return result;
 }

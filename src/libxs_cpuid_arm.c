@@ -90,35 +90,18 @@ LIBXS_API int libxs_cpuid_arm(libxs_cpuid_info* info)
     result = LIBXS_CPUID_ARM_BASELINE;
 # else
     void (*const handler)(int) = signal(SIGILL, internal_cpuid_arm_sigill);
-#   if defined(__APPLE__) && defined(__arm64__)
-    int sme_supported = 0;
-    size_t size = sizeof(sme_supported);
-
-    if (sysctlbyname("hw.optional.arm.FEAT_SME", &sme_supported, &size, NULL, 0) == 0) {
-      if (sme_supported == 1 && libxs_cpuid_arm_m4_use_neon_non_gemm() == 0) {
-          result = LIBXS_AARCH64_APPL_M4;
-      } else {
-          result = LIBXS_AARCH64_APPL_M1;
-      }
-    } else {
-      fprintf(stderr, "LIBXS WARNING: Apple CPU detection failed !\n");
-    }
-
-    return result;
-#   else
-    result = LIBXS_AARCH64_V81;
-#   endif
+    result = LIBXS_AARCH64;
     if (SIG_ERR != handler) {
       uint64_t id_aa64isar1_el1 = 0;
       if (0 == setjmp(internal_cpuid_arm_jmp_buf)) {
         LIBXS_ARM_MRS(id_aa64isar1_el1, ID_AA64ISAR1_EL1);
       }
-      if (LIBXS_AARCH64_V82 <= result
+      if (LIBXS_AARCH64 <= result
         || /* DPB */ 0 != (0xF & id_aa64isar1_el1))
       {
         volatile uint64_t id_aa64pfr0_el1 = 0;
         volatile int no_access = 0; /* try libxs_cpuid_arm_svcntb */
-        if (LIBXS_AARCH64_V82 > result) result = LIBXS_AARCH64_V82;
+        if (LIBXS_AARCH64 > result) result = LIBXS_AARCH64;
         if (0 == setjmp(internal_cpuid_arm_jmp_buf)) {
           LIBXS_ARM_MRS(id_aa64pfr0_el1, ID_AA64PFR0_EL1);
         }
@@ -147,13 +130,6 @@ LIBXS_API int libxs_cpuid_arm(libxs_cpuid_info* info)
           }
         }
       }
-#   if defined(LIBXS_CPUID_ARM_MODEL_FALLBACK)
-      else if (0 != model_size) { /* determine CPU based on vendor-string (everything else failed) */
-        if (LIBXS_AARCH64_APPL_M1 > result && 0 == strncmp("Apple M1", cpuid_info.model, model_size)) {
-          result = LIBXS_AARCH64_APPL_M1;
-        }
-      }
-#   endif
       /* restore original state */
       signal(SIGILL, handler);
     }
