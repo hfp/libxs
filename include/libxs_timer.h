@@ -12,10 +12,12 @@
 #include "../libxs_typedefs.h"
 
 
+/** Integer type used to represent tick of a high-resolution timer. */
+typedef unsigned long long libxs_timer_tickint;
+
 LIBXS_EXTERN_C typedef struct libxs_timer_info {
   int tsc;
 } libxs_timer_info;
-
 
 /** Query timer properties. */
 LIBXS_API int libxs_get_timer_info(libxs_timer_info* info);

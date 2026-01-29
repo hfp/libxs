@@ -57,9 +57,6 @@ LIBXS_API void libxs_init(void);
 /** De-initialize the library and free internal memory (optional). */
 LIBXS_API void libxs_finalize(void);
 
-/** Returns the type-name of data-type (can be also libxs_datatype). */
-LIBXS_API const char* libxs_get_typename(libxs_datatype datatype);
-
 /** Get the level of verbosity. */
 LIBXS_API int libxs_get_verbosity(void);
 /**
@@ -67,6 +64,38 @@ LIBXS_API int libxs_get_verbosity(void);
  * negative value: maximum verbosity, which also dumps JIT-code)
  */
 LIBXS_API void libxs_set_verbosity(int level);
+
+/**
+ * Enumerates primitive element/data types.
+ * Related: LIBXS_TYPESIZE, LIBXS_TYPEINFO,
+ * and LIBXS_TYPENAME.
+ */
+typedef enum libxs_datatype {
+  LIBXS_DATATYPE_F64,
+  LIBXS_DATATYPE_F32,
+  LIBXS_DATATYPE_BF16,
+  LIBXS_DATATYPE_F16,
+  LIBXS_DATATYPE_BF8,
+  LIBXS_DATATYPE_HF8,
+  LIBXS_DATATYPE_I64,
+  LIBXS_DATATYPE_U64,
+  LIBXS_DATATYPE_I32,
+  LIBXS_DATATYPE_U32,
+  LIBXS_DATATYPE_I16,
+  LIBXS_DATATYPE_U16,
+  LIBXS_DATATYPE_I8,
+  LIBXS_DATATYPE_U8,
+  LIBXS_DATATYPE_IMPLICIT,
+  LIBXS_DATATYPE_UNSUPPORTED
+} libxs_datatype;
+
+/** Returns the type-name of data-type (can be also libxs_datatype). */
+LIBXS_API const char* libxs_get_typename(libxs_datatype datatype);
+
+/** Structure to receive information about the code registry status (libxs_get_registry_info). */
+LIBXS_EXTERN_C typedef struct libxs_registry_info {
+  size_t capacity, size, nbytes, nstatic, ncache;
+} libxs_registry_info;
 
 /** Get information about the code registry. */
 LIBXS_API int libxs_get_registry_info(libxs_registry_info* info);
