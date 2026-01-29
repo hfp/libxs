@@ -11,13 +11,7 @@
 
 #include "libxs_typedefs.h"
 
-/**
- * Enumerates the available target architectures and instruction
- * set extensions as returned by libxs_get_target_archid().
- * LIBXS_X86_ALLFEAT: pseudo-value enabling all features
- * used anywhere in LIBXS (never set as an architecture,
- * used as an upper bound in comparisons to distinct x86).
- */
+/** Enumerates the target architectures and instruction set extensions. */
 #define LIBXS_TARGET_ARCH_UNKNOWN   0
 #define LIBXS_TARGET_ARCH_GENERIC   1
 #define LIBXS_X86_GENERIC           1002
@@ -25,29 +19,15 @@
 #define LIBXS_X86_SSE42             1004
 #define LIBXS_X86_AVX               1005
 #define LIBXS_X86_AVX2              1006
-#define LIBXS_X86_AVX2_ADL          1007
-#define LIBXS_X86_AVX2_SRF          1008
-#define LIBXS_X86_AVX512_VL128_SKX  1041
-#define LIBXS_X86_AVX512_VL256_SKX  1051
-#define LIBXS_X86_AVX512_VL256_CLX  1052
-#define LIBXS_X86_AVX512_VL256_CPX  1053
-#define LIBXS_X86_AVX512_SKX        1101
-#define LIBXS_X86_AVX512_CLX        1102
-#define LIBXS_X86_AVX512_CPX        1103
-#define LIBXS_X86_AVX512_SPR        1104
-#define LIBXS_X86_AVX512_GNR        1105
-#define LIBXS_X86_AVX512_DMR        1106
+#define LIBXS_X86_AVX512            1100
 #define LIBXS_X86_ALLFEAT           1999
 #define LIBXS_AARCH64_V81           2001 /* Baseline */
 #define LIBXS_AARCH64_V82           2002 /* A64FX minus SVE */
 #define LIBXS_AARCH64_APPL_M1       2101 /* Apple M1 */
 #define LIBXS_AARCH64_SVE128        2201 /* SVE 128 */
-#define LIBXS_AARCH64_NEOV2         2202 /* Neoverse V2, NVIDIA Grace, Graviton 4 */
 #define LIBXS_AARCH64_SVE256        2301 /* SVE 256 */
-#define LIBXS_AARCH64_NEOV1         2302 /* Neoverse V1, Graviton 3 */
 #define LIBXS_AARCH64_SVE512        2401 /* SVE 512 */
-#define LIBXS_AARCH64_A64FX         2402 /* A64FX */
-#define LIBXS_AARCH64_APPL_M4       2501 /* Apple M4 SME without SVE*/
+#define LIBXS_AARCH64_APPL_M4       2501 /* Apple M4 SME without SVE */
 #define LIBXS_AARCH64_ALLFEAT       2999
 #define LIBXS_RV64_MVL128           3001 /* RISCV 128-bit RVV */
 #define LIBXS_RV64_MVL256           3002 /* RISCV 256-bit RVV */
@@ -68,77 +48,21 @@ LIBXS_EXTERN_C typedef struct libxs_cpuid_info {
 LIBXS_API int libxs_cpuid_x86(libxs_cpuid_info* LIBXS_ARGDEF(info, NULL));
 LIBXS_API int libxs_cpuid_arm(libxs_cpuid_info* LIBXS_ARGDEF(info, NULL));
 
-/**
- * TODO: limited lifetime API until we have a fully-fledged ARM CPU flags test.
- */
-LIBXS_API unsigned int libxs_cpuid_arm_mmla_gemm_pack_b_to_vnnit_on_stack(void);
-
-/**
- * TODO: limited lifetime API until we have a fully-fledged ARM CPU flags test.
- * Might be needed to overwrite BFMMLA with BFDOT for performance study.
- */
-LIBXS_API int libxs_cpuid_arm_use_bfdot(void);
-LIBXS_API int libxs_cpuid_x86_use_high_prec_eltwise_approx(void);
-LIBXS_API int libxs_cpuid_x86_amx_gemm_enforce_mx1_tile_blocking(void);
-LIBXS_API unsigned int libxs_cpuid_x86_srf_gemm_set_n_max_blocking(void);
-LIBXS_API int libxs_cpuid_arm_use_i8dot(void);
-
-/**
- * return the VNNI/Dot-product/Matmul blocking for a specific
- * architecture and datatype */
-LIBXS_API int libxs_cpuid_dot_pack_factor(libxs_datatype datatype);
-
-/**
- * Similar to libxs_cpuid_x86, but conceptually not arch-specific.
- * The actual code path (as used by LIBXS) is determined by
- * libxs_[get|set]_target_archid/libxs_[get|set]_target_arch.
- */
+/** Similar to libxs_cpuid_x86, but conceptually not arch-specific. */
 LIBXS_API int libxs_cpuid(libxs_cpuid_info* LIBXS_ARGDEF(info, NULL));
 
-/**
- * Names the CPU architecture given by CPUID.
- * Do not use libxs_cpuid() to match the current CPU!
- * Use libxs_get_target_archid() instead.
- */
+/** Names the CPU architecture given by CPUID. */
 LIBXS_API const char* libxs_cpuid_name(int id);
 
-/**
- * Translate the CPU name to LIBXS's internal ID
- */
+/** Translate the CPU name to LIBXS's internal ID. */
 LIBXS_API int libxs_cpuid_id(const char* name);
 
-/**
- * SIMD vector length (VLEN) in 32-bit elements.
- * Do not use libxs_cpuid() to match the current CPU!
- * Use libxs_get_target_archid() instead.
- */
+/** SIMD vector length (VLEN) in 32-bit elements. */
 LIBXS_API int libxs_cpuid_vlen32(int id);
 
-/**
- * SIMD vector length (VLEN) measured in Bytes.
- * Do not use libxs_cpuid() to match the current CPU!
- * Use libxs_get_target_archid() instead.
- */
+/** SIMD vector length (VLEN) measured in Bytes. */
 #define libxs_cpuid_vlen(ID) (4 * libxs_cpuid_vlen32(ID))
 
 LIBXS_API int libxs_cpuid_rv64(libxs_cpuid_info* LIBXS_ARGDEF(info, NULL));
-
-/* Get reuse A knob */
-LIBXS_API unsigned int libxs_cpuid_rv64_gemm_prefetch_reuse_a(void);
-
-/* Get reuse B knob */
-LIBXS_API unsigned int libxs_cpuid_rv64_gemm_prefetch_reuse_b(void);
-
-/* Get reuse C knob */
-LIBXS_API unsigned int libxs_cpuid_rv64_gemm_prefetch_reuse_c(void);
-
-/* Get prefetch A knob */
-LIBXS_API unsigned int libxs_cpuid_rv64_gemm_prefetch_a(void);
-
-/* Get prefetch B knob */
-LIBXS_API unsigned int libxs_cpuid_rv64_gemm_prefetch_b(void);
-
-/* Get prefetch stride of A knob */
-LIBXS_API unsigned int libxs_cpuid_rv64_gemm_m_prefetch_stride(void);
 
 #endif /*LIBXS_CPUID_H*/
