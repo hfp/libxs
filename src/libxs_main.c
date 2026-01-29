@@ -207,7 +207,7 @@ void libxs_generator_gemm_reference_kernel( libxs_generated_code*        io_gene
   /* generate kernel */
   if ( (io_generated_code->arch >= LIBXS_X86_GENERIC) && (io_generated_code->arch <= LIBXS_X86_ALLFEAT) ) {
     libxs_generator_gemm_x86_reference_kernel( io_generated_code, i_xgemm_desc );
-  } else if ( (io_generated_code->arch >= LIBXS_AARCH64_V81) && (io_generated_code->arch <= LIBXS_AARCH64_ALLFEAT) ) {
+  } else if ( (io_generated_code->arch >= LIBXS_AARCH64) && (io_generated_code->arch <= LIBXS_AARCH64_ALLFEAT) ) {
     libxs_generator_gemm_aarch64_reference_kernel( io_generated_code, i_xgemm_desc );
   } else if ( (io_generated_code->arch >= LIBXS_RV64_MVL128) && (io_generated_code->arch <= LIBXS_RV64_ALLFEAT) ) {
     libxs_generator_gemm_rv64_reference_kernel( io_generated_code, i_xgemm_desc );
@@ -224,7 +224,7 @@ void libxs_generator_mateltwise_reference_kernel( libxs_generated_code*         
   /* generate kernel */
   if ( (io_generated_code->arch >= LIBXS_X86_GENERIC) && (io_generated_code->arch <= LIBXS_X86_ALLFEAT) ) {
     libxs_generator_mateltwise_x86_reference_kernel( io_generated_code, i_mateltw_desc );
-  } else if ( (io_generated_code->arch >= LIBXS_AARCH64_V81) && (io_generated_code->arch <= LIBXS_AARCH64_ALLFEAT) ) {
+  } else if ( (io_generated_code->arch >= LIBXS_AARCH64) && (io_generated_code->arch <= LIBXS_AARCH64_ALLFEAT) ) {
     libxs_generator_mateltwise_aarch64_reference_kernel( io_generated_code, i_mateltw_desc );
   } else if ( (io_generated_code->arch >= LIBXS_RV64_MVL128) && (io_generated_code->arch <= LIBXS_RV64_ALLFEAT) ) {
     libxs_generator_mateltwise_rv64_reference_kernel( io_generated_code, i_mateltw_desc );
@@ -241,7 +241,7 @@ void libxs_generator_matequation_reference_kernel( libxs_generated_code*        
   /* generate kernel */
   if ( (io_generated_code->arch >= LIBXS_X86_GENERIC) && (io_generated_code->arch <= LIBXS_X86_ALLFEAT) ) {
     libxs_generator_matequation_x86_reference_kernel( io_generated_code, i_mateqn_desc );
-  } else if ( (io_generated_code->arch >= LIBXS_AARCH64_V81) && (io_generated_code->arch <= LIBXS_AARCH64_ALLFEAT) ) {
+  } else if ( (io_generated_code->arch >= LIBXS_AARCH64) && (io_generated_code->arch <= LIBXS_AARCH64_ALLFEAT) ) {
     libxs_generator_matequation_aarch64_reference_kernel( io_generated_code, i_mateqn_desc );
   } else if ( (io_generated_code->arch >= LIBXS_RV64_MVL128) && (io_generated_code->arch <= LIBXS_RV64_ALLFEAT) ) {
     libxs_generator_matequation_rv64_reference_kernel( io_generated_code, i_mateqn_desc );

@@ -21,13 +21,10 @@
 #define LIBXS_X86_AVX2              1006
 #define LIBXS_X86_AVX512            1100
 #define LIBXS_X86_ALLFEAT           1999
-#define LIBXS_AARCH64_V81           2001 /* Baseline */
-#define LIBXS_AARCH64_V82           2002 /* A64FX minus SVE */
-#define LIBXS_AARCH64_APPL_M1       2101 /* Apple M1 */
+#define LIBXS_AARCH64               2001 /* Baseline v8.1 */
 #define LIBXS_AARCH64_SVE128        2201 /* SVE 128 */
 #define LIBXS_AARCH64_SVE256        2301 /* SVE 256 */
 #define LIBXS_AARCH64_SVE512        2401 /* SVE 512 */
-#define LIBXS_AARCH64_APPL_M4       2501 /* Apple M4 SME without SVE */
 #define LIBXS_AARCH64_ALLFEAT       2999
 #define LIBXS_RV64_MVL128           3001 /* RISCV 128-bit RVV */
 #define LIBXS_RV64_MVL256           3002 /* RISCV 256-bit RVV */
@@ -47,6 +44,7 @@ LIBXS_EXTERN_C typedef struct libxs_cpuid_info {
 /** Returns the target architecture and instruction set extensions. */
 LIBXS_API int libxs_cpuid_x86(libxs_cpuid_info* LIBXS_ARGDEF(info, NULL));
 LIBXS_API int libxs_cpuid_arm(libxs_cpuid_info* LIBXS_ARGDEF(info, NULL));
+LIBXS_API int libxs_cpuid_rv64(libxs_cpuid_info* LIBXS_ARGDEF(info, NULL));
 
 /** Similar to libxs_cpuid_x86, but conceptually not arch-specific. */
 LIBXS_API int libxs_cpuid(libxs_cpuid_info* LIBXS_ARGDEF(info, NULL));
@@ -57,12 +55,7 @@ LIBXS_API const char* libxs_cpuid_name(int id);
 /** Translate the CPU name to LIBXS's internal ID. */
 LIBXS_API int libxs_cpuid_id(const char* name);
 
-/** SIMD vector length (VLEN) in 32-bit elements. */
-LIBXS_API int libxs_cpuid_vlen32(int id);
-
-/** SIMD vector length (VLEN) measured in Bytes. */
-#define libxs_cpuid_vlen(ID) (4 * libxs_cpuid_vlen32(ID))
-
-LIBXS_API int libxs_cpuid_rv64(libxs_cpuid_info* LIBXS_ARGDEF(info, NULL));
+/** SIMD vector length (VLEN) in Bytes; zero if scalar. */
+LIBXS_API int libxs_cpuid_vlen(int id);
 
 #endif /*LIBXS_CPUID_H*/
