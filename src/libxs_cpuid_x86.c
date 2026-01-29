@@ -166,11 +166,9 @@ LIBXS_API int libxs_cpuid_x86(libxs_cpuid_info* info)
         }
         else feature_cpu = LIBXS_X86_SSE3;
       }
-# if !defined(LIBXS_INTRINSICS_DEBUG)
       LIBXS_ASSERT_MSG(LIBXS_STATIC_TARGET_ARCH <= LIBXS_MAX(LIBXS_X86_GENERIC, feature_cpu), "missed detecting ISA extensions");
       /* coverity[dead_error_line] */
       if (LIBXS_STATIC_TARGET_ARCH > feature_cpu) feature_cpu = LIBXS_STATIC_TARGET_ARCH;
-# endif
       /* XSAVE/XGETBV(0x04000000), OSXSAVE(0x08000000) */
       if (LIBXS_CPUID_CHECK(ecx, 0x0C000000)) { /* OS SSE support */
         feature_os = LIBXS_MIN(LIBXS_X86_SSE42, feature_cpu);

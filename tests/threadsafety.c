@@ -8,14 +8,14 @@
 ******************************************************************************/
 #if !defined(INCLUDE_LIBXS_LAST)
 # include <libxs.h>
-# include <libxs_utils.h>
+# include <libxs_rng.h>
 #endif
 #include <inttypes.h>
 #if defined(_OPENMP)
 # include <omp.h>
 #endif
 #if defined(INCLUDE_LIBXS_LAST)
-# include <libxs_utils.h>
+# include <libxs_rng.h>
 # include <libxs.h>
 #endif
 

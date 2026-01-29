@@ -9,7 +9,7 @@
 #ifndef LIBXS_SYNC_H
 #define LIBXS_SYNC_H
 
-#include "libxs_intrinsics_x86.h"
+#include "libxs_utils.h"
 
 #if !defined(LIBXS_TLS)
 # if (0 != LIBXS_SYNC) && !defined(LIBXS_NO_TLS)
@@ -40,9 +40,7 @@
 # define LIBXS_GCC_BASELINE
 #endif
 
-#if defined(__MIC__)
-# define LIBXS_SYNC_PAUSE _mm_delay_32(8/*delay*/)
-#elif !defined(LIBXS_INTRINSICS_NONE)
+#if !defined(LIBXS_INTRINSICS_NONE)
 # if defined(LIBXS_GCC_BASELINE) && !defined(__INTEL_COMPILER)
 #   define LIBXS_SYNC_PAUSE __builtin_ia32_pause()
 # else

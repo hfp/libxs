@@ -6,8 +6,8 @@
 * Further information: https://github.com/hfp/libxs/                          *
 * SPDX-License-Identifier: BSD-3-Clause                                       *
 ******************************************************************************/
-#ifndef LIBXS_UTILS_INTRINSICS_X86_H
-#define LIBXS_UTILS_INTRINSICS_X86_H
+#ifndef LIBXS_UTILS_H
+#define LIBXS_UTILS_H
 
 #include "libxs_cpuid.h"
 
@@ -32,13 +32,6 @@
 # define LIBXS_INTRINSICS_STATIC
 #endif
 
-
-/** https://github.com/intel/Immintrin-debug */
-#if !defined(LIBXS_INTRINSICS_DEBUG) && 0
-# define LIBXS_INTRINSICS_DEBUG
-/* workarounds removed after LIBXS 1.16.1-1.16.1-1268 */
-# include "immintrin_dbg.h"
-#endif
 #if !defined(LIBXS_INTRINSICS_NONE)
 # if  defined(__AVX512F__)  && defined(__AVX512CD__) \
    &&   defined(__AVX512DQ__) && defined(__AVX512BW__) && defined(__AVX512VL__) \
@@ -109,7 +102,7 @@
       && (!defined(__clang__) || LIBXS_VERSION2(4, 0) <= LIBXS_VERSION2(__clang_major__, __clang_minor__)) \
       && (!defined(__APPLE__) || !defined(__MACH__)) && !defined(__PGI) && !defined(_MSC_VER)
 #     if !defined(LIBXS_MAX_STATIC_TARGET_ARCH)
-#       if defined(__CYGWIN__) && !defined(LIBXS_INTRINSICS_DEBUG) /* Cygwin: invalid register for .seh_savexmm */
+#       if defined(__CYGWIN__) /* Cygwin: invalid register for .seh_savexmm */
 #         define LIBXS_MAX_STATIC_TARGET_ARCH LIBXS_X86_AVX2
 #       elif (defined(__GNUC__)  && LIBXS_VERSION2(8, 0) <= LIBXS_VERSION2(__GNUC__, __GNUC_MINOR__)) \
           || (defined(__clang__) && LIBXS_VERSION2(8, 1) <= LIBXS_VERSION2(__clang_major__, __clang_minor__))
@@ -131,7 +124,7 @@
 #         define LIBXS_INTRINSICS_STATIC
 #       endif
 #       if !defined(LIBXS_MAX_STATIC_TARGET_ARCH)
-#         if defined(__CYGWIN__) && !defined(LIBXS_INTRINSICS_DEBUG) /* Cygwin: invalid register for .seh_savexmm */
+#         if defined(__CYGWIN__) /* Cygwin: invalid register for .seh_savexmm */
 #           define LIBXS_MAX_STATIC_TARGET_ARCH LIBXS_X86_AVX2
 #         else
 #           define LIBXS_MAX_STATIC_TARGET_ARCH LIBXS_X86_AVX512
@@ -156,7 +149,7 @@
 #     undef LIBXS_MAX_STATIC_TARGET_ARCH
 #     define LIBXS_MAX_STATIC_TARGET_ARCH LIBXS_TARGET_ARCH
 #   endif
-#   if defined(LIBXS_INTRINSICS_INCLUDE) && !defined(LIBXS_INTRINSICS_NONE) && !defined(LIBXS_INTRINSICS_DEBUG)
+#   if defined(LIBXS_INTRINSICS_INCLUDE) && !defined(LIBXS_INTRINSICS_NONE)
 #     include <immintrin.h>
 #   endif /*defined(LIBXS_INTRINSICS_INCLUDE)*/
 #   if !defined(LIBXS_INTRINSICS)
@@ -216,7 +209,7 @@
 #endif
 
 /** Include basic x86 intrinsics such as __rdtsc. */
-#if defined(LIBXS_INTRINSICS_INCLUDE) && !defined(LIBXS_INTRINSICS_DEBUG)
+#if defined(LIBXS_INTRINSICS_INCLUDE)
 # if defined(_WIN32)
 #   include <intrin.h>
 # elif defined(LIBXS_INTEL_COMPILER) || defined(_CRAYC) || defined(__clang__) || defined(__PGI)
@@ -444,4 +437,4 @@ LIBXS_API_INLINE unsigned int LIBXS_ILOG2(unsigned long long n) {
 # define LIBXS_INTRINSICS_AVX512
 #endif
 
-#endif /*LIBXS_UTILS_INTRINSICS_X86_H*/
+#endif /*LIBXS_UTILS_H*/

@@ -6,7 +6,7 @@
 * Further information: https://github.com/hfp/libxs/                          *
 * SPDX-License-Identifier: BSD-3-Clause                                       *
 ******************************************************************************/
-#include <libxs_intrinsics_x86.h>
+#include <libxs_utils.h>
 #include <libxs.h>
 
 #if !defined(CHECK_SETUP) && 1

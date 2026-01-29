@@ -6,8 +6,8 @@
 * Further information: https://github.com/hfp/libxs/                          *
 * SPDX-License-Identifier: BSD-3-Clause                                       *
 ******************************************************************************/
-#ifndef LIBXS_UTILS_MHD_H
-#define LIBXS_UTILS_MHD_H
+#ifndef LIBXS_MHD_H
+#define LIBXS_MHD_H
 
 #include "../libxs_typedefs.h"
 
@@ -188,4 +188,4 @@ LIBXS_API int libxs_mhd_write(const char filename[],
   /* Extension data size; can be NULL. */
   size_t extension_size);
 
-#endif /*LIBXS_UTILS_MHD_H*/
+#endif /*LIBXS_MHD_H*/
