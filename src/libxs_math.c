@@ -12,7 +12,7 @@
 
 #if defined(LIBXS_DEFAULT_CONFIG) || (defined(LIBXS_SOURCE_H) && !defined(LIBXS_CONFIGURED))
 # if !defined(LIBXS_MATHDIFF_MHD)
-#   include <utils/libxs_mhd.h>
+#   include <libxs_mhd.h>
 #   define LIBXS_MATHDIFF_MHD
 # endif
 #endif
@@ -166,62 +166,6 @@ LIBXS_API int libxs_matdiff(libxs_matdiff_info* info,
 #       undef LIBXS_MATDIFF_TEMPLATE_ELEM_TYPE
 #       undef LIBXS_MATDIFF_TEMPLATE_TYPE2FP64
       } break;
-      case LIBXS_DATATYPE_F16: {
-#       define LIBXS_MATDIFF_TEMPLATE_TYPE2FP64(VALUE) libxs_convert_f16_to_f32(VALUE)
-#       define LIBXS_MATDIFF_TEMPLATE_ELEM_TYPE libxs_float16
-        if (0 == matdiff_shuffle) {
-#         include "libxs_matdiff.h"
-        }
-        else {
-#         define LIBXS_MATDIFF_SHUFFLE
-#         include "libxs_matdiff.h"
-#         undef LIBXS_MATDIFF_SHUFFLE
-        }
-#       undef LIBXS_MATDIFF_TEMPLATE_ELEM_TYPE
-#       undef LIBXS_MATDIFF_TEMPLATE_TYPE2FP64
-      } break;
-      case LIBXS_DATATYPE_BF16: {
-#       define LIBXS_MATDIFF_TEMPLATE_TYPE2FP64(VALUE) libxs_convert_bf16_to_f32(VALUE)
-#       define LIBXS_MATDIFF_TEMPLATE_ELEM_TYPE libxs_bfloat16
-        if (0 == matdiff_shuffle) {
-#         include "libxs_matdiff.h"
-        }
-        else {
-#         define LIBXS_MATDIFF_SHUFFLE
-#         include "libxs_matdiff.h"
-#         undef LIBXS_MATDIFF_SHUFFLE
-        }
-#       undef LIBXS_MATDIFF_TEMPLATE_ELEM_TYPE
-#       undef LIBXS_MATDIFF_TEMPLATE_TYPE2FP64
-      } break;
-      case LIBXS_DATATYPE_BF8: {
-#       define LIBXS_MATDIFF_TEMPLATE_TYPE2FP64(VALUE) libxs_convert_bf8_to_f32(VALUE)
-#       define LIBXS_MATDIFF_TEMPLATE_ELEM_TYPE libxs_bfloat8
-        if (0 == matdiff_shuffle) {
-#         include "libxs_matdiff.h"
-        }
-        else {
-#         define LIBXS_MATDIFF_SHUFFLE
-#         include "libxs_matdiff.h"
-#         undef LIBXS_MATDIFF_SHUFFLE
-        }
-#       undef LIBXS_MATDIFF_TEMPLATE_ELEM_TYPE
-#       undef LIBXS_MATDIFF_TEMPLATE_TYPE2FP64
-      } break;
-      case LIBXS_DATATYPE_HF8: {
-#       define LIBXS_MATDIFF_TEMPLATE_TYPE2FP64(VALUE) libxs_convert_hf8_to_f32(VALUE)
-#       define LIBXS_MATDIFF_TEMPLATE_ELEM_TYPE libxs_hfloat8
-        if (0 == matdiff_shuffle) {
-#         include "libxs_matdiff.h"
-        }
-        else {
-#         define LIBXS_MATDIFF_SHUFFLE
-#         include "libxs_matdiff.h"
-#         undef LIBXS_MATDIFF_SHUFFLE
-        }
-#       undef LIBXS_MATDIFF_TEMPLATE_ELEM_TYPE
-#       undef LIBXS_MATDIFF_TEMPLATE_TYPE2FP64
-      } break;
       default: {
         static int error_once = 0;
         if (0 != libxs_verbosity /* library code is expected to be mute */
@@ -292,9 +236,9 @@ LIBXS_API int libxs_matdiff(libxs_matdiff_info* info,
           info->var_ref /= ntotal;
           info->var_tst /= ntotal;
         }
-        info->normf_rel = libxs_dsqrt(info->normf_rel);
-        info->l2_abs = libxs_dsqrt(info->l2_abs);
-        info->l2_rel = libxs_dsqrt(info->l2_rel);
+        info->normf_rel = sqrt(info->normf_rel);
+        info->l2_abs = sqrt(info->l2_abs);
+        info->l2_rel = sqrt(info->l2_rel);
       }
       else if (0 != result_nan) {
         /* in case of NaN (in test-set), initialize statistics to either Infinity or NaN */
@@ -485,6 +429,161 @@ LIBXS_API void libxs_matdiff_clear(libxs_matdiff_info* info)
 }
 
 
+LIBXS_API size_t libxs_gcd(size_t a, size_t b)
+{
+  while (0 != b) {
+    const size_t r = a % b;
+    a = b; b = r;
+  }
+  return 0 != a ? a : 1;
+}
+
+
+LIBXS_API size_t libxs_lcm(size_t a, size_t b)
+{
+  const size_t gcd = libxs_gcd(a, b);
+  return 0 != gcd ? ((a / gcd) * b) : 0;
+}
+
+
+LIBXS_API unsigned int libxs_remainder(unsigned int a, unsigned int b,
+  const unsigned int* limit, const unsigned int* remainder)
+{
+  /* normalize such that a <= b */
+  unsigned int ci = ((b < a && 0 != b) ? LIBXS_UP(a, b) : b), c = a * ci;
+  /* sanitize limit argument */
+  if (NULL != limit && (0 == b || ((*limit / b) * b) < a)) limit = NULL;
+  if (1 <= a) {
+    unsigned int r = a - 1;
+    for (; ((NULL != remainder ? *remainder : 0) < r)
+        &&  (NULL == limit || ci <= *limit); ci += b)
+    {
+      const unsigned int ri = ci % a;
+      if (ri < r) {
+        c = ci;
+        r = ri;
+      }
+    }
+  }
+  return c;
+}
+
+
+LIBXS_API int libxs_primes_u32(unsigned int num, unsigned int num_factors_n32[])
+{
+  unsigned int c = num, i;
+  int n = 0;
+  if (0 < c && 0 == (c & 1)) { /* non-zero even */
+    unsigned int j = c / 2;
+    while (c == (2 * j)) {
+      num_factors_n32[n++] = 2;
+      c = j; j /= 2;
+    }
+  }
+  for (i = 3; i <= c; i += 2) {
+    unsigned int j = c / i;
+    while (c == (i * j)) {
+      num_factors_n32[n++] = i;
+      c = j; j /= i;
+    }
+    if ((i * i) > num) {
+      break;
+    }
+  }
+  if (1 < c && 0 != n) {
+    num_factors_n32[n++] = c;
+  }
+  return n;
+}
+
+
+LIBXS_API_INLINE unsigned int internal_product_limit(unsigned int product, unsigned int limit)
+{
+  unsigned int fact[32], maxp = limit, result = 1;
+  int i, n;
+  /* attempt to lower the memory requirement for DP; can miss best solution */
+  if (LIBXS_PRODUCT_LIMIT < limit) {
+    const unsigned int minfct = (limit + limit - 1) / LIBXS_PRODUCT_LIMIT;
+    const unsigned int maxfct = (unsigned int)libxs_gcd(product, limit);
+    result = maxfct;
+    if (minfct < maxfct) {
+      n = libxs_primes_u32(result, fact);
+      for (i = 0; i < n; ++i) {
+        if (minfct < fact[i]) {
+          result = fact[i];
+          break;
+        }
+      }
+    }
+    maxp /= result;
+  }
+  if (LIBXS_PRODUCT_LIMIT >= maxp) {
+    unsigned int k[2][LIBXS_PRODUCT_LIMIT] = { {0} }, *k0 = k[0], *k1 = k[1], *kt, p;
+    n = libxs_primes_u32(product / result, fact);
+    /* initialize table with trivial factor */
+    for (p = 0; p <= maxp; ++p) k[0][p] = 1;
+    k[0][0] = k[1][0] = 1;
+    for (i = 1; i <= n; ++i) {
+      for (p = 1; p <= maxp; ++p) {
+        const unsigned int f = fact[i - 1], h = k0[p];
+        if (p < f) {
+          k1[p] = h;
+        }
+        else {
+          const unsigned int g = f * k0[p / f];
+          k1[p] = LIBXS_MAX(g, h);
+        }
+      }
+      kt = k0; k0 = k1; k1 = kt;
+    }
+    result *= k0[maxp];
+  }
+  else { /* trivial approximation */
+    n = libxs_primes_u32(product, fact);
+    for (i = 0; i < n; ++i) {
+      const unsigned int f = result * fact[i];
+      if (f <= limit) {
+        result = f;
+      }
+      else break;
+    }
+  }
+  return result;
+}
+
+
+LIBXS_API unsigned int libxs_product_limit(unsigned int product, unsigned int limit, int is_lower)
+{
+  unsigned int result;
+  if (1 < limit) { /* check for fast-path */
+    result = internal_product_limit(product, limit);
+  }
+  else {
+    result = limit;
+  }
+  if (0 != is_lower) {
+    if (limit < product) {
+      if (result < limit) {
+        result = internal_product_limit(product, 2 * limit - 1);
+      }
+      if (result < limit) {
+        result = product;
+      }
+      LIBXS_ASSERT(limit <= result);
+    }
+    else if (0 != product) {
+      result = LIBXS_UP(limit, product);
+    }
+    else result = 0;
+  }
+  else if (product < result) {
+    result = product;
+  }
+  LIBXS_ASSERT(0 != is_lower || result <= product);
+  return result;
+}
+
+
 LIBXS_API size_t libxs_coprime(size_t n, size_t minco)
 {
   const size_t s = (0 != (n & 1) ? ((LIBXS_MAX(minco, 1) - 1) | 1) : (minco & ~1));
@@ -558,415 +657,6 @@ LIBXS_API double libxs_kahan_sum(double value, double* accumulator, double* comp
   *compensation = (r - *accumulator) - c;
   *accumulator = r;
   return r;
-}
-
-
-LIBXS_API float libxs_convert_bf8_to_f32(libxs_bfloat8 in)
-{
-  const unsigned short inus = (unsigned short)in;
-  const unsigned short tmp = (unsigned short)(inus << 8);
-  return libxs_convert_f16_to_f32(tmp);
-}
-
-
-LIBXS_API float libxs_convert_hf8_to_f32(libxs_hfloat8 in)
-{
-  const unsigned int f32_bias = 127, f8_bias = 7;
-  const unsigned int s = (in & 0x80 ) << 24;
-  const unsigned int e = (in & 0x78 ) >> 3;
-  unsigned int m = (in & 0x07 );
-  unsigned int e_norm = e + (f32_bias - f8_bias);
-  libxs_float_uint res;
-  /* convert denormal fp8 number into a normal fp32 number */
-  if ( (e == 0) && (m != 0) ) {
-    unsigned int lz_cnt = 2;
-    lz_cnt = (m > 0x1 ? 1 : lz_cnt);
-    lz_cnt = (m > 0x3 ? 0 : lz_cnt);
-    LIBXS_ASSERT(e_norm >= lz_cnt);
-    e_norm -= lz_cnt;
-    m = (m << (lz_cnt+1)) & 0x07;
-  } else if (e == 0 && m == 0) {
-    e_norm = 0;
-  } else if (e == 0xf && m == 0x7) {
-    e_norm = 0xff;
-    m = 0x4; /* making first mantissa bit 1 */
-  }
-  /* set result to 0 */
-  res.u = 0x0;
-  /* set exponent and mantissa */
-  res.u |= (e_norm << 23);
-  res.u |= (m << 20);
-  /* sign it */
-  res.u |= s;
-  return res.f;
-}
-
-
-LIBXS_API float libxs_convert_bf16_to_f32(libxs_bfloat16 in)
-{
-  libxs_float_uint hybrid_in = { 0 };
-  hybrid_in.u = in;
-  /* DAZ */
-  hybrid_in.u = ((hybrid_in.u & 0x7f80) == 0x0
-    ? (unsigned short)(hybrid_in.u & 0x8000)
-    : hybrid_in.u);
-  hybrid_in.u = hybrid_in.u << 16;
-  return hybrid_in.f;
-}
-
-
-LIBXS_API float libxs_convert_f16_to_f32(libxs_float16 in)
-{
-  unsigned int f32_bias = 127;
-  unsigned int f16_bias = 15;
-  unsigned int s = (in & 0x8000) << 16;
-  unsigned int e = (in & 0x7c00) >> 10;
-  unsigned int m = (in & 0x03ff);
-  unsigned int e_norm = e + (f32_bias - f16_bias);
-  libxs_float_uint res = { 0 };
-
-  /* convert denormal fp16 number into a normal fp32 number */
-  if ((e == 0) && (m != 0)) {
-    unsigned int lz_cnt = 9;
-    lz_cnt = (m > 0x1 ? 8 : lz_cnt);
-    lz_cnt = (m > 0x3 ? 7 : lz_cnt);
-    lz_cnt = (m > 0x7 ? 6 : lz_cnt);
-    lz_cnt = (m > 0xf ? 5 : lz_cnt);
-    lz_cnt = (m > 0x1f ? 4 : lz_cnt);
-    lz_cnt = (m > 0x3f ? 3 : lz_cnt);
-    lz_cnt = (m > 0x7f ? 2 : lz_cnt);
-    lz_cnt = (m > 0xff ? 1 : lz_cnt);
-    lz_cnt = (m > 0x1ff ? 0 : lz_cnt);
-    LIBXS_ASSERT(e_norm >= lz_cnt);
-    e_norm -= lz_cnt;
-    m = (m << (lz_cnt + 1)) & 0x03ff;
-  }
-  else if ((e == 0) && (m == 0)) {
-    e_norm = 0;
-  }
-  else if (e == 0x1f) {
-    e_norm = 0xff;
-    m |= (m == 0 ? 0 : 0x0200); /* making first mantissa bit 1 */
-  }
-
-  /* set result to 0 */
-  res.u = 0x0;
-  /* set exponent and mantissa */
-  res.u |= (e_norm << 23);
-  res.u |= (m << 13);
-  /* sign it */
-  res.u |= s;
-
-  return res.f;
-}
-
-
-LIBXS_API libxs_bfloat16 libxs_convert_f32_to_bf16_truncate(float in)
-{
-  libxs_float_uint hybrid_in = { 0 };
-  libxs_bfloat16 res;
-  hybrid_in.f = in;
-  /* DAZ */
-  hybrid_in.u = ((hybrid_in.u & 0x7f800000) == 0x0
-    ? (hybrid_in.u & 0x80000000)
-    : hybrid_in.u);
-  /* we do not round inf and NaN */
-  hybrid_in.u = ((hybrid_in.u & 0x7f800000) == 0x7f800000
-    ? ((hybrid_in.u & 0x007fffff) == 0x0 ? hybrid_in.u : (hybrid_in.u | 0x00400000))
-    : hybrid_in.u);
-  /* shift right */
-  res = (unsigned short)(hybrid_in.u >> 16);
-  return res;
-}
-
-
-LIBXS_API libxs_bfloat16 libxs_convert_f32_to_bf16_rnaz(float in)
-{
-  libxs_float_uint hybrid_in = { 0 };
-  libxs_bfloat16 res;
-  hybrid_in.f = in;
-  /* DAZ */
-  hybrid_in.u = ((hybrid_in.u & 0x7f800000) == 0x0
-    ? (hybrid_in.u & 0x80000000)
-    : hybrid_in.u);
-  /* we do not round inf and NaN */
-  hybrid_in.u = ((hybrid_in.u & 0x7f800000) == 0x7f800000
-    ? ((hybrid_in.u & 0x007fffff) == 0x0 ? hybrid_in.u : (hybrid_in.u | 0x00400000))
-    : (hybrid_in.u + 0x00008000));
-  /* shift right */
-  res = (unsigned short)(hybrid_in.u >> 16);
-  return res;
-}
-
-
-LIBXS_API libxs_bfloat16 libxs_convert_f32_to_bf16_rne(float in)
-{
-  libxs_float_uint hybrid_in = { 0 };
-  libxs_bfloat16 res;
-  unsigned int fixup;
-  hybrid_in.f = in;
-  /* DAZ */
-  hybrid_in.u = ((hybrid_in.u & 0x7f800000) == 0x0
-    ? (hybrid_in.u & 0x80000000)
-    : hybrid_in.u);
-  /* RNE round */
-  fixup = (hybrid_in.u >> 16) & 1;
-  /* we do not round inf and NaN */
-  hybrid_in.u = ((hybrid_in.u & 0x7f800000) == 0x7f800000
-    ? ((hybrid_in.u & 0x007fffff) == 0x0 ? hybrid_in.u : (hybrid_in.u | 0x00400000))
-    : (hybrid_in.u + 0x00007fff + fixup));
-  /* shift right */
-  res = (unsigned short)(hybrid_in.u >> 16);
-  return res;
-}
-
-
-LIBXS_API libxs_bfloat8 libxs_convert_f32_to_bf8_stochastic(float in, unsigned int seed)
-{
-  /* initial downcast */
-  libxs_float16 f16 = libxs_convert_f32_to_f16(in);
-  /* do not round inf and NaN */
-  if ((f16 & 0x7c00) == 0x7c00) {
-    f16 = (unsigned short)(((f16 & 0x03ff) == 0x0) ? f16 : (f16 | 0x0200));
-  }
-  else if ((f16 & 0x7c00) != 0x0000) { /* only round normal numbers */
-#if 1
-    const unsigned short stochastic = (unsigned short)LIBXS_MOD2(seed, 0xff + 1);
-#else
-    const unsigned short stochastic = (unsigned short)((seed >> 24) & 0xff);
-#endif
-    f16 = (unsigned short)(f16 + stochastic);
-  }
-  else { /* RNE for subnormal */
-    const unsigned short fixup = (unsigned short)((f16 >> 8) & 1);
-    f16 = (unsigned short)(f16 + 0x007f + fixup);
-  }
-  /* create the bf8 value by shifting out the lower 8 bits */
-  return (unsigned char)(f16 >> 8);
-}
-
-
-LIBXS_API libxs_bfloat8 libxs_convert_f32_to_bf8_rne(float in)
-{
-  libxs_float16_ushort hybrid_in = { 0 };
-  libxs_bfloat8 res;
-  unsigned int fixup;
-  hybrid_in.f = libxs_convert_f32_to_f16(in);
-  /* RNE round */
-  fixup = (hybrid_in.u >> 8) & 1;
-  /* we do not round inf and NaN */
-  hybrid_in.u = (unsigned short)(((hybrid_in.u & 0x7c00) == 0x7c00)
-    ? ((hybrid_in.u & 0x03ff) == 0x0 ? hybrid_in.u : (hybrid_in.u | 0x0200))
-    : (hybrid_in.u + 0x007f + fixup));
-  /* shift right */
-  res = (libxs_bfloat8)(hybrid_in.u >> 8);
-  return res;
-}
-
-
-LIBXS_API libxs_hfloat8 libxs_convert_f16_to_hf8_rne(libxs_float16 in)
-{
-  unsigned int f16_bias = 15;
-  unsigned int f8_bias = 7;
-  libxs_hfloat8 res = 0;
-  unsigned short s, e, m, e_f16, m_f16;
-  unsigned int fixup;
-
-  s = (in & 0x8000) >> 8;
-  e_f16 = (in & 0x7c00) >> 10;
-  m_f16 = (in & 0x03ff);
-
-  /* special value --> make it NaN */
-  if (e_f16 == 0x1f) {
-    e = 0xf;
-    m = 0x7;
-    /* overflow --> make it NaN */
-  }
-  else if ((e_f16 >  (f16_bias - f8_bias + 15)) ||
-          ((e_f16 == (f16_bias - f8_bias + 15)) && (m_f16 > 0x0340)))
-  {
-    e = 0xf;
-    m = 0x7;
-    /* smaller than denormal f8 + eps */
-  }
-  else if (e_f16 < f16_bias - f8_bias - 3) {
-    e = 0x0;
-    m = 0x0;
-    /* denormal */
-  }
-  else if (e_f16 <= f16_bias - f8_bias) {
-    /* RNE */
-    /* denormalized mantissa */
-    m = m_f16 | 0x0400;
-    /* additionally subnormal shift */
-    m = m >> ((f16_bias - f8_bias) + 1 - e_f16);
-    /* preserve sticky bit (some sticky bits are lost when denormalizing) */
-    m |= (((m_f16 & 0x007f) + 0x007f) >> 7);
-    /* RNE Round */
-    fixup = (m >> 7) & 0x1;
-    m = m + LIBXS_CAST_USHORT(0x003f + fixup);
-    m = m >> 7;
-    e = 0x0;
-    /* normal */
-  }
-  else {
-    /* RNE round */
-    fixup = (m_f16 >> 7) & 0x1;
-    in = in + LIBXS_CAST_USHORT(0x003f + fixup);
-    e = (in & 0x7c00) >> 10;
-    m = (in & 0x03ff);
-    LIBXS_ASSERT(e >= LIBXS_CAST_USHORT(f16_bias - f8_bias));
-    e -= LIBXS_CAST_USHORT(f16_bias - f8_bias);
-    m = m >> 7;
-  }
-
-  /* set result to 0 */
-  res = 0x0;
-  /* set exponent and mantissa */
-  res |= e << 3;
-  res |= m;
-  /* sign it */
-  res |= s;
-
-  return res;
-}
-
-
-LIBXS_API libxs_hfloat8 libxs_convert_f32_to_hf8_rne(float in)
-{
-  const libxs_float16 itm = libxs_convert_f32_to_f16(in);
-  return libxs_convert_f16_to_hf8_rne(itm);
-}
-
-
-LIBXS_API libxs_float16 libxs_convert_f32_to_f16(float in)
-{
-  unsigned int f32_bias = 127;
-  unsigned int f16_bias = 15;
-  libxs_float_uint hybrid_in = { 0 };
-  libxs_float16 res = 0;
-  unsigned int s, e, m, e_f32, m_f32;
-  unsigned int fixup;
-  hybrid_in.f = in;
-
-  /* DAZ */
-  hybrid_in.u = ((hybrid_in.u & 0x7f800000) == 0x0
-    ? (hybrid_in.u & 0x80000000)
-    : (hybrid_in.u & 0xffffffff));
-
-  s = (hybrid_in.u & 0x80000000) >> 16;
-  e_f32 = (hybrid_in.u & 0x7f800000) >> 23;
-  m_f32 = (hybrid_in.u & 0x007fffff);
-
-  /* special value */
-  if (e_f32 == 0xff) {
-    e = 0x1f;
-    m = (m_f32 == 0 ? 0 : ((m_f32 >> 13) | 0x200));
-    /* overflow */
-  }
-  else if (e_f32 > (f32_bias + f16_bias)) {
-    e = 0x1f;
-    m = 0x0;
-    /* smaller than denormal f16 */
-  }
-  else if (e_f32 < f32_bias - f16_bias - 10) {
-    e = 0x0;
-    m = 0x0;
-    /* denormal */
-  }
-  else if (e_f32 <= f32_bias - f16_bias) {
-    /* RNE */
-#if 1
-    /* denormalized mantissa */
-    m = m_f32 | 0x00800000;
-    /* additionally subnormal shift */
-    m = m >> ((f32_bias - f16_bias) + 1 - e_f32);
-    /* preserve sticky bit (some sticky bits are lost when denormalizing) */
-    m |= (((m_f32 & 0x1fff) + 0x1fff) >> 13);
-    /* RNE Round */
-    fixup = (m >> 13) & 0x1;
-    m = m + 0x000000fff + fixup;
-    m = m >> 13;
-    e = 0x0;
-#else
-    /* RAZ */
-    m = (m_f32 | 0x00800000) >> 12;
-    m = (m >> ((f32_bias - f16_bias) + 2 - e_f32)) + ((m >> ((f32_bias - f16_bias) + 1 - e_f32)) & 1);
-    e = 0x0;
-#endif
-    /* normal */
-  }
-  else {
-#if 1
-    /* RNE round */
-    fixup = (m_f32 >> 13) & 0x1;
-    hybrid_in.u = hybrid_in.u + 0x000000fff + fixup;
-    e = (hybrid_in.u & 0x7f800000) >> 23;
-    m = (hybrid_in.u & 0x007fffff);
-    LIBXS_ASSERT(e >= (f32_bias - f16_bias));
-    e -= (f32_bias - f16_bias);
-    m = m >> 13;
-#else
-    /* RAZ */
-    hybrid_in.u = hybrid_in.u + 0x00001000;
-    e = (hybrid_in.u & 0x7f800000) >> 23;
-    m = (hybrid_in.u & 0x007fffff);
-    LIBXS_ASSERT(e >= (f32_bias - f16_bias));
-    e -= (f32_bias - f16_bias);
-    m = m >> 13;
-#endif
-  }
-
-  /* set result to 0 */
-  res = 0x0;
-  /* set exponent and mantissa */
-  res |= e << 10;
-  res |= m;
-  /* sign it */
-  res |= s;
-
-  return res;
-}
-
-
-LIBXS_API LIBXS_INTRINSICS(LIBXS_X86_GENERIC) double libxs_dsqrt(double x)
-{
-#if defined(LIBXS_INTRINSICS_X86) && !defined(__PGI)
-  const __m128d a = LIBXS_INTRINSICS_MM_UNDEFINED_PD();
-  const double result = _mm_cvtsd_f64(_mm_sqrt_sd(a, _mm_set_sd(x)));
-#elif !defined(LIBXS_NO_LIBM)
-  const double result = sqrt(x);
-#else /* fallback */
-  double result, y = x;
-  if (LIBXS_NEQ(0, x)) {
-    do {
-      result = y;
-      y = 0.5 * (y + x / y);
-    } while (LIBXS_NEQ(result, y));
-  }
-  result = y;
-#endif
-  return result;
-}
-
-
-LIBXS_API LIBXS_INTRINSICS(LIBXS_X86_GENERIC) float libxs_ssqrt(float x)
-{
-#if defined(LIBXS_INTRINSICS_X86)
-  const float result = _mm_cvtss_f32(_mm_sqrt_ss(_mm_set_ss(x)));
-#elif !defined(LIBXS_NO_LIBM)
-  const float result = LIBXS_SQRTF(x);
-#else /* fallback */
-  float result, y = x;
-  if (LIBXS_NEQ(0, x)) {
-    do {
-      result = y;
-      y = 0.5f * (y + x / y);
-    } while (LIBXS_NEQ(result, y));
-  }
-  result = y;
-#endif
-  return result;
 }
 
 
