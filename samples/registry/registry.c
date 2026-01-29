@@ -102,7 +102,7 @@ int main(int argc, char* argv[])
 #endif
 
 #if 0 != LIBXS_JIT
-  if (LIBXS_X86_GENERIC > libxs_get_target_archid()) {
+  if (LIBXS_X86_GENERIC > libxs_cpuid((NULL)) {
     fprintf(stderr, "\n\tWarning: JIT support is not available at runtime!\n");
   }
 #else

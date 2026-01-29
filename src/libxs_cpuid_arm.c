@@ -15,7 +15,7 @@
 #include <setjmp.h>
 
 #if !defined(LIBXS_CPUID_ARM_BASELINE) && 0
-# define LIBXS_CPUID_ARM_BASELINE LIBXS_AARCH64_NEOV1
+# define LIBXS_CPUID_ARM_BASELINE LIBXS_AARCH64_SVE128
 #endif
 #if !defined(LIBXS_CPUID_ARM_CNTB_FALLBACK) && 1
 # define LIBXS_CPUID_ARM_CNTB_FALLBACK
@@ -67,75 +67,6 @@ LIBXS_API_INTERN char libxs_cpuid_arm_vendor(void) {
 }
 #endif
 
-
-LIBXS_API unsigned int libxs_cpuid_arm_mmla_gemm_pack_b_to_vnnit_on_stack(void)
-{
-#if defined(LIBXS_PLATFORM_X86)
-  return 0;
-#else
-  const char *const l_env_b_vnnit_in_stack = getenv("LIBXS_AARCH64_MMLA_GEMM_B_INPUT_PACKING_ON_STACK");
-  unsigned int l_b_vnnit_in_stack = 0;
-  if ( 0 == l_env_b_vnnit_in_stack ) {
-  } else {
-    l_b_vnnit_in_stack = atoi(l_env_b_vnnit_in_stack);
-  }
-  return l_b_vnnit_in_stack;
-#endif
-}
-
-
-LIBXS_API int libxs_cpuid_arm_use_bfdot(void)
-{
-#if defined(LIBXS_PLATFORM_X86)
-  return 0;
-#else
-  const char *const l_env_aarch64_bfdot = getenv("LIBXS_AARCH64_USE_BFDOT");
-  int result = 0;
-  if ( 0 == l_env_aarch64_bfdot ) {
-    result = 0;
-  } else {
-    if ( atoi(l_env_aarch64_bfdot) != 0 ) {
-      result = 1;
-    }
-  }
-  return result;
-#endif
-}
-
-LIBXS_API int libxs_cpuid_arm_use_i8dot(void)
-{
-#if defined(LIBXS_PLATFORM_X86)
-  return 0;
-#else
-  const char *const l_env_aarch64_i8dot = getenv("LIBXS_AARCH64_USE_I8DOT");
-  int result = 0;
-  if ( 0 == l_env_aarch64_i8dot ) {
-    result = 0;
-  } else {
-    if ( atoi(l_env_aarch64_i8dot) != 0 ) {
-      result = 1;
-    }
-  }
-  return result;
-#endif
-}
-
-LIBXS_API int libxs_cpuid_arm_m4_use_neon_non_gemm(void){
-#if defined(LIBXS_PLATFORM_X86)
-  return 0;
-#else
-  const char *const l_env_use_neon = getenv("LIBXS_AARCH64_USE_NEON");
-  int result = 0;
-  if( 0 == l_env_use_neon){
-    result = 0;
-  } else {
-    if( atoi(l_env_use_neon) != 0){
-      result = 1;
-    }
-    }
-  return result;
-#endif
-}
 
 LIBXS_API int libxs_cpuid_arm(libxs_cpuid_info* info)
 {
@@ -195,41 +126,14 @@ LIBXS_API int libxs_cpuid_arm(libxs_cpuid_info* info)
         if (0 != (0xF & (id_aa64pfr0_el1 >> 32)) || 0 != no_access) { /* SVE */
           const int vlen_bytes = libxs_cpuid_arm_svcntb();
           switch (vlen_bytes) {
-            case 16: { /* SVE 256-bit */
-              const int sve128 = (1 == (0xF & (id_aa64isar1_el1 >> 44))
-                ? LIBXS_AARCH64_NEOV2 /* BF16 */
-                : LIBXS_AARCH64_SVE128);
-              if (sve128 > result) result = sve128;
+            case 16: { /* SVE 128-bit */
+              if (LIBXS_AARCH64_SVE128 > result) result = LIBXS_AARCH64_SVE128;
             } break;
             case 32: { /* SVE 256-bit */
-              const int sve256 = (1 == (0xF & (id_aa64isar1_el1 >> 44))
-                ? LIBXS_AARCH64_NEOV1 /* BF16 */
-                : LIBXS_AARCH64_SVE256);
-              if (sve256 > result) result = sve256;
+              if (LIBXS_AARCH64_SVE256 > result) result = LIBXS_AARCH64_SVE256;
             } break;
-#   if defined(LIBXS_CPUID_ARM_CNTB_FALLBACK)
-            case 0: /* fallback (hack) */
-#   endif
             case 64: { /* SVE 512-bit */
-              const char vendor = libxs_cpuid_arm_vendor();
-              if ('F' == vendor) { /* Fujitsu */
-                if (LIBXS_AARCH64_A64FX > result) {
-#   if defined(LIBXS_CPUID_ARM_CNTB_FALLBACK)
-                  if (0 != libxs_verbosity && 0 == vlen_bytes) { /* library code is expected to be mute */
-                    fprintf(stderr, "LIBXS WARNING: assuming SVE 512-bit vector length!\n");
-                  }
-#   endif
-                  result = LIBXS_AARCH64_A64FX;
-                }
-              }
-              else
-#   if defined(LIBXS_CPUID_ARM_CNTB_FALLBACK)
-              if (64 == vlen_bytes)
-#   endif
-              {
-                LIBXS_ASSERT(0 == no_access);
-                if (LIBXS_AARCH64_SVE512 > result) result = LIBXS_AARCH64_SVE512;
-              }
+              if (LIBXS_AARCH64_SVE512 > result) result = LIBXS_AARCH64_SVE512;
             } break;
             default: if (0 != libxs_verbosity) { /* library code is expected to be mute */
               if (0 != no_access || 0 == vlen_bytes) {

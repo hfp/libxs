@@ -70,38 +70,6 @@
 # endif
 #endif
 
-#if defined(LIBXS_PLATFORM_X86)
-LIBXS_API_INTERN int libxs_cpuid_x86_amx_enable(void);
-# if defined(__linux__)
-#  include <sys/syscall.h>
-#  if !defined(LIBXS_BUILD) || (1 >= (LIBXS_BUILD))
-LIBXS_EXTERN long syscall(long number, ...) LIBXS_NOTHROW;
-#  endif
-LIBXS_API_INTERN int libxs_cpuid_x86_amx_enable(void)
-{
-  unsigned long bitmask = 0;
-  long status = syscall(SYS_arch_prctl, 0x1022, &bitmask);
-  if (0 != status) return -1;
-  if (bitmask & (1<<18)) return 0;
-
-  status = syscall(SYS_arch_prctl, 0x1023, 18);
-  if (0 != status) return -1; /* setup failed */
-  status = syscall(SYS_arch_prctl, 0x1022, &bitmask);
-
-  /* setup failed */
-  if (0 != status || !(bitmask & (1<<18))) return -1;
-
-  /* setup successful */
-  return 0;
-}
-# else
-LIBXS_API_INTERN int libxs_cpuid_x86_amx_enable(void)
-{
-  return -1;
-}
-# endif
-#endif
-
 
 LIBXS_API_INTERN void libxs_cpuid_model(char model[], size_t* model_size)
 {
@@ -182,61 +150,21 @@ LIBXS_API int libxs_cpuid_x86(libxs_cpuid_info* info)
             if (LIBXS_CPUID_CHECK(ecx, 0x00001000)) { /* FMA(0x00001000) */
               unsigned int ecx2;
               LIBXS_CPUID_X86(7, 0/*ecx*/, eax, ebx, ecx2, edx);
-              /* AVX512F(0x00010000), AVX512CD(0x10000000) */
-              if (LIBXS_CPUID_CHECK(ebx, 0x10010000)) { /* Common */
-                /* AVX512DQ(0x00020000), AVX512BW(0x40000000), AVX512VL(0x80000000) */
-                if (LIBXS_CPUID_CHECK(ebx, 0xC0020000)) { /* AVX512-Core */
-                  if (LIBXS_CPUID_CHECK(ecx2, 0x00000800)) { /* VNNI */
-                    unsigned int edx2; /* we need to save edx for AMX check */
-                    LIBXS_CPUID_X86(7, 1/*ecx*/, eax, ebx, ecx2, edx2);
-                    if (LIBXS_CPUID_CHECK(eax, 0x00000020)) { /* BF16 */
-                      feature_cpu = LIBXS_X86_AVX512_CPX;
-                      if (LIBXS_CPUID_CHECK(edx, 0x03400000)) { /* AMX-TILE, AMX-INT8, AMX-BF16 */
-                        feature_cpu = LIBXS_X86_AVX512_SPR;
-                        if (LIBXS_CPUID_CHECK(eax, 0x00200000)) { /* AMX-FP16 */
-                          feature_cpu = LIBXS_X86_AVX512_GNR;
-                          LIBXS_CPUID_X86(0x1e, 1/*ecx*/, eax, ebx, ecx2, edx2);
-                          if (LIBXS_CPUID_CHECK(eax, 0x000001f4)) { /* AMX-FP8, AMX-Transpose, AMX-AVX512, AMX-TF32, AMX-MOVRS */
-                            feature_cpu = LIBXS_X86_AVX512_DMR;
-                          }
-                        }
-                      }
-                    }
-                    else feature_cpu = LIBXS_X86_AVX512_CLX; /* CLX */
-                  }
-                  else feature_cpu = LIBXS_X86_AVX512_SKX; /* SKX */
-                } /* we don't target AVX512 COMMON for SKX & KNL */
+              if ( /* AVX512F(0x00010000), AVX512CD(0x10000000) */
+#if 0           /* AVX512DQ(0x00020000), AVX512BW(0x40000000), AVX512VL(0x80000000) */
+                LIBXS_CPUID_CHECK(ebx, 0xC0020000) &&
+#endif
+                LIBXS_CPUID_CHECK(ebx, 0x10010000)) /* Common */
+              {
+                feature_cpu = LIBXS_X86_AVX512; /* AVX512-Core/SKX/baseline */
               }
-              else {
-                unsigned int edx2;
-                feature_cpu = LIBXS_X86_AVX2;
-                /* check if we are on ADL or newer */
-                LIBXS_CPUID_X86(7, 1/*ecx*/, eax, ebx, ecx2, edx2);
-                if (LIBXS_CPUID_CHECK(eax, 0x00000010)) { /* AVX_VNNI */
-                  feature_cpu = LIBXS_X86_AVX2_ADL;
-                  if (LIBXS_CPUID_CHECK(edx2, 0x00000030)) { /* AVX-VNNI-INT8, AVX-NE-CONVERT */
-                    feature_cpu = LIBXS_X86_AVX2_SRF;
-                  }
-                }
-              }
+              else feature_cpu = LIBXS_X86_AVX2;
             }
             else feature_cpu = LIBXS_X86_AVX;
           }
           else feature_cpu = LIBXS_X86_SSE42;
         }
         else feature_cpu = LIBXS_X86_SSE3;
-      }
-      /* enable AMX state in the OS on SPR and later */
-      if (feature_cpu >= LIBXS_X86_AVX512_SPR) {
-        if (0 != libxs_cpuid_x86_amx_enable()) {
-          static int error_once = 0;
-          if (0 != libxs_verbosity /* library code is expected to be mute */
-            && 1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED))
-          {
-            fprintf(stderr, "LIBXS WARNING: AMX state allocation in the OS failed!\n");
-          }
-          feature_cpu = LIBXS_X86_AVX512_SPR - 1; /* LIBXS_X86_AVX512_CPX */
-        }
       }
 # if !defined(LIBXS_INTRINSICS_DEBUG)
       LIBXS_ASSERT_MSG(LIBXS_STATIC_TARGET_ARCH <= LIBXS_MAX(LIBXS_X86_GENERIC, feature_cpu), "missed detecting ISA extensions");
@@ -249,14 +177,9 @@ LIBXS_API int libxs_cpuid_x86(libxs_cpuid_info* info)
         if (LIBXS_X86_AVX <= feature_cpu) {
           LIBXS_XGETBV(0, eax, edx);
           if (LIBXS_CPUID_CHECK(eax, 0x00000006)) { /* OS XSAVE 256-bit */
-            feature_os = LIBXS_MIN(LIBXS_X86_AVX2_SRF, feature_cpu);
+            feature_os = LIBXS_MIN(LIBXS_X86_AVX2, feature_cpu);
             if (LIBXS_CPUID_CHECK(eax, 0x000000E0)) { /* OS XSAVE 512-bit */
-              feature_os = LIBXS_MIN(LIBXS_X86_AVX512_CPX, feature_cpu);
-              if (LIBXS_X86_AVX512_SPR <= feature_cpu && 7 <= maxleaf
-                && LIBXS_CPUID_CHECK(eax, 0x00060000)) /* OS XSAVE 512-bit */
-              {
-                feature_os = feature_cpu; /* unlimited AMX */
-              }
+              feature_os = LIBXS_MIN(LIBXS_X86_AVX512, feature_cpu);
             }
           }
         }
@@ -358,38 +281,8 @@ LIBXS_API const char* libxs_cpuid_name(int id)
 {
   const char* target_arch = NULL;
   switch (id) {
-    case LIBXS_X86_AVX512_DMR: {
-      target_arch = "dmr";
-    } break;
-    case LIBXS_X86_AVX512_GNR: {
-      target_arch = "gnr";
-    } break;
-    case LIBXS_X86_AVX512_SPR: {
-      target_arch = "spr";
-    } break;
-    case LIBXS_X86_AVX512_CPX: {
-      target_arch = "cpx";
-    } break;
-    case LIBXS_X86_AVX512_CLX: {
-      target_arch = "clx";
-    } break;
-    case LIBXS_X86_AVX512_SKX: {
-      target_arch = "skx";
-    } break;
-    case LIBXS_X86_AVX512_VL256_SKX: {
-      target_arch = "avx512_vl256";
-    } break;
-    case LIBXS_X86_AVX512_VL256_CLX: {
-      target_arch = "avx512_vl256_clx";
-    } break;
-    case LIBXS_X86_AVX512_VL256_CPX: {
-      target_arch = "avx512_vl256_cpx";
-    } break;
-    case LIBXS_X86_AVX2_SRF: {
-      target_arch = "srf";
-    } break;
-    case LIBXS_X86_AVX2_ADL: {
-      target_arch = "adl";
+    case LIBXS_X86_AVX512: {
+      target_arch = "avx512";
     } break;
     case LIBXS_X86_AVX2: {
       target_arch = "hsw";
@@ -416,20 +309,11 @@ LIBXS_API const char* libxs_cpuid_name(int id)
     case LIBXS_AARCH64_SVE128: {
       target_arch = "sve128";
     } break;
-    case LIBXS_AARCH64_NEOV2: {
-      target_arch = "neov2";
-    } break;
     case LIBXS_AARCH64_SVE256: {
       target_arch = "sve256";
     } break;
-    case LIBXS_AARCH64_NEOV1: {
-      target_arch = "neov1";
-    } break;
     case LIBXS_AARCH64_SVE512: {
       target_arch = "sve512";
-    } break;
-    case LIBXS_AARCH64_A64FX: {
-      target_arch = "a64fx";
     } break;
     case LIBXS_RV64_MVL128: {
       target_arch = "rv64_mvl128";
@@ -464,41 +348,10 @@ LIBXS_API int libxs_cpuid_id(const char* arch)
 {
   int target_archid = LIBXS_TARGET_ARCH_UNKNOWN;
 
-  if (strcmp(arch, "avx512_vl256_cpx") == 0) {
-    target_archid = LIBXS_X86_AVX512_VL256_CPX;
-  }
-  else if (strcmp(arch, "avx512_vl256_clx") == 0) {
-    target_archid = LIBXS_X86_AVX512_VL256_CLX;
-  }
-  else if (strcmp(arch, "avx512_vl256") == 0) {
-    target_archid = LIBXS_X86_AVX512_VL256_SKX;
-  }
-  else if (strcmp(arch, "dmr") == 0) {
-    target_archid = LIBXS_X86_AVX512_DMR;
-  }
-  else if (strcmp(arch, "gnr") == 0) {
-    target_archid = LIBXS_X86_AVX512_GNR;
-  }
-  else if (strcmp(arch, "spr") == 0) {
-    target_archid = LIBXS_X86_AVX512_SPR;
-  }
-  else if (strcmp(arch, "cpx") == 0) {
-    target_archid = LIBXS_X86_AVX512_CPX;
-  }
-  else if (strcmp(arch, "clx") == 0) {
-    target_archid = LIBXS_X86_AVX512_CLX;
-  }
-  else if (strcmp(arch, "skx") == 0 || strcmp(arch, "skl") == 0
-          /* "avx3"/"avx512" previously enabled LIBXS_X86_AVX512_SKX */
-          || strcmp(arch, "avx3") == 0 || strcmp(arch, "avx512") == 0)
+  if (strcmp(arch, "skx") == 0 || strcmp(arch, "skl") == 0
+    || strcmp(arch, "avx3") == 0 || strcmp(arch, "avx512") == 0)
   {
-    target_archid = LIBXS_X86_AVX512_SKX;
-  }
-  else if (strcmp(arch, "srf") == 0) {
-    target_archid = LIBXS_X86_AVX2_SRF;
-  }
-  else if (strcmp(arch, "adl") == 0) {
-    target_archid = LIBXS_X86_AVX2_ADL;
+    target_archid = LIBXS_X86_AVX512;
   }
   else if (strcmp(arch, "hsw") == 0 || strcmp(arch, "avx2") == 0) {
     target_archid = LIBXS_X86_AVX2;
@@ -539,17 +392,8 @@ LIBXS_API int libxs_cpuid_id(const char* arch)
   else if (strcmp(arch, "sve256") == 0) {
     target_archid = LIBXS_AARCH64_SVE256;
   }
-  else if (strcmp(arch, "neov1") == 0) {
-    target_archid = LIBXS_AARCH64_NEOV1;
-  }
-  else if (strcmp(arch, "neov2") == 0) {
-    target_archid = LIBXS_AARCH64_NEOV2;
-  }
   else if (strcmp(arch, "sve512") == 0) {
     target_archid = LIBXS_AARCH64_SVE512;
-  }
-  else if (strcmp(arch, "a64fx") == 0) {
-    target_archid = LIBXS_AARCH64_A64FX;
   }
   else if (strcmp(arch, "rv64_mvl128") == 0) {
     target_archid = LIBXS_RV64_MVL128;
@@ -589,23 +433,19 @@ LIBXS_API int libxs_cpuid_vlen32(int id)
   else if (LIBXS_AARCH64_V81 == id
         || LIBXS_AARCH64_V82 == id
         || LIBXS_AARCH64_APPL_M1 == id
-        || LIBXS_AARCH64_SVE128  == id
-        || LIBXS_AARCH64_NEOV2 == id )
+        || LIBXS_AARCH64_SVE128  == id)
   {
     result = 4;
   }
-  else if (LIBXS_AARCH64_SVE256 == id
-        || LIBXS_AARCH64_NEOV1  == id)
-  {
+  else if (LIBXS_AARCH64_SVE256 == id) {
     result = 8;
   }
   else if (LIBXS_AARCH64_SVE512 == id
-        || LIBXS_AARCH64_A64FX  == id
-        || LIBXS_AARCH64_APPL_M4 == id )
+        || LIBXS_AARCH64_APPL_M4 == id)
   {
     result = 16;
   }
-  else if (LIBXS_X86_AVX512_SKX <= id) {
+  else if (LIBXS_X86_AVX512 <= id) {
     result = 16;
   }
   else if (LIBXS_X86_AVX <= id) {
@@ -617,113 +457,5 @@ LIBXS_API int libxs_cpuid_vlen32(int id)
   else { /* scalar */
     result = 1;
   }
-  return result;
-}
-
-LIBXS_API int libxs_cpuid_x86_use_high_prec_eltwise_approx(void) {
-  int result = 0;
-#if defined(LIBXS_PLATFORM_X86)
-  const char *const l_env_x86_use_high_prec_eltwise_approx = getenv("LIBXS_X86_HINT_USE_HIGH_PREC_ELTWISE_APPROX");
-  if ( 0 == l_env_x86_use_high_prec_eltwise_approx ) {
-    result = 0;
-  } else {
-    if ( atoi(l_env_x86_use_high_prec_eltwise_approx) != 0 ) {
-      result = 1;
-    }
-  }
-#endif
-  return result;
-}
-
-LIBXS_API int libxs_cpuid_x86_amx_gemm_enforce_mx1_tile_blocking(void) {
-  int result = 0;
-#if defined(LIBXS_PLATFORM_X86)
-  const char *const l_env_x86_amx_gemm_enforce_mx1_tile_blocking = getenv("LIBXS_X86_AMX_GEMM_ENFORCE_Mx1_TILE_BLOCKING");
-  if ( 0 == l_env_x86_amx_gemm_enforce_mx1_tile_blocking ) {
-    result = 0;
-  } else {
-    if ( atoi(l_env_x86_amx_gemm_enforce_mx1_tile_blocking) != 0 ) {
-      result = 1;
-    }
-  }
-#endif
-  return result;
-}
-
-LIBXS_API unsigned int libxs_cpuid_x86_srf_gemm_set_n_max_blocking(void) {
- unsigned  int result = 3;
-#if defined(LIBXS_PLATFORM_X86)
-  const char *const l_env_x86_srf_gemm_set_n_max_blocking = getenv("LIBXS_X86_SRF_GEMM_SET_N_MAX_BLOCKING");
-  if ( 0 == l_env_x86_srf_gemm_set_n_max_blocking ) {
-    result = 3;
-  } else {
-    if ( atoi(l_env_x86_srf_gemm_set_n_max_blocking) > 0 ) {
-      result = (unsigned int) atoi(l_env_x86_srf_gemm_set_n_max_blocking);
-    }
-  }
-#endif
-  return result;
-}
-
-LIBXS_API int libxs_cpuid_dot_pack_factor(libxs_datatype datatype)
-{
-  /* handle signed and unsigned types */
-  const int type = LIBXS_GETENUM_INP(datatype);
-  int result = 0;
-#if defined(LIBXS_PLATFORM_X86)
-  if ( (type == LIBXS_DATATYPE_BF16) ||
-       (type == LIBXS_DATATYPE_F16)  ||
-       (type == LIBXS_DATATYPE_I16)     ) {
-    result = 2;
-  } else if ( (type == LIBXS_DATATYPE_BF8) ||
-              (type == LIBXS_DATATYPE_HF8) ||
-              (type == LIBXS_DATATYPE_I8)     ) {
-    result = 4;
-  } else {
-    result = 1;
-  }
-# else
-  if ( (type == LIBXS_DATATYPE_BF16) ||
-       (type == LIBXS_DATATYPE_F16)  ||
-       (type == LIBXS_DATATYPE_I16)     ) {
-    result = 4;
-  } else if ( (type == LIBXS_DATATYPE_BF8) ||
-              (type == LIBXS_DATATYPE_HF8) ||
-              (type == LIBXS_DATATYPE_I8)     ) {
-    result = 8;
-  } else {
-    result = 1;
-  }
-  if ( libxs_cpuid_arm_use_bfdot() != 0 ) {
-    if ( (type == LIBXS_DATATYPE_BF16) ||
-         (type == LIBXS_DATATYPE_F16)  ||
-         (type == LIBXS_DATATYPE_I16)     ) {
-      result = 2;
-    } else if ( (type == LIBXS_DATATYPE_BF8) ||
-                (type == LIBXS_DATATYPE_HF8) ||
-                (type == LIBXS_DATATYPE_I8)     ) {
-      result = 4;
-    }
-  } else if ( libxs_cpuid_arm_use_i8dot() != 0 ) {
-    if ( type == LIBXS_DATATYPE_I16 ) {
-      result = 2;
-    } else if ( (type == LIBXS_DATATYPE_BF8) ||
-                (type == LIBXS_DATATYPE_I8)     ) {
-      result = 4;
-    }
-  } else {
-    if ( (type == LIBXS_DATATYPE_BF16) ||
-         (type == LIBXS_DATATYPE_F16)  ||
-         (type == LIBXS_DATATYPE_I16)     ) {
-      result = 4;
-    } else if ( (type == LIBXS_DATATYPE_BF8) ||
-                (type == LIBXS_DATATYPE_HF8) ||
-                (type == LIBXS_DATATYPE_I8)     ) {
-      result = 8;
-    } else {
-      result = 1;
-    }
-  }
-#endif
   return result;
 }

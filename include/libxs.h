@@ -63,24 +63,8 @@ LIBXS_API void libxs_init(void);
 /** De-initialize the library and free internal memory (optional). */
 LIBXS_API void libxs_finalize(void);
 
-/**
- * Returns the architecture and instruction set extension as determined by the CPUID flags, as set
- * by the libxs_get_target_arch* functions, or as set by the LIBXS_TARGET environment variable.
- */
-LIBXS_API int libxs_get_target_archid(void);
-/** Set target architecture (id: see libxs_typedefs.h) for subsequent code generation (JIT). */
-LIBXS_API void libxs_set_target_archid(int id);
-
 /** Returns the type-name of data-type (can be also libxs_datatype). */
 LIBXS_API const char* libxs_get_typename(libxs_datatype datatype);
-
-/**
- * Returns the name of the target architecture as determined by the CPUID flags, as set by the
- * libxs_get_target_arch* functions, or as set by the LIBXS_TARGET environment variable.
- */
-LIBXS_API const char* libxs_get_target_arch(void);
-/** Set target architecture (arch="0|sse|snb|hsw|skx|clx|cpx|spr", NULL/"0": CPUID). */
-LIBXS_API void libxs_set_target_arch(const char* arch);
 
 /** Get the level of verbosity. */
 LIBXS_API int libxs_get_verbosity(void);

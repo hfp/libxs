@@ -81,7 +81,7 @@ LIBXS_API size_t libxs_offset(const size_t offset[], const size_t shape[], size_
 
 LIBXS_API int libxs_aligned(const void* ptr, const size_t* inc, int* alignment)
 {
-  const int minalign = libxs_cpuid_vlen(libxs_target_archid);
+  const int minalign = libxs_cpuid_vlen(libxs_cpuid(NULL));
   const uintptr_t address = (uintptr_t)ptr;
   int ptr_is_aligned;
   LIBXS_ASSERT(LIBXS_ISPOT(minalign));
@@ -158,7 +158,7 @@ unsigned char internal_diff_avx2(const void* a, const void* b, unsigned char siz
 
 
 #if defined(LIBXS_DIFF_AVX512_ENABLED)
-LIBXS_API_INLINE LIBXS_INTRINSICS(LIBXS_X86_AVX512_SKX)
+LIBXS_API_INLINE LIBXS_INTRINSICS(LIBXS_X86_AVX512)
 unsigned char internal_diff_avx512(const void* a, const void* b, unsigned char size)
 {
 #if defined(LIBXS_INTRINSICS_AVX512_SKX) && !defined(LIBXS_MEM_SW)
@@ -240,7 +240,7 @@ int internal_memcmp_avx2(const void* a, const void* b, size_t size)
 
 
 #if defined(LIBXS_DIFF_AVX512_ENABLED)
-LIBXS_API_INLINE LIBXS_INTRINSICS(LIBXS_X86_AVX512_SKX)
+LIBXS_API_INLINE LIBXS_INTRINSICS(LIBXS_X86_AVX512)
 int internal_memcmp_avx512(const void* a, const void* b, size_t size)
 {
 #if defined(LIBXS_INTRINSICS_AVX512_SKX) && !defined(LIBXS_MEM_SW)
@@ -266,7 +266,7 @@ LIBXS_API_INTERN void libxs_memory_init(int target_arch)
 #if defined(LIBXS_MEM_SW)
   LIBXS_UNUSED(target_arch);
 #else
-  if (LIBXS_X86_AVX512_SKX <= target_arch) {
+  if (LIBXS_X86_AVX512 <= target_arch) {
 # if defined(LIBXS_DIFF_AVX512_ENABLED)
     internal_diff_function = internal_diff_avx512;
 # else
@@ -384,7 +384,7 @@ LIBXS_API unsigned char libxs_diff(const void* a, const void* b, unsigned char s
 #else
 # if defined(LIBXS_MEM_STDLIB)
   return 0 != memcmp(a, b, size);
-# elif (LIBXS_X86_AVX512_SKX <= LIBXS_STATIC_TARGET_ARCH) && defined(LIBXS_DIFF_AVX512_ENABLED)
+# elif (LIBXS_X86_AVX512 <= LIBXS_STATIC_TARGET_ARCH) && defined(LIBXS_DIFF_AVX512_ENABLED)
   return internal_diff_avx512(a, b, size);
 # elif (LIBXS_X86_AVX2 <= LIBXS_STATIC_TARGET_ARCH)
   return internal_diff_avx2(a, b, size);
@@ -468,7 +468,7 @@ LIBXS_API int libxs_memcmp(const void* a, const void* b, size_t size)
 #else
 # if defined(LIBXS_MEM_STDLIB)
   return memcmp(a, b, size);
-# elif (LIBXS_X86_AVX512_SKX <= LIBXS_STATIC_TARGET_ARCH) && defined(LIBXS_DIFF_AVX512_ENABLED)
+# elif (LIBXS_X86_AVX512 <= LIBXS_STATIC_TARGET_ARCH) && defined(LIBXS_DIFF_AVX512_ENABLED)
   return internal_memcmp_avx512(a, b, size);
 # elif (LIBXS_X86_AVX2 <= LIBXS_STATIC_TARGET_ARCH)
   return internal_memcmp_avx2(a, b, size);
