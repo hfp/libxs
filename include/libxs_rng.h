@@ -9,53 +9,71 @@
 #ifndef LIBXS_UTILS_H
 #define LIBXS_UTILS_H
 
+
+/** Helper macro to setup a matrix with some initial values. */
+#define LIBXS_MATRNG_AUX(OMP, TYPE, SEED, DST, NROWS, NCOLS, LD, SCALE) do { \
+  /*const*/ double libxs_matrng_seed_ = SEED; /* avoid constant conditional */ \
+  const double libxs_matrng_scale_ = libxs_matrng_seed_ * (SCALE) + (SCALE); \
+  const libxs_blasint libxs_matrng_nrows_ = (libxs_blasint)(NROWS); \
+  const libxs_blasint libxs_matrng_ncols_ = (libxs_blasint)(NCOLS); \
+  const libxs_blasint libxs_matrng_ld_ = (libxs_blasint)(LD); \
+  libxs_blasint libxs_matrng_i_ = 0, libxs_matrng_j_ = 0; \
+  LIBXS_OMP_VAR(libxs_matrng_i_); LIBXS_OMP_VAR(libxs_matrng_j_); \
+  if (0 != libxs_matrng_seed_) { \
+    OMP(parallel for private(libxs_matrng_i_, libxs_matrng_j_)) \
+    for (libxs_matrng_i_ = 0; libxs_matrng_i_ < libxs_matrng_ncols_; ++libxs_matrng_i_) { \
+      for (libxs_matrng_j_ = 0; libxs_matrng_j_ < libxs_matrng_nrows_; ++libxs_matrng_j_) { \
+        const libxs_blasint libxs_matrng_k_ = libxs_matrng_i_ * libxs_matrng_ld_ + libxs_matrng_j_; \
+        ((TYPE*)(DST))[libxs_matrng_k_] = (TYPE)(libxs_matrng_scale_ * (1.0 + \
+          (double)libxs_matrng_i_ * libxs_matrng_nrows_ + libxs_matrng_j_)); \
+      } \
+      for (; libxs_matrng_j_ < libxs_matrng_ld_; ++libxs_matrng_j_) { \
+        const libxs_blasint libxs_matrng_k_ = libxs_matrng_i_ * libxs_matrng_ld_ + libxs_matrng_j_; \
+        ((TYPE*)(DST))[libxs_matrng_k_] = (TYPE)libxs_matrng_seed_; \
+      } \
+    } \
+  } \
+  else { /* shuffle based initialization */ \
+    const libxs_blasint libxs_matrng_maxval_ = libxs_matrng_ncols_ * libxs_matrng_ld_; \
+    const TYPE libxs_matrng_maxval2_ = (TYPE)((libxs_blasint)LIBXS_UPDIV(libxs_matrng_maxval_, 2)); /* non-zero */ \
+    const TYPE libxs_matrng_inv_ = ((TYPE)(SCALE)) / libxs_matrng_maxval2_; \
+    const size_t libxs_matrng_shuffle_ = libxs_coprime2((size_t)libxs_matrng_maxval_); \
+    OMP(parallel for private(libxs_matrng_i_, libxs_matrng_j_)) \
+    for (libxs_matrng_i_ = 0; libxs_matrng_i_ < libxs_matrng_ncols_; ++libxs_matrng_i_) { \
+      for (libxs_matrng_j_ = 0; libxs_matrng_j_ < libxs_matrng_ld_; ++libxs_matrng_j_) { \
+        const libxs_blasint libxs_matrng_k_ = libxs_matrng_i_ * libxs_matrng_ld_ + libxs_matrng_j_; \
+        ((TYPE*)(DST))[libxs_matrng_k_] = libxs_matrng_inv_ * /* normalize values to an interval of [-1, +1] */ \
+          ((TYPE)(libxs_matrng_shuffle_ * libxs_matrng_k_ % libxs_matrng_maxval_) - libxs_matrng_maxval2_); \
+      } \
+    } \
+  } \
+} while(0)
+
+#define LIBXS_MATRNG(TYPE, SEED, DST, NROWS, NCOLS, LD, SCALE) \
+  LIBXS_MATRNG_AUX(LIBXS_ELIDE, TYPE, SEED, DST, NROWS, NCOLS, LD, SCALE)
+#define LIBXS_MATRNG_SEQ(TYPE, SEED, DST, NROWS, NCOLS, LD, SCALE) \
+  LIBXS_MATRNG(TYPE, SEED, DST, NROWS, NCOLS, LD, SCALE)
+#define LIBXS_MATRNG_OMP(TYPE, SEED, DST, NROWS, NCOLS, LD, SCALE) \
+  LIBXS_MATRNG_AUX(LIBXS_PRAGMA_OMP, TYPE, SEED, DST, NROWS, NCOLS, LD, SCALE)
+
+
+/** Set the seed of libxs_rng_* (similar to srand). */
+LIBXS_API void libxs_rng_set_seed(unsigned int/*uint32_t*/ seed);
+
 /**
- * Any intrinsics interface (libxs_intrinsics_x86.h) shall be explicitly
- * included, i.e., separate from libxs_utils.h.
-*/
-#include "utils/libxs_lpflt_quant.h"
-#include "utils/libxs_barrier.h"
-#include "utils/libxs_timer.h"
-#include "utils/libxs_math.h"
-#include "utils/libxs_mhd.h"
-
-#if defined(__BLAS) && (1 == __BLAS)
-# if defined(__OPENBLAS)
-    LIBXS_EXTERN void openblas_set_num_threads(int num_threads);
-#   define LIBXS_BLAS_INIT openblas_set_num_threads(1);
-# endif
-#endif
-#if !defined(LIBXS_BLAS_INIT)
-# define LIBXS_BLAS_INIT
-#endif
-
-/** Call libxs_gemm_print using LIBXS's GEMM-flags. */
-#define LIBXS_GEMM_PRINT(OSTREAM, PRECISION, FLAGS, M, N, K, DALPHA, A, LDA, B, LDB, DBETA, C, LDC) \
-  LIBXS_GEMM_PRINT2(OSTREAM, PRECISION, PRECISION, FLAGS, M, N, K, DALPHA, A, LDA, B, LDB, DBETA, C, LDC)
-#define LIBXS_GEMM_PRINT2(OSTREAM, IPREC, OPREC, FLAGS, M, N, K, DALPHA, A, LDA, B, LDB, DBETA, C, LDC) \
-  libxs_gemm_dprint2(OSTREAM, (libxs_datatype)(IPREC), (libxs_datatype)(OPREC), \
-    /* Use 'n' (instead of 'N') avoids warning about "no macro replacement within a character constant". */ \
-    (char)(0 == (LIBXS_GEMM_FLAG_TRANS_A & (FLAGS)) ? 'n' : 't'), \
-    (char)(0 == (LIBXS_GEMM_FLAG_TRANS_B & (FLAGS)) ? 'n' : 't'), \
-    M, N, K, DALPHA, A, LDA, B, LDB, DBETA, C, LDC)
-
-/**
- * Utility function, which either prints information about the GEMM call
- * or dumps (FILE/ostream=0) all input and output data into MHD files.
- * The Meta Image Format (MHD) is suitable for visual inspection using,
- * e.g., ITK-SNAP or ParaView.
+ * Returns a (pseudo-)random value based on rand/rand48 in the interval [0, n).
+ * This function compensates for an n, which is not a factor of RAND_MAX.
+ * Note: libxs_rng_set_seed must be used if one wishes to seed the generator.
  */
-LIBXS_API void libxs_gemm_print(void* ostream,
-  libxs_datatype precision, const char* transa, const char* transb,
-  const libxs_blasint* m, const libxs_blasint* n, const libxs_blasint* k,
-  const void* alpha, const void* a, const libxs_blasint* lda,
-  const void* b, const libxs_blasint* ldb,
-  const void* beta, void* c, const libxs_blasint* ldc);
-LIBXS_API void libxs_gemm_print2(void* ostream,
-  libxs_datatype iprec, libxs_datatype oprec, const char* transa, const char* transb,
-  const libxs_blasint* m, const libxs_blasint* n, const libxs_blasint* k,
-  const void* alpha, const void* a, const libxs_blasint* lda,
-  const void* b, const libxs_blasint* ldb,
-  const void* beta, void* c, const libxs_blasint* ldc);
+LIBXS_API unsigned int libxs_rng_u32(unsigned int n);
+
+/**
+ * Similar to libxs_rng_u32, but returns a DP-value in the interval [0, 1).
+ * Note: libxs_rng_set_seed must be used if one wishes to seed the generator.
+ */
+LIBXS_API double libxs_rng_f64(void);
+
+/** Sequence of random data based on libxs_rng_u32. */
+LIBXS_API void libxs_rng_seq(void* data, size_t nbytes);
 
 #endif /*LIBXS_UTILS_H*/

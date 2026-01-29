@@ -66,3 +66,33 @@ LIBXS_API unsigned int libxs_get_tid(void)
   return 0;
 #endif
 }
+
+
+LIBXS_API void libxs_stdio_acquire(void)
+{
+#if !defined(_WIN32)
+  if (0 < libxs_stdio_handle) {
+    flock(libxs_stdio_handle - 1, LOCK_EX);
+  }
+  else
+#endif
+  {
+    LIBXS_FLOCK(stdout);
+    LIBXS_FLOCK(stderr);
+  }
+}
+
+
+LIBXS_API void libxs_stdio_release(void)
+{
+#if !defined(_WIN32)
+  if (0 < libxs_stdio_handle) {
+    flock(libxs_stdio_handle - 1, LOCK_UN);
+  }
+  else
+#endif
+  {
+    LIBXS_FUNLOCK(stderr);
+    LIBXS_FUNLOCK(stdout);
+  }
+}

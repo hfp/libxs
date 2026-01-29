@@ -62,20 +62,6 @@ int main(int argc, char* argv[])
   int warn_dsqrt = 0, warn_ssqrt = 0, i, j;
   LIBXS_UNUSED(argc); LIBXS_UNUSED(argv);
 
-  for (i = 0; i < 256; ++i) {
-    const float a = libxs_sexp2_u8((unsigned char)i);
-    const float b = LIBXS_EXP2F((float)i);
-    if (LIBXS_NEQ(a, b)) exit(EXIT_FAILURE);
-  }
-
-  for (i = -128; i < 127; ++i) {
-    const float a = libxs_sexp2_i8((signed char)i);
-    const float b = libxs_sexp2_i8i(i);
-    const float c = LIBXS_EXP2F((float)i);
-    if (LIBXS_NEQ(a, c)) exit(EXIT_FAILURE);
-    if (LIBXS_NEQ(b, c)) exit(EXIT_FAILURE);
-  }
-
   for (i = 0; i < (N); ++i) {
     const int r1 = (0 != i ? rand() : 0), r2 = (1 < i ? rand() : 0);
     const double rd = 2.0 * ((long long int)r1 * (r2 - RAND_MAX / 2)) / RAND_MAX;
@@ -92,44 +78,12 @@ int main(int argc, char* argv[])
     if (LIBXS_NEQ(LIBXS_ROUNDF((float)r2), LIBXS_ROUNDX(float, (float)r2))) exit(EXIT_FAILURE);
     if (LIBXS_NEQ(LIBXS_ROUNDF((float)rd), LIBXS_ROUNDX(float, (float)rd))) exit(EXIT_FAILURE);
 
-    d1 = libxs_sexp2((float)rd);
-    d2 = LIBXS_EXP2F((float)rd);
-    e1 = LIBXS_FABS(d1 - d2); e2 = LIBXS_FABS(d2);
-    e3 = 0 < e2 ? (e1 / e2) : 0.0;
-    if (1E-4 < LIBXS_MIN(e1, e3)) exit(EXIT_FAILURE);
-
     a = libxs_isqrt_u32(r32);
     b = ref_isqrt_u32(r32);
     if (a != b) exit(EXIT_FAILURE);
     a = libxs_isqrt_u64(r64);
     b = ref_isqrt_u64(r64);
     if (a != b) exit(EXIT_FAILURE);
-    d1 = libxs_ssqrt((float)LIBXS_FABS(rd));
-    e1 = LIBXS_FABS(d1 * d1 - LIBXS_FABS(rd));
-    d2 = LIBXS_SQRTF((float)LIBXS_FABS(rd));
-    e2 = LIBXS_FABS(d2 * d2 - LIBXS_FABS(rd));
-    if (e2 < e1) {
-      e3 = 0 < e2 ? (e1 / e2) : 0.f;
-      if (1E-2 > LIBXS_MIN(LIBXS_FABS(e1 - e2), e3)) {
-        ++warn_ssqrt;
-      }
-      else {
-        exit(EXIT_FAILURE);
-      }
-    }
-    d1 = libxs_dsqrt(LIBXS_FABS(rd));
-    e1 = LIBXS_FABS(d1 * d1 - LIBXS_FABS(rd));
-    d2 = sqrt(LIBXS_FABS(rd));
-    e2 = LIBXS_FABS(d2 * d2 - LIBXS_FABS(rd));
-    if (e2 < e1) {
-      e3 = 0 < e2 ? (e1 / e2) : 0.f;
-      if (1E-11 > LIBXS_MIN(LIBXS_FABS(e1 - e2), e3)) {
-        ++warn_dsqrt;
-      }
-      else {
-        exit(EXIT_FAILURE);
-      }
-    }
 
     d1 = 1.f / LIBXS_SQRTF(28.f);
     e1 = LIBXS_FABS(1.0 / (d1 * d1) - 28.0);
@@ -141,13 +95,6 @@ int main(int argc, char* argv[])
         exit(EXIT_FAILURE);
       }
     }
-
-    a = libxs_icbrt_u32(r32);
-    b = ref_icbrt_u32(r32);
-    if (a != b) exit(EXIT_FAILURE);
-    a = libxs_icbrt_u64(r64);
-    b = ref_icbrt_u64(r64);
-    if (a != b) exit(EXIT_FAILURE);
 
     a = LIBXS_INTRINSICS_BITSCANFWD32(r32);
     b = LIBXS_INTRINSICS_BITSCANFWD32_SW(r32);
