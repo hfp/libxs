@@ -32,7 +32,7 @@ LIBXS_EXTERN_C typedef unsigned int (*libxs_hash_function)(
   unsigned int /*seed*/, const void* /*data*/, ... /*size*/);
 
 /** Initialize hash function module; not thread-safe. */
-LIBXS_API_INTERN void libxs_hash_init(int target_arch);
+LIBXS_API_INTERN void libxs_hash_init(void);
 LIBXS_API_INTERN void libxs_hash_finalize(void);
 
 LIBXS_API_INTERN unsigned int libxs_crc32_u8(unsigned int seed, const void* value, ...);

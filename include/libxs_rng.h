@@ -9,6 +9,8 @@
 #ifndef LIBXS_RNG_H
 #define LIBXS_RNG_H
 
+#include <libxs_macros.h>
+
 /** Helper macro to setup a matrix with some initial values. */
 #define LIBXS_MATRNG_AUX(OMP, TYPE, SEED, DST, NROWS, NCOLS, LD, SCALE) do { \
   /*const*/ double libxs_matrng_seed_ = SEED; /* avoid constant conditional */ \

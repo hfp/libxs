@@ -9,7 +9,7 @@
 #ifndef LIBXS_H
 #define LIBXS_H
 
-#include "libxs_config.h"
+#include "libxs_macros.h"
 
 /**
  * Strings to denote the version of LIBXS (libxs_config.h).
@@ -31,26 +31,6 @@
 #define LIBXS_VERSION_UPDATE LIBXS_CONFIG_VERSION_UPDATE
 #define LIBXS_VERSION_PATCH  LIBXS_CONFIG_VERSION_PATCH
 
-/**
- * The utilities (libxs_rng.h) shall be explicitly
- * included, i.e., separate from libxs.h.
-*/
-#include "libxs_generator.h"
-#include "libxs_fsspmdm.h"
-#include "libxs_mem.h"
-#include "libxs_malloc.h"
-#include "libxs_cpuid.h"
-#include "libxs_math.h"
-#include "libxs_sync.h"
-
-#if (defined(LIBXS_INIT) || defined(LIBXS_CTOR))
-# undef LIBXS_INIT
-# define LIBXS_INIT LIBXS_ASSERT_MSG(1 < libxs_ninit, "LIBXS is not initialized");
-# define LIBXS_INIT_COMPLETED
-#else
-# define LIBXS_INIT if (2 > libxs_ninit) libxs_init();
-#endif
-
 
 /** Initialize the library; pay for setup cost at a specific point. */
 LIBXS_API void libxs_init(void);
@@ -65,18 +45,10 @@ LIBXS_API int libxs_get_verbosity(void);
  */
 LIBXS_API void libxs_set_verbosity(int level);
 
-/**
- * Enumerates primitive element/data types.
- * Related: LIBXS_TYPESIZE, LIBXS_TYPEINFO,
- * and LIBXS_TYPENAME.
- */
+/** Enumerates primitive element/data types. */
 typedef enum libxs_datatype {
   LIBXS_DATATYPE_F64,
   LIBXS_DATATYPE_F32,
-  LIBXS_DATATYPE_BF16,
-  LIBXS_DATATYPE_F16,
-  LIBXS_DATATYPE_BF8,
-  LIBXS_DATATYPE_HF8,
   LIBXS_DATATYPE_I64,
   LIBXS_DATATYPE_U64,
   LIBXS_DATATYPE_I32,
@@ -85,12 +57,15 @@ typedef enum libxs_datatype {
   LIBXS_DATATYPE_U16,
   LIBXS_DATATYPE_I8,
   LIBXS_DATATYPE_U8,
-  LIBXS_DATATYPE_IMPLICIT,
   LIBXS_DATATYPE_UNSUPPORTED
 } libxs_datatype;
 
-/** Returns the type-name of data-type (can be also libxs_datatype). */
+/** Returns the type-size of the type (libxs_datatype). */
+LIBXS_API int libxs_typesize(libxs_datatype datatype);
+/** Returns the name of the type (libxs_datatype). */
 LIBXS_API const char* libxs_get_typename(libxs_datatype datatype);
+/** Determines the given value in double-precision. */
+LIBXS_API int libxs_dvalue(libxs_datatype datatype, const void* value, double* dvalue);
 
 /** Structure to receive information about the code registry status (libxs_get_registry_info). */
 LIBXS_EXTERN_C typedef struct libxs_registry_info {
@@ -99,8 +74,8 @@ LIBXS_EXTERN_C typedef struct libxs_registry_info {
 
 /** Get information about the code registry. */
 LIBXS_API int libxs_get_registry_info(libxs_registry_info* info);
-/** Enumerate registry by kind (e.g., LIBXS_KERNEL_KIND_USER); can be NULL (no such kind). */
-LIBXS_API void* libxs_get_registry_begin(libxs_kernel_kind kind, const void** key);
+/** Enumerate registry; result can be NULL (no entry found). */
+LIBXS_API void* libxs_get_registry_begin(const void** key);
 /** Receive next (or NULL) based on given entry (see libxs_get_registry_begin). */
 LIBXS_API void* libxs_get_registry_next(const void* regentry, const void** key);
 
@@ -111,7 +86,7 @@ LIBXS_API void* libxs_get_registry_next(const void* regentry, const void** key);
  * (memset) followed by an element-wise initialization. The size of the
  * key is limited (see documentation). The given value is copied by LIBXS and
  * can be initialized prior to registration or whenever queried. Registered data
- * is released when the program terminates but can be also released if needed
+ * is released when the program terminates but can released if needed
  * (libxs_xrelease), .e.g., in case of a larger value reusing the same key.
  */
 LIBXS_API void* libxs_xregister(const void* key, size_t key_size,

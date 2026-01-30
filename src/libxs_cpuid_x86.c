@@ -7,7 +7,6 @@
 * SPDX-License-Identifier: BSD-3-Clause                                       *
 ******************************************************************************/
 #include <libxs_cpuid.h>
-#include <libxs_generator.h>
 #include <libxs_sync.h>
 #include "libxs_main.h"
 #include <ctype.h>
@@ -126,7 +125,6 @@ LIBXS_API int libxs_cpuid_x86(libxs_cpuid_info* info)
     /* avoid re-detecting features but re-detect on request (info given) */
     if (LIBXS_TARGET_ARCH_UNKNOWN == result || NULL != info) {
       int feature_cpu = LIBXS_X86_GENERIC, feature_os = LIBXS_X86_GENERIC, has_context = 0;
-      unsigned int maxleaf = eax;
 # if defined(__linux__)
       if (0 == libxs_se && LIBXS_TARGET_ARCH_UNKNOWN == result) {
         FILE *const selinux = fopen("/sys/fs/selinux/enforce", "rb");

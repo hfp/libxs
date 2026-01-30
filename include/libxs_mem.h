@@ -9,7 +9,7 @@
 #ifndef LIBXS_MEM_H
 #define LIBXS_MEM_H
 
-#include "libxs_typedefs.h"
+#include "libxs.h"
 
 #define LIBXS_MEM127_LOOP(DST, SRC, SIZE, RHS, NTS) do { \
   const signed char libxs_memory127_loop_size_ = LIBXS_CAST_ICHAR(SIZE); \
@@ -53,9 +53,6 @@
 #define LIBXS_VALUE_ASSIGN(DST, SRC) LIBXS_ASSIGN127(&(DST), &(SRC))
 /** Swap two arbitrary-sized values (must be L-values) */
 #define LIBXS_VALUE_SWAP(A, B) LIBXS_MEMSWP127(&(A), &(B), sizeof(DST))
-
-/** Returns the type-size of data-type (can be also libxs_datatype). */
-LIBXS_API unsigned char libxs_typesize(libxs_datatype datatype);
 
 /**
  * Calculate the linear offset of the n-dimensional (ndims) offset (can be NULL),
@@ -105,8 +102,17 @@ LIBXS_API const char* libxs_stristr(const char a[], const char b[]);
  * Can be used to score the equality of A and B on a word-basis. The result is independent of
  * A-B or B-A order (symmetry). The score cannot exceed the number of words in A or B.
  * Optional delimiters determine characters splitting words (can be NULL).
+ * Optional count yields total number of words.
  */
-LIBXS_API int libxs_strimatch(const char a[], const char b[], const char delims[]);
+LIBXS_API int libxs_strimatch(const char a[], const char b[], const char delims[], int* count);
+
+/**
+ * Format for instance an amount of Bytes like libxs_format_value(result, sizeof(result), nbytes, "KMGT", "B", 10).
+ * The value returned is in requested/determined unit so that the user can decide about printing the buffer.
+ * Caution: cannot be used multiple times in a single expression!
+ */
+LIBXS_API size_t libxs_format_value(char buffer[32],
+  int buffer_size, size_t nbytes, const char scale[], const char* unit, int base);
 
 /** Out-of-place shuffling of data given by elemsize and count. */
 LIBXS_API int libxs_shuffle(void* inout, size_t elemsize, size_t count,

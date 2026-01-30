@@ -9,7 +9,7 @@
 #ifndef LIBXS_CPUID_H
 #define LIBXS_CPUID_H
 
-#include "libxs_typedefs.h"
+#include "libxs.h"
 
 /** Enumerates the target architectures and instruction set extensions. */
 #define LIBXS_TARGET_ARCH_UNKNOWN   0
@@ -51,6 +51,9 @@ LIBXS_API int libxs_cpuid(libxs_cpuid_info* LIBXS_ARGDEF(info, NULL));
 
 /** Names the CPU architecture given by CPUID. */
 LIBXS_API const char* libxs_cpuid_name(int id);
+
+/** Determines CPU-name using OS-specific interfaces (see libxs_cpuid_info). */
+LIBXS_API void libxs_cpuid_model(char model[], size_t* model_size);
 
 /** Translate the CPU name to LIBXS's internal ID. */
 LIBXS_API int libxs_cpuid_id(const char* name);

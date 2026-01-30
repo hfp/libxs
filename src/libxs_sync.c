@@ -20,6 +20,7 @@
 # if defined(LIBXS_SYNC_FUTEX) && defined(__linux__) && defined(__USE_GNU)
 #   include <linux/futex.h>
 # endif
+# include <sys/file.h>
 # include <time.h>
 #endif
 

@@ -7,6 +7,8 @@
 * SPDX-License-Identifier: BSD-3-Clause                                       *
 ******************************************************************************/
 #include "libxs_hash.h"
+#include <libxs_mem.h>
+#include <libxs_sync.h>
 
 #if !defined(LIBXS_MALLOC_SEED)
 # define LIBXS_MALLOC_SEED 1051981
@@ -25,8 +27,8 @@ LIBXS_API void libxs_pmalloc_init(size_t size, size_t* num, void* pool[], void* 
   unsigned int hash;
   size_t n, i = 0;
   LIBXS_ASSERT(0 < size && NULL != num && NULL != pool && NULL != storage);
-  LIBXS_INIT /* CRC-facility must be initialized upfront */
-  hash = LIBXS_CRCPTR(LIBXS_MALLOC_SEED, pool); /* after LIBXS_INIT */
+  libxs_hash_init(); /* CRC-facility must be initialized upfront */
+  hash = LIBXS_CRCPTR(LIBXS_MALLOC_SEED, pool);
   lock = internal_malloc_plocks + LIBXS_MOD2(hash, LIBXS_MALLOC_NLOCKS);
   LIBXS_ATOMIC_ACQUIRE(lock, LIBXS_SYNC_NPAUSE, LIBXS_ATOMIC_SEQ_CST);
   for (n = *num; i < n; ++i, p += size) pool[i] = p;
