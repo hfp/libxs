@@ -297,7 +297,7 @@ unsigned int internal_crc32_sse4(unsigned int seed, const void* data, size_t siz
 }
 
 
-LIBXS_API_INTERN void libxs_hash_init(int target_arch)
+LIBXS_API_INTERN void libxs_hash_init(void)
 {
   /* table-based implementation taken from http://dpdk.org/. */
   static const internal_crc32_entry_type crc32_table[] = {
@@ -438,43 +438,43 @@ LIBXS_API_INTERN void libxs_hash_init(int target_arch)
       0x31035088, 0xEC46FA30, 0x8E647309, 0x5321D9B1, 0x4A21617B, 0x9764CBC3, 0xF54642FA, 0x2803E842
     }
   };
-  internal_crc32_table = crc32_table;
-#if (LIBXS_X86_SSE42 <= LIBXS_STATIC_TARGET_ARCH)
-  LIBXS_UNUSED(target_arch);
-#else
-  if (LIBXS_X86_SSE42 <= target_arch)
-#endif
-  {
-    internal_hash_u512_function = internal_crc32_u512_sse4;
-    internal_hash_u384_function = internal_crc32_u384_sse4;
-    internal_hash_u256_function = internal_crc32_u256_sse4;
-    internal_hash_u128_function = internal_crc32_u128_sse4;
-    internal_hash_u64_function = internal_crc32_u64_sse4;
-    internal_hash_u32_function = internal_crc32_u32_sse4;
-    internal_hash_u16_function = internal_crc32_u16_sse4;
-    internal_hash_u8_function = internal_crc32_u8_sse4;
-    internal_hash_function = (libxs_hash_function)internal_crc32_sse4;
-  }
+  if (NULL == internal_crc32_table) {
 #if (LIBXS_X86_SSE42 > LIBXS_STATIC_TARGET_ARCH)
-  else {
-# if defined(LIBXS_PLATFORM_X86) && !defined(LIBXS_INTRINSICS_SSE42)
-    static int error_once = 0;
-    if (0 == error_once && 0 != libxs_verbosity) { /* library code is expected to be mute */
-      fprintf(stderr, "LIBXS WARNING: unable to access CRC32 instructions due to the compiler used!\n");
-      error_once = 1; /* no need for atomics */
-    }
-# endif
-    internal_hash_u512_function = internal_crc32_u512;
-    internal_hash_u384_function = internal_crc32_u384;
-    internal_hash_u256_function = internal_crc32_u256;
-    internal_hash_u128_function = internal_crc32_u128;
-    internal_hash_u64_function = internal_crc32_u64;
-    internal_hash_u32_function = internal_crc32_u32;
-    internal_hash_u16_function = internal_crc32_u16;
-    internal_hash_u8_function = internal_crc32_u8;
-    internal_hash_function = (libxs_hash_function)internal_crc32;
-  }
+    if (LIBXS_X86_SSE42 <= libxs_cpuid(NULL))
 #endif
+    {
+      internal_hash_u512_function = internal_crc32_u512_sse4;
+      internal_hash_u384_function = internal_crc32_u384_sse4;
+      internal_hash_u256_function = internal_crc32_u256_sse4;
+      internal_hash_u128_function = internal_crc32_u128_sse4;
+      internal_hash_u64_function = internal_crc32_u64_sse4;
+      internal_hash_u32_function = internal_crc32_u32_sse4;
+      internal_hash_u16_function = internal_crc32_u16_sse4;
+      internal_hash_u8_function = internal_crc32_u8_sse4;
+      internal_hash_function = (libxs_hash_function)internal_crc32_sse4;
+    }
+#if (LIBXS_X86_SSE42 > LIBXS_STATIC_TARGET_ARCH)
+    else {
+# if defined(LIBXS_PLATFORM_X86) && !defined(LIBXS_INTRINSICS_SSE42)
+      static int error_once = 0;
+      if (0 == error_once && 0 != libxs_verbosity) { /* library code is expected to be mute */
+        fprintf(stderr, "LIBXS WARNING: unable to access CRC32 instructions due to the compiler used!\n");
+        error_once = 1; /* no need for atomics */
+      }
+# endif
+      internal_hash_u512_function = internal_crc32_u512;
+      internal_hash_u384_function = internal_crc32_u384;
+      internal_hash_u256_function = internal_crc32_u256;
+      internal_hash_u128_function = internal_crc32_u128;
+      internal_hash_u64_function = internal_crc32_u64;
+      internal_hash_u32_function = internal_crc32_u32;
+      internal_hash_u16_function = internal_crc32_u16;
+      internal_hash_u8_function = internal_crc32_u8;
+      internal_hash_function = (libxs_hash_function)internal_crc32;
+    }
+#endif
+    internal_crc32_table = crc32_table;
+  }
   LIBXS_ASSERT(NULL != internal_hash_u512_function);
   LIBXS_ASSERT(NULL != internal_hash_u384_function);
   LIBXS_ASSERT(NULL != internal_hash_u256_function);

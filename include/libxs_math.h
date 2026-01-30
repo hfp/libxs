@@ -9,8 +9,11 @@
 #ifndef LIBXS_MATH_H
 #define LIBXS_MATH_H
 
-#include "libxs_typedefs.h"
+#include "libxs.h"
 
+
+/** Integer type used to represent a signed number. */
+typedef long long libxs_matdiff_int;
 
 /**
  * Structure of differences with matrix norms according
@@ -34,7 +37,7 @@ LIBXS_EXTERN_C typedef struct libxs_matdiff_info {
    * (r calls of libxs_matdiff_reduce) of the largest
    * difference (libxs_matdiff_epsilon).
    */
-  libxs_blasint m, n, i, r;
+  libxs_matdiff_int m, n, i, r;
 } libxs_matdiff_info;
 
 /**
@@ -45,8 +48,8 @@ LIBXS_EXTERN_C typedef struct libxs_matdiff_info {
  * missing support for the requested data-type or otherwise invalid input.
  */
 LIBXS_API int libxs_matdiff(libxs_matdiff_info* info,
-  libxs_datatype datatype, libxs_blasint m, libxs_blasint n, const void* ref, const void* tst,
-  const libxs_blasint* ldref, const libxs_blasint* ldtst);
+  libxs_datatype datatype, libxs_matdiff_int m, libxs_matdiff_int n, const void* ref, const void* tst,
+  const libxs_matdiff_int* ldref, const libxs_matdiff_int* ldtst);
 
 /**
  * Combine absolute and relative norms into a value which can be used to check against a margin.

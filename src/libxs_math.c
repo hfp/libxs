@@ -6,9 +6,14 @@
 * Further information: https://github.com/hfp/libxs/                          *
 * SPDX-License-Identifier: BSD-3-Clause                                       *
 ******************************************************************************/
-#include "libxs_main.h"
+#include <libxs_math.h>
 #include <sys/types.h>
 #include <sys/stat.h>
+#include "libxs_main.h"
+
+#if !defined(LIBXS_PRODUCT_LIMIT)
+# define LIBXS_PRODUCT_LIMIT 1024
+#endif
 
 #if defined(LIBXS_DEFAULT_CONFIG) || (defined(LIBXS_SOURCE_H) && !defined(LIBXS_CONFIGURED))
 # if !defined(LIBXS_MATHDIFF_MHD)
@@ -37,18 +42,18 @@
 
 
 LIBXS_API int libxs_matdiff(libxs_matdiff_info* info,
-  libxs_datatype datatype, libxs_blasint m, libxs_blasint n, const void* ref, const void* tst,
-  const libxs_blasint* ldref, const libxs_blasint* ldtst)
+  libxs_datatype datatype, libxs_matdiff_int m, libxs_matdiff_int n, const void* ref, const void* tst,
+  const libxs_matdiff_int* ldref, const libxs_matdiff_int* ldtst)
 {
   int result = EXIT_SUCCESS, result_swap = 0, result_nan = 0;
-  libxs_blasint ldr = (NULL == ldref ? m : *ldref), ldt = (NULL == ldtst ? m : *ldtst);
+  libxs_matdiff_int ldr = (NULL == ldref ? m : *ldref), ldt = (NULL == ldtst ? m : *ldtst);
   if (NULL == ref && NULL != tst) { ref = tst; tst = NULL; result_swap = 1; }
   if (NULL != ref && NULL != info && m <= ldr && m <= ldt) {
     const char *const matdiff_shuffle_env = getenv("LIBXS_MATDIFF_SHUFFLE");
     const int matdiff_shuffle = (NULL == matdiff_shuffle_env ? 0
       : ('\0' != *matdiff_shuffle_env ? atoi(matdiff_shuffle_env) : 1));
     const size_t ntotal = (size_t)m * n;
-    libxs_blasint mm = m, nn = n;
+    libxs_matdiff_int mm = m, nn = n;
     double inf;
     if (1 == n) { mm = ldr = ldt = 1; nn = m; } /* ensure row-vector shape to standardize results */
     libxs_matdiff_clear(info);
@@ -180,7 +185,7 @@ LIBXS_API int libxs_matdiff(libxs_matdiff_info* info,
     LIBXS_ASSERT(info->m < mm && info->n < nn);
     if (EXIT_SUCCESS == result) {
       const char *const env = getenv("LIBXS_DUMP");
-      LIBXS_INIT
+      /*LIBXS_INIT*/
       if (NULL != env && 0 != *env && '0' != *env) {
         if ('-' != *env || (0 <= info->m && 0 <= info->n)) {
 #if defined(LIBXS_MATHDIFF_MHD)
@@ -664,11 +669,11 @@ LIBXS_API double libxs_kahan_sum(double value, double* accumulator, double* comp
 
 /* implementation provided for Fortran 77 compatibility */
 LIBXS_API void LIBXS_FSYMBOL(libxs_matdiff)(libxs_matdiff_info* /*info*/,
-  const int* /*datatype*/, const libxs_blasint* /*m*/, const libxs_blasint* /*n*/, const void* /*ref*/, const void* /*tst*/,
-  const libxs_blasint* /*ldref*/, const libxs_blasint* /*ldtst*/);
+  const int* /*datatype*/, const libxs_matdiff_int* /*m*/, const libxs_matdiff_int* /*n*/, const void* /*ref*/, const void* /*tst*/,
+  const libxs_matdiff_int* /*ldref*/, const libxs_matdiff_int* /*ldtst*/);
 LIBXS_API void LIBXS_FSYMBOL(libxs_matdiff)(libxs_matdiff_info* info,
-  const int* datatype, const libxs_blasint* m, const libxs_blasint* n, const void* ref, const void* tst,
-  const libxs_blasint* ldref, const libxs_blasint* ldtst)
+  const int* datatype, const libxs_matdiff_int* m, const libxs_matdiff_int* n, const void* ref, const void* tst,
+  const libxs_matdiff_int* ldref, const libxs_matdiff_int* ldtst)
 {
   static int error_once = 0;
   if ((NULL == datatype || LIBXS_DATATYPE_UNSUPPORTED <= *datatype || 0 > *datatype || NULL == m

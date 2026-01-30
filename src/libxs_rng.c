@@ -7,7 +7,7 @@
 * SPDX-License-Identifier: BSD-3-Clause                                       *
 ******************************************************************************/
 #include <libxs_rng.h>
-#include <libxs.h>
+#include <libxs_mem.h>
 
 /** Denote quality of scalar random number generator. */
 #if !defined(LIBXS_RNG_DRAND48) && !defined(_WIN32) && !defined(__CYGWIN__) && \

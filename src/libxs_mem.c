@@ -6,8 +6,10 @@
 * Further information: https://github.com/hfp/libxs/                          *
 * SPDX-License-Identifier: BSD-3-Clause                                       *
 ******************************************************************************/
-#include <libxs.h>
-#include "libxs_main.h"
+#include <libxs_mem.h>
+#include <libxs_cpuid.h>
+#include <libxs_utils.h>
+#include <libxs_math.h>
 #include "libxs_hash.h"
 #include "libxs_diff.h"
 #include <ctype.h>
@@ -43,23 +45,6 @@
 LIBXS_APIVAR_DEFINE(unsigned char (*internal_diff_function)(const void*, const void*, unsigned char));
 LIBXS_APIVAR_DEFINE(int (*internal_memcmp_function)(const void*, const void*, size_t));
 #endif
-
-
-LIBXS_API unsigned char libxs_typesize(libxs_datatype datatype)
-{
-  const unsigned char result = (unsigned char)LIBXS_TYPESIZE(datatype);
-  if (0 != result) {
-    return result;
-  }
-  else {
-    static int error_once = 0;
-    LIBXS_ASSERT_MSG(0, "unsupported data type");
-    if (1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED)) {
-      fprintf(stderr, "LIBXS ERROR: unsupported data type!\n");
-    }
-    return 1; /* avoid to return 0 to avoid div-by-zero in static analysis of depending code */
-  }
-}
 
 
 LIBXS_API size_t libxs_offset(const size_t offset[], const size_t shape[], size_t ndims, size_t* size)
@@ -494,7 +479,7 @@ LIBXS_API int libxs_memcmp(const void* a, const void* b, size_t size)
 
 LIBXS_API unsigned int libxs_hash(const void* data, unsigned int size, unsigned int seed)
 {
-  LIBXS_INIT
+  /*LIBXS_INIT*/
   return libxs_crc32(seed, data, size);
 }
 
@@ -531,7 +516,7 @@ LIBXS_API unsigned long long libxs_hash_string(const char string[])
   if (sizeof(result) < length) {
     const size_t length2 = LIBXS_MAX(length / 2, sizeof(result));
     unsigned int hash32, seed32 = 0; /* seed=0: match else-optimization */
-    LIBXS_INIT
+    /*LIBXS_INIT*/
     seed32 = libxs_crc32(seed32, string, length2);
     hash32 = libxs_crc32(seed32, string + length2, length - length2);
     result = hash32; result = (result << 32) | seed32;
@@ -550,20 +535,18 @@ LIBXS_API const char* libxs_stristrn(const char a[], const char b[], size_t maxl
   const char* result = NULL;
   if (NULL != a && NULL != b && '\0' != *a && '\0' != *b && 0 != maxlen) {
     do {
-      if (tolower(*a) != tolower(*b)) {
-        ++a;
-      }
+      if (tolower(*a) != tolower(*b)) ++a;
       else {
         const char* c = b;
         size_t i = 0;
         result = a;
-        while ('\0' != *++a && '\0' != c[++i] && i != maxlen) {
+        while ('\0' != c[++i] && i != maxlen && '\0' != *++a) {
           if (tolower(*a) != tolower(c[i])) {
             result = NULL;
             break;
           }
         }
-        if ('\0' != c[i] && '\0' != c[i+1] && c[i] != c[i+1] && i != maxlen) {
+        if ('\0' != c[i] && '\0' != c[i + 1] && c[i] != c[i + 1] && i != maxlen) {
           result = NULL;
         }
         else break;
@@ -580,43 +563,56 @@ LIBXS_API const char* libxs_stristr(const char a[], const char b[])
 }
 
 
-LIBXS_API_INLINE int internal_isbreak(char c, const char delims[])
+LIBXS_API int libxs_strimatch(const char a[], const char b[], const char delims[], int* count)
 {
-  char s[2] = { '\0' }; s[0] = c;
-  return NULL != strpbrk(s, delims);
-}
-
-
-LIBXS_API int libxs_strimatch(const char a[], const char b[], const char delims[])
-{
-  int result = 0;
+  int result = 0, na = 0, nb = 0;
   if (NULL != a && NULL != b && '\0' != *a && '\0' != *b) {
-    const char *const sep = ((NULL == delims || '\0' == *delims) ? " \t;,:-" : delims);
+    const char* const sep = ((NULL == delims || '\0' == *delims) ? " \t;,:-" : delims);
     const char *c, *tmp;
-    int nwords = 0;
+    char s[2] = {'\0'};
     size_t m, n;
-    do {
-      while (internal_isbreak(*b, sep)) ++b; /* left-trim */
+    for (;;) {
+      while (*s = *b, NULL != strpbrk(s, sep)) ++b; /* left-trim */
+      if ('\0' != *b && '[' != *b) ++nb; /* count words */
+      else break;
       tmp = b;
-      while ('\0' != *tmp && !internal_isbreak(*tmp, sep)) ++tmp;
+      while ('\0' != *tmp && (*s = *tmp, NULL == strpbrk(s, sep))) ++tmp;
       m = tmp - b;
       c = libxs_stristrn(a, b, LIBXS_MIN(1, m));
       if (NULL != c) {
-        const char *d = c;
-        while ('\0' != *d && !internal_isbreak(*d, sep)) ++d;
+        const char* d = c;
+        while ('\0' != *d && (*s = *d, NULL == strpbrk(s, sep))) ++d;
         n = d - c;
         if (1 >= n || NULL != libxs_stristrn(c, b, LIBXS_MIN(m, n))) ++result;
       }
       b = tmp;
-    } while ('\0' != *b);
-    do { /* count number of words */
-      while (internal_isbreak(*a, sep)) ++a; /* left-trim */
-      if ('\0' != *a) ++nwords;
-      while ('\0' != *a && !internal_isbreak(*a, sep)) ++a;
-    } while ('\0' != *a);
-    if (nwords < result) result = nwords;
-  } else result = -1;
+    }
+    for (;;) { /* count number of words */
+      while (*s = *a, NULL != strpbrk(s, sep)) ++a; /* left-trim */
+      if ('\0' != *a && '[' != *a) ++na; /* count words */
+      else break;
+      while ('\0' != *a && (*s = *a, NULL == strpbrk(s, sep))) ++a;
+    }
+    if (na < result) result = na;
+  }
+  else result = -1;
+  if (NULL != count) *count = LIBXS_MAX(na, nb);
   return result;
+}
+
+
+LIBXS_API size_t libxs_format_value(char buffer[32],
+  int buffer_size, size_t nbytes, const char scale[], const char* unit, int base)
+{
+  const int len = (NULL != scale ? ((int)strlen(scale)) : 0);
+  const int m = LIBXS_INTRINSICS_BITSCANBWD64(nbytes) / base, n = LIBXS_MIN(m, len);
+  int i;
+  buffer[0] = 0; /* clear */
+  LIBXS_ASSERT(NULL != unit && 0 <= base);
+  for (i = 0; i < n; ++i) nbytes >>= base;
+  LIBXS_SNPRINTF(buffer, buffer_size, "%i %c%s",
+    (int)nbytes, 0 < n ? scale[n-1] : *unit, 0 < n ? unit : "");
+  return nbytes;
 }
 
 
@@ -733,7 +729,7 @@ LIBXS_API void LIBXS_FSYMBOL(libxs_xhash)(int* hash_seed, const void* data, cons
   }
 #if !defined(NDEBUG)
   else if (1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED)) {
-    LIBXS_INIT
+    /*LIBXS_INIT*/
     if (0 != libxs_verbosity) { /* library code is expected to be mute */
       fprintf(stderr, "LIBXS ERROR: invalid arguments for libxs_xhash specified!\n");
     }
@@ -755,7 +751,7 @@ LIBXS_API void LIBXS_FSYMBOL(libxs_xdiff)(int* result, const void* a, const void
   }
 #if !defined(NDEBUG)
   else if (1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED)) {
-    LIBXS_INIT
+    /*LIBXS_INIT*/
     if (0 != libxs_verbosity) { /* library code is expected to be mute */
       fprintf(stderr, "LIBXS ERROR: invalid arguments for libxs_xdiff specified!\n");
     }
@@ -777,7 +773,7 @@ LIBXS_API void LIBXS_FSYMBOL(libxs_xclear)(void* dst, const int* size)
   }
 #if !defined(NDEBUG)
   else if (1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED)) {
-    LIBXS_INIT
+    /*LIBXS_INIT*/
     if (0 != libxs_verbosity) { /* library code is expected to be mute */
       fprintf(stderr, "LIBXS ERROR: invalid arguments for libxs_xclear specified!\n");
     }
@@ -799,7 +795,7 @@ LIBXS_API void LIBXS_FSYMBOL(libxs_aligned)(int* result, const void* ptr, const 
   }
 #if !defined(NDEBUG)
   else if (1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED)) {
-    LIBXS_INIT
+    /*LIBXS_INIT*/
     if (0 != libxs_verbosity) { /* library code is expected to be mute */
       fprintf(stderr, "LIBXS ERROR: invalid arguments for libxs_aligned specified!\n");
     }

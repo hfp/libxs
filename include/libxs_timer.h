@@ -9,7 +9,7 @@
 #ifndef LIBXS_TIMER_H
 #define LIBXS_TIMER_H
 
-#include "../libxs_typedefs.h"
+#include "libxs.h"
 
 
 /** Integer type used to represent tick of a high-resolution timer. */

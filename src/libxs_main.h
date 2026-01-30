@@ -10,6 +10,8 @@
 #define LIBXS_MAIN_H
 
 #include <libxs.h>
+#include <libxs_timer.h>
+#include <libxs_sync.h>
 
 /** Allow external definition to enable testing corner cases (exhausted registry space). */
 #if !defined(LIBXS_CAPACITY_REGISTRY) /* must be POT */
@@ -44,74 +46,12 @@
 #if !defined(LIBXS_NTHREADS_USE) && 0
 # define LIBXS_NTHREADS_USE
 #endif
-#if !defined(LIBXS_MALLOC_SCRATCH_MAX_NPOOLS)
-# define LIBXS_MALLOC_SCRATCH_MAX_NPOOLS LIBXS_NTHREADS_MAX
-#endif
-#if !defined(LIBXS_MALLOC_SCRATCH_SCALE)
-# define LIBXS_MALLOC_SCRATCH_SCALE 1.0
-#endif
-#if !defined(LIBXS_MALLOC_LIMIT)
-# define LIBXS_MALLOC_LIMIT (2U << 20) /* 2 MB */
-#endif
-/* map memory also for non-executable buffers */
-#if !defined(LIBXS_MALLOC_MMAP) && 0
-# define LIBXS_MALLOC_MMAP
-#endif
-/* map memory for hooked allocation */
-#if !defined(LIBXS_MALLOC_MMAP_HOOK) && 1
-# define LIBXS_MALLOC_MMAP_HOOK
-#endif
-/* map memory for scratch buffers */
-#if !defined(LIBXS_MALLOC_MMAP_SCRATCH) && 0
-# define LIBXS_MALLOC_MMAP_SCRATCH
-#endif
-/* align if interceptor is disabled (moderated malloc) */
-#if defined(LIBXS_MALLOC_MOD) && 0
-# define LIBXS_MALLOC_MOD
-#endif
-#if !defined(LIBXS_MALLOC_HOOK_INTRINSIC) && 1
-# if defined(LIBXS_PLATFORM_X86) && defined(LIBXS_INTRINSICS_INCLUDE) && !defined(LIBXS_MALLOC_MMAP)
-#   define LIBXS_MALLOC_HOOK_INTRINSIC
-# endif
-#endif
-#if !defined(LIBXS_MALLOC_HOOK_REALLOC) && 1
-# if !defined(LIBXS_MALLOC_HOOK_INTRINSIC)
-#   define LIBXS_MALLOC_HOOK_REALLOC
-# endif
-#endif
-#if !defined(LIBXS_MALLOC_HOOK_CALLOC) && 1
-# define LIBXS_MALLOC_HOOK_CALLOC
-#endif
-#if !defined(LIBXS_MALLOC_INTERNAL_CALLER_ID)
-# define LIBXS_MALLOC_INTERNAL_CALLER_ID ((uintptr_t)LIBXS_UNLIMITED)
-#endif
-#if !defined(LIBXS_MALLOC_INTERNAL_CALLER)
-# define LIBXS_MALLOC_INTERNAL_CALLER ((const void*)(LIBXS_MALLOC_INTERNAL_CALLER_ID))
-#endif
 
 #if !defined(LIBXS_INTERCEPT_DYNAMIC) && defined(LIBXS_BUILD) && \
     (defined(__GNUC__) || defined(_CRAYC)) && !defined(_WIN32) && !defined(__CYGWIN__) && \
    !(defined(__APPLE__) && defined(__MACH__) && LIBXS_VERSION2(6, 1) >= \
       LIBXS_VERSION2(__clang_major__, __clang_minor__))
 # define LIBXS_INTERCEPT_DYNAMIC
-#endif
-
-#if !defined(LIBXS_MALLOC_HOOK_STATIC) && \
-    (defined(LIBXS_BUILD) && (1 < (LIBXS_BUILD))) /* GLIBC */ && \
-    (defined(LIBXS_MALLOC) && (0 != LIBXS_MALLOC)) && \
-   (!defined(_WIN32)) /* TODO */
-# define LIBXS_MALLOC_HOOK_STATIC
-#endif
-#if !defined(LIBXS_MALLOC_HOOK_DYNAMIC) && defined(LIBXS_INTERCEPT_DYNAMIC) && \
-     defined(LIBXS_MALLOC_HOOK_STATIC) && !defined(_CRAYC) && !defined(__TRACE)
-# define LIBXS_MALLOC_HOOK_DYNAMIC
-#endif
-#if (defined(LIBXS_MALLOC_HOOK_STATIC) || defined(LIBXS_MALLOC_HOOK_DYNAMIC))
-# define LIBXS_MALLOC_HOOK
-#endif
-#if !defined(LIBXS_DNN_CONVOLUTION_SETUP_USE_NTS) && defined(LIBXS_MALLOC_HOOK) && \
-    (defined(LIBXS_MALLOC_MOD) || (defined(LIBXS_MALLOC) && (0 != LIBXS_MALLOC)))
-# define LIBXS_DNN_CONVOLUTION_SETUP_USE_NTS
 #endif
 
 #if defined(LIBXS_INTERCEPT_DYNAMIC)
@@ -206,170 +146,6 @@
   libxs_gemm_descriptor DESCRIPTOR; LIBXS_GEMM_DESCRIPTOR(DESCRIPTOR, DATA_TYPE0, DATA_TYPE1, DATA_TYPE2 \
     FLAGS, M, N, K, LDA, LDB, LDC, PREFETCH)
 
-#define LIBXS_REGDESC_DEFAULT
-#define LIBXS_REGDESC(START, MODIFIER) \
-  START libxs_gemm_descriptor MODIFIER gemm; \
-  START libxs_meltw_descriptor MODIFIER meltw; \
-  START libxs_meqn_descriptor MODIFIER meqn
-
-/**
-* Packed structure, which stores the argument description of GEMM routines.
-* The size of the structure is padded to LIBXS_DESCRIPTOR_MAXSIZE.
-*/
-LIBXS_EXTERN_C LIBXS_PACKED(struct) libxs_gemm_descriptor {
-  /** Extents of the matrix. */
-  unsigned int m, n, k;
-  /** Leading dimensions. */
-  unsigned int lda, ldb, ldc;
-  /** Set of flags. */
-  unsigned int flags;
-  /** Prefetch strategy. */
-  unsigned char prefetch;
-  /** Denotes the data-type. */
-  unsigned char datatype[3];
-  /**
-   * Do not reorder elements between above and below blocks!
-   */
-  /** Denotes of optional eltwise data-type */
-  unsigned char meltw_datatype_aux;
-  /** multipurpose 64-bit field, currently used for: a) stride_a in brgemm */
-  long long c1;
-  /** multipurpose 64-bit field, currently used for: a) stride_b in brgemm */
-  long long c2;
-  /** multipurpose 8-bit field, currently used for: a) unroll hint in brgemm */
-  unsigned char c3;
-  /** LDx, LDy, LDz,  additional meltw LDs */
-  unsigned int meltw_ldx, meltw_ldy, meltw_ldz;
-  /** optional param field */
-  unsigned short meltw_param;
-  /** Set of flags */
-  unsigned short meltw_flags;
-  /** operation specifier */
-  unsigned char meltw_operation;
-  /* Ap, Bp, Cp */
-  unsigned char eltw_ap_op;
-  unsigned char eltw_bp_op;
-  unsigned char eltw_cp_op;
-  unsigned short eltw_ap_flags;
-  unsigned short eltw_bp_flags;
-  unsigned short eltw_cp_flags;
-  unsigned short eltw_ap_param;
-  unsigned short eltw_bp_param;
-  unsigned short eltw_cp_param;
-  unsigned int ldap;
-  unsigned int ldbp;
-  unsigned int ldcp;
-  /* internal flags2 */
-  unsigned char internal_flags_2;
-};
-
-/** Packed structure storing the mateltw argument description. */
-LIBXS_EXTERN_C LIBXS_PACKED(struct) libxs_meltw_descriptor {
-  /** LDx, M, and N. */
-  unsigned int m, n, ldi, ldo, ldi2, ldi3;
-  /** Size of data element. */
-  unsigned char datatype;
-  unsigned char datatype1;
-  unsigned char datatype2;
-  /** Set of flags */
-  unsigned short flags;
-  /** optional param field */
-  unsigned short param;
-  /** operation specifier */
-  unsigned char operation;
-};
-
-LIBXS_EXTERN_C typedef struct LIBXS_MAY_ALIAS libxs_pspgemm_csr_descriptor {
-  const libxs_gemm_descriptor* gemm;
-  const unsigned int* row_ptr;
-  const unsigned int* column_idx;
-  const void* values;
-  unsigned int packed_width;
-} libxs_pspgemm_csr_descriptor;
-
-LIBXS_EXTERN_C typedef struct LIBXS_MAY_ALIAS libxs_pspgemm_csc_descriptor {
-  const libxs_gemm_descriptor* gemm;
-  const unsigned int* column_ptr;
-  const unsigned int* row_idx;
-  const void* values;
-  unsigned int packed_width;
-} libxs_pspgemm_csc_descriptor;
-
-LIBXS_EXTERN_C typedef struct LIBXS_MAY_ALIAS libxs_pspgemm_bcsc_descriptor {
-  const libxs_gemm_descriptor* gemm;
-  unsigned int packed_width;
-  unsigned int bk;
-  unsigned int bn;
-} libxs_pspgemm_bcsc_descriptor;
-
-LIBXS_EXTERN_C typedef struct LIBXS_MAY_ALIAS libxs_pgemm_descriptor {
-  const libxs_gemm_descriptor* gemm;
-  unsigned int packed_width;
-} libxs_pgemm_descriptor;
-
-LIBXS_EXTERN_C typedef struct LIBXS_MAY_ALIAS libxs_pgemm_ac_rm_descriptor {
-  const libxs_gemm_descriptor* gemm;
-  unsigned int packed_width;
-} libxs_pgemm_ac_rm_descriptor;
-
-LIBXS_EXTERN_C typedef struct LIBXS_MAY_ALIAS libxs_pgemm_bc_rm_descriptor {
-  const libxs_gemm_descriptor* gemm;
-  unsigned int packed_width;
-} libxs_pgemm_bc_rm_descriptor;
-
-LIBXS_EXTERN_C typedef struct LIBXS_MAY_ALIAS libxs_csr_reg_descriptor {
-  const libxs_gemm_descriptor* gemm;
-  const unsigned int* row_ptr;
-  const unsigned int* column_idx;
-  const void* values;
-} libxs_csr_reg_descriptor;
-
-LIBXS_EXTERN_C typedef union libxs_xcopykernel {
-  libxs_meltwfunction_unary function;
-  const void *ptr_const, *ptr;
-} libxs_xcopykernel;
-
-LIBXS_EXTERN_C typedef union libxs_code_pointer {
-  /*void (*ptr_fn)(const void*, ...);*/
-  const void* ptr_const;
-  void* ptr;
-  uintptr_t uval;
-  intptr_t ival;
-  libxs_xmmfunction xgemm; /* GEMM: smm, dmm, wimm, or void-function */
-  libxs_xmeltwfunction xmateltw;
-  libxs_meqn_function xmateqn;
-} libxs_code_pointer;
-
-struct libxs_fsspmdm {
-  int M, N, K, ldb, ldc, N_chunksize;
-  libxs_gemmfunction kernel;
-  libxs_datatype datatype;
-  void* a_dense;
-};
-
-/** Packed structure storing the mateltw argument description. */
-LIBXS_EXTERN_C LIBXS_PACKED(struct) libxs_meqn_descriptor {
-  /** LDx, M, and N. */
-  unsigned int m, n, ldo;
-  /** Size of data element. */
-  unsigned char datatype;
-  /** Set of flags */
-  unsigned int eqn_idx;
-};
-
-typedef enum libxs_build_kind {
-  LIBXS_BUILD_KIND_GEMM       = LIBXS_KERNEL_KIND_MATMUL,
-  LIBXS_BUILD_KIND_MELTW      = LIBXS_KERNEL_KIND_MELTW,
-  LIBXS_BUILD_KIND_MEQN       = LIBXS_KERNEL_KIND_MEQN,
-  LIBXS_BUILD_KIND_USER       = LIBXS_KERNEL_KIND_USER,
-  LIBXS_BUILD_KIND_PGEMM      = LIBXS_KERNEL_UNREGISTERED,
-  LIBXS_BUILD_KIND_PGEMMRMAC,
-  LIBXS_BUILD_KIND_PGEMMRMBC,
-  LIBXS_BUILD_KIND_PSPGEMM_CSR,
-  LIBXS_BUILD_KIND_PSPGEMM_CSC,
-  LIBXS_BUILD_KIND_PSPGEMM_BCSC,
-  LIBXS_BUILD_KIND_SREG
-} libxs_build_kind;
 
 /** Integral type (libxs_kernel_kind, libxs_build_kind). */
 #if defined(LIBXS_UNPACKED)
@@ -383,155 +159,6 @@ typedef uint64_t libxs_descriptor_kind;
 # define LIBXS_DESCRIPTOR_KIND(KIND) ((unsigned char)((KIND) & 0x7F))
 typedef unsigned char libxs_descriptor_kind;
 #endif
-
-/** All descriptor types, which are valid for code-registration. */
-LIBXS_EXTERN_C typedef union libxs_descriptor {
-  unsigned char data[LIBXS_DESCRIPTOR_MAXSIZE];
-  libxs_descriptor_kind kind; /* kind: must be the first member after "data" entry (above) */
-  LIBXS_REGDESC(LIBXS_PACKED(struct) { libxs_descriptor_kind /*repeated kind*/ pad; , desc; });
-  LIBXS_PACKED(struct) { libxs_descriptor_kind /*repeated kind*/ pad; unsigned char size; unsigned char desc[1]; } user;
-} libxs_descriptor;
-
-LIBXS_EXTERN_C typedef struct libxs_build_request {
-  union {
-    const void *ptr_const, *ptr; /* raw content */
-    LIBXS_REGDESC(LIBXS_REGDESC_DEFAULT, const*);
-    const libxs_pspgemm_csr_descriptor* pspgemm_csr;
-    const libxs_pspgemm_csc_descriptor* pspgemm_csc;
-    const libxs_pspgemm_bcsc_descriptor* pspgemm_bcsc;
-    const libxs_pgemm_descriptor* pgemm;
-    const libxs_pgemm_ac_rm_descriptor* pgemmacrm;
-    const libxs_pgemm_bc_rm_descriptor* pgemmbcrm;
-    const libxs_csr_reg_descriptor* sreg;
-  } descriptor;
-  libxs_build_kind kind;
-  /* used by user-kind */
-  size_t user_size;
-} libxs_build_request;
-
-typedef enum libxs_malloc_flags {
-  LIBXS_MALLOC_FLAG_DEFAULT = 0,
-  LIBXS_MALLOC_FLAG_SCRATCH = 1,
-  LIBXS_MALLOC_FLAG_PRIVATE = 2,
-  LIBXS_MALLOC_FLAG_REALLOC = 4,
-  LIBXS_MALLOC_FLAG_PHUGE   = 8,
-  LIBXS_MALLOC_FLAG_PLOCK   = 16,
-  LIBXS_MALLOC_FLAG_MMAP    = 32,
-  LIBXS_MALLOC_FLAG_R       = 64,
-  LIBXS_MALLOC_FLAG_W       = 128,
-  LIBXS_MALLOC_FLAG_X       = 256,
-  LIBXS_MALLOC_FLAG_RW  = LIBXS_MALLOC_FLAG_R | LIBXS_MALLOC_FLAG_W,
-  LIBXS_MALLOC_FLAG_WX  = LIBXS_MALLOC_FLAG_X | LIBXS_MALLOC_FLAG_W,
-  LIBXS_MALLOC_FLAG_RWX = LIBXS_MALLOC_FLAG_X | LIBXS_MALLOC_FLAG_RW,
-  LIBXS_MALLOC_FLAG_VALID       = LIBXS_MALLOC_FLAG_SCRATCH |
-      LIBXS_MALLOC_FLAG_PRIVATE | LIBXS_MALLOC_FLAG_REALLOC |
-      LIBXS_MALLOC_FLAG_PHUGE   | LIBXS_MALLOC_FLAG_PLOCK |
-      LIBXS_MALLOC_FLAG_MMAP    | LIBXS_MALLOC_FLAG_RWX
-} libxs_malloc_flags;
-
-LIBXS_EXTERN_C typedef void* (*libxs_realloc_fun)(void* /*ptr*/, size_t /*size*/);
-
-#if defined(LIBXS_MALLOC_HOOK_DYNAMIC)
-LIBXS_EXTERN_C typedef struct libxs_malloc_fntype {
-  union { const void* dlsym; void* (*ptr)(size_t, size_t);  } alignmem;
-  union { const void* dlsym; void* (*ptr)(size_t, size_t);  } memalign;
-  union { const void* dlsym; libxs_malloc_fun ptr;        } malloc;
-# if defined(LIBXS_MALLOC_HOOK_CALLOC)
-  union { const void* dlsym; void* (*ptr)(size_t, size_t);  } calloc;
-# endif
-# if defined(LIBXS_MALLOC_HOOK_REALLOC)
-  union { const void* dlsym; libxs_realloc_fun ptr;      } realloc;
-# endif
-  union { const void* dlsym; libxs_free_fun ptr;          } free;
-} libxs_malloc_fntype;
-LIBXS_APIVAR_PRIVATE(libxs_malloc_fntype libxs_malloc_fn);
-#endif
-
-#if (defined(LIBXS_BUILD) && (1 < (LIBXS_BUILD)))
-/* prototypes for GLIBC internal implementation */
-LIBXS_EXTERN_C void* __libc_memalign(size_t alignment, size_t size);
-LIBXS_EXTERN_C void* __libc_malloc(size_t size);
-#if defined(LIBXS_MALLOC_HOOK_CALLOC)
-LIBXS_EXTERN_C void* __libc_calloc(size_t num, size_t size);
-#endif
-#if defined(LIBXS_MALLOC_HOOK_REALLOC)
-LIBXS_EXTERN_C void* __libc_realloc(void* ptr, size_t size);
-#endif
-LIBXS_EXTERN_C void  __libc_free(void* ptr);
-#endif /*(defined(LIBXS_BUILD) && (1 < (LIBXS_BUILD)))*/
-LIBXS_API_INTERN void* libxs_memalign_internal(size_t alignment, size_t size);
-
-/* See https://sourceware.org/binutils/docs-2.34/ld/Options.html#index-_002d_002dwrap_003dsymbol */
-LIBXS_API_INTERN LIBXS_ATTRIBUTE_WEAK void* __real_memalign(size_t alignment, size_t size);
-LIBXS_API_INTERN LIBXS_ATTRIBUTE_WEAK void* __real_malloc(size_t size);
-#if defined(LIBXS_MALLOC_HOOK_CALLOC)
-LIBXS_API_INTERN LIBXS_ATTRIBUTE_WEAK void* __real_calloc(size_t num, size_t size);
-#endif
-#if defined(LIBXS_MALLOC_HOOK_REALLOC)
-LIBXS_API_INTERN LIBXS_ATTRIBUTE_WEAK void* __real_realloc(void* ptr, size_t size);
-#endif
-LIBXS_API_INTERN LIBXS_ATTRIBUTE_WEAK void __real_free(void* ptr);
-
-/** Retrieve internal information about a buffer (default memory domain). */
-LIBXS_API int libxs_get_malloc_xinfo(const void* memory, size_t* size, int* flags, void** extra);
-
-/** Initializes malloc hooks and other internals. */
-LIBXS_API_INTERN void libxs_malloc_init(void);
-LIBXS_API_INTERN void libxs_malloc_finalize(void);
-
-/** Calculates an alignment depending on supposedly allocated size; alignment can be zero ("auto"). */
-LIBXS_API_INTERN size_t libxs_alignment(size_t size, size_t alignment);
-
-/** Same as libxs_set_default_allocator, but takes a lock (can be NULL). */
-LIBXS_API_INTERN int libxs_xset_default_allocator(LIBXS_LOCK_TYPE(LIBXS_LOCK)* lock,
-  const void* context, libxs_malloc_function malloc_fn, libxs_free_function free_fn);
-/** Same as libxs_get_default_allocator, but takes a lock (can be NULL). */
-LIBXS_API_INTERN int libxs_xget_default_allocator(LIBXS_LOCK_TYPE(LIBXS_LOCK)* lock,
-  const void** context, libxs_malloc_function* malloc_fn, libxs_free_function* free_fn);
-
-/** Same as libxs_set_scratch_allocator, but takes a lock (can be NULL). */
-LIBXS_API_INTERN int libxs_xset_scratch_allocator(LIBXS_LOCK_TYPE(LIBXS_LOCK)* lock,
-  const void* context, libxs_malloc_function malloc_fn, libxs_free_function free_fn);
-/** Same as libxs_get_scratch_allocator, but takes a lock (can be NULL). */
-LIBXS_API_INTERN int libxs_xget_scratch_allocator(LIBXS_LOCK_TYPE(LIBXS_LOCK)* lock,
-  const void** context, libxs_malloc_function* malloc_fn, libxs_free_function* free_fn);
-
-/**
- * Attribute memory allocation and protect with only the necessary flags (revoke other flags).
- * This procedure is not suitable for executable buffers, profiler support, etc.
- */
-LIBXS_API_INTERN int libxs_malloc_xattrib(void* buffer, int flags, size_t size);
-
-/**
- * Attribute memory allocation and protect with only the necessary flags.
- * This procedure is expected to run only one time per buffer, and may
- * relocate the given memory.
- */
-LIBXS_API_INTERN int libxs_malloc_attrib(void** memory, int flags,
-  /** If name is given, profiler support, and code dump (verbose mode) are supported. */
-  const char* name,
-  /** If data_size if given, amount of memory-attribution is lowered by data_size. */
-  const size_t* data_size);
-
-/** Like libxs_release_scratch, but takes a lock (can be NULL). */
-LIBXS_API_INTERN void libxs_xrelease_scratch(LIBXS_LOCK_TYPE(LIBXS_LOCK)* lock);
-
-/** Allocate memory of the requested size, which is aligned according to the given alignment. */
-LIBXS_API int libxs_xmalloc(void** memory, size_t size, size_t alignment, int flags,
-  /* The extra information is stored along with the allocated chunk; can be NULL/zero. */
-  const void* extra, size_t extra_size);
-/** Release memory, which was allocated using libxs_[*]malloc. */
-LIBXS_API void libxs_xfree(const void* memory, int check);
-
-/** Determines the given value in double-precision (EXIT_SUCCESS if value is NULL). */
-LIBXS_API int libxs_dvalue(libxs_datatype datatype, const void* value, double* dvalue);
-
-/**
- * Format for instance an amount of Bytes like libxs_format_value(result, sizeof(result), nbytes, "KMGT", "B", 10).
- * The value returned is in requested/determined unit so that the user can decide about printing the buffer.
- */
-LIBXS_API_INTERN size_t libxs_format_value(char buffer[32],
-  int buffer_size, size_t nbytes, const char scale[], const char* unit, int base);
 
 /**
  * Print the command line arguments of the current process, and get the number of written
@@ -547,23 +174,6 @@ LIBXS_API_INTERN int libxs_print_cmdline(void* buffer, size_t buffer_size, const
  */
 LIBXS_API_INTERN int libxs_dump(const char* title, const char* name, const void* data, size_t size, int unique, int overwrite);
 
-/** Services a build request, and (optionally) registers the code (use regindex=LIBXS_CAPACITY_REGISTRY for unmanaged code). */
-LIBXS_API_INTERN int libxs_build(const libxs_build_request* request, unsigned int regindex, libxs_code_pointer* code);
-
-/** Determines CPU-name using OS-specific instead of CPU-specific interfaces. */
-LIBXS_API_INTERN void libxs_cpuid_model(char model[], size_t* model_size);
-
-LIBXS_EXTERN_C typedef struct libxs_kernel_xinfo {
-  /** Non-zero if kernel is registered. */
-  unsigned int registered;
-  /** Number of FLoating Point OPerationS (FLOPS). */
-  unsigned int nflops;
-  unsigned int is_reference_kernel;
-} libxs_kernel_xinfo;
-
-/** Receive information about JIT-generated code. */
-LIBXS_API_INTERN const libxs_kernel_xinfo* libxs_get_kernel_xinfo(libxs_code_pointer code, const libxs_descriptor** desc, size_t* code_size);
-
 /** Calculates duration in seconds from given RTC ticks. */
 LIBXS_API double libxs_timer_duration_rtc(libxs_timer_tickint tick0, libxs_timer_tickint tick1);
 /** Returns the current tick of platform-specific real-time clock. */
@@ -571,34 +181,22 @@ LIBXS_API libxs_timer_tickint libxs_timer_tick_rtc(void);
 /** Returns the current tick of a (monotonic) platform-specific counter. */
 LIBXS_API libxs_timer_tickint libxs_timer_tick_tsc(void);
 
-LIBXS_API_INTERN void libxs_memory_init(int target_arch);
-LIBXS_API_INTERN void libxs_memory_finalize(void);
-
 /** Global lock; create an own lock for an independent domain. */
 LIBXS_APIVAR_PUBLIC(LIBXS_LOCK_TYPE(LIBXS_LOCK) libxs_lock_global);
+/** Initialization counter that can be used to check whether the library is initialized (!=0) or not (==0). */
+LIBXS_APIVAR_PUBLIC(unsigned int libxs_ninit);
+/** Used for system/user specific locking (I/O). */
+LIBXS_APIVAR_PUBLIC(int libxs_stdio_handle);
+/** Verbosity level (0: quiet, 1: errors, 2: warnings, 3: info, neg.: all). */
+LIBXS_APIVAR_PUBLIC(int libxs_verbosity);
 /** Determines whether a threaded implementation is synchronized or not. */
 LIBXS_APIVAR_PUBLIC(int libxs_nosync);
+/** Security-enhanced environment. */
+LIBXS_APIVAR_PUBLIC(int libxs_se);
 
-/** Function used to allocate default memory. */
-LIBXS_APIVAR_PRIVATE(libxs_malloc_function libxs_default_malloc_fn);
-/** Function used to allocate scratch memory. */
-LIBXS_APIVAR_PRIVATE(libxs_malloc_function libxs_scratch_malloc_fn);
-/** Function used to release default memory. */
-LIBXS_APIVAR_PRIVATE(libxs_free_function libxs_default_free_fn);
-/** Function used to release scratch memory. */
-LIBXS_APIVAR_PRIVATE(libxs_free_function libxs_scratch_free_fn);
-/** If non-NULL, this context is used by the context-form of memory allocation. */
-LIBXS_APIVAR_PRIVATE(const void* libxs_default_allocator_context);
-/** If non-NULL, this context is used by the context-form of memory allocation. */
-LIBXS_APIVAR_PRIVATE(const void* libxs_scratch_allocator_context);
-/** Number of scratch memory pools used; clamped against internal maximum. */
-LIBXS_APIVAR_PRIVATE(unsigned int libxs_scratch_pools);
-/** Growth factor used to scale the scratch memory in case of reallocation. */
-LIBXS_APIVAR_PRIVATE(double libxs_scratch_scale);
 /** Number of seconds per RDTSC-cycle (zero or negative if RDTSC invalid). */
 LIBXS_APIVAR_PRIVATE(double libxs_timer_scale);
-/** Counts the number of attempts to create an SPMDM-handle. */
-LIBXS_APIVAR_PRIVATE(unsigned int libxs_statistic_num_spmdm);
 /** Counts the maximum number of thread that have been active. */
 LIBXS_APIVAR_PRIVATE(unsigned int libxs_thread_count);
+
 #endif /*LIBXS_MAIN_H*/

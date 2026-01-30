@@ -6,19 +6,10 @@
 * Further information: https://github.com/hfp/libxs/                          *
 * SPDX-License-Identifier: BSD-3-Clause                                       *
 ******************************************************************************/
-#include "libxs_main.h"
-#include "libxs_trace.h"
-#include "libxs_xcopy.h"
-#include "libxs_gemm.h"
+#include <libxs_mem.h>
 #include "libxs_hash.h"
-#include "libxs_diff.h"
-#if defined(LIBXS_PERF)
-# include "libxs_perf.h"
-#endif
-#include "generator_common.h"
-#include "generator_x86_reference.h"
-#include "generator_aarch64_reference.h"
-#include "generator_rv64_reference.h"
+
+#if 0
 
 #include <signal.h>
 #if !defined(NDEBUG)
@@ -59,9 +50,6 @@
 #endif
 #if !defined(LIBXS_HASH_SEED)
 # define LIBXS_HASH_SEED 25071975
-#endif
-#if !defined(LIBXS_MALLOC_HOOK_ALIGN) && 1
-# define LIBXS_MALLOC_HOOK_ALIGN
 #endif
 #if !defined(LIBXS_ENABLE_DEREG) && 0
 # define LIBXS_ENABLE_DEREG
@@ -201,61 +189,6 @@ LIBXS_APIVAR_DEFINE(LIBXS_LOCK_TYPE(LIBXS_REGLOCK)* internal_reglock_ptr);
 # endif
 #endif
 
-LIBXS_API
-void libxs_generator_gemm_reference_kernel( libxs_generated_code*        io_generated_code,
-                                              const libxs_gemm_descriptor* i_xgemm_desc ) {
-  /* generate kernel */
-  if ( (io_generated_code->arch >= LIBXS_X86_GENERIC) && (io_generated_code->arch <= LIBXS_X86_ALLFEAT) ) {
-    libxs_generator_gemm_x86_reference_kernel( io_generated_code, i_xgemm_desc );
-  } else if ( (io_generated_code->arch >= LIBXS_AARCH64) && (io_generated_code->arch <= LIBXS_AARCH64_ALLFEAT) ) {
-    libxs_generator_gemm_aarch64_reference_kernel( io_generated_code, i_xgemm_desc );
-  } else if ( (io_generated_code->arch >= LIBXS_RV64_MVL128) && (io_generated_code->arch <= LIBXS_RV64_ALLFEAT) ) {
-    libxs_generator_gemm_rv64_reference_kernel( io_generated_code, i_xgemm_desc );
-  } else {
-    /* TODO fix this error and support for more architectures */
-    LIBXS_HANDLE_ERROR( io_generated_code, LIBXS_ERR_ARCH );
-    return;
-  }
-}
-
-LIBXS_API
-void libxs_generator_mateltwise_reference_kernel( libxs_generated_code*          io_generated_code,
-                                          const libxs_meltw_descriptor*  i_mateltw_desc ) {
-  /* generate kernel */
-  if ( (io_generated_code->arch >= LIBXS_X86_GENERIC) && (io_generated_code->arch <= LIBXS_X86_ALLFEAT) ) {
-    libxs_generator_mateltwise_x86_reference_kernel( io_generated_code, i_mateltw_desc );
-  } else if ( (io_generated_code->arch >= LIBXS_AARCH64) && (io_generated_code->arch <= LIBXS_AARCH64_ALLFEAT) ) {
-    libxs_generator_mateltwise_aarch64_reference_kernel( io_generated_code, i_mateltw_desc );
-  } else if ( (io_generated_code->arch >= LIBXS_RV64_MVL128) && (io_generated_code->arch <= LIBXS_RV64_ALLFEAT) ) {
-    libxs_generator_mateltwise_rv64_reference_kernel( io_generated_code, i_mateltw_desc );
-  } else {
-    /* TODO fix this error and support for more architectures */
-    LIBXS_HANDLE_ERROR( io_generated_code, LIBXS_ERR_ARCH );
-    return;
-  }
-}
-
-LIBXS_API
-void libxs_generator_matequation_reference_kernel( libxs_generated_code*         io_generated_code,
-                                                     const libxs_meqn_descriptor*  i_mateqn_desc ) {
-  /* generate kernel */
-  if ( (io_generated_code->arch >= LIBXS_X86_GENERIC) && (io_generated_code->arch <= LIBXS_X86_ALLFEAT) ) {
-    libxs_generator_matequation_x86_reference_kernel( io_generated_code, i_mateqn_desc );
-  } else if ( (io_generated_code->arch >= LIBXS_AARCH64) && (io_generated_code->arch <= LIBXS_AARCH64_ALLFEAT) ) {
-    libxs_generator_matequation_aarch64_reference_kernel( io_generated_code, i_mateqn_desc );
-  } else if ( (io_generated_code->arch >= LIBXS_RV64_MVL128) && (io_generated_code->arch <= LIBXS_RV64_ALLFEAT) ) {
-    libxs_generator_matequation_rv64_reference_kernel( io_generated_code, i_mateqn_desc );
-  } else {
-    /* TODO fix this error and support for more architectures */
-    LIBXS_HANDLE_ERROR( io_generated_code, LIBXS_ERR_ARCH );
-    return;
-  }
-}
-
-LIBXS_EXTERN_C typedef struct internal_statistic_type {
-  unsigned int ntry, ncol, njit, nsta;
-} internal_statistic_type;
-
 #if defined(LIBXS_CACHE_MAXSIZE) && (0 < (LIBXS_CACHE_MAXSIZE))
 LIBXS_EXTERN_C typedef struct internal_cache_entry_type {
   libxs_descriptor keys[LIBXS_CACHE_MAXSIZE];
@@ -323,12 +256,6 @@ LIBXS_EXTERN_C typedef struct internal_sigentry_type {
 LIBXS_APIVAR_DEFINE(internal_sigentry_type internal_sigentries[4]);
 
 /* definition of corresponding variables */
-LIBXS_APIVAR_PRIVATE_DEF(libxs_malloc_function libxs_default_malloc_fn);
-LIBXS_APIVAR_PRIVATE_DEF(libxs_malloc_function libxs_scratch_malloc_fn);
-LIBXS_APIVAR_PRIVATE_DEF(libxs_free_function libxs_default_free_fn);
-LIBXS_APIVAR_PRIVATE_DEF(libxs_free_function libxs_scratch_free_fn);
-LIBXS_APIVAR_PRIVATE_DEF(const void* libxs_default_allocator_context);
-LIBXS_APIVAR_PRIVATE_DEF(const void* libxs_scratch_allocator_context);
 LIBXS_APIVAR_PRIVATE_DEF(unsigned int libxs_scratch_pools);
 LIBXS_APIVAR_PRIVATE_DEF(double libxs_scratch_scale);
 LIBXS_APIVAR_PRIVATE_DEF(double libxs_timer_scale);
@@ -336,170 +263,9 @@ LIBXS_APIVAR_PRIVATE_DEF(unsigned int libxs_statistic_num_spmdm);
 LIBXS_APIVAR_PRIVATE_DEF(unsigned int libxs_thread_count);
 /* definition of corresponding variables */
 LIBXS_APIVAR_PUBLIC_DEF(LIBXS_LOCK_TYPE(LIBXS_LOCK) libxs_lock_global);
+LIBXS_APIVAR_PUBLIC_DEF(unsigned int libxs_ninit);
+LIBXS_APIVAR_PUBLIC_DEF(int libxs_stdio_handle);
 LIBXS_APIVAR_PUBLIC_DEF(int libxs_nosync);
-
-
-LIBXS_API_INTERN LIBXS_ATTRIBUTE_WEAK void* libxs_memalign_internal(size_t alignment, size_t size)
-{
-  void* result = NULL;
-  LIBXS_ASSERT(LIBXS_ISPOT(alignment));
-#if defined(LIBXS_MALLOC_HOOK_INTRINSIC)
-  result = _mm_malloc(size, alignment);
-#elif (defined(LIBXS_BUILD) && (1 < (LIBXS_BUILD))) /* GLIBC */
-  result = __libc_memalign(alignment, size);
-#elif defined(LIBXS_BUILD) && ( /*C11*/ \
-  defined(__STDC_VERSION__) && (201112L <= __STDC_VERSION__))
-  result = aligned_alloc(alignment, LIBXS_UP2(size, alignment));
-#elif (defined(_WIN32) || defined(__CYGWIN__))
-  LIBXS_UNUSED(alignment);
-  result = malloc(size);
-#else
-  LIBXS_EXPECT(0 == posix_memalign(&result, alignment, size) || NULL == result);
-#endif
-  return result;
-}
-
-
-LIBXS_API_INTERN LIBXS_ATTRIBUTE_WEAK void* __real_memalign(size_t alignment, size_t size)
-{
-  void* result = NULL;
-#if defined(LIBXS_MALLOC_HOOK_DYNAMIC)
-  if (NULL != libxs_malloc_fn.memalign.ptr) {
-    result = libxs_malloc_fn.memalign.ptr(alignment, size);
-  }
-  else
-#endif
-  result = libxs_memalign_internal(alignment, size);
-  return result;
-}
-
-
-LIBXS_API_INTERN LIBXS_ATTRIBUTE_WEAK void* __real_malloc(size_t size)
-{
-  void* result = NULL;
-#if defined(LIBXS_MALLOC_HOOK_ALIGN)
-  result = __real_memalign(libxs_alignment(size, 0/*auto*/), size);
-#else
-# if defined(LIBXS_MALLOC_HOOK_DYNAMIC)
-  if (NULL != libxs_malloc_fn.malloc.ptr) {
-    result = libxs_malloc_fn.malloc.ptr(size);
-  }
-  else
-# endif
-# if defined(LIBXS_MALLOC_HOOK_INTRINSIC)
-  result = _mm_malloc(size, libxs_alignment(size, 0/*auto*/));
-# elif (defined(LIBXS_BUILD) && (1 < (LIBXS_BUILD))) /* GLIBC */
-  result = __libc_malloc(size);
-# else
-  result = malloc(size);
-# endif
-#endif
-  return result;
-}
-
-
-#if defined(LIBXS_MALLOC_HOOK_CALLOC)
-LIBXS_API_INTERN LIBXS_ATTRIBUTE_WEAK void* __real_calloc(size_t num, size_t size)
-{
-  void* result;
-#if defined(LIBXS_MALLOC_HOOK_DYNAMIC)
-  if (NULL != libxs_malloc_fn.calloc.ptr) {
-    result = libxs_malloc_fn.calloc.ptr(num, size);
-  }
-  else
-#endif
-#if defined(LIBXS_MALLOC_HOOK_INTRINSIC)
-  { const size_t num_size = num * size;
-    result = _mm_malloc(num_size, libxs_alignment(num_size, 0/*auto*/));
-    if (NULL != result) memset(result, 0, num_size);
-  }
-#elif (defined(LIBXS_BUILD) && (1 < (LIBXS_BUILD))) /* GLIBC */
-  result = __libc_calloc(num, size);
-#else
-  result = calloc(num, size);
-#endif
-  return result;
-}
-#endif
-
-
-#if defined(LIBXS_MALLOC_HOOK_REALLOC)
-LIBXS_API_INTERN LIBXS_ATTRIBUTE_WEAK void* __real_realloc(void* ptr, size_t size)
-{
-  void* result;
-#if defined(LIBXS_MALLOC_HOOK_DYNAMIC)
-  if (NULL != libxs_malloc_fn.realloc.ptr) {
-    result = libxs_malloc_fn.realloc.ptr(ptr, size);
-  }
-  else
-#endif
-#if (defined(LIBXS_BUILD) && (1 < (LIBXS_BUILD))) /* GLIBC */
-  result = __libc_realloc(ptr, size);
-#else
-  result = realloc(ptr, size);
-#endif
-  return result;
-}
-#endif
-
-
-LIBXS_API_INTERN LIBXS_ATTRIBUTE_WEAK void __real_free(void* ptr)
-{
-  if (NULL != ptr) {
-#if defined(LIBXS_MALLOC_HOOK_DYNAMIC)
-    if (NULL != libxs_malloc_fn.free.ptr) {
-      libxs_malloc_fn.free.ptr(ptr);
-    }
-    else
-#endif
-#if defined(LIBXS_MALLOC_HOOK_INTRINSIC)
-    { static int recursive = 0;
-      if (1 == LIBXS_ATOMIC_ADD_FETCH(&recursive, 1, LIBXS_ATOMIC_SEQ_CST)) _mm_free(ptr);
-      else {
-# if (defined(LIBXS_BUILD) && (1 < (LIBXS_BUILD))) /* GLIBC */
-        __libc_free(ptr);
-# else
-        free(ptr);
-# endif
-      }
-      LIBXS_ATOMIC_SUB_FETCH(&recursive, 1, LIBXS_ATOMIC_SEQ_CST);
-    }
-#elif (defined(LIBXS_BUILD) && (1 < (LIBXS_BUILD))) /* GLIBC */
-    __libc_free(ptr);
-#else
-    free(ptr);
-#endif
-  }
-}
-
-
-LIBXS_API_INLINE void internal_update_mmstatistic(const libxs_gemm_descriptor* desc,
-  unsigned int ntry, unsigned int ncol, unsigned int njit, unsigned int nsta)
-{
-  LIBXS_ASSERT(NULL != desc);
-  if (1 < desc->m && 1 < desc->n) { /* only record matrix-matrix multiplication */
-    const unsigned long long kernel_size = LIBXS_MNK_SIZE(desc->m, desc->n, desc->k);
-    const int idx = (LIBXS_DATATYPE_F64 == LIBXS_GEMM_GETENUM_ABC_COMMON_PREC(desc->datatype) ? 0 : 1);
-    int bucket;
-    if (LIBXS_MNK_SIZE(internal_statistic_sml, internal_statistic_sml, internal_statistic_sml) >= kernel_size) {
-      bucket = 0;
-    }
-    else if (LIBXS_MNK_SIZE(internal_statistic_med, internal_statistic_med, internal_statistic_med) >= kernel_size) {
-      bucket = 1;
-    }
-    else if (LIBXS_MNK_SIZE(internal_statistic_mnk, internal_statistic_mnk, internal_statistic_mnk) >= kernel_size) {
-      bucket = 2;
-    }
-    else { /*huge*/
-      bucket = 3;
-    }
-    if (0 != ncol) ncol/*dummy assignment*/ = LIBXS_ATOMIC_ADD_FETCH(&internal_statistic[idx][bucket].ncol, ncol, LIBXS_ATOMIC_RELAXED);
-    if (0 != ntry) ntry/*dummy assignment*/ = LIBXS_ATOMIC_ADD_FETCH(&internal_statistic[idx][bucket].ntry, ntry, LIBXS_ATOMIC_RELAXED);
-    /* the following counters are not manipulated concurrently (no need for atomic increment) */
-    if (0 != njit) internal_statistic[idx][bucket].njit += njit;
-    if (0 != nsta) internal_statistic[idx][bucket].nsta += nsta;
-  }
-}
 
 
 LIBXS_API_INLINE unsigned int internal_print_number(unsigned int n, char default_unit, char* unit)
@@ -517,84 +283,6 @@ LIBXS_API_INLINE unsigned int internal_print_number(unsigned int n, char default
   }
   return number;
 }
-
-
-LIBXS_API_INLINE unsigned int internal_print_statistic(FILE* ostream,
-  const char* target_arch, int precision, unsigned int linebreaks, unsigned int indent)
-{
-  const internal_statistic_type statistic_sml = internal_statistic[precision][0/*SML*/];
-  const internal_statistic_type statistic_med = internal_statistic[precision][1/*MED*/];
-  const internal_statistic_type statistic_big = internal_statistic[precision][2/*BIG*/];
-  const internal_statistic_type statistic_xxx = internal_statistic[precision][3/*XXX*/];
-  int printed = 0;
-  LIBXS_ASSERT(NULL != ostream && (0 <= precision && precision < 2));
-  if (/* omit to print anything if it is superfluous */
-    0 != statistic_sml.ntry || 0 != statistic_sml.njit || 0 != statistic_sml.nsta || 0 != statistic_sml.ncol ||
-    0 != statistic_med.ntry || 0 != statistic_med.njit || 0 != statistic_med.nsta || 0 != statistic_med.ncol ||
-    0 != statistic_big.ntry || 0 != statistic_big.njit || 0 != statistic_big.nsta || 0 != statistic_big.ncol ||
-    0 != statistic_xxx.ntry || 0 != statistic_xxx.njit || 0 != statistic_xxx.nsta || 0 != statistic_xxx.ncol)
-  {
-    char title[256] = "", range[256] = "", unit[4] = "";
-    unsigned int counter[4] = { 0 };
-    {
-      unsigned int n;
-      if (NULL != target_arch && '\0' != *target_arch) {
-        assert(strlen(target_arch) < sizeof(title)); /* !LIBXS_ASSERT */
-        for (n = 0; 0 != target_arch[n] /*avoid code-gen. issue with some clang versions: && n < sizeof(title)*/; ++n) {
-          const char c = target_arch[n];
-          title[n] = (char)(('a' <= c && c <= 'z') ? (c - 32) : c); /* toupper */
-        }
-        LIBXS_SNPRINTF(title + n, sizeof(title) - n, "/%s", 0 == precision ? "DP" : "SP");
-      }
-      else {
-        LIBXS_SNPRINTF(title, sizeof(title), "%s", 0 == precision ? "DP" : "SP");
-      }
-      for (n = 0; n < linebreaks; ++n) fprintf(ostream, "\n");
-    }
-    fprintf(ostream, "%*s%-8s %6s %6s %6s %6s\n", (int)indent, "", title, "TRY", "JIT", "STA", "COL");
-    LIBXS_SNPRINTF(range, sizeof(range), "%u..%u", 0u, internal_statistic_sml);
-    counter[0] = internal_print_number(statistic_sml.ntry, ' ', unit + 0);
-    counter[1] = internal_print_number(statistic_sml.njit, ' ', unit + 1);
-    counter[2] = internal_print_number(statistic_sml.nsta, ' ', unit + 2);
-    counter[3] = internal_print_number(statistic_sml.ncol, ' ', unit + 3);
-    fprintf(ostream, "%*s%8s %6u%c %5u%c %5u%c %5u%c\n", (int)indent, "", range,
-      counter[0], unit[0], counter[1], unit[1], counter[2], unit[2], counter[3], unit[3]);
-    LIBXS_SNPRINTF(range, sizeof(range), "%u..%u", internal_statistic_sml + 1u, internal_statistic_med);
-    counter[0] = internal_print_number(statistic_med.ntry, ' ', unit + 0);
-    counter[1] = internal_print_number(statistic_med.njit, ' ', unit + 1);
-    counter[2] = internal_print_number(statistic_med.nsta, ' ', unit + 2);
-    counter[3] = internal_print_number(statistic_med.ncol, ' ', unit + 3);
-    fprintf(ostream, "%*s%8s %6u%c %5u%c %5u%c %5u%c\n", (int)indent, "", range,
-      counter[0], unit[0], counter[1], unit[1], counter[2], unit[2], counter[3], unit[3]);
-    LIBXS_SNPRINTF(range, sizeof(range), "%u..%u", internal_statistic_med + 1u, internal_statistic_mnk);
-    counter[0] = internal_print_number(statistic_big.ntry, ' ', unit + 0);
-    counter[1] = internal_print_number(statistic_big.njit, ' ', unit + 1);
-    counter[2] = internal_print_number(statistic_big.nsta, ' ', unit + 2);
-    counter[3] = internal_print_number(statistic_big.ncol, ' ', unit + 3);
-    fprintf(ostream, "%*s%8s %6u%c %5u%c %5u%c %5u%c\n", (int)indent, "", range,
-      counter[0], unit[0], counter[1], unit[1], counter[2], unit[2], counter[3], unit[3]);
-    if (0 != statistic_xxx.ntry || 0 != statistic_xxx.njit || 0 != statistic_xxx.nsta || 0 != statistic_xxx.ncol) {
-      LIBXS_SNPRINTF(range, sizeof(range), "> %u", internal_statistic_mnk);
-      counter[0] = internal_print_number(statistic_xxx.ntry, ' ', unit + 0);
-      counter[1] = internal_print_number(statistic_xxx.njit, ' ', unit + 1);
-      counter[2] = internal_print_number(statistic_xxx.nsta, ' ', unit + 2);
-      counter[3] = internal_print_number(statistic_xxx.ncol, ' ', unit + 3);
-      fprintf(ostream, "%*s%8s %6u%c %5u%c %5u%c %5u%c\n", (int)indent, "", range,
-        counter[0], unit[0], counter[1], unit[1], counter[2], unit[2], counter[3], unit[3]);
-    }
-    printed = 1;
-  }
-  return printed;
-}
-
-
-#if !(defined(_WIN32) || defined(__CYGWIN__))
-LIBXS_API_INLINE unsigned int internal_statistic_ntry(int precision)
-{
-  return internal_statistic[precision][0/*SML*/].ntry + internal_statistic[precision][1/*MED*/].ntry
-       + internal_statistic[precision][2/*BIG*/].ntry + internal_statistic[precision][3/*XXX*/].ntry;
-}
-#endif
 
 
 #if !defined(_WIN32)
@@ -646,33 +334,6 @@ LIBXS_API_INLINE void internal_register_static_code(
   }
 }
 #endif
-
-
-LIBXS_API_INTERN void internal_release_scratch(void);
-LIBXS_API_INTERN void internal_release_scratch(void)
-{
-  libxs_xrelease_scratch(NULL/*lock*/);
-  /* release global services */
-  libxs_memory_finalize();
-  libxs_hash_finalize();
-  libxs_malloc_finalize();
-}
-
-
-/* Caution: cannot be used multiple times in a single expression! */
-LIBXS_API_INTERN size_t libxs_format_value(char buffer[32],
-  int buffer_size, size_t nbytes, const char scale[], const char* unit, int base)
-{
-  const int len = (NULL != scale ? ((int)strlen(scale)) : 0);
-  const int m = LIBXS_INTRINSICS_BITSCANBWD64(nbytes) / base, n = LIBXS_MIN(m, len);
-  int i;
-  buffer[0] = 0; /* clear */
-  LIBXS_ASSERT(NULL != unit && 0 <= base);
-  for (i = 0; i < n; ++i) nbytes >>= base;
-  LIBXS_SNPRINTF(buffer, buffer_size, "%i %c%s",
-    (int)nbytes, 0 < n ? scale[n-1] : *unit, 0 < n ? unit : "");
-  return nbytes;
-}
 
 
 LIBXS_API_INTERN LIBXS_ATTRIBUTE_NO_TRACE void internal_dump(FILE* ostream, int urgent);
@@ -799,125 +460,7 @@ libxs_timer_tickint libxs_timer_tick_tsc(void)
 LIBXS_API_INTERN void internal_finalize(void);
 LIBXS_API_INTERN void internal_finalize(void)
 {
-  const char *const env_verbose_banner = getenv("LIBXS_VERBOSE_BANNER");
-  const int verbose_banner = (0 > libxs_verbosity
-    || NULL == env_verbose_banner || '\0' == *env_verbose_banner
-    || 0 != atoi(env_verbose_banner) ? 1 : 0);
   libxs_finalize();
-  if (0 != libxs_verbosity && 0 != verbose_banner) { /* print statistic on termination */
-    const char *const env_target_hidden = getenv("LIBXS_TARGET_HIDDEN");
-    const char *const target_arch = (NULL == env_target_hidden || 0 == atoi(env_target_hidden))
-      ? libxs_cpuid_name(libxs_cpuid(NULL)) : NULL/*hidden*/;
-    const char */*const*/ version = LIBXS_VERSION, */*const*/ branch = LIBXS_BRANCH; /* mute warnings */
-    LIBXS_ASSERT(NULL != version && NULL != branch);
-    LIBXS_STDIO_ACQUIRE(); /* synchronize I/O */
-    fprintf(stderr, "\nLIBXS_VERSION: %s%s%s (%i)", LIBXS_BRANCH,
-      0 != *branch ? "-" : "", 0 != *version ? version : "unconfigured",
-      LIBXS_VERSION_NUMBER);
-    if (LIBXS_VERBOSITY_WARN <= libxs_verbosity || 0 > libxs_verbosity) {
-      unsigned int linebreak = (0 == internal_print_statistic(stderr, target_arch, 1/*SP*/, 1, 0)) ? 1 : 0;
-      const int high_verbosity = (LIBXS_VERBOSITY_HIGH <= libxs_verbosity || 0 > libxs_verbosity);
-      char number_format_buffer[32];
-      libxs_scratch_info scratch_info;
-      libxs_cpuid_info info;
-#if defined(NDEBUG)
-      libxs_cpuid(&info);
-# if defined(LIBXS_PLATFORM_X86)
-      if ((LIBXS_VERBOSITY_HIGH < libxs_verbosity || 0 > libxs_verbosity) &&
-        0 == internal_cpuid_info.has_context && 0 != info.has_context)
-      {
-        fprintf(stderr, "\nLIBXS: CPU features have been promoted.");
-      }
-# endif
-#else
-      memset(&info, 0, sizeof(info));
-#endif
-      if (0 == internal_print_statistic(stderr, target_arch, 0/*DP*/, linebreak, 0) && 0 != linebreak && NULL != target_arch) {
-        fprintf(stderr, "\nLIBXS_TARGET: %s", target_arch);
-        if ((LIBXS_VERBOSITY_HIGH < libxs_verbosity || 0 > libxs_verbosity) && '\0' != *info.model) {
-          fprintf(stderr, " [%s]\n", info.model);
-        }
-        else fprintf(stderr, "\n");
-      }
-      if (0 != libxs_format_value(number_format_buffer, sizeof(number_format_buffer),
-#if defined(LIBXS_NTHREADS_USE) && defined(LIBXS_CACHE_MAXSIZE) && (0 < (LIBXS_CACHE_MAXSIZE))
-        sizeof(internal_cache_type) * (LIBXS_NTHREADS_MAX) +
-#endif
-        (sizeof(internal_regkey_type) + sizeof(libxs_code_pointer)) * (LIBXS_CAPACITY_REGISTRY),
-        "KM", "B", 10))
-      {
-        fprintf(stderr, "Registry and code: %s", number_format_buffer);
-        if (0 != libxs_format_value(number_format_buffer, sizeof(number_format_buffer), internal_registry_nbytes, "KM", "B", 10)) {
-          fprintf(stderr, " + %s", number_format_buffer);
-        }
-        if (0 != high_verbosity) {
-          unsigned int ngemms = 0;
-          int i; for (i = 0; i < 4; ++i) {
-            ngemms += internal_statistic[0/*DP*/][i].nsta + internal_statistic[1/*SP*/][i].nsta;
-            ngemms += internal_statistic[0/*DP*/][i].njit + internal_statistic[1/*SP*/][i].njit;
-          }
-          if (0 != ngemms || 0 != internal_statistic_num_gemv
-            || 0 != internal_statistic_num_meltw
-            || 0 != libxs_statistic_num_spmdm
-            || 0 != internal_statistic_num_user
-            || 0 != internal_registry_nleaks)
-          {
-            const char sep[] = " ", *s = "";
-            fprintf(stderr, " (");
-            if (0 != ngemms) { fprintf(stderr, "gemm=%u", ngemms); s = sep; }
-            if (0 != internal_statistic_num_gemv) { fprintf(stderr, "%sgemv=%u", s, internal_statistic_num_gemv); s = sep; }
-            if (0 != internal_statistic_num_meltw) { fprintf(stderr, "%smeltw=%u", s, internal_statistic_num_meltw); s = sep; }
-            if (0 != libxs_statistic_num_spmdm) { fprintf(stderr, "%sspmdm=%u", s, libxs_statistic_num_spmdm); s = sep; }
-            if (0 != internal_statistic_num_user) { fprintf(stderr, "%suser=%u", s, internal_statistic_num_user); s = sep; }
-            if (0 != internal_registry_nleaks) { fprintf(stderr, "%snleaks=%u", s, internal_registry_nleaks); s = sep; }
-            fprintf(stderr, ")");
-          }
-        }
-        fprintf(stderr, "\n");
-      }
-      if (EXIT_SUCCESS == libxs_get_scratch_info(&scratch_info)) {
-        if (0 != scratch_info.size &&
-          0 != libxs_format_value(number_format_buffer, sizeof(number_format_buffer), scratch_info.size, "KM", "B", 10))
-        {
-          fprintf(stderr, "Scratch: %s", number_format_buffer);
-          if (0 != high_verbosity) {
-            fprintf(stderr, " (mallocs=%lu, pools=%u)\n", (unsigned long int)scratch_info.nmallocs, scratch_info.npools);
-          }
-          else {
-            fprintf(stderr, "\n");
-          }
-        }
-        if (0 != scratch_info.internal && 0 != high_verbosity &&
-          libxs_format_value(number_format_buffer, sizeof(number_format_buffer), scratch_info.internal, "KM", "B", 10))
-        {
-          fprintf(stderr, "Private: %s\n", number_format_buffer);
-        }
-      }
-      if (LIBXS_VERBOSITY_HIGH < libxs_verbosity || 0 > libxs_verbosity) {
-        double uptime;
-#if defined(LIBXS_TIMER_RDTSC)
-        if (0 < libxs_timer_scale) {
-          const libxs_timer_tickint timer_end = libxs_timer_tick_tsc();
-          uptime = libxs_timer_scale * LIBXS_DELTA(internal_timer_start, timer_end);
-        }
-        else
-#endif
-        {
-          uptime = libxs_timer_duration_rtc(internal_timer_start, libxs_timer_tick_rtc());
-        }
-        fprintf(stderr, "Command (PID=%u): ", libxs_get_pid());
-        libxs_print_cmdline(stderr, 0, NULL/*prefix*/, "\n");
-        fprintf(stderr, "Uptime: %f s", uptime);
-        if (1 < libxs_thread_count && INT_MAX == libxs_verbosity) {
-          fprintf(stderr, " (nthreads=%u)", libxs_thread_count);
-        }
-        fprintf(stderr, "\n");
-      }
-    }
-    else {
-      fprintf(stderr, "\nLIBXS_TARGET: %s\n", target_arch);
-    }
-  }
   /* release scratch memory pool */
   if (EXIT_SUCCESS != atexit(internal_release_scratch) && 0 != libxs_verbosity) {
     fprintf(stderr, "LIBXS ERROR: failed to perform final cleanup!\n");
@@ -1152,59 +695,6 @@ LIBXS_API_INTERN void internal_init(void)
 #if !defined(_WIN32) && 0
     umask(S_IRUSR | S_IWUSR); /* setup default/secure file mask */
 #endif
-#if defined(LIBXS_MALLOC_SCRATCH_MAX_NPOOLS) && (0 < (LIBXS_MALLOC_SCRATCH_MAX_NPOOLS))
-    { const char *const env = getenv("LIBXS_SCRATCH_POOLS");
-      if (NULL == env || 0 == *env) {
-        libxs_scratch_pools = LIBXS_MALLOC_SCRATCH_MAX_NPOOLS;
-      }
-      else {
-        libxs_scratch_pools = LIBXS_CLMP(atoi(env), 0, LIBXS_MALLOC_SCRATCH_MAX_NPOOLS);
-        /*libxs_scratch_pools_locked = 1;*/
-      }
-      LIBXS_ASSERT(libxs_scratch_pools <= LIBXS_MALLOC_SCRATCH_MAX_NPOOLS);
-    }
-    { const char *const env = getenv("LIBXS_SCRATCH_SCALE");
-      if (NULL == env || 0 == *env) {
-        libxs_scratch_scale = LIBXS_MALLOC_SCRATCH_SCALE;
-      }
-      else {
-        libxs_scratch_scale = LIBXS_CLMP(atof(env), 1.0, 10.0);
-        /*libxs_scratch_scale_locked = 1;*/
-      }
-      assert(1 <= libxs_scratch_scale); /* !LIBXS_ASSERT */
-    }
-    libxs_set_scratch_limit(internal_parse_nbytes(getenv("LIBXS_SCRATCH_LIMIT"), LIBXS_SCRATCH_DEFAULT, NULL/*valid*/));
-#endif /*defined(LIBXS_MALLOC_SCRATCH_MAX_NPOOLS) && (0 < (LIBXS_MALLOC_SCRATCH_MAX_NPOOLS))*/
-    { /* setup malloc-interception after internal allocations */
-      const libxs_malloc_function null_malloc_fn = { 0 };
-      const libxs_free_function null_free_fn = { 0 };
-      char *const env_k = getenv("LIBXS_MALLOC"), *const env_t = getenv("LIBXS_MALLOC_LIMIT"), *end = NULL;
-      const char* env_i = (NULL != env_t ? strtok(env_t, LIBXS_MAIN_DELIMS) : NULL);
-      size_t malloc_lo = internal_parse_nbytes(env_i, LIBXS_MALLOC_LIMIT, NULL/*valid*/);
-      size_t malloc_hi = (NULL != env_i ? internal_parse_nbytes(
-        strtok(NULL, LIBXS_MAIN_DELIMS), LIBXS_SCRATCH_UNLIMITED, NULL/*valid*/) : LIBXS_SCRATCH_UNLIMITED);
-      const int malloc_kind = ((NULL == env_k || 0 == *env_k) ? 0/*disabled*/ : ((int)strtol(env_k, &end, 10)));
-      libxs_xset_default_allocator(NULL/*lock*/, NULL/*context*/, null_malloc_fn, null_free_fn);
-      libxs_xset_scratch_allocator(NULL/*lock*/, NULL/*context*/, null_malloc_fn, null_free_fn);
-      /* libxs_set_malloc implies libxs_malloc_init */
-      if (NULL == end) {
-        libxs_set_malloc(0, &malloc_lo, &malloc_hi);
-      }
-      else if ('\0' == *end) {
-        libxs_set_malloc(malloc_kind, &malloc_lo, &malloc_hi);
-      }
-      else {
-        int valid = 1;
-        env_i = strtok(env_k, LIBXS_MAIN_DELIMS);
-        malloc_lo = internal_parse_nbytes(env_i, LIBXS_MALLOC_LIMIT, &valid);
-        env_i = (0 != valid ? strtok(NULL, LIBXS_MAIN_DELIMS) : NULL);
-        malloc_hi = (NULL != env_i
-          ? internal_parse_nbytes(env_i, LIBXS_SCRATCH_UNLIMITED, &valid)
-          : LIBXS_SCRATCH_UNLIMITED);
-        libxs_set_malloc(0 != valid ? 1 : 0, &malloc_lo, &malloc_hi);
-      }
-    }
-
     { const char *const env = getenv("LIBXS_SYNC");
       libxs_nosync = (NULL == env || 0 == *env) ? 0/*default*/ : atoi(env);
     }
@@ -1595,24 +1085,64 @@ LIBXS_API_DTOR void libxs_finalize(void)
 
 LIBXS_API int libxs_get_verbosity(void)
 {
-  LIBXS_INIT
+  /*LIBXS_INIT*/
   return libxs_verbosity;
 }
 
 
 LIBXS_API void libxs_set_verbosity(int level)
 {
-  LIBXS_INIT
+  /*LIBXS_INIT*/
   LIBXS_ATOMIC_STORE(&libxs_verbosity, level, LIBXS_ATOMIC_RELAXED);
+}
+
+
+LIBXS_API int libxs_typesize(libxs_datatype datatype)
+{
+  int result = 0;
+  switch (datatype) {
+    case LIBXS_DATATYPE_F64: result = 8; break;
+    case LIBXS_DATATYPE_F32: result = 4; break;
+    case LIBXS_DATATYPE_I64: result = 4; break;
+    case LIBXS_DATATYPE_I32: result = 4; break;
+    case LIBXS_DATATYPE_U32: result = 4; break;
+    case LIBXS_DATATYPE_I16: result = 2; break;
+    case LIBXS_DATATYPE_U16: result = 2; break;
+    case LIBXS_DATATYPE_I8:  result = 1; break;
+    default: {
+      static int error_once = 0;
+      LIBXS_ASSERT_MSG(0, "unsupported data type");
+      if (1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED)) {
+        fprintf(stderr, "LIBXS ERROR: unsupported data type!\n");
+      }
+    }
+  }
+  return result;
+}
+
+
+LIBXS_API const char* libxs_get_typename(libxs_datatype datatype)
+{
+  switch (datatype) {
+    case LIBXS_DATATYPE_F64:  return "f64";
+    case LIBXS_DATATYPE_F32:  return "f32";
+    case LIBXS_DATATYPE_I64:  return "i64";
+    case LIBXS_DATATYPE_I32:  return "i32";
+    case LIBXS_DATATYPE_U32:  return "u32";
+    case LIBXS_DATATYPE_I16:  return "i16";
+    case LIBXS_DATATYPE_U16:  return "u16";
+    case LIBXS_DATATYPE_I8:   return "i8";
+    default: return "void";
+  }
 }
 
 
 LIBXS_API int libxs_dvalue(libxs_datatype datatype, const void* value, double* dvalue)
 {
   int result = EXIT_SUCCESS;
-  LIBXS_ASSERT(NULL != dvalue);
   if (NULL != value) {
-    switch ((int)datatype) {
+    LIBXS_ASSERT(NULL != dvalue);
+    switch (datatype) {
       case LIBXS_DATATYPE_F64: *dvalue =         (*(const double   *)value); break;
       case LIBXS_DATATYPE_F32: *dvalue = (double)(*(const float    *)value); break;
       case LIBXS_DATATYPE_I64: *dvalue = (double)(*(const long long*)value); break;
@@ -1622,260 +1152,8 @@ LIBXS_API int libxs_dvalue(libxs_datatype datatype, const void* value, double* d
       default: result = EXIT_FAILURE;
     }
   }
+  else result = EXIT_FAILURE;
   return result;
-}
-
-LIBXS_API_INLINE const char* libxs_get_i4gemm_typename(const unsigned char* datatype)
-{
-  if (LIBXS_DATATYPE_I8 == LIBXS_GEMM_GETENUM_A_PREC(datatype) &&
-           LIBXS_DATATYPE_F16 == LIBXS_GEMM_GETENUM_B_PREC(datatype) &&
-           LIBXS_DATATYPE_F16 == LIBXS_GEMM_GETENUM_C_PREC(datatype))
-  {
-    return "i4f16f16";
-  }
-  if (LIBXS_DATATYPE_I8 == LIBXS_GEMM_GETENUM_A_PREC(datatype) &&
-           LIBXS_DATATYPE_I8 == LIBXS_GEMM_GETENUM_B_PREC(datatype) &&
-           LIBXS_DATATYPE_I32 == LIBXS_GEMM_GETENUM_C_PREC(datatype))
-  {
-    return "u4u8i32";
-  }
-  else if (LIBXS_DATATYPE_I8 == LIBXS_GEMM_GETENUM_A_PREC(datatype) &&
-           LIBXS_DATATYPE_F16 == LIBXS_GEMM_GETENUM_B_PREC(datatype) &&
-           LIBXS_DATATYPE_F32 == LIBXS_GEMM_GETENUM_C_PREC(datatype))
-  {
-    return "i4f16f32";
-  }
-  else {
-    return "void";
-  }
-}
-
-
-LIBXS_API_INLINE const char* libxs_get_mxfpgemm_typename(const unsigned char* datatype)
-{
-  if (LIBXS_DATATYPE_I8 == LIBXS_GEMM_GETENUM_A_PREC(datatype) &&
-           LIBXS_DATATYPE_BF16 == LIBXS_GEMM_GETENUM_B_PREC(datatype) &&
-           LIBXS_DATATYPE_BF16 == LIBXS_GEMM_GETENUM_C_PREC(datatype))
-  {
-    return "mxfp4bf16bf16";
-  }
-  if (LIBXS_DATATYPE_I8 == LIBXS_GEMM_GETENUM_A_PREC(datatype) &&
-           LIBXS_DATATYPE_BF16 == LIBXS_GEMM_GETENUM_B_PREC(datatype) &&
-           LIBXS_DATATYPE_F32 == LIBXS_GEMM_GETENUM_C_PREC(datatype))
-  {
-    return "mxfp4bf16f32";
-  }
-  if (LIBXS_DATATYPE_I8 == LIBXS_GEMM_GETENUM_A_PREC(datatype) &&
-           LIBXS_DATATYPE_F32 == LIBXS_GEMM_GETENUM_B_PREC(datatype) &&
-           LIBXS_DATATYPE_F32 == LIBXS_GEMM_GETENUM_C_PREC(datatype))
-  {
-    return "mxfp4f32";
-  }
-  if (LIBXS_DATATYPE_I8 == LIBXS_GEMM_GETENUM_A_PREC(datatype) &&
-           LIBXS_DATATYPE_I8 == LIBXS_GEMM_GETENUM_B_PREC(datatype) &&
-           LIBXS_DATATYPE_BF16 == LIBXS_GEMM_GETENUM_C_PREC(datatype))
-  {
-    return "mxfp4i8bf16";
-  }
-  if (LIBXS_DATATYPE_I8 == LIBXS_GEMM_GETENUM_A_PREC(datatype) &&
-           LIBXS_DATATYPE_I8 == LIBXS_GEMM_GETENUM_B_PREC(datatype) &&
-           LIBXS_DATATYPE_F32 == LIBXS_GEMM_GETENUM_C_PREC(datatype))
-  {
-    return "mxfp4i8f32";
-  }
-  else {
-    return "void";
-  }
-}
-
-LIBXS_API_INLINE const char* libxs_get_gemm_typename(const unsigned char* datatype)
-{
-  const int common_dt = (int)LIBXS_GEMM_GETENUM_ABC_COMMON_PREC(datatype);
-  switch (common_dt) {
-    case LIBXS_DATATYPE_F64:  return "f64";
-    case LIBXS_DATATYPE_F32:  return "f32";
-    case LIBXS_DATATYPE_BF16: return "bf16";
-    case LIBXS_DATATYPE_F16:  return "f16";
-    case LIBXS_DATATYPE_BF8:  return "bf8";
-    case LIBXS_DATATYPE_HF8:  return "hf8";
-    case LIBXS_DATATYPE_I64:  return "i64";
-    case LIBXS_DATATYPE_I32:  return "i32";
-    case LIBXS_DATATYPE_I16:  return "i16";
-    case LIBXS_DATATYPE_I8:   return "i8";
-    default: {
-      if (LIBXS_DATATYPE_I16 == LIBXS_GEMM_GETENUM_AB_COMMON_PREC(datatype) &&
-          LIBXS_DATATYPE_I32 == LIBXS_GEMM_GETENUM_C_PREC(datatype))
-      {
-        return "i16i32";
-      }
-      else if (LIBXS_DATATYPE_I8 == LIBXS_GEMM_GETENUM_A_PREC(datatype) &&
-               LIBXS_DATATYPE_F16 == LIBXS_GEMM_GETENUM_B_PREC(datatype) &&
-               LIBXS_DATATYPE_F16 == LIBXS_GEMM_GETENUM_C_PREC(datatype))
-      {
-        return "i8f16f16";
-      }
-      else if (LIBXS_DATATYPE_I8 == LIBXS_GEMM_GETENUM_A_PREC(datatype) &&
-               LIBXS_DATATYPE_F16 == LIBXS_GEMM_GETENUM_B_PREC(datatype) &&
-               LIBXS_DATATYPE_F32 == LIBXS_GEMM_GETENUM_C_PREC(datatype))
-      {
-        return "i8f16f32";
-      }
-      else if (LIBXS_DATATYPE_BF8 == LIBXS_GEMM_GETENUM_A_PREC(datatype) &&
-               LIBXS_DATATYPE_F16 == LIBXS_GEMM_GETENUM_B_PREC(datatype) &&
-               LIBXS_DATATYPE_F16 == LIBXS_GEMM_GETENUM_C_PREC(datatype))
-      {
-        return "bf8f16f16";
-      }
-      else if (LIBXS_DATATYPE_BF8 == LIBXS_GEMM_GETENUM_A_PREC(datatype) &&
-               LIBXS_DATATYPE_BF16 == LIBXS_GEMM_GETENUM_B_PREC(datatype) &&
-               LIBXS_DATATYPE_BF16 == LIBXS_GEMM_GETENUM_C_PREC(datatype))
-      {
-        return "bf8bf16bf16";
-      }
-      else if (LIBXS_DATATYPE_BF8 == LIBXS_GEMM_GETENUM_A_PREC(datatype) &&
-               LIBXS_DATATYPE_BF16 == LIBXS_GEMM_GETENUM_B_PREC(datatype) &&
-               LIBXS_DATATYPE_F32 == LIBXS_GEMM_GETENUM_C_PREC(datatype))
-      {
-        return "bf8bf16f32";
-      }
-      else if (LIBXS_DATATYPE_HF8 == LIBXS_GEMM_GETENUM_A_PREC(datatype) &&
-               LIBXS_DATATYPE_BF16 == LIBXS_GEMM_GETENUM_B_PREC(datatype) &&
-               LIBXS_DATATYPE_BF16 == LIBXS_GEMM_GETENUM_C_PREC(datatype))
-      {
-        return "hf8bf16bf16";
-      }
-      else if (LIBXS_DATATYPE_HF8 == LIBXS_GEMM_GETENUM_A_PREC(datatype) &&
-               LIBXS_DATATYPE_BF16 == LIBXS_GEMM_GETENUM_B_PREC(datatype) &&
-               LIBXS_DATATYPE_F32 == LIBXS_GEMM_GETENUM_C_PREC(datatype))
-      {
-        return "hf8bf16f32";
-      }
-      else if (LIBXS_DATATYPE_BF8 == LIBXS_GEMM_GETENUM_A_PREC(datatype) &&
-               LIBXS_DATATYPE_F16 == LIBXS_GEMM_GETENUM_B_PREC(datatype) &&
-               LIBXS_DATATYPE_F32 == LIBXS_GEMM_GETENUM_C_PREC(datatype))
-      {
-        return "bf8f16f32";
-      }
-      else if (LIBXS_DATATYPE_I8 == LIBXS_GEMM_GETENUM_A_PREC(datatype) &&
-               LIBXS_DATATYPE_BF16 == LIBXS_GEMM_GETENUM_B_PREC(datatype) &&
-               LIBXS_DATATYPE_BF16 == LIBXS_GEMM_GETENUM_C_PREC(datatype))
-      {
-        return "i8bf16bf16";
-      }
-      else if (LIBXS_DATATYPE_I8 == LIBXS_GEMM_GETENUM_A_PREC(datatype) &&
-               LIBXS_DATATYPE_BF16 == LIBXS_GEMM_GETENUM_B_PREC(datatype) &&
-               LIBXS_DATATYPE_F32 == LIBXS_GEMM_GETENUM_C_PREC(datatype))
-      {
-        return "i8bf16f32";
-      }
-      else if (LIBXS_DATATYPE_I16 == LIBXS_GEMM_GETENUM_AB_COMMON_PREC(datatype) &&
-               LIBXS_DATATYPE_F32 == LIBXS_GEMM_GETENUM_C_PREC(datatype))
-      {
-        return "i16f32";
-      }
-      else if (LIBXS_DATATYPE_F16 == LIBXS_GEMM_GETENUM_AB_COMMON_PREC(datatype) &&
-               LIBXS_DATATYPE_F32 == LIBXS_GEMM_GETENUM_C_PREC(datatype))
-      {
-        return "f16f32";
-      }
-      else if (LIBXS_DATATYPE_I8 == LIBXS_GEMM_GETENUM_AB_COMMON_PREC(datatype) &&
-               LIBXS_DATATYPE_I32 == LIBXS_GEMM_GETENUM_C_PREC(datatype))
-      {
-        return "i8i32";
-      }
-      else if (LIBXS_DATATYPE_I8 == LIBXS_GEMM_GETENUM_AB_COMMON_PREC(datatype) &&
-               LIBXS_DATATYPE_F32 == LIBXS_GEMM_GETENUM_C_PREC(datatype))
-      {
-        return "i8f32";
-      }
-      else if (LIBXS_DATATYPE_BF16 == LIBXS_GEMM_GETENUM_AB_COMMON_PREC(datatype) &&
-               LIBXS_DATATYPE_F32 == LIBXS_GEMM_GETENUM_C_PREC(datatype))
-      {
-        return "bf16f32";
-      }
-      else if (LIBXS_DATATYPE_BF8 == LIBXS_GEMM_GETENUM_AB_COMMON_PREC(datatype) &&
-               LIBXS_DATATYPE_F32 == LIBXS_GEMM_GETENUM_C_PREC(datatype))
-      {
-        return "bf8f32";
-      }
-      else if (LIBXS_DATATYPE_HF8 == LIBXS_GEMM_GETENUM_AB_COMMON_PREC(datatype) &&
-               LIBXS_DATATYPE_F32 == LIBXS_GEMM_GETENUM_C_PREC(datatype))
-      {
-        return "hf8f32";
-      }
-      else {
-        return "void";
-      }
-    }
-  }
-}
-
-
-LIBXS_API const char* libxs_get_typename(libxs_datatype datatype)
-{
-  switch ((int)datatype) {
-    case LIBXS_DATATYPE_F64:  return "f64";
-    case LIBXS_DATATYPE_F32:  return "f32";
-    case LIBXS_DATATYPE_BF16: return "bf16";
-    case LIBXS_DATATYPE_F16:  return "f16";
-    case LIBXS_DATATYPE_BF8:  return "bf8";
-    case LIBXS_DATATYPE_HF8:  return "hf8";
-    case LIBXS_DATATYPE_I64:  return "i64";
-    case LIBXS_DATATYPE_I32:  return "i32";
-    case LIBXS_DATATYPE_U32:  return "u32";
-    case LIBXS_DATATYPE_I16:  return "i16";
-    case LIBXS_DATATYPE_U16:  return "u16";
-    case LIBXS_DATATYPE_I8:   return "i8";
-    case LIBXS_DATATYPE_IMPLICIT:   return "implicit";
-    default: {
-      if (LIBXS_DATATYPE_I16 == LIBXS_GETENUM_INP(datatype) &&
-          LIBXS_DATATYPE_I32 == LIBXS_GETENUM_OUT(datatype))
-      {
-        return "i16i32";
-      }
-      else if (LIBXS_DATATYPE_I16 == LIBXS_GETENUM_INP(datatype) &&
-               LIBXS_DATATYPE_F32 == LIBXS_GETENUM_OUT(datatype))
-      {
-        return "i16f32";
-      }
-      else if (LIBXS_DATATYPE_I8 == LIBXS_GETENUM_INP(datatype) &&
-               LIBXS_DATATYPE_I32 == LIBXS_GETENUM_OUT(datatype))
-      {
-        return "i8i32";
-      }
-      else if (LIBXS_DATATYPE_BF16 == LIBXS_GETENUM_INP(datatype) &&
-               LIBXS_DATATYPE_F32 == LIBXS_GETENUM_OUT(datatype))
-      {
-        return "bf16f32";
-      }
-      else if (LIBXS_DATATYPE_BF8 == LIBXS_GETENUM_INP(datatype) &&
-               LIBXS_DATATYPE_F32 == LIBXS_GETENUM_OUT(datatype))
-      {
-        return "bf8f32";
-      }
-      else if (LIBXS_DATATYPE_HF8 == LIBXS_GETENUM_INP(datatype) &&
-               LIBXS_DATATYPE_F32 == LIBXS_GETENUM_OUT(datatype))
-      {
-        return "hf8f32";
-      }
-      else {
-        return "void";
-      }
-    }
-  }
-}
-
-
-LIBXS_API_INLINE void internal_get_typesize_string(char buffer[4], int buffer_size, size_t typesize)
-{
-  LIBXS_ASSERT(256 > typesize && 4 <= buffer_size);
-  if (10 > typesize) {
-    buffer[0] = (char)('0' + typesize);
-    buffer[1] = 0;
-  }
-  else {
-    LIBXS_SNPRINTF(buffer, buffer_size, "%i", (int)typesize);
-  }
 }
 
 
@@ -2252,100 +1530,11 @@ LIBXS_API int libxs_get_kernel_info(const void* kernel, libxs_kernel_info* info)
   return result;
 }
 
-LIBXS_API int libxs_get_mmkernel_info(libxs_xmmfunction kernel, libxs_mmkernel_info* info)
-{
-  libxs_code_pointer code = { 0 };
-  static int error_once = 0;
-  int result;
-  code.xgemm = kernel;
-  if (NULL != info) {
-    const libxs_descriptor* desc;
-    if (NULL != libxs_get_kernel_xinfo(code, &desc, NULL/*code_size*/) &&
-        NULL != desc && LIBXS_KERNEL_KIND_MATMUL == LIBXS_DESCRIPTOR_KIND(desc->kind))
-    {
-      info->iprecision = (libxs_datatype)LIBXS_GEMM_GETENUM_AB_COMMON_PREC(desc->gemm.desc.datatype);
-      info->oprecision = (libxs_datatype)LIBXS_GEMM_GETENUM_C_PREC(desc->gemm.desc.datatype);
-      info->prefetch = (libxs_gemm_prefetch_type)desc->gemm.desc.prefetch;
-      info->flags = desc->gemm.desc.flags;
-      info->lda = desc->gemm.desc.lda;
-      info->ldb = desc->gemm.desc.ldb;
-      info->ldc = desc->gemm.desc.ldc;
-      info->m = desc->gemm.desc.m;
-      info->n = desc->gemm.desc.n;
-      info->k = desc->gemm.desc.k;
-      result = EXIT_SUCCESS;
-    }
-    else {
-      if ( 0 != libxs_verbosity /* library code is expected to be mute */
-        && 1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED))
-      {
-        if (NULL == code.ptr_const) {
-          fprintf(stderr, "LIBXS ERROR: NULL-kernel cannot be inspected!\n");
-        }
-        else {
-          fprintf(stderr, "LIBXS ERROR: invalid kernel cannot be inspected!\n");
-        }
-      }
-      result = EXIT_FAILURE;
-    }
-  }
-  else {
-    if (0 != libxs_verbosity /* library code is expected to be mute */
-      && 1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED))
-    {
-      fprintf(stderr, "LIBXS ERROR: invalid argument!\n");
-    }
-    result = EXIT_FAILURE;
-  }
-  return result;
-}
-
-
-LIBXS_API int libxs_get_meltwkernel_info(libxs_xmeltwfunction kernel, libxs_meltwkernel_info* info)
-{
-  libxs_code_pointer code = { 0 };
-  static int error_once = 0;
-  int result;
-  code.xmateltw = kernel;
-  if (NULL != info) {
-    const libxs_descriptor* desc;
-    if (NULL != libxs_get_kernel_xinfo(code, &desc, NULL/*code_size*/) &&
-        NULL != desc && LIBXS_KERNEL_KIND_MELTW == LIBXS_DESCRIPTOR_KIND(desc->kind))
-    {
-      info->datatype = desc->meltw.desc.datatype;
-      info->operation = desc->meltw.desc.operation;
-      info->flags = desc->meltw.desc.flags;
-      info->ldi = desc->meltw.desc.ldi;
-      info->ldo = desc->meltw.desc.ldo;
-      info->m = desc->meltw.desc.m;
-      info->n = desc->meltw.desc.n;
-      result = EXIT_SUCCESS;
-    }
-    else {
-      if (0 != libxs_verbosity /* library code is expected to be mute */
-        && 1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED))
-      {
-        fprintf(stderr, "LIBXS ERROR: invalid kernel cannot be inspected!\n");
-      }
-      result = EXIT_FAILURE;
-    }
-  }
-  else {
-    if (0 != libxs_verbosity /* library code is expected to be mute */
-      && 1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED))
-    {
-      fprintf(stderr, "LIBXS ERROR: invalid argument!\n");
-    }
-    result = EXIT_FAILURE;
-  }
-  return result;
-}
-
 
 LIBXS_API int libxs_get_registry_info(libxs_registry_info* info)
 {
   int result = EXIT_SUCCESS;
-  LIBXS_INIT /* verbosity */
+  /*LIBXS_INIT*/ /* verbosity */
   if (0 != info && 0 != internal_registry) {
     size_t i;
     LIBXS_MEMZERO127(info); /* info->nstatic = 0; info->size = 0; */
@@ -2415,11 +1604,11 @@ LIBXS_API_INLINE void* internal_get_registry_entry(int i, libxs_kernel_kind kind
 }
 
 
-LIBXS_API void* libxs_get_registry_begin(libxs_kernel_kind kind, const void** key)
+LIBXS_API void* libxs_get_registry_begin(const void** key)
 {
   void* result = NULL;
-  if (kind < LIBXS_KERNEL_UNREGISTERED && NULL != internal_registry) {
-    result = internal_get_registry_entry(0, kind, key);
+  if (NULL != internal_registry) {
+    result = internal_get_registry_entry(0, key);
   }
   return result;
 }
@@ -2454,7 +1643,7 @@ LIBXS_API void* libxs_xregister(const void* key, size_t key_size,
 #endif
   static int error_once = 0;
   void* result;
-  LIBXS_INIT /* verbosity */
+  /*LIBXS_INIT*/ /* verbosity */
   if (NULL != key && 0 < key_size && LIBXS_DESCRIPTOR_MAXSIZE >= (offset + key_size)) {
     void* dst;
 #if defined(LIBXS_UNPACKED) || defined(LIBXS_REGUSER_ALIGN)
@@ -2512,7 +1701,7 @@ LIBXS_API void* libxs_xdispatch(const void* key, size_t key_size)
   const size_t offset = wrap.user.desc - wrap.data;
 #endif
   void* result;
-  LIBXS_INIT /* verbosity */
+  /*LIBXS_INIT*/ /* verbosity */
 #if !defined(NDEBUG)
   if (NULL != key && 0 < key_size && LIBXS_DESCRIPTOR_MAXSIZE >= (offset + key_size))
 #endif
@@ -2548,569 +1737,13 @@ LIBXS_API void libxs_xrelease(const void* key, size_t key_size)
 }
 
 
-LIBXS_API libxs_xmmfunction libxs_xmmdispatch(const libxs_gemm_descriptor* descriptor)
-{
-  libxs_xmmfunction result;
-  LIBXS_INIT /* verbosity */
-#if !defined(NDEBUG)
-  if (NULL != descriptor)
-#endif
-  {
-    libxs_descriptor wrap /*= { 0 }*/;
-#if !defined(LIBXS_UNPACKED)
-    LIBXS_ASSERT((sizeof(*descriptor) + sizeof(libxs_descriptor_kind)) <= (LIBXS_DESCRIPTOR_MAXSIZE));
-#else /* CCE/Classic */
-    LIBXS_MEMZERO127(&wrap);
-#endif
-    LIBXS_ASSIGN127(&wrap.gemm.desc, descriptor);
-    /* TODO: fix this code for the 3 kernel types we have
-     * right now XGEMM ABI and BRGEMM go to 96 byte */
-    wrap.kind = (libxs_descriptor_kind)(descriptor->flags < LIBXS_GEMM_FLAG_DESC_ISBIG
-      ? ((libxs_descriptor_kind)LIBXS_KERNEL_KIND_MATMUL)
-      : LIBXS_DESCRIPTOR_BIG(LIBXS_KERNEL_KIND_MATMUL));
-    if (0 != (0x80 & descriptor->prefetch)) { /* "sign"-bit of byte-value is set */
-      const int gemm_prefetch = libxs_get_gemm_prefetch(LIBXS_PREFETCH_AUTO);
-      wrap.gemm.desc.prefetch = (unsigned char)gemm_prefetch;
-    }
-    result = internal_find_code(&wrap, sizeof(*descriptor), 0/*user_size*/).xgemm;
-  }
-#if !defined(NDEBUG)
-  else { /* quietly accept NULL-descriptor */
-    result.xmm = NULL;
-  }
-#endif
-  return result;
-}
-
-
-LIBXS_API libxs_tilecfgfunction libxs_dispatch_tilecfg_gemm( const libxs_gemm_shape gemm_shape, const libxs_bitfield gemm_flags ) {
-  int l_gemm_flags = (int)gemm_flags;
-  libxs_descriptor_blob blob;
-  libxs_xmmfunction result;
-  libxs_gemm_descriptor *desc = NULL;
-
-  /* TODO: some checks */
-#if 0
-  if ( gemm_shape.a_in_type != gemm_shape.b_in_type ) {
-    return NULL;
-  }
-#endif
-  /* if we try to hoist tileconfig, this call should return NULL */
-  if ( (((LIBXS_GEMM_FLAG_NO_RESET_TILECONFIG & l_gemm_flags) != 0) && ((LIBXS_GEMM_FLAG_NO_SETUP_TILECONFIG & l_gemm_flags) != 0)) ||
-       (((LIBXS_GEMM_FLAG_NO_RESET_TILECONFIG & l_gemm_flags) == 0) && ((LIBXS_GEMM_FLAG_NO_SETUP_TILECONFIG & l_gemm_flags) == 0)) ) {
-    return NULL;
-  }
-
-  /* use the XGEMM ABI which utilizes an arg struct */
-  l_gemm_flags |= LIBXS_GEMM_FLAG_USE_XGEMM_ABI;
-
-  /* build descriptor */
-  desc = libxs_gemm_descriptor_init(&blob, gemm_shape.a_in_type,
-    gemm_shape.b_in_type, gemm_shape.comp_type, gemm_shape.out_type,
-    gemm_shape.m, gemm_shape.n, gemm_shape.k,
-    gemm_shape.lda, gemm_shape.ldb, gemm_shape.ldc,
-    l_gemm_flags, libxs_get_gemm_prefetch(0));
-
-  /* JIT! */
-  result = libxs_xmmdispatch(desc);
-
-  return result.tilecfg;
-}
-
-
-LIBXS_API libxs_gemmfunction libxs_dispatch_gemm( const libxs_gemm_shape gemm_shape, const libxs_bitfield gemm_flags,
-                                                        const libxs_bitfield prefetch_flags ) {
-  libxs_descriptor_blob blob;
-  libxs_xmmfunction result;
-  libxs_gemm_descriptor *desc = NULL;
-
-  desc = libxs_gemm_descriptor_init_gemm( &blob, gemm_shape, gemm_flags,
-                                            prefetch_flags );
-  if ( desc == NULL ) {
-    return NULL;
-  }
-
-  /* JIT! */
-  result = libxs_xmmdispatch(desc);
-
-  return result.gemm;
-}
-
-
-LIBXS_API libxs_gemmfunction libxs_dispatch_brgemm( const libxs_gemm_shape gemm_shape, const libxs_bitfield gemm_flags,
-                                                           const libxs_bitfield prefetch_flags, const libxs_gemm_batch_reduce_config brgemm_config ) {
-  libxs_descriptor_blob blob;
-  libxs_xmmfunction result;
-  libxs_gemm_descriptor *desc = NULL;
-
-  desc = libxs_gemm_descriptor_init_brgemm( &blob, gemm_shape, gemm_flags,
-                                              prefetch_flags, brgemm_config );
-  if ( desc == NULL ) {
-    return NULL;
-  }
-
-  /* JIT! */
-  result = libxs_xmmdispatch(desc);
-
-  return result.gemm;
-}
-
-
-LIBXS_API libxs_gemmfunction_ext libxs_dispatch_brgemm_ext( const libxs_gemm_shape gemm_shape, const libxs_bitfield gemm_flags,
-                                                                  const libxs_bitfield prefetch_flags, const libxs_gemm_batch_reduce_config brgemm_config,
-                                                                  const libxs_gemm_ext_unary_argops unary_argops, const libxs_gemm_ext_binary_postops binary_postops ) {
-  libxs_descriptor_blob blob;
-  libxs_xmmfunction result;
-  libxs_gemm_descriptor *desc = NULL;
-
-  desc = libxs_gemm_descriptor_init_brgemm_ext( &blob, gemm_shape, gemm_flags,
-                                                  prefetch_flags, brgemm_config,
-                                                  unary_argops, binary_postops );
-  if ( desc == NULL ) {
-    return NULL;
-  }
-
-  /* JIT! */
-  result = libxs_xmmdispatch(desc);
-
-  return result.gemm_ext;
-}
-
-
-LIBXS_API libxs_xmeltwfunction libxs_dispatch_meltw(const libxs_meltw_descriptor* descriptor)
-{
-  libxs_xmeltwfunction result;
-  LIBXS_INIT /* verbosity */
-  if (NULL != descriptor) {
-    libxs_descriptor wrap /*= { 0 }*/;
-#if !defined(LIBXS_UNPACKED)
-    LIBXS_ASSERT((sizeof(*descriptor) + sizeof(libxs_descriptor_kind)) <= (LIBXS_DESCRIPTOR_MAXSIZE));
-#else /* CCE/Classic */
-    LIBXS_MEMZERO127(&wrap);
-#endif
-    LIBXS_ASSIGN127(&wrap.meltw.desc, descriptor);
-    wrap.kind = LIBXS_DESCRIPTOR_BIG(LIBXS_KERNEL_KIND_MELTW);
-    result = internal_find_code(&wrap, sizeof(*descriptor), 0/*user_size*/).xmateltw;
-  }
-  else {
-    result.xmeltw = NULL;
-  }
-  return result;
-}
-
-
-LIBXS_API libxs_meltwfunction_unary libxs_dispatch_meltw_unary( const libxs_meltw_unary_type unary_type, const libxs_meltw_unary_shape unary_shape, const libxs_bitfield unary_flags )
-{
-  libxs_descriptor_blob blob;
-  const libxs_meltw_descriptor *const desc = libxs_meltw_descriptor_init2(&blob,
-    unary_shape.in0_type, LIBXS_DATATYPE_UNSUPPORTED, LIBXS_DATATYPE_UNSUPPORTED, unary_shape.comp_type, unary_shape.out_type, unary_shape.m, unary_shape.n,
-    unary_shape.ldi, unary_shape.ldo, 0, 0,
-    (unsigned short)unary_flags, (unsigned short)unary_type, LIBXS_MELTW_OPERATION_UNARY);
-
-  libxs_xmeltwfunction result = libxs_dispatch_meltw(desc);
-
-  return result.meltw_unary;
-}
-
-
-LIBXS_API libxs_meltwfunction_binary libxs_dispatch_meltw_binary( const libxs_meltw_binary_type binary_type, const libxs_meltw_binary_shape binary_shape, const libxs_bitfield binary_flags )
-{
-  libxs_descriptor_blob blob;
-  const libxs_meltw_descriptor *const desc = libxs_meltw_descriptor_init2(&blob,
-    binary_shape.in0_type, binary_shape.in1_type, LIBXS_DATATYPE_UNSUPPORTED, binary_shape.comp_type, binary_shape.out_type, binary_shape.m, binary_shape.n,
-    binary_shape.ldi, binary_shape.ldo, binary_shape.ldi2, 0,
-    (unsigned short)binary_flags, (unsigned short)binary_type, LIBXS_MELTW_OPERATION_BINARY);
-
-  libxs_xmeltwfunction result = libxs_dispatch_meltw(desc);
-
-  return result.meltw_binary;
-}
-
-
-LIBXS_API libxs_meltwfunction_ternary libxs_dispatch_meltw_ternary( const libxs_meltw_ternary_type ternary_type, const libxs_meltw_ternary_shape ternary_shape, const libxs_bitfield ternary_flags )
-{
-  libxs_descriptor_blob blob;
-  const libxs_meltw_descriptor *const desc = libxs_meltw_descriptor_init2(&blob,
-    ternary_shape.in0_type, ternary_shape.in1_type, ternary_shape.in2_type, ternary_shape.comp_type, ternary_shape.out_type, ternary_shape.m, ternary_shape.n,
-    ternary_shape.ldi, ternary_shape.ldo, ternary_shape.ldi2, ternary_shape.ldi3,
-    (unsigned short)ternary_flags, (unsigned short)ternary_type, LIBXS_MELTW_OPERATION_TERNARY);
-
-  libxs_xmeltwfunction result = libxs_dispatch_meltw(desc);
-
-  return result.meltw_ternary;
-}
-
-
-LIBXS_API libxs_meqn_function libxs_dispatch_meqn_desc( const libxs_meqn_descriptor* descriptor ) {
-  libxs_meqn_function result;
-  LIBXS_INIT /* verbosity */
-  if (NULL != descriptor) {
-    libxs_descriptor wrap /*= { 0 }*/;
-    /* check if equation is ready for JIT */
-    if (0 == libxs_meqn_is_ready_for_jit( descriptor->eqn_idx)) {
-#if !defined(LIBXS_UNPACKED)
-      LIBXS_ASSERT((sizeof(*descriptor) + sizeof(libxs_descriptor_kind)) <= (LIBXS_DESCRIPTOR_MAXSIZE));
-#else /* CCE/Classic */
-      LIBXS_MEMZERO127(&wrap);
-#endif
-      LIBXS_ASSIGN127(&wrap.meqn.desc, descriptor);
-      wrap.kind = LIBXS_DESCRIPTOR_BIG(LIBXS_KERNEL_KIND_MEQN);
-      result = internal_find_code(&wrap, sizeof(*descriptor), 0/*user_size*/).xmateqn;
-    }
-    else result = NULL;
-  }
-  else result = NULL;
-  return result;
-}
-
-
-LIBXS_API libxs_meqn_function libxs_dispatch_meqn(
-  const libxs_blasint idx, const libxs_meqn_arg_shape out_shape ) {
-  libxs_descriptor_blob blob;
-  const libxs_meqn_descriptor *const desc = libxs_meqn_descriptor_init(&blob,
-    out_shape.type, out_shape.m, out_shape.n, out_shape.ld, (unsigned int)idx);
-
-  if (idx >= LIBXS_MAX_EQN_COUNT) {
-    fprintf(stderr, "Exceeded maximum number of equations (%d). Can't create requested equation...\n", LIBXS_MAX_EQN_COUNT);
-    return NULL;
-  }
-
-  return libxs_dispatch_meqn_desc(desc);
-}
-
-
-LIBXS_API libxs_gemmfunction libxs_create_packed_spgemm_csr(
-  const libxs_gemm_shape gemm_shape, const libxs_bitfield gemm_flags, const libxs_bitfield prefetch_flags, const libxs_blasint packed_width,
-  const unsigned int* row_ptr, const unsigned int* column_idx, const void* values)
-{
-  int l_gemm_flags = (int)gemm_flags;
-  libxs_pspgemm_csr_descriptor pspgemm_csr /*= { 0 }*/;
-  libxs_build_request request /*= { 0 }*/;
-  libxs_descriptor_blob blob;
-  libxs_gemm_descriptor *desc = NULL;
-  libxs_code_pointer result = { 0 };
-  LIBXS_INIT
-
-  /* TODO: some checks */
-  if ( gemm_shape.a_in_type != gemm_shape.b_in_type ) {
-    return NULL;
-  }
-  if ( (NULL == row_ptr) || (NULL == column_idx) || (NULL == values) ) {
-    return NULL;
-  }
-
-  /* use the XGEMM ABI which utilizes an arg struct */
-  l_gemm_flags |= LIBXS_GEMM_FLAG_USE_XGEMM_ABI;
-
-  /* build descriptor */
-  desc = libxs_gemm_descriptor_init(&blob, gemm_shape.a_in_type,
-    gemm_shape.b_in_type, gemm_shape.comp_type, gemm_shape.out_type,
-    gemm_shape.m, gemm_shape.n, gemm_shape.k,
-    gemm_shape.lda, gemm_shape.ldb, gemm_shape.ldc,
-    l_gemm_flags, libxs_get_gemm_prefetch(prefetch_flags));
-
-  pspgemm_csr.gemm = desc;
-  pspgemm_csr.row_ptr = row_ptr;
-  pspgemm_csr.column_idx = column_idx;
-  pspgemm_csr.values = values;
-  pspgemm_csr.packed_width = packed_width;
-  request.descriptor.pspgemm_csr = &pspgemm_csr;
-  request.kind = LIBXS_BUILD_KIND_PSPGEMM_CSR;
-  libxs_build(&request, LIBXS_CAPACITY_REGISTRY/*not managed*/, &result);
-
-  return result.xgemm.gemm;
-}
-
-
-LIBXS_API libxs_gemmfunction libxs_create_packed_spgemm_csc(
-  const libxs_gemm_shape gemm_shape, const libxs_bitfield gemm_flags, const libxs_bitfield prefetch_flags, const libxs_blasint packed_width,
-  const unsigned int* column_ptr, const unsigned int* row_idx, const void* values)
-{
-  int l_gemm_flags = (int)gemm_flags;
-  libxs_pspgemm_csc_descriptor pspgemm_csc /*= { 0 }*/;
-  libxs_build_request request /*= { 0 }*/;
-  libxs_descriptor_blob blob;
-  libxs_gemm_descriptor *desc = NULL;
-  libxs_code_pointer result = { 0 };
-  LIBXS_INIT
-
-  /* TODO: some checks */
-  if ( gemm_shape.a_in_type != gemm_shape.b_in_type ) {
-    return NULL;
-  }
-  if ( (NULL == column_ptr) || (NULL == row_idx) || (NULL == values) ) {
-    return NULL;
-  }
-
-  /* use the XGEMM ABI which utilizes an arg struct */
-  l_gemm_flags |= LIBXS_GEMM_FLAG_USE_XGEMM_ABI;
-
-  /* build descriptor */
-  desc = libxs_gemm_descriptor_init(&blob, gemm_shape.a_in_type,
-    gemm_shape.b_in_type, gemm_shape.comp_type, gemm_shape.out_type,
-    gemm_shape.m, gemm_shape.n, gemm_shape.k,
-    gemm_shape.lda, gemm_shape.ldb, gemm_shape.ldc,
-    l_gemm_flags, libxs_get_gemm_prefetch(prefetch_flags));
-
-  pspgemm_csc.gemm = desc;
-  pspgemm_csc.column_ptr = column_ptr;
-  pspgemm_csc.row_idx = row_idx;
-  pspgemm_csc.values = values;
-  pspgemm_csc.packed_width = packed_width;
-  request.descriptor.pspgemm_csc = &pspgemm_csc;
-  request.kind = LIBXS_BUILD_KIND_PSPGEMM_CSC;
-  libxs_build(&request, LIBXS_CAPACITY_REGISTRY/*not managed*/, &result);
-
-  return result.xgemm.gemm;
-}
-
-LIBXS_API libxs_gemmfunction libxs_create_packed_spgemm_bcsc(
-  const libxs_gemm_shape gemm_shape, const libxs_bitfield gemm_flags, const libxs_bitfield prefetch_flags, const libxs_spgemm_config spgemm_config)
-{
-  int l_gemm_flags = (int)gemm_flags;
-  const libxs_blasint packed_width = spgemm_config.packed_width;
-  const libxs_blasint bk = spgemm_config.bk;
-  const libxs_blasint bn = spgemm_config.bn;
-
-  libxs_pspgemm_bcsc_descriptor pspgemm_bcsc /*= { 0 }*/;
-  libxs_build_request request /*= { 0 }*/;
-  libxs_descriptor_blob blob;
-  libxs_gemm_descriptor *desc = NULL;
-  libxs_code_pointer result = { 0 };
-  LIBXS_INIT
-
-  /* TODO: some checks */
-  if ( gemm_shape.a_in_type != gemm_shape.b_in_type ) {
-    return NULL;
-  }
-  /* if we try to hoist tileconfig, this call should return NULL */
-  if ( (((LIBXS_GEMM_FLAG_NO_RESET_TILECONFIG & l_gemm_flags) != 0) && ((LIBXS_GEMM_FLAG_NO_SETUP_TILECONFIG & l_gemm_flags) == 0)) ||
-       (((LIBXS_GEMM_FLAG_NO_RESET_TILECONFIG & l_gemm_flags) == 0) && ((LIBXS_GEMM_FLAG_NO_SETUP_TILECONFIG & l_gemm_flags) != 0)) ) {
-    return NULL;
-  }
-
-  /* use the XGEMM ABI which utilizes an arg struct */
-  l_gemm_flags |= LIBXS_GEMM_FLAG_USE_XGEMM_ABI;
-
-  /* build descriptor */
-  desc = libxs_gemm_descriptor_init(&blob, gemm_shape.a_in_type,
-    gemm_shape.b_in_type, gemm_shape.comp_type, gemm_shape.out_type,
-    gemm_shape.m, gemm_shape.n, gemm_shape.k,
-    gemm_shape.lda, gemm_shape.ldb, gemm_shape.ldc,
-    l_gemm_flags, libxs_get_gemm_prefetch(prefetch_flags));
-
-  pspgemm_bcsc.gemm = desc;
-  pspgemm_bcsc.packed_width = packed_width;
-  pspgemm_bcsc.bk = bk;
-  pspgemm_bcsc.bn = bn;
-  request.descriptor.pspgemm_bcsc = &pspgemm_bcsc;
-  request.kind = LIBXS_BUILD_KIND_PSPGEMM_BCSC;
-  libxs_build(&request, LIBXS_CAPACITY_REGISTRY/*not managed*/, &result);
-
-  return result.xgemm.gemm;
-}
-
-LIBXS_API libxs_tilecfgfunction libxs_create_tilecfg_packed_spgemm_bcsc(const libxs_gemm_shape gemm_shape, const libxs_bitfield gemm_flags, const libxs_spgemm_config spgemm_config)
-{
-  int l_gemm_flags = (int)gemm_flags;
-  const libxs_blasint packed_width = spgemm_config.packed_width;
-  const libxs_blasint bk = spgemm_config.bk;
-  const libxs_blasint bn = spgemm_config.bn;
-
-  libxs_pspgemm_bcsc_descriptor pspgemm_bcsc /*= { 0 }*/;
-  libxs_build_request request /*= { 0 }*/;
-  libxs_descriptor_blob blob;
-  libxs_gemm_descriptor *desc = NULL;
-  libxs_code_pointer result = { 0 };
-  LIBXS_INIT
-
-  /* TODO: some checks */
-  if ( gemm_shape.a_in_type != gemm_shape.b_in_type ) {
-    return NULL;
-  }
-  /* if we try to hoist tileconfig, this call should return NULL */
-  if ( (((LIBXS_GEMM_FLAG_NO_RESET_TILECONFIG & l_gemm_flags) != 0) && ((LIBXS_GEMM_FLAG_NO_SETUP_TILECONFIG & l_gemm_flags) != 0)) ||
-       (((LIBXS_GEMM_FLAG_NO_RESET_TILECONFIG & l_gemm_flags) == 0) && ((LIBXS_GEMM_FLAG_NO_SETUP_TILECONFIG & l_gemm_flags) == 0)) ) {
-    return NULL;
-  }
-
-  /* use the XGEMM ABI which utilizes an arg struct */
-  l_gemm_flags |= LIBXS_GEMM_FLAG_USE_XGEMM_ABI;
-
-  /* build descriptor */
-  desc = libxs_gemm_descriptor_init(&blob, gemm_shape.a_in_type,
-    gemm_shape.b_in_type, gemm_shape.comp_type, gemm_shape.out_type,
-    gemm_shape.m, gemm_shape.n, gemm_shape.k,
-    gemm_shape.lda, gemm_shape.ldb, gemm_shape.ldc,
-    l_gemm_flags, libxs_get_gemm_prefetch(0));
-
-  pspgemm_bcsc.gemm = desc;
-  pspgemm_bcsc.packed_width = packed_width;
-  pspgemm_bcsc.bk = bk;
-  pspgemm_bcsc.bn = bn;
-  request.descriptor.pspgemm_bcsc = &pspgemm_bcsc;
-  request.kind = LIBXS_BUILD_KIND_PSPGEMM_BCSC;
-  libxs_build(&request, LIBXS_CAPACITY_REGISTRY/*not managed*/, &result);
-
-  return result.xgemm.tilecfg;
-}
-
-LIBXS_API libxs_gemmfunction libxs_create_packed_gemm( const libxs_gemm_shape gemm_shape,
-  const libxs_bitfield gemm_flags, const libxs_bitfield prefetch_flags, const libxs_blasint packed_width )
-{
-  int l_gemm_flags = (int)gemm_flags;
-  libxs_pgemm_descriptor pgemm /*= { 0 }*/;
-  libxs_build_request request /*= { 0 }*/;
-  libxs_descriptor_blob blob;
-  libxs_gemm_descriptor *desc = NULL;
-  libxs_code_pointer result = { 0 };
-  LIBXS_INIT
-
-  /* TODO: some checks */
-  if ( gemm_shape.a_in_type != gemm_shape.b_in_type ) {
-    return NULL;
-  }
-
-  /* use the XGEMM ABI which utilizes an arg struct */
-  l_gemm_flags |= LIBXS_GEMM_FLAG_USE_XGEMM_ABI;
-
-  /* build descriptor */
-  desc = libxs_gemm_descriptor_init(&blob, gemm_shape.a_in_type,
-    gemm_shape.b_in_type, gemm_shape.comp_type, gemm_shape.out_type,
-    gemm_shape.m, gemm_shape.n, gemm_shape.k,
-    gemm_shape.lda, gemm_shape.ldb, gemm_shape.ldc,
-    l_gemm_flags, libxs_get_gemm_prefetch(prefetch_flags));
-
-  pgemm.gemm = desc;
-  pgemm.packed_width = packed_width;
-  request.descriptor.pgemm = &pgemm;
-  request.kind = LIBXS_BUILD_KIND_PGEMM;
-  libxs_build(&request, LIBXS_CAPACITY_REGISTRY/*not managed*/, &result);
-
-  return result.xgemm.gemm;
-}
-
-LIBXS_API libxs_gemmfunction libxs_create_packed_gemm_ac_rm( const libxs_gemm_shape gemm_shape,
-  const libxs_bitfield gemm_flags, const libxs_bitfield prefetch_flags, const libxs_blasint packed_width )
-{
-  int l_gemm_flags = (int)gemm_flags;
-  libxs_pgemm_ac_rm_descriptor pgemmacrm /*= { 0 }*/;
-  libxs_build_request request /*= { 0 }*/;
-  libxs_descriptor_blob blob;
-  libxs_gemm_descriptor *desc = NULL;
-  libxs_code_pointer result = { 0 };
-  LIBXS_INIT
-
-  /* TODO: some checks */
-  if ( gemm_shape.a_in_type != gemm_shape.b_in_type ) {
-    return NULL;
-  }
-
-  /* use the XGEMM ABI which utilizes an arg struct */
-  l_gemm_flags |= LIBXS_GEMM_FLAG_USE_XGEMM_ABI;
-
-  /* build descriptor */
-  desc = libxs_gemm_descriptor_init(&blob, gemm_shape.a_in_type,
-    gemm_shape.b_in_type, gemm_shape.comp_type, gemm_shape.out_type,
-    gemm_shape.m, gemm_shape.n, gemm_shape.k,
-    gemm_shape.lda, gemm_shape.ldb, gemm_shape.ldc,
-    l_gemm_flags, libxs_get_gemm_prefetch(prefetch_flags));
-
-  pgemmacrm.gemm = desc;
-  pgemmacrm.packed_width = packed_width;
-  request.descriptor.pgemmacrm = &pgemmacrm;
-  request.kind = LIBXS_BUILD_KIND_PGEMMRMAC;
-  libxs_build(&request, LIBXS_CAPACITY_REGISTRY/*not managed*/, &result);
-
-  return result.xgemm.gemm;
-}
-
-LIBXS_API libxs_gemmfunction libxs_create_packed_gemm_bc_rm( const libxs_gemm_shape gemm_shape,
-  const libxs_bitfield gemm_flags, const libxs_bitfield prefetch_flags, const libxs_blasint packed_width )
-{
-  int l_gemm_flags = (int)gemm_flags;
-  libxs_pgemm_bc_rm_descriptor pgemmbcrm /*= { 0 }*/;
-  libxs_build_request request /*= { 0 }*/;
-  libxs_descriptor_blob blob;
-  libxs_gemm_descriptor *desc = NULL;
-  libxs_code_pointer result = { 0 };
-  LIBXS_INIT
-
-  /* TODO: some checks */
-  if ( gemm_shape.a_in_type != gemm_shape.b_in_type ) {
-    return NULL;
-  }
-
-  /* use the XGEMM ABI which utilizes an arg struct */
-  l_gemm_flags |= LIBXS_GEMM_FLAG_USE_XGEMM_ABI;
-
-  /* build descriptor */
-  desc = libxs_gemm_descriptor_init(&blob, gemm_shape.a_in_type,
-    gemm_shape.b_in_type, gemm_shape.comp_type, gemm_shape.out_type,
-    gemm_shape.m, gemm_shape.n, gemm_shape.k,
-    gemm_shape.lda, gemm_shape.ldb, gemm_shape.ldc,
-    l_gemm_flags, libxs_get_gemm_prefetch(prefetch_flags));
-
-  pgemmbcrm.gemm = desc;
-  pgemmbcrm.packed_width = packed_width;
-  request.descriptor.pgemmbcrm = &pgemmbcrm;
-  request.kind = LIBXS_BUILD_KIND_PGEMMRMBC;
-  libxs_build(&request, LIBXS_CAPACITY_REGISTRY/*not managed*/, &result);
-
-  return result.xgemm.gemm;
-}
-
-
-LIBXS_API libxs_gemmfunction libxs_create_spgemm_csr_areg( const libxs_gemm_shape gemm_shape,
-  const libxs_bitfield gemm_flags, const libxs_bitfield prefetch_flags,
-  const libxs_blasint max_N, const unsigned int* row_ptr, const unsigned int* column_idx, const double* values )
-{
-  int l_gemm_flags = (int)gemm_flags;
-  libxs_csr_reg_descriptor sreg /*= { 0 }*/;
-  libxs_build_request request /*= { 0 }*/;
-  libxs_descriptor_blob blob;
-  libxs_gemm_descriptor *desc = NULL;
-  libxs_code_pointer result = { 0 };
-  LIBXS_INIT
-
-  /* TODO: some checks */
-  if ( gemm_shape.a_in_type != gemm_shape.b_in_type ) {
-    return NULL;
-  }
-  if ( (NULL == row_ptr) || (NULL == column_idx) || (NULL == values) ) {
-    return NULL;
-  }
-
-  /* use the XGEMM ABI which utilizes an arg struct */
-  l_gemm_flags |= LIBXS_GEMM_FLAG_USE_XGEMM_ABI;
-
-  /* build descriptor */
-  desc = libxs_gemm_descriptor_init(&blob, gemm_shape.a_in_type,
-    gemm_shape.b_in_type, gemm_shape.comp_type, gemm_shape.out_type,
-    gemm_shape.m, gemm_shape.n, gemm_shape.k,
-    gemm_shape.lda, gemm_shape.ldb, gemm_shape.ldc,
-    l_gemm_flags, libxs_get_gemm_prefetch(prefetch_flags));
-  desc->c1 = max_N;
-
-  sreg.gemm = desc;
-  sreg.row_ptr = row_ptr;
-  sreg.column_idx = column_idx;
-  sreg.values = values;
-  request.descriptor.sreg = &sreg;
-  request.kind = LIBXS_BUILD_KIND_SREG;
-  libxs_build(&request, LIBXS_CAPACITY_REGISTRY/*not managed*/, &result);
-
-  return result.xgemm.gemm;
-}
-
-
 LIBXS_API void libxs_release_kernel(const void* kernel)
 {
   if (NULL != kernel) {
     static int error_once = 0;
     libxs_kernel_xinfo* extra = NULL;
     void *const extra_address = &extra;
-    LIBXS_INIT
+    /*LIBXS_INIT*/
     if (EXIT_SUCCESS == libxs_get_malloc_xinfo(
       kernel, NULL/*size*/, NULL/*flags*/, (void**)extra_address) && NULL != extra)
     {
@@ -3256,199 +1889,6 @@ LIBXS_API void LIBXS_FSYMBOL(libxs_release_kernel)(const void** kernel)
 }
 
 
-LIBXS_API void LIBXS_FSYMBOL(libxs_xmmdispatch2)(intptr_t* /*fn*/, const int* /*iprec*/, const int* /*oprec*/, const int* /*iprec*/, const int* /*oprec*/,
-  const libxs_blasint* /*m*/, const libxs_blasint* /*n*/, const libxs_blasint* /*k*/,
-  const libxs_blasint* /*lda*/, const libxs_blasint* /*ldb*/, const libxs_blasint* /*ldc*/,
-  const void* /*alpha*/, const void* /*beta*/, const int* /*flags*/, const int* /*prefetch*/);
-LIBXS_API void LIBXS_FSYMBOL(libxs_xmmdispatch2)(intptr_t* fn, const int* aprec, const int* bprec, const int* compprec, const int* cprec,
-  const libxs_blasint* m, const libxs_blasint* n, const libxs_blasint* k,
-  const libxs_blasint* lda, const libxs_blasint* ldb, const libxs_blasint* ldc,
-  const void* alpha, const void* beta, const int* flags, const int* prefetch)
-{
-#if !defined(NDEBUG)
-  if (NULL != fn && NULL != m
-    && (NULL == aprec    || (0 <= *aprec    && *aprec    < LIBXS_DATATYPE_UNSUPPORTED))
-    && (NULL == bprec    || (0 <= *bprec    && *bprec    < LIBXS_DATATYPE_UNSUPPORTED))
-    && (NULL == compprec || (0 <= *compprec && *compprec < LIBXS_DATATYPE_UNSUPPORTED))
-    && (NULL == cprec    || (0 <= *cprec    && *cprec    < LIBXS_DATATYPE_UNSUPPORTED)))
-#endif
-  {
-    int gemm_flags = (NULL != flags ? *flags : LIBXS_FLAGS);
-    const libxs_gemm_descriptor* descriptor;
-    libxs_gemm_prefetch_type gemm_prefetch;
-    libxs_descriptor_blob blob;
-    libxs_code_pointer result = { 0 };
-    int jit_bypass = 0;
-#if !defined(NDEBUG)
-    const libxs_datatype atype    = (NULL != aprec    ? ((libxs_datatype)*aprec) : LIBXS_DATATYPE_F64);
-    const libxs_datatype btype    = (NULL != bprec    ? ((libxs_datatype)*bprec) : atype);
-    const libxs_datatype comptype = (NULL != compprec ? ((libxs_datatype)*compprec) : atype);
-    const libxs_datatype ctype    = (NULL != cprec    ? ((libxs_datatype)*cprec) : atype);
-    const libxs_blasint kk = *(NULL != k ? k : m), nn = (NULL != n ? *n : kk);
-#else
-    const libxs_datatype atype = (libxs_datatype)*aprec, btype = (libxs_datatype)*bprec;
-    const libxs_datatype comptype = (libxs_datatype)*compprec;
-    const libxs_datatype ctype = (libxs_datatype)*cprec;
-    const libxs_blasint kk = *k, nn = *n;
-#endif
-    LIBXS_PRAGMA_FORCEINLINE
-    gemm_prefetch = libxs_get_gemm_prefetch(NULL == prefetch ? LIBXS_PREFETCH_AUTO : *prefetch);
-    if ( ctype == LIBXS_DATATYPE_F64 ) {
-      const double dalpha = (alpha != NULL) ? *((const double*)alpha) : 1.0;
-      const double dbeta  = (beta  != NULL) ? *((const double*)beta)  : 1.0;
-      if ( (dalpha != 1) || (dbeta != 1 && dbeta != 0 ) ) {
-        jit_bypass = 1;
-      } else {
-        gemm_flags |= ( dbeta == 0 ) ? LIBXS_GEMM_FLAG_BETA_0 : 0;
-      }
-    } else {
-      const float falpha = (alpha != NULL) ? *((const float*)alpha) : 1.0f;
-      const float fbeta  = (beta  != NULL) ? *((const float*)beta)  : 1.0f;
-      if ( (falpha != 1) || (fbeta != 1 && fbeta != 0 ) ) {
-        jit_bypass = 1;
-      } else {
-        gemm_flags |= ( fbeta == 0 ) ? LIBXS_GEMM_FLAG_BETA_0 : 0;
-      }
-    }
-    LIBXS_PRAGMA_FORCEINLINE
-    descriptor = libxs_gemm_descriptor_init(&blob, atype, btype, comptype, ctype, *m, nn, kk,
-        NULL != lda ? *lda : (0 == (LIBXS_GEMM_FLAG_TRANS_A & gemm_flags) ? *m : kk),
-        NULL != ldb ? *ldb : (0 == (LIBXS_GEMM_FLAG_TRANS_B & gemm_flags) ? kk : nn),
-      *(NULL != ldc ? ldc : m), gemm_flags, gemm_prefetch);
-#if !defined(NDEBUG)
-    if (NULL != descriptor)
-#endif
-    {
-      if ( jit_bypass ) {
-        *fn = 0;
-      } else {
-        LIBXS_PRAGMA_FORCEINLINE
-        result.xgemm = libxs_xmmdispatch(descriptor);
-        *fn = result.ival;
-      }
-    }
-#if !defined(NDEBUG)
-    else { /* quiet */
-      *fn = 0;
-    }
-#endif
-  }
-#if !defined(NDEBUG)
-  else {
-    static int error_once = 0;
-    if (0 != libxs_verbosity /* library code is expected to be mute */
-     && 1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED))
-    {
-      fprintf(stderr, "LIBXS ERROR: invalid argument passed into libxs_xmmdispatch!\n");
-    }
-    if (NULL != fn) *fn = 0;
-  }
-#endif
-}
-
-
-/* implementation provided for Fortran 77 compatibility */
-LIBXS_API void LIBXS_FSYMBOL(libxs_xmmdispatch)(intptr_t* /*fn*/, const int* /*precision*/,
-  const libxs_blasint* /*m*/, const libxs_blasint* /*n*/, const libxs_blasint* /*k*/,
-  const libxs_blasint* /*lda*/, const libxs_blasint* /*ldb*/, const libxs_blasint* /*ldc*/,
-  const void* alpha, const void* beta, const int* /*flags*/, const int* /*prefetch*/);
-LIBXS_API void LIBXS_FSYMBOL(libxs_xmmdispatch)(intptr_t* fn, const int* precision,
-  const libxs_blasint* m, const libxs_blasint* n, const libxs_blasint* k,
-  const libxs_blasint* lda, const libxs_blasint* ldb, const libxs_blasint* ldc,
-  const void* alpha, const void* beta, const int* flags, const int* prefetch)
-{
-  LIBXS_FSYMBOL(libxs_xmmdispatch2)(fn, precision, precision, precision, precision, m, n, k, lda, ldb, ldc, alpha, beta, flags, prefetch);
-}
-
-
-/* implementation provided for Fortran 77 compatibility */
-LIBXS_API void LIBXS_FSYMBOL(libxs_xmmcall_abc)(
-  const libxs_xmmfunction* /*fn*/, const void* /*a*/, const void* /*b*/, void* /*c*/);
-LIBXS_API void LIBXS_FSYMBOL(libxs_xmmcall_abc)(
-  const libxs_xmmfunction* fn, const void* a, const void* b, void* c)
-{
-#if !defined(NDEBUG)
-  static int error_once = 0;
-  if (NULL != fn && NULL != a && NULL != b && NULL != c)
-#endif
-  {
-#if !defined(NDEBUG)
-    if (NULL != fn->xmm)
-#endif
-    {
-      fn->xmm(a, b, c);
-    }
-#if !defined(NDEBUG)
-    else if (0 != libxs_verbosity /* library code is expected to be mute */
-          && 1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED))
-    {
-      fprintf(stderr, "LIBXS ERROR: NULL-function passed into libxs_xmmcall_abc!\n");
-    }
-#endif
-  }
-#if !defined(NDEBUG)
-  else if (0 != libxs_verbosity /* library code is expected to be mute */
-        && 1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED))
-  {
-    fprintf(stderr, "LIBXS ERROR: invalid arguments for libxs_xmmcall_abc specified!\n");
-  }
-#endif
-}
-
-
-/* implementation provided for Fortran 77 compatibility */
-LIBXS_API void LIBXS_FSYMBOL(libxs_xmmcall_prf)(
-  const libxs_xmmfunction* /*fn*/, const void* /*a*/, const void* /*b*/, void* /*c*/,
-  const void* /*pa*/, const void* /*pb*/, const void* /*pc*/);
-LIBXS_API void LIBXS_FSYMBOL(libxs_xmmcall_prf)(
-  const libxs_xmmfunction* fn, const void* a, const void* b, void* c,
-  const void* pa, const void* pb, const void* pc)
-{
-#if !defined(NDEBUG)
-  static int error_once = 0;
-  if (NULL != fn && NULL != a && NULL != b && NULL != c)
-#endif
-  {
-#if !defined(NDEBUG)
-    if (NULL != fn->xmm)
-#endif
-    {
-      /* TODO: fix prefetch */
-      LIBXS_UNUSED(pa);
-      LIBXS_UNUSED(pb);
-      LIBXS_UNUSED(pc);
-      fn->xmm(a, b, c/*, pa, pb, pc*/); /* TODO: fix prefetch */
-    }
-#if !defined(NDEBUG)
-    else if (0 != libxs_verbosity /* library code is expected to be mute */
-          && 1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED))
-    {
-      fprintf(stderr, "LIBXS ERROR: NULL-function passed into libxs_xmmcall_prf!\n");
-    }
-#endif
-  }
-#if !defined(NDEBUG)
-  else if (0 != libxs_verbosity /* library code is expected to be mute */
-        && 1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED))
-  {
-    fprintf(stderr, "LIBXS ERROR: invalid arguments for libxs_xmmcall_prf specified!\n");
-  }
-#endif
-}
-
-
-/* implementation provided for Fortran 77 compatibility */
-LIBXS_API void LIBXS_FSYMBOL(libxs_xmmcall)(
-  const libxs_xmmfunction* /*fn*/, const void* /*a*/, const void* /*b*/, void* /*c*/,
-  const void* /*pa*/, const void* /*pb*/, const void* /*pc*/);
-LIBXS_API void LIBXS_FSYMBOL(libxs_xmmcall)(
-  const libxs_xmmfunction* fn, const void* a, const void* b, void* c,
-  const void* pa, const void* pb, const void* pc)
-{
-  LIBXS_FSYMBOL(libxs_xmmcall_prf)(fn, a, b, c, pa, pb, pc);
-}
-
-
 /* implementation provided for Fortran 77 compatibility */
 LIBXS_API void LIBXS_FSYMBOL(libxs_xregister)(void** /*regval*/, const void* /*key*/, const int* /*keysize*/,
   const int* /*valsize*/, const void* /*valinit*/);
@@ -3514,3 +1954,5 @@ LIBXS_API void LIBXS_FSYMBOL(libxs_xrelease)(const void* key, const int* keysize
 }
 
 #endif /*defined(LIBXS_BUILD) && (!defined(LIBXS_NOFORTRAN) || defined(__clang_analyzer__))*/
+
+#endif
