@@ -9,14 +9,14 @@
 #include <libxs_hist.h>
 
 
-typedef struct libxs_hist_t {
+struct libxs_hist_t {
   libxs_hist_update_t* update;
   double *vals, min, max;
   int *buckets, nbuckets, nqueue, nvals, n;
-} libxs_hist_t;
+};
 
 
-LIBXS_API void libxs_hist_create(void** hist,
+LIBXS_API void libxs_hist_create(libxs_hist_t** hist,
   int nbuckets, int nqueue, int nvals, const libxs_hist_update_t update[])
 {
   libxs_hist_t* h = (libxs_hist_t*)malloc(sizeof(libxs_hist_t));
@@ -55,104 +55,101 @@ LIBXS_API void libxs_hist_create(void** hist,
 }
 
 
-LIBXS_API void libxs_hist_destroy(void* hist)
+LIBXS_API void libxs_hist_destroy(libxs_hist_t* hist)
 {
   if (NULL != hist) {
-    libxs_hist_t* const h = (libxs_hist_t*)hist;
-    free(h->buckets);
-    free(h->update);
-    free(h->vals);
-    free(h);
+    free(hist->buckets);
+    free(hist->update);
+    free(hist->vals);
+    free(hist);
   }
 }
 
 
-LIBXS_API void libxs_hist_set(LIBXS_LOCK_TYPE(LIBXS_LOCK)* lock, void* hist, const double vals[])
+LIBXS_API void libxs_hist_set(LIBXS_LOCK_TYPE(LIBXS_LOCK)* lock, libxs_hist_t* hist, const double vals[])
 {
   if (NULL != hist) {
-    libxs_hist_t* const h = (libxs_hist_t*)hist;
     int i, j, k;
     if (NULL != lock) LIBXS_LOCK_ACQUIRE(LIBXS_LOCK, lock);
-    if (h->nqueue <= h->n) {
-      const double *values, w = h->max - h->min;
+    if (hist->nqueue <= hist->n) {
+      const double *values, w = hist->max - hist->min;
       const int* buckets;
-      if (h->nqueue == h->n) {
+      if (hist->nqueue == hist->n) {
         libxs_hist_get(NULL /*lock*/, hist, &buckets, NULL /*nbuckets*/, NULL /*range*/, &values, NULL /*nvals*/);
       }
-      for (i = 1; i <= h->nbuckets; ++i) {
-        const double q = h->min + i * w / h->nbuckets;
-        if (vals[0] <= q || h->nbuckets == i) {
-          for (k = 0, j = (i - 1) * h->nvals; k < h->nvals; ++k) {
-            if (0 != h->buckets[i - 1]) {
-              if (NULL != h->update[k]) {
-                const libxs_hist_update_t update = h->update[k];
-                update(h->vals + (j + k), vals + k);
+      for (i = 1; i <= hist->nbuckets; ++i) {
+        const double q = hist->min + i * w / hist->nbuckets;
+        if (vals[0] <= q || hist->nbuckets == i) {
+          for (k = 0, j = (i - 1) * hist->nvals; k < hist->nvals; ++k) {
+            if (0 != hist->buckets[i - 1]) {
+              if (NULL != hist->update[k]) {
+                const libxs_hist_update_t update = hist->update[k];
+                update(hist->vals + (j + k), vals + k);
               }
-              else libxs_hist_avg(h->vals + (j + k), vals + k);
+              else libxs_hist_avg(hist->vals + (j + k), vals + k);
             }
-            else h->vals[j + k] = vals[k]; /* initialize */
+            else hist->vals[j + k] = vals[k]; /* initialize */
           }
-          ++h->buckets[i - 1];
+          ++hist->buckets[i - 1];
           break;
         }
       }
     }
     else { /* fill-phase */
-      if (h->min > vals[0]) h->min = vals[0];
-      if (h->max < vals[0]) h->max = vals[0];
-      for (k = 0, j = h->nvals * h->n; k < h->nvals; ++k) {
-        h->vals[j + k] = vals[k];
+      if (hist->min > vals[0]) hist->min = vals[0];
+      if (hist->max < vals[0]) hist->max = vals[0];
+      for (k = 0, j = hist->nvals * hist->n; k < hist->nvals; ++k) {
+        hist->vals[j + k] = vals[k];
       }
     }
-    ++h->n; /* count number of accumulated values */
+    ++hist->n; /* count number of accumulated values */
     if (NULL != lock) LIBXS_LOCK_RELEASE(LIBXS_LOCK, lock);
   }
 }
 
 
-LIBXS_API void libxs_hist_get(LIBXS_LOCK_TYPE(LIBXS_LOCK)* lock, void* hist,
+LIBXS_API void libxs_hist_get(LIBXS_LOCK_TYPE(LIBXS_LOCK)* lock, const libxs_hist_t* hist,
   const int** buckets, int* nbuckets, double range[2], const double** vals, int* nvals)
 {
   int *b = NULL, m = 0, n = 0, i, j, k;
   double *v = NULL, r[] = {0, 0};
   assert(NULL != buckets || NULL != range || NULL != vals);
   if (NULL != hist) {
-    libxs_hist_t* const h = (libxs_hist_t*)hist;
     if (NULL != lock) LIBXS_LOCK_ACQUIRE(LIBXS_LOCK, lock);
-    if (h->n <= h->nqueue) {
-      const double w = h->max - h->min;
-      if (h->n < h->nbuckets) h->nbuckets = h->n;
-      for (i = 1, j = 0; i <= h->nbuckets; j = h->nvals * i++) {
-        const double p = h->min + (i - 1) * w / h->nbuckets, q = h->min + i * w / h->nbuckets;
-        for (n = 0, m = 0; n < h->n; m = ++n * h->nvals) {
-          if (0 == h->buckets[n] && (p < h->vals[m] || 1 == i) && (h->vals[m] <= q || h->nbuckets == i)) {
+    if (hist->n <= hist->nqueue) {
+      const double w = hist->max - hist->min;
+      if (hist->n < hist->nbuckets) ((libxs_hist_t*)hist)->nbuckets = hist->n;
+      for (i = 1, j = 0; i <= hist->nbuckets; j = hist->nvals * i++) {
+        const double p = hist->min + (i - 1) * w / hist->nbuckets, q = hist->min + i * w / hist->nbuckets;
+        for (n = 0, m = 0; n < hist->n; m = ++n * hist->nvals) {
+          if (0 == hist->buckets[n] && (p < hist->vals[m] || 1 == i) && (hist->vals[m] <= q || hist->nbuckets == i)) {
             if (j != m) {
-              if (0 != h->buckets[i - 1]) { /* accumulate */
-                for (k = 0; k < h->nvals; ++k) {
-                  (NULL != h->update[k] ? h->update[k] : libxs_hist_avg)(h->vals + (j + k), h->vals + (m + k));
+              if (0 != hist->buckets[i - 1]) { /* accumulate */
+                for (k = 0; k < hist->nvals; ++k) {
+                  (NULL != hist->update[k] ? hist->update[k] : libxs_hist_avg)(hist->vals + (j + k), hist->vals + (m + k));
                 }
               }
               else { /* initialize/swap */
-                for (k = 0; k < h->nvals; ++k) {
-                  const double value = h->vals[m + k];
-                  h->vals[m + k] = h->vals[j + k];
-                  h->vals[j + k] = value;
+                for (k = 0; k < hist->nvals; ++k) {
+                  const double value = hist->vals[m + k];
+                  hist->vals[m + k] = hist->vals[j + k];
+                  hist->vals[j + k] = value;
                 }
               }
             }
-            ++h->buckets[i - 1];
+            ++hist->buckets[i - 1];
           }
         }
       }
-      h->nqueue = 0;
+      ((libxs_hist_t*)hist)->nqueue = 0;
     }
-    if (0 < h->n) {
-      r[0] = h->min;
-      r[1] = h->max;
-      b = h->buckets;
-      n = h->nbuckets;
-      v = h->vals;
-      m = h->nvals;
+    if (0 < hist->n) {
+      r[0] = hist->min;
+      r[1] = hist->max;
+      b = hist->buckets;
+      n = hist->nbuckets;
+      v = hist->vals;
+      m = hist->nvals;
     }
     if (NULL != lock) LIBXS_LOCK_RELEASE(LIBXS_LOCK, lock);
   }
@@ -167,8 +164,8 @@ LIBXS_API void libxs_hist_get(LIBXS_LOCK_TYPE(LIBXS_LOCK)* lock, void* hist,
 }
 
 
-LIBXS_API void libxs_hist_print(FILE* stream, void* hist, const char title[], const int prec[],
-  const libxs_hist_adjust_t adjust[])
+LIBXS_API void libxs_hist_print(FILE* stream, const libxs_hist_t* hist, const char title[],
+  const int prec[], const libxs_hist_adjust_t adjust[])
 {
   int nbuckets = 0, nvals = 0, i = 1, j = 0, k;
   const int* buckets = NULL;
