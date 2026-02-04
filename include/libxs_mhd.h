@@ -12,28 +12,13 @@
 #include "libxs.h"
 
 
-/** Denotes the element/pixel type of an image/channel. */
-typedef enum libxs_mhd_elemtype {
-  LIBXS_MHD_ELEMTYPE_F64  = LIBXS_DATATYPE_F64,   /* MET_DOUBLE */
-  LIBXS_MHD_ELEMTYPE_F32  = LIBXS_DATATYPE_F32,   /* MET_FLOAT */
-  LIBXS_MHD_ELEMTYPE_I64  = LIBXS_DATATYPE_I64,   /* MET_LONG */
-  LIBXS_MHD_ELEMTYPE_I32  = LIBXS_DATATYPE_I32,   /* MET_INT */
-  LIBXS_MHD_ELEMTYPE_I16  = LIBXS_DATATYPE_I16,   /* MET_SHORT */
-  LIBXS_MHD_ELEMTYPE_I8   = LIBXS_DATATYPE_I8,    /* MET_CHAR */
-  LIBXS_MHD_ELEMTYPE_U64  = LIBXS_DATATYPE_U64,   /* MET_ULONG */
-  LIBXS_MHD_ELEMTYPE_U32  = LIBXS_DATATYPE_U32,   /* MET_UINT */
-  LIBXS_MHD_ELEMTYPE_U16  = LIBXS_DATATYPE_U16,   /* MET_USHORT */
-  LIBXS_MHD_ELEMTYPE_U8   = LIBXS_DATATYPE_U8,    /* MET_UCHAR */
-  LIBXS_MHD_ELEMTYPE_UNKNOWN = LIBXS_DATATYPE_UNSUPPORTED
-} libxs_mhd_elemtype;
-
 typedef enum libxs_mhd_element_conversion_hint {
   LIBXS_MHD_ELEMENT_CONVERSION_DEFAULT,
   LIBXS_MHD_ELEMENT_CONVERSION_MODULUS
 } libxs_mhd_element_conversion_hint;
 
 LIBXS_EXTERN_C typedef struct libxs_mhd_element_handler_info {
-  libxs_mhd_elemtype type;
+  libxs_datatype type;
   libxs_mhd_element_conversion_hint hint;
 } libxs_mhd_element_handler_info;
 
@@ -43,7 +28,7 @@ LIBXS_EXTERN_C typedef struct libxs_mhd_element_handler_info {
  * in case of a type-conversion.
  */
 LIBXS_EXTERN_C typedef int (*libxs_mhd_element_handler)(void* dst,
-  const libxs_mhd_element_handler_info* dst_info, libxs_mhd_elemtype src_type,
+  const libxs_mhd_element_handler_info* dst_info, libxs_datatype src_type,
   const void* src, const void* src_min, const void* src_max);
 
 /**
@@ -52,7 +37,7 @@ LIBXS_EXTERN_C typedef int (*libxs_mhd_element_handler)(void* dst,
  * or otherwise clamps to the destination-type.
  */
 LIBXS_API int libxs_mhd_element_conversion(void* dst,
-  const libxs_mhd_element_handler_info* dst_info, libxs_mhd_elemtype src_type,
+  const libxs_mhd_element_handler_info* dst_info, libxs_datatype src_type,
   const void* src, const void* src_min, const void* src_max);
 
 /**
@@ -61,18 +46,18 @@ LIBXS_API int libxs_mhd_element_conversion(void* dst,
  * is performed to compare values using the source-type.
  */
 LIBXS_API int libxs_mhd_element_comparison(void* dst,
-  const libxs_mhd_element_handler_info* dst_info, libxs_mhd_elemtype src_type,
+  const libxs_mhd_element_handler_info* dst_info, libxs_datatype src_type,
   const void* src, const void* src_min, const void* src_max);
 
 
 /** Returns the name of the element type; result may be NULL/0 in case of an unknown type. */
-LIBXS_API const char* libxs_mhd_typename(libxs_mhd_elemtype type, const char** ctypename);
+LIBXS_API const char* libxs_mhd_typename(libxs_datatype type, const char** ctypename);
 
 /** Returns the type of the element for a given type-name, e.g., "MET_FLOAT". */
-LIBXS_API libxs_mhd_elemtype libxs_mhd_typeinfo(const char elemname[]);
+LIBXS_API libxs_datatype libxs_mhd_typeinfo(const char elemname[]);
 
 /** Returns the size of the element-type in question. */
-LIBXS_API size_t libxs_mhd_typesize(libxs_mhd_elemtype type);
+LIBXS_API size_t libxs_mhd_typesize(libxs_datatype type);
 
 
 /**
@@ -94,7 +79,7 @@ LIBXS_API int libxs_mhd_read_header(
   /* Number of interleaved image channels. */
   size_t* ncomponents,
   /* Type of the image elements (pixel type). */
-  libxs_mhd_elemtype* type,
+  libxs_datatype* type,
   /* Size of the header in bytes; may be used to skip the header,
    * when reading content; can be a NULL-argument (optional). */
   size_t* header_size,
@@ -124,7 +109,7 @@ LIBXS_API int libxs_mhd_read(
   /* Used to skip the header, and to only read the data. */
   size_t header_size,
   /* Data element type as stored (pixel type). */
-  libxs_mhd_elemtype type_stored,
+  libxs_datatype type_stored,
   /* Buffer where the data is read into. */
   void* data,
   /**
@@ -161,7 +146,7 @@ LIBXS_API int libxs_mhd_write(const char filename[],
   /* Number of pixel components. */
   size_t ncomponents,
   /* Type (input). */
-  libxs_mhd_elemtype type_data,
+  libxs_datatype type_data,
   /* Raw data to be saved. */
   const void* data,
   /**

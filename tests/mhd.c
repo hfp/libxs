@@ -18,7 +18,7 @@ int main(int argc, char* argv[])
   const int bh = LIBXS_MAX(3 < argc ? atoi(argv[3]) : 64, 1);
   size_t ndims = 3, size[3], pitch[3], offset[3], ncomponents, header_size, extension_size;
   libxs_mhd_element_handler_info dst_info;
-  libxs_mhd_elemtype type;
+  libxs_datatype type;
   char data_filename[1024];
   void* data = NULL;
   int result;
@@ -48,27 +48,27 @@ int main(int argc, char* argv[])
     float dst_f32; /* destination range is implicit due to type */
     signed char dst_i8; /* destination range is implicit due to type */
     LIBXS_MEMZERO127(&dst_info);
-    dst_info.type = LIBXS_MHD_ELEMTYPE_F32;
+    dst_info.type = LIBXS_DATATYPE_F32;
     result = libxs_mhd_element_conversion(
-      &dst_f32, &dst_info, LIBXS_MHD_ELEMTYPE_I16/*src_type*/,
+      &dst_f32, &dst_info, LIBXS_DATATYPE_I16/*src_type*/,
       &src, NULL/*src_min*/, NULL/*src_max*/);
     if (EXIT_SUCCESS == result && src != dst_f32) result = EXIT_FAILURE;
     if (EXIT_SUCCESS == result) {
       result = libxs_mhd_element_conversion(
-        &dst_f32, &dst_info, LIBXS_MHD_ELEMTYPE_I16/*src_type*/,
+        &dst_f32, &dst_info, LIBXS_DATATYPE_I16/*src_type*/,
         &src, &src_min, &src_max);
       if (EXIT_SUCCESS == result && src != dst_f32) result = EXIT_FAILURE;
     }
-    dst_info.type = LIBXS_MHD_ELEMTYPE_I8;
+    dst_info.type = LIBXS_DATATYPE_I8;
     if (EXIT_SUCCESS == result) {
       result = libxs_mhd_element_conversion(
-        &dst_i8, &dst_info, LIBXS_MHD_ELEMTYPE_I16/*src_type*/,
+        &dst_i8, &dst_info, LIBXS_DATATYPE_I16/*src_type*/,
         &src, NULL/*src_min*/, NULL/*src_max*/);
       if (EXIT_SUCCESS == result && LIBXS_MIN(127, src) != dst_i8) result = EXIT_FAILURE;
     }
     if (EXIT_SUCCESS == result) {
       result = libxs_mhd_element_conversion(
-        &dst_i8, &dst_info, LIBXS_MHD_ELEMTYPE_I16/*src_type*/,
+        &dst_i8, &dst_info, LIBXS_DATATYPE_I16/*src_type*/,
         &src, &src_min, &src_max);
       if (EXIT_SUCCESS == result && 64 != dst_i8) result = EXIT_FAILURE;
     }
@@ -79,41 +79,41 @@ int main(int argc, char* argv[])
     double src = 1975, src_min = -25071975, src_max = 1981;
     short dst_i16; /* destination range is implicit due to type */
     unsigned char dst_u8; /* destination range is implicit due to type */
-    dst_info.type = LIBXS_MHD_ELEMTYPE_I16;
+    dst_info.type = LIBXS_DATATYPE_I16;
     result = libxs_mhd_element_conversion(
-      &dst_i16, &dst_info, LIBXS_MHD_ELEMTYPE_F64/*src_type*/,
+      &dst_i16, &dst_info, LIBXS_DATATYPE_F64/*src_type*/,
       &src, NULL/*src_min*/, NULL/*src_max*/);
     if (EXIT_SUCCESS == result && src != dst_i16) result = EXIT_FAILURE;
     if (EXIT_SUCCESS == result) {
       result = libxs_mhd_element_conversion(
-        &dst_i16, &dst_info, LIBXS_MHD_ELEMTYPE_F64/*src_type*/,
+        &dst_i16, &dst_info, LIBXS_DATATYPE_F64/*src_type*/,
         &src, &src_min, &src_max);
       if (EXIT_SUCCESS == result && 2 != dst_i16) result = EXIT_FAILURE;
     }
-    dst_info.type = LIBXS_MHD_ELEMTYPE_U8;
+    dst_info.type = LIBXS_DATATYPE_U8;
     if (EXIT_SUCCESS == result) {
       result = libxs_mhd_element_conversion(
-        &dst_u8, &dst_info, LIBXS_MHD_ELEMTYPE_F64/*src_type*/,
+        &dst_u8, &dst_info, LIBXS_DATATYPE_F64/*src_type*/,
         &src, NULL/*src_min*/, NULL/*src_max*/);
       if (EXIT_SUCCESS == result && LIBXS_MIN(255, src) != dst_u8) result = EXIT_FAILURE;
     }
     if (EXIT_SUCCESS == result) {
       result = libxs_mhd_element_conversion(
-        &dst_u8, &dst_info, LIBXS_MHD_ELEMTYPE_F64/*src_type*/,
+        &dst_u8, &dst_info, LIBXS_DATATYPE_F64/*src_type*/,
         &src, &src_min, &src_max);
       if (EXIT_SUCCESS == result && 255 != dst_u8) result = EXIT_FAILURE;
     }
     if (EXIT_SUCCESS == result) {
       src = -src;
       result = libxs_mhd_element_conversion(
-        &dst_u8, &dst_info, LIBXS_MHD_ELEMTYPE_F64/*src_type*/,
+        &dst_u8, &dst_info, LIBXS_DATATYPE_F64/*src_type*/,
         &src, &src_min, &src_max);
       if (EXIT_SUCCESS == result && 0 != dst_u8) result = EXIT_FAILURE;
     }
-    dst_info.type = LIBXS_MHD_ELEMTYPE_I16;
+    dst_info.type = LIBXS_DATATYPE_I16;
     if (EXIT_SUCCESS == result) {
       result = libxs_mhd_element_conversion(
-        &dst_i16, &dst_info, LIBXS_MHD_ELEMTYPE_F64/*src_type*/,
+        &dst_i16, &dst_info, LIBXS_DATATYPE_F64/*src_type*/,
         &src, &src_min, &src_max);
       if (EXIT_SUCCESS == result && -3 != dst_i16) result = EXIT_FAILURE;
     }
@@ -145,7 +145,7 @@ int main(int argc, char* argv[])
   if (EXIT_SUCCESS == result) {
     void* buffer = NULL;
     size_t nelements;
-    dst_info.type = LIBXS_MHD_ELEMTYPE_F64;
+    dst_info.type = LIBXS_DATATYPE_F64;
     nelements = pitch[0] * (1 < ndims ? (pitch[1] * (2 < ndims ? pitch[2] : 1)) : 1);
     buffer = malloc(ncomponents * nelements * libxs_mhd_typesize(dst_info.type));
     result = libxs_mhd_read(data_filename,
