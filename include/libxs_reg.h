@@ -11,18 +11,25 @@
 
 #include "libxs_sync.h"
 
+#if !defined(LIBXS_DESCRIPTOR_MAXSIZE)
+# define LIBXS_DESCRIPTOR_MAXSIZE 64
+#endif
 
-/** TODO */
-LIBXS_API void* libxs_registry_create();
 
-/** TODO */
-LIBXS_API void* libxs_registry_destroy();
+typedef struct libxs_registry_t libxs_registry_t;
+
+/** Create registry object. */
+LIBXS_API void libxs_registry_create(libxs_registry_t** registry);
+
+/** Destroy registry object. */
+LIBXS_API void libxs_registry_destroy(libxs_registry_t* registry);
 
 /** Enumerate registry; result can be NULL (no entry found). */
-LIBXS_API void* libxs_registry_begin(const void** key);
+LIBXS_API void* libxs_registry_begin(libxs_registry_t* registry, const void** key);
 
 /** Receive next (or NULL) based on given entry (see libxs_registry_begin). */
-LIBXS_API void* libxs_registry_next(const void* regentry, const void** key);
+LIBXS_API void* libxs_registry_next(libxs_registry_t* registry, const void* regentry,
+  const void** key);
 
 /**
  * Register user-defined key-value; value can be queried (libxs_registry_get).
@@ -34,14 +41,14 @@ LIBXS_API void* libxs_registry_next(const void* regentry, const void** key);
  * is released when the program terminates but can released if needed
  * (libxs_registry_free), .e.g., in case of a larger value reusing the same key.
  */
-LIBXS_API void* libxs_registry_set(const void* key, size_t key_size,
+LIBXS_API void* libxs_registry_set(libxs_registry_t* registry, const void* key, size_t key_size,
   size_t value_size, const void* value_init);
 
 /** Query user-defined value from LIBXS's code registry. */
-LIBXS_API void* libxs_registry_get(const void* key, size_t key_size);
+LIBXS_API void* libxs_registry_get(libxs_registry_t* registry, const void* key, size_t key_size);
 
 /** Remove key-value pair from code registry and release memory. */
-LIBXS_API void libxs_registry_free(const void* key, size_t key_size);
+LIBXS_API void libxs_registry_free(libxs_registry_t* registry, const void* key, size_t key_size);
 
 /** Structure to receive the status of the code registry. */
 LIBXS_EXTERN_C typedef struct libxs_registry_info_t {
@@ -49,6 +56,6 @@ LIBXS_EXTERN_C typedef struct libxs_registry_info_t {
 } libxs_registry_info_t;
 
 /** Get information about the code registry. */
-LIBXS_API int libxs_registry_info(libxs_registry_info_t* info);
+LIBXS_API int libxs_registry_info(libxs_registry_t* registry, libxs_registry_info_t* info);
 
 #endif /*LIBXS_REG_H*/
