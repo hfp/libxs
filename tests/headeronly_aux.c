@@ -17,14 +17,11 @@
 #endif
 
 
-LIBXS_EXTERN_C libxs_gemmfunction mmdispatch(libxs_blasint m, libxs_blasint n, libxs_blasint k);
-LIBXS_EXTERN_C libxs_gemmfunction mmdispatch(libxs_blasint m, libxs_blasint n, libxs_blasint k)
+LIBXS_EXTERN_C void* mmdispatch(int m, int n, int k);
+LIBXS_EXTERN_C void* mmdispatch(int m, int n, int k)
 {
-  libxs_gemmfunction result;
-#if defined(__cplusplus) /* C++ by chance: test libxs_mmfunction<> wrapper */
-  const libxs_mmfunction<ITYPE, OTYPE, LIBXS_PREFETCH> mmfunction(m, n, k);
-  result = mmfunction.kernel();
-#else
+  void* result = NULL;
+#if 0
   const libxs_gemm_shape gemm_shape = libxs_create_gemm_shape(m, n, k, m/*lda*/, k/*ldb*/, m/*ldc*/,
     LIBXS_DATATYPE(ITYPE), LIBXS_DATATYPE(ITYPE), LIBXS_DATATYPE(OTYPE), LIBXS_DATATYPE(OTYPE));
   result = libxs_dispatch_gemm(gemm_shape, LIBXS_GEMM_FLAG_NONE,

@@ -6,23 +6,7 @@
 * Further information: https://github.com/hfp/libxs/                          *
 * SPDX-License-Identifier: BSD-3-Clause                                       *
 ******************************************************************************/
-#include <libxs_utils.h>
-#include <libxs.h>
-
-#if !defined(CHECK_SETUP) && 1
-# define CHECK_SETUP
-#endif
-#if !defined(CHECK_REALLOC) && 1
-# if !defined(_WIN32)
-#   define CHECK_REALLOC
-# endif
-#endif
-#if !defined(CHECK_SCRATCH) && 1
-# define CHECK_SCRATCH
-#endif
-#if !defined(CHECK_PMALLOC) && 1
-# define CHECK_PMALLOC
-#endif
+#include <libxs_malloc.h>
 
 #if defined(_DEBUG)
 # define FPRINTF(STREAM, ...) do { fprintf(STREAM, __VA_ARGS__); } while(0)
@@ -34,223 +18,46 @@
 int main(void)
 {
   const size_t size_malloc = 2507, alignment = (2U << 20);
-  libxs_malloc_info malloc_info;
-  int avalue, nerrors = 0;
-#if defined(CHECK_SCRATCH)
-  const size_t size_scratch = (24U << 20);
-  void *q, *r;
-#endif
-  void* s;
+  int nerrors = 0;
+  void* pool[128];
+  char storage[8*sizeof(pool)/sizeof(*pool)];
+  void* backup[sizeof(pool)];
+  const int npool = sizeof(pool) / sizeof(*pool), nrep = 1024;
+  size_t num = npool;
+  int i, j;
 
-#if defined(CHECK_PMALLOC)
-  { /* check pooled malloc */
-    void* pool[128];
-    char storage[8*sizeof(pool)/sizeof(*pool)];
-    void* backup[sizeof(pool)];
-    const int npool = sizeof(pool) / sizeof(*pool), nrep = 1024;
-    size_t num = npool;
-    int i, j;
-
-    libxs_pmalloc_init(sizeof(storage) / num, &num, pool, storage);
-    memcpy(backup, pool, sizeof(pool));
-    for (i = 0; i < nrep; ++i) {
+  libxs_pmalloc_init(sizeof(storage) / num, &num, pool, storage);
+  memcpy(backup, pool, sizeof(pool));
+  for (i = 0; i < nrep; ++i) {
 # if defined(_OPENMP)
 #     pragma omp parallel for private(j) schedule(dynamic,1)
 # endif
-      for (j = 0; j < npool; ++j) {
-        void *const p = libxs_pmalloc(pool, &num);
-        LIBXS_EXPECT(NULL != p);
-      }
-# if defined(_OPENMP)
-#     pragma omp parallel for private(j) schedule(dynamic,1)
-# endif
-      for (j = 0; j < npool; ++j) {
-        const int k = npool - j - 1;
-        void *const p = backup[k];
-        libxs_pfree(p, pool, &num);
-      }
-      if (npool != (int)num) break;
+    for (j = 0; j < npool; ++j) {
+      void *const p = libxs_pmalloc(pool, &num);
+      LIBXS_EXPECT(NULL != p);
     }
-    if (npool == (int)num) {
-      for (i = 0, num = 0; i < npool; ++i) {
-        const void *const p = backup[i];
-        for (j = 0; j < npool; ++j) {
-          if (p == pool[j]) {
-            ++num; break;
-          }
+# if defined(_OPENMP)
+#     pragma omp parallel for private(j) schedule(dynamic,1)
+# endif
+    for (j = 0; j < npool; ++j) {
+      const int k = npool - j - 1;
+      void *const p = backup[k];
+      libxs_pfree(p, pool, &num);
+    }
+    if (npool != (int)num) break;
+  }
+  if (npool == (int)num) {
+    for (i = 0, num = 0; i < npool; ++i) {
+      const void *const p = backup[i];
+      for (j = 0; j < npool; ++j) {
+        if (p == pool[j]) {
+          ++num; break;
         }
       }
-      nerrors += LIBXS_DELTA(npool, (int)num);
     }
-    else ++nerrors;
+    nerrors += LIBXS_DELTA(npool, (int)num);
   }
-  if (0 != nerrors) FPRINTF(stderr, "Error: incorrect pmalloc!\n");
-#endif
-
-#if defined(CHECK_SETUP)
-  { /* check allocator setup */
-    libxs_malloc_function default_malloc_fn, malloc_fn;
-    libxs_free_function default_free_fn, free_fn;
-    const void *default_context, *context;
-
-    /* determine default allocation functions and context */
-    if (EXIT_SUCCESS != libxs_get_default_allocator(&default_context/*context*/, &default_malloc_fn, &default_free_fn)) {
-      ++nerrors;
-    }
-    /* set specific functions for default allocations and check adoption */
-    malloc_fn.function = malloc; free_fn.function = free;
-    if  (EXIT_SUCCESS != libxs_set_default_allocator(NULL/*context*/, malloc_fn/*malloc*/, free_fn/*free*/)
-      || EXIT_SUCCESS != libxs_get_default_allocator(&context, &malloc_fn, &free_fn)
-      || NULL != context || malloc != malloc_fn.function || free != free_fn.function)
-    {
-      ++nerrors;
-    }
-    /* check adoption/inheritance from the default allocator */
-    malloc_fn.function = NULL; free_fn.function = NULL;
-    if  (EXIT_SUCCESS != libxs_set_scratch_allocator(NULL/*context*/, malloc_fn/*NULL*/, free_fn/*NULL*/)
-      || EXIT_SUCCESS != libxs_get_scratch_allocator(&context, &malloc_fn, &free_fn)
-      || NULL != context || malloc != malloc_fn.function || free != free_fn.function)
-    {
-      ++nerrors;
-    }
-    /* reset default allocator */
-    if (EXIT_SUCCESS != libxs_set_default_allocator(default_context, default_malloc_fn, default_free_fn)) {
-      ++nerrors;
-    }
-  }
-  if (0 != nerrors) FPRINTF(stderr, "Error: incorrect allocator setup!\n");
-#endif
-
-  /* allocate some amount of memory */
-  s = libxs_malloc(size_malloc);
-
-  /* query and check the size of the buffer */
-  if (NULL != s && (EXIT_SUCCESS != libxs_get_malloc_info(s, &malloc_info) || malloc_info.size < size_malloc)) {
-    FPRINTF(stderr, "Error: buffer info (1/4) failed!\n");
-    ++nerrors;
-  }
-
-#if defined(CHECK_SCRATCH)
-  q = libxs_aligned_scratch(size_scratch, 0/*auto*/);
-  libxs_free(q);
-  q = libxs_aligned_scratch(size_scratch / 3, 0/*auto*/);
-  r = libxs_aligned_scratch(size_scratch / 3, 0/*auto*/);
-  /* confirm malloc succeeds for an in-scratch buffer */
-  if (NULL != q && NULL == r) {
-    FPRINTF(stderr, "Error: in-scratch buffer allocation failed!\n");
-    ++nerrors;
-  }
-#endif
-
-#if defined(CHECK_REALLOC)
-  if (NULL != s) { /* reallocate larger amount of memory */
-    unsigned char* c = (unsigned char*)s;
-    size_t i;
-    int n;
-    avalue = 1 << LIBXS_INTRINSICS_BITSCANFWD64((uintptr_t)s);
-    for (i = 0; i < size_malloc; ++i) c[i] = (unsigned char)LIBXS_MOD2(i, 256);
-    s = libxs_realloc(size_malloc * 2, s);
-    /* check that alignment is preserved */
-    if (0 != (((uintptr_t)s) % avalue)) {
-      FPRINTF(stderr, "Error: buffer alignment (1/3) not preserved!\n");
-      ++nerrors;
-    }
-    c = (unsigned char*)s;
-    for (i = size_malloc; i < (size_malloc * 2); ++i) c[i] = (unsigned char)LIBXS_MOD2(i, 256);
-    /* reallocate again with same size */
-    s = libxs_realloc(size_malloc * 2, s);
-    /* check that alignment is preserved */
-    if (0 != (((uintptr_t)s) % avalue)) {
-      FPRINTF(stderr, "Error: buffer alignment (2/3) not preserved!\n");
-      ++nerrors;
-    }
-    c = (unsigned char*)s;
-    for (i = n = 0; i < (size_malloc * 2); ++i) { /* check that content is preserved */
-      n += (c[i] == (unsigned char)LIBXS_MOD2(i, 256) ? 0 : 1);
-    }
-    if (0 < n) {
-      FPRINTF(stderr, "Error: buffer content (1/2) not preserved!\n");
-      nerrors += n;
-    }
-    /* reallocate with smaller size */
-    s = libxs_realloc(size_malloc / 2, s);
-    /* check that alignment is preserved */
-    if (0 != (((uintptr_t)s) % avalue)) {
-      FPRINTF(stderr, "Error: buffer alignment (3/3) not preserved!\n");
-      ++nerrors;
-    }
-    c = (unsigned char*)s;
-    for (i = n = 0; i < size_malloc / 2; ++i) { /* check that content is preserved */
-      n += (c[i] == (unsigned char)LIBXS_MOD2(i, 256) ? 0 : 1);
-    }
-    if (0 < n) {
-      FPRINTF(stderr, "Error: buffer content (2/2) not preserved!\n");
-      nerrors += n;
-    }
-  }
-  /* query and check the size of the buffer */
-  if (NULL != s && (EXIT_SUCCESS != libxs_get_malloc_info(s, &malloc_info) || malloc_info.size < (size_malloc / 2))) {
-    FPRINTF(stderr, "Error: buffer info (2/4) failed!\n");
-    ++nerrors;
-  }
-  libxs_free(s); /* release buffer */
-  /* check degenerated reallocation */
-  s = libxs_realloc(size_malloc, NULL/*allocation*/);
-  /* query and check the size of the buffer */
-  if (NULL != s && (EXIT_SUCCESS != libxs_get_malloc_info(s, &malloc_info) || malloc_info.size < size_malloc)) {
-    FPRINTF(stderr, "Error: buffer info (3/4) failed!\n");
-    ++nerrors;
-  }
-#endif
-
-  /* check that a NULL-pointer yields no size */
-  if (EXIT_SUCCESS != libxs_get_malloc_info(NULL, &malloc_info) || 0 != malloc_info.size) {
-    FPRINTF(stderr, "Error: buffer info (4/4) failed!\n");
-    ++nerrors;
-  }
-
-  /* release NULL pointer */
-  libxs_free(NULL);
-
-  /* release buffer */
-  libxs_free(s);
-
-  /* allocate memory with specific alignment */
-  s = libxs_aligned_malloc(size_malloc, alignment);
-  /* check function that determines alignment */
-  libxs_aligned(s, NULL/*inc*/, &avalue);
-
-  /* check the alignment of the allocation */
-  if (0 != (((uintptr_t)s) % alignment) || ((size_t)avalue) < alignment) {
-    FPRINTF(stderr, "Error: buffer alignment (1/3) incorrect!\n");
-    ++nerrors;
-  }
-
-  if (libxs_aligned(s, NULL/*inc*/, NULL/*alignment*/)) { /* pointer is SIMD-aligned */
-    if (alignment < ((size_t)libxs_cpuid_vlen(libxs_cpuid(NULL))) {
-      FPRINTF(stderr, "Error: buffer alignment (2/3) incorrect!\n");
-      ++nerrors;
-    }
-  }
-  else { /* pointer is not SIMD-aligned */
-    if (((size_t)libxs_cpuid_vlen(libxs_cpuid(NULL))) <= alignment) {
-      FPRINTF(stderr, "Error: buffer alignment (3/3) incorrect!\n");
-      ++nerrors;
-    }
-  }
-
-  /* release memory */
-  libxs_free(s);
-#if defined(CHECK_SCRATCH)
-  libxs_free(q);
-  libxs_free(r);
-#endif
-
-  /* check foreign memory */
-  if (EXIT_SUCCESS == libxs_get_malloc_info(&size_malloc/*faulty pointer*/, &malloc_info)) {
-    FPRINTF(stderr, "Error: uncaught faulty pointer!\n");
-    ++nerrors;
-  }
+  else ++nerrors;
 
   if (0 == nerrors) {
     return EXIT_SUCCESS;

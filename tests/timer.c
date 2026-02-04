@@ -6,8 +6,8 @@
 * Further information: https://github.com/hfp/libxs/                          *
 * SPDX-License-Identifier: BSD-3-Clause                                       *
 ******************************************************************************/
+#include <libxs_timer.h>
 #include <libxs_rng.h>
-#include <libxs.h>
 
 #if !defined(USE_NOINIT)
 # define USE_NOINIT

@@ -423,11 +423,6 @@ LIBXS_API_INTERN void internal_init(void)
       libxs_verbosity = INT_MAX; /* quiet -> verbose */
     }
 #endif
-#if (0 == LIBXS_JIT)
-    if (2 > libxs_ninit && (LIBXS_VERBOSITY_WARN <= libxs_verbosity || 0 > libxs_verbosity)) {
-      fprintf(stderr, "LIBXS: JIT-code generation was disabled at compile-time.\n");
-    }
-#endif
 #if defined(LIBXS_AUTOPIN)
 # if defined(LIBXS_INTERCEPT_DYNAMIC)
     /* MPI: unwanted affinity can slow-down unrelated jobs (over-subscription), e.g., CP2K regtests */

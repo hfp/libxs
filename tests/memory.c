@@ -22,9 +22,9 @@ int main(int argc, char* argv[])
 {
   char item[LIBXS_DESCRIPTOR_MAXSIZE];
   const size_t elemsize = sizeof(item);
-  const libxs_blasint count = 1000, ntests = 1000;
-  const char init[] = "The quick brown fox jumps over the lazy dog";
-  int result = EXIT_SUCCESS;
+  const int ndiffs = 1000, ntests = 1000;
+  const char init[] = "The quick brown fox jumps over the lazy dog", *delims = NULL;
+  int result = EXIT_SUCCESS, count = 0;
   LIBXS_UNUSED(argc); LIBXS_UNUSED(argv);
 
   /* check libxs_stristr */
@@ -36,18 +36,18 @@ int main(int argc, char* argv[])
   if (EXIT_SUCCESS == result && NULL != libxs_stristr(NULL, NULL)) result = EXIT_FAILURE;
 
   /* check libxs_strimatch */
-  if (EXIT_SUCCESS == result && 2 != libxs_strimatch("Co Product A", "Corp Prod B", NULL)) result = EXIT_FAILURE;
-  if (EXIT_SUCCESS == result && 2 != libxs_strimatch("Corp Prod B", "Co Product A", NULL)) result = EXIT_FAILURE;
-  if (EXIT_SUCCESS == result && 3 != libxs_strimatch("Co Product A", "Corp Prod AA", NULL)) result = EXIT_FAILURE;
-  if (EXIT_SUCCESS == result && 3 != libxs_strimatch("Corp Prod AA", "Co Product A", NULL)) result = EXIT_FAILURE;
-  if (EXIT_SUCCESS == result && 3 != libxs_strimatch("Corp Prod AA", "Co Product A", NULL)) result = EXIT_FAILURE;
-  if (EXIT_SUCCESS == result && 3 != libxs_strimatch("Co Product A", "Corp Prod AA", NULL)) result = EXIT_FAILURE;
-  if (EXIT_SUCCESS == result && 3 != libxs_strimatch("Corp Prod A", "Co Product A", NULL)) result = EXIT_FAILURE;
-  if (EXIT_SUCCESS == result && 3 != libxs_strimatch("Co Product A", "Corp Prod A", NULL)) result = EXIT_FAILURE;
-  if (EXIT_SUCCESS == result && 3 != libxs_strimatch("C Product A", "Cor Prod AA", NULL)) result = EXIT_FAILURE;
-  if (EXIT_SUCCESS == result && 3 != libxs_strimatch("Cor Prod AA", "C Product A", NULL)) result = EXIT_FAILURE;
-  if (EXIT_SUCCESS == result && 1 != libxs_strimatch("aaaa", "A A A A", NULL)) result = EXIT_FAILURE;
-  if (EXIT_SUCCESS == result && 1 != libxs_strimatch("A A A A", "aaaa", NULL)) result = EXIT_FAILURE;
+  if (EXIT_SUCCESS == result && 2 != libxs_strimatch("Co Product A", "Corp Prod B", delims, &count)) result = EXIT_FAILURE;
+  if (EXIT_SUCCESS == result && 2 != libxs_strimatch("Corp Prod B", "Co Product A", delims, &count)) result = EXIT_FAILURE;
+  if (EXIT_SUCCESS == result && 3 != libxs_strimatch("Co Product A", "Corp Prod AA", delims, &count)) result = EXIT_FAILURE;
+  if (EXIT_SUCCESS == result && 3 != libxs_strimatch("Corp Prod AA", "Co Product A", delims, &count)) result = EXIT_FAILURE;
+  if (EXIT_SUCCESS == result && 3 != libxs_strimatch("Corp Prod AA", "Co Product A", delims, &count)) result = EXIT_FAILURE;
+  if (EXIT_SUCCESS == result && 3 != libxs_strimatch("Co Product A", "Corp Prod AA", delims, &count)) result = EXIT_FAILURE;
+  if (EXIT_SUCCESS == result && 3 != libxs_strimatch("Corp Prod A", "Co Product A", delims, &count)) result = EXIT_FAILURE;
+  if (EXIT_SUCCESS == result && 3 != libxs_strimatch("Co Product A", "Corp Prod A", delims, &count)) result = EXIT_FAILURE;
+  if (EXIT_SUCCESS == result && 3 != libxs_strimatch("C Product A", "Cor Prod AA", delims, &count)) result = EXIT_FAILURE;
+  if (EXIT_SUCCESS == result && 3 != libxs_strimatch("Cor Prod AA", "C Product A", delims, &count)) result = EXIT_FAILURE;
+  if (EXIT_SUCCESS == result && 1 != libxs_strimatch("aaaa", "A A A A", delims, &count)) result = EXIT_FAILURE;
+  if (EXIT_SUCCESS == result && 1 != libxs_strimatch("A A A A", "aaaa", delims, &count)) result = EXIT_FAILURE;
   if (EXIT_SUCCESS == result) {
     const char *const sample[] = {
       "The quick red squirrel jumps over the low fence",
@@ -60,7 +60,7 @@ int main(int argc, char* argv[])
     int j = 0;
 #endif
     for (; i < ((int)sizeof(sample) / (int)sizeof(*sample)); ++i) {
-      const int score = libxs_strimatch(init, sample[i], NULL);
+      const int score = libxs_strimatch(init, sample[i], delims, &count);
       if (match < score) {
         match = score;
 #if defined(PRINT)
@@ -72,7 +72,7 @@ int main(int argc, char* argv[])
     if (EXIT_SUCCESS == result) {
       int self = 0;
       if (0 < match) {
-        self = libxs_strimatch(init, init, NULL);
+        self = libxs_strimatch(init, init, delims, &count);
         FPRINTF(stdout, "orig (%i): %s\n", self, init);
         FPRINTF(stdout, "best (%i): %s\n", match, sample[j]);
       }
@@ -95,13 +95,13 @@ int main(int argc, char* argv[])
 
   /* check LIBXS_MEMCPY127 and libxs_diff_n */
   if (EXIT_SUCCESS == result) {
-    char *const data = (char*)malloc(elemsize * count);
+    char *const data = (char*)malloc(elemsize * ndiffs);
     if (NULL != data) { /* check if buffer was allocated */
-      libxs_blasint i = 0;
-      libxs_rng_seq(data, elemsize * count);
+      int i = 0;
+      libxs_rng_seq(data, elemsize * ndiffs);
 
       for (; i < ntests; ++i) {
-        const size_t j = libxs_rng_u32((unsigned int)count);
+        const size_t j = libxs_rng_u32((unsigned int)ndiffs);
         const size_t s = libxs_rng_u32((unsigned int)elemsize) + 1;
         size_t k = s;
         libxs_rng_seq(item, s);
@@ -109,11 +109,11 @@ int main(int argc, char* argv[])
         LIBXS_MEMCPY127(data + elemsize * j, item, elemsize);
         k = libxs_diff_n(item, data,
           (unsigned char)s, (unsigned char)elemsize,
-          0, count);
+          0, ndiffs);
         while (k < j) {
           k = libxs_diff_n(item, data,
             (unsigned char)s, (unsigned char)elemsize,
-            LIBXS_CAST_UINT(k + 1), count);
+            LIBXS_CAST_UINT(k + 1), ndiffs);
         }
         if (k == j) continue;
         else {
