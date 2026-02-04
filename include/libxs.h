@@ -27,6 +27,18 @@
   LIBXS_STRINGIFY(LIBXS_VERSION_MINOR) "." \
   LIBXS_STRINGIFY(LIBXS_VERSION_UPDATE)
 
+/* Construct an enumerator (libxs_datatype) from a built-in type (float, double, etc.). */
+#define LIBXS_DATATYPE(TYPE) LIBXS_CONCATENATE(LIBXS_DATATYPE_, LIBXS_TYPESYMBOL(TYPE))
+
+/** Helper macro for type postfixes. */
+#define LIBXS_TYPESYMBOL(TYPE) LIBXS_CONCATENATE(LIBXS_TYPESYMBOL_, TYPE)
+#define LIBXS_TYPESYMBOL_double F64
+#define LIBXS_TYPESYMBOL_float F32
+#define LIBXS_TYPESYMBOL_int I32
+#define LIBXS_TYPESYMBOL_short I16
+#define LIBXS_TYPESYMBOL_char I8
+
+
 /** Enumerates primitive element/data types. */
 typedef enum libxs_datatype {
   LIBXS_DATATYPE_F64,

@@ -33,7 +33,7 @@ int main(void)
   int result = EXIT_SUCCESS;
   const ELEMTYPE* value;
 
-  ELEMTYPE *const data = (ELEMTYPE*)libxs_malloc(sizeof(ELEMTYPE) * s);
+  ELEMTYPE *const data = (ELEMTYPE*)malloc(sizeof(ELEMTYPE) * s);
   if (NULL == data) s = 0;
   for (i = 0; i < s; ++i) data[i] = (ELEMTYPE)(rand() - ((RAND_MAX) >> 1));
 
@@ -131,7 +131,7 @@ int main(void)
     result = EXIT_FAILURE;
   }
 
-  libxs_free(data);
+  free(data);
 
   return result;
 }

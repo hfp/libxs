@@ -263,9 +263,6 @@ LIBXS_API_INLINE libxs_code_pointer_t internal_find_code(libxs_registry_t* regis
   const int is_big_desc = 0; /*LIBXS_DESCRIPTOR_ISBIG(desc->kind);*/
   const signed char size = (signed char)(sizeof(libxs_descriptor_kind_t) + desc_size);
   LIBXS_DIFF_DECL(LIBXS_DIFF_SIZE, xdesc);
-#if !defined(NDEBUG) && (0 != LIBXS_JIT)
-  int build = EXIT_SUCCESS;
-#endif
 #if defined(LIBXS_CACHE_MAXSIZE) && (0 < (LIBXS_CACHE_MAXSIZE))
   const int registry_cache_size = (NULL != registry_state ? registry_state->cache_size : 0);
 # if defined(LIBXS_NTHREADS_USE)
@@ -356,11 +353,9 @@ LIBXS_API_INLINE libxs_code_pointer_t internal_find_code(libxs_registry_t* regis
           LIBXS_ASSERT(0 != diff); /* continue */
         }
       }
+#if 0
       else { /* enter code generation (there is no code version yet) */
         LIBXS_ASSERT(0 == mode || 1 < mode);
-#if (0 == LIBXS_JIT)
-        LIBXS_UNUSED(user_size);
-#else
         if (LIBXS_X86_GENERIC <= libxs_target_archid || /* check if JIT is supported (CPUID) */
            (LIBXS_KERNEL_KIND_USER == LIBXS_DESCRIPTOR_KIND(desc->kind)))
         {
@@ -428,23 +423,17 @@ LIBXS_API_INLINE libxs_code_pointer_t internal_find_code(libxs_registry_t* regis
             } while (i != i0);
             if (i == i0) { /* out of capacity (no registry slot available) */
               diff = 0; /* do not use break if inside of locked region */
-#if !defined(NDEBUG) && (0 != LIBXS_JIT)
-              build = EXIT_FAILURE;
-#endif
             }
             flux_entry.ptr = NULL; /* no result */
           }
         }
         else /* JIT-code generation not available */
-#endif
         { /* leave the dispatch loop */
-#if !defined(NDEBUG) && (0 != LIBXS_JIT)
-          build = EXIT_FAILURE;
-#endif
           flux_entry.ptr = NULL;
           diff = 0;
         }
       }
+#endif
     } while (0 != diff);
 #if defined(LIBXS_CACHE_MAXSIZE) && (0 < (LIBXS_CACHE_MAXSIZE))
     if (NULL != flux_entry.ptr_const) { /* keep code version on record (cache) */
@@ -481,13 +470,6 @@ LIBXS_API_INLINE libxs_code_pointer_t internal_find_code(libxs_registry_t* regis
   flux_entry.uval &= ~(LIBXS_CODE_STATIC | LIBXS_HASH_COLLISION); /* clear non-JIT and collision flag */
 #else
   flux_entry.uval &= ~LIBXS_CODE_STATIC; /* clear non-JIT flag */
-#endif
-#if (0 != LIBXS_JIT)
-  assert( /*!LIBXS_ASSERT*/
-    LIBXS_KERNEL_KIND_MATMUL != LIBXS_DESCRIPTOR_KIND(desc->kind)
-    || NULL != flux_entry.ptr_const
-    || 1 == internal_reglock_count
-    || EXIT_SUCCESS != build);
 #endif
   return flux_entry;
 }

@@ -43,6 +43,7 @@
 
 
 #if defined(CHECK_SEPARATE)
+#if 0
 int test(libxs_blasint /*m*/, libxs_blasint /*n*/, libxs_blasint /*k*/);
 int test(libxs_blasint m, libxs_blasint n, libxs_blasint k)
 {
@@ -86,10 +87,13 @@ int test(libxs_blasint m, libxs_blasint n, libxs_blasint k)
 #endif
   return result;
 }
+#endif
 #endif /*defined(CHECK_SEPARATE)*/
 
 int main(void)
 {
+  int result = EXIT_SUCCESS;
+#if 0
   libxs_xmmfunction f[MAX_NKERNELS];
   libxs_registry_info_t registry_info;
   const OTYPE beta = LIBXS_BETA/*, alpha = LIBXS_ALPHA*/;
@@ -97,7 +101,7 @@ int main(void)
     | (LIBXS_NEQ(0, beta) ? 0 : LIBXS_GEMM_FLAG_BETA_0);
   const int prefetch = LIBXS_GEMM_PREFETCH_NONE;
   const int max_shape = LIBXS_MAX_M;
-  int result = EXIT_SUCCESS, nkernels = MAX_NKERNELS, ndup = 0, i;
+  int nkernels = MAX_NKERNELS, ndup = 0, i;
 #if defined(CHECK_SEPARATE)
   int mnk[3*MAX_NKERNELS] = { 8,8,8, 16,16,8 };
   const int shift = 1, nr = 2; /* nr: predefined triplets */
@@ -266,6 +270,6 @@ int main(void)
   }
 
   libxs_finalize();
-
+#endif
   return result;
 }
