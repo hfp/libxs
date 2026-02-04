@@ -115,7 +115,7 @@ LIBXS_API_INTERN void libxs_cpuid_model(char model[], size_t* model_size)
 }
 
 
-LIBXS_API int libxs_cpuid_x86(libxs_cpuid_info* info)
+LIBXS_API int libxs_cpuid_x86(libxs_cpuid_info_t* info)
 {
   static int result = LIBXS_TARGET_ARCH_UNKNOWN;
 #if defined(LIBXS_PLATFORM_X86)
@@ -253,7 +253,7 @@ LIBXS_API int libxs_cpuid_x86(libxs_cpuid_info* info)
 }
 
 
-LIBXS_API int libxs_cpuid(libxs_cpuid_info* info)
+LIBXS_API int libxs_cpuid(libxs_cpuid_info_t* info)
 {
 #if defined(LIBXS_PLATFORM_X86)
   return libxs_cpuid_x86(info);

@@ -13,27 +13,27 @@
 
 
 /** Integer type used to represent tick of a high-resolution timer. */
-typedef unsigned long long libxs_timer_tickint;
+typedef unsigned long long libxs_timer_tick_t;
 
-LIBXS_EXTERN_C typedef struct libxs_timer_info {
+LIBXS_EXTERN_C typedef struct libxs_timer_info_t {
   int tsc;
-} libxs_timer_info;
+} libxs_timer_info_t;
 
 /** Query timer properties. */
-LIBXS_API int libxs_get_timer_info(libxs_timer_info* info);
+LIBXS_API int libxs_timer_info(libxs_timer_info_t* info);
 
 /**
  * Returns the current clock tick of a monotonic timer source with
  * platform-specific resolution (not necessarily CPU cycles).
  */
-LIBXS_API libxs_timer_tickint libxs_timer_tick(void);
+LIBXS_API libxs_timer_tick_t libxs_timer_tick(void);
 
 /** Returns the difference between two timer ticks (cycles); avoids potential side-effects/assumptions of LIBXS_DIFF. */
-LIBXS_API_INLINE libxs_timer_tickint libxs_timer_ncycles(libxs_timer_tickint tick0, libxs_timer_tickint tick1) {
+LIBXS_API_INLINE libxs_timer_tick_t libxs_timer_ncycles(libxs_timer_tick_t tick0, libxs_timer_tick_t tick1) {
   return LIBXS_DELTA(tick0, tick1);
 }
 
 /** Returns the duration (in seconds) between two values received by libxs_timer_tick. */
-LIBXS_API double libxs_timer_duration(libxs_timer_tickint tick0, libxs_timer_tickint tick1);
+LIBXS_API double libxs_timer_duration(libxs_timer_tick_t tick0, libxs_timer_tick_t tick1);
 
 #endif /*LIBXS_TIMER_H*/

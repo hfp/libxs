@@ -91,7 +91,7 @@ int test(libxs_blasint m, libxs_blasint n, libxs_blasint k)
 int main(void)
 {
   libxs_xmmfunction f[MAX_NKERNELS];
-  libxs_registry_info registry_info;
+  libxs_registry_info_t registry_info;
   const OTYPE beta = LIBXS_BETA/*, alpha = LIBXS_ALPHA*/;
   const int flags = LIBXS_FLAGS /*| LIBXS_GEMM_FLAGS(transa, transb)*/
     | (LIBXS_NEQ(0, beta) ? 0 : LIBXS_GEMM_FLAG_BETA_0);
@@ -135,7 +135,7 @@ int main(void)
 #endif
   libxs_init();
 
-  result = libxs_get_registry_info(&registry_info);
+  result = libxs_registry_info(&registry_info);
   if (EXIT_SUCCESS == result) {
     nkernels = (int)LIBXS_MIN((size_t)nkernels, registry_info.capacity);
 

@@ -16,7 +16,7 @@
 int main(void)
 {
   int result = EXIT_SUCCESS;
-  libxs_matdiff_info di[6], diff /*= { 0 }*/;
+  libxs_matdiff_info_t di[6], diff /*= { 0 }*/;
   /* http://www.netlib.org/lapack/lug/node75.html */
   const ELEMTYPE a[] = {
     (ELEMTYPE)1.00, (ELEMTYPE)2.00, (ELEMTYPE)3.00,
@@ -277,7 +277,7 @@ int main(void)
   /* test inputs legally leading to an infinite large difference */
   if (EXIT_SUCCESS == result) {
     const ELEMTYPE u = 0.851375, v = 1.01863e+196;
-    libxs_matdiff_info d;
+    libxs_matdiff_info_t d;
     result = libxs_matdiff(&d, LIBXS_DATATYPE(ELEMTYPE), 1/*m*/, 1/*n*/,
       &u/*ref*/, &v/*tst*/, NULL/*ldref*/, NULL/*ldtst*/);
     if (EXIT_SUCCESS == result) {

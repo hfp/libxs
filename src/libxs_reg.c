@@ -241,7 +241,7 @@ LIBXS_API_INLINE libxs_code_pointer internal_find_code(libxs_descriptor* desc, s
 #endif
 #if defined(LIBXS_CACHE_MAXSIZE) && (0 < (LIBXS_CACHE_MAXSIZE))
 # if defined(LIBXS_NTHREADS_USE)
-  const unsigned int tid = libxs_get_tid();
+  const unsigned int tid = libxs_tid();
   internal_cache_type *const cache = internal_cache_buffer + tid;
 # else
   static LIBXS_TLS internal_cache_type internal_cache_buffer /*= { 0 }*/;
@@ -544,7 +544,7 @@ LIBXS_API int libxs_get_kernel_info(const void* kernel, libxs_kernel_info* info)
 }
 
 
-LIBXS_API int libxs_get_registry_info(libxs_registry_info* info)
+LIBXS_API int libxs_registry_info(libxs_registry_info_t* info)
 {
   int result = EXIT_SUCCESS;
   /*LIBXS_INIT*/ /* verbosity */
@@ -617,7 +617,7 @@ LIBXS_API_INLINE void* internal_get_registry_entry(int i, libxs_kernel_kind kind
 }
 
 
-LIBXS_API void* libxs_get_registry_begin(const void** key)
+LIBXS_API void* libxs_registry_begin(const void** key)
 {
   void* result = NULL;
   if (NULL != internal_registry) {
@@ -627,7 +627,7 @@ LIBXS_API void* libxs_get_registry_begin(const void** key)
 }
 
 
-LIBXS_API void* libxs_get_registry_next(const void* regentry, const void** key)
+LIBXS_API void* libxs_registry_next(const void* regentry, const void** key)
 {
   void* result = NULL;
   const libxs_descriptor* desc;
@@ -645,7 +645,7 @@ LIBXS_API void* libxs_get_registry_next(const void* regentry, const void** key)
 }
 
 
-LIBXS_API void* libxs_xregister(const void* key, size_t key_size,
+LIBXS_API void* libxs_registry_set(const void* key, size_t key_size,
   size_t value_size, const void* value_init)
 {
   libxs_descriptor wrap /*= { 0 }*/;
@@ -692,10 +692,10 @@ LIBXS_API void* libxs_xregister(const void* key, size_t key_size,
       && 1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED))
     {
       if (LIBXS_DESCRIPTOR_MAXSIZE >= key_size) {
-        fprintf(stderr, "LIBXS ERROR: invalid arguments for libxs_xregister specified!\n");
+        fprintf(stderr, "LIBXS ERROR: invalid arguments for libxs_registry_set specified!\n");
       }
       else {
-        fprintf(stderr, "LIBXS ERROR: libxs_xregister has maximum key-size of %i Byte!\n",
+        fprintf(stderr, "LIBXS ERROR: libxs_registry_set has maximum key-size of %i Byte!\n",
           LIBXS_DESCRIPTOR_MAXSIZE);
       }
     }
@@ -705,7 +705,7 @@ LIBXS_API void* libxs_xregister(const void* key, size_t key_size,
 }
 
 
-LIBXS_API void* libxs_xdispatch(const void* key, size_t key_size)
+LIBXS_API void* libxs_registry_get(const void* key, size_t key_size)
 {
   libxs_descriptor wrap /*= { 0 }*/;
 #if defined(LIBXS_REGUSER_ALIGN)
@@ -735,7 +735,7 @@ LIBXS_API void* libxs_xdispatch(const void* key, size_t key_size)
     if (0 != libxs_verbosity /* library code is expected to be mute */
       && 1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED))
     {
-      fprintf(stderr, "LIBXS ERROR: invalid arguments for libxs_xdispatch specified!\n");
+      fprintf(stderr, "LIBXS ERROR: invalid arguments for libxs_registry_get specified!\n");
     }
     result = NULL;
   }
@@ -744,9 +744,9 @@ LIBXS_API void* libxs_xdispatch(const void* key, size_t key_size)
 }
 
 
-LIBXS_API void libxs_xrelease(const void* key, size_t key_size)
+LIBXS_API void libxs_registry_free(const void* key, size_t key_size)
 {
-  libxs_release_kernel(libxs_xdispatch(key, key_size));
+  libxs_release_kernel(libxs_registry_get(key, key_size));
 }
 
 
@@ -903,9 +903,9 @@ LIBXS_API void LIBXS_FSYMBOL(libxs_release_kernel)(const void** kernel)
 
 
 /* implementation provided for Fortran 77 compatibility */
-LIBXS_API void LIBXS_FSYMBOL(libxs_xregister)(void** /*regval*/, const void* /*key*/, const int* /*keysize*/,
+LIBXS_API void LIBXS_FSYMBOL(libxs_registry_set)(void** /*regval*/, const void* /*key*/, const int* /*keysize*/,
   const int* /*valsize*/, const void* /*valinit*/);
-LIBXS_API void LIBXS_FSYMBOL(libxs_xregister)(void** regval, const void* key, const int* keysize,
+LIBXS_API void LIBXS_FSYMBOL(libxs_registry_set)(void** regval, const void* key, const int* keysize,
   const int* valsize, const void* valinit)
 {
 #if !defined(NDEBUG)
@@ -913,55 +913,55 @@ LIBXS_API void LIBXS_FSYMBOL(libxs_xregister)(void** regval, const void* key, co
   if (NULL != regval && NULL != key && NULL != keysize && NULL != valsize)
 #endif
   {
-    *regval = libxs_xregister(key, *keysize, *valsize, valinit);
+    *regval = libxs_registry_set(key, *keysize, *valsize, valinit);
   }
 #if !defined(NDEBUG)
   else if (0 != libxs_verbosity /* library code is expected to be mute */
     && 1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED))
   {
-    fprintf(stderr, "LIBXS ERROR: invalid arguments for libxs_xregister specified!\n");
+    fprintf(stderr, "LIBXS ERROR: invalid arguments for libxs_registry_set specified!\n");
   }
 #endif
 }
 
 
 /* implementation provided for Fortran 77 compatibility */
-LIBXS_API void LIBXS_FSYMBOL(libxs_xdispatch)(void** /*regval*/, const void* /*key*/, const int* /*keysize*/);
-LIBXS_API void LIBXS_FSYMBOL(libxs_xdispatch)(void** regval, const void* key, const int* keysize)
+LIBXS_API void LIBXS_FSYMBOL(libxs_registry_get)(void** /*regval*/, const void* /*key*/, const int* /*keysize*/);
+LIBXS_API void LIBXS_FSYMBOL(libxs_registry_get)(void** regval, const void* key, const int* keysize)
 {
 #if !defined(NDEBUG)
   static int error_once = 0;
   if (NULL != regval && NULL != key && NULL != keysize)
 #endif
   {
-    *regval = libxs_xdispatch(key, *keysize);
+    *regval = libxs_registry_get(key, *keysize);
   }
 #if !defined(NDEBUG)
   else if (0 != libxs_verbosity /* library code is expected to be mute */
     && 1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED))
   {
-    fprintf(stderr, "LIBXS ERROR: invalid arguments for libxs_xdispatch specified!\n");
+    fprintf(stderr, "LIBXS ERROR: invalid arguments for libxs_registry_get specified!\n");
   }
 #endif
 }
 
 
 /* implementation provided for Fortran 77 compatibility */
-LIBXS_API void LIBXS_FSYMBOL(libxs_xrelease)(const void* /*key*/, const int* /*keysize*/);
-LIBXS_API void LIBXS_FSYMBOL(libxs_xrelease)(const void* key, const int* keysize)
+LIBXS_API void LIBXS_FSYMBOL(libxs_registry_free)(const void* /*key*/, const int* /*keysize*/);
+LIBXS_API void LIBXS_FSYMBOL(libxs_registry_free)(const void* key, const int* keysize)
 {
 #if !defined(NDEBUG)
   static int error_once = 0;
   if (NULL != key && NULL != keysize)
 #endif
   {
-    libxs_xrelease(key, *keysize);
+    libxs_registry_free(key, *keysize);
   }
 #if !defined(NDEBUG)
   else if (0 != libxs_verbosity /* library code is expected to be mute */
     && 1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED))
   {
-    fprintf(stderr, "LIBXS ERROR: invalid arguments for libxs_xrelease specified!\n");
+    fprintf(stderr, "LIBXS ERROR: invalid arguments for libxs_registry_free specified!\n");
   }
 #endif
 }

@@ -88,7 +88,7 @@
 #elif ((defined(LIBXS_PLATFORM_X86) && (64 <= (LIBXS_BITS))) && \
       (defined(__GNUC__) || defined(LIBXS_INTEL_COMPILER) || defined(__PGI)))
 # define LIBXS_TIMER_RDTSC(CYCLE) do { \
-    libxs_timer_tickint libxs_timer_rdtsc_hi_; \
+    libxs_timer_tick_t libxs_timer_rdtsc_hi_; \
     __asm__ __volatile__ ("rdtsc" : "=a"(CYCLE), "=d"(libxs_timer_rdtsc_hi_)); \
     CYCLE |= libxs_timer_rdtsc_hi_ << 32; \
   } while(0)
@@ -175,11 +175,11 @@ LIBXS_API_INTERN int libxs_print_cmdline(void* buffer, size_t buffer_size, const
 LIBXS_API_INTERN int libxs_dump(const char* title, const char* name, const void* data, size_t size, int unique, int overwrite);
 
 /** Calculates duration in seconds from given RTC ticks. */
-LIBXS_API double libxs_timer_duration_rtc(libxs_timer_tickint tick0, libxs_timer_tickint tick1);
+LIBXS_API double libxs_timer_duration_rtc(libxs_timer_tick_t tick0, libxs_timer_tick_t tick1);
 /** Returns the current tick of platform-specific real-time clock. */
-LIBXS_API libxs_timer_tickint libxs_timer_tick_rtc(void);
+LIBXS_API libxs_timer_tick_t libxs_timer_tick_rtc(void);
 /** Returns the current tick of a (monotonic) platform-specific counter. */
-LIBXS_API libxs_timer_tickint libxs_timer_tick_tsc(void);
+LIBXS_API libxs_timer_tick_t libxs_timer_tick_tsc(void);
 
 /** Global lock; create an own lock for an independent domain. */
 LIBXS_APIVAR_PUBLIC(LIBXS_LOCK_TYPE(LIBXS_LOCK) libxs_lock_global);

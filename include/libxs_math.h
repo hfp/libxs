@@ -19,7 +19,7 @@ typedef long long libxs_matdiff_int;
  * Structure of differences with matrix norms according
  * to http://www.netlib.org/lapack/lug/node75.html).
  */
-LIBXS_EXTERN_C typedef struct libxs_matdiff_info {
+LIBXS_EXTERN_C typedef struct libxs_matdiff_info_t {
   /** One-norm */         double norm1_abs, norm1_rel;
   /** Infinity-norm */    double normi_abs, normi_rel;
   /** Froebenius-norm */  double normf_rel;
@@ -38,16 +38,16 @@ LIBXS_EXTERN_C typedef struct libxs_matdiff_info {
    * difference (libxs_matdiff_epsilon).
    */
   libxs_matdiff_int m, n, i, r;
-} libxs_matdiff_info;
+} libxs_matdiff_info_t;
 
 /**
- * Utility function to calculate a collection of scalar differences between two matrices (libxs_matdiff_info).
+ * Utility function to calculate a collection of scalar differences between two matrices (libxs_matdiff_info_t).
  * The location (m, n) of the largest difference (linf_abs) is recorded (also in case of NaN). In case of NaN,
  * differences are set to infinity. If no difference is discovered, the location (m, n) is negative (OOB).
  * The return value does not judge the difference (norm) between reference and test data, but is about
  * missing support for the requested data-type or otherwise invalid input.
  */
-LIBXS_API int libxs_matdiff(libxs_matdiff_info* info,
+LIBXS_API int libxs_matdiff(libxs_matdiff_info_t* info,
   libxs_datatype datatype, libxs_matdiff_int m, libxs_matdiff_int n, const void* ref, const void* tst,
   const libxs_matdiff_int* ldref, const libxs_matdiff_int* ldtst);
 
@@ -57,14 +57,14 @@ LIBXS_API int libxs_matdiff(libxs_matdiff_info* info,
  * the epsilon (followed by a line-break), which can be used to calibrate margins of a test case.
  * LIBXS_MATDIFF can carry optional space-separated arguments used to amend the file entry.
  */
-LIBXS_API double libxs_matdiff_epsilon(const libxs_matdiff_info* input);
+LIBXS_API double libxs_matdiff_epsilon(const libxs_matdiff_info_t* input);
 /**
  * Reduces input into output such that the difference is maintained or increased (max function).
  * The very first (initial) output should be zeroed (libxs_matdiff_clear).
  */
-LIBXS_API void libxs_matdiff_reduce(libxs_matdiff_info* output, const libxs_matdiff_info* input);
+LIBXS_API void libxs_matdiff_reduce(libxs_matdiff_info_t* output, const libxs_matdiff_info_t* input);
 /** Clears the given info-structure, e.g., for the initial reduction-value (libxs_matdiff_reduce). */
-LIBXS_API void libxs_matdiff_clear(libxs_matdiff_info* info);
+LIBXS_API void libxs_matdiff_clear(libxs_matdiff_info_t* info);
 
 /** Greatest common divisor (corner case: the GCD of 0 and 0 is 1). */
 LIBXS_API size_t libxs_gcd(size_t a, size_t b);

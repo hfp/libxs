@@ -16,7 +16,7 @@
 #endif
 
 
-LIBXS_API int libxs_get_timer_info(libxs_timer_info* info)
+LIBXS_API int libxs_timer_info(libxs_timer_info_t* info)
 {
   int result;
   if (NULL != info) {
@@ -49,7 +49,7 @@ LIBXS_API int libxs_get_timer_info(libxs_timer_info* info)
     if (0 != libxs_verbosity /* library code is expected to be mute */
       && 1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED))
     {
-      fprintf(stderr, "LIBXS ERROR: invalid argument for libxs_get_timer_info specified!\n");
+      fprintf(stderr, "LIBXS ERROR: invalid argument for libxs_timer_info specified!\n");
     }
 #endif
     result = EXIT_FAILURE;
@@ -58,9 +58,9 @@ LIBXS_API int libxs_get_timer_info(libxs_timer_info* info)
 }
 
 
-LIBXS_API libxs_timer_tickint libxs_timer_tick(void)
+LIBXS_API libxs_timer_tick_t libxs_timer_tick(void)
 {
-  libxs_timer_tickint result;
+  libxs_timer_tick_t result;
 #if defined(LIBXS_TIMER_RDTSC)
   if (0 < libxs_timer_scale) {
     LIBXS_TIMER_RDTSC(result);
@@ -86,7 +86,7 @@ LIBXS_API libxs_timer_tickint libxs_timer_tick(void)
 }
 
 
-LIBXS_API double libxs_timer_duration(libxs_timer_tickint tick0, libxs_timer_tickint tick1)
+LIBXS_API double libxs_timer_duration(libxs_timer_tick_t tick0, libxs_timer_tick_t tick1)
 {
   double result;
 #if defined(LIBXS_TIMER_RDTSC)
@@ -105,8 +105,8 @@ LIBXS_API double libxs_timer_duration(libxs_timer_tickint tick0, libxs_timer_tic
 #if defined(LIBXS_BUILD) && (!defined(LIBXS_NOFORTRAN) || defined(__clang_analyzer__))
 
 /* implementation provided for Fortran 77 compatibility */
-LIBXS_API void LIBXS_FSYMBOL(libxs_timer_ncycles)(libxs_timer_tickint* /*ncycles*/, const libxs_timer_tickint* /*tick0*/, const libxs_timer_tickint* /*tick1*/);
-LIBXS_API void LIBXS_FSYMBOL(libxs_timer_ncycles)(libxs_timer_tickint* ncycles, const libxs_timer_tickint* tick0, const libxs_timer_tickint* tick1)
+LIBXS_API void LIBXS_FSYMBOL(libxs_timer_ncycles)(libxs_timer_tick_t* /*ncycles*/, const libxs_timer_tick_t* /*tick0*/, const libxs_timer_tick_t* /*tick1*/);
+LIBXS_API void LIBXS_FSYMBOL(libxs_timer_ncycles)(libxs_timer_tick_t* ncycles, const libxs_timer_tick_t* tick0, const libxs_timer_tick_t* tick1)
 {
 #if !defined(NDEBUG)
   if (NULL != ncycles && NULL != tick0 && NULL != tick1)

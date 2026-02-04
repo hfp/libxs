@@ -36,34 +36,34 @@ int main(int argc, char* argv[])
 #endif
   LIBXS_UNUSED(argc); LIBXS_UNUSED(argv);
   if (EXIT_SUCCESS == result) { /* test for some expected failure */
-    result = (NULL == libxs_xregister(key, /*too large*/LIBXS_DESCRIPTOR_MAXSIZE + 1,
+    result = (NULL == libxs_registry_set(key, /*too large*/LIBXS_DESCRIPTOR_MAXSIZE + 1,
       strlen(value[0]) + 1, value[0]) ? EXIT_SUCCESS : EXIT_FAILURE);
   }
   if (EXIT_SUCCESS == result) { /* test for some expected failure */
-    result = (NULL == libxs_xregister(NULL, 16, /* invalid combination */
+    result = (NULL == libxs_registry_set(NULL, 16, /* invalid combination */
       strlen(value[0]) + 1, value[0]) ? EXIT_SUCCESS : EXIT_FAILURE);
   }
   if (EXIT_SUCCESS == result) { /* test for some expected failure */
-    result = (NULL == libxs_xregister(NULL, 0, /* invalid combination */
+    result = (NULL == libxs_registry_set(NULL, 0, /* invalid combination */
       strlen(value[0]) + 1, value[0]) ? EXIT_SUCCESS : EXIT_FAILURE);
   }
   if (EXIT_SUCCESS == result) { /* test for some expected failure */
-    result = (NULL == libxs_xregister(key, key_size,
+    result = (NULL == libxs_registry_set(key, key_size,
       0, NULL) ? EXIT_SUCCESS : EXIT_FAILURE);
   }
 #if (0 != LIBXS_JIT) /* registry service is only available if JIT is enabled */
   if (EXIT_SUCCESS == result) { /* register and initialize value later */
-    char *const v = (char*)libxs_xregister(key, key_size, strlen(value[0]) + 1, NULL);
+    char *const v = (char*)libxs_registry_set(key, key_size, strlen(value[0]) + 1, NULL);
     strcpy(v, value[0]); /* initialize value after registration */
     result = (NULL != v ? EXIT_SUCCESS : EXIT_FAILURE);
   }
   if (EXIT_SUCCESS == result) { /* retrieve previously registered value */
-    const char *const v = (const char*)libxs_xdispatch(key, key_size);
+    const char *const v = (const char*)libxs_registry_get(key, key_size);
     result = ((NULL != v && 0 == strcmp(v, value[0])) ? EXIT_SUCCESS : EXIT_FAILURE);
   }
   if (EXIT_SUCCESS == result) { /* re-register with same size of payload */
     const size_t samesize = strlen(value[0]);
-    char *const v = (char*)libxs_xregister(key, key_size, samesize + 1, value[5]);
+    char *const v = (char*)libxs_registry_set(key, key_size, samesize + 1, value[5]);
     if (NULL != v) {
       v[samesize] = '\0';
       result = (0 == strncmp(v, value[5], samesize) ? EXIT_SUCCESS : EXIT_FAILURE);
@@ -71,38 +71,38 @@ int main(int argc, char* argv[])
     else result = EXIT_FAILURE;
   }
   if (EXIT_SUCCESS == result) { /* re-register with larger payload (failure) */
-    result = (NULL == libxs_xregister(key, key_size,
+    result = (NULL == libxs_registry_set(key, key_size,
       strlen(value[3]) + 1, value[3]) ? EXIT_SUCCESS : EXIT_FAILURE);
   }
   if (EXIT_SUCCESS == result) { /* retrieve previously registered value */
-    const char *const v = (const char*)libxs_xdispatch(key, key_size);
+    const char *const v = (const char*)libxs_registry_get(key, key_size);
     result = ((NULL != v && 0 == strcmp(v, value[5])) ? EXIT_SUCCESS : EXIT_FAILURE);
   }
   if (EXIT_SUCCESS == result) { /* release entry (enabled for user-data) */
-    libxs_xrelease(key, key_size);
+    libxs_registry_free(key, key_size);
   }
   if (EXIT_SUCCESS == result) { /* re-register with larger payload */
-    result = (NULL != libxs_xregister(key, key_size,
+    result = (NULL != libxs_registry_set(key, key_size,
       strlen(value[3]) + 1, value[3]) ? EXIT_SUCCESS : EXIT_FAILURE);
   }
   if (EXIT_SUCCESS == result) { /* retrieve previously registered value */
-    const char *const v = (const char*)libxs_xdispatch(key, key_size);
+    const char *const v = (const char*)libxs_registry_get(key, key_size);
     result = ((NULL != v && 0 == strcmp(v, value[3])) ? EXIT_SUCCESS : EXIT_FAILURE);
   }
   if (EXIT_SUCCESS == result) { /* release entry (enabled for user-data) */
-    libxs_xrelease(key, key_size);
+    libxs_registry_free(key, key_size);
   }
   for (i = 0; i < n && EXIT_SUCCESS == result; ++i) { /* register all entries */
     const key_type *const ikey = key + i * 3;
     assert(0 == LIBXS_MOD2((uintptr_t)ikey, sizeof(key_type)));
-    result = (NULL != libxs_xregister(ikey, key_size,
+    result = (NULL != libxs_registry_set(ikey, key_size,
       strlen(value[i]) + 1, value[i]) ? EXIT_SUCCESS : EXIT_FAILURE);
   }
   if (EXIT_SUCCESS == result) {
     const void* regkey = NULL;
-    const void* regentry = libxs_get_registry_begin(LIBXS_KERNEL_KIND_USER, &regkey);
+    const void* regentry = libxs_registry_begin(LIBXS_KERNEL_KIND_USER, &regkey);
     /*assert(0 == LIBXS_MOD2((uintptr_t)regkey, sizeof(key_type)) || NULL == regentry);*/
-    for (; NULL != regentry; regentry = libxs_get_registry_next(regentry, &regkey)) {
+    for (; NULL != regentry; regentry = libxs_registry_next(regentry, &regkey)) {
       const key_type *const ikey = (const key_type*)regkey;
       const char *const ivalue = (const char*)regentry;
       /*assert(0 == LIBXS_MOD2((uintptr_t)regkey, sizeof(key_type)));*/
@@ -117,11 +117,11 @@ int main(int argc, char* argv[])
     }
   }
   if (EXIT_SUCCESS == result) { /* register small key */
-    result = (NULL != libxs_xregister(&small_key, sizeof(small_key),
+    result = (NULL != libxs_registry_set(&small_key, sizeof(small_key),
       sizeof(string), string) ? EXIT_SUCCESS : EXIT_FAILURE);
   }
   for (i = 0; i < n && EXIT_SUCCESS == result; ++i) {
-    const char *const v = (char*)libxs_xdispatch(key + i * 3, key_size);
+    const char *const v = (char*)libxs_registry_get(key + i * 3, key_size);
     if (NULL != v) {
       libxs_kernel_info info;
       result = libxs_get_kernel_info(v, &info);
@@ -136,8 +136,8 @@ int main(int argc, char* argv[])
     else result = EXIT_FAILURE;
   }
   if (EXIT_SUCCESS == result) { /* release user-entries for the sake of testing it */
-    const void* regentry = libxs_get_registry_begin(LIBXS_KERNEL_KIND_USER, NULL);
-    for (; NULL != regentry; regentry = libxs_get_registry_next(regentry, NULL)) {
+    const void* regentry = libxs_registry_begin(LIBXS_KERNEL_KIND_USER, NULL);
+    for (; NULL != regentry; regentry = libxs_registry_next(regentry, NULL)) {
       libxs_release_kernel(regentry);
     }
   }

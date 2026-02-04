@@ -17,18 +17,18 @@ typedef enum libxs_mhd_element_conversion_hint {
   LIBXS_MHD_ELEMENT_CONVERSION_MODULUS
 } libxs_mhd_element_conversion_hint;
 
-LIBXS_EXTERN_C typedef struct libxs_mhd_element_handler_info {
+LIBXS_EXTERN_C typedef struct libxs_mhd_element_handler_info_t {
   libxs_datatype type;
   libxs_mhd_element_conversion_hint hint;
-} libxs_mhd_element_handler_info;
+} libxs_mhd_element_handler_info_t;
 
 /**
  * Function type used for custom data-handler or element conversion.
  * The value-range (src_min, src_max) may be used to scale values
  * in case of a type-conversion.
  */
-LIBXS_EXTERN_C typedef int (*libxs_mhd_element_handler)(void* dst,
-  const libxs_mhd_element_handler_info* dst_info, libxs_datatype src_type,
+LIBXS_EXTERN_C typedef int (*libxs_mhd_element_handler_t)(void* dst,
+  const libxs_mhd_element_handler_info_t* dst_info, libxs_datatype src_type,
   const void* src, const void* src_min, const void* src_max);
 
 /**
@@ -37,7 +37,7 @@ LIBXS_EXTERN_C typedef int (*libxs_mhd_element_handler)(void* dst,
  * or otherwise clamps to the destination-type.
  */
 LIBXS_API int libxs_mhd_element_conversion(void* dst,
-  const libxs_mhd_element_handler_info* dst_info, libxs_datatype src_type,
+  const libxs_mhd_element_handler_info_t* dst_info, libxs_datatype src_type,
   const void* src, const void* src_min, const void* src_max);
 
 /**
@@ -46,7 +46,7 @@ LIBXS_API int libxs_mhd_element_conversion(void* dst,
  * is performed to compare values using the source-type.
  */
 LIBXS_API int libxs_mhd_element_comparison(void* dst,
-  const libxs_mhd_element_handler_info* dst_info, libxs_datatype src_type,
+  const libxs_mhd_element_handler_info_t* dst_info, libxs_datatype src_type,
   const void* src, const void* src_min, const void* src_max);
 
 
@@ -116,14 +116,14 @@ LIBXS_API int libxs_mhd_read(
    * Destination info including type. If given, data
    * is type-converted (no custom handler necessary).
    */
-  const libxs_mhd_element_handler_info* handler_info,
+  const libxs_mhd_element_handler_info_t* handler_info,
   /**
    * Optional callback executed per entry when reading the data.
    * May assign the value to the left-most argument, but also
    * allows to only compare with present data. Can be used to
    * avoid allocating an actual destination.
    */
-  libxs_mhd_element_handler handler,
+  libxs_mhd_element_handler_t handler,
   /* Post-content data (extension, optional). */
   char extension[],
   /* Size of the extension; can be zero. */
@@ -153,14 +153,14 @@ LIBXS_API int libxs_mhd_write(const char filename[],
    * Destination info including type. If given, data
    * is type-converted (no custom handler necessary).
    */
-  const libxs_mhd_element_handler_info* handler_info,
+  const libxs_mhd_element_handler_info_t* handler_info,
   /**
    * Optional callback executed per entry when reading the data.
    * May assign the value to the left-most argument, but also
    * allows to only compare with present data. Can be used to
    * avoid allocating an actual destination.
    */
-  libxs_mhd_element_handler handler,
+  libxs_mhd_element_handler_t handler,
   /* Size of the header; can be a NULL-argument (optional). */
   size_t* header_size,
   /* Extension header data; can be NULL. */

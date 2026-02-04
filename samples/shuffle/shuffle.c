@@ -82,11 +82,11 @@ int main(int argc, char* argv[])
       LIBXS_DATATYPE_U16,
       LIBXS_DATATYPE_U8
     };
-    libxs_mhd_element_handler_info mhdinfo = { 0 };
+    libxs_mhd_element_handler_info_t mhdinfo = { 0 };
     const size_t nelemtypes = sizeof(elemtypes) / sizeof(*elemtypes);
     const size_t nchannels = 1, mhdsize = n / nchannels;
     size_t shape[2], y = 0, typesize = 0;
-    libxs_timer_tickint start;
+    libxs_timer_tick_t start;
     int elemtype = -1, i;
 
     /* initialize the data */

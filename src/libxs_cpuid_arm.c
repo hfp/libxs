@@ -66,11 +66,11 @@ LIBXS_API_INTERN char libxs_cpuid_arm_vendor(void) {
 #endif
 
 
-LIBXS_API int libxs_cpuid_arm(libxs_cpuid_info* info)
+LIBXS_API int libxs_cpuid_arm(libxs_cpuid_info_t* info)
 {
   static int result = LIBXS_TARGET_ARCH_UNKNOWN;
 #if defined(LIBXS_PLATFORM_AARCH64)
-  libxs_cpuid_info cpuid_info;
+  libxs_cpuid_info_t cpuid_info;
   size_t model_size = 0;
 # if !defined(LIBXS_CPUID_ARM_MODEL_FALLBACK)
   LIBXS_UNUSED(model_size);

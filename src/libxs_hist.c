@@ -10,20 +10,20 @@
 
 
 typedef struct libxs_hist_t {
-  libxs_hist_update_fn* update;
+  libxs_hist_update_t* update;
   double *vals, min, max;
   int *buckets, nbuckets, nqueue, nvals, n;
 } libxs_hist_t;
 
 
 LIBXS_API void libxs_hist_create(void** hist,
-  int nbuckets, int nqueue, int nvals, const libxs_hist_update_fn update[])
+  int nbuckets, int nqueue, int nvals, const libxs_hist_update_t update[])
 {
   libxs_hist_t* h = (libxs_hist_t*)malloc(sizeof(libxs_hist_t));
   assert(NULL != hist && 0 < nbuckets && 0 < nqueue && 0 < nvals && NULL != update);
   if (NULL != h) {
     h->vals = (double*)malloc(sizeof(double) * LIBXS_MAX(nbuckets, nqueue) * nvals);
-    h->update = (libxs_hist_update_fn*)malloc(sizeof(libxs_hist_update_fn) * nvals);
+    h->update = (libxs_hist_update_t*)malloc(sizeof(libxs_hist_update_t) * nvals);
     h->buckets = (int*)calloc(nbuckets, sizeof(int));
     if (NULL != h->vals && NULL != h->buckets && NULL != h->update) {
       union {
@@ -55,17 +55,15 @@ LIBXS_API void libxs_hist_create(void** hist,
 }
 
 
-LIBXS_API void libxs_hist_avg(double* dst, const double* src)
+LIBXS_API void libxs_hist_destroy(void* hist)
 {
-  assert(NULL != dst && NULL != src);
-  *dst = 0.5 * (*dst + *src);
-}
-
-
-LIBXS_API void libxs_hist_add(double* dst, const double* src)
-{
-  assert(NULL != dst && NULL != src);
-  *dst += *src;
+  if (NULL != hist) {
+    libxs_hist_t* const h = (libxs_hist_t*)hist;
+    free(h->buckets);
+    free(h->update);
+    free(h->vals);
+    free(h);
+  }
 }
 
 
@@ -87,7 +85,7 @@ LIBXS_API void libxs_hist_set(LIBXS_LOCK_TYPE(LIBXS_LOCK)* lock, void* hist, con
           for (k = 0, j = (i - 1) * h->nvals; k < h->nvals; ++k) {
             if (0 != h->buckets[i - 1]) {
               if (NULL != h->update[k]) {
-                const libxs_hist_update_fn update = h->update[k];
+                const libxs_hist_update_t update = h->update[k];
                 update(h->vals + (j + k), vals + k);
               }
               else libxs_hist_avg(h->vals + (j + k), vals + k);
@@ -170,7 +168,7 @@ LIBXS_API void libxs_hist_get(LIBXS_LOCK_TYPE(LIBXS_LOCK)* lock, void* hist,
 
 
 LIBXS_API void libxs_hist_print(FILE* stream, void* hist, const char title[], const int prec[],
-  const libxs_hist_adjust_fn adjust[])
+  const libxs_hist_adjust_t adjust[])
 {
   int nbuckets = 0, nvals = 0, i = 1, j = 0, k;
   const int* buckets = NULL;
@@ -179,7 +177,7 @@ LIBXS_API void libxs_hist_print(FILE* stream, void* hist, const char title[], co
   libxs_hist_get(NULL /*lock*/, hist, &buckets, &nbuckets, range, &vals, &nvals);
   if (NULL != stream && NULL != buckets && 0 < nbuckets && NULL != vals && 0 < nvals) {
     const double w = range[1] - range[0];
-    if (NULL != title) fprintf(stream, "%s pid=%u\n", title, libxs_get_pid());
+    if (NULL != title) fprintf(stream, "%s pid=%u\n", title, libxs_pid());
     for (; i <= nbuckets; j = nvals * i++) {
       const double q = range[0] + i * w / nbuckets, r = (i != nbuckets ? q : LIBXS_MAX(q, vals[j]));
       const int c = buckets[i - 1];
@@ -201,13 +199,15 @@ LIBXS_API void libxs_hist_print(FILE* stream, void* hist, const char title[], co
 }
 
 
-LIBXS_API void libxs_hist_free(void* hist)
+LIBXS_API void libxs_hist_avg(double* dst, const double* src)
 {
-  if (NULL != hist) {
-    libxs_hist_t* const h = (libxs_hist_t*)hist;
-    free(h->buckets);
-    free(h->update);
-    free(h->vals);
-    free(h);
-  }
+  assert(NULL != dst && NULL != src);
+  *dst = 0.5 * (*dst + *src);
+}
+
+
+LIBXS_API void libxs_hist_add(double* dst, const double* src)
+{
+  assert(NULL != dst && NULL != src);
+  *dst += *src;
 }

@@ -83,7 +83,7 @@ int main(int argc, char* argv[])
   const libxs_blasint maxsize = LIBXS_CLMP((6 < argc && 0 < atoi(argv[6])) ? atoi(argv[6]) : default_maxsize, 1, MAXSIZE);
   const libxs_blasint minsize = LIBXS_CLMP((7 < argc && 0 < atoi(argv[7])) ? atoi(argv[7]) : default_minsize, 1, maxsize);
   const libxs_blasint range = maxsize - minsize + 1;
-  libxs_timer_tickint start, tcall = 0, tcgen = 0, tdsp0 = 0, tdsp1 = 0;
+  libxs_timer_tick_t start, tcall = 0, tcgen = 0, tdsp0 = 0, tdsp1 = 0;
 
   triplet* const rnd = (triplet*)(0 < size_total ? malloc(sizeof(triplet) * size_total) : NULL);
   const size_t shuffle = libxs_coprime2(size_total);
@@ -304,14 +304,14 @@ int main(int argc, char* argv[])
       double a[LIBXS_MAX_M*LIBXS_MAX_M];
       double b[LIBXS_MAX_M*LIBXS_MAX_M];
       double c[LIBXS_MAX_M*LIBXS_MAX_M];
-      libxs_matdiff_info check;
+      libxs_matdiff_info_t check;
       libxs_matdiff_clear(&check);
       LIBXS_MATRNG(double, 0, a, maxsize, maxsize, maxsize, 1.0);
       LIBXS_MATRNG(double, 0, b, maxsize, maxsize, maxsize, 1.0);
       LIBXS_MATRNG(double, 0, c, maxsize, maxsize, maxsize, 1.0);
       for (i = 0; i < size_total; ++i) {
         const int j = (int)LIBXS_MOD(shuffle * i, size_total);
-        libxs_matdiff_info diff;
+        libxs_matdiff_info_t diff;
 # if defined(MKLJIT)
         const dgemm_jit_kernel_t kernel = mkl_jit_get_dgemm_ptr(jitter[j]);
 # else
@@ -369,7 +369,7 @@ int main(int argc, char* argv[])
   tcall = (tcall + (size_t)size_total * nrepeat - 1) / ((size_t)size_total * nrepeat);
   tdsp0 = (tdsp0 + (size_t)size_total * nrepeat - 1) / ((size_t)size_total * nrepeat);
   tdsp1 = (tdsp1 + (size_t)size_total * nrepeat - 1) / ((size_t)size_total * nrepeat);
-  tcgen = LIBXS_UPDIV(tcgen, (libxs_timer_tickint)size_total);
+  tcgen = LIBXS_UPDIV(tcgen, (libxs_timer_tick_t)size_total);
   if (0 < tcall && 0 < tdsp0 && 0 < tdsp1 && 0 < tcgen) {
     const double tcall_ns = 1E9 * libxs_timer_duration(0, tcall), tcgen_ns = 1E9 * libxs_timer_duration(0, tcgen);
     const double tdsp0_ns = 1E9 * libxs_timer_duration(0, tdsp0), tdsp1_ns = 1E9 * libxs_timer_duration(0, tdsp1);

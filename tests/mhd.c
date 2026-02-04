@@ -17,7 +17,7 @@ int main(int argc, char* argv[])
   const int bw = LIBXS_MAX(2 < argc ? atoi(argv[2]) : 64, 1);
   const int bh = LIBXS_MAX(3 < argc ? atoi(argv[3]) : 64, 1);
   size_t ndims = 3, size[3], pitch[3], offset[3], ncomponents, header_size, extension_size;
-  libxs_mhd_element_handler_info dst_info;
+  libxs_mhd_element_handler_info_t dst_info;
   libxs_datatype type;
   char data_filename[1024];
   void* data = NULL;
