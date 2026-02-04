@@ -11,10 +11,10 @@
 #include "libxs_main.h"
 
 
-LIBXS_API int libxs_cpuid_rv64(libxs_cpuid_info* info)
+LIBXS_API int libxs_cpuid_rv64(libxs_cpuid_info_t* info)
 {
   int mvl;
-  libxs_cpuid_info cpuid_info;
+  libxs_cpuid_info_t cpuid_info;
   size_t cpuinfo_model_size = sizeof(cpuid_info.model);
 #ifdef LIBXS_PLATFORM_RV64
   int rvl = 65536;

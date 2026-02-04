@@ -15,11 +15,11 @@
 
 /* measure non-contended latency of RO-lock */
 #define MEASURE_LATENCY_RO(LOCK_KIND, LOCKPTR, NREPEAT, NR) do { \
-  libxs_timer_tickint latency = 0; \
+  libxs_timer_tick_t latency = 0; \
   double duration; \
   int i; \
   for (i = 0; i < (NREPEAT) / 4; ++i) { \
-    const libxs_timer_tickint tick = libxs_timer_tick(); \
+    const libxs_timer_tick_t tick = libxs_timer_tick(); \
     LIBXS_LOCK_ACQREAD(LOCK_KIND, LOCKPTR); \
     LIBXS_LOCK_RELREAD(LOCK_KIND, LOCKPTR); \
     LIBXS_LOCK_ACQREAD(LOCK_KIND, LOCKPTR); \
@@ -39,11 +39,11 @@
 
 /* measure non-contended latency of RW-lock */
 #define MEASURE_LATENCY_RW(LOCK_KIND, LOCKPTR, NREPEAT, NR) do { \
-  libxs_timer_tickint latency = 0; \
+  libxs_timer_tick_t latency = 0; \
   double duration; \
   int i; \
   for (i = 0; i < (NREPEAT) / 4; ++i) { \
-    const libxs_timer_tickint tick = libxs_timer_tick(); \
+    const libxs_timer_tick_t tick = libxs_timer_tick(); \
     LIBXS_LOCK_ACQUIRE(LOCK_KIND, LOCKPTR); \
     LIBXS_LOCK_RELEASE(LOCK_KIND, LOCKPTR); \
     LIBXS_LOCK_ACQUIRE(LOCK_KIND, LOCKPTR); \
@@ -70,13 +70,13 @@
 #endif
 
 #define MEASURE_THROUGHPUT(LOCK_KIND, LOCKPTR, NREPEAT, NTHREADS, WORK_R, WORK_W, NW, NT) do { \
-  libxs_timer_tickint throughput = 0; \
+  libxs_timer_tick_t throughput = 0; \
   double duration; \
   MEASURE_THROUGHPUT_PARALLEL(NTHREADS) \
   { \
     int n, nn; \
-    libxs_timer_tickint t1, t2, d = 0; \
-    const libxs_timer_tickint t0 = libxs_timer_tick(); \
+    libxs_timer_tick_t t1, t2, d = 0; \
+    const libxs_timer_tick_t t0 = libxs_timer_tick(); \
     for (n = 0; n < (NREPEAT); n = nn) { \
       nn = n + 1; \
       if (0 != (nn % (NW))) { /* read */ \
@@ -125,13 +125,13 @@
 } while(0)
 
 
-libxs_timer_tickint work(libxs_timer_tickint start, libxs_timer_tickint duration);
-libxs_timer_tickint work(libxs_timer_tickint start, libxs_timer_tickint duration)
+libxs_timer_tick_t work(libxs_timer_tick_t start, libxs_timer_tick_t duration);
+libxs_timer_tick_t work(libxs_timer_tick_t start, libxs_timer_tick_t duration)
 {
-  const libxs_timer_tickint end = start + duration;
-  libxs_timer_tickint tick = start;
+  const libxs_timer_tick_t end = start + duration;
+  libxs_timer_tick_t tick = start;
   do {
-    libxs_timer_tickint i, s = 0;
+    libxs_timer_tick_t i, s = 0;
     for (i = 0; i < ((end - tick) / 4); ++i) s += i;
     tick = libxs_timer_tick();
   }

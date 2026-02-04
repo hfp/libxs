@@ -51,7 +51,7 @@ int main(int argc, char* argv[])
       memcpy(b, a, nbytes); /* same content */
       /* benchmark libxs_diff (always strided) */
       if (elsize < 256) {
-        const libxs_timer_tickint start = libxs_timer_tick();
+        const libxs_timer_tick_t start = libxs_timer_tick();
         for (j = 0; j < nbytes; j += stride) {
           const void *const aj = a + j, *const bj = b + j;
           diff += libxs_diff(aj, bj, (unsigned char)elsize);
@@ -64,7 +64,7 @@ int main(int argc, char* argv[])
       }
 
       { /* benchmark libxs_memcmp */
-        libxs_timer_tickint start;
+        libxs_timer_tick_t start;
         /* reinitialize the data (flush caches) */
         libxs_rng_seq(a, nbytes);
         memcpy(b, a, nbytes); /* same content */
@@ -86,7 +86,7 @@ int main(int argc, char* argv[])
       }
 
       { /* benchmark stdlib's memcmp */
-        libxs_timer_tickint start;
+        libxs_timer_tick_t start;
         /* reinitialize the data (flush caches) */
         libxs_rng_seq(a, nbytes);
         memcpy(b, a, nbytes); /* same content */

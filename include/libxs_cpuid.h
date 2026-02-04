@@ -33,26 +33,26 @@
 #define LIBXS_RV64_ALLFEAT          3999
 
  /** Zero-initialized structure; assumes conservative properties. */
-LIBXS_EXTERN_C typedef struct libxs_cpuid_info {
+LIBXS_EXTERN_C typedef struct libxs_cpuid_info_t {
   char model[1024]; /** CPU-name (OS-specific implementation). */
   int constant_tsc; /** Timer stamp counter is monotonic. */
 #if defined(LIBXS_PLATFORM_X86)
   int has_context;  /** Context switches are permitted. */
 #endif
-} libxs_cpuid_info;
+} libxs_cpuid_info_t;
 
 /** Returns the target architecture and instruction set extensions. */
-LIBXS_API int libxs_cpuid_x86(libxs_cpuid_info* LIBXS_ARGDEF(info, NULL));
-LIBXS_API int libxs_cpuid_arm(libxs_cpuid_info* LIBXS_ARGDEF(info, NULL));
-LIBXS_API int libxs_cpuid_rv64(libxs_cpuid_info* LIBXS_ARGDEF(info, NULL));
+LIBXS_API int libxs_cpuid_x86(libxs_cpuid_info_t* LIBXS_ARGDEF(info, NULL));
+LIBXS_API int libxs_cpuid_arm(libxs_cpuid_info_t* LIBXS_ARGDEF(info, NULL));
+LIBXS_API int libxs_cpuid_rv64(libxs_cpuid_info_t* LIBXS_ARGDEF(info, NULL));
 
 /** Similar to libxs_cpuid_x86, but conceptually not arch-specific. */
-LIBXS_API int libxs_cpuid(libxs_cpuid_info* LIBXS_ARGDEF(info, NULL));
+LIBXS_API int libxs_cpuid(libxs_cpuid_info_t* LIBXS_ARGDEF(info, NULL));
 
 /** Names the CPU architecture given by CPUID. */
 LIBXS_API const char* libxs_cpuid_name(int id);
 
-/** Determines CPU-name using OS-specific interfaces (see libxs_cpuid_info). */
+/** Determines CPU-name using OS-specific interfaces (see libxs_cpuid_info_t). */
 LIBXS_API void libxs_cpuid_model(char model[], size_t* model_size);
 
 /** Translate the CPU name to LIBXS's internal ID. */

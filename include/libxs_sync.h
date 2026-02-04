@@ -719,13 +719,13 @@ LIBXS_EXTERN void funlockfile(FILE*) LIBXS_NOTHROW;
 
 
 /** Utility function to receive the process ID of the calling process. */
-LIBXS_API unsigned int libxs_get_pid(void);
+LIBXS_API unsigned int libxs_pid(void);
 /**
  * Utility function to receive a Thread-ID (TID) for the calling thread.
  * The TID is not related to a specific threading runtime. TID=0 may not
  * represent the main thread. TIDs are zero-based and consecutive numbers.
  */
-LIBXS_API unsigned int libxs_get_tid(void);
+LIBXS_API unsigned int libxs_tid(void);
 
 /** Synchronize console output (lock). */
 LIBXS_API void libxs_stdio_acquire(void);

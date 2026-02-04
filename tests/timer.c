@@ -47,9 +47,9 @@ int main(int argc, char* argv[])
 #endif
     : atoi(env_delta);
   unsigned int n = max_nseconds, ninterrupts = 0;
-  libxs_timer_tickint begin, start;
+  libxs_timer_tick_t begin, start;
   double total = 0, delta = 0, d, t;
-  libxs_timer_info info;
+  libxs_timer_info_t info;
   int result;
 
 #if !defined(USE_NOINIT)
@@ -87,7 +87,7 @@ int main(int argc, char* argv[])
   d = 100.0 * LIBXS_DELTA(total, (double)max_nseconds) / max_nseconds;
   if (delta < d) delta = d;
 
-  result = libxs_get_timer_info(&info);
+  result = libxs_timer_info(&info);
   if (EXIT_SUCCESS == result) {
     result = (int)LIBXS_ROUND(delta);
     if ((0 != max_delta || 0 == info.tsc) && (0 > max_delta || result <= max_delta)) {

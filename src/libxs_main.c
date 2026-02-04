@@ -60,8 +60,8 @@
 
 
 /** Time stamp (startup time of library). */
-LIBXS_APIVAR_DEFINE(libxs_timer_tickint internal_timer_start);
-LIBXS_APIVAR_DEFINE(libxs_cpuid_info internal_cpuid_info);
+LIBXS_APIVAR_DEFINE(libxs_timer_tick_t internal_timer_start);
+LIBXS_APIVAR_DEFINE(libxs_cpuid_info_t internal_cpuid_info);
 LIBXS_APIVAR_DEFINE(const char* internal_build_state);
 
 /* definition of corresponding variables */
@@ -119,7 +119,7 @@ LIBXS_API_INTERN void internal_dump(FILE* ostream, int urgent)
           const char *const pid = strstr(filename, "PID");
           if (NULL != pid) { /* PID-keyword is present */
             int n = (int)(pid - filename);
-            n = LIBXS_SNPRINTF(buffer, sizeof(buffer), "%.*s%u%s", n, filename, libxs_get_pid(), filename + n + 3);
+            n = LIBXS_SNPRINTF(buffer, sizeof(buffer), "%.*s%u%s", n, filename, libxs_pid(), filename + n + 3);
             if (0 < n && (int)sizeof(buffer) > n) {
               file = fopen(buffer, "r");
               filename = buffer;
@@ -127,7 +127,7 @@ LIBXS_API_INTERN void internal_dump(FILE* ostream, int urgent)
           }
         }
         else {
-          fprintf(stderr, "LIBXS INFO: PID=%u\n", libxs_get_pid());
+          fprintf(stderr, "LIBXS INFO: PID=%u\n", libxs_pid());
           if (0 < seconds) {
 #if defined(_WIN32)
             Sleep((DWORD)(1000 * seconds));
@@ -162,13 +162,13 @@ LIBXS_API_INTERN void internal_dump(FILE* ostream, int urgent)
 }
 
 
-LIBXS_API double libxs_timer_duration_rtc(libxs_timer_tickint tick0, libxs_timer_tickint tick1)
+LIBXS_API double libxs_timer_duration_rtc(libxs_timer_tick_t tick0, libxs_timer_tick_t tick1)
 {
-  const libxs_timer_tickint delta = LIBXS_DELTA(tick0, tick1);
+  const libxs_timer_tick_t delta = LIBXS_DELTA(tick0, tick1);
 #if defined(_WIN32)
   LARGE_INTEGER frequency;
   QueryPerformanceFrequency(&frequency);
-  return LIBXS_TIMER_DURATION_IDIV(delta, (libxs_timer_tickint)frequency.QuadPart);
+  return LIBXS_TIMER_DURATION_IDIV(delta, (libxs_timer_tick_t)frequency.QuadPart);
 #elif defined(CLOCK_MONOTONIC)
 # if defined(__APPLE__) && 0
   mach_timebase_info_data_t frequency;
@@ -183,12 +183,12 @@ LIBXS_API double libxs_timer_duration_rtc(libxs_timer_tickint tick0, libxs_timer
 }
 
 
-LIBXS_API libxs_timer_tickint libxs_timer_tick_rtc(void)
+LIBXS_API libxs_timer_tick_t libxs_timer_tick_rtc(void)
 {
 #if defined(_WIN32)
   LARGE_INTEGER t;
   QueryPerformanceCounter(&t);
-  return (libxs_timer_tickint)t.QuadPart;
+  return (libxs_timer_tick_t)t.QuadPart;
 #elif defined(CLOCK_MONOTONIC)
 # if defined(__APPLE__) && 0
   return mach_absolute_time();
@@ -206,9 +206,9 @@ LIBXS_API libxs_timer_tickint libxs_timer_tick_rtc(void)
 
 
 LIBXS_API LIBXS_INTRINSICS(LIBXS_X86_GENERIC)
-libxs_timer_tickint libxs_timer_tick_tsc(void)
+libxs_timer_tick_t libxs_timer_tick_tsc(void)
 {
-  libxs_timer_tickint result;
+  libxs_timer_tick_t result;
 #if defined(LIBXS_TIMER_RDTSC)
   LIBXS_TIMER_RDTSC(result);
 #else
@@ -262,7 +262,7 @@ LIBXS_API_INTERN void internal_libxs_signal(int signum) {
   int n = (int)(sizeof(internal_sigentries) / sizeof(*internal_sigentries)), i = 0;
   for (; i < n; ++i) {
     if (signum == internal_sigentries[i].signum) {
-      if (0 == libxs_get_tid()) {
+      if (0 == libxs_tid()) {
         libxs_verbosity = LIBXS_MAX(LIBXS_VERBOSITY_HIGH + 1, libxs_verbosity);
         internal_finalize();
         signal(signum,
@@ -536,8 +536,8 @@ LIBXS_API_CTOR void libxs_init(void)
     LIBXS_ASSERT(0 < tid);
     /* libxs_ninit (1: initialization started, 2: library initialized, higher: to invalidate code-TLS) */
     if (1 == tid) {
-      libxs_timer_tickint s0 = libxs_timer_tick_rtc(); /* warm-up */
-      libxs_timer_tickint t0 = libxs_timer_tick_tsc(); /* warm-up */
+      libxs_timer_tick_t s0 = libxs_timer_tick_rtc(); /* warm-up */
+      libxs_timer_tick_t t0 = libxs_timer_tick_tsc(); /* warm-up */
       s0 = libxs_timer_tick_rtc(); t0 = libxs_timer_tick_tsc(); /* start timing */
       { const unsigned int ninit = LIBXS_ATOMIC_ADD_FETCH(&libxs_ninit, 1, LIBXS_ATOMIC_SEQ_CST);
         LIBXS_UNUSED_NDEBUG(ninit);
@@ -628,7 +628,7 @@ LIBXS_API_CTOR void libxs_init(void)
       }
       { /* calibrate timer */
         int result_atexit = EXIT_SUCCESS;
-        libxs_timer_tickint s1, t1;
+        libxs_timer_tick_t s1, t1;
         internal_init(); /* must be first to initialize verbosity, etc. */
         if (INTERNAL_SINGLETON(internal_singleton_handle)) { /* after internal_init */
           internal_dump(stdout, 1/*urgent*/);

@@ -25,7 +25,7 @@
 #endif
 
 
-LIBXS_API unsigned int libxs_get_pid(void)
+LIBXS_API unsigned int libxs_pid(void)
 {
 #if defined(_WIN32)
   return (unsigned int)_getpid();
@@ -53,7 +53,7 @@ LIBXS_API_INTERN unsigned int internal_get_tid(void)
 }
 
 
-LIBXS_API unsigned int libxs_get_tid(void)
+LIBXS_API unsigned int libxs_tid(void)
 {
 #if (0 != LIBXS_SYNC)
 # if defined(_OPENMP) && defined(LIBXS_SYNC_OMP)
