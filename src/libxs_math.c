@@ -190,7 +190,6 @@ LIBXS_API int libxs_matdiff(libxs_matdiff_info* info,
         if ('-' != *env || (0 <= info->m && 0 <= info->n)) {
 #if defined(LIBXS_MATHDIFF_MHD)
           const char *const defaultname = ((('0' < *env && '9' >= *env) || '-' == *env) ? "libxs_dump" : env);
-          const libxs_mhd_elemtype type_src = (libxs_mhd_elemtype)datatype;
           const int envi = atoi(env), reshape = (1 < envi || -1 > envi);
           size_t shape[2] = { 0 }, size[2] = { 0 };
           char filename[256] = "";
@@ -206,10 +205,10 @@ LIBXS_API int libxs_matdiff(libxs_matdiff_info* info,
             size[0] = shape[0];
             size[1] = shape[1];
           }
-          info_dst.type = LIBXS_MIN(LIBXS_MHD_ELEMTYPE_F32, type_src);
+          info_dst.type = LIBXS_MIN(LIBXS_DATATYPE_F32, datatype);
           LIBXS_SNPRINTF(filename, sizeof(filename), "%s-%p-ref.mhd", defaultname, ref);
           libxs_mhd_write(filename, NULL/*offset*/, shape, size, 2/*ndims*/, 1/*ncomponents*/,
-            type_src, ref, &info_dst, NULL/*handler*/, NULL/*header_size*/, NULL/*extension_header*/,
+            datatype, ref, &info_dst, NULL/*handler*/, NULL/*header_size*/, NULL/*extension_header*/,
             NULL/*extension*/, 0/*extension_size*/);
 #endif
           if (NULL != tst) {
@@ -220,18 +219,18 @@ LIBXS_API int libxs_matdiff(libxs_matdiff_info* info,
             }
             LIBXS_SNPRINTF(filename, sizeof(filename), "%s-%p-tst.mhd", defaultname, ref/*adopt ref-ptr*/);
             libxs_mhd_write(filename, NULL/*offset*/, shape, size, 2/*ndims*/, 1/*ncomponents*/,
-              type_src, tst, &info_dst, NULL/*handler*/, NULL/*header_size*/, NULL/*extension_header*/,
+              datatype, tst, &info_dst, NULL/*handler*/, NULL/*header_size*/, NULL/*extension_header*/,
               NULL/*extension*/, 0/*extension_size*/);
 #endif
             if ('-' == *env && '1' < env[1]) {
               printf("LIBXS MATDIFF (%s): m=%" PRIuPTR " n=%" PRIuPTR " ldi=%" PRIuPTR " ldo=%" PRIuPTR " failed.\n",
-                libxs_get_typename(datatype), (uintptr_t)m, (uintptr_t)n, (uintptr_t)ldr, (uintptr_t)ldt);
+                libxs_typename(datatype), (uintptr_t)m, (uintptr_t)n, (uintptr_t)ldr, (uintptr_t)ldt);
             }
           }
         }
         else if ('-' == *env && '1' < env[1] && NULL != tst) {
           printf("LIBXS MATDIFF (%s): m=%" PRIuPTR " n=%" PRIuPTR " ldi=%" PRIuPTR " ldo=%" PRIuPTR " passed.\n",
-            libxs_get_typename(datatype), (uintptr_t)m, (uintptr_t)n, (uintptr_t)ldr, (uintptr_t)ldt);
+            libxs_typename(datatype), (uintptr_t)m, (uintptr_t)n, (uintptr_t)ldr, (uintptr_t)ldt);
         }
       }
       if (0 == result_nan) {
@@ -676,7 +675,7 @@ LIBXS_API void LIBXS_FSYMBOL(libxs_matdiff)(libxs_matdiff_info* info,
   const libxs_matdiff_int* ldref, const libxs_matdiff_int* ldtst)
 {
   static int error_once = 0;
-  if ((NULL == datatype || LIBXS_DATATYPE_UNSUPPORTED <= *datatype || 0 > *datatype || NULL == m
+  if ((NULL == datatype || LIBXS_DATATYPE_UNKNOWN <= *datatype || 0 > *datatype || NULL == m
     || EXIT_SUCCESS != libxs_matdiff(info, (libxs_datatype)*datatype, *m, *(NULL != n ? n : m), ref, tst, ldref, ldtst))
     && 0 != libxs_verbosity && 1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED))
   {

@@ -76,11 +76,11 @@ int main(int argc, char* argv[])
     size_t g1 = 0, g2 = 0, g3 = 0, h1 = 0, h2 = 0, h3 = 0;
     size_t n0 = 0, n1 = 0, n2 = 0, n3 = 0, j;
     double d0, d1 = 0, d2 = 0, d3 = 0;
-    const libxs_mhd_elemtype elemtypes[] = {
-      LIBXS_MHD_ELEMTYPE_U64,
-      LIBXS_MHD_ELEMTYPE_U32,
-      LIBXS_MHD_ELEMTYPE_U16,
-      LIBXS_MHD_ELEMTYPE_U8
+    const libxs_datatype elemtypes[] = {
+      LIBXS_DATATYPE_U64,
+      LIBXS_DATATYPE_U32,
+      LIBXS_DATATYPE_U16,
+      LIBXS_DATATYPE_U8
     };
     libxs_mhd_element_handler_info mhdinfo = { 0 };
     const size_t nelemtypes = sizeof(elemtypes) / sizeof(*elemtypes);
@@ -103,7 +103,7 @@ int main(int argc, char* argv[])
       typesize = libxs_mhd_typesize(elemtypes[j]);
       if (elsize == typesize) {
         mhdinfo.hint = LIBXS_MHD_ELEMENT_CONVERSION_MODULUS;
-        mhdinfo.type = LIBXS_MHD_ELEMTYPE_U8;
+        mhdinfo.type = LIBXS_DATATYPE_U8;
         elemtype = (int)j;
         break;
       }
