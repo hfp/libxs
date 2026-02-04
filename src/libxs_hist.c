@@ -20,7 +20,7 @@ LIBXS_API void libxs_hist_create(libxs_hist_t** hist,
   int nbuckets, int nqueue, int nvals, const libxs_hist_update_t update[])
 {
   libxs_hist_t* h = (libxs_hist_t*)malloc(sizeof(libxs_hist_t));
-  assert(NULL != hist && 0 < nbuckets && 0 < nqueue && 0 < nvals && NULL != update);
+  LIBXS_ASSERT(NULL != hist && 0 < nbuckets && 0 < nqueue && 0 < nvals && NULL != update);
   if (NULL != h) {
     h->vals = (double*)malloc(sizeof(double) * LIBXS_MAX(nbuckets, nqueue) * nvals);
     h->update = (libxs_hist_update_t*)malloc(sizeof(libxs_hist_update_t) * nvals);
@@ -113,7 +113,7 @@ LIBXS_API void libxs_hist_get(LIBXS_LOCK_TYPE(LIBXS_LOCK)* lock, const libxs_his
 {
   int *b = NULL, m = 0, n = 0, i, j, k;
   double *v = NULL, r[] = {0, 0};
-  assert(NULL != buckets || NULL != range || NULL != vals);
+  LIBXS_ASSERT(NULL != buckets || NULL != range || NULL != vals);
   if (NULL != hist) {
     if (NULL != lock) LIBXS_LOCK_ACQUIRE(LIBXS_LOCK, lock);
     if (hist->n <= hist->nqueue) {
@@ -198,13 +198,13 @@ LIBXS_API void libxs_hist_print(FILE* stream, const libxs_hist_t* hist, const ch
 
 LIBXS_API void libxs_hist_avg(double* dst, const double* src)
 {
-  assert(NULL != dst && NULL != src);
+  LIBXS_ASSERT(NULL != dst && NULL != src);
   *dst = 0.5 * (*dst + *src);
 }
 
 
 LIBXS_API void libxs_hist_add(double* dst, const double* src)
 {
-  assert(NULL != dst && NULL != src);
+  LIBXS_ASSERT(NULL != dst && NULL != src);
   *dst += *src;
 }
