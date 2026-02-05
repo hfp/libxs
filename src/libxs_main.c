@@ -6,10 +6,9 @@
 * Further information: https://github.com/hfp/libxs/                          *
 * SPDX-License-Identifier: BSD-3-Clause                                       *
 ******************************************************************************/
-#include <libxs_timer.h>
+#include "libxs_main.h"
 #include <libxs_cpuid.h>
 #include <libxs_sync.h>
-#include "libxs_main.h"
 
 #include <signal.h>
 #if !defined(NDEBUG)
@@ -158,6 +157,7 @@ LIBXS_API_INTERN void internal_dump(FILE* ostream, int urgent)
   {
     const int dump_build = atoi(env_dump_build);
     if (0 == urgent ? (0 < dump_build) : (0 > dump_build)) {
+      fprintf(ostream, "\n\nBUILD_DATE=%i\n", LIBXS_BUILD_DATE);
       fprintf(ostream, "%s\n", internal_build_state);
     }
   }
@@ -379,6 +379,7 @@ LIBXS_API_INTERN size_t internal_parse_nbytes(const char* nbytes, size_t ndefaul
 LIBXS_API_INTERN LIBXS_ATTRIBUTE_NO_TRACE void internal_init(void);
 LIBXS_API_INTERN void internal_init(void)
 {
+#if 0
   int i;
 #if (0 != LIBXS_SYNC) /* setup the locks in a thread-safe fashion */
   LIBXS_LOCK_ACQUIRE(LIBXS_LOCK, &libxs_lock_global);
@@ -388,7 +389,6 @@ LIBXS_API_INTERN void internal_init(void)
   /*LIBXS_LOCK_ACQUIRE(LIBXS_REGLOCK, internal_reglock_ptr);*/
 # endif
 #endif
-#if 0
   if (NULL == internal_registry_state || NULL == internal_registry_state->registry) { /* double-check after acquiring the lock(s) */
 #if defined(LIBXS_INTERCEPT_DYNAMIC) && defined(LIBXS_AUTOPIN)
     /* clear error status (dummy condition: it does not matter if MPI_Init or MPI_Abort) */
@@ -519,7 +519,6 @@ LIBXS_API_INTERN void internal_init(void)
     }
 #endif
   }
-#endif
 #if (0 != LIBXS_SYNC) /* release locks */
 # if (1 < INTERNAL_REGLOCK_MAXN)
   for (i = 0; i < internal_reglock_count; ++i) LIBXS_LOCK_RELEASE(LIBXS_REGLOCK, &internal_reglock[i].state);
@@ -527,6 +526,7 @@ LIBXS_API_INTERN void internal_init(void)
   /*LIBXS_LOCK_RELEASE(LIBXS_REGLOCK, internal_reglock_ptr);*/
 # endif
   LIBXS_LOCK_RELEASE(LIBXS_LOCK, &libxs_lock_global);
+#endif
 #endif
 }
 

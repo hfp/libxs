@@ -1,3 +1,4 @@
+include/libxs_version.h
 lib/libxs*
 bin
 obj

@@ -7,11 +7,11 @@
 * SPDX-License-Identifier: BSD-3-Clause                                       *
 ******************************************************************************/
 #include <libxs_mem.h>
-#include <libxs_cpuid.h>
-#include <libxs_utils.h>
+#include "libxs_main.h"
 #include <libxs_math.h>
 #include "libxs_hash.h"
 #include "libxs_diff.h"
+
 #include <ctype.h>
 
 #if !defined(LIBXS_MEM_STDLIB) && 0

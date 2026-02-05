@@ -7,9 +7,10 @@
 * SPDX-License-Identifier: BSD-3-Clause                                       *
 ******************************************************************************/
 #include <libxs_math.h>
+#include "libxs_main.h"
+
 #include <sys/types.h>
 #include <sys/stat.h>
-#include "libxs_main.h"
 
 #if !defined(LIBXS_PRODUCT_LIMIT)
 # define LIBXS_PRODUCT_LIMIT 1024

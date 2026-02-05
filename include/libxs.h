@@ -9,18 +9,9 @@
 #ifndef LIBXS_H
 #define LIBXS_H
 
-#include "libxs_macros.h"
-
 /** Semantic version according to https://semver.org/. */
-#define LIBXS_VERSION_MAJOR  1
-#define LIBXS_VERSION_MINOR  0
-#define LIBXS_VERSION_UPDATE 0
-
-/** String to denote the version of LIBXS. */
-#define LIBXS_VERSION \
-  LIBXS_STRINGIFY(LIBXS_VERSION_MAJOR) "." \
-  LIBXS_STRINGIFY(LIBXS_VERSION_MINOR) "." \
-  LIBXS_STRINGIFY(LIBXS_VERSION_UPDATE)
+#include "libxs_version.h"
+#include "libxs_macros.h"
 
 /* Construct an enumerator (libxs_datatype) from a built-in type (float, double, etc.). */
 #define LIBXS_DATATYPE(TYPE) LIBXS_CONCATENATE(LIBXS_DATATYPE_, LIBXS_TYPESYMBOL(TYPE))
