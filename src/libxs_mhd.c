@@ -228,7 +228,7 @@ LIBXS_API libxs_datatype libxs_mhd_typeinfo(const char elemname[])
 
 LIBXS_API size_t libxs_mhd_typesize(libxs_datatype type)
 {
-  const size_t result = libxs_typesize(type);
+  const size_t result = LIBXS_TYPESIZE(type);
   LIBXS_ASSERT(result <= LIBXS_MHD_MAX_ELEMSIZE);
   return result;
 }
