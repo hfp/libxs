@@ -36,18 +36,30 @@ int main(int argc, char* argv[])
   if (EXIT_SUCCESS == result && NULL != libxs_stristr(NULL, NULL)) result = EXIT_FAILURE;
 
   /* check libxs_strimatch */
-  if (EXIT_SUCCESS == result && 2 != libxs_strimatch("Co Product A", "Corp Prod B", delims, &count)) result = EXIT_FAILURE;
-  if (EXIT_SUCCESS == result && 2 != libxs_strimatch("Corp Prod B", "Co Product A", delims, &count)) result = EXIT_FAILURE;
-  if (EXIT_SUCCESS == result && 3 != libxs_strimatch("Co Product A", "Corp Prod AA", delims, &count)) result = EXIT_FAILURE;
-  if (EXIT_SUCCESS == result && 3 != libxs_strimatch("Corp Prod AA", "Co Product A", delims, &count)) result = EXIT_FAILURE;
-  if (EXIT_SUCCESS == result && 3 != libxs_strimatch("Corp Prod AA", "Co Product A", delims, &count)) result = EXIT_FAILURE;
-  if (EXIT_SUCCESS == result && 3 != libxs_strimatch("Co Product A", "Corp Prod AA", delims, &count)) result = EXIT_FAILURE;
-  if (EXIT_SUCCESS == result && 3 != libxs_strimatch("Corp Prod A", "Co Product A", delims, &count)) result = EXIT_FAILURE;
-  if (EXIT_SUCCESS == result && 3 != libxs_strimatch("Co Product A", "Corp Prod A", delims, &count)) result = EXIT_FAILURE;
-  if (EXIT_SUCCESS == result && 3 != libxs_strimatch("C Product A", "Cor Prod AA", delims, &count)) result = EXIT_FAILURE;
-  if (EXIT_SUCCESS == result && 3 != libxs_strimatch("Cor Prod AA", "C Product A", delims, &count)) result = EXIT_FAILURE;
-  if (EXIT_SUCCESS == result && 1 != libxs_strimatch("aaaa", "A A A A", delims, &count)) result = EXIT_FAILURE;
-  if (EXIT_SUCCESS == result && 1 != libxs_strimatch("A A A A", "aaaa", delims, &count)) result = EXIT_FAILURE;
+  if (EXIT_SUCCESS == result && (2 != libxs_strimatch("Co Product A", "Corp Prod B",
+      delims, &count) || 3 != count)) result = EXIT_FAILURE;
+  if (EXIT_SUCCESS == result && (2 != libxs_strimatch("Corp Prod B", "Co Product A",
+      delims, &count) || 3 != count)) result = EXIT_FAILURE;
+  if (EXIT_SUCCESS == result && (3 != libxs_strimatch("Co Product A", "Corp Prod AA",
+      delims, &count) || 3 != count)) result = EXIT_FAILURE;
+  if (EXIT_SUCCESS == result && (3 != libxs_strimatch("Corp Prod AA", "Co Product A",
+      delims, &count) || 3 != count)) result = EXIT_FAILURE;
+  if (EXIT_SUCCESS == result && (3 != libxs_strimatch("Corp Prod AA", "Co Product A",
+      delims, &count) || 3 != count)) result = EXIT_FAILURE;
+  if (EXIT_SUCCESS == result && (3 != libxs_strimatch("Co Product A", "Corp Prod AA",
+      delims, &count) || 3 != count)) result = EXIT_FAILURE;
+  if (EXIT_SUCCESS == result && (3 != libxs_strimatch("Corp Prod A", "Co Product A",
+      delims, &count) || 3 != count)) result = EXIT_FAILURE;
+  if (EXIT_SUCCESS == result && (3 != libxs_strimatch("Co Product A", "Corp Prod A",
+      delims, &count) || 3 != count)) result = EXIT_FAILURE;
+  if (EXIT_SUCCESS == result && (3 != libxs_strimatch("C Product A", "Cor Prod AA",
+      delims, &count) || 3 != count)) result = EXIT_FAILURE;
+  if (EXIT_SUCCESS == result && (3 != libxs_strimatch("Cor Prod AA", "C Product A",
+      delims, &count) || 3 != count)) result = EXIT_FAILURE;
+  if (EXIT_SUCCESS == result && (1 != libxs_strimatch("aaaa", "A A A A",
+      delims, &count) || 4 != count)) result = EXIT_FAILURE;
+  if (EXIT_SUCCESS == result && (1 != libxs_strimatch("A A A A", "aaaa",
+      delims, &count) || 4 != count)) result = EXIT_FAILURE;
   if (EXIT_SUCCESS == result) {
     const char *const sample[] = {
       "The quick red squirrel jumps over the low fence",
@@ -76,7 +88,7 @@ int main(int argc, char* argv[])
         FPRINTF(stdout, "orig (%i): %s\n", self, init);
         FPRINTF(stdout, "best (%i): %s\n", match, sample[j]);
       }
-      if (9 != self || 8 != match) result = EXIT_FAILURE; /* test */
+      if (9 != self || 9 != match) result = EXIT_FAILURE; /* test */
     }
   }
 

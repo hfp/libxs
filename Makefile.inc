@@ -421,19 +421,6 @@ else
   BLAS ?= 2
 endif
 
-# Explicitly disable BLAS by user's intervention
-# Makefile defines what happens (perhaps nothing)
-NOBLAS ?= 0
-DNOBLAS := -D__BLAS=0
-ifneq (,$(filter environment% override command%,$(origin BLAS)))
-ifeq (0,$(BLAS))
-  NOBLAS := 1
-endif
-endif
-ifneq (0,$(NOBLAS))
-  BLAS_FLAGS += $(DNOBLAS)
-endif
-
 CXX_VERSION := $(shell $(CXX) $(CXX_VERSION_FLAG) | head -n1 | $(SED) -n "$(REVERSION1)p")
 ifeq (,$(CXX_VERSION))
   CXX_VERSION := $(shell $(CXX) $(CXX_VERSION_FLAG) | head -n1 | $(SED) -n "$(REVERSION2)p")
@@ -2117,23 +2104,9 @@ OMPFLAG ?= $(NULL)
 # LIBXS link dependencies and libraries
 LIBDEP := $(LIBNAME).$(LIBEXT)
 MAINLIB := $(call abslib,$(LIBDEP))
-# LIBXS/EXT link dependencies and libraries
-EXTDEP := $(LIBDEP) $(LIBNAME)ext.$(LIBEXT)
-EXTLIB := $(call abslib,$(LIBNAME)ext.$(LIBEXT)) $(MAINLIB) $(OMPLIB)
 # LIBXS/F link dependencies and libraries
-FORTDEP := $(EXTDEP) $(LIBNAME)f.$(LIBEXT)
-FORTLIB := $(call abslib,$(LIBNAME)f.$(LIBEXT)) $(EXTLIB)
-# LIBXS/NOBLAS dependencies and libraries
-NOBLASDEP := $(LIBNAME)noblas.$(LIBEXT)
-NOBLASLIB := $(call abslib,$(NOBLASDEP))
-ifeq (0,$(BLAS))
-  FORTDEP := $(FORTDEP) $(NOBLASDEP)
-  EXTDEP := $(EXTDEP) $(NOBLASDEP)
-  LIBDEP := $(LIBDEP) $(NOBLASDEP)
-  FORTLIB := $(FORTLIB) $(NOBLASLIB)
-  EXTLIB := $(EXTLIB) $(NOBLASLIB)
-  MAINLIB := $(MAINLIB) $(NOBLASLIB)
-endif
+FORTDEP := $(LIBNAME)f.$(LIBEXT)
+FORTLIB := $(call abslib,$(LIBNAME)f.$(LIBEXT))
 
 # some stand-alone libomp versions can cause warnings
 ifneq (,$(filter 1 2,$(PEDANTIC)))
@@ -2420,28 +2393,28 @@ FLDFLAGS := $(call uniqadd,FLDFLAGS,LIBDL,$(XLIB_BEGIN) $(LIBDL) $(XLIB_END))
 LDFLAGS := $(call uniqadd,LDFLAGS,LIBRT,$(XLIB_BEGIN) $(LIBRT) $(XLIB_END))
 LDFLAGS := $(call uniqadd,LDFLAGS,LIBDL,$(XLIB_BEGIN) $(LIBDL) $(XLIB_END))
 
-# no-BLAS flags: cleanup and extra flags; merged ("=" rather than ":=")
-NOBLAS_CXXCLEAN := $(call cleanup,$(PICFLAG) $(CXXFLAGS) $(ECXXFLAGS) $(EFLAGS))
-NOBLAS_CXXFLAGS  = $(NOBLAS_CXXCLEAN)
-NOBLAS_FCCLEAN  := $(call cleanup,$(PICFLAG) $(FCFLAGS) $(EFCFLAGS) $(EFLAGS))
-NOBLAS_FCFLAGS   = $(NOBLAS_FCCLEAN)
-NOBLAS_CCLEAN   := $(call cleanup,$(PICFLAG) $(CFLAGS) $(ECFLAGS) $(EFLAGS))
-NOBLAS_CFLAGS    = $(NOBLAS_CCLEAN)
-NOBLAS_FLAGS     = $(call cleanup,$(filter-out -D__BLAS%,$(DFLAGS)))
-NOBLAS_LDCLEAN  := $(call cleanld,$(LDFLAGS) $(ELDFLAGS))
-NOBLAS_LDFLAGS   = $(NOBLAS_LDCLEAN)
-NOBLAS_CLDCLEAN := $(call cleanld,$(CLDFLAGS))
-NOBLAS_CLDFLAGS  = $(NOBLAS_CLDCLEAN)
-NOBLAS_IFLAGS    = $(call cleanup,$(IFLAGS))
+# base flags: cleanup and extra flags; merged ("=" rather than ":=")
+BASE_CXXCLEAN := $(call cleanup,$(PICFLAG) $(CXXFLAGS) $(ECXXFLAGS) $(EFLAGS))
+BASE_CXXFLAGS  = $(BASE_CXXCLEAN)
+BASE_FCCLEAN  := $(call cleanup,$(PICFLAG) $(FCFLAGS) $(EFCFLAGS) $(EFLAGS))
+BASE_FCFLAGS   = $(BASE_FCCLEAN)
+BASE_CCLEAN   := $(call cleanup,$(PICFLAG) $(CFLAGS) $(ECFLAGS) $(EFLAGS))
+BASE_CFLAGS    = $(BASE_CCLEAN)
+BASE_FLAGS     = $(call cleanup,$(filter-out -D__BLAS%,$(DFLAGS)))
+BASE_LDCLEAN  := $(call cleanld,$(LDFLAGS) $(ELDFLAGS))
+BASE_LDFLAGS   = $(BASE_LDCLEAN)
+BASE_CLDCLEAN := $(call cleanld,$(CLDFLAGS))
+BASE_CLDFLAGS  = $(BASE_CLDCLEAN)
+BASE_IFLAGS    = $(call cleanup,$(IFLAGS))
 
 # regular flags: cleanup
-CXXFLAGS   := $(call cleanup,$(BLAS_CXXFLAGS) $(NOBLAS_CXXFLAGS))
-FCFLAGS    := $(call cleanup,$(BLAS_FCFLAGS) $(NOBLAS_FCFLAGS))
-CFLAGS     := $(call cleanup,$(BLAS_CFLAGS) $(NOBLAS_CFLAGS))
-DFLAGS     := $(call cleanup,$(BLAS_FLAGS) $(NOBLAS_FLAGS))
-IFLAGS     := $(call cleanup,$(BLAS_IFLAGS) $(NOBLAS_IFLAGS))
-CLDFLAGS   := $(call cleanld,$(BLAS_CLDFLAGS) $(NOBLAS_CLDFLAGS))
-LDFLAGS    := $(call cleanld,$(BLAS_LDFLAGS) $(NOBLAS_LDFLAGS))
+CXXFLAGS   := $(call cleanup,$(BLAS_CXXFLAGS) $(BASE_CXXFLAGS))
+FCFLAGS    := $(call cleanup,$(BLAS_FCFLAGS) $(BASE_FCFLAGS))
+CFLAGS     := $(call cleanup,$(BLAS_CFLAGS) $(BASE_CFLAGS))
+DFLAGS     := $(call cleanup,$(BLAS_FLAGS) $(BASE_FLAGS))
+IFLAGS     := $(call cleanup,$(BLAS_IFLAGS) $(BASE_IFLAGS))
+CLDFLAGS   := $(call cleanld,$(BLAS_CLDFLAGS) $(BASE_CLDFLAGS))
+LDFLAGS    := $(call cleanld,$(BLAS_LDFLAGS) $(BASE_LDFLAGS))
 CXXLDFLAGS := $(call cleanld,$(CXXLDFLAGS))
 FLDFLAGS   := $(call cleanld,$(FLDFLAGS))
 

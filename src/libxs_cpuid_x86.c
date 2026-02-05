@@ -7,8 +7,8 @@
 * SPDX-License-Identifier: BSD-3-Clause                                       *
 ******************************************************************************/
 #include <libxs_cpuid.h>
-#include <libxs_sync.h>
 #include "libxs_main.h"
+
 #include <ctype.h>
 #if !defined(_WIN32)
 # if !defined(__linux__)
@@ -70,7 +70,7 @@
 #endif
 
 
-LIBXS_API_INTERN void libxs_cpuid_model(char model[], size_t* model_size)
+LIBXS_API void libxs_cpuid_model(char model[], size_t* model_size)
 {
   if (NULL != model_size && 0 != *model_size) {
     if (NULL != model) {

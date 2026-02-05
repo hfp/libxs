@@ -87,22 +87,16 @@ test: $(OUTDIR)/.make $(OUTDIR)/test.sh all
 HEADER_ONLY = $(basename $(notdir $(shell grep -H libxs_source *.c | cut -d: -f1)))
 
 define DEFINE_LINK_LD_RULE
-ifneq ($(words $(EXTLIB)),$(words $(wildcard $(EXTLIB))))
-$(1): $(2) $(OBJECTX) $(dir $(1))/.make $(if $(filter $(1),$(HEADER_ONLY)),$(NOBLASDEP),$(EXTDEP))
-	$(LD) $(SLDFLAGS) -o $(1) $(2) \
-		$(if $(filter $(1),$(HEADER_ONLY)),$(NOBLASLIB),$(EXTLIB)) \
-		$(call cleanld,$(LDFLAGS) $(CLDFLAGS))
-else
-.PHONY: $(1)
-endif
+$(1): $(2) $(OBJECTX) $(dir $(1))/.make
+	$(LD) $(SLDFLAGS) -o $(1) $(2) $(call cleanld,$(LDFLAGS) $(CLDFLAGS))
 endef
 
 define DEFINE_LINK_FC_RULE
 ifneq (,$(strip $(FC)))
 ifneq ($(words $(FORTLIB)),$(words $(wildcard $(FORTLIB))))
 $(1): $(2) $(FTNOBJS) $(FORTDEP) $(dir $(1))/.make
-	$(FC) $(SLDFLAGS) -o $(1) $(2) $(FORTLIB) \
-		$(FCMTFLAGS) $(call cleanld,$(LDFLAGS) $(FLDFLAGS) $(ELDFLAGS))
+	$(FC) $(SLDFLAGS) -o $(1) $(2) $(FORTLIB) $(FCMTFLAGS) \
+		$(call cleanld,$(LDFLAGS) $(FLDFLAGS) $(ELDFLAGS))
 else
 .PHONY: $(1)
 endif
@@ -118,11 +112,11 @@ $(foreach SRC, $(FXXSRCX) $(F77SRCX) $(F90SRCX), \
   $(eval $(call DEFINE_LINK_FC_RULE, $(basename $(notdir $(SRC))), $(call objname,$(SRC)))))
 
 ifeq (0,$(MIX))
-$(OUTDIR)/headeronly: $(OUTDIR)/.make $(BLDDIR)/headeronly-c.o $(BLDDIR)/headeronly_aux-c.o $(NOBLASDEP)
+$(OUTDIR)/headeronly: $(OUTDIR)/.make $(BLDDIR)/headeronly-c.o $(BLDDIR)/headeronly_aux-c.o
 	$(LD) -o $@ $(BLDDIR)/headeronly-c.o $(BLDDIR)/headeronly_aux-c.o \
 		$(call cleanld,$(SLDFLAGS) $(LDFLAGS) $(CLDFLAGS) $(NOBLASLIB))
 else # compile headeronly_aux.c as C++ translation unit
-$(OUTDIR)/headeronly: $(OUTDIR)/.make $(BLDDIR)/headeronly-c.o $(NOBLASDEP)
+$(OUTDIR)/headeronly: $(OUTDIR)/.make $(BLDDIR)/headeronly-c.o
 	@$(CP) $(SRCDIR)/headeronly_aux.c $(SRCDIR)/headeronly_aux.cpp
 	$(CXX) $(DFLAGS) $(IFLAGS) $(CXXFLAGS) $(CTARGET) -c $(SRCDIR)/headeronly_aux.cpp -o $(BLDDIR)/headeronly_aux-cpp.o
 	$(XLD) -o $@ $(BLDDIR)/headeronly_aux-cpp.o $(BLDDIR)/headeronly-c.o \

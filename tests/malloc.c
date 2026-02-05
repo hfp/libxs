@@ -17,7 +17,6 @@
 
 int main(void)
 {
-  const size_t size_malloc = 2507, alignment = (2U << 20);
   int nerrors = 0;
   void* pool[128];
   char storage[8*sizeof(pool)/sizeof(*pool)];

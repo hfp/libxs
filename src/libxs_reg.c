@@ -6,6 +6,7 @@
 * Further information: https://github.com/hfp/libxs/                          *
 * SPDX-License-Identifier: BSD-3-Clause                                       *
 ******************************************************************************/
+#include <libxs_reg.h>
 #include <libxs_mem.h>
 #include "libxs_hash.h"
 #include "libxs_main.h"
@@ -603,8 +604,8 @@ LIBXS_API_INLINE void* internal_get_registry_entry(libxs_registry_t* registry,
   void* result = NULL;
   LIBXS_ASSERT(NULL != registry && NULL != registry->registry);
   for (; NULL != registry && NULL != registry->registry && i < (int)registry->capacity; ++i) {
-    const libxs_code_pointer_t regentry = registry->registry[i];
 #if 0
+    const libxs_code_pointer_t regentry = registry->registry[i];
     if (EXIT_SUCCESS == libxs_get_malloc_xinfo(regentry.ptr_const,
       NULL/*code_size*/, NULL/*flags*/, &result) && NULL != result)
     {
@@ -644,10 +645,10 @@ LIBXS_API void* libxs_registry_begin(libxs_registry_t* registry, const void** ke
 LIBXS_API void* libxs_registry_next(libxs_registry_t* registry, const void* regentry, const void** key)
 {
   void* result = NULL;
+#if 0
   const libxs_descriptor_t* desc;
   libxs_code_pointer_t entry = { 0 };
   entry.ptr_const = regentry;
-#if 0
   if (NULL != libxs_get_kernel_xinfo(entry, &desc, NULL/*code_size*/)
     /* given regentry is indeed a registered kernel */
     && NULL != desc)

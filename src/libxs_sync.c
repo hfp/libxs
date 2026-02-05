@@ -9,17 +9,10 @@
 #include <libxs_sync.h>
 #include "libxs_main.h"
 
-#if !defined(LIBXS_SYNC_FUTEX) && defined(__linux__) && defined(__USE_GNU)
-# define LIBXS_SYNC_FUTEX
-#endif
-
 #include <stdint.h>
 #if defined(_WIN32)
 # include <process.h>
 #else
-# if defined(LIBXS_SYNC_FUTEX) && defined(__linux__) && defined(__USE_GNU)
-#   include <linux/futex.h>
-# endif
 # include <sys/file.h>
 # include <time.h>
 #endif

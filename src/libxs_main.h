@@ -9,7 +9,6 @@
 #ifndef LIBXS_MAIN_H
 #define LIBXS_MAIN_H
 
-#include <libxs.h>
 #include <libxs_timer.h>
 #include <libxs_sync.h>
 #include <libxs_reg.h>

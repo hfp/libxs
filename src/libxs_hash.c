@@ -42,8 +42,7 @@
 # define LIBXS_HASH_CRC32_U64(SEED, PVALUE) \
   LIBXS_HASH_CRC32_U32(LIBXS_HASH_CRC32_U32((uint32_t)(SEED), PVALUE), (const uint32_t*)(PVALUE) + 1)
 #else
-# define LIBXS_HASH_CRC32_U64(SEED, PVALUE) _mm_crc32_u64(SEED, \
-    *(const /*uint64_t*/unsigned long long*)(PVALUE))
+# define LIBXS_HASH_CRC32_U64(SEED, PVALUE) _mm_crc32_u64(SEED, *(const uint64_t*)(PVALUE))
 #endif
 
 #define LIBXS_HASH(FN64, FN32, FN16, FN8, SEED, DATA, SIZE) do { \
