@@ -11,9 +11,8 @@
 HERE=$(cd "$(dirname "$0")" && pwd -P)
 LIBS=${HERE}/../lib
 
-#EXCLUDE="libxsgen"
-INCLUDE="libxsf"
-#INCLUDE="*"
+#EXCLUDE="libxsf"
+INCLUDE="*"
 ABINEW=.abi.log
 ABITMP=.abi.tmp
 ABICUR=.abi.txt
@@ -114,7 +113,9 @@ then
     >&2 echo "ERROR: ABI checker requires shared libraries (${LIBTYPE})."
     exit 1
   else
-    >&2 echo "ERROR: ABI checker requires Fortran interface (${INCLUDE})."
+    >&2 echo -n "ERROR: ABI checker requires Fortran interface"
+    if [ "${INCLUDE}" ]; then >&2 echo -n " (${INCLUDE})."; fi
+    >&2 echo "."
     exit 1
   fi
 else
