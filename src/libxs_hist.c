@@ -118,7 +118,7 @@ LIBXS_API void libxs_hist_get(LIBXS_LOCK_TYPE(LIBXS_LOCK)* lock, const libxs_his
     if (NULL != lock) LIBXS_LOCK_ACQUIRE(LIBXS_LOCK, lock);
     if (hist->n <= hist->nqueue) {
       const double w = hist->max - hist->min;
-      if (hist->n < hist->nbuckets) ((libxs_hist_t*)hist)->nbuckets = hist->n;
+      if (hist->n < hist->nbuckets) ((libxs_hist_t*)(uintptr_t)hist)->nbuckets = hist->n;
       for (i = 1, j = 0; i <= hist->nbuckets; j = hist->nvals * i++) {
         const double p = hist->min + (i - 1) * w / hist->nbuckets, q = hist->min + i * w / hist->nbuckets;
         for (n = 0, m = 0; n < hist->n; m = ++n * hist->nvals) {
@@ -141,7 +141,7 @@ LIBXS_API void libxs_hist_get(LIBXS_LOCK_TYPE(LIBXS_LOCK)* lock, const libxs_his
           }
         }
       }
-      ((libxs_hist_t*)hist)->nqueue = 0;
+      ((libxs_hist_t*)(uintptr_t)hist)->nqueue = 0;
     }
     if (0 < hist->n) {
       r[0] = hist->min;
