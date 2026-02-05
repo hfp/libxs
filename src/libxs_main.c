@@ -67,6 +67,7 @@ LIBXS_APIVAR_DEFINE(const char* internal_build_state);
 
 /* definition of corresponding variables */
 LIBXS_APIVAR_PUBLIC_DEF(int libxs_verbosity);
+LIBXS_APIVAR_PUBLIC_DEF(int libxs_se);
 
 #define LIBXS_TIMER_DURATION_FDIV(A, B) ((double)(A) / (B))
 #define LIBXS_TIMER_DURATION_IDIV(A, B) ((A) <= (B) \

@@ -83,12 +83,18 @@ tests: test
 test: $(OUTDIR)/.make $(OUTDIR)/test.sh all
 	@$(OUTDIR)/test.sh $(TEST)
 
-# determine header-only tests (to avoid linking against LIBXS libraries; see below)
+# determine header-only tests (to avoid linking against LIBXS library; see below)
 HEADER_ONLY = $(basename $(notdir $(shell grep -H libxs_source *.c | cut -d: -f1)))
 
 define DEFINE_LINK_LD_RULE
-$(1): $(2) $(OBJECTX) $(dir $(1))/.make
-	$(LD) $(SLDFLAGS) -o $(1) $(2) $(call cleanld,$(LDFLAGS) $(CLDFLAGS))
+ifneq ($(words $(MAINLIB)),$(words $(wildcard $(MAINLIB))))
+$(1): $(2) $(OBJECTX) $(dir $(1))/.make $(if $(filter $(1),$(HEADER_ONLY)),$(NULL),$(LIBDEP))
+	$(LD) $(SLDFLAGS) -o $(1) $(2) \
+		$(if $(filter $(1),$(HEADER_ONLY)),$(NULL),$(MAINLIB)) \
+		$(call cleanld,$(LDFLAGS) $(CLDFLAGS))
+else
+.PHONY: $(1)
+endif
 endef
 
 define DEFINE_LINK_FC_RULE
