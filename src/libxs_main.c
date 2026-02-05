@@ -783,30 +783,6 @@ LIBXS_API void libxs_set_verbosity(int level)
 }
 
 
-LIBXS_API int libxs_typesize(libxs_datatype datatype)
-{
-  int result = 0;
-  switch (datatype) {
-    case LIBXS_DATATYPE_F64: result = 8; break;
-    case LIBXS_DATATYPE_F32: result = 4; break;
-    case LIBXS_DATATYPE_I64: result = 4; break;
-    case LIBXS_DATATYPE_I32: result = 4; break;
-    case LIBXS_DATATYPE_U32: result = 4; break;
-    case LIBXS_DATATYPE_I16: result = 2; break;
-    case LIBXS_DATATYPE_U16: result = 2; break;
-    case LIBXS_DATATYPE_I8:  result = 1; break;
-    default: {
-      static int error_once = 0;
-      LIBXS_ASSERT_MSG(0, "unsupported data type");
-      if (1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED)) {
-        fprintf(stderr, "LIBXS ERROR: unsupported data type!\n");
-      }
-    }
-  }
-  return result;
-}
-
-
 LIBXS_API const char* libxs_typename(libxs_datatype datatype)
 {
   switch (datatype) {
