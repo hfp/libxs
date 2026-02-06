@@ -6,8 +6,16 @@
 * Further information: https://github.com/hfp/libxs/                          *
 * SPDX-License-Identifier: BSD-3-Clause                                       *
 ******************************************************************************/
+#include <libxs_timer.h>
+#include <libxs_mem.h>
 #include <libxs_rng.h>
-#include <libxs.h>
+
+#if !defined(MAXSIZE)
+# define MAXSIZE 64
+#endif
+#if !defined(INSIZE)
+# define INSIZE MAXSIZE
+#endif
 
 
 int main(int argc, char* argv[])
@@ -16,8 +24,8 @@ int main(int argc, char* argv[])
   const int incrmt = (2 < argc ? atoi(argv[2]) : 0);
   const int nelems = (3 < argc ? atoi(argv[3]) : 0);
   const int niters = (4 < argc ? atoi(argv[4]) : 7);
-  const int elsize = (0 >= insize ? LIBXS_DESCRIPTOR_SIGSIZE : insize);
-  const int stride = (0 >= incrmt ? LIBXS_MAX(LIBXS_DESCRIPTOR_MAXSIZE, elsize) : LIBXS_MAX(incrmt, elsize));
+  const int elsize = (0 >= insize ? INSIZE : insize);
+  const int stride = (0 >= incrmt ? LIBXS_MAX(MAXSIZE, elsize) : LIBXS_MAX(incrmt, elsize));
   const size_t n = (0 >= nelems ? (((size_t)2 << 30/*2 GB*/) / stride) : ((size_t)nelems));
   const char *const env_strided = getenv("STRIDED"), *const env_check = getenv("CHECK");
   const int strided = (NULL == env_strided || 0 == *env_strided) ? 0/*default*/ : atoi(env_strided);
