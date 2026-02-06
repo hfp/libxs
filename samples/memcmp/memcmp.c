@@ -7,6 +7,7 @@
 * SPDX-License-Identifier: BSD-3-Clause                                       *
 ******************************************************************************/
 #include <libxs_timer.h>
+#include <libxs_math.h>
 #include <libxs_mem.h>
 #include <libxs_rng.h>
 
@@ -23,28 +24,18 @@ int main(int argc, char* argv[])
   const int insize = (1 < argc ? atoi(argv[1]) : 0);
   const int incrmt = (2 < argc ? atoi(argv[2]) : 0);
   const int nelems = (3 < argc ? atoi(argv[3]) : 0);
-  const int niters = (4 < argc ? atoi(argv[4]) : 7);
+  const int niters = (4 < argc ? atoi(argv[4]) : 5);
   const int elsize = (0 >= insize ? INSIZE : insize);
   const int stride = (0 >= incrmt ? LIBXS_MAX(MAXSIZE, elsize) : LIBXS_MAX(incrmt, elsize));
-  const size_t n = (0 >= nelems ? (((size_t)2 << 30/*2 GB*/) / stride) : ((size_t)nelems));
+  const size_t size = (0 >= nelems ? (((size_t)2 << 30/*2 GB*/) / stride) : ((size_t)nelems));
+  const size_t nrpt = LIBXS_MAX(niters, 1), nbytes = size * stride, shuffle = libxs_coprime2(size);
   const char *const env_strided = getenv("STRIDED"), *const env_check = getenv("CHECK");
   const int strided = (NULL == env_strided || 0 == *env_strided) ? 0/*default*/ : atoi(env_strided);
   const int check = (NULL == env_check || 0 == *env_check) ? 0/*default*/ : atoi(env_check);
   double d0, d1 = 0, d2 = 0, d3 = 0;
-  size_t nbytes, size, nrpt, i;
   int result = EXIT_SUCCESS;
   unsigned char *a, *b;
-
-  LIBXS_ASSERT(elsize <= stride);
-  if (0 < niters) {
-    size = n;
-    nrpt = niters;
-  }
-  else {
-    size = LIBXS_MAX(LIBXS_ABS(niters), 1);
-    nrpt = n;
-  }
-  nbytes = size * stride;
+  size_t i;
 
   libxs_init();
   a = (unsigned char*)(0 != nbytes ? malloc(nbytes) : NULL);
@@ -60,9 +51,18 @@ int main(int argc, char* argv[])
       /* benchmark libxs_diff (always strided) */
       if (elsize < 256) {
         const libxs_timer_tick_t start = libxs_timer_tick();
-        for (j = 0; j < nbytes; j += stride) {
-          const void *const aj = a + j, *const bj = b + j;
-          diff += libxs_diff(aj, bj, (unsigned char)elsize);
+        if (1 >= strided) {
+          for (j = 0; j < nbytes; j += stride) {
+            const void *const u = a + j, *const v = b + j;
+            diff += libxs_diff(u, v, (unsigned char)elsize);
+          }
+        }
+        else {
+          for (j = 0; j < size; ++j) {
+            const size_t k = (shuffle * j) % size;
+            const void *const u = a + k, *const v = b + k;
+            diff += libxs_diff(u, v, (unsigned char)elsize);
+          }
         }
         d0 = libxs_timer_duration(start, libxs_timer_tick());
         if (0 < d0) printf("libxs_diff:\t\t%.8f s (%i MB/s)\n", d0,
@@ -80,10 +80,17 @@ int main(int argc, char* argv[])
         if (stride == elsize && 0 == strided) {
           diff += libxs_memcmp(a, b, nbytes);
         }
-        else {
+        else if (1 == strided) {
           for (j = 0; j < nbytes; j += stride) {
-            const void *const aj = a + j, *const bj = b + j;
-            diff += libxs_memcmp(aj, bj, elsize);
+            const void *const u = a + j, *const v = b + j;
+            diff += libxs_memcmp(u, v, elsize);
+          }
+        }
+        else {
+          for (j = 0; j < size; ++j) {
+            const size_t k = (shuffle * j) % size;
+            const void *const u = a + k, *const v = b + k;
+            diff += libxs_memcmp(u, v, elsize);
           }
         }
         d0 = libxs_timer_duration(start, libxs_timer_tick());
@@ -102,14 +109,28 @@ int main(int argc, char* argv[])
         if (stride == elsize && 0 == strided) {
           diff += (0 != memcmp(a, b, nbytes));
         }
-        else {
+        else if (1 == strided) {
           for (j = 0; j < nbytes; j += stride) {
-            const void *const aj = a + j, *const bj = b + j;
+            const void *const u = a + j, *const v = b + j;
 #if defined(_MSC_VER)
 #           pragma warning(push)
 #           pragma warning(disable: 6385)
 #endif
-            diff += (0 != memcmp(aj, bj, elsize));
+            diff += (0 != memcmp(u, v, elsize));
+#if defined(_MSC_VER)
+#           pragma warning(pop)
+#endif
+          }
+        }
+        else {
+          for (j = 0; j < size; ++j) {
+            const size_t k = (shuffle * j) % size;
+            const void *const u = a + k, *const v = b + k;
+#if defined(_MSC_VER)
+#           pragma warning(push)
+#           pragma warning(disable: 6385)
+#endif
+            diff += (0 != memcmp(u, v, elsize));
 #if defined(_MSC_VER)
 #           pragma warning(pop)
 #endif
@@ -143,30 +164,30 @@ int main(int argc, char* argv[])
       size_t k;
       for (i = 0; i < nrpt; ++i) {
         for (j = 0; j < nbytes; j += stride) {
-          unsigned char *const aj = a + j, *const bj = b + j;
+          unsigned char *const u = a + j, *const v = b + j;
           for (k = 0; k < 2; ++k) {
             const int r = rand() % elsize;
 #if defined(_MSC_VER)
 #           pragma warning(push)
 #           pragma warning(disable: 6385)
 #endif
-            if (0 != memcmp(aj, bj, elsize)) {
-              if (elsize < 256 && 0 == libxs_diff(aj, bj, (unsigned char)elsize)) ++diff;
-              if (0 == libxs_memcmp(aj, bj, elsize)) ++diff;
+            if (0 != memcmp(u, v, elsize)) {
+              if (elsize < 256 && 0 == libxs_diff(u, v, (unsigned char)elsize)) ++diff;
+              if (0 == libxs_memcmp(u, v, elsize)) ++diff;
             }
             else {
-              if (elsize < 256 && 0 != libxs_diff(aj, bj, (unsigned char)elsize)) ++diff;
-              if (0 != libxs_memcmp(aj, bj, elsize)) ++diff;
+              if (elsize < 256 && 0 != libxs_diff(u, v, (unsigned char)elsize)) ++diff;
+              if (0 != libxs_memcmp(u, v, elsize)) ++diff;
             }
 #if defined(_MSC_VER)
 #           pragma warning(pop)
 #endif
             /* inject difference into a or b */
             if (0 != (rand() & 1)) {
-              aj[r] = (unsigned char)(rand() % 256);
+              u[r] = (unsigned char)(rand() % 256);
             }
             else {
-              bj[r] = (unsigned char)(rand() % 256);
+              v[r] = (unsigned char)(rand() % 256);
             }
           }
         }

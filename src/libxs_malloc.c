@@ -28,7 +28,7 @@ LIBXS_API void libxs_pmalloc_init(size_t size, size_t* num, void* pool[], void* 
   unsigned int hash;
   size_t n, i = 0;
   LIBXS_ASSERT(0 < size && NULL != num && NULL != pool && NULL != storage);
-  libxs_hash_init(); /* CRC-facility must be initialized upfront */
+  libxs_hash_init(libxs_cpuid(NULL)); /* CRC-facility must be initialized upfront */
   hash = LIBXS_CRCPTR(LIBXS_MALLOC_SEED, pool);
   lock = internal_malloc_plocks + LIBXS_MOD2(hash, LIBXS_MALLOC_NLOCKS);
   LIBXS_ATOMIC_ACQUIRE(lock, LIBXS_SYNC_NPAUSE, LIBXS_ATOMIC_SEQ_CST);

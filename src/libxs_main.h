@@ -173,19 +173,9 @@ typedef union libxs_code_pointer_t {
   intptr_t ival;
 } libxs_code_pointer_t;
 
-/**
- * Print the command line arguments of the current process, and get the number of written
- * characters including the prefix, the postfix, but not the terminating NULL character.
- * If zero is returned, nothing was printed (no prefix, no postfix).
- * If buffer_size is zero, buffer is assumed to be a FILE-pointer.
- */
-LIBXS_API_INTERN int libxs_print_cmdline(void* buffer, size_t buffer_size, const char* prefix, const char* postfix);
 
-/**
- * Dump data, (optionally) check attempt to dump different data into an existing file (unique),
- * or (optionally) permit overwriting an existing file.
- */
-LIBXS_API_INTERN int libxs_dump(const char* title, const char* name, const void* data, size_t size, int unique, int overwrite);
+LIBXS_API_INTERN void libxs_memory_init(int target_arch);
+LIBXS_API_INTERN void libxs_memory_finalize(void);
 
 /** Calculates duration in seconds from given RTC ticks. */
 LIBXS_API double libxs_timer_duration_rtc(libxs_timer_tick_t tick0, libxs_timer_tick_t tick1);
@@ -193,6 +183,20 @@ LIBXS_API double libxs_timer_duration_rtc(libxs_timer_tick_t tick0, libxs_timer_
 LIBXS_API libxs_timer_tick_t libxs_timer_tick_rtc(void);
 /** Returns the current tick of a (monotonic) platform-specific counter. */
 LIBXS_API libxs_timer_tick_t libxs_timer_tick_tsc(void);
+
+/**
+ * Dump data, (optionally) check attempt to dump different data into an existing file (unique),
+ * or (optionally) permit overwriting an existing file.
+ */
+LIBXS_API_INTERN int libxs_dump(const char* title, const char* name, const void* data, size_t size, int unique, int overwrite);
+
+/**
+ * Print the command line arguments of the current process, and get the number of written
+ * characters including the prefix, the postfix, but not the terminating NULL character.
+ * If zero is returned, nothing was printed (no prefix, no postfix).
+ * If buffer_size is zero, buffer is assumed to be a FILE-pointer.
+ */
+LIBXS_API_INTERN int libxs_print_cmdline(void* buffer, size_t buffer_size, const char* prefix, const char* postfix);
 
 /** Global lock; create an own lock for an independent domain. */
 LIBXS_APIVAR_PUBLIC(LIBXS_LOCK_TYPE(LIBXS_LOCK) libxs_lock_global);
