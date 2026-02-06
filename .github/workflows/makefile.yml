@@ -17,5 +17,8 @@ jobs:
     - name: Build
       run: make -j $(nproc)
 
+    - name: Install OpenBLAS
+      run: sudo apt install -y libopenblas-openmp-dev
+
     - name: Test
       run: make -j $(nproc) test
