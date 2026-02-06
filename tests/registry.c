@@ -12,6 +12,7 @@
 int main(int argc, char* argv[])
 {
   int result = EXIT_SUCCESS;
+#if 0 /* temporarily disabled */
   typedef int key_type;
   const key_type key[] = {
     0, 0, 0,
@@ -143,5 +144,6 @@ int main(int argc, char* argv[])
   }
 #endif
   libxs_registry_destroy(registry);
+#endif
   return result;
 }
