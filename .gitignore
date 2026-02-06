@@ -1,4 +1,8 @@
 include/libxs_version.h
 lib/libxs*
+.abi.log
+.state
+.make
+*.x
 bin
 obj

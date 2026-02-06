@@ -55,9 +55,9 @@ OBJECTS := $(call objname,$(CPPSRCS) $(CXXSRCS) $(CCXSRCS) $(CSOURCS))
 OBJECTX := $(call objname,$(CPPSRCX) $(CXXSRCX) $(CCXSRCX) $(CSOURCX))
 FTNOBJS := $(call objname,$(FXXSRCS) $(F77SRCS) $(F90SRCS))
 FTNOBJX := $(call objname,$(FXXSRCX) $(F77SRCX) $(F90SRCX))
-XFILES  := $(addprefix $(OUTDIR)/,$(basename $(notdir \
+XFILES  := $(addsuffix .x,$(addprefix $(OUTDIR)/,$(basename $(notdir \
            $(CPPSRCX) $(CXXSRCX) $(CCXSRCX) $(CSOURCX) \
-           $(FXXSRCX) $(F77SRCX) $(F90SRCX))))
+           $(FXXSRCX) $(F77SRCX) $(F90SRCX)))))
 
 REALTYPE_INDEX := $(shell bash -c 'echo "$$((RANDOM%2+1))"' 2>/dev/null)
 REALTYPE := $(word $(if $(REALTYPE_INDEX),$(REALTYPE_INDEX),1),double float)
@@ -88,26 +88,26 @@ HEADER_ONLY = $(basename $(notdir $(shell grep -H libxs_source *.c | cut -d: -f1
 
 define DEFINE_LINK_LD_RULE
 ifneq ($(words $(MAINLIB)),$(words $(wildcard $(MAINLIB))))
-$(1): $(2) $(OBJECTX) $(dir $(1))/.make $(if $(filter $(1),$(HEADER_ONLY)),$(NULL),$(LIBDEP))
-	$(LD) $(SLDFLAGS) -o $(1) $(2) \
+$(1).x: $(2) $(OBJECTX) $(dir $(1))/.make $(if $(filter $(1),$(HEADER_ONLY)),$(NULL),$(LIBDEP))
+	$(LD) $(SLDFLAGS) -o $(1).x $(2) \
 		$(if $(filter $(1),$(HEADER_ONLY)),$(NULL),$(MAINLIB)) \
 		$(call cleanld,$(LDFLAGS) $(CLDFLAGS))
 else
-.PHONY: $(1)
+.PHONY: $(1).x
 endif
 endef
 
 define DEFINE_LINK_FC_RULE
 ifneq (,$(strip $(FC)))
 ifneq ($(words $(FORTLIB)),$(words $(wildcard $(FORTLIB))))
-$(1): $(2) $(FTNOBJS) $(FORTDEP) $(dir $(1))/.make
-	$(FC) $(SLDFLAGS) -o $(1) $(2) $(FORTLIB) $(FCMTFLAGS) \
+$(1).x: $(2) $(FTNOBJS) $(FORTDEP) $(dir $(1))/.make
+	$(FC) $(SLDFLAGS) -o $(1).x $(2) $(FORTLIB) $(FCMTFLAGS) \
 		$(call cleanld,$(LDFLAGS) $(FLDFLAGS) $(ELDFLAGS))
 else
-.PHONY: $(1)
+.PHONY: $(1).x
 endif
 else
-.PHONY: $(1)
+.PHONY: $(1).x
 endif
 endef
 
@@ -118,11 +118,11 @@ $(foreach SRC, $(FXXSRCX) $(F77SRCX) $(F90SRCX), \
   $(eval $(call DEFINE_LINK_FC_RULE, $(basename $(notdir $(SRC))), $(call objname,$(SRC)))))
 
 ifeq (0,$(MIX))
-$(OUTDIR)/headeronly: $(OUTDIR)/.make $(BLDDIR)/headeronly-c.o $(BLDDIR)/headeronly_aux-c.o
+$(OUTDIR)/headeronly.x: $(OUTDIR)/.make $(BLDDIR)/headeronly-c.o $(BLDDIR)/headeronly_aux-c.o
 	$(LD) -o $@ $(BLDDIR)/headeronly-c.o $(BLDDIR)/headeronly_aux-c.o \
 		$(call cleanld,$(SLDFLAGS) $(LDFLAGS) $(CLDFLAGS) $(NOBLASLIB))
 else # compile headeronly_aux.c as C++ translation unit
-$(OUTDIR)/headeronly: $(OUTDIR)/.make $(BLDDIR)/headeronly-c.o
+$(OUTDIR)/headeronly.x: $(OUTDIR)/.make $(BLDDIR)/headeronly-c.o
 	@$(CP) $(SRCDIR)/headeronly_aux.c $(SRCDIR)/headeronly_aux.cpp
 	$(CXX) $(DFLAGS) $(IFLAGS) $(CXXFLAGS) $(CTARGET) -c $(SRCDIR)/headeronly_aux.cpp -o $(BLDDIR)/headeronly_aux-cpp.o
 	$(XLD) -o $@ $(BLDDIR)/headeronly_aux-cpp.o $(BLDDIR)/headeronly-c.o \
