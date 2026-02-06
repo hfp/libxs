@@ -38,10 +38,10 @@
 #define LIBXS_HASH_CRC32_U16(SEED, PVALUE) _mm_crc32_u16(SEED, *(const uint16_t*)(PVALUE))
 #define LIBXS_HASH_CRC32_U32(SEED, PVALUE) _mm_crc32_u32(SEED, *(const uint32_t*)(PVALUE))
 
-#if (64 > (LIBXS_BITS)) || defined(__PGI)
+#if (64 > (LIBXS_BITS)) || defined(__PGI) || !defined(LIBXS_INTEL_COMPILER)
 # define LIBXS_HASH_CRC32_U64(SEED, PVALUE) \
   LIBXS_HASH_CRC32_U32(LIBXS_HASH_CRC32_U32((uint32_t)(SEED), PVALUE), (const uint32_t*)(PVALUE) + 1)
-#else
+#else /* _mm_crc32_u64: potentially incorrect prototype */
 # define LIBXS_HASH_CRC32_U64(SEED, PVALUE) _mm_crc32_u64(SEED, *(const uint64_t*)(PVALUE))
 #endif
 
