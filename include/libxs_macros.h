@@ -109,6 +109,16 @@
 #define LIBXS_VERSION_GE(MAJOR, MINOR, UPDATE) \
   LIBXS_VERSION_CHECK(>=, MAJOR, MINOR, UPDATE)
 
+#if defined(__INTEL_COMPILER)
+# if !defined(__INTEL_COMPILER_UPDATE)
+#   define LIBXS_INTEL_COMPILER __INTEL_COMPILER
+# else
+#   define LIBXS_INTEL_COMPILER (__INTEL_COMPILER + __INTEL_COMPILER_UPDATE)
+# endif
+#elif defined(__INTEL_COMPILER_BUILD_DATE)
+# define LIBXS_INTEL_COMPILER ((__INTEL_COMPILER_BUILD_DATE / 10000 - 2000) * 100)
+#endif
+
 /** Make LIBXS_PRAGMA available early. */
 #if defined(__cplusplus)
 # if (201103L <= __cplusplus) /*C99 compatibility*/
@@ -460,16 +470,6 @@ LIBXS_PRAGMA_DIAG_POP()
 #endif
 #if !defined(LIBXS_PAD)
 # define LIBXS_PAD(EXPR)
-#endif
-
-#if defined(__INTEL_COMPILER)
-# if !defined(__INTEL_COMPILER_UPDATE)
-#   define LIBXS_INTEL_COMPILER __INTEL_COMPILER
-# else
-#   define LIBXS_INTEL_COMPILER (__INTEL_COMPILER + __INTEL_COMPILER_UPDATE)
-# endif
-#elif defined(__INTEL_COMPILER_BUILD_DATE)
-# define LIBXS_INTEL_COMPILER ((__INTEL_COMPILER_BUILD_DATE / 10000 - 2000) * 100)
 #endif
 
 /* LIBXS_ATTRIBUTE_USED: mark library functions as used to avoid warning */
