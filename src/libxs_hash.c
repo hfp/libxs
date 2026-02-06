@@ -297,7 +297,7 @@ unsigned int internal_crc32_sse4(unsigned int seed, const void* data, size_t siz
 }
 
 
-LIBXS_API_INTERN void libxs_hash_init(void)
+LIBXS_API_INTERN void libxs_hash_init(int target_arch)
 {
   /* table-based implementation taken from http://dpdk.org/. */
   static const internal_crc32_entry_type crc32_table[] = {
@@ -439,8 +439,10 @@ LIBXS_API_INTERN void libxs_hash_init(void)
     }
   };
   if (NULL == internal_crc32_table) {
-#if (LIBXS_X86_SSE42 > LIBXS_STATIC_TARGET_ARCH)
-    if (LIBXS_X86_SSE42 <= libxs_cpuid(NULL))
+#if (LIBXS_X86_SSE42 <= LIBXS_STATIC_TARGET_ARCH)
+    LIBXS_UNUSED(target_arch);
+#else
+    if (LIBXS_X86_SSE42 <= target_arch)
 #endif
     {
       internal_hash_u512_function = internal_crc32_u512_sse4;

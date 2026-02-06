@@ -391,6 +391,7 @@ LIBXS_API_INTERN void internal_init(void)
 # endif
 #endif
   if (NULL == internal_registry_state || NULL == internal_registry_state->registry) { /* double-check after acquiring the lock(s) */
+#endif
 #if defined(LIBXS_INTERCEPT_DYNAMIC) && defined(LIBXS_AUTOPIN)
     /* clear error status (dummy condition: it does not matter if MPI_Init or MPI_Abort) */
     const char *const dlsymname = (NULL == dlerror() ? "MPI_Init" : "MPI_Abort");
@@ -399,8 +400,10 @@ LIBXS_API_INTERN void internal_init(void)
 #endif
     const char *const env_verbose = getenv("LIBXS_VERBOSE");
     int cache_size = 0;
+#if 0
     void* new_state = NULL;
-    void* new_registry = NULL, * new_keys = NULL;
+    void* new_registry = NULL, *new_keys = NULL;
+#endif
 #if defined(LIBXS_CACHE_MAXSIZE) && (0 < (LIBXS_CACHE_MAXSIZE))
 # if defined(LIBXS_NTHREADS_USE)
     void* new_cache = NULL;
@@ -458,9 +461,8 @@ LIBXS_API_INTERN void internal_init(void)
       libxs_nosync = (NULL == env || 0 == *env) ? 0/*default*/ : atoi(env);
     }
     LIBXS_ASSERT(LIBXS_ISPOT(LIBXS_CAPACITY_REGISTRY));
+    libxs_memory_init(libxs_cpuid(NULL));
 #if 0
-    /*libxs_hash_init(libxs_cpuid(NULL));*/
-    /*libxs_memory_init(libxs_cpuid(NULL));*/
     if ((EXIT_SUCCESS == libxs_xmalloc(&new_state, sizeof(libxs_registry_t), 0/*auto-align*/,
             LIBXS_MALLOC_FLAG_PRIVATE, NULL/*extra*/, 0/*extra-size*/) && NULL != new_state)
     #if defined(LIBXS_NTHREADS_USE) && defined(LIBXS_CACHE_MAXSIZE) && (0 < (LIBXS_CACHE_MAXSIZE))
@@ -519,6 +521,7 @@ LIBXS_API_INTERN void internal_init(void)
       libxs_xfree(new_state, 0/*no check*/);
     }
 #endif
+#if 0
   }
 #if (0 != LIBXS_SYNC) /* release locks */
 # if (1 < INTERNAL_REGLOCK_MAXN)
