@@ -39,9 +39,9 @@
   else *((TYPE*)PMIN_INOUT) = *((TYPE*)PMAX_INOUT) = 0; \
 } while(0)
 
-#define LIBXS_MHD_TYPE_IS_FLOAT(ENUM) (LIBXS_DATATYPE_I64 > (ENUM))
+#define LIBXS_MHD_TYPE_IS_FLOAT(ENUM) (LIBXS_TYPEORDER(LIBXS_DATATYPE_I64) > LIBXS_TYPEORDER(ENUM))
 #define LIBXS_MHD_TYPE_IS_UINT(ENUM) ( \
-    LIBXS_DATATYPE_UNKNOWN > (ENUM) && !LIBXS_MHD_TYPE_IS_FLOAT(ENUM) && ( \
+    LIBXS_TYPEORDER(LIBXS_DATATYPE_UNKNOWN) > LIBXS_TYPEORDER(ENUM) && !LIBXS_MHD_TYPE_IS_FLOAT(ENUM) && ( \
     LIBXS_DATATYPE_U64 == (ENUM) || LIBXS_DATATYPE_U32 == (ENUM) || \
     LIBXS_DATATYPE_U16 == (ENUM) || LIBXS_DATATYPE_U8 == (ENUM)) \
   )
@@ -62,7 +62,7 @@
     s0 = (double)*((const SRC_TYPE*)PSRC_MIN); s1 = (double)*((const SRC_TYPE*)PSRC_MAX); \
     assert(s0 <= s1); \
   } \
-  if (LIBXS_DATATYPE_I64 <= dst_enum && s0 < s1) { /* scale (integer-type) */ \
+  if (LIBXS_TYPEORDER(LIBXS_DATATYPE_I64) <= LIBXS_TYPEORDER(dst_enum) && s0 < s1) { /* scale (integer-type) */ \
     if (LIBXS_MHD_TYPE_IS_UINT(dst_enum)) { \
       const double s0pos = LIBXS_MAX(0, s0), s1pos = LIBXS_MAX(0, s1), scale = (s0pos < s1pos ? ((s1 - s0) / (s1pos - s0pos)) : 1); \
       s = (SRC_TYPE)(scale * (double)LIBXS_MAX(0, s)); \
@@ -100,7 +100,7 @@
     s0 = (double)*((const SRC_TYPE*)PSRC_MIN); s1 = (double)*((const SRC_TYPE*)PSRC_MAX); \
     assert(s0 <= s1); \
   } \
-  if (LIBXS_DATATYPE_I64 <= dst_enum && s0 < s1) { /* scale (integer-type) */ \
+  if (LIBXS_TYPEORDER(LIBXS_DATATYPE_I64) <= LIBXS_TYPEORDER(dst_enum) && s0 < s1) { /* scale (integer-type) */ \
     if (LIBXS_MHD_TYPE_IS_UINT(dst_enum)) { \
       const double s0pos = LIBXS_MAX(0, s0), s1pos = LIBXS_MAX(0, s1), scale = (s0pos < s1pos ? ((s1 - s0) / (s1pos - s0pos)) : 1); \
       const double ss = scale * (double)LIBXS_MAX(0, s); \

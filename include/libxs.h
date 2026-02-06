@@ -28,18 +28,21 @@
 
 /** Enumerate primitive element/data types. */
 typedef enum libxs_datatype {
-  LIBXS_DATATYPE_UNKNOWN = 0,
-  LIBXS_DATATYPE_F64 =  1 | (8 << 4),
-  LIBXS_DATATYPE_F32 =  2 | (4 << 4),
-  LIBXS_DATATYPE_I64 =  3 | (8 << 4),
-  LIBXS_DATATYPE_U64 =  4 | (8 << 4),
-  LIBXS_DATATYPE_I32 =  5 | (4 << 4),
-  LIBXS_DATATYPE_U32 =  6 | (4 << 4),
-  LIBXS_DATATYPE_I16 =  7 | (2 << 4),
-  LIBXS_DATATYPE_U16 =  8 | (2 << 4),
-  LIBXS_DATATYPE_I8  =  9 | (1 << 4),
-  LIBXS_DATATYPE_U8  = 10 | (1 << 4)
+  LIBXS_DATATYPE_F64 = 0 | (8 << 4),
+  LIBXS_DATATYPE_F32 = 1 | (4 << 4),
+  LIBXS_DATATYPE_I64 = 2 | (8 << 4),
+  LIBXS_DATATYPE_U64 = 3 | (8 << 4),
+  LIBXS_DATATYPE_I32 = 4 | (4 << 4),
+  LIBXS_DATATYPE_U32 = 5 | (4 << 4),
+  LIBXS_DATATYPE_I16 = 6 | (2 << 4),
+  LIBXS_DATATYPE_U16 = 7 | (2 << 4),
+  LIBXS_DATATYPE_I8  = 8 | (1 << 4),
+  LIBXS_DATATYPE_U8  = 9 | (1 << 4),
+  LIBXS_DATATYPE_UNKNOWN = 10
 } libxs_datatype;
+
+/** Removes type-size info from type (libxs_datatype). */
+#define LIBXS_TYPEORDER(ENUM) (0xF & (ENUM))
 
 /** Initialize the library; pay for setup cost at a specific point. */
 LIBXS_API void libxs_init(void);
