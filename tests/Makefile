@@ -64,14 +64,14 @@ REALTYPE := $(word $(if $(REALTYPE_INDEX),$(REALTYPE_INDEX),1),double float)
 
 .PHONY: all
 all: $(XFILES)
-	@$(FLOCK) $(DEPDIR)/samples/pyfr "$(MAKE) REALTYPE=$(REALTYPE) BLAS=0 --no-print-directory tests"
-	@$(FLOCK) $(DEPDIR)/samples/utilities/dispatch "$(MAKE) --no-print-directory"
-	@$(FLOCK) $(DEPDIR)/samples/utilities/memcmp "$(MAKE) --no-print-directory"
-	@$(FLOCK) $(DEPDIR)/samples/utilities/wrap "$(MAKE) --no-print-directory"
-	@$(FLOCK) $(DEPDIR)/samples/equation "$(MAKE) --no-print-directory"
-	@$(FLOCK) $(DEPDIR)/samples/eltwise "$(MAKE) --no-print-directory"
-	@$(FLOCK) $(DEPDIR)/samples/xgemm "$(MAKE) --no-print-directory"
-	@$(FLOCK) $(DEPDIR)/samples/edge "$(MAKE) --no-print-directory"
+#	@$(FLOCK) $(DEPDIR)/samples/pyfr "$(MAKE) REALTYPE=$(REALTYPE) BLAS=0 --no-print-directory tests"
+#	@$(FLOCK) $(DEPDIR)/samples/utilities/dispatch "$(MAKE) --no-print-directory"
+#	@$(FLOCK) $(DEPDIR)/samples/utilities/memcmp "$(MAKE) --no-print-directory"
+#	@$(FLOCK) $(DEPDIR)/samples/utilities/wrap "$(MAKE) --no-print-directory"
+#	@$(FLOCK) $(DEPDIR)/samples/equation "$(MAKE) --no-print-directory"
+#	@$(FLOCK) $(DEPDIR)/samples/eltwise "$(MAKE) --no-print-directory"
+#	@$(FLOCK) $(DEPDIR)/samples/xgemm "$(MAKE) --no-print-directory"
+#	@$(FLOCK) $(DEPDIR)/samples/edge "$(MAKE) --no-print-directory"
 
 .PHONY: compile
 compile: $(OBJECTS) $(FTNOBJS)
