@@ -54,8 +54,8 @@ all: $(XFILES)
 .PHONY: compile
 compile: $(OBJECTS) $(FTNOBJS)
 
-$(OUTDIR)/$(OUTNAME).x: $(OUTDIR)/.make $(OBJECTS) $(LIBDEP)
-	$(LD) -o $@ $(OBJECTS) $(MAINLIB) $(SLDFLAGS) $(LDFLAGS) $(CLDFLAGS)
+$(OUTDIR)/$(OUTNAME).x: $(OUTDIR)/.make $(OBJECTS) $(XSDEP)
+	$(LD) -o $@ $(OBJECTS) $(XSLIB) $(SLDFLAGS) $(LDFLAGS) $(CLDFLAGS)
 
 $(BLDDIR)/%-cpp.o: $(SRCDIR)/%.cpp .state $(BLDDIR)/.make $(HEADERS) Makefile $(DEPDIR)/Makefile.inc
 	$(CXX) $(DFLAGS) $(IFLAGS) $(CXXFLAGS) $(CTARGET) -c $< -o $@

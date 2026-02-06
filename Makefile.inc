@@ -2102,11 +2102,11 @@ endif
 OMPFLAG ?= $(NULL)
 
 # LIBXS link dependencies and libraries
-LIBDEP := $(LIBNAME).$(LIBEXT)
-MAINLIB := $(call abslib,$(LIBDEP))
+XSDEP := $(LIBNAME).$(LIBEXT)
+XSLIB := $(call abslib,$(XSDEP))
 # LIBXS/F link dependencies and libraries
-FORTDEP := $(LIBNAME)f.$(LIBEXT)
-FORTLIB := $(call abslib,$(LIBNAME)f.$(LIBEXT))
+XSFDEP := $(LIBNAME)f.$(LIBEXT)
+XSFLIB := $(call abslib,$(LIBNAME)f.$(LIBEXT))
 
 # some stand-alone libomp versions can cause warnings
 ifneq (,$(filter 1 2,$(PEDANTIC)))

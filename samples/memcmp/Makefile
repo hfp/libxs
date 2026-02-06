@@ -56,8 +56,8 @@ compile: $(OBJECTS) $(FTNOBJS)
 
 ifneq (,$(strip $(FC)))
 ifneq (0,$(shell echo "$$((3>$(XSMM_GCC) || 40600<=$(FC_VERSION_NUM)))"))
-$(OUTDIR)/$(OUTNAME)f.x: $(OUTDIR)/.make $(FTNOBJS) $(FORTDEP)
-	$(FLD) -o $@ $(FTNOBJS) $(FORTLIB) $(FCMTFLAGS) $(SLDFLAGS) $(LDFLAGS) $(FLDFLAGS) $(ELDFLAGS)
+$(OUTDIR)/$(OUTNAME)f.x: $(OUTDIR)/.make $(FTNOBJS) $(XSFDEP)
+	$(FLD) -o $@ $(FTNOBJS) $(XSFLIB) $(FCMTFLAGS) $(SLDFLAGS) $(LDFLAGS) $(FLDFLAGS) $(ELDFLAGS)
 else
 .PHONY: $(OUTDIR)/$(OUTNAME)f.x
 endif
@@ -65,8 +65,8 @@ else
 .PHONY: $(OUTDIR)/$(OUTNAME)f.x
 endif
 
-$(OUTDIR)/$(OUTNAME).x: $(OUTDIR)/.make $(OBJECTS) $(LIBDEP)
-	$(LD) -o $@ $(OBJECTS) $(MAINLIB) $(SLDFLAGS) $(LDFLAGS) $(CLDFLAGS)
+$(OUTDIR)/$(OUTNAME).x: $(OUTDIR)/.make $(OBJECTS) $(XSDEP)
+	$(LD) -o $@ $(OBJECTS) $(XSLIB) $(SLDFLAGS) $(LDFLAGS) $(CLDFLAGS)
 
 $(BLDDIR)/%-cpp.o: $(SRCDIR)/%.cpp .state $(BLDDIR)/.make $(HEADERS) Makefile $(DEPDIR)/Makefile.inc
 	$(CXX) $(DFLAGS) $(IFLAGS) $(CXXFLAGS) $(CTARGET) -c $< -o $@
