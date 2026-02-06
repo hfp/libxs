@@ -7,7 +7,7 @@
 * SPDX-License-Identifier: BSD-3-Clause                                       *
 ******************************************************************************/
 #include <libxs_timer.h>
-#include <libxs.h>
+#include <libxs_sync.h>
 
 #if defined(_OPENMP)
 # include <omp.h>

@@ -6,8 +6,9 @@
 * Further information: https://github.com/hfp/libxs/                          *
 * SPDX-License-Identifier: BSD-3-Clause                                       *
 ******************************************************************************/
+#include <libxs_timer.h>
+#include <libxs_math.h>
 #include <libxs_rng.h>
-#include <libxs.h>
 
 #include <inttypes.h>
 #if defined(_OPENMP)
@@ -25,11 +26,11 @@
 # define CHECK
 #endif
 #if !defined(MAXSIZE)
-# define MAXSIZE LIBXS_MAX_M
+# define MAXSIZE 23
 #endif
 
 
-typedef struct triplet { libxs_blasint m, n, k; } triplet;
+typedef struct triplet { int m, n, k; } triplet;
 
 LIBXS_INLINE void unique(triplet* mnk, int* size)
 {
@@ -79,10 +80,10 @@ int main(int argc, char* argv[])
   const int size_local = LIBXS_CLMP((2 < argc && 0 < atoi(argv[2])) ? atoi(argv[2]) : 4/*default*/, 1, size_total);
   const int nthreads = LIBXS_CLMP(3 < argc ? atoi(argv[3]) : 1/*default*/, 1, max_nthreads);
   const int nrepeat = LIBXS_MAX(4 < argc ? atoi(argv[4]) : 1/*default*/, 1);
-  const libxs_blasint multiple = LIBXS_MAX((5 < argc && 0 < atoi(argv[5])) ? atoi(argv[5]) : default_multiple, 1);
-  const libxs_blasint maxsize = LIBXS_CLMP((6 < argc && 0 < atoi(argv[6])) ? atoi(argv[6]) : default_maxsize, 1, MAXSIZE);
-  const libxs_blasint minsize = LIBXS_CLMP((7 < argc && 0 < atoi(argv[7])) ? atoi(argv[7]) : default_minsize, 1, maxsize);
-  const libxs_blasint range = maxsize - minsize + 1;
+  const int multiple = LIBXS_MAX((5 < argc && 0 < atoi(argv[5])) ? atoi(argv[5]) : default_multiple, 1);
+  const int maxsize = LIBXS_CLMP((6 < argc && 0 < atoi(argv[6])) ? atoi(argv[6]) : default_maxsize, 1, MAXSIZE);
+  const int minsize = LIBXS_CLMP((7 < argc && 0 < atoi(argv[7])) ? atoi(argv[7]) : default_minsize, 1, maxsize);
+  const int range = maxsize - minsize + 1;
   libxs_timer_tick_t start, tcall = 0, tcgen = 0, tdsp0 = 0, tdsp1 = 0;
 
   triplet* const rnd = (triplet*)(0 < size_total ? malloc(sizeof(triplet) * size_total) : NULL);
