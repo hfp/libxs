@@ -55,19 +55,19 @@ all: $(XFILES)
 compile: $(OBJECTS) $(FTNOBJS)
 
 ifneq (,$(strip $(FC)))
-$(OUTDIR)/$(OUTNAME)f.x: $(OUTDIR)/.make $(BLDDIR)/$(OUTNAME)-f.o $(FORTDEP)
-	$(FLD) -o $@ $(BLDDIR)/$(OUTNAME)-f.o $(FORTLIB) \
+$(OUTDIR)/$(OUTNAME)f.x: $(OUTDIR)/.make $(BLDDIR)/$(OUTNAME)-f.o $(XSFDEP)
+	$(FLD) -o $@ $(BLDDIR)/$(OUTNAME)-f.o $(XSFLIB) \
 		$(FCMTFLAGS) $(SLDFLAGS) $(LDFLAGS) $(FLDFLAGS) $(ELDFLAGS)
-$(OUTDIR)/$(OUTNAME)f_udt.x: $(OUTDIR)/.make $(BLDDIR)/$(OUTNAME)_udt-f.o $(FORTDEP)
-	$(FLD) -o $@ $(BLDDIR)/$(OUTNAME)_udt-f.o $(FORTLIB) \
+$(OUTDIR)/$(OUTNAME)f_udt.x: $(OUTDIR)/.make $(BLDDIR)/$(OUTNAME)_udt-f.o $(XSFDEP)
+	$(FLD) -o $@ $(BLDDIR)/$(OUTNAME)_udt-f.o $(XSFLIB) \
 		$(FCMTFLAGS) $(SLDFLAGS) $(LDFLAGS) $(FLDFLAGS) $(ELDFLAGS)
 else
 .PHONY: $(OUTDIR)/$(OUTNAME)f.x
 .PHONY: $(OUTDIR)/$(OUTNAME)f_udt.x
 endif
 
-$(OUTDIR)/$(OUTNAME).x: $(OUTDIR)/.make $(OBJECTS) $(LIBDEP)
-	$(LD) -o $@ $(OBJECTS) $(MAINLIB) $(SLDFLAGS) $(LDFLAGS) $(CLDFLAGS)
+$(OUTDIR)/$(OUTNAME).x: $(OUTDIR)/.make $(OBJECTS) $(XSDEP)
+	$(LD) -o $@ $(OBJECTS) $(XSLIB) $(SLDFLAGS) $(LDFLAGS) $(CLDFLAGS)
 
 $(BLDDIR)/%-cpp.o: $(SRCDIR)/%.cpp .state $(BLDDIR)/.make $(HEADERS) Makefile $(DEPDIR)/Makefile.inc
 	$(CXX) $(DFLAGS) $(IFLAGS) $(CXXFLAGS) $(CTARGET) -c $< -o $@
