@@ -194,30 +194,6 @@
 # define LIBXS_PRAGMA_OPTIMIZE_ON
 #endif
 
-LIBXS_PRAGMA_DIAG_PUSH()
-LIBXS_PRAGMA_DIAG_OFF_VARUNUSED()
-/** MKL_DIRECT_CALL requires to include the MKL interface. */
-#if (defined(MKL_DIRECT_CALL_SEQ) || defined(MKL_DIRECT_CALL) || \
-    (defined(__MKL) && !defined(LIBXS_BUILD) && \
-    (!defined(__BLAS) || (0 != __BLAS)))) && \
-    (defined(LIBXS_PLATFORM_X86))
-# if (0 != LIBXS_ILP64 && !defined(MKL_ILP64))
-#   error "Inconsistent ILP64 configuration detected!"
-# endif
-# include <mkl.h>
-#endif
-/** __INTEL_MKL__ is needed later to fix some NOTHROW issue. */
-#if defined(__MKL) && !defined(__INTEL_MKL__) && defined(LIBXS_PLATFORM_X86) && \
-    defined(NOTHROW)
-# include <mkl_version.h>
-#endif
-/** Calculation of INTEL_MKL_VERSION has no continuous history. */
-#if defined(__INTEL_MKL__) && defined(__INTEL_MKL_MINOR__) && defined(__INTEL_MKL_UPDATE__)
-# define LIBXS_MKL_VERSION3 LIBXS_VERSION3(__INTEL_MKL__, __INTEL_MKL_MINOR__, __INTEL_MKL_UPDATE__)
-# define LIBXS_MKL_VERSION2 LIBXS_VERSION2(__INTEL_MKL__, __INTEL_MKL_MINOR__)
-#endif
-LIBXS_PRAGMA_DIAG_POP()
-
 /** Evaluates to true if the value falls into the interval [LO, HI]. */
 #define LIBXS_IS_INTEGER(TYPE, VALUE, LO, HI) ( \
   ((LO) == (TYPE)(VALUE) || (LO) < (TYPE)(VALUE)) && LIBXS_MIN(1ULL*(VALUE),HI) <= (HI) && \
@@ -236,7 +212,7 @@ LIBXS_PRAGMA_DIAG_POP()
 #define LIBXS_IS_INT(VALUE) LIBXS_IS_INTEGER(/*signed*/int, VALUE, INT_MIN, INT_MAX)
 
 #if !defined(LIBXS_CAST_CHECK)
-# if !defined(__COVERITY__) && 1
+# if !defined(__COVERITY__)
 #   define LIBXS_CAST_CHECK(EXPR, MSG) LIBXS_ASSERT_MSG(EXPR, MSG)
 # else
 #   define LIBXS_CAST_CHECK(EXPR, MSG) LIBXS_ASSERT_MSG(1, MSG)
@@ -259,171 +235,6 @@ LIBXS_PRAGMA_DIAG_POP()
 #define LIBXS_CAST_CHAR(VALUE) ((char)(LIBXS_CAST_CHECK(LIBXS_IS_CHAR(VALUE), "Value cannot be represented as CHAR"), VALUE))
 #define LIBXS_CAST_UINT(VALUE) ((unsigned int)(LIBXS_CAST_CHECK(LIBXS_IS_UINT(VALUE), "Value cannot be represented as UINT"), VALUE))
 #define LIBXS_CAST_INT(VALUE) ((/*signed*/int)(LIBXS_CAST_CHECK(LIBXS_IS_INT(VALUE), "Value cannot be represented as INT"), VALUE))
-
-#if (0 != LIBXS_ILP64)
-# define LIBXS_IS_BLASINT(VALUE) LIBXS_IS_LLONG(VALUE)
-# define LIBXS_CAST_BLASINT(VALUE) LIBXS_CAST_LLONG(VALUE)
-#else /* LP64 */
-# define LIBXS_IS_BLASINT(VALUE) LIBXS_IS_INT(VALUE)
-# define LIBXS_CAST_BLASINT(VALUE) LIBXS_CAST_INT(VALUE)
-#endif
-
-/* Const-qualify BLAS functions */
-#if defined(LIBXS_BLAS_CONST)
-# undef LIBXS_BLAS_CONST
-# define LIBXS_BLAS_CONST const
-#elif defined(OPENBLAS_CONST)
-# define LIBXS_BLAS_CONST OPENBLAS_CONST
-#elif (defined(LIBXS_BLAS_NONCONST) || defined(__OPENBLAS) || defined(__OPENBLAS77)) \
-   && !defined(LIBXS_BUILD)
-# define LIBXS_BLAS_CONST
-#else
-# define LIBXS_BLAS_CONST const
-#endif
-
-/* Control BLAS dependency */
-#if !defined(LIBXS_NO_BLAS)
-# if (!defined(__BLAS) || (0 != __BLAS)) && \
-      !(defined(LIBXS_PLATFORM_AARCH64) && defined(_WIN32))
-#   define LIBXS_NO_BLAS 0
-#   define LIBXS_BLAS 1
-# else
-#   define LIBXS_NO_BLAS 1
-#   define LIBXS_BLAS 0
-# endif
-#endif
-
-#if defined(LIBXS_BUILD)
-# if defined(LIBXS_BUILD_EXT) && defined(_WINDLL) && \
-    (defined(_WIN32) || defined(__CYGWIN__) || defined(__MINGW32__))
-#   define LIBXS_BLAS_SYMBOL_VISIBILITY LIBXS_APIEXT
-# elif defined(LIBXS_NO_BLAS) && (1 == LIBXS_NO_BLAS)
-#   define LIBXS_BLAS_SYMBOL_VISIBILITY LIBXS_API
-# endif
-#endif
-#if !defined(LIBXS_BLAS_SYMBOL_VISIBILITY)
-# define LIBXS_BLAS_SYMBOL_VISIBILITY LIBXS_EXTERN LIBXS_VISIBILITY_IMPORT
-#endif
-
-#if defined(NOTHROW)
-# define LIBXS_BLAS_NOEXCEPT_AUX NOTHROW
-#else
-# define LIBXS_BLAS_NOEXCEPT_AUX LIBXS_NOEXCEPT
-#endif
-#define LIBXS_BLAS_NOEXCEPT(KIND) LIBXS_CONCATENATE(LIBXS_BLAS_NOEXCEPT_, KIND)
-#if defined(LIBXS_MKL_VERSION3) && (LIBXS_VERSION3(2020, 0, 2) <= LIBXS_MKL_VERSION3)
-# define LIBXS_BLAS_NOEXCEPT_gemm_batch_strided LIBXS_BLAS_NOEXCEPT_AUX
-# define LIBXS_BLAS_NOEXCEPT_gemm_batch LIBXS_BLAS_NOEXCEPT_AUX
-#else
-# define LIBXS_BLAS_NOEXCEPT_gemm_batch_strided
-# define LIBXS_BLAS_NOEXCEPT_gemm_batch
-#endif
-#define LIBXS_BLAS_NOEXCEPT_gemm LIBXS_BLAS_NOEXCEPT_AUX
-#define LIBXS_BLAS_NOEXCEPT_gemv LIBXS_BLAS_NOEXCEPT_AUX
-
-/** Construct BLAS-style prefixes. */
-#define LIBXS_TPREFIX_NAME(TYPE) LIBXS_CONCATENATE(LIBXS_TPREFIX_, TYPE)
-#define LIBXS_TPREFIX(TYPE, FUNCTION) LIBXS_CONCATENATE(LIBXS_TPREFIX_NAME(TYPE), FUNCTION)
-#define LIBXS_TPREFIX_doubledouble d
-#define LIBXS_TPREFIX_floatfloat s
-/** Defaults if only the input type is specified. */
-#define LIBXS_TPREFIX_double LIBXS_TPREFIX_doubledouble
-#define LIBXS_TPREFIX_float LIBXS_TPREFIX_floatfloat
-
-/* Construct prefix names, function type or dispatch function from given input and output types. */
-#define LIBXS_TPREFIX2(ITYPE, OTYPE, FUNCTION) LIBXS_TPREFIX(LIBXS_CONCATENATE(ITYPE, OTYPE), FUNCTION)
-
-/** Construct symbol name from a given real type name (float, double, etc.). */
-#define LIBXS_BLAS_FSYMBOL(TYPE, KIND) LIBXS_FSYMBOL(LIBXS_TPREFIX(TYPE, KIND))
-#define LIBXS_BLAS_CSYMBOL LIBXS_TPREFIX
-
-#define LIBXS_BLAS_SYMBOL_SIGNATURE_gemm_batch_strided(CONST_STAR, STAR, TYPE) char CONST_STAR /*transa*/, char CONST_STAR /*transb*/, \
-  libxs_blasint CONST_STAR /*m*/, libxs_blasint CONST_STAR /*n*/, libxs_blasint CONST_STAR /*k*/, \
-  TYPE CONST_STAR /*alpha*/, TYPE CONST_STAR /*a*/, libxs_blasint CONST_STAR /*lda*/, libxs_blasint CONST_STAR /*stride_a*/, \
-                             TYPE CONST_STAR /*b*/, libxs_blasint CONST_STAR /*ldb*/, libxs_blasint CONST_STAR /*stride_b*/, \
-  TYPE CONST_STAR /*beta*/,  TYPE       STAR /*c*/, libxs_blasint CONST_STAR /*ldc*/, libxs_blasint CONST_STAR /*stride_c*/, \
-  libxs_blasint CONST_STAR /*batchsize*/
-#define LIBXS_BLAS_SYMBOL_SIGNATURE_gemm_batch(CONST_STAR, STAR, TYPE) char CONST_STAR /*transa*/, char CONST_STAR /*transb*/, \
-  libxs_blasint CONST_STAR, libxs_blasint CONST_STAR, libxs_blasint CONST_STAR, \
-  TYPE CONST_STAR, TYPE CONST_STAR STAR, libxs_blasint CONST_STAR, TYPE CONST_STAR STAR, libxs_blasint CONST_STAR, \
-  TYPE CONST_STAR, TYPE STAR STAR, libxs_blasint CONST_STAR, libxs_blasint CONST_STAR, libxs_blasint CONST_STAR
-#define LIBXS_BLAS_SYMBOL_SIGNATURE_gemm(CONST_STAR, STAR, TYPE) char CONST_STAR /*transa*/, char CONST_STAR /*transb*/, \
-  libxs_blasint CONST_STAR, libxs_blasint CONST_STAR, libxs_blasint CONST_STAR, TYPE CONST_STAR, TYPE CONST_STAR, libxs_blasint CONST_STAR, \
-  TYPE CONST_STAR, libxs_blasint CONST_STAR, TYPE CONST_STAR, TYPE STAR, libxs_blasint CONST_STAR
-#define LIBXS_BLAS_SYMBOL_SIGNATURE_gemv(CONST_STAR, STAR, TYPE) char CONST_STAR, libxs_blasint CONST_STAR, libxs_blasint CONST_STAR, \
-  TYPE CONST_STAR, TYPE CONST_STAR, libxs_blasint CONST_STAR, TYPE CONST_STAR, libxs_blasint CONST_STAR, \
-  TYPE CONST_STAR, TYPE STAR, libxs_blasint CONST_STAR
-#define LIBXS_BLAS_SYMBOL_SIGNATURE(CONST_STAR, STAR, TYPE, KIND) LIBXS_CONCATENATE(LIBXS_BLAS_SYMBOL_SIGNATURE_, KIND)(CONST_STAR, STAR, TYPE)
-#define LIBXS_BLAS_SYMBOL_FDECL_FORCE(CONST_STAR, STAR, TYPE, KIND) LIBXS_BLAS_SYMBOL_VISIBILITY \
-  void LIBXS_BLAS_FSYMBOL(TYPE, KIND)(LIBXS_BLAS_SYMBOL_SIGNATURE(CONST_STAR, STAR, TYPE, KIND)) LIBXS_BLAS_NOEXCEPT(KIND)
-#define LIBXS_BLAS_SYMBOL_CDECL_FORCE(CONST_STAR, STAR, TYPE, KIND) LIBXS_BLAS_SYMBOL_VISIBILITY \
-  void LIBXS_BLAS_CSYMBOL(TYPE, KIND)(LIBXS_BLAS_SYMBOL_SIGNATURE(CONST_STAR, STAR, TYPE, KIND)) LIBXS_BLAS_NOEXCEPT(KIND)
-
-#define LIBXS_BLAS_DECL(TYPE, KIND, DECL) LIBXS_CONCATENATE(LIBXS_BLAS_, LIBXS_TPREFIX(TYPE, KIND))(DECL)
-#if !defined(MKL_DIRECT_CALL_SEQ) && !defined(MKL_DIRECT_CALL)
-# define LIBXS_BLAS_dgemm_batch_strided(DECL) DECL;
-# define LIBXS_BLAS_dgemm_batch(DECL) DECL;
-# define LIBXS_BLAS_dgemm(DECL) DECL;
-# define LIBXS_BLAS_sgemm(DECL) DECL;
-# define LIBXS_BLAS_dgemv(DECL) DECL;
-# define LIBXS_BLAS_sgemv(DECL) DECL;
-#else
-# define LIBXS_BLAS_dgemm_batch_strided(DECL)
-# define LIBXS_BLAS_dgemm_batch(DECL)
-# define LIBXS_BLAS_dgemm(DECL)
-# define LIBXS_BLAS_sgemm(DECL)
-# define LIBXS_BLAS_dgemv(DECL)
-# define LIBXS_BLAS_sgemv(DECL)
-#endif
-
-/** Declare BLAS symbol by TYPE and KIND. */
-#define LIBXS_BLAS_SYMBOL_FDECL(TYPE, KIND) LIBXS_BLAS_DECL(TYPE, KIND, LIBXS_BLAS_SYMBOL_FDECL_FORCE(LIBXS_BLAS_CONST*, *, TYPE, KIND))
-#define LIBXS_BLAS_SYMBOL_CDECL(TYPE, KIND) LIBXS_BLAS_DECL(TYPE, KIND, LIBXS_BLAS_SYMBOL_CDECL_FORCE(LIBXS_BLAS_CONST*, *, TYPE, KIND))
-
-/** Short-cut macros to construct desired BLAS function symbol. */
-#define LIBXS_GEMM_BATCH_STRIDED_SYMBOL(TYPE) LIBXS_BLAS_FSYMBOL(TYPE, gemm_batch_strided)
-#define LIBXS_GEMM_BATCH_SYMBOL(TYPE) LIBXS_BLAS_FSYMBOL(TYPE, gemm_batch)
-#define LIBXS_GEMM_SYMBOL(TYPE) LIBXS_BLAS_FSYMBOL(TYPE, gemm)
-#define LIBXS_GEMV_SYMBOL(TYPE) LIBXS_BLAS_FSYMBOL(TYPE, gemv)
-
-/** Consolidate BLAS-transpose into a set of flags. */
-#define LIBXS_GEMM_FLAGS(TRANSA, TRANSB) /* check for N/n rather than T/t since C/c is also valid! */ \
-   ((('n' == (TRANSA) || *"N" == (TRANSA)) ? LIBXS_GEMM_FLAG_NONE : LIBXS_GEMM_FLAG_TRANS_A) \
-  | (('n' == (TRANSB) || *"N" == (TRANSB)) ? LIBXS_GEMM_FLAG_NONE : LIBXS_GEMM_FLAG_TRANS_B))
-
-/** Allow NULL-requests (transposes) and map to some default. */
-#define LIBXS_GEMM_PFLAGS(TRANSA, TRANSB, DEFAULT) LIBXS_GEMM_FLAGS( \
-  NULL != ((const void*)(TRANSA)) ? (*(const char*)(TRANSA)) : (0 == (LIBXS_GEMM_FLAG_TRANS_A & (DEFAULT)) ? 'n' : 't'), \
-  NULL != ((const void*)(TRANSB)) ? (*(const char*)(TRANSB)) : (0 == (LIBXS_GEMM_FLAG_TRANS_B & (DEFAULT)) ? 'n' : 't')) \
-  | (~(LIBXS_GEMM_FLAG_TRANS_A | LIBXS_GEMM_FLAG_TRANS_B) & (DEFAULT))
-
-/** Consolidate CBLAS transpose requests into a set of flags. */
-#define LIBXS_GEMM_CFLAGS(TRANSA, TRANSB) /* check for N/n rather than T/t since C/c is also valid! */ \
-   ((CblasNoTrans == (TRANSA) ? LIBXS_GEMM_FLAG_NONE : LIBXS_GEMM_FLAG_TRANS_A) \
-  | (CblasNoTrans == (TRANSB) ? LIBXS_GEMM_FLAG_NONE : LIBXS_GEMM_FLAG_TRANS_B))
-
-/** Consolidate transpose requests into a set of flags. */
-#define LIBXS_GEMM_VNNI_FLAGS(TRANSA, TRANSB, VNNIA, VNNIB) /* check for N/n rather than T/t since C/c is also valid! */ \
-   ((('n' == (TRANSA) || *"N" == (TRANSA)) ? LIBXS_GEMM_FLAG_NONE : LIBXS_GEMM_FLAG_TRANS_A) \
-  | (('n' == (TRANSB) || *"N" == (TRANSB)) ? LIBXS_GEMM_FLAG_NONE : LIBXS_GEMM_FLAG_TRANS_B) \
-  | (('n' == (VNNIA) || *"N" == (VNNIA)) ? LIBXS_GEMM_FLAG_NONE : LIBXS_GEMM_FLAG_VNNI_A) \
-  | (('n' == (VNNIB) || *"N" == (VNNIB)) ? LIBXS_GEMM_FLAG_NONE : LIBXS_GEMM_FLAG_VNNI_B))
-
-/** Calculate problem size from M, N, and K using the correct integer type in order to cover the general case. */
-#define LIBXS_MNK_SIZE(M, N, K) (((size_t)(M)) * ((size_t)(N)) * ((size_t)(K)))
-/** Calculate total number of matrix-elements; matrices A, B, C are given per M, N, K, and emphasize (S) the C-size. */
-#define LIBXS_SIZE(M, N, K, S) \
-    (((size_t)(M) * (size_t)(K)) + ((size_t)(K) * (size_t)(N)) + \
-    (((size_t)(S) * (size_t)(M) * (size_t)(N))))
-/** Condition based on arithmetic intensity (AI) */
-#define LIBXS_SMM_AI(M, N, K, S, TYPESIZE) \
-    ((LIBXS_MNK_SIZE(M, N, K) * 2) <= ((size_t)(TYPESIZE) * 4/*AI*/ * LIBXS_SIZE(M, N, K, S)))
-/** Determine whether an SMM is suitable, i.e., small enough. */
-#if !defined(LIBXS_THRESHOLD_AI) /* traditional MNK-threshold */
-# define LIBXS_SMM(M, N, K, S, TYPESIZE) (LIBXS_MNK_SIZE(M, N, K) <= (LIBXS_MAX_MNK))
-#else /* threshold based on arithmetic intensity */
-# define LIBXS_SMM(M, N, K, S, TYPESIZE) LIBXS_SMM_AI(M, N, K, S, TYPESIZE)
-#endif
 
 #if !defined(LIBXS_UNPACKED) && (defined(_CRAYC) || \
   (0 == LIBXS_SYNC)/*Windows: missing pack(pop) error*/)
@@ -836,109 +647,6 @@ LIBXS_API_INLINE unsigned long long libxs_widen_u32u64(unsigned int value) { ret
 #define LIBXS_ALIGN(POINTER, ALIGNMENT/*POT*/) ((POINTER) + (LIBXS_UP2((uintptr_t)(POINTER), ALIGNMENT) - ((uintptr_t)(POINTER))) / sizeof(*(POINTER)))
 #define LIBXS_FOLD2(POINTER, ALIGNMENT, NPOT) LIBXS_MOD2(((uintptr_t)(POINTER) / (ALIGNMENT)), NPOT)
 
-#if defined(_MSC_VER) && !defined(__clang__) && !defined(LIBXS_INTEL_COMPILER) /* account for incorrect handling of __VA_ARGS__ */
-# define LIBXS_SELECT_ELEMENT(INDEX1/*one-based*/, .../*elements*/) LIBXS_CONCATENATE(LIBXS_SELECT_ELEMENT_, INDEX1)LIBXS_EXPAND((__VA_ARGS__))
-#else
-# define LIBXS_SELECT_ELEMENT(INDEX1/*one-based*/, .../*elements*/) LIBXS_CONCATENATE(LIBXS_SELECT_ELEMENT_, INDEX1)(__VA_ARGS__)
-#endif
-#define  LIBXS_SELECT_ELEMENT_1(E0, E1, E2, E3, E4, E5, E6, E7, E8, E9) E0
-#define  LIBXS_SELECT_ELEMENT_2(E0, E1, E2, E3, E4, E5, E6, E7, E8, E9) E1
-#define  LIBXS_SELECT_ELEMENT_3(E0, E1, E2, E3, E4, E5, E6, E7, E8, E9) E2
-#define  LIBXS_SELECT_ELEMENT_4(E0, E1, E2, E3, E4, E5, E6, E7, E8, E9) E3
-#define  LIBXS_SELECT_ELEMENT_5(E0, E1, E2, E3, E4, E5, E6, E7, E8, E9) E4
-#define  LIBXS_SELECT_ELEMENT_6(E0, E1, E2, E3, E4, E5, E6, E7, E8, E9) E5
-#define  LIBXS_SELECT_ELEMENT_7(E0, E1, E2, E3, E4, E5, E6, E7, E8, E9) E6
-#define  LIBXS_SELECT_ELEMENT_8(E0, E1, E2, E3, E4, E5, E6, E7, E8, E9) E7
-#define  LIBXS_SELECT_ELEMENT_9(E0, E1, E2, E3, E4, E5, E6, E7, E8, E9) E8
-#define LIBXS_SELECT_ELEMENT_10(E0, E1, E2, E3, E4, E5, E6, E7, E8, E9) E9
-#define LIBXS_SELECT_HEAD_AUX(A, ...) (A)
-#define LIBXS_SELECT_HEAD(...) LIBXS_EXPAND(LIBXS_SELECT_HEAD_AUX(__VA_ARGS__, 0/*dummy*/))
-#define LIBXS_SELECT_TAIL(A, ...) __VA_ARGS__
-
-/**
- * For VLAs, check EXACTLY for C99 since a C11-conforming compiler may not provide VLAs.
- * However, some compilers (Intel) may signal support for VLA even with strict ANSI (C89).
- * To ultimately disable VLA-support, define LIBXS_NO_VLA (make VLA=0).
- * VLA-support is signaled by LIBXS_VLA.
- */
-#if !defined(LIBXS_VLA) && !defined(LIBXS_NO_VLA) && !defined(__PGI) && ( \
-    (defined(__STDC_VERSION__) && (199901L/*C99*/ == __STDC_VERSION__ || (!defined(__STDC_NO_VLA__) && 199901L/*C99*/ < __STDC_VERSION__))) || \
-    (defined(__GNUC__) && LIBXS_VERSION2(5, 0) <= LIBXS_VERSION2(__GNUC__, __GNUC_MINOR__) && !defined(__STRICT_ANSI__) && !defined(__cplusplus)) || \
-    (defined(LIBXS_INTEL_COMPILER) && !defined(_WIN32) && !defined(__cplusplus)) || \
-    (defined(__INTEL_COMPILER) && !defined(_WIN32)))
-# define LIBXS_VLA
-#endif
-
-/**
- * LIBXS_INDEX1 calculates the linear address for a given set of (multiple) indexes/bounds.
- * Syntax: LIBXS_INDEX1(<ndims>, <i0>, ..., <i(ndims-1)>, <s1>, ..., <s(ndims-1)>).
- * Please note that the leading dimension (s0) is omitted in the above syntax!
- * TODO: support leading dimension (pitch/stride).
- */
-#if defined(_MSC_VER) && !defined(__clang__) /* account for incorrect handling of __VA_ARGS__ */
-# define LIBXS_INDEX1(NDIMS, ...) LIBXS_CONCATENATE(LIBXS_INDEX1_, NDIMS)LIBXS_EXPAND((__VA_ARGS__))
-#else
-# define LIBXS_INDEX1(NDIMS, ...) LIBXS_CONCATENATE(LIBXS_INDEX1_, NDIMS)(__VA_ARGS__)
-#endif
-#define  LIBXS_INDEX1_1(...) ((size_t)LIBXS_SELECT_HEAD(__VA_ARGS__))
-#define  LIBXS_INDEX1_2(I0, I1, S1) (LIBXS_INDEX1_1(I0) * ((size_t)S1) + (size_t)I1)
-#define  LIBXS_INDEX1_3(I0, I1, I2, S1, S2) (LIBXS_INDEX1_2(I0, I1, S1) * ((size_t)S2) + (size_t)I2)
-#define  LIBXS_INDEX1_4(I0, I1, I2, I3, S1, S2, S3) (LIBXS_INDEX1_3(I0, I1, I2, S1, S2) * ((size_t)S3) + (size_t)I3)
-#define  LIBXS_INDEX1_5(I0, I1, I2, I3, I4, S1, S2, S3, S4) (LIBXS_INDEX1_4(I0, I1, I2, I3, S1, S2, S3) * ((size_t)S4) + (size_t)I4)
-#define  LIBXS_INDEX1_6(I0, I1, I2, I3, I4, I5, S1, S2, S3, S4, S5) (LIBXS_INDEX1_5(I0, I1, I2, I3, I4, S1, S2, S3, S4) * ((size_t)S5) + (size_t)I5)
-#define  LIBXS_INDEX1_7(I0, I1, I2, I3, I4, I5, I6, S1, S2, S3, S4, S5, S6) (LIBXS_INDEX1_6(I0, I1, I2, I3, I4, I5, S1, S2, S3, S4, S5) * ((size_t)S6) + (size_t)I6)
-#define  LIBXS_INDEX1_8(I0, I1, I2, I3, I4, I5, I6, I7, S1, S2, S3, S4, S5, S6, S7) (LIBXS_INDEX1_7(I0, I1, I2, I3, I4, I5, I6, S1, S2, S3, S4, S5, S6) * ((size_t)S7) + (size_t)I7)
-#define  LIBXS_INDEX1_9(I0, I1, I2, I3, I4, I5, I6, I7, I8, S1, S2, S3, S4, S5, S6, S7, S8) (LIBXS_INDEX1_8(I0, I1, I2, I3, I4, I5, I6, I7, S1, S2, S3, S4, S5, S6, S7) * ((size_t)S8) + (size_t)I8)
-#define LIBXS_INDEX1_10(I0, I1, I2, I3, I4, I5, I6, I7, I8, I9, S1, S2, S3, S4, S5, S6, S7, S8, S9) (LIBXS_INDEX1_9(I0, I1, I2, I3, I4, I5, I6, I7, I8, S1, S2, S3, S4, S5, S6, S7, S8) * ((size_t)S9) + (size_t)I9)
-
-/**
- * LIBXS_VLA_DECL declares an array according to the given set of (multiple) bounds.
- * Syntax: LIBXS_VLA_DECL(<ndims>, <elem-type>, <var-name>, <init>, <s1>, ..., <s(ndims-1)>).
- * The element type can be "const" or otherwise qualified; initial value must be (const)element-type*.
- * Please note that the syntax is similar to LIBXS_INDEX1, and the leading dimension (s0) is omitted!
- *
- * LIBXS_VLA_ACCESS gives the array element according to the given set of (multiple) indexes/bounds.
- * Syntax: LIBXS_VLA_ACCESS(<ndims>, <array>, <i0>, ..., <i(ndims-1)>, <s1>, ..., <s(ndims-1)>).
- * Please note that the syntax is similar to LIBXS_INDEX1, and the leading dimension (s0) is omitted!
- */
-#if !defined(LIBXS_VLA_POSTFIX)
-# define LIBXS_VLA_POSTFIX _
-#endif
-#if defined(LIBXS_VLA)
-LIBXS_API_INLINE int libxs_nonconst_int(int i) { return i; }
-# define  LIBXS_VLA_ACCESS(NDIMS, ARRAY, ...) LIBXS_VLA_ACCESS_ND(NDIMS, LIBXS_CONCATENATE(ARRAY, LIBXS_VLA_POSTFIX), LIBXS_VLA_ACCESS_SINK, __VA_ARGS__)
-# define  LIBXS_VLA_ACCESS_SINK(S) + 0 * (S)
-# define  LIBXS_VLA_ACCESS_NONCONST(I) libxs_nonconst_int(I)
-# define  LIBXS_VLA_ACCESS_ND(NDIMS, ARRAY, XY, ...) LIBXS_CONCATENATE3(LIBXS_VLA_ACCESS_, NDIMS, D)(ARRAY, XY, __VA_ARGS__)
-# define  LIBXS_VLA_ACCESS_0D(ARRAY, XY, ...) (ARRAY)/*scalar*/
-# define  LIBXS_VLA_ACCESS_1D(ARRAY, XY, ...) (ARRAY)[LIBXS_VLA_ACCESS_NONCONST(LIBXS_SELECT_HEAD(__VA_ARGS__))]
-# define  LIBXS_VLA_ACCESS_2D(ARRAY, XY, I0, I1, ...) ((ARRAY) XY(__VA_ARGS__))[I0][LIBXS_VLA_ACCESS_NONCONST(I1)]
-# define  LIBXS_VLA_ACCESS_3D(ARRAY, XY, I0, I1, I2, S1, ...) ((ARRAY) XY(S1) XY(__VA_ARGS__))[I0][I1][LIBXS_VLA_ACCESS_NONCONST(I2)]
-# define  LIBXS_VLA_ACCESS_4D(ARRAY, XY, I0, I1, I2, I3, S1, S2, ...) ((ARRAY) XY(S1) XY(S2) XY(__VA_ARGS__))[I0][I1][I2][LIBXS_VLA_ACCESS_NONCONST(I3)]
-# define  LIBXS_VLA_ACCESS_5D(ARRAY, XY, I0, I1, I2, I3, I4, S1, S2, S3, ...) ((ARRAY) XY(S1) XY(S2) XY(S3) XY(__VA_ARGS__))[I0][I1][I2][I3][LIBXS_VLA_ACCESS_NONCONST(I4)]
-# define  LIBXS_VLA_ACCESS_6D(ARRAY, XY, I0, I1, I2, I3, I4, I5, S1, S2, S3, S4, ...) ((ARRAY) XY(S1) XY(S2) XY(S3) XY(S4) XY(__VA_ARGS__))[I0][I1][I2][I3][I4][LIBXS_VLA_ACCESS_NONCONST(I5)]
-# define  LIBXS_VLA_ACCESS_7D(ARRAY, XY, I0, I1, I2, I3, I4, I5, I6, S1, S2, S3, S4, S5, ...) ((ARRAY) XY(S1) XY(S2) XY(S3) XY(S4) XY(S5) XY(__VA_ARGS__))[I0][I1][I2][I3][I4][I5][LIBXS_VLA_ACCESS_NONCONST(I6)]
-# define  LIBXS_VLA_ACCESS_8D(ARRAY, XY, I0, I1, I2, I3, I4, I5, I6, I7, S1, S2, S3, S4, S5, S6, ...) ((ARRAY) XY(S1) XY(S2) XY(S3) XY(S4) XY(S5) XY(S6) XY(__VA_ARGS__))[I0][I1][I2][I3][I4][I5][I6][LIBXS_VLA_ACCESS_NONCONST(I7)]
-# define  LIBXS_VLA_ACCESS_9D(ARRAY, XY, I0, I1, I2, I3, I4, I5, I6, I7, I8, S1, S2, S3, S4, S5, S6, S7, ...) ((ARRAY) XY(S1) XY(S2) XY(S3) XY(S4) XY(S5) XY(S6) XY(S7) XY(__VA_ARGS__))[I0][I1][I2][I3][I4][I5][I6][I7][LIBXS_VLA_ACCESS_NONCONST(I8)]
-# define LIBXS_VLA_ACCESS_10D(ARRAY, XY, I0, I1, I2, I3, I4, I5, I6, I7, I8, I9, S1, S2, S3, S4, S5, S6, S7, S8, ...) ((ARRAY) XY(S1) XY(S2) XY(S3) XY(S4) XY(S5) XY(S6) XY(S7) XY(S8) XY(__VA_ARGS__))[I0][I1][I2][I3][I4][I5][I6][I7][I8][LIBXS_VLA_ACCESS_NONCONST(I9)]
-# define LIBXS_VLA_DECL(NDIMS, ELEMENT_TYPE, ARRAY_VAR, .../*initial value, and bounds*/) \
-    ELEMENT_TYPE LIBXS_VLA_ACCESS_ND(LIBXS_SELECT_ELEMENT(NDIMS, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9), *LIBXS_RESTRICT LIBXS_CONCATENATE(ARRAY_VAR, LIBXS_VLA_POSTFIX), \
-      LIBXS_ELIDE, LIBXS_SELECT_TAIL(__VA_ARGS__, 0)/*bounds*/, LIBXS_SELECT_TAIL(__VA_ARGS__, 0)/*dummy*/) = \
-   (ELEMENT_TYPE LIBXS_VLA_ACCESS_ND(LIBXS_SELECT_ELEMENT(NDIMS, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9), *, \
-      LIBXS_ELIDE, LIBXS_SELECT_TAIL(__VA_ARGS__, 0)/*bounds*/, LIBXS_SELECT_TAIL(__VA_ARGS__, 0)/*dummy*/))LIBXS_SELECT_HEAD(__VA_ARGS__)
-#else /* calculate linear index */
-# define LIBXS_VLA_ACCESS(NDIMS, ARRAY, ...) LIBXS_CONCATENATE(ARRAY, LIBXS_VLA_POSTFIX)[LIBXS_INDEX1(NDIMS, __VA_ARGS__)]
-# define LIBXS_VLA_DECL(NDIMS, ELEMENT_TYPE, ARRAY_VAR, .../*initial value, and bounds*/) \
-    ELEMENT_TYPE *LIBXS_RESTRICT LIBXS_CONCATENATE(ARRAY_VAR, LIBXS_VLA_POSTFIX) = /*(ELEMENT_TYPE*)*/LIBXS_SELECT_HEAD(__VA_ARGS__) \
-    + 0 * LIBXS_INDEX1(NDIMS, LIBXS_SELECT_TAIL(__VA_ARGS__, LIBXS_SELECT_TAIL(__VA_ARGS__, 0))) /* dummy-shift to "sink" unused arguments */
-#endif
-
-/** Address of an ARRAY of elements (of TYPESIZE) using linear index according to LIBXS_INDEX1. */
-#define LIBXS_ACCESS_RO(NDIMS, TYPESIZE, ARRAY, ...) ((const void*)(((const char*)(ARRAY)) + (TYPESIZE) * LIBXS_INDEX1(NDIMS, __VA_ARGS__)))
-#define LIBXS_ACCESS_RW(NDIMS, TYPESIZE, ARRAY, ...) ((void*)(((char*)(ARRAY)) + (TYPESIZE) * LIBXS_INDEX1(NDIMS, __VA_ARGS__)))
-/** Address of an ARRAY of TYPE (can be const-qualified) using linear index according to LIBXS_INDEX1. */
-#define LIBXS_ACCESS(NDIMS, TYPE, ARRAY, ...) (((TYPE*)(ARRAY)) + LIBXS_INDEX1(NDIMS, __VA_ARGS__))
-
 /** Compare types, e.g., real types. */
 #define LIBXS_EQUAL(T1, T2) LIBXS_CONCATENATE3(LIBXS_EQUAL_, T1, T2)
 #define LIBXS_EQUAL_floatfloat 1
@@ -1277,6 +985,22 @@ LIBXS_EXTERN double erf(double) LIBXS_NOTHROW;
 #endif
 #if !defined(M_PI)
 # define M_PI 3.14159265358979323846
+#endif
+
+#if !defined(LIBXS_INTERCEPT_DYNAMIC) && defined(LIBXS_BUILD) && \
+    (defined(__GNUC__) || defined(_CRAYC)) && !defined(_WIN32) && !defined(__CYGWIN__) && \
+   !(defined(__APPLE__) && defined(__MACH__) && LIBXS_VERSION2(6, 1) >= \
+      LIBXS_VERSION2(__clang_major__, __clang_minor__))
+# define LIBXS_INTERCEPT_DYNAMIC
+#endif
+
+#if defined(LIBXS_INTERCEPT_DYNAMIC)
+# include <dlfcn.h>
+# if !defined(RTLD_NEXT)
+#   define LIBXS_RTLD_NEXT ((void*)-1l)
+# else
+#   define LIBXS_RTLD_NEXT RTLD_NEXT
+# endif
 #endif
 
 #endif /*LIBXS_MACROS_H*/

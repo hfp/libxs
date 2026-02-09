@@ -18,6 +18,10 @@
 # include <mkl.h>
 #endif
 
+#if defined(__INTEL_MKL__) && defined(__INTEL_MKL_MINOR__) && defined(__INTEL_MKL_UPDATE__)
+# define LIBXS_MKL_VERSION3 LIBXS_VERSION3(__INTEL_MKL__, __INTEL_MKL_MINOR__, __INTEL_MKL_UPDATE__)
+#endif
+
 #if !defined(MKLJIT) && defined(mkl_jit_create_dgemm) && \
   !defined(_WIN32) /* check this manually under Windows */
 # define MKLJIT

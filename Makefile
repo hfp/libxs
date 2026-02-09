@@ -300,16 +300,16 @@ endif
 ifeq (0,$(CRAY))
 $(foreach OBJ,$(OBJFILES),$(eval $(call DEFINE_COMPILE_RULE, \
   $(OBJ),$(patsubst %.o,$(ROOTSRC)/%.c,$(notdir $(OBJ))), \
-  $(INCDIR)/libxs_version.h $(INCDIR)/libxs_source.h, \
+  $(HEADERS_MAIN) $(INCDIR)/libxs_version.h $(INCDIR)/libxs_source.h, \
   $(DFLAGS) $(IFLAGS) $(call applyif,1,libxs_main,$(OBJ),-I$(BLDDIR)) $(CTARGET) $(CFLAGS))))
 else
 $(foreach OBJ,$(filter-out $(BLDDIR)/intel64/libxs_mhd.o,$(OBJFILES)),$(eval $(call DEFINE_COMPILE_RULE, \
   $(OBJ),$(patsubst %.o,$(ROOTSRC)/%.c,$(notdir $(OBJ))), \
-  $(INCDIR)/libxs_version.h $(INCDIR)/libxs_source.h, \
+  $(HEADERS_MAIN) $(INCDIR)/libxs_version.h $(INCDIR)/libxs_source.h, \
   $(DFLAGS) $(IFLAGS) $(call applyif,1,libxs_main,$(OBJ),-I$(BLDDIR)) $(CTARGET) $(CFLAGS))))
 $(foreach OBJ,$(BLDDIR)/intel64/libxs_mhd.o,$(eval $(call DEFINE_COMPILE_RULE, \
   $(OBJ),$(patsubst %.o,$(ROOTSRC)/%.c,$(notdir $(OBJ))), \
-  $(INCDIR)/libxs_version.h $(INCDIR)/libxs_source.h, \
+  $(HEADERS_MAIN) $(INCDIR)/libxs_version.h $(INCDIR)/libxs_source.h, \
   $(DFLAGS) $(IFLAGS) $(CTARGET) $(patsubst $(OPTFLAGS),$(OPTFLAG1),$(CFLAGS)))))
 endif
 

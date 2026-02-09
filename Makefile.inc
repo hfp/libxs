@@ -2016,12 +2016,6 @@ ifeq (0,$(COMPATIBLE))
   endif
 endif
 
-ifeq (0,$(VLA))
-  DFLAGS += -DLIBXS_NO_VLA
-else ifneq (,$(VLA))
-  DFLAGS += -DLIBXS_VLA
-endif
-
 # Information which can be displayed by the actual Makefile
 ifneq (,$(strip $(FC)))
   GINFO := $(SUITE): $(strip $(CC_NAME) $(CC_VERSION)), $(strip $(CXX_NAME) $(CXX_VERSION)), and $(strip $(FC_NAME) $(FC_VERSION))

@@ -580,7 +580,7 @@ LIBXS_API int libxs_registry_info(libxs_registry_t* registry, libxs_registry_inf
           result = libxs_get_malloc_xinfo(code.ptr_const, &buffer_size, NULL/*flags*/, &buffer);
 #endif
           if (EXIT_SUCCESS == result) {
-            info->nbytes += LIBXS_UP2(buffer_size + (((const char*)code.ptr_const) - (char*)buffer), LIBXS_PAGE_MINSIZE);
+            info->nbytes += buffer_size + (((const char*)code.ptr_const) - (char*)buffer);
           }
         }
         else {

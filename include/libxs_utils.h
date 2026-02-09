@@ -208,6 +208,40 @@
 # define LIBXS_INTRINSICS(TARGET)
 #endif
 
+/**
+ * Target attribution
+ */
+/** LIBXS_INTRINSICS_X86 is defined only if the compiler is able to generate this code without special flags. */
+#if !defined(LIBXS_INTRINSICS_X86) && !defined(LIBXS_INTRINSICS_NONE) && (LIBXS_X86_GENERIC <= LIBXS_STATIC_TARGET_ARCH || \
+   (!defined(LIBXS_INTRINSICS_STATIC) && LIBXS_X86_GENERIC <= LIBXS_MAX_STATIC_TARGET_ARCH))
+# define LIBXS_INTRINSICS_X86
+#endif
+/** LIBXS_INTRINSICS_SSE3 is defined only if the compiler is able to generate this code without special flags. */
+#if !defined(LIBXS_INTRINSICS_SSE3) && !defined(LIBXS_INTRINSICS_NONE) && (LIBXS_X86_SSE3 <= LIBXS_STATIC_TARGET_ARCH || \
+   (!defined(LIBXS_INTRINSICS_STATIC) && LIBXS_X86_SSE3 <= LIBXS_MAX_STATIC_TARGET_ARCH))
+# define LIBXS_INTRINSICS_SSE3
+#endif
+/** LIBXS_INTRINSICS_SSE42 is defined only if the compiler is able to generate this code without special flags. */
+#if !defined(LIBXS_INTRINSICS_SSE42) && !defined(LIBXS_INTRINSICS_NONE) && (LIBXS_X86_SSE42 <= LIBXS_STATIC_TARGET_ARCH || \
+   (!defined(LIBXS_INTRINSICS_STATIC) && LIBXS_X86_SSE42 <= LIBXS_MAX_STATIC_TARGET_ARCH))
+# define LIBXS_INTRINSICS_SSE42
+#endif
+/** LIBXS_INTRINSICS_AVX is defined only if the compiler is able to generate this code without special flags. */
+#if !defined(LIBXS_INTRINSICS_AVX) && !defined(LIBXS_INTRINSICS_NONE) && (LIBXS_X86_AVX <= LIBXS_STATIC_TARGET_ARCH || \
+   (!defined(LIBXS_INTRINSICS_STATIC) && LIBXS_X86_AVX <= LIBXS_MAX_STATIC_TARGET_ARCH))
+# define LIBXS_INTRINSICS_AVX
+#endif
+/** LIBXS_INTRINSICS_AVX2 is defined only if the compiler is able to generate this code without special flags. */
+#if !defined(LIBXS_INTRINSICS_AVX2) && !defined(LIBXS_INTRINSICS_NONE) && (LIBXS_X86_AVX2 <= LIBXS_STATIC_TARGET_ARCH || \
+   (!defined(LIBXS_INTRINSICS_STATIC) && LIBXS_X86_AVX2 <= LIBXS_MAX_STATIC_TARGET_ARCH))
+# define LIBXS_INTRINSICS_AVX2
+#endif
+/** LIBXS_INTRINSICS_AVX512 is defined only if the compiler is able to generate this code without special flags. */
+#if !defined(LIBXS_INTRINSICS_AVX512) && !defined(LIBXS_INTRINSICS_NONE) && (LIBXS_X86_AVX512 <= LIBXS_STATIC_TARGET_ARCH || \
+   (!defined(LIBXS_INTRINSICS_STATIC) && LIBXS_X86_AVX512 <= LIBXS_MAX_STATIC_TARGET_ARCH))
+# define LIBXS_INTRINSICS_AVX512
+#endif
+
 /** Include basic x86 intrinsics such as __rdtsc. */
 #if defined(LIBXS_INTRINSICS_INCLUDE)
 # if defined(_WIN32)
@@ -220,14 +254,6 @@
 # include <xmmintrin.h>
 # if defined(__SSE3__)
 #   include <pmmintrin.h>
-# endif
-#endif
-
-#if !defined(LIBXS_INTRINSICS_NONE)
-# if defined(_WIN32)
-#   include <malloc.h>
-# else
-#   include <mm_malloc.h>
 # endif
 #endif
 
@@ -402,39 +428,5 @@ LIBXS_API_INLINE unsigned int LIBXS_ILOG2(unsigned long long n) {
     result = m + ((unsigned int)LIBXS_INTRINSICS_BITSCANBWD64(n - 1) == m);
   } return result;
 }
-
-/**
- * Target attribution
- */
-/** LIBXS_INTRINSICS_X86 is defined only if the compiler is able to generate this code without special flags. */
-#if !defined(LIBXS_INTRINSICS_X86) && !defined(LIBXS_INTRINSICS_NONE) && (LIBXS_X86_GENERIC <= LIBXS_STATIC_TARGET_ARCH || \
-   (!defined(LIBXS_INTRINSICS_STATIC) && LIBXS_X86_GENERIC <= LIBXS_MAX_STATIC_TARGET_ARCH))
-# define LIBXS_INTRINSICS_X86
-#endif
-/** LIBXS_INTRINSICS_SSE3 is defined only if the compiler is able to generate this code without special flags. */
-#if !defined(LIBXS_INTRINSICS_SSE3) && !defined(LIBXS_INTRINSICS_NONE) && (LIBXS_X86_SSE3 <= LIBXS_STATIC_TARGET_ARCH || \
-   (!defined(LIBXS_INTRINSICS_STATIC) && LIBXS_X86_SSE3 <= LIBXS_MAX_STATIC_TARGET_ARCH))
-# define LIBXS_INTRINSICS_SSE3
-#endif
-/** LIBXS_INTRINSICS_SSE42 is defined only if the compiler is able to generate this code without special flags. */
-#if !defined(LIBXS_INTRINSICS_SSE42) && !defined(LIBXS_INTRINSICS_NONE) && (LIBXS_X86_SSE42 <= LIBXS_STATIC_TARGET_ARCH || \
-   (!defined(LIBXS_INTRINSICS_STATIC) && LIBXS_X86_SSE42 <= LIBXS_MAX_STATIC_TARGET_ARCH))
-# define LIBXS_INTRINSICS_SSE42
-#endif
-/** LIBXS_INTRINSICS_AVX is defined only if the compiler is able to generate this code without special flags. */
-#if !defined(LIBXS_INTRINSICS_AVX) && !defined(LIBXS_INTRINSICS_NONE) && (LIBXS_X86_AVX <= LIBXS_STATIC_TARGET_ARCH || \
-   (!defined(LIBXS_INTRINSICS_STATIC) && LIBXS_X86_AVX <= LIBXS_MAX_STATIC_TARGET_ARCH))
-# define LIBXS_INTRINSICS_AVX
-#endif
-/** LIBXS_INTRINSICS_AVX2 is defined only if the compiler is able to generate this code without special flags. */
-#if !defined(LIBXS_INTRINSICS_AVX2) && !defined(LIBXS_INTRINSICS_NONE) && (LIBXS_X86_AVX2 <= LIBXS_STATIC_TARGET_ARCH || \
-   (!defined(LIBXS_INTRINSICS_STATIC) && LIBXS_X86_AVX2 <= LIBXS_MAX_STATIC_TARGET_ARCH))
-# define LIBXS_INTRINSICS_AVX2
-#endif
-/** LIBXS_INTRINSICS_AVX512 is defined only if the compiler is able to generate this code without special flags. */
-#if !defined(LIBXS_INTRINSICS_AVX512) && !defined(LIBXS_INTRINSICS_NONE) && (LIBXS_X86_AVX512 <= LIBXS_STATIC_TARGET_ARCH || \
-   (!defined(LIBXS_INTRINSICS_STATIC) && LIBXS_X86_AVX512 <= LIBXS_MAX_STATIC_TARGET_ARCH))
-# define LIBXS_INTRINSICS_AVX512
-#endif
 
 #endif /*LIBXS_UTILS_H*/

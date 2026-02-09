@@ -21,20 +21,6 @@
 # define LIBXS_CAPACITY_CACHE 16
 #endif
 
-#if !defined(LIBXS_PAGE_MINSIZE)
-# if defined(LIBXS_PLATFORM_X86)
-#   define LIBXS_PAGE_MINSIZE 4096 /* 4 KB */
-# elif defined(__APPLE__)
-#   define LIBXS_PAGE_MINSIZE 16384 /* 16 KB */
-# else
-#   define LIBXS_PAGE_MINSIZE 4096 /* 4 KB */
-# endif
-#endif
-
-#if !defined(LIBXS_BATCH_CHECK) && !defined(NDEBUG)
-# define LIBXS_BATCH_CHECK
-#endif
-
 #if !defined(LIBXS_NTHREADS_MAX)
 # if (0 != LIBXS_SYNC)
 #   define LIBXS_NTHREADS_MAX 1024
@@ -45,22 +31,6 @@
 /* relies on LIBXS_NTHREADS_MAX */
 #if !defined(LIBXS_NTHREADS_USE) && 0
 # define LIBXS_NTHREADS_USE
-#endif
-
-#if !defined(LIBXS_INTERCEPT_DYNAMIC) && defined(LIBXS_BUILD) && \
-    (defined(__GNUC__) || defined(_CRAYC)) && !defined(_WIN32) && !defined(__CYGWIN__) && \
-   !(defined(__APPLE__) && defined(__MACH__) && LIBXS_VERSION2(6, 1) >= \
-      LIBXS_VERSION2(__clang_major__, __clang_minor__))
-# define LIBXS_INTERCEPT_DYNAMIC
-#endif
-
-#if defined(LIBXS_INTERCEPT_DYNAMIC)
-# include <dlfcn.h>
-# if !defined(RTLD_NEXT)
-#   define LIBXS_RTLD_NEXT ((void*)-1l)
-# else
-#   define LIBXS_RTLD_NEXT RTLD_NEXT
-# endif
 #endif
 
 #if defined(LIBXS_PLATFORM_AARCH64)
@@ -112,39 +82,6 @@
 #if !defined(LIBXS_LOCK)
 # define LIBXS_LOCK LIBXS_LOCK_DEFAULT
 #endif
-
-/** Check if M, N, K, or LDx fits into the descriptor. */
-#if (0 != LIBXS_ILP64)
-# define LIBXS_GEMM_NO_BYPASS_DIMS(M, N, K) (0xFFFFFFFF >= (M) && 0xFFFFFFFF >= (N) && 0xFFFFFFFF >= (K))
-#else /* always fits */
-# define LIBXS_GEMM_NO_BYPASS_DIMS(M, N, K) 1
-#endif
-
-#if defined(LIBXS_ASSERT) /* assert available */
-# define LIBXS_GEMM_DESCRIPTOR_DIM_CHECK(M, N, K) LIBXS_ASSERT(LIBXS_GEMM_NO_BYPASS_DIMS(M, N, K))
-#else
-# define LIBXS_GEMM_DESCRIPTOR_DIM_CHECK(M, N, K)
-#endif
-
-#define LIBXS_DESCRIPTOR_CLEAR_AUX(DST, SIZE, FLAGS) LIBXS_MEMSET127(DST, 0, SIZE)
-#define LIBXS_DESCRIPTOR_CLEAR(BLOB) \
-  LIBXS_ASSERT((LIBXS_DESCRIPTOR_MAXSIZE) == sizeof(*(BLOB))); \
-  LIBXS_DESCRIPTOR_CLEAR_AUX(BLOB, LIBXS_DESCRIPTOR_MAXSIZE, 0)
-
-/** Low-level/internal GEMM descriptor initialization. */
-#define LIBXS_GEMM_DESCRIPTOR(DESCRIPTOR, DATA_TYPE0, DATA_TYPE1, DATA_TYPE2, FLAGS, M, N, K, LDA, LDB, LDC, PREFETCH) \
-  LIBXS_GEMM_DESCRIPTOR_DIM_CHECK(M, N, K); LIBXS_GEMM_DESCRIPTOR_DIM_CHECK(LDA, LDB, LDC); \
-  LIBXS_DESCRIPTOR_CLEAR_AUX(&(DESCRIPTOR), sizeof(DESCRIPTOR), FLAGS); \
-  (DESCRIPTOR).datatype[0] = (unsigned char)(DATA_TYPE0); (DESCRIPTOR).datatype[1] = (unsigned char)(DATA_TYPE1); \
-  (DESCRIPTOR).datatype[2] = (unsigned char)(DATA_TYPE2); (DESCRIPTOR).prefetch = (unsigned char)(PREFETCH); \
-  (DESCRIPTOR).flags = (unsigned int)(FLAGS); \
-  (DESCRIPTOR).m   = (unsigned int)(M);   (DESCRIPTOR).n   = (unsigned int)(N);   (DESCRIPTOR).k   = (unsigned int)(K); \
-  (DESCRIPTOR).lda = (unsigned int)(LDA); (DESCRIPTOR).ldb = (unsigned int)(LDB); (DESCRIPTOR).ldc = (unsigned int)(LDC)
-
-/** Declare and construct a GEMM descriptor. */
-#define LIBXS_GEMM_DESCRIPTOR_TYPE(DESCRIPTOR, DATA_TYPE0, DATA_TYPE1, DATA_TYPE2, FLAGS, M, N, K, LDA, LDB, LDC, PREFETCH) \
-  libxs_gemm_descriptor DESCRIPTOR; LIBXS_GEMM_DESCRIPTOR(DESCRIPTOR, DATA_TYPE0, DATA_TYPE1, DATA_TYPE2 \
-    FLAGS, M, N, K, LDA, LDB, LDC, PREFETCH)
 
 
 /** Integral type (libxs_kernel_kind, libxs_build_kind). */
