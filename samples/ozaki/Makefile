@@ -51,10 +51,12 @@ CPPSRCS := $(wildcard $(SRCDIR)/*.cpp)
 CXXSRCS := $(wildcard $(SRCDIR)/*.cxx)
 CCXSRCS := $(wildcard $(SRCDIR)/*.cc)
 CSOURCS := $(wildcard $(SRCDIR)/*.c)
+WRPSRCS := $(wildcard $(SRCDIR)/wrap*.c)
 CPPOBJS := $(patsubst %,$(BLDDIR)/%,$(notdir $(CPPSRCS:.cpp=-cpp.o)))
 CXXOBJS := $(patsubst %,$(BLDDIR)/%,$(notdir $(CXXSRCS:.cxx=-cxx.o)))
 CCXOBJS := $(patsubst %,$(BLDDIR)/%,$(notdir $(CCXSRCS:.cc=-cc.o)))
 COBJCTS := $(patsubst %,$(BLDDIR)/%,$(notdir $(CSOURCS:.c=-c.o)))
+WRPOBJS := $(patsubst %,$(BLDDIR)/%,$(notdir $(WRPSRCS:.c=-c.o)))
 ifneq (,$(strip $(FC)))
 FXXSRCS := $(wildcard $(SRCDIR)/*.f)
 F77SRCS := $(wildcard $(SRCDIR)/*.F)
@@ -69,7 +71,7 @@ OBJECTS := $(CPPOBJS) $(CXXOBJS) $(CCXOBJS) $(COBJCTS)
 FTNSRCS := $(FXXSRCS) $(F77SRCS) $(F90SRCS)
 MODULES := $(addsuffix .mod,$(basename $(FTNSRCS)))
 FTNOBJS := $(FXXOBJS) $(F77OBJS) $(F90OBJS)
-XFILES := $(OUTDIR)/dgemm-blas.x $(OUTDIR)/dgemm-wrap.x
+XFILES := $(OUTDIR)/gemm-blas.x $(OUTDIR)/gemm-wrap.x
 
 .PHONY: all
 all: $(XFILES)
@@ -78,7 +80,7 @@ all: $(XFILES)
 compile: $(OBJECTS) $(FTNOBJS)
 
 ifneq (0,$(XWRAP))
-  #MKL_VERSION_NUM := $(call version,$(call prepget,$(SRCDIR)/dgemm.c,__INTEL_MKL__,__INTEL_MKL_MINOR__,__INTEL_MKL_UPDATE__))
+  #MKL_VERSION_NUM := $(call version,$(call prepget,$(SRCDIR)/gemm.c,__INTEL_MKL__,__INTEL_MKL_MINOR__,__INTEL_MKL_UPDATE__))
   ifneq (2,$(XWRAP))
     WRAP_GEMM := -Wl,--wrap=dgemm_,--wrap=sgemm_
   else
@@ -87,33 +89,40 @@ ifneq (0,$(XWRAP))
   DFLAGS += -DWRAP
 endif
 
-ifeq (0,$(NOBLAS))
-$(OUTDIR)/dgemm-blas.x: $(BLDDIR)/dgemm-c.o $(OUTDIR)/.make
+$(OUTDIR)/libwrap.$(SLIBEXT): $(OUTDIR)/.make $(WRPOBJS)
+	$(MAKE_AR) $(OUTDIR)/libwrap.$(SLIBEXT) $(call tailwords,$^)
+
+$(OUTDIR)/libwrap.$(DLIBEXT): $(OUTDIR)/libwrap.$(SLIBEXT) $(OUTDIR)/.make
+	$(LIB_SOLD) $(call solink,$(OUTDIR)/libwrap.$(DLIBEXT)) \
+		$< $(call cleanld,$(LDFLAGS) $(CLDFLAGS))
+
+$(OUTDIR)/gemm-blas.x: $(BLDDIR)/gemm-c.o $(OUTDIR)/libwrap.$(DLIBEXT) $(OUTDIR)/.make
 	$(LD) -o $@ $< $(SLDFLAGS) $(LDFLAGS) $(CLDFLAGS)
-else
-.PHONY: $(OUTDIR)/dgemm-blas.x
-endif
 
 ifneq (,$(WRAP_GEMM))
-$(OUTDIR)/dgemm-wrap.x: $(BLDDIR)/dgemm-c.o $(OUTDIR)/.make $(XSDEP)
+$(OUTDIR)/gemm-wrap.x: $(BLDDIR)/gemm-c.o $(XSDEP) $(OUTDIR)/.make
 ifneq (0,$(OMP))
-	$(LD) -o $@ $< $(XSLIB) $(SLDFLAGS) $(LDFLAGS) $(CLDFLAGS) $(WRAP_GEMM)
+	$(LD) -o $@ $< $(XSLIB) $(OUTDIR)/libwrap.$(SLIBEXT) \
+		$(SLDFLAGS) $(LDFLAGS) $(CLDFLAGS) $(WRAP_GEMM)
 else ifneq (,$(strip $(OMPLIB)))
-	$(LD) -o $@ $< $(XSLIB) $(SLDFLAGS) $(LDFLAGS) $(CLDFLAGS) $(WRAP_GEMM) \
+	$(LD) -o $@ $< $(XSLIB) $(OUTDIR)/libwrap.$(SLIBEXT) \
+		$(SLDFLAGS) $(LDFLAGS) $(CLDFLAGS) $(WRAP_GEMM) \
 		$(XLIB_BEGIN) $(OMPLIB) $(XLIB_END)
 else # should not happen
-	$(LD) -o $@ $< $(XSLIB) $(SLDFLAGS) $(LDFLAGS) $(CLDFLAGS) $(WRAP_GEMM)
+	$(LD) -o $@ $< $(XSLIB) $(OUTDIR)/libwrap.$(SLIBEXT) \
+		$(SLDFLAGS) $(LDFLAGS) $(CLDFLAGS) $(WRAP_GEMM)
 endif
 else
-.PHONY: $(OUTDIR)/dgemm-wrap.x
+.PHONY: $(OUTDIR)/libwrap.$(SLIBEXT)
+.PHONY: $(OUTDIR)/gemm-wrap.x
 endif
 
 .PHONY: test
 test: $(ROOTDIR)/wrap-test.sh $(XFILES)
-	@$(ROOTDIR)/wrap-test.sh dgemm                                $(shell echo $$(($(TESTSIZE) * 10)))
-	@$(ROOTDIR)/wrap-test.sh dgemm 350  16  20 350  35 350  1 0.0 $(shell echo $$(($(TESTSIZE) * 10)))
-	@$(ROOTDIR)/wrap-test.sh dgemm 200 200 200 256 256 256  1 0.0 $(shell echo $$(($(TESTSIZE) * 10)))
-	@$(ROOTDIR)/wrap-test.sh dgemm  24  23  21  32  32  32 -1 0.5 $(shell echo $$(($(TESTSIZE) * 10)))
+	@$(ROOTDIR)/wrap-test.sh gemm                                $(shell echo $$(($(TESTSIZE) * 10)))
+	@$(ROOTDIR)/wrap-test.sh gemm 350  16  20 350  35 350  1 0.0 $(shell echo $$(($(TESTSIZE) * 10)))
+	@$(ROOTDIR)/wrap-test.sh gemm 200 200 200 256 256 256  1 0.0 $(shell echo $$(($(TESTSIZE) * 10)))
+	@$(ROOTDIR)/wrap-test.sh gemm  24  23  21  32  32  32 -1 0.5 $(shell echo $$(($(TESTSIZE) * 10)))
 
 $(BLDDIR)/%-cpp.o: $(SRCDIR)/%.cpp .state $(BLDDIR)/.make $(HEADERS) Makefile $(DEPDIR)/Makefile.inc
 	$(CXX) $(DFLAGS) $(IFLAGS) $(CXXFLAGS) $(CTARGET) -c $< -o $@
@@ -153,7 +162,6 @@ ifneq ($(call qapath,$(OUTDIR)),$(call qapath,.))
 endif
 endif
 ifneq (,$(wildcard $(OUTDIR))) # still exists
-	@-rm -f $(OUTDIR)/libxs.$(DLIBEXT) $(OUTDIR)/*.stackdump
 	@-rm -f $(XFILES) $(MODULES)
 endif
 
