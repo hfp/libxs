@@ -340,7 +340,8 @@ else
 endif
 ifeq (0,$(filter-out 1 2,$(BUILD))$(ANALYZE))
 $(OUTDIR)/libxs.$(DLIBEXT): $(OUTDIR)/.make $(OBJFILES)
-	$(LIB_SOLD) $(call solink_version,$(OUTDIR)/libxs.$(DLIBEXT)) $(call tailwords,$^) $(call cleanld,$(LDFLAGS) $(CLDFLAGS))
+	$(LIB_SOLD) $(call solink_version,$(OUTDIR)/libxs.$(DLIBEXT)) \
+		$(call tailwords,$^) $(call cleanld,$(LDFLAGS) $(CLDFLAGS))
 else
 .PHONY: $(OUTDIR)/libxs.$(DLIBEXT)
 endif
