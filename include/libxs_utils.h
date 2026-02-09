@@ -371,12 +371,8 @@
 /**
  * Pseudo intrinsics for portability
  */
-LIBXS_API_INLINE int LIBXS_INTRINSICS_BITSCANFWD32_SW(unsigned int n) {
-  unsigned int i, r = 0; if (0 != n) for (i = 1; 0 == (n & i); i <<= 1) { ++r; } return r;
-}
-LIBXS_API_INLINE int LIBXS_INTRINSICS_BITSCANFWD64_SW(unsigned long long n) {
-  unsigned int i, r = 0; if (0 != n) for (i = 1; 0 == (n & i); i <<= 1) { ++r; } return r;
-}
+LIBXS_API int LIBXS_INTRINSICS_BITSCANFWD32_SW(unsigned int n);
+LIBXS_API int LIBXS_INTRINSICS_BITSCANFWD64_SW(unsigned long long n);
 
 /** Binary Logarithm (based on Stackoverflow's NBITSx macro). */
 #define LIBXS_INTRINSICS_BITSCANBWD_SW02(N) (0 != ((N) & 0x2/*0b10*/) ? 1 : 0)
@@ -389,19 +385,11 @@ LIBXS_API_INLINE int LIBXS_INTRINSICS_BITSCANFWD64_SW(unsigned long long n) {
 #define LIBXS_INTRINSICS_BITSCANBWD64_SW(N) LIBXS_INTRINSICS_BITSCANBWD_SW64((unsigned long long)(N))
 
 #if defined(_WIN32) && !defined(LIBXS_INTRINSICS_NONE)
-  LIBXS_API_INLINE unsigned int LIBXS_INTRINSICS_BITSCANFWD32(unsigned int n) {
-    unsigned long r = 0; _BitScanForward(&r, n); return (0 != n) * r;
-  }
-  LIBXS_API_INLINE unsigned int LIBXS_INTRINSICS_BITSCANBWD32(unsigned int n) {
-    unsigned long r = 0; _BitScanReverse(&r, n); return r;
-  }
+LIBXS_API unsigned int LIBXS_INTRINSICS_BITSCANFWD32(unsigned int n);
+LIBXS_API unsigned int LIBXS_INTRINSICS_BITSCANBWD32(unsigned int n);
 # if defined(_WIN64)
-  LIBXS_API_INLINE unsigned int LIBXS_INTRINSICS_BITSCANFWD64(unsigned long long n) {
-    unsigned long r = 0; _BitScanForward64(&r, n); return (0 != n) * r;
-  }
-  LIBXS_API_INLINE unsigned int LIBXS_INTRINSICS_BITSCANBWD64(unsigned long long n) {
-    unsigned long r = 0; _BitScanReverse64(&r, n); return r;
-  }
+LIBXS_API unsigned int LIBXS_INTRINSICS_BITSCANFWD64(unsigned long long n);
+LIBXS_API unsigned int LIBXS_INTRINSICS_BITSCANBWD64(unsigned long long n);
 # else
 # define LIBXS_INTRINSICS_BITSCANFWD64 LIBXS_INTRINSICS_BITSCANFWD64_SW
 # define LIBXS_INTRINSICS_BITSCANBWD64 LIBXS_INTRINSICS_BITSCANBWD64_SW
@@ -422,11 +410,6 @@ LIBXS_API_INLINE int LIBXS_INTRINSICS_BITSCANFWD64_SW(unsigned long long n) {
 #define LIBXS_NBITS(N) (LIBXS_INTRINSICS_BITSCANBWD64(N) + LIBXS_MIN(1, N))
 #define LIBXS_ISQRT2(N) ((unsigned int)((1ULL << (LIBXS_NBITS(N) >> 1)) /*+ LIBXS_MIN(1, N)*/))
 /** LIBXS_ILOG2 definition matches ceil(log2(N)). */
-LIBXS_API_INLINE unsigned int LIBXS_ILOG2(unsigned long long n) {
-  unsigned int result = 0; if (1 < n) {
-    const unsigned int m = LIBXS_INTRINSICS_BITSCANBWD64(n);
-    result = m + ((unsigned int)LIBXS_INTRINSICS_BITSCANBWD64(n - 1) == m);
-  } return result;
-}
+LIBXS_API unsigned int LIBXS_ILOG2(unsigned long long n);
 
 #endif /*LIBXS_UTILS_H*/

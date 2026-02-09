@@ -188,7 +188,7 @@ SRCFILES := $(patsubst %,$(ROOTSRC)/%, \
           libxs_cpuid_arm.c libxs_cpuid_rv64.c libxs_cpuid_x86.c \
           libxs_hash.c libxs_hist.c libxs_main.c libxs_malloc.c \
           libxs_math.c libxs_mem.c libxs_mhd.c libxs_reg.c \
-          libxs_rng.c libxs_sync.c libxs_timer.c)
+          libxs_rng.c libxs_sync.c libxs_timer.c libxs_utils.c)
 
 OBJFILES := $(patsubst %,$(BLDDIR)/intel64/%.o,$(basename $(notdir $(SRCFILES))))
 
