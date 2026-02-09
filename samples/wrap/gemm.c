@@ -6,6 +6,7 @@
 * Further information: https://github.com/hfp/libxs/                          *
 * SPDX-License-Identifier: BSD-3-Clause                                       *
 ******************************************************************************/
+#include "gemm.h"
 #include <stdlib.h>
 #include <assert.h>
 #include <stdio.h>
@@ -16,9 +17,6 @@
 #if !defined(GEMM)
 # define GEMM dgemm_
 #endif
-#if !defined(BLASINT_TYPE)
-# define BLASINT_TYPE int
-#endif
 #if !defined(ALPHA)
 # define ALPHA 1
 #endif
@@ -26,43 +24,39 @@
 # define BETA 1
 #endif
 
-/** Function prototype for DGEMM; this way any kind of LAPACK/BLAS library is sufficient at link-time. */
-void GEMM(const char*, const char*, const BLASINT_TYPE*, const BLASINT_TYPE*, const BLASINT_TYPE*,
-  const double*, const double*, const BLASINT_TYPE*, const double*, const BLASINT_TYPE*,
-  const double*, double*, const BLASINT_TYPE*);
 
-void init(int seed, double* dst, BLASINT_TYPE nrows, BLASINT_TYPE ncols, BLASINT_TYPE ld, double scale);
-double checksum(const double* src, BLASINT_TYPE nrows, BLASINT_TYPE ncols, BLASINT_TYPE ld);
+void init(int seed, GEMM_REAL_TYPE* dst, GEMM_INT_TYPE nrows, GEMM_INT_TYPE ncols, GEMM_INT_TYPE ld, GEMM_REAL_TYPE scale);
+GEMM_REAL_TYPE checksum(const GEMM_REAL_TYPE* src, GEMM_INT_TYPE nrows, GEMM_INT_TYPE ncols, GEMM_INT_TYPE ld);
 
 
 int main(int argc, char* argv[])
 {
   const int arg1 = (2 == argc ? atoi(argv[1]) : 0);
   int nrepeat = (0 < arg1 ? arg1 : 500);
-  const BLASINT_TYPE m = (2 < argc ? atoi(argv[1]) : 23);
-  const BLASINT_TYPE k = (3 < argc ? atoi(argv[3]) : m);
-  const BLASINT_TYPE n = (2 < argc ? atoi(argv[2]) : k);
-  const BLASINT_TYPE lda = (4 < argc ? atoi(argv[4]) : m);
-  const BLASINT_TYPE ldb = (5 < argc ? atoi(argv[5]) : k);
-  const BLASINT_TYPE ldc = (6 < argc ? atoi(argv[6]) : m);
-  const double alpha = (7 < argc ? atof(argv[7]) : (ALPHA));
-  const double beta = (8 < argc ? atof(argv[8]) : (BETA));
+  const GEMM_INT_TYPE m = (2 < argc ? atoi(argv[1]) : 23);
+  const GEMM_INT_TYPE k = (3 < argc ? atoi(argv[3]) : m);
+  const GEMM_INT_TYPE n = (2 < argc ? atoi(argv[2]) : k);
+  const GEMM_INT_TYPE lda = (4 < argc ? atoi(argv[4]) : m);
+  const GEMM_INT_TYPE ldb = (5 < argc ? atoi(argv[5]) : k);
+  const GEMM_INT_TYPE ldc = (6 < argc ? atoi(argv[6]) : m);
+  const GEMM_REAL_TYPE alpha = (7 < argc ? atof(argv[7]) : (ALPHA));
+  const GEMM_REAL_TYPE beta = (8 < argc ? atof(argv[8]) : (BETA));
   const char transa = 'N', transb = 'N';
-  const BLASINT_TYPE na = lda * k, nb = ldb * n, nc = ldc * n;
-  double *const a = (double*)malloc(sizeof(double) * na);
-  double *const b = (double*)malloc(sizeof(double) * nb);
-  double *const c = (double*)malloc(sizeof(double) * nc);
-  const double scale = 1.0;
+  const GEMM_INT_TYPE na = lda * k, nb = ldb * n, nc = ldc * n;
+  GEMM_REAL_TYPE *const a = (GEMM_REAL_TYPE*)malloc(sizeof(GEMM_REAL_TYPE) * na);
+  GEMM_REAL_TYPE *const b = (GEMM_REAL_TYPE*)malloc(sizeof(GEMM_REAL_TYPE) * nb);
+  GEMM_REAL_TYPE *const c = (GEMM_REAL_TYPE*)malloc(sizeof(GEMM_REAL_TYPE) * nc);
+  const GEMM_REAL_TYPE scale = 1.0;
   int i;
 
   assert(NULL != a && NULL != b && NULL != c);
   if (9 < argc) nrepeat = atoi(argv[9]);
 
   printf(
-    "dgemm('%c', '%c', %i/*m*/, %i/*n*/, %i/*k*/,\n"
-    "      %g/*alpha*/, %p/*a*/, %i/*lda*/,\n"
+    "gemm('%c', '%c', %i/*m*/, %i/*n*/, %i/*k*/,\n"
+    "     %g/*alpha*/, %p/*a*/, %i/*lda*/,\n"
     "                  %p/*b*/, %i/*ldb*/,\n"
-    "       %g/*beta*/, %p/*c*/, %i/*ldc*/)\n",
+    "      %g/*beta*/, %p/*c*/, %i/*ldc*/)\n",
     transa, transb, m, n, k, alpha, (const void*)a, lda,
                                     (const void*)b, ldb,
                               beta, (const void*)c, ldc);
@@ -71,7 +65,7 @@ int main(int argc, char* argv[])
   init(24, b, k, n, ldb, scale);
   init( 0, c, m, n, ldc, scale);
 
-  { /* Call DGEMM */
+  { /* Call GEMM */
 #if defined(_OPENMP)
     const double start = omp_get_wtime();
 #endif
@@ -97,36 +91,36 @@ int main(int argc, char* argv[])
 }
 
 
-void init(int seed, double* dst, BLASINT_TYPE nrows, BLASINT_TYPE ncols, BLASINT_TYPE ld, double scale)
+void init(int seed, GEMM_REAL_TYPE* dst, GEMM_INT_TYPE nrows, GEMM_INT_TYPE ncols, GEMM_INT_TYPE ld, GEMM_REAL_TYPE scale)
 {
-  const double seed1 = scale * (seed + 1);
-  BLASINT_TYPE i = 0;
+  const GEMM_REAL_TYPE seed1 = scale * (seed + 1);
+  GEMM_INT_TYPE i = 0;
 #if defined(_OPENMP)
 # pragma omp parallel for private(i)
 #endif
   for (i = 0; i < ncols; ++i) {
-    BLASINT_TYPE j = 0;
+    GEMM_INT_TYPE j = 0;
     for (; j < nrows; ++j) {
-      const BLASINT_TYPE k = i * ld + j;
-      dst[k] = (double)(seed1 / (k + 1));
+      const GEMM_INT_TYPE k = i * ld + j;
+      dst[k] = (GEMM_REAL_TYPE)(seed1 / (k + 1));
     }
     for (; j < ld; ++j) {
-      const BLASINT_TYPE k = i * ld + j;
-      dst[k] = (double)seed;
+      const GEMM_INT_TYPE k = i * ld + j;
+      dst[k] = (GEMM_REAL_TYPE)seed;
     }
   }
 }
 
 
-double checksum(const double* src, BLASINT_TYPE nrows, BLASINT_TYPE ncols, BLASINT_TYPE ld)
+GEMM_REAL_TYPE checksum(const GEMM_REAL_TYPE* src, GEMM_INT_TYPE nrows, GEMM_INT_TYPE ncols, GEMM_INT_TYPE ld)
 {
-  BLASINT_TYPE i, j;
-  double result = 0, comp = 0;
+  GEMM_INT_TYPE i, j;
+  GEMM_REAL_TYPE result = 0, comp = 0;
   for (i = 0; i < ncols; ++i) {
     for (j = 0; j < nrows; ++j) {
-      const double v = src[i * ld + j];
-      const double x = (0 <= v ? v : -v) - comp;
-      const double y = result + x;
+      const GEMM_REAL_TYPE v = src[i * ld + j];
+      const GEMM_REAL_TYPE x = (0 <= v ? v : -v) - comp;
+      const GEMM_REAL_TYPE y = result + x;
       comp = (y - result) - x;
       result = y;
     }
