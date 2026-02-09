@@ -993,25 +993,26 @@ ifneq (0,$(DYNAMIC))
   endif
 endif
 
+dot = $(if $1,.$1)$(if $2,.$2)$(if $3,.$3)
 ifneq (Darwin,$(UNAME))
   ifeq (0,$(shell ln -fs this-file-does-not-exist .ln 2>/dev/null && echo "$$?" && rm .ln 2>/dev/null))
-    solink = -o "$(basename $1).$(DLIBEXT).$2.$3.$4" $(call linkopt,-soname,$(strip $(call qndir,$(basename $1))).$(DLIBEXT).$5)
+    solink = -o "$(basename $1).$(DLIBEXT)$(call dot,$2,$3,$4)" $(call linkopt,-soname,$(strip $(call qndir,$(basename $1))).$(DLIBEXT)$(call dot,$5))
     ifneq (0,$(SONAMELNK))
-      solink += $(shell cd $(call qdir,$1) 2>/dev/null && \
-        ln -fs $(call qndir,$(basename $1).$(DLIBEXT).$2.$3.$4) $(call qndir,$(basename $1).$(DLIBEXT).$5) 2>/dev/null \
-          $(if $(filter-out 0,$(shell echo "$$((1<$(SONAMELNK)||0>$(SONAMELNK)))")), && \
-        ln -fs $(call qndir,$(basename $1).$(DLIBEXT).$5) $(call qndir,$(basename $1).$(DLIBEXT)) 2>/dev/null))
+      solink += $(shell cd $(call qdir,$1) 2>/dev/null && $(if $(filter-out x$(call dot,$5)x,x$(call dot,$2,$3,$4)x), \
+        ln -fs $(call qndir,$(basename $1).$(DLIBEXT)$(call dot,$2,$3,$4)) $(call qndir,$(basename $1).$(DLIBEXT)$(call dot,$5)) 2>/dev/null,true) \
+          $(if $(filter-out 0,$(shell echo "$$((1<$(SONAMELNK)||0>$(SONAMELNK)))")), && $(if $5, \
+        ln -fs $(call qndir,$(basename $1).$(DLIBEXT).$5) $(call qndir,$(basename $1).$(DLIBEXT)) 2>/dev/null)))
     endif
   else # MinGW
-    solink = -o $(call quote,$(basename $1).$(DLIBEXT)) $(call linkopt,-soname,$(strip $(call qndir,$(basename $1)).$(DLIBEXT).$5))
+    solink = -o $(call quote,$(basename $1).$(DLIBEXT)) $(call linkopt,-soname,$(strip $(call qndir,$(basename $1)).$(DLIBEXT)$(call dot,$5)))
   endif
 else # macOS
-  solink = -o $(call qbname,$1).$2.$(DLIBEXT) \
-           -install_name $(call qbname,$(call qapath,$1)).$2.$(DLIBEXT) \
-           -current_version $2.$3.$4 -compatibility_version $5
+  solink = -o $(call qbname,$1)$(call dot,$2).$(DLIBEXT) \
+           -install_name $(call qbname,$(call qapath,$1))$(call dot,$2).$(DLIBEXT) \
+           -current_version $2$(call dot,$3,$3) -compatibility_version $5
   ifneq (0,$(SONAMELNK))
-    solink += $(shell cd $(call qdir,$1) 2>/dev/null && \
-      ln -fs $(call qndir,$(call qbname,$1).$2.$(DLIBEXT)) $(call qndir,$(basename $1)).$(DLIBEXT) 2>/dev/null)
+    solink += $(shell cd $(call qdir,$1) 2>/dev/null $(if $2, && \
+      ln -fs $(call qndir,$(call qbname,$1).$2.$(DLIBEXT)) $(call qndir,$(basename $1)).$(DLIBEXT) 2>/dev/null))
   endif
 endif
 
