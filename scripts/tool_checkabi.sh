@@ -69,21 +69,15 @@ then
             SYMBOL=$(${SED} <<<"${SYMBOL}" \
               -e "s/^libxs_mp_libxs_\(..*\)_/libxs_\1/" \
               -e "s/^__libxs_MOD_libxs_/libxs_/")
-            if [ "$(${SED} -n "/^libxs[^.]/p" <<<"${SYMBOL}")" ]; then
+            if [ "$(${SED} -n "/^LIBXS_[^.]/p" <<<"${SYMBOL}")" ] || \
+               [ "$(${SED} -n "/^libxs_[^.]/p" <<<"${SYMBOL}")" ];
+            then
               echo "${SYMBOL}" >>${ABINEW}
-            elif [ "libxsnoblas" != "${LIB}" ] && \
-                 [ ! "$(${SED} <<<"${SYMBOL}" -n "/^__libxs_MOD___/p")" ] && \
+            elif [ ! "$(${SED} <<<"${SYMBOL}" -n "/^__libxs_MOD___/p")" ] && \
                  [ ! "$(${SED} <<<"${SYMBOL}" -n "/^__wrap_..*/p")" ] && \
                  [ ! "$(${SED} <<<"${SYMBOL}" -n "/^internal_/p")" ] && \
-                 [ ! "$(${SED} <<<"${SYMBOL}" -n "/^libxs._/p")" ] && \
-                 [ ! "$(${SED} <<<"${SYMBOL}" -n "/^.gem._/p")" ] && \
-                 [ ! "$(${SED} <<<"${SYMBOL}" -n "/^memalign/p")" ] && \
-                 [ ! "$(${SED} <<<"${SYMBOL}" -n "/^realloc/p")" ] && \
-                 [ ! "$(${SED} <<<"${SYMBOL}" -n "/^malloc/p")" ] && \
-                 [ ! "$(${SED} <<<"${SYMBOL}" -n "/^free/p")" ] && \
                  [ ! "$(${SED} <<<"${SYMBOL}" -n "/^_init/p")" ] && \
-                 [ ! "$(${SED} <<<"${SYMBOL}" -n "/^_fini/p")" ] && \
-                 [ ! "$(${SED} <<<"${SYMBOL}" -n "/^iJIT_/p")" ];
+                 [ ! "$(${SED} <<<"${SYMBOL}" -n "/^_fini/p")" ];
             then
               >&2 echo "ERROR: non-conforming function name"
               echo "${LIB} ->${SYMBOL}"

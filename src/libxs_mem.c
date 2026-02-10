@@ -289,7 +289,7 @@ LIBXS_API_INTERN void libxs_memory_finalize(void)
 }
 
 
-LIBXS_API unsigned char libxs_diff_4(const void* a, const void* b, ...)
+LIBXS_API_INTERN unsigned char libxs_diff_4(const void* a, const void* b, ...)
 {
 #if defined(LIBXS_MEM_SW)
   return internal_diff_sw(a, b, 4);
@@ -301,7 +301,7 @@ LIBXS_API unsigned char libxs_diff_4(const void* a, const void* b, ...)
 }
 
 
-LIBXS_API unsigned char libxs_diff_8(const void* a, const void* b, ...)
+LIBXS_API_INTERN unsigned char libxs_diff_8(const void* a, const void* b, ...)
 {
 #if defined(LIBXS_MEM_SW)
   return internal_diff_sw(a, b, 8);
@@ -313,7 +313,7 @@ LIBXS_API unsigned char libxs_diff_8(const void* a, const void* b, ...)
 }
 
 
-LIBXS_API unsigned char libxs_diff_16(const void* a, const void* b, ...)
+LIBXS_API_INTERN unsigned char libxs_diff_16(const void* a, const void* b, ...)
 {
 #if defined(LIBXS_MEM_SW)
   return internal_diff_sw(a, b, 16);
@@ -325,7 +325,7 @@ LIBXS_API unsigned char libxs_diff_16(const void* a, const void* b, ...)
 }
 
 
-LIBXS_API unsigned char libxs_diff_32(const void* a, const void* b, ...)
+LIBXS_API_INTERN unsigned char libxs_diff_32(const void* a, const void* b, ...)
 {
 #if defined(LIBXS_MEM_SW)
   return internal_diff_sw(a, b, 32);
@@ -337,7 +337,7 @@ LIBXS_API unsigned char libxs_diff_32(const void* a, const void* b, ...)
 }
 
 
-LIBXS_API unsigned char libxs_diff_48(const void* a, const void* b, ...)
+LIBXS_API_INTERN unsigned char libxs_diff_48(const void* a, const void* b, ...)
 {
 #if defined(LIBXS_MEM_SW)
   return internal_diff_sw(a, b, 48);
@@ -349,7 +349,7 @@ LIBXS_API unsigned char libxs_diff_48(const void* a, const void* b, ...)
 }
 
 
-LIBXS_API unsigned char libxs_diff_64(const void* a, const void* b, ...)
+LIBXS_API_INTERN unsigned char libxs_diff_64(const void* a, const void* b, ...)
 {
 #if defined(LIBXS_MEM_SW)
   return internal_diff_sw(a, b, 64);

@@ -66,8 +66,8 @@ LIBXS_APIVAR_DEFINE(libxs_cpuid_info_t internal_cpuid_info);
 LIBXS_APIVAR_DEFINE(const char* internal_build_state);
 
 /* definition of corresponding variables */
-LIBXS_APIVAR_PUBLIC_DEF(int libxs_verbosity);
-LIBXS_APIVAR_PUBLIC_DEF(int libxs_se);
+LIBXS_APIVAR_PRIVATE_DEF(int libxs_verbosity);
+LIBXS_APIVAR_PRIVATE_DEF(int libxs_se);
 
 #define LIBXS_TIMER_DURATION_FDIV(A, B) ((double)(A) / (B))
 #define LIBXS_TIMER_DURATION_IDIV(A, B) ((A) <= (B) \
@@ -93,11 +93,10 @@ LIBXS_APIVAR_DEFINE(internal_sigentry_type internal_sigentries[4]);
 /* definition of corresponding variables */
 LIBXS_APIVAR_PRIVATE_DEF(double libxs_timer_scale);
 LIBXS_APIVAR_PRIVATE_DEF(unsigned int libxs_thread_count);
-/* definition of corresponding variables */
-LIBXS_APIVAR_PUBLIC_DEF(LIBXS_LOCK_TYPE(LIBXS_LOCK) libxs_lock_global);
-LIBXS_APIVAR_PUBLIC_DEF(unsigned int libxs_ninit);
-LIBXS_APIVAR_PUBLIC_DEF(int libxs_stdio_handle);
-LIBXS_APIVAR_PUBLIC_DEF(int libxs_nosync);
+LIBXS_APIVAR_PRIVATE_DEF(LIBXS_LOCK_TYPE(LIBXS_LOCK) libxs_lock_global);
+LIBXS_APIVAR_PRIVATE_DEF(unsigned int libxs_ninit);
+LIBXS_APIVAR_PRIVATE_DEF(int libxs_stdio_handle);
+LIBXS_APIVAR_PRIVATE_DEF(int libxs_nosync);
 
 
 LIBXS_API_INTERN LIBXS_ATTRIBUTE_NO_TRACE void internal_dump(FILE* ostream, int urgent);
@@ -165,7 +164,7 @@ LIBXS_API_INTERN void internal_dump(FILE* ostream, int urgent)
 }
 
 
-LIBXS_API double libxs_timer_duration_rtc(libxs_timer_tick_t tick0, libxs_timer_tick_t tick1)
+LIBXS_API_INTERN double libxs_timer_duration_rtc(libxs_timer_tick_t tick0, libxs_timer_tick_t tick1)
 {
   const libxs_timer_tick_t delta = LIBXS_DELTA(tick0, tick1);
 #if defined(_WIN32)
@@ -186,7 +185,7 @@ LIBXS_API double libxs_timer_duration_rtc(libxs_timer_tick_t tick0, libxs_timer_
 }
 
 
-LIBXS_API libxs_timer_tick_t libxs_timer_tick_rtc(void)
+LIBXS_API_INTERN libxs_timer_tick_t libxs_timer_tick_rtc(void)
 {
 #if defined(_WIN32)
   LARGE_INTEGER t;
@@ -208,7 +207,7 @@ LIBXS_API libxs_timer_tick_t libxs_timer_tick_rtc(void)
 }
 
 
-LIBXS_API LIBXS_INTRINSICS(LIBXS_X86_GENERIC)
+LIBXS_API_INTERN LIBXS_INTRINSICS(LIBXS_X86_GENERIC)
 libxs_timer_tick_t libxs_timer_tick_tsc(void)
 {
   libxs_timer_tick_t result;

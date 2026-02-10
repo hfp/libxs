@@ -40,5 +40,6 @@
 #include "../src/libxs_rng.c"
 #include "../src/libxs_sync.c"
 #include "../src/libxs_timer.c"
+#include "../src/libxs_utils.c"
 
 #endif /*LIBXS_SOURCE_H*/
