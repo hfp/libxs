@@ -7,7 +7,6 @@
 * SPDX-License-Identifier: BSD-3-Clause                                       *
 ******************************************************************************/
 #include <libxs_timer.h>
-#include <libxs_math.h>
 #include <libxs_rng.h>
 
 #include <inttypes.h>
@@ -311,9 +310,9 @@ int main(int argc, char* argv[])
       double c[LIBXS_MAX_M*LIBXS_MAX_M];
       libxs_matdiff_info_t check;
       libxs_matdiff_clear(&check);
-      LIBXS_MATRNG(double, 0, a, maxsize, maxsize, maxsize, 1.0);
-      LIBXS_MATRNG(double, 0, b, maxsize, maxsize, maxsize, 1.0);
-      LIBXS_MATRNG(double, 0, c, maxsize, maxsize, maxsize, 1.0);
+      LIBXS_MATRNG(int, double, 0, a, maxsize, maxsize, maxsize, 1.0);
+      LIBXS_MATRNG(int, double, 0, b, maxsize, maxsize, maxsize, 1.0);
+      LIBXS_MATRNG(int double, 0, c, maxsize, maxsize, maxsize, 1.0);
       for (i = 0; i < size_total; ++i) {
         const int j = (int)LIBXS_MOD(shuffle * i, size_total);
         libxs_matdiff_info_t diff;

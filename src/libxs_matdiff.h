@@ -14,7 +14,7 @@ double normrc = 0, normtc = 0, compr = 0, compt = 0, compd = 0;
 #if defined(LIBXS_MATDIFF_SHUFFLE)
 const size_t size = (size_t)mm * nn, shuffle = libxs_coprime2(size);
 #endif
-libxs_matdiff_int ii, jj;
+int ii, jj;
 
 for (ii = 0; ii < nn; ++ii) {
   double comprj = 0, comptj = 0, compij = 0;
@@ -23,9 +23,9 @@ for (ii = 0; ii < nn; ++ii) {
   for (jj = 0; jj < mm; ++jj) {
 #if defined(LIBXS_MATDIFF_SHUFFLE)
     const size_t index = (shuffle * (ii * mm + jj)) % size;
-    const libxs_matdiff_int i = (libxs_matdiff_int)(index / mm), j = (libxs_matdiff_int)(index % mm);
+    const int i = (int)(index / mm), j = (int)(index % mm);
 #else
-    const libxs_matdiff_int i = ii, j = jj;
+    const int i = ii, j = jj;
 #endif
     const double ti = (NULL != real_tst ? LIBXS_MATDIFF_TEMPLATE_TYPE2FP64(real_tst[i*ldt+j]) : 0);
     const double ri = LIBXS_MATDIFF_TEMPLATE_TYPE2FP64(real_ref[i*ldr+j]);
@@ -136,9 +136,9 @@ if (0 == result_nan) {
     for (ii = 0; ii < nn; ++ii) {
 #if defined(LIBXS_MATDIFF_SHUFFLE)
       const size_t index = (shuffle * (ii * mm + jj)) % size;
-      const libxs_matdiff_int i = (libxs_matdiff_int)(index / mm), j = (libxs_matdiff_int)(index % mm);
+      const int i = (int)(index / mm), j = (int)(index % mm);
 #else
-      const libxs_matdiff_int i = ii, j = jj;
+      const int i = ii, j = jj;
 #endif
       const double ti = (NULL != real_tst ? LIBXS_MATDIFF_TEMPLATE_TYPE2FP64(real_tst[i * ldt + j]) : 0);
       const double ri = LIBXS_MATDIFF_TEMPLATE_TYPE2FP64(real_ref[i*ldr+j]);

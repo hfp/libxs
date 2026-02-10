@@ -43,18 +43,18 @@
 
 
 LIBXS_API int libxs_matdiff(libxs_matdiff_info_t* info,
-  libxs_datatype datatype, libxs_matdiff_int m, libxs_matdiff_int n, const void* ref, const void* tst,
-  const libxs_matdiff_int* ldref, const libxs_matdiff_int* ldtst)
+  libxs_datatype datatype, int m, int n, const void* ref, const void* tst,
+  const int* ldref, const int* ldtst)
 {
   int result = EXIT_SUCCESS, result_swap = 0, result_nan = 0;
-  libxs_matdiff_int ldr = (NULL == ldref ? m : *ldref), ldt = (NULL == ldtst ? m : *ldtst);
+  int ldr = (NULL == ldref ? m : *ldref), ldt = (NULL == ldtst ? m : *ldtst);
   if (NULL == ref && NULL != tst) { ref = tst; tst = NULL; result_swap = 1; }
   if (NULL != ref && NULL != info && m <= ldr && m <= ldt) {
     const char *const matdiff_shuffle_env = getenv("LIBXS_MATDIFF_SHUFFLE");
     const int matdiff_shuffle = (NULL == matdiff_shuffle_env ? 0
       : ('\0' != *matdiff_shuffle_env ? atoi(matdiff_shuffle_env) : 1));
     const size_t ntotal = (size_t)m * n;
-    libxs_matdiff_int mm = m, nn = n;
+    int mm = m, nn = n;
     double inf;
     if (1 == n) { mm = ldr = ldt = 1; nn = m; } /* ensure row-vector shape to standardize results */
     libxs_matdiff_clear(info);
@@ -669,11 +669,11 @@ LIBXS_API double libxs_kahan_sum(double value, double* accumulator, double* comp
 
 /* implementation provided for Fortran 77 compatibility */
 LIBXS_API void LIBXS_FSYMBOL(libxs_matdiff)(libxs_matdiff_info_t* /*info*/,
-  const int* /*datatype*/, const libxs_matdiff_int* /*m*/, const libxs_matdiff_int* /*n*/, const void* /*ref*/, const void* /*tst*/,
-  const libxs_matdiff_int* /*ldref*/, const libxs_matdiff_int* /*ldtst*/);
+  const int* /*datatype*/, const int* /*m*/, const int* /*n*/, const void* /*ref*/, const void* /*tst*/,
+  const int* /*ldref*/, const int* /*ldtst*/);
 LIBXS_API void LIBXS_FSYMBOL(libxs_matdiff)(libxs_matdiff_info_t* info,
-  const int* datatype, const libxs_matdiff_int* m, const libxs_matdiff_int* n, const void* ref, const void* tst,
-  const libxs_matdiff_int* ldref, const libxs_matdiff_int* ldtst)
+  const int* datatype, const int* m, const int* n, const void* ref, const void* tst,
+  const int* ldref, const int* ldtst)
 {
   static int error_once = 0;
   if ((NULL == datatype || LIBXS_DATATYPE_UNKNOWN <= *datatype || 0 > *datatype || NULL == m
