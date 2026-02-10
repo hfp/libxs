@@ -996,12 +996,12 @@ endif
 dot = $(if $1,.$1)$(if $2,.$2)$(if $3,.$3)
 ifneq (Darwin,$(UNAME))
   ifeq (0,$(shell ln -fs this-file-does-not-exist .ln 2>/dev/null && echo "$$?" && rm .ln 2>/dev/null))
-    solink = -o "$(basename $1).$(DLIBEXT)$(call dot,$2,$3,$4)" $(call linkopt,-soname,$(strip $(call qndir,$(basename $1))).$(DLIBEXT)$(call dot,$5))
+    solink = -o $(basename $1).$(DLIBEXT)$(call dot,$2,$3,$4) $(call linkopt,-soname,$(strip $(call qndir,$(basename $1))).$(DLIBEXT)$(call dot,$5))
     ifneq (0,$(SONAMELNK))
       solink += $(shell cd $(call qdir,$1) 2>/dev/null && $(if $(filter-out x$(call dot,$5)x,x$(call dot,$2,$3,$4)x), \
         ln -fs $(call qndir,$(basename $1).$(DLIBEXT)$(call dot,$2,$3,$4)) $(call qndir,$(basename $1).$(DLIBEXT)$(call dot,$5)) 2>/dev/null,true) \
           $(if $(filter-out 0,$(shell echo "$$((1<$(SONAMELNK)||0>$(SONAMELNK)))")), && $(if $5, \
-        ln -fs $(call qndir,$(basename $1).$(DLIBEXT).$5) $(call qndir,$(basename $1).$(DLIBEXT)) 2>/dev/null)))
+        ln -fs $(call qndir,$(basename $1).$(DLIBEXT).$5) $(call qndir,$(basename $1).$(DLIBEXT)) 2>/dev/null,true)))
     endif
   else # MinGW
     solink = -o $(call quote,$(basename $1).$(DLIBEXT)) $(call linkopt,-soname,$(strip $(call qndir,$(basename $1)).$(DLIBEXT)$(call dot,$5)))
