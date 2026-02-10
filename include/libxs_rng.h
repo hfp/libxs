@@ -9,53 +9,53 @@
 #ifndef LIBXS_RNG_H
 #define LIBXS_RNG_H
 
-#include <libxs_macros.h>
+#include <libxs_math.h>
 
 /** Helper macro to setup a matrix with some initial values. */
-#define LIBXS_MATRNG_AUX(OMP, TYPE, SEED, DST, NROWS, NCOLS, LD, SCALE) do { \
+#define LIBXS_MATRNG_AUX(OMP, INT_TYPE, REAL_TYPE, SEED, DST, NROWS, NCOLS, LD, SCALE) do { \
   /*const*/ double libxs_matrng_seed_ = SEED; /* avoid constant conditional */ \
   const double libxs_matrng_scale_ = libxs_matrng_seed_ * (SCALE) + (SCALE); \
-  const libxs_blasint libxs_matrng_nrows_ = (libxs_blasint)(NROWS); \
-  const libxs_blasint libxs_matrng_ncols_ = (libxs_blasint)(NCOLS); \
-  const libxs_blasint libxs_matrng_ld_ = (libxs_blasint)(LD); \
-  libxs_blasint libxs_matrng_i_ = 0, libxs_matrng_j_ = 0; \
+  const INT_TYPE libxs_matrng_nrows_ = (INT_TYPE)(NROWS); \
+  const INT_TYPE libxs_matrng_ncols_ = (INT_TYPE)(NCOLS); \
+  const INT_TYPE libxs_matrng_ld_ = (INT_TYPE)(LD); \
+  INT_TYPE libxs_matrng_i_ = 0, libxs_matrng_j_ = 0; \
   LIBXS_OMP_VAR(libxs_matrng_i_); LIBXS_OMP_VAR(libxs_matrng_j_); \
   if (0 != libxs_matrng_seed_) { \
     OMP(parallel for private(libxs_matrng_i_, libxs_matrng_j_)) \
     for (libxs_matrng_i_ = 0; libxs_matrng_i_ < libxs_matrng_ncols_; ++libxs_matrng_i_) { \
       for (libxs_matrng_j_ = 0; libxs_matrng_j_ < libxs_matrng_nrows_; ++libxs_matrng_j_) { \
-        const libxs_blasint libxs_matrng_k_ = libxs_matrng_i_ * libxs_matrng_ld_ + libxs_matrng_j_; \
-        ((TYPE*)(DST))[libxs_matrng_k_] = (TYPE)(libxs_matrng_scale_ * (1.0 + \
+        const INT_TYPE libxs_matrng_k_ = libxs_matrng_i_ * libxs_matrng_ld_ + libxs_matrng_j_; \
+        ((REAL_TYPE*)(DST))[libxs_matrng_k_] = (REAL_TYPE)(libxs_matrng_scale_ * (1.0 + \
           (double)libxs_matrng_i_ * libxs_matrng_nrows_ + libxs_matrng_j_)); \
       } \
       for (; libxs_matrng_j_ < libxs_matrng_ld_; ++libxs_matrng_j_) { \
-        const libxs_blasint libxs_matrng_k_ = libxs_matrng_i_ * libxs_matrng_ld_ + libxs_matrng_j_; \
-        ((TYPE*)(DST))[libxs_matrng_k_] = (TYPE)libxs_matrng_seed_; \
+        const INT_TYPE libxs_matrng_k_ = libxs_matrng_i_ * libxs_matrng_ld_ + libxs_matrng_j_; \
+        ((REAL_TYPE*)(DST))[libxs_matrng_k_] = (REAL_TYPE)libxs_matrng_seed_; \
       } \
     } \
   } \
   else { /* shuffle based initialization */ \
-    const libxs_blasint libxs_matrng_maxval_ = libxs_matrng_ncols_ * libxs_matrng_ld_; \
-    const TYPE libxs_matrng_maxval2_ = (TYPE)((libxs_blasint)LIBXS_UPDIV(libxs_matrng_maxval_, 2)); /* non-zero */ \
-    const TYPE libxs_matrng_inv_ = ((TYPE)(SCALE)) / libxs_matrng_maxval2_; \
+    const INT_TYPE libxs_matrng_maxval_ = libxs_matrng_ncols_ * libxs_matrng_ld_; \
+    const REAL_TYPE libxs_matrng_maxval2_ = (REAL_TYPE)((INT_TYPE)LIBXS_UPDIV(libxs_matrng_maxval_, 2)); /* non-zero */ \
+    const REAL_TYPE libxs_matrng_inv_ = ((REAL_TYPE)(SCALE)) / libxs_matrng_maxval2_; \
     const size_t libxs_matrng_shuffle_ = libxs_coprime2((size_t)libxs_matrng_maxval_); \
     OMP(parallel for private(libxs_matrng_i_, libxs_matrng_j_)) \
     for (libxs_matrng_i_ = 0; libxs_matrng_i_ < libxs_matrng_ncols_; ++libxs_matrng_i_) { \
       for (libxs_matrng_j_ = 0; libxs_matrng_j_ < libxs_matrng_ld_; ++libxs_matrng_j_) { \
-        const libxs_blasint libxs_matrng_k_ = libxs_matrng_i_ * libxs_matrng_ld_ + libxs_matrng_j_; \
-        ((TYPE*)(DST))[libxs_matrng_k_] = libxs_matrng_inv_ * /* normalize values to an interval of [-1, +1] */ \
-          ((TYPE)(libxs_matrng_shuffle_ * libxs_matrng_k_ % libxs_matrng_maxval_) - libxs_matrng_maxval2_); \
+        const INT_TYPE libxs_matrng_k_ = libxs_matrng_i_ * libxs_matrng_ld_ + libxs_matrng_j_; \
+        ((REAL_TYPE*)(DST))[libxs_matrng_k_] = libxs_matrng_inv_ * /* normalize values to an interval of [-1, +1] */ \
+          ((REAL_TYPE)(libxs_matrng_shuffle_ * libxs_matrng_k_ % libxs_matrng_maxval_) - libxs_matrng_maxval2_); \
       } \
     } \
   } \
 } while(0)
 
-#define LIBXS_MATRNG(TYPE, SEED, DST, NROWS, NCOLS, LD, SCALE) \
-  LIBXS_MATRNG_AUX(LIBXS_ELIDE, TYPE, SEED, DST, NROWS, NCOLS, LD, SCALE)
-#define LIBXS_MATRNG_SEQ(TYPE, SEED, DST, NROWS, NCOLS, LD, SCALE) \
-  LIBXS_MATRNG(TYPE, SEED, DST, NROWS, NCOLS, LD, SCALE)
-#define LIBXS_MATRNG_OMP(TYPE, SEED, DST, NROWS, NCOLS, LD, SCALE) \
-  LIBXS_MATRNG_AUX(LIBXS_PRAGMA_OMP, TYPE, SEED, DST, NROWS, NCOLS, LD, SCALE)
+#define LIBXS_MATRNG(INT_TYPE, REAL_TYPE, SEED, DST, NROWS, NCOLS, LD, SCALE) \
+  LIBXS_MATRNG_AUX(LIBXS_ELIDE, INT_TYPE, REAL_TYPE, SEED, DST, NROWS, NCOLS, LD, SCALE)
+#define LIBXS_MATRNG_SEQ(INT_TYPE, REAL_TYPE, SEED, DST, NROWS, NCOLS, LD, SCALE) \
+  LIBXS_MATRNG(INT_TYPE, REAL_TYPE, SEED, DST, NROWS, NCOLS, LD, SCALE)
+#define LIBXS_MATRNG_OMP(INT_TYPE, REAL_TYPE, SEED, DST, NROWS, NCOLS, LD, SCALE) \
+  LIBXS_MATRNG_AUX(LIBXS_PRAGMA_OMP, INT_TYPE, REAL_TYPE, SEED, DST, NROWS, NCOLS, LD, SCALE)
 
 
 /** Set the seed of libxs_rng_* (similar to srand). */
