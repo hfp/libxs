@@ -126,16 +126,16 @@ LIBXS_EXTERN_C typedef unsigned int (*libxs_diff_function)(
   const void* /*a*/, const void* /*b*/, ... /*size*/);
 
 /** Compare two data blocks of 4 Byte each. */
-LIBXS_API unsigned char libxs_diff_4(const void* a, const void* b, ...);
+LIBXS_API_INTERN unsigned char libxs_diff_4(const void* a, const void* b, ...);
 /** Compare two data blocks of 8 Byte each. */
-LIBXS_API unsigned char libxs_diff_8(const void* a, const void* b, ...);
+LIBXS_API_INTERN unsigned char libxs_diff_8(const void* a, const void* b, ...);
 /** Compare two data blocks of 16 Byte each. */
-LIBXS_API unsigned char libxs_diff_16(const void* a, const void* b, ...);
+LIBXS_API_INTERN unsigned char libxs_diff_16(const void* a, const void* b, ...);
 /** Compare two data blocks of 32 Byte each. */
-LIBXS_API unsigned char libxs_diff_32(const void* a, const void* b, ...);
+LIBXS_API_INTERN unsigned char libxs_diff_32(const void* a, const void* b, ...);
 /** Compare two data blocks of 48 Byte each. */
-LIBXS_API unsigned char libxs_diff_48(const void* a, const void* b, ...);
+LIBXS_API_INTERN unsigned char libxs_diff_48(const void* a, const void* b, ...);
 /** Compare two data blocks of 64 Byte each. */
-LIBXS_API unsigned char libxs_diff_64(const void* a, const void* b, ...);
+LIBXS_API_INTERN unsigned char libxs_diff_64(const void* a, const void* b, ...);
 
 #endif /*LIBXS_DIFF_H*/

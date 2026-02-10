@@ -1,3 +1,6 @@
+LIBXS_ILOG2
+LIBXS_INTRINSICS_BITSCANFWD32_SW
+LIBXS_INTRINSICS_BITSCANFWD64_SW
 libxs_aligned
 libxs_aligned_
 libxs_coprime
@@ -12,12 +15,6 @@ libxs_cpuid_rv64
 libxs_cpuid_vlen
 libxs_cpuid_x86
 libxs_diff
-libxs_diff_16
-libxs_diff_32
-libxs_diff_4
-libxs_diff_48
-libxs_diff_64
-libxs_diff_8
 libxs_diff_n
 libxs_dvalue
 libxs_finalize
@@ -91,12 +88,9 @@ libxs_stristr
 libxs_stristrn
 libxs_tid
 libxs_timer_duration
-libxs_timer_duration_rtc
 libxs_timer_info
 libxs_timer_ncycles_
 libxs_timer_tick
-libxs_timer_tick_rtc
-libxs_timer_tick_tsc
 libxs_typename
 libxs_unshuffle
 libxs_xclear_

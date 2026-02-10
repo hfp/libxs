@@ -115,11 +115,11 @@ LIBXS_API_INTERN void libxs_memory_init(int target_arch);
 LIBXS_API_INTERN void libxs_memory_finalize(void);
 
 /** Calculates duration in seconds from given RTC ticks. */
-LIBXS_API double libxs_timer_duration_rtc(libxs_timer_tick_t tick0, libxs_timer_tick_t tick1);
+LIBXS_API_INTERN double libxs_timer_duration_rtc(libxs_timer_tick_t tick0, libxs_timer_tick_t tick1);
 /** Returns the current tick of platform-specific real-time clock. */
-LIBXS_API libxs_timer_tick_t libxs_timer_tick_rtc(void);
+LIBXS_API_INTERN libxs_timer_tick_t libxs_timer_tick_rtc(void);
 /** Returns the current tick of a (monotonic) platform-specific counter. */
-LIBXS_API libxs_timer_tick_t libxs_timer_tick_tsc(void);
+LIBXS_API_INTERN libxs_timer_tick_t libxs_timer_tick_tsc(void);
 
 /**
  * Dump data, (optionally) check attempt to dump different data into an existing file (unique),
@@ -136,17 +136,17 @@ LIBXS_API_INTERN int libxs_dump(const char* title, const char* name, const void*
 LIBXS_API_INTERN int libxs_print_cmdline(void* buffer, size_t buffer_size, const char* prefix, const char* postfix);
 
 /** Global lock; create an own lock for an independent domain. */
-LIBXS_APIVAR_PUBLIC(LIBXS_LOCK_TYPE(LIBXS_LOCK) libxs_lock_global);
+LIBXS_APIVAR_PRIVATE(LIBXS_LOCK_TYPE(LIBXS_LOCK) libxs_lock_global);
 /** Initialization counter that can be used to check whether the library is initialized (!=0) or not (==0). */
-LIBXS_APIVAR_PUBLIC(unsigned int libxs_ninit);
+LIBXS_APIVAR_PRIVATE(unsigned int libxs_ninit);
 /** Used for system/user specific locking (I/O). */
-LIBXS_APIVAR_PUBLIC(int libxs_stdio_handle);
+LIBXS_APIVAR_PRIVATE(int libxs_stdio_handle);
 /** Verbosity level (0: quiet, 1: errors, 2: warnings, 3: info, neg.: all). */
-LIBXS_APIVAR_PUBLIC(int libxs_verbosity);
+LIBXS_APIVAR_PRIVATE(int libxs_verbosity);
 /** Determines whether a threaded implementation is synchronized or not. */
-LIBXS_APIVAR_PUBLIC(int libxs_nosync);
+LIBXS_APIVAR_PRIVATE(int libxs_nosync);
 /** Security-enhanced environment. */
-LIBXS_APIVAR_PUBLIC(int libxs_se);
+LIBXS_APIVAR_PRIVATE(int libxs_se);
 
 /** Number of seconds per RDTSC-cycle (zero or negative if RDTSC invalid). */
 LIBXS_APIVAR_PRIVATE(double libxs_timer_scale);
