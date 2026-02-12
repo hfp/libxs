@@ -27,16 +27,17 @@ int main(void)
 
   libxs_pmalloc_init(sizeof(storage) / num, &num, pool, storage);
   memcpy(backup, pool, sizeof(pool));
+
   for (i = 0; i < nrep; ++i) {
 # if defined(_OPENMP)
-#     pragma omp parallel for private(j) schedule(dynamic,1)
+#   pragma omp parallel for private(j) schedule(dynamic,1)
 # endif
     for (j = 0; j < npool; ++j) {
       void *const p = libxs_pmalloc(pool, &num);
       LIBXS_EXPECT(NULL != p);
     }
 # if defined(_OPENMP)
-#     pragma omp parallel for private(j) schedule(dynamic,1)
+#   pragma omp parallel for private(j) schedule(dynamic,1)
 # endif
     for (j = 0; j < npool; ++j) {
       const int k = npool - j - 1;
