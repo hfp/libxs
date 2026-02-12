@@ -9,7 +9,7 @@
 #ifndef LIBXS_MACROS_H
 #define LIBXS_MACROS_H
 
-/** Parameters the library was built for. */
+/** Configuration parameters. */
 #define LIBXS_CACHELINE 64
 #define LIBXS_ALIGNMENT LIBXS_CACHELINE
 #define LIBXS_SYNC 1
