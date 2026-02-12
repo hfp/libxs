@@ -178,9 +178,9 @@
 #         define LIBXS_ATTRIBUTE_TARGET_1006 LIBXS_ATTRIBUTE_TARGET_1005
 #       endif
 #       if (LIBXS_X86_AVX512 <= LIBXS_MAX_STATIC_TARGET_ARCH)
-#         define LIBXS_ATTRIBUTE_TARGET_1101 target("avx2,fma,avx512f,avx512cd")
+#         define LIBXS_ATTRIBUTE_TARGET_1100 target("avx2,fma,avx512f,avx512cd")
 #       else /* LIBXS_X86_AVX2 */
-#         define LIBXS_ATTRIBUTE_TARGET_1101 LIBXS_ATTRIBUTE_TARGET_1006
+#         define LIBXS_ATTRIBUTE_TARGET_1100 LIBXS_ATTRIBUTE_TARGET_1006
 #       endif
 #     else
 #       define LIBXS_INTRINSICS(TARGET)/*no need for target flags*/
