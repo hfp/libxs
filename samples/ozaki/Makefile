@@ -65,14 +65,14 @@ $(OUTDIR)/lib$(OUTNAME).$(SLIBEXT): $(OUTDIR)/.make $(BLDDIR)/$(OUTNAME)-gemm-c.
 
 $(OUTDIR)/gemm-wrap.x: $(BLDDIR)/gemm-c.o $(OUTDIR)/lib$(OUTNAME).$(SLIBEXT) $(XSDEP) $(OUTDIR)/.make
 ifneq (0,$(OMP))
-	$(LD) -o $@ $< $(XSLIB) $(OUTDIR)/lib$(OUTNAME).$(SLIBEXT) \
+	$(LD) -o $@ $< $(OUTDIR)/lib$(OUTNAME).$(SLIBEXT) $(XSLIB)\
 		$(SLDFLAGS) $(LDFLAGS) $(CLDFLAGS) $(WRAP_GEMM)
 else ifneq (,$(strip $(OMPLIB)))
-	$(LD) -o $@ $< $(XSLIB) $(OUTDIR)/lib$(OUTNAME).$(SLIBEXT) \
+	$(LD) -o $@ $< $(OUTDIR)/lib$(OUTNAME).$(SLIBEXT) $(XSLIB) \
 		$(SLDFLAGS) $(LDFLAGS) $(CLDFLAGS) $(WRAP_GEMM) \
 		$(XLIB_BEGIN) $(OMPLIB) $(XLIB_END)
 else # should not happen
-	$(LD) -o $@ $< $(XSLIB) $(OUTDIR)/lib$(OUTNAME).$(SLIBEXT) \
+	$(LD) -o $@ $< $(OUTDIR)/lib$(OUTNAME).$(SLIBEXT) $(XSLIB) \
 		$(SLDFLAGS) $(LDFLAGS) $(CLDFLAGS) $(WRAP_GEMM)
 endif
 else
