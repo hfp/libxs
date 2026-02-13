@@ -29,6 +29,7 @@ LIBXS_API_INTERN LIBXS_ATTRIBUTE_WEAK void GEMM_REAL(const char* transa, const c
     }
     LIBXS_ATOMIC_RELEASE(&lock, LIBXS_ATOMIC_SEQ_CST);
   }
+
   if (NULL != gemm_original) {
     gemm_original(transa, transb, m, n, k, alpha, a, lda, b, ldb, beta, c, ldc);
   }
