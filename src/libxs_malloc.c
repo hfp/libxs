@@ -17,8 +17,14 @@
 #if !defined(LIBXS_MALLOC_NLOCKS)
 # define LIBXS_MALLOC_NLOCKS 16
 #endif
-#if !defined(LIBXS_MALLOC_SEARCH)
+#if !defined(LIBXS_MALLOC_UPSIZE)
+# define LIBXS_MALLOC_UPSIZE (2 << 20)
+#endif
+#if !defined(LIBXS_MALLOC_SEARCH) && 1
 # define LIBXS_MALLOC_SEARCH
+#endif
+#if !defined(LIBXS_MALLOC_PRUNE) && 1
+# define LIBXS_MALLOC_PRUNE
 #endif
 
 
@@ -29,10 +35,10 @@ typedef struct internal_malloc_chunk_t {
 
 LIBXS_APIVAR_DEFINE(volatile int internal_malloc_plocks[LIBXS_MALLOC_NLOCKS]);
 LIBXS_APIVAR_DEFINE(internal_malloc_chunk_t* internal_malloc_storage);
+LIBXS_APIVAR_DEFINE(internal_malloc_chunk_t** internal_malloc_pool);
 LIBXS_APIVAR_DEFINE(size_t internal_malloc_pool_size);
 LIBXS_APIVAR_DEFINE(size_t internal_malloc_pool_num);
 LIBXS_APIVAR_DEFINE(int internal_malloc_pool_maxnt);
-LIBXS_APIVAR_DEFINE(void** internal_malloc_pool);
 
 
 LIBXS_API void libxs_pmalloc_init(size_t size, size_t* num, void* pool[], void* storage)
@@ -88,28 +94,34 @@ LIBXS_API void* libxs_malloc(size_t size, size_t alignment)
 #if defined(LIBXS_MALLOC_SEARCH)
   const unsigned int hash = LIBXS_CRCPTR(LIBXS_MALLOC_SEED, internal_malloc_pool);
   volatile int *const lock = internal_malloc_plocks + LIBXS_MOD2(hash, LIBXS_MALLOC_NLOCKS);
-  size_t i = 0, j = 0, diff = (size_t)-1;
+  internal_malloc_chunk_t **hit = NULL;
+  size_t i = 0, diff = (size_t)-1;
   LIBXS_ASSERT(NULL != internal_malloc_pool);
   LIBXS_ATOMIC_ACQUIRE(lock, LIBXS_SYNC_NPAUSE, LIBXS_ATOMIC_SEQ_CST);
-  assert(0 < internal_malloc_pool_num && ((size_t)-1) != internal_malloc_pool_num); /* !LIBXS_ASSERT */
+  assert(0 < internal_malloc_pool_num && ((size_t)-1) != internal_malloc_pool_num);
   do {
     internal_malloc_chunk_t *const c = internal_malloc_pool[i];
-    if (size <= c->size) {
-      const size_t delta = c->size - size;
-      if (delta < diff) {
-        diff = delta; j = i;
-        if (0 == diff) break;
-      }
+    const size_t delta = c->size - size;
+    if (delta < diff) {
+      diff = delta; hit = internal_malloc_pool + i;
+      if (size <= c->size && c->size < (size + LIBXS_MALLOC_UPSIZE)) break;
     }
   } while (++i < internal_malloc_pool_num);
-  if (j < --internal_malloc_pool_num && ((size_t)-1) != diff) {
-    LIBXS_VALUE_SWAP(internal_malloc_pool[internal_malloc_pool_num],
-      internal_malloc_pool[j]);
+  { /* allocate slot and eventually reuse */
+    internal_malloc_chunk_t **const alloc = internal_malloc_pool + --internal_malloc_pool_num;
+    if (hit != alloc && NULL != hit && (
+# if defined(LIBXS_MALLOC_PRUNE)
+      (*hit)->nmallocs < (*alloc)->nmallocs ||
+# endif
+      size <= (*hit)->size))
+    {
+      LIBXS_VALUE_SWAP(*alloc, *hit);
+    }
+    chunk = *alloc;
   }
-  chunk = internal_malloc_pool[internal_malloc_pool_num];
   LIBXS_ATOMIC_RELEASE(lock, LIBXS_ATOMIC_SEQ_CST);
 #else
-  chunk = libxs_pmalloc(internal_malloc_pool, &internal_malloc_pool_num);
+  chunk = libxs_pmalloc((void**)internal_malloc_pool, &internal_malloc_pool_num);
 #endif
   LIBXS_ASSERT(NULL != chunk);
   if (NULL != chunk->pointer) {
@@ -145,7 +157,7 @@ LIBXS_API void libxs_free(const void* pointer)
   if (NULL != pointer) {
     internal_malloc_chunk_t *const chunk = *(void**)((uintptr_t)pointer - sizeof(void*));
     LIBXS_ASSERT(NULL != chunk && NULL != internal_malloc_pool);
-    libxs_pfree(chunk, internal_malloc_pool, &internal_malloc_pool_num);
+    libxs_pfree(chunk, (void**)internal_malloc_pool, &internal_malloc_pool_num);
   }
   else LIBXS_ASSERT(NULL == internal_malloc_pool);
 }
@@ -157,8 +169,7 @@ LIBXS_API int libxs_malloc_info(const void* pointer, libxs_malloc_info_t* info)
   if (NULL != info) {
     LIBXS_MEMZERO(info);
     if (NULL != pointer) {
-      const internal_malloc_chunk_t *const chunk = *(const internal_malloc_chunk_t**)(
-        (uintptr_t)pointer - sizeof(void*));
+      const internal_malloc_chunk_t *const chunk = *(void**)((uintptr_t)pointer - sizeof(void*));
       info->size = chunk->size;
     }
   }
@@ -179,7 +190,7 @@ LIBXS_API void libxs_malloc_pool(int max_nthreads, int max_nactive)
     internal_malloc_pool = malloc(internal_malloc_pool_num * sizeof(void*));
     if (NULL != internal_malloc_storage && NULL != internal_malloc_pool) {
       libxs_pmalloc_init(sizeof(internal_malloc_chunk_t), &internal_malloc_pool_num,
-        internal_malloc_pool, internal_malloc_storage);
+        (void**)internal_malloc_pool, internal_malloc_storage);
     }
     else {
       internal_malloc_pool_size = internal_malloc_pool_num = 0;
