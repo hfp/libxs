@@ -17,6 +17,9 @@
 #if !defined(LIBXS_MALLOC_NLOCKS)
 # define LIBXS_MALLOC_NLOCKS 16
 #endif
+#if !defined(LIBXS_MALLOC_SEARCH)
+# define LIBXS_MALLOC_SEARCH
+#endif
 
 
 typedef struct internal_malloc_chunk_t {
@@ -78,11 +81,36 @@ LIBXS_API void libxs_pfree(const void* pointer, void* pool[], size_t* num)
 
 LIBXS_API void* libxs_malloc(size_t size, size_t alignment)
 {
-  internal_malloc_chunk_t *const chunk = libxs_pmalloc(
-    internal_malloc_pool, &internal_malloc_pool_num);
   const size_t alignpot = LIBXS_UP2POT(LIBXS_MAX(sizeof(void*) + 1,
     0 == alignment ? LIBXS_ALIGNMENT : alignment));
   void *result = NULL, **info = NULL;
+  internal_malloc_chunk_t* chunk = NULL;
+#if defined(LIBXS_MALLOC_SEARCH)
+  const unsigned int hash = LIBXS_CRCPTR(LIBXS_MALLOC_SEED, internal_malloc_pool);
+  volatile int *const lock = internal_malloc_plocks + LIBXS_MOD2(hash, LIBXS_MALLOC_NLOCKS);
+  size_t i = 0, j = 0, diff = (size_t)-1;
+  LIBXS_ASSERT(NULL != internal_malloc_pool);
+  LIBXS_ATOMIC_ACQUIRE(lock, LIBXS_SYNC_NPAUSE, LIBXS_ATOMIC_SEQ_CST);
+  assert(0 < internal_malloc_pool_num && ((size_t)-1) != internal_malloc_pool_num); /* !LIBXS_ASSERT */
+  do {
+    internal_malloc_chunk_t *const c = internal_malloc_pool[i];
+    if (size <= c->size) {
+      const size_t delta = c->size - size;
+      if (delta < diff) {
+        diff = delta; j = i;
+        if (0 == diff) break;
+      }
+    }
+  } while (++i < internal_malloc_pool_num);
+  if (j < --internal_malloc_pool_num && ((size_t)-1) != diff) {
+    LIBXS_MEMSWP127(internal_malloc_pool + internal_malloc_pool_num,
+      internal_malloc_pool + j, sizeof(void*));
+  }
+  chunk = internal_malloc_pool[internal_malloc_pool_num];
+  LIBXS_ATOMIC_RELEASE(lock, LIBXS_ATOMIC_SEQ_CST);
+#else
+  chunk = libxs_pmalloc(internal_malloc_pool, &internal_malloc_pool_num);
+#endif
   LIBXS_ASSERT(NULL != chunk);
   if (NULL != chunk->pointer) {
     if (chunk->size < size) {
@@ -170,7 +198,7 @@ LIBXS_API void libxs_free_pool(void)
   if (NULL != internal_malloc_storage) {
     size_t i = 0;
     LIBXS_ASSERT(NULL != internal_malloc_pool);
-    for (; i < internal_malloc_pool_size; ++i) {
+    for (; i < internal_malloc_pool_num/*internal_malloc_pool_size*/; ++i) {
       internal_malloc_chunk_t *const chunk = internal_malloc_pool[i];
       LIBXS_ASSERT(NULL != chunk);
       free(chunk->pointer);
