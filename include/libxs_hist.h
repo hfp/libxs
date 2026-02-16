@@ -12,9 +12,9 @@
 #include "libxs_sync.h"
 
 
-typedef struct libxs_hist_t libxs_hist_t;
+LIBXS_EXTERN_C typedef struct libxs_hist_t libxs_hist_t;
 
-typedef void (*libxs_hist_update_t)(double* /*dst*/, const double* /*src*/);
+LIBXS_EXTERN_C typedef void (*libxs_hist_update_t)(double* /*dst*/, const double* /*src*/);
 
 LIBXS_API void libxs_hist_create(libxs_hist_t** hist,
   int nbuckets, int nqueue, int nvals, const libxs_hist_update_t update[]);

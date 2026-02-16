@@ -7,9 +7,10 @@
 * SPDX-License-Identifier: BSD-3-Clause                                       *
 ******************************************************************************/
 #include <libxs_hist.h>
+#include <libxs_mem.h>
 
 
-struct libxs_hist_t {
+LIBXS_EXTERN_C struct libxs_hist_t {
   libxs_hist_update_t* update;
   double *vals, min, max;
   int *buckets, nbuckets, nqueue, nvals, n;
@@ -30,11 +31,11 @@ LIBXS_API void libxs_hist_create(libxs_hist_t** hist,
         int raw;
         float value;
       } inf = {0};
-#  if defined(INFINITY) && /*overflow warning*/ !defined(_CRAYC)
+# if defined(INFINITY) && /*overflow warning*/ !defined(_CRAYC)
       inf.value = (float)(INFINITY);
-#  else
+# else
       inf.raw = 0x7F800000;
-#  endif
+# endif
       h->min = +inf.value;
       h->max = -inf.value;
       h->nbuckets = nbuckets;
@@ -131,9 +132,7 @@ LIBXS_API void libxs_hist_get(LIBXS_LOCK_TYPE(LIBXS_LOCK)* lock, const libxs_his
               }
               else { /* initialize/swap */
                 for (k = 0; k < hist->nvals; ++k) {
-                  const double value = hist->vals[m + k];
-                  hist->vals[m + k] = hist->vals[j + k];
-                  hist->vals[j + k] = value;
+                  LIBXS_MEMSWP127(hist->vals + (m + k), hist->vals + (j + k), sizeof(double));
                 }
               }
             }
