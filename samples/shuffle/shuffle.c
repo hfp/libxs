@@ -19,7 +19,7 @@
     const size_t j = i + libxs_rng_u32((unsigned int)((COUNT) - i)); \
     LIBXS_ASSERT(i <= j && j < (COUNT)); \
     if (i != j) { \
-      LIBXS_MEMSWP127( \
+      LIBXS_MEMSWP( \
         data + (ELEMSIZE) * i, \
         data + (ELEMSIZE) * j, \
         ELEMSIZE); \
@@ -94,7 +94,7 @@ int main(int argc, char* argv[])
     /* initialize the data */
     if (sizeof(size_t) < elsize) memset(data1, 0, nbytes);
     for (j = 0; j < n; ++j) {
-      LIBXS_MEMCPY127((char*)data1 + elsize * j, &j,
+      LIBXS_MEMCPY((char*)data1 + elsize * j, &j,
         LIBXS_MIN(elsize, sizeof(size_t)));
     }
 
@@ -342,7 +342,7 @@ size_t uint_bsort_asc(void* inout, size_t elemsize, size_t count) {
           const unsigned char x = data[i + k - 1], y = data[j + k - 1];
           if (x != y) {
             if (x > y) {
-              LIBXS_MEMSWP127(data + i, data + j, elemsize);
+              LIBXS_MEMSWP(data + i, data + j, elemsize);
               swap = 1; ++nswaps;
             }
             break;

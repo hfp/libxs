@@ -132,7 +132,7 @@ LIBXS_API void libxs_hist_get(LIBXS_LOCK_TYPE(LIBXS_LOCK)* lock, const libxs_his
               }
               else { /* initialize/swap */
                 for (k = 0; k < hist->nvals; ++k) {
-                  LIBXS_MEMSWP127(hist->vals + (m + k), hist->vals + (j + k), sizeof(double));
+                  LIBXS_VALUE_SWAP(hist->vals[m + k], hist->vals[j + k]);
                 }
               }
             }

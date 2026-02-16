@@ -11,48 +11,48 @@
 
 #include "libxs.h"
 
-#define LIBXS_MEM127_LOOP(DST, SRC, SIZE, RHS, NTS) do { \
-  const signed char libxs_memory127_loop_size_ = LIBXS_CAST_ICHAR(SIZE); \
-  unsigned char *const LIBXS_RESTRICT libxs_memory127_loop_dst_ = (unsigned char*)(DST); \
-  signed char libxs_memory127_loop_i_; \
-  NTS(libxs_memory127_loop_dst_) LIBXS_PRAGMA_UNROLL \
-  for (libxs_memory127_loop_i_ = 0; libxs_memory127_loop_i_ < libxs_memory127_loop_size_; \
-    ++libxs_memory127_loop_i_) \
+#define LIBXS_MEM_LOOP(DST, SRC, SIZE, RHS, NTS) do { \
+  const signed char libxs_memory_loop_size_ = LIBXS_CAST_ICHAR(SIZE); \
+  unsigned char *const LIBXS_RESTRICT libxs_memory_loop_dst_ = (unsigned char*)(DST); \
+  signed char libxs_memory_loop_i_; \
+  NTS(libxs_memory_loop_dst_) LIBXS_PRAGMA_UNROLL \
+  for (libxs_memory_loop_i_ = 0; libxs_memory_loop_i_ < libxs_memory_loop_size_; \
+    ++libxs_memory_loop_i_) \
   { \
-    RHS(unsigned char, libxs_memory127_loop_dst_, SRC, libxs_memory127_loop_i_); \
+    RHS(unsigned char, libxs_memory_loop_dst_, SRC, libxs_memory_loop_i_); \
   } \
 } while(0)
-#define LIBXS_MEM127_NTS(...)
+#define LIBXS_MEM_NTS(...)
 
-#define LIBXS_MEMSET127_RHS(TYPE, DST, SRC, IDX) \
+#define LIBXS_MEMSET_RHS(TYPE, DST, SRC, IDX) \
   ((DST)[IDX] = (TYPE)(SRC))
-#define LIBXS_MEMSET127(DST, SRC, SIZE) \
-  LIBXS_MEM127_LOOP(DST, SRC, SIZE, \
-  LIBXS_MEMSET127_RHS, LIBXS_MEM127_NTS)
-#define LIBXS_MEMZERO127(DST) LIBXS_MEMSET127(DST, 0, sizeof(*(DST)))
+#define LIBXS_MEMSET(DST, SRC, SIZE) \
+  LIBXS_MEM_LOOP(DST, SRC, SIZE, LIBXS_MEMSET_RHS, LIBXS_MEM_NTS)
+#define LIBXS_MEMZERO(DST) LIBXS_MEMSET(DST, 0, sizeof(*(DST)))
 
-#define LIBXS_MEMCPY127_RHS(TYPE, DST, SRC, IDX) \
+#define LIBXS_MEMCPY_RHS(TYPE, DST, SRC, IDX) \
   ((DST)[IDX] = ((const TYPE*)(SRC))[IDX])
-#define LIBXS_MEMCPY127(DST, SRC, SIZE) \
-  LIBXS_MEM127_LOOP(DST, SRC, SIZE, \
-  LIBXS_MEMCPY127_RHS, LIBXS_MEM127_NTS)
-#define LIBXS_ASSIGN127(DST, SRC) do { \
+#define LIBXS_MEMCPY(DST, SRC, SIZE) \
+  LIBXS_MEM_LOOP(DST, SRC, SIZE, LIBXS_MEMCPY_RHS, LIBXS_MEM_NTS)
+#define LIBXS_ASSIGN(DST, SRC) do { \
   LIBXS_ASSERT(sizeof(*(SRC)) <= sizeof(*(DST))); \
-  LIBXS_MEMCPY127(DST, SRC, sizeof(*(SRC))); \
+  LIBXS_MEMCPY(DST, SRC, sizeof(*(SRC))); \
 } while(0)
 
-#define LIBXS_MEMSWP127_RHS(TYPE, A, B, IDX) \
-  LIBXS_ISWAP((A)[IDX], ((TYPE*)(B))[IDX])
-#define LIBXS_MEMSWP127(A, B, SIZE) do { \
-  LIBXS_ASSERT((A) != (B)); \
-  LIBXS_MEM127_LOOP(A, B, SIZE, \
-  LIBXS_MEMSWP127_RHS, LIBXS_MEM127_NTS); \
+#define LIBXS_MEMSWP_RHS(TYPE, PTR_A, PTR_B, IDX) \
+  LIBXS_ISWAP((PTR_A)[IDX], ((TYPE*)(PTR_B))[IDX])
+#define LIBXS_MEMSWP(PTR_A, PTR_B, SIZE) do { \
+  LIBXS_ASSERT((PTR_A) != (PTR_B)); \
+  LIBXS_MEM_LOOP(PTR_A, PTR_B, SIZE, LIBXS_MEMSWP_RHS, LIBXS_MEM_NTS); \
 } while (0)
 
 /** Assigns SRC to DST (must be L-values). Can be used to cast const-qualifiers. */
-#define LIBXS_VALUE_ASSIGN(DST, SRC) LIBXS_ASSIGN127(&(DST), &(SRC))
+#define LIBXS_VALUE_ASSIGN(DST, SRC) LIBXS_ASSIGN(&(DST), &(SRC))
 /** Swap two arbitrary-sized values (must be L-values) */
-#define LIBXS_VALUE_SWAP(A, B) LIBXS_MEMSWP127(&(A), &(B), sizeof(DST))
+#define LIBXS_VALUE_SWAP(A, B) do { \
+  LIBXS_ASSERT(sizeof(A) == sizeof(B)); \
+  LIBXS_MEMSWP(&(A), &(B), sizeof(A)); \
+} while (0)
 
 /**
  * Calculate the linear offset of the n-dimensional (ndims) offset (can be NULL),

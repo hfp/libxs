@@ -652,7 +652,7 @@ LIBXS_API int libxs_mhd_read(const char filename[],
       { /* conversion needed */
         if (1 == fread(minmax, typesize, 1, file)) {
           LIBXS_ASSERT(typesize <= (LIBXS_MHD_MAX_ELEMSIZE));
-          LIBXS_MEMCPY127(minmax + (LIBXS_MHD_MAX_ELEMSIZE), minmax, typesize);
+          LIBXS_MEMCPY(minmax + (LIBXS_MHD_MAX_ELEMSIZE), minmax, typesize);
           result = fseek(file, (long)header_size, SEEK_SET); /* reset file position */
           if (EXIT_SUCCESS == result) {
             result = internal_mhd_read(file, NULL/*output*/, size, shape,
@@ -830,8 +830,8 @@ LIBXS_API int libxs_mhd_write(const char filename[],
       if (EXIT_SUCCESS == result && (NULL != handler /* slow-path */
         || (type_data != elemtype && LIBXS_MHD_ELEMENT_CONVERSION_DEFAULT == handler_info->hint)))
       { /* conversion needed */
-        LIBXS_MEMCPY127(minmax, data, typesize_data);
-        LIBXS_MEMCPY127(minmax + (LIBXS_MHD_MAX_ELEMSIZE), data, typesize_data); /* initial condition */
+        LIBXS_MEMCPY(minmax, data, typesize_data);
+        LIBXS_MEMCPY(minmax + (LIBXS_MHD_MAX_ELEMSIZE), data, typesize_data); /* initial condition */
         result = internal_mhd_write(file, input, size, shape, ndims, ncomponents, type_data, typesize_data,
           handler_info, handler, minmax, minmax + (LIBXS_MHD_MAX_ELEMSIZE), 1/*search min-max*/);
       }

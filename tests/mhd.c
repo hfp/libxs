@@ -47,7 +47,7 @@ int main(int argc, char* argv[])
     short src = 2507, src_min = 0, src_max = 5000;
     float dst_f32; /* destination range is implicit due to type */
     signed char dst_i8; /* destination range is implicit due to type */
-    LIBXS_MEMZERO127(&dst_info);
+    LIBXS_MEMZERO(&dst_info);
     dst_info.type = LIBXS_DATATYPE_F32;
     result = libxs_mhd_element_conversion(
       &dst_f32, &dst_info, LIBXS_DATATYPE_I16/*src_type*/,

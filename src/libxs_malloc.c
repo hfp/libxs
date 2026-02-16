@@ -103,8 +103,8 @@ LIBXS_API void* libxs_malloc(size_t size, size_t alignment)
     }
   } while (++i < internal_malloc_pool_num);
   if (j < --internal_malloc_pool_num && ((size_t)-1) != diff) {
-    LIBXS_MEMSWP127(internal_malloc_pool + internal_malloc_pool_num,
-      internal_malloc_pool + j, sizeof(void*));
+    LIBXS_VALUE_SWAP(internal_malloc_pool[internal_malloc_pool_num],
+      internal_malloc_pool[j]);
   }
   chunk = internal_malloc_pool[internal_malloc_pool_num];
   LIBXS_ATOMIC_RELEASE(lock, LIBXS_ATOMIC_SEQ_CST);
@@ -155,7 +155,7 @@ LIBXS_API int libxs_malloc_info(const void* pointer, libxs_malloc_info_t* info)
 {
   int result = EXIT_SUCCESS;
   if (NULL != info) {
-    LIBXS_MEMZERO127(info);
+    LIBXS_MEMZERO(info);
     if (NULL != pointer) {
       const internal_malloc_chunk_t *const chunk = *(const internal_malloc_chunk_t**)(
         (uintptr_t)pointer - sizeof(void*));
@@ -220,7 +220,7 @@ LIBXS_API int libxs_malloc_pool_info(libxs_malloc_pool_info_t* info)
 {
   int result = EXIT_SUCCESS;
   if (NULL != info) {
-    LIBXS_MEMZERO127(info);
+    LIBXS_MEMZERO(info);
     if (NULL != internal_malloc_pool) {
       size_t i = 0;
       for (; i < internal_malloc_pool_size; ++i) {

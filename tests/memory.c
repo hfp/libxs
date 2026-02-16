@@ -118,7 +118,7 @@ int main(int argc, char* argv[])
         size_t k = s;
         libxs_rng_seq(item, s);
         for (; k < elemsize; ++k) item[k] = 0;
-        LIBXS_MEMCPY127(data + elemsize * j, item, elemsize);
+        LIBXS_MEMCPY(data + elemsize * j, item, elemsize);
         k = libxs_diff_n(item, data,
           (unsigned char)s, (unsigned char)elemsize,
           0, ndiffs);
@@ -149,7 +149,7 @@ int main(int argc, char* argv[])
       const size_t s = (size - 1) / k;
       for (j = 0; j < s; ++j) {
         for (i = 0; i < (s - 1); ++i) {
-          LIBXS_MEMSWP127(a + k * i, a + k * i + k, k);
+          LIBXS_MEMSWP(a + k * i, a + k * i + k, k);
         }
       }
       if (0 != strcmp(a, init)) {

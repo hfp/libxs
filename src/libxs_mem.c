@@ -29,11 +29,11 @@
   for (i = (0 != (NREPEAT) ? 0 : (COUNT)); i < (COUNT); ++i) { \
     size_t j = i, k = 0; \
     for (; k < (NREPEAT) || j < i; ++k) j = ((SHUFFLE) * j) % (COUNT); \
-    if (i < j) LIBXS_MEMSWP127( \
+    if (i < j) LIBXS_MEMSWP( \
       data + (ELEMSIZE) * (c - j), \
       data + (ELEMSIZE) * (c - i), \
       ELEMSIZE); \
-    if (c2 <= i) LIBXS_MEMSWP127( \
+    if (c2 <= i) LIBXS_MEMSWP( \
       data + (ELEMSIZE) * (c - i), \
       data + (ELEMSIZE) * i, \
       ELEMSIZE); \
@@ -671,7 +671,7 @@ LIBXS_API int libxs_shuffle2(void* dst, const void* src, size_t elemsize, size_t
           } break;
           default: for (; i < size; i += elemsize, j += s) {
             if (count < j) j -= count;
-            LIBXS_MEMCPY127(out + i, inp + size - elemsize * j, elemsize);
+            LIBXS_MEMCPY(out + i, inp + size - elemsize * j, elemsize);
           }
         }
       }
@@ -772,7 +772,7 @@ LIBXS_API void LIBXS_FSYMBOL(libxs_xclear)(void* dst, const int* size)
   if (NULL != dst && NULL != size && 0 <= *size && 128 > *size)
 #endif
   { const int s = *size;
-    LIBXS_MEMSET127(dst, 0, s);
+    LIBXS_MEMSET(dst, 0, s);
   }
 #if !defined(NDEBUG)
   else if (1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED)) {

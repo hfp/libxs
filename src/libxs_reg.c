@@ -375,7 +375,7 @@ LIBXS_API_INLINE libxs_code_pointer_t internal_find_code(libxs_registry_t* regis
             if (EXIT_SUCCESS == build && NULL != flux_entry.ptr_const)
 # endif
             {
-              LIBXS_ASSIGN127(registry_keys + i, desc);
+              LIBXS_ASSIGN(registry_keys + i, desc);
 # if (1 < INTERNAL_REGLOCK_MAXN)
               LIBXS_ATOMIC(LIBXS_ATOMIC_STORE, LIBXS_BITS)(&registry[i].ptr, flux_entry.ptr, LIBXS_ATOMIC_SEQ_CST);
 # else
@@ -456,7 +456,7 @@ LIBXS_API_INLINE libxs_code_pointer_t internal_find_code(libxs_registry_t* regis
         cache->entry.size = 1;
         cache_index = 0;
       }
-      LIBXS_MEMCPY127(cache->entry.keys + cache_index, desc, 0 == is_big_desc ? LIBXS_DIFF_SIZE : size);
+      LIBXS_MEMCPY(cache->entry.keys + cache_index, desc, 0 == is_big_desc ? LIBXS_DIFF_SIZE : size);
       cache->entry.code[cache_index] = flux_entry;
       cache->entry.hit = cache_index;
     }
@@ -520,7 +520,7 @@ LIBXS_API int libxs_get_kernel_info(const void* kernel, libxs_kernel_info* info)
   const libxs_descriptor_t* desc;
   libxs_code_pointer_t code = { 0 };
   code.ptr_const = kernel;
-  LIBXS_MEMZERO127(&result_info);
+  LIBXS_MEMZERO(&result_info);
   xinfo = libxs_get_kernel_xinfo(code, &desc, &result_info.code_size);
   result_info.is_reference_kernel = xinfo->is_reference_kernel;
   if (NULL != xinfo) {
@@ -535,13 +535,13 @@ LIBXS_API int libxs_get_kernel_info(const void* kernel, libxs_kernel_info* info)
       result_info.kind = LIBXS_KERNEL_UNREGISTERED;
     }
     result_info.nflops = xinfo->nflops;
-    LIBXS_ASSIGN127(info, &result_info);
+    LIBXS_ASSIGN(info, &result_info);
     result = EXIT_SUCCESS;
   }
   else {
     LIBXS_ASSERT(NULL == desc);
     if (NULL != info) {
-      LIBXS_ASSIGN127(info, &result_info);
+      LIBXS_ASSIGN(info, &result_info);
       result = EXIT_FAILURE;
     }
     else {
@@ -559,7 +559,7 @@ LIBXS_API int libxs_registry_info(libxs_registry_t* registry, libxs_registry_inf
   /*LIBXS_INIT*/ /* verbosity */
   if (0 != info && NULL != registry && NULL != registry->registry) {
     size_t i;
-    LIBXS_MEMZERO127(info); /* info->nstatic = 0; info->size = 0; */
+    LIBXS_MEMZERO(info); /* info->nstatic = 0; info->size = 0; */
     info->nbytes = registry->capacity * (sizeof(libxs_code_pointer_t) + sizeof(libxs_descriptor_t));
     info->capacity = registry->capacity;
 #if defined(LIBXS_CACHE_MAXSIZE) && (0 < (LIBXS_CACHE_MAXSIZE))
@@ -678,9 +678,9 @@ LIBXS_API void* libxs_registry_set(libxs_registry_t* registry, const void* key, 
   if (NULL != key && 0 < key_size && LIBXS_DESCRIPTOR_MAXSIZE >= (offset + key_size)) {
     void* dst;
 #if defined(LIBXS_UNPACKED) || defined(LIBXS_REGUSER_ALIGN)
-    LIBXS_MEMSET127(&wrap, 0, offset);
+    LIBXS_MEMSET(&wrap, 0, offset);
 #endif
-    LIBXS_MEMCPY127(wrap.data + offset, key, key_size);
+    LIBXS_MEMCPY(wrap.data + offset, key, key_size);
     wrap.user.size = LIBXS_CAST_UCHAR(key_size);
     wrap.kind = (libxs_descriptor_kind_t)(LIBXS_DESCRIPTOR_SIGSIZE >= (offset + key_size)
       ? ((libxs_descriptor_kind_t)LIBXS_KERNEL_KIND_USER)
@@ -740,9 +740,9 @@ LIBXS_API void* libxs_registry_get(libxs_registry_t* registry, const void* key, 
 #endif
   {
 #if defined(LIBXS_UNPACKED) || defined(LIBXS_REGUSER_ALIGN)
-    LIBXS_MEMSET127(&wrap, 0, offset);
+    LIBXS_MEMSET(&wrap, 0, offset);
 #endif
-    LIBXS_MEMCPY127(wrap.data + offset, key, key_size);
+    LIBXS_MEMCPY(wrap.data + offset, key, key_size);
     wrap.user.size = LIBXS_CAST_UCHAR(key_size);
     wrap.kind = (libxs_descriptor_kind_t)(LIBXS_DESCRIPTOR_SIGSIZE >= (offset + key_size)
       ? ((libxs_descriptor_kind_t)LIBXS_KERNEL_KIND_USER)
