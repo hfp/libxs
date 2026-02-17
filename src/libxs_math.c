@@ -416,12 +416,7 @@ LIBXS_API void libxs_matdiff_reduce(libxs_matdiff_info_t* output, const libxs_ma
 LIBXS_API void libxs_matdiff_clear(libxs_matdiff_info_t* info)
 {
   if (NULL != info) {
-    union { int raw; float value; } inf = { 0 };
-#if defined(INFINITY) && /*overflow warning*/!defined(_CRAYC)
-    inf.value = (float)(INFINITY);
-#else
-    inf.raw = 0x7F800000;
-#endif
+    const union { int raw; float value; } inf = { 0x7F800000 };
     memset(info, 0, sizeof(*info)); /* nullify */
     /* no location discovered yet with a difference */
     info->m = info->n = info->i = -1;

@@ -148,7 +148,8 @@ int main(int argc, char* argv[])
   }
 
   if (0 < warn_ssqrt || 0 < warn_dsqrt) {
-    fprintf(stderr, "missed bitwise exact result in %.0f%% of the cases!\n", 100.0 * LIBXS_MAX(warn_ssqrt, warn_dsqrt) / N);
+    fprintf(stderr, "missed bitwise exact result in %.0f%% of the cases!\n",
+      100.0 * LIBXS_MAX(warn_ssqrt, warn_dsqrt) / N);
   }
 
   { /* check LIBXS_UP2POT and LIBXS_LO2POT */
@@ -167,6 +168,13 @@ int main(int argc, char* argv[])
       if (LIBXS_ISPOT(c[i]) != (0 != c[i] && c[i] == (size_t)LIBXS_LO2POT(c[i]))) exit(EXIT_FAILURE);
     }
   }
+
+#if defined(INFINITY)
+  { /* check infinity */
+    const union { int raw; float value; } inf = { 0x7F800000 };
+    if (inf.value != INFINITY) exit(EXIT_FAILURE);
+  }
+#endif
 
   { /* check LIBXS_UPDIV */
     const int inp[] = { 0, 1, 3, 5, 127, 3000 };
