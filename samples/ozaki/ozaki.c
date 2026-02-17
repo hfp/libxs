@@ -9,10 +9,7 @@
 #include "gemm.h"
 #include <libxs_malloc.h>
 #include <libxs_sync.h>
-#include <stdint.h>
-#include <limits.h>
-#include <string.h>
-#include <math.h>
+#include <libxs_math.h>
 #if defined(_OPENMP)
 # include <omp.h>
 #endif
@@ -346,13 +343,28 @@ LIBXS_API_INTERN LIBXS_ATTRIBUTE_WEAK void GEMM_WRAP(const char* transa, const c
   }
   LIBXS_ASSERT(0 != gemm_initialized);
 
-  gemm_oz1(transa, transb, m, n, k, alpha, a, lda, b, ldb, beta, c, ldc);
+  {
+    const libxs_datatype datatype = LIBXS_DATATYPE(GEMM_REAL_TYPE);
+    const size_t csize = sizeof(GEMM_REAL_TYPE) * (*ldc) * (*n);
+    GEMM_REAL_TYPE *const cref = libxs_malloc(csize, 0/*auto*/);
+    libxs_matdiff_info_t diff;
+    memcpy(cref, c, csize);
+    gemm_oz1(transa, transb, m, n, k, alpha, a, lda, b, ldb, beta, c, ldc);
 
-  /* refer to orginal GEMM immediately */
-  if (NULL != gemm_original) {
-    gemm_original(transa, transb, m, n, k, alpha, a, lda, b, ldb, beta, c, ldc);
-  }
-  else {
-    GEMM_REAL(transa, transb, m, n, k, alpha, a, lda, b, ldb, beta, c, ldc);
+    /* refer to original GEMM for analysis */
+    if (NULL != gemm_original) {
+      gemm_original(transa, transb, m, n, k, alpha, a, lda, b, ldb, beta, cref, ldc);
+    }
+    else {
+      GEMM_REAL(transa, transb, m, n, k, alpha, a, lda, b, ldb, beta, cref, ldc);
+    }
+
+    libxs_matdiff(&diff, datatype, *m, *n, cref, c, ldc, ldc);
+    if (1.0 != diff.rsq) {
+      fprintf(stderr, "linf_abs=%f linf_rel=%f l2_abs=%f l2_rel=%f\n",
+        diff.linf_abs, diff.linf_rel, diff.l2_abs, diff.l2_rel);
+    }
+
+    libxs_free(cref);
   }
 }
