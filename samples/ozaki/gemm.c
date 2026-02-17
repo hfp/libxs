@@ -52,9 +52,9 @@ int main(int argc, char* argv[])
                                     (const void*)b, ldb,
                               beta, (const void*)c, ldc);
 
-  LIBXS_MATRNG(GEMM_INT_TYPE, GEMM_REAL_TYPE, 42, a, m, k, lda, scale);
-  LIBXS_MATRNG(GEMM_INT_TYPE, GEMM_REAL_TYPE, 24, b, k, n, ldb, scale);
-  LIBXS_MATRNG(GEMM_INT_TYPE, GEMM_REAL_TYPE,  0, c, m, n, ldc, scale);
+  LIBXS_MATRNG(GEMM_INT_TYPE, GEMM_REAL_TYPE, 0, a, m, k, lda, scale);
+  LIBXS_MATRNG(GEMM_INT_TYPE, GEMM_REAL_TYPE, 0, b, k, n, ldb, scale);
+  LIBXS_MATRNG(GEMM_INT_TYPE, GEMM_REAL_TYPE, 0, c, m, n, ldc, scale);
 
   { /* Call GEMM */
     const libxs_timer_tick_t start = libxs_timer_tick();

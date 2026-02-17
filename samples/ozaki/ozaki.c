@@ -319,15 +319,15 @@ LIBXS_API void gemm_oz1(const char* transa, const char* transb,
 LIBXS_API void print_diff(FILE* stream, const libxs_matdiff_info_t* diff)
 {
   LIBXS_ASSERT(NULL != diff);
-  fprintf(stream, "OZAKI GEMM: ncalls=%i linf_abs=%f linf_rel=%f l2_abs=%f l2_rel=%f\n",
-    diff->r, diff->linf_abs, diff->linf_rel, diff->l2_abs, diff->l2_rel);
+  fprintf(stream, "OZAKI GEMM: ncalls=%i linf_abs=%f linf_rel=%f l2_abs=%f l2_rel=%f rsq=%f\n",
+    diff->r, diff->linf_abs, diff->linf_rel, diff->l2_abs, diff->l2_rel, diff->rsq);
 }
 
 
 LIBXS_API_INTERN void print_diff_atexit(void);
 LIBXS_API_INTERN void print_diff_atexit(void)
 {
-  if (0 != gemm_verbose) print_diff(stderr, &gemm_diff);
+  if (0 != gemm_verbose && 0 < gemm_diff.r) print_diff(stderr, &gemm_diff);
   libxs_free_pool();
 }
 
@@ -340,7 +340,7 @@ LIBXS_API_INTERN LIBXS_ATTRIBUTE_WEAK void GEMM_WRAP(const char* transa, const c
   const GEMM_REAL_TYPE*  beta, GEMM_REAL_TYPE* c, const GEMM_INT_TYPE* ldc)
 {
   static volatile LIBXS_ATOMIC_LOCKTYPE lock = 0;
-  static int gemm_initialized = 0;
+  static int gemm_initialized = 0, gemm_ozaki = 1;
   LIBXS_ASSERT(NULL != lda && NULL != ldb && NULL != ldc);
   LIBXS_ASSERT(NULL != a && NULL != b && NULL != c);
   LIBXS_ASSERT(NULL != m && NULL != n && NULL != k);
@@ -350,6 +350,7 @@ LIBXS_API_INTERN LIBXS_ATTRIBUTE_WEAK void GEMM_WRAP(const char* transa, const c
     LIBXS_ATOMIC_ACQUIRE(&lock, LIBXS_SYNC_NPAUSE, LIBXS_ATOMIC_SEQ_CST);
     if (0 == gemm_initialized) {
       const char *const gemm_verbose_env = getenv("GEMM_VERBOSE");
+      const char *const gemm_ozaki_env = getenv("GEMM_OZAKI");
 # if defined(_OPENMP)
       const int max_nthreads = omp_get_max_threads();
 # else
@@ -358,6 +359,7 @@ LIBXS_API_INTERN LIBXS_ATTRIBUTE_WEAK void GEMM_WRAP(const char* transa, const c
       libxs_malloc_pool(max_nthreads, 3/*max_nactive*/);
       libxs_matdiff_clear(&gemm_diff);
       gemm_verbose = (NULL == gemm_verbose_env ? 0 : atoi(gemm_verbose_env));
+      gemm_ozaki = (NULL == gemm_ozaki_env ? 1 : atoi(gemm_ozaki_env));
       LIBXS_EXPECT(EXIT_SUCCESS == atexit(print_diff_atexit));
       gemm_initialized = 1;
     }
@@ -365,7 +367,15 @@ LIBXS_API_INTERN LIBXS_ATTRIBUTE_WEAK void GEMM_WRAP(const char* transa, const c
   }
   LIBXS_ASSERT(0 != gemm_initialized);
 
-  if (0 == gemm_verbose) {
+  if (0 == gemm_ozaki) {
+    if (NULL != gemm_original) {
+      gemm_original(transa, transb, m, n, k, alpha, a, lda, b, ldb, beta, c, ldc);
+    }
+    else {
+      GEMM_REAL(transa, transb, m, n, k, alpha, a, lda, b, ldb, beta, c, ldc);
+    }
+  }
+  else if (0 == gemm_verbose) {
     gemm_oz1(transa, transb, m, n, k, alpha, a, lda, b, ldb, beta, c, ldc);
   }
   else {
