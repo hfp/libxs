@@ -970,7 +970,7 @@ LIBXS_EXTERN double erf(double) LIBXS_NOTHROW;
 # define M_PI 3.14159265358979323846
 #endif
 
-#if !defined(LIBXS_INTERCEPT_DYNAMIC) && defined(LIBXS_BUILD) && \
+#if !defined(LIBXS_INTERCEPT_DYNAMIC) && /*defined(LIBXS_BUILD) &&*/ \
     (defined(__GNUC__) || defined(_CRAYC)) && !defined(_WIN32) && !defined(__CYGWIN__) && \
    !(defined(__APPLE__) && defined(__MACH__) && LIBXS_VERSION2(6, 1) >= \
       LIBXS_VERSION2(__clang_major__, __clang_minor__))

@@ -46,9 +46,6 @@ all: $(XFILES)
 .PHONY: compile
 compile: $(OBJECTS)
 
-$(BLDDIR)/wrap-c.o: $(SRCDIR)/wrap.c .state $(BLDDIR)/.make $(HEADERS) Makefile $(DEPDIR)/Makefile.inc
-	$(CC) -DLIBXS_BUILD $(DFLAGS) $(IFLAGS) $(CFLAGS) $(CTARGET) -c $< -o $@
-
 $(BLDDIR)/%-c.o: $(SRCDIR)/%.c .state $(BLDDIR)/.make $(HEADERS) Makefile $(DEPDIR)/Makefile.inc
 	$(CC) $(DFLAGS) $(IFLAGS) $(CFLAGS) $(CTARGET) -c $< -o $@
 
