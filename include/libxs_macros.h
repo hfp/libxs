@@ -637,13 +637,6 @@
 #define LIBXS_ALIGN(POINTER, ALIGNMENT/*POT*/) ((POINTER) + (LIBXS_UP2((uintptr_t)(POINTER), ALIGNMENT) - ((uintptr_t)(POINTER))) / sizeof(*(POINTER)))
 #define LIBXS_FOLD2(POINTER, ALIGNMENT, NPOT) LIBXS_MOD2(((uintptr_t)(POINTER) / (ALIGNMENT)), NPOT)
 
-/** Compare types, e.g., real types. */
-#define LIBXS_EQUAL(T1, T2) LIBXS_CONCATENATE3(LIBXS_EQUAL_, T1, T2)
-#define LIBXS_EQUAL_floatfloat 1
-#define LIBXS_EQUAL_doubledouble 1
-#define LIBXS_EQUAL_floatdouble 0
-#define LIBXS_EQUAL_doublefloat 0
-
 #if !defined(LIBXS_UNUSED)
 # if 0
 #   define LIBXS_UNUSED(VARIABLE) LIBXS_PRAGMA(unused(VARIABLE))
