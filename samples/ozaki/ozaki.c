@@ -9,7 +9,6 @@
 #include "gemm.h"
 #include <libxs_malloc.h>
 #include <libxs_sync.h>
-#include <libxs_math.h>
 #if defined(_OPENMP)
 # include <omp.h>
 #endif
@@ -28,8 +27,10 @@
 #endif
 
 
+LIBXS_APIVAR_PUBLIC_DEF(libxs_matdiff_info_t gemm_diff);
+LIBXS_APIVAR_PUBLIC_DEF(int gemm_verbose);
+
 LIBXS_APIVAR_PRIVATE_DEF(gemm_function_t gemm_original);
-LIBXS_APIVAR_DEFINE(int gemm_initialized);
 
 
 LIBXS_API_INLINE void ozaki_decompose(double value, int16_t* exp_biased, int8_t digits[NSLICES])
@@ -322,29 +323,35 @@ LIBXS_API_INTERN LIBXS_ATTRIBUTE_WEAK void GEMM_WRAP(const char* transa, const c
                                const GEMM_REAL_TYPE* b, const GEMM_INT_TYPE* ldb,
   const GEMM_REAL_TYPE*  beta, GEMM_REAL_TYPE* c, const GEMM_INT_TYPE* ldc)
 {
+  static volatile LIBXS_ATOMIC_LOCKTYPE lock = 0;
+  static int gemm_initialized = 0;
   LIBXS_ASSERT(NULL != lda && NULL != ldb && NULL != ldc);
   LIBXS_ASSERT(NULL != a && NULL != b && NULL != c);
   LIBXS_ASSERT(NULL != m && NULL != n && NULL != k);
   LIBXS_ASSERT(NULL != transa && NULL != transb);
 
   if (0 == gemm_initialized) {
-    static volatile LIBXS_ATOMIC_LOCKTYPE lock = 0;
     LIBXS_ATOMIC_ACQUIRE(&lock, LIBXS_SYNC_NPAUSE, LIBXS_ATOMIC_SEQ_CST);
     if (0 == gemm_initialized) {
+      const char *const gemm_verbose_env = getenv("GEMM_VERBOSE");
 # if defined(_OPENMP)
       const int max_nthreads = omp_get_max_threads();
 # else
       const int max_nthreads = 1;
 # endif
       libxs_malloc_pool(max_nthreads, 3/*max_nactive*/);
+      gemm_verbose = (NULL == gemm_verbose_env ? 0 : atoi(gemm_verbose_env));
+      libxs_matdiff_clear(&gemm_diff);
       gemm_initialized = 1;
     }
     LIBXS_ATOMIC_RELEASE(&lock, LIBXS_ATOMIC_SEQ_CST);
   }
   LIBXS_ASSERT(0 != gemm_initialized);
 
-  {
-    const libxs_datatype datatype = LIBXS_DATATYPE(GEMM_REAL_TYPE);
+  if (0 == gemm_verbose) {
+    gemm_oz1(transa, transb, m, n, k, alpha, a, lda, b, ldb, beta, c, ldc);
+  }
+  else {
     const size_t csize = sizeof(GEMM_REAL_TYPE) * (*ldc) * (*n);
     GEMM_REAL_TYPE *const cref = libxs_malloc(csize, 0/*auto*/);
     libxs_matdiff_info_t diff;
@@ -359,12 +366,21 @@ LIBXS_API_INTERN LIBXS_ATTRIBUTE_WEAK void GEMM_WRAP(const char* transa, const c
       GEMM_REAL(transa, transb, m, n, k, alpha, a, lda, b, ldb, beta, cref, ldc);
     }
 
-    libxs_matdiff(&diff, datatype, *m, *n, cref, c, ldc, ldc);
-    if (1.0 != diff.rsq) {
-      fprintf(stderr, "linf_abs=%f linf_rel=%f l2_abs=%f l2_rel=%f\n",
-        diff.linf_abs, diff.linf_rel, diff.l2_abs, diff.l2_rel);
-    }
+    libxs_matdiff(&diff, LIBXS_DATATYPE(GEMM_REAL_TYPE), *m, *n, cref, c, ldc, ldc);
+    libxs_free(cref); /* temporary GEMM reference result not required anymore */
 
-    libxs_free(cref);
+    LIBXS_ATOMIC_ACQUIRE(&lock, LIBXS_SYNC_NPAUSE, LIBXS_ATOMIC_SEQ_CST);
+    libxs_matdiff_reduce(&gemm_diff, &diff);
+    LIBXS_ATOMIC_RELEASE(&lock, LIBXS_ATOMIC_SEQ_CST);
+
+    if (1 < gemm_verbose || 0 > gemm_verbose) {
+      const int nth = (0 < gemm_verbose ? gemm_verbose : 1);
+      if (0 == (gemm_diff.r % nth)) {
+        fprintf(stderr, "OZAKI GEMM: linf_abs=%f linf_rel=%f l2_abs=%f l2_rel=%f rsq=%f\n",
+          gemm_diff.linf_abs, gemm_diff.linf_rel,
+          gemm_diff.l2_abs, gemm_diff.l2_rel,
+          gemm_diff.rsq);
+      }
+    }
   }
 }

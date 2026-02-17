@@ -8,6 +8,7 @@
 ******************************************************************************/
 #include <libxs_macros.h>
 #include <libxs_utils.h>
+#include <libxs_math.h>
 
 #if !defined(GEMM_REAL_TYPE)
 # define GEMM_REAL_TYPE double
@@ -57,5 +58,8 @@ LIBXS_API void gemm_oz1(const char* transa, const char* transb,
                                const GEMM_REAL_TYPE* b, const GEMM_INT_TYPE* ldb,
   const GEMM_REAL_TYPE*  beta, GEMM_REAL_TYPE* c, const GEMM_INT_TYPE* ldc);
 
-/** Original GEMM function. */
+LIBXS_APIVAR_PUBLIC(libxs_matdiff_info_t gemm_diff);
+LIBXS_APIVAR_PUBLIC(int gemm_verbose);
+
+/** Original GEMM function (private). */
 LIBXS_APIVAR_PRIVATE(gemm_function_t gemm_original);
