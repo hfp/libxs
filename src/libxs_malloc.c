@@ -26,7 +26,7 @@
 #if !defined(LIBXS_MALLOC_EVICT_LIMIT)
 # define LIBXS_MALLOC_EVICT_LIMIT (64 * LIBXS_MALLOC_EVICT_SIZE)
 #endif
-#if !defined(LIBXS_MALLOC_EVICT) && 0
+#if !defined(LIBXS_MALLOC_EVICT) && 1
 # define LIBXS_MALLOC_EVICT
 #endif
 #if !defined(LIBXS_MALLOC_SEARCH) && 1
@@ -141,12 +141,12 @@ LIBXS_API void* libxs_malloc(size_t size, size_t alignment)
     LIBXS_ASSERT(NULL != chunk);
     if (NULL != chunk->pointer) {
       if (chunk->size < size) {
-        char *const pointer = realloc(chunk->pointer, size + alignpot - 1);
+        char *const pointer = realloc(chunk->pointer, size + sizeof(void*) + alignpot - 1);
         if (NULL != pointer) {
 #if defined(LIBXS_MALLOC_EVICT)
           const size_t old_size = chunk->size;
 #endif
-          result = LIBXS_ALIGN(pointer, alignpot);
+          result = LIBXS_ALIGN(pointer + sizeof(void*), alignpot);
           info = (void**)((uintptr_t)result - sizeof(void*));
           chunk->pointer = pointer;
           chunk->size = size;
@@ -161,13 +161,13 @@ LIBXS_API void* libxs_malloc(size_t size, size_t alignment)
         }
       }
       else { /* reuse */
-        result = LIBXS_ALIGN(chunk->pointer, alignpot);
+        result = LIBXS_ALIGN(chunk->pointer + sizeof(void*), alignpot);
       }
     }
     else {
-      char *const pointer = malloc(size + alignpot - 1);
+      char *const pointer = malloc(size + sizeof(void*) + alignpot - 1);
       if (NULL != pointer) {
-        result = LIBXS_ALIGN(pointer, alignpot);
+        result = LIBXS_ALIGN(pointer + sizeof(void*), alignpot);
         info = (void**)((uintptr_t)result - sizeof(void*));
         LIBXS_ASSERT(0 == chunk->size);
         chunk->pointer = pointer;
