@@ -169,8 +169,9 @@ LIBXS_API_INLINE void accumulate_block_diff(libxs_matdiff_info_t* acc, const GEM
   const GEMM_REAL_TYPE* tst_blk, GEMM_INT_TYPE m, GEMM_INT_TYPE n, GEMM_INT_TYPE ld_ref, GEMM_INT_TYPE ld_tst)
 {
   libxs_matdiff_info_t block_diff;
+  const int ild_ref = (int)ld_ref, ild_tst = (int)ld_tst;
   if (EXIT_SUCCESS == libxs_matdiff(&block_diff, LIBXS_DATATYPE(GEMM_REAL_TYPE),
-    m, n, ref_blk /*ref*/, tst_blk /*tst*/, &ld_ref, &ld_tst))
+    m, n, ref_blk /*ref*/, tst_blk /*tst*/, &ild_ref, &ild_tst))
   {
     libxs_matdiff_reduce(acc, &block_diff);
   }
@@ -227,8 +228,8 @@ LIBXS_API_INLINE void preprocess_cols(const GEMM_REAL_TYPE* b, GEMM_INT_TYPE ldb
   GEMM_INT_TYPE N, GEMM_INT_TYPE K, GEMM_INT_TYPE jb, GEMM_INT_TYPE kb, GEMM_INT_TYPE jblk,
   GEMM_INT_TYPE kblk, int16_t expb_col[BLOCK_N], int8_t bm[BLOCK_K][BLOCK_N][NSLICES])
 {
-  GEMM_INT_TYPE nj, kk;
   int16_t col_max_exp[BLOCK_N];
+  GEMM_INT_TYPE nj, kk;
 
   for (nj = 0; nj < jblk; ++nj) {
     col_max_exp[nj] = INT16_MIN;
@@ -270,12 +271,8 @@ LIBXS_API_INLINE void gemm_oz1_diff(const char* transa, const char* transb,
   const GEMM_REAL_TYPE*  beta, GEMM_REAL_TYPE* c, const GEMM_INT_TYPE* ldc,
   unsigned int diff_abc, libxs_matdiff_info_t* diff)
 {
-  const int ta = (*transa != 'N' && *transa != 'n');
-  const int tb = (*transb != 'N' && *transb != 'n');
-  int8_t am[BLOCK_M][BLOCK_K][NSLICES];
-  int8_t bm[BLOCK_K][BLOCK_N][NSLICES];
-  int16_t expa_row[BLOCK_M];
-  int16_t expb_col[BLOCK_N];
+  int8_t am[BLOCK_M][BLOCK_K][NSLICES], bm[BLOCK_K][BLOCK_N][NSLICES];
+  int16_t expa_row[BLOCK_M], expb_col[BLOCK_N];
   int8_t slice_low_bit[NSLICES];
   enum {
     BLOCK_MN = BLOCK_M * BLOCK_N,
@@ -284,6 +281,8 @@ LIBXS_API_INLINE void gemm_oz1_diff(const char* transa, const char* transb,
     BLOCK_MNK = LIBXS_MAX(LIBXS_MAX(BLOCK_MN, BLOCK_MK), BLOCK_KN)
   };
   GEMM_REAL_TYPE ref_blk[BLOCK_MNK], recon_blk[BLOCK_MNK];
+  const int ta = (*transa != 'N' && *transa != 'n');
+  const int tb = (*transb != 'N' && *transb != 'n');
   const GEMM_INT_TYPE M = *m, N = *n, K = *k;
   const GEMM_INT_TYPE ldcv = *ldc;
   GEMM_INT_TYPE jb, ib, kb, mi, nj, kk;

@@ -44,13 +44,14 @@ int main(int argc, char* argv[])
   if (0 < nrepeat) scale /= nrepeat;
 
   printf(
-    "gemm('%c', '%c', %i/*m*/, %i/*n*/, %i/*k*/,\n"
-    "     %g/*alpha*/, %p/*a*/, %i/*lda*/,\n"
-    "                 %p/*b*/, %i/*ldb*/,\n"
-    "      %g/*beta*/, %p/*c*/, %i/*ldc*/)\n",
-    transa, transb, m, n, k, alpha, (const void*)a, lda,
-                                    (const void*)b, ldb,
-                              beta, (const void*)c, ldc);
+    "gemm('%c', '%c', %lli/*m*/, %lli/*n*/, %lli/*k*/,\n"
+    "     %g/*alpha*/, %p/*a*/, %lli/*lda*/,\n"
+    "                 %p/*b*/, %lli/*ldb*/,\n"
+    "      %g/*beta*/, %p/*c*/, %lli/*ldc*/)\n",
+    transa, transb, (long long int)m, (long long int)n, (long long int)k,
+      alpha, (const void*)a, (long long int)lda,
+             (const void*)b, (long long int)ldb,
+       beta, (const void*)c, (long long int)ldc);
 
   LIBXS_MATRNG(GEMM_INT_TYPE, GEMM_REAL_TYPE, 0, a, m, k, lda, scale);
   LIBXS_MATRNG(GEMM_INT_TYPE, GEMM_REAL_TYPE, 0, b, k, n, ldb, scale);
@@ -68,9 +69,11 @@ int main(int argc, char* argv[])
     else fprintf(stderr, "Not executed!\n");
   }
 
-  /* calculate final checksum */
-  result = libxs_matdiff(&diff, LIBXS_DATATYPE(GEMM_REAL_TYPE), m, n,
-      NULL/*ref*/, c/*tst*/, NULL/*ldref*/, &ldc);
+  { /* calculate final checksum */
+    const int ldtst = (int)ldc;
+    result = libxs_matdiff(&diff, LIBXS_DATATYPE(GEMM_REAL_TYPE), m, n,
+        NULL/*ref*/, c/*tst*/, NULL/*ldref*/, &ldtst);
+  }
 
   if (EXIT_SUCCESS == result) {
     printf("\n%f (check)\n", diff.l1_tst);
