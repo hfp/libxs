@@ -9,6 +9,10 @@
 #include "gemm.h"
 #include <libxs_sync.h>
 
+/* triangular scheme drops symmetric contributions (speed for accuracy) */
+#if !defined(TRIANGULAR) && 1
+# define TRIANGULAR
+#endif
 #if !defined(BLOCK_M)
 # define BLOCK_M 16
 #endif
@@ -343,12 +347,13 @@ LIBXS_API_INLINE void gemm_oz1_diff(const char* transa, const char* transb,
           accumulate_block_diff(diff, ref_blk, recon_blk, kblk, jblk, BLOCK_K, BLOCK_K);
         }
 
-        /* Upper-triangle iteration: pairs (slice_a, slice_b) with slice_b >= slice_a.
-         * Symmetric contributions (slice_a != slice_b) are intentionally omitted
-         * as a speed/accuracy trade-off; the lower-order cross-terms contribute
-         * negligible magnitude compared to the diagonal and upper terms. */
         for (slice_a = 0; slice_a < NSLICES; ++slice_a) {
-          for (slice_b = slice_a; slice_b < NSLICES; ++slice_b) {
+#if defined(TRIANGULAR)
+          slice_b = slice_a;
+#else
+          slice_b = 0;
+#endif
+          for (; slice_b < NSLICES; ++slice_b) {
             for (mi = 0; mi < iblk; ++mi) {
               for (nj = 0; nj < jblk; ++nj) {
                 for (kk = 0; kk < kblk; ++kk) {
