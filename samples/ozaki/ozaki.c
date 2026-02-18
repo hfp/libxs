@@ -7,11 +7,7 @@
 * SPDX-License-Identifier: BSD-3-Clause                                       *
 ******************************************************************************/
 #include "gemm.h"
-#include <libxs_malloc.h>
 #include <libxs_sync.h>
-#if defined(_OPENMP)
-# include <omp.h>
-#endif
 
 #if !defined(BLOCK_M)
 # define BLOCK_M 16
@@ -30,7 +26,9 @@
 LIBXS_APIVAR_PUBLIC_DEF(libxs_matdiff_info_t gemm_diff);
 LIBXS_APIVAR_PUBLIC_DEF(int gemm_verbose);
 
+LIBXS_APIVAR_PRIVATE_DEF(volatile LIBXS_ATOMIC_LOCKTYPE gemm_lock);
 LIBXS_APIVAR_PRIVATE_DEF(gemm_function_t gemm_original);
+LIBXS_APIVAR_PRIVATE_DEF(int gemm_diff_abc);
 
 
 LIBXS_API_INLINE void ozaki_decompose(double value, int16_t* exp_biased, int8_t digits[NSLICES])
@@ -39,64 +37,55 @@ LIBXS_API_INLINE void ozaki_decompose(double value, int16_t* exp_biased, int8_t 
   union { double d; uint64_t u; } cvt;
   int sign = 1;
 
-  if (NULL == exp_biased || NULL == digits) return;
-
+  LIBXS_ASSERT(NULL != exp_biased);
   if (value == 0.0 || LIBXS_ISNAN(value) || inf.value == value) {
+    if (NULL != digits) memset(digits, 0, sizeof(int8_t) * NSLICES);
     *exp_biased = 0;
-    memset(digits, 0, sizeof(int8_t) * NSLICES);
     return;
   }
 
   if (value < 0.0) {
-    sign = -1;
     value = -value;
+    sign = -1;
   }
 
   cvt.d = value;
-  {
-    const uint64_t bits = cvt.u;
+  { const uint64_t bits = cvt.u;
     const uint64_t frac = bits & ((1ULL << 52) - 1ULL);
     const uint16_t exp_raw = (uint16_t)((bits >> 52) & 0x7FFU);
 
     if (0 == exp_raw) { /* subnormal treated as zero here */
       *exp_biased = 0;
-      memset(digits, 0, sizeof(int8_t) * NSLICES);
+      if (NULL != digits) memset(digits, 0, sizeof(int8_t) * NSLICES);
       return;
     }
 
-    {
-      const uint64_t mant_full = (1ULL << 52) | frac; /* 53 bits */
+    { const uint64_t mant_full = (1ULL << 52) | frac; /* 53 bits */
       int s = 0;
       *exp_biased = (int16_t)exp_raw;
 
-      for (; s < NSLICES; ++s) {
-        const int high = 52 - (7 * s);
-        if (high < 0) {
-          digits[s] = 0;
-          continue;
-        }
-        {
-          const int low = high - 6;
-          uint64_t chunk;
-          if (low >= 0) {
-            chunk = (mant_full >> low) & 0x7FULL;
+      if (NULL != digits) {
+        for (; s < NSLICES; ++s) {
+          const int high = 52 - (7 * s);
+          if (high < 0) {
+            digits[s] = 0;
+            continue;
           }
-          else {
-            const int width = high + 1; /* 0..6 */
-            chunk = mant_full & ((1ULL << width) - 1ULL);
+          { const int low = high - 6;
+            uint64_t chunk;
+            if (low >= 0) {
+              chunk = (mant_full >> low) & 0x7FULL;
+            }
+            else {
+              const int width = high + 1; /* 0..6 */
+              chunk = mant_full & ((1ULL << width) - 1ULL);
+            }
+            digits[s] = (int8_t)(sign * (int64_t)chunk);
           }
-          digits[s] = (int8_t)(sign * (int64_t)chunk);
         }
       }
     }
   }
-}
-
-
-LIBXS_API_INLINE double load_elem(const GEMM_REAL_TYPE* base, const GEMM_INT_TYPE ld,
-  const int trans, const GEMM_INT_TYPE i, const GEMM_INT_TYPE j)
-{
-  return trans ? base[j + i * ld] : base[i + j * ld];
 }
 
 
@@ -150,10 +139,9 @@ LIBXS_API_INLINE void preprocess_rows(const GEMM_REAL_TYPE* a, const GEMM_INT_TY
 
     for (kk = 0; kk < BLOCK_K; ++kk) {
       const GEMM_INT_TYPE p = kb + kk;
-      const double aval = (row < M && p < K) ? load_elem(a, lda, ta, row, p) : 0.0;
+      const double aval = (row < M && p < K) ? a[LIBXS_INDEX(ta, lda, row, p)] : 0.0;
       int16_t e;
-      int8_t scratch[NSLICES];
-      ozaki_decompose(aval, &e, scratch);
+      ozaki_decompose(aval, &e, NULL /*digits*/);
       row_max_exp = LIBXS_MAX(row_max_exp, e);
     }
 
@@ -161,7 +149,7 @@ LIBXS_API_INLINE void preprocess_rows(const GEMM_REAL_TYPE* a, const GEMM_INT_TY
 
     for (kk = 0; kk < BLOCK_K; ++kk) {
       const GEMM_INT_TYPE p = kb + kk;
-      const double aval = (row < M && p < K) ? load_elem(a, lda, ta, row, p) : 0.0;
+      const double aval = (row < M && p < K) ? a[LIBXS_INDEX(ta, lda, row, p)] : 0.0;
       int16_t e;
       int8_t digits[NSLICES];
       ozaki_decompose(aval, &e, digits);
@@ -188,10 +176,9 @@ LIBXS_API_INLINE void preprocess_cols(const GEMM_REAL_TYPE* b, const GEMM_INT_TY
     const GEMM_INT_TYPE p = kb + kk;
     for (nj = 0; nj < BLOCK_N; ++nj) {
       const GEMM_INT_TYPE col = jb + nj;
-      const double bval = (p < K && col < N) ? load_elem(b, ldb, tb, p, col) : 0.0;
+      const double bval = (p < K && col < N) ? b[LIBXS_INDEX(tb, ldb, p, col)] : 0.0;
       int16_t e;
-      int8_t scratch[NSLICES];
-      ozaki_decompose(bval, &e, scratch);
+      ozaki_decompose(bval, &e, NULL /*digits*/);
       col_max_exp[nj] = LIBXS_MAX(col_max_exp[nj], e);
     }
   }
@@ -204,7 +191,7 @@ LIBXS_API_INLINE void preprocess_cols(const GEMM_REAL_TYPE* b, const GEMM_INT_TY
     const GEMM_INT_TYPE p = kb + kk;
     for (nj = 0; nj < BLOCK_N; ++nj) {
       const GEMM_INT_TYPE col = jb + nj;
-      const double bval = (p < K && col < N) ? load_elem(b, ldb, tb, p, col) : 0.0;
+      const double bval = (p < K && col < N) ? b[LIBXS_INDEX(tb, ldb, p, col)] : 0.0;
       int16_t e;
       int8_t digits[NSLICES];
       ozaki_decompose(bval, &e, digits);
@@ -214,13 +201,13 @@ LIBXS_API_INLINE void preprocess_cols(const GEMM_REAL_TYPE* b, const GEMM_INT_TY
 }
 
 
-LIBXS_API void gemm_oz1(const char* transa, const char* transb,
+LIBXS_API_INLINE void gemm_oz1_diff(const char* transa, const char* transb,
   const GEMM_INT_TYPE* m, const GEMM_INT_TYPE* n, const GEMM_INT_TYPE* k,
   const GEMM_REAL_TYPE* alpha, const GEMM_REAL_TYPE* a, const GEMM_INT_TYPE* lda,
                                const GEMM_REAL_TYPE* b, const GEMM_INT_TYPE* ldb,
-  const GEMM_REAL_TYPE*  beta, GEMM_REAL_TYPE* c, const GEMM_INT_TYPE* ldc)
+  const GEMM_REAL_TYPE*  beta, GEMM_REAL_TYPE* c, const GEMM_INT_TYPE* ldc,
+  int diff_abc, libxs_matdiff_info_t* diff)
 {
-  const libxs_datatype datatype = LIBXS_DATATYPE(GEMM_REAL_TYPE);
   const int ta = (*transa != 'N' && *transa != 'n');
   const int tb = (*transb != 'N' && *transb != 'n');
   int8_t am[BLOCK_M][BLOCK_K][NSLICES];
@@ -232,7 +219,7 @@ LIBXS_API void gemm_oz1(const char* transa, const char* transb,
   const GEMM_INT_TYPE M = *m, N = *n, K = *k;
   GEMM_INT_TYPE jb, ib, kb, mi, nj, kk;
   int slice_a, slice_b;
-  LIBXS_ASSERT(LIBXS_DATATYPE_F64 == datatype);
+  LIBXS_ASSERT(LIBXS_DATATYPE_F64 == LIBXS_DATATYPE(GEMM_REAL_TYPE));
 
   for (slice_a = 0; slice_a < NSLICES; ++slice_a) {
     const int high = 52 - (7 * slice_a);
@@ -262,7 +249,7 @@ LIBXS_API void gemm_oz1(const char* transa, const char* transb,
                   const int16_t b_digit = (int16_t)bm[kk][nj][slice_b];
 
                   if (a_digit | b_digit) {
-                      const int exp_term = (int)expa_row[mi] + (int)expb_col[nj] - 2150 + slice_low_bit[slice_a] + slice_low_bit[slice_b];
+                    const int exp_term = (int)expa_row[mi] + (int)expb_col[nj] - 2150 + slice_low_bit[slice_a] + slice_low_bit[slice_b];
                     int64_t contrib = (int64_t)a_digit * (int64_t)b_digit;
 
                     if (exp_term >= 0) {
@@ -324,11 +311,37 @@ LIBXS_API void print_diff(FILE* stream, const libxs_matdiff_info_t* diff)
 }
 
 
+LIBXS_API void gemm_oz1(const char* transa, const char* transb,
+  const GEMM_INT_TYPE* m, const GEMM_INT_TYPE* n, const GEMM_INT_TYPE* k,
+  const GEMM_REAL_TYPE* alpha, const GEMM_REAL_TYPE* a, const GEMM_INT_TYPE* lda,
+                               const GEMM_REAL_TYPE* b, const GEMM_INT_TYPE* ldb,
+  const GEMM_REAL_TYPE*  beta, GEMM_REAL_TYPE* c, const GEMM_INT_TYPE* ldc)
+{
+  if (0 != gemm_verbose) {
+    gemm_oz1_diff(transa, transb, m, n, k, alpha, a, lda, b, ldb, beta, c, ldc,
+      0 /*gemm_diff_abc*/, NULL /*diff*/);
+  }
+  else {
+    libxs_matdiff_info_t diff;
+    gemm_oz1_diff(transa, transb, m, n, k, alpha, a, lda, b, ldb, beta, c, ldc,
+      gemm_diff_abc, &diff);
+
+    LIBXS_ATOMIC_ACQUIRE(&gemm_lock, LIBXS_SYNC_NPAUSE, LIBXS_ATOMIC_SEQ_CST);
+    libxs_matdiff_reduce(&gemm_diff, &diff);
+    LIBXS_ATOMIC_RELEASE(&gemm_lock, LIBXS_ATOMIC_SEQ_CST);
+
+    if (1 < gemm_verbose || 0 > gemm_verbose) {
+      const int nth = (0 < gemm_verbose ? gemm_verbose : 1);
+      if (0 == (gemm_diff.r % nth)) print_diff(stderr, &gemm_diff);
+    }
+  }
+}
+
+
 LIBXS_API_INTERN void print_diff_atexit(void);
 LIBXS_API_INTERN void print_diff_atexit(void)
 {
   if (0 != gemm_verbose && 0 < gemm_diff.r) print_diff(stderr, &gemm_diff);
-  libxs_free_pool();
 }
 
 
@@ -339,7 +352,6 @@ LIBXS_API_INTERN LIBXS_ATTRIBUTE_WEAK void GEMM_WRAP(const char* transa, const c
                                const GEMM_REAL_TYPE* b, const GEMM_INT_TYPE* ldb,
   const GEMM_REAL_TYPE*  beta, GEMM_REAL_TYPE* c, const GEMM_INT_TYPE* ldc)
 {
-  static volatile LIBXS_ATOMIC_LOCKTYPE lock = 0;
   static int gemm_initialized = 0, gemm_ozaki = 1;
   LIBXS_ASSERT(NULL != lda && NULL != ldb && NULL != ldc);
   LIBXS_ASSERT(NULL != a && NULL != b && NULL != c);
@@ -347,27 +359,23 @@ LIBXS_API_INTERN LIBXS_ATTRIBUTE_WEAK void GEMM_WRAP(const char* transa, const c
   LIBXS_ASSERT(NULL != transa && NULL != transb);
 
   if (0 == gemm_initialized) {
-    LIBXS_ATOMIC_ACQUIRE(&lock, LIBXS_SYNC_NPAUSE, LIBXS_ATOMIC_SEQ_CST);
+    LIBXS_ATOMIC_ACQUIRE(&gemm_lock, LIBXS_SYNC_NPAUSE, LIBXS_ATOMIC_SEQ_CST);
     if (0 == gemm_initialized) {
+      const char *const gemm_diff_abc_env = getenv("GEMM_DIFF");
       const char *const gemm_verbose_env = getenv("GEMM_VERBOSE");
       const char *const gemm_ozaki_env = getenv("GEMM_OZAKI");
-# if defined(_OPENMP)
-      const int max_nthreads = omp_get_max_threads();
-# else
-      const int max_nthreads = 1;
-# endif
-      libxs_malloc_pool(max_nthreads, 3/*max_nactive*/);
       libxs_matdiff_clear(&gemm_diff);
+      gemm_diff_abc = (NULL == gemm_diff_abc_env ? 0 : atoi(gemm_diff_abc_env));
       gemm_verbose = (NULL == gemm_verbose_env ? 0 : atoi(gemm_verbose_env));
       gemm_ozaki = (NULL == gemm_ozaki_env ? 1 : atoi(gemm_ozaki_env));
       LIBXS_EXPECT(EXIT_SUCCESS == atexit(print_diff_atexit));
       gemm_initialized = 1;
     }
-    LIBXS_ATOMIC_RELEASE(&lock, LIBXS_ATOMIC_SEQ_CST);
+    LIBXS_ATOMIC_RELEASE(&gemm_lock, LIBXS_ATOMIC_SEQ_CST);
   }
   LIBXS_ASSERT(0 != gemm_initialized);
 
-  if (0 == gemm_ozaki) {
+  if (0 == gemm_ozaki) { /* only run original GEMM right away */
     if (NULL != gemm_original) {
       gemm_original(transa, transb, m, n, k, alpha, a, lda, b, ldb, beta, c, ldc);
     }
@@ -375,34 +383,11 @@ LIBXS_API_INTERN LIBXS_ATTRIBUTE_WEAK void GEMM_WRAP(const char* transa, const c
       GEMM_REAL(transa, transb, m, n, k, alpha, a, lda, b, ldb, beta, c, ldc);
     }
   }
-  else if (0 == gemm_verbose) {
-    gemm_oz1(transa, transb, m, n, k, alpha, a, lda, b, ldb, beta, c, ldc);
+  else if (0 == gemm_verbose) { /* only run LP-GEMM; no statistics */
+    gemm_oz1_diff(transa, transb, m, n, k, alpha, a, lda, b, ldb, beta, c, ldc,
+      0 /*gemm_diff_abc*/, NULL /*diff*/);
   }
-  else {
-    const size_t csize = sizeof(GEMM_REAL_TYPE) * (*ldc) * (*n);
-    GEMM_REAL_TYPE *const cref = libxs_malloc(csize, 0/*auto*/);
-    libxs_matdiff_info_t diff;
-    memcpy(cref, c, csize);
+  else { /* run LP-GEMM and GEMM; build statistics of differences */
     gemm_oz1(transa, transb, m, n, k, alpha, a, lda, b, ldb, beta, c, ldc);
-
-    /* refer to original GEMM for analysis */
-    if (NULL != gemm_original) {
-      gemm_original(transa, transb, m, n, k, alpha, a, lda, b, ldb, beta, cref, ldc);
-    }
-    else {
-      GEMM_REAL(transa, transb, m, n, k, alpha, a, lda, b, ldb, beta, cref, ldc);
-    }
-
-    libxs_matdiff(&diff, LIBXS_DATATYPE(GEMM_REAL_TYPE), *m, *n, cref, c, ldc, ldc);
-    libxs_free(cref); /* temporary GEMM reference result not required anymore */
-
-    LIBXS_ATOMIC_ACQUIRE(&lock, LIBXS_SYNC_NPAUSE, LIBXS_ATOMIC_SEQ_CST);
-    libxs_matdiff_reduce(&gemm_diff, &diff);
-    LIBXS_ATOMIC_RELEASE(&lock, LIBXS_ATOMIC_SEQ_CST);
-
-    if (1 < gemm_verbose || 0 > gemm_verbose) {
-      const int nth = (0 < gemm_verbose ? gemm_verbose : 1);
-      if (0 == (gemm_diff.r % nth)) print_diff(stderr, &gemm_diff);
-    }
   }
 }
