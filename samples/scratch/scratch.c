@@ -85,7 +85,7 @@ int main(int argc, char* argv[])
     const int count = r[i%(MAX_MALLOC_N)] % max_nactive + 1;
     void* p[MAX_MALLOC_N];
     int j;
-    assert(count <= MAX_MALLOC_N);
+    assert(count <= max_nactive);
     for (j = 0; j < count; ++j) {
       const int k = (i * count + j) % (MAX_MALLOC_N);
       const size_t nbytes = ((size_t)r[k] % (MAX_MALLOC_MB) + 1) << 20;

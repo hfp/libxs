@@ -8,6 +8,16 @@
 ******************************************************************************/
 #include <libxs_malloc.h>
 
+#if !defined(LIBXS_MALLOC_UPSIZE)
+# define LIBXS_MALLOC_UPSIZE (2 << 20)
+#endif
+#if !defined(LIBXS_MALLOC_EVICTSIZE)
+# define LIBXS_MALLOC_EVICTSIZE (8 * LIBXS_MALLOC_UPSIZE)
+#endif
+#if !defined(LIBXS_MALLOC_EVICTWARMUP)
+# define LIBXS_MALLOC_EVICTWARMUP 4
+#endif
+
 #if defined(_DEBUG)
 # define FPRINTF(STREAM, ...) do { fprintf(STREAM, __VA_ARGS__); } while(0)
 #else
@@ -58,6 +68,46 @@ int main(void)
     nerrors += LIBXS_DELTA(npool, (int)num);
   }
   else ++nerrors;
+
+  if (0 == nerrors) {
+    const int max_nthreads = 1, max_nactive = 1;
+    const int nrep_eviction = LIBXS_MALLOC_EVICTWARMUP + 4;
+    const size_t nbytes = (size_t)LIBXS_MALLOC_EVICTSIZE + LIBXS_MALLOC_UPSIZE;
+    size_t prev_nmallocs = 0;
+    int saw_eviction = 0;
+
+    libxs_malloc_pool(max_nthreads, max_nactive);
+    for (i = 0; i < nrep_eviction; ++i) {
+      libxs_malloc_pool_info_t pinfo;
+      libxs_malloc_info_t minfo;
+      void *const p = libxs_malloc(nbytes, 0/*auto*/);
+      if (NULL != p) {
+        memset(p, 0xA5, LIBXS_MIN(nbytes, (size_t)4096));
+      }
+      else {
+        ++nerrors; break;
+      }
+      if (EXIT_SUCCESS != libxs_malloc_info(p, &minfo) || minfo.size < nbytes) {
+        ++nerrors; break;
+      }
+      if (EXIT_SUCCESS != libxs_malloc_pool_info(&pinfo) || prev_nmallocs > pinfo.nmallocs) {
+        ++nerrors; break;
+      }
+      prev_nmallocs = pinfo.nmallocs;
+      libxs_free(p);
+      if (EXIT_SUCCESS != libxs_malloc_pool_info(&pinfo)) {
+        ++nerrors; break;
+      }
+      if ((size_t)(max_nthreads * max_nactive) * LIBXS_MALLOC_EVICTWARMUP <= pinfo.nmallocs
+        && pinfo.size < nbytes)
+      {
+        saw_eviction = 1;
+      }
+    }
+    nerrors += (0 == prev_nmallocs);
+    LIBXS_UNUSED(saw_eviction);
+    libxs_free_pool();
+  }
 
   if (0 == nerrors) {
     return EXIT_SUCCESS;
