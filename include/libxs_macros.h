@@ -537,6 +537,9 @@
 # define LIBXS_OPENMP_COLLAPSE(N)
 #endif
 
+/** Calculate the (transposed) linear offset aka index for a buffer with a leading dimension. */
+#define LIBXS_INDEX(TRANS, LD, I, J) (0 != (TRANS) ? ((size_t)(LD) * (I) + (J)) : ((size_t)(LD) * (J) + (I)))
+
 /** LIBXS_UP2POT rounds up to the next power of two (POT). */
 #define LIBXS_UP2POT_01(N) ((N) | ((N) >> 1))
 #define LIBXS_UP2POT_02(N) (LIBXS_UP2POT_01(N) | (LIBXS_UP2POT_01(N) >> 2))
