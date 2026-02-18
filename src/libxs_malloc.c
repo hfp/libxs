@@ -141,19 +141,24 @@ LIBXS_API void* libxs_malloc(size_t size, size_t alignment)
     LIBXS_ASSERT(NULL != chunk);
     if (NULL != chunk->pointer) {
       if (chunk->size < size) {
-#if defined(LIBXS_MALLOC_EVICT)
-        const size_t old_size = chunk->size;
-#endif
         char *const pointer = realloc(chunk->pointer, size + alignpot - 1);
-        result = LIBXS_ALIGN(pointer, alignpot);
-        info = (void**)((uintptr_t)result - sizeof(void*));
-        chunk->pointer = pointer;
-        chunk->size = size;
-        ++chunk->nmallocs;
+        if (NULL != pointer) {
 #if defined(LIBXS_MALLOC_EVICT)
-        LIBXS_ATOMIC(LIBXS_ATOMIC_ADD_FETCH, LIBXS_BITS)(&internal_malloc_pool_bytes, size - old_size, LIBXS_ATOMIC_SEQ_CST);
+          const size_t old_size = chunk->size;
 #endif
-        *info = chunk;
+          result = LIBXS_ALIGN(pointer, alignpot);
+          info = (void**)((uintptr_t)result - sizeof(void*));
+          chunk->pointer = pointer;
+          chunk->size = size;
+          ++chunk->nmallocs;
+#if defined(LIBXS_MALLOC_EVICT)
+          LIBXS_ATOMIC(LIBXS_ATOMIC_ADD_FETCH, LIBXS_BITS)(&internal_malloc_pool_bytes, size - old_size, LIBXS_ATOMIC_SEQ_CST);
+#endif
+          *info = chunk;
+        }
+        else { /* realloc failed: original pointer intact, return chunk to pool */
+          libxs_pfree(chunk, (void**)internal_malloc_pool, &internal_malloc_pool_num);
+        }
       }
       else { /* reuse */
         result = LIBXS_ALIGN(chunk->pointer, alignpot);
@@ -161,16 +166,21 @@ LIBXS_API void* libxs_malloc(size_t size, size_t alignment)
     }
     else {
       char *const pointer = malloc(size + alignpot - 1);
-      result = LIBXS_ALIGN(pointer, alignpot);
-      info = (void**)((uintptr_t)result - sizeof(void*));
-      LIBXS_ASSERT(0 == chunk->size);
-      chunk->pointer = pointer;
-      chunk->size = size;
-      ++chunk->nmallocs;
+      if (NULL != pointer) {
+        result = LIBXS_ALIGN(pointer, alignpot);
+        info = (void**)((uintptr_t)result - sizeof(void*));
+        LIBXS_ASSERT(0 == chunk->size);
+        chunk->pointer = pointer;
+        chunk->size = size;
+        ++chunk->nmallocs;
 #if defined(LIBXS_MALLOC_EVICT)
-      LIBXS_ATOMIC(LIBXS_ATOMIC_ADD_FETCH, LIBXS_BITS)(&internal_malloc_pool_bytes, size, LIBXS_ATOMIC_SEQ_CST);
+        LIBXS_ATOMIC(LIBXS_ATOMIC_ADD_FETCH, LIBXS_BITS)(&internal_malloc_pool_bytes, size, LIBXS_ATOMIC_SEQ_CST);
 #endif
-      *info = chunk;
+        *info = chunk;
+      }
+      else { /* malloc failed: return empty chunk to pool */
+        libxs_pfree(chunk, (void**)internal_malloc_pool, &internal_malloc_pool_num);
+      }
     }
   }
   return result;
