@@ -47,7 +47,7 @@ LIBXS_APIVAR_DEFINE(int (*internal_memcmp_function)(const void*, const void*, si
 #endif
 
 
-LIBXS_API size_t libxs_offset(const size_t offset[], const size_t shape[], size_t ndims, size_t* size)
+LIBXS_API size_t libxs_offset(size_t ndims, const size_t offset[], const size_t shape[], size_t* size)
 {
   size_t result = 0, size1 = 0;
   if (0 != ndims && NULL != shape) {

@@ -627,10 +627,10 @@ LIBXS_API int libxs_mhd_read(const char filename[],
   if (NULL != file) {
     size_t pitch1 = 0, size1 = 0;
     const size_t *const shape = (NULL != pitch ? pitch : size);
-    const size_t offset1 = libxs_offset(offset, shape, ndims, &pitch1);
+    const size_t offset1 = libxs_offset(ndims, offset, shape, &pitch1);
     const size_t typesize = libxs_mhd_typesize(datatype);
     size_t i;
-    LIBXS_EXPECT(0 == libxs_offset(NULL, size, ndims, &size1));
+    LIBXS_EXPECT(0 == libxs_offset(ndims, NULL, size, &size1));
     result = ((offset1 + size1) <= pitch1 ? EXIT_SUCCESS : EXIT_FAILURE);
     /* check that size is less-equal than pitch */
     if (EXIT_SUCCESS == result) {
@@ -821,11 +821,11 @@ LIBXS_API int libxs_mhd_write(const char filename[],
     {
       size_t pitch1 = 0, size1 = 0;
       const size_t* const shape = (NULL != pitch ? pitch : size);
-      const size_t offset1 = libxs_offset(offset, shape, ndims, &pitch1);
+      const size_t offset1 = libxs_offset(ndims, offset, shape, &pitch1);
       const char *const input = ((const char*)data) + offset1 * ncomponents * typesize_data;
       const long file_position = ftell(file); /* determine the header size */
       char minmax[2*(LIBXS_MHD_MAX_ELEMSIZE)] = { 0 };
-      LIBXS_EXPECT(0 == libxs_offset(NULL, size, ndims, &size1));
+      LIBXS_EXPECT(0 == libxs_offset(ndims, NULL, size, &size1));
       result = ((0 <= file_position && (offset1 + size1) <= pitch1) ? EXIT_SUCCESS : EXIT_FAILURE);
       if (EXIT_SUCCESS == result && (NULL != handler /* slow-path */
         || (type_data != elemtype && LIBXS_MHD_ELEMENT_CONVERSION_DEFAULT == handler_info->hint)))

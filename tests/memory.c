@@ -97,10 +97,10 @@ int main(int argc, char* argv[])
     const size_t shape[] = { 17, 13, 64, 4 }, ndims = sizeof(shape) / sizeof(*shape);
     size_t size1 = 0, n;
     for (n = 0; n < ndims && EXIT_SUCCESS == result; ++n) {
-      if (0 != libxs_offset(NULL, shape, n, NULL)) result = EXIT_FAILURE;
+      if (0 != libxs_offset(n, NULL, shape, NULL)) result = EXIT_FAILURE;
     }
     for (n = 0; n < ndims && EXIT_SUCCESS == result; ++n) {
-      const size_t offset1 = libxs_offset(shape, shape, n, &size1);
+      const size_t offset1 = libxs_offset(n, shape, shape, &size1);
       if (offset1 != size1) result = EXIT_FAILURE;
     }
   }

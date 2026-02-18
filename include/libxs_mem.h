@@ -58,7 +58,7 @@
  * Calculate the linear offset of the n-dimensional (ndims) offset (can be NULL),
  * and the (optional) linear size of the corresponding shape.
  */
-LIBXS_API size_t libxs_offset(const size_t offset[], const size_t shape[], size_t ndims, size_t* size);
+LIBXS_API size_t libxs_offset(size_t ndims, const size_t offset[], const size_t shape[], size_t* size);
 
 /**
  * Check if pointer is SIMD-aligned and optionally consider the next access (increment in Bytes).
