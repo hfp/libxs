@@ -84,9 +84,9 @@ int main(int argc, char* argv[])
   for (i = 0; i < ncycles; ++i) {
     const int count = r[i%(MAX_MALLOC_N)] % max_nactive + 1;
     void* p[MAX_MALLOC_N];
-    int j;
+    int j = 0;
     assert(count <= max_nactive);
-    for (j = 0; j < count; ++j) {
+    for (; j < count; ++j) {
       const int k = (i * count + j) % (MAX_MALLOC_N);
       const size_t nbytes = ((size_t)r[k] % (MAX_MALLOC_MB) + 1) << 20;
       const libxs_timer_tick_t t1 = libxs_timer_tick();

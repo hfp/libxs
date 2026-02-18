@@ -80,7 +80,12 @@ int main(void)
     for (i = 0; i < nrep_eviction; ++i) {
       libxs_malloc_pool_info_t pinfo;
       libxs_malloc_info_t minfo;
-      void *const p = libxs_malloc(nbytes, 0/*auto*/);
+      void *p = NULL;
+
+      p = libxs_malloc(0/*nbytes*/, 0/*auto*/);
+      libxs_free(p);
+
+      p = libxs_malloc(nbytes, 0/*auto*/);
       if (NULL != p) {
         memset(p, 0xA5, LIBXS_MIN(nbytes, (size_t)4096));
       }
