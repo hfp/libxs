@@ -150,8 +150,8 @@ LIBXS_API_INLINE void preprocess_rows(const GEMM_REAL_TYPE* a, const GEMM_INT_TY
     for (kk = 0; kk < BLOCK_K; ++kk) {
       const GEMM_INT_TYPE p = kb + kk;
       const double aval = (row < M && p < K) ? a[LIBXS_INDEX(ta, lda, row, p)] : 0.0;
-      int16_t e;
       int8_t digits[NSLICES];
+      int16_t e;
       ozaki_decompose(aval, &e, digits);
       rescale_digits(am[mi][kk], digits, (int)e - (int)row_max_exp);
     }
@@ -192,8 +192,8 @@ LIBXS_API_INLINE void preprocess_cols(const GEMM_REAL_TYPE* b, const GEMM_INT_TY
     for (nj = 0; nj < BLOCK_N; ++nj) {
       const GEMM_INT_TYPE col = jb + nj;
       const double bval = (p < K && col < N) ? b[LIBXS_INDEX(tb, ldb, p, col)] : 0.0;
-      int16_t e;
       int8_t digits[NSLICES];
+      int16_t e;
       ozaki_decompose(bval, &e, digits);
       rescale_digits(bm[kk][nj], digits, (int)e - (int)col_max_exp[nj]);
     }
@@ -215,8 +215,8 @@ LIBXS_API_INLINE void gemm_oz1_diff(const char* transa, const char* transb,
   int16_t expa_row[BLOCK_M];
   int16_t expb_col[BLOCK_N];
   int8_t slice_low_bit[NSLICES];
-  int32_t acc[BLOCK_M][BLOCK_N];
   const GEMM_INT_TYPE M = *m, N = *n, K = *k;
+  const GEMM_INT_TYPE ldcv = *ldc;
   GEMM_INT_TYPE jb, ib, kb, mi, nj, kk;
   int slice_a, slice_b;
   LIBXS_ASSERT(LIBXS_DATATYPE_F64 == LIBXS_DATATYPE(GEMM_REAL_TYPE));
@@ -232,7 +232,13 @@ LIBXS_API_INLINE void gemm_oz1_diff(const char* transa, const char* transb,
 
     for (ib = 0; ib < M; ib += BLOCK_M) {
       const GEMM_INT_TYPE iblk = LIBXS_MIN(BLOCK_M, M - ib);
-      memset(acc, 0, sizeof(acc));
+      GEMM_REAL_TYPE *const mb = c + jb * ldcv + ib;
+
+      for (mi = 0; mi < iblk; ++mi) {
+        for (nj = 0; nj < jblk; ++nj) {
+          mb[mi + nj * ldcv] *= (*beta);
+        }
+      }
 
       for (kb = 0; kb < K; kb += BLOCK_K) {
         const GEMM_INT_TYPE kblk = LIBXS_MIN(BLOCK_K, K - kb);
@@ -248,54 +254,27 @@ LIBXS_API_INLINE void gemm_oz1_diff(const char* transa, const char* transb,
                   const int16_t a_digit = (int16_t)am[mi][kk][slice_a];
                   const int16_t b_digit = (int16_t)bm[kk][nj][slice_b];
 
-                  if (a_digit | b_digit) {
+                  if (0 != a_digit && 0 != b_digit) { /* omit zero */
                     const int exp_term = (int)expa_row[mi] + (int)expb_col[nj] - 2150 + slice_low_bit[slice_a] + slice_low_bit[slice_b];
-                    int64_t contrib = (int64_t)a_digit * (int64_t)b_digit;
+                    int sh = exp_term;
+                    double contrib = (double)((int64_t)a_digit * (int64_t)b_digit);
 
-                    if (exp_term >= 0) {
-                      if (exp_term >= 31) {
-                        contrib = (contrib >= 0) ? INT32_MAX : INT32_MIN;
-                      }
-                      else {
-                        contrib = contrib << exp_term;
-                      }
+                    /* clamp shift to avoid undefined behavior or 1ULL overflow */
+                    if (sh > 60) sh = 60; else if (sh < -60) sh = -60;
+                    if (sh >= 0) {
+                      contrib *= (double)(1ULL << sh);
                     }
                     else {
-                      const int sh = -exp_term;
-                      if (sh >= 31) {
-                        contrib = 0; /* shifted out */
-                      }
-                      else {
-                        contrib = contrib >> sh;
-                      }
+                      contrib /= (double)(1ULL << (-sh));
                     }
 
-                    {
-                      const int64_t sum = (int64_t)acc[mi][nj] + contrib;
-                      if (sum > INT32_MAX) {
-                        acc[mi][nj] = INT32_MAX;
-                      }
-                      else if (sum < INT32_MIN) {
-                        acc[mi][nj] = INT32_MIN;
-                      }
-                      else {
-                        acc[mi][nj] = (int32_t)sum;
-                      }
-                    }
+                    /* accumulate contribution */
+                    mb[mi + nj * ldcv] += (*alpha) * (GEMM_REAL_TYPE)contrib;
                   }
                 }
               }
             }
           }
-        }
-      }
-
-      for (mi = 0; mi < iblk; ++mi) {
-        const GEMM_INT_TYPE row = ib + mi;
-        for (nj = 0; nj < jblk; ++nj) {
-          const GEMM_INT_TYPE col = jb + nj;
-          const GEMM_INT_TYPE idx = row + col * (*ldc);
-          c[idx] = (*beta) * c[idx] + (*alpha) * (GEMM_REAL_TYPE)acc[mi][nj];
         }
       }
     }
