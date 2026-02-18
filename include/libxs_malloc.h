@@ -43,7 +43,7 @@ LIBXS_API int libxs_malloc_info(const void* pointer, libxs_malloc_info_t* info);
 
 /** Allocate a pool for libxs_malloc (shall be called before libxs_malloc). */
 LIBXS_API void libxs_malloc_pool(int max_nthreads, int max_nactive);
-/** Free the entire pool (libxs_malloc_pool). */
+/** Free unused memory (libxs_malloc_pool). */
 LIBXS_API void libxs_free_pool(void);
 
 /** Information about pooled memory. */
