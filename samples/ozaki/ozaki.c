@@ -277,8 +277,6 @@ LIBXS_API_INLINE void gemm_oz1_diff(const char* transa, const char* transb,
   const GEMM_REAL_TYPE*  beta, GEMM_REAL_TYPE* c, const GEMM_INT_TYPE* ldc,
   unsigned int diff_abc, libxs_matdiff_info_t* diff)
 {
-  int8_t am[BLOCK_M][BLOCK_K][NSLICES], bm[BLOCK_K][BLOCK_N][NSLICES];
-  int16_t expa_row[BLOCK_M], expb_col[BLOCK_N];
   int8_t slice_low_bit[NSLICES];
   enum {
     BLOCK_MN = BLOCK_M * BLOCK_N,
@@ -286,170 +284,190 @@ LIBXS_API_INLINE void gemm_oz1_diff(const char* transa, const char* transb,
     BLOCK_KN = BLOCK_K * BLOCK_N,
     BLOCK_MNK = LIBXS_MAX(LIBXS_MAX(BLOCK_MN, BLOCK_MK), BLOCK_KN)
   };
-  GEMM_REAL_TYPE ref_blk[BLOCK_MNK], recon_blk[BLOCK_MNK];
   const int ta = (*transa != 'N' && *transa != 'n');
   const int tb = (*transb != 'N' && *transb != 'n');
   const GEMM_INT_TYPE M = *m, N = *n, K = *k;
   const GEMM_INT_TYPE ldcv = *ldc;
-  GEMM_INT_TYPE jb, ib, kb, mi, nj, kk;
-  int slice_a, slice_b;
+  GEMM_INT_TYPE jb, ib;
+  int s;
   LIBXS_ASSERT(LIBXS_DATATYPE_F64 == LIBXS_DATATYPE(GEMM_REAL_TYPE));
 
-  for (slice_a = 0; slice_a < NSLICES; ++slice_a) {
-    const int high = 52 - (7 * slice_a);
+  for (s = 0; s < NSLICES; ++s) {
+    const int high = 52 - (7 * s);
     const int low = (high >= 0) ? (high - 6) : 0;
-    slice_low_bit[slice_a] = (low > 0 ? low : 0);
+    slice_low_bit[s] = (low > 0 ? low : 0);
   }
 
-  for (jb = 0; jb < N; jb += BLOCK_N) {
-    const GEMM_INT_TYPE jblk = LIBXS_MIN(BLOCK_N, N - jb);
+#if defined(_OPENMP)
+# pragma omp parallel if(NULL == diff)
+#endif
+  { int8_t am[BLOCK_M][BLOCK_K][NSLICES], bm[BLOCK_K][BLOCK_N][NSLICES];
+    int16_t expa_row[BLOCK_M], expb_col[BLOCK_N];
+    GEMM_REAL_TYPE ref_blk[BLOCK_MNK], recon_blk[BLOCK_MNK];
+    GEMM_INT_TYPE kb, mi, nj, kk;
+    int slice_a, slice_b;
 
-    for (ib = 0; ib < M; ib += BLOCK_M) {
-      const GEMM_INT_TYPE iblk = LIBXS_MIN(BLOCK_M, M - ib);
-      GEMM_REAL_TYPE *const mb = c + jb * ldcv + ib;
+#if defined(_OPENMP)
+#   pragma omp for LIBXS_OPENMP_COLLAPSE(2) schedule(dynamic)
+#endif
+    for (jb = 0; jb < N; jb += BLOCK_N) {
+      for (ib = 0; ib < M; ib += BLOCK_M) {
+        const GEMM_INT_TYPE iblk = LIBXS_MIN(BLOCK_M, M - ib);
+        const GEMM_INT_TYPE jblk = LIBXS_MIN(BLOCK_N, N - jb);
+        GEMM_REAL_TYPE *const mb = c + jb * ldcv + ib;
 
-      scale_block_beta(mb, ldcv, iblk, jblk, beta, ref_blk, (NULL != diff && 0 == (diff_abc % 3)));
+        scale_block_beta(mb, ldcv, iblk, jblk, beta, ref_blk, (NULL != diff && 0 == (diff_abc % 3)));
 
-      for (kb = 0; kb < K; kb += BLOCK_K) {
-        const GEMM_INT_TYPE kblk = LIBXS_MIN(BLOCK_K, K - kb);
+        for (kb = 0; kb < K; kb += BLOCK_K) {
+          const GEMM_INT_TYPE kblk = LIBXS_MIN(BLOCK_K, K - kb);
 
-        preprocess_rows(a, *lda, ta, M, K, ib, kb, iblk, kblk, expa_row, am);
-        preprocess_cols(b, *ldb, tb, N, K, jb, kb, jblk, kblk, expb_col, bm);
+          preprocess_rows(a, *lda, ta, M, K, ib, kb, iblk, kblk, expa_row, am);
+          preprocess_cols(b, *ldb, tb, N, K, jb, kb, jblk, kblk, expb_col, bm);
 
-        /* Track differences between original A block and reconstructed digits */
-        if (NULL != diff && 1 == (diff_abc % 3)) {
-          for (mi = 0; mi < iblk; ++mi) {
-            const GEMM_INT_TYPE row = ib + mi;
-            for (kk = 0; kk < kblk; ++kk) {
-              const GEMM_INT_TYPE p = kb + kk;
-              const double aval = (row < M && p < K) ? a[LIBXS_INDEX(ta, *lda, row, p)] : 0.0;
-              const int exp_base = (int)expa_row[mi] - 1075;
-              const double arecon = reconstruct_from_digits(am[mi][kk], exp_base, slice_low_bit);
+          /* Track differences between original A block and reconstructed digits */
+          if (NULL != diff && 1 == (diff_abc % 3)) {
+#if defined(_OPENMP)
+#           pragma omp critical
+#endif
+            { for (mi = 0; mi < iblk; ++mi) {
+                const GEMM_INT_TYPE row = ib + mi;
+                for (kk = 0; kk < kblk; ++kk) {
+                  const GEMM_INT_TYPE p = kb + kk;
+                  const double aval = (row < M && p < K) ? a[LIBXS_INDEX(ta, *lda, row, p)] : 0.0;
+                  const int exp_base = (int)expa_row[mi] - 1075;
+                  const double arecon = reconstruct_from_digits(am[mi][kk], exp_base, slice_low_bit);
 
-              store_block_pair(ref_blk, recon_blk, BLOCK_M, mi, kk,
-                (GEMM_REAL_TYPE)aval, (GEMM_REAL_TYPE)arecon);
+                  store_block_pair(ref_blk, recon_blk, BLOCK_M, mi, kk,
+                    (GEMM_REAL_TYPE)aval, (GEMM_REAL_TYPE)arecon);
+                }
+              }
+              accumulate_block_diff(diff, ref_blk, recon_blk, iblk, kblk, BLOCK_M, BLOCK_M);
             }
           }
 
-          accumulate_block_diff(diff, ref_blk, recon_blk, iblk, kblk, BLOCK_M, BLOCK_M);
-        }
+          /* Track differences between original B block and reconstructed digits */
+          if (NULL != diff && 2 == (diff_abc % 3)) {
+#if defined(_OPENMP)
+#           pragma omp critical
+#endif
+            { for (kk = 0; kk < kblk; ++kk) {
+                const GEMM_INT_TYPE p = kb + kk;
+                for (nj = 0; nj < jblk; ++nj) {
+                  const GEMM_INT_TYPE col = jb + nj;
+                  const double bval = (p < K && col < N) ? b[LIBXS_INDEX(tb, *ldb, p, col)] : 0.0;
+                  const int exp_base = (int)expb_col[nj] - 1075;
+                  const double brecon = reconstruct_from_digits(bm[kk][nj], exp_base, slice_low_bit);
 
-        /* Track differences between original B block and reconstructed digits */
-        if (NULL != diff && 2 == (diff_abc % 3)) {
-          for (kk = 0; kk < kblk; ++kk) {
-            const GEMM_INT_TYPE p = kb + kk;
-            for (nj = 0; nj < jblk; ++nj) {
-              const GEMM_INT_TYPE col = jb + nj;
-              const double bval = (p < K && col < N) ? b[LIBXS_INDEX(tb, *ldb, p, col)] : 0.0;
-              const int exp_base = (int)expb_col[nj] - 1075;
-              const double brecon = reconstruct_from_digits(bm[kk][nj], exp_base, slice_low_bit);
-
-              store_block_pair(ref_blk, recon_blk, BLOCK_K, kk, nj,
-                (GEMM_REAL_TYPE)bval, (GEMM_REAL_TYPE)brecon);
+                  store_block_pair(ref_blk, recon_blk, BLOCK_K, kk, nj,
+                    (GEMM_REAL_TYPE)bval, (GEMM_REAL_TYPE)brecon);
+                }
+              }
+              accumulate_block_diff(diff, ref_blk, recon_blk, kblk, jblk, BLOCK_K, BLOCK_K);
             }
           }
-
-          accumulate_block_diff(diff, ref_blk, recon_blk, kblk, jblk, BLOCK_K, BLOCK_K);
-        }
 
 #if defined(TRIM_FORWARD)
-        for (slice_a = 0; slice_a < NSLICES / 2; ++slice_a) {
+          for (slice_a = 0; slice_a < NSLICES / 2; ++slice_a) {
 #else
-        for (slice_a = 0; slice_a < NSLICES; ++slice_a) {
+          for (slice_a = 0; slice_a < NSLICES; ++slice_a) {
 #endif
 #if defined(TRIANGULAR)
-          slice_b = slice_a;
+            slice_b = slice_a;
 #else
-          slice_b = 0;
+            slice_b = 0;
 #endif
-          for (; slice_b < NSLICES; ++slice_b) {
-            const int low_bit_sum = (int)slice_low_bit[slice_a] + slice_low_bit[slice_b];
+            for (; slice_b < NSLICES; ++slice_b) {
+              const int low_bit_sum = (int)slice_low_bit[slice_a] + slice_low_bit[slice_b];
 #if defined(SYMMETRIZE)
-            /* Double off-diagonal terms whose mirror (sb,sa) is not explicitly
-             * computed. When REVERSE_PASS is also active, the mirror IS
-             * recovered when: sb >= S/2 && sa <= S-1-sb, so skip doubling. */
-            const double sym_alpha = (*alpha) * ((slice_a != slice_b
+              /* Double off-diagonal terms whose mirror (sb,sa) is not explicitly
+               * computed. When REVERSE_PASS is also active, the mirror IS
+               * recovered when: sb >= S/2 && sa <= S-1-sb, so skip doubling. */
+              const double sym_alpha = (*alpha) * ((slice_a != slice_b
 # if defined(REVERSE_PASS)
-              && !(slice_b >= NSLICES / 2 && slice_a <= NSLICES - 1 - slice_b)
+                && !(slice_b >= NSLICES / 2 && slice_a <= NSLICES - 1 - slice_b)
 # endif
-              ) ? 2.0 : 1.0);
+                ) ? 2.0 : 1.0);
 #else
-            const double sym_alpha = (*alpha);
+              const double sym_alpha = (*alpha);
 #endif
-            for (mi = 0; mi < iblk; ++mi) {
-              for (nj = 0; nj < jblk; ++nj) {
-                int32_t dot = 0;
-                for (kk = 0; kk < kblk; ++kk) {
-                  dot += (int32_t)am[mi][kk][slice_a] * (int32_t)bm[kk][nj][slice_b];
-                }
-                if (0 != dot) {
-                  int sh = (int)expa_row[mi] + (int)expb_col[nj] - 2150 + low_bit_sum;
-                  double contrib = sym_alpha * (double)dot;
-                  if (sh > 60) sh = 60; else if (sh < -60) sh = -60;
-                  if (sh >= 0) {
-                    contrib *= (double)(1ULL << sh);
+              for (mi = 0; mi < iblk; ++mi) {
+                for (nj = 0; nj < jblk; ++nj) {
+                  int32_t dot = 0;
+                  for (kk = 0; kk < kblk; ++kk) {
+                    dot += (int32_t)am[mi][kk][slice_a] * (int32_t)bm[kk][nj][slice_b];
                   }
-                  else {
-                    contrib /= (double)(1ULL << (-sh));
+                  if (0 != dot) {
+                    int sh = (int)expa_row[mi] + (int)expb_col[nj] - 2150 + low_bit_sum;
+                    double contrib = sym_alpha * (double)dot;
+                    if (sh > 60) sh = 60; else if (sh < -60) sh = -60;
+                    if (sh >= 0) {
+                      contrib *= (double)(1ULL << sh);
+                    }
+                    else {
+                      contrib /= (double)(1ULL << (-sh));
+                    }
+                    mb[mi + nj * ldcv] += (GEMM_REAL_TYPE)contrib;
                   }
-                  mb[mi + nj * ldcv] += (GEMM_REAL_TYPE)contrib;
                 }
               }
             }
           }
-        }
 #if defined(REVERSE_PASS)
-        /* Reverse pass: explicitly recover the most significant lower-triangle
-         * terms (slice_a >= S/2, slice_b from S-1-slice_a downward). These are
-         * the dropped terms with the largest exponents (small slice_b index
-         * paired with large slice_a index). */
-        for (slice_a = NSLICES / 2; slice_a < NSLICES; ++slice_a) {
-          for (slice_b = NSLICES - 1 - slice_a; slice_b >= 0; --slice_b) {
-            const int low_bit_sum = (int)slice_low_bit[slice_a] + slice_low_bit[slice_b];
-            for (mi = 0; mi < iblk; ++mi) {
-              for (nj = 0; nj < jblk; ++nj) {
-                int32_t dot = 0;
-                for (kk = 0; kk < kblk; ++kk) {
-                  dot += (int32_t)am[mi][kk][slice_a] * (int32_t)bm[kk][nj][slice_b];
-                }
-                if (0 != dot) {
-                  int sh = (int)expa_row[mi] + (int)expb_col[nj] - 2150 + low_bit_sum;
-                  double contrib = (*alpha) * (double)dot;
-                  if (sh > 60) sh = 60; else if (sh < -60) sh = -60;
-                  if (sh >= 0) {
-                    contrib *= (double)(1ULL << sh);
+          /* Reverse pass: explicitly recover the most significant lower-triangle
+           * terms (slice_a >= S/2, slice_b from S-1-slice_a downward). These are
+           * the dropped terms with the largest exponents (small slice_b index
+           * paired with large slice_a index). */
+          for (slice_a = NSLICES / 2; slice_a < NSLICES; ++slice_a) {
+            for (slice_b = NSLICES - 1 - slice_a; slice_b >= 0; --slice_b) {
+              const int low_bit_sum = (int)slice_low_bit[slice_a] + slice_low_bit[slice_b];
+              for (mi = 0; mi < iblk; ++mi) {
+                for (nj = 0; nj < jblk; ++nj) {
+                  int32_t dot = 0;
+                  for (kk = 0; kk < kblk; ++kk) {
+                    dot += (int32_t)am[mi][kk][slice_a] * (int32_t)bm[kk][nj][slice_b];
                   }
-                  else {
-                    contrib /= (double)(1ULL << (-sh));
+                  if (0 != dot) {
+                    int sh = (int)expa_row[mi] + (int)expb_col[nj] - 2150 + low_bit_sum;
+                    double contrib = (*alpha) * (double)dot;
+                    if (sh > 60) sh = 60; else if (sh < -60) sh = -60;
+                    if (sh >= 0) {
+                      contrib *= (double)(1ULL << sh);
+                    }
+                    else {
+                      contrib /= (double)(1ULL << (-sh));
+                    }
+                    mb[mi + nj * ldcv] += (GEMM_REAL_TYPE)contrib;
                   }
-                  mb[mi + nj * ldcv] += (GEMM_REAL_TYPE)contrib;
                 }
               }
             }
           }
-        }
 #endif
-      }
-
-      /* compute reference GEMM on the saved block and accumulate diff */
-      if (NULL != diff && 0 == (diff_abc % 3)) {
-        const GEMM_INT_TYPE mref = BLOCK_M;
-
-        if (NULL != gemm_original) {
-          gemm_original(transa, transb, &iblk, &jblk, &K, alpha,
-            a + LIBXS_INDEX(ta, *lda, ib, 0), lda,
-            b + LIBXS_INDEX(tb, *ldb, 0, jb), ldb, beta, ref_blk, &mref);
-        }
-        else {
-          GEMM_REAL(transa, transb, &iblk, &jblk, &K, alpha,
-            a + LIBXS_INDEX(ta, *lda, ib, 0), lda,
-            b + LIBXS_INDEX(tb, *ldb, 0, jb), ldb, beta, ref_blk, &mref);
         }
 
-        accumulate_block_diff(diff, ref_blk, mb, iblk, jblk, mref, ldcv);
+        /* compute reference GEMM on the saved block and accumulate diff */
+        if (NULL != diff && 0 == (diff_abc % 3)) {
+          const GEMM_INT_TYPE mref = BLOCK_M;
+
+#if defined(_OPENMP)
+#         pragma omp critical
+#endif
+          { if (NULL != gemm_original) {
+              gemm_original(transa, transb, &iblk, &jblk, &K, alpha,
+                a + LIBXS_INDEX(ta, *lda, ib, 0), lda,
+                b + LIBXS_INDEX(tb, *ldb, 0, jb), ldb, beta, ref_blk, &mref);
+            }
+            else {
+              GEMM_REAL(transa, transb, &iblk, &jblk, &K, alpha,
+                a + LIBXS_INDEX(ta, *lda, ib, 0), lda,
+                b + LIBXS_INDEX(tb, *ldb, 0, jb), ldb, beta, ref_blk, &mref);
+            }
+            accumulate_block_diff(diff, ref_blk, mb, iblk, jblk, mref, ldcv);
+          }
+        }
       }
-    }
-  }
+    } /* end parallel for */
+  } /* end parallel */
 }
 
 
