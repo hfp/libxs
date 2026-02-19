@@ -267,7 +267,7 @@ winterface: headers sources
 .PHONY: config
 config: $(INCDIR)/libxs_version.h
 
-$(INCDIR)/libxs_version.h: $(INCDIR)/.make $(ROOTSCR)/libxs_version.sh
+$(INCDIR)/libxs_version.h: $(INCDIR)/.make $(DIRSTATE)/.state $(ROOTSCR)/libxs_version.sh
 	$(information)
 	$(info --- LIBXS build log)
 	@$(CP) -r $(ROOTSCR) . 2>/dev/null || true
