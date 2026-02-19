@@ -506,8 +506,8 @@ endif
 FORTRAN ?= 2
 
 ifeq (,$(strip $(FC)))
+  FC_VERSION_NUM := 0
   ifeq (0,$(FORTRAN))
-    FC_VERSION_NUM := 0
     FC_VERSION := $(NULL)
   else # keep FC_VERSION for message about outdated compiler
     FORTRAN := 0
