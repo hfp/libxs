@@ -32,9 +32,6 @@
 #if !defined(LIBXS_MALLOC_SEARCH) && 1
 # define LIBXS_MALLOC_SEARCH
 #endif
-#if !defined(LIBXS_MALLOC_PRUNE) && 0
-# define LIBXS_MALLOC_PRUNE
-#endif
 
 
 typedef struct internal_malloc_chunk_t {
@@ -57,16 +54,10 @@ LIBXS_APIVAR_DEFINE(size_t internal_malloc_pool_bytes);
 LIBXS_API void libxs_pmalloc_init(size_t size, size_t* num, void* pool[], void* storage)
 {
   char *p = (char*)storage;
-  volatile int *lock;
-  unsigned int hash;
   size_t n, i = 0;
   LIBXS_ASSERT(0 < size && NULL != num && NULL != pool && NULL != storage);
   libxs_hash_init(libxs_cpuid(NULL)); /* CRC-facility must be initialized upfront */
-  hash = LIBXS_CRCPTR(LIBXS_MALLOC_SEED, pool);
-  lock = internal_malloc_plocks + LIBXS_MOD2(hash, LIBXS_MALLOC_NLOCKS);
-  LIBXS_ATOMIC_ACQUIRE(lock, LIBXS_SYNC_NPAUSE, LIBXS_ATOMIC_SEQ_CST);
   for (n = *num; i < n; ++i, p += size) pool[i] = p;
-  LIBXS_ATOMIC_RELEASE(lock, LIBXS_ATOMIC_SEQ_CST);
 }
 
 
@@ -124,12 +115,7 @@ LIBXS_API void* libxs_malloc(size_t size, size_t alignment)
     } while (++i < internal_malloc_pool_num);
     { /* allocate slot and eventually reuse */
       internal_malloc_chunk_t **const alloc = internal_malloc_pool + --internal_malloc_pool_num;
-      if (hit != alloc && NULL != hit && (
-# if defined(LIBXS_MALLOC_PRUNE)
-        (*hit)->nmallocs < (*alloc)->nmallocs ||
-# endif
-        size <= (*hit)->size))
-      {
+      if (hit != alloc && NULL != hit && size <= (*hit)->size) {
         LIBXS_VALUE_SWAP(*alloc, *hit);
       }
       chunk = *alloc;
