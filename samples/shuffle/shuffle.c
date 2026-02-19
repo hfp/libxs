@@ -54,13 +54,13 @@ int main(int argc, char* argv[])
   const int insize = (2 < argc ? atoi(argv[2]) : 0);
   const int niters = (3 < argc ? atoi(argv[3]) : 1);
   const int repeat = (4 < argc ? atoi(argv[4]) : 3);
-  const int elsize = (0 >= insize ? 4 : insize);
   const int random = (NULL == getenv("RANDOM")
     ? 0 : atoi(getenv("RANDOM")));
   const int split = (NULL == getenv("SPLIT")
     ? 1 : atoi(getenv("SPLIT")));
   const int stats = (NULL == getenv("STATS")
     ? 0 : atoi(getenv("STATS")));
+  const size_t elsize = (0 >= insize ? 4 : insize);
   const size_t m = (0 <= niters ? niters : 1);
   const size_t n = (0 >= nelems
     ? (((size_t)64 << 20/*64 MB*/) / elsize)
