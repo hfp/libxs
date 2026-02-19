@@ -67,7 +67,7 @@ int main(int argc, char* argv[])
     for (i = 0; i < ncalls; ++i) {
       GEMM(&transa, &transb, &m, &n, &k, &alpha, a, &lda, b, &ldb, &beta, c, &ldc);
     }
-    printf("Called %i times (%f s per call).\n", nrepeat,
+    printf("Called %i times (%f s/call).\n", nrepeat,
       libxs_timer_duration(start, libxs_timer_tick()) / ncalls);
   }
 
