@@ -35,7 +35,7 @@ TESTS_NEEDBLAS_GREP=$(${SED} <<<"${TESTS_NEEDBLAS}" "s/[[:space:]][[:space:]]*/\
 # good-enough pattern to match main functions, and to include translation unit in test set
 if [ ! "$*" ]; then
   TESTS="$(cd "${HERE}" && ${GREP} -l "main[[:space:]]*(.*)" ./*.c 2>/dev/null) \
-    dispatch.sh memcmp.sh wrap.sh"
+    scratch.sh"
   if [ "${SORT}" ]; then
     TESTS=$(${TR} <<<"${TESTS}" -s " " "\n" | ${SORT})
   fi
@@ -75,29 +75,24 @@ for TEST in ${TESTS}; do
   printf "%02d of %02d: %-12s " "${NTEST}" "${NMAX}" "${NAME}"
   if [ "0" != "$(${GREP} <<<"${TESTS_DISABLED}" -q "${NAME}"; echo $?)" ]; then
     cd "${HERE}" || exit 1
-    if [ -e "${HERE}/${NAME}.sh" ]; then
+    TESTX=$( \
+      if [ -e "${HERE}/${NAME}.sh" ]; then \
+        echo "${HERE}/${NAME}.sh"; \
+      else \
+        echo "${HERE}/${NAME}${EXE}"; \
+      fi)
+    if [ -e "${TESTX}" ]; then
       RESULT=0
-    elif [ -e "${HERE}/${NAME}${EXE}" ]; then
       ERROR=$({ \
-        if [ "$(${LDD} "${HERE}/${NAME}${EXE}" 2>/dev/null | ${GREP} libiomp5\.)" ]; then \
-          ${ENV} LD_LIBRARY_PATH="${LD_LIBRARY_PATH}:${HERE}/../lib" \
-            DYLD_LIBRARY_PATH="${DYLD_LIBRARY_PATH}:${HERE}/../lib" \
-            KMP_AFFINITY=scatter,granularity=fine,1 \
-            MIC_KMP_AFFINITY=scatter,granularity=fine \
-            MIC_ENV_PREFIX=MIC \
-            OFFLOAD_INIT=on_start \
-          ${TOOL_COMMAND} ${HERE}/${NAME}${EXE} ${TOOL_COMMAND_POST}; \
-        else \
-          ${ENV} LD_LIBRARY_PATH="${LD_LIBRARY_PATH}:${HERE}/../lib" \
-            DYLD_LIBRARY_PATH="${DYLD_LIBRARY_PATH}:${HERE}/../lib" \
-            OMP_PROC_BIND=TRUE \
-          ${TOOL_COMMAND} ${HERE}/${NAME}${EXE} ${TOOL_COMMAND_POST}; \
-        fi >/dev/null; } 2>&1)
+        ${ENV} LD_LIBRARY_PATH="${LD_LIBRARY_PATH}:${HERE}/../lib" \
+          DYLD_LIBRARY_PATH="${DYLD_LIBRARY_PATH}:${HERE}/../lib" \
+          OMP_PROC_BIND=TRUE \
+        ${TOOL_COMMAND} ${TESTX} ${TOOL_COMMAND_POST}; \
+        >/dev/null; } 2>&1) || RESULT=$?
     else
       ERROR="Test is missing"
       RESULT=1
     fi
-    RESULT=$?
   else
     ERROR="Test is disabled"
     RESULT=0

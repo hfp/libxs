@@ -15,7 +15,7 @@ SIZE=1000
 
 export CHECK=1
 
-cd "${HERE}/../samples/utilities/memcmp"
+cd "${HERE}/../samples/memcmp"
 cat <<EOM | ${EXEC} -o /dev/null "$@"
 ./memcmp 0 0 $((SIZE*1)) 0
 ./memcmp 0 0 $((SIZE*2)) 0

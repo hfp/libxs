@@ -46,7 +46,8 @@ OBJECTS := $(CPPOBJS) $(CXXOBJS) $(CCXOBJS) $(COBJCTS)
 FTNSRCS := $(FXXSRCS) $(F77SRCS) $(F90SRCS)
 MODULES := $(addsuffix .mod,$(basename $(FTNSRCS)))
 FTNOBJS := $(FXXOBJS) $(F77OBJS) $(F90OBJS)
-XFILES := $(OUTDIR)/$(OUTNAME).x $(OUTDIR)/$(OUTNAME)f.x
+#XFILES := $(OUTDIR)/$(OUTNAME).x $(OUTDIR)/$(OUTNAME)f.x
+XFILES := $(OUTDIR)/$(OUTNAME).x
 
 .PHONY: all
 all: $(XFILES)
@@ -94,8 +95,7 @@ ifneq ($(call qapath,$(BLDDIR)),$(call qapath,.))
 endif
 endif
 ifneq (,$(wildcard $(BLDDIR))) # still exists
-	@-rm -f $(OBJECTS) $(OBJECTX) $(FTNOBJS) $(FTNOBJX) *__genmod.* *.dat *.log
-	@-rm -f $(BLDDIR)/*.gcno $(BLDDIR)/*.gcda $(BLDDIR)/*.gcov
+	@-rm -f $(OBJECTS) $(FTNOBJS)
 endif
 
 .PHONY: realclean
