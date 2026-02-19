@@ -47,7 +47,7 @@ for TEST in ${TESTS}; do
     if [ "0" != "${RESULT}" ]; then
       echo "FAILED(${RESULT})"
       exit ${RESULT}
-    elif ! ${GREP} -q "OZAKI GEMM:" "${TMPF}"; then
+    elif ! ${GREP} -q "GEMM:" "${TMPF}"; then
       echo "OK"
     else
       echo "FAILED"
@@ -67,7 +67,7 @@ for TEST in ${TESTS}; do
     if [ "0" != "${RESULT}" ]; then
       echo "FAILED(${RESULT})"
       exit ${RESULT}
-    elif ${GREP} -q "OZAKI GEMM:" "${TMPF}"; then
+    elif ${GREP} -q "GEMM:" "${TMPF}"; then
       echo "OK"
     else
       echo "FAILED"
@@ -90,7 +90,7 @@ for TEST in ${TESTS}; do
     if [ "0" != "${RESULT}" ]; then
       echo "FAILED(${RESULT})"
       exit ${RESULT}
-    elif ${GREP} -q "OZAKI GEMM:" "${TMPF}"; then
+    elif ${GREP} -q "GEMM:" "${TMPF}"; then
       echo "OK"
     else
       echo "FAILED"

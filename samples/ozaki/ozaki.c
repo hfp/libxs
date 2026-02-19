@@ -448,7 +448,6 @@ LIBXS_API_INLINE void gemm_oz1_diff(const char* transa, const char* transb,
         /* compute reference GEMM on the saved block and accumulate diff */
         if (NULL != diff && 0 == (diff_abc % 3)) {
           const GEMM_INT_TYPE mref = BLOCK_M;
-
 #if defined(_OPENMP)
 #         pragma omp critical
 #endif
@@ -476,11 +475,11 @@ LIBXS_API void print_diff(FILE* stream, const libxs_matdiff_info_t* diff)
   const double l0 = LIBXS_MAX(diff->linf_abs, diff->linf_rel);
   const double l2 = LIBXS_MAX(diff->l2_abs, diff->l2_rel);
   if (LIBXS_NEQ(0.0, l0) || LIBXS_NEQ(0.0, l2)) {
-    fprintf(stream, "OZAKI GEMM: ncalls=%i linf_abs=%f linf_rel=%f l2_abs=%f l2_rel=%f rsq=%f\n",
+    fprintf(stream, "GEMM: ncalls=%i linf_abs=%f linf_rel=%f l2_abs=%f l2_rel=%f rsq=%f\n",
       diff->r, diff->linf_abs, diff->linf_rel, diff->l2_abs, diff->l2_rel, diff->rsq);
   }
   else {
-    fprintf(stream, "OZAKI GEMM: ncalls=%i\n", diff->r);
+    fprintf(stream, "GEMM: ncalls=%i\n", diff->r);
   }
 }
 
