@@ -212,8 +212,10 @@ LIBXS_API_INLINE void preprocess_rows(const GEMM_REAL_TYPE* a, GEMM_INT_TYPE lda
   GEMM_INT_TYPE M, GEMM_INT_TYPE K, GEMM_INT_TYPE ib, GEMM_INT_TYPE kb, GEMM_INT_TYPE iblk,
   GEMM_INT_TYPE kblk, int16_t expa_row[BLOCK_M], int8_t am[BLOCK_M][BLOCK_K][NSLICES])
 {
+  int16_t elem_exp[BLOCK_M][BLOCK_K];
   GEMM_INT_TYPE mi, kk;
 
+  /* Single pass: decompose and track per-row max exponent */
   for (mi = 0; mi < iblk; ++mi) {
     const GEMM_INT_TYPE row = ib + mi;
     int16_t row_max_exp = INT16_MIN;
@@ -221,20 +223,16 @@ LIBXS_API_INLINE void preprocess_rows(const GEMM_REAL_TYPE* a, GEMM_INT_TYPE lda
     for (kk = 0; kk < kblk; ++kk) {
       const GEMM_INT_TYPE p = kb + kk;
       const double aval = (row < M && p < K) ? a[LIBXS_INDEX(ta, lda, row, p)] : 0.0;
-      int16_t e;
-      ozaki_decompose(aval, &e, NULL /*digits*/);
-      row_max_exp = LIBXS_MAX(row_max_exp, e);
+      ozaki_decompose(aval, &elem_exp[mi][kk], am[mi][kk]);
+      row_max_exp = LIBXS_MAX(row_max_exp, elem_exp[mi][kk]);
     }
 
     expa_row[mi] = row_max_exp;
 
+    /* Rescale digits to align with row's max exponent */
     for (kk = 0; kk < kblk; ++kk) {
-      const GEMM_INT_TYPE p = kb + kk;
-      const double aval = (row < M && p < K) ? a[LIBXS_INDEX(ta, lda, row, p)] : 0.0;
-      int8_t digits[NSLICES];
-      int16_t e;
-      ozaki_decompose(aval, &e, digits);
-      rescale_digits(am[mi][kk], digits, (int)e - (int)row_max_exp);
+      const int delta = (int)elem_exp[mi][kk] - (int)row_max_exp;
+      if (0 != delta) rescale_digits(am[mi][kk], am[mi][kk], delta);
     }
   }
 }
@@ -244,37 +242,29 @@ LIBXS_API_INLINE void preprocess_cols(const GEMM_REAL_TYPE* b, GEMM_INT_TYPE ldb
   GEMM_INT_TYPE N, GEMM_INT_TYPE K, GEMM_INT_TYPE jb, GEMM_INT_TYPE kb, GEMM_INT_TYPE jblk,
   GEMM_INT_TYPE kblk, int16_t expb_col[BLOCK_N], int8_t bm[BLOCK_K][BLOCK_N][NSLICES])
 {
-  int16_t col_max_exp[BLOCK_N];
+  int16_t elem_exp[BLOCK_K][BLOCK_N];
   GEMM_INT_TYPE nj, kk;
 
   for (nj = 0; nj < jblk; ++nj) {
-    col_max_exp[nj] = INT16_MIN;
+    expb_col[nj] = INT16_MIN;
   }
 
+  /* Single pass: decompose and track per-column max exponent */
   for (kk = 0; kk < kblk; ++kk) {
     const GEMM_INT_TYPE p = kb + kk;
     for (nj = 0; nj < jblk; ++nj) {
       const GEMM_INT_TYPE col = jb + nj;
       const double bval = (p < K && col < N) ? b[LIBXS_INDEX(tb, ldb, p, col)] : 0.0;
-      int16_t e;
-      ozaki_decompose(bval, &e, NULL /*digits*/);
-      col_max_exp[nj] = LIBXS_MAX(col_max_exp[nj], e);
+      ozaki_decompose(bval, &elem_exp[kk][nj], bm[kk][nj]);
+      expb_col[nj] = LIBXS_MAX(expb_col[nj], elem_exp[kk][nj]);
     }
   }
 
-  for (nj = 0; nj < jblk; ++nj) {
-    expb_col[nj] = col_max_exp[nj];
-  }
-
+  /* Rescale digits to align with column's max exponent */
   for (kk = 0; kk < kblk; ++kk) {
-    const GEMM_INT_TYPE p = kb + kk;
     for (nj = 0; nj < jblk; ++nj) {
-      const GEMM_INT_TYPE col = jb + nj;
-      const double bval = (p < K && col < N) ? b[LIBXS_INDEX(tb, ldb, p, col)] : 0.0;
-      int8_t digits[NSLICES];
-      int16_t e;
-      ozaki_decompose(bval, &e, digits);
-      rescale_digits(bm[kk][nj], digits, (int)e - (int)col_max_exp[nj]);
+      const int delta = (int)elem_exp[kk][nj] - (int)expb_col[nj];
+      if (0 != delta) rescale_digits(bm[kk][nj], bm[kk][nj], delta);
     }
   }
 }
@@ -373,42 +363,36 @@ LIBXS_API_INLINE void gemm_oz1_diff(const char* transa, const char* transb,
           slice_b = 0;
 #endif
           for (; slice_b < NSLICES; ++slice_b) {
+            const int low_bit_sum = (int)slice_low_bit[slice_a] + slice_low_bit[slice_b];
 #if defined(SYMMETRIZE)
             /* Double off-diagonal terms whose mirror (sb,sa) is not explicitly
              * computed. When REVERSE_PASS is also active, the mirror IS
              * recovered when: sb >= S/2 && sa <= S-1-sb, so skip doubling. */
-            const double sym_factor = (slice_a != slice_b
+            const double sym_alpha = (*alpha) * ((slice_a != slice_b
 # if defined(REVERSE_PASS)
               && !(slice_b >= NSLICES / 2 && slice_a <= NSLICES - 1 - slice_b)
 # endif
-              ) ? 2.0 : 1.0;
+              ) ? 2.0 : 1.0);
 #else
-            const double sym_factor = 1.0;
+            const double sym_alpha = (*alpha);
 #endif
             for (mi = 0; mi < iblk; ++mi) {
               for (nj = 0; nj < jblk; ++nj) {
+                int32_t dot = 0;
                 for (kk = 0; kk < kblk; ++kk) {
-                  const int16_t a_digit = (int16_t)am[mi][kk][slice_a];
-                  const int16_t b_digit = (int16_t)bm[kk][nj][slice_b];
-
-                  if (0 != a_digit && 0 != b_digit) { /* omit zero */
-                    const int low_bit_sum = (int)slice_low_bit[slice_a] + slice_low_bit[slice_b];
-                    const int exp_term = (int)expa_row[mi] + (int)expb_col[nj] - 2150 + low_bit_sum;
-                    int sh = exp_term;
-                    double contrib = sym_factor * (double)((int64_t)a_digit * (int64_t)b_digit);
-
-                    /* clamp shift to avoid undefined behavior or 1ULL overflow */
-                    if (sh > 60) sh = 60; else if (sh < -60) sh = -60;
-                    if (sh >= 0) {
-                      contrib *= (double)(1ULL << sh);
-                    }
-                    else {
-                      contrib /= (double)(1ULL << (-sh));
-                    }
-
-                    /* accumulate contribution */
-                    mb[mi + nj * ldcv] += (*alpha) * (GEMM_REAL_TYPE)contrib;
+                  dot += (int32_t)am[mi][kk][slice_a] * (int32_t)bm[kk][nj][slice_b];
+                }
+                if (0 != dot) {
+                  int sh = (int)expa_row[mi] + (int)expb_col[nj] - 2150 + low_bit_sum;
+                  double contrib = sym_alpha * (double)dot;
+                  if (sh > 60) sh = 60; else if (sh < -60) sh = -60;
+                  if (sh >= 0) {
+                    contrib *= (double)(1ULL << sh);
                   }
+                  else {
+                    contrib /= (double)(1ULL << (-sh));
+                  }
+                  mb[mi + nj * ldcv] += (GEMM_REAL_TYPE)contrib;
                 }
               }
             }
@@ -421,28 +405,24 @@ LIBXS_API_INLINE void gemm_oz1_diff(const char* transa, const char* transb,
          * paired with large slice_a index). */
         for (slice_a = NSLICES / 2; slice_a < NSLICES; ++slice_a) {
           for (slice_b = NSLICES - 1 - slice_a; slice_b >= 0; --slice_b) {
+            const int low_bit_sum = (int)slice_low_bit[slice_a] + slice_low_bit[slice_b];
             for (mi = 0; mi < iblk; ++mi) {
               for (nj = 0; nj < jblk; ++nj) {
+                int32_t dot = 0;
                 for (kk = 0; kk < kblk; ++kk) {
-                  const int16_t a_digit = (int16_t)am[mi][kk][slice_a];
-                  const int16_t b_digit = (int16_t)bm[kk][nj][slice_b];
-
-                  if (0 != a_digit && 0 != b_digit) {
-                    const int low_bit_sum = (int)slice_low_bit[slice_a] + slice_low_bit[slice_b];
-                    const int exp_term = (int)expa_row[mi] + (int)expb_col[nj] - 2150 + low_bit_sum;
-                    int sh = exp_term;
-                    double contrib = (double)((int64_t)a_digit * (int64_t)b_digit);
-
-                    if (sh > 60) sh = 60; else if (sh < -60) sh = -60;
-                    if (sh >= 0) {
-                      contrib *= (double)(1ULL << sh);
-                    }
-                    else {
-                      contrib /= (double)(1ULL << (-sh));
-                    }
-
-                    mb[mi + nj * ldcv] += (*alpha) * (GEMM_REAL_TYPE)contrib;
+                  dot += (int32_t)am[mi][kk][slice_a] * (int32_t)bm[kk][nj][slice_b];
+                }
+                if (0 != dot) {
+                  int sh = (int)expa_row[mi] + (int)expb_col[nj] - 2150 + low_bit_sum;
+                  double contrib = (*alpha) * (double)dot;
+                  if (sh > 60) sh = 60; else if (sh < -60) sh = -60;
+                  if (sh >= 0) {
+                    contrib *= (double)(1ULL << sh);
                   }
+                  else {
+                    contrib /= (double)(1ULL << (-sh));
+                  }
+                  mb[mi + nj * ldcv] += (GEMM_REAL_TYPE)contrib;
                 }
               }
             }
