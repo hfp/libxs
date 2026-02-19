@@ -9,8 +9,11 @@
 #ifndef LIBXS_MALLOC_H
 #define LIBXS_MALLOC_H
 
-#include "libxs_macros.h"
+#include "libxs_sync.h"
 
+
+/** Information about pooled memory. */
+typedef LIBXS_LOCK_TYPE(LIBXS_LOCK) libxs_malloc_lock_t;
 
 /**
  * Initialize the pool by drawing from the given storage a number of chunks of the given size.
@@ -19,8 +22,13 @@
  */
 LIBXS_API void libxs_pmalloc_init(size_t size, size_t* num, void* pool[], void* storage);
 /** Allocate from the given pool by using the original num-counter (libxs_pmalloc_init). */
+LIBXS_API void* libxs_pmalloc_lock(void* pool[], size_t* num, libxs_malloc_lock_t* lock);
+/** Similar to libxs_pmalloc_lock but using an internal lock. */
 LIBXS_API void* libxs_pmalloc(void* pool[], size_t* num);
+
 /** Bring pointer back into the pool by using original num-counter (libxs_pmalloc_init). */
+LIBXS_API void libxs_pfree_lock(const void* pointer, void* pool[], size_t* num, libxs_malloc_lock_t* lock);
+/** Similar to libxs_pfree_lock but using an internal lock. */
 LIBXS_API void libxs_pfree(const void* pointer, void* pool[], size_t* num);
 
 /** Allocate from a pool which can reach steady-sate (libxs_malloc_pool). */

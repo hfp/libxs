@@ -7,7 +7,6 @@
 * SPDX-License-Identifier: BSD-3-Clause                                       *
 ******************************************************************************/
 #include <libxs_malloc.h>
-#include <libxs_sync.h>
 #include <libxs_mem.h>
 #include "libxs_hash.h"
 
@@ -39,7 +38,8 @@ typedef struct internal_malloc_chunk_t {
   size_t size, nmallocs;
 } internal_malloc_chunk_t;
 
-LIBXS_APIVAR_DEFINE(volatile int internal_malloc_plocks[LIBXS_MALLOC_NLOCKS]);
+LIBXS_APIVAR_DEFINE(libxs_malloc_lock_t internal_malloc_plocks[LIBXS_MALLOC_NLOCKS]);
+LIBXS_APIVAR_DEFINE(libxs_malloc_lock_t internal_malloc_plock);
 LIBXS_APIVAR_DEFINE(internal_malloc_chunk_t* internal_malloc_storage);
 LIBXS_APIVAR_DEFINE(internal_malloc_chunk_t** internal_malloc_pool);
 LIBXS_APIVAR_DEFINE(size_t internal_malloc_pool_size);
@@ -61,18 +61,35 @@ LIBXS_API void libxs_pmalloc_init(size_t size, size_t* num, void* pool[], void* 
 }
 
 
+LIBXS_API void* libxs_pmalloc_lock(void* pool[], size_t* num, libxs_malloc_lock_t* lock)
+{
+  void *pointer;
+  LIBXS_ASSERT(NULL != pool && NULL != num);
+  if (NULL != lock) LIBXS_ATOMIC_ACQUIRE(lock, LIBXS_SYNC_NPAUSE, LIBXS_ATOMIC_SEQ_CST);
+  assert(0 < *num && ((size_t)-1) != *num); /* !LIBXS_ASSERT */
+  pointer = pool[--(*num)];
+  if (NULL != lock) LIBXS_ATOMIC_RELEASE(lock, LIBXS_ATOMIC_SEQ_CST);
+  LIBXS_ASSERT(NULL != pointer);
+  return pointer;
+}
+
+
 LIBXS_API void* libxs_pmalloc(void* pool[], size_t* num)
 {
   const unsigned int hash = LIBXS_CRCPTR(LIBXS_MALLOC_SEED, pool);
-  volatile int *const lock = internal_malloc_plocks + LIBXS_MOD2(hash, LIBXS_MALLOC_NLOCKS);
-  void *pointer;
+  libxs_malloc_lock_t *const lock = internal_malloc_plocks + LIBXS_MOD2(hash, LIBXS_MALLOC_NLOCKS);
+  return libxs_pmalloc_lock(pool, num, lock);
+}
+
+
+LIBXS_API void libxs_pfree_lock(const void* pointer, void* pool[], size_t* num, libxs_malloc_lock_t* lock)
+{
   LIBXS_ASSERT(NULL != pool && NULL != num);
-  LIBXS_ATOMIC_ACQUIRE(lock, LIBXS_SYNC_NPAUSE, LIBXS_ATOMIC_SEQ_CST);
-  assert(0 < *num && ((size_t)-1) != *num); /* !LIBXS_ASSERT */
-  pointer = pool[--(*num)];
-  LIBXS_ATOMIC_RELEASE(lock, LIBXS_ATOMIC_SEQ_CST);
-  LIBXS_ASSERT(NULL != pointer);
-  return pointer;
+  if (NULL != pointer) {
+    if (NULL != lock) LIBXS_ATOMIC_ACQUIRE(lock, LIBXS_SYNC_NPAUSE, LIBXS_ATOMIC_SEQ_CST);
+    LIBXS_VALUE_ASSIGN(pool[*num], pointer); ++(*num);
+    if (NULL != lock) LIBXS_ATOMIC_RELEASE(lock, LIBXS_ATOMIC_SEQ_CST);
+  }
 }
 
 
@@ -81,10 +98,8 @@ LIBXS_API void libxs_pfree(const void* pointer, void* pool[], size_t* num)
   LIBXS_ASSERT(NULL != pool && NULL != num);
   if (NULL != pointer) {
     const unsigned int hash = LIBXS_CRCPTR(LIBXS_MALLOC_SEED, pool);
-    volatile int *const lock = internal_malloc_plocks + LIBXS_MOD2(hash, LIBXS_MALLOC_NLOCKS);
-    LIBXS_ATOMIC_ACQUIRE(lock, LIBXS_SYNC_NPAUSE, LIBXS_ATOMIC_SEQ_CST);
-    LIBXS_VALUE_ASSIGN(pool[*num], pointer); ++(*num);
-    LIBXS_ATOMIC_RELEASE(lock, LIBXS_ATOMIC_SEQ_CST);
+    libxs_malloc_lock_t *const lock = internal_malloc_plocks + LIBXS_MOD2(hash, LIBXS_MALLOC_NLOCKS);
+    libxs_pfree_lock(pointer, pool, num, lock);
   }
 }
 
@@ -98,12 +113,10 @@ LIBXS_API void* libxs_malloc(size_t size, size_t alignment)
     internal_malloc_chunk_t *chunk = NULL;
     void **info = NULL;
 #if defined(LIBXS_MALLOC_SEARCH)
-    const unsigned int hash = LIBXS_CRCPTR(LIBXS_MALLOC_SEED, internal_malloc_pool);
-    volatile int *const lock = internal_malloc_plocks + LIBXS_MOD2(hash, LIBXS_MALLOC_NLOCKS);
     internal_malloc_chunk_t **hit = NULL;
     size_t i = 0, diff = (size_t)-1;
     LIBXS_ASSERT(NULL != internal_malloc_pool);
-    LIBXS_ATOMIC_ACQUIRE(lock, LIBXS_SYNC_NPAUSE, LIBXS_ATOMIC_SEQ_CST);
+    LIBXS_ATOMIC_ACQUIRE(&internal_malloc_plock, LIBXS_SYNC_NPAUSE, LIBXS_ATOMIC_SEQ_CST);
     assert(0 < internal_malloc_pool_num && ((size_t)-1) != internal_malloc_pool_num);
     do {
       internal_malloc_chunk_t *const c = internal_malloc_pool[i];
@@ -120,9 +133,9 @@ LIBXS_API void* libxs_malloc(size_t size, size_t alignment)
       }
       chunk = *alloc;
     }
-    LIBXS_ATOMIC_RELEASE(lock, LIBXS_ATOMIC_SEQ_CST);
+    LIBXS_ATOMIC_RELEASE(&internal_malloc_plock, LIBXS_ATOMIC_SEQ_CST);
 #else
-    chunk = libxs_pmalloc((void**)internal_malloc_pool, &internal_malloc_pool_num);
+    chunk = libxs_pmalloc_lock((void**)internal_malloc_pool, &internal_malloc_pool_num, &internal_malloc_plock);
 #endif
     LIBXS_ASSERT(NULL != chunk);
     if (NULL != chunk->pointer) {
@@ -143,7 +156,7 @@ LIBXS_API void* libxs_malloc(size_t size, size_t alignment)
           *info = chunk;
         }
         else { /* realloc failed: original pointer intact, return chunk to pool */
-          libxs_pfree(chunk, (void**)internal_malloc_pool, &internal_malloc_pool_num);
+          libxs_pfree_lock(chunk, (void**)internal_malloc_pool, &internal_malloc_pool_num, &internal_malloc_plock);
         }
       }
       else { /* reuse */
@@ -165,7 +178,7 @@ LIBXS_API void* libxs_malloc(size_t size, size_t alignment)
         *info = chunk;
       }
       else { /* malloc failed: return empty chunk to pool */
-        libxs_pfree(chunk, (void**)internal_malloc_pool, &internal_malloc_pool_num);
+        libxs_pfree_lock(chunk, (void**)internal_malloc_pool, &internal_malloc_pool_num, &internal_malloc_plock);
       }
     }
   }
@@ -190,7 +203,7 @@ LIBXS_API void libxs_free(const void* pointer)
       }
     }
 #endif
-    libxs_pfree(chunk, (void**)internal_malloc_pool, &internal_malloc_pool_num);
+    libxs_pfree_lock(chunk, (void**)internal_malloc_pool, &internal_malloc_pool_num, &internal_malloc_plock);
   }
 }
 
