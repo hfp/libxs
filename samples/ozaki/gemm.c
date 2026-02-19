@@ -37,7 +37,7 @@ int main(int argc, char* argv[])
   GEMM_REAL_TYPE *const a = (GEMM_REAL_TYPE*)malloc(sizeof(GEMM_REAL_TYPE) * lda * k);
   GEMM_REAL_TYPE *const b = (GEMM_REAL_TYPE*)malloc(sizeof(GEMM_REAL_TYPE) * ldb * n);
   GEMM_REAL_TYPE *const c = (GEMM_REAL_TYPE*)malloc(sizeof(GEMM_REAL_TYPE) * ldc * n);
-  const GEMM_REAL_TYPE scale = 1.0 / nrepeat;
+  const GEMM_REAL_TYPE scale = (1 < nrepeat ? (1.0 / nrepeat) : 1);
   int result = EXIT_SUCCESS, i;
   libxs_matdiff_info_t diff;
 
@@ -55,15 +55,20 @@ int main(int argc, char* argv[])
   LIBXS_MATRNG(GEMM_INT_TYPE, GEMM_REAL_TYPE, 0, a, m, k, lda, scale);
   LIBXS_MATRNG(GEMM_INT_TYPE, GEMM_REAL_TYPE, 0, b, k, n, ldb, scale);
   LIBXS_MATRNG(GEMM_INT_TYPE, GEMM_REAL_TYPE, 0, c, m, n, ldc, scale);
-  GEMM(&transa, &transb, &m, &n, &k, &alpha, a, &lda, b, &ldb, &beta, c, &ldc);
 
   { /* Call GEMM */
-    const libxs_timer_tick_t start = libxs_timer_tick();
-    for (i = 0; i < nrepeat; ++i) {
+    libxs_timer_tick_t start;
+    int ncalls = nrepeat;
+    if (1 < nrepeat) { /* peel one warmup call */
+      GEMM(&transa, &transb, &m, &n, &k, &alpha, a, &lda, b, &ldb, &beta, c, &ldc);
+      --ncalls;
+    }
+    start = libxs_timer_tick();
+    for (i = 0; i < ncalls; ++i) {
       GEMM(&transa, &transb, &m, &n, &k, &alpha, a, &lda, b, &ldb, &beta, c, &ldc);
     }
-    printf("Called %i times (%f s).\n", nrepeat,
-      libxs_timer_duration(start, libxs_timer_tick()));
+    printf("Called %i times (%f s per call).\n", nrepeat,
+      libxs_timer_duration(start, libxs_timer_tick()) / ncalls);
   }
 
   { /* calculate final checksum */
