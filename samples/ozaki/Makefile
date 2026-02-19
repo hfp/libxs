@@ -46,16 +46,6 @@ all: $(XFILES)
 .PHONY: compile
 compile: $(OBJECTS)
 
-$(BLDDIR)/%-c.o: $(SRCDIR)/%.c .state $(BLDDIR)/.make $(HEADERS) Makefile $(DEPDIR)/Makefile.inc
-	$(CC) $(DFLAGS) $(IFLAGS) $(CFLAGS) $(CTARGET) -c $< -o $@
-
-$(OUTDIR)/libwrap.$(DLIBEXT): $(WRPOBJS) $(BLDDIR)/$(OUTNAME)-c.o $(XSDEP) $(OUTDIR)/.make
-	$(LIB_SOLD) $(call solink,$@) $(WRPOBJS) $(BLDDIR)/$(OUTNAME)-c.o $(XSLIB) \
-		$(call cleanld,$(LDFLAGS) $(CLDFLAGS))
-
-$(OUTDIR)/gemm-blas.x: $(BLDDIR)/gemm-c.o $(OUTDIR)/libwrap.$(DLIBEXT) $(XSDEP) $(OUTDIR)/.make
-	$(LD) -o $@ $< $(XSLIB) $(SLDFLAGS) $(LDFLAGS) $(CLDFLAGS)
-
 ifneq (,$(WRAP_GEMM))
 $(OUTDIR)/libwrap.$(SLIBEXT): $(OUTDIR)/.make $(BLDDIR)/$(OUTNAME)-c.o
 	$(MAKE_AR) $@ $(call tailwords,$^)
@@ -72,9 +62,19 @@ else # should not happen
 	$(LD) -o $@ $< $(OUTDIR)/libwrap.$(SLIBEXT) $(XSLIB) \
 		$(SLDFLAGS) $(LDFLAGS) $(CLDFLAGS) $(WRAP_GEMM)
 endif
+.PHONY: $(OUTDIR)/libwrap.$(DLIBEXT)
 else
+$(OUTDIR)/libwrap.$(DLIBEXT): $(WRPOBJS) $(BLDDIR)/$(OUTNAME)-c.o $(XSDEP) $(OUTDIR)/.make
+	$(LIB_SOLD) $(call solink,$@) $(WRPOBJS) $(BLDDIR)/$(OUTNAME)-c.o $(XSLIB) \
+		$(call cleanld,$(LDFLAGS) $(CLDFLAGS))
 .PHONY: $(OUTDIR)/gemm-wrap.x
 endif
+
+$(OUTDIR)/gemm-blas.x: $(BLDDIR)/gemm-c.o $(OUTDIR)/libwrap.$(DLIBEXT) $(XSDEP) $(OUTDIR)/.make
+	$(LD) -o $@ $< $(XSLIB) $(SLDFLAGS) $(LDFLAGS) $(CLDFLAGS)
+
+$(BLDDIR)/%-c.o: $(SRCDIR)/%.c .state $(BLDDIR)/.make $(HEADERS) Makefile $(DEPDIR)/Makefile.inc
+	$(CC) $(DFLAGS) $(IFLAGS) $(CFLAGS) $(CTARGET) -c $< -o $@
 
 .PHONY: test
 test: $(ROOTDIR)/$(OUTNAME)-test.sh $(XFILES)

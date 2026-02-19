@@ -20,29 +20,28 @@
 
 int main(int argc, char* argv[])
 {
-  const int arg1 = (2 == argc ? atoi(argv[1]) : 0);
-  int nrepeat = (0 < arg1 ? arg1 : 500);
-  const GEMM_INT_TYPE m = (2 < argc ? atoi(argv[1]) : 23);
-  const GEMM_INT_TYPE k = (3 < argc ? atoi(argv[3]) : m);
-  const GEMM_INT_TYPE n = (2 < argc ? atoi(argv[2]) : k);
-  const GEMM_INT_TYPE lda = (4 < argc ? atoi(argv[4]) : m);
-  const GEMM_INT_TYPE ldb = (5 < argc ? atoi(argv[5]) : k);
-  const GEMM_INT_TYPE ldc = (6 < argc ? atoi(argv[6]) : m);
-  const GEMM_REAL_TYPE alpha = (7 < argc ? atof(argv[7]) : (ALPHA));
-  const GEMM_REAL_TYPE beta = (8 < argc ? atof(argv[8]) : (BETA));
-  const char transa = 'N', transb = 'N';
-  const GEMM_INT_TYPE na = lda * k, nb = ldb * n, nc = ldc * n;
-  GEMM_REAL_TYPE *const a = (GEMM_REAL_TYPE*)malloc(sizeof(GEMM_REAL_TYPE) * na);
-  GEMM_REAL_TYPE *const b = (GEMM_REAL_TYPE*)malloc(sizeof(GEMM_REAL_TYPE) * nb);
-  GEMM_REAL_TYPE *const c = (GEMM_REAL_TYPE*)malloc(sizeof(GEMM_REAL_TYPE) * nc);
-  GEMM_REAL_TYPE scale = 1.0;
+  const char *const nrepeat_env = getenv("NREPEAT");
+  const int nrep = (NULL == nrepeat_env ? 1 : atoi(nrepeat_env));
+  const int nrepeat = (0 < nrep ? nrep : 1);
+  const GEMM_INT_TYPE m = (1 < argc ? atoi(argv[1]) : 257);
+  const GEMM_INT_TYPE k = (2 < argc ? atoi(argv[2]) : m);
+  const GEMM_INT_TYPE n = (3 < argc ? atoi(argv[3]) : k);
+  const int ta = (4 < argc ? atoi(argv[4]) : 0);
+  const int tb = (5 < argc ? atoi(argv[5]) : 0);
+  const GEMM_REAL_TYPE alpha = (6 < argc ? atof(argv[6]) : (ALPHA));
+  const GEMM_REAL_TYPE beta = (7 < argc ? atof(argv[7]) : (BETA));
+  const GEMM_INT_TYPE lda = (8 < argc ? atoi(argv[8]) : m);
+  const GEMM_INT_TYPE ldb = (9 < argc ? atoi(argv[9]) : k);
+  const GEMM_INT_TYPE ldc = (10 < argc ? atoi(argv[10]) : m);
+  const char transa = (0 == ta ? 'N' : 'T'), transb = (0 == tb ? 'N' : 'T');
+  GEMM_REAL_TYPE *const a = (GEMM_REAL_TYPE*)malloc(sizeof(GEMM_REAL_TYPE) * lda * k);
+  GEMM_REAL_TYPE *const b = (GEMM_REAL_TYPE*)malloc(sizeof(GEMM_REAL_TYPE) * ldb * n);
+  GEMM_REAL_TYPE *const c = (GEMM_REAL_TYPE*)malloc(sizeof(GEMM_REAL_TYPE) * ldc * n);
+  const GEMM_REAL_TYPE scale = 1.0 / nrepeat;
   int result = EXIT_SUCCESS, i;
   libxs_matdiff_info_t diff;
 
   assert(NULL != a && NULL != b && NULL != c);
-  if (9 < argc) nrepeat = atoi(argv[9]);
-  if (0 < nrepeat) scale /= nrepeat;
-
   printf(
     "gemm('%c', '%c', %lli/*m*/, %lli/*n*/, %lli/*k*/,\n"
     "     %g/*alpha*/, %p/*a*/, %lli/*lda*/,\n"
@@ -56,17 +55,15 @@ int main(int argc, char* argv[])
   LIBXS_MATRNG(GEMM_INT_TYPE, GEMM_REAL_TYPE, 0, a, m, k, lda, scale);
   LIBXS_MATRNG(GEMM_INT_TYPE, GEMM_REAL_TYPE, 0, b, k, n, ldb, scale);
   LIBXS_MATRNG(GEMM_INT_TYPE, GEMM_REAL_TYPE, 0, c, m, n, ldc, scale);
+  GEMM(&transa, &transb, &m, &n, &k, &alpha, a, &lda, b, &ldb, &beta, c, &ldc);
 
   { /* Call GEMM */
     const libxs_timer_tick_t start = libxs_timer_tick();
     for (i = 0; i < nrepeat; ++i) {
       GEMM(&transa, &transb, &m, &n, &k, &alpha, a, &lda, b, &ldb, &beta, c, &ldc);
     }
-    if (0 < nrepeat) {
-      printf("Called %i times (%f s).\n", nrepeat,
-        libxs_timer_duration(start, libxs_timer_tick()));
-    }
-    else fprintf(stderr, "Not executed!\n");
+    printf("Called %i times (%f s).\n", nrepeat,
+      libxs_timer_duration(start, libxs_timer_tick()));
   }
 
   { /* calculate final checksum */
