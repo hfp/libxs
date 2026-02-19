@@ -76,7 +76,7 @@ int main(int argc, char* argv[])
   fprintf(stdout, "Running %i cycles with max. %i malloc+free (%u calls) using %i thread%s...\n",
     ncycles, max_nactive, nallocs, 1 >= nthreads ? 1 : nthreads, 1 >= nthreads ? "" : "s");
 
-  libxs_malloc_pool(max_nthreads, max_nactive);
+  libxs_malloc_pool();
 
 #if defined(_OPENMP)
 # pragma omp parallel for num_threads(nthreads) private(i) reduction(+:d1,nerrors1)

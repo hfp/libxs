@@ -76,7 +76,7 @@ int main(void)
     size_t prev_nmallocs = 0;
     int saw_eviction = 0;
 
-    libxs_malloc_pool(max_nthreads, max_nactive);
+    libxs_malloc_pool();
     for (i = 0; i < nrep_eviction; ++i) {
       libxs_malloc_pool_info_t pinfo;
       libxs_malloc_info_t minfo;
