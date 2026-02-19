@@ -13,6 +13,22 @@
 #if !defined(TRIANGULAR) && 1
 # define TRIANGULAR
 #endif
+/* symmetrize: double off-diagonal upper-triangle terms to approximate
+ * the dropped lower-triangle contributions (zero extra cost) */
+#if defined(TRIANGULAR) && !defined(SYMMETRIZE) && 1
+# define SYMMETRIZE
+#endif
+/* reverse pass: explicitly recover the most significant lower-triangle
+ * terms (slice_a >= S/2) at ~S^2/4 additional cost */
+#if defined(TRIANGULAR) && !defined(REVERSE_PASS) && 1
+# define REVERSE_PASS
+#endif
+/* trim forward: limit the forward pass to slice_a < S/2 so that combined
+ * with REVERSE_PASS the total cost equals original triangular (S^2/2) but
+ * with better coverage: high-significance terms from both triangles */
+#if defined(REVERSE_PASS) && !defined(TRIM_FORWARD) && 1
+# define TRIM_FORWARD
+#endif
 #if !defined(BLOCK_M)
 # define BLOCK_M 16
 #endif
@@ -346,13 +362,29 @@ LIBXS_API_INLINE void gemm_oz1_diff(const char* transa, const char* transb,
           accumulate_block_diff(diff, ref_blk, recon_blk, kblk, jblk, BLOCK_K, BLOCK_K);
         }
 
+#if defined(TRIM_FORWARD)
+        for (slice_a = 0; slice_a < NSLICES / 2; ++slice_a) {
+#else
         for (slice_a = 0; slice_a < NSLICES; ++slice_a) {
+#endif
 #if defined(TRIANGULAR)
           slice_b = slice_a;
 #else
           slice_b = 0;
 #endif
           for (; slice_b < NSLICES; ++slice_b) {
+#if defined(SYMMETRIZE)
+            /* Double off-diagonal terms whose mirror (sb,sa) is not explicitly
+             * computed. When REVERSE_PASS is also active, the mirror IS
+             * recovered when: sb >= S/2 && sa <= S-1-sb, so skip doubling. */
+            const double sym_factor = (slice_a != slice_b
+# if defined(REVERSE_PASS)
+              && !(slice_b >= NSLICES / 2 && slice_a <= NSLICES - 1 - slice_b)
+# endif
+              ) ? 2.0 : 1.0;
+#else
+            const double sym_factor = 1.0;
+#endif
             for (mi = 0; mi < iblk; ++mi) {
               for (nj = 0; nj < jblk; ++nj) {
                 for (kk = 0; kk < kblk; ++kk) {
@@ -363,7 +395,7 @@ LIBXS_API_INLINE void gemm_oz1_diff(const char* transa, const char* transb,
                     const int low_bit_sum = (int)slice_low_bit[slice_a] + slice_low_bit[slice_b];
                     const int exp_term = (int)expa_row[mi] + (int)expb_col[nj] - 2150 + low_bit_sum;
                     int sh = exp_term;
-                    double contrib = (double)((int64_t)a_digit * (int64_t)b_digit);
+                    double contrib = sym_factor * (double)((int64_t)a_digit * (int64_t)b_digit);
 
                     /* clamp shift to avoid undefined behavior or 1ULL overflow */
                     if (sh > 60) sh = 60; else if (sh < -60) sh = -60;
@@ -382,6 +414,41 @@ LIBXS_API_INLINE void gemm_oz1_diff(const char* transa, const char* transb,
             }
           }
         }
+#if defined(REVERSE_PASS)
+        /* Reverse pass: explicitly recover the most significant lower-triangle
+         * terms (slice_a >= S/2, slice_b from S-1-slice_a downward). These are
+         * the dropped terms with the largest exponents (small slice_b index
+         * paired with large slice_a index). */
+        for (slice_a = NSLICES / 2; slice_a < NSLICES; ++slice_a) {
+          for (slice_b = NSLICES - 1 - slice_a; slice_b >= 0; --slice_b) {
+            for (mi = 0; mi < iblk; ++mi) {
+              for (nj = 0; nj < jblk; ++nj) {
+                for (kk = 0; kk < kblk; ++kk) {
+                  const int16_t a_digit = (int16_t)am[mi][kk][slice_a];
+                  const int16_t b_digit = (int16_t)bm[kk][nj][slice_b];
+
+                  if (0 != a_digit && 0 != b_digit) {
+                    const int low_bit_sum = (int)slice_low_bit[slice_a] + slice_low_bit[slice_b];
+                    const int exp_term = (int)expa_row[mi] + (int)expb_col[nj] - 2150 + low_bit_sum;
+                    int sh = exp_term;
+                    double contrib = (double)((int64_t)a_digit * (int64_t)b_digit);
+
+                    if (sh > 60) sh = 60; else if (sh < -60) sh = -60;
+                    if (sh >= 0) {
+                      contrib *= (double)(1ULL << sh);
+                    }
+                    else {
+                      contrib /= (double)(1ULL << (-sh));
+                    }
+
+                    mb[mi + nj * ldcv] += (*alpha) * (GEMM_REAL_TYPE)contrib;
+                  }
+                }
+              }
+            }
+          }
+        }
+#endif
       }
 
       /* compute reference GEMM on the saved block and accumulate diff */
