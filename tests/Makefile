@@ -62,10 +62,12 @@ XFILES  := $(addsuffix .x,$(addprefix $(OUTDIR)/,$(basename $(notdir \
 REALTYPE_INDEX := $(shell bash -c 'echo "$$((RANDOM%2+1))"' 2>/dev/null)
 REALTYPE := $(word $(if $(REALTYPE_INDEX),$(REALTYPE_INDEX),1),double float)
 
-SAMPLES := memcmp ozaki scratch shuffle sync
+SAMPLES := memcmp scratch shuffle sync
 
 .PHONY: all
 all: $(XFILES)
+	@$(FLOCK) $(DEPDIR)/samples/ozaki "$(MAKE) --no-print-directory BLAS_STATIC=0"
+	@$(FLOCK) $(DEPDIR)/samples/ozaki "$(MAKE) --no-print-directory"
 	@for SAMPLE in $(SAMPLES); do \
 		$(FLOCK) $(DEPDIR)/samples/$${SAMPLE} "$(MAKE) --no-print-directory"; \
 	done
@@ -169,19 +171,19 @@ endif
 
 .PHONY: clean
 clean: clean-private
-	@for SAMPLE in $(SAMPLES); do \
+	@for SAMPLE in $(SAMPLES) ozaki; do \
 		$(FLOCK) $(DEPDIR)/samples/$${SAMPLE} "$(MAKE) --no-print-directory clean"; \
 	done
 
 .PHONY: realclean
 realclean: realclean-private
-	@for SAMPLE in $(SAMPLES); do \
+	@for SAMPLE in $(SAMPLES) ozaki; do \
 		$(FLOCK) $(DEPDIR)/samples/$${SAMPLE} "$(MAKE) --no-print-directory realclean"; \
 	done
 
 .PHONY: deepclean
 deepclean: realclean-private
-	@for SAMPLE in $(SAMPLES); do \
+	@for SAMPLE in $(SAMPLES) ozaki; do \
 		$(FLOCK) $(DEPDIR)/samples/$${SAMPLE} "$(MAKE) --no-print-directory deepclean"; \
 	done
 	@-rm -f .make .state

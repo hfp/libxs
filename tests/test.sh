@@ -35,7 +35,7 @@ TESTS_NEEDBLAS_GREP=$(${SED} <<<"${TESTS_NEEDBLAS}" "s/[[:space:]][[:space:]]*/\
 # good-enough pattern to match main functions, and to include translation unit in test set
 if [ ! "$*" ]; then
   TESTS="$(cd "${HERE}" && ${GREP} -l "main[[:space:]]*(.*)" ./*.c 2>/dev/null) \
-    scratch.sh"
+    scratch.sh wrap.sh"
   if [ "${SORT}" ]; then
     TESTS=$(${TR} <<<"${TESTS}" -s " " "\n" | ${SORT})
   fi

@@ -62,26 +62,30 @@ else # should not happen
 	$(LD) -o $@ $< $(OUTDIR)/libwrap.$(SLIBEXT) $(XSLIB) \
 		$(SLDFLAGS) $(LDFLAGS) $(CLDFLAGS) $(WRAP_GEMM)
 endif
+
 .PHONY: $(OUTDIR)/libwrap.$(DLIBEXT)
+.PHONY: $(OUTDIR)/gemm-blas.x
 else
 $(OUTDIR)/libwrap.$(DLIBEXT): $(WRPOBJS) $(BLDDIR)/$(OUTNAME)-c.o $(XSDEP) $(OUTDIR)/.make
 	$(LIB_SOLD) $(call solink,$@) $(WRPOBJS) $(BLDDIR)/$(OUTNAME)-c.o $(XSLIB) \
 		$(call cleanld,$(LDFLAGS) $(CLDFLAGS))
-.PHONY: $(OUTDIR)/gemm-wrap.x
-endif
 
 $(OUTDIR)/gemm-blas.x: $(BLDDIR)/gemm-c.o $(OUTDIR)/libwrap.$(DLIBEXT) $(XSDEP) $(OUTDIR)/.make
 	$(LD) -o $@ $< $(XSLIB) $(SLDFLAGS) $(LDFLAGS) $(CLDFLAGS)
+
+.PHONY: $(OUTDIR)/libwrap.$(SLIBEXT)
+.PHONY: $(OUTDIR)/gemm-wrap.x
+endif
 
 $(BLDDIR)/%-c.o: $(SRCDIR)/%.c .state $(BLDDIR)/.make $(HEADERS) Makefile $(DEPDIR)/Makefile.inc
 	$(CC) $(DFLAGS) $(IFLAGS) $(CFLAGS) $(CTARGET) -c $< -o $@
 
 .PHONY: test
-test: $(ROOTDIR)/$(OUTNAME)-test.sh $(XFILES)
-	@$(ROOTDIR)/$(OUTNAME)-test.sh gemm                                $(shell echo $$(($(TESTSIZE) * 10)))
-	@$(ROOTDIR)/$(OUTNAME)-test.sh gemm 350  16  20 350  35 350  1 0.0 $(shell echo $$(($(TESTSIZE) * 10)))
-	@$(ROOTDIR)/$(OUTNAME)-test.sh gemm 200 200 200 256 256 256  1 0.0 $(shell echo $$(($(TESTSIZE) * 10)))
-	@$(ROOTDIR)/$(OUTNAME)-test.sh gemm  24  23  21  32  32  32 -1 0.5 $(shell echo $$(($(TESTSIZE) * 10)))
+test: $(ROOTDIR)/wrap-test.sh $(XFILES)
+	@NREPEAT=$(TESTSIZE) $< gemm                               
+	@NREPEAT=$(TESTSIZE) $< gemm  16  20 350 1 0  1 0.0  35 350 1000
+	@NREPEAT=$(TESTSIZE) $< gemm  23  21  32 0 1 -1 0.5  32  32 1000
+	@NREPEAT=$(TESTSIZE) $< gemm 200 200 256 1 1  1 0.0 256 256   10
 
 .PHONY: clean
 clean:

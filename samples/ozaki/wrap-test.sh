@@ -15,7 +15,6 @@ DEPDIR=${HERE}/../../..
 
 UNAME=$(command -v uname)
 GREP=$(command -v grep)
-CUT=$(command -v cut)
 TR=$(command -v tr)
 
 if [ "Darwin" != "$(${UNAME})" ]; then
@@ -33,28 +32,23 @@ fi
 TMPF=$(mktemp)
 trap 'rm ${TMPF}' EXIT
 
-# enable interceptor (5: all cases for the sake of testing)
-export LIBXS_GEMM_WRAP=5
 # set verbosity to check for generated kernels
-export LIBXS_VERBOSE=${LIBXS_VERBOSE:-3}
+export GEMM_VERBOSE=${GEMM_VERBOSE:-1}
 
 for TEST in ${TESTS}; do
   NAME=$(echo "${TEST}" | ${TR} [[:lower:]] [[:upper:]])
-  KERN=$(echo "${TEST:1}" | ${CUT} -d_ -f1)
 
-  if [ -e "${HERE}/${TEST}-blas" ]; then
+  if [ -e "${HERE}/${TEST}-blas.x" ]; then
     echo "-----------------------------------"
     echo "${NAME} (ORIGINAL BLAS)"
     if [ "$*" ]; then echo "args    $*"; fi
-    { time "${HERE}/${TEST}-blas" "$*" 2>"${TMPF}"; } 2>&1 | ${GREP} real
+    { time "${HERE}/${TEST}-blas.x" "$*" 2>"${TMPF}"; } 2>&1 | ${GREP} real
     RESULT=$?
     if [ "0" != "${RESULT}" ]; then
       echo "FAILED(${RESULT})"
       exit ${RESULT}
-    elif ! ${GREP} -q "Registry and code: .\+${KERN}=[[:digit:]]\+" "${TMPF}"; then
+    elif ! ${GREP} -q "OZAKI GEMM:" "${TMPF}"; then
       echo "OK"
-    elif ${GREP} -q "Not executed!" "${TMPF}"; then
-      echo "OK: not executed"
     else
       echo "FAILED"
       exit 1
@@ -62,21 +56,19 @@ for TEST in ${TESTS}; do
     echo
   fi
 
-  if [ -e "${HERE}/${TEST}-wrap" ] && [ -e .state ] && \
+  if [ -e "${HERE}/${TEST}-wrap.x" ] && [ -e .state ] && \
      [ ! "$(${GREP} 'BLAS=0' .state)" ];
   then
     echo "-----------------------------------"
     echo "${NAME} (STATIC WRAP)"
     if [ "$*" ]; then echo "args    $*"; fi
-    { time "${HERE}/${TEST}-wrap" "$*" 2>"${TMPF}"; } 2>&1 | ${GREP} real
+    { time "${HERE}/${TEST}-wrap.x" "$*" 2>"${TMPF}"; } 2>&1 | ${GREP} real
     RESULT=$?
     if [ "0" != "${RESULT}" ]; then
       echo "FAILED(${RESULT})"
       exit ${RESULT}
-    elif ${GREP} -q "Registry and code: .\+${KERN}=[[:digit:]]\+" "${TMPF}"; then
+    elif ${GREP} -q "OZAKI GEMM:" "${TMPF}"; then
       echo "OK"
-    elif ${GREP} -q "Not executed!" "${TMPF}"; then
-      echo "OK: not executed"
     else
       echo "FAILED"
       exit 1
@@ -84,24 +76,22 @@ for TEST in ${TESTS}; do
     echo
   fi
 
-  if [ -e "${HERE}/${TEST}-blas" ] && \
-     [ -e "${DEPDIR}/lib/libxsext.${LIBEXT}" ];
+  if [ -e "${HERE}/${TEST}-blas.x" ] && \
+     [ -e "${HERE}/libwrap.${LIBEXT}" ];
   then
     echo "-----------------------------------"
     echo "${NAME} (LD_PRELOAD)"
     if [ "$*" ]; then echo "args    $*"; fi
     { time \
-      LD_LIBRARY_PATH=${DEPDIR}/lib:${LD_LIBRARY_PATH} LD_PRELOAD=${DEPDIR}/lib/libxsext.${LIBEXT} \
+      LD_LIBRARY_PATH=${DEPDIR}/lib:${LD_LIBRARY_PATH} LD_PRELOAD=${HERE}/libwrap.${LIBEXT} \
       DYLD_LIBRARY_PATH=${DEPDIR}/lib:${DYLD_LIBRARY_PATH} DYLD_INSERT_LIBRARIES=${DEPDIR}/lib/libxs.${LIBEXT} \
-      "${HERE}/${TEST}-blas" "$*" 2>"${TMPF}"; } 2>&1 | ${GREP} real
+      "${HERE}/${TEST}-blas.x" "$*" 2>"${TMPF}"; } 2>&1 | ${GREP} real
     RESULT=$?
     if [ "0" != "${RESULT}" ]; then
       echo "FAILED(${RESULT})"
       exit ${RESULT}
-    elif ${GREP} -q "Registry and code: .\+${KERN}=[[:digit:]]\+" "${TMPF}"; then
+    elif ${GREP} -q "OZAKI GEMM:" "${TMPF}"; then
       echo "OK"
-    elif ${GREP} -q "Not executed!" "${TMPF}"; then
-      echo "OK: not executed"
     else
       echo "FAILED"
       exit 1
