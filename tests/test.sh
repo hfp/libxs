@@ -87,7 +87,7 @@ for TEST in ${TESTS}; do
         ${ENV} LD_LIBRARY_PATH="${LD_LIBRARY_PATH}:${HERE}/../lib" \
           DYLD_LIBRARY_PATH="${DYLD_LIBRARY_PATH}:${HERE}/../lib" \
           OMP_PROC_BIND=TRUE \
-        ${TOOL_COMMAND} ${TESTX} ${TOOL_COMMAND_POST}; \
+        ${TOOL_COMMAND} ${TESTX} ${TOOL_COMMAND_POST} \
         >/dev/null; } 2>&1) || RESULT=$?
     else
       ERROR="Test is missing"

@@ -62,16 +62,13 @@ XFILES  := $(addsuffix .x,$(addprefix $(OUTDIR)/,$(basename $(notdir \
 REALTYPE_INDEX := $(shell bash -c 'echo "$$((RANDOM%2+1))"' 2>/dev/null)
 REALTYPE := $(word $(if $(REALTYPE_INDEX),$(REALTYPE_INDEX),1),double float)
 
+SAMPLES := memcmp ozaki scratch shuffle sync
+
 .PHONY: all
 all: $(XFILES)
-#	@$(FLOCK) $(DEPDIR)/samples/pyfr "$(MAKE) REALTYPE=$(REALTYPE) BLAS=0 --no-print-directory tests"
-#	@$(FLOCK) $(DEPDIR)/samples/utilities/dispatch "$(MAKE) --no-print-directory"
-#	@$(FLOCK) $(DEPDIR)/samples/utilities/memcmp "$(MAKE) --no-print-directory"
-#	@$(FLOCK) $(DEPDIR)/samples/utilities/wrap "$(MAKE) --no-print-directory"
-#	@$(FLOCK) $(DEPDIR)/samples/equation "$(MAKE) --no-print-directory"
-#	@$(FLOCK) $(DEPDIR)/samples/eltwise "$(MAKE) --no-print-directory"
-#	@$(FLOCK) $(DEPDIR)/samples/xgemm "$(MAKE) --no-print-directory"
-#	@$(FLOCK) $(DEPDIR)/samples/edge "$(MAKE) --no-print-directory"
+	@for SAMPLE in $(SAMPLES); do \
+		$(FLOCK) $(DEPDIR)/samples/$${SAMPLE} "$(MAKE) --no-print-directory"; \
+	done
 
 .PHONY: compile
 compile: $(OBJECTS) $(FTNOBJS)
@@ -156,8 +153,7 @@ ifneq ($(call qapath,$(BLDDIR)),$(call qapath,.))
 endif
 endif
 ifneq (,$(wildcard $(BLDDIR))) # still exists
-	@-rm -f $(OBJECTS) $(OBJECTX) $(FTNOBJS) $(FTNOBJX) *__genmod.* *.dat *.log
-	@-rm -f $(BLDDIR)/*.gcno $(BLDDIR)/*.gcda $(BLDDIR)/*.gcov
+	@-rm -f $(OBJECTS) $(OBJECTX) $(FTNOBJS) $(FTNOBJX)
 endif
 
 .PHONY: realclean-private
@@ -173,34 +169,19 @@ endif
 
 .PHONY: clean
 clean: clean-private
-	@$(FLOCK) $(DEPDIR)/samples/pyfr "$(MAKE) REALTYPE=$(REALTYPE) BLAS=0 --no-print-directory clean"
-	@$(FLOCK) $(DEPDIR)/samples/utilities/dispatch "$(MAKE) --no-print-directory clean"
-	@$(FLOCK) $(DEPDIR)/samples/utilities/memcmp "$(MAKE) --no-print-directory clean"
-	@$(FLOCK) $(DEPDIR)/samples/utilities/wrap "$(MAKE) --no-print-directory clean"
-	@$(FLOCK) $(DEPDIR)/samples/equation "$(MAKE) --no-print-directory clean"
-	@$(FLOCK) $(DEPDIR)/samples/eltwise "$(MAKE) --no-print-directory clean"
-	@$(FLOCK) $(DEPDIR)/samples/xgemm "$(MAKE) --no-print-directory clean"
-	@$(FLOCK) $(DEPDIR)/samples/edge "$(MAKE) --no-print-directory clean"
+	@for SAMPLE in $(SAMPLES); do \
+		$(FLOCK) $(DEPDIR)/samples/$${SAMPLE} "$(MAKE) --no-print-directory clean"; \
+	done
 
 .PHONY: realclean
 realclean: realclean-private
-	@$(FLOCK) $(DEPDIR)/samples/pyfr "$(MAKE) REALTYPE=$(REALTYPE) BLAS=0 --no-print-directory realclean"
-	@$(FLOCK) $(DEPDIR)/samples/utilities/dispatch "$(MAKE) --no-print-directory realclean"
-	@$(FLOCK) $(DEPDIR)/samples/utilities/memcmp "$(MAKE) --no-print-directory realclean"
-	@$(FLOCK) $(DEPDIR)/samples/utilities/wrap "$(MAKE) --no-print-directory realclean"
-	@$(FLOCK) $(DEPDIR)/samples/equation "$(MAKE) --no-print-directory realclean"
-	@$(FLOCK) $(DEPDIR)/samples/eltwise "$(MAKE) --no-print-directory realclean"
-	@$(FLOCK) $(DEPDIR)/samples/xgemm "$(MAKE) --no-print-directory realclean"
-	@$(FLOCK) $(DEPDIR)/samples/edge "$(MAKE) --no-print-directory realclean"
+	@for SAMPLE in $(SAMPLES); do \
+		$(FLOCK) $(DEPDIR)/samples/$${SAMPLE} "$(MAKE) --no-print-directory realclean"; \
+	done
 
 .PHONY: deepclean
 deepclean: realclean-private
-	@$(FLOCK) $(DEPDIR)/samples/pyfr "$(MAKE) REALTYPE=$(REALTYPE) BLAS=0 --no-print-directory deepclean"
-	@$(FLOCK) $(DEPDIR)/samples/utilities/dispatch "$(MAKE) --no-print-directory deepclean"
-	@$(FLOCK) $(DEPDIR)/samples/utilities/memcmp "$(MAKE) --no-print-directory deepclean"
-	@$(FLOCK) $(DEPDIR)/samples/utilities/wrap "$(MAKE) --no-print-directory deepclean"
-	@$(FLOCK) $(DEPDIR)/samples/equation "$(MAKE) --no-print-directory deepclean"
-	@$(FLOCK) $(DEPDIR)/samples/eltwise "$(MAKE) --no-print-directory deepclean"
-	@$(FLOCK) $(DEPDIR)/samples/xgemm "$(MAKE) --no-print-directory deepclean"
-	@$(FLOCK) $(DEPDIR)/samples/edge "$(MAKE) --no-print-directory deepclean"
+	@for SAMPLE in $(SAMPLES); do \
+		$(FLOCK) $(DEPDIR)/samples/$${SAMPLE} "$(MAKE) --no-print-directory deepclean"; \
+	done
 	@-rm -f .make .state

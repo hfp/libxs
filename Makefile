@@ -386,14 +386,6 @@ samples: $(DIRS_SAMPLES)
 $(DIRS_SAMPLES): libs
 	@$(FLOCK) $@ "$(MAKE)"
 
-.PHONY: cp2k
-cp2k: libs
-	@$(FLOCK) $(ROOTDIR)/$(SPLDIR)/cp2k "$(MAKE) --no-print-directory"
-
-.PHONY: specfem
-specfem: libs
-	@$(FLOCK) $(ROOTDIR)/$(SPLDIR)/specfem "$(MAKE) --no-print-directory"
-
 .PHONY: test-all
 test-all: tests
 
@@ -410,18 +402,6 @@ build-tests: libs
 .PHONY: tests
 tests: libs
 	@$(FLOCK) $(ROOTDIR)/$(TSTDIR) "$(MAKE) --no-print-directory test"
-
-.PHONY: test-cp2k
-test-cp2k: $(ROOTDIR)/$(SPLDIR)/cp2k/cp2k-test.txt
-$(ROOTDIR)/$(SPLDIR)/cp2k/cp2k-test.txt: $(ROOTDIR)/$(SPLDIR)/cp2k/cp2k-perf.sh libs cp2k
-	@$(FLOCK) $(call qdir,$@) "./cp2k-perf.sh $(call qndir,$@) $(shell echo $$(($(TESTSIZE)*128)))"
-
-.PHONY: test-smm
-ifneq (,$(strip $(FC)))
-test-smm: $(ROOTDIR)/$(UTLDIR)/smmbench/smm-test.txt
-$(ROOTDIR)/$(UTLDIR)/smmbench/smm-test.txt: $(ROOTDIR)/$(UTLDIR)/smmbench/smmf-perf.sh libs smm
-	@$(FLOCK) $(call qdir,$@) "./smmf-perf.sh $(call qndir,$@) $(shell echo $$(($(TESTSIZE)*-128)))"
-endif
 
 $(DOCDIR)/index.md: $(DOCDIR)/.make $(ROOTDIR)/Makefile $(ROOTDIR)/README.md
 	@$(SED) $(ROOTDIR)/README.md \
@@ -694,7 +674,6 @@ ifneq ($(PREFIX),$(ABSDIR))
 	@echo "LIBXS tool scripts..."
 	@$(MKDIR) -p $(PREFIX)/$(SCRDIR)
 	@$(CP) -v $(ROOTSCR)/tool_getenvars.sh $(PREFIX)/$(SCRDIR) 2>/dev/null || true
-	@$(CP) -v $(ROOTSCR)/tool_cpuinfo.sh $(PREFIX)/$(SCRDIR) 2>/dev/null || true
 	@$(CP) -v $(ROOTSCR)/tool_pexec.sh $(PREFIX)/$(SCRDIR) 2>/dev/null || true
 endif
 
@@ -704,11 +683,10 @@ ifneq ($(PREFIX),$(ABSDIR))
 	@echo
 	@echo "LIBXS installing samples..."
 	@$(MKDIR) -p $(PREFIX)/$(PSHRDIR)/$(SPLDIR)
-	@$(CP) -v $(addprefix $(ROOTDIR)/$(SPLDIR)/cp2k/,cp2k cp2k-perf* cp2k-plot.sh) $(PREFIX)/$(PSHRDIR)/$(SPLDIR) 2>/dev/null || true
-	@$(CP) -v $(addprefix $(ROOTDIR)/$(SPLDIR)/hello/,hello helloc hellof) $(PREFIX)/$(PSHRDIR)/$(SPLDIR) 2>/dev/null || true
-	@$(CP) -v $(addprefix $(ROOTDIR)/$(SPLDIR)/magazine/,magazine_batch magazine_blas magazine_xsmm benchmark.plt benchmark.set *.sh) \
-						$(PREFIX)/$(PSHRDIR)/$(SPLDIR) 2>/dev/null || true
-	@$(CP) -v $(addprefix $(ROOTDIR)/$(SPLDIR)/transpose/,transpose transposef) $(PREFIX)/$(PSHRDIR)/$(SPLDIR) 2>/dev/null || true
+	@$(CP) -v $(addprefix $(ROOTDIR)/$(SPLDIR)/memcmp/,*.x) $(PREFIX)/$(PSHRDIR)/$(SPLDIR) 2>/dev/null || true
+	@$(CP) -v $(addprefix $(ROOTDIR)/$(SPLDIR)/scratch/,*.x) $(PREFIX)/$(PSHRDIR)/$(SPLDIR) 2>/dev/null || true
+	@$(CP) -v $(addprefix $(ROOTDIR)/$(SPLDIR)/shuffle/,*.x) $(PREFIX)/$(PSHRDIR)/$(SPLDIR) 2>/dev/null || true
+	@$(CP) -v $(addprefix $(ROOTDIR)/$(SPLDIR)/sync/,*.x) $(PREFIX)/$(PSHRDIR)/$(SPLDIR) 2>/dev/null || true
 endif
 
 ifeq (Windows_NT,$(UNAME))
