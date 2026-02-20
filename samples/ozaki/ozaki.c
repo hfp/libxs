@@ -539,7 +539,7 @@ LIBXS_API void gemm_oz1(const char* transa, const char* transb,
       char fname[64];
       size_t size[2], ld[2];
       FILE *file = NULL;
-      int result;
+      int result = EXIT_SUCCESS;
       LIBXS_ATOMIC_ACQUIRE(&gemm_lock, LIBXS_SYNC_NPAUSE, LIBXS_ATOMIC_SEQ_CST);
       LIBXS_SNPRINTF(fname, sizeof(fname), "ozaki-%i-a.mhd", gemm_diff.r);
       file = fopen(fname, "rb");
@@ -547,7 +547,7 @@ LIBXS_API void gemm_oz1(const char* transa, const char* transb,
         size[0] = *m; size[1] = *k; ld[0] = *lda; ld[1] = *k;
         *(char*)extension = *transa; *(GEMM_INT_TYPE*)(extension + sizeof(char)) = *lda;
         *(GEMM_REAL_TYPE*)(extension + sizeof(char) + sizeof(GEMM_INT_TYPE)) = *alpha;
-        result = libxs_mhd_write(fname, NULL/*offset*/, size, ld,
+        result |= libxs_mhd_write(fname, NULL/*offset*/, size, ld,
           &mhd_info, a, NULL/*handler_info*/, NULL/*handler*/,
           NULL/*extension_header*/, extension, sizeof(extension));
       }
