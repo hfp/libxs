@@ -53,12 +53,12 @@ LIBXS_API int libxs_matdiff(libxs_matdiff_info_t* info,
     const char *const matdiff_shuffle_env = getenv("LIBXS_MATDIFF_SHUFFLE");
     const int matdiff_shuffle = (NULL == matdiff_shuffle_env ? 0
       : ('\0' != *matdiff_shuffle_env ? atoi(matdiff_shuffle_env) : 1));
-    const size_t ntotal = (size_t)m * n;
+    const size_t ntotal = (size_t)m * (size_t)n;
     int mm = m, nn = n;
-    double inf;
+    double pos_inf;
     if (1 == n) { mm = ldr = ldt = 1; nn = m; } /* ensure row-vector shape to standardize results */
     libxs_matdiff_clear(info);
-    inf = info->min_ref;
+    pos_inf = info->min_ref;
     switch ((int)datatype) {
       case LIBXS_DATATYPE_I64: {
 #       define LIBXS_MATDIFF_TEMPLATE_TYPE2FP64(VALUE) ((double)(VALUE))
@@ -245,22 +245,22 @@ LIBXS_API int libxs_matdiff(libxs_matdiff_info_t* info,
         info->l2_abs = sqrt(info->l2_abs);
         info->l2_rel = sqrt(info->l2_rel);
       }
-      else if (0 != result_nan) {
+      else {
         /* in case of NaN (in test-set), initialize statistics to either Infinity or NaN */
         info->norm1_abs = info->norm1_rel = info->normi_abs = info->normi_rel = info->normf_rel
                         = info->linf_abs = info->linf_rel = info->l2_abs = info->l2_rel
-                        = inf;
+                        = pos_inf;
         if (1 == result_nan) {
-          info->l1_tst = info->var_tst = inf;
+          info->l1_tst = info->var_tst = pos_inf;
           info->avg_tst = /*NaN*/info->v_tst;
-          info->min_tst = +inf;
-          info->max_tst = -inf;
+          info->min_tst = +pos_inf;
+          info->max_tst = -pos_inf;
         }
         else {
-          info->l1_ref = info->var_ref = inf;
+          info->l1_ref = info->var_ref = pos_inf;
           info->avg_ref = /*NaN*/info->v_ref;
-          info->min_ref = +inf;
-          info->max_ref = -inf;
+          info->min_ref = +pos_inf;
+          info->max_ref = -pos_inf;
         }
       }
       if (1 == n) LIBXS_ISWAP(info->m, info->n);
@@ -303,10 +303,13 @@ LIBXS_API double libxs_matdiff_epsilon(const libxs_matdiff_info_t* input)
     if (NULL != matdiff_env && '\0' != *matdiff_env) {
       char buffer[4096];
       struct stat stat_info;
-      size_t offset = strlen(matdiff_env) + 1;
+      const size_t envlen = strlen(matdiff_env);
+      size_t offset = LIBXS_MIN(envlen + 1, sizeof(buffer));
       char *const env = strncpy(buffer, matdiff_env, sizeof(buffer) - 1);
-      const char *arg = strtok(env, LIBXS_MATH_DELIMS), *filename = NULL;
-      if (0 == stat(arg, &stat_info) && LIBXS_MATH_ISDIR(stat_info.st_mode)) {
+      const char *arg, *filename = NULL;
+      buffer[sizeof(buffer) - 1] = '\0'; /* ensure NUL-termination */
+      arg = strtok(env, LIBXS_MATH_DELIMS);
+      if (NULL != arg && 0 == stat(arg, &stat_info) && LIBXS_MATH_ISDIR(stat_info.st_mode)) {
         const int nchars = LIBXS_SNPRINTF(buffer + offset, sizeof(buffer) - offset,
           "%s/libxs_matdiff.log", arg);
         if (0 < nchars && (offset + nchars + 1) < sizeof(buffer)) {
@@ -357,12 +360,13 @@ LIBXS_API double libxs_matdiff_epsilon(const libxs_matdiff_info_t* input)
 LIBXS_API void libxs_matdiff_reduce(libxs_matdiff_info_t* output, const libxs_matdiff_info_t* input)
 {
   if (NULL != output && NULL != input) {
+    const double eps_out = libxs_matdiff_epsilon(output);
+    const double eps_in  = libxs_matdiff_epsilon(input);
     ++output->r; /* increment reduction counter */
     /* epsilon is determined before updating the output */
-    if (libxs_matdiff_epsilon(output) <= libxs_matdiff_epsilon(input)) {
-      const double ta = LIBXS_ABS(input->v_tst), ra = LIBXS_ABS(input->v_ref);
-      output->linf_abs = (ta != ra ? LIBXS_DELTA(input->v_ref, input->v_tst) : 0);
-      output->linf_rel = LIBXS_MATDIFF_DIV(output->linf_abs, ra, ta);
+    if (eps_out <= eps_in) {
+      output->linf_abs = input->linf_abs;
+      output->linf_rel = input->linf_rel;
       output->v_ref = input->v_ref;
       output->v_tst = input->v_tst;
       output->rsq = input->rsq;
@@ -373,8 +377,8 @@ LIBXS_API void libxs_matdiff_reduce(libxs_matdiff_info_t* output, const libxs_ma
     else if (output->linf_abs <= input->linf_abs
           || output->linf_rel <= input->linf_rel)
     {
-      output->linf_abs = input->linf_abs;
-      output->linf_rel = input->linf_rel;
+      output->linf_abs = LIBXS_MAX(output->linf_abs, input->linf_abs);
+      output->linf_rel = LIBXS_MAX(output->linf_rel, input->linf_rel);
       output->v_ref = input->v_ref;
       output->v_tst = input->v_tst;
       output->rsq = input->rsq;
@@ -449,7 +453,9 @@ LIBXS_API unsigned int libxs_remainder(unsigned int a, unsigned int b,
   const unsigned int* limit, const unsigned int* remainder)
 {
   /* normalize such that a <= b */
-  unsigned int ci = ((b < a && 0 != b) ? LIBXS_UP(a, b) : b), c = a * ci;
+  unsigned int ci, c;
+  if (0 == b) return 0; /* guard against division by zero and infinite loop */
+  ci = (b < a ? LIBXS_UP(a, b) : b); c = a * ci;
   /* sanitize limit argument */
   if (NULL != limit && (0 == b || ((*limit / b) * b) < a)) limit = NULL;
   if (1 <= a) {
@@ -563,7 +569,9 @@ LIBXS_API unsigned int libxs_product_limit(unsigned int product, unsigned int li
   if (0 != is_lower) {
     if (limit < product) {
       if (result < limit) {
-        result = internal_product_limit(product, 2 * limit - 1);
+        const unsigned int limit2 = (limit <= (unsigned int)-1 / 2)
+          ? (2 * limit - 1) : (unsigned int)-1;
+        result = internal_product_limit(product, limit2);
       }
       if (result < limit) {
         result = product;

@@ -27,8 +27,8 @@ for (ii = 0; ii < nn; ++ii) {
 #else
     const int i = ii, j = jj;
 #endif
-    const double ti = (NULL != real_tst ? LIBXS_MATDIFF_TEMPLATE_TYPE2FP64(real_tst[i*ldt+j]) : 0);
-    const double ri = LIBXS_MATDIFF_TEMPLATE_TYPE2FP64(real_ref[i*ldr+j]);
+    const double ti = (NULL != real_tst ? LIBXS_MATDIFF_TEMPLATE_TYPE2FP64(real_tst[(size_t)i*ldt+j]) : 0);
+    const double ri = LIBXS_MATDIFF_TEMPLATE_TYPE2FP64(real_ref[(size_t)i*ldr+j]);
     const double ta = LIBXS_ABS(ti);
     const double ra = LIBXS_ABS(ri);
 
@@ -36,7 +36,7 @@ for (ii = 0; ii < nn; ++ii) {
     if (ri < info->min_ref) info->min_ref = ri;
     if (ri > info->max_ref) info->max_ref = ri;
 
-    if (LIBXS_NOTNAN(ti) && (inf > ta || ti == ri)) {
+    if (LIBXS_NOTNAN(ti) && (pos_inf > ta || ti == ri)) {
       const double di = ((NULL != real_tst && ta != ra) ? LIBXS_DELTA(ri, ti) : 0);
       const double dri = LIBXS_MATDIFF_DIV(di, ra, ta);
 
@@ -84,7 +84,7 @@ for (ii = 0; ii < nn; ++ii) {
       libxs_kahan_sum(di * di, &info->l2_abs, &compf);
     }
     else { /* NaN */
-      result_nan = ((LIBXS_NOTNAN(ri) && inf > ra) ? 1 : 2);
+      result_nan = ((LIBXS_NOTNAN(ri) && pos_inf > ra) ? 1 : 2);
       info->m = j; info->n = i;
       info->v_ref = ri;
       info->v_tst = ti;
@@ -140,8 +140,8 @@ if (0 == result_nan) {
 #else
       const int i = ii, j = jj;
 #endif
-      const double ti = (NULL != real_tst ? LIBXS_MATDIFF_TEMPLATE_TYPE2FP64(real_tst[i * ldt + j]) : 0);
-      const double ri = LIBXS_MATDIFF_TEMPLATE_TYPE2FP64(real_ref[i*ldr+j]);
+      const double ti = (NULL != real_tst ? LIBXS_MATDIFF_TEMPLATE_TYPE2FP64(real_tst[(size_t)i * ldt + j]) : 0);
+      const double ri = LIBXS_MATDIFF_TEMPLATE_TYPE2FP64(real_ref[(size_t)i*ldr+j]);
       const double ta = LIBXS_ABS(ti), ra = LIBXS_ABS(ri);
       const double di = ((NULL != real_tst && ta != ra) ? LIBXS_DELTA(ri, ti) : 0);
       const double rd = ri - info->avg_ref, td = ti - info->avg_tst;
