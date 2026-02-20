@@ -33,8 +33,8 @@ endif
 
 OUTNAME := $(shell basename "$(ROOTDIR)")
 HEADERS := $(wildcard $(INCDIR)/*.h) $(wildcard $(SRCDIR)/*.h) $(DEPDIR)/include/libxs_source.h
-CSOURCS := $(wildcard $(SRCDIR)/gemm.c $(SRCDIR)/$(OUTNAME).c)
-WRPSRCS := $(wildcard $(SRCDIR)/wrap.c)
+CSOURCS := $(wildcard $(SRCDIR)/gemm.c $(SRCDIR)/gemm-print.c)
+WRPSRCS := $(wildcard $(SRCDIR)/wrap.c $(SRCDIR)/$(OUTNAME).c)
 COBJCTS := $(patsubst %,$(BLDDIR)/%,$(notdir $(CSOURCS:.c=-c.o)))
 WRPOBJS := $(patsubst %,$(BLDDIR)/%,$(notdir $(WRPSRCS:.c=-c.o)))
 OBJECTS := $(COBJCTS) $(WRPOBJS)
@@ -47,7 +47,7 @@ all: $(XFILES)
 compile: $(OBJECTS)
 
 ifneq (,$(WRAP_GEMM))
-$(OUTDIR)/libwrap.$(SLIBEXT): $(OUTDIR)/.make $(BLDDIR)/$(OUTNAME)-c.o
+$(OUTDIR)/libwrap.$(SLIBEXT): $(OUTDIR)/.make $(BLDDIR)/$(OUTNAME)-c.o $(BLDDIR)/gemm-print-c.o
 	$(MAKE_AR) $@ $(call tailwords,$^)
 
 $(OUTDIR)/gemm-wrap.x: $(BLDDIR)/gemm-c.o $(OUTDIR)/libwrap.$(SLIBEXT) $(XSDEP) $(OUTDIR)/.make
@@ -66,12 +66,12 @@ endif
 .PHONY: $(OUTDIR)/libwrap.$(DLIBEXT)
 .PHONY: $(OUTDIR)/gemm-blas.x
 else
-$(OUTDIR)/libwrap.$(DLIBEXT): $(WRPOBJS) $(BLDDIR)/$(OUTNAME)-c.o $(XSDEP) $(OUTDIR)/.make
-	$(LIB_SOLD) $(call solink,$@) $(WRPOBJS) $(BLDDIR)/$(OUTNAME)-c.o $(XSLIB) \
-		$(call cleanld,$(LDFLAGS) $(CLDFLAGS))
+$(OUTDIR)/libwrap.$(DLIBEXT): $(WRPOBJS) $(BLDDIR)/gemm-print-c.o $(XSDEP) $(OUTDIR)/.make
+	$(LIB_SOLD) $(call solink,$@) $(WRPOBJS) $(BLDDIR)/gemm-print-c.o \
+		$(XSLIB) $(call cleanld,$(LDFLAGS) $(CLDFLAGS))
 
-$(OUTDIR)/gemm-blas.x: $(BLDDIR)/gemm-c.o $(OUTDIR)/libwrap.$(DLIBEXT) $(XSDEP) $(OUTDIR)/.make
-	$(LD) -o $@ $< $(XSLIB) $(SLDFLAGS) $(LDFLAGS) $(CLDFLAGS)
+$(OUTDIR)/gemm-blas.x: $(COBJCTS) $(XSDEP) $(OUTDIR)/.make $(OUTDIR)/libwrap.$(DLIBEXT)
+	$(LD) -o $@ $(COBJCTS) $(XSLIB) $(SLDFLAGS) $(LDFLAGS) $(CLDFLAGS)
 
 .PHONY: $(OUTDIR)/libwrap.$(SLIBEXT)
 .PHONY: $(OUTDIR)/gemm-wrap.x

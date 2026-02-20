@@ -505,37 +505,6 @@ LIBXS_API_INLINE void gemm_oz1_diff(const char* transa, const char* transb,
 }
 
 
-LIBXS_API void print_gemm(FILE* ostream, const char* transa, const char* transb,
-  const GEMM_INT_TYPE* m, const GEMM_INT_TYPE* n, const GEMM_INT_TYPE* k,
-  const GEMM_REAL_TYPE* alpha, const GEMM_REAL_TYPE* a, const GEMM_INT_TYPE* lda,
-                               const GEMM_REAL_TYPE* b, const GEMM_INT_TYPE* ldb,
-  const GEMM_REAL_TYPE*  beta, GEMM_REAL_TYPE* c, const GEMM_INT_TYPE* ldc)
-{
-  const char *const fname = LIBXS_STRINGIFY(LIBXS_TPREFIX(GEMM_REAL_TYPE, gemm));
-  fprintf(ostream, "%s('%c', '%c', %lli/*m*/, %lli/*n*/, %lli/*k*/,\n"
-                   "  %g/*alpha*/, %p/*a*/, %lli/*lda*/,\n"
-                   "              %p/*b*/, %lli/*ldb*/,\n"
-                   "   %g/*beta*/, %p/*c*/, %lli/*ldc*/)\n",
-    fname, *transa, *transb, (long long int)*m, (long long int)*n, (long long int)*k,
-    *alpha, (const void*)a, (long long int)*lda, (const void*)b, (long long int)*ldb,
-    *beta, (const void*)c, (long long int)*ldc);
-}
-
-
-LIBXS_API void print_diff(FILE* ostream, const libxs_matdiff_info_t* diff)
-{
-  const double l0 = LIBXS_MAX(diff->linf_abs, diff->linf_rel);
-  const double l2 = LIBXS_MAX(diff->l2_abs, diff->l2_rel);
-  if (LIBXS_NEQ(0.0, l0) || LIBXS_NEQ(0.0, l2)) {
-    fprintf(ostream, "GEMM: ncalls=%i linf_abs=%f linf_rel=%f l2_abs=%f l2_rel=%f rsq=%f\n",
-      diff->r, diff->linf_abs, diff->linf_rel, diff->l2_abs, diff->l2_rel, diff->rsq);
-  }
-  else {
-    fprintf(ostream, "GEMM: ncalls=%i\n", diff->r);
-  }
-}
-
-
 LIBXS_API void gemm_oz1(const char* transa, const char* transb,
   const GEMM_INT_TYPE* m, const GEMM_INT_TYPE* n, const GEMM_INT_TYPE* k,
   const GEMM_REAL_TYPE* alpha, const GEMM_REAL_TYPE* a, const GEMM_INT_TYPE* lda,
@@ -560,22 +529,41 @@ LIBXS_API void gemm_oz1(const char* transa, const char* transb,
       const int nth = (0 < gemm_verbose ? gemm_verbose : 1);
       if (0 == (gemm_diff.r % nth)) print_diff(stderr, &gemm_diff);
     }
-    if (diff.rsq <= gemm_rsq) {
-      char fname[128];
+    if (diff.rsq <= gemm_rsq || 0 > gemm_verbose) {
+      char extension[
+        sizeof(char) /*trans*/ +
+        sizeof(GEMM_INT_TYPE) /*ld*/+
+        sizeof(GEMM_REAL_TYPE) /* alpha/beta */
+      ];
+      const libxs_mhd_info_t mhd_info = { 2, 1, LIBXS_DATATYPE(GEMM_REAL_TYPE), 0 };
+      char fname[64];
       size_t size[2], ld[2];
+      FILE *file = NULL;
       int result;
-      size[0] = *m; size[1] = *k; ld[0] = *lda; ld[1] = *k;
       LIBXS_SNPRINTF(fname, sizeof(fname), "ozaki-%i-a.mhd", gemm_diff.r);
-      result = libxs_mhd_write(fname, NULL/*offset*/, size, ld, 2,
-        1/*nchannels*/, LIBXS_DATATYPE(GEMM_REAL_TYPE), a,
-        NULL/*handler_info*/, NULL/*handler*/, NULL/*header_size*/,
-        NULL/*extension_header*/, NULL/*extension*/, 0/*extension_size*/);
-      size[0] = *k; size[1] = *n; ld[0] = *ldb; ld[1] = *n;
+      file = fopen(fname, "rb");
+      if (NULL == file) { /* Never overwrite an existing file */
+        size[0] = *m; size[1] = *k; ld[0] = *lda; ld[1] = *k;
+        *(char*)extension = *transa; *(GEMM_INT_TYPE*)(extension + sizeof(char)) = *lda;
+        *(GEMM_REAL_TYPE*)(extension + sizeof(char) + sizeof(GEMM_INT_TYPE)) = *alpha;
+        result = libxs_mhd_write(fname, NULL/*offset*/, size, ld,
+          &mhd_info, a,
+          NULL/*handler_info*/, NULL/*handler*/,
+          NULL/*extension_header*/, extension, sizeof(extension));
+      }
+      else fclose(file);
       LIBXS_SNPRINTF(fname, sizeof(fname), "ozaki-%i-b.mhd", gemm_diff.r);
-      result |= libxs_mhd_write(fname, NULL/*offset*/, size, ld, 2,
-        1/*nchannels*/, LIBXS_DATATYPE(GEMM_REAL_TYPE), b,
-        NULL/*handler_info*/, NULL/*handler*/, NULL/*header_size*/,
-        NULL/*extension_header*/, NULL/*extension*/, 0/*extension_size*/);
+      file = fopen(fname, "rb");
+      if (NULL == file) { /* Never overwrite an existing file */
+        size[0] = *k; size[1] = *n; ld[0] = *ldb; ld[1] = *n;
+        *(char*)extension = *transb; *(GEMM_INT_TYPE*)(extension + sizeof(char)) = *ldb;
+        *(GEMM_REAL_TYPE*)(extension + sizeof(char) + sizeof(GEMM_INT_TYPE)) = *beta;
+        result |= libxs_mhd_write(fname, NULL/*offset*/, size, ld,
+          &mhd_info, b,
+          NULL/*handler_info*/, NULL/*handler*/,
+          NULL/*extension_header*/, extension, sizeof(extension));
+      }
+      else fclose(file);
       if (EXIT_SUCCESS == result) {
         print_gemm(stdout, transa, transb, m, n, k,
           alpha, a, lda, b, ldb, beta, c, ldc);

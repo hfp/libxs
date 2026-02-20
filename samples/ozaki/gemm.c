@@ -8,6 +8,7 @@
 ******************************************************************************/
 #include "gemm.h"
 #include <libxs_timer.h>
+#include <libxs_mhd.h>
 #include <libxs_rng.h>
 
 #if !defined(ALPHA)
@@ -23,34 +24,107 @@ int main(int argc, char* argv[])
   const char *const nrepeat_env = getenv("NREPEAT");
   const int nrep = (NULL == nrepeat_env ? 1 : atoi(nrepeat_env));
   const int nrepeat = (0 < nrep ? nrep : 1);
-  const GEMM_INT_TYPE m = (1 < argc ? atoi(argv[1]) : 257);
-  const GEMM_INT_TYPE k = (2 < argc ? atoi(argv[2]) : m);
-  const GEMM_INT_TYPE n = (3 < argc ? atoi(argv[3]) : k);
+  GEMM_INT_TYPE m = (1 < argc ? atoi(argv[1]) : 257);
+  GEMM_INT_TYPE n = (2 < argc ? atoi(argv[2]) : m);
+  GEMM_INT_TYPE k = (3 < argc ? atoi(argv[3]) : m);
   const int ta = (4 < argc ? atoi(argv[4]) : 0);
   const int tb = (5 < argc ? atoi(argv[5]) : 0);
-  const GEMM_REAL_TYPE alpha = (6 < argc ? atof(argv[6]) : (ALPHA));
-  const GEMM_REAL_TYPE beta = (7 < argc ? atof(argv[7]) : (BETA));
-  const GEMM_INT_TYPE lda = (8 < argc ? atoi(argv[8]) : m);
-  const GEMM_INT_TYPE ldb = (9 < argc ? atoi(argv[9]) : k);
-  const GEMM_INT_TYPE ldc = (10 < argc ? atoi(argv[10]) : m);
-  const char transa = (0 == ta ? 'N' : 'T'), transb = (0 == tb ? 'N' : 'T');
-  GEMM_REAL_TYPE *const a = (GEMM_REAL_TYPE*)malloc(sizeof(GEMM_REAL_TYPE) * lda * k);
-  GEMM_REAL_TYPE *const b = (GEMM_REAL_TYPE*)malloc(sizeof(GEMM_REAL_TYPE) * ldb * n);
-  GEMM_REAL_TYPE *const c = (GEMM_REAL_TYPE*)malloc(sizeof(GEMM_REAL_TYPE) * ldc * n);
+  GEMM_REAL_TYPE alpha = (6 < argc ? atof(argv[6]) : (ALPHA));
+  GEMM_REAL_TYPE beta = (7 < argc ? atof(argv[7]) : (BETA));
+  GEMM_INT_TYPE lda = (8 < argc ? atoi(argv[8]) : m);
+  GEMM_INT_TYPE ldb = (9 < argc ? atoi(argv[9]) : k);
+  GEMM_INT_TYPE ldc = (10 < argc ? atoi(argv[10]) : m);
+  char transa = (0 == ta ? 'N' : 'T'), transb = (0 == tb ? 'N' : 'T');
   const GEMM_REAL_TYPE scale = (1 < nrepeat ? (1.0 / nrepeat) : 1);
-  int result = EXIT_SUCCESS, i;
+  int result = EXIT_SUCCESS, file_input = 0, i;
+  libxs_mhd_info_t info_a = { 2, 0, LIBXS_DATATYPE_UNKNOWN, 0 };
+  libxs_mhd_info_t info_b = { 2, 0, LIBXS_DATATYPE_UNKNOWN, 0 };
+  GEMM_REAL_TYPE *a, *b, *c;
   libxs_matdiff_info_t diff;
 
-  assert(NULL != a && NULL != b && NULL != c);
-  print_gemm(stdout, &transa, &transb, &m, &n, &k, &alpha, a, &lda, b, &ldb, &beta, c, &ldc);
-  LIBXS_MATRNG(GEMM_INT_TYPE, GEMM_REAL_TYPE, 0, a, m, k, lda, scale);
-  LIBXS_MATRNG(GEMM_INT_TYPE, GEMM_REAL_TYPE, 0, b, k, n, ldb, scale);
-  LIBXS_MATRNG(GEMM_INT_TYPE, GEMM_REAL_TYPE, 0, c, m, n, ldc, scale);
+  if (2 < argc && 0 == m && 0 == n) { /* Indicate filename */
+    char extension[
+      sizeof(char) /*trans*/ +
+      sizeof(GEMM_INT_TYPE) /*ld*/+
+      sizeof(GEMM_REAL_TYPE) /* alpha/beta */
+    ];
+    size_t size[2], extension_size = sizeof(extension);
+    result |= libxs_mhd_read_header(argv[1], strlen(argv[1]),
+      argv[1], &info_a, size, extension, &extension_size);
+    if (EXIT_SUCCESS == result
+      && 2 == info_a.ndims && 1 == info_a.ncomponents
+      && LIBXS_DATATYPE(GEMM_REAL_TYPE) == info_a.type
+      && sizeof(extension) == extension_size)
+    {
+      m = ldc = (int)size[0]; k = (int)size[1];
+      transa = *(const char*)extension;
+      lda = *(const GEMM_INT_TYPE*)(extension + sizeof(char));
+      alpha = *(const GEMM_REAL_TYPE*)(extension
+        + sizeof(char) + sizeof(GEMM_INT_TYPE));
+      file_input |= 0x1;
+    }
+    result |= libxs_mhd_read_header(argv[2], strlen(argv[2]),
+      argv[2], &info_b, size, extension, &extension_size);
+    if (EXIT_SUCCESS == result && k == (int)size[0]
+      && 2 == info_b.ndims && 1 == info_b.ncomponents
+      && LIBXS_DATATYPE(GEMM_REAL_TYPE) == info_b.type
+      && sizeof(extension) == extension_size)
+    {
+      n = (int)size[1]; transb = *(char*)extension;
+      ldb = *(const GEMM_INT_TYPE*)(extension + sizeof(char));
+      beta = *(const GEMM_REAL_TYPE*)(extension
+        + sizeof(char) + sizeof(GEMM_INT_TYPE));
+      file_input |= 0x2;
+    }
+  }
 
-  { /* Call GEMM */
+  if (EXIT_SUCCESS == result) { /* Allocate matrices */
+    a = (GEMM_REAL_TYPE*)malloc(sizeof(GEMM_REAL_TYPE) * lda * k);
+    b = (GEMM_REAL_TYPE*)malloc(sizeof(GEMM_REAL_TYPE) * ldb * n);
+    c = (GEMM_REAL_TYPE*)malloc(sizeof(GEMM_REAL_TYPE) * ldc * n);
+    if (NULL != a && NULL != b && NULL != c) {
+      if (0 == file_input) {
+        LIBXS_MATRNG(GEMM_INT_TYPE, GEMM_REAL_TYPE, 0, c, m, n, ldc, scale);
+      }
+      else memset(c, 0, sizeof(GEMM_REAL_TYPE) * ldc * n);
+    }
+    else result = EXIT_FAILURE;
+  }
+
+  /* Print requested GEMM arguments (regardless of result code) */
+  print_gemm(stdout, &transa, &transb, &m, &n, &k,
+    &alpha, a, &lda, b, &ldb, &beta, c, &ldc);
+
+  if (EXIT_SUCCESS == result) { /* Initialize A-matrix */
+    if (0x1 & file_input) {
+      size_t size[2], ld[2];
+      size[0] = m; size[1] = k;
+      ld[0] = lda; ld[1] = k;
+      result = libxs_mhd_read(argv[1], NULL/*offset*/, size, ld,
+        &info_a, a, NULL/*handler_info*/, NULL/*handler*/);
+    }
+    else {
+      LIBXS_MATRNG(GEMM_INT_TYPE, GEMM_REAL_TYPE, 0, a, m, k, lda, scale);
+    }
+  }
+
+  if (EXIT_SUCCESS == result) { /* Initialize B-matrix */
+    if (0x2 & file_input) {
+      size_t size[2], ld[2];
+      size[0] = k; size[1] = n;
+      ld[0] = ldb; ld[1] = n;
+      result = libxs_mhd_read(argv[2], NULL/*offset*/, size, ld,
+        &info_b, b, NULL/*handler_info*/, NULL/*handler*/);
+    }
+    else {
+      LIBXS_MATRNG(GEMM_INT_TYPE, GEMM_REAL_TYPE, 0, b, k, n, ldb, scale);
+    }
+  }
+
+  if (EXIT_SUCCESS == result) { /* Call GEMM */
     libxs_timer_tick_t start;
     int ncalls = nrepeat;
-    if (1 < nrepeat) { /* peel one warmup call */
+    if (1 < nrepeat) { /* Peel one warmup call */
       GEMM(&transa, &transb, &m, &n, &k, &alpha, a, &lda, b, &ldb, &beta, c, &ldc);
       --ncalls;
     }
@@ -62,7 +136,7 @@ int main(int argc, char* argv[])
       libxs_timer_duration(start, libxs_timer_tick()) / ncalls);
   }
 
-  { /* calculate final checksum */
+  if (EXIT_SUCCESS == result) { /* Calculate final checksum */
     const int ldtst = (int)ldc;
     result = libxs_matdiff(&diff, LIBXS_DATATYPE(GEMM_REAL_TYPE), m, n,
         NULL/*ref*/, c/*tst*/, NULL/*ldref*/, &ldtst);
