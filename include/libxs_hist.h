@@ -28,7 +28,7 @@ LIBXS_API void libxs_hist_get(LIBXS_LOCK_TYPE(LIBXS_LOCK)* lock, const libxs_his
 
 typedef double (*libxs_hist_adjust_t)(double /*value*/, int count);
 
-LIBXS_API void libxs_hist_print(FILE* stream, const libxs_hist_t* hist, const char title[],
+LIBXS_API void libxs_hist_print(FILE* ostream, const libxs_hist_t* hist, const char title[],
   const int prec[], const libxs_hist_adjust_t adjust[]);
 
 /** Update function (libxs_hist_update_t).*/

@@ -155,7 +155,7 @@ LIBXS_API void libxs_hist_get(LIBXS_LOCK_TYPE(LIBXS_LOCK)* lock, const libxs_his
 }
 
 
-LIBXS_API void libxs_hist_print(FILE* stream, const libxs_hist_t* hist, const char title[],
+LIBXS_API void libxs_hist_print(FILE* ostream, const libxs_hist_t* hist, const char title[],
   const int prec[], const libxs_hist_adjust_t adjust[])
 {
   int nbuckets = 0, nvals = 0, i = 1, j = 0, k;
@@ -163,25 +163,25 @@ LIBXS_API void libxs_hist_print(FILE* stream, const libxs_hist_t* hist, const ch
   const double* vals = NULL;
   double range[2];
   libxs_hist_get(NULL /*lock*/, hist, &buckets, &nbuckets, range, &vals, &nvals);
-  if (NULL != stream && NULL != buckets && 0 < nbuckets && NULL != vals && 0 < nvals) {
+  if (NULL != ostream && NULL != buckets && 0 < nbuckets && NULL != vals && 0 < nvals) {
     const double w = range[1] - range[0];
-    if (NULL != title) fprintf(stream, "%s pid=%u\n", title, libxs_pid());
+    if (NULL != title) fprintf(ostream, "%s pid=%u\n", title, libxs_pid());
     for (; i <= nbuckets; j = nvals * i++) {
       const double q = range[0] + i * w / nbuckets, r = (i != nbuckets ? q : LIBXS_MAX(q, vals[j]));
       const int c = buckets[i - 1];
-      if (NULL != prec) fprintf(stream, "\t#%i <= %.*f: %i", i, prec[0], r, c);
-      else fprintf(stream, "\t#%i <= %f: %i", i, r, c);
+      if (NULL != prec) fprintf(ostream, "\t#%i <= %.*f: %i", i, prec[0], r, c);
+      else fprintf(ostream, "\t#%i <= %f: %i", i, r, c);
       if (0 != c) {
-        fprintf(stream, " ->");
+        fprintf(ostream, " ->");
         for (k = 0; k < nvals; ++k) {
           double value;
           if (NULL == adjust || NULL == adjust[k]) value = vals[j + k];
           else value = adjust[k](vals[j + k], c);
-          if (NULL != prec) fprintf(stream, " %.*f", prec[k], value);
-          else fprintf(stream, " %f", value);
+          if (NULL != prec) fprintf(ostream, " %.*f", prec[k], value);
+          else fprintf(ostream, " %f", value);
         }
       }
-      fprintf(stream, "\n");
+      fprintf(ostream, "\n");
     }
   }
 }
