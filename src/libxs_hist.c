@@ -39,6 +39,7 @@ LIBXS_API void libxs_hist_create(libxs_hist_t** hist,
     }
     else {
       free(h->buckets);
+      free(h->update);
       free(h->vals);
       free(h);
       h = NULL;
