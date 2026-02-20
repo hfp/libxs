@@ -15,6 +15,7 @@ DEPDIR=${HERE}/../../..
 
 UNAME=$(command -v uname)
 GREP=$(command -v grep)
+CAT=$(command -v cat)
 TR=$(command -v tr)
 
 if [ "Darwin" != "$(${UNAME})" ]; then
@@ -42,10 +43,11 @@ for TEST in ${TESTS}; do
     echo "-----------------------------------"
     echo "${NAME} (ORIGINAL BLAS)"
     if [ "$*" ]; then echo "args    $*"; fi
-    { time "${HERE}/${TEST}-blas.x" "$*" 2>"${TMPF}"; } 2>&1 | ${GREP} real
-    RESULT=$?
+    RESULT=0
+    { time eval "${HERE}/${TEST}-blas.x $*" 2>"${TMPF}"; } 2>&1 \
+      | ${GREP} real || RESULT=$?
     if [ "0" != "${RESULT}" ]; then
-      echo "FAILED(${RESULT})"
+      echo "FAILED[${RESULT}] $(${CAT} "${TMPF}")"
       exit ${RESULT}
     elif ! ${GREP} -q "GEMM:" "${TMPF}"; then
       echo "OK"
@@ -62,10 +64,11 @@ for TEST in ${TESTS}; do
     echo "-----------------------------------"
     echo "${NAME} (STATIC WRAP)"
     if [ "$*" ]; then echo "args    $*"; fi
-    { time "${HERE}/${TEST}-wrap.x" "$*" 2>"${TMPF}"; } 2>&1 | ${GREP} real
-    RESULT=$?
+    RESULT=0
+    { time eval "${HERE}/${TEST}-wrap.x $*" 2>"${TMPF}"; } 2>&1 \
+      | ${GREP} real || RESULT=$?
     if [ "0" != "${RESULT}" ]; then
-      echo "FAILED(${RESULT})"
+      echo "FAILED[${RESULT}] $(${CAT} "${TMPF}")"
       exit ${RESULT}
     elif ${GREP} -q "GEMM:" "${TMPF}"; then
       echo "OK"
@@ -82,13 +85,13 @@ for TEST in ${TESTS}; do
     echo "-----------------------------------"
     echo "${NAME} (LD_PRELOAD)"
     if [ "$*" ]; then echo "args    $*"; fi
-    { time \
+    RESULT=0
+    { time eval " \
       LD_LIBRARY_PATH=${DEPDIR}/lib:${LD_LIBRARY_PATH} LD_PRELOAD=${HERE}/libwrap.${LIBEXT} \
       DYLD_LIBRARY_PATH=${DEPDIR}/lib:${DYLD_LIBRARY_PATH} DYLD_INSERT_LIBRARIES=${DEPDIR}/lib/libxs.${LIBEXT} \
-      "${HERE}/${TEST}-blas.x" "$*" 2>"${TMPF}"; } 2>&1 | ${GREP} real
-    RESULT=$?
+      ${HERE}/${TEST}-blas.x $*" 2>"${TMPF}"; } 2>&1 | ${GREP} real || RESULT=$?
     if [ "0" != "${RESULT}" ]; then
-      echo "FAILED(${RESULT})"
+      echo "FAILED[${RESULT}] $(${CAT} "${TMPF}")"
       exit ${RESULT}
     elif ${GREP} -q "GEMM:" "${TMPF}"; then
       echo "OK"

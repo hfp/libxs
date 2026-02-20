@@ -87,10 +87,8 @@ int main(int argc, char* argv[])
   b_rows = ('N' == transb || 'n' == transb) ? k : n;
   b_cols = ('N' == transb || 'n' == transb) ? n : k;
 
-  if (m < 1 || n < 1 || k < 1 || lda < a_rows || ldb < b_rows || ldc < m) {
-    fprintf(stderr, "Invalid dimensions: m=%i n=%i k=%i lda=%i ldb=%i ldc=%i\n",
-      (int)m, (int)n, (int)k, (int)lda, (int)ldb, (int)ldc);
-    return EXIT_FAILURE;
+  if (1 > m || 1 > n || 1 > k || lda < a_rows || ldb < b_rows || ldc < m) {
+    result = EXIT_FAILURE;
   }
 
   if (EXIT_SUCCESS == result) { /* Allocate matrices */
