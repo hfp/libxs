@@ -529,7 +529,7 @@ LIBXS_API void gemm_oz1(const char* transa, const char* transb,
       const int nth = (0 < gemm_verbose ? gemm_verbose : 1);
       if (0 == (gemm_diff.r % nth)) print_diff(stderr, &gemm_diff);
     }
-    if (diff.rsq <= gemm_rsq || 0 > gemm_verbose) {
+    if (diff.rsq < gemm_rsq || 0 > gemm_verbose) {
       char extension[
         sizeof(char) /*trans*/ +
         sizeof(GEMM_INT_TYPE) /*ld*/+
@@ -540,6 +540,7 @@ LIBXS_API void gemm_oz1(const char* transa, const char* transb,
       size_t size[2], ld[2];
       FILE *file = NULL;
       int result;
+      LIBXS_ATOMIC_ACQUIRE(&gemm_lock, LIBXS_SYNC_NPAUSE, LIBXS_ATOMIC_SEQ_CST);
       LIBXS_SNPRINTF(fname, sizeof(fname), "ozaki-%i-a.mhd", gemm_diff.r);
       file = fopen(fname, "rb");
       if (NULL == file) { /* Never overwrite an existing file */
@@ -566,6 +567,8 @@ LIBXS_API void gemm_oz1(const char* transa, const char* transb,
         print_gemm(stdout, transa, transb, m, n, k,
           alpha, a, lda, b, ldb, beta, c, ldc);
       }
+      gemm_rsq = diff.rsq; /* avoid repeated dumps; only if smaller */
+      LIBXS_ATOMIC_RELEASE(&gemm_lock, LIBXS_ATOMIC_SEQ_CST);
     }
   }
 }

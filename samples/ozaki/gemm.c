@@ -42,7 +42,7 @@ int main(int argc, char* argv[])
   GEMM_REAL_TYPE *a, *b, *c;
   libxs_matdiff_info_t diff;
 
-  if (2 < argc && 0 == m && 0 == n) { /* Indicate filename */
+  if (2 < argc && 0 == m) { /* Indicate filename(s) */
     char extension[
       sizeof(char) /*trans*/ +
       sizeof(GEMM_INT_TYPE) /*ld*/+
@@ -63,18 +63,20 @@ int main(int argc, char* argv[])
         + sizeof(char) + sizeof(GEMM_INT_TYPE));
       file_input |= 0x1;
     }
-    result |= libxs_mhd_read_header(argv[2], strlen(argv[2]),
-      argv[2], &info_b, size, extension, &extension_size);
-    if (EXIT_SUCCESS == result && k == (int)size[0]
-      && 2 == info_b.ndims && 1 == info_b.ncomponents
-      && LIBXS_DATATYPE(GEMM_REAL_TYPE) == info_b.type
-      && sizeof(extension) == extension_size)
-    {
-      n = (int)size[1]; transb = *(char*)extension;
-      ldb = *(const GEMM_INT_TYPE*)(extension + sizeof(char));
-      beta = *(const GEMM_REAL_TYPE*)(extension
-        + sizeof(char) + sizeof(GEMM_INT_TYPE));
-      file_input |= 0x2;
+    if (0 == n) {
+      result |= libxs_mhd_read_header(argv[2], strlen(argv[2]),
+        argv[2], &info_b, size, extension, &extension_size);
+      if (EXIT_SUCCESS == result && k == (int)size[0]
+        && 2 == info_b.ndims && 1 == info_b.ncomponents
+        && LIBXS_DATATYPE(GEMM_REAL_TYPE) == info_b.type
+        && sizeof(extension) == extension_size)
+      {
+        n = (int)size[1]; transb = *(char*)extension;
+        ldb = *(const GEMM_INT_TYPE*)(extension + sizeof(char));
+        beta = *(const GEMM_REAL_TYPE*)(extension
+          + sizeof(char) + sizeof(GEMM_INT_TYPE));
+        file_input |= 0x2;
+      }
     }
   }
 

@@ -24,12 +24,14 @@ The wrapper library intercepts an application's calls to DGEMM, and executes Oza
 | + `REVERSE_PASS` + `TRIM_FORWARD` | S^2 / 4 | S^2 / 4 | **S^2 / 2** | Symmetric coverage at original cost (default) |
 | Full (no `TRIANGULAR`) | S^2 | 0 | S^2 | All pairs |
 
-At runtime, the wrapper can be instructed to print a running statistic of the observed accuracy. The default is `GEMM_VERBOSE=0` whereas `GEMM_VERBOSE=1` environment variable prints the accumulated statistic when the application terminates, and `GEMM_VERBOSE=N` prints every *N*th call of DGEMM. The environment variable `GEMM_DIFF` can select tracking the A-matrix (1), the B-matrix (2) representations, and by default tracks the C-matrix against the original DGEMM. For convenience, `GEMM_OZAKI=0` calls the original DGEMM right away (no LP-GEMM is involved).
+At runtime, the wrapper can be instructed to print a running statistic of the observed accuracy. The default is `GEMM_VERBOSE=0` whereas `GEMM_VERBOSE=1` environment variable prints the accumulated statistic when the application terminates, and `GEMM_VERBOSE=N` prints every *N*th call of DGEMM. The environment variable `GEMM_DIFF` can select tracking the A-matrix (1), the B-matrix (2) representations, and by default tracks the C-matrix against the original DGEMM. For convenience, `GEMM_OZAKI=0` calls the original DGEMM right away (no LP-GEMM is involved). If a multiplication yields a smaller RSQ then what is given by the environment variable `GEMM_RSQ`, the related GEMM arguments are printed and the A-matrix and B-matrix are dumped as MHD-files along with transposition, leading dimension, and alpha or beta argument. The RSQ-value is zero by default (no prints and dumps), and it is updated after every print-dump to only print-dump again if the value is undercut again.
 
 The test driver (`gemm.c`) accepts positional arguments:
 
 ```text
-gemm-wrap.x [M [N [K [TA [TB [ALPHA [BETA [LDA [LDB [LDC]]]]]]]]]]
-gemm-blas.x [M [N [K [TA [TB [ALPHA [BETA [LDA [LDB [LDC]]]]]]]]]]
+gemm-wrap.x [A.mhd|M [B.mhd|N] [K [TA [TB [ALPHA [BETA [LDA [LDB [LDC]]]]]]]]]
+gemm-blas.x [A.mhd|M [B.mhd|N] [K [TA [TB [ALPHA [BETA [LDA [LDB [LDC]]]]]]]]]
 ```
+
+If the driver is called with MHD-files, accuracy issues can be analyzed outside of an application.
 
