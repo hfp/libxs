@@ -39,6 +39,7 @@
   else *((TYPE*)PMIN_INOUT) = *((TYPE*)PMAX_INOUT) = 0; \
 } while(0)
 
+/* Relies on LIBXS_TYPEORDER: F64=0, F32=1, I64=2, U64=3, ... UNKNOWN=10 */
 #define LIBXS_MHD_TYPE_IS_FLOAT(ENUM) (LIBXS_TYPEORDER(LIBXS_DATATYPE_I64) > LIBXS_TYPEORDER(ENUM))
 #define LIBXS_MHD_TYPE_IS_UINT(ENUM) ( \
     LIBXS_TYPEORDER(LIBXS_DATATYPE_UNKNOWN) > LIBXS_TYPEORDER(ENUM) && !LIBXS_MHD_TYPE_IS_FLOAT(ENUM) && ( \
@@ -52,12 +53,17 @@
       : (LIBXS_MHD_TYPE_IS_UINT(SRC_ENUM) ? 0 : (libxs_mhd_typesize(SRC_ENUM) <= libxs_mhd_typesize(DST_ENUM)))) \
   )
 
-#define LIBXS_MHD_ELEMENT_CONVERSION_F(SRC_TYPE, DST_TYPE, DST_INFO, DST_MIN, DST_MAX, PDST, SRC_ENUM, PSRC, PSRC_MIN, PSRC_MAX, RESULT) do { \
+/* Unified element-conversion macro parameterized by IS_FLOAT (compile-time constant).
+ * IS_FLOAT=1: float/double source — NaN guard, no intermediate rounding.
+ * IS_FLOAT=0: integer source — no NaN, rounds intermediate scaled value.
+ */
+#define LIBXS_MHD_ELEMENT_CONVERSION_IMPL(SRC_TYPE, IS_FLOAT, DST_TYPE, DST_INFO, DST_MIN, DST_MAX, PDST, SRC_ENUM, PSRC, PSRC_MIN, PSRC_MAX, RESULT) do { \
   const libxs_datatype dst_enum = (NULL == (DST_INFO) ? (SRC_ENUM) : (DST_INFO)->type); \
+  /* h = 0.5 for integer DST_TYPE (nearest-integer rounding), 0.0 for float DST_TYPE */ \
   const double h = (0.5 - (DST_TYPE)0.5); \
   SRC_TYPE s = *((const SRC_TYPE*)PSRC); \
   double s0 = 0, s1 = 0; \
-  if (NULL != (PSRC_MIN) && LIBXS_NOTNAN(s)) { \
+  if (NULL != (PSRC_MIN) && (!(IS_FLOAT) || LIBXS_NOTNAN(s))) { \
     assert(NULL != (PSRC_MAX)); \
     s0 = (double)*((const SRC_TYPE*)PSRC_MIN); s1 = (double)*((const SRC_TYPE*)PSRC_MAX); \
     assert(s0 <= s1); \
@@ -65,7 +71,13 @@
   if (LIBXS_TYPEORDER(LIBXS_DATATYPE_I64) <= LIBXS_TYPEORDER(dst_enum) && s0 < s1) { /* scale (integer-type) */ \
     if (LIBXS_MHD_TYPE_IS_UINT(dst_enum)) { \
       const double s0pos = LIBXS_MAX(0, s0), s1pos = LIBXS_MAX(0, s1), scale = (s0pos < s1pos ? ((s1 - s0) / (s1pos - s0pos)) : 1); \
-      s = (SRC_TYPE)(scale * (double)LIBXS_MAX(0, s)); \
+      if (IS_FLOAT) { /* float source: fractional part preserved in SRC_TYPE */ \
+        s = (SRC_TYPE)(scale * (double)LIBXS_MAX(0, s)); \
+      } \
+      else { /* integer source: round before cast-back to avoid truncation */ \
+        const double libxs_mhd_ss_ = scale * (double)LIBXS_MAX(0, s); \
+        s = (SRC_TYPE)(0 <= libxs_mhd_ss_ ? (libxs_mhd_ss_ + h) : (libxs_mhd_ss_ - h)); \
+      } \
       s0 = s0pos; s1 = s1pos; \
     } \
     else if (0 == LIBXS_MHD_TYPE_PROMOTE(dst_enum, SRC_ENUM) && 0 > s0 && 0 < s1) { \
@@ -82,53 +94,28 @@
     *((DST_TYPE*)PDST) = (DST_TYPE)(s - d * (DST_TYPE)q); \
   } \
   else if (0 == LIBXS_MHD_TYPE_PROMOTE(dst_enum, SRC_ENUM)) { /* clamp */ \
-    *((DST_TYPE*)PDST) = (DST_TYPE)(0 <= s ? LIBXS_CLMP(s + h, DST_MIN, DST_MAX) : LIBXS_CLMP(s - h, DST_MIN, DST_MAX)); \
+    if (IS_FLOAT) { /* float source: round towards zero before clamping */ \
+      *((DST_TYPE*)PDST) = (DST_TYPE)(0 <= (double)(s) ? LIBXS_CLMP(s + h, DST_MIN, DST_MAX) : LIBXS_CLMP(s - h, DST_MIN, DST_MAX)); \
+    } \
+    else { \
+      *((DST_TYPE*)PDST) = (DST_TYPE)LIBXS_CLMP(s, DST_MIN, DST_MAX); \
+    } \
   } \
   else { /* promote */ \
-    *((DST_TYPE*)PDST) = (DST_TYPE)(0 <= s ? (s + h) : (s - h)); \
+    if (IS_FLOAT) { \
+      *((DST_TYPE*)PDST) = (DST_TYPE)(0 <= (double)(s) ? (s + h) : (s - h)); \
+    } \
+    else { \
+      *((DST_TYPE*)PDST) = (DST_TYPE)s; \
+    } \
   } \
   RESULT = EXIT_SUCCESS; \
 } while(0)
 
-#define LIBXS_MHD_ELEMENT_CONVERSION_I(SRC_TYPE, DST_TYPE, DST_INFO, DST_MIN, DST_MAX, PDST, SRC_ENUM, PSRC, PSRC_MIN, PSRC_MAX, RESULT) do { \
-  const libxs_datatype dst_enum = (NULL == (DST_INFO) ? (SRC_ENUM) : (DST_INFO)->type); \
-  const double h = (0.5 - (DST_TYPE)0.5); \
-  SRC_TYPE s = *((const SRC_TYPE*)PSRC); \
-  double s0 = 0, s1 = 0; \
-  if (NULL != (PSRC_MIN)) { \
-    assert(NULL != (PSRC_MAX)); \
-    s0 = (double)*((const SRC_TYPE*)PSRC_MIN); s1 = (double)*((const SRC_TYPE*)PSRC_MAX); \
-    assert(s0 <= s1); \
-  } \
-  if (LIBXS_TYPEORDER(LIBXS_DATATYPE_I64) <= LIBXS_TYPEORDER(dst_enum) && s0 < s1) { /* scale (integer-type) */ \
-    if (LIBXS_MHD_TYPE_IS_UINT(dst_enum)) { \
-      const double s0pos = LIBXS_MAX(0, s0), s1pos = LIBXS_MAX(0, s1), scale = (s0pos < s1pos ? ((s1 - s0) / (s1pos - s0pos)) : 1); \
-      const double ss = scale * (double)LIBXS_MAX(0, s); \
-      s = (SRC_TYPE)(0 <= ss ? (ss + h) : (ss - h)); \
-      s0 = s0pos; s1 = s1pos; \
-    } \
-    else if (0 == LIBXS_MHD_TYPE_PROMOTE(dst_enum, SRC_ENUM) && 0 > s0 && 0 < s1) { \
-      s1 = LIBXS_MAX(-s0, s1); s0 = -s1; \
-    } \
-    { const double d0 = (0 <= s0 ? 0 : (DST_MIN)), d1 = (0 <= s1 ? (DST_MAX) : 0), d = ((double)s - s0) * (d1 - d0) / (s1 - s0) + d0; \
-      *((DST_TYPE*)PDST) = (DST_TYPE)LIBXS_CLMP(0 <= d ? (d + h) : (d - h), d0, d1); \
-    } \
-  } \
-  else if (LIBXS_MHD_TYPE_IS_UINT(dst_enum) && NULL != (DST_INFO) \
-    && LIBXS_MHD_ELEMENT_CONVERSION_MODULUS == (DST_INFO)->hint) \
-  { /* hint */ \
-    const double d = (DST_MAX) - (DST_MIN) + 1, q = s / d; \
-    *((DST_TYPE*)PDST) = (DST_TYPE)(s - d * (DST_TYPE)q); \
-  } \
-  else if (0 == LIBXS_MHD_TYPE_PROMOTE(dst_enum, SRC_ENUM)) { /* clamp */ \
-    *((DST_TYPE*)PDST) = (DST_TYPE)LIBXS_CLMP(s, DST_MIN, DST_MAX); \
-  } \
-  else { /* promote */ \
-    *((DST_TYPE*)PDST) = (DST_TYPE)s; \
-  } \
-  RESULT = EXIT_SUCCESS; \
-} while(0)
-
+#define LIBXS_MHD_ELEMENT_CONVERSION_F(SRC_TYPE, DST_TYPE, DST_INFO, DST_MIN, DST_MAX, PDST, SRC_ENUM, PSRC, PSRC_MIN, PSRC_MAX, RESULT) \
+  LIBXS_MHD_ELEMENT_CONVERSION_IMPL(SRC_TYPE, 1, DST_TYPE, DST_INFO, DST_MIN, DST_MAX, PDST, SRC_ENUM, PSRC, PSRC_MIN, PSRC_MAX, RESULT)
+#define LIBXS_MHD_ELEMENT_CONVERSION_I(SRC_TYPE, DST_TYPE, DST_INFO, DST_MIN, DST_MAX, PDST, SRC_ENUM, PSRC, PSRC_MIN, PSRC_MAX, RESULT) \
+  LIBXS_MHD_ELEMENT_CONVERSION_IMPL(SRC_TYPE, 0, DST_TYPE, DST_INFO, DST_MIN, DST_MAX, PDST, SRC_ENUM, PSRC, PSRC_MIN, PSRC_MAX, RESULT)
 #define LIBXS_MHD_ELEMENT_CONVERSION_U LIBXS_MHD_ELEMENT_CONVERSION_I
 
 #define LIBXS_MHD_ELEMENT_CONVERSION(DST_TYPE, DST_INFO, DST_MIN, DST_MAX, PDST, SRC_ENUM, PSRC, PSRC_MIN, PSRC_MAX, RESULT) do { \
