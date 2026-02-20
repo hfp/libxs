@@ -83,7 +83,7 @@ $(BLDDIR)/%-c.o: $(SRCDIR)/%.c .state $(BLDDIR)/.make $(HEADERS) Makefile $(DEPD
 .PHONY: test
 test: $(ROOTDIR)/wrap-test.sh $(XFILES)
 	@NREPEAT=$(TESTSIZE) $< gemm                               
-	@NREPEAT=$(TESTSIZE) $< gemm  16  20 350 1 0  1 0.0  35 350 1000
+	@NREPEAT=$(TESTSIZE) $< gemm  16  20 350 1 0  1 0.0 350 350 1000
 	@NREPEAT=$(TESTSIZE) $< gemm  23  21  32 0 1 -1 0.5  32  32 1000
 	@NREPEAT=$(TESTSIZE) $< gemm 200 200 256 1 1  1 0.0 256 256 1000
 

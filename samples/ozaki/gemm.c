@@ -88,6 +88,8 @@ int main(int argc, char* argv[])
   b_cols = ('N' == transb || 'n' == transb) ? n : k;
 
   if (1 > m || 1 > n || 1 > k || lda < a_rows || ldb < b_rows || ldc < m) {
+    fprintf(stderr, "Invalid dimensions: m=%i n=%i k=%i lda=%i(>=%i) ldb=%i(>=%i) ldc=%i(>=%i)\n",
+      (int)m, (int)n, (int)k, (int)lda, (int)a_rows, (int)ldb, (int)b_rows, (int)ldc, (int)m);
     result = EXIT_FAILURE;
   }
 

@@ -13,6 +13,6 @@ HERE=$(cd "$(dirname "$0")" && pwd -P)
 
 cd "${HERE}/../samples/ozaki"
 ./wrap-test.sh gemm
-./wrap-test.sh gemm  16  20 350 1 0  1 0.0  35 350 1000
+./wrap-test.sh gemm  16  20 350 1 0  1 0.0 350 350 1000
 ./wrap-test.sh gemm  23  21  32 0 1 -1 0.5  32  32 1000
 ./wrap-test.sh gemm 200 200 256 1 1  1 0.0 256 256 1000
