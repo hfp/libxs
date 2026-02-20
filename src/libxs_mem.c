@@ -72,7 +72,7 @@ LIBXS_API int libxs_aligned(const void* ptr, const size_t* inc, int* alignment)
   LIBXS_ASSERT(LIBXS_ISPOT(minalign));
   if (NULL == alignment) {
     ptr_is_aligned = !LIBXS_MOD2(address, (uintptr_t)minalign);
-}
+  }
   else {
     const unsigned int nbits = LIBXS_INTRINSICS_BITSCANFWD64(address);
     *alignment = (32 > nbits ? (1 << nbits) : INT_MAX);
@@ -174,7 +174,7 @@ int internal_memcmp_sw(const void* a, const void* b, size_t size)
   size_t i;
   LIBXS_DIFF_16_DECL(aa);
   LIBXS_PRAGMA_UNROLL/*_N(2)*/
-  for (i = 0; i < (size & 0xFFFFFFFFFFFFFFF0); i += 16) {
+  for (i = 0; i < (size & ~(size_t)0xF); i += 16) {
     LIBXS_DIFF_16_LOAD(aa, a8 + i);
     if (LIBXS_DIFF_16(aa, b8 + i, 0/*dummy*/)) return 1;
   }
@@ -192,7 +192,7 @@ int internal_memcmp_sse(const void* a, const void* b, size_t size)
   size_t i;
   LIBXS_DIFF_SSE_DECL(aa);
   LIBXS_PRAGMA_UNROLL/*_N(2)*/
-  for (i = 0; i < (size & 0xFFFFFFFFFFFFFFF0); i += 16) {
+  for (i = 0; i < (size & ~(size_t)0xF); i += 16) {
     LIBXS_DIFF_SSE_LOAD(aa, a8 + i);
     if (LIBXS_DIFF_SSE(aa, b8 + i, 0/*dummy*/)) return 1;
   }
@@ -212,7 +212,7 @@ int internal_memcmp_avx2(const void* a, const void* b, size_t size)
   size_t i;
   LIBXS_DIFF_AVX2_DECL(aa);
   LIBXS_PRAGMA_UNROLL/*_N(2)*/
-  for (i = 0; i < (size & 0xFFFFFFFFFFFFFFE0); i += 32) {
+  for (i = 0; i < (size & ~(size_t)0x1F); i += 32) {
     LIBXS_DIFF_AVX2_LOAD(aa, a8 + i);
     if (LIBXS_DIFF_AVX2(aa, b8 + i, 0/*dummy*/)) return 1;
   }
@@ -233,7 +233,7 @@ int internal_memcmp_avx512(const void* a, const void* b, size_t size)
   size_t i;
   LIBXS_DIFF_AVX512_DECL(aa);
   LIBXS_PRAGMA_UNROLL/*_N(2)*/
-  for (i = 0; i < (size & 0xFFFFFFFFFFFFFFC0); i += 64) {
+  for (i = 0; i < (size & ~(size_t)0x3F); i += 64) {
     LIBXS_DIFF_AVX512_LOAD(aa, a8 + i);
     if (LIBXS_DIFF_AVX512(aa, b8 + i, 0/*dummy*/)) return 1;
   }
@@ -613,8 +613,8 @@ LIBXS_API size_t libxs_format_value(char buffer[32],
   buffer[0] = 0; /* clear */
   LIBXS_ASSERT(NULL != unit && 0 <= base);
   for (i = 0; i < n; ++i) nbytes >>= base;
-  LIBXS_SNPRINTF(buffer, buffer_size, "%i %c%s",
-    (int)nbytes, 0 < n ? scale[n-1] : *unit, 0 < n ? unit : "");
+  LIBXS_SNPRINTF(buffer, buffer_size, "%lu %c%s",
+    (unsigned long)nbytes, 0 < n ? scale[n-1] : *unit, 0 < n ? unit : "");
   return nbytes;
 }
 
@@ -623,7 +623,10 @@ LIBXS_API int libxs_shuffle(void* inout, size_t elemsize, size_t count,
   const size_t* shuffle, const size_t* nrepeat)
 {
   int result;
-  if (NULL != inout || 0 == elemsize || 0 == count) {
+  if (0 == count || 0 == elemsize) {
+    result = EXIT_SUCCESS;
+  }
+  else if (NULL != inout) {
     const size_t s = (NULL == shuffle ? LIBXS_MEM_SHUFFLE_COPRIME(count) : *shuffle);
     const size_t n = (NULL == nrepeat ? 1 : *nrepeat);
     switch (elemsize) {
