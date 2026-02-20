@@ -535,7 +535,7 @@ LIBXS_API void gemm_oz1(const char* transa, const char* transb,
         sizeof(GEMM_INT_TYPE) /*ld*/+
         sizeof(GEMM_REAL_TYPE) /* alpha/beta */
       ];
-      const libxs_mhd_info_t mhd_info = { 2, 1, LIBXS_DATATYPE(GEMM_REAL_TYPE), 0 };
+      libxs_mhd_info_t mhd_info = { 2, 1, LIBXS_DATATYPE(GEMM_REAL_TYPE), 0 };
       char fname[64];
       size_t size[2], ld[2];
       FILE *file = NULL;
@@ -547,8 +547,7 @@ LIBXS_API void gemm_oz1(const char* transa, const char* transb,
         *(char*)extension = *transa; *(GEMM_INT_TYPE*)(extension + sizeof(char)) = *lda;
         *(GEMM_REAL_TYPE*)(extension + sizeof(char) + sizeof(GEMM_INT_TYPE)) = *alpha;
         result = libxs_mhd_write(fname, NULL/*offset*/, size, ld,
-          &mhd_info, a,
-          NULL/*handler_info*/, NULL/*handler*/,
+          &mhd_info, a, NULL/*handler_info*/, NULL/*handler*/,
           NULL/*extension_header*/, extension, sizeof(extension));
       }
       else fclose(file);
@@ -559,8 +558,7 @@ LIBXS_API void gemm_oz1(const char* transa, const char* transb,
         *(char*)extension = *transb; *(GEMM_INT_TYPE*)(extension + sizeof(char)) = *ldb;
         *(GEMM_REAL_TYPE*)(extension + sizeof(char) + sizeof(GEMM_INT_TYPE)) = *beta;
         result |= libxs_mhd_write(fname, NULL/*offset*/, size, ld,
-          &mhd_info, b,
-          NULL/*handler_info*/, NULL/*handler*/,
+          &mhd_info, b, NULL/*handler_info*/, NULL/*handler*/,
           NULL/*extension_header*/, extension, sizeof(extension));
       }
       else fclose(file);
