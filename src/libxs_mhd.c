@@ -250,6 +250,7 @@ LIBXS_API int libxs_mhd_read_header(const char header_filename[], size_t filenam
   char filename[], libxs_mhd_info_t* info, size_t size[],
   char extension[], size_t* extension_size)
 {
+  const size_t extension_capacity = (NULL != extension && NULL != extension_size) ? *extension_size : 0;
   int result = EXIT_SUCCESS;
   char buffer[LIBXS_MHD_MAX_LINELENGTH];
   FILE *const file = (
@@ -415,9 +416,10 @@ LIBXS_API int libxs_mhd_read_header(const char header_filename[], size_t filenam
     if (EXIT_SUCCESS == result && NULL != extension
       && NULL != extension_size && 0 < *extension_size)
     {
+      const size_t readsize = (*extension_size <= extension_capacity) ? *extension_size : extension_capacity;
       if (0 != info->header_size) { /* LOCAL: seek from end of file */
         if (0 != fseek(file, -(long)*extension_size, SEEK_END)
-          || *extension_size != fread(extension, 1, *extension_size, file))
+          || readsize != fread(extension, 1, readsize, file))
         {
           result = EXIT_FAILURE;
         }
@@ -426,7 +428,7 @@ LIBXS_API int libxs_mhd_read_header(const char header_filename[], size_t filenam
         FILE *const data_file = fopen(filename, "rb");
         if (NULL != data_file) {
           if (0 != fseek(data_file, -(long)*extension_size, SEEK_END)
-            || *extension_size != fread(extension, 1, *extension_size, data_file))
+            || readsize != fread(extension, 1, readsize, data_file))
           {
             result = EXIT_FAILURE;
           }
