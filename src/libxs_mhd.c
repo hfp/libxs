@@ -261,7 +261,7 @@ LIBXS_API_INLINE int internal_mhd_readline(char buffer[], char split, size_t* ke
 
 LIBXS_API int libxs_mhd_read_header(const char header_filename[], size_t filename_max_length,
   char filename[], size_t* ndims, size_t size[], size_t* ncomponents, libxs_datatype* type,
-  size_t* header_size, size_t* extension_size)
+  size_t* header_size, char extension[], size_t* extension_size)
 {
   int result = EXIT_SUCCESS;
   char buffer[LIBXS_MHD_MAX_LINELENGTH];
@@ -319,10 +319,10 @@ LIBXS_API int libxs_mhd_read_header(const char header_filename[], size_t filenam
       {
         const char *const value = buffer + value_begin;
         if (0 == strcmp("LOCAL", value) || 0 == strcmp(header_filename, value)) {
-          if (header_size) {
+          if (NULL != header_size) {
             const long file_position = ftell(file); /* determine the header size */
             const size_t len = strlen(header_filename);
-            if (0 <= file_position && len < filename_max_length) {
+            if (0 <= file_position && len <= filename_max_length) {
               memcpy(filename, header_filename, len + 1);
               LIBXS_ASSERT(0 == filename[len]);
               *header_size = ftell(file);
@@ -335,7 +335,7 @@ LIBXS_API int libxs_mhd_read_header(const char header_filename[], size_t filenam
         }
         else {
           const size_t len = strlen(value);
-          if (len < filename_max_length) {
+          if (len <= filename_max_length) {
             memcpy(filename, value, len + 1);
             LIBXS_ASSERT(0 == filename[len]);
           }
@@ -376,19 +376,19 @@ LIBXS_API int libxs_mhd_read_header(const char header_filename[], size_t filenam
         && key_end == strlen("BinaryData"))
       {
         const char *const value = buffer + value_begin;
-        if (0 == strcmp("False", value) || 0 != strcmp("True", value)) result = EXIT_FAILURE;
+        if (0 != strcmp("True", value)) result = EXIT_FAILURE;
       }
       else if (0 == strncmp("CompressedData", buffer, key_end)
         && key_end == strlen("CompressedData"))
       {
         const char *const value = buffer + value_begin;
-        if (0 == strcmp("True", value) || 0 != strcmp("False", value)) result = EXIT_FAILURE;
+        if (0 != strcmp("False", value)) result = EXIT_FAILURE;
       }
       else if ((0 == strncmp("BinaryDataByteOrderMSB", buffer, key_end) && key_end == strlen("BinaryDataByteOrderMSB"))
             || (0 == strncmp("ElementByteOrderMSB",    buffer, key_end) && key_end == strlen("ElementByteOrderMSB")))
       {
         const char *const value = buffer + value_begin;
-        if (0 == strcmp("True", value) || 0 != strcmp("False", value)) result = EXIT_FAILURE;
+        if (0 != strcmp("False", value)) result = EXIT_FAILURE;
       }
     }
     if (EXIT_SUCCESS == result && (0 == *filename || LIBXS_DATATYPE_UNKNOWN == *type)) result = EXIT_FAILURE;
@@ -412,11 +412,36 @@ LIBXS_API int libxs_mhd_read_header(const char header_filename[], size_t filenam
       while (header_filename != split && NULL == strchr("/\\", *split)) --split;
       if (header_filename < split) {
         const size_t len = strlen(filename), n = split - header_filename + 1;
-        if ((len+ n) <= filename_max_length) {
+        if ((len + n) <= filename_max_length) {
           size_t i;
           for (i = 1; i <= len; ++i) filename[len + n - i] = filename[len - i];
           for (i = 0; i < n; ++i) filename[i] = header_filename[i];
+          filename[len + n] = '\0';
         }
+      }
+    }
+    /* read extension data if requested */
+    if (EXIT_SUCCESS == result && NULL != extension
+      && NULL != extension_size && 0 < *extension_size)
+    {
+      if (NULL != header_size && 0 != *header_size) { /* LOCAL: seek from end of file */
+        if (0 != fseek(file, -(long)*extension_size, SEEK_END)
+          || *extension_size != fread(extension, 1, *extension_size, file))
+        {
+          result = EXIT_FAILURE;
+        }
+      }
+      else { /* external data file */
+        FILE *const data_file = fopen(filename, "rb");
+        if (NULL != data_file) {
+          if (0 != fseek(data_file, -(long)*extension_size, SEEK_END)
+            || *extension_size != fread(extension, 1, *extension_size, data_file))
+          {
+            result = EXIT_FAILURE;
+          }
+          fclose(data_file);
+        }
+        else result = EXIT_FAILURE;
       }
     }
     /* release file handle */
@@ -479,12 +504,12 @@ LIBXS_API int libxs_mhd_element_comparison(void* dst, const libxs_mhd_element_ha
   if (NULL == dst_info || dst_info->type == src_type) { /* direct comparison */
     result = libxs_diff(src, dst, (unsigned char)typesize);
   }
-  else { /* conversion into source type */
+  else { /* conversion into destination type */
     char element[LIBXS_MHD_MAX_ELEMSIZE];
     result = libxs_mhd_element_conversion(element, dst_info,
       src_type, src, src_min, src_max);
     if (EXIT_SUCCESS == result) {
-      result = libxs_diff(src, element, (unsigned char)typesize);
+      result = libxs_diff(dst, element, (unsigned char)libxs_mhd_typesize(dst_info->type));
     }
   }
   return result;
@@ -613,8 +638,7 @@ LIBXS_API_INTERN int internal_mhd_read(FILE* file, void* data, const size_t size
 LIBXS_API int libxs_mhd_read(const char filename[],
   const size_t offset[], const size_t size[], const size_t pitch[], size_t ndims,
   size_t ncomponents, size_t header_size, libxs_datatype type_stored, void* data,
-  const libxs_mhd_element_handler_info_t* handler_info, libxs_mhd_element_handler_t handler,
-  char extension[], size_t extension_size)
+  const libxs_mhd_element_handler_info_t* handler_info, libxs_mhd_element_handler_t handler)
 {
   int result = EXIT_SUCCESS;
   const libxs_datatype datatype = (NULL == handler_info ? type_stored : handler_info->type);
@@ -650,9 +674,10 @@ LIBXS_API int libxs_mhd_read(const char filename[],
       if (EXIT_SUCCESS == result && (NULL != handler /* slow-path */
         || (datatype != type_stored && LIBXS_MHD_ELEMENT_CONVERSION_DEFAULT == handler_info->hint)))
       { /* conversion needed */
-        if (1 == fread(minmax, typesize, 1, file)) {
-          LIBXS_ASSERT(typesize <= (LIBXS_MHD_MAX_ELEMSIZE));
-          LIBXS_MEMCPY(minmax + (LIBXS_MHD_MAX_ELEMSIZE), minmax, typesize);
+        const size_t typesize_stored = libxs_mhd_typesize(type_stored);
+        if (1 == fread(minmax, typesize_stored, 1, file)) {
+          LIBXS_ASSERT(typesize_stored <= (LIBXS_MHD_MAX_ELEMSIZE));
+          LIBXS_MEMCPY(minmax + (LIBXS_MHD_MAX_ELEMSIZE), minmax, typesize_stored);
           result = fseek(file, (long)header_size, SEEK_SET); /* reset file position */
           if (EXIT_SUCCESS == result) {
             result = internal_mhd_read(file, NULL/*output*/, size, shape,
@@ -670,9 +695,6 @@ LIBXS_API int libxs_mhd_read(const char filename[],
           ndims, ncomponents, type_stored, typesize, handler_info, handler,
           minmax, minmax + (LIBXS_MHD_MAX_ELEMSIZE), 0/*use min-max*/);
       }
-    }
-    if (NULL != extension && 0 < extension_size && extension_size != fread(extension, 1, extension_size, file)) {
-      result = EXIT_FAILURE;
     }
     /* release file handle */
     if (0 != fclose(file) && EXIT_SUCCESS == result) result = EXIT_FAILURE;

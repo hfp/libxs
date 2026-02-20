@@ -83,6 +83,8 @@ LIBXS_API int libxs_mhd_read_header(
   /* Size of the header in bytes; may be used to skip the header,
    * when reading content; can be a NULL-argument (optional). */
   size_t* header_size,
+  /* Post-content data (extension, optional). */
+  char extension[],
   /* Size (in Bytes) of an user-defined extended data record;
    * can be a NULL-argument (optional). */
   size_t* extension_size);
@@ -123,11 +125,7 @@ LIBXS_API int libxs_mhd_read(
    * allows to only compare with present data. Can be used to
    * avoid allocating an actual destination.
    */
-  libxs_mhd_element_handler_t handler,
-  /* Post-content data (extension, optional). */
-  char extension[],
-  /* Size of the extension; can be zero. */
-  size_t extension_size);
+  libxs_mhd_element_handler_t handler);
 
 
 /**

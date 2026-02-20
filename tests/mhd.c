@@ -26,7 +26,7 @@ int main(int argc, char* argv[])
   /* Read header information; function includes various sanity checks. */
   result = libxs_mhd_read_header(filename, sizeof(data_filename),
     data_filename, &ndims, size, &ncomponents, &type,
-    &header_size, &extension_size);
+    &header_size, NULL/*extension*/, &extension_size);
 
   /* Allocate data according to the header information. */
   if (EXIT_SUCCESS == result) {
@@ -123,7 +123,7 @@ int main(int argc, char* argv[])
   if (EXIT_SUCCESS == result) {
     result = libxs_mhd_read(data_filename,
       offset, size, pitch, ndims, ncomponents, header_size, type, data,
-      NULL/*info*/, NULL/*handler*/, NULL/*extension*/, 0/*extension_size*/);
+      NULL/*info*/, NULL/*handler*/);
   }
 
   /* Write the data into a new file; update header_size. */
@@ -137,8 +137,7 @@ int main(int argc, char* argv[])
   if (EXIT_SUCCESS == result) {
     result = libxs_mhd_read(data_filename,
       offset, size, pitch, ndims, ncomponents, 0/*header_size*/,
-      type, data, NULL/*info*/, libxs_mhd_element_comparison,
-      NULL/*extension*/, 0/*extension_size*/);
+      type, data, NULL/*info*/, libxs_mhd_element_comparison);
   }
 
   /* Check the written data against the buffer with conversion. */
@@ -150,8 +149,7 @@ int main(int argc, char* argv[])
     buffer = malloc(ncomponents * nelements * libxs_mhd_typesize(dst_info.type));
     result = libxs_mhd_read(data_filename,
       offset, size, pitch, ndims, ncomponents, 0/*header_size*/,
-      type, buffer, &dst_info, NULL/*libxs_mhd_element_comparison*/,
-      NULL/*extension*/, 0/*extension_size*/);
+      type, buffer, &dst_info, NULL/*libxs_mhd_element_comparison*/);
     free(buffer);
   }
 
