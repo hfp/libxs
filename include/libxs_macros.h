@@ -715,6 +715,12 @@
 # define LIBXS_MKTEMP_PATTERN "XXXXXX"
 #endif
 
+/** Construct BLAS-style prefixes. */
+#define LIBXS_TYPECHAR(TYPE) LIBXS_CONCATENATE(LIBXS_TYPECHAR_, TYPE)
+#define LIBXS_TPREFIX(TYPE, NAME) LIBXS_CONCATENATE(LIBXS_TYPECHAR(TYPE), NAME)
+#define LIBXS_TYPECHAR_double d
+#define LIBXS_TYPECHAR_float f
+
 /** Below group is to fix-up some platform/compiler specifics. */
 #if defined(_WIN32)
 # if !defined(_CRT_SECURE_CPP_OVERLOAD_STANDARD_NAMES)

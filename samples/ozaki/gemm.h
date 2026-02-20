@@ -56,8 +56,15 @@ LIBXS_API void gemm_oz1(const char* transa, const char* transb,
                                const GEMM_REAL_TYPE* b, const GEMM_INT_TYPE* ldb,
   const GEMM_REAL_TYPE*  beta, GEMM_REAL_TYPE* c, const GEMM_INT_TYPE* ldc);
 
+/** Print GEMM arguments. */
+LIBXS_API void print_gemm(FILE* ostream, const char* transa, const char* transb,
+  const GEMM_INT_TYPE* m, const GEMM_INT_TYPE* n, const GEMM_INT_TYPE* k,
+  const GEMM_REAL_TYPE* alpha, const GEMM_REAL_TYPE* a, const GEMM_INT_TYPE* lda,
+                               const GEMM_REAL_TYPE* b, const GEMM_INT_TYPE* ldb,
+  const GEMM_REAL_TYPE*  beta, GEMM_REAL_TYPE* c, const GEMM_INT_TYPE* ldc);
+
 /** Print statistics (usually gemm_diff). */
-LIBXS_API void print_diff(FILE* stream, const libxs_matdiff_info_t* diff);
+LIBXS_API void print_diff(FILE* ostream, const libxs_matdiff_info_t* diff);
 
 LIBXS_APIVAR_PUBLIC(libxs_matdiff_info_t gemm_diff);
 LIBXS_APIVAR_PUBLIC(int gemm_verbose);

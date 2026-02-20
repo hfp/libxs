@@ -8,6 +8,7 @@
 ******************************************************************************/
 #include "gemm.h"
 #include <libxs_sync.h>
+#include <libxs_mhd.h>
 
 /* triangular scheme drops symmetric contributions (speed for accuracy) */
 #if !defined(TRIANGULAR) && 1
@@ -49,6 +50,7 @@ LIBXS_APIVAR_PUBLIC_DEF(int gemm_verbose);
 LIBXS_APIVAR_PRIVATE_DEF(volatile LIBXS_ATOMIC_LOCKTYPE gemm_lock);
 LIBXS_APIVAR_PRIVATE_DEF(gemm_function_t gemm_original);
 LIBXS_APIVAR_PRIVATE_DEF(int gemm_diff_abc);
+LIBXS_APIVAR_PRIVATE_DEF(double gemm_rsq);
 
 
 LIBXS_API_INLINE void ozaki_decompose(double value, int16_t* exp_biased, int8_t digits[NSLICES])
@@ -503,16 +505,33 @@ LIBXS_API_INLINE void gemm_oz1_diff(const char* transa, const char* transb,
 }
 
 
-LIBXS_API void print_diff(FILE* stream, const libxs_matdiff_info_t* diff)
+LIBXS_API void print_gemm(FILE* ostream, const char* transa, const char* transb,
+  const GEMM_INT_TYPE* m, const GEMM_INT_TYPE* n, const GEMM_INT_TYPE* k,
+  const GEMM_REAL_TYPE* alpha, const GEMM_REAL_TYPE* a, const GEMM_INT_TYPE* lda,
+                               const GEMM_REAL_TYPE* b, const GEMM_INT_TYPE* ldb,
+  const GEMM_REAL_TYPE*  beta, GEMM_REAL_TYPE* c, const GEMM_INT_TYPE* ldc)
+{
+  const char *const fname = LIBXS_STRINGIFY(LIBXS_TPREFIX(GEMM_REAL_TYPE, gemm));
+  fprintf(ostream, "%s('%c', '%c', %lli/*m*/, %lli/*n*/, %lli/*k*/,\n"
+                   "  %g/*alpha*/, %p/*a*/, %lli/*lda*/,\n"
+                   "              %p/*b*/, %lli/*ldb*/,\n"
+                   "   %g/*beta*/, %p/*c*/, %lli/*ldc*/)\n",
+    fname, *transa, *transb, (long long int)*m, (long long int)*n, (long long int)*k,
+    *alpha, (const void*)a, (long long int)*lda, (const void*)b, (long long int)*ldb,
+    *beta, (const void*)c, (long long int)*ldc);
+}
+
+
+LIBXS_API void print_diff(FILE* ostream, const libxs_matdiff_info_t* diff)
 {
   const double l0 = LIBXS_MAX(diff->linf_abs, diff->linf_rel);
   const double l2 = LIBXS_MAX(diff->l2_abs, diff->l2_rel);
   if (LIBXS_NEQ(0.0, l0) || LIBXS_NEQ(0.0, l2)) {
-    fprintf(stream, "GEMM: ncalls=%i linf_abs=%f linf_rel=%f l2_abs=%f l2_rel=%f rsq=%f\n",
+    fprintf(ostream, "GEMM: ncalls=%i linf_abs=%f linf_rel=%f l2_abs=%f l2_rel=%f rsq=%f\n",
       diff->r, diff->linf_abs, diff->linf_rel, diff->l2_abs, diff->l2_rel, diff->rsq);
   }
   else {
-    fprintf(stream, "GEMM: ncalls=%i\n", diff->r);
+    fprintf(ostream, "GEMM: ncalls=%i\n", diff->r);
   }
 }
 
@@ -540,6 +559,27 @@ LIBXS_API void gemm_oz1(const char* transa, const char* transb,
     if (1 < gemm_verbose || 0 > gemm_verbose) {
       const int nth = (0 < gemm_verbose ? gemm_verbose : 1);
       if (0 == (gemm_diff.r % nth)) print_diff(stderr, &gemm_diff);
+    }
+    if (diff.rsq <= gemm_rsq) {
+      char fname[128];
+      size_t size[2], ld[2];
+      int result;
+      size[0] = *m; size[1] = *k; ld[0] = *lda; ld[1] = *k;
+      LIBXS_SNPRINTF(fname, sizeof(fname), "ozaki-%i-a.mhd", gemm_diff.r);
+      result = libxs_mhd_write(fname, NULL/*offset*/, size, ld, 2,
+        1/*nchannels*/, LIBXS_DATATYPE(GEMM_REAL_TYPE), a,
+        NULL/*handler_info*/, NULL/*handler*/, NULL/*header_size*/,
+        NULL/*extension_header*/, NULL/*extension*/, 0/*extension_size*/);
+      size[0] = *k; size[1] = *n; ld[0] = *ldb; ld[1] = *n;
+      LIBXS_SNPRINTF(fname, sizeof(fname), "ozaki-%i-b.mhd", gemm_diff.r);
+      result |= libxs_mhd_write(fname, NULL/*offset*/, size, ld, 2,
+        1/*nchannels*/, LIBXS_DATATYPE(GEMM_REAL_TYPE), b,
+        NULL/*handler_info*/, NULL/*handler*/, NULL/*header_size*/,
+        NULL/*extension_header*/, NULL/*extension*/, 0/*extension_size*/);
+      if (EXIT_SUCCESS == result) {
+        print_gemm(stdout, transa, transb, m, n, k,
+          alpha, a, lda, b, ldb, beta, c, ldc);
+      }
     }
   }
 }
@@ -571,10 +611,16 @@ LIBXS_API_INTERN LIBXS_ATTRIBUTE_WEAK void GEMM_WRAP(const char* transa, const c
       const char *const gemm_diff_abc_env = getenv("GEMM_DIFF");
       const char *const gemm_verbose_env = getenv("GEMM_VERBOSE");
       const char *const gemm_ozaki_env = getenv("GEMM_OZAKI");
+      const char *const gemm_rsq_env = getenv("GEMM_RSQ");
       libxs_matdiff_clear(&gemm_diff);
       gemm_diff_abc = (NULL == gemm_diff_abc_env ? 0 : atoi(gemm_diff_abc_env));
       gemm_verbose = (NULL == gemm_verbose_env ? 0 : atoi(gemm_verbose_env));
       gemm_ozaki = (NULL == gemm_ozaki_env ? 1 : atoi(gemm_ozaki_env));
+      if (NULL == gemm_rsq_env) gemm_rsq = 0;
+      else {
+        if (0 == gemm_verbose) gemm_verbose = 1;
+        gemm_rsq = atof(gemm_rsq_env);
+      }
       LIBXS_EXPECT(EXIT_SUCCESS == atexit(print_diff_atexit));
       gemm_initialized = 1;
     }

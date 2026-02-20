@@ -42,16 +42,7 @@ int main(int argc, char* argv[])
   libxs_matdiff_info_t diff;
 
   assert(NULL != a && NULL != b && NULL != c);
-  printf(
-    "gemm('%c', '%c', %lli/*m*/, %lli/*n*/, %lli/*k*/,\n"
-    "     %g/*alpha*/, %p/*a*/, %lli/*lda*/,\n"
-    "                 %p/*b*/, %lli/*ldb*/,\n"
-    "      %g/*beta*/, %p/*c*/, %lli/*ldc*/)\n",
-    transa, transb, (long long int)m, (long long int)n, (long long int)k,
-      alpha, (const void*)a, (long long int)lda,
-             (const void*)b, (long long int)ldb,
-       beta, (const void*)c, (long long int)ldc);
-
+  print_gemm(stdout, &transa, &transb, &m, &n, &k, &alpha, a, &lda, b, &ldb, &beta, c, &ldc);
   LIBXS_MATRNG(GEMM_INT_TYPE, GEMM_REAL_TYPE, 0, a, m, k, lda, scale);
   LIBXS_MATRNG(GEMM_INT_TYPE, GEMM_REAL_TYPE, 0, b, k, n, ldb, scale);
   LIBXS_MATRNG(GEMM_INT_TYPE, GEMM_REAL_TYPE, 0, c, m, n, ldc, scale);
