@@ -31,15 +31,16 @@ int main(int argc, char* argv[])
   const int tb = (5 < argc ? atoi(argv[5]) : 0);
   GEMM_REAL_TYPE alpha = (6 < argc ? atof(argv[6]) : (ALPHA));
   GEMM_REAL_TYPE beta = (7 < argc ? atof(argv[7]) : (BETA));
-  GEMM_INT_TYPE lda = (8 < argc ? atoi(argv[8]) : m);
-  GEMM_INT_TYPE ldb = (9 < argc ? atoi(argv[9]) : k);
+  GEMM_INT_TYPE lda = (8 < argc ? atoi(argv[8]) : (0 == ta ? m : k));
+  GEMM_INT_TYPE ldb = (9 < argc ? atoi(argv[9]) : (0 == tb ? k : n));
   GEMM_INT_TYPE ldc = (10 < argc ? atoi(argv[10]) : m);
   char transa = (0 == ta ? 'N' : 'T'), transb = (0 == tb ? 'N' : 'T');
   const GEMM_REAL_TYPE scale = (1 < nrepeat ? (1.0 / nrepeat) : 1);
   int result = EXIT_SUCCESS, file_input = 0, i;
   libxs_mhd_info_t info_a = { 2, 0, LIBXS_DATATYPE_UNKNOWN, 0 };
   libxs_mhd_info_t info_b = { 2, 0, LIBXS_DATATYPE_UNKNOWN, 0 };
-  GEMM_REAL_TYPE *a, *b, *c;
+  GEMM_REAL_TYPE *a = NULL, *b = NULL, *c = NULL;
+  GEMM_INT_TYPE a_rows, a_cols, b_rows, b_cols;
   libxs_matdiff_info_t diff;
 
   if (2 < argc && 0 == m) { /* Indicate filename(s) */
@@ -80,9 +81,21 @@ int main(int argc, char* argv[])
     }
   }
 
+  /* Compute physical (stored) matrix dimensions */
+  a_rows = ('N' == transa || 'n' == transa) ? m : k;
+  a_cols = ('N' == transa || 'n' == transa) ? k : m;
+  b_rows = ('N' == transb || 'n' == transb) ? k : n;
+  b_cols = ('N' == transb || 'n' == transb) ? n : k;
+
+  if (m < 1 || n < 1 || k < 1 || lda < a_rows || ldb < b_rows || ldc < m) {
+    fprintf(stderr, "Invalid dimensions: m=%i n=%i k=%i lda=%i ldb=%i ldc=%i\n",
+      (int)m, (int)n, (int)k, (int)lda, (int)ldb, (int)ldc);
+    return EXIT_FAILURE;
+  }
+
   if (EXIT_SUCCESS == result) { /* Allocate matrices */
-    a = (GEMM_REAL_TYPE*)malloc(sizeof(GEMM_REAL_TYPE) * lda * k);
-    b = (GEMM_REAL_TYPE*)malloc(sizeof(GEMM_REAL_TYPE) * ldb * n);
+    a = (GEMM_REAL_TYPE*)malloc(sizeof(GEMM_REAL_TYPE) * lda * a_cols);
+    b = (GEMM_REAL_TYPE*)malloc(sizeof(GEMM_REAL_TYPE) * ldb * b_cols);
     c = (GEMM_REAL_TYPE*)malloc(sizeof(GEMM_REAL_TYPE) * ldc * n);
     if (NULL != a && NULL != b && NULL != c) {
       if (0 == file_input) {
@@ -100,26 +113,26 @@ int main(int argc, char* argv[])
   if (EXIT_SUCCESS == result) { /* Initialize A-matrix */
     if (0x1 & file_input) {
       size_t size[2], ld[2];
-      size[0] = m; size[1] = k;
-      ld[0] = lda; ld[1] = k;
+      size[0] = a_rows; size[1] = a_cols;
+      ld[0] = lda; ld[1] = a_cols;
       result = libxs_mhd_read(argv[1], NULL/*offset*/, size, ld,
         &info_a, a, NULL/*handler_info*/, NULL/*handler*/);
     }
     else {
-      LIBXS_MATRNG(GEMM_INT_TYPE, GEMM_REAL_TYPE, 0, a, m, k, lda, scale);
+      LIBXS_MATRNG(GEMM_INT_TYPE, GEMM_REAL_TYPE, 0, a, a_rows, a_cols, lda, scale);
     }
   }
 
   if (EXIT_SUCCESS == result) { /* Initialize B-matrix */
     if (0x2 & file_input) {
       size_t size[2], ld[2];
-      size[0] = k; size[1] = n;
-      ld[0] = ldb; ld[1] = n;
+      size[0] = b_rows; size[1] = b_cols;
+      ld[0] = ldb; ld[1] = b_cols;
       result = libxs_mhd_read(argv[2], NULL/*offset*/, size, ld,
         &info_b, b, NULL/*handler_info*/, NULL/*handler*/);
     }
     else {
-      LIBXS_MATRNG(GEMM_INT_TYPE, GEMM_REAL_TYPE, 0, b, k, n, ldb, scale);
+      LIBXS_MATRNG(GEMM_INT_TYPE, GEMM_REAL_TYPE, 0, b, b_rows, b_cols, ldb, scale);
     }
   }
 
