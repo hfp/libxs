@@ -195,6 +195,7 @@ LIBXS_API int libxs_matdiff(libxs_matdiff_info_t* info,
           size_t shape[2] = { 0 }, size[2] = { 0 };
           char filename[256] = "";
           libxs_mhd_element_handler_info_t info_dst;
+          libxs_mhd_info_t mhd_info = { 2, 1, datatype, 0 };
           LIBXS_MEMZERO(&info_dst);
           if (0 == reshape) {
             shape[0] = (size_t)mm; shape[1] = (size_t)nn;
@@ -208,8 +209,8 @@ LIBXS_API int libxs_matdiff(libxs_matdiff_info_t* info,
           }
           info_dst.type = LIBXS_MIN(LIBXS_DATATYPE_F32, datatype);
           LIBXS_SNPRINTF(filename, sizeof(filename), "%s-%p-ref.mhd", defaultname, ref);
-          libxs_mhd_write(filename, NULL/*offset*/, shape, size, 2/*ndims*/, 1/*ncomponents*/,
-            datatype, ref, &info_dst, NULL/*handler*/, NULL/*header_size*/, NULL/*extension_header*/,
+          libxs_mhd_write(filename, NULL/*offset*/, shape, size, &mhd_info, ref, &info_dst,
+            NULL/*handler*/, NULL/*extension_header*/,
             NULL/*extension*/, 0/*extension_size*/);
 #endif
           if (NULL != tst) {
@@ -219,9 +220,8 @@ LIBXS_API int libxs_matdiff(libxs_matdiff_info_t* info,
               size[1] = (size_t)nn;
             }
             LIBXS_SNPRINTF(filename, sizeof(filename), "%s-%p-tst.mhd", defaultname, ref/*adopt ref-ptr*/);
-            libxs_mhd_write(filename, NULL/*offset*/, shape, size, 2/*ndims*/, 1/*ncomponents*/,
-              datatype, tst, &info_dst, NULL/*handler*/, NULL/*header_size*/, NULL/*extension_header*/,
-              NULL/*extension*/, 0/*extension_size*/);
+            libxs_mhd_write(filename, NULL/*offset*/, shape, size, &mhd_info, tst, &info_dst,
+              NULL/*handler*/, NULL/*extension_header*/, NULL/*extension*/, 0/*extension_size*/);
 #endif
             if ('-' == *env && '1' < env[1]) {
               printf("LIBXS MATDIFF (%s): m=%" PRIuPTR " n=%" PRIuPTR " ldi=%" PRIuPTR " ldo=%" PRIuPTR " failed.\n",

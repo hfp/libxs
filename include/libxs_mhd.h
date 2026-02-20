@@ -32,6 +32,21 @@ LIBXS_EXTERN_C typedef int (*libxs_mhd_element_handler_t)(void* dst,
   const void* src, const void* src_min, const void* src_max);
 
 /**
+ * Image descriptor containing metadata fields.
+ * Used by read_header (output), read, and write.
+ */
+LIBXS_EXTERN_C typedef struct libxs_mhd_info_t {
+  /** Dimensionality (in/out for read_header). */
+  size_t ndims;
+  /** Number of interleaved image channels. */
+  size_t ncomponents;
+  /** Element type (pixel type). */
+  libxs_datatype type;
+  /** Size of the header in bytes (for LOCAL data files). */
+  size_t header_size;
+} libxs_mhd_info_t;
+
+/**
  * Predefined function to perform element data conversion.
  * Scales source-values in case of non-NULL src_min and src_max,
  * or otherwise clamps to the destination-type.
@@ -71,18 +86,10 @@ LIBXS_API int libxs_mhd_read_header(
   size_t filename_max_length,
   /* Filename containing the data (may be the same as the header-file). */
   char filename[],
-  /* Yields the maximum/possible number of dimensions on input,
-   * and the actual number of dimensions on output. */
-  size_t* ndims,
+  /* Image descriptor (ndims is in/out: max on input, actual on output). */
+  libxs_mhd_info_t* info,
   /* Image extents ("ndims" number of entries). */
   size_t size[],
-  /* Number of interleaved image channels. */
-  size_t* ncomponents,
-  /* Type of the image elements (pixel type). */
-  libxs_datatype* type,
-  /* Size of the header in bytes; may be used to skip the header,
-   * when reading content; can be a NULL-argument (optional). */
-  size_t* header_size,
   /* Post-content data (extension, optional). */
   char extension[],
   /* Size (in Bytes) of an user-defined extended data record;
@@ -104,14 +111,8 @@ LIBXS_API int libxs_mhd_read(
   const size_t size[],
   /* Leading buffer dimensions (NULL: same as size). */
   const size_t pitch[],
-  /* Dimensionality (number of entries in size). */
-  size_t ndims,
-  /* Number of interleaved image channels. */
-  size_t ncomponents,
-  /* Used to skip the header, and to only read the data. */
-  size_t header_size,
-  /* Data element type as stored (pixel type). */
-  libxs_datatype type_stored,
+  /* Image descriptor. */
+  const libxs_mhd_info_t* info,
   /* Buffer where the data is read into. */
   void* data,
   /**
@@ -139,12 +140,8 @@ LIBXS_API int libxs_mhd_write(const char filename[],
   const size_t size[],
   /* Leading buffer dimensions (NULL: same as size). */
   const size_t pitch[],
-  /* Dimensionality, i.e., number of entries in data_size/size. */
-  size_t ndims,
-  /* Number of pixel components. */
-  size_t ncomponents,
-  /* Type (input). */
-  libxs_datatype type_data,
+  /* Image descriptor (header_size is updated on output). */
+  libxs_mhd_info_t* info,
   /* Raw data to be saved. */
   const void* data,
   /**
@@ -159,13 +156,11 @@ LIBXS_API int libxs_mhd_write(const char filename[],
    * avoid allocating an actual destination.
    */
   libxs_mhd_element_handler_t handler,
-  /* Size of the header; can be a NULL-argument (optional). */
-  size_t* header_size,
   /* Extension header data; can be NULL. */
   const char extension_header[],
   /* Extension data stream; can be NULL. */
   const void* extension,
-  /* Extension data size; can be NULL. */
+  /* Extension data size; can be zero. */
   size_t extension_size);
 
 #endif /*LIBXS_MHD_H*/

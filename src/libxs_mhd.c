@@ -260,23 +260,22 @@ LIBXS_API_INLINE int internal_mhd_readline(char buffer[], char split, size_t* ke
 
 
 LIBXS_API int libxs_mhd_read_header(const char header_filename[], size_t filename_max_length,
-  char filename[], size_t* ndims, size_t size[], size_t* ncomponents, libxs_datatype* type,
-  size_t* header_size, char extension[], size_t* extension_size)
+  char filename[], libxs_mhd_info_t* info, size_t size[],
+  char extension[], size_t* extension_size)
 {
   int result = EXIT_SUCCESS;
   char buffer[LIBXS_MHD_MAX_LINELENGTH];
   FILE *const file = (
       0 < filename_max_length && NULL != filename &&
-      NULL != ndims && 0 < *ndims && NULL != size &&
-      NULL != type && NULL != ncomponents)
+      NULL != info && 0 < info->ndims && NULL != size)
     ? fopen(header_filename, "rb") : NULL;
   if (NULL != file) {
     size_t key_end, value_begin;
     if (NULL != extension_size) *extension_size = 0;
-    if (NULL != header_size) *header_size = 0;
-    memset(size, 0, *ndims * sizeof(*size));
-    *type = LIBXS_DATATYPE_UNKNOWN;
-    *ncomponents = 1;
+    info->header_size = 0;
+    memset(size, 0, info->ndims * sizeof(*size));
+    info->type = LIBXS_DATATYPE_UNKNOWN;
+    info->ncomponents = 1;
     if (header_filename != filename) {
       *filename = 0;
     }
@@ -287,15 +286,15 @@ LIBXS_API int libxs_mhd_read_header(const char header_filename[], size_t filenam
         && key_end == strlen("NDims"))
       {
         const int value = atoi(buffer + value_begin);
-        if (0 < value && value <= ((int)*ndims)) {
-          *ndims = value;
+        if (0 < value && value <= ((int)info->ndims)) {
+          info->ndims = value;
         }
       }
       else if (0 == strncmp("ElementNumberOfChannels", buffer, key_end)
         && key_end == strlen("ElementNumberOfChannels"))
       {
         const int value = atoi(buffer + value_begin);
-        if (0 < value) *ncomponents = value;
+        if (0 < value) info->ncomponents = value;
         else result = EXIT_FAILURE;
       }
       else if (NULL != extension_size
@@ -311,7 +310,7 @@ LIBXS_API int libxs_mhd_read_header(const char header_filename[], size_t filenam
       {
         const libxs_datatype value = libxs_mhd_typeinfo(buffer + value_begin);
         if (LIBXS_DATATYPE_UNKNOWN != value) {
-          *type = value;
+          info->type = value;
         }
       }
       else if (0 == strncmp("ElementDataFile", buffer, key_end)
@@ -319,19 +318,17 @@ LIBXS_API int libxs_mhd_read_header(const char header_filename[], size_t filenam
       {
         const char *const value = buffer + value_begin;
         if (0 == strcmp("LOCAL", value) || 0 == strcmp(header_filename, value)) {
-          if (NULL != header_size) {
-            const long file_position = ftell(file); /* determine the header size */
-            const size_t len = strlen(header_filename);
-            if (0 <= file_position && len <= filename_max_length) {
-              memcpy(filename, header_filename, len + 1);
-              LIBXS_ASSERT(0 == filename[len]);
-              *header_size = ftell(file);
-            }
-            else {
-              result = EXIT_FAILURE;
-            }
-            break; /* ElementDataFile is just before the raw data */
+          const long file_position = ftell(file); /* determine the header size */
+          const size_t len = strlen(header_filename);
+          if (0 <= file_position && len <= filename_max_length) {
+            memcpy(filename, header_filename, len + 1);
+            LIBXS_ASSERT(0 == filename[len]);
+            info->header_size = ftell(file);
           }
+          else {
+            result = EXIT_FAILURE;
+          }
+          break; /* ElementDataFile is just before the raw data */
         }
         else {
           const size_t len = strlen(value);
@@ -347,7 +344,10 @@ LIBXS_API int libxs_mhd_read_header(const char header_filename[], size_t filenam
       {
         char* value = buffer + value_begin;
         size_t *isize = size, n = 0;
-        while (EXIT_SUCCESS == internal_mhd_readline(value, ' ', &key_end, &value_begin) && n < *ndims) {
+        while (EXIT_SUCCESS == internal_mhd_readline(
+            value, ' ', &key_end, &value_begin)
+          && n < info->ndims)
+        {
           const int ivalue = atoi(value);
           if (0 < ivalue) {
             *isize = ivalue;
@@ -360,7 +360,7 @@ LIBXS_API int libxs_mhd_read_header(const char header_filename[], size_t filenam
           ++n;
         }
         if (EXIT_SUCCESS == result) {
-          if (0 != *value && n < *ndims) {
+          if (0 != *value && n < info->ndims) {
             const int ivalue = atoi(value);
             if (0 < ivalue) {
               *isize = ivalue;
@@ -391,13 +391,17 @@ LIBXS_API int libxs_mhd_read_header(const char header_filename[], size_t filenam
         if (0 != strcmp("False", value)) result = EXIT_FAILURE;
       }
     }
-    if (EXIT_SUCCESS == result && (0 == *filename || LIBXS_DATATYPE_UNKNOWN == *type)) result = EXIT_FAILURE;
+    if (EXIT_SUCCESS == result &&
+       (0 == *filename || LIBXS_DATATYPE_UNKNOWN == info->type))
+    {
+      result = EXIT_FAILURE;
+    }
     /* check size, and eventually trim dimensionality */
     if (EXIT_SUCCESS == result) {
       size_t i, d = 1;
-      for (i = *ndims; 0 < i; --i) {
+      for (i = info->ndims; 0 < i; --i) {
         if (0 != d && 1 == size[i-1]) {
-          --*ndims;
+          --info->ndims;
         }
         else if (0 == size[i-1]) {
           result = EXIT_FAILURE;
@@ -407,7 +411,7 @@ LIBXS_API int libxs_mhd_read_header(const char header_filename[], size_t filenam
       }
     }
     /* prefix the path of the header file to make sure that the data file can be found */
-    if (EXIT_SUCCESS == result && (NULL == header_size || 0 == *header_size)) {
+    if (EXIT_SUCCESS == result && 0 == info->header_size) {
       const char* split = header_filename + strlen(header_filename) - 1;
       while (header_filename != split && NULL == strchr("/\\", *split)) --split;
       if (header_filename < split) {
@@ -424,7 +428,7 @@ LIBXS_API int libxs_mhd_read_header(const char header_filename[], size_t filenam
     if (EXIT_SUCCESS == result && NULL != extension
       && NULL != extension_size && 0 < *extension_size)
     {
-      if (NULL != header_size && 0 != *header_size) { /* LOCAL: seek from end of file */
+      if (0 != info->header_size) { /* LOCAL: seek from end of file */
         if (0 != fseek(file, -(long)*extension_size, SEEK_END)
           || *extension_size != fread(extension, 1, *extension_size, file))
         {
@@ -635,12 +639,14 @@ LIBXS_API_INTERN int internal_mhd_read(FILE* file, void* data, const size_t size
 }
 
 
-LIBXS_API int libxs_mhd_read(const char filename[],
-  const size_t offset[], const size_t size[], const size_t pitch[], size_t ndims,
-  size_t ncomponents, size_t header_size, libxs_datatype type_stored, void* data,
-  const libxs_mhd_element_handler_info_t* handler_info, libxs_mhd_element_handler_t handler)
+LIBXS_API int libxs_mhd_read(const char filename[], const size_t offset[], const size_t size[], const size_t pitch[],
+  const libxs_mhd_info_t* info, void* data, const libxs_mhd_element_handler_info_t* handler_info, libxs_mhd_element_handler_t handler)
 {
   int result = EXIT_SUCCESS;
+  const size_t ndims = (NULL != info ? info->ndims : 0);
+  const size_t ncomponents = (NULL != info ? info->ncomponents : 0);
+  const size_t header_size = (NULL != info ? info->header_size : 0);
+  const libxs_datatype type_stored = (NULL != info ? info->type : LIBXS_DATATYPE_UNKNOWN);
   const libxs_datatype datatype = (NULL == handler_info ? type_stored : handler_info->type);
   FILE *const file = ((NULL != filename && 0 != *filename && NULL != data &&
       NULL != size && 0 != ndims && 0 != ncomponents &&
@@ -788,13 +794,13 @@ LIBXS_API_INTERN int internal_mhd_write(FILE* file, const void* data, const size
 }
 
 
-LIBXS_API int libxs_mhd_write(const char filename[],
-  const size_t offset[], const size_t size[], const size_t pitch[], size_t ndims,
-  size_t ncomponents, libxs_datatype type_data, const void* data,
-  const libxs_mhd_element_handler_info_t* handler_info, libxs_mhd_element_handler_t handler,
-  size_t* header_size, const char extension_header[],
-  const void* extension, size_t extension_size)
+LIBXS_API int libxs_mhd_write(const char filename[], const size_t offset[], const size_t size[], const size_t pitch[],
+  libxs_mhd_info_t* info, const void* data, const libxs_mhd_element_handler_info_t* handler_info, libxs_mhd_element_handler_t handler,
+  const char extension_header[], const void* extension, size_t extension_size)
 {
+  const size_t ndims = (NULL != info ? info->ndims : 0);
+  const size_t ncomponents = (NULL != info ? info->ncomponents : 0);
+  const libxs_datatype type_data = (NULL != info ? info->type : LIBXS_DATATYPE_UNKNOWN);
   const libxs_datatype elemtype = (NULL == handler_info ? type_data : handler_info->type);
   const size_t typesize = libxs_mhd_typesize(elemtype);
   const char *const elemname = libxs_mhd_typename(elemtype, NULL/*ctypename*/);
@@ -858,7 +864,7 @@ LIBXS_API int libxs_mhd_write(const char filename[],
           handler_info, handler, minmax, minmax + (LIBXS_MHD_MAX_ELEMSIZE), 1/*search min-max*/);
       }
       if (EXIT_SUCCESS == result) {
-        if (NULL != header_size) *header_size = file_position;
+        if (NULL != info) info->header_size = file_position;
         assert(file_position == ftell(file)); /* !LIBXS_ASSERT */
         result = internal_mhd_write(file, input, size, shape, ndims, ncomponents, type_data, typesize_data,
           handler_info, handler, minmax, minmax + (LIBXS_MHD_MAX_ELEMSIZE), 0/*use min-max*/);
