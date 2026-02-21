@@ -59,14 +59,13 @@ int main(int argc, char* argv[])
         else {
           for (j = 0; j < size; ++j) {
             const size_t k = (shuffle * j) % size;
-            const void *const u = a + k, *const v = b + k;
+            const void *const u = a + k * stride, *const v = b + k * stride;
             diff += libxs_diff(u, v, (unsigned char)elsize);
           }
         }
         d0 = libxs_timer_duration(start, libxs_timer_tick());
         if (0 < d0) printf("libxs_diff:\t\t%.8f s (%i MB/s)\n", d0,
           (int)LIBXS_ROUND((2.0 * nbytes) / ((1024.0 * 1024.0) * d0)));
-        result += (int)diff * ((int)stride / ((int)stride + 1)); /* ignore result */
         d1 += d0;
       }
 
@@ -88,14 +87,13 @@ int main(int argc, char* argv[])
         else {
           for (j = 0; j < size; ++j) {
             const size_t k = (shuffle * j) % size;
-            const void *const u = a + k, *const v = b + k;
+            const void *const u = a + k * stride, *const v = b + k * stride;
             diff += libxs_memcmp(u, v, elsize);
           }
         }
         d0 = libxs_timer_duration(start, libxs_timer_tick());
         if (0 < d0) printf("libxs_memcmp:\t\t%.8f s (%i MB/s)\n", d0,
           (int)LIBXS_ROUND((2.0 * nbytes) / ((1024.0 * 1024.0) * d0)));
-        result += (int)diff * ((int)stride / ((int)stride + 1)); /* ignore result */
         d2 += d0;
       }
 
@@ -124,7 +122,7 @@ int main(int argc, char* argv[])
         else {
           for (j = 0; j < size; ++j) {
             const size_t k = (shuffle * j) % size;
-            const void *const u = a + k, *const v = b + k;
+            const void *const u = a + k * stride, *const v = b + k * stride;
 #if defined(_MSC_VER)
 #           pragma warning(push)
 #           pragma warning(disable: 6385)
@@ -138,7 +136,6 @@ int main(int argc, char* argv[])
         d0 = libxs_timer_duration(start, libxs_timer_tick());
         if (0 < d0) printf("stdlib memcmp:\t\t%.8f s (%i MB/s)\n", d0,
           (int)LIBXS_ROUND((2.0 * nbytes) / ((1024.0 * 1024.0) * d0)));
-        result += (int)diff * ((int)stride / ((int)stride + 1)); /* ignore result */
         d3 += d0;
       }
     }
@@ -159,8 +156,13 @@ int main(int argc, char* argv[])
       printf("-------------------------------------------------\n");
     }
 
+    if (0 != diff) {
+      fprintf(stderr, "ERROR: benchmark detected spurious difference!\n");
+      result = EXIT_FAILURE;
+    }
     if (0 != check) { /* validation */
       size_t k;
+      diff = 0; /* reset for validation */
       for (i = 0; i < nrpt; ++i) {
         for (j = 0; j < nbytes; j += stride) {
           unsigned char *const u = a + j, *const v = b + j;
