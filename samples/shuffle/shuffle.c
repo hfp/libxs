@@ -319,7 +319,7 @@ size_t uint_reduce_op(const void* input, size_t elemsize, size_t count,
           n = (LIBXS_DELTA(lo, hi) * count + result - 1) / result;
         } break;
         case redop_mdistance: {
-          n = (result * 2 - count * (count - 1)) / 2;
+          n = LIBXS_DELTA(result * 2, count * (count - 1)) / 2;
         } break;
         default: n = result;
       }
