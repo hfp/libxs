@@ -14,7 +14,8 @@
 #endif
 
 /* measure non-contended latency of RO-lock */
-#define MEASURE_LATENCY_RO(LOCK_KIND, LOCKPTR, NREPEAT, NR) do { \
+#define MEASURE_LATENCY_RO(LOCK_KIND, LOCKPTR, NREPEAT) do { \
+  const int nops_ = 4 * ((NREPEAT) / 4); \
   libxs_timer_tick_t latency = 0; \
   double duration; \
   int i; \
@@ -31,14 +32,15 @@
     latency += libxs_timer_ncycles(tick, libxs_timer_tick()); \
   } \
   duration = libxs_timer_duration(0, latency); \
-  if (0 < duration) { \
+  if (0 < duration && 0 < nops_) { \
     printf("\tro-latency: %.0f ns (call/s %.0f MHz, %.0f cycles)\n", \
-      duration * (NR) * 1e9, (NREPEAT) / (1e6 * duration), latency * (NR)); \
+      duration / nops_ * 1e9, nops_ / (1e6 * duration), (double)latency / nops_); \
   } \
 } while(0)
 
 /* measure non-contended latency of RW-lock */
-#define MEASURE_LATENCY_RW(LOCK_KIND, LOCKPTR, NREPEAT, NR) do { \
+#define MEASURE_LATENCY_RW(LOCK_KIND, LOCKPTR, NREPEAT) do { \
+  const int nops_ = 4 * ((NREPEAT) / 4); \
   libxs_timer_tick_t latency = 0; \
   double duration; \
   int i; \
@@ -55,9 +57,9 @@
     latency += libxs_timer_ncycles(tick, libxs_timer_tick()); \
   } \
   duration = libxs_timer_duration(0, latency); \
-  if (0 < duration) { \
+  if (0 < duration && 0 < nops_) { \
     printf("\trw-latency: %.0f ns (call/s %.0f MHz, %.0f cycles)\n", \
-      duration * (NR) * 1e9, (NREPEAT) / (1e6 * duration), latency * (NR)); \
+      duration / nops_ * 1e9, nops_ / (1e6 * duration), (double)latency / nops_); \
   } \
 } while(0)
 
@@ -108,8 +110,7 @@
 
 #define BENCHMARK(LOCK_KIND, IMPL, NTHREADS, WORK_R, WORK_W, WRATIOPERC, NREPEAT_LAT, NREPEAT_TPT) do { \
   const int nw = 0 < (WRATIOPERC) ? (100 / (WRATIOPERC)) : ((NREPEAT_TPT) + 1); \
-  const int nt = (NREPEAT_TPT) * (NTHREADS); \
-  const double nr = 1.0 / (NREPEAT_LAT); \
+  const double nt = (double)(NREPEAT_TPT) * (NTHREADS); \
   LIBXS_LOCK_ATTR_TYPE(LOCK_KIND) attr; \
   LIBXS_LOCK_TYPE(LOCK_KIND) lock; \
   LIBXS_ASSERT(0 < nt); \
@@ -118,8 +119,8 @@
   LIBXS_LOCK_ATTR_INIT(LOCK_KIND, &attr); \
   LIBXS_LOCK_INIT(LOCK_KIND, &lock, &attr); \
   LIBXS_LOCK_ATTR_DESTROY(LOCK_KIND, &attr); \
-  MEASURE_LATENCY_RO(LOCK_KIND, &lock, NREPEAT_LAT, nr); \
-  MEASURE_LATENCY_RW(LOCK_KIND, &lock, NREPEAT_LAT, nr); \
+  MEASURE_LATENCY_RO(LOCK_KIND, &lock, NREPEAT_LAT); \
+  MEASURE_LATENCY_RW(LOCK_KIND, &lock, NREPEAT_LAT); \
   MEASURE_THROUGHPUT(LOCK_KIND, &lock, NREPEAT_TPT, NTHREADS, WORK_R, WORK_W, nw, nt); \
   LIBXS_LOCK_DESTROY(LOCK_KIND, &lock); \
 } while(0)
@@ -131,7 +132,8 @@ libxs_timer_tick_t work(libxs_timer_tick_t start, libxs_timer_tick_t duration)
   const libxs_timer_tick_t end = start + duration;
   libxs_timer_tick_t tick = start;
   do {
-    libxs_timer_tick_t i, s = 0;
+    volatile libxs_timer_tick_t s = 0;
+    libxs_timer_tick_t i;
     for (i = 0; i < ((end - tick) / 4); ++i) s += i;
     tick = libxs_timer_tick();
   }

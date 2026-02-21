@@ -521,9 +521,9 @@ LIBXS_API void gemm_oz1(const char* transa, const char* transb,
     gemm_oz1_diff(transa, transb, m, n, k, alpha, a, lda, b, ldb, beta, c, ldc,
       LIBXS_ABS(gemm_diff_abc), &diff);
 
-    LIBXS_ATOMIC_ACQUIRE(&gemm_lock, LIBXS_SYNC_NPAUSE, LIBXS_ATOMIC_SEQ_CST);
+    LIBXS_ATOMIC_ACQUIRE(&gemm_lock, LIBXS_SYNC_NPAUSE, LIBXS_ATOMIC_LOCKORDER);
     libxs_matdiff_reduce(&gemm_diff, &diff);
-    LIBXS_ATOMIC_RELEASE(&gemm_lock, LIBXS_ATOMIC_SEQ_CST);
+    LIBXS_ATOMIC_RELEASE(&gemm_lock, LIBXS_ATOMIC_LOCKORDER);
 
     if (1 < gemm_verbose || 0 > gemm_verbose) {
       const int nth = (0 < gemm_verbose ? gemm_verbose : 1);
@@ -540,7 +540,7 @@ LIBXS_API void gemm_oz1(const char* transa, const char* transb,
       size_t size[2], ld[2];
       FILE *file = NULL;
       int result = EXIT_SUCCESS;
-      LIBXS_ATOMIC_ACQUIRE(&gemm_lock, LIBXS_SYNC_NPAUSE, LIBXS_ATOMIC_SEQ_CST);
+      LIBXS_ATOMIC_ACQUIRE(&gemm_lock, LIBXS_SYNC_NPAUSE, LIBXS_ATOMIC_LOCKORDER);
       LIBXS_SNPRINTF(fname, sizeof(fname), "ozaki-%i-a.mhd", gemm_diff.r);
       file = fopen(fname, "rb");
       if (NULL == file) { /* Never overwrite an existing file */
@@ -568,7 +568,7 @@ LIBXS_API void gemm_oz1(const char* transa, const char* transb,
           alpha, a, lda, b, ldb, beta, c, ldc);
       }
       gemm_rsq = diff.rsq; /* avoid repeated dumps; only if smaller */
-      LIBXS_ATOMIC_RELEASE(&gemm_lock, LIBXS_ATOMIC_SEQ_CST);
+      LIBXS_ATOMIC_RELEASE(&gemm_lock, LIBXS_ATOMIC_LOCKORDER);
     }
   }
 }
@@ -595,7 +595,7 @@ LIBXS_API_INTERN LIBXS_ATTRIBUTE_WEAK void GEMM_WRAP(const char* transa, const c
   LIBXS_ASSERT(NULL != transa && NULL != transb);
 
   if (0 == gemm_initialized) {
-    LIBXS_ATOMIC_ACQUIRE(&gemm_lock, LIBXS_SYNC_NPAUSE, LIBXS_ATOMIC_SEQ_CST);
+    LIBXS_ATOMIC_ACQUIRE(&gemm_lock, LIBXS_SYNC_NPAUSE, LIBXS_ATOMIC_LOCKORDER);
     if (0 == gemm_initialized) {
       const char *const gemm_diff_abc_env = getenv("GEMM_DIFF");
       const char *const gemm_verbose_env = getenv("GEMM_VERBOSE");
@@ -613,7 +613,7 @@ LIBXS_API_INTERN LIBXS_ATTRIBUTE_WEAK void GEMM_WRAP(const char* transa, const c
       LIBXS_EXPECT(EXIT_SUCCESS == atexit(print_diff_atexit));
       gemm_initialized = 1;
     }
-    LIBXS_ATOMIC_RELEASE(&gemm_lock, LIBXS_ATOMIC_SEQ_CST);
+    LIBXS_ATOMIC_RELEASE(&gemm_lock, LIBXS_ATOMIC_LOCKORDER);
   }
   LIBXS_ASSERT(0 != gemm_initialized);
 
@@ -625,9 +625,9 @@ LIBXS_API_INTERN LIBXS_ATTRIBUTE_WEAK void GEMM_WRAP(const char* transa, const c
       GEMM_REAL(transa, transb, m, n, k, alpha, a, lda, b, ldb, beta, c, ldc);
     }
     if (0 != gemm_verbose) {
-      LIBXS_ATOMIC_ACQUIRE(&gemm_lock, LIBXS_SYNC_NPAUSE, LIBXS_ATOMIC_SEQ_CST);
+      LIBXS_ATOMIC_ACQUIRE(&gemm_lock, LIBXS_SYNC_NPAUSE, LIBXS_ATOMIC_LOCKORDER);
       ++gemm_diff.r;
-      LIBXS_ATOMIC_RELEASE(&gemm_lock, LIBXS_ATOMIC_SEQ_CST);
+      LIBXS_ATOMIC_RELEASE(&gemm_lock, LIBXS_ATOMIC_LOCKORDER);
     }
   }
   else { /* run LP-GEMM */
