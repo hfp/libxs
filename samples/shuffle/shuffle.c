@@ -209,11 +209,11 @@ int main(int argc, char* argv[])
           (int)LIBXS_ROUND((2.0 * nbytes) / ((1024.0 * 1024.0) * d1)));
         if (0 != stats) {
           printf("             dst%i=%llu%% dst%i=%llu%%\n",
-            split * 2, (100ULL * b1 + n - 1) / n,
-            split, (100ULL * a1 + n - 1) / n);
+            split * 2, (unsigned long long)LIBXS_UPDIV(100ULL * b1, n),
+            split, (unsigned long long)LIBXS_UPDIV(100ULL * a1, n));
           printf("             imb%i=%llu%% imb%i=%llu%%\n",
-            split * 2, (100ULL * h1 + n - 1) / n,
-            split, (100ULL * g1 + n - 1) / n);
+            split * 2, (unsigned long long)LIBXS_UPDIV(100ULL * h1, n),
+            split, (unsigned long long)LIBXS_UPDIV(100ULL * g1, n));
         }
         if (0 != random) {
           n0 = (nn * n - 1 + LIBXS_MIN(LIBXS_MIN(n1, nn) * n, n0 * nn)
@@ -226,15 +226,15 @@ int main(int argc, char* argv[])
           (int)LIBXS_ROUND((2.0 * nbytes) / ((1024.0 * 1024.0) * d2)));
         if (0 != stats) {
           printf("             dst%i=%llu%% dst%i=%llu%%\n",
-            split * 2, (100ULL * b2 + n - 1) / n,
-            split, (100ULL * a2 + n - 1) / n);
+            split * 2, (unsigned long long)LIBXS_UPDIV(100ULL * b2, n),
+            split, (unsigned long long)LIBXS_UPDIV(100ULL * a2, n));
           printf("             imb%i=%llu%% imb%i=%llu%%\n",
-            split * 2, (100ULL * h2 + n - 1) / n,
-            split, (100ULL * g2 + n - 1) / n);
+            split * 2, (unsigned long long)LIBXS_UPDIV(100ULL * h2, n),
+            split, (unsigned long long)LIBXS_UPDIV(100ULL * g2, n));
         }
         if (0 != random) {
           printf("             rand=%llu%%\n",
-            (100ULL * LIBXS_MIN(n2, nn) + nn - 1) / nn);
+            (unsigned long long)LIBXS_UPDIV(100ULL * LIBXS_MIN(n2, nn), nn));
         }
       }
       if (0 < d3) {
@@ -242,15 +242,15 @@ int main(int argc, char* argv[])
           (int)LIBXS_ROUND((2.0 * nbytes) / ((1024.0 * 1024.0) * d3)));
         if (0 != stats) {
           printf("             dst%i=%llu%% dst%i=%llu%%\n",
-            split * 2, (100ULL * b3 + n - 1) / n,
-            split, (100ULL * a3 + n - 1) / n);
+            split * 2, (unsigned long long)LIBXS_UPDIV(100ULL * b3, n),
+            split, (unsigned long long)LIBXS_UPDIV(100ULL * a3, n));
           printf("             imb%i=%llu%% imb%i=%llu%%\n",
-            split * 2, (100ULL * h3 + n - 1) / n,
-            split, (100ULL * g3 + n - 1) / n);
+            split * 2, (unsigned long long)LIBXS_UPDIV(100ULL * h3, n),
+            split, (unsigned long long)LIBXS_UPDIV(100ULL * g3, n));
         }
         if (0 != random) {
           printf("             rand=%llu%%\n",
-            (100ULL * LIBXS_MIN(n3, nn) + nn - 1) / nn);
+            (unsigned long long)LIBXS_UPDIV(100ULL * LIBXS_MIN(n3, nn), nn));
         }
       }
     }
@@ -287,13 +287,13 @@ size_t shuffle(void* inout, size_t elemsize, size_t count) {
 size_t uint_reduce_op(const void* input, size_t elemsize, size_t count,
   redop_enum redop, size_t split)
 {
-  const size_t inner = count / 2 + (count & 1);
+  const size_t inner = LIBXS_UPDIV(count, 2);
   unsigned long long lo = 0, hi = 0, result;
   if (1 < split) {
     lo = uint_reduce_op(input, elemsize, inner, redop, split - 1);
     hi = uint_reduce_op((const char*)input + elemsize * inner,
       elemsize, count - inner, redop, split - 1);
-    result = (lo + hi + 1) / 2; /* average */
+    result = LIBXS_UPDIV(lo + hi, 2); /* average */
   }
   else {
     switch (elemsize) {
@@ -316,7 +316,7 @@ size_t uint_reduce_op(const void* input, size_t elemsize, size_t count,
       unsigned long long n;
       switch (redop) {
         case redop_imbalance: {
-          n = (LIBXS_DELTA(lo, hi) * count + result - 1) / result;
+          n = LIBXS_UPDIV(LIBXS_DELTA(lo, hi) * count, result);
         } break;
         case redop_mdistance: {
           n = LIBXS_DELTA(result * 2, count * (count - 1)) / 2;
@@ -324,7 +324,7 @@ size_t uint_reduce_op(const void* input, size_t elemsize, size_t count,
         default: n = result;
       }
       /* normalize result relative to length of input */
-      if (0 != result) result = (n * count + result - 1) / result;
+      if (0 != result) result = LIBXS_UPDIV(n * count, result);
     }
   }
   return (size_t)result;

@@ -70,7 +70,7 @@ int main(int argc, char* argv[])
       const int k = (i * count + j) % (MAX_MALLOC_N);
       mbytes += (r[k] % (MAX_MALLOC_MB) + 1);
     }
-    if (max_size < mbytes) max_size = mbytes;
+    max_size = LIBXS_MAX(max_size, mbytes);
     nallocs += count;
   }
   assert(0 != nallocs);
@@ -106,7 +106,7 @@ int main(int argc, char* argv[])
     }
   }
   if (EXIT_SUCCESS == libxs_malloc_pool_info(&info) && 0 < info.size) {
-    scratch = (int)((info.size + ((size_t)1 << 19) - 1) / ((size_t)1 << 20));
+    scratch = (int)LIBXS_UPDIV(info.size, (size_t)1 << 20);
     fprintf(stdout, "\nScratch: %i MB (mallocs=%lu)\n",
       scratch, (unsigned long int)info.nmallocs);
     libxs_free_pool();
