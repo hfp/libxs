@@ -37,7 +37,7 @@ for (ii = 0; ii < nn; ++ii) {
     if (ri > info->max_ref) info->max_ref = ri;
 
     if (LIBXS_NOTNAN(ti) && (pos_inf > ta || ti == ri)) {
-      const double di = ((NULL != real_tst && ta != ra) ? LIBXS_DELTA(ri, ti) : 0);
+      const double di = ((NULL != real_tst && ri != ti) ? LIBXS_DELTA(ri, ti) : 0);
       const double dri = LIBXS_MATDIFF_DIV(di, ra, ta);
 
       /* minimum/maximum of test set */
@@ -125,7 +125,7 @@ if (0 == result_nan) {
 
   /* Infinity-norm relative to reference */
   info->normi_rel = LIBXS_MATDIFF_DIV(info->normi_abs, normr, normt);
-  /* Froebenius-norm relative to reference */
+  /* Froebenius-norm relative to reference: SS_res/SS_ref, sqrt is deferred */
   info->normf_rel = LIBXS_MATDIFF_DIV(info->l2_abs, normfr,
     LIBXS_MIN(normft * normft, info->l2_abs));
 
@@ -143,7 +143,7 @@ if (0 == result_nan) {
       const double ti = (NULL != real_tst ? LIBXS_MATDIFF_TEMPLATE_TYPE2FP64(real_tst[(size_t)i * ldt + j]) : 0);
       const double ri = LIBXS_MATDIFF_TEMPLATE_TYPE2FP64(real_ref[(size_t)i*ldr+j]);
       const double ta = LIBXS_ABS(ti), ra = LIBXS_ABS(ri);
-      const double di = ((NULL != real_tst && ta != ra) ? LIBXS_DELTA(ri, ti) : 0);
+      const double di = ((NULL != real_tst && ri != ti) ? LIBXS_DELTA(ri, ti) : 0);
       const double rd = ri - info->avg_ref, td = ti - info->avg_tst;
 
       /* variance of reference set with Kahan compensation */

@@ -34,12 +34,12 @@
 #endif
 
 /**
- * LIBXS_MATDIFF_DIV devises the nominator by the reference-denominator
+ * LIBXS_MATDIFF_DIV divides the numerator by the reference-denominator
  * unless the latter is zero in which case the fallback is returned.
  */
 #define LIBXS_MATDIFF_DIV_DEN(A) (0 < (A) ? (A) : 1)   /* Clang: WA for div-by-zero */
-#define LIBXS_MATDIFF_DIV(NOMINATOR, DENREF, FALLBACK) /* Clang: >= instead of < */ \
-  (0 >= (DENREF) ? (FALLBACK) : ((NOMINATOR) / LIBXS_MATDIFF_DIV_DEN(DENREF)))
+#define LIBXS_MATDIFF_DIV(NUMERATOR, DENREF, FALLBACK) /* Clang: >= instead of < */ \
+  (0 >= (DENREF) ? (FALLBACK) : ((NUMERATOR) / LIBXS_MATDIFF_DIV_DEN(DENREF)))
 
 
 LIBXS_API int libxs_matdiff(libxs_matdiff_info_t* info,
@@ -235,13 +235,14 @@ LIBXS_API int libxs_matdiff(libxs_matdiff_info_t* info,
         }
       }
       if (0 == result_nan) {
+        /* R-squared: l2_abs = SS_res, var_ref = SS_tot (both pre-normalization) */
         const double resrel = LIBXS_MATDIFF_DIV(info->l2_abs, info->var_ref, info->l2_abs);
         info->rsq = LIBXS_MAX(0.0, 1.0 - resrel);
         if (0 != ntotal) { /* final variance */
           info->var_ref /= ntotal;
           info->var_tst /= ntotal;
         }
-        info->normf_rel = sqrt(info->normf_rel);
+        info->normf_rel = sqrt(info->normf_rel); /* sqrt(SS_res/SS_ref) = ||E||_F / ||R||_F */
         info->l2_abs = sqrt(info->l2_abs);
         info->l2_rel = sqrt(info->l2_rel);
       }
@@ -264,7 +265,7 @@ LIBXS_API int libxs_matdiff(libxs_matdiff_info_t* info,
         }
       }
       if (1 == n) LIBXS_ISWAP(info->m, info->n);
-      if (0 != result_swap) {
+      if (0 != result_swap) { /* ref was NULL: move ref-stats to tst, zero ref-side */
         info->min_tst = info->min_ref;
         info->min_ref = 0;
         info->max_tst = info->max_ref;

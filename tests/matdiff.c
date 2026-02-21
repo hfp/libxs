@@ -291,5 +291,94 @@ int main(void)
     }
   }
 
+  /* test NaN in test-set (result_nan == 1): norms become Inf, rsq stays zero */
+  if (EXIT_SUCCESS == result) {
+    const union { unsigned raw; float value; } nan_bits = { 0x7FC00000 };
+    const ELEMTYPE ref_nan[] = { (ELEMTYPE)1.0, (ELEMTYPE)2.0, (ELEMTYPE)3.0 };
+    ELEMTYPE tst_nan[3];
+    libxs_matdiff_info_t d;
+    tst_nan[0] = (ELEMTYPE)1.1;
+    tst_nan[1] = (ELEMTYPE)nan_bits.value; /* NaN */
+    tst_nan[2] = (ELEMTYPE)3.3;
+    result = libxs_matdiff(&d, LIBXS_DATATYPE(ELEMTYPE), 3/*m*/, 1/*n*/,
+      ref_nan/*ref*/, tst_nan/*tst*/, NULL/*ldref*/, NULL/*ldtst*/);
+    if (EXIT_SUCCESS == result) {
+      const double epsilon = libxs_matdiff_epsilon(&d);
+      /* norms must be infinity */
+      if (LIBXS_NOTNAN(epsilon) && 0 < epsilon) {
+        if (epsilon == epsilon - 1) { /* epsilon is +Inf: OK */ }
+        else result = EXIT_FAILURE;
+      }
+      else result = EXIT_FAILURE;
+      /* R-squared: must be zero (not +inf as before the fix) */
+      if (0 < d.rsq - 0) result = EXIT_FAILURE;
+      /* NaN detected at position of the NaN element */
+      if (1 != d.m || 0 != d.n) result = EXIT_FAILURE;
+    }
+  }
+
+  /* test NaN in reference-set (result_nan == 2): norms become Inf, rsq stays zero */
+  if (EXIT_SUCCESS == result) {
+    const union { unsigned raw; float value; } nan_bits = { 0x7FC00000 };
+    const union { unsigned raw; float value; } inf_bits = { 0x7F800000 };
+    ELEMTYPE ref_nan[3], tst_nan[3];
+    libxs_matdiff_info_t d;
+    ref_nan[0] = (ELEMTYPE)nan_bits.value; /* NaN */
+    ref_nan[1] = (ELEMTYPE)2.0;
+    ref_nan[2] = (ELEMTYPE)3.0;
+    tst_nan[0] = (ELEMTYPE)inf_bits.value; /* +Inf triggers else-branch */
+    tst_nan[1] = (ELEMTYPE)2.2;
+    tst_nan[2] = (ELEMTYPE)3.3;
+    result = libxs_matdiff(&d, LIBXS_DATATYPE(ELEMTYPE), 3/*m*/, 1/*n*/,
+      ref_nan/*ref*/, tst_nan/*tst*/, NULL/*ldref*/, NULL/*ldtst*/);
+    if (EXIT_SUCCESS == result) {
+      const double epsilon = libxs_matdiff_epsilon(&d);
+      /* norms must be infinity */
+      if (LIBXS_NOTNAN(epsilon) && 0 < epsilon) {
+        if (epsilon == epsilon - 1) { /* epsilon is +Inf: OK */ }
+        else result = EXIT_FAILURE;
+      }
+      else result = EXIT_FAILURE;
+      /* R-squared: must be zero */
+      if (0 < d.rsq - 0) result = EXIT_FAILURE;
+      /* NaN detected at position 0 */
+      if (0 != d.m || 0 != d.n) result = EXIT_FAILURE;
+    }
+  }
+
+  /* test NULL ref with non-NULL tst (exercises result_swap path):
+   * ref=NULL,tst=vals -> swap makes vals the new ref, tst becomes NULL.
+   * NULL tst means di=0 always -> rsq=1, epsilon=0, no location.
+   * After swap, original vals stats appear in tst-position. */
+  if (EXIT_SUCCESS == result) {
+    const ELEMTYPE ref_only[] = { (ELEMTYPE)1.0, (ELEMTYPE)2.0, (ELEMTYPE)3.0 };
+    libxs_matdiff_info_t d;
+    result = libxs_matdiff(&d, LIBXS_DATATYPE(ELEMTYPE), 3/*m*/, 1/*n*/,
+      NULL/*ref*/, ref_only/*tst*/, NULL/*ldref*/, NULL/*ldtst*/);
+    if (EXIT_SUCCESS == result) {
+      const double epsilon = libxs_matdiff_epsilon(&d);
+      /* no difference computable -> epsilon must be zero */
+      if (0 != epsilon) result = EXIT_FAILURE;
+      /* no difference found -> no location */
+      if (-1 != d.m || -1 != d.n) result = EXIT_FAILURE;
+      /* swapped: original vals stats appear in tst position */
+      if (0.0000001 < LIBXS_ABS(d.min_tst - 1.0)) result = EXIT_FAILURE;
+      if (0.0000001 < LIBXS_ABS(d.max_tst - 3.0)) result = EXIT_FAILURE;
+      /* ref-side stats are zeroed by swap */
+      if (0 != d.min_ref || 0 != d.max_ref) result = EXIT_FAILURE;
+      if (0 != d.l1_ref) result = EXIT_FAILURE;
+    }
+  }
+
+  /* test cleared struct yields sensible epsilon (ground state) */
+  if (EXIT_SUCCESS == result) {
+    libxs_matdiff_info_t d;
+    double epsilon;
+    libxs_matdiff_clear(&d);
+    epsilon = libxs_matdiff_epsilon(&d);
+    /* cleared struct: all norms are zero, rsq is zero -> epsilon must be zero */
+    if (0 != epsilon) result = EXIT_FAILURE;
+  }
+
   return result;
 }
