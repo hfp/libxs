@@ -43,6 +43,8 @@ int main(int argc, char* argv[])
   GEMM_INT_TYPE a_rows, a_cols, b_rows, b_cols;
   libxs_matdiff_info_t diff;
 
+  libxs_init();
+
   if (2 < argc && 0 == m) { /* Indicate filename(s) */
     char extension[
       sizeof(char) /*trans*/ +
@@ -59,9 +61,9 @@ int main(int argc, char* argv[])
     {
       m = ldc = (int)size[0]; k = (int)size[1];
       transa = *(const char*)extension;
-      lda = *(const GEMM_INT_TYPE*)(extension + sizeof(char));
-      alpha = *(const GEMM_REAL_TYPE*)(extension
-        + sizeof(char) + sizeof(GEMM_INT_TYPE));
+      memcpy(&lda, extension + sizeof(char), sizeof(GEMM_INT_TYPE));
+      memcpy(&alpha, extension + sizeof(char) + sizeof(GEMM_INT_TYPE),
+        sizeof(GEMM_REAL_TYPE));
       file_input |= 0x1;
     }
     if (0 == n) {
@@ -73,9 +75,9 @@ int main(int argc, char* argv[])
         && sizeof(extension) == extension_size)
       {
         n = (int)size[1]; transb = *(char*)extension;
-        ldb = *(const GEMM_INT_TYPE*)(extension + sizeof(char));
-        beta = *(const GEMM_REAL_TYPE*)(extension
-          + sizeof(char) + sizeof(GEMM_INT_TYPE));
+        memcpy(&ldb, extension + sizeof(char), sizeof(GEMM_INT_TYPE));
+        memcpy(&beta, extension + sizeof(char) + sizeof(GEMM_INT_TYPE),
+          sizeof(GEMM_REAL_TYPE));
         file_input |= 0x2;
       }
     }

@@ -116,7 +116,7 @@ LIBXS_API_INLINE void rescale_digits(int8_t dst[NSLICES], const int8_t src[NSLIC
   int i;
 
   if (delta == 0) {
-    memcpy(dst, src, sizeof(int8_t) * NSLICES);
+    if (dst != src) memcpy(dst, src, sizeof(int8_t) * NSLICES);
     return;
   }
 
@@ -541,8 +541,9 @@ LIBXS_API void gemm_oz1(const char* transa, const char* transb,
       file = fopen(fname, "rb");
       if (NULL == file) { /* Never overwrite an existing file */
         size[0] = *m; size[1] = *k; ld[0] = *lda; ld[1] = *k;
-        *(char*)extension = *transa; *(GEMM_INT_TYPE*)(extension + sizeof(char)) = *lda;
-        *(GEMM_REAL_TYPE*)(extension + sizeof(char) + sizeof(GEMM_INT_TYPE)) = *alpha;
+        *(char*)extension = *transa;
+        memcpy(extension + sizeof(char), lda, sizeof(GEMM_INT_TYPE));
+        memcpy(extension + sizeof(char) + sizeof(GEMM_INT_TYPE), alpha, sizeof(GEMM_REAL_TYPE));
         result |= libxs_mhd_write(fname, NULL/*offset*/, size, ld,
           &mhd_info, a, NULL/*handler_info*/, NULL/*handler*/,
           NULL/*extension_header*/, extension, sizeof(extension));
@@ -552,8 +553,9 @@ LIBXS_API void gemm_oz1(const char* transa, const char* transb,
       file = fopen(fname, "rb");
       if (NULL == file) { /* Never overwrite an existing file */
         size[0] = *k; size[1] = *n; ld[0] = *ldb; ld[1] = *n;
-        *(char*)extension = *transb; *(GEMM_INT_TYPE*)(extension + sizeof(char)) = *ldb;
-        *(GEMM_REAL_TYPE*)(extension + sizeof(char) + sizeof(GEMM_INT_TYPE)) = *beta;
+        *(char*)extension = *transb;
+        memcpy(extension + sizeof(char), ldb, sizeof(GEMM_INT_TYPE));
+        memcpy(extension + sizeof(char) + sizeof(GEMM_INT_TYPE), beta, sizeof(GEMM_REAL_TYPE));
         result |= libxs_mhd_write(fname, NULL/*offset*/, size, ld,
           &mhd_info, b, NULL/*handler_info*/, NULL/*handler*/,
           NULL/*extension_header*/, extension, sizeof(extension));
