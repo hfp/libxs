@@ -6,64 +6,74 @@
 * Further information: https://github.com/hfp/libxs/                          *
 * SPDX-License-Identifier: BSD-3-Clause                                       *
 ******************************************************************************/
-#include <libxs_timer.h>
-#include <libxs_rng.h>
+/* Microbenchmark for the registry (key-value store) dispatch path.
+ * Measures: registration, cold lookup, cached lookup, multi-threaded
+ *           reads, contended writes, and mixed read/write scenarios. */
 
+#include <libxs_reg.h>
+#include <libxs_timer.h>
+#include <libxs_math.h>
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 #include <inttypes.h>
 #if defined(_OPENMP)
 # include <omp.h>
 #endif
-#if defined(__MKL) && defined(LIBXS_PLATFORM_X86)
-# include <mkl.h>
-#endif
-
-#if defined(__INTEL_MKL__) && defined(__INTEL_MKL_MINOR__) && defined(__INTEL_MKL_UPDATE__)
-# define LIBXS_MKL_VERSION3 LIBXS_VERSION3(__INTEL_MKL__, __INTEL_MKL_MINOR__, __INTEL_MKL_UPDATE__)
-#endif
-
-#if !defined(MKLJIT) && defined(mkl_jit_create_dgemm) && \
-  !defined(_WIN32) /* check this manually under Windows */
-# define MKLJIT
-#endif
-#if (!defined(LIBXS_MKL_VERSION3) || (LIBXS_VERSION3(2019, 0, 3) <= LIBXS_MKL_VERSION3))
-# define CHECK
-#endif
-#if !defined(MAXSIZE)
-# define MAXSIZE 23
-#endif
 
 
-typedef struct triplet { int m, n, k; } triplet;
+#if !defined(KEY_MAXSIZE)
+# define KEY_MAXSIZE 12
+#endif
 
-LIBXS_INLINE void unique(triplet* mnk, int* size)
+typedef struct bench_key_t {
+  int id;
+  int tag;
+  int pad;
+} bench_key_t;
+
+typedef struct bench_value_t {
+  double data[2];
+} bench_value_t;
+
+
+static void print_duration(const char* label, double total_ns, int count,
+  libxs_timer_tick_t total_cycles)
 {
-  if (NULL != mnk && NULL != size && 0 < *size) {
-    triplet *const first = mnk, *last = mnk + ((size_t)*size - 1), *i;
-    for (i = mnk + 1; mnk < last; ++mnk, i = mnk + 1) {
-      while (i <= last) {
-        if (i->m != mnk->m || i->n != mnk->n || i->k != mnk->k) {
-          i++; /* skip */
-        }
-        else { /* copy */
-          *i = *last--;
-        }
-      }
-    }
-    *size = (int)(last - first + 1);
+  const double per_op_ns = total_ns / count;
+  if (1E6 < per_op_ns) {
+    printf("\t%-28s %8.2f ms/op  (%d ops, %" PRIuPTR " cycles/op)\n",
+      label, per_op_ns * 1E-6, count,
+      (uintptr_t)(total_cycles / (libxs_timer_tick_t)count));
+  }
+  else if (1E3 < per_op_ns) {
+    printf("\t%-28s %8.2f us/op  (%d ops, %" PRIuPTR " cycles/op)\n",
+      label, per_op_ns * 1E-3, count,
+      (uintptr_t)(total_cycles / (libxs_timer_tick_t)count));
+  }
+  else {
+    printf("\t%-28s %8.1f ns/op  (%d ops, %" PRIuPTR " cycles/op)\n",
+      label, per_op_ns, count,
+      (uintptr_t)(total_cycles / (libxs_timer_tick_t)count));
   }
 }
 
 
 /**
- * This (micro-)benchmark measures the duration needed to dispatch a kernel.
- * Various durations are measured: time to generate the code, to dispatch
- * from cache, and to dispatch from the entire database. The large total
- * number of kernels may also stress the in-memory database.
- * When building with "make MKL=1", the benchmark exercises JIT capability of
- * Intel MKL. However, the measured "dispatch" durations cannot be compared
- * with LIBXS because MKL's JIT-interface does not provide a function to
- * query a kernel for a set of GEMM-arguments. The implicit JIT-dispatch
- * on the other hand does not expose the time to query the kernel.
+ * This (micro-)benchmark measures the duration needed to register and
+ * look up entries in the registry. Various scenarios are measured:
+ *   (1) cold registration of N unique keys (write),
+ *   (2) cold lookup: shuffled access pattern defeating TLS cache,
+ *   (3) cached lookup: repeated sequential access (TLS-cache-friendly),
+ *   (4) multi-threaded parallel reads,
+ *   (5) contended parallel writes (each thread writes unique keys),
+ *   (6) mixed: one writer thread, remaining threads read concurrently.
+ *
+ * CLI: registry [total] [nrepeat] [nthreads]
+ *   total    - number of unique keys to register (default: 10000)
+ *   nrepeat  - number of repeat iterations for lookup phases (default: 10)
+ *   nthreads - number of OpenMP threads (default: max available)
  */
 int main(int argc, char* argv[])
 {
@@ -72,325 +82,243 @@ int main(int argc, char* argv[])
 #else
   const int max_nthreads = 1;
 #endif
-  const int default_minsize = 4;
-#if !defined(LIBXS_MKL_VERSION3) || (LIBXS_VERSION3(2019, 0, 3) <= LIBXS_MKL_VERSION3)
-  const int default_maxsize = MAXSIZE;
-#else
-  const int default_maxsize = 16;
-#endif
-  const int default_multiple = 1;
-  int size_total = LIBXS_MAX((1 < argc && 0 < atoi(argv[1])) ? atoi(argv[1]) : 10000/*default*/, 2);
-  const int size_local = LIBXS_CLMP((2 < argc && 0 < atoi(argv[2])) ? atoi(argv[2]) : 4/*default*/, 1, size_total);
-  const int nthreads = LIBXS_CLMP(3 < argc ? atoi(argv[3]) : 1/*default*/, 1, max_nthreads);
-  const int nrepeat = LIBXS_MAX(4 < argc ? atoi(argv[4]) : 1/*default*/, 1);
-  const int multiple = LIBXS_MAX((5 < argc && 0 < atoi(argv[5])) ? atoi(argv[5]) : default_multiple, 1);
-  const int maxsize = LIBXS_CLMP((6 < argc && 0 < atoi(argv[6])) ? atoi(argv[6]) : default_maxsize, 1, MAXSIZE);
-  const int minsize = LIBXS_CLMP((7 < argc && 0 < atoi(argv[7])) ? atoi(argv[7]) : default_minsize, 1, maxsize);
-  const int range = maxsize - minsize + 1;
-  libxs_timer_tick_t start, tcall = 0, tcgen = 0, tdsp0 = 0, tdsp1 = 0;
+  const int size_total = LIBXS_MAX((1 < argc && 0 < atoi(argv[1])) ? atoi(argv[1]) : 10000, 2);
+  const int nrepeat    = LIBXS_MAX((2 < argc && 0 < atoi(argv[2])) ? atoi(argv[2]) : 10, 1);
+  const int nthreads   = LIBXS_CLMP((3 < argc && 0 < atoi(argv[3])) ? atoi(argv[3]) : max_nthreads, 1, max_nthreads);
+  const size_t shuffle = libxs_coprime2((size_t)size_total);
 
-  triplet* const rnd = (triplet*)(0 < size_total ? malloc(sizeof(triplet) * size_total) : NULL);
-  const size_t shuffle = libxs_coprime2(size_total);
-  const double alpha = 1, beta = 1;
-  int result = EXIT_SUCCESS, i, n;
+  bench_key_t* keys = NULL;
+  bench_value_t* vals = NULL;
+  libxs_registry_t* registry = NULL;
+  libxs_timer_tick_t start, cycles;
+  double duration_ns;
+  int result = EXIT_SUCCESS;
+  int i, n;
 
-#if defined(MKLJIT)
-  void** const jitter = malloc(size_total * sizeof(void*));
-#else
-  const char transa = 'N', transb = 'N';
-  const int flags_trans = LIBXS_GEMM_FLAGS(transa, transb);
-  const int flags_ab = (LIBXS_NEQ(0, beta) ? 0 : LIBXS_GEMM_FLAG_BETA_0);
-  const libxs_bitfield flags = (libxs_bitfield)(flags_trans | flags_ab);
-  const libxs_bitfield prefetch = (libxs_bitfield)LIBXS_PREFETCH;
-  LIBXS_UNUSED(alpha);
-#endif
+  LIBXS_UNUSED(argc); LIBXS_UNUSED(argv);
 
-#if 0 != LIBXS_JIT
-  if (LIBXS_X86_GENERIC > libxs_cpuid((NULL)) {
-    fprintf(stderr, "\n\tWarning: JIT support is not available at runtime!\n");
+  /* allocate key/value arrays */
+  keys = (bench_key_t*)calloc((size_t)size_total, sizeof(bench_key_t));
+  vals = (bench_value_t*)malloc(sizeof(bench_value_t) * (size_t)size_total);
+  if (NULL == keys || NULL == vals) {
+    fprintf(stderr, "ERROR: allocation failed\n");
+    free(keys); free(vals);
+    return EXIT_FAILURE;
   }
-#else
-  fprintf(stderr, "\n\tWarning: JIT support has been disabled at build time!\n");
-#endif
 
-  if (
-#if defined(MKLJIT)
-    NULL != jitter &&
-#endif
-    NULL != rnd)
-  {
-    /* generate set of random numbers outside of any parallel region */
-    for (i = 0; i < size_total; ++i) {
-      const int r1 = rand(), r2 = rand(), r3 = rand();
-      rnd[i].m = (1 < range ? (LIBXS_MOD(r1, range) + minsize) : minsize);
-      rnd[i].n = (1 < range ? (LIBXS_MOD(r2, range) + minsize) : minsize);
-      rnd[i].k = (1 < range ? (LIBXS_MOD(r3, range) + minsize) : minsize);
-      if (1 != multiple) {
-        rnd[i].m = LIBXS_MAX((rnd[i].m / multiple) * multiple, minsize);
-        rnd[i].n = LIBXS_MAX((rnd[i].n / multiple) * multiple, minsize);
-        rnd[i].k = LIBXS_MAX((rnd[i].k / multiple) * multiple, minsize);
-      }
-#if defined(MKLJIT)
-      jitter[i] = NULL;
-#endif
+  /* initialize keys (memset guarantees binary reproducibility) and values */
+  for (i = 0; i < size_total; ++i) {
+    memset(&keys[i], 0, sizeof(bench_key_t));
+    keys[i].id = i;
+    keys[i].tag = i ^ 0xABCD;
+    keys[i].pad = 0;
+    vals[i].data[0] = (double)i;
+    vals[i].data[1] = (double)(i * 2);
+  }
+
+  printf("Registry benchmark: %d keys, %d repeat%s, %d thread%s\n",
+    size_total, nrepeat, nrepeat > 1 ? "s" : "",
+    nthreads, nthreads > 1 ? "s" : "");
+
+  /* warm up timer */
+  libxs_init();
+  start = libxs_timer_tick();
+  cycles = libxs_timer_ncycles(start, libxs_timer_tick());
+  LIBXS_UNUSED(cycles);
+
+  /*=========================================================================
+   * (1) Registration: insert all keys (single-threaded)
+   *=========================================================================*/
+  libxs_registry_create(&registry);
+  if (NULL == registry) { result = EXIT_FAILURE; goto cleanup; }
+
+  start = libxs_timer_tick();
+  for (i = 0; i < size_total; ++i) {
+    bench_value_t* v = (bench_value_t*)libxs_registry_set(
+      registry, &keys[i], sizeof(bench_key_t),
+      sizeof(bench_value_t), &vals[i]);
+    if (NULL == v) { result = EXIT_FAILURE; goto cleanup; }
+  }
+  cycles = libxs_timer_ncycles(start, libxs_timer_tick());
+  duration_ns = 1E9 * libxs_timer_duration(start, libxs_timer_tick());
+  print_duration("registration (write):", duration_ns, size_total, cycles);
+
+  { /* verify info */
+    libxs_registry_info_t info;
+    if (EXIT_SUCCESS == libxs_registry_info(registry, &info)) {
+      printf("\tregistry: size=%zu capacity=%zu nbytes=%zu\n",
+        info.size, info.capacity, info.nbytes);
     }
-    unique(rnd, &size_total);
+  }
 
-    printf("Dispatching total=%i and local=%i kernels using %i thread%s...", size_total, size_local,
-      1 >= nthreads ? 1 : nthreads,
-      1 >= nthreads ? "" : "s");
-
-    /* first invocation may initialize some internals */
-    libxs_init(); /* subsequent calls are not doing any work */
-    start = libxs_timer_tick();
+  /*=========================================================================
+   * (2) Cold lookup: shuffled access (defeats TLS cache)
+   *=========================================================================*/
+  { libxs_timer_tick_t total_cycles = 0;
     for (n = 0; n < nrepeat; ++n) {
+      start = libxs_timer_tick();
       for (i = 0; i < size_total; ++i) {
-        /* measure call overhead of an "empty" function (not inlined) */
-        libxs_init();
+        const int j = (int)((shuffle * (size_t)i) % (size_t)size_total);
+        const bench_value_t* v = (const bench_value_t*)libxs_registry_get(
+          registry, &keys[j], sizeof(bench_key_t));
+        if (NULL == v) { result = EXIT_FAILURE; goto cleanup; }
       }
+      total_cycles += libxs_timer_ncycles(start, libxs_timer_tick());
     }
-    tcall = libxs_timer_ncycles(start, libxs_timer_tick());
+    duration_ns = 1E9 * libxs_timer_duration(0, total_cycles);
+    print_duration("cold lookup (shuffled):",
+      duration_ns, size_total * nrepeat, total_cycles);
+  }
 
-    /* trigger code generation to subsequently measure only dispatch time */
-    start = libxs_timer_tick();
-    for (i = 0; i < size_local; ++i) {
-#if defined(MKLJIT)
-      LIBXS_EXPECT(MKL_JIT_SUCCESS == mkl_cblas_jit_create_dgemm(jitter + i,
-        MKL_COL_MAJOR, MKL_NOTRANS/*transa*/, MKL_NOTRANS/*transb*/,
-        rnd[i].m, rnd[i].n, rnd[i].k, alpha, rnd[i].m, rnd[i].k, beta, rnd[i].m));
-      mkl_jit_get_dgemm_ptr(jitter[i]); /* to include lookup time */
-#else
-      const libxs_gemm_shape gemm_shape = libxs_create_gemm_shape(
-        rnd[i].m, rnd[i].n, rnd[i].k, rnd[i].m/*lda*/, rnd[i].k/*ldb*/, rnd[i].m/*ldc*/,
-        LIBXS_DATATYPE_F64, LIBXS_DATATYPE_F64, LIBXS_DATATYPE_F64, LIBXS_DATATYPE_F64);
-      libxs_dispatch_gemm(gemm_shape, flags, prefetch);
-#endif
+  /*=========================================================================
+   * (3) Cached lookup: sequential repeated access (TLS-cache-friendly)
+   *=========================================================================*/
+  { const int local_size = LIBXS_MIN(LIBXS_REGCACHE_NENTRIES, size_total);
+    libxs_timer_tick_t total_cycles = 0;
+    for (n = 0; n < nrepeat; ++n) {
+      start = libxs_timer_tick();
+      for (i = 0; i < size_total; ++i) {
+        const int j = i % local_size; /* cycle through a small set */
+        const bench_value_t* v = (const bench_value_t*)libxs_registry_get(
+          registry, &keys[j], sizeof(bench_key_t));
+        if (NULL == v) { result = EXIT_FAILURE; goto cleanup; }
+      }
+      total_cycles += libxs_timer_ncycles(start, libxs_timer_tick());
     }
-    tcgen = libxs_timer_ncycles(start, libxs_timer_tick());
+    duration_ns = 1E9 * libxs_timer_duration(0, total_cycles);
+    print_duration("cached lookup (local):",
+      duration_ns, size_total * nrepeat, total_cycles);
+  }
 
-    /* measure duration for dispatching (cached) kernel; MKL: no "dispatch" just unwrapping the jitter */
+  /*=========================================================================
+   * (4) Multi-threaded parallel reads
+   *=========================================================================*/
 #if defined(_OPENMP)
-    if (1 < nthreads) {
-      for (n = 0; n < nrepeat; ++n) {
-#       pragma omp parallel num_threads(nthreads) private(i)
-        {
-#         pragma omp master
-          start = libxs_timer_tick();
-#         pragma omp for
-          for (i = 0; i < size_total; ++i) {
-            const int j = LIBXS_MOD(i, size_local);
-#if defined(MKLJIT)
-            mkl_jit_get_dgemm_ptr(jitter[j]);
-#else
-            const libxs_gemm_shape gemm_shape = libxs_create_gemm_shape(
-              rnd[j].m, rnd[j].n, rnd[j].k, rnd[j].m/*lda*/, rnd[j].k/*ldb*/, rnd[j].m/*ldc*/,
-              LIBXS_DATATYPE_F64, LIBXS_DATATYPE_F64, LIBXS_DATATYPE_F64, LIBXS_DATATYPE_F64);
-            libxs_dispatch_gemm(gemm_shape, flags, prefetch);
-#endif
-          }
-#         pragma omp master
-          tdsp1 += libxs_timer_ncycles(start, libxs_timer_tick());
-        }
-      }
-    }
-    else
-#endif
-    {
-      for (n = 0; n < nrepeat; ++n) {
-        start = libxs_timer_tick();
-        for (i = 0; i < size_total; ++i) {
-          const int j = LIBXS_MOD(i, size_local);
-#if defined(MKLJIT)
-          mkl_jit_get_dgemm_ptr(jitter[j]);
-#else
-          const libxs_gemm_shape gemm_shape = libxs_create_gemm_shape(
-            rnd[j].m, rnd[j].n, rnd[j].k, rnd[j].m/*lda*/, rnd[j].k/*ldb*/, rnd[j].m/*ldc*/,
-            LIBXS_DATATYPE_F64, LIBXS_DATATYPE_F64, LIBXS_DATATYPE_F64, LIBXS_DATATYPE_F64);
-          libxs_dispatch_gemm(gemm_shape, flags, prefetch);
-#endif
-        }
-        tdsp1 += libxs_timer_ncycles(start, libxs_timer_tick());
-      }
-    }
-
-    /* measure duration for code-generation */
-#if defined(_OPENMP)
-    if (1 < nthreads) {
+  if (1 < nthreads) {
+    libxs_timer_tick_t total_cycles = 0;
+    for (n = 0; n < nrepeat; ++n) {
 #     pragma omp parallel num_threads(nthreads) private(i)
       {
 #       pragma omp master
         start = libxs_timer_tick();
-#       pragma omp for
-        for (i = size_local; i < size_total; ++i) {
-#if defined(MKLJIT)
-          LIBXS_EXPECT(MKL_JIT_SUCCESS == mkl_cblas_jit_create_dgemm(jitter + i,
-            MKL_COL_MAJOR, MKL_NOTRANS/*transa*/, MKL_NOTRANS/*transb*/,
-            rnd[i].m, rnd[i].n, rnd[i].k, alpha, rnd[i].m, rnd[i].k, beta, rnd[i].m));
-          mkl_jit_get_dgemm_ptr(jitter[i]);
-#else
-          const libxs_gemm_shape gemm_shape = libxs_create_gemm_shape(
-            rnd[i].m, rnd[i].n, rnd[i].k, rnd[i].m/*lda*/, rnd[i].k/*ldb*/, rnd[i].m/*ldc*/,
-            LIBXS_DATATYPE_F64, LIBXS_DATATYPE_F64, LIBXS_DATATYPE_F64, LIBXS_DATATYPE_F64);
-          libxs_dispatch_gemm(gemm_shape, flags, prefetch);
-#endif
+#       pragma omp barrier
+#       pragma omp for schedule(static)
+        for (i = 0; i < size_total; ++i) {
+          const int j = (int)((shuffle * (size_t)i) % (size_t)size_total);
+          const bench_value_t* v = (const bench_value_t*)libxs_registry_get(
+            registry, &keys[j], sizeof(bench_key_t));
+          if (NULL == v) result = EXIT_FAILURE;
         }
 #       pragma omp master
-        tcgen += libxs_timer_ncycles(start, libxs_timer_tick());
+        total_cycles += libxs_timer_ncycles(start, libxs_timer_tick());
       }
     }
-    else
+    duration_ns = 1E9 * libxs_timer_duration(0, total_cycles);
+    print_duration("parallel read (all thr):",
+      duration_ns, size_total * nrepeat, total_cycles);
+  }
 #endif
-    {
-      start = libxs_timer_tick();
-      for (i = size_local; i < size_total; ++i) {
-#if defined(MKLJIT)
-        LIBXS_EXPECT(MKL_JIT_SUCCESS == mkl_cblas_jit_create_dgemm(jitter + i,
-          MKL_COL_MAJOR, MKL_NOTRANS/*transa*/, MKL_NOTRANS/*transb*/,
-          rnd[i].m, rnd[i].n, rnd[i].k, alpha, rnd[i].m, rnd[i].k, beta, rnd[i].m));
-        mkl_jit_get_dgemm_ptr(jitter[i]);
-#else
-        const libxs_gemm_shape gemm_shape = libxs_create_gemm_shape(
-          rnd[i].m, rnd[i].n, rnd[i].k, rnd[i].m/*lda*/, rnd[i].k/*ldb*/, rnd[i].m/*ldc*/,
-          LIBXS_DATATYPE_F64, LIBXS_DATATYPE_F64, LIBXS_DATATYPE_F64, LIBXS_DATATYPE_F64);
-        libxs_dispatch_gemm(gemm_shape, flags, prefetch);
-#endif
-      }
-      tcgen += libxs_timer_ncycles(start, libxs_timer_tick());
-    }
 
-    /* measure dispatching previously generated kernel (likely non-cached) */
+  libxs_registry_destroy(registry);
+  registry = NULL;
+
+  /*=========================================================================
+   * (5) Contended writes: each thread writes its own key range in parallel
+   *=========================================================================*/
 #if defined(_OPENMP)
-    if (1 < nthreads) {
-      for (n = 0; n < nrepeat; ++n) {
-#       pragma omp parallel num_threads(nthreads) private(i)
-        {
-#         pragma omp master
-          start = libxs_timer_tick();
-#         pragma omp for
-          for (i = 0; i < size_total; ++i) {
-            const int j = (int)LIBXS_MOD(shuffle * i, size_total);
-#if defined(MKLJIT)
-            mkl_jit_get_dgemm_ptr(jitter[j]);
-#else
-            const libxs_gemm_shape gemm_shape = libxs_create_gemm_shape(
-              rnd[j].m, rnd[j].n, rnd[j].k, rnd[j].m/*lda*/, rnd[j].k/*ldb*/, rnd[j].m/*ldc*/,
-              LIBXS_DATATYPE_F64, LIBXS_DATATYPE_F64, LIBXS_DATATYPE_F64, LIBXS_DATATYPE_F64);
-            libxs_dispatch_gemm(gemm_shape, flags, prefetch);
-#endif
-          }
-#         pragma omp master
-          tdsp0 += libxs_timer_ncycles(start, libxs_timer_tick());
-        }
-      }
-    }
-    else
-#endif
+  if (1 < nthreads) {
+    libxs_timer_tick_t total_cycles = 0;
+    libxs_registry_create(&registry);
+    if (NULL == registry) { result = EXIT_FAILURE; goto cleanup; }
+    start = libxs_timer_tick();
+#   pragma omp parallel num_threads(nthreads) private(i)
     {
-      for (n = 0; n < nrepeat; ++n) {
-        start = libxs_timer_tick();
-        for (i = 0; i < size_total; ++i) {
-          const int j = (int)LIBXS_MOD(shuffle * i, size_total);
-#if defined(MKLJIT)
-          mkl_jit_get_dgemm_ptr(jitter[j]);
-#else
-          const libxs_gemm_shape gemm_shape = libxs_create_gemm_shape(
-            rnd[j].m, rnd[j].n, rnd[j].k, rnd[j].m/*lda*/, rnd[j].k/*ldb*/, rnd[j].m/*ldc*/,
-            LIBXS_DATATYPE_F64, LIBXS_DATATYPE_F64, LIBXS_DATATYPE_F64, LIBXS_DATATYPE_F64);
-          libxs_dispatch_gemm(gemm_shape, flags, prefetch);
-#endif
-        }
-        tdsp0 += libxs_timer_ncycles(start, libxs_timer_tick());
-      }
-    }
-
-#if defined(CHECK)
-    { /* calculate l1-norm for manual validation */
-      double a[LIBXS_MAX_M*LIBXS_MAX_M];
-      double b[LIBXS_MAX_M*LIBXS_MAX_M];
-      double c[LIBXS_MAX_M*LIBXS_MAX_M];
-      libxs_matdiff_info_t check;
-      libxs_matdiff_clear(&check);
-      LIBXS_MATRNG(int, double, 0, a, maxsize, maxsize, maxsize, 1.0);
-      LIBXS_MATRNG(int, double, 0, b, maxsize, maxsize, maxsize, 1.0);
-      LIBXS_MATRNG(int double, 0, c, maxsize, maxsize, maxsize, 1.0);
+#     pragma omp for schedule(static)
       for (i = 0; i < size_total; ++i) {
-        const int j = (int)LIBXS_MOD(shuffle * i, size_total);
-        libxs_matdiff_info_t diff;
-# if defined(MKLJIT)
-        const dgemm_jit_kernel_t kernel = mkl_jit_get_dgemm_ptr(jitter[j]);
-# else
-        const libxs_gemm_shape gemm_shape = libxs_create_gemm_shape(
-          rnd[j].m, rnd[j].n, rnd[j].k, rnd[j].m/*lda*/, rnd[j].k/*ldb*/, rnd[j].m/*ldc*/,
-          LIBXS_DATATYPE_F64, LIBXS_DATATYPE_F64, LIBXS_DATATYPE_F64, LIBXS_DATATYPE_F64);
-        const libxs_gemmfunction kernel = libxs_dispatch_gemm(gemm_shape, flags, prefetch);
-# endif
-        if (NULL != kernel) {
-# if defined(MKLJIT)
-          kernel(jitter[j], a, b, c);
-# else
-          libxs_gemm_param gemm_param;
-          gemm_param.a.primary = (double*)a;
-          gemm_param.b.primary = (double*)b;
-          gemm_param.c.primary = c;
-          if (LIBXS_GEMM_PREFETCH_NONE != prefetch) {
-            gemm_param.a.senary = (double*)(a + rnd[j].m * rnd[j].k);
-            gemm_param.b.senary = (double*)(b + rnd[j].k * rnd[j].n);
-            gemm_param.c.senary = (double*)(c + rnd[j].m * rnd[j].n);
-          }
-          kernel(&gemm_param);
-# endif
-          result = libxs_matdiff(&diff, LIBXS_DATATYPE_F64, rnd[j].m, rnd[j].n, NULL, c, &rnd[j].m, &rnd[j].m);
-        }
-        else {
-          result = EXIT_FAILURE;
-        }
-        if (EXIT_SUCCESS == result) {
-          libxs_matdiff_reduce(&check, &diff);
-        }
-        else {
-          printf(" m=%u n=%u k=%u kernel=%" PRIuPTR, (unsigned int)rnd[j].m, (unsigned int)rnd[j].n, (unsigned int)rnd[j].k, (uintptr_t)kernel);
-          i = size_total + 1; /* break */
-        }
-      }
-      if (i <= size_total) {
-        printf(" check=%f\n", check.l1_tst);
-      }
-      else {
-        printf(" <- ERROR!\n");
+        bench_value_t* v = (bench_value_t*)libxs_registry_set(
+          registry, &keys[i], sizeof(bench_key_t),
+          sizeof(bench_value_t), &vals[i]);
+        if (NULL == v) result = EXIT_FAILURE;
       }
     }
-#else
-    printf("\n");
-#endif /*defined(CHECK)*/
-    free(rnd); /* release random numbers */
-#if defined(MKLJIT) /* release dispatched code */
-    for (i = 0; i < size_total; ++i) mkl_jit_destroy(jitter[i]);
-    free(jitter); /* release array used to store dispatched code */
+    total_cycles = libxs_timer_ncycles(start, libxs_timer_tick());
+    duration_ns = 1E9 * libxs_timer_duration(0, total_cycles);
+    print_duration("contended write (all thr):",
+      duration_ns, size_total, total_cycles);
+
+    /* verify */
+    for (i = 0; i < size_total && EXIT_SUCCESS == result; ++i) {
+      const bench_value_t* v = (const bench_value_t*)libxs_registry_get(
+        registry, &keys[i], sizeof(bench_key_t));
+      if (NULL == v || v->data[0] != vals[i].data[0]) result = EXIT_FAILURE;
+    }
+    if (EXIT_SUCCESS != result) {
+      fprintf(stderr, "ERROR: contended-write verification failed\n");
+    }
+    libxs_registry_destroy(registry);
+    registry = NULL;
+  }
 #endif
-  }
-  else result = EXIT_FAILURE;
 
-  tcall = (tcall + (size_t)size_total * nrepeat - 1) / ((size_t)size_total * nrepeat);
-  tdsp0 = (tdsp0 + (size_t)size_total * nrepeat - 1) / ((size_t)size_total * nrepeat);
-  tdsp1 = (tdsp1 + (size_t)size_total * nrepeat - 1) / ((size_t)size_total * nrepeat);
-  tcgen = LIBXS_UPDIV(tcgen, (libxs_timer_tick_t)size_total);
-  if (0 < tcall && 0 < tdsp0 && 0 < tdsp1 && 0 < tcgen) {
-    const double tcall_ns = 1E9 * libxs_timer_duration(0, tcall), tcgen_ns = 1E9 * libxs_timer_duration(0, tcgen);
-    const double tdsp0_ns = 1E9 * libxs_timer_duration(0, tdsp0), tdsp1_ns = 1E9 * libxs_timer_duration(0, tdsp1);
-    printf("\tfunction-call (false): %.0f ns (call/s %.0f MHz, %" PRIuPTR " cycles)\n", tcall_ns, 1E3 / tcall_ns, (uintptr_t)libxs_timer_ncycles(0, tcall));
-    printf("\tdispatch (ro/cached): %.0f ns (call/s %.0f MHz, %" PRIuPTR " cycles)\n", tdsp1_ns, 1E3 / tdsp1_ns, (uintptr_t)libxs_timer_ncycles(0, tdsp1));
-    printf("\tdispatch (ro): %.0f ns (call/s %.0f MHz, %" PRIuPTR " cycles)\n", tdsp0_ns, 1E3 / tdsp0_ns, (uintptr_t)libxs_timer_ncycles(0, tdsp0));
-    if (1E6 < tcgen_ns) {
-      printf("\tcode-gen (rw): %.0f ms (call/s %.0f Hz)\n", 1E-6 * tcgen_ns, 1E9 / tcgen_ns);
-    }
-    else if (1E3 < tcgen_ns) {
-      printf("\tcode-gen (rw): %.0f us (call/s %.0f kHz)\n", 1E-3 * tcgen_ns, 1E6 / tcgen_ns);
-    }
-    else {
-      printf("\tcode-gen (rw): %.0f ns (call/s %.0f MHz)\n", tcgen_ns, 1E3 / tcgen_ns);
-    }
-  }
-  printf("Finished\n");
+  /*=========================================================================
+   * (6) Mixed: one writer, remaining threads read concurrently
+   *=========================================================================*/
+#if defined(_OPENMP)
+  if (2 < nthreads) {
+    libxs_timer_tick_t total_cycles = 0;
+    libxs_registry_create(&registry);
+    if (NULL == registry) { result = EXIT_FAILURE; goto cleanup; }
 
+    /* pre-populate half so readers have something to find */
+    { const int half = size_total / 2;
+      for (i = 0; i < half; ++i) {
+        if (NULL == libxs_registry_set(registry, &keys[i], sizeof(bench_key_t),
+          sizeof(bench_value_t), &vals[i]))
+        { result = EXIT_FAILURE; goto cleanup; }
+      }
+      start = libxs_timer_tick();
+#     pragma omp parallel num_threads(nthreads)
+      {
+        const int tid = omp_get_thread_num();
+        if (0 == tid) { /* writer: register remaining keys */
+          int w;
+          for (w = half; w < size_total; ++w) {
+            bench_value_t* v = (bench_value_t*)libxs_registry_set(
+              registry, &keys[w], sizeof(bench_key_t),
+              sizeof(bench_value_t), &vals[w]);
+            if (NULL == v) result = EXIT_FAILURE;
+          }
+        }
+        else { /* readers: look up pre-populated keys */
+          int r;
+          for (r = 0; r < half; ++r) {
+            const int j = (int)(((size_t)r * shuffle) % (size_t)half);
+            (void)libxs_registry_get(registry, &keys[j], sizeof(bench_key_t));
+          }
+        }
+      }
+      total_cycles = libxs_timer_ncycles(start, libxs_timer_tick());
+      duration_ns = 1E9 * libxs_timer_duration(0, total_cycles);
+      { const int total_ops = (size_total - half) + half * (nthreads - 1);
+        print_duration("mixed r/w (1w + readers):",
+          duration_ns, total_ops, total_cycles);
+      }
+    }
+    libxs_registry_destroy(registry);
+    registry = NULL;
+  }
+#endif
+
+cleanup:
+  if (NULL != registry) libxs_registry_destroy(registry);
+  free(keys);
+  free(vals);
+
+  if (EXIT_SUCCESS == result) {
+    printf("Finished\n");
+  }
+  else {
+    fprintf(stderr, "FAILED\n");
+  }
   return result;
 }
