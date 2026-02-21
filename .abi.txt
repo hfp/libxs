@@ -2,10 +2,8 @@ LIBXS_ILOG2
 LIBXS_INTRINSICS_BITSCANFWD32_SW
 LIBXS_INTRINSICS_BITSCANFWD64_SW
 libxs_aligned
-libxs_aligned_
 libxs_coprime
 libxs_coprime2
-libxs_coprime2_
 libxs_cpuid
 libxs_cpuid_arm
 libxs_cpuid_id
@@ -18,7 +16,6 @@ libxs_diff
 libxs_diff_n
 libxs_dvalue
 libxs_finalize
-libxs_finalize_
 libxs_format_value
 libxs_free
 libxs_free_pool
@@ -37,7 +34,6 @@ libxs_hist_get
 libxs_hist_print
 libxs_hist_set
 libxs_init
-libxs_init_
 libxs_isqrt2_u32
 libxs_isqrt_u32
 libxs_isqrt_u64
@@ -48,12 +44,9 @@ libxs_malloc_info
 libxs_malloc_pool
 libxs_malloc_pool_info
 libxs_matdiff
-libxs_matdiff_
 libxs_matdiff_clear
-libxs_matdiff_clear_
 libxs_matdiff_epsilon
 libxs_matdiff_reduce
-libxs_matdiff_reduce_
 libxs_memcmp
 libxs_mhd_element_comparison
 libxs_mhd_element_conversion
@@ -65,9 +58,11 @@ libxs_mhd_typesize
 libxs_mhd_write
 libxs_offset
 libxs_pfree
+libxs_pfree_lock
 libxs_pid
 libxs_pmalloc
 libxs_pmalloc_init
+libxs_pmalloc_lock
 libxs_primes_u32
 libxs_product_limit
 libxs_registry_begin
@@ -95,10 +90,6 @@ libxs_stristrn
 libxs_tid
 libxs_timer_duration
 libxs_timer_info
-libxs_timer_ncycles_
 libxs_timer_tick
 libxs_typename
 libxs_unshuffle
-libxs_xclear_
-libxs_xdiff_
-libxs_xhash_
