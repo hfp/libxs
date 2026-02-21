@@ -118,9 +118,9 @@ LIBXS_API void libxs_hist_get(LIBXS_LOCK_TYPE(LIBXS_LOCK)* lock, const libxs_his
         for (n = 0, m = 0; n < hist->n; m = ++n * hist->nvals) {
           if (0 == hist->buckets[n] && (p < hist->vals[m] || 1 == i) && (hist->vals[m] <= q || hist->nbuckets == i)) {
             if (j != m) {
-              if (0 != hist->buckets[i - 1]) { /* accumulate */
+              if (0 != hist->buckets[i - 1]) { /* accumulate: arithmetic sum */
                 for (k = 0; k < hist->nvals; ++k) {
-                  (NULL != hist->update[k] ? hist->update[k] : libxs_hist_avg)(hist->vals + (j + k), hist->vals + (m + k));
+                  hist->vals[j + k] += hist->vals[m + k];
                 }
               }
               else { /* initialize/swap */
@@ -130,6 +130,16 @@ LIBXS_API void libxs_hist_get(LIBXS_LOCK_TYPE(LIBXS_LOCK)* lock, const libxs_his
               }
             }
             ++hist->buckets[i - 1];
+          }
+        }
+      }
+      /* normalize committed sums: arithmetic mean for avg (or default) */
+      for (i = 0, j = 0; i < hist->nbuckets; j = ++i * hist->nvals) {
+        if (1 < hist->buckets[i]) {
+          for (k = 0; k < hist->nvals; ++k) {
+            if (NULL == hist->update[k] || libxs_hist_avg == hist->update[k]) {
+              hist->vals[j + k] /= hist->buckets[i];
+            }
           }
         }
       }
