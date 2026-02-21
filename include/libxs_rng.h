@@ -58,23 +58,33 @@
   LIBXS_MATRNG_AUX(LIBXS_PRAGMA_OMP, INT_TYPE, REAL_TYPE, SEED, DST, NROWS, NCOLS, LD, SCALE)
 
 
-/** Set the seed of libxs_rng_* (similar to srand). */
+/**
+ * Set the seed of libxs_rng_* (similar to srand).
+ * Note: not thread-safe. The underlying RNG (rand/drand48) uses global
+ * state; concurrent calls from multiple threads cause data races.
+ * Seed once before entering a parallel region.
+ */
 LIBXS_API void libxs_rng_set_seed(unsigned int/*uint32_t*/ seed);
 
 /**
  * Returns a (pseudo-)random value based on rand/rand48 in the interval [0, n).
  * This function compensates for an n, which is not a factor of RAND_MAX.
  * Note: libxs_rng_set_seed must be used if one wishes to seed the generator.
+ * Note: not thread-safe (see libxs_rng_set_seed).
  */
 LIBXS_API unsigned int libxs_rng_u32(unsigned int n);
 
 /**
  * Similar to libxs_rng_u32, but returns a DP-value in the interval [0, 1).
  * Note: libxs_rng_set_seed must be used if one wishes to seed the generator.
+ * Note: not thread-safe (see libxs_rng_set_seed).
  */
 LIBXS_API double libxs_rng_f64(void);
 
-/** Sequence of random data based on libxs_rng_u32. */
+/**
+ * Sequence of random data based on libxs_rng_u32.
+ * Note: not thread-safe (see libxs_rng_set_seed).
+ */
 LIBXS_API void libxs_rng_seq(void* data, size_t nbytes);
 
 #endif /*LIBXS_RNG_H*/

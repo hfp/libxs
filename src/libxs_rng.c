@@ -31,10 +31,11 @@ LIBXS_API unsigned int libxs_rng_u32(unsigned int n)
   unsigned int result;
   if (1 < n) {
 #if defined(LIBXS_RNG_DRAND48)
-    const unsigned int rmax = (1U << 31);
+    const unsigned int rmax = (1U << 31); /* lrand48 returns [0, 2^31) */
     unsigned int r = (unsigned int)lrand48();
 #else
-    const unsigned int rmax = (unsigned int)(RAND_MAX + 1U);
+    /* avoid RAND_MAX+1 overflow: rmax represents the number of distinct values */
+    const unsigned int rmax = (unsigned int)RAND_MAX + 1U;
     unsigned int r = (unsigned int)rand();
 #endif
     const unsigned int nmax = LIBXS_MIN(n, rmax);
@@ -46,9 +47,15 @@ LIBXS_API unsigned int libxs_rng_u32(unsigned int n)
     while (q <= r) r = (unsigned int)rand();
 #endif
     if (n <= nmax) result = r % nmax;
-    else { /* input range exhausts RNG-state (precision) */
-      const double s = ((double)n / nmax) * r + 0.5;
-      result = (unsigned int)s;
+    else { /* input range exhausts RNG-state (precision): combine two calls */
+      const unsigned int r2 =
+#if defined(LIBXS_RNG_DRAND48)
+        (unsigned int)lrand48();
+#else
+        (unsigned int)rand();
+#endif
+      /* use wide multiply: (r * n + r2) mod n, with r already in [0, nmax) */
+      result = (unsigned int)(((unsigned long long)r * n / nmax + r2) % n);
     }
   }
   else result = 0;
@@ -88,9 +95,9 @@ LIBXS_API double libxs_rng_f64(void)
 {
 #if defined(LIBXS_RNG_DRAND48)
   /* coverity[dont_call] */
-  return drand48();
+  return drand48(); /* drand48 returns [0, 1) */
 #else
-  static const double scale = 1.0 / (RAND_MAX);
-  return scale * (double)rand();
+  /* RAND_MAX + 1.0 avoids integer overflow and guarantees [0, 1) */
+  return (double)rand() / ((double)RAND_MAX + 1.0);
 #endif
 }

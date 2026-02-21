@@ -9,6 +9,12 @@
 #include <libxs_utils.h>
 #include <libxs_rng.h>
 
+#if defined(_DEBUG)
+# define FPRINTF(STREAM, ...) do { fprintf(STREAM, __VA_ARGS__); } while(0)
+#else
+# define FPRINTF(STREAM, ...) do {} while(0)
+#endif
+
 #define N 1000000
 
 
@@ -30,24 +36,6 @@ LIBXS_INLINE unsigned int ref_isqrt_u64(unsigned long long u64)
 }
 
 
-LIBXS_INLINE unsigned int ref_icbrt_u32(unsigned int u32)
-{
-  const unsigned int r = (unsigned int)(pow((double)u32, 1.0 / 3.0) + 0.5);
-  return ((double)r * r * r) <= u32 ? r : (r - 1);
-}
-
-
-LIBXS_INLINE unsigned int ref_icbrt_u64(unsigned long long u64)
-{
-#if defined(__STDC_VERSION__) && (199901L <= __STDC_VERSION__) /*C99*/
-  const unsigned long long r = (unsigned long long)(powl((long double)u64, 1.0 / 3.0) + 0.5);
-#else
-  const unsigned long long r = (unsigned long long)(pow((double)u64, 1.0 / 3.0) + 0.5);
-#endif
-  return (unsigned int)(((long double)r * r * r) <= u64 ? r : (r - 1));
-}
-
-
 LIBXS_INLINE unsigned int ref_ilog2_u32(unsigned int u32)
 {
   return (unsigned int)ceil(LIBXS_LOG2(u32));
@@ -58,7 +46,7 @@ int main(int argc, char* argv[])
 {
   const unsigned long long scale64 = ((unsigned long long)-1) / (RAND_MAX) - 1;
   const unsigned int scale32 = ((unsigned int)-1) / (RAND_MAX) - 1;
-  int warn_dsqrt = 0, warn_ssqrt = 0, i, j;
+  int i, j;
   LIBXS_UNUSED(argc); LIBXS_UNUSED(argv);
 
   for (i = 0; i < (N); ++i) {
@@ -147,11 +135,6 @@ int main(int argc, char* argv[])
     if (a != b) exit(EXIT_FAILURE);
   }
 
-  if (0 < warn_ssqrt || 0 < warn_dsqrt) {
-    fprintf(stderr, "missed bitwise exact result in %.0f%% of the cases!\n",
-      100.0 * LIBXS_MAX(warn_ssqrt, warn_dsqrt) / N);
-  }
-
   { /* check LIBXS_UP2POT and LIBXS_LO2POT */
     const size_t a[] = { 0, 1, 10, 100, 127, 128, 129 };
     const size_t b[] = { 0, 1, 16, 128, 128, 128, 256 };
@@ -222,6 +205,82 @@ int main(int argc, char* argv[])
     }
   }
 
+  { /* check LIBXS_MAX / LIBXS_MIN */
+    if (LIBXS_MAX(3, 7) != 7) { FPRINTF(stderr, "ERROR line #%i: MAX(3,7)\n", __LINE__); exit(EXIT_FAILURE); }
+    if (LIBXS_MAX(7, 3) != 7) { FPRINTF(stderr, "ERROR line #%i: MAX(7,3)\n", __LINE__); exit(EXIT_FAILURE); }
+    if (LIBXS_MAX(-1, 0) != 0) { FPRINTF(stderr, "ERROR line #%i: MAX(-1,0)\n", __LINE__); exit(EXIT_FAILURE); }
+    if (LIBXS_MIN(3, 7) != 3) { FPRINTF(stderr, "ERROR line #%i: MIN(3,7)\n", __LINE__); exit(EXIT_FAILURE); }
+    if (LIBXS_MIN(-1, 0) != -1) { FPRINTF(stderr, "ERROR line #%i: MIN(-1,0)\n", __LINE__); exit(EXIT_FAILURE); }
+  }
+
+  { /* check LIBXS_SIGN */
+    if (LIBXS_SIGN(42) != 1) { FPRINTF(stderr, "ERROR line #%i: SIGN(42)\n", __LINE__); exit(EXIT_FAILURE); }
+    if (LIBXS_SIGN(0) != 0) { FPRINTF(stderr, "ERROR line #%i: SIGN(0)\n", __LINE__); exit(EXIT_FAILURE); }
+    if (LIBXS_SIGN(-7) != -1) { FPRINTF(stderr, "ERROR line #%i: SIGN(-7)\n", __LINE__); exit(EXIT_FAILURE); }
+  }
+
+  { /* check LIBXS_ABS */
+    if (LIBXS_ABS(42) != 42) { FPRINTF(stderr, "ERROR line #%i: ABS(42)\n", __LINE__); exit(EXIT_FAILURE); }
+    if (LIBXS_ABS(0) != 0) { FPRINTF(stderr, "ERROR line #%i: ABS(0)\n", __LINE__); exit(EXIT_FAILURE); }
+    if (LIBXS_ABS(-7) != 7) { FPRINTF(stderr, "ERROR line #%i: ABS(-7)\n", __LINE__); exit(EXIT_FAILURE); }
+  }
+
+  { /* check LIBXS_MOD / LIBXS_MOD2 */
+    if (LIBXS_MOD(10, 3) != 1) { FPRINTF(stderr, "ERROR line #%i: MOD(10,3)\n", __LINE__); exit(EXIT_FAILURE); }
+    if (LIBXS_MOD(8, 4) != 0) { FPRINTF(stderr, "ERROR line #%i: MOD(8,4)\n", __LINE__); exit(EXIT_FAILURE); }
+    if (LIBXS_MOD2(10, 8) != 2) { FPRINTF(stderr, "ERROR line #%i: MOD2(10,8)\n", __LINE__); exit(EXIT_FAILURE); }
+    if (LIBXS_MOD2(16, 16) != 0) { FPRINTF(stderr, "ERROR line #%i: MOD2(16,16)\n", __LINE__); exit(EXIT_FAILURE); }
+    if (LIBXS_MOD2(127, 64) != 63) { FPRINTF(stderr, "ERROR line #%i: MOD2(127,64)\n", __LINE__); exit(EXIT_FAILURE); }
+  }
+
+  { /* check LIBXS_CLMP (clamp) */
+    if (LIBXS_CLMP(5, 1, 10) != 5) { FPRINTF(stderr, "ERROR line #%i: CLMP in-range\n", __LINE__); exit(EXIT_FAILURE); }
+    if (LIBXS_CLMP(-3, 0, 10) != 0) { FPRINTF(stderr, "ERROR line #%i: CLMP below\n", __LINE__); exit(EXIT_FAILURE); }
+    if (LIBXS_CLMP(42, 0, 10) != 10) { FPRINTF(stderr, "ERROR line #%i: CLMP above\n", __LINE__); exit(EXIT_FAILURE); }
+    if (LIBXS_CLMP(0, 0, 0) != 0) { FPRINTF(stderr, "ERROR line #%i: CLMP degenerate\n", __LINE__); exit(EXIT_FAILURE); }
+  }
+
+  { /* check LIBXS_ISWAP */
+    int x = 11, y = 22;
+    LIBXS_ISWAP(x, y);
+    if (x != 22 || y != 11) { FPRINTF(stderr, "ERROR line #%i: ISWAP\n", __LINE__); exit(EXIT_FAILURE); }
+  }
+
+  { /* check LIBXS_FEQ / LIBXS_ISNAN / LIBXS_NOTNAN */
+    const double zero = 0.0;
+    if (!LIBXS_FEQ(1.0, 1.0)) { FPRINTF(stderr, "ERROR line #%i: FEQ equal\n", __LINE__); exit(EXIT_FAILURE); }
+    if ( LIBXS_FEQ(1.0, 2.0)) { FPRINTF(stderr, "ERROR line #%i: FEQ unequal\n", __LINE__); exit(EXIT_FAILURE); }
+#if defined(NAN)
+    if (!LIBXS_ISNAN(NAN)) { FPRINTF(stderr, "ERROR line #%i: ISNAN(NAN)\n", __LINE__); exit(EXIT_FAILURE); }
+    if ( LIBXS_NOTNAN(NAN)) { FPRINTF(stderr, "ERROR line #%i: NOTNAN(NAN)\n", __LINE__); exit(EXIT_FAILURE); }
+#endif
+    if ( LIBXS_ISNAN(zero)) { FPRINTF(stderr, "ERROR line #%i: ISNAN(0)\n", __LINE__); exit(EXIT_FAILURE); }
+    if (!LIBXS_NOTNAN(1.0)) { FPRINTF(stderr, "ERROR line #%i: NOTNAN(1)\n", __LINE__); exit(EXIT_FAILURE); }
+  }
+
+  { /* check LIBXS_NEARBYINT / LIBXS_NEARBYINTF */
+    if (LIBXS_NEARBYINT(2.5) != 2.0 && LIBXS_NEARBYINT(2.5) != 3.0) {
+      FPRINTF(stderr, "ERROR line #%i: NEARBYINT(2.5)=%f\n", __LINE__, LIBXS_NEARBYINT(2.5));
+      exit(EXIT_FAILURE);
+    }
+    if (LIBXS_NEARBYINT(-0.5) != 0.0 && LIBXS_NEARBYINT(-0.5) != -1.0) {
+      FPRINTF(stderr, "ERROR line #%i: NEARBYINT(-0.5)=%f\n", __LINE__, LIBXS_NEARBYINT(-0.5));
+      exit(EXIT_FAILURE);
+    }
+    if (LIBXS_NEARBYINTF(2.5f) != 2.0f && LIBXS_NEARBYINTF(2.5f) != 3.0f) {
+      FPRINTF(stderr, "ERROR line #%i: NEARBYINTF(2.5)=%f\n", __LINE__, (double)LIBXS_NEARBYINTF(2.5f));
+      exit(EXIT_FAILURE);
+    }
+    if (LIBXS_NEARBYINT(3.7) != 4.0) {
+      FPRINTF(stderr, "ERROR line #%i: NEARBYINT(3.7)=%f\n", __LINE__, LIBXS_NEARBYINT(3.7));
+      exit(EXIT_FAILURE);
+    }
+    if (LIBXS_NEARBYINT(-3.7) != -4.0) {
+      FPRINTF(stderr, "ERROR line #%i: NEARBYINT(-3.7)=%f\n", __LINE__, LIBXS_NEARBYINT(-3.7));
+      exit(EXIT_FAILURE);
+    }
+  }
+
   { /* check GCD */
     const size_t a[] = { 0, 1, 0, 100, 10 };
     const size_t b[] = { 0, 0, 2, 10, 100 };
@@ -231,6 +290,19 @@ int main(int argc, char* argv[])
       if (libxs_gcd(a[i], b[i]) != c[i]) exit(EXIT_FAILURE);
       if (libxs_gcd(b[i], a[i]) != c[i]) exit(EXIT_FAILURE);
     }
+  }
+
+  { /* check LCM */
+    if (libxs_lcm(4, 6) != 12) { FPRINTF(stderr, "ERROR line #%i: lcm(4,6)\n", __LINE__); exit(EXIT_FAILURE); }
+    if (libxs_lcm(6, 4) != 12) { FPRINTF(stderr, "ERROR line #%i: lcm(6,4)\n", __LINE__); exit(EXIT_FAILURE); }
+    if (libxs_lcm(0, 5) !=  0) { FPRINTF(stderr, "ERROR line #%i: lcm(0,5)\n", __LINE__); exit(EXIT_FAILURE); }
+    if (libxs_lcm(5, 0) !=  0) { FPRINTF(stderr, "ERROR line #%i: lcm(5,0)\n", __LINE__); exit(EXIT_FAILURE); }
+    if (libxs_lcm(0, 0) !=  0) { FPRINTF(stderr, "ERROR line #%i: lcm(0,0)\n", __LINE__); exit(EXIT_FAILURE); }
+    if (libxs_lcm(7, 7) !=  7) { FPRINTF(stderr, "ERROR line #%i: lcm(7,7)\n", __LINE__); exit(EXIT_FAILURE); }
+    if (libxs_lcm(1, 9) !=  9) { FPRINTF(stderr, "ERROR line #%i: lcm(1,9)\n", __LINE__); exit(EXIT_FAILURE); }
+    if (libxs_lcm(12, 18) != 36) { FPRINTF(stderr, "ERROR line #%i: lcm(12,18)\n", __LINE__); exit(EXIT_FAILURE); }
+    /* LCM of coprimes equals the product */
+    if (libxs_lcm(7, 13) != 91) { FPRINTF(stderr, "ERROR line #%i: lcm(7,13)\n", __LINE__); exit(EXIT_FAILURE); }
   }
 
   { /* check prime factorization */
@@ -254,6 +326,32 @@ int main(int argc, char* argv[])
         const size_t coprime = libxs_coprime(test[i], j);
         const size_t gcd = libxs_gcd(coprime, test[i]);
         if ((0 != coprime || 1 < test[i]) && (test[i] <= coprime || 1 != gcd)) {
+          exit(EXIT_FAILURE);
+        }
+      }
+    }
+  }
+
+  { /* check coprime2 (coprime <= sqrt(n)) */
+    const size_t test[] = { 0, 1, 2, 3, 4, 7, 16, 25, 100, 1024, 4096 };
+    const int n = sizeof(test) / sizeof(*test);
+    for (i = 0; i < n; ++i) {
+      const size_t c2 = libxs_coprime2(test[i]);
+      if (1 < test[i]) {
+        const size_t s = libxs_isqrt_u64(test[i]);
+        if (0 == c2 || c2 > s || test[i] <= c2) {
+          FPRINTF(stderr, "ERROR line #%i: coprime2(%i)=%i sqrt=%i\n", __LINE__,
+            (int)test[i], (int)c2, (int)s);
+          exit(EXIT_FAILURE);
+        }
+        if (1 != libxs_gcd(c2, test[i])) {
+          FPRINTF(stderr, "ERROR line #%i: coprime2(%i) gcd\n", __LINE__, (int)test[i]);
+          exit(EXIT_FAILURE);
+        }
+      }
+      else {
+        if (0 != c2) {
+          FPRINTF(stderr, "ERROR line #%i: coprime2(%i) expected 0\n", __LINE__, (int)test[i]);
           exit(EXIT_FAILURE);
         }
       }
@@ -309,6 +407,43 @@ int main(int argc, char* argv[])
   if (libxs_isqrt2_u32(1981) * 283 != 1981) exit(EXIT_FAILURE);
   if (libxs_isqrt2_u32(2507) * 109 != 2507) exit(EXIT_FAILURE);
   if (libxs_isqrt2_u32(1975) *  79 != 1975) exit(EXIT_FAILURE);
+
+  { /* exercise large-limit path (limit > LIBXS_PRODUCT_LIMIT=1024) */
+    unsigned int r;
+    r = libxs_product_limit(2u * 3 * 5 * 7 * 11 * 13, 1500, 0);
+    if (r > 1500) {
+      FPRINTF(stderr, "ERROR line #%i: product_limit(30030,1500,0)=%u > 1500\n", __LINE__, r);
+      exit(EXIT_FAILURE);
+    }
+    if (0 != (2u * 3 * 5 * 7 * 11 * 13) % r) {
+      FPRINTF(stderr, "ERROR line #%i: product_limit result %u not a factor\n", __LINE__, r);
+      exit(EXIT_FAILURE);
+    }
+    r = libxs_product_limit(2u * 3 * 5 * 7 * 11 * 13, 1500, 1);
+    if (r < 1500) {
+      FPRINTF(stderr, "ERROR line #%i: product_limit(30030,1500,1)=%u < 1500\n", __LINE__, r);
+      exit(EXIT_FAILURE);
+    }
+  }
+
+  { /* check Kahan summation */
+    double acc = 0.0, comp = 0.0;
+    const int kn = 10000;
+    double naive = 0.0;
+    for (i = 0; i < kn; ++i) {
+      libxs_kahan_sum(1.0e-8, &acc, &comp);
+      naive += 1.0e-8;
+    }
+    /* Kahan result must be closer to the exact answer (1e-4) than naive sum */
+    if (LIBXS_FABS(acc - 1.0e-4) > LIBXS_FABS(naive - 1.0e-4)) {
+      FPRINTF(stderr, "ERROR line #%i: kahan less accurate than naive\n", __LINE__);
+      exit(EXIT_FAILURE);
+    }
+    if (LIBXS_FABS(acc - 1.0e-4) > 1.0e-14) {
+      FPRINTF(stderr, "ERROR line #%i: kahan acc=%.20e expected 1e-4\n", __LINE__, acc);
+      exit(EXIT_FAILURE);
+    }
+  }
 
   return EXIT_SUCCESS;
 }
