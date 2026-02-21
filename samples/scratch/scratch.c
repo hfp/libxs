@@ -60,6 +60,8 @@ int main(int argc, char* argv[])
   /* generate set of random numbers for parallel region */
   for (i = 0; i < (MAX_MALLOC_N); ++i) r[i] = rand();
 
+  libxs_init();
+
   /* count number of calls according to randomized scheme */
   for (i = 0; i < ncycles; ++i) {
     const int count = r[i%(MAX_MALLOC_N)] % max_nactive + 1;
@@ -104,7 +106,7 @@ int main(int argc, char* argv[])
     }
   }
   if (EXIT_SUCCESS == libxs_malloc_pool_info(&info) && 0 < info.size) {
-    scratch = (int)(info.size + (1U << 19) - 1) / (1U << 20);
+    scratch = (int)((info.size + ((size_t)1 << 19) - 1) / ((size_t)1 << 20));
     fprintf(stdout, "\nScratch: %i MB (mallocs=%lu)\n",
       scratch, (unsigned long int)info.nmallocs);
     libxs_free_pool();
@@ -145,7 +147,9 @@ int main(int argc, char* argv[])
     fprintf(stdout, "\tlibxs malloc+free calls/s: %.1f kHz\n", scratch_freq);
     fprintf(stdout, "Malloc: %i MB\n", max_size);
     fprintf(stdout, "\tstd.malloc+free calls/s: %.1f kHz\n", malloc_freq);
-    fprintf(stdout, "Fair (size vs. speed): %.1fx\n", max_size * speedup / scratch);
+    if (0 < scratch) {
+      fprintf(stdout, "Fair (size vs. speed): %.1fx\n", max_size * speedup / scratch);
+    }
     fprintf(stdout, "Scratch Speedup: %.1fx\n", speedup);
   }
 
