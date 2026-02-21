@@ -426,8 +426,6 @@ LIBXS_API void libxs_matdiff_clear(libxs_matdiff_info_t* info)
     /* initial minimum/maximum of reference/test */
     info->min_ref = info->min_tst = +inf.value;
     info->max_ref = info->max_tst = -inf.value;
-    /* invalid rather than 1.0 */
-    info->rsq = inf.value;
   }
 }
 
