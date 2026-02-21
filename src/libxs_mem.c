@@ -540,6 +540,7 @@ LIBXS_API const char* libxs_stristrn(const char a[], const char b[], size_t maxl
     do {
       if (tolower(*a) != tolower(*b)) ++a;
       else {
+        const char* const start = a;
         const char* c = b;
         size_t i = 0;
         result = a;
@@ -549,10 +550,9 @@ LIBXS_API const char* libxs_stristrn(const char a[], const char b[], size_t maxl
             break;
           }
         }
-        if ('\0' != c[i] && '\0' != c[i + 1] && c[i] != c[i + 1] && i != maxlen) {
-          result = NULL;
-        }
-        else break;
+        if ('\0' == c[i] || i == maxlen) break; /* full match */
+        result = NULL;
+        a = start + 1; /* backtrack past match start */
       }
     } while ('\0' != *a);
   }
@@ -608,10 +608,10 @@ LIBXS_API size_t libxs_format_value(char buffer[32],
   int buffer_size, size_t nbytes, const char scale[], const char* unit, int base)
 {
   const int len = (NULL != scale ? ((int)strlen(scale)) : 0);
-  const int m = LIBXS_INTRINSICS_BITSCANBWD64(nbytes) / base, n = LIBXS_MIN(m, len);
+  const int m = LIBXS_INTRINSICS_BITSCANBWD64(nbytes) / LIBXS_MAX(base, 1), n = LIBXS_MIN(m, len);
   int i;
   buffer[0] = 0; /* clear */
-  LIBXS_ASSERT(NULL != unit && 0 <= base);
+  LIBXS_ASSERT(NULL != unit && 0 < base);
   for (i = 0; i < n; ++i) nbytes >>= base;
   LIBXS_SNPRINTF(buffer, buffer_size, "%lu %c%s",
     (unsigned long)nbytes, 0 < n ? scale[n-1] : *unit, 0 < n ? unit : "");
@@ -715,7 +715,7 @@ LIBXS_API size_t libxs_unshuffle(size_t count, const size_t* shuffle)
       if (0 == d) break;
     }
   }
-  assert(result <= count);
+  LIBXS_ASSERT(result <= count);
   return result;
 }
 
