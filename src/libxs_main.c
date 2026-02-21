@@ -94,8 +94,9 @@ LIBXS_API_INTERN LIBXS_ATTRIBUTE_NO_TRACE void internal_dump(FILE* ostream, int 
 LIBXS_API_INTERN void internal_dump(FILE* ostream, int urgent)
 {
   char *const env_dump_build = getenv("LIBXS_DUMP_BUILD");
-  char *const env_dump_files = (NULL != getenv("LIBXS_DUMP_FILES")
-    ? getenv("LIBXS_DUMP_FILES")
+  char *const env_dump_files_var = getenv("LIBXS_DUMP_FILES");
+  char *const env_dump_files = (NULL != env_dump_files_var
+    ? env_dump_files_var
     : getenv("LIBXS_DUMP_FILE"));
   LIBXS_ASSERT_MSG(INTERNAL_SINGLETON(internal_singleton_handle), "Invalid handle");
   /* determine whether this instance is unique or not */
@@ -556,11 +557,13 @@ LIBXS_API const char* libxs_typename(libxs_datatype datatype)
     case LIBXS_DATATYPE_F64:  return "f64";
     case LIBXS_DATATYPE_F32:  return "f32";
     case LIBXS_DATATYPE_I64:  return "i64";
+    case LIBXS_DATATYPE_U64:  return "u64";
     case LIBXS_DATATYPE_I32:  return "i32";
     case LIBXS_DATATYPE_U32:  return "u32";
     case LIBXS_DATATYPE_I16:  return "i16";
     case LIBXS_DATATYPE_U16:  return "u16";
     case LIBXS_DATATYPE_I8:   return "i8";
+    case LIBXS_DATATYPE_U8:   return "u8";
     default: return "void";
   }
 }
@@ -572,12 +575,16 @@ LIBXS_API int libxs_dvalue(libxs_datatype datatype, const void* value, double* d
   if (NULL != value) {
     LIBXS_ASSERT(NULL != dvalue);
     switch (datatype) {
-      case LIBXS_DATATYPE_F64: *dvalue =         (*(const double   *)value); break;
-      case LIBXS_DATATYPE_F32: *dvalue = (double)(*(const float    *)value); break;
-      case LIBXS_DATATYPE_I64: *dvalue = (double)(*(const long long*)value); break;
-      case LIBXS_DATATYPE_I32: *dvalue = (double)(*(const int      *)value); break;
-      case LIBXS_DATATYPE_I16: *dvalue = (double)(*(const short    *)value); break;
-      case LIBXS_DATATYPE_I8:  *dvalue = (double)(*(const char     *)value); break;
+      case LIBXS_DATATYPE_F64: *dvalue =         (*(const double             *)value); break;
+      case LIBXS_DATATYPE_F32: *dvalue = (double)(*(const float              *)value); break;
+      case LIBXS_DATATYPE_I64: *dvalue = (double)(*(const long long          *)value); break;
+      case LIBXS_DATATYPE_U64: *dvalue = (double)(*(const unsigned long long *)value); break;
+      case LIBXS_DATATYPE_I32: *dvalue = (double)(*(const int                *)value); break;
+      case LIBXS_DATATYPE_U32: *dvalue = (double)(*(const unsigned int       *)value); break;
+      case LIBXS_DATATYPE_I16: *dvalue = (double)(*(const short              *)value); break;
+      case LIBXS_DATATYPE_U16: *dvalue = (double)(*(const unsigned short     *)value); break;
+      case LIBXS_DATATYPE_I8:  *dvalue = (double)(*(const signed char        *)value); break;
+      case LIBXS_DATATYPE_U8:  *dvalue = (double)(*(const unsigned char      *)value); break;
       default: result = EXIT_FAILURE;
     }
   }
@@ -607,6 +614,7 @@ LIBXS_API_INTERN int libxs_dump(const char* title, const char* name, const void*
       size_t rest = size;
       do {
         const size_t n = fread(check_b, 1, LIBXS_MIN(sizeof(check_b), rest), data_file);
+        if (0 == n) { diff = 1; break; } /* file shorter than expected */
         diff += memcmp(check_a, check_b, LIBXS_MIN(sizeof(check_b), n));
         check_a += n;
         rest -= n;
