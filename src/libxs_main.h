@@ -11,15 +11,6 @@
 
 #include <libxs_timer.h>
 #include <libxs_sync.h>
-#include <libxs_reg.h>
-
-/** Allow external definition to enable testing corner cases (exhausted registry space). */
-#if !defined(LIBXS_CAPACITY_REGISTRY) /* must be POT */
-# define LIBXS_CAPACITY_REGISTRY 131072
-#endif
-#if !defined(LIBXS_CAPACITY_CACHE) /* must be POT */
-# define LIBXS_CAPACITY_CACHE 16
-#endif
 
 #if !defined(LIBXS_NTHREADS_MAX)
 # if (0 != LIBXS_SYNC)
@@ -82,33 +73,6 @@
 #if !defined(LIBXS_LOCK)
 # define LIBXS_LOCK LIBXS_LOCK_DEFAULT
 #endif
-
-
-/** Integral type (libxs_kernel_kind, libxs_build_kind). */
-#if defined(LIBXS_UNPACKED)
-# define LIBXS_DESCRIPTOR_BIG(KIND) ((libxs_descriptor_kind_t)((KIND) | 0x8000000000000000))
-# define LIBXS_DESCRIPTOR_ISBIG(KIND) ((int)(((libxs_descriptor_kind_t)(KIND)) >> 63))
-# define LIBXS_DESCRIPTOR_KIND(KIND) ((int)(((libxs_descriptor_kind_t)(KIND)) & 0x7FFFFFFFFFFFFFFF))
-typedef uint64_t libxs_descriptor_kind_t;
-#else
-# define LIBXS_DESCRIPTOR_BIG(KIND) ((libxs_descriptor_kind_t)((KIND) | 0x80))
-# define LIBXS_DESCRIPTOR_ISBIG(KIND) ((unsigned char)((KIND) >> 7))
-# define LIBXS_DESCRIPTOR_KIND(KIND) ((unsigned char)((KIND) & 0x7F))
-typedef unsigned char libxs_descriptor_kind_t;
-#endif
-
-/** Type representing sufficient storage space for descriptors. */
-typedef struct libxs_descriptor_t {
-  char data[LIBXS_DESCRIPTOR_MAXSIZE];
-} libxs_descriptor_t;
-
-typedef union libxs_code_pointer_t {
-  /*void (*ptr_fn)(const void*, ...);*/
-  const void* ptr_const;
-  void* ptr;
-  uintptr_t uval;
-  intptr_t ival;
-} libxs_code_pointer_t;
 
 
 LIBXS_API_INTERN void libxs_memory_init(int target_arch);

@@ -8,11 +8,13 @@
 ******************************************************************************/
 #include <libxs_reg.h>
 
+#include <assert.h>
+#include <string.h>
+
 
 int main(int argc, char* argv[])
 {
   int result = EXIT_SUCCESS;
-#if 0 /* temporarily disabled */
   typedef int key_type;
   const key_type key[] = {
     0, 0, 0,
@@ -38,7 +40,7 @@ int main(int argc, char* argv[])
   libxs_registry_create(&registry);
   if (NULL == registry) result = EXIT_FAILURE;
   if (EXIT_SUCCESS == result) { /* test for some expected failure */
-    result = (NULL == libxs_registry_set(registry, key, /*too large*/LIBXS_DESCRIPTOR_MAXSIZE + 1,
+    result = (NULL == libxs_registry_set(registry, key, /*too large*/LIBXS_REGKEY_MAXSIZE + 1,
       strlen(value[0]) + 1, value[0]) ? EXIT_SUCCESS : EXIT_FAILURE);
   }
   if (EXIT_SUCCESS == result) { /* test for some expected failure */
@@ -55,8 +57,8 @@ int main(int argc, char* argv[])
   }
   if (EXIT_SUCCESS == result) { /* register and initialize value later */
     char *const v = (char*)libxs_registry_set(registry, key, key_size, strlen(value[0]) + 1, NULL);
-    strcpy(v, value[0]); /* initialize value after registration */
     result = (NULL != v ? EXIT_SUCCESS : EXIT_FAILURE);
+    if (NULL != v) strcpy(v, value[0]); /* initialize value after registration */
   }
   if (EXIT_SUCCESS == result) { /* retrieve previously registered value */
     const char *const v = (const char*)libxs_registry_get(registry, key, key_size);
@@ -99,14 +101,12 @@ int main(int argc, char* argv[])
     result = (NULL != libxs_registry_set(registry, ikey, key_size,
       strlen(value[i]) + 1, value[i]) ? EXIT_SUCCESS : EXIT_FAILURE);
   }
-  if (EXIT_SUCCESS == result) {
+  if (EXIT_SUCCESS == result) { /* iterate over all entries */
     const void* regkey = NULL;
     const void* regentry = libxs_registry_begin(registry, &regkey);
-    /*assert(0 == LIBXS_MOD2((uintptr_t)regkey, sizeof(key_type)) || NULL == regentry);*/
     for (; NULL != regentry; regentry = libxs_registry_next(registry, regentry, &regkey)) {
       const key_type *const ikey = (const key_type*)regkey;
       const char *const ivalue = (const char*)regentry;
-      /*assert(0 == LIBXS_MOD2((uintptr_t)regkey, sizeof(key_type)));*/
       result = EXIT_FAILURE;
       for (i = 0; i < n; ++i) {
         if (ikey[0/*x*/] == key[i*3+0/*x*/] && ikey[1/*y*/] == key[i*3+1/*y*/] && ikey[2/*z*/] == key[i*3+2/*z*/]) {
@@ -124,26 +124,17 @@ int main(int argc, char* argv[])
   for (i = 0; i < n && EXIT_SUCCESS == result; ++i) {
     const char *const v = (char*)libxs_registry_get(registry, key + i * 3, key_size);
     if (NULL != v) {
-#if 0
-      libxs_kernel_info info;
-      result = libxs_get_kernel_info(v, &info);
-#endif
-      if (EXIT_SUCCESS == result) {
-        result = strcmp(v, value[i]);
-      }
-      /*libxs_release_kernel(v);*/
+      result = strcmp(v, value[i]);
     }
     else result = EXIT_FAILURE;
   }
-#if 0
-  if (EXIT_SUCCESS == result) { /* release user-entries for the sake of testing it */
-    const void* regentry = libxs_registry_begin(registry, NULL);
-    for (; NULL != regentry; regentry = libxs_registry_next(registry, regentry, NULL)) {
-      libxs_release_kernel(regentry);
+  if (EXIT_SUCCESS == result) { /* check registry info */
+    libxs_registry_info_t info;
+    result = libxs_registry_info(registry, &info);
+    if (EXIT_SUCCESS == result) {
+      result = (info.size == (size_t)(n + 1)/*small_key*/ ? EXIT_SUCCESS : EXIT_FAILURE);
     }
   }
-#endif
   libxs_registry_destroy(registry);
-#endif
   return result;
 }
