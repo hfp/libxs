@@ -21,97 +21,38 @@
 #if !defined(GEMM)
 # define GEMM LIBXS_FSYMBOL(LIBXS_TPREFIX(GEMM_REAL_TYPE, gemm))
 #endif
-#define GEMM_WRAP LIBXS_CONCATENATE(__wrap_, GEMM)
-#define GEMM_REAL LIBXS_CONCATENATE(__real_, GEMM)
+/* Complex GEMM symbol (zgemm_ for double, cgemm_ for float) */
+#define GEMM_ZPREFIX_double z
+#define GEMM_ZPREFIX_float c
+#define GEMM_ZPREFIX LIBXS_CONCATENATE(GEMM_ZPREFIX_, GEMM_REAL_TYPE)
+#if !defined(ZGEMM)
+# define ZGEMM LIBXS_FSYMBOL(LIBXS_CONCATENATE(GEMM_ZPREFIX, gemm))
+#endif
 
+/* Common GEMM argument list macros to reduce boilerplate */
+#define GEMM_ARGDECL                                                           \
+  const char* transa, const char* transb,                                      \
+  const GEMM_INT_TYPE* m, const GEMM_INT_TYPE* n, const GEMM_INT_TYPE* k,     \
+  const GEMM_REAL_TYPE* alpha, const GEMM_REAL_TYPE* a, const GEMM_INT_TYPE* lda, \
+                               const GEMM_REAL_TYPE* b, const GEMM_INT_TYPE* ldb, \
+  const GEMM_REAL_TYPE*  beta, GEMM_REAL_TYPE* c, const GEMM_INT_TYPE* ldc
+#define GEMM_ARGPASS transa, transb, m, n, k, alpha, a, lda, b, ldb, beta, c, ldc
 
-/** Function type for GEMM. */
-LIBXS_EXTERN_C typedef void (*gemm_function_t)(const char*, const char*,
-  const GEMM_INT_TYPE*, const GEMM_INT_TYPE*, const GEMM_INT_TYPE*,
-  const GEMM_REAL_TYPE*, const GEMM_REAL_TYPE*, const GEMM_INT_TYPE*,
-                         const GEMM_REAL_TYPE*, const GEMM_INT_TYPE*,
-  const GEMM_REAL_TYPE*, GEMM_REAL_TYPE*, const GEMM_INT_TYPE*);
+/* Precision-specific name redirects for public/driver-visible symbols */
+#define gemm_diff    LIBXS_TPREFIX(GEMM_REAL_TYPE, gemm_diff)
+#define gemm_verbose LIBXS_TPREFIX(GEMM_REAL_TYPE, gemm_verbose)
+#define print_gemm   LIBXS_TPREFIX(GEMM_REAL_TYPE, gemm_print)
+#define print_diff   LIBXS_TPREFIX(GEMM_REAL_TYPE, gemm_print_diff)
 
-/** Function prototype for wrapped GEMM. */
-LIBXS_API_INTERN void GEMM_WRAP(const char* transa, const char* transb,
-  const GEMM_INT_TYPE* m, const GEMM_INT_TYPE* n, const GEMM_INT_TYPE* k,
-  const GEMM_REAL_TYPE* alpha, const GEMM_REAL_TYPE* a, const GEMM_INT_TYPE* lda
-                             , const GEMM_REAL_TYPE* b, const GEMM_INT_TYPE* ldb,
-  const GEMM_REAL_TYPE*  beta, GEMM_REAL_TYPE* c, const GEMM_INT_TYPE* ldc);
-
-/** Function prototype for real GEMM. */
-LIBXS_API_INTERN void GEMM_REAL(const char* transa, const char* transb,
-  const GEMM_INT_TYPE* m, const GEMM_INT_TYPE* n, const GEMM_INT_TYPE* k,
-  const GEMM_REAL_TYPE* alpha, const GEMM_REAL_TYPE* a, const GEMM_INT_TYPE* lda,
-                               const GEMM_REAL_TYPE* b, const GEMM_INT_TYPE* ldb,
-  const GEMM_REAL_TYPE*  beta, GEMM_REAL_TYPE* c, const GEMM_INT_TYPE* ldc);
-
-/** Function prototype for GEMM. */
-LIBXS_API void GEMM(const char*, const char*,
-  const GEMM_INT_TYPE*, const GEMM_INT_TYPE*, const GEMM_INT_TYPE*,
-  const GEMM_REAL_TYPE*, const GEMM_REAL_TYPE*, const GEMM_INT_TYPE*,
-                         const GEMM_REAL_TYPE*, const GEMM_INT_TYPE*,
-  const GEMM_REAL_TYPE*, GEMM_REAL_TYPE*, const GEMM_INT_TYPE*);
-
-/** Function prototype for GEMM using low-precision (Ozaki scheme 1). */
-LIBXS_API void gemm_oz1(const char* transa, const char* transb,
-  const GEMM_INT_TYPE* m, const GEMM_INT_TYPE* n, const GEMM_INT_TYPE* k,
-  const GEMM_REAL_TYPE* alpha, const GEMM_REAL_TYPE* a, const GEMM_INT_TYPE* lda,
-                               const GEMM_REAL_TYPE* b, const GEMM_INT_TYPE* ldb,
-  const GEMM_REAL_TYPE*  beta, GEMM_REAL_TYPE* c, const GEMM_INT_TYPE* ldc);
+/** Real GEMM entry point (dgemm_ or sgemm_). */
+LIBXS_API void GEMM(GEMM_ARGDECL);
+/** Complex GEMM entry point (zgemm_ or cgemm_). */
+LIBXS_API void ZGEMM(GEMM_ARGDECL);
 
 /** Print GEMM arguments. */
-LIBXS_API void print_gemm(FILE* ostream, const char* transa, const char* transb,
-  const GEMM_INT_TYPE* m, const GEMM_INT_TYPE* n, const GEMM_INT_TYPE* k,
-  const GEMM_REAL_TYPE* alpha, const GEMM_REAL_TYPE* a, const GEMM_INT_TYPE* lda,
-                               const GEMM_REAL_TYPE* b, const GEMM_INT_TYPE* ldb,
-  const GEMM_REAL_TYPE*  beta, GEMM_REAL_TYPE* c, const GEMM_INT_TYPE* ldc);
-
-/** Print statistics (usually gemm_diff). */
+LIBXS_API void print_gemm(FILE* ostream, GEMM_ARGDECL);
+/** Print statistics. */
 LIBXS_API void print_diff(FILE* ostream, const libxs_matdiff_info_t* diff);
 
 LIBXS_APIVAR_PUBLIC(libxs_matdiff_info_t gemm_diff);
 LIBXS_APIVAR_PUBLIC(int gemm_verbose);
-
-/** Original GEMM function (private). */
-LIBXS_APIVAR_PRIVATE(gemm_function_t gemm_original);
-
-/* Complex GEMM support: derive complex symbol from real type.
- * double -> zgemm_, float -> cgemm_ (BLAS convention). */
-#define GEMM_ZPREFIX_double z
-#define GEMM_ZPREFIX_float c
-#define GEMM_ZPREFIX LIBXS_CONCATENATE(GEMM_ZPREFIX_, GEMM_REAL_TYPE)
-#define ZGEMM LIBXS_FSYMBOL(LIBXS_CONCATENATE(GEMM_ZPREFIX, gemm))
-#define ZGEMM_WRAP LIBXS_CONCATENATE(__wrap_, ZGEMM)
-#define ZGEMM_REAL LIBXS_CONCATENATE(__real_, ZGEMM)
-
-/** Function type for complex GEMM (interleaved real/imag pairs). */
-LIBXS_EXTERN_C typedef void (*zgemm_function_t)(const char*, const char*,
-  const GEMM_INT_TYPE*, const GEMM_INT_TYPE*, const GEMM_INT_TYPE*,
-  const GEMM_REAL_TYPE*, const GEMM_REAL_TYPE*, const GEMM_INT_TYPE*,
-                         const GEMM_REAL_TYPE*, const GEMM_INT_TYPE*,
-  const GEMM_REAL_TYPE*, GEMM_REAL_TYPE*, const GEMM_INT_TYPE*);
-
-/** Function prototype for wrapped complex GEMM. */
-LIBXS_API_INTERN void ZGEMM_WRAP(const char* transa, const char* transb,
-  const GEMM_INT_TYPE* m, const GEMM_INT_TYPE* n, const GEMM_INT_TYPE* k,
-  const GEMM_REAL_TYPE* alpha, const GEMM_REAL_TYPE* a, const GEMM_INT_TYPE* lda,
-                               const GEMM_REAL_TYPE* b, const GEMM_INT_TYPE* ldb,
-  const GEMM_REAL_TYPE*  beta, GEMM_REAL_TYPE* c, const GEMM_INT_TYPE* ldc);
-
-/** Function prototype for real complex GEMM. */
-LIBXS_API_INTERN void ZGEMM_REAL(const char* transa, const char* transb,
-  const GEMM_INT_TYPE* m, const GEMM_INT_TYPE* n, const GEMM_INT_TYPE* k,
-  const GEMM_REAL_TYPE* alpha, const GEMM_REAL_TYPE* a, const GEMM_INT_TYPE* lda,
-                               const GEMM_REAL_TYPE* b, const GEMM_INT_TYPE* ldb,
-  const GEMM_REAL_TYPE*  beta, GEMM_REAL_TYPE* c, const GEMM_INT_TYPE* ldc);
-
-/** Function prototype for complex GEMM. */
-LIBXS_API void ZGEMM(const char*, const char*,
-  const GEMM_INT_TYPE*, const GEMM_INT_TYPE*, const GEMM_INT_TYPE*,
-  const GEMM_REAL_TYPE*, const GEMM_REAL_TYPE*, const GEMM_INT_TYPE*,
-                         const GEMM_REAL_TYPE*, const GEMM_INT_TYPE*,
-  const GEMM_REAL_TYPE*, GEMM_REAL_TYPE*, const GEMM_INT_TYPE*);
-
-/** Original complex GEMM function (private). */
-LIBXS_APIVAR_PRIVATE(zgemm_function_t zgemm_original);

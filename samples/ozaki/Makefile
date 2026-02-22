@@ -9,9 +9,6 @@ CXXFLAGS = $(NULL)
 CFLAGS = $(NULL)
 DFLAGS = $(NULL)
 
-# Set GEMM_PRECISION=float for single-precision (default: double)
-GEMM_PRECISION ?= double
-
 OMP = 1
 SYM = 1
 
@@ -24,19 +21,10 @@ include $(DEPDIR)/Makefile.inc
 # necessary include directories
 IFLAGS += -I$(call quote,$(INCDIR)) -I$(call quote,$(DEPDIR)/include)
 
-# Derive GEMM symbol and compiler flags from GEMM_PRECISION
-ifneq (double,$(GEMM_PRECISION))
-  GEMM_SYMBOL := sgemm_
-  ZGEMM_SYMBOL := cgemm_
-  DFLAGS += -DGEMM_REAL_TYPE=float
-else
-  GEMM_SYMBOL := dgemm_
-  ZGEMM_SYMBOL := zgemm_
-endif
-
+# Wrap all four BLAS GEMM symbols (dgemm, sgemm, zgemm, cgemm)
 ifneq (Darwin,$(UNAME))
   ifneq (0,$(BLAS_STATIC))
-    WRAP_GEMM := -Wl,--wrap=$(GEMM_SYMBOL) -Wl,--wrap=$(ZGEMM_SYMBOL)
+    WRAP_GEMM := -Wl,--wrap=dgemm_ -Wl,--wrap=sgemm_ -Wl,--wrap=zgemm_ -Wl,--wrap=cgemm_
   endif
 else # macOS
   $(info ==========================================================)
@@ -46,11 +34,20 @@ endif
 
 OUTNAME := $(shell basename "$(ROOTDIR)")
 HEADERS := $(wildcard $(INCDIR)/*.h) $(wildcard $(SRCDIR)/*.h) $(DEPDIR)/include/libxs_source.h
-CSOURCS := $(wildcard $(SRCDIR)/gemm.c $(SRCDIR)/gemm-print.c)
-WRPSRCS := $(wildcard $(SRCDIR)/wrap.c $(SRCDIR)/zgemm3m.c $(SRCDIR)/$(OUTNAME).c)
-COBJCTS := $(patsubst %,$(BLDDIR)/%,$(notdir $(CSOURCS:.c=-c.o)))
-WRPOBJS := $(patsubst %,$(BLDDIR)/%,$(notdir $(WRPSRCS:.c=-c.o)))
-OBJECTS := $(COBJCTS) $(WRPOBJS)
+# Driver source (compiled once with default double precision)
+CSOURCS := $(SRCDIR)/gemm.c
+# Implementation sources: _WRAP + support (compiled for each precision)
+IMPLSRCS := $(SRCDIR)/$(OUTNAME).c $(SRCDIR)/zgemm3m.c $(SRCDIR)/gemm-print.c
+# Entry/dlsym source: _REAL + entry points (LD_PRELOAD path only)
+ENTRYSRCS := $(SRCDIR)/wrap.c
+COBJCTS := $(patsubst $(SRCDIR)/%.c,$(BLDDIR)/%-c.o,$(CSOURCS))
+IMPLOBJ_D := $(patsubst $(SRCDIR)/%.c,$(BLDDIR)/%-d.o,$(IMPLSRCS))
+IMPLOBJ_S := $(patsubst $(SRCDIR)/%.c,$(BLDDIR)/%-s.o,$(IMPLSRCS))
+IMPLOBJS := $(IMPLOBJ_D) $(IMPLOBJ_S)
+ENTRYOBJ_D := $(patsubst $(SRCDIR)/%.c,$(BLDDIR)/%-d.o,$(ENTRYSRCS))
+ENTRYOBJ_S := $(patsubst $(SRCDIR)/%.c,$(BLDDIR)/%-s.o,$(ENTRYSRCS))
+ENTRYOBJS := $(ENTRYOBJ_D) $(ENTRYOBJ_S)
+OBJECTS := $(COBJCTS) $(IMPLOBJS) $(ENTRYOBJS)
 XFILES := $(OUTDIR)/gemm-blas.x $(OUTDIR)/gemm-wrap.x
 
 .PHONY: all
@@ -60,7 +57,7 @@ all: $(XFILES)
 compile: $(OBJECTS)
 
 ifneq (,$(WRAP_GEMM))
-$(OUTDIR)/libwrap.$(SLIBEXT): $(OUTDIR)/.make $(BLDDIR)/$(OUTNAME)-c.o $(BLDDIR)/gemm-print-c.o
+$(OUTDIR)/libwrap.$(SLIBEXT): $(OUTDIR)/.make $(IMPLOBJS)
 	$(MAKE_AR) $@ $(call tailwords,$^)
 
 $(OUTDIR)/gemm-wrap.x: $(BLDDIR)/gemm-c.o $(OUTDIR)/libwrap.$(SLIBEXT) $(XSDEP) $(OUTDIR)/.make
@@ -79,12 +76,12 @@ endif
 .PHONY: $(OUTDIR)/libwrap.$(DLIBEXT)
 .PHONY: $(OUTDIR)/gemm-blas.x
 else
-$(OUTDIR)/libwrap.$(DLIBEXT): $(WRPOBJS) $(BLDDIR)/gemm-print-c.o $(XSDEP) $(OUTDIR)/.make
-	$(LIB_SOLD) $(call solink,$@) $(WRPOBJS) $(BLDDIR)/gemm-print-c.o \
+$(OUTDIR)/libwrap.$(DLIBEXT): $(IMPLOBJS) $(ENTRYOBJS) $(XSDEP) $(OUTDIR)/.make
+	$(LIB_SOLD) $(call solink,$@) $(IMPLOBJS) $(ENTRYOBJS) \
 		$(XSLIB) $(call cleanld,$(LDFLAGS) $(CLDFLAGS))
 
-$(OUTDIR)/gemm-blas.x: $(COBJCTS) $(XSDEP) $(OUTDIR)/.make $(OUTDIR)/libwrap.$(DLIBEXT)
-	$(LD) -o $@ $(COBJCTS) $(XSLIB) $(SLDFLAGS) $(LDFLAGS) $(CLDFLAGS)
+$(OUTDIR)/gemm-blas.x: $(COBJCTS) $(BLDDIR)/gemm-print-d.o $(XSDEP) $(OUTDIR)/.make $(OUTDIR)/libwrap.$(DLIBEXT)
+	$(LD) -o $@ $(COBJCTS) $(BLDDIR)/gemm-print-d.o $(XSLIB) $(SLDFLAGS) $(LDFLAGS) $(CLDFLAGS)
 
 .PHONY: $(OUTDIR)/libwrap.$(SLIBEXT)
 .PHONY: $(OUTDIR)/gemm-wrap.x
@@ -92,6 +89,12 @@ endif
 
 $(BLDDIR)/%-c.o: $(SRCDIR)/%.c .state $(BLDDIR)/.make $(HEADERS) Makefile $(DEPDIR)/Makefile.inc
 	$(CC) $(DFLAGS) $(IFLAGS) $(CFLAGS) $(CTARGET) -c $< -o $@
+
+$(BLDDIR)/%-d.o: $(SRCDIR)/%.c .state $(BLDDIR)/.make $(HEADERS) Makefile $(DEPDIR)/Makefile.inc
+	$(CC) $(DFLAGS) $(IFLAGS) $(CFLAGS) $(CTARGET) -c $< -o $@
+
+$(BLDDIR)/%-s.o: $(SRCDIR)/%.c .state $(BLDDIR)/.make $(HEADERS) Makefile $(DEPDIR)/Makefile.inc
+	$(CC) -DGEMM_REAL_TYPE=float $(DFLAGS) $(IFLAGS) $(CFLAGS) $(CTARGET) -c $< -o $@
 
 .PHONY: test
 test: $(ROOTDIR)/wrap-test.sh $(XFILES)

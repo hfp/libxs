@@ -6,7 +6,8 @@
 * Further information: https://github.com/hfp/libxs/                          *
 * SPDX-License-Identifier: BSD-3-Clause                                       *
 ******************************************************************************/
-#include "gemm.h"
+#include "ozaki.h"
+#include <libxs_malloc.h>
 #include <libxs_sync.h>
 
 /**
@@ -141,11 +142,7 @@ LIBXS_API_INLINE void zgemm3m_finalize(
  * element (i,j) occupies a[2*(i + j*lda)] (real) and a[2*(i + j*lda)+1] (imag).
  * The alpha and beta arguments each point to 2 consecutive GEMM_REAL_TYPE values.
  */
-LIBXS_API_INTERN void zgemm3m(const char* transa, const char* transb,
-  const GEMM_INT_TYPE* m, const GEMM_INT_TYPE* n, const GEMM_INT_TYPE* k,
-  const GEMM_REAL_TYPE* alpha, const GEMM_REAL_TYPE* a, const GEMM_INT_TYPE* lda,
-                               const GEMM_REAL_TYPE* b, const GEMM_INT_TYPE* ldb,
-  const GEMM_REAL_TYPE*  beta, GEMM_REAL_TYPE* c, const GEMM_INT_TYPE* ldc)
+LIBXS_API_INTERN void zgemm3m(GEMM_ARGDECL)
 {
   const GEMM_INT_TYPE M = *m, N = *n, K = *k;
   const int ta = (*transa != 'N' && *transa != 'n');
@@ -166,8 +163,8 @@ LIBXS_API_INTERN void zgemm3m(const char* transa, const char* transb,
   const size_t sz_b = (size_t)b_rows * b_cols;
   const size_t sz_c = (size_t)M * N;
   /* Ar, Ai, Br, Bi, Ta (=Ar+Ai), Tb (=Br+Bi), P1, P2, P3 */
-  GEMM_REAL_TYPE* workspace = (GEMM_REAL_TYPE*)malloc(
-    sizeof(GEMM_REAL_TYPE) * (2 * sz_a + 2 * sz_b + 2 * sz_a + 3 * sz_c));
+  GEMM_REAL_TYPE* workspace = (GEMM_REAL_TYPE*)libxs_malloc(
+    sizeof(GEMM_REAL_TYPE) * (3 * sz_a + 3 * sz_b + 3 * sz_c), 0/*auto*/);
   if (NULL == workspace) {
     fprintf(stderr, "zgemm3m: allocation failed (m=%i, n=%i, k=%i)\n",
       (int)M, (int)N, (int)K);
@@ -231,56 +228,21 @@ LIBXS_API_INTERN void zgemm3m(const char* transa, const char* transb,
     zgemm3m_finalize(c, *ldc, p1, p3, ldc_ri, M, N, ar, ai, br, bi);
   }
 
-  free(workspace);
-}
-
-
-/** Resolve the original complex GEMM via dlsym (for LD_PRELOAD path). */
-LIBXS_API_INTERN LIBXS_ATTRIBUTE_WEAK void ZGEMM_REAL(const char* transa, const char* transb,
-  const GEMM_INT_TYPE* m, const GEMM_INT_TYPE* n, const GEMM_INT_TYPE* k,
-  const GEMM_REAL_TYPE* alpha, const GEMM_REAL_TYPE* a, const GEMM_INT_TYPE* lda,
-                               const GEMM_REAL_TYPE* b, const GEMM_INT_TYPE* ldb,
-  const GEMM_REAL_TYPE*  beta, GEMM_REAL_TYPE* c, const GEMM_INT_TYPE* ldc)
-{
-  if (NULL == zgemm_original) {
-    union { const void* pfin; zgemm_function_t pfout; } wrapper;
-    static volatile LIBXS_ATOMIC_LOCKTYPE lock = 0;
-    LIBXS_ATOMIC_ACQUIRE(&lock, LIBXS_SYNC_NPAUSE, LIBXS_ATOMIC_LOCKORDER);
-    if (NULL == zgemm_original) {
-      dlerror(); /* clear an eventual error status */
-      wrapper.pfin = dlsym(LIBXS_RTLD_NEXT, LIBXS_STRINGIFY(ZGEMM));
-      if (NULL == dlerror() && NULL != wrapper.pfout) {
-        zgemm_original = wrapper.pfout;
-      }
-    }
-    LIBXS_ATOMIC_RELEASE(&lock, LIBXS_ATOMIC_LOCKORDER);
-  }
-
-  if (NULL != zgemm_original) {
-    zgemm_original(transa, transb, m, n, k, alpha, a, lda, b, ldb, beta, c, ldc);
-  }
-  else {
-    fprintf(stderr, "ERROR: incorrect linkage against libwrap discovered!\n"
-                    "       link statically with -Wl,--wrap=" LIBXS_STRINGIFY(ZGEMM) ",\n"
-                    "       or use LD_PRELOAD=/path/to/libwrap.so\n");
-  }
+  libxs_free(workspace);
 }
 
 
 /**
- * Complex GEMM entry point: intercepts ZGEMM/CGEMM and implements it
- * via 3 real GEMM calls using the Karatsuba (3M) method.
- * The env var GEMM_OZAKI controls the behavior (shared with real GEMM):
+ * Complex GEMM wrapper: dispatches to zgemm3m (3M method) or falls back
+ * to the original complex BLAS. Controlled by env var GEMM_OZAKI
+ * (shared with the real GEMM Ozaki wrapper):
  *   0 = pass through to original complex BLAS (avoids 3M overhead),
  *   1 = use 3M method (default).
  */
-LIBXS_API LIBXS_ATTRIBUTE_USED void ZGEMM(const char* transa, const char* transb,
-  const GEMM_INT_TYPE* m, const GEMM_INT_TYPE* n, const GEMM_INT_TYPE* k,
-  const GEMM_REAL_TYPE* alpha, const GEMM_REAL_TYPE* a, const GEMM_INT_TYPE* lda,
-                               const GEMM_REAL_TYPE* b, const GEMM_INT_TYPE* ldb,
-  const GEMM_REAL_TYPE*  beta, GEMM_REAL_TYPE* c, const GEMM_INT_TYPE* ldc)
+LIBXS_API_INTERN LIBXS_ATTRIBUTE_WEAK void ZGEMM_WRAP(GEMM_ARGDECL)
 {
-  static int zgemm_initialized = 0, zgemm_ozaki = 1;
+  static volatile int zgemm_initialized = 0;
+  static int zgemm_ozaki = 1;
 
   if (0 == zgemm_initialized) {
     static volatile LIBXS_ATOMIC_LOCKTYPE lock = 0;
@@ -294,15 +256,20 @@ LIBXS_API LIBXS_ATTRIBUTE_USED void ZGEMM(const char* transa, const char* transb
   }
 
   if (0 != zgemm_ozaki) {
-    zgemm3m(transa, transb, m, n, k, alpha, a, lda, b, ldb, beta, c, ldc);
+    gemm_dump_inhibit = 1; /* suppress decomposed sub-GEMM dumps */
+    zgemm3m(GEMM_ARGPASS);
+    if (2 == gemm_dump_inhibit) {
+      gemm_dump_matrices(GEMM_ARGPASS, 2);
+    }
+    gemm_dump_inhibit = 0;
   }
   else {
     /* Passthrough to original complex GEMM */
     if (NULL != zgemm_original) {
-      zgemm_original(transa, transb, m, n, k, alpha, a, lda, b, ldb, beta, c, ldc);
+      zgemm_original(GEMM_ARGPASS);
     }
     else {
-      ZGEMM_REAL(transa, transb, m, n, k, alpha, a, lda, b, ldb, beta, c, ldc);
+      ZGEMM_REAL(GEMM_ARGPASS);
     }
   }
 }

@@ -6,9 +6,8 @@
 * Further information: https://github.com/hfp/libxs/                          *
 * SPDX-License-Identifier: BSD-3-Clause                                       *
 ******************************************************************************/
-#include "gemm.h"
+#include "ozaki.h"
 #include <libxs_sync.h>
-#include <libxs_mhd.h>
 
 /* Runtime flag-set controlling the Ozaki scheme (GEMM_OZ1 env var).
  * Bit 0 (1): TRIANGULAR  - drop symmetric contributions (speed for accuracy)
@@ -65,6 +64,7 @@ LIBXS_APIVAR_PRIVATE_DEF(int gemm_oz1_flags);
 LIBXS_APIVAR_PRIVATE_DEF(int gemm_diff_abc);
 LIBXS_APIVAR_PRIVATE_DEF(double gemm_eps);
 LIBXS_APIVAR_PRIVATE_DEF(double gemm_rsq);
+LIBXS_TLS int gemm_dump_inhibit;
 
 
 LIBXS_API_INLINE void ozaki_decompose(GEMM_REAL_TYPE value, int16_t* exp_biased, int8_t digits[MAX_NSLICES])
@@ -585,47 +585,12 @@ LIBXS_API void gemm_oz1(const char* transa, const char* transb,
       if (0 == (diff.r % nth)) print_diff(stderr, &diff);
     }
     if (gemm_eps < epsilon || diff.rsq < gemm_rsq || 0 > gemm_verbose) {
-      char extension[
-        sizeof(char) /*trans*/ +
-        sizeof(GEMM_INT_TYPE) /*ld*/+
-        sizeof(GEMM_REAL_TYPE) /* alpha/beta */
-      ];
-      libxs_mhd_info_t mhd_info = { 2, 1, LIBXS_DATATYPE(GEMM_REAL_TYPE), 0 };
-      char fname[64];
-      size_t size[2], ld[2];
-      FILE *file = NULL;
-      int result = EXIT_SUCCESS;
-      LIBXS_SNPRINTF(fname, sizeof(fname), "ozaki-%i-a.mhd", diff.r);
-      file = fopen(fname, "rb");
-      if (NULL == file) { /* Never overwrite an existing file */
-        size[0] = *m; size[1] = *k; ld[0] = *lda; ld[1] = *k;
-        *(char*)extension = *transa;
-        memcpy(extension + sizeof(char), lda, sizeof(GEMM_INT_TYPE));
-        memcpy(extension + sizeof(char) + sizeof(GEMM_INT_TYPE), alpha, sizeof(GEMM_REAL_TYPE));
-        result |= libxs_mhd_write(fname, NULL/*offset*/, size, ld,
-          &mhd_info, a, NULL/*handler_info*/, NULL/*handler*/,
-          NULL/*extension_header*/, extension, sizeof(extension));
+      if (0 != gemm_dump_inhibit) {
+        gemm_dump_inhibit = 2; /* signal pending composite dump */
       }
-      else fclose(file);
-      LIBXS_SNPRINTF(fname, sizeof(fname), "ozaki-%i-b.mhd", diff.r);
-      file = fopen(fname, "rb");
-      if (NULL == file) { /* Never overwrite an existing file */
-        size[0] = *k; size[1] = *n; ld[0] = *ldb; ld[1] = *n;
-        *(char*)extension = *transb;
-        memcpy(extension + sizeof(char), ldb, sizeof(GEMM_INT_TYPE));
-        memcpy(extension + sizeof(char) + sizeof(GEMM_INT_TYPE), beta, sizeof(GEMM_REAL_TYPE));
-        result |= libxs_mhd_write(fname, NULL/*offset*/, size, ld,
-          &mhd_info, b, NULL/*handler_info*/, NULL/*handler*/,
-          NULL/*extension_header*/, extension, sizeof(extension));
+      else {
+        gemm_dump_matrices(GEMM_ARGPASS, 1);
       }
-      else fclose(file);
-      if (EXIT_SUCCESS == result) {
-        print_gemm(stdout, transa, transb, m, n, k,
-          alpha, a, lda, b, ldb, beta, c, ldc);
-      }
-      /* avoid repeated dumps */
-      gemm_rsq = diff.rsq;
-      gemm_eps = epsilon;
     }
   }
 }
@@ -634,7 +599,11 @@ LIBXS_API void gemm_oz1(const char* transa, const char* transb,
 LIBXS_API_INTERN void print_diff_atexit(void);
 LIBXS_API_INTERN void print_diff_atexit(void)
 {
-  if (0 != gemm_verbose && 0 < gemm_diff.r) print_diff(stderr, &gemm_diff);
+  if (0 != gemm_verbose && 0 < gemm_diff.r) {
+    LIBXS_ATOMIC_ACQUIRE(&gemm_lock, LIBXS_SYNC_NPAUSE, LIBXS_ATOMIC_LOCKORDER);
+    print_diff(stderr, &gemm_diff);
+    LIBXS_ATOMIC_RELEASE(&gemm_lock, LIBXS_ATOMIC_LOCKORDER);
+  }
 }
 
 
@@ -645,7 +614,8 @@ LIBXS_API_INTERN LIBXS_ATTRIBUTE_WEAK void GEMM_WRAP(const char* transa, const c
                                const GEMM_REAL_TYPE* b, const GEMM_INT_TYPE* ldb,
   const GEMM_REAL_TYPE*  beta, GEMM_REAL_TYPE* c, const GEMM_INT_TYPE* ldc)
 {
-  static int gemm_initialized = 0, gemm_ozaki = 1;
+  static volatile int gemm_initialized = 0;
+  static int gemm_ozaki = 1;
   LIBXS_ASSERT(NULL != lda && NULL != ldb && NULL != ldc);
   LIBXS_ASSERT(NULL != a && NULL != b && NULL != c);
   LIBXS_ASSERT(NULL != m && NULL != n && NULL != k);

@@ -36,7 +36,8 @@ int main(int argc, char* argv[])
   GEMM_INT_TYPE ldc = (10 < argc ? atoi(argv[10]) : m);
   char transa = (0 == ta ? 'N' : 'T'), transb = (0 == tb ? 'N' : 'T');
   const GEMM_REAL_TYPE scale = (1 < nrepeat ? (1.0 / nrepeat) : 1);
-  int result = EXIT_SUCCESS, file_input = 0, i;
+  int result = EXIT_SUCCESS, file_input = 0, complex_input = 0, i;
+  GEMM_REAL_TYPE complex_alpha[2] = { 0 }, complex_beta[2] = { 0 };
   libxs_mhd_info_t info_a = { 2, 0, LIBXS_DATATYPE_UNKNOWN, 0 };
   libxs_mhd_info_t info_b = { 2, 0, LIBXS_DATATYPE_UNKNOWN, 0 };
   GEMM_REAL_TYPE *a = NULL, *b = NULL, *c = NULL;
@@ -49,35 +50,55 @@ int main(int argc, char* argv[])
     char extension[
       sizeof(char) /*trans*/ +
       sizeof(GEMM_INT_TYPE) /*ld*/+
-      sizeof(GEMM_REAL_TYPE) /* alpha/beta */
+      2 * sizeof(GEMM_REAL_TYPE) /* complex alpha/beta (max) */
     ];
+    const size_t ext_real = sizeof(char) + sizeof(GEMM_INT_TYPE) + sizeof(GEMM_REAL_TYPE);
+    const size_t ext_complex = sizeof(char) + sizeof(GEMM_INT_TYPE) + 2 * sizeof(GEMM_REAL_TYPE);
     size_t size[2], extension_size = sizeof(extension);
     result |= libxs_mhd_read_header(argv[1], strlen(argv[1]),
       argv[1], &info_a, size, extension, &extension_size);
-    if (EXIT_SUCCESS == result
-      && 2 == info_a.ndims && 1 == info_a.ncomponents
+    if (EXIT_SUCCESS == result && 2 == info_a.ndims
       && LIBXS_DATATYPE(GEMM_REAL_TYPE) == info_a.type
-      && sizeof(extension) == extension_size)
+      && ((1 == info_a.ncomponents && ext_real == extension_size)
+       || (2 == info_a.ncomponents && ext_complex == extension_size)))
     {
       m = ldc = (int)size[0]; k = (int)size[1];
       transa = *(const char*)extension;
       memcpy(&lda, extension + sizeof(char), sizeof(GEMM_INT_TYPE));
-      memcpy(&alpha, extension + sizeof(char) + sizeof(GEMM_INT_TYPE),
-        sizeof(GEMM_REAL_TYPE));
+      if (2 == info_a.ncomponents) {
+        memcpy(complex_alpha, extension + sizeof(char) + sizeof(GEMM_INT_TYPE),
+          2 * sizeof(GEMM_REAL_TYPE));
+        alpha = complex_alpha[0];
+        complex_input = 1;
+      }
+      else {
+        memcpy(&alpha, extension + sizeof(char) + sizeof(GEMM_INT_TYPE),
+          sizeof(GEMM_REAL_TYPE));
+      }
       file_input |= 0x1;
     }
     if (0 == n) {
+      extension_size = sizeof(extension); /* reset capacity for second header */
       result |= libxs_mhd_read_header(argv[2], strlen(argv[2]),
         argv[2], &info_b, size, extension, &extension_size);
       if (EXIT_SUCCESS == result && k == (int)size[0]
-        && 2 == info_b.ndims && 1 == info_b.ncomponents
+        && 2 == info_b.ndims
         && LIBXS_DATATYPE(GEMM_REAL_TYPE) == info_b.type
-        && sizeof(extension) == extension_size)
+        && info_b.ncomponents == info_a.ncomponents
+        && ((1 == info_b.ncomponents && ext_real == extension_size)
+         || (2 == info_b.ncomponents && ext_complex == extension_size)))
       {
         n = (int)size[1]; transb = *(char*)extension;
         memcpy(&ldb, extension + sizeof(char), sizeof(GEMM_INT_TYPE));
-        memcpy(&beta, extension + sizeof(char) + sizeof(GEMM_INT_TYPE),
-          sizeof(GEMM_REAL_TYPE));
+        if (2 == info_b.ncomponents) {
+          memcpy(complex_beta, extension + sizeof(char) + sizeof(GEMM_INT_TYPE),
+            2 * sizeof(GEMM_REAL_TYPE));
+          beta = complex_beta[0];
+        }
+        else {
+          memcpy(&beta, extension + sizeof(char) + sizeof(GEMM_INT_TYPE),
+            sizeof(GEMM_REAL_TYPE));
+        }
         file_input |= 0x2;
       }
     }
@@ -96,14 +117,15 @@ int main(int argc, char* argv[])
   }
 
   if (EXIT_SUCCESS == result) { /* Allocate matrices */
-    a = (GEMM_REAL_TYPE*)malloc(sizeof(GEMM_REAL_TYPE) * lda * a_cols);
-    b = (GEMM_REAL_TYPE*)malloc(sizeof(GEMM_REAL_TYPE) * ldb * b_cols);
-    c = (GEMM_REAL_TYPE*)malloc(sizeof(GEMM_REAL_TYPE) * ldc * n);
+    const size_t nc = (0 != complex_input ? 2 : 1);
+    a = (GEMM_REAL_TYPE*)malloc(sizeof(GEMM_REAL_TYPE) * nc * lda * a_cols);
+    b = (GEMM_REAL_TYPE*)malloc(sizeof(GEMM_REAL_TYPE) * nc * ldb * b_cols);
+    c = (GEMM_REAL_TYPE*)malloc(sizeof(GEMM_REAL_TYPE) * nc * ldc * n);
     if (NULL != a && NULL != b && NULL != c) {
       if (0 == file_input) {
         LIBXS_MATRNG(GEMM_INT_TYPE, GEMM_REAL_TYPE, 0, c, m, n, ldc, scale);
       }
-      else memset(c, 0, sizeof(GEMM_REAL_TYPE) * ldc * n);
+      else memset(c, 0, sizeof(GEMM_REAL_TYPE) * nc * ldc * n);
     }
     else result = EXIT_FAILURE;
   }
@@ -139,23 +161,28 @@ int main(int argc, char* argv[])
   }
 
   if (EXIT_SUCCESS == result) { /* Call GEMM */
+    const GEMM_REAL_TYPE* const ga = (0 != complex_input) ? complex_alpha : &alpha;
+    const GEMM_REAL_TYPE* const gb = (0 != complex_input) ? complex_beta : &beta;
     libxs_timer_tick_t start;
     int ncalls = nrepeat;
     if (1 < nrepeat) { /* Peel one warmup call */
-      GEMM(&transa, &transb, &m, &n, &k, &alpha, a, &lda, b, &ldb, &beta, c, &ldc);
+      if (0 != complex_input) ZGEMM(&transa, &transb, &m, &n, &k, ga, a, &lda, b, &ldb, gb, c, &ldc);
+      else GEMM(&transa, &transb, &m, &n, &k, ga, a, &lda, b, &ldb, gb, c, &ldc);
       --ncalls;
     }
     start = libxs_timer_tick();
     for (i = 0; i < ncalls; ++i) {
-      GEMM(&transa, &transb, &m, &n, &k, &alpha, a, &lda, b, &ldb, &beta, c, &ldc);
+      if (0 != complex_input) ZGEMM(&transa, &transb, &m, &n, &k, ga, a, &lda, b, &ldb, gb, c, &ldc);
+      else GEMM(&transa, &transb, &m, &n, &k, ga, a, &lda, b, &ldb, gb, c, &ldc);
     }
     printf("Called %i times (%f s/call).\n", nrepeat,
       libxs_timer_duration(start, libxs_timer_tick()) / ncalls);
   }
 
   if (EXIT_SUCCESS == result) { /* Calculate final checksum */
-    const int ldtst = (int)ldc;
-    result = libxs_matdiff(&diff, LIBXS_DATATYPE(GEMM_REAL_TYPE), m, n,
+    const size_t nc = (0 != complex_input ? 2 : 1);
+    const int ldtst = (int)(nc * ldc);
+    result = libxs_matdiff(&diff, LIBXS_DATATYPE(GEMM_REAL_TYPE), (int)(nc * m), n,
         NULL/*ref*/, c/*tst*/, NULL/*ldref*/, &ldtst);
   }
 
