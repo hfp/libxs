@@ -107,8 +107,6 @@ LIBXS_APIVAR_PRIVATE(unsigned int libxs_ninit);
 LIBXS_APIVAR_PRIVATE(int libxs_stdio_handle);
 /** Verbosity level (0: quiet, 1: errors, 2: warnings, 3: info, neg.: all). */
 LIBXS_APIVAR_PRIVATE(int libxs_verbosity);
-/** Determines whether a threaded implementation is synchronized or not. */
-LIBXS_APIVAR_PRIVATE(int libxs_nosync);
 /** Security-enhanced environment. */
 LIBXS_APIVAR_PRIVATE(int libxs_se);
 

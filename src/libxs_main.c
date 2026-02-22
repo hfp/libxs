@@ -40,9 +40,6 @@
 #if !defined(LIBXS_HASH_SEED)
 # define LIBXS_HASH_SEED 25071975
 #endif
-#if !defined(LIBXS_UNIFY_LOCKS) && 1
-# define LIBXS_UNIFY_LOCKS
-#endif
 #if !defined(LIBXS_AUTOPIN) && 0
 # define LIBXS_AUTOPIN
 #endif
@@ -87,7 +84,6 @@ LIBXS_APIVAR_PRIVATE_DEF(unsigned int libxs_thread_count);
 LIBXS_APIVAR_PRIVATE_DEF(LIBXS_LOCK_TYPE(LIBXS_LOCK) libxs_lock_global);
 LIBXS_APIVAR_PRIVATE_DEF(unsigned int libxs_ninit);
 LIBXS_APIVAR_PRIVATE_DEF(int libxs_stdio_handle);
-LIBXS_APIVAR_PRIVATE_DEF(int libxs_nosync);
 
 
 LIBXS_API_INTERN LIBXS_ATTRIBUTE_NO_TRACE void internal_dump(FILE* ostream, int urgent);
@@ -410,9 +406,6 @@ LIBXS_API_INTERN void internal_init(void)
 #if !defined(_WIN32) && 0
     umask(S_IRUSR | S_IWUSR); /* setup default/secure file mask */
 #endif
-    { const char *const env = getenv("LIBXS_SYNC");
-      libxs_nosync = (NULL == env || 0 == *env) ? 0/*default*/ : atoi(env);
-    }
     libxs_memory_init(libxs_cpuid(NULL));
 }
 
