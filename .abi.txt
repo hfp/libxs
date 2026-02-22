@@ -52,6 +52,7 @@ libxs_mhd_typeinfo
 libxs_mhd_typename
 libxs_mhd_typesize
 libxs_mhd_write
+libxs_mod_inverse_u32
 libxs_offset
 libxs_pfree
 libxs_pfree_lock
@@ -59,6 +60,7 @@ libxs_pid
 libxs_pmalloc
 libxs_pmalloc_init
 libxs_pmalloc_lock
+libxs_pow2
 libxs_primes_u32
 libxs_product_limit
 libxs_registry_begin
