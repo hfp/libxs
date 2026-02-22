@@ -48,8 +48,6 @@
 #endif
 
 
-/** Time stamp (startup time of library). */
-LIBXS_APIVAR_DEFINE(libxs_timer_tick_t internal_timer_start);
 LIBXS_APIVAR_DEFINE(libxs_cpuid_info_t internal_cpuid_info);
 LIBXS_APIVAR_DEFINE(const char* internal_build_state);
 
@@ -76,7 +74,7 @@ LIBXS_APIVAR_DEFINE(char internal_stdio_fname[64]);
 LIBXS_EXTERN_C typedef struct internal_sigentry_type {
   int signum; void (*signal)(int);
 } internal_sigentry_type;
-LIBXS_APIVAR_DEFINE(internal_sigentry_type internal_sigentries[4]);
+LIBXS_APIVAR_DEFINE(internal_sigentry_type internal_sigentries[2]);
 
 /* definition of corresponding variables */
 LIBXS_APIVAR_PRIVATE_DEF(double libxs_timer_scale);
@@ -195,8 +193,7 @@ LIBXS_API_INTERN libxs_timer_tick_t libxs_timer_tick_rtc(void)
 }
 
 
-LIBXS_API_INTERN LIBXS_INTRINSICS(LIBXS_X86_GENERIC)
-libxs_timer_tick_t libxs_timer_tick_tsc(void)
+LIBXS_API_INTERN libxs_timer_tick_t libxs_timer_tick_tsc(void)
 {
   libxs_timer_tick_t result;
 #if defined(LIBXS_TIMER_RDTSC)
@@ -468,6 +465,8 @@ LIBXS_API_CTOR void libxs_init(void)
           internal_dump(stdout, 1/*urgent*/);
         }
         s1 = libxs_timer_tick_rtc(); t1 = libxs_timer_tick_tsc(); /* mid-timing */
+        /* TSC calibration is Release-only: debug overhead would skew the measurement,
+         * and the RTC fallback is accurate enough for development/testing. */
 #if defined(NDEBUG)
         libxs_cpuid(&internal_cpuid_info);
         if (0 != internal_cpuid_info.constant_tsc && t0 < t1) {
@@ -480,24 +479,21 @@ LIBXS_API_CTOR void libxs_init(void)
         internal_sigentries[1].signum = SIGSEGV;
         result_atexit = atexit(internal_finalize);
         s1 = libxs_timer_tick_rtc(); t1 = libxs_timer_tick_tsc(); /* final timing */
-        /* set timer-scale and determine start of the "uptime" (shown at termination) */
+        /* set timer-scale */
         if (t0 < t1 && 0.0 < libxs_timer_scale) {
           const double scale = libxs_timer_duration_rtc(s0, s1) / (t1 - t0);
           const double diff = LIBXS_DELTA(libxs_timer_scale, scale) / scale;
           if (5E-4 > diff) {
             libxs_timer_scale = scale;
-            internal_timer_start = t0;
           }
           else {
             libxs_timer_scale = 0;
-            internal_timer_start = s0;
 #if defined(_DEBUG)
             libxs_se = 1;
 #endif
           }
         }
         else {
-          internal_timer_start = s0;
           libxs_timer_scale = 0;
         }
         if (0 != libxs_verbosity) { /* library code is expected to be mute */
