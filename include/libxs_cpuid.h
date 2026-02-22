@@ -29,36 +29,34 @@
 #define LIBXS_RV64_MVL128           3001 /* RISCV 128-bit RVV */
 #define LIBXS_RV64_MVL256           3002 /* RISCV 256-bit RVV */
 #define LIBXS_RV64_MVL128_LMUL      3003 /* RISCV 128-bit RVV with non-unit LMUL */
-#define LIBXS_RV64_MVL256_LMUL      3004 /* RISCV 256-bit RVV witb non-unit LMUL */
+#define LIBXS_RV64_MVL256_LMUL      3004 /* RISCV 256-bit RVV with non-unit LMUL */
 #define LIBXS_RV64_ALLFEAT          3999
 
- /** Zero-initialized structure; assumes conservative properties. */
+/**
+ * CPU identification result. Zero-initialization yields
+ * conservative (least-capable) properties.
+ */
 LIBXS_EXTERN_C typedef struct libxs_cpuid_info_t {
-  char model[1024]; /** CPU-name (OS-specific implementation). */
-  int constant_tsc; /** Timer stamp counter is monotonic. */
-#if defined(LIBXS_PLATFORM_X86)
-  int has_context;  /** Context switches are permitted. */
-#endif
+  /** CPU model name obtained from the OS (e.g., /proc/cpuinfo). */
+  char model[1024];
+  /** Non-zero if the timestamp counter is invariant/monotonic (see libxs_timer_info). */
+  int constant_tsc;
 } libxs_cpuid_info_t;
 
-/** Returns the target architecture and instruction set extensions. */
-LIBXS_API int libxs_cpuid_x86(libxs_cpuid_info_t* LIBXS_ARGDEF(info, NULL));
-LIBXS_API int libxs_cpuid_arm(libxs_cpuid_info_t* LIBXS_ARGDEF(info, NULL));
-LIBXS_API int libxs_cpuid_rv64(libxs_cpuid_info_t* LIBXS_ARGDEF(info, NULL));
-
-/** Similar to libxs_cpuid_x86, but conceptually not arch-specific. */
+/**
+ * Returns the detected ISA level for the current platform and optionally
+ * fills info with CPU properties (model name, TSC capability).
+ * Dispatches to the appropriate architecture-specific implementation.
+ */
 LIBXS_API int libxs_cpuid(libxs_cpuid_info_t* LIBXS_ARGDEF(info, NULL));
 
-/** Names the CPU architecture given by CPUID. */
+/** Returns a human-readable name for the given ISA level id. */
 LIBXS_API const char* libxs_cpuid_name(int id);
 
-/** Determines CPU-name using OS-specific interfaces (see libxs_cpuid_info_t). */
-LIBXS_API void libxs_cpuid_model(char model[], size_t* model_size);
-
-/** Translate the CPU name to LIBXS's internal ID. */
+/** Translates a CPU architecture name (e.g., "avx2") to the corresponding LIBXS id constant. */
 LIBXS_API int libxs_cpuid_id(const char* name);
 
-/** SIMD vector length (VLEN) in Bytes; zero if scalar. */
+/** Returns the SIMD vector length (VLEN) in bytes for the given ISA level; zero if scalar. */
 LIBXS_API int libxs_cpuid_vlen(int id);
 
 #endif /*LIBXS_CPUID_H*/

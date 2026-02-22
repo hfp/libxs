@@ -10,7 +10,7 @@
 #include "libxs_main.h"
 
 
-LIBXS_API int libxs_cpuid_rv64(libxs_cpuid_info_t* info)
+LIBXS_API_INTERN int libxs_cpuid_rv64(libxs_cpuid_info_t* info)
 {
   int mvl;
   libxs_cpuid_info_t cpuid_info;

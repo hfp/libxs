@@ -5,13 +5,9 @@ libxs_aligned
 libxs_coprime
 libxs_coprime2
 libxs_cpuid
-libxs_cpuid_arm
 libxs_cpuid_id
-libxs_cpuid_model
 libxs_cpuid_name
-libxs_cpuid_rv64
 libxs_cpuid_vlen
-libxs_cpuid_x86
 libxs_diff
 libxs_diff_n
 libxs_dvalue

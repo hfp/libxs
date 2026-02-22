@@ -66,7 +66,7 @@ LIBXS_API_INTERN char libxs_cpuid_arm_vendor(void) {
 #endif
 
 
-LIBXS_API int libxs_cpuid_arm(libxs_cpuid_info_t* info)
+LIBXS_API_INTERN int libxs_cpuid_arm(libxs_cpuid_info_t* info)
 {
   static int result = LIBXS_TARGET_ARCH_UNKNOWN;
 #if defined(LIBXS_PLATFORM_AARCH64)

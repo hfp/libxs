@@ -10,6 +10,7 @@
 #define LIBXS_MAIN_H
 
 #include <libxs_timer.h>
+#include <libxs_cpuid.h>
 #include <libxs_sync.h>
 
 #if !defined(LIBXS_NTHREADS_MAX)
@@ -77,6 +78,13 @@
 
 LIBXS_API_INTERN void libxs_memory_init(int target_arch);
 LIBXS_API_INTERN void libxs_memory_finalize(void);
+
+/** Architecture-specific CPUID: returns ISA level and optionally fills info. */
+LIBXS_API_INTERN int libxs_cpuid_x86(libxs_cpuid_info_t* info);
+LIBXS_API_INTERN int libxs_cpuid_arm(libxs_cpuid_info_t* info);
+LIBXS_API_INTERN int libxs_cpuid_rv64(libxs_cpuid_info_t* info);
+/** Reads the CPU model name from OS-specific interfaces. */
+LIBXS_API_INTERN void libxs_cpuid_model(char model[], size_t* model_size);
 
 /** Calculates duration in seconds from given RTC ticks. */
 LIBXS_API_INTERN double libxs_timer_duration_rtc(libxs_timer_tick_t tick0, libxs_timer_tick_t tick1);
