@@ -17,8 +17,8 @@ LIBXS_EXTERN_C struct libxs_hist_t {
 };
 
 
-LIBXS_API void libxs_hist_create(libxs_hist_t** hist,
-  int nbuckets, int nqueue, int nvals, const libxs_hist_update_t update[])
+LIBXS_API void libxs_hist_create(libxs_hist_t** hist, int nbuckets, int nqueue, int nvals,
+  const libxs_hist_update_t update[])
 {
   libxs_hist_t* h = (libxs_hist_t*)malloc(sizeof(libxs_hist_t));
   LIBXS_ASSERT(NULL != hist && 0 < nbuckets && 0 < nqueue && 0 < nvals && NULL != update);
@@ -60,7 +60,7 @@ LIBXS_API void libxs_hist_destroy(libxs_hist_t* hist)
 }
 
 
-LIBXS_API void libxs_hist_set(LIBXS_LOCK_TYPE(LIBXS_LOCK)* lock, libxs_hist_t* hist, const double vals[])
+LIBXS_API void libxs_hist_set(libxs_hist_lock_t* lock, libxs_hist_t* hist, const double vals[])
 {
   if (NULL != hist) {
     int i, j, k;
@@ -102,7 +102,7 @@ LIBXS_API void libxs_hist_set(LIBXS_LOCK_TYPE(LIBXS_LOCK)* lock, libxs_hist_t* h
 }
 
 
-LIBXS_API void libxs_hist_get(LIBXS_LOCK_TYPE(LIBXS_LOCK)* lock, const libxs_hist_t* hist,
+LIBXS_API void libxs_hist_get(libxs_hist_lock_t* lock, const libxs_hist_t* hist,
   const int** buckets, int* nbuckets, double range[2], const double** vals, int* nvals)
 {
   int *b = NULL, m = 0, n = 0, i, j, k;
