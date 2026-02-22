@@ -110,4 +110,17 @@ LIBXS_API unsigned int libxs_isqrt_u32(unsigned int x);
 /** Based on libxs_isqrt_u32; result is factor of x. */
 LIBXS_API unsigned int libxs_isqrt2_u32(unsigned int x);
 
+/**
+ * Construct a double with value 2^n by manipulating the IEEE-754 exponent
+ * field directly. Valid for n in [-1022, 1023]; returns 0.0 for underflow
+ * and +Inf for overflow. Subnormals (n < -1022) are flushed to zero.
+ */
+LIBXS_API double libxs_pow2(int n);
+
+/**
+ * Modular inverse via Fermat's little theorem: a^(p-2) mod p.
+ * Requires p prime and 0 < a < p.
+ */
+LIBXS_API unsigned int libxs_mod_inverse_u32(unsigned int a, unsigned int p);
+
 #endif /*LIBXS_MATH_H*/

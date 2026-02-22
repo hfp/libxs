@@ -668,6 +668,31 @@ LIBXS_API double libxs_kahan_sum(double value, double* accumulator, double* comp
 }
 
 
+LIBXS_API double libxs_pow2(int n)
+{
+  union { uint64_t u; double d; } cvt;
+  if (n < -1022) return 0.0;
+  if (n > 1023) {
+    cvt.u = LIBXS_CONCATENATE(0x7FF0000000000000, ULL); /* +Inf */
+    return cvt.d;
+  }
+  cvt.u = (uint64_t)(n + 1023) << 52;
+  return cvt.d;
+}
+
+
+LIBXS_API unsigned int libxs_mod_inverse_u32(unsigned int a, unsigned int p)
+{
+  unsigned int result = 1, base = a, e = p - 2;
+  while (0 != e) {
+    if (0 != (e & 1)) result = (result * base) % p;
+    base = (base * base) % p;
+    e >>= 1;
+  }
+  return result;
+}
+
+
 #if defined(LIBXS_BUILD) && (!defined(LIBXS_NOFORTRAN) || defined(__clang_analyzer__))
 
 /* implementation provided for Fortran 77 compatibility */

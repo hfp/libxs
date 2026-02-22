@@ -452,5 +452,65 @@ int main(int argc, char* argv[])
     }
   }
 
+  { /* check libxs_pow2: exact power-of-two scaling via IEEE-754 bit hack */
+    /* standard exponents */
+    if (LIBXS_NEQ(libxs_pow2(0), 1.0)) exit(EXIT_FAILURE);
+    if (LIBXS_NEQ(libxs_pow2(1), 2.0)) exit(EXIT_FAILURE);
+    if (LIBXS_NEQ(libxs_pow2(-1), 0.5)) exit(EXIT_FAILURE);
+    if (LIBXS_NEQ(libxs_pow2(10), 1024.0)) exit(EXIT_FAILURE);
+    if (LIBXS_NEQ(libxs_pow2(52), 4503599627370496.0)) exit(EXIT_FAILURE);
+    if (LIBXS_NEQ(libxs_pow2(-52), 1.0 / 4503599627370496.0)) exit(EXIT_FAILURE);
+    /* boundaries */
+    if (LIBXS_NEQ(libxs_pow2(1023), 8.9884656743115795e+307)) exit(EXIT_FAILURE);
+    if (LIBXS_NEQ(libxs_pow2(-1022), 2.2250738585072014e-308)) exit(EXIT_FAILURE);
+    /* underflow: subnormals flushed to zero */
+    if (LIBXS_NEQ(libxs_pow2(-1023), 0.0)) exit(EXIT_FAILURE);
+    if (LIBXS_NEQ(libxs_pow2(-2000), 0.0)) exit(EXIT_FAILURE);
+    /* overflow: returns +Inf */
+    if (LIBXS_NEQ(libxs_pow2(1024), libxs_pow2(1024))) { /* Inf == Inf */
+      exit(EXIT_FAILURE);
+    }
+    if (libxs_pow2(1024) <= 1.7976931348623157e+308) exit(EXIT_FAILURE); /* > DBL_MAX */
+    /* round-trip: 2^n * 2^(-n) == 1.0 for valid exponent range */
+    for (i = -1022; i <= 1022; ++i) {
+      if (LIBXS_NEQ(libxs_pow2(i) * libxs_pow2(-i), 1.0)) {
+        FPRINTF(stderr, "ERROR line #%i: pow2(%d)*pow2(%d) != 1.0\n", __LINE__, i, -i);
+        exit(EXIT_FAILURE);
+      }
+    }
+  }
+
+  { /* check libxs_mod_inverse_u32: modular inverse via Fermat's little theorem */
+    /* Small primes: a * a^(-1) == 1 (mod p) */
+    static const unsigned int primes[] = {
+      2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37, 41, 43, 47,
+      53, 59, 61, 67, 71, 73, 79, 83, 89, 97,
+      167, 173, 179, 181, 191, 193, 197, 199,
+      211, 223, 227, 229, 233, 239, 241, 251
+    };
+    const int nprimes = (int)(sizeof(primes) / sizeof(*primes));
+    for (i = 0; i < nprimes; ++i) {
+      const unsigned int p = primes[i];
+      unsigned int a;
+      for (a = 1; a < p; ++a) {
+        const unsigned int inv = libxs_mod_inverse_u32(a, p);
+        if ((a * inv) % p != 1) {
+          FPRINTF(stderr, "ERROR line #%i: %u * modinv(%u,%u)=%u != 1 (mod %u)\n",
+            __LINE__, a, a, p, inv, p);
+          exit(EXIT_FAILURE);
+        }
+      }
+    }
+    /* Specific spot-checks */
+    if (libxs_mod_inverse_u32(3, 7) != 5) exit(EXIT_FAILURE);   /* 3*5=15, 15%7=1 */
+    if (libxs_mod_inverse_u32(2, 251) != 126) exit(EXIT_FAILURE); /* 2*126=252, 252%251=1 */
+    /* Self-inverse: 1^(-1) == 1 and (p-1)^(-1) == (p-1) for any prime p */
+    for (i = 0; i < nprimes; ++i) {
+      const unsigned int p = primes[i];
+      if (libxs_mod_inverse_u32(1, p) != 1) exit(EXIT_FAILURE);
+      if (libxs_mod_inverse_u32(p - 1, p) != p - 1) exit(EXIT_FAILURE);
+    }
+  }
+
   return EXIT_SUCCESS;
 }
