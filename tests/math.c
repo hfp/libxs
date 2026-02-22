@@ -154,7 +154,7 @@ int main(int argc, char* argv[])
 
 #if defined(INFINITY)
   { /* check infinity */
-    const union { int raw; float value; } inf = { 0x7F800000 };
+    const union { uint32_t raw; float value; } inf = { 0x7F800000U };
     if (inf.value != INFINITY) exit(EXIT_FAILURE);
   }
 #endif

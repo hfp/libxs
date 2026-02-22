@@ -27,7 +27,7 @@ LIBXS_API void libxs_hist_create(libxs_hist_t** hist,
     h->update = (libxs_hist_update_t*)malloc(sizeof(libxs_hist_update_t) * nvals);
     h->buckets = (int*)calloc(nbuckets, sizeof(int));
     if (NULL != h->vals && NULL != h->buckets && NULL != h->update) {
-      const union { int raw; float value; } inf = { 0x7F800000 };
+      const union { uint32_t raw; float value; } inf = { 0x7F800000U };
       h->min = +inf.value;
       h->max = -inf.value;
       h->nbuckets = nbuckets;

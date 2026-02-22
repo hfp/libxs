@@ -52,7 +52,7 @@ LIBXS_APIVAR_PRIVATE_DEF(double gemm_rsq);
 
 LIBXS_API_INLINE void ozaki_decompose(double value, int16_t* exp_biased, int8_t digits[MAX_NSLICES])
 {
-  const union { int raw; float value; } inf = { 0x7F800000 };
+  const union { uint32_t raw; float value; } inf = { 0x7F800000U };
   union { double d; uint64_t u; } cvt;
   int sign = 1;
 
@@ -584,7 +584,7 @@ LIBXS_API_INTERN LIBXS_ATTRIBUTE_WEAK void GEMM_WRAP(const char* transa, const c
   if (0 == gemm_initialized) {
     LIBXS_ATOMIC_ACQUIRE(&gemm_lock, LIBXS_SYNC_NPAUSE, LIBXS_ATOMIC_LOCKORDER);
     if (0 == gemm_initialized) {
-      const union { int raw; float value; } inf = { 0x7F800000 };
+      const union { uint32_t raw; float value; } inf = { 0x7F800000U };
       const char *const gemm_diff_abc_env = getenv("GEMM_DIFF");
       const char *const gemm_verbose_env = getenv("GEMM_VERBOSE");
       const char *const gemm_ozaki_env = getenv("GEMM_OZAKI");
