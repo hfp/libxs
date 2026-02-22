@@ -9,6 +9,9 @@ CXXFLAGS = $(NULL)
 CFLAGS = $(NULL)
 DFLAGS = $(NULL)
 
+# Set GEMM_PRECISION=float for single-precision (default: double)
+GEMM_PRECISION ?= double
+
 OMP = 1
 SYM = 1
 
@@ -21,9 +24,19 @@ include $(DEPDIR)/Makefile.inc
 # necessary include directories
 IFLAGS += -I$(call quote,$(INCDIR)) -I$(call quote,$(DEPDIR)/include)
 
+# Derive GEMM symbol and compiler flags from GEMM_PRECISION
+ifneq (double,$(GEMM_PRECISION))
+  GEMM_SYMBOL := sgemm_
+  ZGEMM_SYMBOL := cgemm_
+  DFLAGS += -DGEMM_REAL_TYPE=float
+else
+  GEMM_SYMBOL := dgemm_
+  ZGEMM_SYMBOL := zgemm_
+endif
+
 ifneq (Darwin,$(UNAME))
   ifneq (0,$(BLAS_STATIC))
-    WRAP_GEMM := -Wl,--wrap=dgemm_
+    WRAP_GEMM := -Wl,--wrap=$(GEMM_SYMBOL) -Wl,--wrap=$(ZGEMM_SYMBOL)
   endif
 else # macOS
   $(info ==========================================================)
@@ -34,7 +47,7 @@ endif
 OUTNAME := $(shell basename "$(ROOTDIR)")
 HEADERS := $(wildcard $(INCDIR)/*.h) $(wildcard $(SRCDIR)/*.h) $(DEPDIR)/include/libxs_source.h
 CSOURCS := $(wildcard $(SRCDIR)/gemm.c $(SRCDIR)/gemm-print.c)
-WRPSRCS := $(wildcard $(SRCDIR)/wrap.c $(SRCDIR)/$(OUTNAME).c)
+WRPSRCS := $(wildcard $(SRCDIR)/wrap.c $(SRCDIR)/zgemm3m.c $(SRCDIR)/$(OUTNAME).c)
 COBJCTS := $(patsubst %,$(BLDDIR)/%,$(notdir $(CSOURCS:.c=-c.o)))
 WRPOBJS := $(patsubst %,$(BLDDIR)/%,$(notdir $(WRPSRCS:.c=-c.o)))
 OBJECTS := $(COBJCTS) $(WRPOBJS)

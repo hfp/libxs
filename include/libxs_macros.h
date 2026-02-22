@@ -719,7 +719,7 @@
 #define LIBXS_TYPECHAR(TYPE) LIBXS_CONCATENATE(LIBXS_TYPECHAR_, TYPE)
 #define LIBXS_TPREFIX(TYPE, NAME) LIBXS_CONCATENATE(LIBXS_TYPECHAR(TYPE), NAME)
 #define LIBXS_TYPECHAR_double d
-#define LIBXS_TYPECHAR_float f
+#define LIBXS_TYPECHAR_float s
 
 /** Below group is to fix-up some platform/compiler specifics. */
 #if defined(_WIN32)
