@@ -87,7 +87,8 @@ TA and TB select transposition: 0&#160;means&#160;'N' (no transpose), non-zero m
 | File | Purpose |
 |------|----------|
 | `gemm.h` | Common header: type macros (`GEMM_ARGDECL`/`GEMM_ARGPASS`), precision-specific name redirects, function prototypes for all four GEMM flavors. |
-| `ozaki.c` | Ozaki Scheme-1 implementation (`GEMM_WRAP`): decomposes IEEE-754 mantissa into 7-bit int8 slices for low-precision dot products. Compiled twice (double + float). |
+| `ozaki.c` | Wrapper/orchestration for real GEMM (`GEMM_WRAP`): initialization, environment handling, fallback dispatch, and global state management. Compiled twice (double + float). |
+| `ozaki1.c` | Ozaki Scheme-1 computational kernel (`gemm_oz1`): decomposes IEEE-754 mantissa into 7-bit int8 slices for low-precision dot products. Compiled twice (double + float). |
 | `zgemm3m.c` | Complex GEMM 3M wrapper (`ZGEMM_WRAP`): deinterleaves complex matrices, issues 3 real GEMM calls (Karatsuba), recombines. Uses `libxs_malloc` for workspace. Compiled twice (double + float). |
 | `wrap.c` | Entry points (`GEMM`, `ZGEMM`) and dlsym fallbacks (`GEMM_REAL`, `ZGEMM_REAL`) via `GEMM_DEFINE_DLSYM` macro. Used only in the LD_PRELOAD path; excluded from the static archive to keep `__real_` resolution correct. |
 | `gemm.c` | Test driver. |
