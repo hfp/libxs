@@ -475,6 +475,7 @@ LIBXS_API_INTERN void libxs_hash_init(int target_arch)
       internal_hash_function = (libxs_hash_function)internal_crc32;
     }
 #endif
+    LIBXS_ATOMIC_SYNC(LIBXS_ATOMIC_SEQ_CST); /* ensure function ptrs visible before publishing table */
     internal_crc32_table = crc32_table;
   }
   LIBXS_ASSERT(NULL != internal_hash_u512_function);

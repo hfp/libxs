@@ -11,7 +11,7 @@
 
 /** Denote quality of scalar random number generator. */
 #if !defined(LIBXS_RNG_DRAND48) && !defined(_WIN32) && !defined(__CYGWIN__) && \
-    (defined(_SVID_SOURCE) || defined(_XOPEN_SOURCE))
+    (defined(_DEFAULT_SOURCE) || defined(_SVID_SOURCE) || defined(_XOPEN_SOURCE))
 # define LIBXS_RNG_DRAND48
 #endif
 
@@ -34,8 +34,9 @@ LIBXS_API unsigned int libxs_rng_u32(unsigned int n)
     const unsigned int rmax = (1U << 31); /* lrand48 returns [0, 2^31) */
     unsigned int r = (unsigned int)lrand48();
 #else
-    /* avoid RAND_MAX+1 overflow: rmax represents the number of distinct values */
-    const unsigned int rmax = (unsigned int)RAND_MAX + 1U;
+    /* rand() returns [0, RAND_MAX]; guard against RAND_MAX+1 overflow to zero */
+    const unsigned int rmax = ((unsigned int)RAND_MAX < ~0U)
+      ? ((unsigned int)RAND_MAX + 1U) : ~0U;
     unsigned int r = (unsigned int)rand();
 #endif
     const unsigned int nmax = LIBXS_MIN(n, rmax);
@@ -66,8 +67,10 @@ LIBXS_API unsigned int libxs_rng_u32(unsigned int n)
 LIBXS_API void libxs_rng_seq(void* data, size_t nbytes)
 {
   unsigned char* dst = (unsigned char*)data;
-  unsigned char* end = dst + (nbytes & 0xFFFFFFFFFFFFFFFC);
+  unsigned char* end;
   unsigned int r;
+  if (NULL == data) return;
+  end = dst + (nbytes & ~(size_t)3);
   for (; dst < end; dst += 4) {
 #if defined(LIBXS_RNG_DRAND48)
     /* coverity[dont_call] */

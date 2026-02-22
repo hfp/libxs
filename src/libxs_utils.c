@@ -19,7 +19,7 @@ LIBXS_API int LIBXS_INTRINSICS_BITSCANFWD32_SW(unsigned int n)
 
 LIBXS_API int LIBXS_INTRINSICS_BITSCANFWD64_SW(unsigned long long n)
 {
-  unsigned int i, r = 0;
+  unsigned long long i; unsigned int r = 0;
   if (0 != n) for (i = 1; 0 == (n & i); i <<= 1) { ++r; }
   return r;
 }

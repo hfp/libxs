@@ -50,12 +50,14 @@ LIBXS_API int libxs_matdiff(libxs_matdiff_info_t* info,
   int ldr = (NULL == ldref ? m : *ldref), ldt = (NULL == ldtst ? m : *ldtst);
   if (NULL == ref && NULL != tst) { ref = tst; tst = NULL; result_swap = 1; }
   if (NULL != ref && NULL != info && m <= ldr && m <= ldt) {
-    const char *const matdiff_shuffle_env = getenv("LIBXS_MATDIFF_SHUFFLE");
-    const int matdiff_shuffle = (NULL == matdiff_shuffle_env ? 0
-      : ('\0' != *matdiff_shuffle_env ? atoi(matdiff_shuffle_env) : 1));
+    static int matdiff_shuffle = -1; /* cache getenv result across calls */
     const size_t ntotal = (size_t)m * (size_t)n;
     int mm = m, nn = n;
     double pos_inf;
+    if (0 > matdiff_shuffle) {
+      const char *const env = getenv("LIBXS_MATDIFF_SHUFFLE");
+      matdiff_shuffle = (NULL == env ? 0 : ('\0' != *env ? atoi(env) : 1));
+    }
     if (1 == n) { mm = ldr = ldt = 1; nn = m; } /* ensure row-vector shape to standardize results */
     libxs_matdiff_clear(info);
     pos_inf = info->min_ref;

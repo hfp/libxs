@@ -133,6 +133,13 @@ int main(int argc, char* argv[])
     a = LIBXS_INTRINSICS_BITSCANFWD64(0x2aaaab69ede0);
     b = LIBXS_INTRINSICS_BITSCANFWD64_SW(0x2aaaab69ede0);
     if (a != b) exit(EXIT_FAILURE);
+    /* values with no bits set in the low 32 bits (regression: was an infinite loop) */
+    b = LIBXS_INTRINSICS_BITSCANFWD64_SW(0x100000000ULL);
+    if (32 != b) exit(EXIT_FAILURE);
+    b = LIBXS_INTRINSICS_BITSCANFWD64_SW(0x8000000000000000ULL);
+    if (63 != b) exit(EXIT_FAILURE);
+    b = LIBXS_INTRINSICS_BITSCANFWD64_SW(0x4000000000ULL);
+    if (38 != b) exit(EXIT_FAILURE);
   }
 
   { /* check LIBXS_UP2POT and LIBXS_LO2POT */

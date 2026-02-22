@@ -604,7 +604,7 @@ LIBXS_API int libxs_strimatch(const char a[], const char b[], const char delims[
 }
 
 
-LIBXS_API size_t libxs_format_value(char buffer[32],
+LIBXS_API size_t libxs_format_value(char buffer[],
   int buffer_size, size_t nbytes, const char scale[], const char* unit, int base)
 {
   const int len = (NULL != scale ? ((int)strlen(scale)) : 0);
