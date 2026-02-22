@@ -27,12 +27,13 @@
 #define gemm_original     LIBXS_TPREFIX(GEMM_REAL_TYPE, gemm_original)
 #define zgemm_original    LIBXS_CONCATENATE(GEMM_ZPREFIX, gemm_original)
 #define gemm_lock         LIBXS_TPREFIX(GEMM_REAL_TYPE, gemm_lock)
-#define gemm_oz1_nslices  LIBXS_TPREFIX(GEMM_REAL_TYPE, gemm_oz1_nslices)
-#define gemm_oz1_flags    LIBXS_TPREFIX(GEMM_REAL_TYPE, gemm_oz1_flags)
+#define gemm_ozn          LIBXS_TPREFIX(GEMM_REAL_TYPE, gemm_ozn)
+#define gemm_ozflags      LIBXS_TPREFIX(GEMM_REAL_TYPE, gemm_ozflags)
 #define gemm_diff_abc     LIBXS_TPREFIX(GEMM_REAL_TYPE, gemm_diff_abc)
 #define gemm_eps          LIBXS_TPREFIX(GEMM_REAL_TYPE, gemm_eps)
 #define gemm_rsq          LIBXS_TPREFIX(GEMM_REAL_TYPE, gemm_rsq)
 #define gemm_oz1          LIBXS_TPREFIX(GEMM_REAL_TYPE, gemm_oz1)
+#define gemm_oz2          LIBXS_TPREFIX(GEMM_REAL_TYPE, gemm_oz2)
 #define gemm_dump_inhibit LIBXS_TPREFIX(GEMM_REAL_TYPE, gemm_dump_inhibit)
 #define gemm_dump_matrices LIBXS_TPREFIX(GEMM_REAL_TYPE, gemm_dump_mhd)
 #define zgemm3m           LIBXS_CONCATENATE(GEMM_ZPREFIX, gemm3m)
@@ -52,14 +53,16 @@ LIBXS_API void ZGEMM(GEMM_ARGDECL);
 
 /** Function prototype for GEMM using low-precision (Ozaki scheme 1). */
 LIBXS_API void gemm_oz1(GEMM_ARGDECL);
+/** Function prototype for GEMM using CRT modular arithmetic (Ozaki scheme 2). */
+LIBXS_API void gemm_oz2(GEMM_ARGDECL);
 /** Complex GEMM 3M (Karatsuba) implementation (internal). */
 LIBXS_API_INTERN void zgemm3m(GEMM_ARGDECL);
 
 LIBXS_APIVAR_PRIVATE(volatile LIBXS_ATOMIC_LOCKTYPE gemm_lock);
 LIBXS_APIVAR_PRIVATE(gemm_function_t gemm_original);
 LIBXS_APIVAR_PRIVATE(zgemm_function_t zgemm_original);
-LIBXS_APIVAR_PRIVATE(int gemm_oz1_nslices);
-LIBXS_APIVAR_PRIVATE(int gemm_oz1_flags);
+LIBXS_APIVAR_PRIVATE(int gemm_ozn);
+LIBXS_APIVAR_PRIVATE(int gemm_ozflags);
 LIBXS_APIVAR_PRIVATE(int gemm_diff_abc);
 extern LIBXS_TLS int gemm_dump_inhibit;
 LIBXS_APIVAR_PRIVATE(double gemm_eps);

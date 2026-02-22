@@ -9,7 +9,7 @@
 #include "ozaki.h"
 #include <libxs_sync.h>
 
-/* Runtime flag-set controlling the Ozaki scheme (GEMM_OZ1 env var).
+/* Runtime flag-set controlling the Ozaki scheme (GEMM_OZFLAGS env var).
  * Bit 0 (1): TRIANGULAR  - drop symmetric contributions (speed for accuracy)
  * Bit 1 (2): SYMMETRIZE  - double off-diagonal upper-triangle terms
  * Bit 2 (4): REVERSE_PASS - recover most significant lower-triangle terms
@@ -52,6 +52,14 @@
 #   define NSLICES_DEFAULT 4
 # endif
 #endif
+/* Scheme 2 (CRT) limits */
+#if GEMM_IS_DOUBLE
+# define OZ2_MAX_NPRIMES     16
+# define OZ2_NPRIMES_DEFAULT 16
+#else
+# define OZ2_MAX_NPRIMES     10
+# define OZ2_NPRIMES_DEFAULT  7
+#endif
 
 
 LIBXS_APIVAR_PUBLIC_DEF(libxs_matdiff_info_t gemm_diff);
@@ -59,8 +67,8 @@ LIBXS_APIVAR_PUBLIC_DEF(int gemm_verbose);
 
 LIBXS_APIVAR_PRIVATE_DEF(volatile LIBXS_ATOMIC_LOCKTYPE gemm_lock);
 LIBXS_APIVAR_PRIVATE_DEF(gemm_function_t gemm_original);
-LIBXS_APIVAR_PRIVATE_DEF(int gemm_oz1_nslices);
-LIBXS_APIVAR_PRIVATE_DEF(int gemm_oz1_flags);
+LIBXS_APIVAR_PRIVATE_DEF(int gemm_ozn);
+LIBXS_APIVAR_PRIVATE_DEF(int gemm_ozflags);
 LIBXS_APIVAR_PRIVATE_DEF(int gemm_diff_abc);
 LIBXS_APIVAR_PRIVATE_DEF(double gemm_eps);
 LIBXS_APIVAR_PRIVATE_DEF(double gemm_rsq);
@@ -99,18 +107,24 @@ LIBXS_API_INTERN LIBXS_ATTRIBUTE_WEAK void GEMM_WRAP(const char* transa, const c
       const char *const gemm_diff_abc_env = getenv("GEMM_DIFF");
       const char *const gemm_verbose_env = getenv("GEMM_VERBOSE");
       const char *const gemm_ozaki_env = getenv("GEMM_OZAKI");
-      const char *const gemm_oz1n_env = getenv("GEMM_OZ1N");
-      const char *const gemm_oz1_env = getenv("GEMM_OZ1");
+      const char *const gemm_ozn_env = getenv("GEMM_OZN");
+      const char *const gemm_ozflags_env = getenv("GEMM_OZFLAGS");
       const char *const gemm_eps_env = getenv("GEMM_EPS");
       const char *const gemm_rsq_env = getenv("GEMM_RSQ");
       libxs_matdiff_clear(&gemm_diff);
       gemm_diff_abc = (NULL == gemm_diff_abc_env ? 0 : atoi(gemm_diff_abc_env));
       gemm_verbose = (NULL == gemm_verbose_env ? 0 : atoi(gemm_verbose_env));
       gemm_ozaki = (NULL == gemm_ozaki_env ? 1 : atoi(gemm_ozaki_env));
-      gemm_oz1_nslices = LIBXS_CLMP((NULL == gemm_oz1n_env
-        ? NSLICES_DEFAULT : atoi(gemm_oz1n_env)), 1, MAX_NSLICES);
-      gemm_oz1_flags = (NULL == gemm_oz1_env
-        ? OZ1_DEFAULT : atoi(gemm_oz1_env));
+      gemm_ozflags = (NULL == gemm_ozflags_env
+        ? OZ1_DEFAULT : atoi(gemm_ozflags_env));
+      if (2 == gemm_ozaki) { /* Scheme 2: CRT primes */
+        gemm_ozn = LIBXS_CLMP((NULL == gemm_ozn_env
+          ? OZ2_NPRIMES_DEFAULT : atoi(gemm_ozn_env)), 1, OZ2_MAX_NPRIMES);
+      }
+      else { /* Scheme 1: mantissa slices */
+        gemm_ozn = LIBXS_CLMP((NULL == gemm_ozn_env
+          ? NSLICES_DEFAULT : atoi(gemm_ozn_env)), 1, MAX_NSLICES);
+      }
       if (NULL == gemm_eps_env) gemm_eps = inf.value;
       else {
         if (0 == gemm_verbose) gemm_verbose = 1;
@@ -141,7 +155,10 @@ LIBXS_API_INTERN LIBXS_ATTRIBUTE_WEAK void GEMM_WRAP(const char* transa, const c
       LIBXS_ATOMIC_RELEASE(&gemm_lock, LIBXS_ATOMIC_LOCKORDER);
     }
   }
-  else { /* run LP-GEMM */
+  else if (2 == gemm_ozaki) { /* CRT-based LP-GEMM (Scheme 2) */
+    gemm_oz2(transa, transb, m, n, k, alpha, a, lda, b, ldb, beta, c, ldc);
+  }
+  else { /* slice-based LP-GEMM (Scheme 1, default) */
     gemm_oz1(transa, transb, m, n, k, alpha, a, lda, b, ldb, beta, c, ldc);
   }
 }

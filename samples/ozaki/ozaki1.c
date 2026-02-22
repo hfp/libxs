@@ -61,7 +61,7 @@ LIBXS_API_INLINE void ozaki_decompose(GEMM_REAL_TYPE value, int16_t* exp_biased,
   if (value == (GEMM_REAL_TYPE)0 || LIBXS_ISNAN(value)
     || (float)value == inf.value || (float)value == -inf.value)
   {
-    if (NULL != digits) memset(digits, 0, sizeof(int8_t) * gemm_oz1_nslices);
+    if (NULL != digits) memset(digits, 0, sizeof(int8_t) * gemm_ozn);
     *exp_biased = 0;
     return;
   }
@@ -80,7 +80,7 @@ LIBXS_API_INLINE void ozaki_decompose(GEMM_REAL_TYPE value, int16_t* exp_biased,
 
       if (0 == exp_raw) { /* subnormal treated as zero here */
         *exp_biased = 0;
-        if (NULL != digits) memset(digits, 0, sizeof(int8_t) * gemm_oz1_nslices);
+        if (NULL != digits) memset(digits, 0, sizeof(int8_t) * gemm_ozn);
         return;
       }
 
@@ -89,7 +89,7 @@ LIBXS_API_INLINE void ozaki_decompose(GEMM_REAL_TYPE value, int16_t* exp_biased,
         *exp_biased = (int16_t)exp_raw;
 
         if (NULL != digits) {
-          for (; s < gemm_oz1_nslices; ++s) {
+          for (; s < gemm_ozn; ++s) {
             const int high = 52 - (7 * s);
             if (high < 0) {
               digits[s] = 0;
@@ -120,7 +120,7 @@ LIBXS_API_INLINE void ozaki_decompose(GEMM_REAL_TYPE value, int16_t* exp_biased,
 
       if (0 == exp_raw) { /* subnormal treated as zero here */
         *exp_biased = 0;
-        if (NULL != digits) memset(digits, 0, sizeof(int8_t) * gemm_oz1_nslices);
+        if (NULL != digits) memset(digits, 0, sizeof(int8_t) * gemm_ozn);
         return;
       }
 
@@ -129,7 +129,7 @@ LIBXS_API_INLINE void ozaki_decompose(GEMM_REAL_TYPE value, int16_t* exp_biased,
         *exp_biased = (int16_t)exp_raw;
 
         if (NULL != digits) {
-          for (; s < gemm_oz1_nslices; ++s) {
+          for (; s < gemm_ozn; ++s) {
             const int high = 23 - (7 * s);
             if (high < 0) {
               digits[s] = 0;
@@ -160,30 +160,30 @@ LIBXS_API_INLINE void rescale_digits(int8_t dst[MAX_NSLICES], const int8_t src[M
   int i;
 
   if (delta == 0) {
-    if (dst != src) memcpy(dst, src, sizeof(int8_t) * gemm_oz1_nslices);
+    if (dst != src) memcpy(dst, src, sizeof(int8_t) * gemm_ozn);
     return;
   }
 
   if (delta >= 7) {
-    for (i = 0; i < gemm_oz1_nslices; ++i) dst[i] = (src[i] >= 0) ? INT8_MAX : INT8_MIN;
+    for (i = 0; i < gemm_ozn; ++i) dst[i] = (src[i] >= 0) ? INT8_MAX : INT8_MIN;
     return;
   }
 
   if (delta <= -15) {
-    memset(dst, 0, sizeof(int8_t) * gemm_oz1_nslices);
+    memset(dst, 0, sizeof(int8_t) * gemm_ozn);
     return;
   }
 
   if (delta > 0) {
     const int sh = delta;
-    for (i = 0; i < gemm_oz1_nslices; ++i) {
+    for (i = 0; i < gemm_ozn; ++i) {
       const int32_t v = ((int32_t)src[i]) << sh;
       dst[i] = (int8_t)LIBXS_CLMP(v, INT8_MIN, INT8_MAX);
     }
   }
   else {
     const int sh = -delta;
-    for (i = 0; i < gemm_oz1_nslices; ++i) {
+    for (i = 0; i < gemm_ozn; ++i) {
       const int32_t v = ((int32_t)src[i]) >> sh;
       dst[i] = (int8_t)LIBXS_CLMP(v, INT8_MIN, INT8_MAX);
     }
@@ -197,7 +197,7 @@ LIBXS_API_INLINE double reconstruct_from_digits(const int8_t digits[MAX_NSLICES]
   double recon = 0.0;
   int slice = 0;
 
-  for (; slice < gemm_oz1_nslices; ++slice) {
+  for (; slice < gemm_ozn; ++slice) {
     const int16_t digit = (int16_t)digits[slice];
     if (0 != digit) {
       int sh = exp_base + slice_low_bit[slice];
@@ -279,7 +279,7 @@ LIBXS_API_INLINE void preprocess_rows(const GEMM_REAL_TYPE* a, GEMM_INT_TYPE lda
     }
     /* Zero-pad remaining k-entries for fixed-length dot products */
     for (kk = kblk; kk < BLOCK_K; ++kk) {
-      memset(am[mi][kk], 0, sizeof(int8_t) * gemm_oz1_nslices);
+      memset(am[mi][kk], 0, sizeof(int8_t) * gemm_ozn);
     }
   }
 }
@@ -318,7 +318,7 @@ LIBXS_API_INLINE void preprocess_cols(const GEMM_REAL_TYPE* b, GEMM_INT_TYPE ldb
   /* Zero-pad remaining k-entries for fixed-length dot products */
   for (kk = kblk; kk < BLOCK_K; ++kk) {
     for (nj = 0; nj < jblk; ++nj) {
-      memset(bm[kk][nj], 0, sizeof(int8_t) * gemm_oz1_nslices);
+      memset(bm[kk][nj], 0, sizeof(int8_t) * gemm_ozn);
     }
   }
 }
@@ -353,7 +353,7 @@ LIBXS_API_INLINE void gemm_oz1_diff(const char* transa, const char* transb,
   const int tb = (*transb != 'N' && *transb != 'n');
   const GEMM_INT_TYPE M = *m, N = *n, K = *k;
   const GEMM_INT_TYPE ldcv = *ldc;
-  const int nslices = LIBXS_CLMP(gemm_oz1_nslices, 1, MAX_NSLICES);
+  const int nslices = LIBXS_CLMP(gemm_ozn, 1, MAX_NSLICES);
   GEMM_INT_TYPE jb, ib;
   int s;
   LIBXS_ASSERT(LIBXS_DATATYPE_F64 == LIBXS_DATATYPE(GEMM_REAL_TYPE)
@@ -458,16 +458,16 @@ LIBXS_API_INLINE void gemm_oz1_diff(const char* transa, const char* transb,
           }
 
           LIBXS_PRAGMA_LOOP_COUNT(1, MAX_NSLICES, NSLICES_DEFAULT)
-          for (slice_a = 0; slice_a < ((0 != (gemm_oz1_flags & OZ1_TRIM_FORWARD)) ? nslices / 2 : nslices); ++slice_a) {
-            slice_b = (0 != (gemm_oz1_flags & OZ1_TRIANGULAR)) ? slice_a : 0;
+          for (slice_a = 0; slice_a < ((0 != (gemm_ozflags & OZ1_TRIM_FORWARD)) ? nslices / 2 : nslices); ++slice_a) {
+            slice_b = (0 != (gemm_ozflags & OZ1_TRIANGULAR)) ? slice_a : 0;
             for (; slice_b < nslices; ++slice_b) {
               const int low_bit_sum = (int)slice_low_bit[slice_a] + slice_low_bit[slice_b];
               /* Double off-diagonal terms whose mirror (sb,sa) is not explicitly
                * computed. When REVERSE_PASS is also active, the mirror IS
                * recovered when: sb >= S/2 && sa <= S-1-sb, so skip doubling. */
-              const double sym_alpha = (0 != (gemm_oz1_flags & OZ1_SYMMETRIZE))
+              const double sym_alpha = (0 != (gemm_ozflags & OZ1_SYMMETRIZE))
                 ? (*alpha) * ((slice_a != slice_b
-                    && !(0 != (gemm_oz1_flags & OZ1_REVERSE_PASS)
+                    && !(0 != (gemm_ozflags & OZ1_REVERSE_PASS)
                       && slice_b >= nslices / 2 && slice_a <= nslices - 1 - slice_b)
                     ) ? 2.0 : 1.0)
                 : (*alpha);
@@ -490,7 +490,7 @@ LIBXS_API_INLINE void gemm_oz1_diff(const char* transa, const char* transb,
               }
             }
           }
-          if (0 != (gemm_oz1_flags & OZ1_REVERSE_PASS)) {
+          if (0 != (gemm_ozflags & OZ1_REVERSE_PASS)) {
           /* Reverse pass: explicitly recover the most significant lower-triangle
            * terms (slice_a >= S/2, slice_b from S-1-slice_a downward). These are
            * the dropped terms with the largest exponents (small slice_b index

@@ -37,7 +37,7 @@ HEADERS := $(wildcard $(INCDIR)/*.h) $(wildcard $(SRCDIR)/*.h) $(DEPDIR)/include
 # Driver source (compiled once with default double precision)
 CSOURCS := $(SRCDIR)/gemm.c
 # Implementation sources: _WRAP + support (compiled for each precision)
-IMPLSRCS := $(SRCDIR)/$(OUTNAME).c $(SRCDIR)/ozaki1.c $(SRCDIR)/zgemm3m.c $(SRCDIR)/gemm-print.c
+IMPLSRCS := $(SRCDIR)/$(OUTNAME).c $(SRCDIR)/ozaki1.c $(SRCDIR)/ozaki2.c $(SRCDIR)/zgemm3m.c $(SRCDIR)/gemm-print.c
 # Entry/dlsym source: _REAL + entry points (LD_PRELOAD path only)
 ENTRYSRCS := $(SRCDIR)/wrap.c
 COBJCTS := $(patsubst $(SRCDIR)/%.c,$(BLDDIR)/%-c.o,$(CSOURCS))
