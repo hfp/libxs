@@ -89,6 +89,7 @@ LIBXS_API_INLINE void ozaki_decompose(GEMM_REAL_TYPE value, int16_t* exp_biased,
         *exp_biased = (int16_t)exp_raw;
 
         if (NULL != digits) {
+          LIBXS_PRAGMA_LOOP_COUNT(1, MAX_NSLICES, NSLICES_DEFAULT)
           for (; s < gemm_ozn; ++s) {
             const int high = 52 - (7 * s);
             if (high < 0) {
@@ -129,6 +130,7 @@ LIBXS_API_INLINE void ozaki_decompose(GEMM_REAL_TYPE value, int16_t* exp_biased,
         *exp_biased = (int16_t)exp_raw;
 
         if (NULL != digits) {
+          LIBXS_PRAGMA_LOOP_COUNT(1, MAX_NSLICES, NSLICES_DEFAULT)
           for (; s < gemm_ozn; ++s) {
             const int high = 23 - (7 * s);
             if (high < 0) {
@@ -165,6 +167,7 @@ LIBXS_API_INLINE void rescale_digits(int8_t dst[MAX_NSLICES], const int8_t src[M
   }
 
   if (delta >= 7) {
+    LIBXS_PRAGMA_LOOP_COUNT(1, MAX_NSLICES, NSLICES_DEFAULT)
     for (i = 0; i < gemm_ozn; ++i) dst[i] = (src[i] >= 0) ? INT8_MAX : INT8_MIN;
     return;
   }
@@ -176,6 +179,7 @@ LIBXS_API_INLINE void rescale_digits(int8_t dst[MAX_NSLICES], const int8_t src[M
 
   if (delta > 0) {
     const int sh = delta;
+    LIBXS_PRAGMA_LOOP_COUNT(1, MAX_NSLICES, NSLICES_DEFAULT)
     for (i = 0; i < gemm_ozn; ++i) {
       const int32_t v = ((int32_t)src[i]) << sh;
       dst[i] = (int8_t)LIBXS_CLMP(v, INT8_MIN, INT8_MAX);
@@ -183,6 +187,7 @@ LIBXS_API_INLINE void rescale_digits(int8_t dst[MAX_NSLICES], const int8_t src[M
   }
   else {
     const int sh = -delta;
+    LIBXS_PRAGMA_LOOP_COUNT(1, MAX_NSLICES, NSLICES_DEFAULT)
     for (i = 0; i < gemm_ozn; ++i) {
       const int32_t v = ((int32_t)src[i]) >> sh;
       dst[i] = (int8_t)LIBXS_CLMP(v, INT8_MIN, INT8_MAX);
@@ -367,7 +372,7 @@ LIBXS_API_INLINE void gemm_oz1_diff(const char* transa, const char* transb,
   }
 
 #if defined(_OPENMP)
-# pragma omp parallel if(NULL == diff)
+# pragma omp parallel
 #endif
   { int8_t am[BLOCK_M][BLOCK_K][MAX_NSLICES], bm[BLOCK_K][BLOCK_N][MAX_NSLICES];
     int8_t ak[BLOCK_M][MAX_NSLICES][BLOCK_K]; /* k-contiguous for dot product */
@@ -376,6 +381,8 @@ LIBXS_API_INLINE void gemm_oz1_diff(const char* transa, const char* transb,
     GEMM_REAL_TYPE ref_blk[BLOCK_MNK], recon_blk[BLOCK_MNK];
     GEMM_INT_TYPE kb, mi, nj, kk;
     int slice_a, slice_b;
+    libxs_matdiff_info_t local_diff;
+    if (NULL != diff) libxs_matdiff_clear(&local_diff);
 
 #if defined(_OPENMP)
 #   pragma omp for LIBXS_OPENMP_COLLAPSE(2) schedule(dynamic)
@@ -397,9 +404,6 @@ LIBXS_API_INLINE void gemm_oz1_diff(const char* transa, const char* transb,
 
           /* Track differences between original A block and reconstructed digits */
           if (NULL != diff && 1 == (diff_abc % 3)) {
-#if defined(_OPENMP)
-#           pragma omp critical
-#endif
             { for (mi = 0; mi < iblk; ++mi) {
                 const GEMM_INT_TYPE row = ib + mi;
                 for (kk = 0; kk < kblk; ++kk) {
@@ -414,15 +418,12 @@ LIBXS_API_INLINE void gemm_oz1_diff(const char* transa, const char* transb,
                     (GEMM_REAL_TYPE)aval, (GEMM_REAL_TYPE)arecon);
                 }
               }
-              accumulate_block_diff(diff, ref_blk, recon_blk, iblk, kblk, BLOCK_M, BLOCK_M);
+              accumulate_block_diff(&local_diff, ref_blk, recon_blk, iblk, kblk, BLOCK_M, BLOCK_M);
             }
           }
 
           /* Track differences between original B block and reconstructed digits */
           if (NULL != diff && 2 == (diff_abc % 3)) {
-#if defined(_OPENMP)
-#           pragma omp critical
-#endif
             { for (kk = 0; kk < kblk; ++kk) {
                 const GEMM_INT_TYPE p = kb + kk;
                 for (nj = 0; nj < jblk; ++nj) {
@@ -437,12 +438,13 @@ LIBXS_API_INLINE void gemm_oz1_diff(const char* transa, const char* transb,
                     (GEMM_REAL_TYPE)bval, (GEMM_REAL_TYPE)brecon);
                 }
               }
-              accumulate_block_diff(diff, ref_blk, recon_blk, kblk, jblk, BLOCK_K, BLOCK_K);
+              accumulate_block_diff(&local_diff, ref_blk, recon_blk, kblk, jblk, BLOCK_K, BLOCK_K);
             }
           }
 
           /* Transpose am/bm into k-contiguous layout for dot product */
           for (mi = 0; mi < iblk; ++mi) {
+            LIBXS_PRAGMA_LOOP_COUNT(1, MAX_NSLICES, NSLICES_DEFAULT)
             for (slice_a = 0; slice_a < nslices; ++slice_a) {
               for (kk = 0; kk < BLOCK_K; ++kk) {
                 ak[mi][slice_a][kk] = am[mi][kk][slice_a];
@@ -450,6 +452,7 @@ LIBXS_API_INLINE void gemm_oz1_diff(const char* transa, const char* transb,
             }
           }
           for (nj = 0; nj < jblk; ++nj) {
+            LIBXS_PRAGMA_LOOP_COUNT(1, MAX_NSLICES, NSLICES_DEFAULT)
             for (slice_b = 0; slice_b < nslices; ++slice_b) {
               for (kk = 0; kk < BLOCK_K; ++kk) {
                 bk[nj][slice_b][kk] = bm[kk][nj][slice_b];
@@ -524,9 +527,6 @@ LIBXS_API_INLINE void gemm_oz1_diff(const char* transa, const char* transb,
         /* compute reference GEMM on the saved block and accumulate diff */
         if (NULL != diff && 0 == (diff_abc % 3)) {
           const GEMM_INT_TYPE mref = BLOCK_M;
-#if defined(_OPENMP)
-#         pragma omp critical
-#endif
           { if (NULL != gemm_original) {
               gemm_original(transa, transb, &iblk, &jblk, &K, alpha,
                 a + LIBXS_INDEX(ta, *lda, ib, 0), lda,
@@ -537,11 +537,17 @@ LIBXS_API_INLINE void gemm_oz1_diff(const char* transa, const char* transb,
                 a + LIBXS_INDEX(ta, *lda, ib, 0), lda,
                 b + LIBXS_INDEX(tb, *ldb, 0, jb), ldb, beta, ref_blk, &mref);
             }
-            accumulate_block_diff(diff, ref_blk, mb, iblk, jblk, mref, ldcv);
+            accumulate_block_diff(&local_diff, ref_blk, mb, iblk, jblk, mref, ldcv);
           }
         }
       }
     } /* end parallel for */
+    if (NULL != diff) {
+#if defined(_OPENMP)
+#     pragma omp critical
+#endif
+      libxs_matdiff_reduce(diff, &local_diff);
+    }
   } /* end parallel */
 }
 
