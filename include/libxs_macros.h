@@ -703,6 +703,9 @@
    !defined(__CYGWIN__) && !defined(__MINGW32__) && !defined(_WIN32)
 # define LIBXS_ATTRIBUTE_WEAK_IMPORT LIBXS_ATTRIBUTE(weak_import)
 # define LIBXS_ATTRIBUTE_WEAK LIBXS_ATTRIBUTE(weak)
+#elif defined(_WIN32) && !defined(LIBXS_PLATFORM_AARCH64)
+# define LIBXS_ATTRIBUTE_WEAK LIBXS_ATTRIBUTE(selectany)
+# define LIBXS_ATTRIBUTE_WEAK_IMPORT
 #else
 # define LIBXS_ATTRIBUTE_WEAK
 # define LIBXS_ATTRIBUTE_WEAK_IMPORT
