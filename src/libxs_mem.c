@@ -146,7 +146,7 @@ unsigned char internal_diff_avx2(const void* a, const void* b, unsigned char siz
 LIBXS_API_INLINE LIBXS_INTRINSICS(LIBXS_X86_AVX512)
 unsigned char internal_diff_avx512(const void* a, const void* b, unsigned char size)
 {
-#if defined(LIBXS_INTRINSICS_AVX512_SKX) && !defined(LIBXS_MEM_SW)
+#if defined(LIBXS_INTRINSICS_AVX512) && !defined(LIBXS_MEM_SW)
   const uint8_t *const a8 = (const uint8_t*)a, *const b8 = (const uint8_t*)b;
   unsigned char i;
   LIBXS_PRAGMA_UNROLL/*_N(2)*/
@@ -228,7 +228,7 @@ int internal_memcmp_avx2(const void* a, const void* b, size_t size)
 LIBXS_API_INLINE LIBXS_INTRINSICS(LIBXS_X86_AVX512)
 int internal_memcmp_avx512(const void* a, const void* b, size_t size)
 {
-#if defined(LIBXS_INTRINSICS_AVX512_SKX) && !defined(LIBXS_MEM_SW)
+#if defined(LIBXS_INTRINSICS_AVX512) && !defined(LIBXS_MEM_SW)
   const uint8_t *const a8 = (const uint8_t*)a, *const b8 = (const uint8_t*)b;
   size_t i;
   LIBXS_DIFF_AVX512_DECL(aa);

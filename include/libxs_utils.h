@@ -145,10 +145,6 @@
 #   if !defined(LIBXS_MAX_STATIC_TARGET_ARCH)
 #     error "LIBXS_MAX_STATIC_TARGET_ARCH not defined!"
 #   endif
-#   if defined(LIBXS_TARGET_ARCH) && (LIBXS_TARGET_ARCH < LIBXS_MAX_STATIC_TARGET_ARCH)
-#     undef LIBXS_MAX_STATIC_TARGET_ARCH
-#     define LIBXS_MAX_STATIC_TARGET_ARCH LIBXS_TARGET_ARCH
-#   endif
 #   if defined(LIBXS_INTRINSICS_INCLUDE) && !defined(LIBXS_INTRINSICS_NONE)
 #     include <immintrin.h>
 #   endif /*defined(LIBXS_INTRINSICS_INCLUDE)*/
@@ -178,7 +174,7 @@
 #         define LIBXS_ATTRIBUTE_TARGET_1006 LIBXS_ATTRIBUTE_TARGET_1005
 #       endif
 #       if (LIBXS_X86_AVX512 <= LIBXS_MAX_STATIC_TARGET_ARCH)
-#         define LIBXS_ATTRIBUTE_TARGET_1100 target("avx2,fma,avx512f,avx512cd")
+#         define LIBXS_ATTRIBUTE_TARGET_1100 target("avx2,fma,avx512f,avx512cd,avx512dq,avx512bw,avx512vl,avx512vnni")
 #       else /* LIBXS_X86_AVX2 */
 #         define LIBXS_ATTRIBUTE_TARGET_1100 LIBXS_ATTRIBUTE_TARGET_1006
 #       endif
