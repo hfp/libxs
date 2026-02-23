@@ -73,6 +73,35 @@ LIBXS_API_INLINE unsigned int oz2_mod(uint32_t x, int pidx)
   return (unsigned int)r;
 }
 
+/* Radix-2^18 power tables for oz2_mod64(): split a 53-bit mantissa
+ * into three 18-bit chunks (a0, a1, a2) and recombine mod p as
+ *   (a2 * pow36[i] + a1 * pow18[i] + a0) mod p
+ * using the existing 32-bit Barrett oz2_mod(). Max sum < 2^27. */
+static const uint32_t oz2_pow18[] = {
+  100U /* 251 */, 177U /* 241 */, 200U /* 239 */,  19U /* 233 */,
+  168U /* 229 */, 186U /* 227 */, 119U /* 223 */,  82U /* 211 */,
+   61U /* 199 */, 134U /* 197 */,  50U /* 193 */,  92U /* 191 */,
+   56U /* 181 */,  88U /* 179 */,  49U /* 173 */, 121U /* 167 */
+};
+static const uint32_t oz2_pow36[] = {
+  211U /* 251 */, 240U /* 241 */,  87U /* 239 */, 128U /* 233 */,
+   57U /* 229 */,  92U /* 227 */, 112U /* 223 */, 183U /* 211 */,
+  139U /* 199 */,  29U /* 197 */, 184U /* 193 */,  60U /* 191 */,
+   59U /* 181 */,  47U /* 179 */, 152U /* 173 */, 112U /* 167 */
+};
+
+/** Fast 64-bit modular reduction: x mod oz2_primes[pidx].
+ *  Radix-2^18 decomposition avoids 64-bit hardware div (~40 cycles)
+ *  using only 32-bit Barrett reduction (~15 cycles total).
+ *  Valid for x < 2^54 (covers double mantissa 2^53). */
+LIBXS_API_INLINE unsigned int oz2_mod64(uint64_t x, int pidx)
+{
+  const uint32_t a0 = (uint32_t)(x & 0x3FFFFU);
+  const uint32_t a1 = (uint32_t)((x >> 18) & 0x3FFFFU);
+  const uint32_t a2 = (uint32_t)(x >> 36);
+  return oz2_mod(a2 * oz2_pow36[pidx] + a1 * oz2_pow18[pidx] + a0, pidx);
+}
+
 /* Number of (mi,nj) elements processed in one Garner reconstruction batch.
  * Batching exposes data-parallelism across independent elements so the
  * compiler can auto-vectorize the per-element Garner inner loop. */
@@ -188,7 +217,7 @@ LIBXS_API_INLINE void oz2_reduce(uint64_t mantissa, int delta,
   }
   LIBXS_PRAGMA_LOOP_COUNT(1, OZ2_MAX_NPRIMES, OZ2_NPRIMES_DEFAULT)
   for (i = 0; i < nprimes; ++i) {
-    residues[i] = (uint8_t)(mantissa % oz2_primes[i]);
+    residues[i] = (uint8_t)oz2_mod64(mantissa, i);
   }
 }
 
