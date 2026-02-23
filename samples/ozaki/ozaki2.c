@@ -9,8 +9,8 @@
 #include "ozaki.h"
 
 #if GEMM_IS_DOUBLE
-# define OZ2_MAX_NPRIMES    16
-# define OZ2_NPRIMES_DEFAULT 16
+# define OZ2_MAX_NPRIMES     16
+# define OZ2_NPRIMES_DEFAULT 15
 #else /* single-precision */
 # define OZ2_MAX_NPRIMES    10
 # define OZ2_NPRIMES_DEFAULT 7
@@ -40,7 +40,7 @@
  * fit in uint8 and products (< 256^2) fit in uint32. The product
  * P = prod(p_i) must exceed 2 * BLOCK_K * (2^(MANT+1))^2 to represent
  * signed dot products without aliasing.
- * Double (53b mantissa, BLOCK_K=16): need P > 2^111 -> 16 primes (2^124).
+ * Double (53b mantissa, BLOCK_K=16): need P > 2^111 -> 15 primes (2^116).
  * Float  (24b mantissa, BLOCK_K=16): need P > 2^53  -> 7  primes (2^55). */
 static const unsigned int oz2_primes[] = {
   251, 241, 239, 233, 229, 227, 223, 211,

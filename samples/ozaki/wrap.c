@@ -16,31 +16,31 @@
  * The generated function resolves the original BLAS symbol via dlsym
  * on first call (LD_PRELOAD path) and caches the function pointer.
  */
-#define GEMM_DEFINE_DLSYM(FUNC, SYMBOL, FTYPE, ORIGPTR)                     \
-LIBXS_API_INTERN LIBXS_ATTRIBUTE_WEAK void FUNC(GEMM_ARGDECL)              \
-{                                                                            \
-  if (NULL == ORIGPTR) {                                                     \
-    union { const void* pfin; FTYPE pfout; } wrapper;                        \
-    static volatile LIBXS_ATOMIC_LOCKTYPE lock = 0;                          \
+#define GEMM_DEFINE_DLSYM(FUNC, SYMBOL, FTYPE, ORIGPTR) \
+LIBXS_API_INTERN LIBXS_ATTRIBUTE_WEAK void FUNC(GEMM_ARGDECL) \
+{ \
+  if (NULL == ORIGPTR) { \
+    union { const void* pfin; FTYPE pfout; } wrapper; \
+    static volatile LIBXS_ATOMIC_LOCKTYPE lock = 0; \
     LIBXS_ATOMIC_ACQUIRE(&lock, LIBXS_SYNC_NPAUSE, LIBXS_ATOMIC_LOCKORDER); \
-    if (NULL == ORIGPTR) {                                                   \
-      dlerror();                                                             \
-      wrapper.pfin = dlsym(LIBXS_RTLD_NEXT, LIBXS_STRINGIFY(SYMBOL));       \
-      if (NULL == dlerror() && NULL != wrapper.pfout) {                      \
-        ORIGPTR = wrapper.pfout;                                             \
-      }                                                                      \
-    }                                                                        \
-    LIBXS_ATOMIC_RELEASE(&lock, LIBXS_ATOMIC_LOCKORDER);                    \
-  }                                                                          \
-  if (NULL != ORIGPTR) {                                                     \
-    ORIGPTR(GEMM_ARGPASS);                                                   \
-  }                                                                          \
-  else {                                                                     \
+    if (NULL == ORIGPTR) { \
+      dlerror(); \
+      wrapper.pfin = dlsym(LIBXS_RTLD_NEXT, LIBXS_STRINGIFY(SYMBOL)); \
+      if (NULL == dlerror() && NULL != wrapper.pfout) { \
+        ORIGPTR = wrapper.pfout; \
+      } \
+    } \
+    LIBXS_ATOMIC_RELEASE(&lock, LIBXS_ATOMIC_LOCKORDER); \
+  } \
+  if (NULL != ORIGPTR) { \
+    ORIGPTR(GEMM_ARGPASS); \
+  } \
+  else { \
     fprintf(stderr, "ERROR: incorrect linkage against libwrap discovered!\n" \
-                    "       link statically with -Wl,--wrap="                \
-                    LIBXS_STRINGIFY(SYMBOL) ",\n"                            \
-                    "       or use LD_PRELOAD=/path/to/libwrap.so\n");       \
-  }                                                                          \
+                    "       link statically with -Wl,--wrap=" \
+                    LIBXS_STRINGIFY(SYMBOL) ",\n" \
+                    "       or use LD_PRELOAD=/path/to/libwrap.so\n"); \
+  } \
 }
 
 /** Resolve original real GEMM via dlsym (dgemm_ or sgemm_). */

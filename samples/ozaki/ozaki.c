@@ -55,7 +55,7 @@
 /* Scheme 2 (CRT) limits */
 #if GEMM_IS_DOUBLE
 # define OZ2_MAX_NPRIMES     16
-# define OZ2_NPRIMES_DEFAULT 16
+# define OZ2_NPRIMES_DEFAULT 15
 #else
 # define OZ2_MAX_NPRIMES     10
 # define OZ2_NPRIMES_DEFAULT  7

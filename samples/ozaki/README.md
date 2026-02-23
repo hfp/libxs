@@ -63,7 +63,7 @@ GEMM_OZFLAGS=3 ./gemm-wrap.x 256    # triangular + symmetrize, no reverse pass
 
 Scheme 2 (`GEMM_OZAKI=2`) uses modular arithmetic instead of mantissa slicing. Each matrix element is reduced modulo a set of small primes (all < 256) so that residues fit in uint8 and pairwise products fit in uint32. GEMM is performed independently modulo each prime, and the exact integer result is recovered via the Chinese Remainder Theorem (Garner's algorithm). Because the work is linear in the number of primes — versus quadratic in the number of slices for Scheme 1 — Scheme 2 can be more efficient when many primes/slices are needed.
 
-The number of primes can be set at runtime via `GEMM_OZN`. The default and maximum vary by precision (double: default 16, max 16; float: default 7, max 10). The product of all selected primes must exceed the maximum possible dot-product magnitude to avoid aliasing.
+The number of primes can be set at runtime via `GEMM_OZN`. The default and maximum vary by precision (double: default 15, max 16; float: default 7, max 10). The product of all selected primes must exceed the maximum possible dot-product magnitude to avoid aliasing.
 
 Example:
 
@@ -76,7 +76,7 @@ GEMM_OZAKI=2 ./gemm-wrap.x 256    # use CRT scheme
 | Variable | Default | Description |
 |----------|:-------:|-------------|
 | `GEMM_OZAKI` | 1 | Scheme selector: 0 = bypass (call original BLAS directly), 1 = Scheme 1 (mantissa slicing), 2 = Scheme 2 (CRT). |
-| `GEMM_OZN` | *per scheme* | Number of decomposition units: slices for Scheme 1 (double: 1..16, default 8; float: 1..8, default 4) or primes for Scheme 2 (double: 1..16, default 16; float: 1..10, default 7). |
+| `GEMM_OZN` | *per scheme* | Number of decomposition units: slices for Scheme 1 (double: 1..16, default 8; float: 1..8, default 4) or primes for Scheme 2 (double: 1..16, default 15; float: 1..10, default 7). |
 | `GEMM_OZFLAGS` | 15 | Scheme 1 bitmask: Triangular (1), Symmetrize (2), Reverse pass (4), Trim forward (8); see above. |
 | `GEMM_EPS` | inf | Dump A/B matrices as MHD-files when the epsilon error exceeds the given threshold (implies `GEMM_VERBOSE=1` if unset). |
 | `GEMM_VERBOSE` | 0 | 0&#160;=&#160;silent; 1&#160;=&#160;print accumulated statistic at exit; *N*&#160;=&#160;print every *N*th GEMM call. |
