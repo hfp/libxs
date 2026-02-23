@@ -45,7 +45,7 @@
 #endif
 #if !defined(NSLICES_DEFAULT)
 # if GEMM_IS_DOUBLE
-#   define NSLICES_DEFAULT 8
+#   define NSLICES_DEFAULT 5
 # else
 #   define NSLICES_DEFAULT 4
 # endif
