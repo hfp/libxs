@@ -47,6 +47,39 @@ static const unsigned int oz2_primes[] = {
   199, 197, 193, 191, 181, 179, 173, 167
 };
 
+/* Barrett reciprocals: oz2_rcp[i] = floor(2^32 / oz2_primes[i]).
+ * Used by oz2_mod() to replace expensive hardware integer division
+ * (idiv ~25 cycles) with a multiply-shift (~5 cycles). */
+static const uint32_t oz2_rcp[] = {
+  (uint32_t)(0x100000000ULL / 251), (uint32_t)(0x100000000ULL / 241),
+  (uint32_t)(0x100000000ULL / 239), (uint32_t)(0x100000000ULL / 233),
+  (uint32_t)(0x100000000ULL / 229), (uint32_t)(0x100000000ULL / 227),
+  (uint32_t)(0x100000000ULL / 223), (uint32_t)(0x100000000ULL / 211),
+  (uint32_t)(0x100000000ULL / 199), (uint32_t)(0x100000000ULL / 197),
+  (uint32_t)(0x100000000ULL / 193), (uint32_t)(0x100000000ULL / 191),
+  (uint32_t)(0x100000000ULL / 181), (uint32_t)(0x100000000ULL / 179),
+  (uint32_t)(0x100000000ULL / 173), (uint32_t)(0x100000000ULL / 167)
+};
+
+/** Fast modular reduction: x mod oz2_primes[pidx].
+ *  Barrett reduction: one 64-bit multiply + shift replaces hardware div.
+ *  Valid for x < 2^32 (covers dot sums < BLOCK_K*255^2 and Garner products). */
+LIBXS_API_INLINE unsigned int oz2_mod(uint32_t x, int pidx)
+{
+  const uint32_t p = (uint32_t)oz2_primes[pidx];
+  const uint32_t q = (uint32_t)(((uint64_t)x * oz2_rcp[pidx]) >> 32);
+  uint32_t r = x - q * p;
+  if (r >= p) r -= p;
+  return (unsigned int)r;
+}
+
+/* Number of (mi,nj) elements processed in one Garner reconstruction batch.
+ * Batching exposes data-parallelism across independent elements so the
+ * compiler can auto-vectorize the per-element Garner inner loop. */
+#if !defined(OZ2_BATCH)
+# define OZ2_BATCH 4
+#endif
+
 
 /*=== Block-level helpers (duplicated from ozaki1.c for TU independence) =====*/
 
@@ -280,13 +313,13 @@ LIBXS_API_INLINE double oz2_reconstruct(
   LIBXS_PRAGMA_LOOP_COUNT(1, OZ2_MAX_NPRIMES, OZ2_NPRIMES_DEFAULT)
   for (i = 0; i < nprimes; ++i) {
     unsigned int u = residues[i];
+    const unsigned int pi = oz2_primes[i];
     for (j = 0; j < i; ++j) {
-      const unsigned int pi = oz2_primes[i];
-      /* v[j] was computed mod p_j which may exceed p_i (primes are
-       * sorted descending), so reduce before subtraction. */
-      const unsigned int vj = v[j] % pi;
+      /* v[j] < p_j; since primes are descending and close (167..251),
+       * at most one conditional subtract replaces v[j] % pi. */
+      const unsigned int vj = (v[j] < pi) ? v[j] : (v[j] - pi);
       const unsigned int diff = (u >= vj) ? (u - vj) : (pi + u - vj);
-      u = (diff * garner_inv[j][i]) % pi;
+      u = oz2_mod(diff * garner_inv[j][i], i);
     }
     v[i] = u;
   }
@@ -339,11 +372,11 @@ LIBXS_API_INLINE uint64_t oz2_reconstruct_mantissa(
   LIBXS_PRAGMA_LOOP_COUNT(1, OZ2_MAX_NPRIMES, OZ2_NPRIMES_DEFAULT)
   for (i = 0; i < nprimes; ++i) {
     unsigned int u = (unsigned int)residues[i];
+    const unsigned int pi = oz2_primes[i];
     for (j = 0; j < i; ++j) {
-      const unsigned int pi = oz2_primes[i];
-      const unsigned int vj = v[j] % pi;
+      const unsigned int vj = (v[j] < pi) ? v[j] : (v[j] - pi);
       const unsigned int diff = (u >= vj) ? (u - vj) : (pi + u - vj);
-      u = (diff * garner_inv[j][i]) % pi;
+      u = oz2_mod(diff * garner_inv[j][i], i);
     }
     v[i] = u;
   }
@@ -355,6 +388,56 @@ LIBXS_API_INLINE uint64_t oz2_reconstruct_mantissa(
     result = result * (uint64_t)oz2_primes[i] + (uint64_t)v[i];
   }
   return result;
+}
+
+
+/** Batched CRT reconstruction: process OZ2_BATCH elements in parallel
+ *  through Garner's algorithm. The innermost loop over batch elements
+ *  is data-parallel, enabling auto-vectorization. */
+LIBXS_API_INLINE void oz2_reconstruct_batch(
+  unsigned int batch_res[OZ2_BATCH][OZ2_MAX_NPRIMES],
+  unsigned int garner_inv[OZ2_MAX_NPRIMES][OZ2_MAX_NPRIMES],
+  int nprimes, int bsz, double result[OZ2_BATCH])
+{
+  unsigned int v[OZ2_BATCH][OZ2_MAX_NPRIMES];
+  unsigned int u[OZ2_BATCH];
+  int i, j, bi;
+  nprimes = LIBXS_CLMP(nprimes, 1, OZ2_MAX_NPRIMES);
+
+  /* Garner's algorithm: vectorized across batch elements */
+  LIBXS_PRAGMA_LOOP_COUNT(1, OZ2_MAX_NPRIMES, OZ2_NPRIMES_DEFAULT)
+  for (i = 0; i < nprimes; ++i) {
+    const unsigned int pi = oz2_primes[i];
+    for (bi = 0; bi < bsz; ++bi) u[bi] = batch_res[bi][i];
+
+    for (j = 0; j < i; ++j) {
+      const unsigned int inv_ji = garner_inv[j][i];
+      for (bi = 0; bi < bsz; ++bi) {
+        const unsigned int vj = (v[bi][j] < pi) ? v[bi][j] : (v[bi][j] - pi);
+        const unsigned int diff = (u[bi] >= vj) ? (u[bi] - vj) : (pi + u[bi] - vj);
+        u[bi] = oz2_mod(diff * inv_ji, i);
+      }
+    }
+
+    for (bi = 0; bi < bsz; ++bi) v[bi][i] = u[bi];
+  }
+
+  /* Sign detection, complement, Horner — per element */
+  for (bi = 0; bi < bsz; ++bi) {
+    const int is_negative = (v[bi][nprimes - 1]
+      >= (oz2_primes[nprimes - 1] + 1) / 2) ? 1 : 0;
+    double r;
+    if (0 != is_negative) {
+      for (i = 0; i < nprimes; ++i) {
+        v[bi][i] = oz2_primes[i] - 1 - v[bi][i];
+      }
+    }
+    r = (double)v[bi][nprimes - 1];
+    for (i = nprimes - 2; i >= 0; --i) {
+      r = r * (double)oz2_primes[i] + (double)v[bi][i];
+    }
+    result[bi] = (0 != is_negative) ? -(r + 1.0) : r;
+  }
 }
 
 
@@ -508,47 +591,55 @@ LIBXS_API_INLINE void gemm_oz2_diff(const char* transa, const char* transb,
           }
 
           /* CRT dot products: for each (i,j) pair, compute the dot product
-           * modulo each prime, then reconstruct via CRT. This is *linear*
-           * in nprimes (vs quadratic in nslices for Scheme 1). */
+           * modulo each prime, then reconstruct via CRT. Batching across
+           * nj exposes data-parallelism for auto-vectorized Garner. */
           for (mi = 0; mi < iblk; ++mi) {
-            for (nj = 0; nj < jblk; ++nj) {
-              unsigned int dot_residues[OZ2_MAX_NPRIMES];
-              int8_t csign[BLOCK_K]; /* combined sign per k */
-              double dot_value, contrib;
-              int sh;
+            for (nj = 0; nj < jblk; nj += OZ2_BATCH) {
+              const GEMM_INT_TYPE bsz = LIBXS_MIN(OZ2_BATCH,
+                (int)(jblk - nj));
+              unsigned int batch_res[OZ2_BATCH][OZ2_MAX_NPRIMES];
+              double batch_val[OZ2_BATCH];
+              int bi;
 
-              /* Precompute combined sign = sign_a * sign_b per k element */
-              for (kk = 0; kk < kblk; ++kk) {
-                csign[kk] = (int8_t)(ak_sign[mi][kk] * bk_sign[nj][kk]);
-              }
+              for (bi = 0; bi < (int)bsz; ++bi) {
+                const int col = (int)nj + bi;
 
-              /* For each prime: accumulate unsigned positive/negative partial
-               * sums separately, then combine modularly (avoids signed % in
-               * C89 where the result is implementation-defined). */
-              LIBXS_PRAGMA_LOOP_COUNT(1, OZ2_MAX_NPRIMES, OZ2_NPRIMES_DEFAULT)
-              for (pidx = 0; pidx < nprimes; ++pidx) {
-                const unsigned int p = oz2_primes[pidx];
-                uint32_t pos_sum = 0, neg_sum = 0;
-                for (kk = 0; kk < kblk; ++kk) {
-                  const uint32_t prod = (uint32_t)ak[mi][pidx][kk]
-                                      * (uint32_t)bk[nj][pidx][kk];
-                  if (csign[kk] > 0) pos_sum += prod;
-                  else neg_sum += prod;
+                /* Branchless sign accumulation + Barrett reduction */
+                LIBXS_PRAGMA_LOOP_COUNT(1, OZ2_MAX_NPRIMES, OZ2_NPRIMES_DEFAULT)
+                for (pidx = 0; pidx < nprimes; ++pidx) {
+                  uint32_t pos_sum = 0, neg_sum = 0;
+                  uint32_t pr, nr;
+                  for (kk = 0; kk < kblk; ++kk) {
+                    const uint32_t prod = (uint32_t)ak[mi][pidx][kk]
+                                        * (uint32_t)bk[col][pidx][kk];
+                    /* Branchless: sign bit of (sign_a * sign_b) gives mask */
+                    const int32_t s = (int32_t)ak_sign[mi][kk]
+                                    * (int32_t)bk_sign[col][kk];
+                    const uint32_t neg = (uint32_t)(s >> 31);
+                    pos_sum += prod & ~neg;
+                    neg_sum += prod &  neg;
+                  }
+                  /* 2 Barrett mods + conditional subtract (was 3 divisions) */
+                  pr = (uint32_t)oz2_mod(pos_sum, pidx);
+                  nr = (uint32_t)oz2_mod(neg_sum, pidx);
+                  batch_res[bi][pidx] = (pr >= nr)
+                    ? (pr - nr) : ((uint32_t)oz2_primes[pidx] + pr - nr);
                 }
-                dot_residues[pidx] = (unsigned int)(
-                  (pos_sum % p + p - neg_sum % p) % p);
               }
 
-              /* CRT reconstruction -> signed double */
-              dot_value = oz2_reconstruct(dot_residues, garner_inv, nprimes);
+              /* Batched CRT reconstruction -> signed doubles */
+              oz2_reconstruct_batch(batch_res, garner_inv, nprimes,
+                (int)bsz, batch_val);
 
-              /* Apply exponent scale and alpha.
-               * shift = exp_row + exp_col - 2*BIAS_PLUS_MANT covers the
-               * full mantissa range (no per-slice offset like Scheme 1). */
-              sh = (int)expa_row[mi] + (int)expb_col[nj]
-                 - (2 * OZ2_BIAS_PLUS_MANT);
-              contrib = (*alpha) * dot_value * libxs_pow2(sh);
-              mb[mi + nj * ldcv] += (GEMM_REAL_TYPE)contrib;
+              /* Apply exponent scale and alpha */
+              for (bi = 0; bi < (int)bsz; ++bi) {
+                const int col = (int)nj + bi;
+                const int sh = (int)expa_row[mi] + (int)expb_col[col]
+                   - (2 * OZ2_BIAS_PLUS_MANT);
+                const double contrib = (*alpha) * batch_val[bi]
+                   * libxs_pow2(sh);
+                mb[mi + col * ldcv] += (GEMM_REAL_TYPE)contrib;
+              }
             }
           }
         } /* end kb loop */
