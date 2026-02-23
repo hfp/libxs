@@ -104,7 +104,7 @@ LIBXS_API_INTERN void libxs_cpuid_model(char model[], size_t* model_size)
         if (0 == *model_size && 0 == sysctlbyname(LIBXS_CPUID_SYSCTL_BYNAME, model, &size, NULL, 0)
           && 0 != size)
         {
-          *model_size = size;
+          *model_size = strlen(model);
         }
 # endif
 #endif
@@ -261,7 +261,7 @@ LIBXS_API int libxs_cpuid(libxs_cpuid_info_t* info)
 #elif defined(LIBXS_PLATFORM_RV64)
   return libxs_cpuid_rv64(info);
 #else
-  memset(info, 0, sizeof(info));
+  if (NULL != info) memset(info, 0, sizeof(*info));
   return LIBXS_TARGET_ARCH_UNKNOWN;
 #endif
 }
@@ -356,13 +356,13 @@ LIBXS_API int libxs_cpuid_id(const char* arch)
   else if (strcmp(arch, "sse3") == 0) {
     target_archid = LIBXS_X86_SSE3;
   }
-  else if (strcmp(arch, "x86") == 0|| strcmp(arch, "x86_64") == 0
+  else if (strcmp(arch, "x86") == 0 || strcmp(arch, "x86_64") == 0
           || strcmp(arch, "x64") == 0 || strcmp(arch, "sse2") == 0
           || strcmp(arch, "sse") == 0)
   {
     target_archid = LIBXS_X86_GENERIC;
   }
-  else if  (strcmp(arch, "arm") == 0 || strcmp(arch, "arm64") == 0
+  else if (strcmp(arch, "arm") == 0 || strcmp(arch, "arm64") == 0
         || strcmp(arch, "arm_v81") == 0
         || strcmp(arch, "aarch64") == 0)
   {
@@ -399,11 +399,11 @@ LIBXS_API int libxs_cpuid_id(const char* arch)
 LIBXS_API int libxs_cpuid_vlen(int id)
 {
   int result;
-  if (LIBXS_RV64_MVL128 == id)
+  if (LIBXS_RV64_MVL128 == id || LIBXS_RV64_MVL128_LMUL == id)
   {
     result = 16;
   }
-  else if (LIBXS_RV64_MVL256 == id)
+  else if (LIBXS_RV64_MVL256 == id || LIBXS_RV64_MVL256_LMUL == id)
   {
     result = 32;
   }
