@@ -695,23 +695,3 @@ LIBXS_API_INTERN int libxs_print_cmdline(void* buffer, size_t buffer_size, const
   }
   return result;
 }
-
-
-#if defined(LIBXS_BUILD) && (!defined(LIBXS_NOFORTRAN) || defined(__clang_analyzer__))
-
-/* implementation provided for Fortran 77 compatibility */
-LIBXS_API void LIBXS_FSYMBOL(libxs_init)(void);
-LIBXS_API void LIBXS_FSYMBOL(libxs_init)(void)
-{
-  libxs_init();
-}
-
-
-/* implementation provided for Fortran 77 compatibility */
-LIBXS_API void LIBXS_FSYMBOL(libxs_finalize)(void);
-LIBXS_API void LIBXS_FSYMBOL(libxs_finalize)(void)
-{
-  libxs_finalize();
-}
-
-#endif /*defined(LIBXS_BUILD) && (!defined(LIBXS_NOFORTRAN) || defined(__clang_analyzer__))*/

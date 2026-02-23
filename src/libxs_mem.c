@@ -765,48 +765,4 @@ LIBXS_API void LIBXS_FSYMBOL(libxs_xdiff)(int* result, const void* a, const void
 #endif
 }
 
-
-/* implementation provided for Fortran 77 compatibility */
-LIBXS_API void LIBXS_FSYMBOL(libxs_xclear)(void* /*dst*/, const int* /*size*/);
-LIBXS_API void LIBXS_FSYMBOL(libxs_xclear)(void* dst, const int* size)
-{
-#if !defined(NDEBUG)
-  static int error_once = 0;
-  if (NULL != dst && NULL != size && 0 <= *size && 128 > *size)
-#endif
-  { const int s = *size;
-    LIBXS_MEMSET(dst, 0, s);
-  }
-#if !defined(NDEBUG)
-  else if (1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED)) {
-    /*LIBXS_INIT*/
-    if (0 != libxs_verbosity) { /* library code is expected to be mute */
-      fprintf(stderr, "LIBXS ERROR: invalid arguments for libxs_xclear specified!\n");
-    }
-  }
-#endif
-}
-
-
-LIBXS_API void LIBXS_FSYMBOL(libxs_aligned)(int* /*result*/, const void* /*ptr*/, const int* /*inc*/, int* /*alignment*/);
-LIBXS_API void LIBXS_FSYMBOL(libxs_aligned)(int* result, const void* ptr, const int* inc, int* alignment)
-{
-#if !defined(NDEBUG)
-  static int error_once = 0;
-  if (NULL != result)
-#endif
-  {
-    const size_t next = (NULL != inc ? *inc : 0);
-    *result = libxs_aligned(ptr, &next, alignment);
-  }
-#if !defined(NDEBUG)
-  else if (1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED)) {
-    /*LIBXS_INIT*/
-    if (0 != libxs_verbosity) { /* library code is expected to be mute */
-      fprintf(stderr, "LIBXS ERROR: invalid arguments for libxs_aligned specified!\n");
-    }
-  }
-#endif
-}
-
 #endif /*defined(LIBXS_BUILD) && (!defined(LIBXS_NOFORTRAN) || defined(__clang_analyzer__))*/
