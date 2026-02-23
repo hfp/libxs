@@ -379,7 +379,9 @@ LIBXS_API_INLINE void gemm_oz2_diff(const char* transa, const char* transb,
   const GEMM_INT_TYPE M = *m, N = *n, K = *k;
   const GEMM_INT_TYPE ldcv = *ldc;
   const int nprimes = LIBXS_CLMP(gemm_ozn, 1, OZ2_MAX_NPRIMES);
+  libxs_matdiff_info_t tdiff[256];
   GEMM_INT_TYPE jb, ib;
+  int nthreads = 1;
   int i, j;
   LIBXS_ASSERT(LIBXS_DATATYPE_F64 == LIBXS_DATATYPE(GEMM_REAL_TYPE)
             || LIBXS_DATATYPE_F32 == LIBXS_DATATYPE(GEMM_REAL_TYPE));
@@ -408,11 +410,16 @@ LIBXS_API_INLINE void gemm_oz2_diff(const char* transa, const char* transb,
     GEMM_REAL_TYPE ref_blk[BLOCK_MNK], recon_blk[BLOCK_MNK];
     GEMM_INT_TYPE kb, mi, nj, kk;
     int pidx;
-    libxs_matdiff_info_t local_diff;
-    if (NULL != diff) libxs_matdiff_clear(&local_diff);
+    int tid = 0;
+#if defined(_OPENMP)
+    tid = omp_get_thread_num();
+#   pragma omp single
+    nthreads = omp_get_num_threads();
+#endif
+    if (NULL != diff) libxs_matdiff_clear(&tdiff[tid]);
 
 #if defined(_OPENMP)
-#   pragma omp for LIBXS_OPENMP_COLLAPSE(2) schedule(dynamic)
+#   pragma omp for LIBXS_OPENMP_COLLAPSE(2) schedule(static)
 #endif
     for (jb = 0; jb < N; jb += BLOCK_N) {
       for (ib = 0; ib < M; ib += BLOCK_M) {
@@ -433,48 +440,46 @@ LIBXS_API_INLINE void gemm_oz2_diff(const char* transa, const char* transb,
 
           /* Diff tracking for A decomposition (diff_abc == 1) */
           if (NULL != diff && 1 == (diff_abc % 3)) {
-            { for (mi = 0; mi < iblk; ++mi) {
-                const GEMM_INT_TYPE row = ib + mi;
-                for (kk = 0; kk < kblk; ++kk) {
-                  const GEMM_INT_TYPE p = kb + kk;
-                  const GEMM_REAL_TYPE aval = ((row < M && p < K)
-                    ? a[LIBXS_INDEX(ta, *lda, row, p)] : (GEMM_REAL_TYPE)0);
-                  const uint64_t mant_recon = oz2_reconstruct_mantissa(
-                    a_res[mi][kk], garner_inv, nprimes);
-                  const int sh = (int)expa_row[mi] - OZ2_BIAS_PLUS_MANT;
-                  const double arecon = (double)a_sign[mi][kk]
-                    * (double)mant_recon * libxs_pow2(sh);
+            for (mi = 0; mi < iblk; ++mi) {
+              const GEMM_INT_TYPE row = ib + mi;
+              for (kk = 0; kk < kblk; ++kk) {
+                const GEMM_INT_TYPE p = kb + kk;
+                const GEMM_REAL_TYPE aval = ((row < M && p < K)
+                  ? a[LIBXS_INDEX(ta, *lda, row, p)] : (GEMM_REAL_TYPE)0);
+                const uint64_t mant_recon = oz2_reconstruct_mantissa(
+                  a_res[mi][kk], garner_inv, nprimes);
+                const int sh = (int)expa_row[mi] - OZ2_BIAS_PLUS_MANT;
+                const double arecon = (double)a_sign[mi][kk]
+                  * (double)mant_recon * libxs_pow2(sh);
 
-                  oz2_store_block_pair(ref_blk, recon_blk, BLOCK_M, mi, kk,
-                    aval, (GEMM_REAL_TYPE)arecon);
-                }
+                oz2_store_block_pair(ref_blk, recon_blk, BLOCK_M, mi, kk,
+                  aval, (GEMM_REAL_TYPE)arecon);
               }
-              oz2_accumulate_block_diff(&local_diff, ref_blk, recon_blk,
-                iblk, kblk, BLOCK_M, BLOCK_M);
             }
+            oz2_accumulate_block_diff(&tdiff[tid], ref_blk, recon_blk,
+              iblk, kblk, BLOCK_M, BLOCK_M);
           }
 
           /* Diff tracking for B decomposition (diff_abc == 2) */
           if (NULL != diff && 2 == (diff_abc % 3)) {
-            { for (kk = 0; kk < kblk; ++kk) {
-                const GEMM_INT_TYPE p = kb + kk;
-                for (nj = 0; nj < jblk; ++nj) {
-                  const GEMM_INT_TYPE col = jb + nj;
-                  const GEMM_REAL_TYPE bval = ((p < K && col < N)
-                    ? b[LIBXS_INDEX(tb, *ldb, p, col)] : (GEMM_REAL_TYPE)0);
-                  const uint64_t mant_recon = oz2_reconstruct_mantissa(
-                    b_res[kk][nj], garner_inv, nprimes);
-                  const int sh = (int)expb_col[nj] - OZ2_BIAS_PLUS_MANT;
-                  const double brecon = (double)b_sign[kk][nj]
-                    * (double)mant_recon * libxs_pow2(sh);
+            for (kk = 0; kk < kblk; ++kk) {
+              const GEMM_INT_TYPE p = kb + kk;
+              for (nj = 0; nj < jblk; ++nj) {
+                const GEMM_INT_TYPE col = jb + nj;
+                const GEMM_REAL_TYPE bval = ((p < K && col < N)
+                  ? b[LIBXS_INDEX(tb, *ldb, p, col)] : (GEMM_REAL_TYPE)0);
+                const uint64_t mant_recon = oz2_reconstruct_mantissa(
+                  b_res[kk][nj], garner_inv, nprimes);
+                const int sh = (int)expb_col[nj] - OZ2_BIAS_PLUS_MANT;
+                const double brecon = (double)b_sign[kk][nj]
+                  * (double)mant_recon * libxs_pow2(sh);
 
-                  oz2_store_block_pair(ref_blk, recon_blk, BLOCK_K, kk, nj,
-                    bval, (GEMM_REAL_TYPE)brecon);
-                }
+                oz2_store_block_pair(ref_blk, recon_blk, BLOCK_K, kk, nj,
+                  bval, (GEMM_REAL_TYPE)brecon);
               }
-              oz2_accumulate_block_diff(&local_diff, ref_blk, recon_blk,
-                kblk, jblk, BLOCK_K, BLOCK_K);
             }
+            oz2_accumulate_block_diff(&tdiff[tid], ref_blk, recon_blk,
+              kblk, jblk, BLOCK_K, BLOCK_K);
           }
 
           /* Transpose a_res/b_res into k-contiguous layout for dot products,
@@ -561,19 +566,18 @@ LIBXS_API_INLINE void gemm_oz2_diff(const char* transa, const char* transb,
                 a + LIBXS_INDEX(ta, *lda, ib, 0), lda,
                 b + LIBXS_INDEX(tb, *ldb, 0, jb), ldb, beta, ref_blk, &mref);
             }
-            oz2_accumulate_block_diff(&local_diff, ref_blk, mb,
+            oz2_accumulate_block_diff(&tdiff[tid], ref_blk, mb,
               iblk, jblk, mref, ldcv);
           }
         }
       }
     } /* end parallel for */
-    if (NULL != diff) {
-#if defined(_OPENMP)
-#     pragma omp critical
-#endif
-      libxs_matdiff_reduce(diff, &local_diff);
-    }
   } /* end parallel */
+  if (NULL != diff) {
+    for (i = 0; i < nthreads; ++i) {
+      libxs_matdiff_reduce(diff, &tdiff[i]);
+    }
+  }
 }
 
 
