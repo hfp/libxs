@@ -193,6 +193,24 @@
 # define LIBXS_PRAGMA_OPTIMIZE_ON
 #endif
 
+/** Suppress pedantic diagnostics for compiler extensions (GCC/Clang). */
+#if defined(__GNUC__) || defined(__clang__)
+# define LIBXS_EXTENSION __extension__
+#else
+# define LIBXS_EXTENSION
+#endif
+
+/** 128-bit unsigned integer type.
+ * GCC/Clang provide unsigned __int128 on 64-bit targets.
+ * LIBXS_INT128 is defined when libxs_uint128_t is available. */
+#if !defined(LIBXS_INT128)
+# if defined(__SIZEOF_INT128__) || \
+    ((defined(__GNUC__) || defined(__clang__)) && (64 <= LIBXS_BITS))
+    LIBXS_EXTENSION typedef unsigned __int128 libxs_uint128_t;
+#   define LIBXS_INT128
+# endif
+#endif
+
 /** Evaluates to true if the value falls into the interval [LO, HI]. */
 #define LIBXS_IS_INTEGER(TYPE, VALUE, LO, HI) ( \
   ((LO) == (TYPE)(VALUE) || (LO) < (TYPE)(VALUE)) && LIBXS_MIN(1ULL*(VALUE),HI) <= (HI) && \

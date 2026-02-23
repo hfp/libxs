@@ -61,6 +61,20 @@ static const uint32_t oz2_rcp[] = {
   (uint32_t)(0x100000000ULL / 173), (uint32_t)(0x100000000ULL / 167)
 };
 
+#if defined(LIBXS_INT128)
+/* 64-bit Barrett reciprocals: oz2_rcp64[i] = floor(2^64 / oz2_primes[i]).
+ * Used by oz2_mod64() to replace 64-bit hardware division (~40 cycles)
+ * with a 128-bit multiply-shift (~5 cycles) in oz2_reduce(). */
+# define OZ2_RCP64(P) ((uint64_t)((libxs_uint128_t)1 << 64) / (P))
+static const uint64_t oz2_rcp64[] = {
+  OZ2_RCP64(251), OZ2_RCP64(241), OZ2_RCP64(239), OZ2_RCP64(233),
+  OZ2_RCP64(229), OZ2_RCP64(227), OZ2_RCP64(223), OZ2_RCP64(211),
+  OZ2_RCP64(199), OZ2_RCP64(197), OZ2_RCP64(193), OZ2_RCP64(191),
+  OZ2_RCP64(181), OZ2_RCP64(179), OZ2_RCP64(173), OZ2_RCP64(167)
+};
+# define OZ2_HAS_MOD64
+#endif
+
 /** Fast modular reduction: x mod oz2_primes[pidx].
  *  Barrett reduction: one 64-bit multiply + shift replaces hardware div.
  *  Valid for x < 2^32 (covers dot sums < BLOCK_K*255^2 and Garner products). */
@@ -73,11 +87,26 @@ LIBXS_API_INLINE unsigned int oz2_mod(uint32_t x, int pidx)
   return (unsigned int)r;
 }
 
+#if defined(OZ2_HAS_MOD64)
+/** Fast 64-bit modular reduction: x mod oz2_primes[pidx].
+ *  Barrett reduction via 128-bit multiply replaces 64-bit hardware div
+ *  (~40 cycles) with a multiply-shift (~5 cycles). Used in oz2_reduce()
+ *  for mantissa preprocessing (mantissa up to 2^53). */
+LIBXS_API_INLINE unsigned int oz2_mod64(uint64_t x, int pidx)
+{
+  const uint32_t p = (uint32_t)oz2_primes[pidx];
+  const uint64_t q = (uint64_t)(((libxs_uint128_t)x * oz2_rcp64[pidx]) >> 64);
+  uint32_t r = (uint32_t)(x - q * p);
+  if (r >= p) r -= p;
+  return (unsigned int)r;
+}
+#endif
+
 /* Number of (mi,nj) elements processed in one Garner reconstruction batch.
  * Batching exposes data-parallelism across independent elements so the
  * compiler can auto-vectorize the per-element Garner inner loop. */
 #if !defined(OZ2_BATCH)
-# define OZ2_BATCH 4
+# define OZ2_BATCH 16
 #endif
 
 
@@ -181,13 +210,18 @@ LIBXS_API_INLINE void oz2_reduce(uint64_t mantissa, int delta,
   uint8_t residues[OZ2_MAX_NPRIMES], int nprimes)
 {
   int i;
+  nprimes = LIBXS_CLMP(nprimes, 0, OZ2_MAX_NPRIMES);
   if (delta > 0) {
     if (delta >= 64) mantissa = 0;
     else mantissa >>= delta;
   }
   LIBXS_PRAGMA_LOOP_COUNT(1, OZ2_MAX_NPRIMES, OZ2_NPRIMES_DEFAULT)
   for (i = 0; i < nprimes; ++i) {
+#if defined(OZ2_HAS_MOD64)
+    residues[i] = (uint8_t)oz2_mod64(mantissa, i);
+#else
     residues[i] = (uint8_t)(mantissa % oz2_primes[i]);
+#endif
   }
 }
 
