@@ -392,7 +392,6 @@ LIBXS_API_INLINE void gemm_oz1_diff(const char* transa, const char* transb,
   const GEMM_INT_TYPE ldcv = *ldc;
   const int nslices = LIBXS_CLMP(gemm_ozn, 1, MAX_NSLICES);
   libxs_matdiff_info_t tdiff[256];
-  GEMM_INT_TYPE jb, ib;
   int nthreads = 1;
   int s;
   LIBXS_ASSERT(LIBXS_DATATYPE_F64 == LIBXS_DATATYPE(GEMM_REAL_TYPE)
@@ -413,7 +412,7 @@ LIBXS_API_INLINE void gemm_oz1_diff(const char* transa, const char* transb,
     int8_t bk[BLOCK_N][MAX_NSLICES][BLOCK_K]; /* k-contiguous for dot product */
     int16_t expa_row[BLOCK_M], expb_col[BLOCK_N];
     GEMM_REAL_TYPE ref_blk[BLOCK_MNK], recon_blk[BLOCK_MNK];
-    GEMM_INT_TYPE kb, mi, nj, kk;
+    GEMM_INT_TYPE kb, mi, nj, kk, jb, ib;
     int slice_a, slice_b;
     int tid = 0;
 #if defined(_OPENMP)

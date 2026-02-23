@@ -61,25 +61,6 @@ static const uint32_t oz2_rcp[] = {
   (uint32_t)(0x100000000ULL / 173), (uint32_t)(0x100000000ULL / 167)
 };
 
-#if defined(LIBXS_INT128)
-/* 64-bit Barrett reciprocals: oz2_rcp64[i] = floor(2^64 / oz2_primes[i]).
- * Used by oz2_mod64() to replace 64-bit hardware division (~40 cycles)
- * with a 128-bit multiply-shift (~5 cycles) in oz2_reduce().
- * Pre-computed literals because GCC does not constant-fold __int128
- * expressions in static initialisers (even at -O2). */
-static const uint64_t oz2_rcp64[] = {
-  0x0105197F7D734041ULL /* 251 */, 0x010FEF010FEF010FULL /* 241 */,
-  0x0112358E75D30336ULL /* 239 */, 0x0119453808CA29C0ULL /* 233 */,
-  0x011E2EF3B3FB8744ULL /* 229 */, 0x0120B470C67C0D88ULL /* 227 */,
-  0x0125E22708092F11ULL /* 223 */, 0x013698DF3DE07479ULL /* 211 */,
-  0x0149539E3B2D066EULL /* 199 */, 0x014CAB88725AF6E7ULL /* 197 */,
-  0x015390948F40FEACULL /* 193 */, 0x01571ED3C506B39AULL /* 191 */,
-  0x016A13CD15372904ULL /* 181 */, 0x016E1F76B4337C6CULL /* 179 */,
-  0x017AD2208E0ECC35ULL /* 173 */, 0x01886E5F0ABB0499ULL /* 167 */
-};
-# define OZ2_HAS_MOD64
-#endif
-
 /** Fast modular reduction: x mod oz2_primes[pidx].
  *  Barrett reduction: one 64-bit multiply + shift replaces hardware div.
  *  Valid for x < 2^32 (covers dot sums < BLOCK_K*255^2 and Garner products). */
@@ -91,21 +72,6 @@ LIBXS_API_INLINE unsigned int oz2_mod(uint32_t x, int pidx)
   if (r >= p) r -= p;
   return (unsigned int)r;
 }
-
-#if defined(OZ2_HAS_MOD64)
-/** Fast 64-bit modular reduction: x mod oz2_primes[pidx].
- *  Barrett reduction via 128-bit multiply replaces 64-bit hardware div
- *  (~40 cycles) with a multiply-shift (~5 cycles). Used in oz2_reduce()
- *  for mantissa preprocessing (mantissa up to 2^53). */
-LIBXS_API_INLINE unsigned int oz2_mod64(uint64_t x, int pidx)
-{
-  const uint32_t p = (uint32_t)oz2_primes[pidx];
-  const uint64_t q = (uint64_t)(((libxs_uint128_t)x * oz2_rcp64[pidx]) >> 64);
-  uint32_t r = (uint32_t)(x - q * p);
-  if (r >= p) r -= p;
-  return (unsigned int)r;
-}
-#endif
 
 /* Number of (mi,nj) elements processed in one Garner reconstruction batch.
  * Batching exposes data-parallelism across independent elements so the
@@ -222,11 +188,7 @@ LIBXS_API_INLINE void oz2_reduce(uint64_t mantissa, int delta,
   }
   LIBXS_PRAGMA_LOOP_COUNT(1, OZ2_MAX_NPRIMES, OZ2_NPRIMES_DEFAULT)
   for (i = 0; i < nprimes; ++i) {
-#if defined(OZ2_HAS_MOD64)
-    residues[i] = (uint8_t)oz2_mod64(mantissa, i);
-#else
     residues[i] = (uint8_t)(mantissa % oz2_primes[i]);
-#endif
   }
 }
 
@@ -502,7 +464,6 @@ LIBXS_API_INLINE void gemm_oz2_diff(const char* transa, const char* transb,
   const GEMM_INT_TYPE ldcv = *ldc;
   const int nprimes = LIBXS_CLMP(gemm_ozn, 1, OZ2_MAX_NPRIMES);
   libxs_matdiff_info_t tdiff[256];
-  GEMM_INT_TYPE jb, ib;
   int nthreads = 1;
   int i, j;
   LIBXS_ASSERT(LIBXS_DATATYPE_F64 == LIBXS_DATATYPE(GEMM_REAL_TYPE)
@@ -530,7 +491,7 @@ LIBXS_API_INLINE void gemm_oz2_diff(const char* transa, const char* transb,
     int8_t  ak_sign[BLOCK_M][BLOCK_K], bk_sign[BLOCK_N][BLOCK_K];
     int16_t expa_row[BLOCK_M], expb_col[BLOCK_N];
     GEMM_REAL_TYPE ref_blk[BLOCK_MNK], recon_blk[BLOCK_MNK];
-    GEMM_INT_TYPE kb, mi, nj, kk;
+    GEMM_INT_TYPE kb, mi, nj, kk, jb, ib;
     int pidx;
     int tid = 0;
 #if defined(_OPENMP)
