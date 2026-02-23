@@ -10,10 +10,10 @@
 !=======================================================================!
 
       PROGRAM diff
-        USE :: LIBXS, ONLY: LIBXS_TICKINT_KIND,                     &
-     &                        libxs_timer_duration,                   &
-     &                        libxs_timer_tick,                       &
-     &                        libxs_init,                             &
+        USE :: LIBXS, ONLY: LIBXS_TIMER_TICK_KIND,                      &
+     &                        libxs_timer_duration,                     &
+     &                        libxs_timer_tick,                         &
+     &                        libxs_init,                               &
      &                        libxs_diff
         IMPLICIT NONE
 
@@ -22,7 +22,7 @@
 
         INTEGER(T), ALLOCATABLE, TARGET :: a(:), b(:)
         !DIR$ ATTRIBUTES ALIGN:64 :: a, b
-        INTEGER(LIBXS_TICKINT_KIND) :: start
+        INTEGER(LIBXS_TIMER_TICK_KIND) :: start
         DOUBLE PRECISION :: duration(3), d
         INTEGER :: i, n, nrepeat
         INTEGER(8) :: nbytes
@@ -45,7 +45,7 @@
         END IF
 
         duration = 0D0
-        n = MERGE(n, ISHFT(ISHFT(2, 20) / T, 10), 0 < n) ! 2 GB by default
+        n = MERGE(n, ISHFT(ISHFT(2, 20) / T, 10), 0 < n) ! 2 GB
         nbytes = INT(n, 8) * T
         WRITE(*, "(A,I0,A,I0,A,A,I0,A)")                                &
      &    "nelements=", n, " typesize=", T, "Byte",                     &
@@ -93,7 +93,7 @@
           WRITE(*, "(A,I0,A)") "Arithmetic average of ",                &
      &      nrepeat, " iterations"
           WRITE(*, "(A)") REPEAT("-", W)
-          WRITE(*, "(A,F10.1,A)") "DIFF (LIBXS):",                    &
+          WRITE(*, "(A,F10.1,A)") "DIFF (LIBXS):",                      &
      &      REAL(nbytes, 8) * REAL(nrepeat, 8) /                        &
      &      (duration(1) * REAL(ISHFT(1, 20), 8)), " MB/s"
           WRITE(*, "(A,F10.1,A)") "ALL  (Fortran):",                    &

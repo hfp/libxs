@@ -253,7 +253,7 @@ all: libxs
 realall: all samples
 
 .PHONY: headers
-headers: cheader fheader
+headers: cheader
 
 .PHONY: header-only
 header-only: cheader
@@ -314,32 +314,32 @@ $(foreach OBJ,$(BLDDIR)/intel64/libxs_mhd.o,$(eval $(call DEFINE_COMPILE_RULE, \
 endif
 
 .PHONY: module
-#ifneq (,$(strip $(FC)))
-#module: $(INCDIR)/libxs.mod
-#$(BLDDIR)/intel64/libxs-mod.o: $(BLDDIR)/intel64/.make $(INCDIR)/libxs.f
-#	$(FC) $(DFLAGS) $(IFLAGS) $(FCMTFLAGS) $(filter-out $(FFORM_FLAG),$(FCFLAGS)) $(FTARGET) \
-#		-c $(INCDIR)/libxs.f -o $@ $(FMFLAGS) $(INCDIR)
-#$(INCDIR)/libxs.mod: $(BLDDIR)/intel64/libxs-mod.o
-#	@if [ -e $(BLDDIR)/intel64/LIBXS.mod ]; then $(CP) $(BLDDIR)/intel64/LIBXS.mod $(INCDIR); fi
-#	@if [ -e $(BLDDIR)/intel64/libxs.mod ]; then $(CP) $(BLDDIR)/intel64/libxs.mod $(INCDIR); fi
-#	@if [ -e LIBXS.mod ]; then $(MV) LIBXS.mod $(INCDIR); fi
-#	@if [ -e libxs.mod ]; then $(MV) libxs.mod $(INCDIR); fi
-#	@-touch $@
-#else
+ifneq (,$(strip $(FC)))
+module: $(INCDIR)/libxs.mod
+$(BLDDIR)/intel64/libxs-mod.o: $(BLDDIR)/intel64/.make $(INCDIR)/libxs.f
+	$(FC) $(DFLAGS) $(IFLAGS) $(FCMTFLAGS) $(filter-out $(FFORM_FLAG),$(FCFLAGS)) $(FTARGET) \
+		-c $(INCDIR)/libxs.f -o $@ $(FMFLAGS) $(INCDIR)
+$(INCDIR)/libxs.mod: $(BLDDIR)/intel64/libxs-mod.o
+	@if [ -e $(BLDDIR)/intel64/LIBXS.mod ]; then $(CP) $(BLDDIR)/intel64/LIBXS.mod $(INCDIR); fi
+	@if [ -e $(BLDDIR)/intel64/libxs.mod ]; then $(CP) $(BLDDIR)/intel64/libxs.mod $(INCDIR); fi
+	@if [ -e LIBXS.mod ]; then $(MV) LIBXS.mod $(INCDIR); fi
+	@if [ -e libxs.mod ]; then $(MV) libxs.mod $(INCDIR); fi
+	@-touch $@
+else
 .PHONY: $(BLDDIR)/intel64/libxs-mod.o
 .PHONY: $(INCDIR)/libxs.mod
-#endif
+endif
 
 .PHONY: clib
 clib: $(OUTDIR)/libxs-static.pc $(OUTDIR)/libxs-shared.pc
 ifeq (,$(filter-out 0 2,$(BUILD)))
-$(OUTDIR)/libxs.$(SLIBEXT): $(OUTDIR)/.make $(OBJFILES)
+$(OUTDIR)/libxs.$(SLIBEXT): $(OUTDIR)/.make $(OBJFILES) $(FTNOBJS)
 	$(MAKE_AR) $(OUTDIR)/libxs.$(SLIBEXT) $(call tailwords,$^)
 else
 .PHONY: $(OUTDIR)/libxs.$(SLIBEXT)
 endif
 ifeq (0,$(filter-out 1 2,$(BUILD))$(ANALYZE))
-$(OUTDIR)/libxs.$(DLIBEXT): $(OUTDIR)/.make $(OBJFILES)
+$(OUTDIR)/libxs.$(DLIBEXT): $(OUTDIR)/.make $(OBJFILES) $(FTNOBJS)
 	$(LIB_SOLD) $(call solink_version,$(OUTDIR)/libxs.$(DLIBEXT)) \
 		$(call tailwords,$^) $(call cleanld,$(LDFLAGS) $(CLDFLAGS))
 else
@@ -347,35 +347,11 @@ else
 endif
 
 .PHONY: flib
-#ifneq (,$(strip $(FC)))
-#flib: $(OUTDIR)/libxsf-static.pc $(OUTDIR)/libxsf-shared.pc
-#ifeq (,$(filter-out 0 2,$(BUILD)))
-#$(OUTDIR)/libxsf.$(SLIBEXT): $(INCDIR)/libxs.mod $(OUTDIR)/libxs.$(DLIBEXT)
-#	$(MAKE_AR) $(OUTDIR)/libxsf.$(SLIBEXT) $(BLDDIR)/intel64/libxs-mod.o
-#else
-#.PHONY: $(OUTDIR)/libxsf.$(SLIBEXT)
-#endif
-#ifeq (0,$(filter-out 1 2,$(BUILD))$(ANALYZE))
-#$(OUTDIR)/libxsf.$(DLIBEXT): $(INCDIR)/libxs.mod $(OUTDIR)/libxs.$(DLIBEXT)
-#ifneq (Darwin,$(UNAME))
-#	$(LIB_SFLD) $(FCMTFLAGS) $(call solink_version,$(OUTDIR)/libxsf.$(DLIBEXT)) \
-#		$(BLDDIR)/intel64/libxs-mod.o $(call abslib,$(OUTDIR)/libxs.$(ILIBEXT)) \
-#		$(call cleanld,$(LDFLAGS) $(FLDFLAGS))
-#else ifneq (0,$(LNKSOFT)) # macOS
-#	$(LIB_SFLD) $(FCMTFLAGS) $(call solink_version,$(OUTDIR)/libxsf.$(DLIBEXT)) \
-#		$(BLDDIR)/intel64/libxs-mod.o $(call abslib,$(OUTDIR)/libxs.$(ILIBEXT)) \
-#		$(call cleanld,$(LDFLAGS) $(FLDFLAGS)) $(call linkopt,-U,_libxs_gemm_batch_omp_)
-#else # macOS
-#	$(LIB_SFLD) $(FCMTFLAGS) $(call solink_version,$(OUTDIR)/libxsf.$(DLIBEXT)) \
-#		$(BLDDIR)/intel64/libxs-mod.o $(call abslib,$(OUTDIR)/libxs.$(ILIBEXT)) \
-#		$(call cleanld,$(LDFLAGS) $(FLDFLAGS))
-#endif
-#else
-.PHONY: $(OUTDIR)/libxsf.$(DLIBEXT)
-#endif
-#else
-.PHONY: $(OUTDIR)/libxsf.$(SLIBEXT) $(OUTDIR)/libxsf.$(DLIBEXT)
-#endif
+ifneq (,$(strip $(FC)))
+flib: module clib
+else
+flib:
+endif
 
 # use dir not qdir to avoid quotes; also $(ROOTDIR)/$(SPLDIR) is relative
 DIRS_SAMPLES := $(dir $(shell find $(ROOTDIR)/$(SPLDIR) -type f -name Makefile \
@@ -548,7 +524,6 @@ endif
 endif
 	@-rm -f $(INCDIR)/libxs_version.h
 	@-rm -f $(INCDIR)/libxs.mod
-	@-rm -f $(INCDIR)/libxs.f
 
 .PHONY: deepclean
 deepclean: realclean

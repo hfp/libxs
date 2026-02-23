@@ -146,8 +146,10 @@ int main(int argc, char* argv[])
   { /* verify info */
     libxs_registry_info_t info;
     if (EXIT_SUCCESS == libxs_registry_info(registry, &info)) {
-      printf("\tregistry: size=%zu capacity=%zu nbytes=%zu\n",
-        info.size, info.capacity, info.nbytes);
+      printf("\tregistry: size=%" PRIuPTR " capacity=%" PRIuPTR
+        " nbytes=%" PRIuPTR "\n",
+        (uintptr_t)info.size, (uintptr_t)info.capacity,
+        (uintptr_t)info.nbytes);
     }
   }
 

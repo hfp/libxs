@@ -46,7 +46,7 @@ OBJECTS := $(CPPOBJS) $(CXXOBJS) $(CCXOBJS) $(COBJCTS)
 FTNSRCS := $(FXXSRCS) $(F77SRCS) $(F90SRCS)
 MODULES := $(addsuffix .mod,$(basename $(FTNSRCS)))
 FTNOBJS := $(FXXOBJS) $(F77OBJS) $(F90OBJS)
-XFILES := $(OUTDIR)/$(OUTNAME).x $(OUTDIR)/$(OUTNAME)f.x $(OUTDIR)/$(OUTNAME)f_udt.x
+XFILES := $(OUTDIR)/$(OUTNAME).x $(OUTDIR)/$(OUTNAME)f.x
 
 .PHONY: all
 all: $(XFILES)
@@ -55,15 +55,11 @@ all: $(XFILES)
 compile: $(OBJECTS) $(FTNOBJS)
 
 ifneq (,$(strip $(FC)))
-$(OUTDIR)/$(OUTNAME)f.x: $(OUTDIR)/.make $(BLDDIR)/$(OUTNAME)-f.o $(XSFDEP)
-	$(FLD) -o $@ $(BLDDIR)/$(OUTNAME)-f.o $(XSFLIB) \
-		$(FCMTFLAGS) $(SLDFLAGS) $(LDFLAGS) $(FLDFLAGS) $(ELDFLAGS)
-$(OUTDIR)/$(OUTNAME)f_udt.x: $(OUTDIR)/.make $(BLDDIR)/$(OUTNAME)_udt-f.o $(XSFDEP)
-	$(FLD) -o $@ $(BLDDIR)/$(OUTNAME)_udt-f.o $(XSFLIB) \
+$(OUTDIR)/$(OUTNAME)f.x: $(OUTDIR)/.make $(BLDDIR)/$(OUTNAME)-f.o $(XSDEP)
+	$(FLD) -o $@ $(BLDDIR)/$(OUTNAME)-f.o $(XSLIB) \
 		$(FCMTFLAGS) $(SLDFLAGS) $(LDFLAGS) $(FLDFLAGS) $(ELDFLAGS)
 else
 .PHONY: $(OUTDIR)/$(OUTNAME)f.x
-.PHONY: $(OUTDIR)/$(OUTNAME)f_udt.x
 endif
 
 $(OUTDIR)/$(OUTNAME).x: $(OUTDIR)/.make $(OBJECTS) $(XSDEP)

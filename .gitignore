@@ -3,6 +3,7 @@ lib/libxs*
 .abi.log
 .state
 .make
+*.mod
 *.x
 bin
 obj

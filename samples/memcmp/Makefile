@@ -46,8 +46,7 @@ OBJECTS := $(CPPOBJS) $(CXXOBJS) $(CCXOBJS) $(COBJCTS)
 FTNSRCS := $(FXXSRCS) $(F77SRCS) $(F90SRCS)
 MODULES := $(addsuffix .mod,$(basename $(FTNSRCS)))
 FTNOBJS := $(FXXOBJS) $(F77OBJS) $(F90OBJS)
-#XFILES := $(OUTDIR)/$(OUTNAME).x $(OUTDIR)/$(OUTNAME)f.x
-XFILES := $(OUTDIR)/$(OUTNAME).x
+XFILES := $(OUTDIR)/$(OUTNAME).x $(OUTDIR)/$(OUTNAME)f.x
 
 .PHONY: all
 all: $(XFILES)
@@ -57,8 +56,8 @@ compile: $(OBJECTS) $(FTNOBJS)
 
 ifneq (,$(strip $(FC)))
 ifneq (0,$(shell echo "$$((3>$(XSMM_GCC) || 40600<=$(FC_VERSION_NUM)))"))
-$(OUTDIR)/$(OUTNAME)f.x: $(OUTDIR)/.make $(FTNOBJS) $(XSFDEP)
-	$(FLD) -o $@ $(FTNOBJS) $(XSFLIB) $(FCMTFLAGS) $(SLDFLAGS) $(LDFLAGS) $(FLDFLAGS) $(ELDFLAGS)
+$(OUTDIR)/$(OUTNAME)f.x: $(OUTDIR)/.make $(FTNOBJS) $(XSDEP)
+	$(FLD) -o $@ $(FTNOBJS) $(XSLIB) $(FCMTFLAGS) $(SLDFLAGS) $(LDFLAGS) $(FLDFLAGS) $(ELDFLAGS)
 else
 .PHONY: $(OUTDIR)/$(OUTNAME)f.x
 endif
