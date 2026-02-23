@@ -32,6 +32,7 @@
 #define gemm_diff_abc     LIBXS_TPREFIX(GEMM_REAL_TYPE, gemm_diff_abc)
 #define gemm_eps          LIBXS_TPREFIX(GEMM_REAL_TYPE, gemm_eps)
 #define gemm_rsq          LIBXS_TPREFIX(GEMM_REAL_TYPE, gemm_rsq)
+#define ozaki_target_arch LIBXS_TPREFIX(GEMM_REAL_TYPE, ozaki_tarch)
 #define gemm_oz1          LIBXS_TPREFIX(GEMM_REAL_TYPE, gemm_oz1)
 #define gemm_oz2          LIBXS_TPREFIX(GEMM_REAL_TYPE, gemm_oz2)
 #define gemm_dump_inhibit LIBXS_TPREFIX(GEMM_REAL_TYPE, gemm_dump_inhibit)
@@ -67,6 +68,7 @@ LIBXS_APIVAR_PRIVATE(int gemm_diff_abc);
 extern LIBXS_TLS int gemm_dump_inhibit;
 LIBXS_APIVAR_PRIVATE(double gemm_eps);
 LIBXS_APIVAR_PRIVATE(double gemm_rsq);
+LIBXS_APIVAR_PRIVATE(int ozaki_target_arch);
 
 /**
  * Dump A and B matrices as MHD files.

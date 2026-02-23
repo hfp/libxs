@@ -72,6 +72,7 @@ LIBXS_APIVAR_PRIVATE_DEF(int gemm_ozflags);
 LIBXS_APIVAR_PRIVATE_DEF(int gemm_diff_abc);
 LIBXS_APIVAR_PRIVATE_DEF(double gemm_eps);
 LIBXS_APIVAR_PRIVATE_DEF(double gemm_rsq);
+LIBXS_APIVAR_PRIVATE_DEF(int ozaki_target_arch);
 LIBXS_TLS int gemm_dump_inhibit;
 
 
@@ -135,6 +136,7 @@ LIBXS_API_INTERN LIBXS_ATTRIBUTE_WEAK void GEMM_WRAP(const char* transa, const c
         if (0 == gemm_verbose) gemm_verbose = 1;
         gemm_rsq = atof(gemm_rsq_env);
       }
+      ozaki_target_arch = libxs_cpuid(NULL);
       LIBXS_EXPECT(EXIT_SUCCESS == atexit(print_diff_atexit));
       gemm_initialized = 1;
     }

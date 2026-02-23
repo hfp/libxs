@@ -329,7 +329,30 @@ LIBXS_API_INLINE void preprocess_cols(const GEMM_REAL_TYPE* b, GEMM_INT_TYPE ldb
 }
 
 
-LIBXS_API_INLINE int32_t ozaki_dot_i8(const int8_t a[BLOCK_K], const int8_t b[BLOCK_K])
+/* AVX-512 VNNI accelerated dot product (BLOCK_K=16 fits one __m128i).
+ * VPDPBUSD is unsigned*signed, so we convert a[] from signed to unsigned
+ * by XOR with 0x80 (+128), then subtract 128*sum(b[]) to compensate. */
+#if defined(LIBXS_INTRINSICS_AVX512)
+LIBXS_API_INLINE LIBXS_INTRINSICS(LIBXS_X86_AVX512)
+int32_t ozaki_dot_i8_vnni(const int8_t a[BLOCK_K], const int8_t b[BLOCK_K])
+{
+  const __m128i bias = _mm_set1_epi8((char)0x80);
+  const __m128i va = _mm_xor_si128(_mm_loadu_si128((const __m128i*)a), bias);
+  const __m128i vb = _mm_loadu_si128((const __m128i*)b);
+  const __m128i ones = _mm_set1_epi8(1);
+  /* dot = sum(((uint8_t)a[k]+128) * b[k]) for k in groups of 4 */
+  __m128i dp = _mm_dpbusd_epi32(_mm_setzero_si128(), va, vb);
+  /* sum_b = sum(b[k]) via dpbusd with all-ones as the unsigned operand */
+  __m128i sb = _mm_dpbusd_epi32(_mm_setzero_si128(), ones, vb);
+  /* horizontal sum of 4 dwords */
+  dp = _mm_hadd_epi32(dp, sb);
+  dp = _mm_hadd_epi32(dp, dp);
+  return _mm_extract_epi32(dp, 0) - 128 * _mm_extract_epi32(dp, 1);
+}
+#endif
+
+
+LIBXS_API_INLINE int32_t ozaki_dot_i8_sw(const int8_t a[BLOCK_K], const int8_t b[BLOCK_K])
 {
   int32_t dot = 0;
   int kk;
@@ -338,6 +361,15 @@ LIBXS_API_INLINE int32_t ozaki_dot_i8(const int8_t a[BLOCK_K], const int8_t b[BL
   }
   return dot;
 }
+
+
+/* Runtime dispatch: use VNNI when AVX-512 is detected, else scalar. */
+#if defined(LIBXS_INTRINSICS_AVX512)
+# define ozaki_dot_i8(A, B) \
+    ((LIBXS_X86_AVX512 <= ozaki_target_arch) ? ozaki_dot_i8_vnni(A, B) : ozaki_dot_i8_sw(A, B))
+#else
+# define ozaki_dot_i8(A, B) ozaki_dot_i8_sw(A, B)
+#endif
 
 
 LIBXS_API_INLINE void gemm_oz1_diff(const char* transa, const char* transb,
