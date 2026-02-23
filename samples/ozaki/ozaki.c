@@ -69,7 +69,7 @@ LIBXS_APIVAR_PRIVATE_DEF(volatile LIBXS_ATOMIC_LOCKTYPE gemm_lock);
 LIBXS_APIVAR_PRIVATE_DEF(gemm_function_t gemm_original);
 LIBXS_APIVAR_PRIVATE_DEF(int gemm_ozn);
 LIBXS_APIVAR_PRIVATE_DEF(int gemm_ozflags);
-LIBXS_APIVAR_PRIVATE_DEF(int gemm_diff_abc);
+LIBXS_APIVAR_PUBLIC_DEF(int gemm_wrap);
 LIBXS_APIVAR_PRIVATE_DEF(double gemm_eps);
 LIBXS_APIVAR_PRIVATE_DEF(double gemm_rsq);
 LIBXS_APIVAR_PRIVATE_DEF(int ozaki_target_arch);
@@ -105,7 +105,7 @@ LIBXS_API_INTERN LIBXS_ATTRIBUTE_WEAK void GEMM_WRAP(const char* transa, const c
     LIBXS_ATOMIC_ACQUIRE(&gemm_lock, LIBXS_SYNC_NPAUSE, LIBXS_ATOMIC_LOCKORDER);
     if (0 == gemm_initialized) {
       const union { uint32_t raw; float value; } inf = { 0x7F800000U };
-      const char *const gemm_diff_abc_env = getenv("GEMM_DIFF");
+      const char *const gemm_wrap_env = getenv("GEMM_DIFF");
       const char *const gemm_verbose_env = getenv("GEMM_VERBOSE");
       const char *const gemm_ozaki_env = getenv("GEMM_OZAKI");
       const char *const gemm_ozn_env = getenv("GEMM_OZN");
@@ -113,8 +113,9 @@ LIBXS_API_INTERN LIBXS_ATTRIBUTE_WEAK void GEMM_WRAP(const char* transa, const c
       const char *const gemm_eps_env = getenv("GEMM_EPS");
       const char *const gemm_rsq_env = getenv("GEMM_RSQ");
       libxs_matdiff_clear(&gemm_diff);
-      gemm_diff_abc = (NULL == gemm_diff_abc_env ? 0 : atoi(gemm_diff_abc_env));
-      gemm_verbose = (NULL == gemm_verbose_env ? 0 : atoi(gemm_verbose_env));
+      if (NULL != gemm_wrap_env) gemm_wrap = atoi(gemm_wrap_env);
+      if (NULL != gemm_verbose_env) gemm_verbose = atoi(gemm_verbose_env);
+      else if (0 != gemm_wrap) gemm_verbose = 1;
       gemm_ozaki = (NULL == gemm_ozaki_env ? 1 : atoi(gemm_ozaki_env));
       gemm_ozflags = (NULL == gemm_ozflags_env
         ? OZ1_DEFAULT : atoi(gemm_ozflags_env));

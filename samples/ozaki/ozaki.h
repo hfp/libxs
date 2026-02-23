@@ -29,7 +29,7 @@
 #define gemm_lock         LIBXS_TPREFIX(GEMM_REAL_TYPE, gemm_lock)
 #define gemm_ozn          LIBXS_TPREFIX(GEMM_REAL_TYPE, gemm_ozn)
 #define gemm_ozflags      LIBXS_TPREFIX(GEMM_REAL_TYPE, gemm_ozflags)
-#define gemm_diff_abc     LIBXS_TPREFIX(GEMM_REAL_TYPE, gemm_diff_abc)
+#define gemm_wrap         LIBXS_TPREFIX(GEMM_REAL_TYPE, gemm_wrap)
 #define gemm_eps          LIBXS_TPREFIX(GEMM_REAL_TYPE, gemm_eps)
 #define gemm_rsq          LIBXS_TPREFIX(GEMM_REAL_TYPE, gemm_rsq)
 #define ozaki_target_arch LIBXS_TPREFIX(GEMM_REAL_TYPE, ozaki_tarch)
@@ -64,7 +64,7 @@ LIBXS_APIVAR_PRIVATE(gemm_function_t gemm_original);
 LIBXS_APIVAR_PRIVATE(zgemm_function_t zgemm_original);
 LIBXS_APIVAR_PRIVATE(int gemm_ozn);
 LIBXS_APIVAR_PRIVATE(int gemm_ozflags);
-LIBXS_APIVAR_PRIVATE(int gemm_diff_abc);
+LIBXS_APIVAR_PUBLIC(int gemm_wrap);
 extern LIBXS_TLS int gemm_dump_inhibit;
 LIBXS_APIVAR_PRIVATE(double gemm_eps);
 LIBXS_APIVAR_PRIVATE(double gemm_rsq);

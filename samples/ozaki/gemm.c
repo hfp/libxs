@@ -11,6 +11,13 @@
 #include <libxs_mhd.h>
 #include <libxs_rng.h>
 
+/* Weak references: gemm-blas.x links without the Ozaki library,
+ * so these symbols may be undefined. CHECK should not be used
+ * with gemm-blas.x (the variables resolve to zero-address). */
+LIBXS_PRAGMA_WEAK(gemm_diff)
+LIBXS_PRAGMA_WEAK(gemm_wrap)
+LIBXS_PRAGMA_WEAK(gemm_verbose)
+
 #if !defined(ALPHA)
 # define ALPHA 1
 #endif
@@ -22,6 +29,8 @@
 int main(int argc, char* argv[])
 {
   const char *const nrepeat_env = getenv("NREPEAT");
+  const char *const env_check = getenv("CHECK");
+  const double check = (NULL == env_check || 0 == *env_check) ? 0 : atof(env_check);
   const int nrep = (NULL == nrepeat_env ? 1 : atoi(nrepeat_env));
   const int nrepeat = (0 < nrep ? nrep : 1);
   GEMM_INT_TYPE m = (1 < argc ? atoi(argv[1]) : 257);
@@ -45,6 +54,14 @@ int main(int argc, char* argv[])
   libxs_matdiff_info_t diff;
 
   libxs_init();
+
+  /* CHECK enables accuracy validation: compare Ozaki result against BLAS.
+   * Pre-set gemm_wrap (diff mode) and gemm_verbose before the wrapper's
+   * lazy initialization; env vars GEMM_DIFF/GEMM_VERBOSE still override. */
+  if (0 != check) {
+    gemm_wrap = 3; /* Ozaki C vs BLAS C */
+    gemm_verbose  = 1;
+  }
 
   if (2 < argc && 0 == m) { /* Indicate filename(s) */
     char extension[
@@ -188,6 +205,21 @@ int main(int argc, char* argv[])
 
   if (EXIT_SUCCESS == result) {
     printf("\n%f (check)\n", diff.l1_tst);
+  }
+
+  if (EXIT_SUCCESS == result && 0 != check) { /* Accuracy validation */
+    const double epsilon = libxs_matdiff_epsilon(&gemm_diff);
+    const double threshold = (0 < check) ? check
+      : (sizeof(double) == sizeof(GEMM_REAL_TYPE) ? 1.0E-10 : 1.0E-3);
+    if (threshold < epsilon) {
+      fprintf(stderr, "CHECK: eps=%g exceeds threshold=%g\n",
+        epsilon, threshold);
+      result = EXIT_FAILURE;
+    }
+    else {
+      fprintf(stderr, "CHECK: eps=%g (threshold=%g)\n",
+        epsilon, threshold);
+    }
   }
 
   free(a);

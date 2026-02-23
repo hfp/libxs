@@ -596,14 +596,14 @@ LIBXS_API void gemm_oz1(const char* transa, const char* transb,
 {
   if (0 == gemm_verbose) {
     gemm_oz1_diff(transa, transb, m, n, k, alpha, a, lda, b, ldb, beta, c, ldc,
-      0 /*gemm_diff_abc*/, NULL /*diff*/);
+      0 /*gemm_wrap*/, NULL /*diff*/);
   }
   else {
     double epsilon;
     libxs_matdiff_info_t diff;
     libxs_matdiff_clear(&diff);
     gemm_oz1_diff(transa, transb, m, n, k, alpha, a, lda, b, ldb, beta, c, ldc,
-      LIBXS_ABS(gemm_diff_abc), &diff);
+      LIBXS_ABS(gemm_wrap), &diff);
 
     LIBXS_ATOMIC_ACQUIRE(&gemm_lock, LIBXS_SYNC_NPAUSE, LIBXS_ATOMIC_LOCKORDER);
     libxs_matdiff_reduce(&gemm_diff, &diff); diff = gemm_diff;

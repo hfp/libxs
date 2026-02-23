@@ -723,7 +723,7 @@ LIBXS_API void gemm_oz2(const char* transa, const char* transb,
     libxs_matdiff_info_t diff;
     libxs_matdiff_clear(&diff);
     gemm_oz2_diff(transa, transb, m, n, k, alpha, a, lda, b, ldb, beta, c, ldc,
-      LIBXS_ABS(gemm_diff_abc), &diff);
+      LIBXS_ABS(gemm_wrap), &diff);
 
     LIBXS_ATOMIC_ACQUIRE(&gemm_lock, LIBXS_SYNC_NPAUSE, LIBXS_ATOMIC_LOCKORDER);
     libxs_matdiff_reduce(&gemm_diff, &diff); diff = gemm_diff;

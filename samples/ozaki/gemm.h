@@ -39,10 +39,11 @@
 #define GEMM_ARGPASS transa, transb, m, n, k, alpha, a, lda, b, ldb, beta, c, ldc
 
 /* Precision-specific name redirects for public/driver-visible symbols */
-#define gemm_diff    LIBXS_TPREFIX(GEMM_REAL_TYPE, gemm_diff)
-#define gemm_verbose LIBXS_TPREFIX(GEMM_REAL_TYPE, gemm_verbose)
-#define print_gemm   LIBXS_TPREFIX(GEMM_REAL_TYPE, gemm_print)
-#define print_diff   LIBXS_TPREFIX(GEMM_REAL_TYPE, gemm_print_diff)
+#define gemm_diff     LIBXS_TPREFIX(GEMM_REAL_TYPE, gemm_diff)
+#define gemm_wrap     LIBXS_TPREFIX(GEMM_REAL_TYPE, gemm_wrap)
+#define gemm_verbose  LIBXS_TPREFIX(GEMM_REAL_TYPE, gemm_verbose)
+#define print_gemm    LIBXS_TPREFIX(GEMM_REAL_TYPE, gemm_print)
+#define print_diff    LIBXS_TPREFIX(GEMM_REAL_TYPE, gemm_print_diff)
 
 /** Real GEMM entry point (dgemm_ or sgemm_). */
 LIBXS_API void GEMM(GEMM_ARGDECL);
@@ -55,4 +56,5 @@ LIBXS_API void print_gemm(FILE* ostream, GEMM_ARGDECL);
 LIBXS_API void print_diff(FILE* ostream, const libxs_matdiff_info_t* diff);
 
 LIBXS_APIVAR_PUBLIC(libxs_matdiff_info_t gemm_diff);
+LIBXS_APIVAR_PUBLIC(int gemm_wrap);
 LIBXS_APIVAR_PUBLIC(int gemm_verbose);
