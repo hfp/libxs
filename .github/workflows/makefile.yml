@@ -8,17 +8,19 @@ on:
 
 jobs:
   build:
-
     runs-on: ubuntu-latest
-
+    strategy:
+      fail-fast: false
+      matrix:
+        dbg: [0, 1]
     steps:
     - uses: actions/checkout@v4
-
-    - name: Build
-      run: make -j $(nproc)
 
     - name: Install OpenBLAS
       run: sudo apt install -y libopenblas-openmp-dev
 
+    - name: Build
+      run: make -j $(nproc) DBG=${{ matrix.dbg }}
+
     - name: Test
-      run: make -j $(nproc) test
+      run: make -j $(nproc) DBG=${{ matrix.dbg }} test
