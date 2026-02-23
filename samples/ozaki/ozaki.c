@@ -9,58 +9,6 @@
 #include "ozaki.h"
 #include <libxs_sync.h>
 
-/* Runtime flag-set controlling the Ozaki scheme (GEMM_OZFLAGS env var).
- * Bit 0 (1): TRIANGULAR  - drop symmetric contributions (speed for accuracy)
- * Bit 1 (2): SYMMETRIZE  - double off-diagonal upper-triangle terms
- * Bit 2 (4): REVERSE_PASS - recover most significant lower-triangle terms
- * Bit 3 (8): TRIM_FORWARD - limit forward pass to slice_a < S/2
- * Default 15 = all enabled. */
-#define OZ1_TRIANGULAR   1
-#define OZ1_SYMMETRIZE   2
-#define OZ1_REVERSE_PASS 4
-#define OZ1_TRIM_FORWARD 8
-#define OZ1_DEFAULT (OZ1_TRIANGULAR | OZ1_SYMMETRIZE | OZ1_REVERSE_PASS | OZ1_TRIM_FORWARD)
-/* IEEE-754 format parameters derived from GEMM_REAL_TYPE */
-#if GEMM_IS_DOUBLE
-# define OZ1_MANT_BITS  52
-# define OZ1_EXP_BIAS   1023
-#else /* single-precision */
-# define OZ1_MANT_BITS  23
-# define OZ1_EXP_BIAS   127
-#endif
-#define OZ1_BIAS_PLUS_MANT (OZ1_EXP_BIAS + OZ1_MANT_BITS)
-#if !defined(BLOCK_M)
-# define BLOCK_M 16
-#endif
-#if !defined(BLOCK_N)
-# define BLOCK_N 16
-#endif
-#if !defined(BLOCK_K)
-# define BLOCK_K 16
-#endif
-#if !defined(MAX_NSLICES)
-# if GEMM_IS_DOUBLE
-#   define MAX_NSLICES 16
-# else
-#   define MAX_NSLICES 8
-# endif
-#endif
-#if !defined(NSLICES_DEFAULT)
-# if GEMM_IS_DOUBLE
-#   define NSLICES_DEFAULT 5
-# else
-#   define NSLICES_DEFAULT 4
-# endif
-#endif
-/* Scheme 2 (CRT) limits */
-#if GEMM_IS_DOUBLE
-# define OZ2_MAX_NPRIMES     16
-# define OZ2_NPRIMES_DEFAULT 15
-#else
-# define OZ2_MAX_NPRIMES     10
-# define OZ2_NPRIMES_DEFAULT  7
-#endif
-
 
 LIBXS_APIVAR_PUBLIC_DEF(libxs_matdiff_info_t gemm_diff);
 LIBXS_APIVAR_PUBLIC_DEF(int gemm_verbose);
