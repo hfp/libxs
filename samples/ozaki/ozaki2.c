@@ -64,13 +64,18 @@ static const uint32_t oz2_rcp[] = {
 #if defined(LIBXS_INT128)
 /* 64-bit Barrett reciprocals: oz2_rcp64[i] = floor(2^64 / oz2_primes[i]).
  * Used by oz2_mod64() to replace 64-bit hardware division (~40 cycles)
- * with a 128-bit multiply-shift (~5 cycles) in oz2_reduce(). */
-# define OZ2_RCP64(P) ((uint64_t)((libxs_uint128_t)1 << 64) / (P))
+ * with a 128-bit multiply-shift (~5 cycles) in oz2_reduce().
+ * Pre-computed literals because GCC does not constant-fold __int128
+ * expressions in static initialisers (even at -O2). */
 static const uint64_t oz2_rcp64[] = {
-  OZ2_RCP64(251), OZ2_RCP64(241), OZ2_RCP64(239), OZ2_RCP64(233),
-  OZ2_RCP64(229), OZ2_RCP64(227), OZ2_RCP64(223), OZ2_RCP64(211),
-  OZ2_RCP64(199), OZ2_RCP64(197), OZ2_RCP64(193), OZ2_RCP64(191),
-  OZ2_RCP64(181), OZ2_RCP64(179), OZ2_RCP64(173), OZ2_RCP64(167)
+  0x0105197F7D734041ULL /* 251 */, 0x010FEF010FEF010FULL /* 241 */,
+  0x0112358E75D30336ULL /* 239 */, 0x0119453808CA29C0ULL /* 233 */,
+  0x011E2EF3B3FB8744ULL /* 229 */, 0x0120B470C67C0D88ULL /* 227 */,
+  0x0125E22708092F11ULL /* 223 */, 0x013698DF3DE07479ULL /* 211 */,
+  0x0149539E3B2D066EULL /* 199 */, 0x014CAB88725AF6E7ULL /* 197 */,
+  0x015390948F40FEACULL /* 193 */, 0x01571ED3C506B39AULL /* 191 */,
+  0x016A13CD15372904ULL /* 181 */, 0x016E1F76B4337C6CULL /* 179 */,
+  0x017AD2208E0ECC35ULL /* 173 */, 0x01886E5F0ABB0499ULL /* 167 */
 };
 # define OZ2_HAS_MOD64
 #endif
