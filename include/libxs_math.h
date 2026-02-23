@@ -123,4 +123,50 @@ LIBXS_API double libxs_pow2(int n);
  */
 LIBXS_API unsigned int libxs_mod_inverse_u32(unsigned int a, unsigned int p);
 
+/**
+ * Barrett reciprocal for a 32-bit modulus: floor(2^32 / p).
+ * Used by libxs_mod_u32 and libxs_mod_u64 for fast reduction.
+ */
+LIBXS_API unsigned int libxs_barrett_rcp(unsigned int p);
+/**
+ * Radix-split power table entry: (1 << 18) mod p.
+ * Used by libxs_mod_u64 for 64-bit reduction via radix-2^18 split.
+ */
+LIBXS_API unsigned int libxs_barrett_pow18(unsigned int p);
+/**
+ * Radix-split power table entry: (1 << 36) mod p.
+ * Used by libxs_mod_u64 for 64-bit reduction via radix-2^18 split.
+ */
+LIBXS_API unsigned int libxs_barrett_pow36(unsigned int p);
+
+/**
+ * Fast 32-bit modular reduction via Barrett's method.
+ * Returns x mod p using a precomputed reciprocal rcp = floor(2^32/p).
+ * Valid for x < 2^32.
+ */
+LIBXS_API_INLINE unsigned int libxs_mod_u32(uint32_t x, unsigned int p,
+  unsigned int rcp)
+{
+  const uint32_t q = (uint32_t)(((uint64_t)x * rcp) >> 32);
+  uint32_t r = x - q * (uint32_t)p;
+  if (r >= (uint32_t)p) r -= (uint32_t)p;
+  return (unsigned int)r;
+}
+
+/**
+ * Fast 64-bit modular reduction via radix-2^18 split and Barrett.
+ * Decomposes x into three 18-bit chunks and recombines mod p:
+ *   (a2*pow36 + a1*pow18 + a0) mod p
+ * using the 32-bit Barrett libxs_mod_u32.
+ * Valid for x < 2^54 and p < 8192 (ensures intermediate sum < 2^32).
+ */
+LIBXS_API_INLINE unsigned int libxs_mod_u64(uint64_t x, unsigned int p,
+  unsigned int rcp, unsigned int pow18, unsigned int pow36)
+{
+  const uint32_t a0 = (uint32_t)(x & 0x3FFFFU);
+  const uint32_t a1 = (uint32_t)((x >> 18) & 0x3FFFFU);
+  const uint32_t a2 = (uint32_t)(x >> 36);
+  return libxs_mod_u32(a2 * pow36 + a1 * pow18 + a0, p, rcp);
+}
+
 #endif /*LIBXS_MATH_H*/

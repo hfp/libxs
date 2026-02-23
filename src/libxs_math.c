@@ -693,6 +693,27 @@ LIBXS_API unsigned int libxs_mod_inverse_u32(unsigned int a, unsigned int p)
 }
 
 
+LIBXS_API unsigned int libxs_barrett_rcp(unsigned int p)
+{
+  LIBXS_ASSERT(0 != p);
+  return (unsigned int)(LIBXS_CONCATENATE(0x100000000, ULL) / p);
+}
+
+
+LIBXS_API unsigned int libxs_barrett_pow18(unsigned int p)
+{
+  LIBXS_ASSERT(0 != p);
+  return (unsigned int)((1UL << 18) % p);
+}
+
+
+LIBXS_API unsigned int libxs_barrett_pow36(unsigned int p)
+{
+  LIBXS_ASSERT(0 != p);
+  return (unsigned int)(LIBXS_CONCATENATE(0x1000000000, ULL) % p);
+}
+
+
 #if defined(LIBXS_BUILD) && (!defined(LIBXS_NOFORTRAN) || defined(__clang_analyzer__))
 
 /* implementation provided for Fortran 77 compatibility */

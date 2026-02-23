@@ -512,5 +512,64 @@ int main(int argc, char* argv[])
     }
   }
 
+  { /* check libxs_mod_u32/ libxs_mod_u64: Barrett and radix-split reduction */
+    static const unsigned int primes[] = {
+      2, 3, 5, 7, 11, 13, 167, 173, 179, 181, 191, 193, 197, 199,
+      211, 223, 227, 229, 233, 239, 241, 251
+    };
+    const int nprimes = (int)(sizeof(primes) / sizeof(*primes));
+    for (i = 0; i < nprimes; ++i) {
+      const unsigned int p = primes[i];
+      const unsigned int rcp = libxs_barrett_rcp(p);
+      const unsigned int pow18 = libxs_barrett_pow18(p);
+      const unsigned int pow36 = libxs_barrett_pow36(p);
+      unsigned int x32;
+      /* Verify precomputed constants */
+      if (rcp != (unsigned int)(0x100000000ULL / p)) {
+        FPRINTF(stderr, "ERROR line #%i: barrett_rcp(%u) mismatch\n",
+          __LINE__, p);
+        exit(EXIT_FAILURE);
+      }
+      if (pow18 != (unsigned int)((1UL << 18) % p)) {
+        FPRINTF(stderr, "ERROR line #%i: barrett_pow18(%u) mismatch\n",
+          __LINE__, p);
+        exit(EXIT_FAILURE);
+      }
+      if (pow36 != (unsigned int)(0x1000000000ULL % p)) {
+        FPRINTF(stderr, "ERROR line #%i: barrett_pow36(%u) mismatch\n",
+          __LINE__, p);
+        exit(EXIT_FAILURE);
+      }
+      /* 32-bit Barrett: check all remainders 0..p-1 and some large values */
+      for (x32 = 0; x32 < p * 2 + 17; ++x32) {
+        if (libxs_mod_u32(x32, p, rcp) != x32 % p) {
+          FPRINTF(stderr, "ERROR line #%i: mod_u32(%u, %u) = %u != %u\n",
+            __LINE__, x32, p, libxs_mod_u32(x32, p, rcp), x32 % p);
+          exit(EXIT_FAILURE);
+        }
+      }
+      /* 64-bit radix-split: spot-check with mantissa-sized values */
+      { static const uint64_t test64[] = {
+          0, 1, 262143ULL, 262144ULL, 262145ULL, /* around 2^18 */
+          (1ULL << 36) - 1, (1ULL << 36), (1ULL << 36) + 1,
+          (1ULL << 52) | 0xFFFFFFFFFFFFFULL, /* all-ones 53-bit */
+          (1ULL << 53) - 1, (1ULL << 53) /* max double mantissa */
+        };
+        int t;
+        for (t = 0; t < (int)(sizeof(test64) / sizeof(*test64)); ++t) {
+          const uint64_t v = test64[t];
+          const unsigned int got = libxs_mod_u64(v, p, rcp, pow18, pow36);
+          const unsigned int ref = (unsigned int)(v % p);
+          if (got != ref) {
+            FPRINTF(stderr,
+              "ERROR line #%i: mod_u64(0x%llx, %u) = %u != %u\n",
+              __LINE__, (unsigned long long)v, p, got, ref);
+            exit(EXIT_FAILURE);
+          }
+        }
+      }
+    }
+  }
+
   return EXIT_SUCCESS;
 }

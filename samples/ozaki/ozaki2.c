@@ -20,9 +20,8 @@ static const unsigned int oz2_primes[] = {
   199, 197, 193, 191, 181, 179, 173, 167
 };
 
-/* Barrett reciprocals: oz2_rcp[i] = floor(2^32 / oz2_primes[i]).
- * Used by oz2_mod() to replace expensive hardware integer division
- * (idiv ~25 cycles) with a multiply-shift (~5 cycles). */
+/* Barrett reciprocals: oz2_rcp[i] = libxs_barrett_rcp(oz2_primes[i]).
+ * Precomputed for the hot loop; see libxs_mod_u32 for the algorithm. */
 static const uint32_t oz2_rcp[] = {
   (uint32_t)(0x100000000ULL / 251), (uint32_t)(0x100000000ULL / 241),
   (uint32_t)(0x100000000ULL / 239), (uint32_t)(0x100000000ULL / 233),
@@ -34,22 +33,9 @@ static const uint32_t oz2_rcp[] = {
   (uint32_t)(0x100000000ULL / 173), (uint32_t)(0x100000000ULL / 167)
 };
 
-/** Fast modular reduction: x mod oz2_primes[pidx].
- *  Barrett reduction: one 64-bit multiply + shift replaces hardware div.
- *  Valid for x < 2^32 (covers dot sums < BLOCK_K*255^2 and Garner products). */
-LIBXS_API_INLINE unsigned int oz2_mod(uint32_t x, int pidx)
-{
-  const uint32_t p = (uint32_t)oz2_primes[pidx];
-  const uint32_t q = (uint32_t)(((uint64_t)x * oz2_rcp[pidx]) >> 32);
-  uint32_t r = x - q * p;
-  if (r >= p) r -= p;
-  return (unsigned int)r;
-}
-
-/* Radix-2^18 power tables for oz2_mod64(): split a 53-bit mantissa
- * into three 18-bit chunks (a0, a1, a2) and recombine mod p as
- *   (a2 * pow36[i] + a1 * pow18[i] + a0) mod p
- * using the existing 32-bit Barrett oz2_mod(). Max sum < 2^27. */
+/* Radix-2^18 power tables: oz2_pow18[i] = libxs_barrett_pow18(oz2_primes[i]),
+ * oz2_pow36[i] = libxs_barrett_pow36(oz2_primes[i]).
+ * Precomputed for the hot loop; see libxs_mod_u64 for the algorithm. */
 static const uint32_t oz2_pow18[] = {
   100U /* 251 */, 177U /* 241 */, 200U /* 239 */,  19U /* 233 */,
   168U /* 229 */, 186U /* 227 */, 119U /* 223 */,  82U /* 211 */,
@@ -63,16 +49,17 @@ static const uint32_t oz2_pow36[] = {
    59U /* 181 */,  47U /* 179 */, 152U /* 173 */, 112U /* 167 */
 };
 
-/** Fast 64-bit modular reduction: x mod oz2_primes[pidx].
- *  Radix-2^18 decomposition avoids 64-bit hardware div (~40 cycles)
- *  using only 32-bit Barrett reduction (~15 cycles total).
- *  Valid for x < 2^54 (covers double mantissa 2^53). */
+/** Fast modular reduction: x mod oz2_primes[pidx] (table-indexed wrapper). */
+LIBXS_API_INLINE unsigned int oz2_mod(uint32_t x, int pidx)
+{
+  return libxs_mod_u32(x, oz2_primes[pidx], oz2_rcp[pidx]);
+}
+
+/** Fast 64-bit modular reduction: x mod oz2_primes[pidx] (table-indexed wrapper). */
 LIBXS_API_INLINE unsigned int oz2_mod64(uint64_t x, int pidx)
 {
-  const uint32_t a0 = (uint32_t)(x & 0x3FFFFU);
-  const uint32_t a1 = (uint32_t)((x >> 18) & 0x3FFFFU);
-  const uint32_t a2 = (uint32_t)(x >> 36);
-  return oz2_mod(a2 * oz2_pow36[pidx] + a1 * oz2_pow18[pidx] + a0, pidx);
+  return libxs_mod_u64(x, oz2_primes[pidx], oz2_rcp[pidx],
+    oz2_pow18[pidx], oz2_pow36[pidx]);
 }
 
 /* Number of (mi,nj) elements processed in one Garner reconstruction batch.
