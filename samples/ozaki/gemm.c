@@ -14,9 +14,7 @@
  * so these symbols may be undefined. CHECK should not be used
  * with gemm-blas.x (the variables resolve to zero-address). */
 LIBXS_PRAGMA_WEAK(gemm_verbose)
-LIBXS_PRAGMA_WEAK(gemm_ozaki)
 LIBXS_PRAGMA_WEAK(gemm_diff)
-LIBXS_PRAGMA_WEAK(gemm_stat)
 
 
 int main(int argc, char* argv[])
@@ -46,20 +44,12 @@ int main(int argc, char* argv[])
 
   libxs_init();
 
-  /* CHECK enables accuracy validation: compare Ozaki result against BLAS.
-   * Pre-set gemm_stat (diff mode) and gemm_verbose before the wrapper's
-   * lazy initialization; env vars GEMM_STAT/GEMM_VERBOSE still override. */
-  if (0 != check) {
-    gemm_stat = 3; /* Ozaki C vs BLAS C */
-    gemm_verbose  = 1;
-  }
-
   if (2 < argc && 0 == m) { /* Indicate filename(s) */
     GEMM_REAL_TYPE scalar[2] = { 0 };
     GEMM_INT_TYPE dim0, dim1;
     size_t ncomp = 0;
     if (EXIT_SUCCESS == gemm_mhd_read(argv[1],
-      &dim0, &dim1, &transa, &lda, scalar, &ncomp, NULL))
+      &dim0, &dim1, &transa, &lda, scalar, &ncomp, NULL, NULL))
     {
       m = ldc = dim0; k = dim1;
       alpha = scalar[0];
@@ -72,7 +62,7 @@ int main(int argc, char* argv[])
     if (0 == n) {
       size_t ncomp_b = 0;
       if (EXIT_SUCCESS == gemm_mhd_read(argv[2],
-        &dim0, &dim1, &transb, &ldb, scalar, &ncomp_b, NULL)
+        &dim0, &dim1, &transb, &ldb, scalar, &ncomp_b, NULL, NULL)
         && k == dim0 && ncomp_b == ncomp)
       {
         n = dim1;
@@ -117,7 +107,7 @@ int main(int argc, char* argv[])
 
   if (EXIT_SUCCESS == result) { /* Initialize A-matrix */
     if (0x1 & file_input) {
-      result = gemm_mhd_read(argv[1], NULL, NULL, NULL, NULL, NULL, NULL, a);
+      result = gemm_mhd_read(argv[1], NULL, NULL, NULL, NULL, NULL, NULL, NULL, a);
     }
     else {
       LIBXS_MATRNG(GEMM_INT_TYPE, GEMM_REAL_TYPE, 0, a, a_rows, a_cols, lda, scale);
@@ -126,7 +116,7 @@ int main(int argc, char* argv[])
 
   if (EXIT_SUCCESS == result) { /* Initialize B-matrix */
     if (0x2 & file_input) {
-      result = gemm_mhd_read(argv[2], NULL, NULL, NULL, NULL, NULL, NULL, b);
+      result = gemm_mhd_read(argv[2], NULL, NULL, NULL, NULL, NULL, NULL, NULL, b);
     }
     else {
       LIBXS_MATRNG(GEMM_INT_TYPE, GEMM_REAL_TYPE, 0, b, b_rows, b_cols, ldb, scale);

@@ -252,23 +252,32 @@ LIBXS_API_INLINE void ozaki_accumulate_block_diff(libxs_matdiff_info_t* acc,
  */
 LIBXS_API_INLINE void gemm_dump_matrices(GEMM_ARGDECL, size_t ncomponents)
 {
+  gemm_mhd_settings_t settings;
   char fname[64];
   int result = EXIT_SUCCESS;
   FILE *file;
+
+  settings.ozaki = gemm_ozaki;
+  settings.ozn = gemm_ozn;
+  settings.ozflags = gemm_ozflags;
+  settings.eps = gemm_eps;
+  settings.rsq = gemm_rsq;
 
   LIBXS_ATOMIC_ACQUIRE(&gemm_lock, LIBXS_SYNC_NPAUSE, LIBXS_ATOMIC_LOCKORDER);
 
   LIBXS_SNPRINTF(fname, sizeof(fname), "gemm-%i-a.mhd", gemm_diff.r);
   file = fopen(fname, "rb");
   if (NULL == file) { /* Never overwrite an existing file */
-    result |= gemm_mhd_write(fname, a, *m, *k, *lda, *transa, alpha, ncomponents);
+    result |= gemm_mhd_write(fname, a, *m, *k, *lda, *transa, alpha,
+      ncomponents, &settings);
   }
   else fclose(file);
 
   LIBXS_SNPRINTF(fname, sizeof(fname), "gemm-%i-b.mhd", gemm_diff.r);
   file = fopen(fname, "rb");
   if (NULL == file) { /* Never overwrite an existing file */
-    result |= gemm_mhd_write(fname, b, *k, *n, *ldb, *transb, beta, ncomponents);
+    result |= gemm_mhd_write(fname, b, *k, *n, *ldb, *transb, beta,
+      ncomponents, &settings);
   }
   else fclose(file);
 
