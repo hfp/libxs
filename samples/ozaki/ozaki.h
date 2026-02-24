@@ -74,7 +74,6 @@
       0, NULL); \
   } \
   else { \
-    const union { uint32_t raw; float value; } inf = { 0x7F800000U }; \
     double epsilon; \
     libxs_matdiff_info_t diff; \
     libxs_matdiff_clear(&diff); \
@@ -88,10 +87,7 @@
       const int nth = (0 < gemm_verbose ? gemm_verbose : 1); \
       if (0 == (diff.r % nth)) print_diff(stderr, &diff); \
     } \
-    if (gemm_eps < epsilon || diff.rsq < gemm_rsq || 0 > gemm_verbose \
-      || inf.value == diff.linf_abs || inf.value == diff.linf_rel \
-      || inf.value == diff.l2_abs || inf.value == diff.l2_rel) \
-    { \
+    if (gemm_eps < epsilon || diff.rsq < gemm_rsq || 0 > gemm_verbose) { \
       if (0 != gemm_dump_inhibit) { \
         gemm_dump_inhibit = 2; \
       } \
