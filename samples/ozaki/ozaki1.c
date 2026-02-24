@@ -11,106 +11,37 @@
 
 LIBXS_API_INLINE void ozaki_decompose(GEMM_REAL_TYPE value, int16_t* exp_biased, int8_t digits[MAX_NSLICES])
 {
-  const union { uint32_t raw; float value; } inf = { 0x7F800000U };
-  int sign = 1;
+  uint64_t mant_full;
+  const int sign = ozaki_extract_ieee(value, exp_biased, &mant_full);
 
   LIBXS_ASSERT(NULL != exp_biased);
-  if (value == (GEMM_REAL_TYPE)0 || LIBXS_ISNAN(value)
-    || (float)value == inf.value || (float)value == -inf.value)
-  {
+  if (0 == mant_full) {
     if (NULL != digits) memset(digits, 0, sizeof(int8_t) * gemm_ozn);
-    *exp_biased = 0;
     return;
   }
 
-  if (value < (GEMM_REAL_TYPE)0) {
-    value = -value;
-    sign = -1;
-  }
-
-#if GEMM_IS_DOUBLE
-  { union { double d; uint64_t u; } cvt;
-    cvt.d = value;
-    { const uint64_t bits = cvt.u;
-      const uint64_t frac = bits & ((1ULL << 52) - 1ULL);
-      const uint16_t exp_raw = (uint16_t)((bits >> 52) & 0x7FFU);
-
-      if (0 == exp_raw) { /* subnormal treated as zero here */
-        *exp_biased = 0;
-        if (NULL != digits) memset(digits, 0, sizeof(int8_t) * gemm_ozn);
-        return;
+  if (NULL != digits) {
+    int s = 0;
+    LIBXS_PRAGMA_LOOP_COUNT(1, MAX_NSLICES, NSLICES_DEFAULT)
+    for (; s < gemm_ozn; ++s) {
+      const int high = OZ_MANT_BITS - (7 * s);
+      if (high < 0) {
+        digits[s] = 0;
+        continue;
       }
-
-      { const uint64_t mant_full = (1ULL << 52) | frac; /* 53 bits */
-        int s = 0;
-        *exp_biased = (int16_t)exp_raw;
-
-        if (NULL != digits) {
-          LIBXS_PRAGMA_LOOP_COUNT(1, MAX_NSLICES, NSLICES_DEFAULT)
-          for (; s < gemm_ozn; ++s) {
-            const int high = 52 - (7 * s);
-            if (high < 0) {
-              digits[s] = 0;
-              continue;
-            }
-            { const int low = high - 6;
-              uint64_t chunk;
-              if (low >= 0) {
-                chunk = (mant_full >> low) & 0x7FULL;
-              }
-              else {
-                const int width = high + 1; /* 0..6 */
-                chunk = mant_full & ((1ULL << width) - 1ULL);
-              }
-              digits[s] = (int8_t)(sign * (int64_t)chunk);
-            }
-          }
+      { const int low = high - 6;
+        uint64_t chunk;
+        if (low >= 0) {
+          chunk = (mant_full >> low) & 0x7FULL;
         }
+        else {
+          const int width = high + 1; /* 0..6 */
+          chunk = mant_full & ((1ULL << width) - 1ULL);
+        }
+        digits[s] = (int8_t)(sign * (int64_t)chunk);
       }
     }
   }
-#else /* single-precision */
-  { union { float f; uint32_t u; } cvt;
-    cvt.f = value;
-    { const uint32_t bits = cvt.u;
-      const uint32_t frac = bits & ((1U << 23) - 1U);
-      const uint16_t exp_raw = (uint16_t)((bits >> 23) & 0xFFU);
-
-      if (0 == exp_raw) { /* subnormal treated as zero here */
-        *exp_biased = 0;
-        if (NULL != digits) memset(digits, 0, sizeof(int8_t) * gemm_ozn);
-        return;
-      }
-
-      { const uint32_t mant_full = (1U << 23) | frac; /* 24 bits */
-        int s = 0;
-        *exp_biased = (int16_t)exp_raw;
-
-        if (NULL != digits) {
-          LIBXS_PRAGMA_LOOP_COUNT(1, MAX_NSLICES, NSLICES_DEFAULT)
-          for (; s < gemm_ozn; ++s) {
-            const int high = 23 - (7 * s);
-            if (high < 0) {
-              digits[s] = 0;
-              continue;
-            }
-            { const int low = high - 6;
-              uint32_t chunk;
-              if (low >= 0) {
-                chunk = (mant_full >> low) & 0x7FU;
-              }
-              else {
-                const int width = high + 1; /* 0..6 */
-                chunk = mant_full & ((1U << width) - 1U);
-              }
-              digits[s] = (int8_t)(sign * (int32_t)chunk);
-            }
-          }
-        }
-      }
-    }
-  }
-#endif
 }
 
 

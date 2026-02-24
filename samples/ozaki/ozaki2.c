@@ -74,53 +74,12 @@ LIBXS_API_INLINE unsigned int oz2_mod64(uint64_t x, int pidx)
 
 /** Decompose a floating-point value into sign (+1/-1), biased exponent,
  *  and full unsigned mantissa (with implicit leading 1-bit).
- *  Special values (zero, NaN, Inf, subnormal) yield mantissa=0, exp=0. */
+ *  Delegates IEEE bit extraction to ozaki_extract_ieee (ozaki.h). */
 LIBXS_API_INLINE void oz2_decompose(GEMM_REAL_TYPE value,
   int16_t* exp_biased, int8_t* sign_out, uint64_t* mantissa)
 {
-  const union { uint32_t raw; float value; } inf = { 0x7F800000U };
-
   LIBXS_ASSERT(NULL != exp_biased && NULL != sign_out && NULL != mantissa);
-
-  if (value == (GEMM_REAL_TYPE)0 || LIBXS_ISNAN(value)
-    || (float)value == inf.value || (float)value == -inf.value)
-  {
-    *exp_biased = 0; *sign_out = 1; *mantissa = 0;
-    return;
-  }
-
-  *sign_out = (value < (GEMM_REAL_TYPE)0) ? -1 : 1;
-  if (value < (GEMM_REAL_TYPE)0) value = -value;
-
-#if GEMM_IS_DOUBLE
-  { union { double d; uint64_t u; } cvt;
-    cvt.d = value;
-    { const uint64_t bits = cvt.u;
-      const uint64_t frac = bits & ((1ULL << 52) - 1ULL);
-      const uint16_t exp_raw = (uint16_t)((bits >> 52) & 0x7FFU);
-      if (0 == exp_raw) { /* subnormal */
-        *exp_biased = 0; *sign_out = 1; *mantissa = 0;
-        return;
-      }
-      *exp_biased = (int16_t)exp_raw;
-      *mantissa = (1ULL << 52) | frac; /* 53-bit mantissa */
-    }
-  }
-#else /* single-precision */
-  { union { float f; uint32_t u; } cvt;
-    cvt.f = value;
-    { const uint32_t bits = cvt.u;
-      const uint32_t frac = bits & ((1U << 23) - 1U);
-      const uint16_t exp_raw = (uint16_t)((bits >> 23) & 0xFFU);
-      if (0 == exp_raw) { /* subnormal */
-        *exp_biased = 0; *sign_out = 1; *mantissa = 0;
-        return;
-      }
-      *exp_biased = (int16_t)exp_raw;
-      *mantissa = (uint64_t)((1U << 23) | frac); /* 24-bit mantissa */
-    }
-  }
-#endif
+  *sign_out = (int8_t)ozaki_extract_ieee(value, exp_biased, mantissa);
 }
 
 

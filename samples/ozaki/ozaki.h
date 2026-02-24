@@ -20,6 +20,49 @@
 # define OZ_EXP_BIAS     127
 #endif
 #define OZ_BIAS_PLUS_MANT (OZ_EXP_BIAS + OZ_MANT_BITS)
+#define OZ_EXP_MASK       (2U * OZ_EXP_BIAS + 1U)
+
+
+/*=== IEEE bit extraction (shared by ozaki1/ozaki2 decompose) ================*/
+
+/** Extract IEEE-754 biased exponent and full mantissa (with implicit bit)
+ *  into uint64_t.  Returns sign (+1 or -1); for zero/subnormal/NaN/Inf
+ *  sets exp_biased=0 and mantissa=0, returns +1. */
+LIBXS_API_INLINE int ozaki_extract_ieee(GEMM_REAL_TYPE value,
+  int16_t* exp_biased, uint64_t* mantissa)
+{
+  const union { uint32_t raw; float value; } inf = { 0x7F800000U };
+  int sign;
+
+  if (value == (GEMM_REAL_TYPE)0 || LIBXS_ISNAN(value)
+    || (float)value == inf.value || (float)value == -inf.value)
+  {
+    *exp_biased = 0; *mantissa = 0;
+    return 1;
+  }
+
+  sign = (value < (GEMM_REAL_TYPE)0) ? -1 : 1;
+  if (value < (GEMM_REAL_TYPE)0) value = -value;
+
+  { uint64_t bits;
+#if GEMM_IS_DOUBLE
+    { union { double d; uint64_t u; } cvt; cvt.d = value; bits = cvt.u; }
+#else
+    { union { float f; uint32_t u; } cvt; cvt.f = value; bits = cvt.u; }
+#endif
+    { const uint64_t frac = bits & ((1ULL << OZ_MANT_BITS) - 1ULL);
+      const uint16_t exp_raw = (uint16_t)(
+        (bits >> OZ_MANT_BITS) & OZ_EXP_MASK);
+      if (0 == exp_raw) { /* subnormal treated as zero */
+        *exp_biased = 0; *mantissa = 0;
+        return sign;
+      }
+      *exp_biased = (int16_t)exp_raw;
+      *mantissa = (1ULL << OZ_MANT_BITS) | frac;
+    }
+  }
+  return sign;
+}
 
 
 /*=== Block sizes ============================================================*/
