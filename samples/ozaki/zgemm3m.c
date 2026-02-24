@@ -260,6 +260,7 @@ LIBXS_API_INTERN LIBXS_ATTRIBUTE_WEAK void ZGEMM_WRAP(GEMM_ARGDECL)
     zgemm3m(GEMM_ARGPASS);
     if (2 == gemm_dump_inhibit) {
       gemm_dump_matrices(GEMM_ARGPASS, 2);
+      if (0 != gemm_exit) exit(EXIT_FAILURE);
     }
     gemm_dump_inhibit = 0;
   }

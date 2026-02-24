@@ -187,6 +187,7 @@ LIBXS_API_INLINE void ozaki_accumulate_block_diff(libxs_matdiff_info_t* acc,
       } \
       else { \
         gemm_dump_matrices(GEMM_ARGPASS, 1); \
+        if (0 != gemm_exit) exit(EXIT_FAILURE); \
       } \
     } \
   }
@@ -211,6 +212,7 @@ LIBXS_API_INLINE void ozaki_accumulate_block_diff(libxs_matdiff_info_t* acc,
 #define gemm_ozn            LIBXS_TPREFIX(GEMM_REAL_TYPE, gemm_ozn)
 #define gemm_ozflags        LIBXS_TPREFIX(GEMM_REAL_TYPE, gemm_ozflags)
 #define gemm_wrap           LIBXS_TPREFIX(GEMM_REAL_TYPE, gemm_wrap)
+#define gemm_exit           LIBXS_TPREFIX(GEMM_REAL_TYPE, gemm_exit)
 #define gemm_eps            LIBXS_TPREFIX(GEMM_REAL_TYPE, gemm_eps)
 #define gemm_rsq            LIBXS_TPREFIX(GEMM_REAL_TYPE, gemm_rsq)
 #define ozaki_target_arch   LIBXS_TPREFIX(GEMM_REAL_TYPE, ozaki_tarch)
@@ -240,16 +242,17 @@ LIBXS_API void gemm_oz2(GEMM_ARGDECL);
 /** Complex GEMM 3M (Karatsuba) implementation (internal). */
 LIBXS_API_INTERN void zgemm3m(GEMM_ARGDECL);
 
+LIBXS_APIVAR_PUBLIC(int gemm_wrap);
 LIBXS_APIVAR_PRIVATE(volatile LIBXS_ATOMIC_LOCKTYPE gemm_lock);
 LIBXS_APIVAR_PRIVATE(gemm_function_t gemm_original);
 LIBXS_APIVAR_PRIVATE(zgemm_function_t zgemm_original);
-LIBXS_APIVAR_PRIVATE(int gemm_ozn);
+LIBXS_APIVAR_PRIVATE(int ozaki_target_arch);
 LIBXS_APIVAR_PRIVATE(int gemm_ozflags);
-LIBXS_APIVAR_PUBLIC(int gemm_wrap);
+LIBXS_APIVAR_PRIVATE(int gemm_ozn);
+LIBXS_APIVAR_PRIVATE(int gemm_exit);
 extern LIBXS_TLS int gemm_dump_inhibit;
 LIBXS_APIVAR_PRIVATE(double gemm_eps);
 LIBXS_APIVAR_PRIVATE(double gemm_rsq);
-LIBXS_APIVAR_PRIVATE(int ozaki_target_arch);
 
 /**
  * Dump A and B matrices as MHD files.
@@ -261,23 +264,20 @@ LIBXS_API_INLINE void gemm_dump_matrices(GEMM_ARGDECL, size_t ncomponents)
 {
   const size_t ext_size = sizeof(char) + sizeof(GEMM_INT_TYPE)
                         + ncomponents * sizeof(GEMM_REAL_TYPE);
-  char extension[sizeof(char) + sizeof(GEMM_INT_TYPE) + 2 * sizeof(GEMM_REAL_TYPE)];
+  char extension[sizeof(char) + sizeof(GEMM_INT_TYPE) + 2 * sizeof(GEMM_REAL_TYPE)], fname[64];
   libxs_mhd_info_t mhd_info;
-  char fname[64];
   size_t size[2], pitch[2];
-  FILE *file;
   int result = EXIT_SUCCESS;
-  int dump_id;
+  FILE *file;
 
-  mhd_info.ndims = 2;
-  mhd_info.ncomponents = ncomponents;
   mhd_info.type = LIBXS_DATATYPE(GEMM_REAL_TYPE);
+  mhd_info.ncomponents = ncomponents;
   mhd_info.header_size = 0;
+  mhd_info.ndims = 2;
 
   LIBXS_ATOMIC_ACQUIRE(&gemm_lock, LIBXS_SYNC_NPAUSE, LIBXS_ATOMIC_LOCKORDER);
-  dump_id = gemm_diff.r;
 
-  LIBXS_SNPRINTF(fname, sizeof(fname), "gemm-%i-a.mhd", dump_id);
+  LIBXS_SNPRINTF(fname, sizeof(fname), "gemm-%i-a.mhd", gemm_diff.r);
   file = fopen(fname, "rb");
   if (NULL == file) { /* Never overwrite an existing file */
     size[0] = *m; size[1] = *k; pitch[0] = *lda; pitch[1] = *k;
@@ -291,7 +291,7 @@ LIBXS_API_INLINE void gemm_dump_matrices(GEMM_ARGDECL, size_t ncomponents)
   }
   else fclose(file);
 
-  LIBXS_SNPRINTF(fname, sizeof(fname), "gemm-%i-b.mhd", dump_id);
+  LIBXS_SNPRINTF(fname, sizeof(fname), "gemm-%i-b.mhd", gemm_diff.r);
   file = fopen(fname, "rb");
   if (NULL == file) { /* Never overwrite an existing file */
     size[0] = *k; size[1] = *n; pitch[0] = *ldb; pitch[1] = *n;
