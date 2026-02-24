@@ -7,12 +7,12 @@ on:
     branches: [ "main" ]
 
 jobs:
-  build:
+  Test:
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
-        dbg: [0, 1]
+        flags: [DBG=0, DBG=1 PEDANTIC=2]
     steps:
     - uses: actions/checkout@v4
 
@@ -20,7 +20,7 @@ jobs:
       run: sudo apt install -y libopenblas-openmp-dev
 
     - name: Build
-      run: make -j $(nproc) DBG=${{ matrix.dbg }}
+      run: make -j $(nproc) ${{ matrix.flags }}
 
     - name: Test
-      run: make -j $(nproc) DBG=${{ matrix.dbg }} test
+      run: make -j $(nproc) ${{ matrix.flags }} test
