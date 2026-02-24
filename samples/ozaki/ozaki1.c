@@ -182,10 +182,16 @@ LIBXS_API_INLINE void preprocess_cols(const GEMM_REAL_TYPE* b, GEMM_INT_TYPE ldb
 }
 
 
-/* AVX-512 VNNI accelerated dot product (BLOCK_K=16 fits one __m128i).
- * VPDPBUSD is unsigned*signed, so we convert a[] from signed to unsigned
- * by XOR with 0x80 (+128), then subtract 128*sum(b[]) to compensate. */
+/* VPDPBUSD (AVX-512 VNNI) accelerated int8 dot product.
+ * The instruction is unsigned*signed, so we convert a[] from signed to
+ * unsigned by XOR with 0x80 (+128), then subtract 128*sum(b[]) to
+ * compensate.  AVX-512 VNNI exposes VPDPBUSD at all three register
+ * widths (XMM/128, YMM/256, ZMM/512); we select the narrowest that
+ * covers BLOCK_K bytes, falling back to scalar for other sizes. */
 #if defined(LIBXS_INTRINSICS_AVX512)
+
+# if 16 == BLOCK_K /* 128-bit: one __m128i */
+
 LIBXS_API_INLINE LIBXS_INTRINSICS(LIBXS_X86_AVX512)
 int32_t ozaki_dot_i8_vnni(const int8_t a[BLOCK_K], const int8_t b[BLOCK_K])
 {
@@ -193,16 +199,57 @@ int32_t ozaki_dot_i8_vnni(const int8_t a[BLOCK_K], const int8_t b[BLOCK_K])
   const __m128i va = _mm_xor_si128(_mm_loadu_si128((const __m128i*)a), bias);
   const __m128i vb = _mm_loadu_si128((const __m128i*)b);
   const __m128i ones = _mm_set1_epi8(1);
-  /* dot = sum(((uint8_t)a[k]+128) * b[k]) for k in groups of 4 */
   __m128i dp = _mm_dpbusd_epi32(_mm_setzero_si128(), va, vb);
-  /* sum_b = sum(b[k]) via dpbusd with all-ones as the unsigned operand */
   __m128i sb = _mm_dpbusd_epi32(_mm_setzero_si128(), ones, vb);
-  /* horizontal sum of 4 dwords */
   dp = _mm_hadd_epi32(dp, sb);
   dp = _mm_hadd_epi32(dp, dp);
   return _mm_extract_epi32(dp, 0) - 128 * _mm_extract_epi32(dp, 1);
 }
-#endif
+
+# elif 32 == BLOCK_K /* 256-bit: one __m256i */
+
+LIBXS_API_INLINE LIBXS_INTRINSICS(LIBXS_X86_AVX512)
+int32_t ozaki_dot_i8_vnni(const int8_t a[BLOCK_K], const int8_t b[BLOCK_K])
+{
+  const __m256i bias = _mm256_set1_epi8((char)0x80);
+  const __m256i va = _mm256_xor_si256(
+    _mm256_loadu_si256((const __m256i*)a), bias);
+  const __m256i vb = _mm256_loadu_si256((const __m256i*)b);
+  const __m256i ones = _mm256_set1_epi8(1);
+  __m256i dp = _mm256_dpbusd_epi32(_mm256_setzero_si256(), va, vb);
+  __m256i sb = _mm256_dpbusd_epi32(_mm256_setzero_si256(), ones, vb);
+  /* reduce 8 dwords → 4 → 2 → 1 */
+  { const __m128i hi_dp = _mm256_extracti128_si256(dp, 1);
+    const __m128i hi_sb = _mm256_extracti128_si256(sb, 1);
+    __m128i lo_dp = _mm256_castsi256_si128(dp);
+    __m128i lo_sb = _mm256_castsi256_si128(sb);
+    lo_dp = _mm_add_epi32(lo_dp, hi_dp);
+    lo_sb = _mm_add_epi32(lo_sb, hi_sb);
+    lo_dp = _mm_hadd_epi32(lo_dp, lo_sb);
+    lo_dp = _mm_hadd_epi32(lo_dp, lo_dp);
+    return _mm_extract_epi32(lo_dp, 0) - 128 * _mm_extract_epi32(lo_dp, 1);
+  }
+}
+
+# elif 64 == BLOCK_K /* 512-bit: one __m512i */
+
+LIBXS_API_INLINE LIBXS_INTRINSICS(LIBXS_X86_AVX512)
+int32_t ozaki_dot_i8_vnni(const int8_t a[BLOCK_K], const int8_t b[BLOCK_K])
+{
+  const __m512i bias = _mm512_set1_epi8((char)0x80);
+  const __m512i va = _mm512_xor_si512(
+    _mm512_loadu_si512((const __m512i*)a), bias);
+  const __m512i vb = _mm512_loadu_si512((const __m512i*)b);
+  const __m512i ones = _mm512_set1_epi8(1);
+  __m512i dp = _mm512_dpbusd_epi32(_mm512_setzero_si512(), va, vb);
+  __m512i sb = _mm512_dpbusd_epi32(_mm512_setzero_si512(), ones, vb);
+  /* reduce 16 dwords → scalar via _mm512_reduce_add_epi32 */
+  return _mm512_reduce_add_epi32(dp)
+       - 128 * _mm512_reduce_add_epi32(sb);
+}
+
+# endif /* BLOCK_K width selection */
+#endif /* LIBXS_INTRINSICS_AVX512 */
 
 
 LIBXS_API_INLINE int32_t ozaki_dot_i8_sw(const int8_t a[BLOCK_K], const int8_t b[BLOCK_K])
@@ -216,8 +263,10 @@ LIBXS_API_INLINE int32_t ozaki_dot_i8_sw(const int8_t a[BLOCK_K], const int8_t b
 }
 
 
-/* Runtime dispatch: use VNNI when AVX-512 is detected, else scalar. */
-#if defined(LIBXS_INTRINSICS_AVX512)
+/* Runtime dispatch: use VNNI when AVX-512 is detected and
+ * BLOCK_K matches a supported register width, else scalar. */
+#if defined(LIBXS_INTRINSICS_AVX512) && \
+    (16 == BLOCK_K || 32 == BLOCK_K || 64 == BLOCK_K)
 # define ozaki_dot_i8(A, B) \
     ((LIBXS_X86_AVX512 <= ozaki_target_arch) ? ozaki_dot_i8_vnni(A, B) : ozaki_dot_i8_sw(A, B))
 #else
