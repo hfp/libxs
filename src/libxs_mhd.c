@@ -362,18 +362,14 @@ LIBXS_API int libxs_mhd_read_header(const char header_filename[], size_t filenam
     {
       result = EXIT_FAILURE;
     }
-    /* check size, and eventually trim dimensionality */
+    /* check size (zero extent in any dimension is invalid) */
     if (EXIT_SUCCESS == result) {
-      size_t i, d = 1;
-      for (i = info->ndims; 0 < i; --i) {
-        if (0 != d && 1 == size[i-1]) {
-          --info->ndims;
-        }
-        else if (0 == size[i-1]) {
+      size_t i;
+      for (i = 0; i < info->ndims; ++i) {
+        if (0 == size[i]) {
           result = EXIT_FAILURE;
           break;
         }
-        else d = 0;
       }
     }
     /* prefix the path of the header file to make sure that the data file can be found */
