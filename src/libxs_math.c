@@ -362,7 +362,7 @@ LIBXS_API double libxs_matdiff_epsilon(const libxs_matdiff_info_t* input)
 
 LIBXS_API void libxs_matdiff_reduce(libxs_matdiff_info_t* output, const libxs_matdiff_info_t* input)
 {
-  if (NULL != output && NULL != input) {
+  if (NULL != output && NULL != input && input->min_ref <= input->max_ref) {
     const double eps_out = libxs_matdiff_epsilon(output);
     const double eps_in  = libxs_matdiff_epsilon(input);
     ++output->r; /* increment reduction counter */
@@ -413,7 +413,7 @@ LIBXS_API void libxs_matdiff_reduce(libxs_matdiff_info_t* output, const libxs_ma
     output->l1_ref += input->l1_ref;
     output->l1_tst += input->l1_tst;
   }
-  else {
+  else if (NULL == input || NULL == output) {
     libxs_matdiff_clear(output);
   }
 }
