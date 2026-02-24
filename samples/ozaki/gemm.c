@@ -99,7 +99,7 @@ int main(int argc, char* argv[])
     b = (GEMM_REAL_TYPE*)malloc(sizeof(GEMM_REAL_TYPE) * nc * ldb * b_cols);
     c = (GEMM_REAL_TYPE*)malloc(sizeof(GEMM_REAL_TYPE) * nc * ldc * n);
     if (NULL != a && NULL != b && NULL != c) {
-      if (0 == file_input) {
+      if (0 == file_input || 0 == beta) {
         LIBXS_MATRNG(GEMM_INT_TYPE, GEMM_REAL_TYPE, 0, c, m, n, ldc, scale);
       }
       else memset(c, 0, sizeof(GEMM_REAL_TYPE) * nc * ldc * n);
