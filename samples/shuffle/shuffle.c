@@ -103,7 +103,7 @@ int main(int argc, char* argv[])
     y = (size_t)libxs_isqrt_u64(mhdsize);
     shape[0] = mhdsize / y; shape[1] = y;
     for (j = 0; j < nelemtypes; ++j) {
-      typesize = libxs_mhd_typesize(elemtypes[j]);
+      typesize = LIBXS_TYPESIZE(elemtypes[j]);
       if (elsize == typesize) {
         mhdinfo.hint = LIBXS_MHD_ELEMENT_CONVERSION_MODULUS;
         mhdinfo.type = LIBXS_DATATYPE_U8;

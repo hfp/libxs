@@ -39,7 +39,7 @@ int main(int argc, char* argv[])
     offset[1] = (pitch[1] - size[1]) / 2;
     offset[2] = 0;
     libxs_offset(info.ndims, NULL/*offset*/, pitch, &nelements);
-    data = malloc(info.ncomponents * nelements * libxs_mhd_typesize(info.type));
+    data = malloc(info.ncomponents * nelements * LIBXS_TYPESIZE(info.type));
   }
 
   /* perform tests with libxs_mhd_element_conversion (int2signed) */
@@ -147,7 +147,7 @@ int main(int argc, char* argv[])
     size_t nelements;
     dst_info.type = LIBXS_DATATYPE_F64;
     libxs_offset(info.ndims, NULL/*offset*/, pitch, &nelements);
-    buffer = malloc(info.ncomponents * nelements * libxs_mhd_typesize(dst_info.type));
+    buffer = malloc(info.ncomponents * nelements * LIBXS_TYPESIZE(dst_info.type));
     info.header_size = 0;
     result = libxs_mhd_read(data_filename,
       offset, size, pitch, &info, buffer,

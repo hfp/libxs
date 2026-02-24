@@ -2,6 +2,9 @@ LIBXS_ILOG2
 LIBXS_INTRINSICS_BITSCANFWD32_SW
 LIBXS_INTRINSICS_BITSCANFWD64_SW
 libxs_aligned
+libxs_barrett_pow18
+libxs_barrett_pow36
+libxs_barrett_rcp
 libxs_coprime
 libxs_coprime2
 libxs_cpuid
@@ -9,6 +12,10 @@ libxs_cpuid_id
 libxs_cpuid_name
 libxs_cpuid_vlen
 libxs_diff
+libxs_diff_char
+libxs_diff_i32
+libxs_diff_i64
+libxs_diff_i8
 libxs_diff_n
 libxs_dvalue
 libxs_finalize
@@ -21,6 +28,10 @@ libxs_hash
 libxs_hash16
 libxs_hash32
 libxs_hash8
+libxs_hash_char
+libxs_hash_i32
+libxs_hash_i64
+libxs_hash_i8
 libxs_hash_string
 libxs_hist_add
 libxs_hist_avg
@@ -36,10 +47,12 @@ libxs_isqrt_u64
 libxs_kahan_sum
 libxs_lcm
 libxs_malloc
+libxs_malloc_bytes
 libxs_malloc_info
 libxs_malloc_pool
 libxs_malloc_pool_info
 libxs_matdiff
+libxs_matdiff_
 libxs_matdiff_clear
 libxs_matdiff_epsilon
 libxs_matdiff_reduce
@@ -50,7 +63,6 @@ libxs_mhd_read
 libxs_mhd_read_header
 libxs_mhd_typeinfo
 libxs_mhd_typename
-libxs_mhd_typesize
 libxs_mhd_write
 libxs_mod_inverse_u32
 libxs_offset
@@ -97,4 +109,7 @@ libxs_timer_duration
 libxs_timer_info
 libxs_timer_tick
 libxs_typename
+libxs_typesize
 libxs_unshuffle
+libxs_xdiff_
+libxs_xhash_
