@@ -8,7 +8,6 @@
 ******************************************************************************/
 #include "ozaki.h"
 #include <libxs_malloc.h>
-#include <libxs_sync.h>
 
 /**
  * Complex GEMM via 3M (Karatsuba) method:
@@ -241,21 +240,7 @@ LIBXS_API_INTERN void zgemm3m(GEMM_ARGDECL)
  */
 LIBXS_API_INTERN LIBXS_ATTRIBUTE_WEAK void ZGEMM_WRAP(GEMM_ARGDECL)
 {
-  static volatile int zgemm_initialized = 0;
-  static int zgemm_ozaki = 1;
-
-  if (0 == zgemm_initialized) {
-    static volatile LIBXS_ATOMIC_LOCKTYPE lock = 0;
-    LIBXS_ATOMIC_ACQUIRE(&lock, LIBXS_SYNC_NPAUSE, LIBXS_ATOMIC_LOCKORDER);
-    if (0 == zgemm_initialized) {
-      const char *const env = getenv("GEMM_OZAKI");
-      zgemm_ozaki = (NULL == env ? 1 : atoi(env));
-      zgemm_initialized = 1;
-    }
-    LIBXS_ATOMIC_RELEASE(&lock, LIBXS_ATOMIC_LOCKORDER);
-  }
-
-  if (0 != zgemm_ozaki) {
+  if (0 != gemm_ozaki) {
     gemm_dump_inhibit = 1; /* suppress decomposed sub-GEMM dumps */
     zgemm3m(GEMM_ARGPASS);
     if (2 == gemm_dump_inhibit) {

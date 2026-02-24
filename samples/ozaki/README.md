@@ -80,7 +80,7 @@ GEMM_OZAKI=2 ./gemm-wrap.x 256    # use CRT scheme
 | `GEMM_OZFLAGS` | 15 | Scheme 1 bitmask: Triangular (1), Symmetrize (2), Reverse pass (4), Trim forward (8); see above. |
 | `GEMM_EPS` | inf | Dump A/B matrices as MHD-files when the epsilon error exceeds the given threshold (implies `GEMM_VERBOSE=1` if unset). |
 | `GEMM_VERBOSE` | 0 | 0&#160;=&#160;silent; 1&#160;=&#160;print accumulated statistic at exit; *N*&#160;=&#160;print every *N*th GEMM call. |
-| `GEMM_DIFF` | 0 | Track C-matrix (0), A-matrix representation (1), or B-matrix representation (2). |
+| `GEMM_STAT` | 0 | Track C-matrix (0), A-matrix representation (1), or B-matrix representation (2). |
 | `GEMM_EXIT` | 1 | Exit with failure after dumping matrices on accuracy violation (eps/rsq threshold exceeded). Set to 0 to continue execution. |
 | `GEMM_RSQ` | 0 | Dump A/B matrices as MHD-files when RSQ drops below the given threshold; the threshold is updated after each dump (implies `GEMM_VERBOSE=1` if unset). |
 | `NREPEAT` | 1 | Number of GEMM calls; when >&#160;1 the first call is warmup and excluded from timing. |

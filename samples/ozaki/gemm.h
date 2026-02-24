@@ -38,7 +38,8 @@
 
 /* Precision-specific name redirects for public/driver-visible symbols */
 #define gemm_diff     LIBXS_TPREFIX(GEMM_REAL_TYPE, gemm_diff)
-#define gemm_wrap     LIBXS_TPREFIX(GEMM_REAL_TYPE, gemm_wrap)
+#define gemm_ozaki    LIBXS_TPREFIX(GEMM_REAL_TYPE, gemm_ozaki)
+#define gemm_stat     LIBXS_TPREFIX(GEMM_REAL_TYPE, gemm_stat)
 #define gemm_verbose  LIBXS_TPREFIX(GEMM_REAL_TYPE, gemm_verbose)
 #define print_gemm    LIBXS_TPREFIX(GEMM_REAL_TYPE, gemm_print)
 #define print_diff    LIBXS_TPREFIX(GEMM_REAL_TYPE, gemm_print_diff)
@@ -54,5 +55,6 @@ LIBXS_API void print_gemm(FILE* ostream, GEMM_ARGDECL);
 LIBXS_API void print_diff(FILE* ostream, const libxs_matdiff_info_t* diff);
 
 LIBXS_APIVAR_PUBLIC(libxs_matdiff_info_t gemm_diff);
-LIBXS_APIVAR_PUBLIC(int gemm_wrap);
+LIBXS_APIVAR_PUBLIC(int gemm_ozaki);
 LIBXS_APIVAR_PUBLIC(int gemm_verbose);
+LIBXS_APIVAR_PUBLIC(int gemm_stat);

@@ -12,7 +12,8 @@
 
 LIBXS_APIVAR_PUBLIC_DEF(libxs_matdiff_info_t gemm_diff);
 LIBXS_APIVAR_PUBLIC_DEF(int gemm_verbose);
-LIBXS_APIVAR_PUBLIC_DEF(int gemm_wrap);
+LIBXS_APIVAR_PUBLIC_DEF(int gemm_ozaki);
+LIBXS_APIVAR_PUBLIC_DEF(int gemm_stat);
 
 LIBXS_APIVAR_PRIVATE_DEF(volatile LIBXS_ATOMIC_LOCKTYPE gemm_lock);
 LIBXS_APIVAR_PRIVATE_DEF(gemm_function_t gemm_original);
@@ -42,7 +43,6 @@ LIBXS_API_INTERN LIBXS_ATTRIBUTE_WEAK void GEMM_WRAP(const char* transa, const c
   const GEMM_REAL_TYPE*  beta, GEMM_REAL_TYPE* c, const GEMM_INT_TYPE* ldc)
 {
   static volatile int gemm_initialized = 0;
-  static int gemm_ozaki = 1;
   LIBXS_ASSERT(NULL != lda && NULL != ldb && NULL != ldc);
   LIBXS_ASSERT(NULL != a && NULL != b && NULL != c);
   LIBXS_ASSERT(NULL != m && NULL != n && NULL != k);
@@ -52,7 +52,7 @@ LIBXS_API_INTERN LIBXS_ATTRIBUTE_WEAK void GEMM_WRAP(const char* transa, const c
     LIBXS_ATOMIC_ACQUIRE(&gemm_lock, LIBXS_SYNC_NPAUSE, LIBXS_ATOMIC_LOCKORDER);
     if (0 == gemm_initialized) {
       const union { uint32_t raw; float value; } inf = { 0x7F800000U };
-      const char *const gemm_wrap_env = getenv("GEMM_DIFF");
+      const char *const gemm_stat_env = getenv("GEMM_STAT");
       const char *const gemm_exit_env = getenv("GEMM_EXIT");
       const char *const gemm_verbose_env = getenv("GEMM_VERBOSE");
       const char *const gemm_ozflags_env = getenv("GEMM_OZFLAGS");
@@ -64,9 +64,9 @@ LIBXS_API_INTERN LIBXS_ATTRIBUTE_WEAK void GEMM_WRAP(const char* transa, const c
       gemm_ozflags = (NULL == gemm_ozflags_env ? OZ1_DEFAULT : atoi(gemm_ozflags_env));
       gemm_ozaki = (NULL == gemm_ozaki_env ? 1/*default*/ : atoi(gemm_ozaki_env));
       gemm_exit = (NULL == gemm_exit_env ? 1/*default*/ : atoi(gemm_exit_env));
-      if (NULL != gemm_wrap_env) gemm_wrap = atoi(gemm_wrap_env);
+      if (NULL != gemm_stat_env) gemm_stat = atoi(gemm_stat_env);
       if (NULL != gemm_verbose_env) gemm_verbose = atoi(gemm_verbose_env);
-      else if (0 != gemm_wrap) gemm_verbose = 1;
+      else if (0 != gemm_stat) gemm_verbose = 1;
       if (2 == gemm_ozaki) { /* Scheme 2: CRT primes */
         gemm_ozn = LIBXS_CLMP(NULL == gemm_ozn_env
           ? OZ2_NPRIMES_DEFAULT : atoi(gemm_ozn_env), 1, OZ2_MAX_NPRIMES);

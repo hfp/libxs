@@ -14,16 +14,10 @@
 /* Weak references: gemm-blas.x links without the Ozaki library,
  * so these symbols may be undefined. CHECK should not be used
  * with gemm-blas.x (the variables resolve to zero-address). */
-LIBXS_PRAGMA_WEAK(gemm_diff)
-LIBXS_PRAGMA_WEAK(gemm_wrap)
 LIBXS_PRAGMA_WEAK(gemm_verbose)
-
-#if !defined(ALPHA)
-# define ALPHA 1
-#endif
-#if !defined(BETA)
-# define BETA 1
-#endif
+LIBXS_PRAGMA_WEAK(gemm_ozaki)
+LIBXS_PRAGMA_WEAK(gemm_diff)
+LIBXS_PRAGMA_WEAK(gemm_stat)
 
 
 int main(int argc, char* argv[])
@@ -38,8 +32,8 @@ int main(int argc, char* argv[])
   GEMM_INT_TYPE k = (3 < argc ? atoi(argv[3]) : m);
   const int ta = (4 < argc ? atoi(argv[4]) : 0);
   const int tb = (5 < argc ? atoi(argv[5]) : 0);
-  GEMM_REAL_TYPE alpha = (6 < argc ? atof(argv[6]) : (ALPHA));
-  GEMM_REAL_TYPE beta = (7 < argc ? atof(argv[7]) : (BETA));
+  GEMM_REAL_TYPE alpha = (6 < argc ? atof(argv[6]) : 1);
+  GEMM_REAL_TYPE beta = (7 < argc ? atof(argv[7]) : 1);
   GEMM_INT_TYPE lda = (8 < argc ? atoi(argv[8]) : (0 == ta ? m : k));
   GEMM_INT_TYPE ldb = (9 < argc ? atoi(argv[9]) : (0 == tb ? k : n));
   GEMM_INT_TYPE ldc = (10 < argc ? atoi(argv[10]) : m);
@@ -56,10 +50,10 @@ int main(int argc, char* argv[])
   libxs_init();
 
   /* CHECK enables accuracy validation: compare Ozaki result against BLAS.
-   * Pre-set gemm_wrap (diff mode) and gemm_verbose before the wrapper's
-   * lazy initialization; env vars GEMM_DIFF/GEMM_VERBOSE still override. */
+   * Pre-set gemm_stat (diff mode) and gemm_verbose before the wrapper's
+   * lazy initialization; env vars GEMM_STAT/GEMM_VERBOSE still override. */
   if (0 != check) {
-    gemm_wrap = 3; /* Ozaki C vs BLAS C */
+    gemm_stat = 3; /* Ozaki C vs BLAS C */
     gemm_verbose  = 1;
   }
 

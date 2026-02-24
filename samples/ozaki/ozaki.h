@@ -172,7 +172,7 @@ LIBXS_API_INLINE void ozaki_accumulate_block_diff(libxs_matdiff_info_t* acc,
     libxs_matdiff_info_t diff; \
     libxs_matdiff_clear(&diff); \
     DIFF_FN(transa, transb, m, n, k, alpha, a, lda, b, ldb, beta, c, ldc, \
-      LIBXS_ABS(gemm_wrap), &diff); \
+      LIBXS_ABS(gemm_stat), &diff); \
     LIBXS_ATOMIC_ACQUIRE(&gemm_lock, LIBXS_SYNC_NPAUSE, LIBXS_ATOMIC_LOCKORDER); \
     libxs_matdiff_reduce(&gemm_diff, &diff); diff = gemm_diff; \
     LIBXS_ATOMIC_RELEASE(&gemm_lock, LIBXS_ATOMIC_LOCKORDER); \
@@ -211,7 +211,7 @@ LIBXS_API_INLINE void ozaki_accumulate_block_diff(libxs_matdiff_info_t* acc,
 #define gemm_lock           LIBXS_TPREFIX(GEMM_REAL_TYPE, gemm_lock)
 #define gemm_ozn            LIBXS_TPREFIX(GEMM_REAL_TYPE, gemm_ozn)
 #define gemm_ozflags        LIBXS_TPREFIX(GEMM_REAL_TYPE, gemm_ozflags)
-#define gemm_wrap           LIBXS_TPREFIX(GEMM_REAL_TYPE, gemm_wrap)
+#define gemm_stat           LIBXS_TPREFIX(GEMM_REAL_TYPE, gemm_stat)
 #define gemm_exit           LIBXS_TPREFIX(GEMM_REAL_TYPE, gemm_exit)
 #define gemm_eps            LIBXS_TPREFIX(GEMM_REAL_TYPE, gemm_eps)
 #define gemm_rsq            LIBXS_TPREFIX(GEMM_REAL_TYPE, gemm_rsq)
@@ -242,7 +242,7 @@ LIBXS_API void gemm_oz2(GEMM_ARGDECL);
 /** Complex GEMM 3M (Karatsuba) implementation (internal). */
 LIBXS_API_INTERN void zgemm3m(GEMM_ARGDECL);
 
-LIBXS_APIVAR_PUBLIC(int gemm_wrap);
+LIBXS_APIVAR_PUBLIC(int gemm_stat);
 LIBXS_APIVAR_PRIVATE(volatile LIBXS_ATOMIC_LOCKTYPE gemm_lock);
 LIBXS_APIVAR_PRIVATE(gemm_function_t gemm_original);
 LIBXS_APIVAR_PRIVATE(zgemm_function_t zgemm_original);
