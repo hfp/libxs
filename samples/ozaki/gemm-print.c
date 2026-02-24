@@ -28,14 +28,7 @@ LIBXS_API void print_gemm(FILE* ostream, const char* transa, const char* transb,
 
 LIBXS_API void print_diff(FILE* ostream, const libxs_matdiff_info_t* diff)
 {
-  const double l0 = LIBXS_MAX(diff->linf_abs, diff->linf_rel);
-  const double l2 = LIBXS_MAX(diff->l2_abs, diff->l2_rel);
-  if (LIBXS_NEQ(0.0, l0) || LIBXS_NEQ(0.0, l2)) {
-    fprintf(ostream, "GEMM: ncalls=%i linf_abs=%f linf_rel=%f l2_abs=%f l2_rel=%f eps=%f rsq=%f\n",
-      diff->r, diff->linf_abs, diff->linf_rel, diff->l2_abs, diff->l2_rel,
-      libxs_matdiff_epsilon(diff), diff->rsq);
-  }
-  else {
-    fprintf(ostream, "GEMM: ncalls=%i\n", diff->r);
-  }
+  fprintf(ostream, "GEMM: ncalls=%i linf_abs=%f linf_rel=%f l2_abs=%f l2_rel=%f eps=%f rsq=%f\n",
+    diff->r, diff->linf_abs, diff->linf_rel, diff->l2_abs, diff->l2_rel,
+    libxs_matdiff_epsilon(diff), diff->rsq);
 }
