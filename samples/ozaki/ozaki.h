@@ -203,16 +203,20 @@ LIBXS_API_INLINE int ozaki_extract_ieee(GEMM_REAL_TYPE value,
 }
 
 
-/** Scale a tile of C by beta, optionally capturing the pre-scaled block. */
+/** Scale a tile of C by beta, optionally capturing the pre-scaled block.
+ *  Per BLAS spec, beta=0 must zero out C unconditionally (C may hold NaN
+ *  or Inf when uninitialized); a plain multiply would give NaN. */
 LIBXS_API_INLINE void ozaki_scale_block_beta(GEMM_REAL_TYPE* mb, GEMM_INT_TYPE ldc,
   GEMM_INT_TYPE iblk, GEMM_INT_TYPE jblk, const GEMM_REAL_TYPE* beta,
   GEMM_REAL_TYPE* ref_blk, int capture_ref)
 {
+  const GEMM_REAL_TYPE b = *beta;
   GEMM_INT_TYPE mi, nj;
   for (mi = 0; mi < iblk; ++mi) {
     for (nj = 0; nj < jblk; ++nj) {
       if (0 != capture_ref) ref_blk[mi + nj * BLOCK_M] = mb[mi + nj * ldc];
-      mb[mi + nj * ldc] *= (*beta);
+      mb[mi + nj * ldc] = ((GEMM_REAL_TYPE)0 != b)
+        ? mb[mi + nj * ldc] * b : (GEMM_REAL_TYPE)0;
     }
   }
 }

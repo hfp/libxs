@@ -536,14 +536,18 @@ LIBXS_API_INLINE void gemm_oz2_diff(const char* transa, const char* transb,
               oz2_reconstruct_batch(batch_res, garner_inv, nprimes,
                 (int)bsz, batch_val);
 
-              /* Apply exponent scale and alpha */
+              /* Apply exponent scale and alpha; guard against 0*Inf=NaN
+               * when large exponents make libxs_pow2(sh) overflow to Inf
+               * but the CRT dot product cancelled to exactly zero. */
               for (bi = 0; bi < (int)bsz; ++bi) {
-                const int col = (int)nj + bi;
-                const int sh = (int)expa_row[mi] + (int)expb_col[col]
-                   - (2 * OZ_BIAS_PLUS_MANT);
-                const double contrib = (*alpha) * batch_val[bi]
-                   * libxs_pow2(sh);
-                mb[mi + col * ldcv] += (GEMM_REAL_TYPE)contrib;
+                if (0.0 != batch_val[bi] && (GEMM_REAL_TYPE)0 != *alpha) {
+                  const int col = (int)nj + bi;
+                  const int sh = (int)expa_row[mi] + (int)expb_col[col]
+                     - (2 * OZ_BIAS_PLUS_MANT);
+                  const double contrib = (*alpha) * batch_val[bi]
+                     * libxs_pow2(sh);
+                  mb[mi + col * ldcv] += (GEMM_REAL_TYPE)contrib;
+                }
               }
             }
           }
