@@ -75,11 +75,13 @@ int main(int argc, char* argv[])
     }
   }
 
-  /* Compute physical (stored) matrix dimensions */
+  /* Compute physical (stored) matrix dimensions.
+   * For file input, the MHD writer stores A as (m, k) and B as (k, n),
+   * so a_cols = k and b_cols = n regardless of transpose. */
   a_rows = ('N' == transa || 'n' == transa) ? m : k;
-  a_cols = ('N' == transa || 'n' == transa) ? k : m;
+  a_cols = (0x1 & file_input) ? k : (('N' == transa || 'n' == transa) ? k : m);
   b_rows = ('N' == transb || 'n' == transb) ? k : n;
-  b_cols = ('N' == transb || 'n' == transb) ? n : k;
+  b_cols = (0x2 & file_input) ? n : (('N' == transb || 'n' == transb) ? n : k);
 
   if (1 > m || 1 > n || 1 > k || lda < a_rows || ldb < b_rows || ldc < m) {
     fprintf(stderr, "Invalid dimensions: m=%i n=%i k=%i lda=%i(>=%i) ldb=%i(>=%i) ldc=%i(>=%i)\n",
