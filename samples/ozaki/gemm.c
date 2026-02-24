@@ -61,9 +61,9 @@ int main(int argc, char* argv[])
     }
     if (0 == n) {
       size_t ncomp_b = 0;
-      if (EXIT_SUCCESS == gemm_mhd_read(argv[2],
-        &dim0, &dim1, &transb, &ldb, scalar, &ncomp_b, NULL, NULL)
-        && k == dim0 && ncomp_b == ncomp)
+      const int b_read = gemm_mhd_read(argv[2],
+        &dim0, &dim1, &transb, &ldb, scalar, &ncomp_b, NULL, NULL);
+      if (EXIT_SUCCESS == b_read && k == dim0 && ncomp_b == ncomp)
       {
         n = dim1;
         beta = scalar[0];
@@ -71,6 +71,10 @@ int main(int argc, char* argv[])
           complex_beta[0] = scalar[0]; complex_beta[1] = scalar[1];
         }
         file_input |= 0x2;
+      }
+      else if (EXIT_SUCCESS == b_read) {
+        fprintf(stderr, "Mismatched files: A implies k=%i but B has k=%i\n",
+          (int)k, (int)dim0);
       }
     }
   }

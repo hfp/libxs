@@ -269,7 +269,7 @@ LIBXS_API_INLINE void gemm_dump_matrices(GEMM_ARGDECL, size_t ncomponents)
 
   LIBXS_ATOMIC_ACQUIRE(&gemm_lock, LIBXS_SYNC_NPAUSE, LIBXS_ATOMIC_LOCKORDER);
 
-  LIBXS_SNPRINTF(fname, sizeof(fname), "gemm-%i-a.mhd", gemm_diff.r);
+  LIBXS_SNPRINTF(fname, sizeof(fname), "gemm-%u-%i-a.mhd", libxs_pid(), gemm_diff.r);
   file = fopen(fname, "rb");
   if (NULL == file) { /* Never overwrite an existing file */
     result |= gemm_mhd_write(fname, a, *m, *k, *lda, *transa, alpha,
@@ -277,7 +277,7 @@ LIBXS_API_INLINE void gemm_dump_matrices(GEMM_ARGDECL, size_t ncomponents)
   }
   else fclose(file);
 
-  LIBXS_SNPRINTF(fname, sizeof(fname), "gemm-%i-b.mhd", gemm_diff.r);
+  LIBXS_SNPRINTF(fname, sizeof(fname), "gemm-%u-%i-b.mhd", libxs_pid(), gemm_diff.r);
   file = fopen(fname, "rb");
   if (NULL == file) { /* Never overwrite an existing file */
     result |= gemm_mhd_write(fname, b, *k, *n, *ldb, *transb, beta,
