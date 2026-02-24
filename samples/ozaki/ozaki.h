@@ -81,7 +81,7 @@
     DIFF_FN(transa, transb, m, n, k, alpha, a, lda, b, ldb, beta, c, ldc, \
       LIBXS_ABS(gemm_stat), &diff); \
     LIBXS_ATOMIC_ACQUIRE(&gemm_lock, LIBXS_SYNC_NPAUSE, LIBXS_ATOMIC_LOCKORDER); \
-    libxs_matdiff_reduce(&gemm_diff, &diff); diff = gemm_diff; \
+    libxs_matdiff_reduce(&gemm_diff, &diff); diff.r = gemm_diff.r; \
     LIBXS_ATOMIC_RELEASE(&gemm_lock, LIBXS_ATOMIC_LOCKORDER); \
     epsilon = libxs_matdiff_epsilon(&diff); \
     if (1 < gemm_verbose || 0 > gemm_verbose) { \
