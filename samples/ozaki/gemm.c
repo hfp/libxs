@@ -8,7 +8,6 @@
 ******************************************************************************/
 #include "gemm.h"
 #include <libxs_timer.h>
-#include <libxs_mhd.h>
 #include <libxs_rng.h>
 
 /* Weak references: gemm-blas.x links without the Ozaki library,
@@ -41,8 +40,6 @@ int main(int argc, char* argv[])
   const GEMM_REAL_TYPE scale = (1 < nrepeat ? (1.0 / nrepeat) : 1);
   int result = EXIT_SUCCESS, file_input = 0, complex_input = 0, i;
   GEMM_REAL_TYPE complex_alpha[2] = { 0 }, complex_beta[2] = { 0 };
-  libxs_mhd_info_t info_a = { 2, 0, LIBXS_DATATYPE_UNKNOWN, 0 };
-  libxs_mhd_info_t info_b = { 2, 0, LIBXS_DATATYPE_UNKNOWN, 0 };
   GEMM_REAL_TYPE *a = NULL, *b = NULL, *c = NULL;
   GEMM_INT_TYPE a_rows, a_cols, b_rows, b_cols;
   libxs_matdiff_info_t diff;
@@ -58,57 +55,30 @@ int main(int argc, char* argv[])
   }
 
   if (2 < argc && 0 == m) { /* Indicate filename(s) */
-    char extension[
-      sizeof(char) /*trans*/ +
-      sizeof(GEMM_INT_TYPE) /*ld*/+
-      2 * sizeof(GEMM_REAL_TYPE) /* complex alpha/beta (max) */
-    ];
-    const size_t ext_real = sizeof(char) + sizeof(GEMM_INT_TYPE) + sizeof(GEMM_REAL_TYPE);
-    const size_t ext_complex = sizeof(char) + sizeof(GEMM_INT_TYPE) + 2 * sizeof(GEMM_REAL_TYPE);
-    size_t size[2], extension_size = sizeof(extension);
-    result |= libxs_mhd_read_header(argv[1], strlen(argv[1]),
-      argv[1], &info_a, size, extension, &extension_size);
-    if (EXIT_SUCCESS == result && 2 == info_a.ndims
-      && LIBXS_DATATYPE(GEMM_REAL_TYPE) == info_a.type
-      && ((1 == info_a.ncomponents && ext_real == extension_size)
-       || (2 == info_a.ncomponents && ext_complex == extension_size)))
+    GEMM_REAL_TYPE scalar[2] = { 0 };
+    GEMM_INT_TYPE dim0, dim1;
+    size_t ncomp = 0;
+    if (EXIT_SUCCESS == gemm_mhd_read(argv[1],
+      &dim0, &dim1, &transa, &lda, scalar, &ncomp, NULL))
     {
-      m = ldc = (int)size[0]; k = (int)size[1];
-      transa = *(const char*)extension;
-      memcpy(&lda, extension + sizeof(char), sizeof(GEMM_INT_TYPE));
-      if (2 == info_a.ncomponents) {
-        memcpy(complex_alpha, extension + sizeof(char) + sizeof(GEMM_INT_TYPE),
-          2 * sizeof(GEMM_REAL_TYPE));
-        alpha = complex_alpha[0];
+      m = ldc = dim0; k = dim1;
+      alpha = scalar[0];
+      if (2 == ncomp) {
+        complex_alpha[0] = scalar[0]; complex_alpha[1] = scalar[1];
         complex_input = 1;
-      }
-      else {
-        memcpy(&alpha, extension + sizeof(char) + sizeof(GEMM_INT_TYPE),
-          sizeof(GEMM_REAL_TYPE));
       }
       file_input |= 0x1;
     }
     if (0 == n) {
-      extension_size = sizeof(extension); /* reset capacity for second header */
-      result |= libxs_mhd_read_header(argv[2], strlen(argv[2]),
-        argv[2], &info_b, size, extension, &extension_size);
-      if (EXIT_SUCCESS == result && k == (int)size[0]
-        && 2 == info_b.ndims
-        && LIBXS_DATATYPE(GEMM_REAL_TYPE) == info_b.type
-        && info_b.ncomponents == info_a.ncomponents
-        && ((1 == info_b.ncomponents && ext_real == extension_size)
-         || (2 == info_b.ncomponents && ext_complex == extension_size)))
+      size_t ncomp_b = 0;
+      if (EXIT_SUCCESS == gemm_mhd_read(argv[2],
+        &dim0, &dim1, &transb, &ldb, scalar, &ncomp_b, NULL)
+        && k == dim0 && ncomp_b == ncomp)
       {
-        n = (int)size[1]; transb = *(char*)extension;
-        memcpy(&ldb, extension + sizeof(char), sizeof(GEMM_INT_TYPE));
-        if (2 == info_b.ncomponents) {
-          memcpy(complex_beta, extension + sizeof(char) + sizeof(GEMM_INT_TYPE),
-            2 * sizeof(GEMM_REAL_TYPE));
-          beta = complex_beta[0];
-        }
-        else {
-          memcpy(&beta, extension + sizeof(char) + sizeof(GEMM_INT_TYPE),
-            sizeof(GEMM_REAL_TYPE));
+        n = dim1;
+        beta = scalar[0];
+        if (2 == ncomp_b) {
+          complex_beta[0] = scalar[0]; complex_beta[1] = scalar[1];
         }
         file_input |= 0x2;
       }
@@ -147,11 +117,7 @@ int main(int argc, char* argv[])
 
   if (EXIT_SUCCESS == result) { /* Initialize A-matrix */
     if (0x1 & file_input) {
-      size_t size[2], ld[2];
-      size[0] = a_rows; size[1] = a_cols;
-      ld[0] = lda; ld[1] = a_cols;
-      result = libxs_mhd_read(argv[1], NULL/*offset*/, size, ld,
-        &info_a, a, NULL/*handler_info*/, NULL/*handler*/);
+      result = gemm_mhd_read(argv[1], NULL, NULL, NULL, NULL, NULL, NULL, a);
     }
     else {
       LIBXS_MATRNG(GEMM_INT_TYPE, GEMM_REAL_TYPE, 0, a, a_rows, a_cols, lda, scale);
@@ -160,11 +126,7 @@ int main(int argc, char* argv[])
 
   if (EXIT_SUCCESS == result) { /* Initialize B-matrix */
     if (0x2 & file_input) {
-      size_t size[2], ld[2];
-      size[0] = b_rows; size[1] = b_cols;
-      ld[0] = ldb; ld[1] = b_cols;
-      result = libxs_mhd_read(argv[2], NULL/*offset*/, size, ld,
-        &info_b, b, NULL/*handler_info*/, NULL/*handler*/);
+      result = gemm_mhd_read(argv[2], NULL, NULL, NULL, NULL, NULL, NULL, b);
     }
     else {
       LIBXS_MATRNG(GEMM_INT_TYPE, GEMM_REAL_TYPE, 0, b, b_rows, b_cols, ldb, scale);

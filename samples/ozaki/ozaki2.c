@@ -70,7 +70,6 @@ LIBXS_API_INLINE unsigned int oz2_mod64(uint64_t x, int pidx)
 }
 
 
-/*=== IEEE-754 decomposition =================================================*/
 
 /** Decompose a floating-point value into sign (+1/-1), biased exponent,
  *  and full unsigned mantissa (with implicit leading 1-bit).
@@ -87,22 +86,21 @@ LIBXS_API_INLINE void oz2_decompose(GEMM_REAL_TYPE value,
  *  delta = max_exp - element_exp (>= 0); mantissa is right-shifted
  *  by delta bits for exponent alignment before reduction. */
 LIBXS_API_INLINE void oz2_reduce(uint64_t mantissa, int delta,
-  uint8_t residues[OZ2_MAX_NPRIMES], int nprimes)
+  uint8_t residues[OZ2_NPRIMES_MAX], int nprimes)
 {
   int i;
-  nprimes = LIBXS_CLMP(nprimes, 0, OZ2_MAX_NPRIMES);
+  nprimes = LIBXS_CLMP(nprimes, 0, OZ2_NPRIMES_MAX);
   if (delta > 0) {
     if (delta >= 64) mantissa = 0;
     else mantissa >>= delta;
   }
-  LIBXS_PRAGMA_LOOP_COUNT(1, OZ2_MAX_NPRIMES, OZ2_NPRIMES_DEFAULT)
+  LIBXS_PRAGMA_LOOP_COUNT(1, OZ2_NPRIMES_MAX, OZ2_NPRIMES_DEFAULT)
   for (i = 0; i < nprimes; ++i) {
     residues[i] = (uint8_t)oz2_mod64(mantissa, i);
   }
 }
 
 
-/*=== Block preprocessing ====================================================*/
 
 /** Preprocess rows of A for one (ib, kb) tile.
  *  Decomposes each element, finds per-row max exponent, aligns mantissas
@@ -114,7 +112,7 @@ LIBXS_API_INLINE void oz2_preprocess_rows(
   GEMM_INT_TYPE iblk, GEMM_INT_TYPE kblk, int nprimes,
   int16_t expa_row[BLOCK_M],
   int8_t a_sign[BLOCK_M][BLOCK_K],
-  uint8_t a_res[BLOCK_M][BLOCK_K][OZ2_MAX_NPRIMES])
+  uint8_t a_res[BLOCK_M][BLOCK_K][OZ2_NPRIMES_MAX])
 {
   int16_t elem_exp[BLOCK_M][BLOCK_K];
   uint64_t elem_mant[BLOCK_M][BLOCK_K];
@@ -158,7 +156,7 @@ LIBXS_API_INLINE void oz2_preprocess_cols(
   GEMM_INT_TYPE jblk, GEMM_INT_TYPE kblk, int nprimes,
   int16_t expb_col[BLOCK_N],
   int8_t b_sign[BLOCK_K][BLOCK_N],
-  uint8_t b_res[BLOCK_K][BLOCK_N][OZ2_MAX_NPRIMES])
+  uint8_t b_res[BLOCK_K][BLOCK_N][OZ2_NPRIMES_MAX])
 {
   int16_t elem_exp[BLOCK_K][BLOCK_N];
   uint64_t elem_mant[BLOCK_K][BLOCK_N];
@@ -195,7 +193,6 @@ LIBXS_API_INLINE void oz2_preprocess_cols(
 }
 
 
-/*=== CRT reconstruction (Garner + Horner) ===================================*/
 
 /** Reconstruct a signed integer from its CRT residues.
  *
@@ -210,17 +207,17 @@ LIBXS_API_INLINE void oz2_preprocess_cols(
  *  Centered range: result in (-P/2, P/2], where P = prod(p_i).
  */
 LIBXS_API_INLINE double oz2_reconstruct(
-  const unsigned int residues[OZ2_MAX_NPRIMES],
-  unsigned int garner_inv[OZ2_MAX_NPRIMES][OZ2_MAX_NPRIMES],
+  const unsigned int residues[OZ2_NPRIMES_MAX],
+  unsigned int garner_inv[OZ2_NPRIMES_MAX][OZ2_NPRIMES_MAX],
   int nprimes)
 {
-  unsigned int v[OZ2_MAX_NPRIMES]; /* mixed-radix digits */
+  unsigned int v[OZ2_NPRIMES_MAX]; /* mixed-radix digits */
   double result;
   int i, j, is_negative;
-  nprimes = LIBXS_CLMP(nprimes, 1, OZ2_MAX_NPRIMES);
+  nprimes = LIBXS_CLMP(nprimes, 1, OZ2_NPRIMES_MAX);
 
   /* Garner's algorithm: compute mixed-radix digits v[i] in [0, p_i) */
-  LIBXS_PRAGMA_LOOP_COUNT(1, OZ2_MAX_NPRIMES, OZ2_NPRIMES_DEFAULT)
+  LIBXS_PRAGMA_LOOP_COUNT(1, OZ2_NPRIMES_MAX, OZ2_NPRIMES_DEFAULT)
   for (i = 0; i < nprimes; ++i) {
     unsigned int u = residues[i];
     const unsigned int pi = oz2_primes[i];
@@ -242,7 +239,7 @@ LIBXS_API_INLINE double oz2_reconstruct(
    * (p_i - 1 - v_i) in mixed-radix representation (no borrows needed).
    * Then |D| = (P - 1 - V) + 1 = P - V where V is the CRT result. */
   if (0 != is_negative) {
-    LIBXS_PRAGMA_LOOP_COUNT(1, OZ2_MAX_NPRIMES, OZ2_NPRIMES_DEFAULT)
+    LIBXS_PRAGMA_LOOP_COUNT(1, OZ2_NPRIMES_MAX, OZ2_NPRIMES_DEFAULT)
     for (i = 0; i < nprimes; ++i) {
       v[i] = oz2_primes[i] - 1 - v[i];
     }
@@ -251,7 +248,7 @@ LIBXS_API_INLINE double oz2_reconstruct(
   /* Horner's method (MSB to LSB): numerically stable since each step is
    * just a multiply by a small prime and add of a small digit. */
   result = (double)v[nprimes - 1];
-  LIBXS_PRAGMA_LOOP_COUNT(0, OZ2_MAX_NPRIMES - 1, OZ2_NPRIMES_DEFAULT - 1)
+  LIBXS_PRAGMA_LOOP_COUNT(0, OZ2_NPRIMES_MAX - 1, OZ2_NPRIMES_DEFAULT - 1)
   for (i = nprimes - 2; i >= 0; --i) {
     result = result * (double)oz2_primes[i] + (double)v[i];
   }
@@ -270,16 +267,16 @@ LIBXS_API_INLINE double oz2_reconstruct(
  *  Uses Garner+Horner in uint64 arithmetic (exact for mantissa <= 2^53).
  *  Used for diff tracking of A/B matrices. */
 LIBXS_API_INLINE uint64_t oz2_reconstruct_mantissa(
-  const uint8_t residues[OZ2_MAX_NPRIMES],
-  unsigned int garner_inv[OZ2_MAX_NPRIMES][OZ2_MAX_NPRIMES],
+  const uint8_t residues[OZ2_NPRIMES_MAX],
+  unsigned int garner_inv[OZ2_NPRIMES_MAX][OZ2_NPRIMES_MAX],
   int nprimes)
 {
-  unsigned int v[OZ2_MAX_NPRIMES];
+  unsigned int v[OZ2_NPRIMES_MAX];
   uint64_t result;
   int i, j;
-  nprimes = LIBXS_CLMP(nprimes, 1, OZ2_MAX_NPRIMES);
+  nprimes = LIBXS_CLMP(nprimes, 1, OZ2_NPRIMES_MAX);
 
-  LIBXS_PRAGMA_LOOP_COUNT(1, OZ2_MAX_NPRIMES, OZ2_NPRIMES_DEFAULT)
+  LIBXS_PRAGMA_LOOP_COUNT(1, OZ2_NPRIMES_MAX, OZ2_NPRIMES_DEFAULT)
   for (i = 0; i < nprimes; ++i) {
     unsigned int u = (unsigned int)residues[i];
     const unsigned int pi = oz2_primes[i];
@@ -293,7 +290,7 @@ LIBXS_API_INLINE uint64_t oz2_reconstruct_mantissa(
 
   /* Horner in uint64 (exact for mantissa values up to 2^53) */
   result = (uint64_t)v[nprimes - 1];
-  LIBXS_PRAGMA_LOOP_COUNT(0, OZ2_MAX_NPRIMES - 1, OZ2_NPRIMES_DEFAULT - 1)
+  LIBXS_PRAGMA_LOOP_COUNT(0, OZ2_NPRIMES_MAX - 1, OZ2_NPRIMES_DEFAULT - 1)
   for (i = nprimes - 2; i >= 0; --i) {
     result = result * (uint64_t)oz2_primes[i] + (uint64_t)v[i];
   }
@@ -305,17 +302,17 @@ LIBXS_API_INLINE uint64_t oz2_reconstruct_mantissa(
  *  through Garner's algorithm. The innermost loop over batch elements
  *  is data-parallel, enabling auto-vectorization. */
 LIBXS_API_INLINE void oz2_reconstruct_batch(
-  unsigned int batch_res[OZ2_BATCH][OZ2_MAX_NPRIMES],
-  unsigned int garner_inv[OZ2_MAX_NPRIMES][OZ2_MAX_NPRIMES],
+  unsigned int batch_res[OZ2_BATCH][OZ2_NPRIMES_MAX],
+  unsigned int garner_inv[OZ2_NPRIMES_MAX][OZ2_NPRIMES_MAX],
   int nprimes, int bsz, double result[OZ2_BATCH])
 {
-  unsigned int v[OZ2_BATCH][OZ2_MAX_NPRIMES];
+  unsigned int v[OZ2_BATCH][OZ2_NPRIMES_MAX];
   unsigned int u[OZ2_BATCH];
   int i, j, bi;
-  nprimes = LIBXS_CLMP(nprimes, 1, OZ2_MAX_NPRIMES);
+  nprimes = LIBXS_CLMP(nprimes, 1, OZ2_NPRIMES_MAX);
 
   /* Garner's algorithm: vectorized across batch elements */
-  LIBXS_PRAGMA_LOOP_COUNT(1, OZ2_MAX_NPRIMES, OZ2_NPRIMES_DEFAULT)
+  LIBXS_PRAGMA_LOOP_COUNT(1, OZ2_NPRIMES_MAX, OZ2_NPRIMES_DEFAULT)
   for (i = 0; i < nprimes; ++i) {
     const unsigned int pi = oz2_primes[i];
     for (bi = 0; bi < bsz; ++bi) u[bi] = batch_res[bi][i];
@@ -351,7 +348,6 @@ LIBXS_API_INLINE void oz2_reconstruct_batch(
 }
 
 
-/*=== Main CRT kernel ========================================================*/
 
 LIBXS_API_INLINE void gemm_oz2_diff(const char* transa, const char* transb,
   const GEMM_INT_TYPE* m, const GEMM_INT_TYPE* n, const GEMM_INT_TYPE* k,
@@ -360,7 +356,7 @@ LIBXS_API_INLINE void gemm_oz2_diff(const char* transa, const char* transb,
   const GEMM_REAL_TYPE*  beta, GEMM_REAL_TYPE* c, const GEMM_INT_TYPE* ldc,
   unsigned int diff_abc, libxs_matdiff_info_t* diff)
 {
-  unsigned int garner_inv[OZ2_MAX_NPRIMES][OZ2_MAX_NPRIMES];
+  unsigned int garner_inv[OZ2_NPRIMES_MAX][OZ2_NPRIMES_MAX];
   enum {
     BLOCK_MN = BLOCK_M * BLOCK_N,
     BLOCK_MK = BLOCK_M * BLOCK_K,
@@ -371,7 +367,7 @@ LIBXS_API_INLINE void gemm_oz2_diff(const char* transa, const char* transb,
   const int tb = (*transb != 'N' && *transb != 'n');
   const GEMM_INT_TYPE M = *m, N = *n, K = *k;
   const GEMM_INT_TYPE ldcv = *ldc;
-  const int nprimes = LIBXS_CLMP(gemm_ozn, 1, OZ2_MAX_NPRIMES);
+  const int nprimes = LIBXS_CLMP(gemm_ozn, 1, OZ2_NPRIMES_MAX);
   libxs_matdiff_info_t tdiff[256];
   int nthreads = 1;
   int i, j;
@@ -391,12 +387,12 @@ LIBXS_API_INLINE void gemm_oz2_diff(const char* transa, const char* transb,
 #if defined(_OPENMP)
 # pragma omp parallel
 #endif
-  { uint8_t a_res[BLOCK_M][BLOCK_K][OZ2_MAX_NPRIMES];
-    uint8_t b_res[BLOCK_K][BLOCK_N][OZ2_MAX_NPRIMES];
+  { uint8_t a_res[BLOCK_M][BLOCK_K][OZ2_NPRIMES_MAX];
+    uint8_t b_res[BLOCK_K][BLOCK_N][OZ2_NPRIMES_MAX];
     int8_t  a_sign[BLOCK_M][BLOCK_K], b_sign[BLOCK_K][BLOCK_N];
     /* k-contiguous residues for dot product (transposed layout) */
-    uint8_t ak[BLOCK_M][OZ2_MAX_NPRIMES][BLOCK_K];
-    uint8_t bk[BLOCK_N][OZ2_MAX_NPRIMES][BLOCK_K];
+    uint8_t ak[BLOCK_M][OZ2_NPRIMES_MAX][BLOCK_K];
+    uint8_t bk[BLOCK_N][OZ2_NPRIMES_MAX][BLOCK_K];
     int8_t  ak_sign[BLOCK_M][BLOCK_K], bk_sign[BLOCK_N][BLOCK_K];
     int16_t expa_row[BLOCK_M], expb_col[BLOCK_N];
     GEMM_REAL_TYPE ref_blk[BLOCK_MNK], recon_blk[BLOCK_MNK];
@@ -477,7 +473,7 @@ LIBXS_API_INLINE void gemm_oz2_diff(const char* transa, const char* transb,
           /* Transpose a_res/b_res into k-contiguous layout for dot products,
            * and gather signs into k-contiguous rows/columns. */
           for (mi = 0; mi < iblk; ++mi) {
-            LIBXS_PRAGMA_LOOP_COUNT(1, OZ2_MAX_NPRIMES, OZ2_NPRIMES_DEFAULT)
+            LIBXS_PRAGMA_LOOP_COUNT(1, OZ2_NPRIMES_MAX, OZ2_NPRIMES_DEFAULT)
             for (pidx = 0; pidx < nprimes; ++pidx) {
               for (kk = 0; kk < BLOCK_K; ++kk) {
                 ak[mi][pidx][kk] = a_res[mi][kk][pidx];
@@ -488,7 +484,7 @@ LIBXS_API_INLINE void gemm_oz2_diff(const char* transa, const char* transb,
             }
           }
           for (nj = 0; nj < jblk; ++nj) {
-            LIBXS_PRAGMA_LOOP_COUNT(1, OZ2_MAX_NPRIMES, OZ2_NPRIMES_DEFAULT)
+            LIBXS_PRAGMA_LOOP_COUNT(1, OZ2_NPRIMES_MAX, OZ2_NPRIMES_DEFAULT)
             for (pidx = 0; pidx < nprimes; ++pidx) {
               for (kk = 0; kk < BLOCK_K; ++kk) {
                 bk[nj][pidx][kk] = b_res[kk][nj][pidx];
@@ -506,7 +502,7 @@ LIBXS_API_INLINE void gemm_oz2_diff(const char* transa, const char* transb,
             for (nj = 0; nj < jblk; nj += OZ2_BATCH) {
               const GEMM_INT_TYPE bsz = LIBXS_MIN(OZ2_BATCH,
                 (int)(jblk - nj));
-              unsigned int batch_res[OZ2_BATCH][OZ2_MAX_NPRIMES];
+              unsigned int batch_res[OZ2_BATCH][OZ2_NPRIMES_MAX];
               double batch_val[OZ2_BATCH];
               int bi;
 
@@ -514,7 +510,7 @@ LIBXS_API_INLINE void gemm_oz2_diff(const char* transa, const char* transb,
                 const int col = (int)nj + bi;
 
                 /* Branchless sign accumulation + Barrett reduction */
-                LIBXS_PRAGMA_LOOP_COUNT(1, OZ2_MAX_NPRIMES, OZ2_NPRIMES_DEFAULT)
+                LIBXS_PRAGMA_LOOP_COUNT(1, OZ2_NPRIMES_MAX, OZ2_NPRIMES_DEFAULT)
                 for (pidx = 0; pidx < nprimes; ++pidx) {
                   uint32_t pos_sum = 0, neg_sum = 0;
                   uint32_t pr, nr;
@@ -581,7 +577,6 @@ LIBXS_API_INLINE void gemm_oz2_diff(const char* transa, const char* transb,
 }
 
 
-/*=== Public API =============================================================*/
 
 LIBXS_API void gemm_oz2(const char* transa, const char* transb,
   const GEMM_INT_TYPE* m, const GEMM_INT_TYPE* n, const GEMM_INT_TYPE* k,

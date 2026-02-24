@@ -10,62 +10,16 @@
 #include <libxs_mhd.h>
 #include <libxs_sync.h>
 
-
-/*=== IEEE-754 format parameters derived from GEMM_REAL_TYPE ================*/
 #if GEMM_IS_DOUBLE
-# define OZ_MANT_BITS    52
-# define OZ_EXP_BIAS     1023
+# define OZ_MANT_BITS 52
+# define OZ_EXP_BIAS 1023
 #else /* single-precision */
-# define OZ_MANT_BITS    23
-# define OZ_EXP_BIAS     127
+# define OZ_MANT_BITS 23
+# define OZ_EXP_BIAS 127
 #endif
 #define OZ_BIAS_PLUS_MANT (OZ_EXP_BIAS + OZ_MANT_BITS)
-#define OZ_EXP_MASK       (2U * OZ_EXP_BIAS + 1U)
+#define OZ_EXP_MASK (2U * OZ_EXP_BIAS + 1U)
 
-
-/*=== IEEE bit extraction (shared by ozaki1/ozaki2 decompose) ================*/
-
-/** Extract IEEE-754 biased exponent and full mantissa (with implicit bit)
- *  into uint64_t.  Returns sign (+1 or -1); for zero/subnormal/NaN/Inf
- *  sets exp_biased=0 and mantissa=0, returns +1. */
-LIBXS_API_INLINE int ozaki_extract_ieee(GEMM_REAL_TYPE value,
-  int16_t* exp_biased, uint64_t* mantissa)
-{
-  const union { uint32_t raw; float value; } inf = { 0x7F800000U };
-  int sign;
-
-  if (value == (GEMM_REAL_TYPE)0 || LIBXS_ISNAN(value)
-    || (float)value == inf.value || (float)value == -inf.value)
-  {
-    *exp_biased = 0; *mantissa = 0;
-    return 1;
-  }
-
-  sign = (value < (GEMM_REAL_TYPE)0) ? -1 : 1;
-  if (value < (GEMM_REAL_TYPE)0) value = -value;
-
-  { uint64_t bits;
-#if GEMM_IS_DOUBLE
-    { union { double d; uint64_t u; } cvt; cvt.d = value; bits = cvt.u; }
-#else
-    { union { float f; uint32_t u; } cvt; cvt.f = value; bits = cvt.u; }
-#endif
-    { const uint64_t frac = bits & ((1ULL << OZ_MANT_BITS) - 1ULL);
-      const uint16_t exp_raw = (uint16_t)(
-        (bits >> OZ_MANT_BITS) & OZ_EXP_MASK);
-      if (0 == exp_raw) { /* subnormal treated as zero */
-        *exp_biased = 0; *mantissa = 0;
-        return sign;
-      }
-      *exp_biased = (int16_t)exp_raw;
-      *mantissa = (1ULL << OZ_MANT_BITS) | frac;
-    }
-  }
-  return sign;
-}
-
-
-/*=== Block sizes ============================================================*/
 #if !defined(BLOCK_M)
 # define BLOCK_M 16
 #endif
@@ -76,8 +30,6 @@ LIBXS_API_INLINE int ozaki_extract_ieee(GEMM_REAL_TYPE value,
 # define BLOCK_K 16
 #endif
 
-
-/*=== Scheme 1 (slice) limits ================================================*/
 #if !defined(MAX_NSLICES)
 # if GEMM_IS_DOUBLE
 #   define MAX_NSLICES 16
@@ -105,59 +57,13 @@ LIBXS_API_INLINE int ozaki_extract_ieee(GEMM_REAL_TYPE value,
 #define OZ1_TRIM_FORWARD 8
 #define OZ1_DEFAULT (OZ1_TRIANGULAR | OZ1_SYMMETRIZE | OZ1_REVERSE_PASS | OZ1_TRIM_FORWARD)
 
-
-/*=== Scheme 2 (CRT) limits =================================================*/
 #if GEMM_IS_DOUBLE
-# define OZ2_MAX_NPRIMES     16
+# define OZ2_NPRIMES_MAX 16
 # define OZ2_NPRIMES_DEFAULT 15
 #else /* single-precision */
-# define OZ2_MAX_NPRIMES    10
+# define OZ2_NPRIMES_MAX 10
 # define OZ2_NPRIMES_DEFAULT 7
 #endif
-
-
-/*=== Block-level helpers (shared by ozaki1.c and ozaki2.c) ==================*/
-
-/** Scale a tile of C by beta, optionally capturing the pre-scaled block. */
-LIBXS_API_INLINE void ozaki_scale_block_beta(GEMM_REAL_TYPE* mb, GEMM_INT_TYPE ldc,
-  GEMM_INT_TYPE iblk, GEMM_INT_TYPE jblk, const GEMM_REAL_TYPE* beta,
-  GEMM_REAL_TYPE* ref_blk, int capture_ref)
-{
-  GEMM_INT_TYPE mi, nj;
-  for (mi = 0; mi < iblk; ++mi) {
-    for (nj = 0; nj < jblk; ++nj) {
-      if (0 != capture_ref) ref_blk[mi + nj * BLOCK_M] = mb[mi + nj * ldc];
-      mb[mi + nj * ldc] *= (*beta);
-    }
-  }
-}
-
-/** Store a (reference, reconstructed) value pair into block buffers. */
-LIBXS_API_INLINE void ozaki_store_block_pair(GEMM_REAL_TYPE* ref_blk,
-  GEMM_REAL_TYPE* recon_blk, GEMM_INT_TYPE ld, GEMM_INT_TYPE row,
-  GEMM_INT_TYPE col, GEMM_REAL_TYPE ref_val, GEMM_REAL_TYPE recon_val)
-{
-  recon_blk[row + col * ld] = recon_val;
-  ref_blk[row + col * ld] = ref_val;
-}
-
-/** Compute matrix diff for one block and reduce into accumulator. */
-LIBXS_API_INLINE void ozaki_accumulate_block_diff(libxs_matdiff_info_t* acc,
-  const GEMM_REAL_TYPE* ref_blk, const GEMM_REAL_TYPE* tst_blk,
-  GEMM_INT_TYPE bm, GEMM_INT_TYPE bn, GEMM_INT_TYPE ld_ref,
-  GEMM_INT_TYPE ld_tst)
-{
-  libxs_matdiff_info_t block_diff;
-  const int ild_ref = (int)ld_ref, ild_tst = (int)ld_tst;
-  if (EXIT_SUCCESS == libxs_matdiff(&block_diff, LIBXS_DATATYPE(GEMM_REAL_TYPE),
-    bm, bn, ref_blk, tst_blk, &ild_ref, &ild_tst))
-  {
-    libxs_matdiff_reduce(acc, &block_diff);
-  }
-}
-
-
-/*=== Public API wrapper (shared verbose/dump/diff logic) ====================*/
 
 /** Implement the public gemm_ozN function: call the _diff kernel,
  *  then handle verbose output, diff accumulation, and matrix dumps.
@@ -209,6 +115,7 @@ LIBXS_API_INLINE void ozaki_accumulate_block_diff(libxs_matdiff_info_t* acc,
 #define gemm_original       LIBXS_TPREFIX(GEMM_REAL_TYPE, gemm_original)
 #define zgemm_original      LIBXS_CPREFIX(GEMM_REAL_TYPE, gemm_original)
 #define gemm_lock           LIBXS_TPREFIX(GEMM_REAL_TYPE, gemm_lock)
+#define gemm_ozaki          LIBXS_TPREFIX(GEMM_REAL_TYPE, gemm_ozaki)
 #define gemm_ozn            LIBXS_TPREFIX(GEMM_REAL_TYPE, gemm_ozn)
 #define gemm_ozflags        LIBXS_TPREFIX(GEMM_REAL_TYPE, gemm_ozflags)
 #define gemm_stat           LIBXS_TPREFIX(GEMM_REAL_TYPE, gemm_stat)
@@ -242,6 +149,7 @@ LIBXS_API void gemm_oz2(GEMM_ARGDECL);
 /** Complex GEMM 3M (Karatsuba) implementation (internal). */
 LIBXS_API_INTERN void zgemm3m(GEMM_ARGDECL);
 
+LIBXS_APIVAR_PUBLIC(int gemm_ozaki);
 LIBXS_APIVAR_PUBLIC(int gemm_stat);
 LIBXS_APIVAR_PRIVATE(volatile LIBXS_ATOMIC_LOCKTYPE gemm_lock);
 LIBXS_APIVAR_PRIVATE(gemm_function_t gemm_original);
@@ -254,6 +162,88 @@ extern LIBXS_TLS int gemm_dump_inhibit;
 LIBXS_APIVAR_PRIVATE(double gemm_eps);
 LIBXS_APIVAR_PRIVATE(double gemm_rsq);
 
+
+/** Extract IEEE-754 biased exponent and full mantissa (with implicit bit)
+ *  into uint64_t.  Returns sign (+1 or -1); for zero/subnormal/NaN/Inf
+ *  sets exp_biased=0 and mantissa=0, returns +1. */
+LIBXS_API_INLINE int ozaki_extract_ieee(GEMM_REAL_TYPE value,
+  int16_t* exp_biased, uint64_t* mantissa)
+{
+  const union { uint32_t raw; float value; } inf = { 0x7F800000U };
+  int sign;
+
+  if (value == (GEMM_REAL_TYPE)0 || LIBXS_ISNAN(value)
+    || (float)value == inf.value || (float)value == -inf.value)
+  {
+    *exp_biased = 0; *mantissa = 0;
+    return 1;
+  }
+
+  sign = (value < (GEMM_REAL_TYPE)0) ? -1 : 1;
+  if (value < (GEMM_REAL_TYPE)0) value = -value;
+
+  { uint64_t bits;
+#if GEMM_IS_DOUBLE
+    { union { double d; uint64_t u; } cvt; cvt.d = value; bits = cvt.u; }
+#else
+    { union { float f; uint32_t u; } cvt; cvt.f = value; bits = cvt.u; }
+#endif
+    { const uint64_t frac = bits & ((1ULL << OZ_MANT_BITS) - 1ULL);
+      const uint16_t exp_raw = (uint16_t)(
+        (bits >> OZ_MANT_BITS) & OZ_EXP_MASK);
+      if (0 == exp_raw) { /* subnormal treated as zero */
+        *exp_biased = 0; *mantissa = 0;
+        return sign;
+      }
+      *exp_biased = (int16_t)exp_raw;
+      *mantissa = (1ULL << OZ_MANT_BITS) | frac;
+    }
+  }
+  return sign;
+}
+
+
+/** Scale a tile of C by beta, optionally capturing the pre-scaled block. */
+LIBXS_API_INLINE void ozaki_scale_block_beta(GEMM_REAL_TYPE* mb, GEMM_INT_TYPE ldc,
+  GEMM_INT_TYPE iblk, GEMM_INT_TYPE jblk, const GEMM_REAL_TYPE* beta,
+  GEMM_REAL_TYPE* ref_blk, int capture_ref)
+{
+  GEMM_INT_TYPE mi, nj;
+  for (mi = 0; mi < iblk; ++mi) {
+    for (nj = 0; nj < jblk; ++nj) {
+      if (0 != capture_ref) ref_blk[mi + nj * BLOCK_M] = mb[mi + nj * ldc];
+      mb[mi + nj * ldc] *= (*beta);
+    }
+  }
+}
+
+
+/** Store a (reference, reconstructed) value pair into block buffers. */
+LIBXS_API_INLINE void ozaki_store_block_pair(GEMM_REAL_TYPE* ref_blk,
+  GEMM_REAL_TYPE* recon_blk, GEMM_INT_TYPE ld, GEMM_INT_TYPE row,
+  GEMM_INT_TYPE col, GEMM_REAL_TYPE ref_val, GEMM_REAL_TYPE recon_val)
+{
+  recon_blk[row + col * ld] = recon_val;
+  ref_blk[row + col * ld] = ref_val;
+}
+
+
+/** Compute matrix diff for one block and reduce into accumulator. */
+LIBXS_API_INLINE void ozaki_accumulate_block_diff(libxs_matdiff_info_t* acc,
+  const GEMM_REAL_TYPE* ref_blk, const GEMM_REAL_TYPE* tst_blk,
+  GEMM_INT_TYPE bm, GEMM_INT_TYPE bn, GEMM_INT_TYPE ld_ref,
+  GEMM_INT_TYPE ld_tst)
+{
+  libxs_matdiff_info_t block_diff;
+  const int ild_ref = (int)ld_ref, ild_tst = (int)ld_tst;
+  if (EXIT_SUCCESS == libxs_matdiff(&block_diff, LIBXS_DATATYPE(GEMM_REAL_TYPE),
+    bm, bn, ref_blk, tst_blk, &ild_ref, &ild_tst))
+  {
+    libxs_matdiff_reduce(acc, &block_diff);
+  }
+}
+
+
 /**
  * Dump A and B matrices as MHD files.
  * Works for both real (ncomponents=1) and complex (ncomponents=2) matrices.
@@ -262,46 +252,23 @@ LIBXS_APIVAR_PRIVATE(double gemm_rsq);
  */
 LIBXS_API_INLINE void gemm_dump_matrices(GEMM_ARGDECL, size_t ncomponents)
 {
-  const size_t ext_size = sizeof(char) + sizeof(GEMM_INT_TYPE)
-                        + ncomponents * sizeof(GEMM_REAL_TYPE);
-  char extension[sizeof(char) + sizeof(GEMM_INT_TYPE) + 2 * sizeof(GEMM_REAL_TYPE)], fname[64];
-  libxs_mhd_info_t mhd_info;
-  size_t size[2], pitch[2];
+  char fname[64];
   int result = EXIT_SUCCESS;
   FILE *file;
-
-  mhd_info.type = LIBXS_DATATYPE(GEMM_REAL_TYPE);
-  mhd_info.ncomponents = ncomponents;
-  mhd_info.header_size = 0;
-  mhd_info.ndims = 2;
 
   LIBXS_ATOMIC_ACQUIRE(&gemm_lock, LIBXS_SYNC_NPAUSE, LIBXS_ATOMIC_LOCKORDER);
 
   LIBXS_SNPRINTF(fname, sizeof(fname), "gemm-%i-a.mhd", gemm_diff.r);
   file = fopen(fname, "rb");
   if (NULL == file) { /* Never overwrite an existing file */
-    size[0] = *m; size[1] = *k; pitch[0] = *lda; pitch[1] = *k;
-    *(char*)extension = *transa;
-    memcpy(extension + sizeof(char), lda, sizeof(GEMM_INT_TYPE));
-    memcpy(extension + sizeof(char) + sizeof(GEMM_INT_TYPE),
-      alpha, ncomponents * sizeof(GEMM_REAL_TYPE));
-    result |= libxs_mhd_write(fname, NULL/*offset*/, size, pitch,
-      &mhd_info, a, NULL/*handler_info*/, NULL/*handler*/,
-      NULL/*extension_header*/, extension, ext_size);
+    result |= gemm_mhd_write(fname, a, *m, *k, *lda, *transa, alpha, ncomponents);
   }
   else fclose(file);
 
   LIBXS_SNPRINTF(fname, sizeof(fname), "gemm-%i-b.mhd", gemm_diff.r);
   file = fopen(fname, "rb");
   if (NULL == file) { /* Never overwrite an existing file */
-    size[0] = *k; size[1] = *n; pitch[0] = *ldb; pitch[1] = *n;
-    *(char*)extension = *transb;
-    memcpy(extension + sizeof(char), ldb, sizeof(GEMM_INT_TYPE));
-    memcpy(extension + sizeof(char) + sizeof(GEMM_INT_TYPE),
-      beta, ncomponents * sizeof(GEMM_REAL_TYPE));
-    result |= libxs_mhd_write(fname, NULL/*offset*/, size, pitch,
-      &mhd_info, b, NULL/*handler_info*/, NULL/*handler*/,
-      NULL/*extension_header*/, extension, ext_size);
+    result |= gemm_mhd_write(fname, b, *k, *n, *ldb, *transb, beta, ncomponents);
   }
   else fclose(file);
 

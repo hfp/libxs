@@ -69,7 +69,7 @@ LIBXS_API_INTERN LIBXS_ATTRIBUTE_WEAK void GEMM_WRAP(const char* transa, const c
       else if (0 != gemm_stat) gemm_verbose = 1;
       if (2 == gemm_ozaki) { /* Scheme 2: CRT primes */
         gemm_ozn = LIBXS_CLMP(NULL == gemm_ozn_env
-          ? OZ2_NPRIMES_DEFAULT : atoi(gemm_ozn_env), 1, OZ2_MAX_NPRIMES);
+          ? OZ2_NPRIMES_DEFAULT : atoi(gemm_ozn_env), 1, OZ2_NPRIMES_MAX);
       }
       else { /* Scheme 1: mantissa slices */
         gemm_ozn = LIBXS_CLMP(NULL == gemm_ozn_env
