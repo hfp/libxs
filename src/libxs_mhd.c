@@ -39,20 +39,6 @@
   else *((TYPE*)PMIN_INOUT) = *((TYPE*)PMAX_INOUT) = 0; \
 } while(0)
 
-/* Relies on LIBXS_TYPEORDER: F64=0, F32=1, I64=2, U64=3, ... UNKNOWN=10 */
-#define LIBXS_MHD_TYPE_IS_FLOAT(ENUM) (LIBXS_TYPEORDER(LIBXS_DATATYPE_I64) > LIBXS_TYPEORDER(ENUM))
-#define LIBXS_MHD_TYPE_IS_UINT(ENUM) ( \
-    LIBXS_TYPEORDER(LIBXS_DATATYPE_UNKNOWN) > LIBXS_TYPEORDER(ENUM) && !LIBXS_MHD_TYPE_IS_FLOAT(ENUM) && ( \
-    LIBXS_DATATYPE_U64 == (ENUM) || LIBXS_DATATYPE_U32 == (ENUM) || \
-    LIBXS_DATATYPE_U16 == (ENUM) || LIBXS_DATATYPE_U8 == (ENUM)) \
-  )
-#define LIBXS_MHD_TYPE_PROMOTE(DST_ENUM, SRC_ENUM) ( \
-    (LIBXS_MHD_TYPE_IS_FLOAT(DST_ENUM) || (SRC_ENUM) == (DST_ENUM)) || \
-    (LIBXS_MHD_TYPE_IS_UINT(DST_ENUM) \
-      ? (LIBXS_MHD_TYPE_IS_UINT(SRC_ENUM) ? (libxs_mhd_typesize(SRC_ENUM) <= libxs_mhd_typesize(DST_ENUM)) : 0) \
-      : (LIBXS_MHD_TYPE_IS_UINT(SRC_ENUM) ? 0 : (libxs_mhd_typesize(SRC_ENUM) <= libxs_mhd_typesize(DST_ENUM)))) \
-  )
-
 /* Unified element-conversion macro parameterized by IS_FLOAT (compile-time constant).
  * IS_FLOAT=1: float/double source — NaN guard, no intermediate rounding.
  * IS_FLOAT=0: integer source — no NaN, rounds intermediate scaled value.
@@ -69,7 +55,7 @@
     assert(s0 <= s1); \
   } \
   if (LIBXS_TYPEORDER(LIBXS_DATATYPE_I64) <= LIBXS_TYPEORDER(dst_enum) && s0 < s1) { /* scale (integer-type) */ \
-    if (LIBXS_MHD_TYPE_IS_UINT(dst_enum)) { \
+    if (LIBXS_ENUM_IS_UINT(dst_enum)) { \
       const double s0pos = LIBXS_MAX(0, s0), s1pos = LIBXS_MAX(0, s1), scale = (s0pos < s1pos ? ((s1 - s0) / (s1pos - s0pos)) : 1); \
       if (IS_FLOAT) { /* float source: fractional part preserved in SRC_TYPE */ \
         s = (SRC_TYPE)(scale * (double)LIBXS_MAX(0, s)); \
@@ -80,20 +66,20 @@
       } \
       s0 = s0pos; s1 = s1pos; \
     } \
-    else if (0 == LIBXS_MHD_TYPE_PROMOTE(dst_enum, SRC_ENUM) && 0 > s0 && 0 < s1) { \
+    else if (0 == LIBXS_ENUM_PROMOTE(dst_enum, SRC_ENUM) && 0 > s0 && 0 < s1) { \
       s1 = LIBXS_MAX(-s0, s1); s0 = -s1; \
     } \
     { const double d0 = (0 <= s0 ? 0 : (DST_MIN)), d1 = (0 <= s1 ? (DST_MAX) : 0), d = ((double)s - s0) * (d1 - d0) / (s1 - s0) + d0; \
       *((DST_TYPE*)PDST) = (DST_TYPE)LIBXS_CLMP(0 <= d ? (d + h) : (d - h), d0, d1); \
     } \
   } \
-  else if (LIBXS_MHD_TYPE_IS_UINT(dst_enum) && NULL != (DST_INFO) \
+  else if (LIBXS_ENUM_IS_UINT(dst_enum) && NULL != (DST_INFO) \
     && LIBXS_MHD_ELEMENT_CONVERSION_MODULUS == (DST_INFO)->hint) \
   { /* hint */ \
     const double d = (DST_MAX) - (DST_MIN) + 1, q = s / d; \
     *((DST_TYPE*)PDST) = (DST_TYPE)(s - d * (DST_TYPE)q); \
   } \
-  else if (0 == LIBXS_MHD_TYPE_PROMOTE(dst_enum, SRC_ENUM)) { /* clamp */ \
+  else if (0 == LIBXS_ENUM_PROMOTE(dst_enum, SRC_ENUM)) { /* clamp */ \
     if (IS_FLOAT) { /* float source: round towards zero before clamping */ \
       *((DST_TYPE*)PDST) = (DST_TYPE)(0 <= (double)(s) ? LIBXS_CLMP(s + h, DST_MIN, DST_MAX) : LIBXS_CLMP(s - h, DST_MIN, DST_MAX)); \
     } \
@@ -210,14 +196,6 @@ LIBXS_API libxs_datatype libxs_mhd_typeinfo(const char elemname[])
   else if (0 == strcmp("MET_UCHAR", elemname)) {
     result = LIBXS_DATATYPE_U8;
   }
-  return result;
-}
-
-
-LIBXS_API size_t libxs_mhd_typesize(libxs_datatype type)
-{
-  const size_t result = LIBXS_TYPESIZE(type);
-  LIBXS_ASSERT(result <= LIBXS_MHD_MAX_ELEMSIZE);
   return result;
 }
 
@@ -492,7 +470,7 @@ LIBXS_API int libxs_mhd_element_conversion(void* dst, const libxs_mhd_element_ha
 LIBXS_API int libxs_mhd_element_comparison(void* dst, const libxs_mhd_element_handler_info_t* dst_info,
   libxs_datatype src_type, const void* src, const void* src_min, const void* src_max)
 {
-  const size_t typesize = libxs_mhd_typesize(src_type);
+  const size_t typesize = LIBXS_TYPESIZE(src_type);
   int result;
   if (NULL == dst_info || dst_info->type == src_type) { /* direct comparison */
     result = libxs_diff(src, dst, (unsigned char)typesize);
@@ -502,7 +480,7 @@ LIBXS_API int libxs_mhd_element_comparison(void* dst, const libxs_mhd_element_ha
     result = libxs_mhd_element_conversion(element, dst_info,
       src_type, src, src_min, src_max);
     if (EXIT_SUCCESS == result) {
-      result = libxs_diff(dst, element, (unsigned char)libxs_mhd_typesize(dst_info->type));
+      result = libxs_diff(dst, element, (unsigned char)LIBXS_TYPESIZE(dst_info->type));
     }
   }
   return result;
@@ -556,7 +534,7 @@ LIBXS_API_INTERN int internal_mhd_read(FILE* file, void* data, const size_t size
   const libxs_mhd_element_handler_info_t* handler_info, libxs_mhd_element_handler_t handler,
   void* minval, void* maxval, int minmax)
 {
-  const size_t typesize_stored = libxs_mhd_typesize(type_stored);
+  const size_t typesize_stored = LIBXS_TYPESIZE(type_stored);
   int result = EXIT_SUCCESS;
   LIBXS_ASSERT(NULL != pitch && 0 != typesize);
   if (1 < ndims) {
@@ -647,7 +625,7 @@ LIBXS_API int libxs_mhd_read(const char filename[], const size_t offset[], const
     size_t pitch1 = 0, size1 = 0;
     const size_t *const shape = (NULL != pitch ? pitch : size);
     const size_t offset1 = libxs_offset(ndims, offset, shape, &pitch1);
-    const size_t typesize = libxs_mhd_typesize(datatype);
+    const size_t typesize = LIBXS_TYPESIZE(datatype);
     size_t i;
     LIBXS_EXPECT(0 == libxs_offset(ndims, NULL, size, &size1));
     result = ((offset1 + size1) <= pitch1 ? EXIT_SUCCESS : EXIT_FAILURE);
@@ -669,7 +647,7 @@ LIBXS_API int libxs_mhd_read(const char filename[], const size_t offset[], const
       if (EXIT_SUCCESS == result && (NULL != handler /* slow-path */
         || (datatype != type_stored && LIBXS_MHD_ELEMENT_CONVERSION_DEFAULT == handler_info->hint)))
       { /* conversion needed */
-        const size_t typesize_stored = libxs_mhd_typesize(type_stored);
+        const size_t typesize_stored = LIBXS_TYPESIZE(type_stored);
         if (1 == fread(minmax, typesize_stored, 1, file)) {
           LIBXS_ASSERT(typesize_stored <= (LIBXS_MHD_MAX_ELEMSIZE));
           LIBXS_MEMCPY(minmax + (LIBXS_MHD_MAX_ELEMSIZE), minmax, typesize_stored);
@@ -758,7 +736,7 @@ LIBXS_API_INTERN int internal_mhd_write(FILE* file, const void* data, const size
             for (j = 0; j < ncomponents; ++j) {
               if (EXIT_SUCCESS == result) {
                 const size_t typesize = (NULL == handler_info ? typesize_data
-                  : libxs_mhd_typesize(handler_info->type));
+                  : LIBXS_TYPESIZE(handler_info->type));
                 result = handle_element(element, handler_info,
                   type_data, data, minval, maxval);
                 if (EXIT_SUCCESS == result) {
@@ -791,7 +769,7 @@ LIBXS_API int libxs_mhd_write(const char filename[], const size_t offset[], cons
   const size_t ncomponents = (NULL != info ? info->ncomponents : 0);
   const libxs_datatype type_data = (NULL != info ? info->type : LIBXS_DATATYPE_UNKNOWN);
   const libxs_datatype elemtype = (NULL == handler_info ? type_data : handler_info->type);
-  const size_t typesize = libxs_mhd_typesize(elemtype);
+  const size_t typesize = LIBXS_TYPESIZE(elemtype);
   const char *const elemname = libxs_mhd_typename(elemtype, NULL/*ctypename*/);
   FILE *const file = (NULL != filename && 0 != *filename &&
     NULL != size && 0 != ndims && 0 != ncomponents && NULL != data && NULL != elemname && 0 < typesize)
@@ -799,7 +777,7 @@ LIBXS_API int libxs_mhd_write(const char filename[], const size_t offset[], cons
     : NULL;
   int result = EXIT_SUCCESS;
   if (NULL != file) {
-    const size_t typesize_data = libxs_mhd_typesize(type_data);
+    const size_t typesize_data = LIBXS_TYPESIZE(type_data);
     size_t i;
     if (0 < fprintf(file, "NDims = %u\nElementNumberOfChannels = %u\nElementByteOrderMSB = False\nDimSize =",
       (unsigned int)ndims, (unsigned int)ncomponents))

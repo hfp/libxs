@@ -71,9 +71,6 @@ LIBXS_API const char* libxs_mhd_typename(libxs_datatype type, const char** ctype
 /** Returns the type of the element for a given type-name, e.g., "MET_FLOAT". */
 LIBXS_API libxs_datatype libxs_mhd_typeinfo(const char elemname[]);
 
-/** Returns the size of the element-type in question. */
-LIBXS_API size_t libxs_mhd_typesize(libxs_datatype type);
-
 
 /**
  * Parse the header of an MHD-file. The header can be part of the data file (local),

@@ -14,25 +14,23 @@
 #if !defined(GEMM_INT_TYPE)
 # define GEMM_INT_TYPE int
 #endif
-/* Precision detection: GEMM_IS_DOUBLE expands to 1 for double, 0 for float */
-#define GEMM_PREC_F64 1
-#define GEMM_PREC_F32 0
-#define GEMM_IS_DOUBLE LIBXS_CONCATENATE(GEMM_PREC_, LIBXS_TYPESYMBOL(GEMM_REAL_TYPE))
+
+/* Precision detection: GEMM_IS_DOUBLE expands to 1 for double, 0 for float/else */
+#define GEMM_IS_DOUBLE LIBXS_TYPEORDER(LIBXS_DATATYPE_F32) \
+                     < LIBXS_TYPEORDER(LIBXS_DATATYPE(GEMM_REAL_TYPE))
+/* GEMM symbol (dgemm_ for double, sgemm_ for float) */
 #if !defined(GEMM)
 # define GEMM LIBXS_FSYMBOL(LIBXS_TPREFIX(GEMM_REAL_TYPE, gemm))
 #endif
 /* Complex GEMM symbol (zgemm_ for double, cgemm_ for float) */
-#define GEMM_ZPREFIX_double z
-#define GEMM_ZPREFIX_float c
-#define GEMM_ZPREFIX LIBXS_CONCATENATE(GEMM_ZPREFIX_, GEMM_REAL_TYPE)
 #if !defined(ZGEMM)
-# define ZGEMM LIBXS_FSYMBOL(LIBXS_CONCATENATE(GEMM_ZPREFIX, gemm))
+# define ZGEMM LIBXS_FSYMBOL(LIBXS_CPREFIX(GEMM_REAL_TYPE, gemm))
 #endif
 
 /* Common GEMM argument list macros to reduce boilerplate */
-#define GEMM_ARGDECL                                                           \
-  const char* transa, const char* transb,                                      \
-  const GEMM_INT_TYPE* m, const GEMM_INT_TYPE* n, const GEMM_INT_TYPE* k,     \
+#define GEMM_ARGDECL \
+  const char* transa, const char* transb, \
+  const GEMM_INT_TYPE* m, const GEMM_INT_TYPE* n, const GEMM_INT_TYPE* k, \
   const GEMM_REAL_TYPE* alpha, const GEMM_REAL_TYPE* a, const GEMM_INT_TYPE* lda, \
                                const GEMM_REAL_TYPE* b, const GEMM_INT_TYPE* ldb, \
   const GEMM_REAL_TYPE*  beta, GEMM_REAL_TYPE* c, const GEMM_INT_TYPE* ldc

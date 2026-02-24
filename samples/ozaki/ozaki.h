@@ -119,37 +119,34 @@ LIBXS_API_INLINE void ozaki_accumulate_block_diff(libxs_matdiff_info_t* acc,
 /** Implement the public gemm_ozN function: call the _diff kernel,
  *  then handle verbose output, diff accumulation, and matrix dumps.
  *  DIFF_FN is the _diff kernel (gemm_oz1_diff or gemm_oz2_diff). */
-#define OZAKI_GEMM_WRAPPER(DIFF_FN)                                            \
-  if (0 == gemm_verbose) {                                                     \
-    DIFF_FN(transa, transb, m, n, k, alpha, a, lda, b, ldb, beta, c, ldc,     \
-      0, NULL);                                                                \
-  }                                                                            \
-  else {                                                                       \
-    double epsilon;                                                            \
-    libxs_matdiff_info_t diff;                                                 \
-    libxs_matdiff_clear(&diff);                                                \
-    DIFF_FN(transa, transb, m, n, k, alpha, a, lda, b, ldb, beta, c, ldc,     \
-      LIBXS_ABS(gemm_wrap), &diff);                                           \
-                                                                               \
+#define OZAKI_GEMM_WRAPPER(DIFF_FN) \
+  if (0 == gemm_verbose) { \
+    DIFF_FN(transa, transb, m, n, k, alpha, a, lda, b, ldb, beta, c, ldc, \
+      0, NULL); \
+  } \
+  else { \
+    double epsilon; \
+    libxs_matdiff_info_t diff; \
+    libxs_matdiff_clear(&diff); \
+    DIFF_FN(transa, transb, m, n, k, alpha, a, lda, b, ldb, beta, c, ldc, \
+      LIBXS_ABS(gemm_wrap), &diff); \
     LIBXS_ATOMIC_ACQUIRE(&gemm_lock, LIBXS_SYNC_NPAUSE, LIBXS_ATOMIC_LOCKORDER); \
-    libxs_matdiff_reduce(&gemm_diff, &diff); diff = gemm_diff;                \
-    LIBXS_ATOMIC_RELEASE(&gemm_lock, LIBXS_ATOMIC_LOCKORDER);                 \
-                                                                               \
-    epsilon = libxs_matdiff_epsilon(&diff);                                    \
-    if (1 < gemm_verbose || 0 > gemm_verbose) {                               \
-      const int nth = (0 < gemm_verbose ? gemm_verbose : 1);                  \
-      if (0 == (diff.r % nth)) print_diff(stderr, &diff);                     \
-    }                                                                          \
-    if (gemm_eps < epsilon || diff.rsq < gemm_rsq || 0 > gemm_verbose) {      \
-      if (0 != gemm_dump_inhibit) {                                            \
-        gemm_dump_inhibit = 2;                                                 \
-      }                                                                        \
-      else {                                                                   \
-        gemm_dump_matrices(GEMM_ARGPASS, 1);                                   \
-      }                                                                        \
-    }                                                                          \
+    libxs_matdiff_reduce(&gemm_diff, &diff); diff = gemm_diff; \
+    LIBXS_ATOMIC_RELEASE(&gemm_lock, LIBXS_ATOMIC_LOCKORDER); \
+    epsilon = libxs_matdiff_epsilon(&diff); \
+    if (1 < gemm_verbose || 0 > gemm_verbose) { \
+      const int nth = (0 < gemm_verbose ? gemm_verbose : 1); \
+      if (0 == (diff.r % nth)) print_diff(stderr, &diff); \
+    } \
+    if (gemm_eps < epsilon || diff.rsq < gemm_rsq || 0 > gemm_verbose) { \
+      if (0 != gemm_dump_inhibit) { \
+        gemm_dump_inhibit = 2; \
+      } \
+      else { \
+        gemm_dump_matrices(GEMM_ARGPASS, 1); \
+      } \
+    } \
   }
-
 
 /* Wrap/real symbol definitions for real GEMM */
 #define GEMM_WRAP LIBXS_CONCATENATE(__wrap_, GEMM)
@@ -163,23 +160,23 @@ LIBXS_API_INLINE void ozaki_accumulate_block_diff(libxs_matdiff_info_t* acc,
  * These macros redirect "friendly" names used throughout the implementation
  * to unique symbols, e.g. gemm_original -> dgemm_original (double) or
  * sgemm_original (float). Both precisions can coexist in one binary. */
-#define gemm_function_t   LIBXS_TPREFIX(GEMM_REAL_TYPE, gemm_ftype_t)
-#define zgemm_function_t  LIBXS_CONCATENATE(GEMM_ZPREFIX, gemm_ftype_t)
-#define gemm_original     LIBXS_TPREFIX(GEMM_REAL_TYPE, gemm_original)
-#define zgemm_original    LIBXS_CONCATENATE(GEMM_ZPREFIX, gemm_original)
-#define gemm_lock         LIBXS_TPREFIX(GEMM_REAL_TYPE, gemm_lock)
-#define gemm_ozn          LIBXS_TPREFIX(GEMM_REAL_TYPE, gemm_ozn)
-#define gemm_ozflags      LIBXS_TPREFIX(GEMM_REAL_TYPE, gemm_ozflags)
-#define gemm_wrap         LIBXS_TPREFIX(GEMM_REAL_TYPE, gemm_wrap)
-#define gemm_eps          LIBXS_TPREFIX(GEMM_REAL_TYPE, gemm_eps)
-#define gemm_rsq          LIBXS_TPREFIX(GEMM_REAL_TYPE, gemm_rsq)
-#define ozaki_target_arch LIBXS_TPREFIX(GEMM_REAL_TYPE, ozaki_tarch)
-#define gemm_oz1          LIBXS_TPREFIX(GEMM_REAL_TYPE, gemm_oz1)
-#define gemm_oz2          LIBXS_TPREFIX(GEMM_REAL_TYPE, gemm_oz2)
-#define gemm_dump_inhibit LIBXS_TPREFIX(GEMM_REAL_TYPE, gemm_dump_inhibit)
-#define gemm_dump_matrices LIBXS_TPREFIX(GEMM_REAL_TYPE, gemm_dump_mhd)
-#define zgemm3m           LIBXS_CONCATENATE(GEMM_ZPREFIX, gemm3m)
-#define print_diff_atexit LIBXS_TPREFIX(GEMM_REAL_TYPE, gemm_atexit)
+#define gemm_function_t     LIBXS_TPREFIX(GEMM_REAL_TYPE, gemm_ftype_t)
+#define zgemm_function_t    LIBXS_CPREFIX(GEMM_REAL_TYPE, gemm_ftype_t)
+#define gemm_original       LIBXS_TPREFIX(GEMM_REAL_TYPE, gemm_original)
+#define zgemm_original      LIBXS_CPREFIX(GEMM_REAL_TYPE, gemm_original)
+#define gemm_lock           LIBXS_TPREFIX(GEMM_REAL_TYPE, gemm_lock)
+#define gemm_ozn            LIBXS_TPREFIX(GEMM_REAL_TYPE, gemm_ozn)
+#define gemm_ozflags        LIBXS_TPREFIX(GEMM_REAL_TYPE, gemm_ozflags)
+#define gemm_wrap           LIBXS_TPREFIX(GEMM_REAL_TYPE, gemm_wrap)
+#define gemm_eps            LIBXS_TPREFIX(GEMM_REAL_TYPE, gemm_eps)
+#define gemm_rsq            LIBXS_TPREFIX(GEMM_REAL_TYPE, gemm_rsq)
+#define ozaki_target_arch   LIBXS_TPREFIX(GEMM_REAL_TYPE, ozaki_tarch)
+#define gemm_oz1            LIBXS_TPREFIX(GEMM_REAL_TYPE, gemm_oz1)
+#define gemm_oz2            LIBXS_TPREFIX(GEMM_REAL_TYPE, gemm_oz2)
+#define gemm_dump_inhibit   LIBXS_TPREFIX(GEMM_REAL_TYPE, gemm_dump_inhibit)
+#define gemm_dump_matrices  LIBXS_TPREFIX(GEMM_REAL_TYPE, gemm_dump_mhd)
+#define zgemm3m             LIBXS_CPREFIX(GEMM_REAL_TYPE, gemm3m)
+#define print_diff_atexit   LIBXS_TPREFIX(GEMM_REAL_TYPE, gemm_atexit)
 
 /** Function type for GEMM (precision-specific). */
 LIBXS_EXTERN_C typedef void (*gemm_function_t)(GEMM_ARGDECL);
