@@ -432,33 +432,33 @@ LIBXS_API_INLINE void gemm_oz1_diff(const char* transa, const char* transb,
             }
           }
           if (0 != (gemm_ozflags & OZ1_REVERSE_PASS)) {
-          /* Reverse pass: explicitly recover the most significant lower-triangle
-           * terms (slice_a >= S/2, slice_b from S-1-slice_a downward). These are
-           * the dropped terms with the largest exponents (small slice_b index
-           * paired with large slice_a index). */
-          LIBXS_PRAGMA_LOOP_COUNT(1, MAX_NSLICES, NSLICES_DEFAULT)
-          for (slice_a = nslices / 2; slice_a < nslices; ++slice_a) {
-            for (slice_b = nslices - 1 - slice_a; slice_b >= 0; --slice_b) {
-              const int low_bit_sum = (int)slice_low_bit[slice_a] + slice_low_bit[slice_b];
-              for (mi = 0; mi < iblk; ++mi) {
-                for (nj = 0; nj < jblk; ++nj) {
-                  const int32_t dot = ozaki_dot_i8(ak[mi][slice_a], bk[nj][slice_b]);
-                  if (0 != dot) {
-                    int sh = (int)expa_row[mi] + (int)expb_col[nj] - (2 * OZ_BIAS_PLUS_MANT) + low_bit_sum;
-                    double contrib = (*alpha) * (double)dot;
-                    sh = LIBXS_CLMP(sh, -60, 60);
-                    if (sh >= 0) {
-                      contrib *= (double)(1ULL << sh);
+            /* Reverse pass: explicitly recover the most significant lower-triangle
+             * terms (slice_a >= S/2, slice_b from S-1-slice_a downward). These are
+             * the dropped terms with the largest exponents (small slice_b index
+             * paired with large slice_a index). */
+            LIBXS_PRAGMA_LOOP_COUNT(1, MAX_NSLICES, NSLICES_DEFAULT)
+            for (slice_a = nslices / 2; slice_a < nslices; ++slice_a) {
+              for (slice_b = nslices - 1 - slice_a; slice_b >= 0; --slice_b) {
+                const int low_bit_sum = (int)slice_low_bit[slice_a] + slice_low_bit[slice_b];
+                for (mi = 0; mi < iblk; ++mi) {
+                  for (nj = 0; nj < jblk; ++nj) {
+                    const int32_t dot = ozaki_dot_i8(ak[mi][slice_a], bk[nj][slice_b]);
+                    if (0 != dot) {
+                      int sh = (int)expa_row[mi] + (int)expb_col[nj] - (2 * OZ_BIAS_PLUS_MANT) + low_bit_sum;
+                      double contrib = (*alpha) * (double)dot;
+                      sh = LIBXS_CLMP(sh, -60, 60);
+                      if (sh >= 0) {
+                        contrib *= (double)(1ULL << sh);
+                      }
+                      else {
+                        contrib /= (double)(1ULL << (-sh));
+                      }
+                      mb[mi + nj * ldcv] += (GEMM_REAL_TYPE)contrib;
                     }
-                    else {
-                      contrib /= (double)(1ULL << (-sh));
-                    }
-                    mb[mi + nj * ldcv] += (GEMM_REAL_TYPE)contrib;
                   }
                 }
               }
             }
-          }
           }
         }
 

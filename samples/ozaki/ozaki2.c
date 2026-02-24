@@ -8,6 +8,13 @@
 ******************************************************************************/
 #include "ozaki.h"
 
+/* Number of (mi,nj) elements processed in one Garner reconstruction batch.
+ * Batching exposes data-parallelism across independent elements so the
+ * compiler can auto-vectorize the per-element Garner inner loop. */
+#if !defined(OZ2_BATCH)
+# define OZ2_BATCH 16
+#endif
+
 
 /* Chinese Remainder Theorem (CRT) primes: chosen < 256 so that residues
  * fit in uint8 and products (< 256^2) fit in uint32. The product
@@ -61,13 +68,6 @@ LIBXS_API_INLINE unsigned int oz2_mod64(uint64_t x, int pidx)
   return libxs_mod_u64(x, oz2_primes[pidx], oz2_rcp[pidx],
     oz2_pow18[pidx], oz2_pow36[pidx]);
 }
-
-/* Number of (mi,nj) elements processed in one Garner reconstruction batch.
- * Batching exposes data-parallelism across independent elements so the
- * compiler can auto-vectorize the per-element Garner inner loop. */
-#if !defined(OZ2_BATCH)
-# define OZ2_BATCH 16
-#endif
 
 
 /*=== IEEE-754 decomposition =================================================*/
