@@ -203,6 +203,40 @@ LIBXS_API_INLINE int ozaki_extract_ieee(GEMM_REAL_TYPE value,
 }
 
 
+/** Split a (pre-aligned) mantissa into signed 7-bit digits.
+ *  The mantissa is expected to be in the same format as produced
+ *  by ozaki_extract_ieee (implicit bit at position OZ_MANT_BITS),
+ *  but may have been right-shifted for exponent alignment. */
+LIBXS_API_INLINE void ozaki_split_digits(uint64_t mantissa, int sign,
+  int8_t digits[MAX_NSLICES])
+{
+  int s;
+  if (0 == mantissa) {
+    memset(digits, 0, sizeof(int8_t) * gemm_ozn);
+    return;
+  }
+  LIBXS_PRAGMA_LOOP_COUNT(1, MAX_NSLICES, NSLICES_DEFAULT)
+  for (s = 0; s < gemm_ozn; ++s) {
+    const int high = OZ_MANT_BITS - (7 * s);
+    if (high < 0) {
+      digits[s] = 0;
+      continue;
+    }
+    { const int low = high - 6;
+      uint64_t chunk;
+      if (low >= 0) {
+        chunk = (mantissa >> low) & 0x7FULL;
+      }
+      else {
+        const int width = high + 1;
+        chunk = mantissa & ((1ULL << width) - 1ULL);
+      }
+      digits[s] = (int8_t)(sign * (int64_t)chunk);
+    }
+  }
+}
+
+
 /** Scale a tile of C by beta, optionally capturing the pre-scaled block.
  *  Per BLAS spec, beta=0 must zero out C unconditionally (C may hold NaN
  *  or Inf when uninitialized); a plain multiply would give NaN. */

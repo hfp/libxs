@@ -71,17 +71,6 @@ LIBXS_API_INLINE unsigned int oz2_mod64(uint64_t x, int pidx)
 
 
 
-/** Decompose a floating-point value into sign (+1/-1), biased exponent,
- *  and full unsigned mantissa (with implicit leading 1-bit).
- *  Delegates IEEE bit extraction to ozaki_extract_ieee (ozaki.h). */
-LIBXS_API_INLINE void oz2_decompose(GEMM_REAL_TYPE value,
-  int16_t* exp_biased, int8_t* sign_out, uint64_t* mantissa)
-{
-  LIBXS_ASSERT(NULL != exp_biased && NULL != sign_out && NULL != mantissa);
-  *sign_out = (int8_t)ozaki_extract_ieee(value, exp_biased, mantissa);
-}
-
-
 /** Reduce an aligned mantissa modulo all active primes.
  *  delta = max_exp - element_exp (>= 0); mantissa is right-shifted
  *  by delta bits for exponent alignment before reduction. */
@@ -127,7 +116,7 @@ LIBXS_API_INLINE void oz2_preprocess_rows(
       const GEMM_INT_TYPE p = kb + kk;
       const GEMM_REAL_TYPE aval = ((row < M && p < K)
         ? a[LIBXS_INDEX(ta, lda, row, p)] : (GEMM_REAL_TYPE)0);
-      oz2_decompose(aval, &elem_exp[mi][kk], &a_sign[mi][kk], &elem_mant[mi][kk]);
+      a_sign[mi][kk] = (int8_t)ozaki_extract_ieee(aval, &elem_exp[mi][kk], &elem_mant[mi][kk]);
       row_max_exp = LIBXS_MAX(row_max_exp, elem_exp[mi][kk]);
     }
 
@@ -171,7 +160,7 @@ LIBXS_API_INLINE void oz2_preprocess_cols(
       const GEMM_INT_TYPE col = jb + nj;
       const GEMM_REAL_TYPE bval = ((p < K && col < N)
         ? b[LIBXS_INDEX(tb, ldb, p, col)] : (GEMM_REAL_TYPE)0);
-      oz2_decompose(bval, &elem_exp[kk][nj], &b_sign[kk][nj], &elem_mant[kk][nj]);
+      b_sign[kk][nj] = (int8_t)ozaki_extract_ieee(bval, &elem_exp[kk][nj], &elem_mant[kk][nj]);
       expb_col[nj] = LIBXS_MAX(expb_col[nj], elem_exp[kk][nj]);
     }
   }
