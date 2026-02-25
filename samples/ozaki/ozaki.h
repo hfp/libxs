@@ -323,10 +323,6 @@ LIBXS_API_INLINE void gemm_dump_matrices(GEMM_ARGDECL, size_t ncomponents)
   }
   else fclose(file);
 
-  if (EXIT_SUCCESS == result) {
-    print_gemm(stdout, GEMM_ARGPASS);
-  }
-
   /* avoid repeated dumps */
   { const double epsilon = libxs_matdiff_epsilon(&gemm_diff);
     gemm_rsq = gemm_diff.rsq;
