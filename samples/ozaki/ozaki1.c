@@ -84,6 +84,40 @@ LIBXS_API_INLINE void rescale_digits(int8_t dst[MAX_NSLICES], const int8_t src[M
 }
 
 
+/** Split a (pre-aligned) mantissa into signed 7-bit digits.
+ *  The mantissa is expected to be in the same format as produced
+ *  by ozaki_extract_ieee (implicit bit at position OZ_MANT_BITS),
+ *  but may have been right-shifted for exponent alignment. */
+LIBXS_API_INLINE void ozaki_split_digits(uint64_t mantissa, int sign,
+  int8_t digits[MAX_NSLICES])
+{
+  int s;
+  if (0 == mantissa) {
+    memset(digits, 0, sizeof(int8_t) * gemm_ozn);
+    return;
+  }
+  LIBXS_PRAGMA_LOOP_COUNT(1, MAX_NSLICES, NSLICES_DEFAULT)
+  for (s = 0; s < gemm_ozn; ++s) {
+    const int high = OZ_MANT_BITS - (7 * s);
+    if (high < 0) {
+      digits[s] = 0;
+      continue;
+    }
+    { const int low = high - 6;
+      uint64_t chunk;
+      if (low >= 0) {
+        chunk = (mantissa >> low) & 0x7FULL;
+      }
+      else {
+        const int width = high + 1;
+        chunk = mantissa & ((1ULL << width) - 1ULL);
+      }
+      digits[s] = (int8_t)(sign * (int64_t)chunk);
+    }
+  }
+}
+
+
 LIBXS_API_INLINE double reconstruct_from_digits(const int8_t digits[MAX_NSLICES],
   int exp_base, const int8_t slice_low_bit[MAX_NSLICES])
 {
@@ -93,14 +127,8 @@ LIBXS_API_INLINE double reconstruct_from_digits(const int8_t digits[MAX_NSLICES]
   for (; slice < gemm_ozn; ++slice) {
     const int16_t digit = (int16_t)digits[slice];
     if (0 != digit) {
-      int sh = exp_base + slice_low_bit[slice];
-      sh = LIBXS_CLMP(sh, -60, 60);
-      if (sh >= 0) {
-        recon += (double)digit * (double)(1ULL << sh);
-      }
-      else {
-        recon += (double)digit / (double)(1ULL << (-sh));
-      }
+      const int sh = exp_base + slice_low_bit[slice];
+      recon += (double)digit * libxs_pow2(sh);
     }
   }
 
@@ -113,9 +141,11 @@ LIBXS_API_INLINE void preprocess_rows(const GEMM_REAL_TYPE* a, GEMM_INT_TYPE lda
   GEMM_INT_TYPE kblk, int16_t expa_row[BLOCK_M], int8_t am[BLOCK_M][BLOCK_K][MAX_NSLICES])
 {
   int16_t elem_exp[BLOCK_M][BLOCK_K];
+  uint64_t elem_mant[BLOCK_M][BLOCK_K];
+  int elem_sign[BLOCK_M][BLOCK_K];
   GEMM_INT_TYPE mi, kk;
 
-  /* Single pass: decompose and track per-row max exponent */
+  /* Pass 1: extract sign, exponent, mantissa and track per-row max exponent */
   for (mi = 0; mi < iblk; ++mi) {
     const GEMM_INT_TYPE row = ib + mi;
     int16_t row_max_exp = INT16_MIN;
@@ -124,16 +154,20 @@ LIBXS_API_INLINE void preprocess_rows(const GEMM_REAL_TYPE* a, GEMM_INT_TYPE lda
       const GEMM_INT_TYPE p = kb + kk;
       const GEMM_REAL_TYPE aval = ((row < M && p < K)
         ? a[LIBXS_INDEX(ta, lda, row, p)] : (GEMM_REAL_TYPE)0);
-      ozaki_decompose(aval, &elem_exp[mi][kk], am[mi][kk]);
+      elem_sign[mi][kk] = ozaki_extract_ieee(aval, &elem_exp[mi][kk], &elem_mant[mi][kk]);
       row_max_exp = LIBXS_MAX(row_max_exp, elem_exp[mi][kk]);
     }
 
     expa_row[mi] = row_max_exp;
 
-    /* Rescale digits to align with row's max exponent */
+    /* Pass 2: align mantissa then decompose into digits */
     for (kk = 0; kk < kblk; ++kk) {
-      const int delta = (int)elem_exp[mi][kk] - (int)row_max_exp;
-      if (0 != delta) rescale_digits(am[mi][kk], am[mi][kk], delta);
+      const int delta = (int)row_max_exp - (int)elem_exp[mi][kk];
+      uint64_t aligned = elem_mant[mi][kk];
+      if (delta > 0) {
+        aligned = (delta < 64) ? (aligned >> delta) : 0;
+      }
+      ozaki_split_digits(aligned, elem_sign[mi][kk], am[mi][kk]);
     }
     /* Zero-pad remaining k-entries for fixed-length dot products */
     for (kk = kblk; kk < BLOCK_K; ++kk) {
@@ -148,29 +182,35 @@ LIBXS_API_INLINE void preprocess_cols(const GEMM_REAL_TYPE* b, GEMM_INT_TYPE ldb
   GEMM_INT_TYPE kblk, int16_t expb_col[BLOCK_N], int8_t bm[BLOCK_K][BLOCK_N][MAX_NSLICES])
 {
   int16_t elem_exp[BLOCK_K][BLOCK_N];
+  uint64_t elem_mant[BLOCK_K][BLOCK_N];
+  int elem_sign[BLOCK_K][BLOCK_N];
   GEMM_INT_TYPE nj, kk;
 
   for (nj = 0; nj < jblk; ++nj) {
     expb_col[nj] = INT16_MIN;
   }
 
-  /* Single pass: decompose and track per-column max exponent */
+  /* Pass 1: extract sign, exponent, mantissa and track per-column max exponent */
   for (kk = 0; kk < kblk; ++kk) {
     const GEMM_INT_TYPE p = kb + kk;
     for (nj = 0; nj < jblk; ++nj) {
       const GEMM_INT_TYPE col = jb + nj;
       const GEMM_REAL_TYPE bval = ((p < K && col < N)
         ? b[LIBXS_INDEX(tb, ldb, p, col)] : (GEMM_REAL_TYPE)0);
-      ozaki_decompose(bval, &elem_exp[kk][nj], bm[kk][nj]);
+      elem_sign[kk][nj] = ozaki_extract_ieee(bval, &elem_exp[kk][nj], &elem_mant[kk][nj]);
       expb_col[nj] = LIBXS_MAX(expb_col[nj], elem_exp[kk][nj]);
     }
   }
 
-  /* Rescale digits to align with column's max exponent */
+  /* Pass 2: align mantissa then decompose into digits */
   for (kk = 0; kk < kblk; ++kk) {
     for (nj = 0; nj < jblk; ++nj) {
-      const int delta = (int)elem_exp[kk][nj] - (int)expb_col[nj];
-      if (0 != delta) rescale_digits(bm[kk][nj], bm[kk][nj], delta);
+      const int delta = (int)expb_col[nj] - (int)elem_exp[kk][nj];
+      uint64_t aligned = elem_mant[kk][nj];
+      if (delta > 0) {
+        aligned = (delta < 64) ? (aligned >> delta) : 0;
+      }
+      ozaki_split_digits(aligned, elem_sign[kk][nj], bm[kk][nj]);
     }
   }
   /* Zero-pad remaining k-entries for fixed-length dot products */
@@ -415,16 +455,9 @@ LIBXS_API_INLINE void gemm_oz1_diff(const char* transa, const char* transb,
               for (mi = 0; mi < iblk; ++mi) {
                 for (nj = 0; nj < jblk; ++nj) {
                   const int32_t dot = ozaki_dot_i8(ak[mi][slice_a], bk[nj][slice_b]);
-                  if (0 != dot) {
-                    int sh = (int)expa_row[mi] + (int)expb_col[nj] - (2 * OZ_BIAS_PLUS_MANT) + low_bit_sum;
-                    double contrib = sym_alpha * (double)dot;
-                    sh = LIBXS_CLMP(sh, -60, 60);
-                    if (sh >= 0) {
-                      contrib *= (double)(1ULL << sh);
-                    }
-                    else {
-                      contrib /= (double)(1ULL << (-sh));
-                    }
+                  if (0 != dot && (GEMM_REAL_TYPE)0 != *alpha) {
+                    const int sh = (int)expa_row[mi] + (int)expb_col[nj] - (2 * OZ_BIAS_PLUS_MANT) + low_bit_sum;
+                    const double contrib = sym_alpha * (double)dot * libxs_pow2(sh);
                     mb[mi + nj * ldcv] += (GEMM_REAL_TYPE)contrib;
                   }
                 }
@@ -443,16 +476,9 @@ LIBXS_API_INLINE void gemm_oz1_diff(const char* transa, const char* transb,
                 for (mi = 0; mi < iblk; ++mi) {
                   for (nj = 0; nj < jblk; ++nj) {
                     const int32_t dot = ozaki_dot_i8(ak[mi][slice_a], bk[nj][slice_b]);
-                    if (0 != dot) {
-                      int sh = (int)expa_row[mi] + (int)expb_col[nj] - (2 * OZ_BIAS_PLUS_MANT) + low_bit_sum;
-                      double contrib = (*alpha) * (double)dot;
-                      sh = LIBXS_CLMP(sh, -60, 60);
-                      if (sh >= 0) {
-                        contrib *= (double)(1ULL << sh);
-                      }
-                      else {
-                        contrib /= (double)(1ULL << (-sh));
-                      }
+                    if (0 != dot && (GEMM_REAL_TYPE)0 != *alpha) {
+                      const int sh = (int)expa_row[mi] + (int)expb_col[nj] - (2 * OZ_BIAS_PLUS_MANT) + low_bit_sum;
+                      const double contrib = (*alpha) * (double)dot * libxs_pow2(sh);
                       mb[mi + nj * ldcv] += (GEMM_REAL_TYPE)contrib;
                     }
                   }
