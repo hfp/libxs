@@ -300,6 +300,7 @@ LIBXS_API_INLINE void gemm_dump_matrices(GEMM_ARGDECL, size_t ncomponents)
   settings.ozaki = gemm_ozaki;
   settings.ozn = gemm_ozn;
   settings.ozflags = gemm_ozflags;
+  settings.ozcutoff = gemm_ozcutoff;
   settings.eps = gemm_eps;
   settings.rsq = gemm_rsq;
 
