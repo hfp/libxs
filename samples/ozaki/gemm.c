@@ -48,10 +48,12 @@ int main(int argc, char* argv[])
     GEMM_REAL_TYPE scalar[2] = { 0 };
     GEMM_INT_TYPE dim0, dim1;
     size_t ncomp = 0;
+    gemm_mhd_settings_t settings_a;
     if (EXIT_SUCCESS == gemm_mhd_read(argv[1],
-      &dim0, &dim1, &transa, &lda, scalar, &ncomp, NULL, NULL))
+      &dim0, &dim1, &transa, &lda, scalar, &ncomp, &settings_a, NULL))
     {
-      m = ldc = dim0; k = dim1;
+      m = dim0; k = dim1;
+      ldc = (0 < settings_a.ldc) ? settings_a.ldc : dim0;
       alpha = scalar[0];
       if (2 == ncomp) {
         complex_alpha[0] = scalar[0]; complex_alpha[1] = scalar[1];
