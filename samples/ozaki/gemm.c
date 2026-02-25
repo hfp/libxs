@@ -52,9 +52,14 @@ int main(int argc, char* argv[])
     if (EXIT_SUCCESS == gemm_mhd_read(argv[1],
       &dim0, &dim1, &transa, &lda, scalar, &ncomp, &settings_a, NULL))
     {
-      m = dim0; k = dim1;
-      ldc = (0 < settings_a.ldc) ? settings_a.ldc : dim0;
-      alpha = scalar[0];
+      m = dim0;
+      if (3 >= argc) k = dim1;             else k = atoi(argv[3]);
+      if (4 >= argc) { /*transa from file*/ } else transa = (0 == ta ? 'N' : 'T');
+      if (6 >= argc) alpha = scalar[0];     else alpha = atof(argv[6]);
+      if (8 >= argc) { /*lda from file*/ }  else lda = atoi(argv[8]);
+      if (10 >= argc) {
+        ldc = (0 < settings_a.ldc) ? settings_a.ldc : dim0;
+      }
       if (2 == ncomp) {
         complex_alpha[0] = scalar[0]; complex_alpha[1] = scalar[1];
         complex_input = 1;
@@ -68,7 +73,9 @@ int main(int argc, char* argv[])
       if (EXIT_SUCCESS == b_read && k == dim0 && ncomp_b == ncomp)
       {
         n = dim1;
-        beta = scalar[0];
+        if (5 >= argc) { /*transb from file*/ } else transb = (0 == tb ? 'N' : 'T');
+        if (7 >= argc) beta = scalar[0];        else beta = atof(argv[7]);
+        if (9 >= argc) { /*ldb from file*/ }    else ldb = atoi(argv[9]);
         if (2 == ncomp_b) {
           complex_beta[0] = scalar[0]; complex_beta[1] = scalar[1];
         }
