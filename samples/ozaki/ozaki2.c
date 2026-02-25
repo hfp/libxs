@@ -15,6 +15,13 @@
 # define OZ2_BATCH 16
 #endif
 
+/* Maximum mixed-radix digits per uint64 Horner group.
+ * floor(63 / log2(251)) = 7.87; product of 8 largest primes < 2^63.
+ * Grouping eliminates FP64 from the inner Horner loop. */
+#if !defined(OZ2_HORNER_GROUP)
+# define OZ2_HORNER_GROUP 8
+#endif
+
 
 /* Chinese Remainder Theorem (CRT) primes: chosen < 256 so that residues
  * fit in uint8 and products (< 256^2) fit in uint32. The product
@@ -56,11 +63,13 @@ static const uint32_t oz2_pow36[] = {
    59U /* 181 */,  47U /* 179 */, 152U /* 173 */, 112U /* 167 */
 };
 
+
 /** Fast modular reduction: x mod oz2_primes[pidx] (table-indexed wrapper). */
 LIBXS_API_INLINE unsigned int oz2_mod(uint32_t x, int pidx)
 {
   return libxs_mod_u32(x, oz2_primes[pidx], oz2_rcp[pidx]);
 }
+
 
 /** Fast 64-bit modular reduction: x mod oz2_primes[pidx] (table-indexed wrapper). */
 LIBXS_API_INLINE unsigned int oz2_mod64(uint64_t x, int pidx)
@@ -68,7 +77,6 @@ LIBXS_API_INLINE unsigned int oz2_mod64(uint64_t x, int pidx)
   return libxs_mod_u64(x, oz2_primes[pidx], oz2_rcp[pidx],
     oz2_pow18[pidx], oz2_pow36[pidx]);
 }
-
 
 
 /** Reduce an aligned mantissa modulo all active primes.
@@ -88,7 +96,6 @@ LIBXS_API_INLINE void oz2_reduce(uint64_t mantissa, int delta,
     residues[i] = (uint8_t)oz2_mod64(mantissa, i);
   }
 }
-
 
 
 /** Preprocess rows of A for one (ib, kb) tile.
@@ -182,6 +189,44 @@ LIBXS_API_INLINE void oz2_preprocess_cols(
 }
 
 
+/** Evaluate mixed-radix digits v[0..nprimes-1] via grouped uint64 Horner.
+ *  Partitions digits into groups of OZ2_HORNER_GROUP, evaluates each group
+ *  exactly in uint64 (product of 8 primes < 2^63), then combines groups
+ *  with Horner in FP64: ceil(nprimes/OZ2_HORNER_GROUP)-1 FP64 mul-adds. */
+LIBXS_API_INLINE double oz2_horner_grouped(
+  const unsigned int v[], int nprimes)
+{
+  const int ngroups = (nprimes + OZ2_HORNER_GROUP - 1) / OZ2_HORNER_GROUP;
+  double result;
+  int g;
+
+  /* MSB group: indices [(ngroups-1)*OZ2_HORNER_GROUP .. nprimes-1] */
+  { const int lo = (ngroups - 1) * OZ2_HORNER_GROUP;
+    uint64_t r = (uint64_t)v[nprimes - 1];
+    int i;
+    for (i = nprimes - 2; i >= lo; --i) {
+      r = r * (uint64_t)oz2_primes[i] + (uint64_t)v[i];
+    }
+    result = (double)r;
+  }
+
+  /* Combine remaining groups MSB to LSB */
+  for (g = ngroups - 2; g >= 0; --g) {
+    const int lo = g * OZ2_HORNER_GROUP;
+    const int hi = lo + OZ2_HORNER_GROUP - 1;
+    uint64_t gval, gprod = 1;
+    int i;
+    for (i = lo; i <= hi; ++i) gprod *= (uint64_t)oz2_primes[i];
+    gval = (uint64_t)v[hi];
+    for (i = hi - 1; i >= lo; --i) {
+      gval = gval * (uint64_t)oz2_primes[i] + (uint64_t)v[i];
+    }
+    result = result * (double)gprod + (double)gval;
+  }
+
+  return result;
+}
+
 
 /** Reconstruct a signed integer from its CRT residues.
  *
@@ -234,13 +279,8 @@ LIBXS_API_INLINE double oz2_reconstruct(
     }
   }
 
-  /* Horner's method (MSB to LSB): numerically stable since each step is
-   * just a multiply by a small prime and add of a small digit. */
-  result = (double)v[nprimes - 1];
-  LIBXS_PRAGMA_LOOP_COUNT(0, OZ2_NPRIMES_MAX - 1, OZ2_NPRIMES_DEFAULT - 1)
-  for (i = nprimes - 2; i >= 0; --i) {
-    result = result * (double)oz2_primes[i] + (double)v[i];
-  }
+  /* Grouped Horner: uint64 within groups, FP64 only between groups */
+  result = oz2_horner_grouped(v, nprimes);
 
   /* For negative values: result holds |D|-1 (the complement),
    * so the true value is -(result + 1.0). */
@@ -328,14 +368,10 @@ LIBXS_API_INLINE void oz2_reconstruct_batch(
         v[bi][i] = oz2_primes[i] - 1 - v[bi][i];
       }
     }
-    r = (double)v[bi][nprimes - 1];
-    for (i = nprimes - 2; i >= 0; --i) {
-      r = r * (double)oz2_primes[i] + (double)v[bi][i];
-    }
+    r = oz2_horner_grouped(v[bi], nprimes);
     result[bi] = (0 != is_negative) ? -(r + 1.0) : r;
   }
 }
-
 
 
 LIBXS_API_INLINE void gemm_oz2_diff(const char* transa, const char* transb,
@@ -568,7 +604,6 @@ LIBXS_API_INLINE void gemm_oz2_diff(const char* transa, const char* transb,
     }
   }
 }
-
 
 
 LIBXS_API void gemm_oz2(const char* transa, const char* transb,
