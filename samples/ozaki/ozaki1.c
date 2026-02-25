@@ -330,46 +330,35 @@ LIBXS_API_INLINE void gemm_oz1_diff(const char* transa, const char* transb,
             }
           }
 
-          LIBXS_PRAGMA_LOOP_COUNT(1, MAX_NSLICES, NSLICES_DEFAULT)
-          for (slice_a = 0; slice_a < ((0 != (gemm_ozflags & OZ1_TRIM_FORWARD)) ? nslices / 2 : nslices); ++slice_a) {
-            slice_b = (0 != (gemm_ozflags & OZ1_TRIANGULAR)) ? slice_a : 0;
-            for (; slice_b < nslices; ++slice_b) {
-              const int low_bit_sum = (int)slice_low_bit[slice_a] + slice_low_bit[slice_b];
-              /* Double off-diagonal terms whose mirror (sb,sa) is not explicitly
-               * computed. When REVERSE_PASS is also active, the mirror IS
-               * recovered when: sb >= S/2 && sa <= S-1-sb, so skip doubling. */
-              const double sym_alpha = (0 != (gemm_ozflags & OZ1_SYMMETRIZE))
-                ? (*alpha) * ((slice_a != slice_b
-                    && !(0 != (gemm_ozflags & OZ1_REVERSE_PASS)
-                      && slice_b >= nslices / 2 && slice_a <= nslices - 1 - slice_b)
-                    ) ? 2.0 : 1.0)
-                : (*alpha);
-              for (mi = 0; mi < iblk; ++mi) {
-                for (nj = 0; nj < jblk; ++nj) {
-                  const int32_t dot = ozaki_dot_i8(ak[mi][slice_a], bk[nj][slice_b]);
-                  if (0 != dot && (GEMM_REAL_TYPE)0 != *alpha) {
-                    const int sh = (int)expa_row[mi] + (int)expb_col[nj] - (2 * OZ_BIAS_PLUS_MANT) + low_bit_sum;
-                    const double contrib = sym_alpha * (double)dot * libxs_pow2(sh);
-                    mb[mi + nj * ldcv] += (GEMM_REAL_TYPE)contrib;
-                  }
-                }
-              }
-            }
-          }
-          if (0 != (gemm_ozflags & OZ1_REVERSE_PASS)) {
-            /* Reverse pass: explicitly recover the most significant lower-triangle
-             * terms (slice_a >= S/2, slice_b from S-1-slice_a downward). These are
-             * the dropped terms with the largest exponents (small slice_b index
-             * paired with large slice_a index). */
+          { /* Diagonal-cutoff loop: iterate pairs (sa,sb) with sa+sb <= cutoff.
+             * cutoff = 2*(S-1) means all pairs (exact); smaller values drop
+             * the least significant diagonals (~7 bits each). */
+            const int cutoff = (0 <= gemm_ozcutoff)
+              ? LIBXS_MIN(gemm_ozcutoff, 2 * (nslices - 1))
+              : 2 * (nslices - 1);
             LIBXS_PRAGMA_LOOP_COUNT(1, MAX_NSLICES, NSLICES_DEFAULT)
-            for (slice_a = nslices / 2; slice_a < nslices; ++slice_a) {
-              for (slice_b = nslices - 1 - slice_a; slice_b >= 0; --slice_b) {
-                const int low_bit_sum = (int)slice_low_bit[slice_a] + slice_low_bit[slice_b];
+            for (slice_a = 0; slice_a < nslices && slice_a <= cutoff; ++slice_a) {
+              const int sb_start = (0 != (gemm_ozflags & OZ1_TRIANGULAR))
+                ? slice_a : 0;
+              const int sb_end = LIBXS_MIN(nslices, cutoff + 1 - slice_a);
+              for (slice_b = sb_start; slice_b < sb_end; ++slice_b) {
+                const int low_bit_sum = (int)slice_low_bit[slice_a]
+                  + slice_low_bit[slice_b];
+                /* When SYMMETRIZE is active and TRIANGULAR drops the mirror
+                 * pair (sb,sa), compute both D(sa,sb) and D(sb,sa) in the
+                 * same iteration. Both share the same power-of-two shift
+                 * (low_bit_sum is commutative). */
+                const int do_mirror = (0 != (gemm_ozflags & OZ1_SYMMETRIZE))
+                  && (slice_a != slice_b);
                 for (mi = 0; mi < iblk; ++mi) {
                   for (nj = 0; nj < jblk; ++nj) {
-                    const int32_t dot = ozaki_dot_i8(ak[mi][slice_a], bk[nj][slice_b]);
+                    int32_t dot = ozaki_dot_i8(ak[mi][slice_a], bk[nj][slice_b]);
+                    if (do_mirror) {
+                      dot += ozaki_dot_i8(ak[mi][slice_b], bk[nj][slice_a]);
+                    }
                     if (0 != dot && (GEMM_REAL_TYPE)0 != *alpha) {
-                      const int sh = (int)expa_row[mi] + (int)expb_col[nj] - (2 * OZ_BIAS_PLUS_MANT) + low_bit_sum;
+                      const int sh = (int)expa_row[mi] + (int)expb_col[nj]
+                        - (2 * OZ_BIAS_PLUS_MANT) + low_bit_sum;
                       const double contrib = (*alpha) * (double)dot * libxs_pow2(sh);
                       mb[mi + nj * ldcv] += (GEMM_REAL_TYPE)contrib;
                     }

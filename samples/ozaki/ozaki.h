@@ -46,16 +46,16 @@
 #endif
 
 /* Runtime flag-set controlling the Ozaki scheme 1 (GEMM_OZFLAGS env var).
- * Bit 0 (1): TRIANGULAR  - drop symmetric contributions (speed for accuracy)
- * Bit 1 (2): SYMMETRIZE  - double off-diagonal upper-triangle terms
- * Bit 2 (4): REVERSE_PASS - recover most significant lower-triangle terms
- * Bit 3 (8): TRIM_FORWARD - limit forward pass to slice_a < S/2
- * Default 15 = all enabled. */
+ * Bit 0 (1): TRIANGULAR  - iterate upper triangle of slice-pair matrix
+ * Bit 1 (2): SYMMETRIZE  - compute mirror D(sb,sa) for off-diagonal pairs
+ * Default 3 = TRIANGULAR + SYMMETRIZE (correct, fewer loop iterations).
+ *
+ * The diagonal cutoff (GEMM_OZCUTOFF env var) limits the loop to pairs
+ * with sa + sb <= cutoff for approximate GEMM. Default -1 means exact
+ * (cutoff = 2*(S-1), all pairs). Each dropped diagonal loses ~7 bits. */
 #define OZ1_TRIANGULAR   1
 #define OZ1_SYMMETRIZE   2
-#define OZ1_REVERSE_PASS 4
-#define OZ1_TRIM_FORWARD 8
-#define OZ1_DEFAULT (OZ1_TRIANGULAR | OZ1_SYMMETRIZE | OZ1_REVERSE_PASS | OZ1_TRIM_FORWARD)
+#define OZ1_DEFAULT (OZ1_TRIANGULAR | OZ1_SYMMETRIZE)
 
 #if GEMM_IS_DOUBLE
 # define OZ2_NPRIMES_MAX 16
@@ -118,6 +118,7 @@
 #define gemm_ozaki          LIBXS_TPREFIX(GEMM_REAL_TYPE, gemm_ozaki)
 #define gemm_ozn            LIBXS_TPREFIX(GEMM_REAL_TYPE, gemm_ozn)
 #define gemm_ozflags        LIBXS_TPREFIX(GEMM_REAL_TYPE, gemm_ozflags)
+#define gemm_ozcutoff       LIBXS_TPREFIX(GEMM_REAL_TYPE, gemm_ozcutoff)
 #define gemm_stat           LIBXS_TPREFIX(GEMM_REAL_TYPE, gemm_stat)
 #define gemm_exit           LIBXS_TPREFIX(GEMM_REAL_TYPE, gemm_exit)
 #define gemm_eps            LIBXS_TPREFIX(GEMM_REAL_TYPE, gemm_eps)
@@ -156,6 +157,7 @@ LIBXS_APIVAR_PRIVATE(gemm_function_t gemm_original);
 LIBXS_APIVAR_PRIVATE(zgemm_function_t zgemm_original);
 LIBXS_APIVAR_PRIVATE(int ozaki_target_arch);
 LIBXS_APIVAR_PRIVATE(int gemm_ozflags);
+LIBXS_APIVAR_PRIVATE(int gemm_ozcutoff);
 LIBXS_APIVAR_PRIVATE(int gemm_ozn);
 LIBXS_APIVAR_PRIVATE(int gemm_exit);
 extern LIBXS_TLS int gemm_dump_inhibit;

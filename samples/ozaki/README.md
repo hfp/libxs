@@ -30,33 +30,44 @@ Intercepted ZGEMM (double-complex) and CGEMM (single-complex) calls are implemen
 
 The real and imaginary parts of the product are recovered as Re(A·B) = P1 − P2 and Im(A·B) = P3 − P1 − P2. Complex alpha/beta scaling is applied in a final pass. The three real GEMM calls flow through the same wrapper, so they are optionally accelerated by the Ozaki scheme as well.
 
-## Scheme 1 Flags (`GEMM_OZFLAGS`)
+## Scheme 1 Flags (`GEMM_OZFLAGS`) and Diagonal Cutoff (`GEMM_OZCUTOFF`)
 
-The multiplication scheme is controlled at runtime by the environment variable `GEMM_OZFLAGS`, an integer interpreted as a bitmask of four orthogonal flags:
+The Scheme&#160;1 loop is controlled by two runtime knobs:
+
+### Flags
+
+The environment variable `GEMM_OZFLAGS` is an integer bitmask:
 
 | Bit | Value | Flag | Description |
 |:---:|:-----:|------|-------------|
-| 0 | 1 | Triangular | Drop symmetric contributions, only compute the upper triangle of slice pairs (speed for accuracy). |
-| 1 | 2 | Symmetrize | Double off-diagonal upper-triangle terms to approximate the dropped lower-triangle contributions (zero extra cost). |
-| 2 | 4 | Reverse&#160;pass | Explicitly recover the most significant lower-triangle terms (slice&#160;a&#160;>=&#160;S/2) at ~S^2/4 additional cost. |
-| 3 | 8 | Trim&#160;forward | Limit the forward pass to slice&#160;a&#160;<&#160;S/2 so that, combined with the reverse pass, total cost equals the original triangular (S^2/2) but with better coverage. |
+| 0 | 1 | Triangular | Only iterate slice pairs (sa,&#160;sb) with sb&#160;>=&#160;sa (upper triangle). |
+| 1 | 2 | Symmetrize | For each off-diagonal pair (sa,&#160;sb) in the upper triangle, also compute the mirror dot product D(sb,&#160;sa) at negligible extra cost (one additional int8 dot product per pair). |
 
-The default value is **15** (all flags enabled). Setting `GEMM_OZFLAGS=0` runs the full square of slice pairs.
+The default value is **3** (both flags). Setting `GEMM_OZFLAGS=0` runs the full S^2 square of slice pairs.
 
-**Cost overview** for *S* slices:
+### Diagonal Cutoff
 
-| `GEMM_OZFLAGS` | Flags | Forward | Reverse | Total | Notes |
-|:---:|---|:---:|:---:|:---:|---|
-| 1 | Triangular | S^2/2 | 0 | S^2/2 | Upper triangle only |
-| 3 | +&#160;Symmetrize | S^2/2 | 0 | S^2/2 | +&#160;doubling approximation |
-| 7 | +&#160;Reverse&#160;pass | S^2/2 | S^2/4 | 3S^2/4 | Upper&#160;+ lower significant |
-| **15** | +&#160;Trim&#160;forward | S^2/4 | S^2/4 | **S^2/2** | Symmetric coverage at original cost **(default)** |
-| 0 | *(none)* | S^2 | 0 | S^2 | All pairs, full square |
+The environment variable `GEMM_OZCUTOFF` limits slice-pair iteration to pairs with sa&#160;+&#160;sb&#160;<=&#160;D, where D is the cutoff value. Pair significance scales as 2^(low_bit[sa]&#160;+&#160;low_bit[sb]), so sa&#160;+&#160;sb directly determines significance — smaller sums are more significant. Each dropped diagonal loses approximately 7&#160;bits of relative precision.
 
-Example:
+The default value is **-1** (exact: cutoff&#160;=&#160;2*(S-1), all pairs). Any non-negative value caps the sum sa&#160;+&#160;sb.
+
+**Cost overview** for *S*&#160;slices with TRIANGULAR&#160;+&#160;SYMMETRIZE (default flags):
+
+| `GEMM_OZCUTOFF` | Dot products | Pairs covered | Relative bits lost |
+|:---:|:---:|:---:|:---:|
+| -1 (default) | S*(S+1)/2 | all S^2 | 0 (exact) |
+| S-1 | ~S^2/4 | (S+1)*S/2 | ~7*(S-1) least significant |
+| S/2 | ~S^2/8 | ~S^2/4 | ~7*3S/2 least significant |
+| 0 | 1 | 1 (only diagonal) | ~7*2*(S-1) |
+
+Because SYMMETRIZE computes both D(sa,sb) and D(sb,sa), the number of dot products with TRIANGULAR equals S*(S+1)/2 for cutoff&#160;=&#160;2*(S-1) but covers all S^2 contributions.
+
+Examples:
 
 ```bash
-GEMM_OZFLAGS=3 ./gemm-wrap.x 256    # triangular + symmetrize, no reverse pass
+./gemm-wrap.x 256                      # exact (default: flags=3, cutoff=-1)
+GEMM_OZCUTOFF=4 ./gemm-wrap.x 256      # approximate: only diagonals 0..4
+GEMM_OZFLAGS=0 ./gemm-wrap.x 256       # full S^2 square, no symmetrize
 ```
 
 ## Scheme 2 — Chinese Remainder Theorem
@@ -77,7 +88,8 @@ GEMM_OZAKI=2 ./gemm-wrap.x 256    # use CRT scheme
 |----------|:-------:|-------------|
 | `GEMM_OZAKI` | 1 | Scheme selector: 0 = bypass (call original BLAS directly), 1 = Scheme 1 (mantissa slicing), 2 = Scheme 2 (CRT). |
 | `GEMM_OZN` | *per scheme* | Number of decomposition units: slices for Scheme 1 (double: 1..16, default 5; float: 1..8, default 4) or primes for Scheme 2 (double: 1..16, default 15; float: 1..10, default 7). |
-| `GEMM_OZFLAGS` | 15 | Scheme 1 bitmask: Triangular (1), Symmetrize (2), Reverse pass (4), Trim forward (8); see above. |
+| `GEMM_OZFLAGS` | 3 | Scheme 1 bitmask: Triangular (1), Symmetrize (2); see above. |
+| `GEMM_OZCUTOFF` | -1 | Scheme 1 diagonal cutoff: -1 = exact (all diagonals), 0..2*(S-1) = approximate. |
 | `GEMM_EPS` | inf | Dump A/B matrices as MHD-files when the epsilon error exceeds the given threshold (implies `GEMM_VERBOSE=1` if unset). |
 | `GEMM_VERBOSE` | 0 | 0&#160;=&#160;silent; 1&#160;=&#160;print accumulated statistic at exit; *N*&#160;=&#160;print every *N*th GEMM call. |
 | `GEMM_STAT` | 0 | Track C-matrix (0), A-matrix representation (1), or B-matrix representation (2). |
