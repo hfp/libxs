@@ -330,12 +330,10 @@ LIBXS_API_INLINE void gemm_oz1_diff(const char* transa, const char* transb,
             }
           }
 
-          { /* Diagonal-cutoff loop: iterate pairs (sa,sb) with sa+sb <= cutoff.
-             * cutoff = 2*(S-1) means all pairs (exact); smaller values drop
-             * the least significant diagonals (~7 bits each). */
-            const int cutoff = (0 <= gemm_ozcutoff)
-              ? LIBXS_MIN(gemm_ozcutoff, 2 * (nslices - 1))
-              : 2 * (nslices - 1);
+          { /* Diagonal-trim loop: iterate pairs (sa,sb) with sa+sb <= cutoff.
+             * trim=0 means all pairs (exact); larger values drop the least
+             * significant diagonals (~7 bits each). */
+            const int cutoff = LIBXS_MAX(0, 2 * (nslices - 1) - gemm_oztrim);
             LIBXS_PRAGMA_LOOP_COUNT(1, MAX_NSLICES, NSLICES_DEFAULT)
             for (slice_a = 0; slice_a < nslices && slice_a <= cutoff; ++slice_a) {
               const int sb_start = (0 != (gemm_ozflags & OZ1_TRIANGULAR))

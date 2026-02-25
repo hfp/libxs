@@ -30,7 +30,7 @@ Intercepted ZGEMM (double-complex) and CGEMM (single-complex) calls are implemen
 
 The real and imaginary parts of the product are recovered as Re(A·B) = P1 − P2 and Im(A·B) = P3 − P1 − P2. Complex alpha/beta scaling is applied in a final pass. The three real GEMM calls flow through the same wrapper, so they are optionally accelerated by the Ozaki scheme as well.
 
-## Scheme 1 Flags (`GEMM_OZFLAGS`) and Diagonal Cutoff (`GEMM_OZCUTOFF`)
+## Scheme 1 Flags (`GEMM_OZFLAGS`) and Diagonal Trim (`GEMM_OZTRIM`)
 
 The Scheme&#160;1 loop is controlled by two runtime knobs:
 
@@ -45,28 +45,28 @@ The environment variable `GEMM_OZFLAGS` is an integer bitmask:
 
 The default value is **3** (both flags). Setting `GEMM_OZFLAGS=0` runs the full S^2 square of slice pairs.
 
-### Diagonal Cutoff
+### Diagonal Trim
 
-The environment variable `GEMM_OZCUTOFF` limits slice-pair iteration to pairs with sa&#160;+&#160;sb&#160;<=&#160;D, where D is the cutoff value. Pair significance scales as 2^(low_bit[sa]&#160;+&#160;low_bit[sb]), so sa&#160;+&#160;sb directly determines significance — smaller sums are more significant. Each dropped diagonal loses approximately 7&#160;bits of relative precision.
+The environment variable `GEMM_OZTRIM` drops the T least significant diagonals from the slice-pair iteration. Pairs with sa&#160;+&#160;sb&#160;>&#160;2*(S-1)&#160;-&#160;T are skipped. Pair significance scales as 2^(low_bit[sa]&#160;+&#160;low_bit[sb]), so sa&#160;+&#160;sb directly determines significance — smaller sums are more significant. Each dropped diagonal loses approximately 7&#160;bits of relative precision.
 
-The default value is **-1** (exact: cutoff&#160;=&#160;2*(S-1), all pairs). Any non-negative value caps the sum sa&#160;+&#160;sb.
+The default value is **0** (exact: all pairs). The value is clamped so that at least diagonal&#160;0 is always computed.
 
 **Cost overview** for *S*&#160;slices with TRIANGULAR&#160;+&#160;SYMMETRIZE (default flags):
 
-| `GEMM_OZCUTOFF` | Dot products | Pairs covered | Relative bits lost |
+| `GEMM_OZTRIM` | Dot products | Pairs covered | Relative bits lost |
 |:---:|:---:|:---:|:---:|
-| -1 (default) | S*(S+1)/2 | all S^2 | 0 (exact) |
+| 0 (default) | S*(S+1)/2 | all S^2 | 0 (exact) |
 | S-1 | ~S^2/4 | (S+1)*S/2 | ~7*(S-1) least significant |
-| S/2 | ~S^2/8 | ~S^2/4 | ~7*3S/2 least significant |
-| 0 | 1 | 1 (only diagonal) | ~7*2*(S-1) |
+| 3S/2 | ~S^2/8 | ~S^2/4 | ~7*3S/2 least significant |
+| 2*(S-1) | 1 | 1 (only diagonal) | ~7*2*(S-1) |
 
 Because SYMMETRIZE computes both D(sa,sb) and D(sb,sa), the number of dot products with TRIANGULAR equals S*(S+1)/2 for cutoff&#160;=&#160;2*(S-1) but covers all S^2 contributions.
 
 Examples:
 
 ```bash
-./gemm-wrap.x 256                      # exact (default: flags=3, cutoff=-1)
-GEMM_OZCUTOFF=4 ./gemm-wrap.x 256      # approximate: only diagonals 0..4
+./gemm-wrap.x 256                      # exact (default: flags=3, trim=0)
+GEMM_OZTRIM=4 ./gemm-wrap.x 256        # drop 4 least significant diagonals
 GEMM_OZFLAGS=0 ./gemm-wrap.x 256       # full S^2 square, no symmetrize
 ```
 
@@ -89,7 +89,7 @@ GEMM_OZAKI=2 ./gemm-wrap.x 256    # use CRT scheme
 | `GEMM_OZAKI` | 1 | Scheme selector: 0 = bypass (call original BLAS directly), 1 = Scheme 1 (mantissa slicing), 2 = Scheme 2 (CRT). |
 | `GEMM_OZN` | *per scheme* | Number of decomposition units: slices for Scheme 1 (double: 1..16, default 5; float: 1..8, default 4) or primes for Scheme 2 (double: 1..16, default 15; float: 1..10, default 7). |
 | `GEMM_OZFLAGS` | 3 | Scheme 1 bitmask: Triangular (1), Symmetrize (2); see above. |
-| `GEMM_OZCUTOFF` | -1 | Scheme 1 diagonal cutoff: -1 = exact (all diagonals), 0..2*(S-1) = approximate. |
+| `GEMM_OZTRIM` | 0 | Scheme 1 diagonal trim: 0 = exact, T = drop T least significant diagonals (~7 bits each). |
 | `GEMM_EPS` | inf | Dump A/B matrices as MHD-files when the epsilon error exceeds the given threshold (implies `GEMM_VERBOSE=1` if unset). |
 | `GEMM_VERBOSE` | 0 | 0&#160;=&#160;silent; 1&#160;=&#160;print accumulated statistic at exit; *N*&#160;=&#160;print every *N*th GEMM call. |
 | `GEMM_STAT` | 0 | Track C-matrix (0), A-matrix representation (1), or B-matrix representation (2). |

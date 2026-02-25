@@ -50,9 +50,9 @@
  * Bit 1 (2): SYMMETRIZE  - compute mirror D(sb,sa) for off-diagonal pairs
  * Default 3 = TRIANGULAR + SYMMETRIZE (correct, fewer loop iterations).
  *
- * The diagonal cutoff (GEMM_OZCUTOFF env var) limits the loop to pairs
- * with sa + sb <= cutoff for approximate GEMM. Default -1 means exact
- * (cutoff = 2*(S-1), all pairs). Each dropped diagonal loses ~7 bits. */
+ * The trim parameter (GEMM_OZTRIM env var) drops the T least significant
+ * diagonals: pairs with sa + sb > 2*(S-1) - T are skipped. Default 0
+ * means exact (all pairs). Each dropped diagonal loses ~7 bits. */
 #define OZ1_TRIANGULAR   1
 #define OZ1_SYMMETRIZE   2
 #define OZ1_DEFAULT (OZ1_TRIANGULAR | OZ1_SYMMETRIZE)
@@ -118,7 +118,7 @@
 #define gemm_ozaki          LIBXS_TPREFIX(GEMM_REAL_TYPE, gemm_ozaki)
 #define gemm_ozn            LIBXS_TPREFIX(GEMM_REAL_TYPE, gemm_ozn)
 #define gemm_ozflags        LIBXS_TPREFIX(GEMM_REAL_TYPE, gemm_ozflags)
-#define gemm_ozcutoff       LIBXS_TPREFIX(GEMM_REAL_TYPE, gemm_ozcutoff)
+#define gemm_oztrim         LIBXS_TPREFIX(GEMM_REAL_TYPE, gemm_oztrim)
 #define gemm_stat           LIBXS_TPREFIX(GEMM_REAL_TYPE, gemm_stat)
 #define gemm_exit           LIBXS_TPREFIX(GEMM_REAL_TYPE, gemm_exit)
 #define gemm_eps            LIBXS_TPREFIX(GEMM_REAL_TYPE, gemm_eps)
@@ -157,7 +157,7 @@ LIBXS_APIVAR_PRIVATE(gemm_function_t gemm_original);
 LIBXS_APIVAR_PRIVATE(zgemm_function_t zgemm_original);
 LIBXS_APIVAR_PRIVATE(int ozaki_target_arch);
 LIBXS_APIVAR_PRIVATE(int gemm_ozflags);
-LIBXS_APIVAR_PRIVATE(int gemm_ozcutoff);
+LIBXS_APIVAR_PRIVATE(int gemm_oztrim);
 LIBXS_APIVAR_PRIVATE(int gemm_ozn);
 LIBXS_APIVAR_PRIVATE(int gemm_exit);
 extern LIBXS_TLS int gemm_dump_inhibit;
@@ -300,7 +300,7 @@ LIBXS_API_INLINE void gemm_dump_matrices(GEMM_ARGDECL, size_t ncomponents)
   settings.ozaki = gemm_ozaki;
   settings.ozn = gemm_ozn;
   settings.ozflags = gemm_ozflags;
-  settings.ozcutoff = gemm_ozcutoff;
+  settings.oztrim = gemm_oztrim;
   settings.eps = gemm_eps;
   settings.rsq = gemm_rsq;
 
