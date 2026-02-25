@@ -39,11 +39,11 @@ trap 'rm -f ${TMPF}' EXIT
 
 RESULT=0
 
-# Scheme 1 (mantissa slicing): approximate, use generous threshold
+# Scheme 1 (mantissa slicing): exact with default nslices
 echo "-----------------------------------"
 echo "CHECK: Scheme 1 (default)"
 if [ "$*" ]; then echo "args    $*"; fi
-{ CHECK=0.05 GEMM_VERBOSE=1 GEMM_OZAKI=1 "${EXE}" "$@" 2>"${TMPF}"; } >/dev/null || RESULT=$?
+{ CHECK=-1 GEMM_VERBOSE=1 GEMM_OZAKI=1 "${EXE}" "$@" 2>"${TMPF}"; } >/dev/null || RESULT=$?
 if [ "0" != "${RESULT}" ]; then
   echo "FAILED[${RESULT}] $(${CAT} "${TMPF}")"
   exit ${RESULT}
