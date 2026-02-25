@@ -43,7 +43,7 @@ RESULT=0
 echo "-----------------------------------"
 echo "CHECK: Scheme 1 (default)"
 if [ "$*" ]; then echo "args    $*"; fi
-{ CHECK=0.05 GEMM_OZAKI=1 "${EXE}" "$@" 2>"${TMPF}"; } >/dev/null || RESULT=$?
+{ CHECK=0.05 GEMM_VERBOSE=1 GEMM_OZAKI=1 "${EXE}" "$@" 2>"${TMPF}"; } >/dev/null || RESULT=$?
 if [ "0" != "${RESULT}" ]; then
   echo "FAILED[${RESULT}] $(${CAT} "${TMPF}")"
   exit ${RESULT}

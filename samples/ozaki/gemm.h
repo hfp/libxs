@@ -16,9 +16,12 @@
 # define GEMM_INT_TYPE int
 #endif
 
-/* Precision detection: GEMM_IS_DOUBLE expands to 1 for double, 0 for float/else */
-#define GEMM_IS_DOUBLE LIBXS_TYPEORDER(LIBXS_DATATYPE_F32) \
-                     < LIBXS_TYPEORDER(LIBXS_DATATYPE(GEMM_REAL_TYPE))
+/* Precision detection: GEMM_IS_DOUBLE expands to 1 for double, 0 for float.
+ * Uses token-pasting to produce a preprocessor-evaluable integer constant,
+ * since LIBXS_DATATYPE enum values are invisible to #if directives. */
+#define GEMM_ISDOUBLE_double 1
+#define GEMM_ISDOUBLE_float 0
+#define GEMM_IS_DOUBLE LIBXS_CONCATENATE(GEMM_ISDOUBLE_, GEMM_REAL_TYPE)
 /* GEMM symbol (dgemm_ for double, sgemm_ for float) */
 #if !defined(GEMM)
 # define GEMM LIBXS_FSYMBOL(LIBXS_TPREFIX(GEMM_REAL_TYPE, gemm))
