@@ -8,6 +8,12 @@
 ******************************************************************************/
 #include <libxs_utils.h>
 
+#if defined(_DEBUG) || 1
+# define FPRINTF(STREAM, ...) do { fprintf(STREAM, __VA_ARGS__); } while(0)
+#else
+# define FPRINTF(STREAM, ...) do {} while(0)
+#endif
+
 #if (LIBXS_MAX_STATIC_TARGET_ARCH < LIBXS_STATIC_TARGET_ARCH)
 # error "LIBXS_MAX_STATIC_TARGET_ARCH < LIBXS_STATIC_TARGET_ARCH"
 #endif
@@ -21,6 +27,23 @@ int test_intrinsics_sse42(void)
   /* CRC32C of 0x12345678 with initial 0 - deterministic */
   const unsigned int crc = _mm_crc32_u32(0, 0x12345678u);
   return (0 != crc) ? 0 : EXIT_FAILURE; /* crc is non-zero */
+}
+#endif
+
+
+/* AVX: 256-bit float add */
+#if defined(LIBXS_INTRINSICS_AVX)
+LIBXS_INLINE LIBXS_INTRINSICS(LIBXS_X86_AVX)
+int test_intrinsics_avx(void)
+{
+  LIBXS_ALIGNED(float buf[8], 32);
+  const __m256 a = _mm256_set1_ps(1.5f);
+  const __m256 b = _mm256_set1_ps(2.5f);
+  const __m256 c = _mm256_add_ps(a, b);
+  int i;
+  _mm256_store_ps(buf, c);
+  for (i = 0; i < 8; ++i) if (4.0f != buf[i]) return EXIT_FAILURE;
+  return 0;
 }
 #endif
 
@@ -62,18 +85,18 @@ int test_intrinsics_avx512(void)
 int main(int argc, char* argv[])
 {
   const int cpuid = libxs_cpuid(NULL);
-  const char* highest = "none";
+  int highest = LIBXS_TARGET_ARCH_UNKNOWN;
   int nerrors = 0;
   LIBXS_UNUSED(argc); LIBXS_UNUSED(argv);
 
   /* macro sanity */
   if (LIBXS_MAX_STATIC_TARGET_ARCH < LIBXS_STATIC_TARGET_ARCH) {
-    fprintf(stderr, "FAIL: MAX_STATIC_TARGET_ARCH < STATIC_TARGET_ARCH\n");
+    FPRINTF(stderr, "ERROR: MAX_STATIC_TARGET_ARCH < STATIC_TARGET_ARCH\n");
     ++nerrors;
   }
 #if !defined(LIBXS_INTRINSICS_X86) && defined(LIBXS_PLATFORM_X86)
-# if !defined(__INTRINSICS_NONE)
-  fprintf(stderr, "FAIL: x86 platform but LIBXS_INTRINSICS_X86 not defined\n");
+# if !defined(__NO_INTRINSICS)
+  FPRINTF(stderr, "ERROR: x86 platform but LIBXS_INTRINSICS_X86 not defined\n");
   ++nerrors;
 # endif
 #endif
@@ -82,7 +105,15 @@ int main(int argc, char* argv[])
 #if defined(LIBXS_INTRINSICS_SSE42)
   if (LIBXS_X86_SSE42 <= cpuid) {
     if (0 != test_intrinsics_sse42()) {
-      fprintf(stderr, "FAIL: test_intrinsics_sse42\n");
+      FPRINTF(stderr, "ERROR: test_intrinsics_sse42\n");
+      ++nerrors;
+    }
+  }
+#endif
+#if defined(LIBXS_INTRINSICS_AVX)
+  if (LIBXS_X86_AVX <= cpuid) {
+    if (0 != test_intrinsics_avx()) {
+      FPRINTF(stderr, "ERROR: test_intrinsics_avx\n");
       ++nerrors;
     }
   }
@@ -90,7 +121,7 @@ int main(int argc, char* argv[])
 #if defined(LIBXS_INTRINSICS_AVX2)
   if (LIBXS_X86_AVX2 <= cpuid) {
     if (0 != test_intrinsics_avx2()) {
-      fprintf(stderr, "FAIL: test_intrinsics_avx2\n");
+      FPRINTF(stderr, "ERROR: test_intrinsics_avx2\n");
       ++nerrors;
     }
   }
@@ -98,41 +129,47 @@ int main(int argc, char* argv[])
 #if defined(LIBXS_INTRINSICS_AVX512)
   if (LIBXS_X86_AVX512 <= cpuid) {
     if (0 != test_intrinsics_avx512()) {
-      fprintf(stderr, "FAIL: test_intrinsics_avx512\n");
+      FPRINTF(stderr, "ERROR: test_intrinsics_avx512\n");
       ++nerrors;
     }
   }
 #endif
 
   /* determine highest ISA level that compiled AND ran successfully */
-#if defined(LIBXS_INTRINSICS_AVX512)
-  if (LIBXS_X86_AVX512 <= cpuid && 0 == nerrors) {
-    highest = "avx512";
-  }
-  else
+  if (0 == nerrors) {
+    highest = LIBXS_STATIC_TARGET_ARCH;
+#if defined(LIBXS_INTRINSICS_SSE42)
+    if (LIBXS_X86_SSE42 <= cpuid) {
+      highest = LIBXS_X86_SSE42;
+    }
+#endif
+#if defined(LIBXS_INTRINSICS_AVX)
+    if (LIBXS_X86_AVX <= cpuid) {
+      highest = LIBXS_X86_AVX;
+    }
 #endif
 #if defined(LIBXS_INTRINSICS_AVX2)
-  if (LIBXS_X86_AVX2 <= cpuid && 0 == nerrors) {
-    highest = "avx2";
-  }
-  else
-#endif
-#if defined(LIBXS_INTRINSICS_SSE42)
-  if (LIBXS_X86_SSE42 <= cpuid && 0 == nerrors) {
-    highest = "sse42";
-  }
-  else
-#endif
-  {
-    if (0 == nerrors) {
-      highest = libxs_cpuid_name(LIBXS_STATIC_TARGET_ARCH);
+    if (LIBXS_X86_AVX2 <= cpuid) {
+      highest = LIBXS_X86_AVX2;
     }
+#endif
+#if defined(LIBXS_INTRINSICS_AVX512)
+    if (LIBXS_X86_AVX512 <= cpuid) {
+      highest = LIBXS_X86_AVX512;
+    }
+#endif
   }
 
-  fprintf(stderr, "target=%s static=%s max=%s\n",
-    highest,
+  if (highest < LIBXS_MAX_STATIC_TARGET_ARCH && LIBXS_MAX_STATIC_TARGET_ARCH <= cpuid) {
+    FPRINTF(stderr, "ERROR: cannot reach LIBXS_MAX_STATIC_TARGET_ARCH (%i < %i)\n",
+      highest, LIBXS_MAX_STATIC_TARGET_ARCH);
+    ++nerrors;
+  }
+
+  fprintf(stderr, "static=%s cpuid=%s target=%s\n",
     libxs_cpuid_name(LIBXS_STATIC_TARGET_ARCH),
-    libxs_cpuid_name(LIBXS_MAX_STATIC_TARGET_ARCH));
+    libxs_cpuid_name(libxs_cpuid(NULL)),
+    libxs_cpuid_name(highest));
 
   return (0 != nerrors) ? EXIT_FAILURE : EXIT_SUCCESS;
 }
