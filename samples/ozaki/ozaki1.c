@@ -28,9 +28,12 @@ LIBXS_API_INLINE double reconstruct_from_digits(const int8_t digits[MAX_NSLICES]
 }
 
 
+/** Preprocess rows of A: decompose, align, split into digits, and write
+ *  directly into the k-contiguous layout ak[M][S][K] used by dot products.
+ *  This avoids a separate transpose pass over an intermediate buffer. */
 LIBXS_API_INLINE void preprocess_rows(const GEMM_REAL_TYPE* a, GEMM_INT_TYPE lda, int ta,
   GEMM_INT_TYPE M, GEMM_INT_TYPE K, GEMM_INT_TYPE ib, GEMM_INT_TYPE kb, GEMM_INT_TYPE iblk,
-  GEMM_INT_TYPE kblk, int16_t expa_row[BLOCK_M], int8_t am[BLOCK_M][BLOCK_K][MAX_NSLICES])
+  GEMM_INT_TYPE kblk, int16_t expa_row[BLOCK_M], int8_t ak[BLOCK_M][MAX_NSLICES][BLOCK_K])
 {
   int16_t elem_exp[BLOCK_M][BLOCK_K];
   uint64_t elem_mant[BLOCK_M][BLOCK_K];
@@ -52,26 +55,36 @@ LIBXS_API_INLINE void preprocess_rows(const GEMM_REAL_TYPE* a, GEMM_INT_TYPE lda
 
     expa_row[mi] = row_max_exp;
 
-    /* Pass 2: align mantissa then decompose into digits */
+    /* Pass 2: align mantissa, split into digits, scatter into ak[mi][s][kk] */
     for (kk = 0; kk < kblk; ++kk) {
       const int delta = (int)row_max_exp - (int)elem_exp[mi][kk];
       uint64_t aligned = elem_mant[mi][kk];
+      int8_t tmp[MAX_NSLICES];
+      int s;
       if (delta > 0) {
         aligned = (delta < 64) ? (aligned >> delta) : 0;
       }
-      ozaki_split_digits(aligned, elem_sign[mi][kk], am[mi][kk]);
+      ozaki_split_digits(aligned, elem_sign[mi][kk], tmp);
+      LIBXS_PRAGMA_LOOP_COUNT(1, MAX_NSLICES, NSLICES_DEFAULT)
+      for (s = 0; s < gemm_ozn; ++s) ak[mi][s][kk] = tmp[s];
     }
     /* Zero-pad remaining k-entries for fixed-length dot products */
-    for (kk = kblk; kk < BLOCK_K; ++kk) {
-      memset(am[mi][kk], 0, sizeof(int8_t) * gemm_ozn);
+    { int s;
+      LIBXS_PRAGMA_LOOP_COUNT(1, MAX_NSLICES, NSLICES_DEFAULT)
+      for (s = 0; s < gemm_ozn; ++s) {
+        for (kk = kblk; kk < BLOCK_K; ++kk) ak[mi][s][kk] = 0;
+      }
     }
   }
 }
 
 
+/** Preprocess columns of B: decompose, align, split into digits, and write
+ *  directly into the k-contiguous layout bk[N][S][K] used by dot products.
+ *  This avoids a separate transpose pass over an intermediate buffer. */
 LIBXS_API_INLINE void preprocess_cols(const GEMM_REAL_TYPE* b, GEMM_INT_TYPE ldb, int tb,
   GEMM_INT_TYPE N, GEMM_INT_TYPE K, GEMM_INT_TYPE jb, GEMM_INT_TYPE kb, GEMM_INT_TYPE jblk,
-  GEMM_INT_TYPE kblk, int16_t expb_col[BLOCK_N], int8_t bm[BLOCK_K][BLOCK_N][MAX_NSLICES])
+  GEMM_INT_TYPE kblk, int16_t expb_col[BLOCK_N], int8_t bk[BLOCK_N][MAX_NSLICES][BLOCK_K])
 {
   int16_t elem_exp[BLOCK_K][BLOCK_N];
   uint64_t elem_mant[BLOCK_K][BLOCK_N];
@@ -94,21 +107,28 @@ LIBXS_API_INLINE void preprocess_cols(const GEMM_REAL_TYPE* b, GEMM_INT_TYPE ldb
     }
   }
 
-  /* Pass 2: align mantissa then decompose into digits */
+  /* Pass 2: align mantissa, split into digits, scatter into bk[nj][s][kk] */
   for (kk = 0; kk < kblk; ++kk) {
     for (nj = 0; nj < jblk; ++nj) {
       const int delta = (int)expb_col[nj] - (int)elem_exp[kk][nj];
       uint64_t aligned = elem_mant[kk][nj];
+      int8_t tmp[MAX_NSLICES];
+      int s;
       if (delta > 0) {
         aligned = (delta < 64) ? (aligned >> delta) : 0;
       }
-      ozaki_split_digits(aligned, elem_sign[kk][nj], bm[kk][nj]);
+      ozaki_split_digits(aligned, elem_sign[kk][nj], tmp);
+      LIBXS_PRAGMA_LOOP_COUNT(1, MAX_NSLICES, NSLICES_DEFAULT)
+      for (s = 0; s < gemm_ozn; ++s) bk[nj][s][kk] = tmp[s];
     }
   }
   /* Zero-pad remaining k-entries for fixed-length dot products */
-  for (kk = kblk; kk < BLOCK_K; ++kk) {
+  { int s;
     for (nj = 0; nj < jblk; ++nj) {
-      memset(bm[kk][nj], 0, sizeof(int8_t) * gemm_ozn);
+      LIBXS_PRAGMA_LOOP_COUNT(1, MAX_NSLICES, NSLICES_DEFAULT)
+      for (s = 0; s < gemm_ozn; ++s) {
+        for (kk = kblk; kk < BLOCK_K; ++kk) bk[nj][s][kk] = 0;
+      }
     }
   }
 }
@@ -241,8 +261,7 @@ LIBXS_API_INLINE void gemm_oz1_diff(const char* transa, const char* transb,
 #if defined(_OPENMP)
 # pragma omp parallel
 #endif
-  { int8_t am[BLOCK_M][BLOCK_K][MAX_NSLICES], bm[BLOCK_K][BLOCK_N][MAX_NSLICES];
-    int8_t ak[BLOCK_M][MAX_NSLICES][BLOCK_K]; /* k-contiguous for dot product */
+  { int8_t ak[BLOCK_M][MAX_NSLICES][BLOCK_K]; /* k-contiguous for dot product */
     int8_t bk[BLOCK_N][MAX_NSLICES][BLOCK_K]; /* k-contiguous for dot product */
     int16_t expa_row[BLOCK_M], expb_col[BLOCK_N];
     GEMM_REAL_TYPE ref_blk[BLOCK_MNK], recon_blk[BLOCK_MNK];
@@ -271,8 +290,8 @@ LIBXS_API_INLINE void gemm_oz1_diff(const char* transa, const char* transb,
         for (kb = 0; kb < K; kb += BLOCK_K) {
           const GEMM_INT_TYPE kblk = LIBXS_MIN(BLOCK_K, K - kb);
 
-          preprocess_rows(a, *lda, ta, M, K, ib, kb, iblk, kblk, expa_row, am);
-          preprocess_cols(b, *ldb, tb, N, K, jb, kb, jblk, kblk, expb_col, bm);
+          preprocess_rows(a, *lda, ta, M, K, ib, kb, iblk, kblk, expa_row, ak);
+          preprocess_cols(b, *ldb, tb, N, K, jb, kb, jblk, kblk, expb_col, bk);
 
           /* Track differences between original A block and reconstructed digits */
           if (NULL != diff && 1 == (diff_abc % 3)) {
@@ -283,11 +302,14 @@ LIBXS_API_INLINE void gemm_oz1_diff(const char* transa, const char* transb,
                 const GEMM_REAL_TYPE aval = ((row < M && p < K) ?
                   a[LIBXS_INDEX(ta, *lda, row, p)] : (GEMM_REAL_TYPE)0);
                 const int exp_base = (int)expa_row[mi] - OZ_BIAS_PLUS_MANT;
-                const double arecon = reconstruct_from_digits(am[mi][kk],
-                  exp_base, slice_low_bit);
-
-                ozaki_store_block_pair(ref_blk, recon_blk, BLOCK_M, mi, kk,
-                  (GEMM_REAL_TYPE)aval, (GEMM_REAL_TYPE)arecon);
+                int8_t tmp[MAX_NSLICES];
+                int si;
+                for (si = 0; si < gemm_ozn; ++si) tmp[si] = ak[mi][si][kk];
+                { const double arecon = reconstruct_from_digits(tmp,
+                    exp_base, slice_low_bit);
+                  ozaki_store_block_pair(ref_blk, recon_blk, BLOCK_M, mi, kk,
+                    (GEMM_REAL_TYPE)aval, (GEMM_REAL_TYPE)arecon);
+                }
               }
             }
             ozaki_accumulate_block_diff(&tdiff[tid], ref_blk, recon_blk, iblk, kblk, BLOCK_M, BLOCK_M);
@@ -302,32 +324,17 @@ LIBXS_API_INLINE void gemm_oz1_diff(const char* transa, const char* transb,
                 const GEMM_REAL_TYPE bval = ((p < K && col < N)
                   ? b[LIBXS_INDEX(tb, *ldb, p, col)] : (GEMM_REAL_TYPE)0);
                 const int exp_base = (int)expb_col[nj] - OZ_BIAS_PLUS_MANT;
-                const double brecon = reconstruct_from_digits(bm[kk][nj],
-                  exp_base, slice_low_bit);
-
-                ozaki_store_block_pair(ref_blk, recon_blk, BLOCK_K, kk, nj,
-                  (GEMM_REAL_TYPE)bval, (GEMM_REAL_TYPE)brecon);
+                int8_t tmp[MAX_NSLICES];
+                int si;
+                for (si = 0; si < gemm_ozn; ++si) tmp[si] = bk[nj][si][kk];
+                { const double brecon = reconstruct_from_digits(tmp,
+                    exp_base, slice_low_bit);
+                  ozaki_store_block_pair(ref_blk, recon_blk, BLOCK_K, kk, nj,
+                    (GEMM_REAL_TYPE)bval, (GEMM_REAL_TYPE)brecon);
+                }
               }
             }
             ozaki_accumulate_block_diff(&tdiff[tid], ref_blk, recon_blk, kblk, jblk, BLOCK_K, BLOCK_K);
-          }
-
-          /* Transpose am/bm into k-contiguous layout for dot product */
-          for (mi = 0; mi < iblk; ++mi) {
-            LIBXS_PRAGMA_LOOP_COUNT(1, MAX_NSLICES, NSLICES_DEFAULT)
-            for (slice_a = 0; slice_a < nslices; ++slice_a) {
-              for (kk = 0; kk < BLOCK_K; ++kk) {
-                ak[mi][slice_a][kk] = am[mi][kk][slice_a];
-              }
-            }
-          }
-          for (nj = 0; nj < jblk; ++nj) {
-            LIBXS_PRAGMA_LOOP_COUNT(1, MAX_NSLICES, NSLICES_DEFAULT)
-            for (slice_b = 0; slice_b < nslices; ++slice_b) {
-              for (kk = 0; kk < BLOCK_K; ++kk) {
-                bk[nj][slice_b][kk] = bm[kk][nj][slice_b];
-              }
-            }
           }
 
           { /* Diagonal-trim loop: iterate pairs (sa,sb) with sa+sb <= cutoff.

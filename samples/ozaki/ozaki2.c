@@ -100,15 +100,17 @@ LIBXS_API_INLINE void oz2_reduce(uint64_t mantissa, int delta,
 
 /** Preprocess rows of A for one (ib, kb) tile.
  *  Decomposes each element, finds per-row max exponent, aligns mantissas
- *  by right-shifting, and reduces mod each prime. */
+ *  by right-shifting, reduces mod each prime, and writes directly into
+ *  the k-contiguous layout ak[M][P][K] + ak_sign[M][K] used by dot products.
+ *  This avoids a separate transpose pass over an intermediate buffer. */
 LIBXS_API_INLINE void oz2_preprocess_rows(
   const GEMM_REAL_TYPE* a, GEMM_INT_TYPE lda, int ta,
   GEMM_INT_TYPE M, GEMM_INT_TYPE K,
   GEMM_INT_TYPE ib, GEMM_INT_TYPE kb,
   GEMM_INT_TYPE iblk, GEMM_INT_TYPE kblk, int nprimes,
   int16_t expa_row[BLOCK_M],
-  int8_t a_sign[BLOCK_M][BLOCK_K],
-  uint8_t a_res[BLOCK_M][BLOCK_K][OZ2_NPRIMES_MAX])
+  int8_t ak_sign[BLOCK_M][BLOCK_K],
+  uint8_t ak[BLOCK_M][OZ2_NPRIMES_MAX][BLOCK_K])
 {
   int16_t elem_exp[BLOCK_M][BLOCK_K];
   uint64_t elem_mant[BLOCK_M][BLOCK_K];
@@ -123,39 +125,48 @@ LIBXS_API_INLINE void oz2_preprocess_rows(
       const GEMM_INT_TYPE p = kb + kk;
       const GEMM_REAL_TYPE aval = ((row < M && p < K)
         ? a[LIBXS_INDEX(ta, lda, row, p)] : (GEMM_REAL_TYPE)0);
-      a_sign[mi][kk] = (int8_t)ozaki_extract_ieee(aval, &elem_exp[mi][kk], &elem_mant[mi][kk]);
+      ak_sign[mi][kk] = (int8_t)ozaki_extract_ieee(aval, &elem_exp[mi][kk], &elem_mant[mi][kk]);
       row_max_exp = LIBXS_MAX(row_max_exp, elem_exp[mi][kk]);
     }
 
     expa_row[mi] = row_max_exp;
 
-    /* Pass 2: align and reduce mod primes */
+    /* Pass 2: align, reduce mod primes, scatter into ak[mi][pidx][kk] */
     for (kk = 0; kk < kblk; ++kk) {
       const int delta = (int)row_max_exp - (int)elem_exp[mi][kk];
-      oz2_reduce(elem_mant[mi][kk], delta, a_res[mi][kk], nprimes);
+      uint8_t tmp[OZ2_NPRIMES_MAX];
+      int pidx;
+      oz2_reduce(elem_mant[mi][kk], delta, tmp, nprimes);
+      LIBXS_PRAGMA_LOOP_COUNT(1, OZ2_NPRIMES_MAX, OZ2_NPRIMES_DEFAULT)
+      for (pidx = 0; pidx < nprimes; ++pidx) ak[mi][pidx][kk] = tmp[pidx];
     }
     /* Zero-pad remaining k-entries */
-    for (kk = kblk; kk < BLOCK_K; ++kk) {
-      a_sign[mi][kk] = 1;
-      memset(a_res[mi][kk], 0, sizeof(uint8_t) * nprimes);
+    { int pidx;
+      LIBXS_PRAGMA_LOOP_COUNT(1, OZ2_NPRIMES_MAX, OZ2_NPRIMES_DEFAULT)
+      for (pidx = 0; pidx < nprimes; ++pidx) {
+        for (kk = kblk; kk < BLOCK_K; ++kk) ak[mi][pidx][kk] = 0;
+      }
+      for (kk = kblk; kk < BLOCK_K; ++kk) ak_sign[mi][kk] = 1;
     }
   }
 }
 
 
 /** Preprocess columns of B for one (kb, jb) tile.
- *  Same as rows of A but with per-column max exponent. */
+ *  Same as rows of A but with per-column max exponent. Writes directly
+ *  into bk[N][P][K] + bk_sign[N][K] (k-contiguous layout). */
 LIBXS_API_INLINE void oz2_preprocess_cols(
   const GEMM_REAL_TYPE* b, GEMM_INT_TYPE ldb, int tb,
   GEMM_INT_TYPE N, GEMM_INT_TYPE K,
   GEMM_INT_TYPE jb, GEMM_INT_TYPE kb,
   GEMM_INT_TYPE jblk, GEMM_INT_TYPE kblk, int nprimes,
   int16_t expb_col[BLOCK_N],
-  int8_t b_sign[BLOCK_K][BLOCK_N],
-  uint8_t b_res[BLOCK_K][BLOCK_N][OZ2_NPRIMES_MAX])
+  int8_t bk_sign[BLOCK_N][BLOCK_K],
+  uint8_t bk[BLOCK_N][OZ2_NPRIMES_MAX][BLOCK_K])
 {
   int16_t elem_exp[BLOCK_K][BLOCK_N];
   uint64_t elem_mant[BLOCK_K][BLOCK_N];
+  int8_t elem_sign[BLOCK_K][BLOCK_N];
   GEMM_INT_TYPE nj, kk;
 
   for (nj = 0; nj < jblk; ++nj) expb_col[nj] = INT16_MIN;
@@ -167,23 +178,31 @@ LIBXS_API_INLINE void oz2_preprocess_cols(
       const GEMM_INT_TYPE col = jb + nj;
       const GEMM_REAL_TYPE bval = ((p < K && col < N)
         ? b[LIBXS_INDEX(tb, ldb, p, col)] : (GEMM_REAL_TYPE)0);
-      b_sign[kk][nj] = (int8_t)ozaki_extract_ieee(bval, &elem_exp[kk][nj], &elem_mant[kk][nj]);
+      elem_sign[kk][nj] = (int8_t)ozaki_extract_ieee(bval, &elem_exp[kk][nj], &elem_mant[kk][nj]);
       expb_col[nj] = LIBXS_MAX(expb_col[nj], elem_exp[kk][nj]);
     }
   }
 
-  /* Pass 2: align and reduce mod primes */
+  /* Pass 2: align, reduce mod primes, scatter into bk[nj][pidx][kk] */
   for (kk = 0; kk < kblk; ++kk) {
     for (nj = 0; nj < jblk; ++nj) {
       const int delta = (int)expb_col[nj] - (int)elem_exp[kk][nj];
-      oz2_reduce(elem_mant[kk][nj], delta, b_res[kk][nj], nprimes);
+      uint8_t tmp[OZ2_NPRIMES_MAX];
+      int pidx;
+      oz2_reduce(elem_mant[kk][nj], delta, tmp, nprimes);
+      LIBXS_PRAGMA_LOOP_COUNT(1, OZ2_NPRIMES_MAX, OZ2_NPRIMES_DEFAULT)
+      for (pidx = 0; pidx < nprimes; ++pidx) bk[nj][pidx][kk] = tmp[pidx];
+      bk_sign[nj][kk] = elem_sign[kk][nj];
     }
   }
   /* Zero-pad remaining k-entries */
-  for (kk = kblk; kk < BLOCK_K; ++kk) {
+  { int pidx;
     for (nj = 0; nj < jblk; ++nj) {
-      b_sign[kk][nj] = 1;
-      memset(b_res[kk][nj], 0, sizeof(uint8_t) * nprimes);
+      LIBXS_PRAGMA_LOOP_COUNT(1, OZ2_NPRIMES_MAX, OZ2_NPRIMES_DEFAULT)
+      for (pidx = 0; pidx < nprimes; ++pidx) {
+        for (kk = kblk; kk < BLOCK_K; ++kk) bk[nj][pidx][kk] = 0;
+      }
+      for (kk = kblk; kk < BLOCK_K; ++kk) bk_sign[nj][kk] = 1;
     }
   }
 }
@@ -412,10 +431,7 @@ LIBXS_API_INLINE void gemm_oz2_diff(const char* transa, const char* transb,
 #if defined(_OPENMP)
 # pragma omp parallel
 #endif
-  { uint8_t a_res[BLOCK_M][BLOCK_K][OZ2_NPRIMES_MAX];
-    uint8_t b_res[BLOCK_K][BLOCK_N][OZ2_NPRIMES_MAX];
-    int8_t  a_sign[BLOCK_M][BLOCK_K], b_sign[BLOCK_K][BLOCK_N];
-    /* k-contiguous residues for dot product (transposed layout) */
+  { /* k-contiguous residues and signs for dot products */
     uint8_t ak[BLOCK_M][OZ2_NPRIMES_MAX][BLOCK_K];
     uint8_t bk[BLOCK_N][OZ2_NPRIMES_MAX][BLOCK_K];
     int8_t  ak_sign[BLOCK_M][BLOCK_K], bk_sign[BLOCK_N][BLOCK_K];
@@ -447,9 +463,9 @@ LIBXS_API_INLINE void gemm_oz2_diff(const char* transa, const char* transb,
           const GEMM_INT_TYPE kblk = LIBXS_MIN(BLOCK_K, K - kb);
 
           oz2_preprocess_rows(a, *lda, ta, M, K, ib, kb, iblk, kblk,
-            nprimes, expa_row, a_sign, a_res);
+            nprimes, expa_row, ak_sign, ak);
           oz2_preprocess_cols(b, *ldb, tb, N, K, jb, kb, jblk, kblk,
-            nprimes, expb_col, b_sign, b_res);
+            nprimes, expb_col, bk_sign, bk);
 
           /* Diff tracking for A decomposition (diff_abc == 1) */
           if (NULL != diff && 1 == (diff_abc % 3)) {
@@ -459,12 +475,15 @@ LIBXS_API_INLINE void gemm_oz2_diff(const char* transa, const char* transb,
                 const GEMM_INT_TYPE p = kb + kk;
                 const GEMM_REAL_TYPE aval = ((row < M && p < K)
                   ? a[LIBXS_INDEX(ta, *lda, row, p)] : (GEMM_REAL_TYPE)0);
-                const uint64_t mant_recon = oz2_reconstruct_mantissa(
-                  a_res[mi][kk], garner_inv, nprimes);
-                const int sh = (int)expa_row[mi] - OZ_BIAS_PLUS_MANT;
-                const double arecon = (double)a_sign[mi][kk]
+                uint8_t tmp[OZ2_NPRIMES_MAX];
+                uint64_t mant_recon;
+                int sh;
+                double arecon;
+                for (pidx = 0; pidx < nprimes; ++pidx) tmp[pidx] = ak[mi][pidx][kk];
+                mant_recon = oz2_reconstruct_mantissa(tmp, garner_inv, nprimes);
+                sh = (int)expa_row[mi] - OZ_BIAS_PLUS_MANT;
+                arecon = (double)ak_sign[mi][kk]
                   * (double)mant_recon * libxs_pow2(sh);
-
                 ozaki_store_block_pair(ref_blk, recon_blk, BLOCK_M, mi, kk,
                   aval, (GEMM_REAL_TYPE)arecon);
               }
@@ -481,43 +500,21 @@ LIBXS_API_INLINE void gemm_oz2_diff(const char* transa, const char* transb,
                 const GEMM_INT_TYPE col = jb + nj;
                 const GEMM_REAL_TYPE bval = ((p < K && col < N)
                   ? b[LIBXS_INDEX(tb, *ldb, p, col)] : (GEMM_REAL_TYPE)0);
-                const uint64_t mant_recon = oz2_reconstruct_mantissa(
-                  b_res[kk][nj], garner_inv, nprimes);
-                const int sh = (int)expb_col[nj] - OZ_BIAS_PLUS_MANT;
-                const double brecon = (double)b_sign[kk][nj]
+                uint8_t tmp[OZ2_NPRIMES_MAX];
+                uint64_t mant_recon;
+                int sh;
+                double brecon;
+                for (pidx = 0; pidx < nprimes; ++pidx) tmp[pidx] = bk[nj][pidx][kk];
+                mant_recon = oz2_reconstruct_mantissa(tmp, garner_inv, nprimes);
+                sh = (int)expb_col[nj] - OZ_BIAS_PLUS_MANT;
+                brecon = (double)bk_sign[nj][kk]
                   * (double)mant_recon * libxs_pow2(sh);
-
                 ozaki_store_block_pair(ref_blk, recon_blk, BLOCK_K, kk, nj,
                   bval, (GEMM_REAL_TYPE)brecon);
               }
             }
             ozaki_accumulate_block_diff(&tdiff[tid], ref_blk, recon_blk,
               kblk, jblk, BLOCK_K, BLOCK_K);
-          }
-
-          /* Transpose a_res/b_res into k-contiguous layout for dot products,
-           * and gather signs into k-contiguous rows/columns. */
-          for (mi = 0; mi < iblk; ++mi) {
-            LIBXS_PRAGMA_LOOP_COUNT(1, OZ2_NPRIMES_MAX, OZ2_NPRIMES_DEFAULT)
-            for (pidx = 0; pidx < nprimes; ++pidx) {
-              for (kk = 0; kk < BLOCK_K; ++kk) {
-                ak[mi][pidx][kk] = a_res[mi][kk][pidx];
-              }
-            }
-            for (kk = 0; kk < BLOCK_K; ++kk) {
-              ak_sign[mi][kk] = a_sign[mi][kk];
-            }
-          }
-          for (nj = 0; nj < jblk; ++nj) {
-            LIBXS_PRAGMA_LOOP_COUNT(1, OZ2_NPRIMES_MAX, OZ2_NPRIMES_DEFAULT)
-            for (pidx = 0; pidx < nprimes; ++pidx) {
-              for (kk = 0; kk < BLOCK_K; ++kk) {
-                bk[nj][pidx][kk] = b_res[kk][nj][pidx];
-              }
-            }
-            for (kk = 0; kk < BLOCK_K; ++kk) {
-              bk_sign[nj][kk] = b_sign[kk][nj];
-            }
           }
 
           /* CRT dot products: for each (i,j) pair, compute the dot product
