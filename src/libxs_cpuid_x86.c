@@ -280,13 +280,13 @@ LIBXS_API const char* libxs_cpuid_name(int id)
       target_arch = "avx512";
     } break;
     case LIBXS_X86_AVX2: {
-      target_arch = "hsw";
+      target_arch = "avx2";
     } break;
     case LIBXS_X86_AVX: {
-      target_arch = "snb";
+      target_arch = "avx";
     } break;
     case LIBXS_X86_SSE42: {
-      target_arch = "wsm";
+      target_arch = "sse42";
     } break;
     case LIBXS_X86_SSE3: {
       target_arch = "sse3";
