@@ -137,13 +137,13 @@ ifeq (,$(PYTHON))
 endif
 
 # Version numbers according to interface (version.txt)
-VERSION_MAJOR ?= $(shell $(ROOTSCR)/libxs_version.sh 1)
-VERSION_MINOR ?= $(shell $(ROOTSCR)/libxs_version.sh 2)
-VERSION_UPDATE ?= $(shell $(ROOTSCR)/libxs_version.sh 3)
+VERSION_MAJOR ?= $(shell $(ROOTSCR)/tool_version.sh 1)
+VERSION_MINOR ?= $(shell $(ROOTSCR)/tool_version.sh 2)
+VERSION_UPDATE ?= $(shell $(ROOTSCR)/tool_version.sh 3)
 VERSION_STRING ?= $(VERSION_MAJOR).$(VERSION_MINOR).$(VERSION_UPDATE)
-VERSION_ALL ?= $(shell $(ROOTSCR)/libxs_version.sh 0)
+VERSION_ALL ?= $(shell $(ROOTSCR)/tool_version.sh 0)
 VERSION_API ?= $(VERSION_MAJOR)
-VERSION_RELEASED ?= $(if $(shell $(ROOTSCR)/libxs_version.sh 4),0,1)
+VERSION_RELEASED ?= $(if $(shell $(ROOTSCR)/tool_version.sh 4),0,1)
 VERSION_RELEASE ?= HEAD
 VERSION_PACKAGE ?= 1
 
@@ -267,7 +267,7 @@ winterface: headers sources
 .PHONY: config
 config: $(INCDIR)/libxs_version.h
 
-$(INCDIR)/libxs_version.h: $(INCDIR)/.make $(DIRSTATE)/.state $(ROOTSCR)/libxs_version.sh
+$(INCDIR)/libxs_version.h: $(INCDIR)/.make $(DIRSTATE)/.state $(ROOTSCR)/tool_version.sh
 	$(information)
 	$(info --- LIBXS build log)
 	@$(CP) -r $(ROOTSCR) . 2>/dev/null || true
@@ -277,12 +277,12 @@ $(INCDIR)/libxs_version.h: $(INCDIR)/.make $(DIRSTATE)/.state $(ROOTSCR)/libxs_v
 	@$(CP) $(ROOTDIR)/.state.sh . 2>/dev/null || true
 	@$(CP) $(HEADERS_MAIN) $(INCDIR) 2>/dev/null || true
 	@$(CP) $(SRCFILES) $(HEADERS_SRC) $(SRCDIR) 2>/dev/null || true
-	@$(ROOTSCR)/libxs_version.sh -1 >$@
+	@$(ROOTSCR)/tool_version.sh -1 >$@
 
 .PHONY: cheader
 cheader: $(INCDIR)/libxs_source.h $(INCDIR)/libxs_version.h
-$(INCDIR)/libxs_source.h: $(INCDIR)/.make $(ROOTSCR)/libxs_source.sh $(HEADERS_SRC) $(SRCFILES)
-	@$(ROOTSCR)/libxs_source.sh >$@
+$(INCDIR)/libxs_source.h: $(INCDIR)/.make $(ROOTSCR)/tool_source.sh $(HEADERS_SRC) $(SRCFILES)
+	@$(ROOTSCR)/tool_source.sh >$@
 
 define DEFINE_COMPILE_RULE
 $(1): $(2) $(3) $(dir $(1))/.make
@@ -596,7 +596,7 @@ endif
 	@$(MKDIR) -p $(PREFIX)/$(PINCDIR)/$(PSRCDIR)
 	@$(CP) -r $(ROOTSRC)/* $(PREFIX)/$(PINCDIR)/$(PSRCDIR) >/dev/null 2>/dev/null || true
 # regenerate libxs_source.h
-	@$(ROOTSCR)/libxs_source.sh $(PSRCDIR) >$(PREFIX)/$(PINCDIR)/libxs_source.h
+	@$(ROOTSCR)/tool_source.sh $(PSRCDIR) >$(PREFIX)/$(PINCDIR)/libxs_source.h
 endif
 
 .PHONY: install
@@ -795,8 +795,8 @@ $(OUTDIR)/libxs.env: $(OUTDIR)/.make $(INCDIR)/libxs.h
 .PHONY: deb
 deb:
 	@if [ "$$(command -v git)" ]; then \
-		VERSION_ARCHIVE_SONAME=$$($(ROOTSCR)/libxs_version.sh 1); \
-		VERSION_ARCHIVE=$$($(ROOTSCR)/libxs_version.sh 5); \
+		VERSION_ARCHIVE_SONAME=$$($(ROOTSCR)/tool_version.sh 1); \
+		VERSION_ARCHIVE=$$($(ROOTSCR)/tool_version.sh 5); \
 	fi; \
 	if [ "$${VERSION_ARCHIVE}" ] && [ "$${VERSION_ARCHIVE_SONAME}" ]; then \
 		ARCHIVE_AUTHOR_NAME="$$(git config user.name)"; \
