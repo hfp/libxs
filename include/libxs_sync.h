@@ -40,7 +40,7 @@
 # define LIBXS_GCC_BASELINE
 #endif
 
-#if !defined(LIBXS_INTRINSICS_NONE)
+#if !defined(__NO_INTRINSICS)
 # if defined(LIBXS_GCC_BASELINE) && !defined(__INTEL_COMPILER)
 #   define LIBXS_SYNC_PAUSE __builtin_ia32_pause()
 # else
@@ -54,7 +54,7 @@
 
 /* permit thread-unsafe */
 #if !defined(LIBXS_SYNC_NONE) && ( \
-  (defined(__PGI) && !defined(LIBXS_LIBATOMIC)) || \
+  (defined(__PGI) && !defined(__LIBATOMIC)) || \
   (defined(_CRAYC) && !defined(__GNUC__)))
 # define LIBXS_SYNC_NONE
 #endif
@@ -132,9 +132,9 @@ typedef enum libxs_atomic_kind {
 # if !defined(LIBXS_SYNC_NPAUSE)
 #   define LIBXS_SYNC_NPAUSE 0
 # endif
-#elif (defined(LIBXS_GCC_BASELINE) || defined(LIBXS_LIBATOMIC) /* GNU's libatomic required */ || \
+#elif (defined(LIBXS_GCC_BASELINE) || defined(__LIBATOMIC) /* GNU's libatomic required */ || \
       (defined(__GNUC__) && LIBXS_VERSION2(4, 1) <= LIBXS_VERSION2(__GNUC__, __GNUC_MINOR__)))
-# if defined(LIBXS_LIBATOMIC)
+# if defined(__LIBATOMIC)
 #   define LIBXS_ATOMIC(FN, BITS) LIBXS_CONCATENATE(LIBXS_ATOMIC, BITS)(FN)
 #   define LIBXS_ATOMIC8(FN) LIBXS_CONCATENATE(FN, 8)
 #   define LIBXS_ATOMIC16(FN) LIBXS_CONCATENATE(FN, 16)

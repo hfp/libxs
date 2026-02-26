@@ -52,7 +52,6 @@ libxs_malloc_info
 libxs_malloc_pool
 libxs_malloc_pool_info
 libxs_matdiff
-libxs_matdiff_
 libxs_matdiff_clear
 libxs_matdiff_epsilon
 libxs_matdiff_reduce
@@ -111,5 +110,3 @@ libxs_timer_tick
 libxs_typename
 libxs_typesize
 libxs_unshuffle
-libxs_xdiff_
-libxs_xhash_

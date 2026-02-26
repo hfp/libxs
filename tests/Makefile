@@ -98,9 +98,9 @@ endef
 
 define DEFINE_LINK_FC_RULE
 ifneq (,$(strip $(FC)))
-ifneq ($(words $(XSFLIB)),$(words $(wildcard $(XSFLIB))))
-$(1).x: $(2) $(FTNOBJS) $(XSFDEP) $(dir $(1))/.make
-	$(FC) $(SLDFLAGS) -o $(1).x $(2) $(XSFLIB) $(FCMTFLAGS) \
+ifneq ($(words $(XSLIB)),$(words $(wildcard $(XSLIB))))
+$(1).x: $(2) $(FTNOBJS) $(XSDEP) $(dir $(1))/.make
+	$(FC) $(SLDFLAGS) -o $(1).x $(2) $(XSLIB) $(FCMTFLAGS) \
 		$(call cleanld,$(LDFLAGS) $(FLDFLAGS) $(ELDFLAGS))
 else
 .PHONY: $(1).x

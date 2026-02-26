@@ -1,11 +1,25 @@
 ###############################################################################
 # Copyright (c) Intel Corporation - All rights reserved.                      #
-# This file is part of the LIBXS library.                                     #
 #                                                                             #
 # For information on the license, see the LICENSE file.                       #
-# Further information: https://github.com/hfp/libxs/                          #
 # SPDX-License-Identifier: BSD-3-Clause                                       #
 ###############################################################################
+#
+WHICH := $(shell which which >/dev/null 2>&1 && echo "which" || echo "command -v")
+which = $(shell $(WHICH) 2>/dev/null $(firstword $1))
+
+MKDIR := $(call which,mkdir)
+GREP := $(call which,grep)
+CUT := $(call which,cut)
+CP := $(call which,cp)
+MV := $(call which,mv)
+MAKE ?= make
+
+SED := $(call which,gsed)
+# GNU sed is desired (macOS)
+ifeq (,$(SED))
+  SED := $(call which,sed)
+endif
 
 # calculate version number given by up to three components
 version = $(shell echo "$$(( \
@@ -13,9 +27,9 @@ version = $(shell echo "$$(( \
   $(if $(strip $2),$2*100,$(if $(word 2,$1),$(word 2,$1)*100,0)) + \
   $(if $(strip $3),$3,$(if $(word 3,$1),$(word 3,$1),0))))")
 MAKE_VERSION_INT := $(call version, \
-  $(shell echo "$(MAKE_VERSION)" | cut -d. -f1), \
-  $(shell echo "$(MAKE_VERSION)" | cut -d. -f2), \
-  $(shell echo "$(MAKE_VERSION)" | cut -d. -f3))
+  $(shell echo "$(MAKE_VERSION)" | $(CUT) -d. -f1), \
+  $(shell echo "$(MAKE_VERSION)" | $(CUT) -d. -f2), \
+  $(shell echo "$(MAKE_VERSION)" | $(CUT) -d. -f3))
 
 # Automatically disable parallel builds
 # depending on the version of GNU Make.
@@ -38,11 +52,8 @@ endif
 #MAKEINC := $(abspath $(dir $(filter %Makefile.inc,$(MAKEFILE_LIST))))
 MAKEINC := $(patsubst %/,%,$(dir $(filter %Makefile.inc,$(MAKEFILE_LIST))))
 
-WHICH := $(shell which which >/dev/null 2>&1 && echo "which" || echo "command -v")
-which = $(shell $(WHICH) 2>/dev/null $(firstword $1))
-
 # ensure a number or instead return zero (by default) or 2nd argument (if given)
-qnum = $(shell echo "$1" | grep "^-*[0-9][0-9]*$$" 2>/dev/null || echo "$(if $2,$2,0)")
+qnum = $(shell echo "$1" | $(GREP) "^-*[0-9][0-9]*$$" 2>/dev/null || echo "$(if $2,$2,0)")
 
 ifeq (,$(HOSTNAME))
   HOSTNAME := $(shell hostname 2>/dev/null)
@@ -61,20 +72,10 @@ else
   endif
 endif
 
-# Command line utilities
+# Additional command line utilities
 #PKGCFG ?= $(call which,pkg-config)
 ifneq (,$(call which,stdbuf))
   FLUSH ?= stdbuf -o0 -e0
-endif
-MKDIR ?= $(call which,mkdir)
-CP ?= $(call which,cp)
-MV ?= $(call which,mv)
-MAKE ?= make
-
-SED := $(call which,gsed)
-# GNU sed is desired (macOS)
-ifeq (,$(SED))
-  SED := $(call which,sed)
 endif
 
 # Python interpreter per PYTHON=/path/to/python
@@ -183,7 +184,7 @@ MAKE_AR ?= $(AR) -rs
 
 PLATFORM ?= 0
 ifneq (0,$(call qnum,$(PLATFORM))) # NaN
-  DFLAGS += -DLIBXS_PLATFORM_FORCE
+  DFLAGS += -D__PLATFORM_FORCE
 endif
 
 DEPDIR ?= $(ROOTDIR)
@@ -355,8 +356,8 @@ CXX_VERSION_FLAG ?= $(CC_VERSION_FLAG)
 # check if the Intel Development Tools are available
 # 1: classic, 2: next-gen (opt-in)
 INTEL ?= $(if $(filter 2,$(words $(filter icpc% icpx% icc% icx% Intel%, \
-  $(shell $(CXX) $(CXX_VERSION_FLAG) | head -n1 | cut -d' ' -f1) \
-  $(shell $(CC)  $(CC_VERSION_FLAG)  | head -n1 | cut -d' ' -f1)) )),1,0)
+  $(shell $(CXX) $(CXX_VERSION_FLAG) | head -n1 | $(CUT) -d' ' -f1) \
+  $(shell $(CC)  $(CC_VERSION_FLAG)  | head -n1 | $(CUT) -d' ' -f1)) )),1,0)
 
 ifneq (0,$(INTEL))
   ifeq (,$(shell echo "$${FC}"))
@@ -381,9 +382,9 @@ else
   else ifneq (0,$(shell $(CC) $(CC_VERSION_FLAG) >/dev/null; echo "$$?"))
     CC := gcc
   endif
-  ifeq (Cray,$(shell $(CC) --version 2>&1 | head -n1 | cut -d' ' -f1))
+  ifeq (Cray,$(shell $(CC) --version 2>&1 | head -n1 | $(CUT) -d' ' -f1))
     COMPILER_VERSION_FLAG ?= --version 2>&1
-  else ifeq (Cray,$(shell $(CC) -V 2>&1 | head -n1 | cut -d' ' -f1))
+  else ifeq (Cray,$(shell $(CC) -V 2>&1 | head -n1 | $(CUT) -d' ' -f1))
     COMPILER_VERSION_FLAG ?= -V 2>&1
   endif
 endif
@@ -426,18 +427,18 @@ ifeq (,$(CXX_VERSION))
   CXX_VERSION := $(shell $(CXX) $(CXX_VERSION_FLAG) | head -n1 | $(SED) -n "$(REVERSION2)p")
 endif
 CXX_VERSION_NUM := $(call version, \
-  $(shell echo "$(CXX_VERSION)" | cut -d. -f1), \
-  $(shell echo "$(CXX_VERSION)" | cut -d. -f2), \
-  $(shell echo "$(CXX_VERSION)" | cut -d. -f3))
+  $(shell echo "$(CXX_VERSION)" | $(CUT) -d. -f1), \
+  $(shell echo "$(CXX_VERSION)" | $(CUT) -d. -f2), \
+  $(shell echo "$(CXX_VERSION)" | $(CUT) -d. -f3))
 
 CC_VERSION := $(shell $(CC) $(CC_VERSION_FLAG) | head -n1 | $(SED) -n "$(REVERSION1)p")
 ifeq (,$(CC_VERSION))
   CC_VERSION := $(shell $(CC) $(CC_VERSION_FLAG) | head -n1 | $(SED) -n "$(REVERSION2)p")
 endif
 CC_VERSION_NUM := $(call version, \
-  $(shell echo "$(CC_VERSION)" | cut -d. -f1), \
-  $(shell echo "$(CC_VERSION)" | cut -d. -f2), \
-  $(shell echo "$(CC_VERSION)" | cut -d. -f3))
+  $(shell echo "$(CC_VERSION)" | $(CUT) -d. -f1), \
+  $(shell echo "$(CC_VERSION)" | $(CUT) -d. -f2), \
+  $(shell echo "$(CC_VERSION)" | $(CUT) -d. -f3))
 
 # disable Fortran per user-request
 ifeq (0,$(FORTRAN))
@@ -473,10 +474,10 @@ ifneq (,$(strip $(FC)))
     FC_VERSION := $(shell $(FC) $(FC_VERSION_FLAG) | head -n1 | $(SED) -n "$(REVERSION2)p")
   endif
   FC_VERSION_NUM := $(call version, \
-    $(shell echo "$(FC_VERSION)" | cut -d. -f1), \
-    $(shell echo "$(FC_VERSION)" | cut -d. -f2), \
-    $(shell echo "$(FC_VERSION)" | cut -d. -f3))
-  ifeq (GNU,$(shell $(FC) $(FC_VERSION_FLAG) | head -n1 | cut -d" " -f1))
+    $(shell echo "$(FC_VERSION)" | $(CUT) -d. -f1), \
+    $(shell echo "$(FC_VERSION)" | $(CUT) -d. -f2), \
+    $(shell echo "$(FC_VERSION)" | $(CUT) -d. -f3))
+  ifeq (GNU,$(shell $(FC) $(FC_VERSION_FLAG) | head -n1 | $(CUT) -d" " -f1))
     ifneq (0,$(shell echo "$$((40500>$(FC_VERSION_NUM)))"))
       ifneq (gfortran,$(call qndir,$(FC)))
         FC := gfortran
@@ -485,9 +486,9 @@ ifneq (,$(strip $(FC)))
           FC_VERSION := $(shell $(FC) $(FC_VERSION_FLAG) | head -n1 | $(SED) -n "$(REVERSION2)p")
         endif
         FC_VERSION_NUM := $(call version, \
-          $(shell echo "$(FC_VERSION)" | cut -d. -f1), \
-          $(shell echo "$(FC_VERSION)" | cut -d. -f2), \
-          $(shell echo "$(FC_VERSION)" | cut -d. -f3))
+          $(shell echo "$(FC_VERSION)" | $(CUT) -d. -f1), \
+          $(shell echo "$(FC_VERSION)" | $(CUT) -d. -f2), \
+          $(shell echo "$(FC_VERSION)" | $(CUT) -d. -f3))
         ifneq (0,$(shell echo "$$((40500>$(FC_VERSION_NUM)))"))
           override FC := $(NULL)
         endif
@@ -520,7 +521,7 @@ ifeq (0,$(PLATFORM))
               | $(SED) -e "s/^\([^0-9][^0-9]*\) ..*/\1/" -e "s/[[:space:]][[:space:]]*[Vv]ersion//" \
                     -e "s/[[:space:]][[:space:]]*$(CHAR_OPEN)..*//" -e "s/[[:space:]][[:space:]]*[[:punct:]]//" \
                     -e "s/[[:space:]][[:space:]]*$(REVERSION0)//" \
-              | rev | cut -d" " -f1 | rev))
+              | rev | $(CUT) -d" " -f1 | rev))
 endif
 ifeq (,$(strip $(CXX_NAME)))
   CXX_NAME := $(call qname,$(call qndir,$(CXX)))
@@ -530,7 +531,7 @@ ifeq (0,$(PLATFORM))
              | $(SED) -e "s/^\([^0-9][^0-9]*\) ..*/\1/" -e "s/[[:space:]][[:space:]]*[Vv]ersion//" \
                    -e "s/[[:space:]][[:space:]]*$(CHAR_OPEN)..*//" -e "s/[[:space:]][[:space:]]*[[:punct:]]//" \
                    -e "s/[[:space:]][[:space:]]*$(REVERSION0)//" \
-             | rev | cut -d" " -f1 | rev))
+             | rev | $(CUT) -d" " -f1 | rev))
 endif
 ifeq (,$(strip $(CC_NAME)))
   CC_NAME := $(call qname,$(call qndir,$(CC)))
@@ -547,7 +548,7 @@ ifneq (0,$(FORTRAN))
     ifneq (,$(strip $(FC)))
       ifeq (GCC,$(shell $(FC) $(FC_VERSION_FLAG) | head -n1 | $(SED) "s/.* (\(..*\)) .*/\1/"))
         GFC := $(FC)
-      else ifeq (0,$(shell $(FC) $(FC_VERSION_FLAG) | grep -q "Free Software Foundation"; echo "$$?"))
+      else ifeq (0,$(shell $(FC) $(FC_VERSION_FLAG) | $(GREP) -q "Free Software Foundation"; echo "$$?"))
         GFC := $(FC)
       else ifneq (pgfortran,$(FC_NAME))
         ifneq (,$(findstring gfortran,$(FC_NAME)))
@@ -565,12 +566,12 @@ else
   FC := $(NULL)
 endif
 ifeq (,$(strip $(FC)))
-  DFLAGS += -DLIBXS_NOFORTRAN
+  DFLAGS += -D__NO_FORTRAN
 endif
 
 # native GCC?
 XSMM_GCC ?= 0
-ifeq (0,$(shell $(CC) $(CC_VERSION_FLAG) | grep -q "Free Software Foundation"; echo "$$?"))
+ifeq (0,$(shell $(CC) $(CC_VERSION_FLAG) | $(GREP) -q "Free Software Foundation"; echo "$$?"))
   XSMM_GCC := 1
 else ifeq (GCC,$(shell $(CC) $(CC_VERSION_FLAG) | head -n1 | $(SED) "s/.* (\(..*\)) .*/\1/"))
   XSMM_GCC := 1
@@ -580,7 +581,7 @@ else ifneq (pgcc,$(CC_NAME))
   endif
 endif
 ifeq (1,$(XSMM_GCC))
-  ifeq (0,$(shell $(CXX) $(CXX_VERSION_FLAG) | grep -q "Free Software Foundation"; echo "$$?"))
+  ifeq (0,$(shell $(CXX) $(CXX_VERSION_FLAG) | $(GREP) -q "Free Software Foundation"; echo "$$?"))
     XSMM_GCC := 2
   else ifeq (GCC,$(shell $(CXX) $(CXX_VERSION_FLAG) | head -n1 | $(SED) "s/.* (\(..*\)) .*/\1/"))
     XSMM_GCC := 2
@@ -693,7 +694,7 @@ ifeq (0,$(INTEL)) # not Intel
 ifneq (,$(call prepget,__clang__))
   CLANG := 1
 else
-  override PGI := $(shell $(CC) $(CC_VERSION_FLAG) | if grep -q "PGI"; then echo "1"; else echo "0"; fi)
+  override PGI := $(shell $(CC) $(CC_VERSION_FLAG) | if $(GREP) -q "PGI"; then echo "1"; else echo "0"; fi)
 endif
 endif
 endif
@@ -709,9 +710,9 @@ else ifeq (0,$(CLANG))
   endif
 endif
 GCC_VERSION_NUM := $(call version, \
-  $(shell echo "$(GCC_VERSION)" | cut -d. -f1), \
-  $(shell echo "$(GCC_VERSION)" | cut -d. -f2), \
-  $(shell echo "$(GCC_VERSION)" | cut -d. -f3))
+  $(shell echo "$(GCC_VERSION)" | $(CUT) -d. -f1), \
+  $(shell echo "$(GCC_VERSION)" | $(CUT) -d. -f2), \
+  $(shell echo "$(GCC_VERSION)" | $(CUT) -d. -f3))
 
 # Manually enable maintainer build (aka x86_64v1).
 # Previously, it was automatically detected.
@@ -725,13 +726,13 @@ MAINTAINER ?= 0
 
 # Select x86 code path (if not selected otherwise)
 CPUFLAGS_X86 := $(strip $(shell if [ -e /proc/cpuinfo ]; then \
-    grep -m1 flags /proc/cpuinfo | cut -d: -f2-; \
+    $(GREP) -m1 flags /proc/cpuinfo | $(CUT) -d: -f2-; \
   elif [ "Darwin" = "$(UNAME)" ] && [ "x86_64" = "$(MNAME)" ]; then \
     sysctl -a \
       machdep.cpu.leaf7_features \
       machdep.cpu.extfeatures \
       machdep.cpu.features \
-    | cut -d: -f2- | tr -s "\n" " " \
+    | $(CUT) -d: -f2- | tr -s "\n" " " \
     | tr "[:upper:]." "[:lower:]_"; \
   fi))
 SSE ?= 1
@@ -766,9 +767,9 @@ MIC ?= 0
 
 # Select aarch64 code path
 CPUFLAGS_AARCH64 := $(strip $(shell if [ -e /proc/cpuinfo ]; then \
-    grep -m1 Features /proc/cpuinfo | cut -d: -f2-; \
+    $(GREP) -m1 Features /proc/cpuinfo | $(CUT) -d: -f2-; \
   elif [ "Darwin" = "$(UNAME)" ] && [ "arm64" = "$(MNAME)" ]; then \
-    sysctl -a hw.optional.neon | cut -d: -f2-; \
+    sysctl -a hw.optional.neon | $(CUT) -d: -f2-; \
   fi))
 ASIMD ?= 1
 ifeq (1,$(ASIMD)) # discover ASIMD
@@ -794,7 +795,7 @@ else
   ifeq (0,$(CLANG))
     COMPATIBLE := 1
   endif
-  ifeq (Cray,$(shell $(CC) $(COMPILER_VERSION_FLAG) | head -n1 | cut -d' ' -f1))
+  ifeq (Cray,$(shell $(CC) $(COMPILER_VERSION_FLAG) | head -n1 | $(CUT) -d' ' -f1))
     ifneq (0,$(COMPATIBLE))
       SUITE := Cray Compiler
       LDFLAGS += -hsystem_alloc
@@ -920,8 +921,8 @@ abslibpath ?= $(call absliblpath,$1)
 abslibpath_force ?= $(NULL)
 
 libpath = $(call qapath,$(if $1,$(shell $(FLUSH) $1 $2 -l$(strip $3) $(call linkopt,$(XLNKVERBOSE)) 2>&1 \
-  | grep "lib$3" | tr " " "\n" | $(SED) -n "/\//p" | $(SED) "s/[$(CHAR_OPEN)]\(..*\)[$(CHAR_CLOSE)]/\1/" \
-  | xargs -I {} sh -c "ls -pd {} 2>/dev/null || ls -pd {}.* 2>/dev/null" | grep -v /$$ | tail -n1)))
+  | $(GREP) "lib$3" | tr " " "\n" | $(SED) -n "/\//p" | $(SED) "s/[$(CHAR_OPEN)]\(..*\)[$(CHAR_CLOSE)]/\1/" \
+  | xargs -I {} sh -c "ls -pd {} 2>/dev/null || ls -pd {}.* 2>/dev/null" | $(GREP) -v /$$ | tail -n1)))
 
 ifneq (Windows_NT1,$(UNAME)$(STATIC))
   abslibfile = $(strip $(if $(findstring .$(ILIBEXT),$1), \
@@ -1041,7 +1042,7 @@ else # non-Intel
       endif
     endif
   else ifneq (0,$(STATIC))
-    ifeq (0,$(shell $(LD) -static -ldummydoesnotexist 2>&1 | grep -q "\-ldummydoesnotexist"; echo "$$?"))
+    ifeq (0,$(shell $(LD) -static -ldummydoesnotexist 2>&1 | $(GREP) -q "\-ldummydoesnotexist"; echo "$$?"))
       SLDFLAGS += -static
     endif
   endif
@@ -1304,7 +1305,7 @@ ifneq (0,$(INTEL))
   endif
   ifneq (0,$(SIMD))
   ifneq (0,$(shell echo "$$((150000<=$(CXX_VERSION_NUM)))"))
-    DFLAGS += -DLIBXS_OPENMP_SIMD
+    DFLAGS += -D__OPENMP_SIMD
     ifeq (0,$(OMP))
       CXXFLAGS += -qopenmp-simd
       CFLAGS += -qopenmp-simd
@@ -1812,7 +1813,6 @@ endif
 
 # Intrinsics support level (0: None, 1: Static, 2: Dynamic)
 # 1003<=INTRINSICS<1999: CPUID (see libxs_cpuid.h)
-# For example, LIBXS_X86_AVX2=1006
 ifneq (0,$(INTEL))
   INTRINSICS ?= 2
 else ifneq (0,$(CLANG))
@@ -1834,10 +1834,10 @@ ifeq (x86_64,$(MNAME))
         DFLAGS += -DLIBXS_INTRINSICS_STATIC
       endif
     else ifneq (2,$(INTRINSICS))
-      DFLAGS += -DLIBXS_TARGET_ARCH=$(INTRINSICS)
+      DFLAGS += -D__TARGET_ARCH=$(INTRINSICS)
     endif
   else
-    DFLAGS += -DLIBXS_INTRINSICS_NONE
+    DFLAGS += -D__NO_INTRINSICS
   endif
 endif
 
@@ -1877,7 +1877,7 @@ ifeq (0,$(COMPATIBLE))
       ifneq (0,$(XSMM_GCC))
         ifneq (,$(CTARGET))
         ifneq (0,$(shell echo "$$((40900<=$(CC_VERSION_NUM)))"))
-          DFLAGS += -DLIBXS_OPENMP_SIMD
+          DFLAGS += -D__OPENMP_SIMD
           CFLAGS += -fopenmp-simd
           ifneq (1,$(XSMM_GCC))
           ifneq (0,$(shell echo "$$((40900<=$(CXX_VERSION_NUM)))"))
@@ -1899,7 +1899,7 @@ ifeq (0,$(COMPATIBLE))
         ifneq (Darwin,$(UNAME))
         ifneq (,$(CTARGET))
         ifneq (0,$(shell echo "$$((60000<=$(CC_VERSION_NUM)&&60000<=$(CXX_VERSION_NUM)))"))
-          DFLAGS += -DLIBXS_OPENMP_SIMD
+          DFLAGS += -D__OPENMP_SIMD
           CXXFLAGS += -fopenmp-simd
           CFLAGS += -fopenmp-simd
           ifneq (,$(FTARGET))
@@ -2065,7 +2065,7 @@ ifneq (0,$(THREADS))
 ifneq (0,$(LIBATOMIC))
 ifneq (,$(call ldclib,$(LD),$(SLDFLAGS),atomic))
   LDFLAGS += $(call ldclib,$(LD),$(SLDFLAGS),atomic)
-  DFLAGS += -DLIBXS_LIBATOMIC
+  DFLAGS += -D__LIBATOMIC
 endif
 endif
 endif
@@ -2096,12 +2096,9 @@ endif
 endif
 OMPFLAG ?= $(NULL)
 
-# LIBXS link dependencies and libraries
+# Link dependencies and libraries
 XSDEP := $(LIBNAME).$(LIBEXT)
 XSLIB := $(call abslib,$(XSDEP))
-# LIBXS/F link dependencies and libraries
-XSFDEP := $(LIBNAME)f.$(LIBEXT)
-XSFLIB := $(call abslib,$(LIBNAME)f.$(LIBEXT))
 
 # some stand-alone libomp versions can cause warnings
 ifneq (,$(filter 1 2,$(PEDANTIC)))
@@ -2301,7 +2298,7 @@ else ifneq (0,$(BLAS)) # generic
       BLASREF ?= 1
     else ifneq (,$(call ctest,$(LD),-framework Accelerate)) # macOS
       BLAS_INCFILE := $(shell $(LD) $(call linkopt,-v) 2>&1 \
-                     | grep -i frameworks 2>/dev/null \
+                     | $(GREP) -i frameworks 2>/dev/null \
                      | xargs -I {} find {} -name cblas.h 2>/dev/null \
                      | head -n1)
       ifneq (,$(BLAS_INCFILE))
@@ -2426,7 +2423,7 @@ extname = $(subst .,,$(call qsuffix,$(1)))
 # derives the name of an object files for a given source file
 objname = $(foreach ARG,$(1),$(addprefix $(BLDDIR)/,$(patsubst %$(call qsuffix,$(ARG)),%-$(call extname,$(ARG)).o,$(call qndir,$(ARG)))))
 
-STATEMAK := $(sort $(shell grep -how '$(VNAME)' $(ROOTDIR)/Makefile.inc $(MAKEFILE_LIST) 2>/dev/null))
+STATEMAK := $(sort $(shell $(GREP) -how '$(VNAME)' $(ROOTDIR)/Makefile.inc $(MAKEFILE_LIST) 2>/dev/null))
 ifneq (0,$(STATEFLT))
   STATEVAR := $(filter-out \
     $(EXCLUDE_STATE) EXCLUDE_% .% _% XSMM_% HAVE_% LIB_% %STATE MAKE_% MAKELEVEL MAKEFILE_LIST MAKEOVERRIDES MAKEFLAGS SHELL BLDDIR REVERSION% AVX SSE \

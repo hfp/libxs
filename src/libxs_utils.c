@@ -25,7 +25,7 @@ LIBXS_API int LIBXS_INTRINSICS_BITSCANFWD64_SW(unsigned long long n)
 }
 
 
-#if defined(_WIN32) && !defined(LIBXS_INTRINSICS_NONE)
+#if defined(_WIN32) && !defined(__NO_INTRINSICS)
 
 LIBXS_API unsigned int LIBXS_INTRINSICS_BITSCANFWD32(unsigned int n)
 {

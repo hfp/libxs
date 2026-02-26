@@ -14,16 +14,16 @@
 /** Macro evaluates to LIBXS_ATTRIBUTE_TARGET_xxx (see below). */
 #define LIBXS_ATTRIBUTE_TARGET(TARGET) LIBXS_CONCATENATE(LIBXS_ATTRIBUTE_TARGET_, TARGET)
 
-#if !defined(LIBXS_INTRINSICS_NONE) && !defined(LIBXS_PLATFORM_X86)
-# define LIBXS_INTRINSICS_NONE
+#if !defined(__NO_INTRINSICS) && !defined(LIBXS_PLATFORM_X86)
+# define __NO_INTRINSICS
 #endif
 #if /*no intrinsics: tested with 17.x and 18.x*/(defined(__PGI) && \
     LIBXS_VERSION2(19, 0) > LIBXS_VERSION2(__PGIC__, __PGIC_MINOR__)) \
  || /*legacy*/(defined(_CRAYC) && !defined(__GNUC__))
-# if !defined(LIBXS_INTRINSICS_NONE) && !defined(LIBXS_INTRINSICS_STATIC)
-#   define LIBXS_INTRINSICS_NONE
+# if !defined(__NO_INTRINSICS) && !defined(LIBXS_INTRINSICS_STATIC)
+#   define __NO_INTRINSICS
 # endif
-#elif !defined(LIBXS_INTRINSICS_STATIC) && !defined(LIBXS_INTRINSICS_NONE) && ( \
+#elif !defined(LIBXS_INTRINSICS_STATIC) && !defined(__NO_INTRINSICS) && ( \
       (defined(__GNUC__) && !defined(__clang__) && !defined(LIBXS_INTEL_COMPILER) && !defined(_CRAYC) && \
         LIBXS_VERSION2(4, 4) > LIBXS_VERSION2(__GNUC__, __GNUC_MINOR__)) /* GCC 4.4 (target-attribute) */ \
    || (defined(__clang__) && LIBXS_VERSION2(3, 7) > LIBXS_VERSION2(__clang_major__, __clang_minor__)) \
@@ -32,7 +32,7 @@
 # define LIBXS_INTRINSICS_STATIC
 #endif
 
-#if !defined(LIBXS_INTRINSICS_NONE)
+#if !defined(__NO_INTRINSICS)
 # if  defined(__AVX512F__)  && defined(__AVX512CD__) \
    &&   defined(__AVX512DQ__) && defined(__AVX512BW__) && defined(__AVX512VL__) \
    &&   defined(__AVX2__) && defined(__FMA__) && defined(__AVX__) && defined(__SSE4_2__) && defined(__SSE4_1__) && defined(__SSE3__) \
@@ -132,7 +132,11 @@
 #       endif
 #     else /* fallback */
 #       if !defined(LIBXS_MAX_STATIC_TARGET_ARCH)
-#         define LIBXS_MAX_STATIC_TARGET_ARCH LIBXS_STATIC_TARGET_ARCH
+#         if !defined(__TARGET_ARCH)
+#           define LIBXS_MAX_STATIC_TARGET_ARCH LIBXS_STATIC_TARGET_ARCH
+#         else
+#           define LIBXS_MAX_STATIC_TARGET_ARCH __TARGET_ARCH
+#         endif
 #       endif
 #       if !defined(LIBXS_INTRINSICS_STATIC) && (LIBXS_STATIC_TARGET_ARCH < LIBXS_X86_AVX2/*workaround*/)
 #         define LIBXS_INTRINSICS_STATIC
@@ -145,7 +149,7 @@
 #   if !defined(LIBXS_MAX_STATIC_TARGET_ARCH)
 #     error "LIBXS_MAX_STATIC_TARGET_ARCH not defined!"
 #   endif
-#   if defined(LIBXS_INTRINSICS_INCLUDE) && !defined(LIBXS_INTRINSICS_NONE)
+#   if defined(LIBXS_INTRINSICS_INCLUDE) && !defined(__NO_INTRINSICS)
 #     include <immintrin.h>
 #   endif /*defined(LIBXS_INTRINSICS_INCLUDE)*/
 #   if !defined(LIBXS_INTRINSICS)
@@ -185,10 +189,10 @@
 #     define LIBXS_INTRINSICS_TARGET
 #   endif /*!defined(LIBXS_INTRINSICS)*/
 # endif /*defined(LIBXS_STATIC_TARGET_ARCH)*/
-#endif /*!defined(LIBXS_INTRINSICS_NONE)*/
+#endif /*!defined(__NO_INTRINSICS)*/
 #if !defined(LIBXS_STATIC_TARGET_ARCH)
-# if !defined(LIBXS_INTRINSICS_NONE) && !defined(LIBXS_INTRINSICS_STATIC)
-#   define LIBXS_INTRINSICS_NONE
+# if !defined(__NO_INTRINSICS) && !defined(LIBXS_INTRINSICS_STATIC)
+#   define __NO_INTRINSICS
 # endif
 # define LIBXS_STATIC_TARGET_ARCH LIBXS_TARGET_ARCH_GENERIC
 #endif
@@ -208,32 +212,32 @@
  * Target attribution
  */
 /** LIBXS_INTRINSICS_X86 is defined only if the compiler is able to generate this code without special flags. */
-#if !defined(LIBXS_INTRINSICS_X86) && !defined(LIBXS_INTRINSICS_NONE) && (LIBXS_X86_GENERIC <= LIBXS_STATIC_TARGET_ARCH || \
+#if !defined(LIBXS_INTRINSICS_X86) && !defined(__NO_INTRINSICS) && (LIBXS_X86_GENERIC <= LIBXS_STATIC_TARGET_ARCH || \
    (!defined(LIBXS_INTRINSICS_STATIC) && LIBXS_X86_GENERIC <= LIBXS_MAX_STATIC_TARGET_ARCH))
 # define LIBXS_INTRINSICS_X86
 #endif
 /** LIBXS_INTRINSICS_SSE3 is defined only if the compiler is able to generate this code without special flags. */
-#if !defined(LIBXS_INTRINSICS_SSE3) && !defined(LIBXS_INTRINSICS_NONE) && (LIBXS_X86_SSE3 <= LIBXS_STATIC_TARGET_ARCH || \
+#if !defined(LIBXS_INTRINSICS_SSE3) && !defined(__NO_INTRINSICS) && (LIBXS_X86_SSE3 <= LIBXS_STATIC_TARGET_ARCH || \
    (!defined(LIBXS_INTRINSICS_STATIC) && LIBXS_X86_SSE3 <= LIBXS_MAX_STATIC_TARGET_ARCH))
 # define LIBXS_INTRINSICS_SSE3
 #endif
 /** LIBXS_INTRINSICS_SSE42 is defined only if the compiler is able to generate this code without special flags. */
-#if !defined(LIBXS_INTRINSICS_SSE42) && !defined(LIBXS_INTRINSICS_NONE) && (LIBXS_X86_SSE42 <= LIBXS_STATIC_TARGET_ARCH || \
+#if !defined(LIBXS_INTRINSICS_SSE42) && !defined(__NO_INTRINSICS) && (LIBXS_X86_SSE42 <= LIBXS_STATIC_TARGET_ARCH || \
    (!defined(LIBXS_INTRINSICS_STATIC) && LIBXS_X86_SSE42 <= LIBXS_MAX_STATIC_TARGET_ARCH))
 # define LIBXS_INTRINSICS_SSE42
 #endif
 /** LIBXS_INTRINSICS_AVX is defined only if the compiler is able to generate this code without special flags. */
-#if !defined(LIBXS_INTRINSICS_AVX) && !defined(LIBXS_INTRINSICS_NONE) && (LIBXS_X86_AVX <= LIBXS_STATIC_TARGET_ARCH || \
+#if !defined(LIBXS_INTRINSICS_AVX) && !defined(__NO_INTRINSICS) && (LIBXS_X86_AVX <= LIBXS_STATIC_TARGET_ARCH || \
    (!defined(LIBXS_INTRINSICS_STATIC) && LIBXS_X86_AVX <= LIBXS_MAX_STATIC_TARGET_ARCH))
 # define LIBXS_INTRINSICS_AVX
 #endif
 /** LIBXS_INTRINSICS_AVX2 is defined only if the compiler is able to generate this code without special flags. */
-#if !defined(LIBXS_INTRINSICS_AVX2) && !defined(LIBXS_INTRINSICS_NONE) && (LIBXS_X86_AVX2 <= LIBXS_STATIC_TARGET_ARCH || \
+#if !defined(LIBXS_INTRINSICS_AVX2) && !defined(__NO_INTRINSICS) && (LIBXS_X86_AVX2 <= LIBXS_STATIC_TARGET_ARCH || \
    (!defined(LIBXS_INTRINSICS_STATIC) && LIBXS_X86_AVX2 <= LIBXS_MAX_STATIC_TARGET_ARCH))
 # define LIBXS_INTRINSICS_AVX2
 #endif
 /** LIBXS_INTRINSICS_AVX512 is defined only if the compiler is able to generate this code without special flags. */
-#if !defined(LIBXS_INTRINSICS_AVX512) && !defined(LIBXS_INTRINSICS_NONE) && (LIBXS_X86_AVX512 <= LIBXS_STATIC_TARGET_ARCH || \
+#if !defined(LIBXS_INTRINSICS_AVX512) && !defined(__NO_INTRINSICS) && (LIBXS_X86_AVX512 <= LIBXS_STATIC_TARGET_ARCH || \
    (!defined(LIBXS_INTRINSICS_STATIC) && LIBXS_X86_AVX512 <= LIBXS_MAX_STATIC_TARGET_ARCH))
 # define LIBXS_INTRINSICS_AVX512
 #endif
@@ -380,7 +384,7 @@ LIBXS_API int LIBXS_INTRINSICS_BITSCANFWD64_SW(unsigned long long n);
 #define LIBXS_INTRINSICS_BITSCANBWD32_SW(N) LIBXS_INTRINSICS_BITSCANBWD_SW32((unsigned int)(N))
 #define LIBXS_INTRINSICS_BITSCANBWD64_SW(N) LIBXS_INTRINSICS_BITSCANBWD_SW64((unsigned long long)(N))
 
-#if defined(_WIN32) && !defined(LIBXS_INTRINSICS_NONE)
+#if defined(_WIN32) && !defined(__NO_INTRINSICS)
 LIBXS_API unsigned int LIBXS_INTRINSICS_BITSCANFWD32(unsigned int n);
 LIBXS_API unsigned int LIBXS_INTRINSICS_BITSCANBWD32(unsigned int n);
 # if defined(_WIN64)
@@ -390,7 +394,7 @@ LIBXS_API unsigned int LIBXS_INTRINSICS_BITSCANBWD64(unsigned long long n);
 # define LIBXS_INTRINSICS_BITSCANFWD64 LIBXS_INTRINSICS_BITSCANFWD64_SW
 # define LIBXS_INTRINSICS_BITSCANBWD64 LIBXS_INTRINSICS_BITSCANBWD64_SW
 # endif
-#elif defined(__GNUC__) && !defined(LIBXS_INTRINSICS_NONE)
+#elif defined(__GNUC__) && !defined(__NO_INTRINSICS)
 # define LIBXS_INTRINSICS_BITSCANFWD32(N) (0 != (N) ? __builtin_ctz(N) : 0)
 # define LIBXS_INTRINSICS_BITSCANFWD64(N) (0 != (N) ? __builtin_ctzll(N) : 0)
 # define LIBXS_INTRINSICS_BITSCANBWD32(N) (0 != (N) ? (31 - __builtin_clz(N)) : 0)

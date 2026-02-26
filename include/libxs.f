@@ -174,23 +174,24 @@
             INTEGER(C_LONG_LONG) :: libxs_hash_string
           END FUNCTION
 
-          !> Internal (hash, F77-compatible interface).
-          PURE SUBROUTINE libxs_xhash(hash_seed, key, keysize)          &
-     &    BIND(C, NAME="libxs_xhash_")
+          !> Calculate a hash value for the given data.
+          PURE FUNCTION libxs_hash_c(data, size, seed)                  &
+     &    BIND(C, NAME="libxs_hash")
             IMPORT :: C_INT, C_PTR
-            INTEGER(C_INT), INTENT(INOUT)  :: hash_seed
-            INTEGER(C_INT), INTENT(IN)     :: keysize
-            TYPE(C_PTR), INTENT(IN), VALUE :: key
-          END SUBROUTINE
+            TYPE(C_PTR), INTENT(IN), VALUE :: data
+            INTEGER(C_INT), INTENT(IN), VALUE :: size
+            INTEGER(C_INT), INTENT(IN), VALUE :: seed
+            INTEGER(C_INT) :: libxs_hash_c
+          END FUNCTION
 
-          !> Internal (diff, F77-compatible interface).
-          PURE SUBROUTINE libxs_xdiff(diff, a, b, nbytes)               &
-     &    BIND(C, NAME="libxs_xdiff_")
-            IMPORT :: C_PTR, C_LONG_LONG, C_INT
-            TYPE(C_PTR), INTENT(IN), VALUE   :: a, b
-            INTEGER(C_LONG_LONG), INTENT(IN) :: nbytes
-            INTEGER(C_INT), INTENT(OUT)      :: diff
-          END SUBROUTINE
+          !> Compare two memory regions (binds to libxs_memcmp).
+          PURE FUNCTION libxs_memcmp(a, b, nbytes)                      &
+     &    BIND(C) RESULT(diff)
+            IMPORT :: C_PTR, C_SIZE_T, C_INT
+            TYPE(C_PTR), INTENT(IN), VALUE      :: a, b
+            INTEGER(C_SIZE_T), INTENT(IN), VALUE :: nbytes
+            INTEGER(C_INT) :: diff
+          END FUNCTION
 
           !> Reduces matdiff info (max function). Initialize
           !> output with libxs_matdiff_clear first.
@@ -333,19 +334,28 @@
           INTEGER(C_INT), INTENT(IN), OPTIONAL :: n, ldref, ldtst
           TYPE(C_PTR), INTENT(IN), OPTIONAL :: ref, tst
           TYPE(LIBXS_MATDIFF_INFO), INTENT(OUT) :: info
+          INTEGER(C_INT) :: nn, rc
+          TYPE(C_PTR) :: rr, tt
           INTERFACE
-            PURE SUBROUTINE internal_matdiff(info, datatype, m, n,      &
-     &      ref, tst, ldref, ldtst) BIND(C, NAME="libxs_matdiff_")
+            FUNCTION internal_matdiff(info,                             &
+     &      datatype, m, n, ref, tst, ldref, ldtst)                     &
+     &      RESULT(res) BIND(C, NAME="libxs_matdiff")
               IMPORT :: LIBXS_MATDIFF_INFO, C_PTR, C_INT
-              INTEGER(C_INT), INTENT(IN)                :: datatype
-              INTEGER(C_INT), INTENT(IN)                :: m, n
-              INTEGER(C_INT), INTENT(IN)                :: ldref, ldtst
+              INTEGER(C_INT), INTENT(IN), VALUE         :: datatype
+              INTEGER(C_INT), INTENT(IN), VALUE         :: m, n
               TYPE(C_PTR), INTENT(IN), VALUE            :: ref, tst
+              INTEGER(C_INT), INTENT(IN)                :: ldref, ldtst
               TYPE(LIBXS_MATDIFF_INFO), INTENT(OUT)     :: info
-            END SUBROUTINE
+              INTEGER(C_INT) :: res
+            END FUNCTION
           END INTERFACE
-          CALL internal_matdiff(info, datatype, m, n,                   &
-     &      ref, tst, ldref, ldtst)
+          IF (PRESENT(n)) THEN; nn = n; ELSE; nn = m; END IF
+          IF (PRESENT(ref)) THEN; rr = ref
+          ELSE; rr = C_NULL_PTR; END IF
+          IF (PRESENT(tst)) THEN; tt = tst
+          ELSE; tt = C_NULL_PTR; END IF
+          rc = internal_matdiff(info, datatype, m, nn,                  &
+     &      rr, tt, ldref, ldtst)
         END SUBROUTINE
 
         !> Calculates a hash value for the given array and seed.
@@ -354,9 +364,7 @@
      &      TARGET :: key(:)
           INTEGER(C_INT), INTENT(IN) :: seed
           INTEGER(C_INT) :: libxs_hash_char
-          libxs_hash_char = seed
-          CALL libxs_xhash(libxs_hash_char,                             &
-     &      C_LOC(key), SIZE(key))
+          libxs_hash_char = libxs_hash_c(C_LOC(key), SIZE(key), seed)
         END FUNCTION
 
         FUNCTION libxs_hash_i8(key, seed)
@@ -364,9 +372,7 @@
      &      TARGET :: key(:)
           INTEGER(C_INT), INTENT(IN) :: seed
           INTEGER(C_INT) :: libxs_hash_i8
-          libxs_hash_i8 = seed
-          CALL libxs_xhash(libxs_hash_i8,                               &
-     &      C_LOC(key), SIZE(key))
+          libxs_hash_i8 = libxs_hash_c(C_LOC(key), SIZE(key), seed)
         END FUNCTION
 
         FUNCTION libxs_hash_i32(key, seed)
@@ -374,9 +380,8 @@
      &      TARGET :: key(:)
           INTEGER(C_INT), INTENT(IN) :: seed
           INTEGER(C_INT) :: libxs_hash_i32
-          libxs_hash_i32 = seed
-          CALL libxs_xhash(libxs_hash_i32,                              &
-     &      C_LOC(key), SIZE(key) * 4)
+          libxs_hash_i32 = libxs_hash_c(                                &
+     &      C_LOC(key), SIZE(key) * 4, seed)
         END FUNCTION
 
         FUNCTION libxs_hash_i64(key, seed)
@@ -384,9 +389,8 @@
      &      TARGET :: key(:)
           INTEGER(C_INT), INTENT(IN) :: seed
           INTEGER(C_INT) :: libxs_hash_i64
-          libxs_hash_i64 = seed
-          CALL libxs_xhash(libxs_hash_i64,                              &
-     &      C_LOC(key), SIZE(key) * 8)
+          libxs_hash_i64 = libxs_hash_c(                                &
+     &      C_LOC(key), SIZE(key) * 8, seed)
         END FUNCTION
 
         !> Calculates if there is a difference between two arrays.
@@ -394,12 +398,11 @@
           CHARACTER(C_CHAR), INTENT(IN), CONTIGUOUS,                    &
      &      TARGET :: a(:), b(:)
           LOGICAL :: libxs_diff_char
-          INTEGER(C_INT) :: tf
           IF (SIZE(a, KIND=C_LONG_LONG)                                 &
      &      .EQ. SIZE(b, KIND=C_LONG_LONG)) THEN
-            CALL libxs_xdiff(tf, C_LOC(a),                              &
-     &        C_LOC(b), SIZE(a, KIND=C_LONG_LONG))
-            libxs_diff_char = (0 .NE. tf)
+            libxs_diff_char = (0 .NE. libxs_memcmp(                     &
+     &        C_LOC(a), C_LOC(b),                                       &
+     &        INT(SIZE(a), KIND=C_SIZE_T)))
           ELSE
             libxs_diff_char = .TRUE.
           END IF
@@ -409,12 +412,11 @@
           INTEGER(C_INT8_T), INTENT(IN), CONTIGUOUS,                    &
      &      TARGET :: a(:), b(:)
           LOGICAL :: libxs_diff_i8
-          INTEGER(C_INT) :: tf
           IF (SIZE(a, KIND=C_LONG_LONG)                                 &
      &      .EQ. SIZE(b, KIND=C_LONG_LONG)) THEN
-            CALL libxs_xdiff(tf, C_LOC(a),                              &
-     &        C_LOC(b), SIZE(a, KIND=C_LONG_LONG))
-            libxs_diff_i8 = (0 .NE. tf)
+            libxs_diff_i8 = (0 .NE. libxs_memcmp(                       &
+     &        C_LOC(a), C_LOC(b),                                       &
+     &        INT(SIZE(a), KIND=C_SIZE_T)))
           ELSE
             libxs_diff_i8 = .TRUE.
           END IF
@@ -424,13 +426,11 @@
           INTEGER(C_INT), INTENT(IN), CONTIGUOUS,                       &
      &      TARGET :: a(:), b(:)
           LOGICAL :: libxs_diff_i32
-          INTEGER(C_INT) :: tf
           IF (SIZE(a, KIND=C_LONG_LONG)                                 &
      &      .EQ. SIZE(b, KIND=C_LONG_LONG)) THEN
-            CALL libxs_xdiff(tf, C_LOC(a),                              &
-     &        C_LOC(b), SIZE(a, KIND=C_LONG_LONG)                       &
-     &        * INT(4, KIND=C_LONG_LONG))
-            libxs_diff_i32 = (0 .NE. tf)
+            libxs_diff_i32 = (0 .NE. libxs_memcmp(                      &
+     &        C_LOC(a), C_LOC(b),                                       &
+     &        INT(SIZE(a), KIND=C_SIZE_T) * 4))
           ELSE
             libxs_diff_i32 = .TRUE.
           END IF
@@ -440,13 +440,11 @@
           INTEGER(C_LONG_LONG), INTENT(IN), CONTIGUOUS,                 &
      &      TARGET :: a(:), b(:)
           LOGICAL :: libxs_diff_i64
-          INTEGER(C_INT) :: tf
           IF (SIZE(a, KIND=C_LONG_LONG)                                 &
      &      .EQ. SIZE(b, KIND=C_LONG_LONG)) THEN
-            CALL libxs_xdiff(tf, C_LOC(a),                              &
-     &        C_LOC(b), SIZE(a, KIND=C_LONG_LONG)                       &
-     &        * INT(8, KIND=C_LONG_LONG))
-            libxs_diff_i64 = (0 .NE. tf)
+            libxs_diff_i64 = (0 .NE. libxs_memcmp(                      &
+     &        C_LOC(a), C_LOC(b),                                       &
+     &        INT(SIZE(a), KIND=C_SIZE_T) * 8))
           ELSE
             libxs_diff_i64 = .TRUE.
           END IF

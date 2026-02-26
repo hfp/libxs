@@ -188,7 +188,7 @@ LIBXS_API_INTERN int libxs_cpuid_x86(libxs_cpuid_info_t* info)
       else feature_os = LIBXS_TARGET_ARCH_GENERIC;
       has_context = (LIBXS_STATIC_TARGET_ARCH >= feature_cpu || feature_os >= feature_cpu) ? 1 : 0;
       if (LIBXS_TARGET_ARCH_UNKNOWN == result && 0 != libxs_verbosity) { /* library code is expected to be mute */
-# if !defined(LIBXS_TARGET_ARCH)
+# if !defined(__TARGET_ARCH)
         const int target_vlen = libxs_cpuid_vlen(feature_cpu);
         const char *const compiler_support = (libxs_cpuid_vlen(LIBXS_MAX_STATIC_TARGET_ARCH) < target_vlen
           ? "" : (((2 <= libxs_verbosity || 0 > libxs_verbosity) && LIBXS_MAX_STATIC_TARGET_ARCH < feature_cpu)

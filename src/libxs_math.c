@@ -712,25 +712,3 @@ LIBXS_API unsigned int libxs_barrett_pow36(unsigned int p)
   LIBXS_ASSERT(0 != p);
   return (unsigned int)(LIBXS_CONCATENATE(0x1000000000, ULL) % p);
 }
-
-
-#if defined(LIBXS_BUILD) && (!defined(LIBXS_NOFORTRAN) || defined(__clang_analyzer__))
-
-/* implementation provided for Fortran 77 compatibility */
-LIBXS_API void LIBXS_FSYMBOL(libxs_matdiff)(libxs_matdiff_info_t* /*info*/,
-  const int* /*datatype*/, const int* /*m*/, const int* /*n*/, const void* /*ref*/, const void* /*tst*/,
-  const int* /*ldref*/, const int* /*ldtst*/);
-LIBXS_API void LIBXS_FSYMBOL(libxs_matdiff)(libxs_matdiff_info_t* info,
-  const int* datatype, const int* m, const int* n, const void* ref, const void* tst,
-  const int* ldref, const int* ldtst)
-{
-  static int error_once = 0;
-  if ((NULL == datatype || LIBXS_DATATYPE_UNKNOWN <= *datatype || 0 > *datatype || NULL == m
-    || EXIT_SUCCESS != libxs_matdiff(info, (libxs_datatype)*datatype, *m, *(NULL != n ? n : m), ref, tst, ldref, ldtst))
-    && 0 != libxs_verbosity && 1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED))
-  {
-    fprintf(stderr, "LIBXS ERROR: invalid arguments for libxs_matdiff specified!\n");
-  }
-}
-
-#endif /*defined(LIBXS_BUILD) && (!defined(LIBXS_NOFORTRAN) || defined(__clang_analyzer__))*/
