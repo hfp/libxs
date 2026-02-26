@@ -9,12 +9,22 @@ Two link-time variants are built: (1)&#160;code which is dynamically linked agai
 The static wrapper library is built by default (`make`), and suitable for applications with static linkage against a LAPACK/BLAS library (`-Wl,--wrap=dgemm_ -Wl,--wrap=sgemm_ -Wl,--wrap=zgemm_ -Wl,--wrap=cgemm_`). To build and use the shared wrapper library:
 
 ```bash
+cd /path/to/libxs
+make -j $(nproc)
+
+cd samples/ozaki
 make BLAS_STATIC=0
 
 LD_PRELOAD=/path/to/libwrap.so ./application
 ```
 
 Note: LIBXS has to be built upfront for the sample code to link.
+
+## Performance
+
+The Ozaki sample code demonstrates how to intercept GEMMs (any BLAS library), to run a low-precision GEMM instead of the original GEMM, to compare the results, and to maintain running statistics presented every *N*th call of GEMM or when the application terminates. The code aims to explore high-precision emulation using low-precision calculation. Practically all CPUs provide higher instruction throughput using floating point instructions even when relying on double-precision. The algorithmic complexity and inner-most code is in fact unsuitable to reach high performance levels. OpenMP based parallelization or VNNI instructions are only meant to improve emulating high-precision.
+
+If targeting GPUs, this code is likely unsuitable since the low-precision conversion is performed on-the-fly. A discrete GPU is likely better with input data converted upfront and a block size suitable to hide compute time behind data transfer time. The block size to be transferred asynchronously is typically larger than targeting a single low-precision matrix core. On the other hand, the on-the-fly conversion in this code only requires some reasonable stack size to buffer small matrix blocks.
 
 ## Scheme 1 — Mantissa Slicing
 
@@ -72,7 +82,7 @@ GEMM_OZFLAGS=0 ./gemm-wrap.x 256       # full S^2 square, no symmetrize
 
 ## Scheme 2 — Chinese Remainder Theorem
 
-Scheme 2 (`GEMM_OZAKI=2`) uses modular arithmetic instead of mantissa slicing. Each matrix element is reduced modulo a set of small primes (all < 256) so that residues fit in uint8 and pairwise products fit in uint32. GEMM is performed independently modulo each prime, and the exact integer result is recovered via the Chinese Remainder Theorem (Garner's algorithm). Because the work is linear in the number of primes — versus quadratic in the number of slices for Scheme 1 — Scheme 2 can be more efficient when many primes/slices are needed.
+Scheme 2 (`GEMM_OZAKI=2`) uses modular arithmetic instead of mantissa slicing. Each matrix element is reduced modulo a set of small primes (all < 256) so that residues fit in uint8 and pairwise products fit in uint32. GEMM is performed independently modulo each prime, and the exact integer result is recovered via the Chinese Remainder Theorem (Garner's algorithm with grouped uint64 Horner evaluation). The Horner reconstruction partitions mixed-radix digits into groups of 8, evaluates each group exactly in uint64 arithmetic, and combines groups with a minimal number of FP64 operations — avoiding double-precision throughput bottlenecks on hardware where integer arithmetic is faster. Because the work is linear in the number of primes — versus quadratic in the number of slices for Scheme 1 — Scheme 2 can be more efficient when many primes/slices are needed.
 
 The number of primes can be set at runtime via `GEMM_OZN`. The default and maximum vary by precision (double: default 15, max 16; float: default 7, max 10). The product of all selected primes must exceed the maximum possible dot-product magnitude to avoid aliasing.
 
@@ -112,6 +122,7 @@ TA and TB select transposition: 0&#160;means&#160;'N' (no transpose), non-zero m
 
 | File | Purpose |
 |------|----------|
+| `ozaki.h` | Shared header: block sizes (`BLOCK_M`/`BLOCK_N`/`BLOCK_K`), slice and prime constants, IEEE-754 decomposition helpers, flag definitions (`OZ1_TRIANGULAR`, `OZ1_SYMMETRIZE`), and inline utility functions used by both schemes. |
 | `gemm.h` | Common header: type macros (`GEMM_ARGDECL`/`GEMM_ARGPASS`), precision-specific name redirects, function prototypes for all four GEMM flavors. |
 | `ozaki.c` | Wrapper/orchestration for real GEMM (`GEMM_WRAP`): initialization, environment handling, fallback dispatch, and global state management. Compiled twice (double + float). |
 | `ozaki1.c` | Ozaki Scheme-1 computational kernel (`gemm_oz1`): decomposes IEEE-754 mantissa into 7-bit int8 slices for low-precision dot products. Compiled twice (double + float). |
