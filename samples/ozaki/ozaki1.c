@@ -282,9 +282,9 @@ LIBXS_API_INLINE void gemm_oz1_diff(const char* transa, const char* transb,
       for (ib = 0; ib < M; ib += BLOCK_M) {
         const GEMM_INT_TYPE iblk = LIBXS_MIN(BLOCK_M, M - ib);
         const GEMM_INT_TYPE jblk = LIBXS_MIN(BLOCK_N, N - jb);
-        GEMM_REAL_TYPE *const mb = c + jb * ldcv + ib;
+        GEMM_REAL_TYPE *const cb = c + jb * ldcv + ib;
 
-        ozaki_scale_block_beta(mb, ldcv, iblk, jblk, beta, ref_blk,
+        ozaki_scale_block_beta(cb, ldcv, iblk, jblk, beta, ref_blk,
           (NULL != diff && 0 == (diff_abc % 3)));
 
         for (kb = 0; kb < K; kb += BLOCK_K) {
@@ -365,7 +365,7 @@ LIBXS_API_INLINE void gemm_oz1_diff(const char* transa, const char* transb,
                       const int sh = (int)expa_row[mi] + (int)expb_col[nj]
                         - (2 * OZ_BIAS_PLUS_MANT) + low_bit_sum;
                       const double contrib = (*alpha) * (double)dot * libxs_pow2(sh);
-                      mb[mi + nj * ldcv] += (GEMM_REAL_TYPE)contrib;
+                      cb[mi + nj * ldcv] += (GEMM_REAL_TYPE)contrib;
                     }
                   }
                 }
@@ -387,7 +387,7 @@ LIBXS_API_INLINE void gemm_oz1_diff(const char* transa, const char* transb,
                 a + LIBXS_INDEX(ta, *lda, ib, 0), lda,
                 b + LIBXS_INDEX(tb, *ldb, 0, jb), ldb, beta, ref_blk, &mref);
             }
-            ozaki_accumulate_block_diff(&tdiff[tid], ref_blk, mb, iblk, jblk, mref, ldcv);
+            ozaki_accumulate_block_diff(&tdiff[tid], ref_blk, cb, iblk, jblk, mref, ldcv);
           }
         }
       }
