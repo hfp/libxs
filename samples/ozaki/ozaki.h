@@ -87,7 +87,7 @@
       const int nth = (0 < gemm_verbose ? gemm_verbose : 1); \
       if (0 == (diff.r % nth)) print_diff(stderr, &diff); \
     } \
-    if (gemm_eps < epsilon || diff.rsq < gemm_rsq || 0 > gemm_verbose) { \
+    if (gemm_eps < epsilon || diff.rsq < gemm_rsq || -1 > gemm_verbose) { \
       if (0 != gemm_dump_inhibit) { \
         gemm_dump_inhibit = 2; \
       } \
@@ -324,9 +324,8 @@ LIBXS_API_INLINE void gemm_dump_matrices(GEMM_ARGDECL, size_t ncomponents)
   else fclose(file);
 
   /* avoid repeated dumps */
-  { const double epsilon = libxs_matdiff_epsilon(&gemm_diff);
-    gemm_rsq = gemm_diff.rsq;
-    gemm_eps = epsilon;
-  }
+  gemm_eps = libxs_matdiff_epsilon(&gemm_diff);
+  gemm_rsq = gemm_diff.rsq;
+
   LIBXS_ATOMIC_RELEASE(&gemm_lock, LIBXS_ATOMIC_LOCKORDER);
 }

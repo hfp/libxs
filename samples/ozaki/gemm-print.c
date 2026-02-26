@@ -29,7 +29,7 @@ LIBXS_API void print_gemm(FILE* ostream, const char* transa, const char* transb,
 LIBXS_API void print_diff(FILE* ostream, const libxs_matdiff_info_t* diff)
 {
   const double epsilon = libxs_matdiff_epsilon(diff);
-  if (0 < epsilon) {
+  if (1E-6 <= epsilon) {
     fprintf(ostream, "GEMM: ncalls=%i linf=%f linf_rel=%f l2_rel=%f eps=%f rsq=%f -> %g != %g\n",
       diff->r, diff->linf_abs, diff->linf_rel, diff->l2_rel, epsilon, diff->rsq,
       diff->v_ref, diff->v_tst);
