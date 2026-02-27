@@ -324,9 +324,14 @@ LIBXS_API_INLINE void gemm_dump_matrices(GEMM_ARGDECL, size_t ncomponents)
   }
   else fclose(file);
 
-  /* avoid repeated dumps */
-  gemm_eps = libxs_matdiff_epsilon(&gemm_diff);
-  gemm_rsq = gemm_diff.rsq;
+  if (EXIT_SUCCESS == result) {
+    /* avoid repeated dumps */
+    gemm_eps = libxs_matdiff_epsilon(&gemm_diff);
+    gemm_rsq = gemm_diff.rsq;
+  }
+  else if (0 != gemm_verbose) {
+    fprintf(stderr, "ERROR: dumping A and B matrix failed!\n");
+  }
 
   LIBXS_ATOMIC_RELEASE(&gemm_lock, LIBXS_ATOMIC_LOCKORDER);
 }
