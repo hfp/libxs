@@ -152,7 +152,8 @@ LIBXS_API_INTERN int libxs_cpuid_x86(libxs_cpuid_info_t* info)
 #if 0           /* AVX512DQ(0x00020000), AVX512BW(0x40000000), AVX512VL(0x80000000) */
                 LIBXS_CPUID_CHECK(ebx, 0xC0020000) &&
 #endif
-                LIBXS_CPUID_CHECK(ebx, 0x10010000)) /* Common */
+                LIBXS_CPUID_CHECK(ebx, 0x10010000) /* Common */
+                && LIBXS_CPUID_CHECK(ecx2, 0x00000800)) /* AVX512_VNNI */
               {
                 feature_cpu = LIBXS_X86_AVX512; /* AVX512-Core/SKX/baseline */
               }

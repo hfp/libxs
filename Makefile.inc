@@ -832,11 +832,18 @@ CPUFLAGS_X86 := $(strip $(shell if [ -e /proc/cpuinfo ]; then \
 SSE ?= 1
 ifeq (0,$(SSE)) # discover AVX
   ifeq (1,$(words $(filter avx512f,$(CPUFLAGS_X86))))
-    ifeq (2,$(words $(filter avx512pf avx512er,$(CPUFLAGS_X86)))) # KNL
+    ifeq (2,$(words $(filter avx512pf avx512er,$(CPUFLAGS_X86))))
       AVX ?= 3
       MIC ?= 1
     else
-      AVX ?= 2
+      AVX ?= 3
+    endif
+    # discover VNNI/BF16 from CPUFLAGS
+    ifneq (,$(filter avx512_vnni,$(CPUFLAGS_X86)))
+      VNNI ?= 1
+    endif
+    ifneq (,$(filter avx512bf16 avx512_bf16,$(CPUFLAGS_X86)))
+      BF16 ?= 1
     endif
   else ifeq (1,$(words $(filter avx avx1.0,$(CPUFLAGS_X86))))
     ifeq (1,$(words $(filter fma,$(CPUFLAGS_X86))))
@@ -1325,10 +1332,11 @@ ifneq (0,$(INTEL))
             CTARGET += -qopt-zmm-usage=high
           endif
         endif
-        ifneq (,$(filter-out 0,$(VNNI)))
+        ifeq (0,$(lastword $(sort 0 $(MIC))))
           CTARGET += $(call ctest,$(CC),-mavx512vnni)
-        else ifneq (,$(filter-out 0,$(BF16)))
-          CTARGET += $(call ctest,$(CC),-mavx512vnni -mavx512bf16)
+        endif
+        ifneq (,$(filter-out 0,$(BF16)))
+          CTARGET += $(call ctest,$(CC),-mavx512bf16)
         endif
       else ifeq (2,$(AVX))
         CTARGET := -xCORE-AVX2
@@ -1366,10 +1374,11 @@ ifneq (0,$(INTEL))
       else
         CTARGET := -xCORE-AVX512
       endif
-      ifneq (,$(filter-out 0,$(VNNI)))
+      ifeq (0,$(lastword $(sort 0 $(MIC))))
         CTARGET += $(call ctest,$(CC),-mavx512vnni)
-      else ifneq (,$(filter-out 0,$(BF16)))
-        CTARGET += $(call ctest,$(CC),-mavx512vnni -mavx512bf16)
+      endif
+      ifneq (,$(filter-out 0,$(BF16)))
+        CTARGET += $(call ctest,$(CC),-mavx512bf16)
       endif
     else ifeq (2,$(AVX))
       CTARGET := -march=core-avx2
@@ -1774,7 +1783,7 @@ ifeq (undefined,$(origin TARGET))
             (0!=$(PGI)&&190000<=$(CC_VERSION_NUM))))"))
       ifneq (,$(call ctest,$(CC),-mfma -mavx512f -mavx512cd))
         CTARGET := -mfma -mavx512f -mavx512cd
-        ifneq (0,$(lastword $(sort 0 $(MIC)))) # MIC
+        ifneq (0,$(lastword $(sort 0 $(MIC))))
           ifneq (,$(call ctest,$(CC),-mavx512pf -mavx512er))
             CTARGET += -mavx512pf -mavx512er
           endif
@@ -1788,10 +1797,9 @@ ifeq (undefined,$(origin TARGET))
           else ifneq (0,$(shell echo "$$((0!=$(CLANG)&&80100<=$(CC_VERSION_NUM)))"))
             CTARGET += -mavx512dq -mavx512bw -mavx512vl
           endif
-          ifneq (,$(filter-out 0,$(VNNI)))
-            CTARGET += $(call ctest,$(CC),-mavx512vnni)
-          else ifneq (,$(filter-out 0,$(BF16)))
-            CTARGET += $(call ctest,$(CC),-mavx512vnni -mavx512bf16)
+          CTARGET += $(call ctest,$(CC),-mavx512vnni)
+          ifneq (,$(filter-out 0,$(BF16)))
+            CTARGET += $(call ctest,$(CC),-mavx512bf16)
           endif
         endif
         ifneq (0,$(VMAX))
