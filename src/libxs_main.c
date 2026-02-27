@@ -8,7 +8,7 @@
 ******************************************************************************/
 #include "libxs_main.h"
 #include <libxs_cpuid.h>
-#include <libxs_sync.h>
+#include <libxs_malloc.h>
 
 #include <signal.h>
 #if !defined(NDEBUG)
@@ -358,52 +358,53 @@ LIBXS_API_INTERN LIBXS_ATTRIBUTE_NO_TRACE void internal_init(void);
 LIBXS_API_INTERN void internal_init(void)
 {
 #if defined(LIBXS_INTERCEPT_DYNAMIC) && defined(LIBXS_AUTOPIN)
-    /* clear error status (dummy condition: it does not matter if MPI_Init or MPI_Abort) */
-    const char *const dlsymname = (NULL == dlerror() ? "MPI_Init" : "MPI_Abort");
-    const void *const dlsymbol = dlsym(LIBXS_RTLD_NEXT, dlsymname);
-    const void *const dlmpi = (NULL == dlerror() ? dlsymbol : NULL);
+  /* clear error status (dummy condition: it does not matter if MPI_Init or MPI_Abort) */
+  const char *const dlsymname = (NULL == dlerror() ? "MPI_Init" : "MPI_Abort");
+  const void *const dlsymbol = dlsym(LIBXS_RTLD_NEXT, dlsymname);
+  const void *const dlmpi = (NULL == dlerror() ? dlsymbol : NULL);
 #endif
-    const char *const env_verbose = getenv("LIBXS_VERBOSE");
-    /* setup verbosity as early as possible since below code may rely on verbose output */
-    if (NULL != env_verbose) {
-      libxs_verbosity = ('\0' != *env_verbose ? atoi(env_verbose) : 1);
-    }
+  const char *const env_verbose = getenv("LIBXS_VERBOSE");
+  /* setup verbosity as early as possible since below code may rely on verbose output */
+  if (NULL != env_verbose) {
+    libxs_verbosity = ('\0' != *env_verbose ? atoi(env_verbose) : 1);
+  }
 #if defined(_DEBUG)
-    else {
-      libxs_verbosity = INT_MAX; /* quiet -> verbose */
-    }
+  else {
+    libxs_verbosity = INT_MAX; /* quiet -> verbose */
+  }
 #endif
 #if defined(LIBXS_AUTOPIN)
 # if defined(LIBXS_INTERCEPT_DYNAMIC)
-    /* MPI: unwanted affinity can slow-down unrelated jobs (over-subscription), e.g., CP2K regtests */
-    if (NULL == dlmpi)
+  /* MPI: unwanted affinity can slow-down unrelated jobs (over-subscription), e.g., CP2K regtests */
+  if (NULL == dlmpi)
 # endif
-    { /* setup some viable affinity if nothing else is present */
-      const char *const gomp_cpu_affinity = getenv("GOMP_CPU_AFFINITY");
-      const char *const kmp_affinity = getenv("KMP_AFFINITY");
-      const char *const omp_proc_bind = getenv("OMP_PROC_BIND");
-      if  ((NULL == gomp_cpu_affinity || 0 == *gomp_cpu_affinity)
-        && (NULL == kmp_affinity || 0 == *kmp_affinity)
-        && (NULL == omp_proc_bind || 0 == *omp_proc_bind))
-      {
-        static char affinity[] = "OMP_PROC_BIND=TRUE";
-        LIBXS_EXPECT(EXIT_SUCCESS == LIBXS_PUTENV(affinity));
-        if (LIBXS_VERBOSITY_HIGH < libxs_verbosity || 0 > libxs_verbosity) { /* library code is expected to be mute */
-          fprintf(stderr, "LIBXS: prepared to pin threads.\n");
-        }
+  { /* setup some viable affinity if nothing else is present */
+    const char *const gomp_cpu_affinity = getenv("GOMP_CPU_AFFINITY");
+    const char *const kmp_affinity = getenv("KMP_AFFINITY");
+    const char *const omp_proc_bind = getenv("OMP_PROC_BIND");
+    if  ((NULL == gomp_cpu_affinity || 0 == *gomp_cpu_affinity)
+      && (NULL == kmp_affinity || 0 == *kmp_affinity)
+      && (NULL == omp_proc_bind || 0 == *omp_proc_bind))
+    {
+      static char affinity[] = "OMP_PROC_BIND=TRUE";
+      LIBXS_EXPECT(EXIT_SUCCESS == LIBXS_PUTENV(affinity));
+      if (LIBXS_VERBOSITY_HIGH < libxs_verbosity || 0 > libxs_verbosity) { /* library code is expected to be mute */
+        fprintf(stderr, "LIBXS: prepared to pin threads.\n");
       }
     }
+  }
 # if defined(LIBXS_INTERCEPT_DYNAMIC) && 1
-    else if (NULL == getenv("I_MPI_SHM_HEAP")) {
-      static char shmheap[] = "I_MPI_SHM_HEAP=1";
-      LIBXS_EXPECT(EXIT_SUCCESS == LIBXS_PUTENV(shmheap));
-    }
+  else if (NULL == getenv("I_MPI_SHM_HEAP")) {
+    static char shmheap[] = "I_MPI_SHM_HEAP=1";
+    LIBXS_EXPECT(EXIT_SUCCESS == LIBXS_PUTENV(shmheap));
+  }
 # endif
 #endif
 #if !defined(_WIN32) && 0
-    umask(S_IRUSR | S_IWUSR); /* setup default/secure file mask */
+  umask(S_IRUSR | S_IWUSR); /* setup default/secure file mask */
 #endif
-    libxs_memory_init(libxs_cpuid(NULL));
+  libxs_memory_init(libxs_cpuid(NULL));
+  libxs_malloc_pool();
 }
 
 
@@ -523,6 +524,8 @@ LIBXS_API_CTOR void libxs_init(void)
 LIBXS_API LIBXS_ATTRIBUTE_NO_TRACE void libxs_finalize(void);
 LIBXS_API_DTOR void libxs_finalize(void)
 {
+  libxs_memory_finalize();
+  libxs_free_pool();
 }
 
 
