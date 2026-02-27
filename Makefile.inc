@@ -4,7 +4,17 @@
 # For information on the license, see the LICENSE file.                       #
 # SPDX-License-Identifier: BSD-3-Clause                                       #
 ###############################################################################
-#
+
+MAKEINC := $(patsubst %/,%,$(dir $(filter %Makefile.inc,$(MAKEFILE_LIST))))
+# Dependencies can refer to DEPDIR
+DEPDIR ?= $(ROOTDIR)
+
+# project name
+ifeq (,$(PROJECT))
+  PROJECT := $(notdir $(abspath $(ROOTDIR))))
+endif
+PROJUPP := $(shell echo "$(PROJECT)" | tr a-z A-Z)
+
 WHICH := $(shell which which >/dev/null 2>&1 && echo "which" || echo "command -v")
 which = $(shell $(WHICH) 2>/dev/null $(firstword $1))
 
@@ -48,9 +58,6 @@ endif
 else ifneq (0,$(shell echo "$$((40201<$(MAKE_VERSION_INT)))"))
 MAKEFLAGS += -O
 endif
-
-#MAKEINC := $(abspath $(dir $(filter %Makefile.inc,$(MAKEFILE_LIST))))
-MAKEINC := $(patsubst %/,%,$(dir $(filter %Makefile.inc,$(MAKEFILE_LIST))))
 
 # ensure a number or instead return zero (by default) or 2nd argument (if given)
 qnum = $(shell echo "$1" | $(GREP) "^-*[0-9][0-9]*$$" 2>/dev/null || echo "$(if $2,$2,0)")
@@ -187,9 +194,6 @@ ifneq (0,$(call qnum,$(PLATFORM))) # NaN
   DFLAGS += -D__PLATFORM_FORCE
 endif
 
-DEPDIR ?= $(ROOTDIR)
-LIBNAME ?= $(DEPDIR)/lib/libxs
-
 # Additional library search paths
 LIBFIND ?= /usr/local/lib
 
@@ -296,19 +300,19 @@ OMPRT ?= $(NULL)
 uniqadd = $(if $($2),$(filter-out $($2),$($1)) $(if $3,$3,$($2)),$(filter-out $2,$($1)) $(if $3,$3,$2))
 uniqmov = $(if $(filter $($2),$($1)),$(call uniqadd,$1,$2,$3),$($1))
 
-ctest = $(if $1,$(if $(shell INFILE=$$($(MKTEMP) /tmp/.libxs_XXXXXX.c) && \
+ctest = $(if $1,$(if $(shell INFILE=$$($(MKTEMP) /tmp/.build_XXXXXX.c) && \
   echo "int main(void) { return 0; }" >$${INFILE} && if [ "$3" ]; \
   then $(firstword $1) $2 -c $${INFILE}   -o $${INFILE}.o >/dev/null && if [ "$(strip $3)" ]; then \
        $(firstword $1) $3    $${INFILE}.o -o $${INFILE}.x >/dev/null; fi; \
   else $(firstword $1) $2    $${INFILE}   -o $${INFILE}.x >/dev/null; fi 2>&1 || echo "FAILED"; \
-  rm -f /tmp/$$(basename $${INFILE} .c).* .libxs_??????.c.* 2>/dev/null),$(NULL),$(strip $2 $3)))
+  rm -f /tmp/$$(basename $${INFILE} .c).* .build_??????.c.* 2>/dev/null),$(NULL),$(strip $2 $3)))
 # INFILE cannot use leading dot when used with certain F-compiler
-ftest = $(if $1,$(if $(shell INFILE=$$($(MKTEMP) /tmp/_libxs_XXXXXX.f) && \
+ftest = $(if $1,$(if $(shell INFILE=$$($(MKTEMP) /tmp/_build_XXXXXX.f) && \
   printf "      PROGRAM test\n      END PROGRAM\n" >$${INFILE} && if [ "$3" ]; \
   then $(firstword $1) $2 -c $${INFILE}   -o $${INFILE}.o >/dev/null && if [ "$(strip $3)" ]; then \
        $(firstword $1) $3    $${INFILE}.o -o $${INFILE}.x >/dev/null; fi; \
   else $(firstword $1) $2    $${INFILE}   -o $${INFILE}.x >/dev/null; fi 2>&1 || echo "FAILED"; \
-  rm -f /tmp/$$(basename $${INFILE} .f).* _libxs_??????.f.* 2>/dev/null),$(NULL),$(strip $2 $3)))
+  rm -f /tmp/$$(basename $${INFILE} .f).* _build_??????.f.* 2>/dev/null),$(NULL),$(strip $2 $3)))
 
 ldclib = $(if $1,$(call ctest,$1 $2,-l$(strip $3)))
 ldflib = $(if $1,$(call ftest,$1 $2,-l$(strip $3)))
@@ -318,6 +322,15 @@ preppat = $(if $1$2,s/[[:space:]]*$(CHAR_HASH)[[:space:]]*define[[:space:]][[:sp
 prepget = $(shell $(CC) $(DFLAGS) $(IFLAGS) $(CFLAGS) $(CTARGET) $(if $(wildcard $1),-c $1,- </dev/null) -dM -E 2>/dev/null \
           | $(SED) -n "$(call preppat,$1,$2);$(call preppat,$1,$3);$(call preppat,$1,$4)")
 
+IFXBIN := $(call which,ifx)
+ICXBIN := $(call which,icx)
+ICPBIN := $(call which,icpx)
+
+ifneq (,$(ICXBIN))
+  ICXROOT := $(realpath $(dir $(ICXBIN))/..)
+  ICXLDIR := $(if $(wildcard $(ICXROOT)/lib64),lib64,lib)
+endif
+
 # Automatically pickup the environment (make -e is not required),
 # or pickup the Intel Compiler (if available).
 GNU ?= 0
@@ -325,14 +338,14 @@ ifeq (0,$(GNU))
   ifeq (,$(shell echo "$${CXX}"))
     ifneq (,$(filter icpc icpc1,$(call qndir,$(call which,icpc))$(INTEL)))
       CXX := icpc
-    else ifneq (,$(filter icpx icpx2,$(call qndir,$(call which,icpx))$(INTEL)))
+    else ifneq (,$(filter icpx icpx2,$(call qndir,$(ICPBIN))$(INTEL)))
       CXX := icpx
     endif
   endif
   ifeq (,$(shell echo "$${CC}"))
     ifneq (,$(filter icc icc1,$(call qndir,$(call which,icc))$(INTEL)))
       CC := icc
-    else ifneq (,$(filter icx icx2,$(call qndir,$(call which,icx))$(INTEL)))
+    else ifneq (,$(filter icx icx2,$(call qndir,$(ICXBIN))$(INTEL)))
       CC := icx
     endif
   endif
@@ -361,7 +374,7 @@ INTEL ?= $(if $(filter 2,$(words $(filter icpc% icpx% icc% icx% Intel%, \
 
 ifneq (0,$(INTEL))
   ifeq (,$(shell echo "$${FC}"))
-    ifeq (ifx$(INTEL),$(call qndir,$(call which,ifx))$(filter-out 1,$(INTEL)))
+    ifeq (ifx$(INTEL),$(call qndir,$(IFXBIN))$(filter-out 1,$(INTEL)))
       FC := ifx
     else ifneq (,$(call qndir,$(call which,ifort)))
       FC := ifort
@@ -405,6 +418,86 @@ ICX ?= 0
 # linker setup
 LD := $(CC)
 XLD := $(CXX)
+
+OCL ?= 0
+CUDA ?= 0
+ifeq (opencl,$(USE_ACCEL))
+  OCL := 2
+else ifeq (cuda,$(USE_ACCEL))
+  CUDA := 1
+endif
+
+ifneq (,$(filter-out 0,$(CUDA) $(OCL)))
+  NVCC_FILE := $(call which,nvcc)
+  NVCC := $(notdir $(NVCC_FILE))
+  NVCC_PATH := $(if $(NVCC_FILE),$(realpath $(dir $(NVCC_FILE))/..))
+  CUDA_FILE := $(wildcard $(NVCC_PATH)/../cuda/include/cuda.h)
+  CUDA_PATH := $(if $(CUDA_FILE),$(NVCC_PATH)/../cuda,$(NVCC_PATH))
+  CUDA_LDIR := $(if $(wildcard $(CUDA_PATH)/lib64),lib64,lib)
+endif
+
+ifneq (,$(filter-out 0,$(OCL) $(CUDA) $(HIP)))
+  DFLAGS += -D__ACC -D__OPENCL
+  ifneq (0,$(OCL))
+    ifneq (1,$(OCL))
+      DFLAGS += -D__OFFLOAD_OPENCL
+    endif
+    ifeq (Darwin,$(UNAME))
+      LIBS += -framework OpenCL
+    else
+      ifneq (,$(CUDA_PATH))
+        IFLAGS += -I$(CUDA_PATH)/include
+        #LIBS += -L$(CUDA_PATH)/$(CUDA_LDIR)
+      else ifneq (,$(wildcard $(OPENCL_ROOT)/include/CL/cl.h))
+        OPENCL_LDIR := $(if $(wildcard $(OPENCL_ROOT)/lib64),lib64,lib)
+        LIBS += -L$(OPENCL_ROOT)/$(OPENCL_LDIR)
+        IFLAGS += -I$(OPENCL_ROOT)/include
+      else ifneq (,$(ICXBIN))
+        CLINC := $(wildcard $(ICXROOT)/include/CL/cl.h $(ICXROOT)/include/sycl/CL/cl.h $(ICXROOT)/include/sycl/detail/cl.h)
+        ifneq (,$(CLINC))
+          LIBS += -L$(ICXROOT)/$(ICXLDIR) -L$(ICXROOT)/compiler/lib/intel64
+          IFLAGS += -I$(abspath $(dir $(firstword $(CLINC)))/..)
+        endif
+      endif
+      OCL_ICD_LOADER := $(firstword $(wildcard $(foreach DIR,$(LIBRARY_PATHS) /usr/*/lib,$(DIR)/libOpenCL.so.*)))
+      ifneq (,$(OCL_ICD_LOADER))
+        LIBS += $(OCL_ICD_LOADER) $(if $(shell ldd $(OCL_ICD_LOADER) | grep "libintlc"),-lintlc)
+      else
+        LIBS += -l:libOpenCL.so.1
+      endif
+    endif
+    ACCFLAGS += $(CFLAGS)
+    USE_ACCEL := opencl
+    ACC := $(CC)
+  else ifneq (0,$(CUDA))
+    ifneq (,$(CUDA_PATH))
+      ifneq (0,$(SYM))
+        ACCFLAGS += $(DBG_FLAG)
+      endif
+      IFLAGS += -I$(CUDA_PATH)/include
+      DFLAGS += -D__CUDA -D__OFFLOAD_CUDA
+      LIBS += -L$(CUDA_PATH)/$(CUDA_LDIR) -lcudart -lcublas -lcufft -lnvrtc -lcuda
+      # consider omitting opt-level entirely due to extreme compilation time even when flag targets only the host compiler
+      ACCFLAGS := -O$(OPT) $(addprefix -Xcompiler $(NULL),$(filter-out $(DBG_FLAG) -O$(OPT) -Wl%,$(OPTFLAGS))) $(DFLAGS)
+      NVCFLAGS := $(ACCFLAGS)
+      NVFLAGS := $(ACCFLAGS)
+      USE_ACCEL := cuda
+      ACC := $(NVCC)
+      IPO := 0
+    endif
+  else ifneq (0,$(HIP))
+    DFLAGS += -D__CUDA -D__OFFLOAD_HIP
+    USE_ACCEL := hip
+    IPO := 0
+  endif
+endif
+
+USM ?= 0
+ifneq (0,$(USM))
+ifneq (,$(USE_ACCEL))
+  DFLAGS += -D__OFFLOAD_UNIFIED_MEMORY
+endif
+endif
 
 LNKSOFT ?= 1
 ifeq (0,$(STATIC))
@@ -1584,10 +1677,10 @@ else # GCC assumed
   OMPLIBFILE := $(call libpath,$(LD),$(LDFLAGS) $(OMPFLAG_FORCE) $(foreach LIB,$(LIBFIND),$(call abslibpath,$(LIB))),$(OMPRT))
   ifeq (0,$(CRAY))
   ifeq (,$(OMPLIBFILE))
-  ifneq (,$(shell INFILE=$$($(MKTEMP) /tmp/.libxs_XXXXXX.c) && \
+  ifneq (,$(shell INFILE=$$($(MKTEMP) /tmp/.build_XXXXXX.c) && \
       printf "$(CHAR_HASH)include <omp.h>\nint main(void) { return omp_get_max_threads(); }\n" >$${INFILE} && \
       $(LD) $(LDFLAGS) $(OMPFLAG_FORCE) $(foreach LIB,$(LIBFIND),$(call abslibpath,$(LIB))) -l$(OMPRT) $${INFILE} -o $${INFILE}.x 2>/dev/null >/dev/null && echo "OK"; \
-      rm -f /tmp/$$(basename $${INFILE} .c).* .libxs_??????.* 2>/dev/null))
+      rm -f /tmp/$$(basename $${INFILE} .c).* .build_??????.* 2>/dev/null))
     CLDFLAGS += $(foreach LIB,$(LIBFIND),$(call abslibpath,$(LIB)))
     OMPLIBFILE := -l$(OMPRT)
   endif
@@ -1812,7 +1905,7 @@ ifeq ($(CTARGET),$(FTARGET))
 endif
 
 # Intrinsics support level (0: None, 1: Static, 2: Dynamic)
-# 1003<=INTRINSICS<1999: CPUID (see libxs_cpuid.h)
+# 1003<=INTRINSICS<1999: CPUID
 ifneq (0,$(INTEL))
   INTRINSICS ?= 2
 else ifneq (0,$(CLANG))
@@ -2070,10 +2163,10 @@ endif
 endif
 endif
 
-ifeq (0,$(shell INFILE=$$($(MKTEMP) /tmp/.libxs_XXXXXX.c) && \
+ifeq (0,$(shell INFILE=$$($(MKTEMP) /tmp/.build_XXXXXX.c) && \
     printf "$(CHAR_HASH)include <features.h>\n$(CHAR_HASH)if !defined(__GNU_LIBRARY__) && !defined(__GLIBC__)\n0\n$(CHAR_HASH)endif\n" >$${INFILE} && \
     if [ "$$($(CC) -c $${INFILE} -o $${INFILE}.o 2>&1 || echo 'x')" ]; then echo "1"; else echo "0"; fi; \
-    rm -f /tmp/$$(basename $${INFILE} .c).* .libxs_??????.* 2>/dev/null))
+    rm -f /tmp/$$(basename $${INFILE} .c).* .build_??????.* 2>/dev/null))
   GLIBC := 1
 endif
 GLIBC ?= 0
@@ -2086,10 +2179,10 @@ else ifneq (0,$(INTEL))
 endif
 
 ifneq (,$(OMPFLAG_FORCE))
-ifeq (0,$(shell INFILE=$$($(MKTEMP) /tmp/.libxs_XXXXXX.c) && \
+ifeq (0,$(shell INFILE=$$($(MKTEMP) /tmp/.build_XXXXXX.c) && \
     printf "$(CHAR_HASH)if defined(_OPENMP)\n$(CHAR_HASH) include <omp.h>\nint main() { return 0; }\n$(CHAR_HASH)endif\n" >$${INFILE} && \
     if [ "$$($(CC) $(IFLAGS) $(LDFLAGS) $(OMPFLAG_FORCE) $${INFILE} -o $${INFILE}.x 2>&1 || echo 'x')" ]; then echo "1"; else echo "0"; fi; \
-    rm -f /tmp/$$(basename $${INFILE} .c).* .libxs_??????.* 2>/dev/null))
+    rm -f /tmp/$$(basename $${INFILE} .c).* .build_??????.* 2>/dev/null))
   OMPFLAG := $(OMPFLAG_FORCE)
   OMPLIB ?= $(OMPFLAG)
 endif
@@ -2097,6 +2190,7 @@ endif
 OMPFLAG ?= $(NULL)
 
 # Link dependencies and libraries
+LIBNAME ?= $(DEPDIR)/lib/libxs
 XSDEP := $(LIBNAME).$(LIBEXT)
 XSLIB := $(call abslib,$(XSDEP))
 

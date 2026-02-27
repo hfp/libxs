@@ -1,5 +1,6 @@
 # ROOTDIR avoid abspath to match Makefile targets
 ROOTDIR := $(subst //,,$(dir $(firstword $(MAKEFILE_LIST)))/)
+PROJECT := libxs
 # Source and scripts locations
 ROOTINC := $(ROOTDIR)/include
 ROOTSCR := $(ROOTDIR)/scripts
@@ -18,13 +19,13 @@ DOCDIR := documentation
 
 # subdirectories (relative) to PREFIX (install targets)
 PINCDIR ?= $(INCDIR)
-PSRCDIR ?= libxs
+PSRCDIR ?= $(PROJECT)
 POUTDIR ?= $(OUTDIR)
 PPKGDIR ?= $(OUTDIR)
 PMODDIR ?= $(OUTDIR)
 PBINDIR ?= $(BINDIR)
 PTSTDIR ?= $(TSTDIR)
-PSHRDIR ?= share/libxs
+PSHRDIR ?= share/$(PROJECT)
 PDOCDIR ?= $(PSHRDIR)
 LICFDIR ?= $(PDOCDIR)
 LICFILE ?= LICENSE.md
@@ -33,18 +34,6 @@ LICFILE ?= LICENSE.md
 CFLAGS := $(RPM_OPT_FLAGS)
 CXXFLAGS := $(RPM_OPT_FLAGS)
 FCFLAGS := $(RPM_OPT_FLAGS)
-
-# THRESHOLD problem size (M x N x K) determining when to use BLAS
-# A value of zero (0) populates a default threshold
-THRESHOLD ?= 0
-
-# Generates M,N,K-combinations for each comma separated group, e.g., "1, 2, 3" generates (1,1,1), (2,2,2),
-# and (3,3,3). This way a heterogeneous set can be generated, e.g., "1 2, 3" generates (1,1,1), (1,1,2),
-# (1,2,1), (1,2,2), (2,1,1), (2,1,2) (2,2,1) out of the first group, and a (3,3,3) for the second group
-# To generate a series of square matrices one can specify, e.g., make MNK=$(echo $(seq -s, 1 5))
-# Alternative to MNK, index sets can be specified separately according to a loop nest relationship
-# (M(N(K))) using M, N, and K separately. Please consult the documentation for further details.
-MNK ?= 0
 
 # Enable thread-local cache (registry)
 # 0: "disable", 1: "enable", or small power-of-two number.
@@ -66,8 +55,8 @@ ifneq (0,$(AUTOPIN))
   DFLAGS += -DLIBXS_AUTOPIN
 endif
 
-# OpenMP is disabled by default and LIBXS is
-# always agnostic wrt the threading runtime
+# OpenMP is disabled by default and the library
+# is agnostic wrt the threading runtime
 OMP ?= 0
 
 ifneq (1,$(CACHE))
@@ -85,12 +74,6 @@ DOCEXT := pdf
 # Timeout when downloading documentation parts
 TIMEOUT := 30
 
-# state to be excluded from tracking the (re-)build state
-EXCLUDE_STATE := \
-  DESTDIR PREFIX BINDIR CURDIR DOCDIR DOCEXT INCDIR LICFDIR OUTDIR TSTDIR TIMEOUT \
-  PBINDIR PINCDIR POUTDIR PPKGDIR PMODDIR PSRCDIR PTSTDIR PSHRDIR PDOCDIR SCRDIR \
-  SPLDIR UTLDIR SRCDIR TEST VERSION_STRING ALIAS_% BLAS %_TARGET %ROOT
-
 # fixed .state file directory (included by source)
 DIRSTATE := $(OUTDIR)/..
 
@@ -99,6 +82,12 @@ FORCE_CXX := 0
 
 # enable additional/compile-time warnings
 WCHECK := 1
+
+# state to be excluded from tracking the (re-)build state
+EXCLUDE_STATE := \
+  DESTDIR PREFIX BINDIR CURDIR DOCDIR DOCEXT INCDIR LICFDIR OUTDIR TSTDIR TIMEOUT \
+  PBINDIR PINCDIR POUTDIR PPKGDIR PMODDIR PSRCDIR PTSTDIR PSHRDIR PDOCDIR SCRDIR \
+  SPLDIR UTLDIR SRCDIR TEST VERSION_STRING ALIAS_% %_TARGET %ROOT
 
 # include common Makefile artifacts
 include $(ROOTDIR)/Makefile.inc
@@ -117,12 +106,6 @@ endif
 # target library for a broad range of systems
 SSE ?= 1
 
-ifneq (,$(MKL))
-ifneq (0,$(MKL))
-  BLAS := $(MKL)
-endif
-endif
-
 ifneq (,$(MAXTARGET))
   DFLAGS += -DLIBXS_MAXTARGET=$(MAXTARGET)
 endif
@@ -130,11 +113,6 @@ endif
 # necessary include directories
 IFLAGS += -I$(call quote,$(INCDIR))
 IFLAGS += -I$(call quote,$(ROOTSRC))
-
-ifeq (,$(PYTHON))
-  $(info --------------------------------------------------------------------------------)
-  $(error No Python interpreter found)
-endif
 
 # Version numbers according to interface (version.txt)
 VERSION_MAJOR ?= $(shell $(ROOTSCR)/tool_version.sh 1)
@@ -150,17 +128,6 @@ VERSION_PACKAGE ?= 1
 # Link shared library with correct version stamp
 solink_version = $(call solink,$1,$(VERSION_MAJOR),$(VERSION_MINOR),$(VERSION_UPDATE),$(VERSION_API))
 
-ifeq (0,$(BLAS))
-ifneq (0,$(LNKSOFT))
-ifeq (Darwin,$(UNAME))
-  LDFLAGS += $(call linkopt,-U,_dgemm_)
-  LDFLAGS += $(call linkopt,-U,_sgemm_)
-  LDFLAGS += $(call linkopt,-U,_dgemv_)
-  LDFLAGS += $(call linkopt,-U,_sgemv_)
-endif
-endif
-endif
-
 # target library for a broad range of systems
 ifeq (file,$(origin AVX))
   AVX_STATIC := 0
@@ -168,32 +135,32 @@ endif
 AVX_STATIC ?= $(AVX)
 
 HEADERS_MAIN := \
-          $(ROOTINC)/libxs.h \
-          $(ROOTINC)/libxs_cpuid.h \
-          $(ROOTINC)/libxs_hist.h \
-          $(ROOTINC)/libxs_macros.h \
-          $(ROOTINC)/libxs_malloc.h \
-          $(ROOTINC)/libxs_math.h \
-          $(ROOTINC)/libxs_mem.h \
-          $(ROOTINC)/libxs_mhd.h \
-          $(ROOTINC)/libxs_reg.h \
-          $(ROOTINC)/libxs_rng.h \
-          $(ROOTINC)/libxs_sync.h \
-          $(ROOTINC)/libxs_timer.h \
-          $(ROOTINC)/libxs_utils.h \
+          $(ROOTINC)/$(PROJECT).h \
+          $(ROOTINC)/$(PROJECT)_cpuid.h \
+          $(ROOTINC)/$(PROJECT)_hist.h \
+          $(ROOTINC)/$(PROJECT)_macros.h \
+          $(ROOTINC)/$(PROJECT)_malloc.h \
+          $(ROOTINC)/$(PROJECT)_math.h \
+          $(ROOTINC)/$(PROJECT)_mem.h \
+          $(ROOTINC)/$(PROJECT)_mhd.h \
+          $(ROOTINC)/$(PROJECT)_reg.h \
+          $(ROOTINC)/$(PROJECT)_rng.h \
+          $(ROOTINC)/$(PROJECT)_sync.h \
+          $(ROOTINC)/$(PROJECT)_timer.h \
+          $(ROOTINC)/$(PROJECT)_utils.h \
           $(NULL)
 HEADERS_SRC := $(wildcard $(ROOTSRC)/*.h)
 HEADERS := $(HEADERS_SRC) $(HEADERS_MAIN)
 SRCFILES := $(patsubst %,$(ROOTSRC)/%, \
-          libxs_cpuid_arm.c libxs_cpuid_rv64.c libxs_cpuid_x86.c \
-          libxs_hash.c libxs_hist.c libxs_main.c libxs_malloc.c \
-          libxs_math.c libxs_mem.c libxs_mhd.c libxs_reg.c \
-          libxs_rng.c libxs_sync.c libxs_timer.c libxs_utils.c)
+          $(PROJECT)_cpuid_arm.c $(PROJECT)_cpuid_rv64.c $(PROJECT)_cpuid_x86.c \
+          $(PROJECT)_hash.c $(PROJECT)_hist.c $(PROJECT)_main.c $(PROJECT)_malloc.c \
+          $(PROJECT)_math.c $(PROJECT)_mem.c $(PROJECT)_mhd.c $(PROJECT)_reg.c \
+          $(PROJECT)_rng.c $(PROJECT)_sync.c $(PROJECT)_timer.c $(PROJECT)_utils.c)
 
 OBJFILES := $(patsubst %,$(BLDDIR)/intel64/%.o,$(basename $(notdir $(SRCFILES))))
 
 ifneq (,$(strip $(FC)))
-  FTNOBJS := $(BLDDIR)/intel64/libxs-mod.o
+  FTNOBJS := $(BLDDIR)/intel64/$(PROJECT)-mod.o
 endif
 
 # no warning conversion for released versions
@@ -211,7 +178,7 @@ endif
 
 information = \
   $(info ================================================================================) \
-  $(info LIBXS $(VERSION_ALL) ($(UNAME)$(if $(filter-out 0,$(LIBXS_TARGET_HIDDEN)),$(NULL),$(if $(HOSTNAME),@$(HOSTNAME))))) \
+  $(info $(PROJUPP) $(VERSION_ALL) ($(UNAME)$(if $(filter-out 0,$(LIBXS_TARGET_HIDDEN)),$(NULL),$(if $(HOSTNAME),@$(HOSTNAME))))) \
   $(info --------------------------------------------------------------------------------) \
   $(info $(GINFO)) \
   $(info $(CINFO)) \
@@ -229,16 +196,9 @@ ifneq (,$(strip $(TEST)))
 run-tests: tests
 endif
 
-.PHONY: libxs
-libxs: lib
+.PHONY: $(PROJECT)
+$(PROJECT): lib
 	$(information)
-ifneq (,$(filter _0_,_$(LNKSOFT)_))
-ifeq (0,$(STATIC))
-	$(info Building a shared library requires to link against BLAS)
-	$(info since a deferred choice is not implemented for this OS.)
-	$(info --------------------------------------------------------------------------------)
-endif
-endif
 
 .PHONY: libs
 libs: clib flib
@@ -247,7 +207,7 @@ libs: clib flib
 lib: libs
 
 .PHONY: all
-all: libxs
+all: $(PROJECT)
 
 .PHONY: realall
 realall: all samples
@@ -265,11 +225,11 @@ interface: headers module
 winterface: headers sources
 
 .PHONY: config
-config: $(INCDIR)/libxs_version.h
+config: $(INCDIR)/$(PROJECT)_version.h
 
-$(INCDIR)/libxs_version.h: $(INCDIR)/.make $(DIRSTATE)/.state $(ROOTSCR)/tool_version.sh
+$(INCDIR)/$(PROJECT)_version.h: $(INCDIR)/.make $(DIRSTATE)/.state $(ROOTSCR)/tool_version.sh
 	$(information)
-	$(info --- LIBXS build log)
+	$(info --- $(PROJUPP) build log)
 	@$(CP) -r $(ROOTSCR) . 2>/dev/null || true
 	@$(CP) $(ROOTDIR)/Makefile.inc . 2>/dev/null || true
 	@$(CP) $(ROOTDIR)/.mktmp.sh . 2>/dev/null || true
@@ -280,8 +240,8 @@ $(INCDIR)/libxs_version.h: $(INCDIR)/.make $(DIRSTATE)/.state $(ROOTSCR)/tool_ve
 	@$(ROOTSCR)/tool_version.sh -1 >$@
 
 .PHONY: cheader
-cheader: $(INCDIR)/libxs_source.h $(INCDIR)/libxs_version.h
-$(INCDIR)/libxs_source.h: $(INCDIR)/.make $(ROOTSCR)/tool_source.sh $(HEADERS_SRC) $(SRCFILES)
+cheader: $(INCDIR)/$(PROJECT)_source.h $(INCDIR)/$(PROJECT)_version.h
+$(INCDIR)/$(PROJECT)_source.h: $(INCDIR)/.make $(ROOTSCR)/tool_source.sh $(HEADERS_SRC) $(SRCFILES)
 	@$(ROOTSCR)/tool_source.sh >$@
 
 define DEFINE_COMPILE_RULE
@@ -300,50 +260,50 @@ endif
 ifeq (0,$(CRAY))
 $(foreach OBJ,$(OBJFILES),$(eval $(call DEFINE_COMPILE_RULE, \
   $(OBJ),$(patsubst %.o,$(ROOTSRC)/%.c,$(notdir $(OBJ))), \
-  $(HEADERS_MAIN) $(INCDIR)/libxs_version.h, \
-  $(DFLAGS) $(IFLAGS) $(call applyif,1,libxs_main,$(OBJ),-I$(BLDDIR)) $(CTARGET) $(CFLAGS))))
+  $(HEADERS_MAIN) $(INCDIR)/$(PROJECT)_version.h, \
+  $(DFLAGS) $(IFLAGS) $(call applyif,1,$(PROJECT)_main,$(OBJ),-I$(BLDDIR)) $(CTARGET) $(CFLAGS))))
 else
-$(foreach OBJ,$(filter-out $(BLDDIR)/intel64/libxs_mhd.o,$(OBJFILES)),$(eval $(call DEFINE_COMPILE_RULE, \
+$(foreach OBJ,$(filter-out $(BLDDIR)/intel64/$(PROJECT)_mhd.o,$(OBJFILES)),$(eval $(call DEFINE_COMPILE_RULE, \
   $(OBJ),$(patsubst %.o,$(ROOTSRC)/%.c,$(notdir $(OBJ))), \
-  $(HEADERS_MAIN) $(INCDIR)/libxs_version.h, \
-  $(DFLAGS) $(IFLAGS) $(call applyif,1,libxs_main,$(OBJ),-I$(BLDDIR)) $(CTARGET) $(CFLAGS))))
-$(foreach OBJ,$(BLDDIR)/intel64/libxs_mhd.o,$(eval $(call DEFINE_COMPILE_RULE, \
+  $(HEADERS_MAIN) $(INCDIR)/$(PROJECT)_version.h, \
+  $(DFLAGS) $(IFLAGS) $(call applyif,1,$(PROJECT)_main,$(OBJ),-I$(BLDDIR)) $(CTARGET) $(CFLAGS))))
+$(foreach OBJ,$(BLDDIR)/intel64/$(PROJECT)_mhd.o,$(eval $(call DEFINE_COMPILE_RULE, \
   $(OBJ),$(patsubst %.o,$(ROOTSRC)/%.c,$(notdir $(OBJ))), \
-  $(HEADERS_MAIN) $(INCDIR)/libxs_version.h, \
+  $(HEADERS_MAIN) $(INCDIR)/$(PROJECT)_version.h, \
   $(DFLAGS) $(IFLAGS) $(CTARGET) $(patsubst $(OPTFLAGS),$(OPTFLAG1),$(CFLAGS)))))
 endif
 
 .PHONY: module
 ifneq (,$(strip $(FC)))
-module: $(INCDIR)/libxs.mod
-$(BLDDIR)/intel64/libxs-mod.o: $(BLDDIR)/intel64/.make $(INCDIR)/libxs.f
+module: $(INCDIR)/$(PROJECT).mod
+$(BLDDIR)/intel64/$(PROJECT)-mod.o: $(BLDDIR)/intel64/.make $(INCDIR)/$(PROJECT).f
 	$(FC) $(DFLAGS) $(IFLAGS) $(FCMTFLAGS) $(filter-out $(FFORM_FLAG),$(FCFLAGS)) $(FTARGET) \
-		-c $(INCDIR)/libxs.f -o $@ $(FMFLAGS) $(INCDIR)
-$(INCDIR)/libxs.mod: $(BLDDIR)/intel64/libxs-mod.o
-	@if [ -e $(BLDDIR)/intel64/LIBXS.mod ]; then $(CP) $(BLDDIR)/intel64/LIBXS.mod $(INCDIR); fi
-	@if [ -e $(BLDDIR)/intel64/libxs.mod ]; then $(CP) $(BLDDIR)/intel64/libxs.mod $(INCDIR); fi
-	@if [ -e LIBXS.mod ]; then $(MV) LIBXS.mod $(INCDIR); fi
-	@if [ -e libxs.mod ]; then $(MV) libxs.mod $(INCDIR); fi
+		-c $(INCDIR)/$(PROJECT).f -o $@ $(FMFLAGS) $(INCDIR)
+$(INCDIR)/$(PROJECT).mod: $(BLDDIR)/intel64/$(PROJECT)-mod.o
+	@if [ -e $(BLDDIR)/intel64/$(PROJECT).mod ]; then $(CP) $(BLDDIR)/intel64/$(PROJECT).mod $(INCDIR); fi
+	@if [ -e $(BLDDIR)/intel64/$(PROJECT).mod ]; then $(CP) $(BLDDIR)/intel64/$(PROJECT).mod $(INCDIR); fi
+	@if [ -e $(PROJECT).mod ]; then $(MV) $(PROJECT).mod $(INCDIR); fi
+	@if [ -e $(PROJECT).mod ]; then $(MV) $(PROJECT).mod $(INCDIR); fi
 	@-touch $@
 else
-.PHONY: $(BLDDIR)/intel64/libxs-mod.o
-.PHONY: $(INCDIR)/libxs.mod
+.PHONY: $(BLDDIR)/intel64/$(PROJECT)-mod.o
+.PHONY: $(INCDIR)/$(PROJECT).mod
 endif
 
 .PHONY: clib
-clib: $(OUTDIR)/libxs-static.pc $(OUTDIR)/libxs-shared.pc
+clib: $(OUTDIR)/$(PROJECT)-static.pc $(OUTDIR)/$(PROJECT)-shared.pc
 ifeq (,$(filter-out 0 2,$(BUILD)))
-$(OUTDIR)/libxs.$(SLIBEXT): $(OUTDIR)/.make $(OBJFILES) $(FTNOBJS)
-	$(MAKE_AR) $(OUTDIR)/libxs.$(SLIBEXT) $(call tailwords,$^)
+$(OUTDIR)/$(PROJECT).$(SLIBEXT): $(OUTDIR)/.make $(OBJFILES) $(FTNOBJS)
+	$(MAKE_AR) $(OUTDIR)/$(PROJECT).$(SLIBEXT) $(call tailwords,$^)
 else
-.PHONY: $(OUTDIR)/libxs.$(SLIBEXT)
+.PHONY: $(OUTDIR)/$(PROJECT).$(SLIBEXT)
 endif
 ifeq (0,$(filter-out 1 2,$(BUILD))$(ANALYZE))
-$(OUTDIR)/libxs.$(DLIBEXT): $(OUTDIR)/.make $(OBJFILES) $(FTNOBJS)
-	$(LIB_SOLD) $(call solink_version,$(OUTDIR)/libxs.$(DLIBEXT)) \
+$(OUTDIR)/$(PROJECT).$(DLIBEXT): $(OUTDIR)/.make $(OBJFILES) $(FTNOBJS)
+	$(LIB_SOLD) $(call solink_version,$(OUTDIR)/$(PROJECT).$(DLIBEXT)) \
 		$(call tailwords,$^) $(call cleanld,$(LDFLAGS) $(CLDFLAGS))
 else
-.PHONY: $(OUTDIR)/libxs.$(DLIBEXT)
+.PHONY: $(OUTDIR)/$(PROJECT).$(DLIBEXT)
 endif
 
 .PHONY: flib
@@ -396,22 +356,22 @@ $(DOCDIR)/libxs_scripts.md: $(DOCDIR)/.make $(ROOTDIR)/Makefile $(ROOTSCR)/READM
 		>$@
 
 $(DOCDIR)/libxs_compat.md: $(DOCDIR)/.make $(ROOTDIR)/Makefile $(ROOTDIR)/version.txt
-	@wget -T $(TIMEOUT) -q -O $@ "https://raw.githubusercontent.com/wiki/libxs/libxs/Compatibility.md"
+	@wget -T $(TIMEOUT) -q -O $@ "https://raw.githubusercontent.com/wiki/$(PROJECT)/$(PROJECT)/Compatibility.md"
 	@echo >>$@
 
 $(DOCDIR)/libxs_valid.md: $(DOCDIR)/.make $(ROOTDIR)/Makefile $(ROOTDIR)/version.txt
-	@wget -T $(TIMEOUT) -q -O $@ "https://raw.githubusercontent.com/wiki/libxs/libxs/Validation.md"
+	@wget -T $(TIMEOUT) -q -O $@ "https://raw.githubusercontent.com/wiki/$(PROJECT)/$(PROJECT)/Validation.md"
 	@echo >>$@
 
 $(DOCDIR)/libxs_qna.md: $(DOCDIR)/.make $(ROOTDIR)/Makefile $(ROOTDIR)/version.txt
-	@wget -T $(TIMEOUT) -q -O $@ "https://raw.githubusercontent.com/wiki/libxs/libxs/Q&A.md"
+	@wget -T $(TIMEOUT) -q -O $@ "https://raw.githubusercontent.com/wiki/$(PROJECT)/$(PROJECT)/Q&A.md"
 	@echo >>$@
 
-$(DOCDIR)/libxs.$(DOCEXT): $(DOCDIR)/.make $(ROOTDIR)/$(DOCDIR)/index.md \
-$(ROOTDIR)/$(DOCDIR)/libxs_mm.md $(ROOTDIR)/$(DOCDIR)/libxs_aux.md $(ROOTDIR)/$(DOCDIR)/libxs_prof.md \
-$(ROOTDIR)/$(DOCDIR)/libxs_tune.md $(ROOTDIR)/$(DOCDIR)/libxs_be.md $(ROOTDIR)/$(DOCDIR)/libxs_scripts.md \
-$(ROOTDIR)/$(DOCDIR)/libxs_compat.md $(ROOTDIR)/$(DOCDIR)/libxs_valid.md $(ROOTDIR)/$(DOCDIR)/libxs_qna.md
-	$(eval TMPFILE = $(shell $(MKTEMP) $(ROOTDIR)/$(DOCDIR)/.libxs_XXXXXX.tex))
+$(DOCDIR)/$(PROJECT).$(DOCEXT): $(DOCDIR)/.make $(ROOTDIR)/$(DOCDIR)/index.md \
+$(ROOTDIR)/$(DOCDIR)/$(PROJECT)_mm.md $(ROOTDIR)/$(DOCDIR)/$(PROJECT)_aux.md $(ROOTDIR)/$(DOCDIR)/$(PROJECT)_prof.md \
+$(ROOTDIR)/$(DOCDIR)/$(PROJECT)_tune.md $(ROOTDIR)/$(DOCDIR)/$(PROJECT)_be.md $(ROOTDIR)/$(DOCDIR)/$(PROJECT)_scripts.md \
+$(ROOTDIR)/$(DOCDIR)/$(PROJECT)_compat.md $(ROOTDIR)/$(DOCDIR)/$(PROJECT)_valid.md $(ROOTDIR)/$(DOCDIR)/$(PROJECT)_qna.md
+	$(eval TMPFILE = $(shell $(MKTEMP) $(ROOTDIR)/$(DOCDIR)/.$(PROJECT)_XXXXXX.tex))
 	@pandoc -D latex \
 	| $(SED) \
 		-e 's/\(\\documentclass\[..*\]{..*}\)/\1\n\\pagenumbering{gobble}\n\\RedeclareSectionCommands[beforeskip=-1pt,afterskip=1pt]{subsection,subsubsection}/' \
@@ -420,17 +380,17 @@ $(ROOTDIR)/$(DOCDIR)/libxs_compat.md $(ROOTDIR)/$(DOCDIR)/libxs_valid.md $(ROOTD
 		>$(TMPFILE)
 	@cd $(ROOTDIR)/$(DOCDIR) && ( \
 		iconv -t utf-8 index.md && echo && \
-		echo "# LIBXS Domains" && \
-		iconv -t utf-8 libxs_mm.md && echo && \
-		iconv -t utf-8 libxs_aux.md && echo && \
-		iconv -t utf-8 libxs_prof.md && echo && \
-		iconv -t utf-8 libxs_tune.md && echo && \
-		iconv -t utf-8 libxs_be.md && echo && \
+		echo "# $(PROJUPP) Domains" && \
+		iconv -t utf-8 $(PROJECT)_mm.md && echo && \
+		iconv -t utf-8 $(PROJECT)_aux.md && echo && \
+		iconv -t utf-8 $(PROJECT)_prof.md && echo && \
+		iconv -t utf-8 $(PROJECT)_tune.md && echo && \
+		iconv -t utf-8 $(PROJECT)_be.md && echo && \
 		echo "# Appendix" && \
-		$(SED) "s/^\(##*\) /#\1 /" libxs_compat.md | iconv -t utf-8 && \
-		$(SED) "s/^\(##*\) /#\1 /" libxs_valid.md | iconv -t utf-8 && \
-		$(SED) "s/^\(##*\) /#\1 /" libxs_scripts.md | iconv -t utf-8 && \
-		$(SED) "s/^\(##*\) /#\1 /" libxs_qna.md | iconv -t utf-8; ) \
+		$(SED) "s/^\(##*\) /#\1 /" $(PROJECT)_compat.md | iconv -t utf-8 && \
+		$(SED) "s/^\(##*\) /#\1 /" $(PROJECT)_valid.md | iconv -t utf-8 && \
+		$(SED) "s/^\(##*\) /#\1 /" $(PROJECT)_scripts.md | iconv -t utf-8 && \
+		$(SED) "s/^\(##*\) /#\1 /" $(PROJECT)_qna.md | iconv -t utf-8; ) \
 	| $(SED) \
 		-e 's/<sub>/~/g' -e 's/<\/sub>/~/g' \
 		-e 's/<sup>/^/g' -e 's/<\/sup>/^/g' \
@@ -439,8 +399,8 @@ $(ROOTDIR)/$(DOCDIR)/libxs_compat.md $(ROOTDIR)/$(DOCDIR)/libxs_valid.md $(ROOTD
 		--template=$(call qndir,$(TMPFILE)) --listings \
 		-f gfm+subscript+superscript \
 		-V documentclass=scrartcl \
-		-V title-meta="LIBXS Documentation" \
-		-V author-meta="Hans Pabst, Alexander Heinecke" \
+		-V title-meta="$(PROJUPP) Documentation" \
+		-V author-meta="Hans Pabst" \
 		-V classoption=DIV=45 \
 		-V linkcolor=black \
 		-V citecolor=black \
@@ -448,7 +408,7 @@ $(ROOTDIR)/$(DOCDIR)/libxs_compat.md $(ROOTDIR)/$(DOCDIR)/libxs_valid.md $(ROOTD
 		-o $(call qndir,$@)
 	@rm $(TMPFILE)
 
-$(DOCDIR)/libxs_samples.md: $(ROOTDIR)/Makefile $(ROOTDIR)/$(SPLDIR)/*/README.md $(ROOTDIR)/$(SPLDIR)/deeplearning/*/README.md $(ROOTDIR)/$(UTLDIR)/*/README.md
+$(DOCDIR)/$(PROJECT)_samples.md: $(ROOTDIR)/Makefile $(ROOTDIR)/$(SPLDIR)/*/README.md $(ROOTDIR)/$(SPLDIR)/deeplearning/*/README.md $(ROOTDIR)/$(UTLDIR)/*/README.md
 	@cd $(ROOTDIR)
 	@if [ "$$(command -v git)" ] && [ "$$(git ls-files version.txt)" ]; then \
 		git ls-files $(SPLDIR)/*/README.md $(SPLDIR)/deeplearning/*/README.md $(UTLDIR)/*/README.md | xargs -I {} cat {}; \
@@ -460,23 +420,23 @@ $(DOCDIR)/libxs_samples.md: $(ROOTDIR)/Makefile $(ROOTDIR)/$(SPLDIR)/*/README.md
 		-e 's/<sub>/~/g' -e 's/<\/sub>/~/g' \
 		-e 's/<sup>/^/g' -e 's/<\/sup>/^/g' \
 		-e 's/----*//g' \
-		-e '1s/^/# [LIBXS Samples](https:\/\/github.com\/libxs\/libxs\/raw\/main\/documentation\/libxs_samples.pdf)\n\n/' \
+		-e '1s/^/# [$(PROJUPP) Samples](https:\/\/github.com\/$(PROJECT)\/$(PROJECT)\/raw\/main\/documentation\/$(PROJECT)_samples.pdf)\n\n/' \
 		>$@
 
-$(DOCDIR)/libxs_samples.$(DOCEXT): $(ROOTDIR)/$(DOCDIR)/libxs_samples.md
-	$(eval TMPFILE = $(shell $(MKTEMP) .libxs_XXXXXX.tex))
+$(DOCDIR)/$(PROJECT)_samples.$(DOCEXT): $(ROOTDIR)/$(DOCDIR)/$(PROJECT)_samples.md
+	$(eval TMPFILE = $(shell $(MKTEMP) .$(PROJECT)_XXXXXX.tex))
 	@pandoc -D latex \
 	| $(SED) \
 		-e 's/\(\\documentclass\[..*\]{..*}\)/\1\n\\pagenumbering{gobble}\n\\RedeclareSectionCommands[beforeskip=-1pt,afterskip=1pt]{subsection,subsubsection}/' \
 		-e 's/\\usepackage{listings}/\\usepackage{listings}\\lstset{basicstyle=\\footnotesize\\ttfamily,showstringspaces=false}/' \
 		-e 's/\(\\usepackage.*{hyperref}\)/\\usepackage[hyphens]{url}\n\1/' \
 		>$(TMPFILE)
-	@iconv -t utf-8 $(ROOTDIR)/$(DOCDIR)/libxs_samples.md \
+	@iconv -t utf-8 $(ROOTDIR)/$(DOCDIR)/$(PROJECT)_samples.md \
 	| pandoc \
 		--template=$(TMPFILE) --listings \
 		-f gfm+subscript+superscript \
 		-V documentclass=scrartcl \
-		-V title-meta="LIBXS Sample Code Summary" \
+		-V title-meta="$(PROJUPP) Sample Code Summary" \
 		-V classoption=DIV=45 \
 		-V linkcolor=black \
 		-V citecolor=black \
@@ -486,11 +446,11 @@ $(DOCDIR)/libxs_samples.$(DOCEXT): $(ROOTDIR)/$(DOCDIR)/libxs_samples.md
 
 .PHONY: documentation
 documentation: \
-$(DOCDIR)/libxs.$(DOCEXT) \
-$(DOCDIR)/libxs_samples.$(DOCEXT)
+$(DOCDIR)/$(PROJECT).$(DOCEXT) \
+$(DOCDIR)/$(PROJECT)_samples.$(DOCEXT)
 
 .PHONY: mkdocs
-mkdocs: $(ROOTDIR)/$(DOCDIR)/index.md $(ROOTDIR)/$(DOCDIR)/libxs_samples.md
+mkdocs: $(ROOTDIR)/$(DOCDIR)/index.md $(ROOTDIR)/$(DOCDIR)/$(PROJECT)_samples.md
 	@mkdocs build --clean
 	@mkdocs serve
 
@@ -514,28 +474,26 @@ ifneq ($(call qapath,$(OUTDIR)),$(HEREDIR))
 endif
 endif
 ifneq (,$(wildcard $(OUTDIR))) # still exists
-	@-rm -f $(OUTDIR)/libxs*.$(SLIBEXT) $(OUTDIR)/libxs*.$(DLIBEXT)*
-	@-rm -f $(OUTDIR)/libxs*.pc
+	@-rm -f $(OUTDIR)/$(PROJECT)*.$(SLIBEXT) $(OUTDIR)/$(PROJECT)*.$(DLIBEXT)*
+	@-rm -f $(OUTDIR)/$(PROJECT)*.pc
 endif
 ifneq ($(call qapath,$(BINDIR)),$(ROOTDIR))
 ifneq ($(call qapath,$(BINDIR)),$(HEREDIR))
 	@-rm -rf $(BINDIR)
 endif
 endif
-	@-rm -f $(INCDIR)/libxs_version.h
-	@-rm -f $(INCDIR)/libxs.mod
+	@-rm -f $(INCDIR)/$(PROJECT)_version.h
+	@-rm -f $(INCDIR)/$(PROJECT).mod
 
 .PHONY: deepclean
 deepclean: realclean
 	@find . -type f \( -name .make -or -name .state \) -exec rm {} \;
-	@-rm -rf $(ROOTSCR)/__pycache__
-	@-rm -f $(HEREDIR)/python3
 
 .PHONY: distclean
 distclean: deepclean
 	@find $(ROOTDIR)/$(SPLDIR) $(ROOTDIR)/$(TSTDIR) -type f -name Makefile -exec $(FLOCK) {} \
 		"$(MAKE) --no-print-directory deepclean" \; 2>/dev/null || true
-	@-rm -rf libxs*
+	@-rm -rf $(PROJECT)*
 
 # keep original prefix (:)
 ALIAS_PREFIX := $(PREFIX)
@@ -562,48 +520,46 @@ endif
 CLEAN ?= 0
 
 .PHONY: install-minimal
-install-minimal: libxs
+install-minimal: $(PROJECT)
 ifneq ($(PREFIX),$(ABSDIR))
 	@echo
 ifneq (0,$(CLEAN))
 #ifneq (,$(findstring ?$(HOMEDIR),?$(call qapath,$(PREFIX))))
-	@if [ -d $(PREFIX) ]; then echo "LIBXS removing $(PREFIX)..." && rm -rf $(PREFIX) || true; fi
+	@if [ -d $(PREFIX) ]; then echo "$(PROJUPP) removing $(PREFIX)..." && rm -rf $(PREFIX) || true; fi
 #endif
 endif
-	@echo "LIBXS installing libraries..."
+	@echo "$(PROJUPP) installing libraries..."
 	@$(MKDIR) -p $(PREFIX)/$(POUTDIR)
-	@$(CP) -va $(OUTDIR)/libxsf*.$(DLIBEXT)* $(PREFIX)/$(POUTDIR) 2>/dev/null || true
-	@$(CP) -v  $(OUTDIR)/libxsf.$(SLIBEXT)  $(PREFIX)/$(POUTDIR) 2>/dev/null || true
-	@$(CP) -va $(OUTDIR)/libxs*.$(DLIBEXT)* $(PREFIX)/$(POUTDIR) 2>/dev/null || true
-	@$(CP) -v  $(OUTDIR)/libxs.$(SLIBEXT)  $(PREFIX)/$(POUTDIR) 2>/dev/null || true
+	@$(CP) -va $(OUTDIR)/$(PROJECT)*.$(DLIBEXT)* $(PREFIX)/$(POUTDIR) 2>/dev/null || true
+	@$(CP) -v  $(OUTDIR)/$(PROJECT).$(SLIBEXT)  $(PREFIX)/$(POUTDIR) 2>/dev/null || true
 	@echo
-	@echo "LIBXS installing pkg-config and module files..."
+	@echo "$(PROJUPP) installing pkg-config and module files..."
 	@$(MKDIR) -p $(PREFIX)/$(PPKGDIR)
 	@$(CP) -va $(OUTDIR)/*.pc $(PREFIX)/$(PPKGDIR) 2>/dev/null || true
-	@if [ ! -e $(PREFIX)/$(PMODDIR)/libxs.env ]; then \
+	@if [ ! -e $(PREFIX)/$(PMODDIR)/$(PROJECT).env ]; then \
 		$(MKDIR) -p $(PREFIX)/$(PMODDIR); \
-		$(CP) -v $(OUTDIR)/libxs.env $(PREFIX)/$(PMODDIR) 2>/dev/null || true; \
+		$(CP) -v $(OUTDIR)/$(PROJECT).env $(PREFIX)/$(PMODDIR) 2>/dev/null || true; \
 	fi
 	@echo
-	@echo "LIBXS installing interface..."
+	@echo "$(PROJUPP) installing interface..."
 	@$(CP) -v  $(HEADERS_MAIN) $(PREFIX)/$(PINCDIR) 2>/dev/null || true
-	@$(CP) -v  $(INCDIR)/libxs_version.h $(PREFIX)/$(PINCDIR) 2>/dev/null || true
-	@$(CP) -v  $(INCDIR)/libxs.h $(PREFIX)/$(PINCDIR) 2>/dev/null || true
-	@$(CP) -v  $(INCDIR)/libxs.f $(PREFIX)/$(PINCDIR) 2>/dev/null || true
+	@$(CP) -v  $(INCDIR)/$(PROJECT)_version.h $(PREFIX)/$(PINCDIR) 2>/dev/null || true
+	@$(CP) -v  $(INCDIR)/$(PROJECT).h $(PREFIX)/$(PINCDIR) 2>/dev/null || true
+	@$(CP) -v  $(INCDIR)/$(PROJECT).f $(PREFIX)/$(PINCDIR) 2>/dev/null || true
 	@$(CP) -va $(INCDIR)/*.mod* $(PREFIX)/$(PINCDIR) 2>/dev/null || true
 	@echo
-	@echo "LIBXS installing header-only..."
+	@echo "$(PROJUPP) installing header-only..."
 	@$(MKDIR) -p $(PREFIX)/$(PINCDIR)/$(PSRCDIR)
 	@$(CP) -r $(ROOTSRC)/* $(PREFIX)/$(PINCDIR)/$(PSRCDIR) >/dev/null 2>/dev/null || true
-# regenerate libxs_source.h
-	@$(ROOTSCR)/tool_source.sh $(PSRCDIR) >$(PREFIX)/$(PINCDIR)/libxs_source.h
+# regenerate header-only
+	@$(ROOTSCR)/tool_source.sh $(PSRCDIR) >$(PREFIX)/$(PINCDIR)/$(PROJECT)_source.h
 endif
 
 .PHONY: install
 install: install-minimal
 ifneq ($(PREFIX),$(ABSDIR))
 	@echo
-	@echo "LIBXS installing documentation..."
+	@echo "$(PROJUPP) installing documentation..."
 	@$(MKDIR) -p $(PREFIX)/$(PDOCDIR)
 	@$(CP) -va $(ROOTDIR)/$(DOCDIR)/*.pdf $(PREFIX)/$(PDOCDIR)
 	@$(CP) -va $(ROOTDIR)/$(DOCDIR)/*.md $(PREFIX)/$(PDOCDIR)
@@ -620,7 +576,7 @@ endif
 install-all: install build-tests
 ifneq ($(PREFIX),$(ABSDIR))
 	@echo
-	@echo "LIBXS installing tests..."
+	@echo "$(PROJUPP) installing tests..."
 	@$(MKDIR) -p $(PREFIX)/$(PSHRDIR)/$(PTSTDIR)
 	@$(CP) -v $(basename $(wildcard $(ROOTDIR)/$(TSTDIR)/*.c)) $(PREFIX)/$(PSHRDIR)/$(PTSTDIR) 2>/dev/null || true
 endif
@@ -632,21 +588,21 @@ ifneq ($(PREFIX),$(ABSDIR))
 		echo; \
 		echo "================================================================================"; \
 		echo "Installing development tools does not respect a common PREFIX, e.g., /usr/local."; \
-		echo "For development, consider checking out https://github.com/hfp/libxs,"; \
+		echo "For development, consider checking out https://github.com/hfp/$(PROJECT),"; \
 		echo "or perform plain \"install\" (or \"install-all\")."; \
 		echo "Hit CTRL-C to abort, or wait $(WAIT) seconds to continue."; \
 		echo "--------------------------------------------------------------------------------"; \
 		sleep $(WAIT); \
 	fi
 	@echo
-	@echo "LIBXS installing utilities..."
+	@echo "$(PROJUPP) installing utilities..."
 	@$(MKDIR) -p $(PREFIX)
 	@$(CP) -v $(ROOTDIR)/Makefile.inc $(PREFIX) 2>/dev/null || true
 	@$(CP) -v $(ROOTDIR)/.mktmp.sh $(PREFIX) 2>/dev/null || true
 	@$(CP) -v $(ROOTDIR)/.flock.sh $(PREFIX) 2>/dev/null || true
 	@$(CP) -v $(ROOTDIR)/.state.sh $(PREFIX) 2>/dev/null || true
 	@echo
-	@echo "LIBXS tool scripts..."
+	@echo "$(PROJUPP) tool scripts..."
 	@$(MKDIR) -p $(PREFIX)/$(SCRDIR)
 	@$(CP) -v $(ROOTSCR)/tool_getenvars.sh $(PREFIX)/$(SCRDIR) 2>/dev/null || true
 	@$(CP) -v $(ROOTSCR)/tool_pexec.sh $(PREFIX)/$(SCRDIR) 2>/dev/null || true
@@ -656,7 +612,7 @@ endif
 install-realall: install-all install-dev samples
 ifneq ($(PREFIX),$(ABSDIR))
 	@echo
-	@echo "LIBXS installing samples..."
+	@echo "$(PROJUPP) installing samples..."
 	@$(MKDIR) -p $(PREFIX)/$(PSHRDIR)/$(SPLDIR)
 	@$(CP) -v $(addprefix $(ROOTDIR)/$(SPLDIR)/memcmp/,*.x) $(PREFIX)/$(PSHRDIR)/$(SPLDIR) 2>/dev/null || true
 	@$(CP) -v $(addprefix $(ROOTDIR)/$(SPLDIR)/scratch/,*.x) $(PREFIX)/$(PSHRDIR)/$(SPLDIR) 2>/dev/null || true
@@ -681,10 +637,10 @@ ALIAS_INCDIR := $(subst $$$$,$(if $(findstring $$$$/,$$$$$(PINCDIR)),,\$${prefix
 ALIAS_LIBDIR := $(subst $$$$,$(if $(findstring $$$$/,$$$$$(POUTDIR)),,\$${prefix}/),$(subst $$$$$(ALIAS_PREFIX),\$${prefix},$$$$$(POUTDIR)))
 
 ifeq (,$(filter-out 0 2,$(BUILD)))
-$(OUTDIR)/libxs-static.pc: $(OUTDIR)/libxs.$(SLIBEXT)
-	@echo "Name: libxs" >$@
+$(OUTDIR)/$(PROJECT)-static.pc: $(OUTDIR)/$(PROJECT).$(SLIBEXT)
+	@echo "Name: $(PROJECT)" >$@
 	@echo "Description: Specialized tensor operations" >>$@
-	@echo "URL: https://github.com/hfp/libxs/" >>$@
+	@echo "URL: https://github.com/hfp/$(PROJECT)/" >>$@
 	@echo "Version: $(VERSION_STRING)" >>$@
 	@echo >>$@
 	@echo "prefix=$(ALIAS_PREFIX)" >>$@
@@ -694,7 +650,7 @@ $(OUTDIR)/libxs-static.pc: $(OUTDIR)/libxs.$(SLIBEXT)
 	@echo "Cflags: -I\$${includedir}" >>$@
   ifneq (,$(ALIAS_PRIVLIBS))
   ifneq (Windows_NT,$(UNAME))
-	@echo "Libs: -L\$${libdir} -l:libxs.$(SLIBEXT) $(ALIAS_PRIVLIBS)" >>$@
+	@echo "Libs: -L\$${libdir} -l:$(PROJECT).$(SLIBEXT) $(ALIAS_PRIVLIBS)" >>$@
   else
 	@echo "Libs: -L\$${libdir} -lxsmm $(ALIAS_PRIVLIBS)" >>$@
   endif
@@ -702,42 +658,17 @@ $(OUTDIR)/libxs-static.pc: $(OUTDIR)/libxs.$(SLIBEXT)
 	@echo "Libs: -L\$${libdir} -lxsmm" >>$@
   endif
   ifeq (,$(filter-out 0 2,$(BUILD)))
-	@ln -fs $(notdir $@) $(OUTDIR)/libxs.pc
+	@ln -fs $(notdir $@) $(OUTDIR)/$(PROJECT).pc
   endif
 else
-.PHONY: $(OUTDIR)/libxs-static.pc
-endif
-
-ifeq (,$(filter-out 0 2,$(BUILD)))
-$(OUTDIR)/libxsf-static.pc: $(OUTDIR)/libxsf.$(SLIBEXT)
-	@echo "Name: libxs/f" >$@
-	@echo "Description: LIBXS for Fortran" >>$@
-	@echo "URL: https://github.com/hfp/libxs/" >>$@
-	@echo "Version: $(VERSION_STRING)" >>$@
-	@echo >>$@
-	@echo "prefix=$(ALIAS_PREFIX)" >>$@
-	@echo "includedir=$(ALIAS_INCDIR)" >>$@
-	@echo "libdir=$(ALIAS_LIBDIR)" >>$@
-	@echo >>$@
-	@echo "Requires: libxsext-static" >>$@
-	@echo "Cflags: -I\$${includedir}" >>$@
-  ifneq (Windows_NT,$(UNAME))
-	@echo "Libs: -L\$${libdir} -l:libxsf.$(SLIBEXT)" >>$@
-  else
-	@echo "Libs: -L\$${libdir} -lxsmmf" >>$@
-  endif
-  ifeq (,$(filter-out 0 2,$(BUILD)))
-	@ln -fs $(notdir $@) $(OUTDIR)/libxsf.pc
-  endif
-else
-.PHONY: $(OUTDIR)/libxsf-static.pc
+.PHONY: $(OUTDIR)/$(PROJECT)-static.pc
 endif
 
 ifeq (,$(filter-out 1 2,$(BUILD)))
-$(OUTDIR)/libxs-shared.pc: $(OUTDIR)/libxs.$(DLIBEXT)
-	@echo "Name: libxs" >$@
+$(OUTDIR)/$(PROJECT)-shared.pc: $(OUTDIR)/$(PROJECT).$(DLIBEXT)
+	@echo "Name: $(PROJECT)" >$@
 	@echo "Description: Specialized tensor operations" >>$@
-	@echo "URL: https://github.com/hfp/libxs/" >>$@
+	@echo "URL: https://github.com/hfp/$(PROJECT)/" >>$@
 	@echo "Version: $(VERSION_STRING)" >>$@
 	@echo >>$@
 	@echo "prefix=$(ALIAS_PREFIX)" >>$@
@@ -752,37 +683,16 @@ $(OUTDIR)/libxs-shared.pc: $(OUTDIR)/libxs.$(DLIBEXT)
 	@echo "Libs: -L\$${libdir} -lxsmm" >>$@
   endif
   ifeq (,$(filter-out 1,$(BUILD)))
-	@ln -fs $(notdir $@) $(OUTDIR)/libxs.pc
+	@ln -fs $(notdir $@) $(OUTDIR)/$(PROJECT).pc
   endif
 else
-.PHONY: $(OUTDIR)/libxs-shared.pc
+.PHONY: $(OUTDIR)/$(PROJECT)-shared.pc
 endif
 
-ifeq (,$(filter-out 1 2,$(BUILD)))
-$(OUTDIR)/libxsf-shared.pc: $(OUTDIR)/libxsf.$(DLIBEXT)
-	@echo "Name: libxs/f" >$@
-	@echo "Description: LIBXS for Fortran" >>$@
-	@echo "URL: https://github.com/hfp/libxs/" >>$@
-	@echo "Version: $(VERSION_STRING)" >>$@
-	@echo >>$@
-	@echo "prefix=$(ALIAS_PREFIX)" >>$@
-	@echo "includedir=$(ALIAS_INCDIR)" >>$@
-	@echo "libdir=$(ALIAS_LIBDIR)" >>$@
-	@echo >>$@
-	@echo "Requires: libxsext" >>$@
-	@echo "Cflags: -I\$${includedir}" >>$@
-	@echo "Libs: -L\$${libdir} -lxsmmf" >>$@
-  ifeq (,$(filter-out 1,$(BUILD)))
-	@ln -fs $(notdir $@) $(OUTDIR)/libxsf.pc
-  endif
-else
-.PHONY: $(OUTDIR)/libxsf-shared.pc
-endif
-
-$(OUTDIR)/libxs.env: $(OUTDIR)/.make $(INCDIR)/libxs.h
+$(OUTDIR)/$(PROJECT).env: $(OUTDIR)/.make $(INCDIR)/$(PROJECT).h
 	@echo "#%Module1.0" >$@
 	@echo >>$@
-	@echo "module-whatis \"LIBXS $(VERSION_STRING)\"" >>$@
+	@echo "module-whatis \"$(PROJUPP) $(VERSION_STRING)\"" >>$@
 	@echo >>$@
 	@echo "set PREFIX \"$(ALIAS_PREFIX)\"" >>$@
 	@echo "prepend-path PATH \"\$$PREFIX/bin\"" >>$@
@@ -801,7 +711,7 @@ deb:
 	if [ "$${VERSION_ARCHIVE}" ] && [ "$${VERSION_ARCHIVE_SONAME}" ]; then \
 		ARCHIVE_AUTHOR_NAME="$$(git config user.name)"; \
 		ARCHIVE_AUTHOR_MAIL="$$(git config user.email)"; \
-		ARCHIVE_NAME=libxs$${VERSION_ARCHIVE_SONAME}; \
+		ARCHIVE_NAME=$(PROJECT)$${VERSION_ARCHIVE_SONAME}; \
 		ARCHIVE_DATE="$$(LANG=C date -R)"; \
 		if [ "$${ARCHIVE_AUTHOR_NAME}" ] && [ "$${ARCHIVE_AUTHOR_MAIL}" ]; then \
 			ARCHIVE_AUTHOR="$${ARCHIVE_AUTHOR_NAME} <$${ARCHIVE_AUTHOR_MAIL}>"; \
@@ -822,8 +732,8 @@ deb:
 		cd ..; \
 		echo "Source: $${ARCHIVE_NAME}" >control; \
 		echo "Section: libs" >>control; \
-		echo "Homepage: https://github.com/hfp/libxs/" >>control; \
-		echo "Vcs-Git: https://github.com/hfp/libxs/libxs.git" >>control; \
+		echo "Homepage: https://github.com/hfp/$(PROJECT)/" >>control; \
+		echo "Vcs-Git: https://github.com/hfp/$(PROJECT)/$(PROJECT).git" >>control; \
 		echo "Maintainer: $${ARCHIVE_AUTHOR}" >>control; \
 		echo "Priority: optional" >>control; \
 		echo "Build-Depends: debhelper (>= 13)" >>control; \
@@ -834,12 +744,12 @@ deb:
 		echo "Architecture: amd64" >>control; \
 		echo "Depends: \$${shlibs:Depends}, \$${misc:Depends}" >>control; \
 		echo "Description: Specialized tensor operations" >>control; \
-		wget -T $(TIMEOUT) -qO- "https://api.github.com/repos/libxs/libxs" \
+		wget -T $(TIMEOUT) -qO- "https://api.github.com/repos/$(PROJECT)/$(PROJECT)" \
 		| $(SED) -n 's/ *\"description\": \"\(..*\)\".*/\1/p' \
 		| fold -s -w 79 | $(SED) -e 's/^/ /' -e 's/[[:space:]][[:space:]]*$$//' >>control; \
 		echo "$${ARCHIVE_NAME} ($${VERSION_ARCHIVE}-$(VERSION_PACKAGE)) UNRELEASED; urgency=low" >changelog; \
 		echo >>changelog; \
-		wget -T $(TIMEOUT) -qO- "https://api.github.com/repos/libxs/libxs/releases/tags/$${VERSION_ARCHIVE}" \
+		wget -T $(TIMEOUT) -qO- "https://api.github.com/repos/$(PROJECT)/$(PROJECT)/releases/tags/$${VERSION_ARCHIVE}" \
 		| $(SED) -n 's/ *\"body\": \"\(..*\)\".*/\1/p' \
 		| $(SED) -e 's/\\r\\n/\n/g' -e 's/\\"/"/g' -e 's/\[\([^]]*\)\]([^)]*)/\1/g' \
 		| $(SED) -n 's/^\* \(..*\)/\* \1/p' \
