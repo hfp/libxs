@@ -33,6 +33,9 @@
 #if !defined(BATCH_K)
 # define BATCH_K 4
 #endif
+#if !defined(OZ2_SIGNED)
+# define OZ2_SIGNED 0
+#endif
 
 #if !defined(MAX_NSLICES)
 # if GEMM_IS_DOUBLE
@@ -62,11 +65,21 @@
 #define OZ1_DEFAULT (OZ1_TRIANGULAR | OZ1_SYMMETRIZE)
 
 #if GEMM_IS_DOUBLE
-# define OZ2_NPRIMES_MAX 16
-# define OZ2_NPRIMES_DEFAULT 15
+# if 0 != OZ2_SIGNED
+#   define OZ2_NPRIMES_MAX 19
+#   define OZ2_NPRIMES_DEFAULT 18
+# else
+#   define OZ2_NPRIMES_MAX 16
+#   define OZ2_NPRIMES_DEFAULT 15
+# endif
 #else /* single-precision */
-# define OZ2_NPRIMES_MAX 10
-# define OZ2_NPRIMES_DEFAULT 7
+# if 0 != OZ2_SIGNED
+#   define OZ2_NPRIMES_MAX 10
+#   define OZ2_NPRIMES_DEFAULT 8
+# else
+#   define OZ2_NPRIMES_MAX 10
+#   define OZ2_NPRIMES_DEFAULT 7
+# endif
 #endif
 
 /** Implement the public gemm_ozN function: call the _diff kernel,
@@ -167,6 +180,99 @@ LIBXS_APIVAR_PRIVATE(int gemm_exit);
 extern LIBXS_TLS int gemm_dump_inhibit;
 LIBXS_APIVAR_PRIVATE(double gemm_eps);
 LIBXS_APIVAR_PRIVATE(double gemm_rsq);
+
+/* ================================================================ */
+/* Shared int8 dot-product infrastructure (VNNI + scalar fallback)  */
+/* ================================================================ */
+
+/* For signed int8 dot products: VPDPBUSD treats the first operand as
+ * unsigned by XOR with 0x80 (+128), then subtract 128*sum(b[]) to
+ * compensate.  AVX-512 VNNI exposes VPDPBUSD at all three register
+ * widths (XMM/128, YMM/256, ZMM/512); we select the narrowest that
+ * covers BLOCK_K bytes, falling back to scalar for other sizes. */
+#if defined(LIBXS_INTRINSICS_AVX512)
+
+# if 16 == BLOCK_K /* 128-bit: one __m128i */
+
+LIBXS_API_INLINE LIBXS_INTRINSICS(LIBXS_X86_AVX512)
+int32_t ozaki_dot_i8_vnni(const int8_t a[BLOCK_K], const int8_t b[BLOCK_K])
+{
+  const __m128i bias = _mm_set1_epi8((char)0x80);
+  const __m128i va = _mm_xor_si128(_mm_loadu_si128((const __m128i*)a), bias);
+  const __m128i vb = _mm_loadu_si128((const __m128i*)b);
+  const __m128i ones = _mm_set1_epi8(1);
+  __m128i dp = _mm_dpbusd_epi32(_mm_setzero_si128(), va, vb);
+  __m128i sb = _mm_dpbusd_epi32(_mm_setzero_si128(), ones, vb);
+  dp = _mm_hadd_epi32(dp, sb);
+  dp = _mm_hadd_epi32(dp, dp);
+  return _mm_extract_epi32(dp, 0) - 128 * _mm_extract_epi32(dp, 1);
+}
+
+# elif 32 == BLOCK_K /* 256-bit: one __m256i */
+
+LIBXS_API_INLINE LIBXS_INTRINSICS(LIBXS_X86_AVX512)
+int32_t ozaki_dot_i8_vnni(const int8_t a[BLOCK_K], const int8_t b[BLOCK_K])
+{
+  const __m256i bias = _mm256_set1_epi8((char)0x80);
+  const __m256i va = _mm256_xor_si256(
+    _mm256_loadu_si256((const __m256i*)a), bias);
+  const __m256i vb = _mm256_loadu_si256((const __m256i*)b);
+  const __m256i ones = _mm256_set1_epi8(1);
+  __m256i dp = _mm256_dpbusd_epi32(_mm256_setzero_si256(), va, vb);
+  __m256i sb = _mm256_dpbusd_epi32(_mm256_setzero_si256(), ones, vb);
+  { const __m128i hi_dp = _mm256_extracti128_si256(dp, 1);
+    const __m128i hi_sb = _mm256_extracti128_si256(sb, 1);
+    __m128i lo_dp = _mm256_castsi256_si128(dp);
+    __m128i lo_sb = _mm256_castsi256_si128(sb);
+    lo_dp = _mm_add_epi32(lo_dp, hi_dp);
+    lo_sb = _mm_add_epi32(lo_sb, hi_sb);
+    lo_dp = _mm_hadd_epi32(lo_dp, lo_sb);
+    lo_dp = _mm_hadd_epi32(lo_dp, lo_dp);
+    return _mm_extract_epi32(lo_dp, 0) - 128 * _mm_extract_epi32(lo_dp, 1);
+  }
+}
+
+# elif 64 == BLOCK_K /* 512-bit: one __m512i */
+
+LIBXS_API_INLINE LIBXS_INTRINSICS(LIBXS_X86_AVX512)
+int32_t ozaki_dot_i8_vnni(const int8_t a[BLOCK_K], const int8_t b[BLOCK_K])
+{
+  const __m512i bias = _mm512_set1_epi8((char)0x80);
+  const __m512i va = _mm512_xor_si512(
+    _mm512_loadu_si512((const __m512i*)a), bias);
+  const __m512i vb = _mm512_loadu_si512((const __m512i*)b);
+  const __m512i ones = _mm512_set1_epi8(1);
+  __m512i dp = _mm512_dpbusd_epi32(_mm512_setzero_si512(), va, vb);
+  __m512i sb = _mm512_dpbusd_epi32(_mm512_setzero_si512(), ones, vb);
+  return _mm512_reduce_add_epi32(dp)
+       - 128 * _mm512_reduce_add_epi32(sb);
+}
+
+# endif /* BLOCK_K width selection */
+#endif /* LIBXS_INTRINSICS_AVX512 */
+
+
+LIBXS_API_INLINE int32_t ozaki_dot_i8_sw(const int8_t a[BLOCK_K], const int8_t b[BLOCK_K])
+{
+  int32_t dot = 0;
+  int kk;
+  for (kk = 0; kk < BLOCK_K; ++kk) {
+    dot += (int32_t)a[kk] * (int32_t)b[kk];
+  }
+  return dot;
+}
+
+
+/* Function pointer type for int8 dot product dispatch. */
+typedef int32_t (*ozaki_dot_i8_fn)(const int8_t[BLOCK_K], const int8_t[BLOCK_K]);
+
+#if defined(LIBXS_INTRINSICS_AVX512) && \
+    (16 == BLOCK_K || 32 == BLOCK_K || 64 == BLOCK_K)
+# define ozaki_dot_i8_init() \
+    ((LIBXS_X86_AVX512 <= ozaki_target_arch) ? ozaki_dot_i8_vnni : ozaki_dot_i8_sw)
+#else
+# define ozaki_dot_i8_init() ozaki_dot_i8_sw
+#endif
 
 
 /** Extract IEEE-754 biased exponent and full mantissa (with implicit bit)
