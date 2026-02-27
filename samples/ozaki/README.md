@@ -22,13 +22,21 @@ Note: LIBXS has to be built upfront for the sample code to link.
 
 ## Performance
 
-The Ozaki sample code demonstrates how to intercept GEMMs (any BLAS library), to run a low-precision GEMM instead of the original GEMM, to compare the results, and to maintain running statistics presented every *N*th call of GEMM or when the application terminates. The code aims to explore high-precision emulation using low-precision calculation. Practically all CPUs provide higher instruction throughput using floating point instructions even when relying on double-precision. The algorithmic complexity and inner-most code is in fact unsuitable to reach high performance levels. OpenMP based parallelization or VNNI instructions are only meant to improve emulating high-precision.
+The Ozaki sample code demonstrates how to intercept GEMMs (any BLAS library), to run a low-precision GEMM instead of the original GEMM, to compare the results, and to maintain running statistics presented every *N*th call of GEMM or when the application terminates. The code explores high-precision emulation using low-precision calculation.
+
+The blocking structure is designed to conceptually emulate fixed-size matrix-multiply hardware. All computation operates on tiles of size `BLOCK_M`&#160;×&#160;`BLOCK_K` (A) and `BLOCK_K`&#160;×&#160;`BLOCK_N` (B), with defaults BLOCK_M&#160;=&#160;BLOCK_N&#160;=&#160;BLOCK_K&#160;=&#160;16. The compile-time parameter `BATCH_K` (default&#160;4) groups `BATCH_K` consecutive BLOCK_K panels into a single batch, so the effective K-dimension step per batch is BATCH_K&#160;×&#160;BLOCK_K. Batching reduces OpenMP barrier overhead and improves temporal reuse of the C&#160;tile, while keeping the fundamental tile size visible throughout the code.
+
+Preprocessing (exponent alignment, mantissa slicing or modular reduction) accounts for roughly 5% of runtime; the remaining 95% is spent in the inner dot-product loops. In Scheme&#160;1, int8 dot products are dispatched once per GEMM via a function pointer: AVX-512 VNNI (`VPDPBUSD`) when available, otherwise a scalar fallback. The number of pairwise slice products is quadratic in the number of slices, so for double-precision (8&#160;slices, default) the inner loop performs up to 36&#160;dot products per block pair. Scheme&#160;2 performs one modular dot product per prime, so its cost is linear in the number of primes.
+
+OpenMP parallelizes all three phases of each K-batch: Phase&#160;1 preprocesses A&#160;panels (`schedule(dynamic) nowait`), Phase&#160;2 preprocesses B&#160;panels (`schedule(dynamic)`, implicit barrier), and Phase&#160;3 accumulates the dot products into C (`collapse(2) schedule(static)`). Panel buffers are shared across the parallel region and sized by `BATCH_K`&#160;×&#160;number-of-blocks, allocated via `libxs_malloc`.
+
+Practically all CPUs provide higher instruction throughput using floating point instructions even when relying on double-precision. The algorithmic complexity and inner-most code is in fact unsuitable to reach high performance levels. OpenMP based parallelization or VNNI instructions are only meant to improve emulating high-precision.
 
 If targeting GPUs, this code is likely unsuitable since the low-precision conversion is performed on-the-fly. A discrete GPU is likely better with input data converted upfront and a block size suitable to hide compute time behind data transfer time. The block size to be transferred asynchronously is typically larger than targeting a single low-precision matrix core. On the other hand, the on-the-fly conversion in this code only requires some reasonable stack size to buffer small matrix blocks.
 
 ## Scheme 1 — Mantissa Slicing
 
-Scheme 1 (`GEMM_OZAKI=1`, the default) decomposes each IEEE-754 mantissa into 7-bit int8 slices and accumulates all pairwise slice products via low-precision GEMM. The number of slices aka "splits" determines achievable accuracy and can be set at runtime via `GEMM_OZN`. The default and maximum vary by precision (double: default 8, max 16; float: default 4, max 8). The size of the matrices employed by potential "matrix cores" is set at compile-time with `BLOCK_M`, `BLOCK_N`, and `BLOCK_K`. The term "slices" is preferred over "splits" since the latter suggests *N* splits would yield *N+1* slices.
+Scheme 1 (`GEMM_OZAKI=1`, the default) decomposes each IEEE-754 mantissa into 7-bit int8 slices and accumulates all pairwise slice products via low-precision GEMM. The number of slices aka "splits" determines achievable accuracy and can be set at runtime via `GEMM_OZN`. The default and maximum vary by precision (double: default 8, max 16; float: default 4, max 8). The size of the matrices employed by potential "matrix cores" is set at compile-time with `BLOCK_M`, `BLOCK_N`, and `BLOCK_K`; grouping of consecutive K-panels is controlled by `BATCH_K`. The term "slices" is preferred over "splits" since the latter suggests *N* splits would yield *N+1* slices.
 
 ## Complex GEMM (3M Method)
 
@@ -92,11 +100,28 @@ Example:
 GEMM_OZAKI=2 ./gemm-wrap.x 256    # use CRT scheme
 ```
 
+## Compile-Time Parameters
+
+The block and batch sizes can be overridden at compile time via `-D`:
+
+| Parameter | Default | Description |
+|-----------|:-------:|-------------|
+| `BLOCK_M` | 16 | Tile rows (A and C). |
+| `BLOCK_N` | 16 | Tile columns (B and C). |
+| `BLOCK_K` | 16 | Tile depth: the K-dimension of each low-precision matrix multiply. Maps to a single SIMD register width for VNNI (128-bit at BLOCK_K=16, 256-bit at 32, 512-bit at 64). |
+| `BATCH_K` | 4 | Number of BLOCK_K panels grouped into one batch. The effective K-step per batch is BATCH_K&#160;×&#160;BLOCK_K. Larger values reduce barrier overhead and improve C-tile reuse at the cost of increased panel memory. |
+
+Example:
+
+```bash
+make ECFLAGS="-DBLOCK_K=32 -DBATCH_K=2" gemm-wrap.x
+```
+
 ## Environment Variables
 
 | Variable | Default | Description |
 |----------|:-------:|-------------|
-| `GEMM_OZAKI` | 1 | Scheme selector: 0 = bypass (call original BLAS directly), 1 = Scheme 1 (mantissa slicing), 2 = Scheme 2 (CRT). |
+| `GEMM_OZAKI` | 1 | Scheme selector: 0 = bypass (call original BLAS directly), 1 = Scheme 1 (mantissa slicing), 2 = Scheme 2 (CRT). |
 | `GEMM_OZN` | *per scheme* | Number of decomposition units: slices for Scheme 1 (double: 1..16, default 8; float: 1..8, default 4) or primes for Scheme 2 (double: 1..16, default 15; float: 1..10, default 7). |
 | `GEMM_OZFLAGS` | 3 | Scheme 1 bitmask: Triangular (1), Symmetrize (2); see above. |
 | `GEMM_OZTRIM` | 0 | Scheme 1 diagonal trim: 0 = exact, T = drop T least significant diagonals (~7 bits each). |
@@ -122,15 +147,14 @@ TA and TB select transposition: 0&#160;means&#160;'N' (no transpose), non-zero m
 
 | File | Purpose |
 |------|----------|
-| `ozaki.h` | Shared header: block sizes (`BLOCK_M`/`BLOCK_N`/`BLOCK_K`), slice and prime constants, IEEE-754 decomposition helpers, flag definitions (`OZ1_TRIANGULAR`, `OZ1_SYMMETRIZE`), and inline utility functions used by both schemes. |
+| `ozaki.h` | Shared header: block sizes (`BLOCK_M`/`BLOCK_N`/`BLOCK_K`/`BATCH_K`), slice and prime constants, IEEE-754 decomposition helpers, flag definitions (`OZ1_TRIANGULAR`, `OZ1_SYMMETRIZE`), and inline utility functions used by both schemes. |
 | `gemm.h` | Common header: type macros (`GEMM_ARGDECL`/`GEMM_ARGPASS`), precision-specific name redirects, function prototypes for all four GEMM flavors. |
 | `ozaki.c` | Wrapper/orchestration for real GEMM (`GEMM_WRAP`): initialization, environment handling, fallback dispatch, and global state management. Compiled twice (double + float). |
-| `ozaki1.c` | Ozaki Scheme-1 computational kernel (`gemm_oz1`): decomposes IEEE-754 mantissa into 7-bit int8 slices for low-precision dot products. Compiled twice (double + float). |
-| `ozaki2.c` | Ozaki Scheme-2 computational kernel (`gemm_oz2`): CRT-based modular arithmetic using small primes (< 256). Linear in number of primes vs quadratic slices. Compiled twice (double + float). |
+| `ozaki1.c` | Ozaki Scheme-1 computational kernel (`gemm_oz1`): decomposes IEEE-754 mantissa into 7-bit int8 slices for low-precision dot products. Uses function-pointer dispatch for VNNI vs scalar int8 dot product. Compiled twice (double + float). |
+| `ozaki2.c` | Ozaki Scheme-2 computational kernel (`gemm_oz2`): CRT-based modular arithmetic using small primes (< 256). Barrett reduction for fast modular arithmetic, Garner's algorithm with batched reconstruction. Compiled twice (double + float). |
 | `zgemm3m.c` | Complex GEMM 3M wrapper (`ZGEMM_WRAP`): deinterleaves complex matrices, issues 3 real GEMM calls (Karatsuba), recombines. Uses `libxs_malloc` for workspace. Compiled twice (double + float). |
 | `wrap.c` | Entry points (`GEMM`, `ZGEMM`) and dlsym fallbacks (`GEMM_REAL`, `ZGEMM_REAL`) via `GEMM_DEFINE_DLSYM` macro. Used only in the LD_PRELOAD path; excluded from the static archive to keep `__real_` resolution correct. |
 | `gemm.c` | Test driver. |
 | `gemm-print.c` | `print_gemm` and `print_diff` utilities. |
 
 If the driver is called with MHD-files, accuracy issues can be analyzed outside of an application.
-
