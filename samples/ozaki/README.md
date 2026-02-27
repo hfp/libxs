@@ -90,14 +90,24 @@ GEMM_OZFLAGS=0 ./gemm-wrap.x 256       # full S^2 square, no symmetrize
 
 ## Scheme 2 — Chinese Remainder Theorem
 
-Scheme 2 (`GEMM_OZAKI=2`) uses modular arithmetic instead of mantissa slicing. Each matrix element is reduced modulo a set of small primes (all < 256) so that residues fit in uint8 and pairwise products fit in uint32. GEMM is performed independently modulo each prime, and the exact integer result is recovered via the Chinese Remainder Theorem (Garner's algorithm with grouped uint64 Horner evaluation). The Horner reconstruction partitions mixed-radix digits into groups of 8, evaluates each group exactly in uint64 arithmetic, and combines groups with a minimal number of FP64 operations — avoiding double-precision throughput bottlenecks on hardware where integer arithmetic is faster. Because the work is linear in the number of primes — versus quadratic in the number of slices for Scheme 1 — Scheme 2 can be more efficient when many primes/slices are needed.
+Scheme 2 (`GEMM_OZAKI=2`) uses modular arithmetic instead of mantissa slicing. Each matrix element is reduced modulo a set of small pairwise coprime moduli (primes and prime powers ≤ 128 by default) so that residues fit in int8 and dot products use VNNI int8 instructions when available. GEMM is performed independently modulo each modulus, and the exact integer result is recovered via the Chinese Remainder Theorem (Garner's algorithm with grouped uint64 Horner evaluation). The Horner reconstruction partitions mixed-radix digits into groups of up to 9, evaluates each group exactly in uint64 arithmetic, and combines groups with a minimal number of FP64 operations — avoiding double-precision throughput bottlenecks on hardware where integer arithmetic is faster. Because the work is linear in the number of moduli — versus quadratic in the number of slices for Scheme 1 — Scheme 2 can be more efficient when many moduli/slices are needed.
 
-The number of primes can be set at runtime via `GEMM_OZN`. The default and maximum vary by precision (double: default 15, max 16; float: default 7, max 10). The product of all selected primes must exceed the maximum possible dot-product magnitude to avoid aliasing.
+The compile-time flag `OZ2_SIGNED` (default 1) controls the modulus range and residue type:
+
+| `OZ2_SIGNED` | Modulus range | Residue type | Dot product | Moduli (double default/max) |
+|:---:|:---:|:---:|:---:|:---:|
+| 1 (default) | ≤ 128 | int8 | VNNI `VPDPBSSD` | 17 / 18 |
+| 0 | ≤ 256 | uint8 | scalar | 15 / 17 |
+
+The moduli are pairwise coprime (not necessarily all prime): the signed table uses prime powers 128=2^7, 125=5^3, 121=11^2, 81=3^4 alongside primes; the unsigned table includes 256=2^8 plus 16 primes. The product of the selected moduli must exceed the maximum possible dot-product magnitude to avoid aliasing.
+
+The number of moduli can be set at runtime via `GEMM_OZN`. The default and maximum vary by precision and `OZ2_SIGNED` setting (see table above for double; float: default 8, max 10 when signed; default 7, max 10 when unsigned).
 
 Example:
 
 ```bash
-GEMM_OZAKI=2 ./gemm-wrap.x 256    # use CRT scheme
+GEMM_OZAKI=2 ./gemm-wrap.x 256                        # use CRT scheme (signed, default)
+make ECFLAGS="-DOZ2_SIGNED=0" gemm-wrap.x              # build unsigned variant
 ```
 
 ## Compile-Time Parameters
@@ -122,7 +132,7 @@ make ECFLAGS="-DBLOCK_K=32 -DBATCH_K=2" gemm-wrap.x
 | Variable | Default | Description |
 |----------|:-------:|-------------|
 | `GEMM_OZAKI` | 1 | Scheme selector: 0 = bypass (call original BLAS directly), 1 = Scheme 1 (mantissa slicing), 2 = Scheme 2 (CRT). |
-| `GEMM_OZN` | *per scheme* | Number of decomposition units: slices for Scheme 1 (double: 1..16, default 8; float: 1..8, default 4) or primes for Scheme 2 (double: 1..16, default 15; float: 1..10, default 7). |
+| `GEMM_OZN` | *per scheme* | Number of decomposition units: slices for Scheme 1 (double: 1..16, default 8; float: 1..8, default 4) or moduli for Scheme 2 (see Scheme 2 section for per-precision defaults). |
 | `GEMM_OZFLAGS` | 3 | Scheme 1 bitmask: Triangular (1), Symmetrize (2); see above. |
 | `GEMM_OZTRIM` | 0 | Scheme 1 diagonal trim: 0 = exact, T = drop T least significant diagonals (~7 bits each). |
 | `GEMM_EPS` | inf | Dump A/B matrices as MHD-files when the epsilon error exceeds the given threshold (implies `GEMM_VERBOSE=1` if unset). |
@@ -151,7 +161,7 @@ TA and TB select transposition: 0&#160;means&#160;'N' (no transpose), non-zero m
 | `gemm.h` | Common header: type macros (`GEMM_ARGDECL`/`GEMM_ARGPASS`), precision-specific name redirects, function prototypes for all four GEMM flavors. |
 | `ozaki.c` | Wrapper/orchestration for real GEMM (`GEMM_WRAP`): initialization, environment handling, fallback dispatch, and global state management. Compiled twice (double + float). |
 | `ozaki1.c` | Ozaki Scheme-1 computational kernel (`gemm_oz1`): decomposes IEEE-754 mantissa into 7-bit int8 slices for low-precision dot products. Uses function-pointer dispatch for VNNI vs scalar int8 dot product. Compiled twice (double + float). |
-| `ozaki2.c` | Ozaki Scheme-2 computational kernel (`gemm_oz2`): CRT-based modular arithmetic using small primes (< 256). Barrett reduction for fast modular arithmetic, Garner's algorithm with batched reconstruction. Compiled twice (double + float). |
+| `ozaki2.c` | Ozaki Scheme-2 computational kernel (`gemm_oz2`): CRT-based modular arithmetic using small pairwise coprime moduli. Barrett reduction for fast modular arithmetic, Garner's algorithm with batched reconstruction. With `OZ2_SIGNED=1` (default), residues fit in int8 and dot products use VNNI. Compiled twice (double + float). |
 | `zgemm3m.c` | Complex GEMM 3M wrapper (`ZGEMM_WRAP`): deinterleaves complex matrices, issues 3 real GEMM calls (Karatsuba), recombines. Uses `libxs_malloc` for workspace. Compiled twice (double + float). |
 | `wrap.c` | Entry points (`GEMM`, `ZGEMM`) and dlsym fallbacks (`GEMM_REAL`, `ZGEMM_REAL`) via `GEMM_DEFINE_DLSYM` macro. Used only in the LD_PRELOAD path; excluded from the static archive to keep `__real_` resolution correct. |
 | `gemm.c` | Test driver. |

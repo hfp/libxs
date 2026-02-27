@@ -34,7 +34,7 @@
 # define BATCH_K 4
 #endif
 #if !defined(OZ2_SIGNED)
-# define OZ2_SIGNED 0
+# define OZ2_SIGNED 1
 #endif
 
 #if !defined(MAX_NSLICES)
@@ -66,10 +66,10 @@
 
 #if GEMM_IS_DOUBLE
 # if 0 != OZ2_SIGNED
-#   define OZ2_NPRIMES_MAX 19
-#   define OZ2_NPRIMES_DEFAULT 18
+#   define OZ2_NPRIMES_MAX 18
+#   define OZ2_NPRIMES_DEFAULT 17
 # else
-#   define OZ2_NPRIMES_MAX 16
+#   define OZ2_NPRIMES_MAX 17
 #   define OZ2_NPRIMES_DEFAULT 15
 # endif
 #else /* single-precision */

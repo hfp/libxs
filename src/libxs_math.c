@@ -681,15 +681,18 @@ LIBXS_API double libxs_pow2(int n)
 }
 
 
-LIBXS_API unsigned int libxs_mod_inverse_u32(unsigned int a, unsigned int p)
+LIBXS_API unsigned int libxs_mod_inverse_u32(unsigned int a, unsigned int m)
 {
-  unsigned int result = 1, base = a, e = p - 2;
-  while (0 != e) {
-    if (0 != (e & 1)) result = (result * base) % p;
-    base = (base * base) % p;
-    e >>= 1;
+  int t = 0, newt = 1;
+  unsigned int r = m, newr = a % m;
+  LIBXS_ASSERT(0 != m && 0 != a);
+  while (0 != newr) {
+    const unsigned int q = r / newr;
+    { const int tmp = t - (int)(q) * newt; t = newt; newt = tmp; }
+    { const unsigned int tmp = r - q * newr; r = newr; newr = tmp; }
   }
-  return result;
+  LIBXS_ASSERT(1 == r); /* gcd(a, m) must be 1 */
+  return (unsigned int)(t < 0 ? t + (int)m : t);
 }
 
 

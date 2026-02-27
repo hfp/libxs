@@ -53,3 +53,20 @@ else
   exit 1
 fi
 echo
+
+# Scheme 2 (CRT modular arithmetic): exact with default nprimes
+echo "-----------------------------------"
+echo "CHECK: Scheme 2 (CRT)"
+if [ "$*" ]; then echo "args    $*"; fi
+{ CHECK=-1 GEMM_VERBOSE=1 GEMM_OZAKI=2 "${EXE}" "$@" 2>"${TMPF}"; } >/dev/null || RESULT=$?
+if [ "0" != "${RESULT}" ]; then
+  echo "FAILED[${RESULT}] $(${CAT} "${TMPF}")"
+  exit ${RESULT}
+fi
+if ${GREP} -q "CHECK:" "${TMPF}"; then
+  echo "OK $(${GREP} "CHECK:" "${TMPF}")"
+else
+  echo "FAILED (no CHECK output)"
+  exit 1
+fi
+echo

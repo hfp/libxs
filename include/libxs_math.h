@@ -118,10 +118,10 @@ LIBXS_API unsigned int libxs_isqrt2_u32(unsigned int x);
 LIBXS_API double libxs_pow2(int n);
 
 /**
- * Modular inverse via Fermat's little theorem: a^(p-2) mod p.
- * Requires p prime and 0 < a < p.
+ * Modular inverse via extended Euclidean algorithm: a^{-1} mod m.
+ * Requires gcd(a, m) = 1 and 0 < a, 1 < m.
  */
-LIBXS_API unsigned int libxs_mod_inverse_u32(unsigned int a, unsigned int p);
+LIBXS_API unsigned int libxs_mod_inverse_u32(unsigned int a, unsigned int m);
 
 /**
  * Barrett reciprocal for a 32-bit modulus: floor(2^32 / p).

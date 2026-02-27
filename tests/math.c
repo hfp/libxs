@@ -480,7 +480,7 @@ int main(int argc, char* argv[])
     }
   }
 
-  { /* check libxs_mod_inverse_u32: modular inverse via Fermat's little theorem */
+  { /* check libxs_mod_inverse_u32: modular inverse via extended Euclidean */
     /* Small primes: a * a^(-1) == 1 (mod p) */
     static const unsigned int primes[] = {
       2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37, 41, 43, 47,
@@ -504,12 +504,39 @@ int main(int argc, char* argv[])
     /* Specific spot-checks */
     if (libxs_mod_inverse_u32(3, 7) != 5) exit(EXIT_FAILURE);   /* 3*5=15, 15%7=1 */
     if (libxs_mod_inverse_u32(2, 251) != 126) exit(EXIT_FAILURE); /* 2*126=252, 252%251=1 */
-    /* Self-inverse: 1^(-1) == 1 and (p-1)^(-1) == (p-1) for any prime p */
+    /* Self-inverse: 1^(-1) == 1 and (m-1)^(-1) == (m-1) for any prime m */
     for (i = 0; i < nprimes; ++i) {
       const unsigned int p = primes[i];
       if (libxs_mod_inverse_u32(1, p) != 1) exit(EXIT_FAILURE);
       if (libxs_mod_inverse_u32(p - 1, p) != p - 1) exit(EXIT_FAILURE);
     }
+    /* Composite moduli (prime powers): a * a^(-1) == 1 (mod m) */
+    { static const unsigned int composites[] = {
+        4, 8, 9, 16, 25, 27, 32, 49, 64, 81, 121, 125, 128, 243, 256
+      };
+      const int ncomp = (int)(sizeof(composites) / sizeof(*composites));
+      for (i = 0; i < ncomp; ++i) {
+        const unsigned int m = composites[i];
+        unsigned int a;
+        for (a = 1; a < m; ++a) {
+          /* skip if gcd(a, m) != 1 (quick check: a shares a factor with m) */
+          unsigned int g = a, h = m;
+          while (0 != h) { const unsigned int t = h; h = g % h; g = t; }
+          if (1 != g) continue;
+          { const unsigned int inv = libxs_mod_inverse_u32(a, m);
+            if ((a * inv) % m != 1) {
+              FPRINTF(stderr, "ERROR line #%i: %u * modinv(%u,%u)=%u != 1 (mod %u)\n",
+                __LINE__, a, a, m, inv, m);
+              exit(EXIT_FAILURE);
+            }
+          }
+        }
+      }
+    }
+    /* Cross-moduli spot-checks (coprime pairs, not primes) */
+    if (libxs_mod_inverse_u32(3, 128) != 43) exit(EXIT_FAILURE); /* 3*43=129, 129%128=1 */
+    if (libxs_mod_inverse_u32(128, 125) != 42) exit(EXIT_FAILURE); /* 128*42=5376, 5376%125=1 */
+    if (libxs_mod_inverse_u32(7, 81) != 58) exit(EXIT_FAILURE);  /* 7*58=406, 406%81=1 */
   }
 
   { /* check libxs_mod_u32/ libxs_mod_u64: Barrett and radix-split reduction */

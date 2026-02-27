@@ -16,8 +16,8 @@
 #endif
 
 /* Maximum mixed-radix digits per uint64 Horner group.
- * OZ2_SIGNED=0: floor(63 / log2(251)) = 7.87; 8 largest primes < 2^63.
- * OZ2_SIGNED=1: floor(63 / log2(127)) = 9.00; 9 largest primes < 2^63.
+ * OZ2_SIGNED=0: 8 largest moduli product ~ 2^63.1, fits uint64.
+ * OZ2_SIGNED=1: 9 largest moduli product ~ 2^62.9, fits uint64.
  * Grouping eliminates FP64 from the inner Horner loop. */
 #if !defined(OZ2_HORNER_GROUP)
 # if 0 != OZ2_SIGNED
@@ -28,84 +28,92 @@
 #endif
 
 
-/* Chinese Remainder Theorem (CRT) primes and precomputed Barrett tables.
- * OZ2_SIGNED=0 (default): primes < 256, residues in uint8, products in uint32.
- * OZ2_SIGNED=1: primes <= 127, residues fit in int8 (-126..+126 with sign
- *   folded in), enabling VNNI int8 dot products in the inner loop.
- * P = prod(p_i) must exceed 2 * BLOCK_K * (2^(MANT+1))^2 to represent
+/* Chinese Remainder Theorem (CRT) moduli and precomputed Barrett tables.
+ * Moduli must be pairwise coprime (not necessarily prime); using the
+ * largest prime power of each prime that fits maximizes bits per channel.
+ * OZ2_SIGNED=0 (default): coprime moduli <= 256, residues in uint8.
+ * OZ2_SIGNED=1: coprime moduli <= 128, residues fit in int8 (-127..+127
+ *   with sign folded in), enabling VNNI int8 dot products.
+ * P = prod(m_i) must exceed 2 * BLOCK_K * (2^(MANT+1))^2 to represent
  * signed dot products without aliasing. */
 #if 0 != OZ2_SIGNED
 
-/* OZ2_SIGNED: 19 primes <= 127.  Product of 18 ~ 2^113 > 2^111 (double).
- * Residues 0..126 fit in int8 when sign is folded in (-126..+126). */
-static const unsigned int oz2_primes[] = {
-  127, 113, 109, 107, 103, 101, 97, 89,
-   83,  79,  73,  71,  67,  61, 59, 53,
-   47,  43,  41
+/* OZ2_SIGNED: 18 pairwise coprime moduli <= 128 (prime powers + primes).
+ * Product of 17 ~ 2^112 > 2^111 (double).
+ * Includes 128=2^7, 125=5^3, 121=11^2, 81=3^4 alongside primes.
+ * Residues 0..127 fit in int8 when sign is folded in (-127..+127). */
+static const uint16_t oz2_moduli[] = {
+  128, 127, 125, 121, 113, 109, 107, 103,
+  101,  97,  89,  83,  81,  79,  73,  71,
+   67,  61
 };
 
-/* Barrett reciprocals: floor(2^32 / p_i) for single-word reduction. */
+/* Barrett reciprocals: floor(2^32 / m_i) for single-word reduction. */
 static const uint32_t oz2_rcp[] = {
-  (uint32_t)(0x100000000ULL / 127), (uint32_t)(0x100000000ULL / 113),
-  (uint32_t)(0x100000000ULL / 109), (uint32_t)(0x100000000ULL / 107),
-  (uint32_t)(0x100000000ULL / 103), (uint32_t)(0x100000000ULL / 101),
-  (uint32_t)(0x100000000ULL /  97), (uint32_t)(0x100000000ULL /  89),
-  (uint32_t)(0x100000000ULL /  83), (uint32_t)(0x100000000ULL /  79),
+  (uint32_t)(0x100000000ULL / 128), (uint32_t)(0x100000000ULL / 127),
+  (uint32_t)(0x100000000ULL / 125), (uint32_t)(0x100000000ULL / 121),
+  (uint32_t)(0x100000000ULL / 113), (uint32_t)(0x100000000ULL / 109),
+  (uint32_t)(0x100000000ULL / 107), (uint32_t)(0x100000000ULL / 103),
+  (uint32_t)(0x100000000ULL / 101), (uint32_t)(0x100000000ULL /  97),
+  (uint32_t)(0x100000000ULL /  89), (uint32_t)(0x100000000ULL /  83),
+  (uint32_t)(0x100000000ULL /  81), (uint32_t)(0x100000000ULL /  79),
   (uint32_t)(0x100000000ULL /  73), (uint32_t)(0x100000000ULL /  71),
-  (uint32_t)(0x100000000ULL /  67), (uint32_t)(0x100000000ULL /  61),
-  (uint32_t)(0x100000000ULL /  59), (uint32_t)(0x100000000ULL /  53),
-  (uint32_t)(0x100000000ULL /  47), (uint32_t)(0x100000000ULL /  43),
-  (uint32_t)(0x100000000ULL /  41)
+  (uint32_t)(0x100000000ULL /  67), (uint32_t)(0x100000000ULL /  61)
 };
 
-/* 2^18 mod p_i and 2^36 mod p_i: used for 64-bit Barrett decomposition. */
+/* 2^18 mod m_i and 2^36 mod m_i: used for 64-bit Barrett decomposition. */
 static const uint32_t oz2_pow18[] = {
-   16U /* 127 */,  97U /* 113 */, 108U /* 109 */, 101U /* 107 */,
-    9U /* 103 */,  49U /* 101 */,  50U /*  97 */,  39U /*  89 */,
-   30U /*  83 */,  22U /*  79 */,   1U /*  73 */,  12U /*  71 */,
-   40U /*  67 */,  27U /*  61 */,   7U /*  59 */,   6U /*  53 */,
-   25U /*  47 */,  16U /*  43 */,  31U /*  41 */
+    0U /* 128 */,  16U /* 127 */,  19U /* 125 */,  58U /* 121 */,
+   97U /* 113 */, 108U /* 109 */, 101U /* 107 */,   9U /* 103 */,
+   49U /* 101 */,  50U /*  97 */,  39U /*  89 */,  30U /*  83 */,
+   28U /*  81 */,  22U /*  79 */,   1U /*  73 */,  12U /*  71 */,
+   40U /*  67 */,  27U /*  61 */
 };
 static const uint32_t oz2_pow36[] = {
-    2U /* 127 */,  30U /* 113 */,   1U /* 109 */,  36U /* 107 */,
-   81U /* 103 */,  78U /* 101 */,  75U /*  97 */,   8U /*  89 */,
-   70U /*  83 */,  10U /*  79 */,   1U /*  73 */,   2U /*  71 */,
-   59U /*  67 */,  58U /*  61 */,  49U /*  59 */,  36U /*  53 */,
-   14U /*  47 */,  41U /*  43 */,  18U /*  41 */
+    0U /* 128 */,   2U /* 127 */, 111U /* 125 */,  97U /* 121 */,
+   30U /* 113 */,   1U /* 109 */,  36U /* 107 */,  81U /* 103 */,
+   78U /* 101 */,  75U /*  97 */,   8U /*  89 */,  70U /*  83 */,
+   55U /*  81 */,  10U /*  79 */,   1U /*  73 */,   2U /*  71 */,
+   59U /*  67 */,  58U /*  61 */
 };
 
-#else /* OZ2_SIGNED == 0: original primes < 256 */
+#else /* OZ2_SIGNED == 0: coprime moduli <= 256 */
 
-/* 16 primes < 256.  Product of 15 ~ 2^116 > 2^111 (double). */
-static const unsigned int oz2_primes[] = {
-  251, 241, 239, 233, 229, 227, 223, 211,
-  199, 197, 193, 191, 181, 179, 173, 167
+/* 17 pairwise coprime moduli <= 256 (256=2^8 plus 16 primes).
+ * Product of 15 ~ 2^116 > 2^111 (double).
+ * Residues 0..255 fit in uint8; 256 stored as uint16. */
+static const uint16_t oz2_moduli[] = {
+  256, 251, 241, 239, 233, 229, 227, 223,
+  211, 199, 197, 193, 191, 181, 179, 173, 167
 };
 
-/* Barrett reciprocals: floor(2^32 / p_i) for single-word reduction. */
+/* Barrett reciprocals: floor(2^32 / m_i) for single-word reduction. */
 static const uint32_t oz2_rcp[] = {
-  (uint32_t)(0x100000000ULL / 251), (uint32_t)(0x100000000ULL / 241),
-  (uint32_t)(0x100000000ULL / 239), (uint32_t)(0x100000000ULL / 233),
-  (uint32_t)(0x100000000ULL / 229), (uint32_t)(0x100000000ULL / 227),
-  (uint32_t)(0x100000000ULL / 223), (uint32_t)(0x100000000ULL / 211),
-  (uint32_t)(0x100000000ULL / 199), (uint32_t)(0x100000000ULL / 197),
-  (uint32_t)(0x100000000ULL / 193), (uint32_t)(0x100000000ULL / 191),
-  (uint32_t)(0x100000000ULL / 181), (uint32_t)(0x100000000ULL / 179),
-  (uint32_t)(0x100000000ULL / 173), (uint32_t)(0x100000000ULL / 167)
+  (uint32_t)(0x100000000ULL / 256), (uint32_t)(0x100000000ULL / 251),
+  (uint32_t)(0x100000000ULL / 241), (uint32_t)(0x100000000ULL / 239),
+  (uint32_t)(0x100000000ULL / 233), (uint32_t)(0x100000000ULL / 229),
+  (uint32_t)(0x100000000ULL / 227), (uint32_t)(0x100000000ULL / 223),
+  (uint32_t)(0x100000000ULL / 211), (uint32_t)(0x100000000ULL / 199),
+  (uint32_t)(0x100000000ULL / 197), (uint32_t)(0x100000000ULL / 193),
+  (uint32_t)(0x100000000ULL / 191), (uint32_t)(0x100000000ULL / 181),
+  (uint32_t)(0x100000000ULL / 179), (uint32_t)(0x100000000ULL / 173),
+  (uint32_t)(0x100000000ULL / 167)
 };
 
-/* 2^18 mod p_i and 2^36 mod p_i: used for 64-bit Barrett decomposition. */
+/* 2^18 mod m_i and 2^36 mod m_i: used for 64-bit Barrett decomposition. */
 static const uint32_t oz2_pow18[] = {
-  100U /* 251 */, 177U /* 241 */, 200U /* 239 */,  19U /* 233 */,
-  168U /* 229 */, 186U /* 227 */, 119U /* 223 */,  82U /* 211 */,
-   61U /* 199 */, 134U /* 197 */,  50U /* 193 */,  92U /* 191 */,
-   56U /* 181 */,  88U /* 179 */,  49U /* 173 */, 121U /* 167 */
+    0U /* 256 */, 100U /* 251 */, 177U /* 241 */, 200U /* 239 */,
+   19U /* 233 */, 168U /* 229 */, 186U /* 227 */, 119U /* 223 */,
+   82U /* 211 */,  61U /* 199 */, 134U /* 197 */,  50U /* 193 */,
+   92U /* 191 */,  56U /* 181 */,  88U /* 179 */,  49U /* 173 */,
+  121U /* 167 */
 };
 static const uint32_t oz2_pow36[] = {
-  211U /* 251 */, 240U /* 241 */,  87U /* 239 */, 128U /* 233 */,
-   57U /* 229 */,  92U /* 227 */, 112U /* 223 */, 183U /* 211 */,
-  139U /* 199 */,  29U /* 197 */, 184U /* 193 */,  60U /* 191 */,
-   59U /* 181 */,  47U /* 179 */, 152U /* 173 */, 112U /* 167 */
+    0U /* 256 */, 211U /* 251 */, 240U /* 241 */,  87U /* 239 */,
+  128U /* 233 */,  57U /* 229 */,  92U /* 227 */, 112U /* 223 */,
+  183U /* 211 */, 139U /* 199 */,  29U /* 197 */, 184U /* 193 */,
+   60U /* 191 */,  59U /* 181 */,  47U /* 179 */, 152U /* 173 */,
+  112U /* 167 */
 };
 
 #endif /* OZ2_SIGNED */
@@ -117,22 +125,22 @@ typedef int8_t oz2_res_t;
 typedef uint8_t oz2_res_t;
 #endif
 
-/** Fast modular reduction: x mod oz2_primes[pidx] (table-indexed wrapper). */
+/** Fast modular reduction: x mod oz2_moduli[pidx] (table-indexed wrapper). */
 LIBXS_API_INLINE unsigned int oz2_mod(uint32_t x, int pidx)
 {
-  return libxs_mod_u32(x, oz2_primes[pidx], oz2_rcp[pidx]);
+  return libxs_mod_u32(x, oz2_moduli[pidx], oz2_rcp[pidx]);
 }
 
 
-/** Fast 64-bit modular reduction: x mod oz2_primes[pidx] (table-indexed wrapper). */
+/** Fast 64-bit modular reduction: x mod oz2_moduli[pidx] (table-indexed wrapper). */
 LIBXS_API_INLINE unsigned int oz2_mod64(uint64_t x, int pidx)
 {
-  return libxs_mod_u64(x, oz2_primes[pidx], oz2_rcp[pidx],
+  return libxs_mod_u64(x, oz2_moduli[pidx], oz2_rcp[pidx],
     oz2_pow18[pidx], oz2_pow36[pidx]);
 }
 
 
-/** Reduce an aligned mantissa modulo all active primes.
+/** Reduce an aligned mantissa modulo all active moduli.
  *  delta = max_exp - element_exp (>= 0); mantissa is right-shifted
  *  by delta bits for exponent alignment before reduction. */
 LIBXS_API_INLINE void oz2_reduce(uint64_t mantissa, int delta,
@@ -153,7 +161,7 @@ LIBXS_API_INLINE void oz2_reduce(uint64_t mantissa, int delta,
 
 /** Preprocess rows of A for one (ib, kb) tile.
  *  Decomposes each element, finds per-row max exponent, aligns mantissas
- *  by right-shifting, reduces mod each prime, and writes directly into
+ *  by right-shifting, reduces mod each modulus, and writes directly into
  *  the k-contiguous layout ak[M][P][K] used by dot products.
  *  When OZ2_SIGNED, signs are folded into int8 residues (-p..+p).
  *  This avoids a separate transpose pass over an intermediate buffer. */
@@ -194,7 +202,7 @@ LIBXS_API_INLINE void oz2_preprocess_rows(
 
     expa_row[mi] = row_max_exp;
 
-    /* Pass 2: align, reduce mod primes, scatter into ak[mi][pidx][kk] */
+    /* Pass 2: align, reduce mod moduli, scatter into ak[mi][pidx][kk] */
     for (kk = 0; kk < kblk; ++kk) {
       const int delta = (int)row_max_exp - (int)elem_exp[mi][kk];
       uint8_t tmp[OZ2_NPRIMES_MAX];
@@ -257,7 +265,7 @@ LIBXS_API_INLINE void oz2_preprocess_cols(
     }
   }
 
-  /* Pass 2: align, reduce mod primes, scatter into bk[nj][pidx][kk] */
+  /* Pass 2: align, reduce mod moduli, scatter into bk[nj][pidx][kk] */
   for (kk = 0; kk < kblk; ++kk) {
     for (nj = 0; nj < jblk; ++nj) {
       const int delta = (int)expb_col[nj] - (int)elem_exp[kk][nj];
@@ -294,7 +302,7 @@ LIBXS_API_INLINE void oz2_preprocess_cols(
 
 /** Evaluate mixed-radix digits v[0..nprimes-1] via grouped uint64 Horner.
  *  Partitions digits into groups of OZ2_HORNER_GROUP, evaluates each group
- *  exactly in uint64 (product of 8 primes < 2^63), then combines groups
+ *  exactly in uint64 (product of OZ2_HORNER_GROUP moduli < 2^63), then combines groups
  *  with Horner in FP64: ceil(nprimes/OZ2_HORNER_GROUP)-1 FP64 mul-adds. */
 LIBXS_API_INLINE double oz2_horner_grouped(
   const unsigned int v[], int nprimes)
@@ -308,7 +316,7 @@ LIBXS_API_INLINE double oz2_horner_grouped(
     uint64_t r = (uint64_t)v[nprimes - 1];
     int i;
     for (i = nprimes - 2; i >= lo; --i) {
-      r = r * (uint64_t)oz2_primes[i] + (uint64_t)v[i];
+      r = r * (uint64_t)oz2_moduli[i] + (uint64_t)v[i];
     }
     result = (double)r;
   }
@@ -319,10 +327,10 @@ LIBXS_API_INLINE double oz2_horner_grouped(
     const int hi = lo + OZ2_HORNER_GROUP - 1;
     uint64_t gval, gprod = 1;
     int i;
-    for (i = lo; i <= hi; ++i) gprod *= (uint64_t)oz2_primes[i];
+    for (i = lo; i <= hi; ++i) gprod *= (uint64_t)oz2_moduli[i];
     gval = (uint64_t)v[hi];
     for (i = hi - 1; i >= lo; --i) {
-      gval = gval * (uint64_t)oz2_primes[i] + (uint64_t)v[i];
+      gval = gval * (uint64_t)oz2_moduli[i] + (uint64_t)v[i];
     }
     result = result * (double)gprod + (double)gval;
   }
@@ -341,7 +349,7 @@ LIBXS_API_INLINE double oz2_horner_grouped(
  *  evaluation so that the absolute value is computed directly, avoiding
  *  catastrophic cancellation from subtracting the large modulus product P.
  *
- *  Centered range: result in (-P/2, P/2], where P = prod(p_i).
+ *  Centered range: result in (-P/2, P/2], where P = prod(m_i).
  */
 LIBXS_API_INLINE double oz2_reconstruct(
   const unsigned int residues[OZ2_NPRIMES_MAX],
@@ -353,14 +361,14 @@ LIBXS_API_INLINE double oz2_reconstruct(
   int i, j, is_negative;
   nprimes = LIBXS_CLMP(nprimes, 1, OZ2_NPRIMES_MAX);
 
-  /* Garner's algorithm: compute mixed-radix digits v[i] in [0, p_i) */
+  /* Garner's algorithm: compute mixed-radix digits v[i] in [0, m_i) */
   LIBXS_PRAGMA_LOOP_COUNT(1, OZ2_NPRIMES_MAX, OZ2_NPRIMES_DEFAULT)
   for (i = 0; i < nprimes; ++i) {
     unsigned int u = residues[i];
-    const unsigned int pi = oz2_primes[i];
+    const unsigned int pi = oz2_moduli[i];
     for (j = 0; j < i; ++j) {
-      /* v[j] < p_j; reduce v[j] into [0, p_i) before subtraction.
-       * When primes are close (default) one subtract suffices;
+      /* v[j] < m_j; reduce v[j] into [0, m_i) before subtraction.
+       * When moduli are close (default) one subtract suffices;
        * when OZ2_SIGNED the wider range needs Barrett reduction. */
 #if OZ2_SIGNED
       const unsigned int vj = oz2_mod(v[j], i);
@@ -374,16 +382,16 @@ LIBXS_API_INLINE double oz2_reconstruct(
   }
 
   /* Sign detection */
-  is_negative = (v[nprimes - 1] >= (oz2_primes[nprimes - 1] + 1) / 2)
+  is_negative = (v[nprimes - 1] >= (unsigned int)(oz2_moduli[nprimes - 1] + 1) / 2)
     ? 1 : 0;
 
   /* Complement digits for negative values: P - 1 - V has digits
-   * (p_i - 1 - v_i) in mixed-radix representation (no borrows needed).
+   * (m_i - 1 - v_i) in mixed-radix representation (no borrows needed).
    * Then |D| = (P - 1 - V) + 1 = P - V where V is the CRT result. */
   if (0 != is_negative) {
     LIBXS_PRAGMA_LOOP_COUNT(1, OZ2_NPRIMES_MAX, OZ2_NPRIMES_DEFAULT)
     for (i = 0; i < nprimes; ++i) {
-      v[i] = oz2_primes[i] - 1 - v[i];
+      v[i] = oz2_moduli[i] - 1 - v[i];
     }
   }
 
@@ -416,7 +424,7 @@ LIBXS_API_INLINE uint64_t oz2_reconstruct_mantissa(
   LIBXS_PRAGMA_LOOP_COUNT(1, OZ2_NPRIMES_MAX, OZ2_NPRIMES_DEFAULT)
   for (i = 0; i < nprimes; ++i) {
     unsigned int u = (unsigned int)residues[i];
-    const unsigned int pi = oz2_primes[i];
+    const unsigned int pi = oz2_moduli[i];
     for (j = 0; j < i; ++j) {
 #if OZ2_SIGNED
       const unsigned int vj = oz2_mod(v[j], i);
@@ -433,7 +441,7 @@ LIBXS_API_INLINE uint64_t oz2_reconstruct_mantissa(
   result = (uint64_t)v[nprimes - 1];
   LIBXS_PRAGMA_LOOP_COUNT(0, OZ2_NPRIMES_MAX - 1, OZ2_NPRIMES_DEFAULT - 1)
   for (i = nprimes - 2; i >= 0; --i) {
-    result = result * (uint64_t)oz2_primes[i] + (uint64_t)v[i];
+    result = result * (uint64_t)oz2_moduli[i] + (uint64_t)v[i];
   }
   return result;
 }
@@ -455,7 +463,7 @@ LIBXS_API_INLINE void oz2_reconstruct_batch(
   /* Garner's algorithm: vectorized across batch elements */
   LIBXS_PRAGMA_LOOP_COUNT(1, OZ2_NPRIMES_MAX, OZ2_NPRIMES_DEFAULT)
   for (i = 0; i < nprimes; ++i) {
-    const unsigned int pi = oz2_primes[i];
+    const unsigned int pi = oz2_moduli[i];
     for (bi = 0; bi < bsz; ++bi) u[bi] = batch_res[bi][i];
 
     for (j = 0; j < i; ++j) {
@@ -477,11 +485,11 @@ LIBXS_API_INLINE void oz2_reconstruct_batch(
   /* Sign detection, complement, Horner — per element */
   for (bi = 0; bi < bsz; ++bi) {
     const int is_negative = (v[bi][nprimes - 1]
-      >= (oz2_primes[nprimes - 1] + 1) / 2) ? 1 : 0;
+      >= (unsigned int)(oz2_moduli[nprimes - 1] + 1) / 2) ? 1 : 0;
     double r;
     if (0 != is_negative) {
       for (i = 0; i < nprimes; ++i) {
-        v[bi][i] = oz2_primes[i] - 1 - v[bi][i];
+        v[bi][i] = oz2_moduli[i] - 1 - v[bi][i];
       }
     }
     r = oz2_horner_grouped(v[bi], nprimes);
@@ -533,12 +541,12 @@ LIBXS_API_INLINE void gemm_oz2_diff(const char* transa, const char* transb,
   LIBXS_ASSERT(1 <= BATCH_K);
 
   /* Precompute Garner modular inverse table:
-   * garner_inv[i][j] = p_i^{-1} mod p_j  for i < j */
+   * garner_inv[i][j] = m_i^{-1} mod m_j  for i < j */
   memset(garner_inv, 0, sizeof(garner_inv));
   for (i = 0; i < nprimes; ++i) {
     for (j = i + 1; j < nprimes; ++j) {
       garner_inv[i][j] = libxs_mod_inverse_u32(
-        oz2_primes[i] % oz2_primes[j], oz2_primes[j]);
+        oz2_moduli[i] % oz2_moduli[j], oz2_moduli[j]);
     }
   }
 
@@ -746,7 +754,7 @@ LIBXS_API_INLINE void gemm_oz2_diff(const char* transa, const char* transb,
             }
 
             /* CRT dot products: for each (i,j) pair, compute the dot product
-             * modulo each prime, then reconstruct via CRT. Batching across
+             * modulo each modulus, then reconstruct via CRT. Batching across
              * nj exposes data-parallelism for auto-vectorized Garner. */
             for (mi = 0; mi < iblk; ++mi) {
               for (nj = 0; nj < jblk; nj += OZ2_BATCH) {
@@ -759,7 +767,7 @@ LIBXS_API_INLINE void gemm_oz2_diff(const char* transa, const char* transb,
                 for (bi = 0; bi < (int)bsz; ++bi) {
                   const int col = (int)nj + bi;
 
-                  /* Dot products mod each prime */
+                  /* Dot products mod each modulus */
                   LIBXS_PRAGMA_LOOP_COUNT(1, OZ2_NPRIMES_MAX, OZ2_NPRIMES_DEFAULT)
                   for (pidx = 0; pidx < nprimes; ++pidx) {
 #if OZ2_SIGNED
@@ -772,7 +780,7 @@ LIBXS_API_INLINE void gemm_oz2_diff(const char* transa, const char* transb,
                     } else {
                       const unsigned int r = oz2_mod((uint32_t)(-dot), pidx);
                       batch_res[bi][pidx] = (0 != r)
-                        ? (oz2_primes[pidx] - r) : 0;
+                        ? (oz2_moduli[pidx] - r) : 0;
                     }
 #else
                     /* Branchless sign accumulation + Barrett reduction */
@@ -790,7 +798,7 @@ LIBXS_API_INLINE void gemm_oz2_diff(const char* transa, const char* transb,
                     pr = (uint32_t)oz2_mod(pos_sum, pidx);
                     nr = (uint32_t)oz2_mod(neg_sum, pidx);
                     batch_res[bi][pidx] = (pr >= nr)
-                      ? (pr - nr) : ((uint32_t)oz2_primes[pidx] + pr - nr);
+                      ? (pr - nr) : ((uint32_t)oz2_moduli[pidx] + pr - nr);
 #endif
                   }
                 }
