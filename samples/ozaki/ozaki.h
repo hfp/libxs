@@ -268,8 +268,12 @@ typedef int32_t (*ozaki_dot_i8_fn)(const int8_t[BLOCK_K], const int8_t[BLOCK_K])
 
 #if defined(LIBXS_INTRINSICS_AVX512) && \
     (16 == BLOCK_K || 32 == BLOCK_K || 64 == BLOCK_K)
-# define ozaki_dot_i8_init() \
-    ((LIBXS_X86_AVX512 <= ozaki_target_arch) ? ozaki_dot_i8_vnni : ozaki_dot_i8_sw)
+# if (LIBXS_X86_AVX512 <= LIBXS_STATIC_TARGET_ARCH) /* VNNI guaranteed */
+#   define ozaki_dot_i8_init() ozaki_dot_i8_vnni
+# else /* runtime dispatch */
+#   define ozaki_dot_i8_init() \
+      ((LIBXS_X86_AVX512 <= ozaki_target_arch) ? ozaki_dot_i8_vnni : ozaki_dot_i8_sw)
+# endif
 #else
 # define ozaki_dot_i8_init() ozaki_dot_i8_sw
 #endif
