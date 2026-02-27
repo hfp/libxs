@@ -130,7 +130,7 @@
 #define gemm_dump_inhibit   LIBXS_TPREFIX(GEMM_REAL_TYPE, gemm_dump_inhibit)
 #define gemm_dump_matrices  LIBXS_TPREFIX(GEMM_REAL_TYPE, gemm_dump_mhd)
 #define zgemm3m             LIBXS_CPREFIX(GEMM_REAL_TYPE, gemm3m)
-#define print_diff_atexit   LIBXS_TPREFIX(GEMM_REAL_TYPE, gemm_atexit)
+#define gemm_atexit         LIBXS_TPREFIX(GEMM_REAL_TYPE, gemm_atexit)
 
 /** Function type for GEMM (precision-specific). */
 LIBXS_EXTERN_C typedef void (*gemm_function_t)(GEMM_ARGDECL);
