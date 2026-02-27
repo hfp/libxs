@@ -153,6 +153,8 @@ int main(int argc, char* argv[])
     fprintf(stdout, "Scratch Speedup: %.1fx\n", speedup);
   }
 
+  libxs_finalize();
+
   if (0 != nerrors0 || 0 != nerrors1) {
     fprintf(stdout, "FAILED (errors: malloc=%u libxs=%u)\n", nerrors0, nerrors1);
     return EXIT_FAILURE;

@@ -179,6 +179,7 @@ int main(int argc, char* argv[])
 #else
   BENCHMARK(LIBXS_LOCK_RWLOCK, "Other", nthreads, work_r, work_w, wratioperc, nlat, ntpt);
 #endif
+  libxs_finalize();
 
   return EXIT_SUCCESS;
 }

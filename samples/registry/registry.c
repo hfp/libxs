@@ -313,6 +313,7 @@ int main(int argc, char* argv[])
 
 cleanup:
   if (NULL != registry) libxs_registry_destroy(registry);
+  libxs_finalize();
   free(keys);
   free(vals);
 

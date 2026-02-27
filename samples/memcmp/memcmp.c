@@ -203,6 +203,7 @@ int main(int argc, char* argv[])
     result = EXIT_FAILURE;
   }
 
+  libxs_finalize();
   free(a);
   free(b);
 

@@ -27,12 +27,13 @@ LIBXS_APIVAR_PRIVATE_DEF(double gemm_rsq);
 LIBXS_TLS int gemm_dump_inhibit;
 
 
-LIBXS_API_INTERN void print_diff_atexit(void);
-LIBXS_API_INTERN void print_diff_atexit(void)
+LIBXS_API_INTERN void gemm_finalize_atexit(void);
+LIBXS_API_INTERN void gemm_finalize_atexit(void)
 {
   if (0 != gemm_verbose && 0 < gemm_diff.r) {
     print_diff(stderr, &gemm_diff);
   }
+  libxs_finalize();
 }
 
 
@@ -62,6 +63,7 @@ LIBXS_API_INTERN LIBXS_ATTRIBUTE_WEAK void GEMM_WRAP(const char* transa, const c
       const char *const gemm_ozn_env = getenv("GEMM_OZN");
       const char *const gemm_eps_env = getenv("GEMM_EPS");
       const char *const gemm_rsq_env = getenv("GEMM_RSQ");
+      libxs_init(); /*libxs_malloc_pool()*/
       libxs_matdiff_clear(&gemm_diff);
       gemm_ozflags = (NULL == gemm_ozflags_env ? OZ1_DEFAULT : atoi(gemm_ozflags_env));
       gemm_oztrim = (NULL == gemm_oztrim_env ? 0/*exact*/ : atoi(gemm_oztrim_env));
@@ -89,7 +91,7 @@ LIBXS_API_INTERN LIBXS_ATTRIBUTE_WEAK void GEMM_WRAP(const char* transa, const c
         gemm_rsq = atof(gemm_rsq_env);
       }
       ozaki_target_arch = libxs_cpuid(NULL);
-      LIBXS_EXPECT(EXIT_SUCCESS == atexit(print_diff_atexit));
+      LIBXS_EXPECT(EXIT_SUCCESS == atexit(gemm_finalize_atexit));
       gemm_initialized = 1;
     }
     LIBXS_ATOMIC_RELEASE(&gemm_lock, LIBXS_ATOMIC_LOCKORDER);

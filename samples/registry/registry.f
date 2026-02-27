@@ -17,7 +17,7 @@
         USE :: LIBXS, ONLY: C_PTR, C_INT, C_DOUBLE,                     &
      &    C_SIZE_T, C_LOC, C_SIZEOF, C_ASSOCIATED,                      &
      &    LIBXS_REGINFO,                                                &
-     &    libxs_init, libxs_registry_create,                            &
+     &    libxs_init, libxs_finalize, libxs_registry_create,            &
      &    libxs_registry_destroy, libxs_registry_set,                   &
      &    libxs_registry_get, libxs_registry_has,                       &
      &    libxs_registry_info
@@ -162,5 +162,7 @@
      &      CHAR(9), "cached lookup:  ",                                &
      &      1D9 * tcached / DBLE(ntotal * nrepeat), " ns/op"
         END IF
+
+        CALL libxs_finalize()
         WRITE(*, "(A)") "Finished"
       END PROGRAM

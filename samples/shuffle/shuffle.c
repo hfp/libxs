@@ -262,6 +262,7 @@ int main(int argc, char* argv[])
     result = EXIT_FAILURE;
   }
 
+  libxs_finalize();
   free(data1);
   free(data2);
 

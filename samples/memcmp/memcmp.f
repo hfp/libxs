@@ -13,6 +13,7 @@
         USE :: LIBXS, ONLY: LIBXS_TIMER_TICK_KIND,                      &
      &                        libxs_timer_duration,                     &
      &                        libxs_timer_tick,                         &
+     &                        libxs_finalize,                           &
      &                        libxs_init,                               &
      &                        libxs_diff
         IMPLICIT NONE
@@ -105,6 +106,7 @@
           WRITE(*, "(A)") REPEAT("-", W)
         END IF
 
+        CALL libxs_finalize()
         DEALLOCATE(a, b)
       END PROGRAM
 
