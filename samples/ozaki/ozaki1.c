@@ -214,14 +214,15 @@ LIBXS_API_INLINE int32_t ozaki_dot_i8_sw(const int8_t a[BLOCK_K], const int8_t b
 }
 
 
-/* Runtime dispatch: use VNNI when AVX-512 is detected and
- * BLOCK_K matches a supported register width, else scalar. */
+/* Function pointer type for int8 dot product dispatch. */
+typedef int32_t (*ozaki_dot_i8_fn)(const int8_t[BLOCK_K], const int8_t[BLOCK_K]);
+
 #if defined(LIBXS_INTRINSICS_AVX512) && \
     (16 == BLOCK_K || 32 == BLOCK_K || 64 == BLOCK_K)
-# define ozaki_dot_i8(A, B) \
-    ((LIBXS_X86_AVX512 <= ozaki_target_arch) ? ozaki_dot_i8_vnni(A, B) : ozaki_dot_i8_sw(A, B))
+# define ozaki_dot_i8_init() \
+    ((LIBXS_X86_AVX512 <= ozaki_target_arch) ? ozaki_dot_i8_vnni : ozaki_dot_i8_sw)
 #else
-# define ozaki_dot_i8(A, B) ozaki_dot_i8_sw(A, B)
+# define ozaki_dot_i8_init() ozaki_dot_i8_sw
 #endif
 
 
@@ -257,6 +258,7 @@ LIBXS_API_INLINE void gemm_oz1_diff(const char* transa, const char* transb,
   libxs_matdiff_info_t tdiff[256];
   int nthreads = 1;
   int s;
+  const ozaki_dot_i8_fn dot_i8 = ozaki_dot_i8_init();
   LIBXS_ASSERT(LIBXS_DATATYPE_F64 == LIBXS_DATATYPE(GEMM_REAL_TYPE)
             || LIBXS_DATATYPE_F32 == LIBXS_DATATYPE(GEMM_REAL_TYPE));
   LIBXS_ASSERT(1 <= BATCH_K);
@@ -426,9 +428,9 @@ LIBXS_API_INLINE void gemm_oz1_diff(const char* transa, const char* transb,
                     && (slice_a != slice_b);
                   for (mi = 0; mi < iblk; ++mi) {
                     for (nj = 0; nj < jblk; ++nj) {
-                      int32_t dot = ozaki_dot_i8(ak_panel[a_idx][mi][slice_a], bk_panel[b_idx][nj][slice_b]);
+                      int32_t dot = dot_i8(ak_panel[a_idx][mi][slice_a], bk_panel[b_idx][nj][slice_b]);
                       if (do_mirror) {
-                        dot += ozaki_dot_i8(ak_panel[a_idx][mi][slice_b], bk_panel[b_idx][nj][slice_a]);
+                        dot += dot_i8(ak_panel[a_idx][mi][slice_b], bk_panel[b_idx][nj][slice_a]);
                       }
                       if (0 != dot && (GEMM_REAL_TYPE)0 != *alpha) {
                         const int sh = (int)expa_panel[a_idx][mi] + (int)expb_panel[b_idx][nj]

@@ -31,7 +31,7 @@
 # define BLOCK_K 16
 #endif
 #if !defined(BATCH_K)
-# define BATCH_K 1
+# define BATCH_K 4
 #endif
 
 #if !defined(MAX_NSLICES)
