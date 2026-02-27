@@ -368,9 +368,10 @@ CXX_VERSION_FLAG ?= $(CC_VERSION_FLAG)
 
 # check if the Intel Development Tools are available
 # 1: classic, 2: next-gen (opt-in)
-INTEL ?= $(if $(filter 2,$(words $(filter icpc% icpx% icc% icx% Intel%, \
+INTEL ?= $(strip $(if $(filter 2,$(words $(filter icpc% icpx% icc% icx% Intel%, \
   $(shell $(CXX) $(CXX_VERSION_FLAG) | head -n1 | $(CUT) -d' ' -f1) \
-  $(shell $(CC)  $(CC_VERSION_FLAG)  | head -n1 | $(CUT) -d' ' -f1)) )),1,0)
+  $(shell $(CC)  $(CC_VERSION_FLAG)  | head -n1 | $(CUT) -d' ' -f1)) )), \
+  $(if $(IFXBIN),2,1),0))
 
 ifneq (0,$(INTEL))
   ifeq (,$(shell echo "$${FC}"))
@@ -1382,6 +1383,10 @@ ifneq (0,$(INTEL))
     endif
   else
     OMPFLAG_FORCE := -fopenmp
+  endif
+  ifeq (-fopenmp,$(OMPFLAG_FORCE))
+    CXXFLAGS += -Wno-recommended-option
+    CFLAGS += -Wno-recommended-option
   endif
   ifeq (,$(strip $(OMPRT)))
     OMPRT := iomp5
