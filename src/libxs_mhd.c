@@ -758,9 +758,13 @@ LIBXS_API_INTERN int internal_mhd_write(FILE* file, const void* data, const size
 
 
 LIBXS_API int libxs_mhd_write(const char filename[], const size_t offset[], const size_t size[], const size_t pitch[],
-  libxs_mhd_info_t* info, const void* data, const libxs_mhd_element_handler_info_t* handler_info, libxs_mhd_element_handler_t handler,
-  const char extension_header[], const void* extension, size_t extension_size)
+  libxs_mhd_info_t* info, const void* data, const libxs_mhd_write_info_t* write_info)
 {
+  const libxs_mhd_element_handler_info_t *const handler_info = (NULL != write_info ? write_info->handler_info : NULL);
+  const libxs_mhd_element_handler_t handler = (NULL != write_info ? write_info->handler : NULL);
+  const char *const extension_header = (NULL != write_info ? write_info->extension_header : NULL);
+  const void *const extension = (NULL != write_info ? write_info->extension : NULL);
+  const size_t extension_size = (NULL != write_info ? write_info->extension_size : 0);
   const size_t ndims = (NULL != info ? info->ndims : 0);
   const size_t ncomponents = (NULL != info ? info->ncomponents : 0);
   const libxs_datatype type_data = (NULL != info ? info->type : LIBXS_DATATYPE_UNKNOWN);

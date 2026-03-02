@@ -69,10 +69,11 @@ LIBXS_API size_t libxs_gcd(size_t a, size_t b);
 LIBXS_API size_t libxs_lcm(size_t a, size_t b);
 
 /**
- * This function finds prime-factors (up to 32) of an unsigned integer in ascending order, and
+ * This function finds prime-factors of an unsigned integer in ascending order, and
  * returns the number of factors found (zero if the given number is prime and unequal to two).
+ * The output array must have at least num_factors_max elements.
  */
-LIBXS_API int libxs_primes_u32(unsigned int num, unsigned int num_factors_n32[]);
+LIBXS_API int libxs_primes_u32(unsigned int num, unsigned int num_factors_n32[], int num_factors_max);
 
 /** Co-prime R of N such that R <= MinCo (libxs_coprime2(0|1) == 0). */
 LIBXS_API size_t libxs_coprime(size_t n, size_t minco);

@@ -176,9 +176,12 @@ LIBXS_API_INLINE int gemm_mhd_write(const char* filename,
     memcpy(p, &settings->rsq, sizeof(double));
     ext_size += GEMM_MHD_SETTINGS_SIZE;
   }
-  return libxs_mhd_write(filename, NULL/*offset*/, size, pitch,
-    &mhd_info, data, NULL/*handler_info*/, NULL/*handler*/,
-    NULL/*extension_header*/, ext, ext_size);
+  { libxs_mhd_write_info_t winfo = { 0 };
+    winfo.extension = ext;
+    winfo.extension_size = ext_size;
+    return libxs_mhd_write(filename, NULL/*offset*/, size, pitch,
+      &mhd_info, data, &winfo);
+  }
 }
 
 LIBXS_APIVAR_PUBLIC(libxs_matdiff_info_t gemm_diff);

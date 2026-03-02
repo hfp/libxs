@@ -47,6 +47,24 @@ LIBXS_EXTERN_C typedef struct libxs_mhd_info_t {
 } libxs_mhd_info_t;
 
 /**
+ * Optional parameters for libxs_mhd_write.
+ * A NULL pointer is accepted (all defaults: no conversion, no extension).
+ * Zero-initialize this struct to get safe defaults.
+ */
+LIBXS_EXTERN_C typedef struct libxs_mhd_write_info_t {
+  /** Destination type/hint for element conversion (NULL: no conversion). */
+  const libxs_mhd_element_handler_info_t* handler_info;
+  /** Custom per-element callback (NULL: use built-in conversion). */
+  libxs_mhd_element_handler_t handler;
+  /** Extension header text appended to the MHD header (NULL: none). */
+  const char* extension_header;
+  /** Extension data appended after the image data (NULL: none). */
+  const void* extension;
+  /** Size of extension data in bytes (0: none). */
+  size_t extension_size;
+} libxs_mhd_write_info_t;
+
+/**
  * Predefined function to perform element data conversion.
  * Scales source-values in case of non-NULL src_min and src_max,
  * or otherwise clamps to the destination-type.
@@ -130,7 +148,9 @@ LIBXS_API int libxs_mhd_read(
  * Save a file using an extended data format, which is compatible with the Meta Image Format (MHD).
  * The file is suitable for visual inspection using, e.g., ITK-SNAP or ParaView.
  */
-LIBXS_API int libxs_mhd_write(const char filename[],
+LIBXS_API int libxs_mhd_write(
+  /* Filename of the output file. */
+  const char filename[],
   /* Offset within pitched buffer (NULL: no offset). */
   const size_t offset[],
   /* Image dimensions (extents). */
@@ -142,22 +162,9 @@ LIBXS_API int libxs_mhd_write(const char filename[],
   /* Raw data to be saved. */
   const void* data,
   /**
-   * Destination info including type. If given, data
-   * is type-converted (no custom handler necessary).
+   * Optional write parameters (conversion, handler, extension).
+   * NULL is accepted: no conversion, no extension.
    */
-  const libxs_mhd_element_handler_info_t* handler_info,
-  /**
-   * Optional callback executed per entry when reading the data.
-   * May assign the value to the left-most argument, but also
-   * allows to only compare with present data. Can be used to
-   * avoid allocating an actual destination.
-   */
-  libxs_mhd_element_handler_t handler,
-  /* Extension header data; can be NULL. */
-  const char extension_header[],
-  /* Extension data stream; can be NULL. */
-  const void* extension,
-  /* Extension data size; can be zero. */
-  size_t extension_size);
+  const libxs_mhd_write_info_t* write_info);
 
 #endif /*LIBXS_MHD_H*/

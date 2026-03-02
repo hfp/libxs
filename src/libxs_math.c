@@ -198,6 +198,7 @@ LIBXS_API int libxs_matdiff(libxs_matdiff_info_t* info,
           char filename[256] = "";
           libxs_mhd_element_handler_info_t info_dst;
           libxs_mhd_info_t mhd_info = { 2, 1, datatype, 0 };
+          libxs_mhd_write_info_t mhd_winfo = { 0 };
           LIBXS_MEMZERO(&info_dst);
           if (0 == reshape) {
             shape[0] = (size_t)mm; shape[1] = (size_t)nn;
@@ -210,10 +211,9 @@ LIBXS_API int libxs_matdiff(libxs_matdiff_info_t* info,
             size[1] = shape[1];
           }
           info_dst.type = LIBXS_MIN(LIBXS_DATATYPE_F32, datatype);
+          mhd_winfo.handler_info = &info_dst;
           LIBXS_SNPRINTF(filename, sizeof(filename), "%s-%p-ref.mhd", defaultname, ref);
-          libxs_mhd_write(filename, NULL/*offset*/, shape, size, &mhd_info, ref, &info_dst,
-            NULL/*handler*/, NULL/*extension_header*/,
-            NULL/*extension*/, 0/*extension_size*/);
+          libxs_mhd_write(filename, NULL/*offset*/, shape, size, &mhd_info, ref, &mhd_winfo);
 #endif
           if (NULL != tst) {
 #if defined(LIBXS_MATHDIFF_MHD)
@@ -222,8 +222,7 @@ LIBXS_API int libxs_matdiff(libxs_matdiff_info_t* info,
               size[1] = (size_t)nn;
             }
             LIBXS_SNPRINTF(filename, sizeof(filename), "%s-%p-tst.mhd", defaultname, ref/*adopt ref-ptr*/);
-            libxs_mhd_write(filename, NULL/*offset*/, shape, size, &mhd_info, tst, &info_dst,
-              NULL/*handler*/, NULL/*extension_header*/, NULL/*extension*/, 0/*extension_size*/);
+            libxs_mhd_write(filename, NULL/*offset*/, shape, size, &mhd_info, tst, &mhd_winfo);
 #endif
             if ('-' == *env && '1' < env[1]) {
               printf("LIBXS MATDIFF (%s): m=%" PRIuPTR " n=%" PRIuPTR " ldi=%" PRIuPTR " ldo=%" PRIuPTR " failed.\n",
@@ -475,21 +474,23 @@ LIBXS_API unsigned int libxs_remainder(unsigned int a, unsigned int b,
 }
 
 
-LIBXS_API int libxs_primes_u32(unsigned int num, unsigned int num_factors_n32[])
+LIBXS_API int libxs_primes_u32(unsigned int num, unsigned int num_factors_n32[], int num_factors_max)
 {
   unsigned int c = num, i;
   int n = 0;
   if (0 < c && 0 == (c & 1)) { /* non-zero even */
     unsigned int j = c / 2;
     while (c == (2 * j)) {
-      num_factors_n32[n++] = 2;
+      if (n < num_factors_max) num_factors_n32[n] = 2;
+      ++n;
       c = j; j /= 2;
     }
   }
   for (i = 3; i <= c; i += 2) {
     unsigned int j = c / i;
     while (c == (i * j)) {
-      num_factors_n32[n++] = i;
+      if (n < num_factors_max) num_factors_n32[n] = i;
+      ++n;
       c = j; j /= i;
     }
     if ((i * i) > num) {
@@ -497,7 +498,8 @@ LIBXS_API int libxs_primes_u32(unsigned int num, unsigned int num_factors_n32[])
     }
   }
   if (1 < c && 0 != n) {
-    num_factors_n32[n++] = c;
+    if (n < num_factors_max) num_factors_n32[n] = c;
+    ++n;
   }
   return n;
 }
@@ -513,7 +515,7 @@ LIBXS_API_INLINE unsigned int internal_product_limit(unsigned int product, unsig
     const unsigned int maxfct = (unsigned int)libxs_gcd(product, limit);
     result = maxfct;
     if (minfct < maxfct) {
-      n = libxs_primes_u32(result, fact);
+      n = libxs_primes_u32(result, fact, 32);
       for (i = 0; i < n; ++i) {
         if (minfct < fact[i]) {
           result = fact[i];
@@ -525,7 +527,7 @@ LIBXS_API_INLINE unsigned int internal_product_limit(unsigned int product, unsig
   }
   if (LIBXS_PRODUCT_LIMIT >= maxp) {
     unsigned int k[2][LIBXS_PRODUCT_LIMIT] = { {0} }, *k0 = k[0], *k1 = k[1], *kt, p;
-    n = libxs_primes_u32(product / result, fact);
+    n = libxs_primes_u32(product / result, fact, 32);
     /* initialize table with trivial factor */
     for (p = 0; p <= maxp; ++p) k[0][p] = 1;
     k[0][0] = k[1][0] = 1;
@@ -545,7 +547,7 @@ LIBXS_API_INLINE unsigned int internal_product_limit(unsigned int product, unsig
     result *= k0[maxp];
   }
   else { /* trivial approximation */
-    n = libxs_primes_u32(product, fact);
+    n = libxs_primes_u32(product, fact, 32);
     for (i = 0; i < n; ++i) {
       const unsigned int f = result * fact[i];
       if (f <= limit) {

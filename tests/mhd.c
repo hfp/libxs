@@ -129,8 +129,7 @@ int main(int argc, char* argv[])
   /* Write the data into a new file; update header_size. */
   if (EXIT_SUCCESS == result) {
     result = libxs_mhd_write("mhd_test.mhd", NULL/*offset*/, pitch, pitch,
-      &info, data, NULL/*no conversion*/, NULL/*handler*/,
-      NULL/*extension_header*/, NULL/*extension*/, 0/*extension_size*/);
+      &info, data, NULL/*write_info*/);
   }
 
   /* Check the written data against the buffer. */
