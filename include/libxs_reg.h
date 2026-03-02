@@ -30,7 +30,13 @@
 
 
 /** Opaque registry type. */
-typedef struct libxs_registry_t libxs_registry_t;
+LIBXS_EXTERN_C typedef struct libxs_registry_t libxs_registry_t;
+
+/** Structure to receive the status of the registry. */
+LIBXS_EXTERN_C typedef struct libxs_registry_info_t {
+  size_t capacity, size, nbytes;
+} libxs_registry_info_t;
+
 
 /** Create registry object. Returns EXIT_SUCCESS or EXIT_FAILURE. */
 LIBXS_API int libxs_registry_create(libxs_registry_t** registry);
@@ -71,9 +77,9 @@ LIBXS_API void* libxs_registry_set_lock(libxs_registry_t* registry, const void* 
   const void* value_init, size_t value_size, libxs_lock_t* lock);
 
 /** Query registered value by key; returns NULL if not found. */
-LIBXS_API void* libxs_registry_get(libxs_registry_t* registry, const void* key, size_t key_size);
+LIBXS_API void* libxs_registry_get(const libxs_registry_t* registry, const void* key, size_t key_size);
 /** Similar to libxs_registry_get but using a caller-provided lock. */
-LIBXS_API void* libxs_registry_get_lock(libxs_registry_t* registry, const void* key, size_t key_size,
+LIBXS_API void* libxs_registry_get_lock(const libxs_registry_t* registry, const void* key, size_t key_size,
   libxs_lock_t* lock);
 
 /** Check whether a key exists. Returns non-zero if found, zero otherwise. */
@@ -94,11 +100,6 @@ LIBXS_API void libxs_registry_remove(libxs_registry_t* registry, const void* key
 /** Similar to libxs_registry_remove but using a caller-provided lock. */
 LIBXS_API void libxs_registry_remove_lock(libxs_registry_t* registry, const void* key, size_t key_size,
   libxs_lock_t* lock);
-
-/** Structure to receive the status of the registry. */
-LIBXS_EXTERN_C typedef struct libxs_registry_info_t {
-  size_t capacity, size, nbytes;
-} libxs_registry_info_t;
 
 /** Get information about the registry. */
 LIBXS_API int libxs_registry_info(libxs_registry_t* registry, libxs_registry_info_t* info);

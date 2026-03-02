@@ -317,7 +317,7 @@ int main(int argc, char* argv[])
     const int n = sizeof(test) / sizeof(*test);
     unsigned int fact[32];
     for (i = 0; i < n; ++i) {
-      const int np = libxs_primes_u32(test[i], fact);
+      const int np = libxs_primes_u32(test[i], fact, sizeof(fact) / sizeof(*fact));
       for (j = 1; j < np; ++j) fact[0] *= fact[j];
       if (0 < np && fact[0] != test[i]) {
         exit(EXIT_FAILURE);

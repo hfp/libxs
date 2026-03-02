@@ -18,6 +18,10 @@ LIBXS_EXTERN_C typedef struct libxs_hist_t libxs_hist_t;
 /** Per-value update function: accumulates src into dst. */
 LIBXS_EXTERN_C typedef void (*libxs_hist_update_t)(double* /*dst*/, const double* /*src*/);
 
+/** Adjust function: transforms value given the bucket's count. */
+LIBXS_EXTERN_C typedef double (*libxs_hist_adjust_t)(double /*value*/, int count);
+
+
 /** Create histogram: nbuckets resolution, nqueue for statistical accuracy, nvals per entry. */
 LIBXS_API int libxs_hist_create(libxs_hist_t** hist, int nbuckets, int nqueue, int nvals,
   const libxs_hist_update_t update[]);
@@ -31,9 +35,6 @@ LIBXS_API void libxs_hist_set(libxs_lock_t* lock, libxs_hist_t* hist, const doub
 /** Query statistics; commits queued items if pending (lock can be NULL). */
 LIBXS_API void libxs_hist_get(libxs_lock_t* lock, const libxs_hist_t* hist,
   const int** buckets, int* nbuckets, double range[2], const double** vals, int* nvals);
-
-/** Adjust function: transforms value given the bucket's count. */
-LIBXS_EXTERN_C typedef double (*libxs_hist_adjust_t)(double /*value*/, int count);
 
 /** Print histogram to ostream (NULL ostream is accepted). */
 LIBXS_API void libxs_hist_print(FILE* ostream, const libxs_hist_t* hist, const char title[],

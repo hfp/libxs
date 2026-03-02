@@ -9,7 +9,7 @@
 #ifndef LIBXS_RNG_H
 #define LIBXS_RNG_H
 
-#include <libxs_math.h>
+#include "libxs_math.h"
 
 /** Helper macro to setup a matrix with some initial values. */
 #define LIBXS_MATRNG_AUX(OMP, INT_TYPE, REAL_TYPE, SEED, DST, NROWS, NCOLS, LD, SCALE) do { \

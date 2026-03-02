@@ -340,7 +340,7 @@ LIBXS_API void* libxs_registry_set_lock(libxs_registry_t* registry,
 }
 
 
-LIBXS_API void* libxs_registry_get(libxs_registry_t* registry,
+LIBXS_API void* libxs_registry_get(const libxs_registry_t* registry,
   const void* key, size_t key_size)
 {
   void* result = NULL;
@@ -364,7 +364,10 @@ LIBXS_API void* libxs_registry_get(libxs_registry_t* registry,
   }
 #endif
 #if (0 != LIBXS_SYNC)
-  LIBXS_LOCK_ACQREAD(LIBXS_LOCK, &registry->lock);
+  { libxs_registry_t *mutable_reg;
+    memcpy(&mutable_reg, &registry, sizeof(registry));
+    LIBXS_LOCK_ACQREAD(LIBXS_LOCK, &mutable_reg->lock);
+  }
 #endif
   { int found = 0;
     const unsigned int idx = internal_registry_probe(
@@ -374,7 +377,10 @@ LIBXS_API void* libxs_registry_get(libxs_registry_t* registry,
     }
   }
 #if (0 != LIBXS_SYNC)
-  LIBXS_LOCK_RELREAD(LIBXS_LOCK, &registry->lock);
+  { libxs_registry_t *mutable_reg;
+    memcpy(&mutable_reg, &registry, sizeof(registry));
+    LIBXS_LOCK_RELREAD(LIBXS_LOCK, &mutable_reg->lock);
+  }
 #endif
 #if defined(INTERNAL_REG_CACHE)
   if (NULL != result) { /* populate TLS cache on miss */
@@ -389,7 +395,7 @@ LIBXS_API void* libxs_registry_get(libxs_registry_t* registry,
 }
 
 
-LIBXS_API void* libxs_registry_get_lock(libxs_registry_t* registry,
+LIBXS_API void* libxs_registry_get_lock(const libxs_registry_t* registry,
   const void* key, size_t key_size, libxs_lock_t* lock)
 {
   void* result = NULL;

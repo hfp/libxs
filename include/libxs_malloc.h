@@ -12,6 +12,21 @@
 #include "libxs_sync.h"
 
 
+/** Information about allocated memory (pointer). */
+LIBXS_EXTERN_C typedef struct libxs_malloc_info_t {
+  size_t size;
+} libxs_malloc_info_t;
+
+/** Information about pooled memory. */
+LIBXS_EXTERN_C typedef struct libxs_malloc_pool_info_t {
+  size_t size;
+  /** Pending allocations (not released). */
+  size_t nactive;
+  /** Number of allocations so far. */
+  size_t nmallocs;
+} libxs_malloc_pool_info_t;
+
+
 /**
  * Initialize the pool by drawing from the given storage a number of chunks of the given size.
  * If the capacity of the pool is num, the storage must be at least num x size.
@@ -38,11 +53,6 @@ LIBXS_API void* libxs_malloc(size_t size,
 /** Free memory allocated by libxs_malloc. */
 LIBXS_API void libxs_free(void* pointer);
 
-/** Information about allocated memory (pointer). */
-LIBXS_EXTERN_C typedef struct libxs_malloc_info_t {
-  size_t size;
-} libxs_malloc_info_t;
-
 /** Retrieve information about allocated memory (pointer). */
 LIBXS_API int libxs_malloc_info(const void* pointer, libxs_malloc_info_t* info);
 
@@ -50,15 +60,6 @@ LIBXS_API int libxs_malloc_info(const void* pointer, libxs_malloc_info_t* info);
 LIBXS_API void libxs_malloc_pool(void);
 /** Free unused memory (libxs_malloc_pool). */
 LIBXS_API void libxs_free_pool(void);
-
-/** Information about pooled memory. */
-LIBXS_EXTERN_C typedef struct libxs_malloc_pool_info_t {
-  size_t size;
-  /** Pending allocations (not released). */
-  size_t nactive;
-  /** Number of allocations so far. */
-  size_t nmallocs;
-} libxs_malloc_pool_info_t;
 
 /** Retrieve information about the pooled memory domain. */
 LIBXS_API int libxs_malloc_pool_info(libxs_malloc_pool_info_t* info);
