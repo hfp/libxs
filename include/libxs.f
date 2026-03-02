@@ -230,11 +230,10 @@
             IMPORT :: C_PTR
             TYPE(C_PTR), INTENT(IN), VALUE :: registry
           END SUBROUTINE
-          !> Register a key-value pair. Returns a pointer
-          !> to the stored value, or C_NULL_PTR on failure.
-          FUNCTION libxs_registry_set(registry,                         &
+          !> Internal C bindings for registry (lock hidden).
+          FUNCTION internal_registry_set_c(registry,                    &
      &    key, key_size, value_init, value_size,                        &
-     &    lock) BIND(C)
+     &    lock) BIND(C, NAME="libxs_registry_set")
             IMPORT :: C_PTR, C_SIZE_T
             TYPE(C_PTR), INTENT(IN), VALUE :: registry
             TYPE(C_PTR), INTENT(IN), VALUE :: key
@@ -244,34 +243,33 @@
             INTEGER(C_SIZE_T), INTENT(IN), VALUE ::                     &
      &      value_size
             TYPE(C_PTR), INTENT(IN), VALUE :: lock
-            TYPE(C_PTR) :: libxs_registry_set
+            TYPE(C_PTR) :: internal_registry_set_c
           END FUNCTION
-          !> Query a value by key. Returns C_NULL_PTR
-          !> if the key is not found.
-          FUNCTION libxs_registry_get(registry,                         &
-     &    key, key_size, lock) BIND(C)
+          FUNCTION internal_registry_get_c(registry,                    &
+     &    key, key_size, lock)                                          &
+     &    BIND(C, NAME="libxs_registry_get")
             IMPORT :: C_PTR, C_SIZE_T
             TYPE(C_PTR), INTENT(IN), VALUE :: registry
             TYPE(C_PTR), INTENT(IN), VALUE :: key
             INTEGER(C_SIZE_T), INTENT(IN), VALUE ::                     &
      &      key_size
             TYPE(C_PTR), INTENT(IN), VALUE :: lock
-            TYPE(C_PTR) :: libxs_registry_get
+            TYPE(C_PTR) :: internal_registry_get_c
           END FUNCTION
-          !> Check if a key exists (non-zero if found).
-          FUNCTION libxs_registry_has(registry,                         &
-     &    key, key_size, lock) BIND(C)
+          FUNCTION internal_registry_has_c(registry,                    &
+     &    key, key_size, lock)                                          &
+     &    BIND(C, NAME="libxs_registry_has")
             IMPORT :: C_PTR, C_SIZE_T, C_INT
             TYPE(C_PTR), INTENT(IN), VALUE :: registry
             TYPE(C_PTR), INTENT(IN), VALUE :: key
             INTEGER(C_SIZE_T), INTENT(IN), VALUE ::                     &
      &      key_size
             TYPE(C_PTR), INTENT(IN), VALUE :: lock
-            INTEGER(C_INT) :: libxs_registry_has
+            INTEGER(C_INT) :: internal_registry_has_c
           END FUNCTION
-          !> Remove a key-value pair from the registry.
-          SUBROUTINE libxs_registry_remove(registry,                    &
-     &    key, key_size, lock) BIND(C)
+          SUBROUTINE internal_registry_remove_c(registry,               &
+     &    key, key_size, lock)                                          &
+     &    BIND(C, NAME="libxs_registry_remove")
             IMPORT :: C_PTR, C_SIZE_T
             TYPE(C_PTR), INTENT(IN), VALUE :: registry
             TYPE(C_PTR), INTENT(IN), VALUE :: key
@@ -453,4 +451,49 @@
             libxs_diff_i64 = .TRUE.
           END IF
         END FUNCTION
+
+        !> Register a key-value pair. Returns a pointer
+        !> to the stored value, or C_NULL_PTR on failure.
+        FUNCTION libxs_registry_set(registry,                           &
+     &  key, key_size, value_init, value_size)
+          TYPE(C_PTR), INTENT(IN) :: registry
+          TYPE(C_PTR), INTENT(IN) :: key
+          INTEGER(C_SIZE_T), INTENT(IN) :: key_size
+          TYPE(C_PTR), INTENT(IN) :: value_init
+          INTEGER(C_SIZE_T), INTENT(IN) :: value_size
+          TYPE(C_PTR) :: libxs_registry_set
+          libxs_registry_set = internal_registry_set_c(                 &
+     &      registry, key, key_size,                                    &
+     &      value_init, value_size, C_NULL_PTR)
+        END FUNCTION
+
+        !> Query a value by key. Returns C_NULL_PTR
+        !> if the key is not found.
+        FUNCTION libxs_registry_get(registry, key, key_size)
+          TYPE(C_PTR), INTENT(IN) :: registry
+          TYPE(C_PTR), INTENT(IN) :: key
+          INTEGER(C_SIZE_T), INTENT(IN) :: key_size
+          TYPE(C_PTR) :: libxs_registry_get
+          libxs_registry_get = internal_registry_get_c(                 &
+     &      registry, key, key_size, C_NULL_PTR)
+        END FUNCTION
+
+        !> Check if a key exists (non-zero if found).
+        FUNCTION libxs_registry_has(registry, key, key_size)
+          TYPE(C_PTR), INTENT(IN) :: registry
+          TYPE(C_PTR), INTENT(IN) :: key
+          INTEGER(C_SIZE_T), INTENT(IN) :: key_size
+          INTEGER(C_INT) :: libxs_registry_has
+          libxs_registry_has = internal_registry_has_c(                 &
+     &      registry, key, key_size, C_NULL_PTR)
+        END FUNCTION
+
+        !> Remove a key-value pair from the registry.
+        SUBROUTINE libxs_registry_remove(registry, key, key_size)
+          TYPE(C_PTR), INTENT(IN) :: registry
+          TYPE(C_PTR), INTENT(IN) :: key
+          INTEGER(C_SIZE_T), INTENT(IN) :: key_size
+          CALL internal_registry_remove_c(                              &
+     &      registry, key, key_size, C_NULL_PTR)
+        END SUBROUTINE
       END MODULE

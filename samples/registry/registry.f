@@ -71,7 +71,7 @@
      &      C_LOC(keys(i)),                                             &
      &      INT(C_SIZEOF(keys(i)), C_SIZE_T),                           &
      &      C_LOC(vals(i)),                                             &
-     &      INT(C_SIZEOF(vals(i)), C_SIZE_T), C_NULL_PTR)
+     &      INT(C_SIZEOF(vals(i)), C_SIZE_T))
           IF (.NOT.C_ASSOCIATED(cptr)) THEN
             result = 1
             EXIT
@@ -100,7 +100,7 @@
             j = MOD(i * 7, ntotal) + 1
             cptr = libxs_registry_get(reg,                              &
      &        C_LOC(keys(j)),                                           &
-     &        INT(C_SIZEOF(keys(j)), C_SIZE_T), C_NULL_PTR)
+     &        INT(C_SIZEOF(keys(j)), C_SIZE_T))
             IF (.NOT.C_ASSOCIATED(cptr)) THEN
               result = 1
               EXIT
@@ -118,7 +118,7 @@
             j = MOD(i - 1, 16) + 1
             cptr = libxs_registry_get(reg,                              &
      &        C_LOC(keys(j)),                                           &
-     &        INT(C_SIZEOF(keys(j)), C_SIZE_T), C_NULL_PTR)
+     &        INT(C_SIZEOF(keys(j)), C_SIZE_T))
             IF (.NOT.C_ASSOCIATED(cptr)) THEN
               result = 1
               EXIT
@@ -133,7 +133,7 @@
         DO i = 1, ntotal
           IF (libxs_registry_has(reg,                                   &
      &      C_LOC(keys(i)),                                             &
-     &      INT(C_SIZEOF(keys(i)), C_SIZE_T), C_NULL_PTR) .EQ. 0)                   &
+     &      INT(C_SIZEOF(keys(i)), C_SIZE_T)) .EQ. 0)                   &
      &    THEN
             result = 1
             EXIT
