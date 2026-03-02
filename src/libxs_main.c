@@ -332,7 +332,11 @@ LIBXS_API_INTERN size_t internal_parse_nbytes(const char* nbytes, size_t ndefaul
     const char *const unit = ('\0' != nbytes[u] ? strchr(units, nbytes[u]) : NULL);
     char* end = NULL;
     /* take parsed value with increased type-width */
+#if defined(__STDC_VERSION__) && (199901L <= __STDC_VERSION__)
     const long long int ibytes = strtoll(nbytes, &end, 10);
+#else
+    const long int ibytes = strtol(nbytes, &end, 10);
+#endif
     if (NULL != end && ( /* no obvious error */
       /* must match allowed set of units */
       (NULL != unit && *unit == *end) ||
