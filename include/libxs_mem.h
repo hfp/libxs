@@ -109,7 +109,6 @@ LIBXS_API int libxs_strimatch(const char a[], const char b[], const char delims[
 /**
  * Format for instance an amount of Bytes like libxs_format_value(result, sizeof(result), nbytes, "KMGT", "B", 10).
  * The value returned is in requested/determined unit so that the user can decide about printing the buffer.
- * Caution: cannot be used multiple times in a single expression!
  */
 LIBXS_API size_t libxs_format_value(char buffer[],
   int buffer_size, size_t nbytes, const char scale[], const char* unit, int base);
