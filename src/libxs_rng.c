@@ -8,59 +8,50 @@
 ******************************************************************************/
 #include <libxs_rng.h>
 #include <libxs_mem.h>
+#include <libxs_sync.h>
 
-/** Denote quality of scalar random number generator. */
-#if !defined(LIBXS_RNG_DRAND48) && !defined(_WIN32) && !defined(__CYGWIN__) && \
-    (defined(_DEFAULT_SOURCE) || defined(_SVID_SOURCE) || defined(_XOPEN_SOURCE))
-# define LIBXS_RNG_DRAND48
-#endif
+
+/**
+ * SplitMix64 PRNG (Vigna, 2015). Period: 2^64.
+ * Self-contained, no libc dependency, excellent statistical quality.
+ */
+LIBXS_API_INLINE unsigned long long internal_rng_splitmix64(
+  unsigned long long* state)
+{
+  unsigned long long z = (*state += 0x9E3779B97F4A7C15uLL);
+  z = (z ^ (z >> 30)) * 0xBF58476D1CE4E5B9uLL;
+  z = (z ^ (z >> 27)) * 0x94D049BB133111EBuLL;
+  return z ^ (z >> 31);
+}
+
+/** Per-thread PRNG state (TLS when available, otherwise single global). */
+static LIBXS_TLS unsigned long long internal_rng_state = 1;
 
 
 LIBXS_API void libxs_rng_set_seed(unsigned int/*uint32_t*/ seed)
 {
-  /* for consistency, other RNGs are seeded as well */
-#if defined(LIBXS_RNG_DRAND48)
-  srand48(seed);
-#endif
-  srand(seed);
+  internal_rng_state = (unsigned long long)seed;
 }
 
 
 LIBXS_API unsigned int libxs_rng_u32(unsigned int n)
 {
-  unsigned int result;
   if (1 < n) {
-#if defined(LIBXS_RNG_DRAND48)
-    const unsigned int rmax = (1U << 31); /* lrand48 returns [0, 2^31) */
-    unsigned int r = (unsigned int)lrand48();
-#else
-    /* rand() returns [0, RAND_MAX]; guard against RAND_MAX+1 overflow to zero */
-    const unsigned int rmax = ((unsigned int)RAND_MAX < ~0U)
-      ? ((unsigned int)RAND_MAX + 1U) : ~0U;
-    unsigned int r = (unsigned int)rand();
-#endif
-    const unsigned int nmax = LIBXS_MIN(n, rmax);
-    const unsigned int q = (rmax / nmax) * nmax;
-#if defined(LIBXS_RNG_DRAND48)
-    /* coverity[dont_call] */
-    while (q <= r) r = (unsigned int)lrand48();
-#else
-    while (q <= r) r = (unsigned int)rand();
-#endif
-    if (n <= nmax) result = r % nmax;
-    else { /* input range exhausts RNG-state (precision): combine two calls */
-      const unsigned int r2 =
-#if defined(LIBXS_RNG_DRAND48)
-        (unsigned int)lrand48();
-#else
-        (unsigned int)rand();
-#endif
-      /* use wide multiply: (r * n + r2) mod n, with r already in [0, nmax) */
-      result = (unsigned int)(((unsigned long long)r * n / nmax + r2) % n);
+    /* 64-bit output covers any 32-bit range; use Lemire's fast method */
+    const unsigned long long r = internal_rng_splitmix64(&internal_rng_state);
+    unsigned long long m = (unsigned long long)(unsigned int)r * n;
+    unsigned int leftover = (unsigned int)m;
+    if (leftover < n) { /* rejection branch (rare for small n) */
+      const unsigned int threshold = (0U - n) % n; /* = (2^32 - n) mod n */
+      while (leftover < threshold) {
+        m = (unsigned long long)(unsigned int)
+          internal_rng_splitmix64(&internal_rng_state) * n;
+        leftover = (unsigned int)m;
+      }
     }
+    return (unsigned int)(m >> 32);
   }
-  else result = 0;
-  return result;
+  return 0;
 }
 
 
@@ -68,39 +59,26 @@ LIBXS_API void libxs_rng_seq(void* data, size_t nbytes)
 {
   unsigned char* dst = (unsigned char*)data;
   unsigned char* end;
-  unsigned int r;
   if (NULL == data) return;
-  end = dst + (nbytes & ~(size_t)3);
-  for (; dst < end; dst += 4) {
-#if defined(LIBXS_RNG_DRAND48)
-    /* coverity[dont_call] */
-    r = (unsigned int)lrand48();
-#else
-    r = (unsigned int)rand();
-#endif
-    LIBXS_MEMCPY(dst, &r, 4);
+  end = dst + (nbytes & ~(size_t)7);
+  for (; dst < end; dst += 8) {
+    unsigned long long r = internal_rng_splitmix64(&internal_rng_state);
+    LIBXS_MEMCPY(dst, &r, 8);
   }
   end = (unsigned char*)data + nbytes;
   if (dst < end) {
-    const size_t size = end - dst;
-#if defined(LIBXS_RNG_DRAND48)
-    r = (unsigned int)lrand48();
-#else
-    r = (unsigned int)rand();
-#endif
-    LIBXS_ASSERT(size < sizeof(r));
-    LIBXS_MEMCPY(dst, &r, size);
+    unsigned long long r = internal_rng_splitmix64(&internal_rng_state);
+    const size_t tail = (size_t)(end - dst);
+    LIBXS_ASSERT(tail < sizeof(r));
+    LIBXS_MEMCPY(dst, &r, tail);
   }
 }
 
 
 LIBXS_API double libxs_rng_f64(void)
 {
-#if defined(LIBXS_RNG_DRAND48)
-  /* coverity[dont_call] */
-  return drand48(); /* drand48 returns [0, 1) */
-#else
-  /* RAND_MAX + 1.0 avoids integer overflow and guarantees [0, 1) */
-  return (double)rand() / ((double)RAND_MAX + 1.0);
-#endif
+  /* Use top 53 bits of a 64-bit value for full double mantissa precision.
+   * Result is in [0, 1). */
+  return (double)(internal_rng_splitmix64(&internal_rng_state) >> 11)
+    * (1.0 / 9007199254740992.0); /* 1 / 2^53 */
 }

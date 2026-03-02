@@ -59,31 +59,30 @@
 
 
 /**
- * Set the seed of libxs_rng_* (similar to srand).
- * Note: not thread-safe. The underlying RNG (rand/drand48) uses global
- * state; concurrent calls from multiple threads cause data races.
- * Seed once before entering a parallel region.
+ * Set the seed of the calling thread's PRNG state.
+ * Each thread maintains independent state via TLS; calling
+ * libxs_rng_set_seed only affects the calling thread.
+ * Unseeded threads start with a deterministic default (seed = 1).
  */
 LIBXS_API void libxs_rng_set_seed(unsigned int/*uint32_t*/ seed);
 
 /**
- * Returns a (pseudo-)random value based on rand/rand48 in the interval [0, n).
- * This function compensates for an n, which is not a factor of RAND_MAX.
- * Note: libxs_rng_set_seed must be used if one wishes to seed the generator.
- * Note: not thread-safe (see libxs_rng_set_seed).
+ * Returns a (pseudo-)random value in the interval [0, n) with
+ * uniform distribution (Lemire's nearly-divisionless method).
+ * Thread-safe: each thread has independent PRNG state.
  */
 LIBXS_API unsigned int libxs_rng_u32(unsigned int n);
 
 /**
- * Similar to libxs_rng_u32, but returns a DP-value in the interval [0, 1).
- * Note: libxs_rng_set_seed must be used if one wishes to seed the generator.
- * Note: not thread-safe (see libxs_rng_set_seed).
+ * Returns a double-precision value in the interval [0, 1) with
+ * full 53-bit mantissa resolution.
+ * Thread-safe: each thread has independent PRNG state.
  */
 LIBXS_API double libxs_rng_f64(void);
 
 /**
- * Sequence of random data based on libxs_rng_u32.
- * Note: not thread-safe (see libxs_rng_set_seed).
+ * Fill a buffer with pseudo-random bytes.
+ * Thread-safe: each thread has independent PRNG state.
  */
 LIBXS_API void libxs_rng_seq(void* data, size_t nbytes);
 
