@@ -16,29 +16,30 @@
 #endif
 
 /* Maximum mixed-radix digits per uint64 Horner group.
- * OZ2_SIGNED=0: 8 largest moduli product ~ 2^63.1, fits uint64.
- * OZ2_SIGNED=1: 9 largest moduli product ~ 2^62.9, fits uint64.
+ * 9 largest moduli product ~ 2^62.9, fits uint64.
  * Grouping eliminates FP64 from the inner Horner loop. */
 #if !defined(OZ2_HORNER_GROUP)
-# if 0 != OZ2_SIGNED
-#   define OZ2_HORNER_GROUP 9
-# else
-#   define OZ2_HORNER_GROUP 8
-# endif
+# define OZ2_HORNER_GROUP 9
 #endif
 
 
 /* Chinese Remainder Theorem (CRT) moduli and precomputed Barrett tables.
  * Moduli must be pairwise coprime (not necessarily prime); using the
  * largest prime power of each prime that fits maximizes bits per channel.
- * OZ2_SIGNED=0 (default): coprime moduli <= 256, residues in uint8.
- * OZ2_SIGNED=1: coprime moduli <= 128, residues fit in int8 (-127..+127
- *   with sign folded in), enabling VNNI int8 dot products.
+ * Coprime moduli <= 128, residues fit in int8 (-127..+127 with sign
+ * folded in), enabling VNNI int8 dot products.
+ *
+ * NOTE: An unsigned variant (moduli <= 256, uint8 residues) is possible
+ * but was removed.  VNNI's VPDPBUSD treats the first operand as unsigned
+ * and the second as signed; using int8 residues with sign folded in maps
+ * naturally to this encoding (XOR+bias correction), whereas uint8 residues
+ * require a separate sign array and scalar accumulation, negating the
+ * VNNI advantage.
+ *
  * P = prod(m_i) must exceed 2 * BLOCK_K * (2^(MANT+1))^2 to represent
  * signed dot products without aliasing. */
-#if 0 != OZ2_SIGNED
 
-/* OZ2_SIGNED: 18 pairwise coprime moduli <= 128 (prime powers + primes).
+/* 18 pairwise coprime moduli <= 128 (prime powers + primes).
  * Product of 17 ~ 2^112 > 2^111 (double).
  * Includes 128=2^7, 125=5^3, 121=11^2, 81=3^4 alongside primes.
  * Residues 0..127 fit in int8 when sign is folded in (-127..+127). */
@@ -77,53 +78,8 @@ static const uint32_t oz2_pow36[] = {
    59U /*  67 */,  58U /*  61 */
 };
 
-#else /* OZ2_SIGNED == 0: coprime moduli <= 256 */
-
-/* 17 pairwise coprime moduli <= 256 (256=2^8 plus 16 primes).
- * Product of 15 ~ 2^116 > 2^111 (double).
- * Residues 0..255 fit in uint8; 256 stored as uint16. */
-static const uint16_t oz2_moduli[] = {
-  256, 251, 241, 239, 233, 229, 227, 223,
-  211, 199, 197, 193, 191, 181, 179, 173, 167
-};
-
-/* Barrett reciprocals: floor(2^32 / m_i) for single-word reduction. */
-static const uint32_t oz2_rcp[] = {
-  (uint32_t)(0x100000000ULL / 256), (uint32_t)(0x100000000ULL / 251),
-  (uint32_t)(0x100000000ULL / 241), (uint32_t)(0x100000000ULL / 239),
-  (uint32_t)(0x100000000ULL / 233), (uint32_t)(0x100000000ULL / 229),
-  (uint32_t)(0x100000000ULL / 227), (uint32_t)(0x100000000ULL / 223),
-  (uint32_t)(0x100000000ULL / 211), (uint32_t)(0x100000000ULL / 199),
-  (uint32_t)(0x100000000ULL / 197), (uint32_t)(0x100000000ULL / 193),
-  (uint32_t)(0x100000000ULL / 191), (uint32_t)(0x100000000ULL / 181),
-  (uint32_t)(0x100000000ULL / 179), (uint32_t)(0x100000000ULL / 173),
-  (uint32_t)(0x100000000ULL / 167)
-};
-
-/* 2^18 mod m_i and 2^36 mod m_i: used for 64-bit Barrett decomposition. */
-static const uint32_t oz2_pow18[] = {
-    0U /* 256 */, 100U /* 251 */, 177U /* 241 */, 200U /* 239 */,
-   19U /* 233 */, 168U /* 229 */, 186U /* 227 */, 119U /* 223 */,
-   82U /* 211 */,  61U /* 199 */, 134U /* 197 */,  50U /* 193 */,
-   92U /* 191 */,  56U /* 181 */,  88U /* 179 */,  49U /* 173 */,
-  121U /* 167 */
-};
-static const uint32_t oz2_pow36[] = {
-    0U /* 256 */, 211U /* 251 */, 240U /* 241 */,  87U /* 239 */,
-  128U /* 233 */,  57U /* 229 */,  92U /* 227 */, 112U /* 223 */,
-  183U /* 211 */, 139U /* 199 */,  29U /* 197 */, 184U /* 193 */,
-   60U /* 191 */,  59U /* 181 */,  47U /* 179 */, 152U /* 173 */,
-  112U /* 167 */
-};
-
-#endif /* OZ2_SIGNED */
-
-/* Residue element type: int8 when signs are folded in, uint8 otherwise. */
-#if 0 != OZ2_SIGNED
+/* Residue element type: int8 (signs folded into residues for VNNI). */
 typedef int8_t oz2_res_t;
-#else
-typedef uint8_t oz2_res_t;
-#endif
 
 /** Fast modular reduction: x mod oz2_moduli[pidx] (table-indexed wrapper). */
 LIBXS_API_INLINE unsigned int oz2_mod(uint32_t x, int pidx)
@@ -163,7 +119,7 @@ LIBXS_API_INLINE void oz2_reduce(uint64_t mantissa, int delta,
  *  Decomposes each element, finds per-row max exponent, aligns mantissas
  *  by right-shifting, reduces mod each modulus, and writes directly into
  *  the k-contiguous layout ak[M][P][K] used by dot products.
- *  When OZ2_SIGNED, signs are folded into int8 residues (-p..+p).
+ *  Signs are folded into int8 residues (-p..+p).
  *  This avoids a separate transpose pass over an intermediate buffer. */
 LIBXS_API_INLINE void oz2_preprocess_rows(
   const GEMM_REAL_TYPE* a, GEMM_INT_TYPE lda, int ta,
@@ -171,9 +127,6 @@ LIBXS_API_INLINE void oz2_preprocess_rows(
   GEMM_INT_TYPE ib, GEMM_INT_TYPE kb,
   GEMM_INT_TYPE iblk, GEMM_INT_TYPE kblk, int nprimes,
   int16_t expa_row[BLOCK_M],
-#if !OZ2_SIGNED
-  int8_t ak_sign[BLOCK_M][BLOCK_K],
-#endif
   oz2_res_t ak[BLOCK_M][OZ2_NPRIMES_MAX][BLOCK_K])
 {
   int16_t elem_exp[BLOCK_M][BLOCK_K];
@@ -184,19 +137,13 @@ LIBXS_API_INLINE void oz2_preprocess_rows(
   for (mi = 0; mi < iblk; ++mi) {
     const GEMM_INT_TYPE row = ib + mi;
     int16_t row_max_exp = INT16_MIN;
-#if OZ2_SIGNED
     int8_t local_sign[BLOCK_K];
-#endif
 
     for (kk = 0; kk < kblk; ++kk) {
       const GEMM_INT_TYPE p = kb + kk;
       const GEMM_REAL_TYPE aval = ((row < M && p < K)
         ? a[LIBXS_INDEX(ta, lda, row, p)] : (GEMM_REAL_TYPE)0);
-#if OZ2_SIGNED
       local_sign[kk] = (int8_t)ozaki_extract_ieee(aval, &elem_exp[mi][kk], &elem_mant[mi][kk]);
-#else
-      ak_sign[mi][kk] = (int8_t)ozaki_extract_ieee(aval, &elem_exp[mi][kk], &elem_mant[mi][kk]);
-#endif
       row_max_exp = LIBXS_MAX(row_max_exp, elem_exp[mi][kk]);
     }
 
@@ -210,11 +157,7 @@ LIBXS_API_INLINE void oz2_preprocess_rows(
       oz2_reduce(elem_mant[mi][kk], delta, tmp, nprimes);
       LIBXS_PRAGMA_LOOP_COUNT(1, OZ2_NPRIMES_MAX, OZ2_NPRIMES_DEFAULT)
       for (pidx = 0; pidx < nprimes; ++pidx) {
-#if OZ2_SIGNED
         ak[mi][pidx][kk] = (int8_t)(local_sign[kk] * (int8_t)tmp[pidx]);
-#else
-        ak[mi][pidx][kk] = tmp[pidx];
-#endif
       }
     }
     /* Zero-pad remaining k-entries */
@@ -223,9 +166,6 @@ LIBXS_API_INLINE void oz2_preprocess_rows(
       for (pidx = 0; pidx < nprimes; ++pidx) {
         for (kk = kblk; kk < BLOCK_K; ++kk) ak[mi][pidx][kk] = 0;
       }
-#if !OZ2_SIGNED
-      for (kk = kblk; kk < BLOCK_K; ++kk) ak_sign[mi][kk] = 1;
-#endif
     }
   }
 }
@@ -234,16 +174,13 @@ LIBXS_API_INLINE void oz2_preprocess_rows(
 /** Preprocess columns of B for one (kb, jb) tile.
  *  Same as rows of A but with per-column max exponent. Writes directly
  *  into bk[N][P][K] (k-contiguous layout).
- *  When OZ2_SIGNED, signs are folded into int8 residues. */
+ *  Signs are folded into int8 residues. */
 LIBXS_API_INLINE void oz2_preprocess_cols(
   const GEMM_REAL_TYPE* b, GEMM_INT_TYPE ldb, int tb,
   GEMM_INT_TYPE N, GEMM_INT_TYPE K,
   GEMM_INT_TYPE jb, GEMM_INT_TYPE kb,
   GEMM_INT_TYPE jblk, GEMM_INT_TYPE kblk, int nprimes,
   int16_t expb_col[BLOCK_N],
-#if !OZ2_SIGNED
-  int8_t bk_sign[BLOCK_N][BLOCK_K],
-#endif
   oz2_res_t bk[BLOCK_N][OZ2_NPRIMES_MAX][BLOCK_K])
 {
   int16_t elem_exp[BLOCK_K][BLOCK_N];
@@ -274,15 +211,8 @@ LIBXS_API_INLINE void oz2_preprocess_cols(
       oz2_reduce(elem_mant[kk][nj], delta, tmp, nprimes);
       LIBXS_PRAGMA_LOOP_COUNT(1, OZ2_NPRIMES_MAX, OZ2_NPRIMES_DEFAULT)
       for (pidx = 0; pidx < nprimes; ++pidx) {
-#if OZ2_SIGNED
         bk[nj][pidx][kk] = (int8_t)(elem_sign[kk][nj] * (int8_t)tmp[pidx]);
-#else
-        bk[nj][pidx][kk] = tmp[pidx];
-#endif
       }
-#if !OZ2_SIGNED
-      bk_sign[nj][kk] = elem_sign[kk][nj];
-#endif
     }
   }
   /* Zero-pad remaining k-entries */
@@ -292,9 +222,6 @@ LIBXS_API_INLINE void oz2_preprocess_cols(
       for (pidx = 0; pidx < nprimes; ++pidx) {
         for (kk = kblk; kk < BLOCK_K; ++kk) bk[nj][pidx][kk] = 0;
       }
-#if !OZ2_SIGNED
-      for (kk = kblk; kk < BLOCK_K; ++kk) bk_sign[nj][kk] = 1;
-#endif
     }
   }
 }
@@ -368,13 +295,8 @@ LIBXS_API_INLINE double oz2_reconstruct(
     const unsigned int pi = oz2_moduli[i];
     for (j = 0; j < i; ++j) {
       /* v[j] < m_j; reduce v[j] into [0, m_i) before subtraction.
-       * When moduli are close (default) one subtract suffices;
-       * when OZ2_SIGNED the wider range needs Barrett reduction. */
-#if OZ2_SIGNED
+       * Moduli range (<= 128) means v[j] may exceed m_i: use Barrett. */
       const unsigned int vj = oz2_mod(v[j], i);
-#else
-      const unsigned int vj = (v[j] < pi) ? v[j] : (v[j] - pi);
-#endif
       const unsigned int diff = (u >= vj) ? (u - vj) : (pi + u - vj);
       u = oz2_mod(diff * garner_inv[j][i], i);
     }
@@ -426,11 +348,7 @@ LIBXS_API_INLINE uint64_t oz2_reconstruct_mantissa(
     unsigned int u = (unsigned int)residues[i];
     const unsigned int pi = oz2_moduli[i];
     for (j = 0; j < i; ++j) {
-#if OZ2_SIGNED
       const unsigned int vj = oz2_mod(v[j], i);
-#else
-      const unsigned int vj = (v[j] < pi) ? v[j] : (v[j] - pi);
-#endif
       const unsigned int diff = (u >= vj) ? (u - vj) : (pi + u - vj);
       u = oz2_mod(diff * garner_inv[j][i], i);
     }
@@ -469,11 +387,7 @@ LIBXS_API_INLINE void oz2_reconstruct_batch(
     for (j = 0; j < i; ++j) {
       const unsigned int inv_ji = garner_inv[j][i];
       for (bi = 0; bi < bsz; ++bi) {
-#if OZ2_SIGNED
         const unsigned int vj = oz2_mod(v[bi][j], i);
-#else
-        const unsigned int vj = (v[bi][j] < pi) ? v[bi][j] : (v[bi][j] - pi);
-#endif
         const unsigned int diff = (u[bi] >= vj) ? (u[bi] - vj) : (pi + u[bi] - vj);
         u[bi] = oz2_mod(diff * inv_ji, i);
       }
@@ -523,14 +437,8 @@ LIBXS_API_INLINE void gemm_oz2_diff(const char* transa, const char* transb,
   /* Panel buffers: preprocessed A and B for one K-batch (shared).
    * First index is the sub-panel (BLOCK_K slice within BATCH_K*BLOCK_K). */
   oz2_res_t (*ak_panel)[BLOCK_M][OZ2_NPRIMES_MAX][BLOCK_K] = NULL;
-#if !OZ2_SIGNED
-  int8_t  (*ak_sign_panel)[BLOCK_M][BLOCK_K] = NULL;
-#endif
   int16_t (*expa_panel)[BLOCK_M] = NULL;
   oz2_res_t (*bk_panel)[BLOCK_N][OZ2_NPRIMES_MAX][BLOCK_K] = NULL;
-#if !OZ2_SIGNED
-  int8_t  (*bk_sign_panel)[BLOCK_N][BLOCK_K] = NULL;
-#endif
   int16_t (*expb_panel)[BLOCK_N] = NULL;
   GEMM_REAL_TYPE *ref_panel = NULL; /* diff mode 0 only */
   libxs_matdiff_info_t tdiff[256];
@@ -552,18 +460,10 @@ LIBXS_API_INLINE void gemm_oz2_diff(const char* transa, const char* transb,
 
   ak_panel = (oz2_res_t (*)[BLOCK_M][OZ2_NPRIMES_MAX][BLOCK_K])libxs_malloc(
     (size_t)NKB_MAX * nblk_m * sizeof(*ak_panel), 0);
-#if !OZ2_SIGNED
-  ak_sign_panel = (int8_t (*)[BLOCK_M][BLOCK_K])libxs_malloc(
-    (size_t)NKB_MAX * nblk_m * sizeof(*ak_sign_panel), 0);
-#endif
   expa_panel = (int16_t (*)[BLOCK_M])libxs_malloc(
     (size_t)NKB_MAX * nblk_m * sizeof(*expa_panel), 0);
   bk_panel = (oz2_res_t (*)[BLOCK_N][OZ2_NPRIMES_MAX][BLOCK_K])libxs_malloc(
     (size_t)NKB_MAX * nblk_n * sizeof(*bk_panel), 0);
-#if !OZ2_SIGNED
-  bk_sign_panel = (int8_t (*)[BLOCK_N][BLOCK_K])libxs_malloc(
-    (size_t)NKB_MAX * nblk_n * sizeof(*bk_sign_panel), 0);
-#endif
   expb_panel = (int16_t (*)[BLOCK_N])libxs_malloc(
     (size_t)NKB_MAX * nblk_n * sizeof(*expb_panel), 0);
   if (NULL != diff && 0 == (diff_abc % 3)) {
@@ -575,9 +475,7 @@ LIBXS_API_INLINE void gemm_oz2_diff(const char* transa, const char* transb,
 # pragma omp parallel
 #endif
   {
-#if OZ2_SIGNED
     const ozaki_dot_i8_fn dot_i8 = ozaki_dot_i8_init();
-#endif
     GEMM_REAL_TYPE recon_blk[BLOCK_MNK];
     GEMM_INT_TYPE kb_batch, kb_sub, mi, nj, kk, jb, ib, ib_idx, jb_idx;
     int pidx;
@@ -606,9 +504,6 @@ LIBXS_API_INLINE void gemm_oz2_diff(const char* transa, const char* transb,
         const GEMM_INT_TYPE kblk = LIBXS_MIN(BLOCK_K, K - kb);
         oz2_preprocess_rows(a, *lda, ta, M, K, ib2, kb, iblk2, kblk,
           nprimes, expa_panel[ki * nblk_m + ibi],
-#if !OZ2_SIGNED
-          ak_sign_panel[ki * nblk_m + ibi],
-#endif
           ak_panel[ki * nblk_m + ibi]);
       }
 
@@ -625,9 +520,6 @@ LIBXS_API_INLINE void gemm_oz2_diff(const char* transa, const char* transb,
         const GEMM_INT_TYPE kblk = LIBXS_MIN(BLOCK_K, K - kb);
         oz2_preprocess_cols(b, *ldb, tb, N, K, jb2, kb, jblk2, kblk,
           nprimes, expb_panel[ki * nblk_n + jbi],
-#if !OZ2_SIGNED
-          bk_sign_panel[ki * nblk_n + jbi],
-#endif
           bk_panel[ki * nblk_n + jbi]);
       }
       /* implicit barrier ensures panels are ready */
@@ -676,16 +568,11 @@ LIBXS_API_INLINE void gemm_oz2_diff(const char* transa, const char* transb,
                   int sh;
                   double arecon;
                   for (pidx = 0; pidx < nprimes; ++pidx) {
-#if OZ2_SIGNED
                     const int8_t rv = ak_panel[a_idx][mi][pidx][kk];
                     tmp[pidx] = (uint8_t)(rv < 0 ? -rv : rv);
-#else
-                    tmp[pidx] = ak_panel[a_idx][mi][pidx][kk];
-#endif
                   }
                   mant_recon = oz2_reconstruct_mantissa(tmp, garner_inv, nprimes);
                   sh = (int)expa_panel[a_idx][mi] - OZ_BIAS_PLUS_MANT;
-#if OZ2_SIGNED
                   { /* recover sign from any nonzero residue */
                     int8_t ds = 1;
                     for (pidx = 0; pidx < nprimes; ++pidx) {
@@ -696,10 +583,6 @@ LIBXS_API_INLINE void gemm_oz2_diff(const char* transa, const char* transb,
                     }
                     arecon = (double)ds * (double)mant_recon * libxs_pow2(sh);
                   }
-#else
-                  arecon = (double)ak_sign_panel[a_idx][mi][kk]
-                    * (double)mant_recon * libxs_pow2(sh);
-#endif
                   ozaki_store_block_pair(ref_blk, recon_blk, BLOCK_M, mi, kk,
                     aval, (GEMM_REAL_TYPE)arecon);
                 }
@@ -722,16 +605,11 @@ LIBXS_API_INLINE void gemm_oz2_diff(const char* transa, const char* transb,
                   int sh;
                   double brecon;
                   for (pidx = 0; pidx < nprimes; ++pidx) {
-#if OZ2_SIGNED
                     const int8_t rv = bk_panel[b_idx][nj][pidx][kk];
                     tmp[pidx] = (uint8_t)(rv < 0 ? -rv : rv);
-#else
-                    tmp[pidx] = bk_panel[b_idx][nj][pidx][kk];
-#endif
                   }
                   mant_recon = oz2_reconstruct_mantissa(tmp, garner_inv, nprimes);
                   sh = (int)expb_panel[b_idx][nj] - OZ_BIAS_PLUS_MANT;
-#if OZ2_SIGNED
                   { int8_t ds = 1;
                     for (pidx = 0; pidx < nprimes; ++pidx) {
                       if (0 != bk_panel[b_idx][nj][pidx][kk]) {
@@ -741,10 +619,6 @@ LIBXS_API_INLINE void gemm_oz2_diff(const char* transa, const char* transb,
                     }
                     brecon = (double)ds * (double)mant_recon * libxs_pow2(sh);
                   }
-#else
-                  brecon = (double)bk_sign_panel[b_idx][nj][kk]
-                    * (double)mant_recon * libxs_pow2(sh);
-#endif
                   ozaki_store_block_pair(ref_blk, recon_blk, BLOCK_K, kk, nj,
                     bval, (GEMM_REAL_TYPE)brecon);
                 }
@@ -770,7 +644,6 @@ LIBXS_API_INLINE void gemm_oz2_diff(const char* transa, const char* transb,
                   /* Dot products mod each modulus */
                   LIBXS_PRAGMA_LOOP_COUNT(1, OZ2_NPRIMES_MAX, OZ2_NPRIMES_DEFAULT)
                   for (pidx = 0; pidx < nprimes; ++pidx) {
-#if OZ2_SIGNED
                     /* VNNI / scalar int8 dot product -> single Barrett */
                     const int32_t dot = dot_i8(
                       (const int8_t*)ak_panel[a_idx][mi][pidx],
@@ -782,24 +655,6 @@ LIBXS_API_INLINE void gemm_oz2_diff(const char* transa, const char* transb,
                       batch_res[bi][pidx] = (0 != r)
                         ? (oz2_moduli[pidx] - r) : 0;
                     }
-#else
-                    /* Branchless sign accumulation + Barrett reduction */
-                    uint32_t pos_sum = 0, neg_sum = 0;
-                    uint32_t pr, nr;
-                    for (kk = 0; kk < kblk; ++kk) {
-                      const uint32_t prod = (uint32_t)ak_panel[a_idx][mi][pidx][kk]
-                                          * (uint32_t)bk_panel[b_idx][col][pidx][kk];
-                      const int32_t s = (int32_t)ak_sign_panel[a_idx][mi][kk]
-                                      * (int32_t)bk_sign_panel[b_idx][col][kk];
-                      const uint32_t neg = (uint32_t)(s >> 31);
-                      pos_sum += prod & ~neg;
-                      neg_sum += prod &  neg;
-                    }
-                    pr = (uint32_t)oz2_mod(pos_sum, pidx);
-                    nr = (uint32_t)oz2_mod(neg_sum, pidx);
-                    batch_res[bi][pidx] = (pr >= nr)
-                      ? (pr - nr) : ((uint32_t)oz2_moduli[pidx] + pr - nr);
-#endif
                   }
                 }
 
@@ -863,14 +718,8 @@ LIBXS_API_INLINE void gemm_oz2_diff(const char* transa, const char* transb,
     }
   }
   libxs_free(ak_panel);
-#if !OZ2_SIGNED
-  libxs_free(ak_sign_panel);
-#endif
   libxs_free(expa_panel);
   libxs_free(bk_panel);
-#if !OZ2_SIGNED
-  libxs_free(bk_sign_panel);
-#endif
   libxs_free(expb_panel);
   libxs_free(ref_panel);
 }

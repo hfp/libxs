@@ -90,24 +90,16 @@ GEMM_OZFLAGS=0 ./gemm-wrap.x 256       # full S^2 square, no symmetrize
 
 ## Scheme 2 — Chinese Remainder Theorem
 
-Scheme 2 (`GEMM_OZAKI=2`) uses modular arithmetic instead of mantissa slicing. Each matrix element is reduced modulo a set of small pairwise coprime moduli (primes and prime powers ≤ 128 by default) so that residues fit in int8 and dot products use VNNI int8 instructions when available. GEMM is performed independently modulo each modulus, and the exact integer result is recovered via the Chinese Remainder Theorem (Garner's algorithm with grouped uint64 Horner evaluation). The Horner reconstruction partitions mixed-radix digits into groups of up to 9, evaluates each group exactly in uint64 arithmetic, and combines groups with a minimal number of FP64 operations — avoiding double-precision throughput bottlenecks on hardware where integer arithmetic is faster. Because the work is linear in the number of moduli — versus quadratic in the number of slices for Scheme 1 — Scheme 2 can be more efficient when many moduli/slices are needed.
+Scheme 2 (`GEMM_OZAKI=2`) uses modular arithmetic instead of mantissa slicing. Each matrix element is reduced modulo a set of small pairwise coprime moduli (primes and prime powers ≤ 128) so that residues fit in int8 and dot products use VNNI int8 instructions when available. GEMM is performed independently modulo each modulus, and the exact integer result is recovered via the Chinese Remainder Theorem (Garner's algorithm with grouped uint64 Horner evaluation). The Horner reconstruction partitions mixed-radix digits into groups of up to 9, evaluates each group exactly in uint64 arithmetic, and combines groups with a minimal number of FP64 operations — avoiding double-precision throughput bottlenecks on hardware where integer arithmetic is faster. Because the work is linear in the number of moduli — versus quadratic in the number of slices for Scheme 1 — Scheme 2 can be more efficient when many moduli/slices are needed.
 
-The compile-time flag `OZ2_SIGNED` (default 1) controls the modulus range and residue type:
+Residues are signed int8 (−127..+127) with the element sign folded directly into the residue. This maps naturally to VNNI's VPDPBUSD encoding (unsigned × signed with bias correction). An unsigned variant (uint8 residues, moduli ≤ 256) is theoretically possible but would require a separate sign array and scalar dot-product accumulation, negating the VNNI advantage.
 
-| `OZ2_SIGNED` | Modulus range | Residue type | Dot product | Moduli (double default/max) |
-|:---:|:---:|:---:|:---:|:---:|
-| 1 (default) | ≤ 128 | int8 | VNNI `VPDPBSSD` | 17 / 18 |
-| 0 | ≤ 256 | uint8 | scalar | 15 / 17 |
-
-The moduli are pairwise coprime (not necessarily all prime): the signed table uses prime powers 128=2^7, 125=5^3, 121=11^2, 81=3^4 alongside primes; the unsigned table includes 256=2^8 plus 16 primes. The product of the selected moduli must exceed the maximum possible dot-product magnitude to avoid aliasing.
-
-The number of moduli can be set at runtime via `GEMM_OZN`. The default and maximum vary by precision and `OZ2_SIGNED` setting (see table above for double; float: default 8, max 10 when signed; default 7, max 10 when unsigned).
+The number of moduli can be set at runtime via `GEMM_OZN`. The default and maximum are: double: 17 / 18; float: 8 / 10.
 
 Example:
 
 ```bash
-GEMM_OZAKI=2 ./gemm-wrap.x 256                        # use CRT scheme (signed, default)
-make ECFLAGS="-DOZ2_SIGNED=0" gemm-wrap.x              # build unsigned variant
+GEMM_OZAKI=2 ./gemm-wrap.x 256                        # use CRT scheme
 ```
 
 ## Compile-Time Parameters
@@ -161,7 +153,7 @@ TA and TB select transposition: 0&#160;means&#160;'N' (no transpose), non-zero m
 | `gemm.h` | Common header: type macros (`GEMM_ARGDECL`/`GEMM_ARGPASS`), precision-specific name redirects, function prototypes for all four GEMM flavors. |
 | `ozaki.c` | Wrapper/orchestration for real GEMM (`GEMM_WRAP`): initialization, environment handling, fallback dispatch, and global state management. Compiled twice (double + float). |
 | `ozaki1.c` | Ozaki Scheme-1 computational kernel (`gemm_oz1`): decomposes IEEE-754 mantissa into 7-bit int8 slices for low-precision dot products. Uses function-pointer dispatch for VNNI vs scalar int8 dot product. Compiled twice (double + float). |
-| `ozaki2.c` | Ozaki Scheme-2 computational kernel (`gemm_oz2`): CRT-based modular arithmetic using small pairwise coprime moduli. Barrett reduction for fast modular arithmetic, Garner's algorithm with batched reconstruction. With `OZ2_SIGNED=1` (default), residues fit in int8 and dot products use VNNI. Compiled twice (double + float). |
+| `ozaki2.c` | Ozaki Scheme-2 computational kernel (`gemm_oz2`): CRT-based modular arithmetic using small pairwise coprime moduli. Barrett reduction for fast modular arithmetic, Garner's algorithm with batched reconstruction. Residues fit in int8 (sign folded in) and dot products use VNNI. Compiled twice (double + float). |
 | `zgemm3m.c` | Complex GEMM 3M wrapper (`ZGEMM_WRAP`): deinterleaves complex matrices, issues 3 real GEMM calls (Karatsuba), recombines. Uses `libxs_malloc` for workspace. Compiled twice (double + float). |
 | `wrap.c` | Entry points (`GEMM`, `ZGEMM`) and dlsym fallbacks (`GEMM_REAL`, `ZGEMM_REAL`) via `GEMM_DEFINE_DLSYM` macro. Used only in the LD_PRELOAD path; excluded from the static archive to keep `__real_` resolution correct. |
 | `gemm.c` | Test driver. |

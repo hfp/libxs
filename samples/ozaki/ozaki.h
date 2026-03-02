@@ -33,9 +33,6 @@
 #if !defined(BATCH_K)
 # define BATCH_K 4
 #endif
-#if !defined(OZ2_SIGNED)
-# define OZ2_SIGNED 1
-#endif
 
 #if !defined(MAX_NSLICES)
 # if GEMM_IS_DOUBLE
@@ -65,21 +62,11 @@
 #define OZ1_DEFAULT (OZ1_TRIANGULAR | OZ1_SYMMETRIZE)
 
 #if GEMM_IS_DOUBLE
-# if 0 != OZ2_SIGNED
-#   define OZ2_NPRIMES_MAX 18
-#   define OZ2_NPRIMES_DEFAULT 17
-# else
-#   define OZ2_NPRIMES_MAX 17
-#   define OZ2_NPRIMES_DEFAULT 15
-# endif
+# define OZ2_NPRIMES_MAX 18
+# define OZ2_NPRIMES_DEFAULT 17
 #else /* single-precision */
-# if 0 != OZ2_SIGNED
-#   define OZ2_NPRIMES_MAX 10
-#   define OZ2_NPRIMES_DEFAULT 8
-# else
-#   define OZ2_NPRIMES_MAX 10
-#   define OZ2_NPRIMES_DEFAULT 7
-# endif
+# define OZ2_NPRIMES_MAX 10
+# define OZ2_NPRIMES_DEFAULT 8
 #endif
 
 /** Implement the public gemm_ozN function: call the _diff kernel,
