@@ -17,7 +17,7 @@ LIBXS_EXTERN_C struct libxs_hist_t {
 };
 
 
-LIBXS_API void libxs_hist_create(libxs_hist_t** hist, int nbuckets, int nqueue, int nvals,
+LIBXS_API int libxs_hist_create(libxs_hist_t** hist, int nbuckets, int nqueue, int nvals,
   const libxs_hist_update_t update[])
 {
   libxs_hist_t* h = (libxs_hist_t*)malloc(sizeof(libxs_hist_t));
@@ -46,6 +46,7 @@ LIBXS_API void libxs_hist_create(libxs_hist_t** hist, int nbuckets, int nqueue, 
     }
   }
   *hist = h;
+  return (NULL != h ? EXIT_SUCCESS : EXIT_FAILURE);
 }
 
 
