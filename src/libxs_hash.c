@@ -9,6 +9,8 @@
 #include "libxs_hash.h"
 #include "libxs_main.h"
 
+#include <stdarg.h>
+
 
 #define LIBXS_HASH_U64(FN, SEED, BEGIN, END) do { \
   for (; ((BEGIN) + 8) <= (END); (BEGIN) = (BEGIN) + 8) { \
@@ -276,18 +278,26 @@ unsigned int internal_crc32_u512_sse4(unsigned int seed, const void* value, ...)
 }
 
 
-LIBXS_API_INTERN unsigned int internal_crc32(unsigned int seed, const void* data, size_t size);
-LIBXS_API_INTERN unsigned int internal_crc32(unsigned int seed, const void* data, size_t size)
+LIBXS_API_INTERN unsigned int internal_crc32(unsigned int seed, const void* data, ...);
+LIBXS_API_INTERN unsigned int internal_crc32(unsigned int seed, const void* data, ...)
 {
+  va_list ap; size_t size;
+  va_start(ap, data);
+  size = va_arg(ap, size_t);
+  va_end(ap);
   LIBXS_ASSERT(NULL != data || 0 == size);
   LIBXS_HASH(internal_crc32_u64, internal_crc32_u32, internal_crc32_u16, internal_crc32_u8, seed, data, size);
 }
 
 
-LIBXS_API_INTERN unsigned int internal_crc32_sse4(unsigned int seed, const void* data, size_t size);
+LIBXS_API_INTERN unsigned int internal_crc32_sse4(unsigned int seed, const void* data, ...);
 LIBXS_API_INTERN LIBXS_INTRINSICS(LIBXS_X86_SSE42)
-unsigned int internal_crc32_sse4(unsigned int seed, const void* data, size_t size)
+unsigned int internal_crc32_sse4(unsigned int seed, const void* data, ...)
 {
+  va_list ap; size_t size;
+  va_start(ap, data);
+  size = va_arg(ap, size_t);
+  va_end(ap);
   LIBXS_ASSERT(NULL != data || 0 == size);
 #if defined(LIBXS_INTRINSICS_SSE42)
   LIBXS_HASH(LIBXS_HASH_CRC32_U64, LIBXS_HASH_CRC32_U32, LIBXS_HASH_CRC32_U16, LIBXS_HASH_CRC32_U8, seed, data, size);
@@ -453,7 +463,7 @@ LIBXS_API_INTERN void libxs_hash_init(int target_arch)
       internal_hash_u32_function = internal_crc32_u32_sse4;
       internal_hash_u16_function = internal_crc32_u16_sse4;
       internal_hash_u8_function = internal_crc32_u8_sse4;
-      internal_hash_function = (libxs_hash_function)internal_crc32_sse4;
+      internal_hash_function = internal_crc32_sse4;
     }
 #if (LIBXS_X86_SSE42 > LIBXS_STATIC_TARGET_ARCH)
     else {
@@ -472,7 +482,7 @@ LIBXS_API_INTERN void libxs_hash_init(int target_arch)
       internal_hash_u32_function = internal_crc32_u32;
       internal_hash_u16_function = internal_crc32_u16;
       internal_hash_u8_function = internal_crc32_u8;
-      internal_hash_function = (libxs_hash_function)internal_crc32;
+      internal_hash_function = internal_crc32;
     }
 #endif
     LIBXS_ATOMIC_SYNC(LIBXS_ATOMIC_SEQ_CST); /* ensure function ptrs visible before publishing table */
