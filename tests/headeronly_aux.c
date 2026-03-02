@@ -8,24 +8,28 @@
 ******************************************************************************/
 #include <libxs_source.h>
 
-/* must match definitions in headeronly.c */
-#if !defined(ITYPE)
-# define ITYPE double
-#endif
-#if !defined(OTYPE)
-# define OTYPE ITYPE
-#endif
 
-
-LIBXS_EXTERN_C void* mmdispatch(int m, int n, int k);
-LIBXS_EXTERN_C void* mmdispatch(int m, int n, int k)
+LIBXS_EXTERN_C int headeronly_aux(void);
+LIBXS_EXTERN_C int headeronly_aux(void)
 {
-  void* result = NULL;
-#if 0
-  const libxs_gemm_shape gemm_shape = libxs_create_gemm_shape(m, n, k, m/*lda*/, k/*ldb*/, m/*ldc*/,
-    LIBXS_DATATYPE(ITYPE), LIBXS_DATATYPE(ITYPE), LIBXS_DATATYPE(OTYPE), LIBXS_DATATYPE(OTYPE));
-  result = libxs_dispatch_gemm(gemm_shape, LIBXS_GEMM_FLAG_NONE,
-    (libxs_bitfield)LIBXS_PREFETCH);
-#endif
+  int result = EXIT_SUCCESS;
+  /* exercise hash, RNG, and math from this (potentially C++) TU */
+  { const unsigned long long hs = libxs_hash_string("headeronly");
+    if (0 == hs) result = EXIT_FAILURE;
+  }
+  { libxs_rng_set_seed(42);
+    { const unsigned int r = libxs_rng_u32(100);
+      if (100 <= r) result = EXIT_FAILURE;
+    }
+    { const double f = libxs_rng_f64();
+      if (0 > f || 1 < f) result = EXIT_FAILURE;
+    }
+  }
+  { const unsigned int s = libxs_isqrt_u32(49);
+    if (7 != s) result = EXIT_FAILURE;
+  }
+  { const unsigned char d = libxs_diff("AB", "AB", 2);
+    if (0 != d) result = EXIT_FAILURE;
+  }
   return result;
 }

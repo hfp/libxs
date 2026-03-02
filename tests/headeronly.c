@@ -8,46 +8,29 @@
 ******************************************************************************/
 #include <libxs_source.h>
 
-/* must match definitions in headeronly_aux.c */
-#if !defined(ITYPE)
-# define ITYPE double
-#endif
-#if !defined(OTYPE)
-# define OTYPE ITYPE
-#endif
 
-
-LIBXS_EXTERN_C void* mmdispatch(int m, int n, int k);
+LIBXS_EXTERN_C int headeronly_aux(void);
 
 
 int main(void)
 {
   int result = EXIT_SUCCESS;
-#if 0
-  const int m = LIBXS_MAX_M, n = LIBXS_MAX_N, k = LIBXS_MAX_K;
-  const libxs_gemm_shape gemm_shape = libxs_create_gemm_shape(
-    m, n, k, m/*lda*/, k/*ldb*/, m/*ldc*/,
-    LIBXS_DATATYPE(ITYPE), LIBXS_DATATYPE(ITYPE),
-    LIBXS_DATATYPE(OTYPE), LIBXS_DATATYPE(OTYPE));
-  const libxs_gemmfunction fa = libxs_dispatch_gemm(gemm_shape,
-    LIBXS_GEMM_FLAG_NONE, (libxs_bitfield)LIBXS_PREFETCH);
-  const libxs_gemmfunction fb = mmdispatch(m, n, k);
-
-  if (fa == fb) { /* test unregistering and freeing kernel */
-    union {
-      libxs_gemmfunction f;
-      const void* p;
-    } kernel;
-    kernel.f = fa;
-    libxs_release_kernel(kernel.p);
+  /* exercise functions from this (C) translation unit */
+  { const size_t g = libxs_gcd(12, 8);
+    const size_t l = libxs_lcm(12, 8);
+    if (4 != g || 24 != l) result = EXIT_FAILURE;
   }
-  else {
-    libxs_registry_info_t registry_info;
-    result = libxs_registry_info(&registry_info);
-    if (EXIT_SUCCESS == result && 2 != registry_info.size) {
-      result = EXIT_FAILURE;
-    }
+  { const unsigned int h = libxs_hash32(0x12345678);
+    if (0 == h) result = EXIT_FAILURE;
   }
-#endif
+  { libxs_timer_tick_t t0, t1;
+    double dt;
+    t0 = libxs_timer_tick();
+    t1 = libxs_timer_tick();
+    dt = libxs_timer_duration(t0, t1);
+    if (0 > dt) result = EXIT_FAILURE;
+  }
+  /* exercise functions from the aux (potentially C++) translation unit */
+  if (EXIT_SUCCESS != headeronly_aux()) result = EXIT_FAILURE;
   return result;
 }

@@ -9,7 +9,18 @@
 #ifndef LIBXS_MACROS_H
 #define LIBXS_MACROS_H
 
-#include "libxs_version.h"
+#if defined(LIBXS_BUILD)
+# include "libxs_version.h"
+#endif
+#if !defined(LIBXS_VERSION_MAJOR)
+# define LIBXS_VERSION_MAJOR  0
+# define LIBXS_VERSION_MINOR  0
+# define LIBXS_VERSION_UPDATE 0
+# define LIBXS_VERSION_PATCH  0
+#endif
+#if !defined(LIBXS_BUILD_DATE)
+# define LIBXS_BUILD_DATE 0
+#endif
 
 /** Configuration parameters. */
 #define LIBXS_CACHELINE 64
