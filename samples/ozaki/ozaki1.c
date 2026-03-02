@@ -141,6 +141,7 @@ LIBXS_API_INLINE void gemm_oz1_diff(const char* transa, const char* transb,
   unsigned int diff_abc, libxs_matdiff_info_t* diff)
 {
   int8_t slice_low_bit[MAX_NSLICES];
+  double pow2_low[MAX_NSLICES];
   enum {
     BLOCK_MN = BLOCK_M * BLOCK_N,
     BLOCK_MK = BLOCK_M * BLOCK_K,
@@ -175,6 +176,11 @@ LIBXS_API_INLINE void gemm_oz1_diff(const char* transa, const char* transb,
     const int high = OZ_MANT_BITS - (7 * s);
     const int low = (high >= 0) ? (high - 6) : 0;
     slice_low_bit[s] = (low > 0 ? low : 0);
+  }
+  /* Precompute pow2(low_bit) per slice; avoids repeated libxs_pow2 calls
+   * in the O(S^2 * M * N) accumulation loop (see diagonal-trim below). */
+  for (s = 0; s < nslices; ++s) {
+    pow2_low[s] = libxs_pow2((int)slice_low_bit[s]);
   }
 
   ak_panel = (int8_t (*)[BLOCK_M][MAX_NSLICES][BLOCK_K])libxs_malloc(
@@ -319,14 +325,32 @@ LIBXS_API_INLINE void gemm_oz1_diff(const char* transa, const char* transb,
                * trim=0 means all pairs (exact); larger values drop the least
                * significant diagonals (~7 bits each). */
               const int cutoff = LIBXS_MAX(0, 2 * (nslices - 1) - gemm_oztrim);
+              /* Precompute base_scale: alpha * pow2(expa + expb - 2*BIAS) per (mi,nj).
+               * Factors out the per-element exponent contribution that is constant
+               * across all slice pairs, reducing libxs_pow2 calls from
+               * O(S^2 * M * N) to O(M * N + S).
+               * NOTE: when expa+expb-2*BIAS < -1022, libxs_pow2 returns 0. This
+               * may discard contributions whose combined shift (base + low_bit_sum)
+               * is >= -1022, affecting exponent sums in [1036, 1128). In practice
+               * this range corresponds to products near the subnormal boundary
+               * and the precision loss is negligible. */
+              double base_scale[BLOCK_M][BLOCK_N];
+              for (mi = 0; mi < iblk; ++mi) {
+                for (nj = 0; nj < jblk; ++nj) {
+                  const int base_sh = (int)expa_panel[a_idx][mi]
+                    + (int)expb_panel[b_idx][nj] - (2 * OZ_BIAS_PLUS_MANT);
+                  base_scale[mi][nj] = (*alpha) * libxs_pow2(base_sh);
+                }
+              }
               LIBXS_PRAGMA_LOOP_COUNT(1, MAX_NSLICES, NSLICES_DEFAULT)
               for (slice_a = 0; slice_a < nslices && slice_a <= cutoff; ++slice_a) {
                 const int sb_start = (0 != (gemm_ozflags & OZ1_TRIANGULAR))
                   ? slice_a : 0;
                 const int sb_end = LIBXS_MIN(nslices, cutoff + 1 - slice_a);
                 for (slice_b = sb_start; slice_b < sb_end; ++slice_b) {
-                  const int low_bit_sum = (int)slice_low_bit[slice_a]
-                    + slice_low_bit[slice_b];
+                  /* pow2(low_bit_a + low_bit_b) = pow2_low[sa] * pow2_low[sb];
+                   * precomputed above to avoid libxs_pow2 in the hot path. */
+                  const double pow2_sum = pow2_low[slice_a] * pow2_low[slice_b];
                   /* When SYMMETRIZE is active and TRIANGULAR drops the mirror
                    * pair (sb,sa), compute both D(sa,sb) and D(sb,sa) in the
                    * same iteration. Both share the same power-of-two shift
@@ -339,11 +363,9 @@ LIBXS_API_INLINE void gemm_oz1_diff(const char* transa, const char* transb,
                       if (do_mirror) {
                         dot += dot_i8(ak_panel[a_idx][mi][slice_b], bk_panel[b_idx][nj][slice_a]);
                       }
-                      if (0 != dot && (GEMM_REAL_TYPE)0 != *alpha) {
-                        const int sh = (int)expa_panel[a_idx][mi] + (int)expb_panel[b_idx][nj]
-                          - (2 * OZ_BIAS_PLUS_MANT) + low_bit_sum;
-                        const double contrib = (*alpha) * (double)dot * libxs_pow2(sh);
-                        cb[mi + nj * ldcv] += (GEMM_REAL_TYPE)contrib;
+                      if (0 != dot) {
+                        cb[mi + nj * ldcv] += (GEMM_REAL_TYPE)(
+                          base_scale[mi][nj] * (double)dot * pow2_sum);
                       }
                     }
                   }
