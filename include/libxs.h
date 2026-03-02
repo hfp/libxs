@@ -9,8 +9,6 @@
 #ifndef LIBXS_H
 #define LIBXS_H
 
-/** Semantic version according to https://semver.org/. */
-#include "libxs_version.h"
 #include "libxs_macros.h"
 
 /* Construct an enumerator (libxs_datatype) from a built-in type (float, double, etc.). */
