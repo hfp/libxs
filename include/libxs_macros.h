@@ -1052,6 +1052,46 @@ LIBXS_EXTERN double erf(double) LIBXS_NOTHROW;
 # define M_PI 3.14159265358979323846
 #endif
 
+/**
+ * Embed a binary file into the read-only data section at compile time.
+ * Produces two symbols: NAME (start) and NAME_end (one-past-end).
+ * Requires GNU-compatible inline assembly (GCC, Clang).
+ * FILENAME is resolved relative to the assembler's working directory
+ * (typically the build directory); use an absolute path if needed.
+ * ALIGN is the byte alignment (integer), e.g., 16.
+ */
+#if (defined(__GNUC__) || defined(__clang__)) && !defined(_MSC_VER)
+# if defined(_WIN32)
+#   define LIBXS_INCBIN_SECTION ".rdata, \"dr\""
+# elif defined(__APPLE__)
+#   define LIBXS_INCBIN_SECTION "__DATA,__const"
+# else
+#   define LIBXS_INCBIN_SECTION ".rodata"
+# endif
+# if defined(__ELF__)
+#   define LIBXS_INCBIN(NAME, FILENAME, ALIGN)                                \
+      __asm__(".section " LIBXS_INCBIN_SECTION "\n"                            \
+              "  .global " #NAME "\n"                                          \
+              "  .type " #NAME ", @object\n"                                   \
+              "  .balign " #ALIGN "\n"                                         \
+              "" #NAME ":\n"                                                   \
+              "  .incbin \"" FILENAME "\"\n"                                   \
+              "" #NAME "_end:\n"                                               \
+              ".previous");                                                    \
+      extern const char NAME[], NAME##_end[]
+# else /* Mach-O, PE/COFF: no .type directive */
+#   define LIBXS_INCBIN(NAME, FILENAME, ALIGN)                                \
+      __asm__(".section " LIBXS_INCBIN_SECTION "\n"                            \
+              "  .global " LIBXS_STRINGIFY(_##NAME) "\n"                       \
+              "  .balign " #ALIGN "\n"                                         \
+              LIBXS_STRINGIFY(_##NAME) ":\n"                                   \
+              "  .incbin \"" FILENAME "\"\n"                                   \
+              LIBXS_STRINGIFY(_##NAME) "_end:\n"                               \
+              ".previous");                                                    \
+      extern const char NAME[], NAME##_end[]
+# endif
+#endif
+
 #if !defined(LIBXS_INTERCEPT_DYNAMIC) && /*defined(LIBXS_BUILD) &&*/ \
     (defined(__GNUC__) || defined(_CRAYC)) && !defined(_WIN32) && !defined(__CYGWIN__) && \
    !(defined(__APPLE__) && defined(__MACH__) && LIBXS_VERSION2(6, 1) >= \
