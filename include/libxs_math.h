@@ -37,6 +37,10 @@ LIBXS_EXTERN_C typedef struct libxs_matdiff_info_t {
   int m, n, i, r;
 } libxs_matdiff_info_t;
 
+/** BF16 storage type (raw uint16_t encoding: 1 sign + 8 exponent + 7 fraction). */
+typedef uint16_t libxs_bf16_t;
+
+
 /**
  * Utility function to calculate a collection of scalar differences between two matrices (libxs_matdiff_info_t).
  * The location (m, n) of the largest difference (linf_abs) is recorded (also in case of NaN). In case of NaN,
@@ -139,6 +143,27 @@ LIBXS_API unsigned int libxs_barrett_pow18(unsigned int p);
  * Used by libxs_mod_u64 for 64-bit reduction via radix-2^18 split.
  */
 LIBXS_API unsigned int libxs_barrett_pow36(unsigned int p);
+
+
+/**
+ * Round a double-precision value to BF16 (round-to-nearest-even).
+ * Uses float as intermediate: double -> float (24-bit) -> BF16 (8-bit).
+ */
+LIBXS_API_INLINE libxs_bf16_t libxs_round_bf16(double x)
+{
+  union { float f; uint32_t u; } cvt;
+  cvt.f = (float)x;
+  cvt.u = (cvt.u + 0x7FFFU + ((cvt.u >> 16) & 1U)) & 0xFFFF0000U;
+  return (libxs_bf16_t)(cvt.u >> 16);
+}
+
+/** Expand a BF16 encoding to double (exact). */
+LIBXS_API_INLINE double libxs_bf16_to_f64(libxs_bf16_t v)
+{
+  union { uint32_t u; float f; } cvt;
+  cvt.u = (uint32_t)v << 16;
+  return (double)cvt.f;
+}
 
 /**
  * Fast 32-bit modular reduction via Barrett's method.

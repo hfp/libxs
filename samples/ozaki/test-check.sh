@@ -71,11 +71,12 @@ else
 fi
 echo
 
-# Scheme 3 (BF16 slicing): exact with default nslices (scalar fallback)
+# Scheme 3 (BF16 Dekker split): inherently approximate (FP32 accumulation)
+# Use explicit threshold — BF16 dot products are not exact unlike int8.
 echo "-----------------------------------"
 echo "CHECK: Scheme 3 (BF16)"
 if [ "$*" ]; then echo "args    $*"; fi
-{ CHECK=-1 GEMM_VERBOSE=1 GEMM_OZAKI=3 "${EXE}" "$@" 2>"${TMPF}"; } >/dev/null || RESULT=$?
+{ CHECK=1e-8 GEMM_VERBOSE=1 GEMM_OZAKI=3 "${EXE}" "$@" 2>"${TMPF}"; } >/dev/null || RESULT=$?
 if [ "0" != "${RESULT}" ]; then
   echo "FAILED[${RESULT}] $(${CAT} "${TMPF}")"
   exit ${RESULT}

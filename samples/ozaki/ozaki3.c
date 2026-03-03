@@ -10,48 +10,26 @@
 
 
 /**
- *  Preprocess rows of A: decompose, align, split into 7-bit digits,
- *  convert to BF16, and write into the k-contiguous layout
- *  ak[M][S][K] used by BF16 dot products.
- *  Same algorithm as oz1's preprocess_rows but stores BF16 values
- *  via ozaki_i8_to_bf16 instead of raw int8 digits.
+ *  Preprocess rows of A: Dekker-split each element into BF16 slices
+ *  and write directly into the k-contiguous layout ak[M][S][K].
+ *  No shared per-row exponent — each BF16 value carries its own.
  */
 LIBXS_API_INLINE void oz3_preprocess_rows(const GEMM_REAL_TYPE* a, GEMM_INT_TYPE lda, int ta,
   GEMM_INT_TYPE M, GEMM_INT_TYPE K, GEMM_INT_TYPE ib, GEMM_INT_TYPE kb, GEMM_INT_TYPE iblk,
-  GEMM_INT_TYPE kblk, int16_t expa_row[BLOCK_M], oz3_bf16_t ak[BLOCK_M][MAX_NSLICES][BLOCK_K])
+  GEMM_INT_TYPE kblk, libxs_bf16_t ak[BLOCK_M][MAX_NSLICES][BLOCK_K])
 {
-  int16_t elem_exp[BLOCK_M][BLOCK_K];
-  uint64_t elem_mant[BLOCK_M][BLOCK_K];
-  int elem_sign[BLOCK_M][BLOCK_K];
   GEMM_INT_TYPE mi, kk;
-
-  /* Pass 1: extract sign, exponent, mantissa and track per-row max exponent */
   for (mi = 0; mi < iblk; ++mi) {
     const GEMM_INT_TYPE row = ib + mi;
-    int16_t row_max_exp = INT16_MIN;
-
     for (kk = 0; kk < kblk; ++kk) {
       const GEMM_INT_TYPE p = kb + kk;
       const GEMM_REAL_TYPE aval = ((row < M && p < K)
         ? a[LIBXS_INDEX(ta, lda, row, p)] : (GEMM_REAL_TYPE)0);
-      elem_sign[mi][kk] = ozaki_extract_ieee(aval, &elem_exp[mi][kk], &elem_mant[mi][kk]);
-      row_max_exp = LIBXS_MAX(row_max_exp, elem_exp[mi][kk]);
-    }
-
-    expa_row[mi] = row_max_exp;
-
-    /* Pass 2: align mantissa, split digits, convert to BF16, scatter into ak[mi][s][kk] */
-    for (kk = 0; kk < kblk; ++kk) {
-      const int delta = (int)row_max_exp - (int)elem_exp[mi][kk];
-      uint64_t aligned = elem_mant[mi][kk];
-      int8_t tmp[MAX_NSLICES];
+      libxs_bf16_t tmp[MAX_NSLICES];
       int s;
-      if (delta > 0) {
-        aligned = (delta < 64) ? (aligned >> delta) : 0;
-      }
-      ozaki_split_digits(aligned, elem_sign[mi][kk], tmp);
+      ozaki_split_to_bf16(aval, tmp);
       LIBXS_PRAGMA_LOOP_COUNT(1, MAX_NSLICES, NSLICES_DEFAULT)
-      for (s = 0; s < gemm_ozn; ++s) ak[mi][s][kk] = ozaki_i8_to_bf16(tmp[s]);
+      for (s = 0; s < gemm_ozn; ++s) ak[mi][s][kk] = tmp[s];
     }
     /* Zero-pad remaining k-entries for fixed-length dot products */
     { int s;
@@ -65,51 +43,29 @@ LIBXS_API_INLINE void oz3_preprocess_rows(const GEMM_REAL_TYPE* a, GEMM_INT_TYPE
 
 
 /**
- *  Preprocess columns of B: decompose, align, split into 7-bit digits,
- *  convert to BF16, and write into the k-contiguous layout
- *  bk[N][S][K] used by BF16 dot products.
+ *  Preprocess columns of B: Dekker-split each element into BF16 slices
+ *  and write directly into the k-contiguous layout bk[N][S][K].
+ *  No shared per-column exponent — each BF16 value carries its own.
  */
 LIBXS_API_INLINE void oz3_preprocess_cols(const GEMM_REAL_TYPE* b, GEMM_INT_TYPE ldb, int tb,
   GEMM_INT_TYPE N, GEMM_INT_TYPE K, GEMM_INT_TYPE jb, GEMM_INT_TYPE kb, GEMM_INT_TYPE jblk,
-  GEMM_INT_TYPE kblk, int16_t expb_col[BLOCK_N], oz3_bf16_t bk[BLOCK_N][MAX_NSLICES][BLOCK_K])
+  GEMM_INT_TYPE kblk, libxs_bf16_t bk[BLOCK_N][MAX_NSLICES][BLOCK_K])
 {
-  int16_t elem_exp[BLOCK_K][BLOCK_N];
-  uint64_t elem_mant[BLOCK_K][BLOCK_N];
-  int elem_sign[BLOCK_K][BLOCK_N];
   GEMM_INT_TYPE nj, kk;
-
-  for (nj = 0; nj < jblk; ++nj) {
-    expb_col[nj] = INT16_MIN;
-  }
-
-  /* Pass 1: extract sign, exponent, mantissa and track per-column max exponent */
   for (kk = 0; kk < kblk; ++kk) {
     const GEMM_INT_TYPE p = kb + kk;
     for (nj = 0; nj < jblk; ++nj) {
       const GEMM_INT_TYPE col = jb + nj;
       const GEMM_REAL_TYPE bval = ((p < K && col < N)
         ? b[LIBXS_INDEX(tb, ldb, p, col)] : (GEMM_REAL_TYPE)0);
-      elem_sign[kk][nj] = ozaki_extract_ieee(bval, &elem_exp[kk][nj], &elem_mant[kk][nj]);
-      expb_col[nj] = LIBXS_MAX(expb_col[nj], elem_exp[kk][nj]);
-    }
-  }
-
-  /* Pass 2: align mantissa, split digits, convert to BF16, scatter into bk[nj][s][kk] */
-  for (kk = 0; kk < kblk; ++kk) {
-    for (nj = 0; nj < jblk; ++nj) {
-      const int delta = (int)expb_col[nj] - (int)elem_exp[kk][nj];
-      uint64_t aligned = elem_mant[kk][nj];
-      int8_t tmp[MAX_NSLICES];
+      libxs_bf16_t tmp[MAX_NSLICES];
       int s;
-      if (delta > 0) {
-        aligned = (delta < 64) ? (aligned >> delta) : 0;
-      }
-      ozaki_split_digits(aligned, elem_sign[kk][nj], tmp);
+      ozaki_split_to_bf16(bval, tmp);
       LIBXS_PRAGMA_LOOP_COUNT(1, MAX_NSLICES, NSLICES_DEFAULT)
-      for (s = 0; s < gemm_ozn; ++s) bk[nj][s][kk] = ozaki_i8_to_bf16(tmp[s]);
+      for (s = 0; s < gemm_ozn; ++s) bk[nj][s][kk] = tmp[s];
     }
   }
-  /* Zero-pad remaining k-entries for fixed-length dot products */
+  /* Zero-pad remaining k-entries */
   { int s;
     for (nj = 0; nj < jblk; ++nj) {
       LIBXS_PRAGMA_LOOP_COUNT(1, MAX_NSLICES, NSLICES_DEFAULT)
@@ -128,8 +84,6 @@ LIBXS_API_INLINE void gemm_oz3_diff(const char* transa, const char* transb,
   const GEMM_REAL_TYPE*  beta, GEMM_REAL_TYPE* c, const GEMM_INT_TYPE* ldc,
   unsigned int diff_abc, libxs_matdiff_info_t* diff)
 {
-  int8_t slice_low_bit[MAX_NSLICES];
-  double pow2_low[MAX_NSLICES];
   enum {
     BLOCK_MN = BLOCK_M * BLOCK_N,
     BLOCK_MK = BLOCK_M * BLOCK_K,
@@ -144,13 +98,11 @@ LIBXS_API_INLINE void gemm_oz3_diff(const char* transa, const char* transb,
   const int nslices = LIBXS_CLMP(gemm_ozn, 1, MAX_NSLICES);
   const GEMM_INT_TYPE nblk_m = (M + BLOCK_M - 1) / BLOCK_M;
   const GEMM_INT_TYPE nblk_n = (N + BLOCK_N - 1) / BLOCK_N;
-  /* Panel buffers: preprocessed A and B for one K-batch (shared).
-   * First index is the sub-panel (BLOCK_K slice within BATCH_K*BLOCK_K).
-   * Uses oz3_bf16_t (2 bytes per element) instead of oz1's int8_t. */
-  oz3_bf16_t (*ak_panel)[BLOCK_M][MAX_NSLICES][BLOCK_K] = NULL;
-  int16_t (*expa_panel)[BLOCK_M] = NULL;
-  oz3_bf16_t (*bk_panel)[BLOCK_N][MAX_NSLICES][BLOCK_K] = NULL;
-  int16_t (*expb_panel)[BLOCK_N] = NULL;
+  /* Panel buffers: preprocessed A and B for one K-batch.
+   * No per-row/per-column exponent panels needed — BF16 slices are
+   * self-describing.  This halves the metadata versus oz1/oz2. */
+  libxs_bf16_t (*ak_panel)[BLOCK_M][MAX_NSLICES][BLOCK_K] = NULL;
+  libxs_bf16_t (*bk_panel)[BLOCK_N][MAX_NSLICES][BLOCK_K] = NULL;
   GEMM_REAL_TYPE *ref_panel = NULL; /* diff mode 0 only */
   libxs_matdiff_info_t tdiff[256];
   int nthreads = 1;
@@ -160,26 +112,10 @@ LIBXS_API_INLINE void gemm_oz3_diff(const char* transa, const char* transb,
             || LIBXS_DATATYPE_F32 == LIBXS_DATATYPE(GEMM_REAL_TYPE));
   LIBXS_ASSERT(1 <= BATCH_K);
 
-  LIBXS_PRAGMA_LOOP_COUNT(1, MAX_NSLICES, NSLICES_DEFAULT)
-  for (s = 0; s < nslices; ++s) {
-    const int high = OZ_MANT_BITS - (7 * s);
-    const int low = (high >= 0) ? (high - 6) : 0;
-    slice_low_bit[s] = (low > 0 ? low : 0);
-  }
-  /* Precompute pow2(low_bit) per slice; avoids repeated libxs_pow2 calls
-   * in the O(S^2 * M * N) accumulation loop (see diagonal-trim below). */
-  for (s = 0; s < nslices; ++s) {
-    pow2_low[s] = libxs_pow2((int)slice_low_bit[s]);
-  }
-
-  ak_panel = (oz3_bf16_t (*)[BLOCK_M][MAX_NSLICES][BLOCK_K])libxs_malloc(
+  ak_panel = (libxs_bf16_t (*)[BLOCK_M][MAX_NSLICES][BLOCK_K])libxs_malloc(
     (size_t)NKB_MAX * nblk_m * sizeof(*ak_panel), 0);
-  expa_panel = (int16_t (*)[BLOCK_M])libxs_malloc(
-    (size_t)NKB_MAX * nblk_m * sizeof(*expa_panel), 0);
-  bk_panel = (oz3_bf16_t (*)[BLOCK_N][MAX_NSLICES][BLOCK_K])libxs_malloc(
+  bk_panel = (libxs_bf16_t (*)[BLOCK_N][MAX_NSLICES][BLOCK_K])libxs_malloc(
     (size_t)NKB_MAX * nblk_n * sizeof(*bk_panel), 0);
-  expb_panel = (int16_t (*)[BLOCK_N])libxs_malloc(
-    (size_t)NKB_MAX * nblk_n * sizeof(*expb_panel), 0);
   if (NULL != diff && 0 == (diff_abc % 3)) {
     ref_panel = (GEMM_REAL_TYPE*)libxs_malloc(
       (size_t)nblk_m * nblk_n * BLOCK_MN * sizeof(*ref_panel), 0);
@@ -203,7 +139,7 @@ LIBXS_API_INLINE void gemm_oz3_diff(const char* transa, const char* transb,
       const GEMM_INT_TYPE batch_end = LIBXS_MIN(kb_batch + BATCH_K * BLOCK_K, K);
       const GEMM_INT_TYPE nkb = (batch_end - kb_batch + BLOCK_K - 1) / BLOCK_K;
 
-      /* Phase 1: preprocess all A row-blocks for all sub-panels in batch */
+      /* Phase 1: preprocess all A row-blocks — Dekker split only, no exponents */
 #if defined(_OPENMP)
 #     pragma omp for schedule(dynamic) nowait
 #endif
@@ -215,10 +151,10 @@ LIBXS_API_INLINE void gemm_oz3_diff(const char* transa, const char* transb,
         const GEMM_INT_TYPE iblk2 = LIBXS_MIN(BLOCK_M, M - ib2);
         const GEMM_INT_TYPE kblk = LIBXS_MIN(BLOCK_K, K - kb);
         oz3_preprocess_rows(a, *lda, ta, M, K, ib2, kb, iblk2, kblk,
-          expa_panel[ki * nblk_m + ibi], ak_panel[ki * nblk_m + ibi]);
+          ak_panel[ki * nblk_m + ibi]);
       }
 
-      /* Phase 2: preprocess all B col-blocks for all sub-panels in batch */
+      /* Phase 2: preprocess all B col-blocks — Dekker split only, no exponents */
 #if defined(_OPENMP)
 #     pragma omp for schedule(dynamic)
 #endif
@@ -230,11 +166,14 @@ LIBXS_API_INLINE void gemm_oz3_diff(const char* transa, const char* transb,
         const GEMM_INT_TYPE jblk2 = LIBXS_MIN(BLOCK_N, N - jb2);
         const GEMM_INT_TYPE kblk = LIBXS_MIN(BLOCK_K, K - kb);
         oz3_preprocess_cols(b, *ldb, tb, N, K, jb2, kb, jblk2, kblk,
-          expb_panel[ki * nblk_n + jbi], bk_panel[ki * nblk_n + jbi]);
+          bk_panel[ki * nblk_n + jbi]);
       }
       /* implicit barrier ensures panels are ready */
 
-      /* Phase 3: BF16 dot products + accumulate using panel data */
+      /* Phase 3: BF16 dot products + accumulate.
+       * No exponent reconstruction needed — the dot product result from
+       * VDPBF16PS (or the scalar fallback) is already a properly scaled
+       * FP32 value because each BF16 slice carries its own exponent. */
 #if defined(_OPENMP)
 #     pragma omp for LIBXS_OPENMP_COLLAPSE(2) schedule(static)
 #endif
@@ -264,7 +203,7 @@ LIBXS_API_INLINE void gemm_oz3_diff(const char* transa, const char* transb,
             const GEMM_INT_TYPE a_idx = kb_sub * nblk_m + ibi;
             const GEMM_INT_TYPE b_idx = kb_sub * nblk_n + jbi;
 
-            /* Track differences between original A block and reconstructed digits */
+            /* Diff mode 1: track A decomposition accuracy */
             if (NULL != diff && 1 == (diff_abc % 3)) {
               GEMM_REAL_TYPE ref_blk[BLOCK_MNK];
               for (mi = 0; mi < iblk; ++mi) {
@@ -273,23 +212,19 @@ LIBXS_API_INLINE void gemm_oz3_diff(const char* transa, const char* transb,
                   const GEMM_INT_TYPE p = kb + kk;
                   const GEMM_REAL_TYPE aval = ((row < M && p < K) ?
                     a[LIBXS_INDEX(ta, *lda, row, p)] : (GEMM_REAL_TYPE)0);
-                  const int exp_base = (int)expa_panel[a_idx][mi] - OZ_BIAS_PLUS_MANT;
-                  int8_t tmp[MAX_NSLICES];
+                  double arecon = 0.0;
                   int si;
                   for (si = 0; si < gemm_ozn; ++si) {
-                    tmp[si] = ozaki_bf16_to_i8(ak_panel[a_idx][mi][si][kk]);
+                    arecon += libxs_bf16_to_f64(ak_panel[a_idx][mi][si][kk]);
                   }
-                  { const double arecon = reconstruct_from_digits(tmp,
-                      exp_base, slice_low_bit);
-                    ozaki_store_block_pair(ref_blk, recon_blk, BLOCK_M, mi, kk,
-                      (GEMM_REAL_TYPE)aval, (GEMM_REAL_TYPE)arecon);
-                  }
+                  ozaki_store_block_pair(ref_blk, recon_blk, BLOCK_M, mi, kk,
+                    (GEMM_REAL_TYPE)aval, (GEMM_REAL_TYPE)arecon);
                 }
               }
               ozaki_accumulate_block_diff(&tdiff[tid], ref_blk, recon_blk, iblk, kblk, BLOCK_M, BLOCK_M);
             }
 
-            /* Track differences between original B block and reconstructed digits */
+            /* Diff mode 2: track B decomposition accuracy */
             if (NULL != diff && 2 == (diff_abc % 3)) {
               GEMM_REAL_TYPE ref_blk[BLOCK_MNK];
               for (kk = 0; kk < kblk; ++kk) {
@@ -298,48 +233,28 @@ LIBXS_API_INLINE void gemm_oz3_diff(const char* transa, const char* transb,
                   const GEMM_INT_TYPE col = jb + nj;
                   const GEMM_REAL_TYPE bval = ((p < K && col < N)
                     ? b[LIBXS_INDEX(tb, *ldb, p, col)] : (GEMM_REAL_TYPE)0);
-                  const int exp_base = (int)expb_panel[b_idx][nj] - OZ_BIAS_PLUS_MANT;
-                  int8_t tmp[MAX_NSLICES];
+                  double brecon = 0.0;
                   int si;
                   for (si = 0; si < gemm_ozn; ++si) {
-                    tmp[si] = ozaki_bf16_to_i8(bk_panel[b_idx][nj][si][kk]);
+                    brecon += libxs_bf16_to_f64(bk_panel[b_idx][nj][si][kk]);
                   }
-                  { const double brecon = reconstruct_from_digits(tmp,
-                      exp_base, slice_low_bit);
-                    ozaki_store_block_pair(ref_blk, recon_blk, BLOCK_K, kk, nj,
-                      (GEMM_REAL_TYPE)bval, (GEMM_REAL_TYPE)brecon);
-                  }
+                  ozaki_store_block_pair(ref_blk, recon_blk, BLOCK_K, kk, nj,
+                    (GEMM_REAL_TYPE)bval, (GEMM_REAL_TYPE)brecon);
                 }
               }
               ozaki_accumulate_block_diff(&tdiff[tid], ref_blk, recon_blk, kblk, jblk, BLOCK_K, BLOCK_K);
             }
 
             { /* Diagonal-trim loop: iterate pairs (sa,sb) with sa+sb <= cutoff.
-               * Identical to oz1's structure but using BF16 dot products.
-               * trim=0 means all pairs (exact); larger values drop the least
-               * significant diagonals (~7 bits each). */
+               * trim=0 means all pairs; larger values drop the least
+               * significant diagonals (~8 bits each for BF16 slices). */
               const int cutoff = LIBXS_MAX(0, 2 * (nslices - 1) - gemm_oztrim);
-              /* Precompute base_scale: alpha * pow2(expa + expb - 2*BIAS) per (mi,nj). */
-              double base_scale[BLOCK_M][BLOCK_N];
-              for (mi = 0; mi < iblk; ++mi) {
-                for (nj = 0; nj < jblk; ++nj) {
-                  const int base_sh = (int)expa_panel[a_idx][mi]
-                    + (int)expb_panel[b_idx][nj] - (2 * OZ_BIAS_PLUS_MANT);
-                  base_scale[mi][nj] = (*alpha) * libxs_pow2(base_sh);
-                }
-              }
               LIBXS_PRAGMA_LOOP_COUNT(1, MAX_NSLICES, NSLICES_DEFAULT)
               for (slice_a = 0; slice_a < nslices && slice_a <= cutoff; ++slice_a) {
                 const int sb_start = (0 != (gemm_ozflags & OZ1_TRIANGULAR))
                   ? slice_a : 0;
                 const int sb_end = LIBXS_MIN(nslices, cutoff + 1 - slice_a);
                 for (slice_b = sb_start; slice_b < sb_end; ++slice_b) {
-                  /* pow2(low_bit_a + low_bit_b) = pow2_low[sa] * pow2_low[sb];
-                   * precomputed above to avoid libxs_pow2 in the hot path. */
-                  const double pow2_sum = pow2_low[slice_a] * pow2_low[slice_b];
-                  /* When SYMMETRIZE is active and TRIANGULAR drops the mirror
-                   * pair (sb,sa), compute both D(sa,sb) and D(sb,sa) in the
-                   * same iteration. */
                   const int do_mirror = (0 != (gemm_ozflags & OZ1_SYMMETRIZE))
                     && (slice_a != slice_b);
                   for (mi = 0; mi < iblk; ++mi) {
@@ -349,8 +264,7 @@ LIBXS_API_INLINE void gemm_oz3_diff(const char* transa, const char* transb,
                         dot += dot_bf16(ak_panel[a_idx][mi][slice_b], bk_panel[b_idx][nj][slice_a]);
                       }
                       if (0.0f != dot) {
-                        cb[mi + nj * ldcv] += (GEMM_REAL_TYPE)(
-                          base_scale[mi][nj] * (double)dot * pow2_sum);
+                        cb[mi + nj * ldcv] += (GEMM_REAL_TYPE)((*alpha) * (double)dot);
                       }
                     }
                   }
@@ -397,8 +311,8 @@ LIBXS_API_INLINE void gemm_oz3_diff(const char* transa, const char* transb,
       libxs_matdiff_reduce(diff, &tdiff[s]);
     }
   }
-  libxs_free(ak_panel); libxs_free(expa_panel);
-  libxs_free(bk_panel); libxs_free(expb_panel);
+  libxs_free(ak_panel);
+  libxs_free(bk_panel);
   libxs_free(ref_panel);
 }
 

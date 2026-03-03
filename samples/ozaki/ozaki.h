@@ -329,35 +329,35 @@ typedef int32_t (*ozaki_dot_i8_fn)(const int8_t[BLOCK_K], const int8_t[BLOCK_K])
 
 /* Shared bfloat16 dot-product infrastructure (AVX-512-BF16 + scalar fallback).
  * VDPBF16PS: BF16 pair dot product accumulated into FP32.
- * For 7-bit Ozaki digits (|d| <= 63), BF16 encoding is exact (7+1 = 8-bit
- * significand covers +/-127) and the FP32 accumulation is exact for all
- * supported BLOCK_K sizes (max dot magnitude < 2^18 << FP32's 2^24).
+ *
+ * Scheme 3 uses a BF16-native Dekker-style error-free split: each element
+ * is decomposed into a sequence of BF16 values by iteratively rounding the
+ * residual.  Every BF16 slice carries its own exponent, so there is no
+ * shared per-row/per-column exponent, no mantissa alignment, and the dot
+ * product result is already a properly scaled FP32 value.
+ *
  * Guard: __AVX512BF16__ is defined by GCC >= 11 / Clang >= 13 when
  * -mavx512bf16 (or implied by -march=sapphirerapids, etc.) is active. */
 
-/* BF16 storage type (raw uint16_t encoding). */
-typedef uint16_t oz3_bf16_t;
-
 /**
- *  Convert a signed 7-bit digit to BF16 encoding.
- *  Exact for all values in [-63, +63] (BF16 has 8-bit significand).
+ *  Dekker-style error-free split: decompose a floating-point value into
+ *  a sequence of BF16 slices such that value = sum(slices) + residual.
+ *  Each slice captures the next 8 significant bits of the residual;
+ *  after S slices, roughly 8*S mantissa bits have been captured.
+ *
+ *  Because every BF16 slice carries its own exponent, this avoids the
+ *  shared-exponent alignment that int8-based schemes require.
  */
-LIBXS_API_INLINE oz3_bf16_t ozaki_i8_to_bf16(int8_t d)
+LIBXS_API_INLINE void ozaki_split_to_bf16(GEMM_REAL_TYPE x,
+  libxs_bf16_t slices[MAX_NSLICES])
 {
-  union { float f; uint32_t u; } cvt;
-  cvt.f = (float)d;
-  return (uint16_t)(cvt.u >> 16);
-}
-
-/**
- *  Convert a BF16-encoded digit back to int8.
- *  Exact for values that were originally small integers.
- */
-LIBXS_API_INLINE int8_t ozaki_bf16_to_i8(oz3_bf16_t v)
-{
-  union { uint32_t u; float f; } cvt;
-  cvt.u = (uint32_t)v << 16;
-  return (int8_t)cvt.f;
+  double residual = (double)x;
+  int s;
+  LIBXS_PRAGMA_LOOP_COUNT(1, MAX_NSLICES, NSLICES_DEFAULT)
+  for (s = 0; s < gemm_ozn; ++s) {
+    slices[s] = libxs_round_bf16(residual);
+    residual -= libxs_bf16_to_f64(slices[s]);
+  }
 }
 
 
@@ -366,7 +366,7 @@ LIBXS_API_INLINE int8_t ozaki_bf16_to_i8(oz3_bf16_t v)
 # if 16 == BLOCK_K /* 256-bit: 16 BF16 values = 8 pairs */
 
 LIBXS_API_INLINE LIBXS_INTRINSICS(LIBXS_X86_AVX512)
-float ozaki_dot_bf16_hw(const oz3_bf16_t a[BLOCK_K], const oz3_bf16_t b[BLOCK_K])
+float ozaki_dot_bf16_hw(const libxs_bf16_t a[BLOCK_K], const libxs_bf16_t b[BLOCK_K])
 {
   const __m256bh va = (__m256bh)_mm256_loadu_si256((const __m256i*)a);
   const __m256bh vb = (__m256bh)_mm256_loadu_si256((const __m256i*)b);
@@ -383,7 +383,7 @@ float ozaki_dot_bf16_hw(const oz3_bf16_t a[BLOCK_K], const oz3_bf16_t b[BLOCK_K]
 # elif 32 == BLOCK_K /* 512-bit: 32 BF16 values = 16 pairs */
 
 LIBXS_API_INLINE LIBXS_INTRINSICS(LIBXS_X86_AVX512)
-float ozaki_dot_bf16_hw(const oz3_bf16_t a[BLOCK_K], const oz3_bf16_t b[BLOCK_K])
+float ozaki_dot_bf16_hw(const libxs_bf16_t a[BLOCK_K], const libxs_bf16_t b[BLOCK_K])
 {
   const __m512bh va = (__m512bh)_mm512_loadu_si512((const __m512i*)a);
   const __m512bh vb = (__m512bh)_mm512_loadu_si512((const __m512i*)b);
@@ -394,7 +394,7 @@ float ozaki_dot_bf16_hw(const oz3_bf16_t a[BLOCK_K], const oz3_bf16_t b[BLOCK_K]
 # elif 64 == BLOCK_K /* 2 x 512-bit: 64 BF16 values = 32 pairs */
 
 LIBXS_API_INLINE LIBXS_INTRINSICS(LIBXS_X86_AVX512)
-float ozaki_dot_bf16_hw(const oz3_bf16_t a[BLOCK_K], const oz3_bf16_t b[BLOCK_K])
+float ozaki_dot_bf16_hw(const libxs_bf16_t a[BLOCK_K], const libxs_bf16_t b[BLOCK_K])
 {
   const __m512bh va0 = (__m512bh)_mm512_loadu_si512((const __m512i*)a);
   const __m512bh vb0 = (__m512bh)_mm512_loadu_si512((const __m512i*)b);
@@ -409,7 +409,7 @@ float ozaki_dot_bf16_hw(const oz3_bf16_t a[BLOCK_K], const oz3_bf16_t b[BLOCK_K]
 #endif /* LIBXS_INTRINSICS_AVX512 && __AVX512BF16__ */
 
 
-LIBXS_API_INLINE float ozaki_dot_bf16_sw(const oz3_bf16_t a[BLOCK_K], const oz3_bf16_t b[BLOCK_K])
+LIBXS_API_INLINE float ozaki_dot_bf16_sw(const libxs_bf16_t a[BLOCK_K], const libxs_bf16_t b[BLOCK_K])
 {
   float dot = 0.0f;
   int kk;
@@ -426,7 +426,7 @@ LIBXS_API_INLINE float ozaki_dot_bf16_sw(const oz3_bf16_t a[BLOCK_K], const oz3_
 /* Function pointer type for BF16 dot product dispatch.
  * Dispatch priority: VDPBF16PS (hardware, 1 instruction per pair) >
  * scalar (software fallback). */
-typedef float (*ozaki_dot_bf16_fn)(const oz3_bf16_t[BLOCK_K], const oz3_bf16_t[BLOCK_K]);
+typedef float (*ozaki_dot_bf16_fn)(const libxs_bf16_t[BLOCK_K], const libxs_bf16_t[BLOCK_K]);
 
 #if defined(LIBXS_INTRINSICS_AVX512) && defined(__AVX512BF16__) && \
     (16 == BLOCK_K || 32 == BLOCK_K || 64 == BLOCK_K)
@@ -486,64 +486,6 @@ LIBXS_API_INLINE int ozaki_extract_ieee(GEMM_REAL_TYPE value,
   *exp_biased = (int16_t)exp_raw;
   *mantissa = (1ULL << OZ_MANT_BITS) | frac;
   return sign;
-}
-
-
-/**
- *  Split a (pre-aligned) mantissa into signed 7-bit digits.
- *  The mantissa is expected to be in the same format as produced
- *  by ozaki_extract_ieee (implicit bit at position OZ_MANT_BITS),
- *  but may have been right-shifted for exponent alignment.
- */
-LIBXS_API_INLINE void ozaki_split_digits(uint64_t mantissa, int sign,
-  int8_t digits[MAX_NSLICES])
-{
-  int s;
-  if (0 == mantissa) {
-    memset(digits, 0, sizeof(int8_t) * gemm_ozn);
-    return;
-  }
-  LIBXS_PRAGMA_LOOP_COUNT(1, MAX_NSLICES, NSLICES_DEFAULT)
-  for (s = 0; s < gemm_ozn; ++s) {
-    const int high = OZ_MANT_BITS - (7 * s);
-    if (high < 0) {
-      digits[s] = 0;
-      continue;
-    }
-    { const int low = high - 6;
-      uint64_t chunk;
-      if (low >= 0) {
-        chunk = (mantissa >> low) & 0x7FULL;
-      }
-      else {
-        const int width = high + 1;
-        chunk = mantissa & ((1ULL << width) - 1ULL);
-      }
-      digits[s] = (int8_t)(sign * (int64_t)chunk);
-    }
-  }
-}
-
-
-/**
- *  Reconstruct a floating-point value from its signed 7-bit digit
- *  representation.  Shared by oz1 and oz3 for diff tracking.
- */
-LIBXS_API_INLINE double reconstruct_from_digits(const int8_t digits[MAX_NSLICES],
-  int exp_base, const int8_t slice_low_bit[MAX_NSLICES])
-{
-  double recon = 0.0;
-  int slice = 0;
-
-  for (; slice < gemm_ozn; ++slice) {
-    const int16_t digit = (int16_t)digits[slice];
-    if (0 != digit) {
-      const int sh = exp_base + slice_low_bit[slice];
-      recon += (double)digit * libxs_pow2(sh);
-    }
-  }
-
-  return recon;
 }
 
 

@@ -10,6 +10,64 @@
 
 
 /**
+ *  Split a (pre-aligned) mantissa into signed 7-bit digits.
+ *  The mantissa is expected to be in the same format as produced
+ *  by ozaki_extract_ieee (implicit bit at position OZ_MANT_BITS),
+ *  but may have been right-shifted for exponent alignment.
+ */
+static void split_digits(uint64_t mantissa, int sign,
+  int8_t digits[MAX_NSLICES])
+{
+  int s;
+  if (0 == mantissa) {
+    memset(digits, 0, sizeof(int8_t) * gemm_ozn);
+    return;
+  }
+  LIBXS_PRAGMA_LOOP_COUNT(1, MAX_NSLICES, NSLICES_DEFAULT)
+  for (s = 0; s < gemm_ozn; ++s) {
+    const int high = OZ_MANT_BITS - (7 * s);
+    if (high < 0) {
+      digits[s] = 0;
+      continue;
+    }
+    { const int low = high - 6;
+      uint64_t chunk;
+      if (low >= 0) {
+        chunk = (mantissa >> low) & 0x7FULL;
+      }
+      else {
+        const int width = high + 1;
+        chunk = mantissa & ((1ULL << width) - 1ULL);
+      }
+      digits[s] = (int8_t)(sign * (int64_t)chunk);
+    }
+  }
+}
+
+
+/**
+ *  Reconstruct a floating-point value from its signed 7-bit digit
+ *  representation.  Used by diff tracking modes 1 and 2.
+ */
+static double reconstruct_from_digits(const int8_t digits[MAX_NSLICES],
+  int exp_base, const int8_t slice_low_bit[MAX_NSLICES])
+{
+  double recon = 0.0;
+  int slice = 0;
+
+  for (; slice < gemm_ozn; ++slice) {
+    const int16_t digit = (int16_t)digits[slice];
+    if (0 != digit) {
+      const int sh = exp_base + slice_low_bit[slice];
+      recon += (double)digit * libxs_pow2(sh);
+    }
+  }
+
+  return recon;
+}
+
+
+/**
  *  Preprocess rows of A: decompose, align, split into digits, and write
  *  directly into the k-contiguous layout ak[M][S][K] used by dot products.
  *  This avoids a separate transpose pass over an intermediate buffer.
@@ -47,7 +105,7 @@ LIBXS_API_INLINE void preprocess_rows(const GEMM_REAL_TYPE* a, GEMM_INT_TYPE lda
       if (delta > 0) {
         aligned = (delta < 64) ? (aligned >> delta) : 0;
       }
-      ozaki_split_digits(aligned, elem_sign[mi][kk], tmp);
+      split_digits(aligned, elem_sign[mi][kk], tmp);
       LIBXS_PRAGMA_LOOP_COUNT(1, MAX_NSLICES, NSLICES_DEFAULT)
       for (s = 0; s < gemm_ozn; ++s) ak[mi][s][kk] = tmp[s];
     }
@@ -102,7 +160,7 @@ LIBXS_API_INLINE void preprocess_cols(const GEMM_REAL_TYPE* b, GEMM_INT_TYPE ldb
       if (delta > 0) {
         aligned = (delta < 64) ? (aligned >> delta) : 0;
       }
-      ozaki_split_digits(aligned, elem_sign[kk][nj], tmp);
+      split_digits(aligned, elem_sign[kk][nj], tmp);
       LIBXS_PRAGMA_LOOP_COUNT(1, MAX_NSLICES, NSLICES_DEFAULT)
       for (s = 0; s < gemm_ozn; ++s) bk[nj][s][kk] = tmp[s];
     }

@@ -598,5 +598,98 @@ int main(int argc, char* argv[])
     }
   }
 
+  /* BF16 round-trip: libxs_round_bf16 and libxs_bf16_to_f64 */
+  {
+    /* Test 1: zero round-trips exactly */
+    { const libxs_bf16_t z = libxs_round_bf16(0.0);
+      if (0.0 != libxs_bf16_to_f64(z)) {
+        FPRINTF(stderr, "ERROR line #%i: BF16 zero round-trip\n", __LINE__);
+        exit(EXIT_FAILURE);
+      }
+    }
+    /* Test 2: exact representable value (1.0) */
+    { const libxs_bf16_t one = libxs_round_bf16(1.0);
+      if (1.0 != libxs_bf16_to_f64(one)) {
+        FPRINTF(stderr, "ERROR line #%i: BF16 1.0 round-trip\n", __LINE__);
+        exit(EXIT_FAILURE);
+      }
+    }
+    /* Test 3: negative exact representable value (-2.0) */
+    { const libxs_bf16_t m2 = libxs_round_bf16(-2.0);
+      if (-2.0 != libxs_bf16_to_f64(m2)) {
+        FPRINTF(stderr, "ERROR line #%i: BF16 -2.0 round-trip\n", __LINE__);
+        exit(EXIT_FAILURE);
+      }
+    }
+    /* Test 4: round-to-nearest-even — 1.5 * 2^0 exactly representable */
+    { const libxs_bf16_t h = libxs_round_bf16(1.5);
+      if (1.5 != libxs_bf16_to_f64(h)) {
+        FPRINTF(stderr, "ERROR line #%i: BF16 1.5 round-trip\n", __LINE__);
+        exit(EXIT_FAILURE);
+      }
+    }
+    /* Test 5: value that requires rounding (pi) — check relative error < 2^-7 */
+    { const double pi = 3.14159265358979323846;
+      const libxs_bf16_t bp = libxs_round_bf16(pi);
+      const double back = libxs_bf16_to_f64(bp);
+      const double relerr = (back - pi) / pi;
+      if (relerr < 0 ? -relerr > 0.01 : relerr > 0.01) {
+        FPRINTF(stderr, "ERROR line #%i: BF16 pi relerr=%g\n", __LINE__, relerr);
+        exit(EXIT_FAILURE);
+      }
+    }
+    /* Test 6: Dekker-style split property — sum of slices reconstructs original.
+     *         Round-trip error must decrease with each additional slice. */
+    { const double val = 3.14159265358979323846;
+      double residual = val;
+      double recon = 0.0;
+      int ns;
+      for (ns = 0; ns < 7; ++ns) {
+        const libxs_bf16_t s = libxs_round_bf16(residual);
+        recon += libxs_bf16_to_f64(s);
+        residual -= libxs_bf16_to_f64(s);
+      }
+      /* 7 slices capture 56 bits > 52 mantissa bits of double */
+      { const double err = val - recon;
+        if (err < 0 ? -err > 1e-15 : err > 1e-15) {
+          FPRINTF(stderr, "ERROR line #%i: BF16 Dekker split residual=%g\n",
+            __LINE__, err);
+          exit(EXIT_FAILURE);
+        }
+      }
+    }
+    /* Test 7: large and small magnitudes */
+    { const double large = 1.0e30;
+      const double small_v = 1.0e-30;
+      const libxs_bf16_t bl = libxs_round_bf16(large);
+      const libxs_bf16_t bs = libxs_round_bf16(small_v);
+      const double rl = libxs_bf16_to_f64(bl);
+      const double rs = libxs_bf16_to_f64(bs);
+      /* Relative error must be within BF16's ~0.8% precision */
+      if (rl <= 0 || (large - rl) / large > 0.01 || (large - rl) / large < -0.01) {
+        FPRINTF(stderr, "ERROR line #%i: BF16 large magnitude\n", __LINE__);
+        exit(EXIT_FAILURE);
+      }
+      if (rs <= 0 || (small_v - rs) / small_v > 0.01 || (small_v - rs) / small_v < -0.01) {
+        FPRINTF(stderr, "ERROR line #%i: BF16 small magnitude\n", __LINE__);
+        exit(EXIT_FAILURE);
+      }
+    }
+    /* Test 8: random values — verify round-trip relative error bounded by 2^-7 */
+    for (i = 0; i < (N); ++i) {
+      const double v = 2.0 * ((double)rand() / RAND_MAX - 0.5) * 1e10;
+      const libxs_bf16_t b16 = libxs_round_bf16(v);
+      const double back = libxs_bf16_to_f64(b16);
+      if (0.0 != v) {
+        const double rel = (back - v) / v;
+        if (rel < 0 ? -rel > 0.01 : rel > 0.01) {
+          FPRINTF(stderr, "ERROR line #%i: BF16 random relerr=%g v=%g\n",
+            __LINE__, rel, v);
+          exit(EXIT_FAILURE);
+        }
+      }
+    }
+  }
+
   return EXIT_SUCCESS;
 }

@@ -2,7 +2,7 @@
 
 ## Intercepted GEMM
 
-This code sample intercepts all four standard BLAS GEMM routines — DGEMM, SGEMM, ZGEMM, and CGEMM — and only relies on the LAPACK/BLAS interface. Real GEMM calls (DGEMM/SGEMM) are executed via one of three Ozaki low-precision schemes (mantissa slicing, CRT, or BF16 slicing); complex GEMM calls (ZGEMM/CGEMM) are implemented via the 3M (Karatsuba) method using three real GEMM calls each. The wrapper sources are compiled twice (once for `double`, once for `float`), so all four symbols coexist in a single binary.
+This code sample intercepts all four standard BLAS GEMM routines — DGEMM, SGEMM, ZGEMM, and CGEMM — and only relies on the LAPACK/BLAS interface. Real GEMM calls (DGEMM/SGEMM) are executed via one of three Ozaki low-precision schemes (mantissa slicing, CRT, or BF16 Dekker split); complex GEMM calls (ZGEMM/CGEMM) are implemented via the 3M (Karatsuba) method using three real GEMM calls each. The wrapper sources are compiled twice (once for `double`, once for `float`), so all four symbols coexist in a single binary.
 
 Two link-time variants are built: (1)&#160;code which is dynamically linked against LAPACK/BLAS (`gemm-blas.x`), (2)&#160;code which is linked using `--wrap=`*symbol* supported by GNU&#160;GCC compatible tool chains (`gemm-wrap.x`). Running `wrap-test.sh` exercises three flavors: the two build variants and additionally the first variant using the LD_PRELOAD mechanism (available under Linux).
 
@@ -26,7 +26,7 @@ The Ozaki sample code demonstrates how to intercept GEMMs (any BLAS library), to
 
 The blocking structure is designed to conceptually emulate fixed-size matrix-multiply hardware. All computation operates on tiles of size `BLOCK_M`&#160;×&#160;`BLOCK_K` (A) and `BLOCK_K`&#160;×&#160;`BLOCK_N` (B), with defaults BLOCK_M&#160;=&#160;BLOCK_N&#160;=&#160;BLOCK_K&#160;=&#160;16. The compile-time parameter `BATCH_K` (default&#160;4) groups `BATCH_K` consecutive BLOCK_K panels into a single batch, so the effective K-dimension step per batch is BATCH_K&#160;×&#160;BLOCK_K. Batching reduces OpenMP barrier overhead and improves temporal reuse of the C&#160;tile, while keeping the fundamental tile size visible throughout the code.
 
-Preprocessing (exponent alignment, mantissa slicing or modular reduction) accounts for roughly 5% of runtime; the remaining 95% is spent in the inner dot-product loops. In Scheme&#160;1, int8 dot products are dispatched once per GEMM via a function pointer: AVX-512 VNNI (`VPDPBUSD`) when available, otherwise a scalar fallback. Scheme&#160;3 follows the same slicing approach but uses BF16 dot products (`VDPBF16PS`) instead of int8. The number of pairwise slice products is quadratic in the number of slices, so for double-precision (8&#160;slices, default) the inner loop performs up to 36&#160;dot products per block pair. Scheme&#160;2 performs one modular dot product per prime, so its cost is linear in the number of primes.
+Preprocessing (exponent alignment, mantissa slicing or modular reduction) accounts for roughly 5% of runtime; the remaining 95% is spent in the inner dot-product loops. In Scheme&#160;1, int8 dot products are dispatched once per GEMM via a function pointer: AVX-512 VNNI (`VPDPBUSD`) when available, otherwise a scalar fallback. Scheme&#160;3 uses BF16 Dekker splitting (no exponent alignment needed) and BF16 dot products (`VDPBF16PS`) instead of int8. The number of pairwise slice products is quadratic in the number of slices, so for double-precision (8&#160;slices, default) the inner loop performs up to 36&#160;dot products per block pair. Scheme&#160;2 performs one modular dot product per prime, so its cost is linear in the number of primes.
 
 OpenMP parallelizes all three phases of each K-batch: Phase&#160;1 preprocesses A&#160;panels (`schedule(dynamic) nowait`), Phase&#160;2 preprocesses B&#160;panels (`schedule(dynamic)`, implicit barrier), and Phase&#160;3 accumulates the dot products into C (`collapse(2) schedule(static)`). Panel buffers are shared across the parallel region and sized by `BATCH_K`&#160;×&#160;number-of-blocks, allocated via `libxs_malloc`.
 
@@ -102,13 +102,13 @@ Example:
 GEMM_OZAKI=2 ./gemm-wrap.x 256                        # use CRT scheme
 ```
 
-## Scheme 3 — BF16 Slicing
+## Scheme 3 — BF16 Dekker Split
 
-Scheme 3 (`GEMM_OZAKI=3`) uses the same mantissa-slicing decomposition as Scheme&#160;1 (7-bit signed digits) but replaces int8 VNNI dot products with BF16 dot products (`VDPBF16PS` on AVX-512-BF16 hardware, scalar fallback otherwise). Each int8 digit is converted to BF16 during preprocessing; since BF16 has an 8-bit significand (7&#160;mantissa&#160;+&#160;implicit&#160;bit), all digit values ±63 are exactly representable.
+Scheme 3 (`GEMM_OZAKI=3`) decomposes each matrix element into a sequence of BF16 slices using a Dekker-style error-free split: `slice[0] = round_bf16(x); residual = x - slice[0]; slice[1] = round_bf16(residual); …` Each BF16 value carries its own 8-bit exponent, so no shared per-row or per-column exponent is needed — unlike Schemes&#160;1 and&#160;2, there is no exponent alignment, mantissa extraction, or `pow2` reconstruction. Preprocessing simply splits and scatters; accumulation is `C[i,j] += alpha * dot_bf16(A_sa, B_sb)` with no scale factors.
 
-The BF16 dot product accumulates into FP32. For the supported BLOCK_K sizes and 7-bit digit range, the FP32 accumulation is exact (maximum dot-product magnitude &lt;&#160;2^18, well within FP32's 2^24 integer range). Consequently, Scheme&#160;3 produces identical results to Scheme&#160;1 for the same number of slices — it is *not* an approximate scheme.
+Each BF16 slice captures roughly 8&#160;significant bits. For double precision (52&#160;mantissa bits), ~7 slices suffice (8&#215;7&#160;=&#160;56&#160;>&#160;52); for single precision (23&#160;bits), ~3 slices suffice. The dot products are computed via `VDPBF16PS` (AVX-512-BF16) when available, otherwise a scalar fallback. FP32 accumulation of BF16&#215;BF16 products is **not** exact in general (unlike the integer-exact Scheme&#160;1), so Scheme&#160;3 is inherently approximate — the error depends on the number of slices and the FP32 rounding during accumulation. In practice the relative error is very small (typically &lt;&#160;1e-9 for double precision with default settings).
 
-Scheme&#160;3 shares the same runtime knobs as Scheme&#160;1: `GEMM_OZN` (number of slices), `GEMM_OZFLAGS` (triangular + symmetrize), and `GEMM_OZTRIM` (diagonal trim). BF16 storage uses 2&#160;bytes per digit versus 1&#160;byte for int8, doubling the panel buffer size.
+Scheme&#160;3 shares the same runtime knobs as Scheme&#160;1: `GEMM_OZN` (number of slices), `GEMM_OZFLAGS` (triangular + symmetrize), and `GEMM_OZTRIM` (diagonal trim). Because no per-row/per-column exponent panels are needed, the metadata overhead is halved relative to Scheme&#160;1.
 
 Example:
 
@@ -137,7 +137,7 @@ make ECFLAGS="-DBLOCK_K=32 -DBATCH_K=2" gemm-wrap.x
 
 | Variable | Default | Description |
 |----------|:-------:|-------------|
-| `GEMM_OZAKI` | 1 | Scheme selector: 0 = bypass (call original BLAS directly), 1 = Scheme 1 (mantissa slicing, int8), 2 = Scheme 2 (CRT), 3 = Scheme 3 (mantissa slicing, BF16). |
+| `GEMM_OZAKI` | 1 | Scheme selector: 0 = bypass (call original BLAS directly), 1 = Scheme 1 (mantissa slicing, int8), 2 = Scheme 2 (CRT), 3 = Scheme 3 (BF16 Dekker split). |
 | `GEMM_OZN` | *per scheme* | Number of decomposition units: slices for Scheme 1 (double: 1..16, default 8; float: 1..8, default 4) or moduli for Scheme 2 (see Scheme 2 section for per-precision defaults). |
 | `GEMM_OZFLAGS` | 3 | Scheme 1 bitmask: Triangular (1), Symmetrize (2); see above. |
 | `GEMM_OZTRIM` | 0 | Scheme 1 diagonal trim: 0 = exact, T = drop T least significant diagonals (~7 bits each). |
@@ -168,7 +168,7 @@ TA and TB select transposition: 0&#160;means&#160;'N' (no transpose), non-zero m
 | `ozaki.c` | Wrapper/orchestration for real GEMM (`GEMM_WRAP`): initialization, environment handling, fallback dispatch, and global state management. Compiled twice (double + float). |
 | `ozaki1.c` | Ozaki Scheme-1 computational kernel (`gemm_oz1`): decomposes IEEE-754 mantissa into 7-bit int8 slices for low-precision dot products. Uses function-pointer dispatch for VNNI vs scalar int8 dot product. Compiled twice (double + float). |
 | `ozaki2.c` | Ozaki Scheme-2 computational kernel (`gemm_oz2`): CRT-based modular arithmetic using small pairwise coprime moduli. Barrett reduction for fast modular arithmetic, Garner's algorithm with batched reconstruction. Residues fit in int8 (sign folded in) and dot products use VNNI. Compiled twice (double + float). |
-| `ozaki3.c` | Ozaki Scheme-3 computational kernel (`gemm_oz3`): BF16 variant of Scheme 1. Same 7-bit digit slicing but uses BF16 dot products (`VDPBF16PS`). FP32 accumulation is exact for the digit range. Compiled twice (double + float). |
+| `ozaki3.c` | Ozaki Scheme-3 computational kernel (`gemm_oz3`): Dekker-style error-free split into BF16 slices — each carries its own exponent, so no shared-exponent alignment is needed. Dot products via `VDPBF16PS` (scalar fallback). Inherently approximate (FP32 accumulation rounding). Compiled twice (double + float). |
 | `zgemm3m.c` | Complex GEMM 3M wrapper (`ZGEMM_WRAP`): deinterleaves complex matrices, issues 3 real GEMM calls (Karatsuba), recombines. Uses `libxs_malloc` for workspace. Compiled twice (double + float). |
 | `wrap.c` | Entry points (`GEMM`, `ZGEMM`) and dlsym fallbacks (`GEMM_REAL`, `ZGEMM_REAL`) via `GEMM_DEFINE_DLSYM` macro. Used only in the LD_PRELOAD path; excluded from the static archive to keep `__real_` resolution correct. |
 | `gemm.c` | Test driver. |
