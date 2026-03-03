@@ -104,6 +104,9 @@ LIBXS_API_INTERN LIBXS_ATTRIBUTE_WEAK void GEMM_WRAP(const char* transa, const c
   else if (2 == gemm_ozaki) { /* CRT-based LP-GEMM (Scheme 2) */
     gemm_oz2(transa, transb, m, n, k, alpha, a, lda, b, ldb, beta, c, ldc);
   }
+  else if (3 == gemm_ozaki) { /* BF16 slice-based LP-GEMM (Scheme 3) */
+    gemm_oz3(transa, transb, m, n, k, alpha, a, lda, b, ldb, beta, c, ldc);
+  }
   else { /* only run original GEMM right away */
     if (NULL != gemm_original) {
       gemm_original(transa, transb, m, n, k, alpha, a, lda, b, ldb, beta, c, ldc);

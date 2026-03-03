@@ -132,6 +132,7 @@
 #define ozaki_target_arch   LIBXS_TPREFIX(GEMM_REAL_TYPE, ozaki_tarch)
 #define gemm_oz1            LIBXS_TPREFIX(GEMM_REAL_TYPE, gemm_oz1)
 #define gemm_oz2            LIBXS_TPREFIX(GEMM_REAL_TYPE, gemm_oz2)
+#define gemm_oz3            LIBXS_TPREFIX(GEMM_REAL_TYPE, gemm_oz3)
 #define gemm_dump_inhibit   LIBXS_TPREFIX(GEMM_REAL_TYPE, gemm_dump_inhibit)
 #define gemm_dump_matrices  LIBXS_TPREFIX(GEMM_REAL_TYPE, gemm_dump_mhd)
 #define zgemm3m             LIBXS_CPREFIX(GEMM_REAL_TYPE, gemm3m)
@@ -153,6 +154,8 @@ LIBXS_API void ZGEMM(GEMM_ARGDECL);
 LIBXS_API void gemm_oz1(GEMM_ARGDECL);
 /** Function prototype for GEMM using CRT modular arithmetic (Ozaki scheme 2). */
 LIBXS_API void gemm_oz2(GEMM_ARGDECL);
+/** Function prototype for GEMM using BF16 dot products (Ozaki scheme 3). */
+LIBXS_API void gemm_oz3(GEMM_ARGDECL);
 /** Complex GEMM 3M (Karatsuba) implementation (internal). */
 LIBXS_API_INTERN void zgemm3m(GEMM_ARGDECL);
 
@@ -324,6 +327,120 @@ typedef int32_t (*ozaki_dot_i8_fn)(const int8_t[BLOCK_K], const int8_t[BLOCK_K])
 #endif
 
 
+/* Shared bfloat16 dot-product infrastructure (AVX-512-BF16 + scalar fallback).
+ * VDPBF16PS: BF16 pair dot product accumulated into FP32.
+ * For 7-bit Ozaki digits (|d| <= 63), BF16 encoding is exact (7+1 = 8-bit
+ * significand covers +/-127) and the FP32 accumulation is exact for all
+ * supported BLOCK_K sizes (max dot magnitude < 2^18 << FP32's 2^24).
+ * Guard: __AVX512BF16__ is defined by GCC >= 11 / Clang >= 13 when
+ * -mavx512bf16 (or implied by -march=sapphirerapids, etc.) is active. */
+
+/* BF16 storage type (raw uint16_t encoding). */
+typedef uint16_t oz3_bf16_t;
+
+/**
+ *  Convert a signed 7-bit digit to BF16 encoding.
+ *  Exact for all values in [-63, +63] (BF16 has 8-bit significand).
+ */
+LIBXS_API_INLINE oz3_bf16_t ozaki_i8_to_bf16(int8_t d)
+{
+  union { float f; uint32_t u; } cvt;
+  cvt.f = (float)d;
+  return (uint16_t)(cvt.u >> 16);
+}
+
+/**
+ *  Convert a BF16-encoded digit back to int8.
+ *  Exact for values that were originally small integers.
+ */
+LIBXS_API_INLINE int8_t ozaki_bf16_to_i8(oz3_bf16_t v)
+{
+  union { uint32_t u; float f; } cvt;
+  cvt.u = (uint32_t)v << 16;
+  return (int8_t)cvt.f;
+}
+
+
+#if defined(LIBXS_INTRINSICS_AVX512) && defined(__AVX512BF16__)
+
+# if 16 == BLOCK_K /* 256-bit: 16 BF16 values = 8 pairs */
+
+LIBXS_API_INLINE LIBXS_INTRINSICS(LIBXS_X86_AVX512)
+float ozaki_dot_bf16_hw(const oz3_bf16_t a[BLOCK_K], const oz3_bf16_t b[BLOCK_K])
+{
+  const __m256bh va = (__m256bh)_mm256_loadu_si256((const __m256i*)a);
+  const __m256bh vb = (__m256bh)_mm256_loadu_si256((const __m256i*)b);
+  __m256 dp = _mm256_dpbf16_ps(_mm256_setzero_ps(), va, vb);
+  { const __m128 hi = _mm256_extractf128_ps(dp, 1);
+    __m128 lo = _mm256_castps256_ps128(dp);
+    lo = _mm_add_ps(lo, hi);
+    lo = _mm_hadd_ps(lo, lo);
+    lo = _mm_hadd_ps(lo, lo);
+    return _mm_cvtss_f32(lo);
+  }
+}
+
+# elif 32 == BLOCK_K /* 512-bit: 32 BF16 values = 16 pairs */
+
+LIBXS_API_INLINE LIBXS_INTRINSICS(LIBXS_X86_AVX512)
+float ozaki_dot_bf16_hw(const oz3_bf16_t a[BLOCK_K], const oz3_bf16_t b[BLOCK_K])
+{
+  const __m512bh va = (__m512bh)_mm512_loadu_si512((const __m512i*)a);
+  const __m512bh vb = (__m512bh)_mm512_loadu_si512((const __m512i*)b);
+  __m512 dp = _mm512_dpbf16_ps(_mm512_setzero_ps(), va, vb);
+  return _mm512_reduce_add_ps(dp);
+}
+
+# elif 64 == BLOCK_K /* 2 x 512-bit: 64 BF16 values = 32 pairs */
+
+LIBXS_API_INLINE LIBXS_INTRINSICS(LIBXS_X86_AVX512)
+float ozaki_dot_bf16_hw(const oz3_bf16_t a[BLOCK_K], const oz3_bf16_t b[BLOCK_K])
+{
+  const __m512bh va0 = (__m512bh)_mm512_loadu_si512((const __m512i*)a);
+  const __m512bh vb0 = (__m512bh)_mm512_loadu_si512((const __m512i*)b);
+  const __m512bh va1 = (__m512bh)_mm512_loadu_si512((const __m512i*)(a + 32));
+  const __m512bh vb1 = (__m512bh)_mm512_loadu_si512((const __m512i*)(b + 32));
+  __m512 dp = _mm512_dpbf16_ps(_mm512_setzero_ps(), va0, vb0);
+  dp = _mm512_dpbf16_ps(dp, va1, vb1);
+  return _mm512_reduce_add_ps(dp);
+}
+
+# endif /* BLOCK_K width selection */
+#endif /* LIBXS_INTRINSICS_AVX512 && __AVX512BF16__ */
+
+
+LIBXS_API_INLINE float ozaki_dot_bf16_sw(const oz3_bf16_t a[BLOCK_K], const oz3_bf16_t b[BLOCK_K])
+{
+  float dot = 0.0f;
+  int kk;
+  for (kk = 0; kk < BLOCK_K; ++kk) {
+    union { uint32_t u; float f; } ca, cb;
+    ca.u = (uint32_t)a[kk] << 16;
+    cb.u = (uint32_t)b[kk] << 16;
+    dot += ca.f * cb.f;
+  }
+  return dot;
+}
+
+
+/* Function pointer type for BF16 dot product dispatch.
+ * Dispatch priority: VDPBF16PS (hardware, 1 instruction per pair) >
+ * scalar (software fallback). */
+typedef float (*ozaki_dot_bf16_fn)(const oz3_bf16_t[BLOCK_K], const oz3_bf16_t[BLOCK_K]);
+
+#if defined(LIBXS_INTRINSICS_AVX512) && defined(__AVX512BF16__) && \
+    (16 == BLOCK_K || 32 == BLOCK_K || 64 == BLOCK_K)
+# if (LIBXS_X86_AVX512 <= LIBXS_STATIC_TARGET_ARCH)
+#   define ozaki_dot_bf16_init() ozaki_dot_bf16_hw
+# else /* runtime dispatch */
+#   define ozaki_dot_bf16_init() \
+      ((LIBXS_X86_AVX512 <= ozaki_target_arch) ? ozaki_dot_bf16_hw : ozaki_dot_bf16_sw)
+# endif
+#else
+# define ozaki_dot_bf16_init() ozaki_dot_bf16_sw
+#endif
+
+
 /**
  *  Extract IEEE-754 biased exponent and full mantissa (with implicit bit)
  *  into uint64_t.  Returns sign (+1 or -1); for zero/subnormal/NaN/Inf
@@ -405,6 +522,28 @@ LIBXS_API_INLINE void ozaki_split_digits(uint64_t mantissa, int sign,
       digits[s] = (int8_t)(sign * (int64_t)chunk);
     }
   }
+}
+
+
+/**
+ *  Reconstruct a floating-point value from its signed 7-bit digit
+ *  representation.  Shared by oz1 and oz3 for diff tracking.
+ */
+LIBXS_API_INLINE double reconstruct_from_digits(const int8_t digits[MAX_NSLICES],
+  int exp_base, const int8_t slice_low_bit[MAX_NSLICES])
+{
+  double recon = 0.0;
+  int slice = 0;
+
+  for (; slice < gemm_ozn; ++slice) {
+    const int16_t digit = (int16_t)digits[slice];
+    if (0 != digit) {
+      const int sh = exp_base + slice_low_bit[slice];
+      recon += (double)digit * libxs_pow2(sh);
+    }
+  }
+
+  return recon;
 }
 
 

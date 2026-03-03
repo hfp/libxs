@@ -70,3 +70,20 @@ else
   exit 1
 fi
 echo
+
+# Scheme 3 (BF16 slicing): exact with default nslices (scalar fallback)
+echo "-----------------------------------"
+echo "CHECK: Scheme 3 (BF16)"
+if [ "$*" ]; then echo "args    $*"; fi
+{ CHECK=-1 GEMM_VERBOSE=1 GEMM_OZAKI=3 "${EXE}" "$@" 2>"${TMPF}"; } >/dev/null || RESULT=$?
+if [ "0" != "${RESULT}" ]; then
+  echo "FAILED[${RESULT}] $(${CAT} "${TMPF}")"
+  exit ${RESULT}
+fi
+if ${GREP} -q "CHECK:" "${TMPF}"; then
+  echo "OK $(${GREP} "CHECK:" "${TMPF}")"
+else
+  echo "FAILED (no CHECK output)"
+  exit 1
+fi
+echo
