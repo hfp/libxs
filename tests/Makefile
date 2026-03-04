@@ -86,10 +86,10 @@ test: $(OUTDIR)/.make $(OUTDIR)/test.sh all
 HEADER_ONLY = $(basename $(notdir $(shell grep -H libxs_source *.c | cut -d: -f1)))
 
 define DEFINE_LINK_LD_RULE
-ifneq ($(words $(XSLIB)),$(words $(wildcard $(XSLIB))))
-$(1).x: $(2) $(OBJECTX) $(dir $(1))/.make $(if $(filter $(1),$(HEADER_ONLY)),$(NULL),$(XSDEP))
+ifneq ($(words $(XLIB)),$(words $(wildcard $(XLIB))))
+$(1).x: $(2) $(OBJECTX) $(dir $(1))/.make $(if $(filter $(1),$(HEADER_ONLY)),$(NULL),$(XDEP))
 	$(LD) $(SLDFLAGS) -o $(1).x $(2) \
-		$(if $(filter $(1),$(HEADER_ONLY)),$(NULL),$(XSLIB)) \
+		$(if $(filter $(1),$(HEADER_ONLY)),$(NULL),$(XLIB)) \
 		$(call cleanld,$(LDFLAGS) $(CLDFLAGS))
 else
 .PHONY: $(1).x
@@ -98,9 +98,9 @@ endef
 
 define DEFINE_LINK_FC_RULE
 ifneq (,$(strip $(FC)))
-ifneq ($(words $(XSLIB)),$(words $(wildcard $(XSLIB))))
-$(1).x: $(2) $(FTNOBJS) $(XSDEP) $(dir $(1))/.make
-	$(FC) $(SLDFLAGS) -o $(1).x $(2) $(XSLIB) $(FCMTFLAGS) \
+ifneq ($(words $(XLIB)),$(words $(wildcard $(XLIB))))
+$(1).x: $(2) $(FTNOBJS) $(XDEP) $(dir $(1))/.make
+	$(FC) $(SLDFLAGS) -o $(1).x $(2) $(XLIB) $(FCMTFLAGS) \
 		$(call cleanld,$(LDFLAGS) $(FLDFLAGS) $(ELDFLAGS))
 else
 .PHONY: $(1).x

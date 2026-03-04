@@ -55,15 +55,15 @@ all: $(XFILES)
 compile: $(OBJECTS) $(FTNOBJS)
 
 ifneq (,$(strip $(FC)))
-$(OUTDIR)/$(OUTNAME)f.x: $(OUTDIR)/.make $(BLDDIR)/$(OUTNAME)-f.o $(XSDEP)
-	$(FLD) -o $@ $(BLDDIR)/$(OUTNAME)-f.o $(XSLIB) \
+$(OUTDIR)/$(OUTNAME)f.x: $(OUTDIR)/.make $(BLDDIR)/$(OUTNAME)-f.o $(XDEP)
+	$(FLD) -o $@ $(BLDDIR)/$(OUTNAME)-f.o $(XLIB) \
 		$(FCMTFLAGS) $(SLDFLAGS) $(LDFLAGS) $(FLDFLAGS) $(ELDFLAGS)
 else
 .PHONY: $(OUTDIR)/$(OUTNAME)f.x
 endif
 
-$(OUTDIR)/$(OUTNAME).x: $(OUTDIR)/.make $(OBJECTS) $(XSDEP)
-	$(LD) -o $@ $(OBJECTS) $(XSLIB) $(SLDFLAGS) $(LDFLAGS) $(CLDFLAGS)
+$(OUTDIR)/$(OUTNAME).x: $(OUTDIR)/.make $(OBJECTS) $(XDEP)
+	$(LD) -o $@ $(OBJECTS) $(XLIB) $(SLDFLAGS) $(LDFLAGS) $(CLDFLAGS)
 
 $(BLDDIR)/%-cpp.o: $(SRCDIR)/%.cpp .state $(BLDDIR)/.make $(HEADERS) Makefile $(DEPDIR)/Makefile.inc
 	$(CXX) $(DFLAGS) $(IFLAGS) $(CXXFLAGS) $(CTARGET) -c $< -o $@

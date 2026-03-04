@@ -60,28 +60,28 @@ ifneq (,$(WRAP_GEMM))
 $(OUTDIR)/libwrap.$(SLIBEXT): $(OUTDIR)/.make $(IMPLOBJS)
 	$(MAKE_AR) $@ $(call tailwords,$^)
 
-$(OUTDIR)/gemm-wrap.x: $(BLDDIR)/gemm-c.o $(OUTDIR)/libwrap.$(SLIBEXT) $(XSDEP) $(OUTDIR)/.make
+$(OUTDIR)/gemm-wrap.x: $(BLDDIR)/gemm-c.o $(OUTDIR)/libwrap.$(SLIBEXT) $(XDEP) $(OUTDIR)/.make
 ifneq (0,$(OMP))
-	$(LD) -o $@ $< $(OUTDIR)/libwrap.$(SLIBEXT) $(XSLIB)\
+	$(LD) -o $@ $< $(OUTDIR)/libwrap.$(SLIBEXT) $(XLIB)\
 		$(SLDFLAGS) $(LDFLAGS) $(CLDFLAGS) $(WRAP_GEMM)
 else ifneq (,$(strip $(OMPLIB)))
-	$(LD) -o $@ $< $(OUTDIR)/libwrap.$(SLIBEXT) $(XSLIB) \
+	$(LD) -o $@ $< $(OUTDIR)/libwrap.$(SLIBEXT) $(XLIB) \
 		$(SLDFLAGS) $(LDFLAGS) $(CLDFLAGS) $(WRAP_GEMM) \
 		$(XLIB_BEGIN) $(OMPLIB) $(XLIB_END)
 else # should not happen
-	$(LD) -o $@ $< $(OUTDIR)/libwrap.$(SLIBEXT) $(XSLIB) \
+	$(LD) -o $@ $< $(OUTDIR)/libwrap.$(SLIBEXT) $(XLIB) \
 		$(SLDFLAGS) $(LDFLAGS) $(CLDFLAGS) $(WRAP_GEMM)
 endif
 
 .PHONY: $(OUTDIR)/libwrap.$(DLIBEXT)
 .PHONY: $(OUTDIR)/gemm-blas.x
 else
-$(OUTDIR)/libwrap.$(DLIBEXT): $(IMPLOBJS) $(ENTRYOBJS) $(XSDEP) $(OUTDIR)/.make
+$(OUTDIR)/libwrap.$(DLIBEXT): $(IMPLOBJS) $(ENTRYOBJS) $(XDEP) $(OUTDIR)/.make
 	$(LIB_SOLD) $(call solink,$@) $(IMPLOBJS) $(ENTRYOBJS) \
-		$(XSLIB) $(call cleanld,$(LDFLAGS) $(CLDFLAGS))
+		$(XLIB) $(call cleanld,$(LDFLAGS) $(CLDFLAGS))
 
-$(OUTDIR)/gemm-blas.x: $(COBJCTS) $(BLDDIR)/gemm-print-d.o $(XSDEP) $(OUTDIR)/.make $(OUTDIR)/libwrap.$(DLIBEXT)
-	$(LD) -o $@ $(COBJCTS) $(BLDDIR)/gemm-print-d.o $(XSLIB) $(SLDFLAGS) $(LDFLAGS) $(CLDFLAGS)
+$(OUTDIR)/gemm-blas.x: $(COBJCTS) $(BLDDIR)/gemm-print-d.o $(XDEP) $(OUTDIR)/.make $(OUTDIR)/libwrap.$(DLIBEXT)
+	$(LD) -o $@ $(COBJCTS) $(BLDDIR)/gemm-print-d.o $(XLIB) $(SLDFLAGS) $(LDFLAGS) $(CLDFLAGS)
 
 .PHONY: $(OUTDIR)/libwrap.$(SLIBEXT)
 .PHONY: $(OUTDIR)/gemm-wrap.x
