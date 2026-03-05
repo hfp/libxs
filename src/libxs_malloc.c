@@ -331,7 +331,6 @@ LIBXS_API libxs_malloc_pool_t* libxs_malloc_xpool(libxs_malloc_xfn malloc_fn, li
   int max_nthreads)
 {
   libxs_malloc_pool_t *pool;
-  LIBXS_ASSERT(0 < max_nthreads);
   if (NULL == malloc_fn || NULL == free_fn || 1 > max_nthreads) return NULL;
   libxs_hash_init(libxs_cpuid(NULL));
   pool = (libxs_malloc_pool_t*)calloc(1, sizeof(libxs_malloc_pool_t));
