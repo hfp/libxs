@@ -10,6 +10,7 @@ CFLAGS = $(NULL)
 DFLAGS = $(NULL)
 
 OMP = 1
+OCL = 2
 SYM = 1
 
 BLAS = $(if $(filter-out 0,$(OMP)),2,1)
@@ -26,8 +27,13 @@ LIBXSTREAM := $(wildcard $(LIBXSTREAMROOT)/lib/libxstream.$(LIBEXT))
 LIBXSTREAM := $(if $(LIBXSTREAM),$(LIBXSTREAM), \
   $(if $(LIBXSTREAM_SL),$(LIBXSTREAM_SL),$(LIBXSTREAM_DL)))
 ifneq (,$(LIBXSTREAM))
+  IFLAGS += -I$(call quote,$(LIBXSTREAMROOT)/include)
   IFLAGS += -I$(call quote,$(LIBXSTREAMROOT)/samples/ozaki)
   DFLAGS += -D__LIBXSTREAM
+  GPUOBJS := $(BLDDIR)/ozaki_gpu-c.o $(BLDDIR)/ozaki_opencl-c.o
+  SCRDIR := $(LIBXSTREAMROOT)/scripts
+  GPUKERNELS := $(wildcard $(LIBXSTREAMROOT)/samples/ozaki/kernels/*.cl)
+  GPUGENHDR := $(LIBXSTREAMROOT)/samples/ozaki/ozaki_kernels.h
 endif
 
 # include directories
@@ -60,7 +66,7 @@ IMPLOBJS := $(IMPLOBJ_D) $(IMPLOBJ_S)
 ENTRYOBJ_D := $(patsubst $(SRCDIR)/%.c,$(BLDDIR)/%-d.o,$(ENTRYSRCS))
 ENTRYOBJ_S := $(patsubst $(SRCDIR)/%.c,$(BLDDIR)/%-s.o,$(ENTRYSRCS))
 ENTRYOBJS := $(ENTRYOBJ_D) $(ENTRYOBJ_S)
-OBJECTS := $(COBJCTS) $(IMPLOBJS) $(ENTRYOBJS)
+OBJECTS := $(COBJCTS) $(IMPLOBJS) $(ENTRYOBJS) $(GPUOBJS)
 XFILES := $(OUTDIR)/gemm-blas.x $(OUTDIR)/gemm-wrap.x
 
 .PHONY: all
@@ -70,27 +76,27 @@ all: $(XFILES)
 compile: $(OBJECTS)
 
 ifneq (,$(WRAP_GEMM))
-$(OUTDIR)/libwrap.$(SLIBEXT): $(OUTDIR)/.make $(IMPLOBJS)
+$(OUTDIR)/libwrap.$(SLIBEXT): $(OUTDIR)/.make $(IMPLOBJS) $(GPUOBJS)
 	$(MAKE_AR) $@ $(call tailwords,$^)
 
 $(OUTDIR)/gemm-wrap.x: $(BLDDIR)/gemm-c.o $(OUTDIR)/libwrap.$(SLIBEXT) $(XLIB) $(LIBXSTREAM) $(OUTDIR)/.make
 ifneq (0,$(OMP))
-	$(LD) -o $@ $< $(OUTDIR)/libwrap.$(SLIBEXT) $(XLIB) $(LIBXSTREAM) \
+	$(LD) -o $@ $< $(OUTDIR)/libwrap.$(SLIBEXT) $(LIBXSTREAM) $(XLIB) \
 		$(SLDFLAGS) $(LDFLAGS) $(CLDFLAGS) $(WRAP_GEMM)
 else ifneq (,$(strip $(OMPLIB)))
-	$(LD) -o $@ $< $(OUTDIR)/libwrap.$(SLIBEXT) $(XLIB) $(LIBXSTREAM) \
+	$(LD) -o $@ $< $(OUTDIR)/libwrap.$(SLIBEXT) $(LIBXSTREAM) $(XLIB) \
 		$(SLDFLAGS) $(LDFLAGS) $(CLDFLAGS) $(WRAP_GEMM) \
 		$(XLIB_BEGIN) $(OMPLIB) $(XLIB_END)
 else # should not happen
-	$(LD) -o $@ $< $(OUTDIR)/libwrap.$(SLIBEXT) $(XLIB) $(LIBXSTREAM) \
+	$(LD) -o $@ $< $(OUTDIR)/libwrap.$(SLIBEXT) $(LIBXSTREAM) $(XLIB) \
 		$(SLDFLAGS) $(LDFLAGS) $(CLDFLAGS) $(WRAP_GEMM)
 endif
 
 .PHONY: $(OUTDIR)/libwrap.$(DLIBEXT)
 .PHONY: $(OUTDIR)/gemm-blas.x
 else
-$(OUTDIR)/libwrap.$(DLIBEXT): $(IMPLOBJS) $(ENTRYOBJS) $(XLIB) $(LIBXSTREAM) $(OUTDIR)/.make
-	$(LIB_SOLD) $(call solink,$@) $(IMPLOBJS) $(ENTRYOBJS) \
+$(OUTDIR)/libwrap.$(DLIBEXT): $(IMPLOBJS) $(ENTRYOBJS) $(GPUOBJS) $(XLIB) $(LIBXSTREAM) $(OUTDIR)/.make
+	$(LIB_SOLD) $(call solink,$@) $(IMPLOBJS) $(ENTRYOBJS) $(GPUOBJS) \
 		$(XLIB) $(LIBXSTREAM) $(call cleanld,$(LDFLAGS) $(CLDFLAGS))
 
 $(OUTDIR)/gemm-blas.x: $(COBJCTS) $(BLDDIR)/gemm-print-d.o $(OUTDIR)/libwrap.$(DLIBEXT) $(XLIB) $(LIBXSTREAM) $(OUTDIR)/.make
@@ -102,6 +108,19 @@ endif
 
 $(BLDDIR)/%-c.o: $(SRCDIR)/%.c .state $(BLDDIR)/.make $(HEADERS) Makefile $(DEPDIR)/Makefile.inc
 	$(CC) $(DFLAGS) $(IFLAGS) $(CFLAGS) $(CTARGET) -c $< -o $@
+
+# GPU sources need __OPENCL for LIBXSTREAM OpenCL headers
+ifneq (,$(GPUOBJS))
+# Generate embedded kernel header from .cl sources
+$(GPUGENHDR): $(GPUKERNELS) $(SCRDIR)/acc_opencl.sh
+	$(SCRDIR)/acc_opencl.sh -p "" $(GPUKERNELS) $@
+
+$(BLDDIR)/ozaki_gpu-c.o: $(SRCDIR)/ozaki_gpu.c .state $(BLDDIR)/.make $(HEADERS) Makefile $(DEPDIR)/Makefile.inc
+	$(CC) -D__OPENCL $(DFLAGS) $(IFLAGS) $(CFLAGS) $(CTARGET) -c $< -o $@
+
+$(BLDDIR)/ozaki_opencl-c.o: $(LIBXSTREAMROOT)/samples/ozaki/ozaki_opencl.c $(GPUGENHDR) .state $(BLDDIR)/.make $(HEADERS) Makefile $(DEPDIR)/Makefile.inc
+	$(CC) -D__OPENCL $(DFLAGS) $(IFLAGS) $(CFLAGS) $(CTARGET) -c $< -o $@
+endif
 
 $(BLDDIR)/%-d.o: $(SRCDIR)/%.c .state $(BLDDIR)/.make $(HEADERS) Makefile $(DEPDIR)/Makefile.inc
 	$(CC) $(DFLAGS) $(IFLAGS) $(CFLAGS) $(CTARGET) -c $< -o $@
@@ -148,6 +167,7 @@ ifneq (,$(wildcard $(OUTDIR))) # still exists
 	@-rm -f $(XFILES)
 endif
 	@-rm -f $(OUTDIR)/libwrap.*
+	@-rm -f $(GPUGENHDR)
 
 .PHONY: deepclean
 deepclean: realclean

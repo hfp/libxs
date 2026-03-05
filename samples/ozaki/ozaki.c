@@ -26,6 +26,9 @@ LIBXS_APIVAR_PRIVATE_DEF(double ozaki_eps);
 LIBXS_APIVAR_PRIVATE_DEF(double ozaki_rsq);
 LIBXS_APIVAR_PRIVATE_DEF(libxs_malloc_pool_t* gemm_pool);
 LIBXS_TLS int gemm_dump_inhibit;
+#if defined(__LIBXSTREAM)
+LIBXS_APIVAR_PRIVATE_DEF(void* ozaki_gpu_handle);
+#endif
 
 
 LIBXS_API_INTERN void gemm_atexit(void);
@@ -34,10 +37,58 @@ LIBXS_API_INTERN void gemm_atexit(void)
   if (0 != ozaki_verbose && 0 < gemm_diff.r) {
     print_diff(stderr, &gemm_diff);
   }
+#if defined(__LIBXSTREAM)
+  ozaki_gpu_release(ozaki_gpu_handle);
+  ozaki_gpu_handle = NULL;
+  ozaki_gpu_finalize();
+#endif
   libxs_free_pool(gemm_pool);
   gemm_pool = NULL;
   libxs_finalize();
 }
+
+
+#if defined(__LIBXSTREAM)
+/**
+ * GPU diff function matching the CPU _diff signature.
+ * Computes GEMM result on GPU via ozaki_gemm, then optionally
+ * runs reference BLAS on CPU and computes matdiff.
+ */
+LIBXS_API_INLINE void gemm_oz_gpu_diff(const char* transa, const char* transb,
+  const GEMM_INT_TYPE* m, const GEMM_INT_TYPE* n, const GEMM_INT_TYPE* k,
+  const GEMM_REAL_TYPE* alpha, const GEMM_REAL_TYPE* a, const GEMM_INT_TYPE* lda,
+                               const GEMM_REAL_TYPE* b, const GEMM_INT_TYPE* ldb,
+  const GEMM_REAL_TYPE*  beta, GEMM_REAL_TYPE* c, const GEMM_INT_TYPE* ldc,
+  unsigned int diff_abc, libxs_matdiff_info_t* diff)
+{
+  const size_t c_size = (size_t)*ldc * (size_t)*n * sizeof(GEMM_REAL_TYPE);
+  GEMM_REAL_TYPE* c_ref = NULL;
+  /* Save C for reference comparison (before GPU modifies it) */
+  if (NULL != diff && 0 == (diff_abc % 3)) {
+    c_ref = (GEMM_REAL_TYPE*)libxs_malloc(gemm_pool, c_size, 0);
+    if (NULL != c_ref) memcpy(c_ref, c, c_size);
+  }
+  /* Compute result on GPU */
+  ozaki_gpu_dgemm(ozaki_gpu_handle,
+    *transa, *transb, *m, *n, *k,
+    (double)*alpha, a, *lda, b, *ldb,
+    (double)*beta, c, *ldc);
+  /* Reference BLAS and diff comparison */
+  if (NULL != c_ref) {
+    if (NULL != gemm_original) {
+      gemm_original(transa, transb, m, n, k, alpha, a, lda,
+                    b, ldb, beta, c_ref, ldc);
+    }
+    else {
+      GEMM_REAL(transa, transb, m, n, k, alpha, a, lda,
+                b, ldb, beta, c_ref, ldc);
+    }
+    libxs_matdiff(diff, LIBXS_DATATYPE(GEMM_REAL_TYPE),
+      *m, *n, c_ref, c, ldc, ldc);
+    libxs_free(c_ref);
+  }
+}
+#endif
 
 
 /** Function gemm_oz1 is called here with the original GEMM as fallback and for comparison. */
@@ -57,15 +108,15 @@ LIBXS_API_INTERN LIBXS_ATTRIBUTE_WEAK void GEMM_WRAP(const char* transa, const c
     LIBXS_ATOMIC_ACQUIRE(&gemm_lock, LIBXS_SYNC_NPAUSE, LIBXS_ATOMIC_LOCKORDER);
     if (0 == gemm_initialized) {
       const union { uint32_t raw; float value; } inf = { 0x7F800000U };
+      const char *const ozaki_stat_env = getenv("OZAKI_STAT");
+      const char *const ozaki_exit_env = getenv("OZAKI_EXIT");
       const char *const ozaki_verbose_env = getenv("OZAKI_VERBOSE");
       const char *const ozaki_flags_env = getenv("OZAKI_FLAGS");
       const char *const ozaki_trim_env = getenv("OZAKI_TRIM");
-      const char *const ozaki_stat_env = getenv("OZAKI_STAT");
-      const char *const ozaki_exit_env = getenv("OZAKI_EXIT");
+      const char *const ozaki_env = getenv("OZAKI");
+      const char *const ozaki_n_env = getenv("OZAKI_N");
       const char *const ozaki_eps_env = getenv("OZAKI_EPS");
       const char *const ozaki_rsq_env = getenv("OZAKI_RSQ");
-      const char *const ozaki_n_env = getenv("OZAKI_N");
-      const char *const ozaki_env = getenv("OZAKI");
       libxs_init(); /*libxs_malloc_pool()*/
       gemm_pool = libxs_malloc_pool(NULL, NULL);
       libxs_matdiff_clear(&gemm_diff);
@@ -95,6 +146,15 @@ LIBXS_API_INTERN LIBXS_ATTRIBUTE_WEAK void GEMM_WRAP(const char* transa, const c
         ozaki_rsq = atof(ozaki_rsq_env);
       }
       ozaki_target_arch = libxs_cpuid(NULL);
+#if defined(__LIBXSTREAM)
+      /* Initialize GPU Ozaki context (schemes 1 and 3 only) */
+      if (1 == ozaki || 3 == ozaki) {
+        ozaki_gpu_handle = ozaki_gpu_create(
+          GEMM_IS_DOUBLE, ozaki,
+          (0 < ozaki_verbose ? 1 : 0),
+          ozaki_n, 0, ozaki_flags, ozaki_trim);
+      }
+#endif
       LIBXS_EXPECT(EXIT_SUCCESS == atexit(gemm_atexit));
       gemm_initialized = 1;
     }
@@ -102,6 +162,12 @@ LIBXS_API_INTERN LIBXS_ATTRIBUTE_WEAK void GEMM_WRAP(const char* transa, const c
   }
   LIBXS_ASSERT(0 != gemm_initialized);
 
+#if defined(__LIBXSTREAM)
+  if (NULL != ozaki_gpu_handle) {
+    OZAKI_GEMM_WRAPPER(gemm_oz_gpu_diff)
+  }
+  else
+#endif
   if (1 == ozaki) { /* slice-based LP-GEMM (Scheme 1, default) */
     gemm_oz1(transa, transb, m, n, k, alpha, a, lda, b, ldb, beta, c, ldc);
   }

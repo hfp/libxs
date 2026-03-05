@@ -121,14 +121,15 @@
 #define gemm_original       LIBXS_TPREFIX(GEMM_REAL_TYPE, gemm_original)
 #define zgemm_original      LIBXS_CPREFIX(GEMM_REAL_TYPE, gemm_original)
 #define gemm_lock           LIBXS_TPREFIX(GEMM_REAL_TYPE, gemm_lock)
-#define ozaki          LIBXS_TPREFIX(GEMM_REAL_TYPE, ozaki)
-#define ozaki_n            LIBXS_TPREFIX(GEMM_REAL_TYPE, ozaki_n)
-#define ozaki_flags        LIBXS_TPREFIX(GEMM_REAL_TYPE, ozaki_flags)
-#define ozaki_trim         LIBXS_TPREFIX(GEMM_REAL_TYPE, ozaki_trim)
-#define ozaki_stat           LIBXS_TPREFIX(GEMM_REAL_TYPE, ozaki_stat)
-#define ozaki_exit           LIBXS_TPREFIX(GEMM_REAL_TYPE, ozaki_exit)
-#define ozaki_eps            LIBXS_TPREFIX(GEMM_REAL_TYPE, ozaki_eps)
-#define ozaki_rsq            LIBXS_TPREFIX(GEMM_REAL_TYPE, ozaki_rsq)
+#define ozaki_verbose       LIBXS_TPREFIX(GEMM_REAL_TYPE, ozaki_verbose)
+#define ozaki               LIBXS_TPREFIX(GEMM_REAL_TYPE, ozaki)
+#define ozaki_n             LIBXS_TPREFIX(GEMM_REAL_TYPE, ozaki_n)
+#define ozaki_flags         LIBXS_TPREFIX(GEMM_REAL_TYPE, ozaki_flags)
+#define ozaki_trim          LIBXS_TPREFIX(GEMM_REAL_TYPE, ozaki_trim)
+#define ozaki_stat          LIBXS_TPREFIX(GEMM_REAL_TYPE, ozaki_stat)
+#define ozaki_exit          LIBXS_TPREFIX(GEMM_REAL_TYPE, ozaki_exit)
+#define ozaki_eps           LIBXS_TPREFIX(GEMM_REAL_TYPE, ozaki_eps)
+#define ozaki_rsq           LIBXS_TPREFIX(GEMM_REAL_TYPE, ozaki_rsq)
 #define ozaki_target_arch   LIBXS_TPREFIX(GEMM_REAL_TYPE, ozaki_tarch)
 #define gemm_oz1            LIBXS_TPREFIX(GEMM_REAL_TYPE, gemm_oz1)
 #define gemm_oz2            LIBXS_TPREFIX(GEMM_REAL_TYPE, gemm_oz2)
@@ -139,6 +140,10 @@
 #define zgemm3m             LIBXS_CPREFIX(GEMM_REAL_TYPE, gemm3m)
 #define gemm_atexit         LIBXS_TPREFIX(GEMM_REAL_TYPE, gemm_atexit)
 #define gemm_pool           LIBXS_TPREFIX(GEMM_REAL_TYPE, gemm_pool)
+#if defined(__LIBXSTREAM)
+# define ozaki_gpu_handle   LIBXS_TPREFIX(GEMM_REAL_TYPE, ozaki_gpu_handle)
+# define gemm_oz_gpu_diff   LIBXS_TPREFIX(GEMM_REAL_TYPE, gemm_oz_gpu_diff)
+#endif
 
 /** Function type for GEMM (precision-specific). */
 LIBXS_EXTERN_C typedef void (*gemm_function_t)(GEMM_ARGDECL);
@@ -164,6 +169,7 @@ LIBXS_API void gemm_oz4(GEMM_ARGDECL);
 LIBXS_API_INTERN void zgemm3m(GEMM_ARGDECL);
 
 LIBXS_APIVAR_PUBLIC(int ozaki);
+LIBXS_APIVAR_PUBLIC(int ozaki_verbose);
 LIBXS_APIVAR_PUBLIC(int ozaki_stat);
 LIBXS_APIVAR_PRIVATE(volatile LIBXS_ATOMIC_LOCKTYPE gemm_lock);
 LIBXS_APIVAR_PRIVATE(gemm_function_t gemm_original);
@@ -177,6 +183,17 @@ extern LIBXS_TLS int gemm_dump_inhibit;
 LIBXS_APIVAR_PRIVATE(double ozaki_eps);
 LIBXS_APIVAR_PRIVATE(double ozaki_rsq);
 LIBXS_APIVAR_PRIVATE(libxs_malloc_pool_t* gemm_pool);
+#if defined(__LIBXSTREAM)
+/** Opaque GPU handle (bridge to LIBXSTREAM Ozaki). */
+LIBXS_APIVAR_PRIVATE(void* ozaki_gpu_handle);
+void* ozaki_gpu_create(int use_double, int kind, int verbosity,
+  int nslices, int batch_k, int ozflags, int oztrim);
+void ozaki_gpu_release(void* handle);
+int ozaki_gpu_dgemm(void* handle, char transa, char transb,
+  int M, int N, int K, double alpha, const void* a, int lda,
+  const void* b, int ldb, double beta, void* c, int ldc);
+void ozaki_gpu_finalize(void);
+#endif
 
 /* Shared int8 dot-product infrastructure (VNNI + scalar fallback).
  * VPDPBSSD: true signed×signed int8 dot product (AVX-VNNI-INT8).
