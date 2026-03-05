@@ -25,6 +25,19 @@
 #endif
 
 
+static void* test_xmalloc(size_t size, const void* extra)
+{
+  LIBXS_UNUSED(extra);
+  return malloc(size);
+}
+
+static void test_xfree(void* pointer, const void* extra)
+{
+  LIBXS_UNUSED(extra);
+  free(pointer);
+}
+
+
 int main(void)
 {
   int nerrors = 0;
@@ -75,17 +88,19 @@ int main(void)
     const size_t nbytes = (size_t)LIBXS_MALLOC_EVICTSIZE + LIBXS_MALLOC_UPSIZE;
     size_t prev_nmallocs = 0;
     int saw_eviction = 0;
+    libxs_malloc_pool_t *mpool = libxs_malloc_pool(NULL, NULL);
 
-    libxs_malloc_pool();
-    for (i = 0; i < nrep_eviction; ++i) {
+    nerrors += (NULL == mpool);
+    for (i = 0; i < nrep_eviction && 0 == nerrors; ++i) {
       libxs_malloc_pool_info_t pinfo;
       libxs_malloc_info_t minfo;
       void *p = NULL;
 
-      p = libxs_malloc(0/*nbytes*/, 0/*auto*/);
+      p = libxs_malloc(mpool, 0/*nbytes*/, 0/*auto*/);
+      nerrors += (NULL != p); /* zero-size must return NULL */
       libxs_free(p);
 
-      p = libxs_malloc(nbytes, 0/*auto*/);
+      p = libxs_malloc(mpool, nbytes, 0/*auto*/);
       if (NULL != p) {
         memset(p, 0xA5, LIBXS_MIN(nbytes, (size_t)4096));
       }
@@ -95,12 +110,12 @@ int main(void)
       if (EXIT_SUCCESS != libxs_malloc_info(p, &minfo) || minfo.size < nbytes) {
         ++nerrors; break;
       }
-      if (EXIT_SUCCESS != libxs_malloc_pool_info(&pinfo) || prev_nmallocs > pinfo.nmallocs) {
+      if (EXIT_SUCCESS != libxs_malloc_pool_info(mpool, &pinfo) || prev_nmallocs > pinfo.nmallocs) {
         ++nerrors; break;
       }
       prev_nmallocs = pinfo.nmallocs;
       libxs_free(p);
-      if (EXIT_SUCCESS != libxs_malloc_pool_info(&pinfo)) {
+      if (EXIT_SUCCESS != libxs_malloc_pool_info(mpool, &pinfo)) {
         ++nerrors; break;
       }
       if ((size_t)(max_nthreads * max_nactive) * LIBXS_MALLOC_EVICTWARMUP <= pinfo.nmallocs
@@ -111,8 +126,116 @@ int main(void)
     }
     nerrors += (0 == prev_nmallocs);
     LIBXS_UNUSED(saw_eviction);
-    libxs_free_pool();
+    libxs_free_pool(mpool);
   }
+
+  /* Test: multiple independent pools */
+  if (0 == nerrors) {
+    libxs_malloc_pool_t *pool_a = libxs_malloc_pool(NULL, NULL);
+    libxs_malloc_pool_t *pool_b = libxs_malloc_pool(NULL, NULL);
+    void *pa, *pb;
+    libxs_malloc_pool_info_t info_a, info_b;
+
+    nerrors += (NULL == pool_a || NULL == pool_b);
+    pa = libxs_malloc(pool_a, 1024, 0);
+    pb = libxs_malloc(pool_b, 2048, 0);
+    nerrors += (NULL == pa || NULL == pb);
+    if (0 == nerrors) {
+      libxs_malloc_info_t mi;
+      nerrors += (EXIT_SUCCESS != libxs_malloc_info(pa, &mi) || mi.size < 1024);
+      nerrors += (EXIT_SUCCESS != libxs_malloc_info(pb, &mi) || mi.size < 2048);
+      nerrors += (EXIT_SUCCESS != libxs_malloc_pool_info(pool_a, &info_a));
+      nerrors += (EXIT_SUCCESS != libxs_malloc_pool_info(pool_b, &info_b));
+      nerrors += (1 != info_a.nactive || 1 != info_b.nactive);
+    }
+    libxs_free(pa);
+    libxs_free(pb);
+    /* after free, nactive should be 0 for both pools */
+    if (0 == nerrors) {
+      nerrors += (EXIT_SUCCESS != libxs_malloc_pool_info(pool_a, &info_a));
+      nerrors += (EXIT_SUCCESS != libxs_malloc_pool_info(pool_b, &info_b));
+      nerrors += (0 != info_a.nactive || 0 != info_b.nactive);
+    }
+    libxs_free_pool(pool_a);
+    libxs_free_pool(pool_b);
+  }
+
+  /* Test: custom malloc/free function pointers */
+  if (0 == nerrors) {
+    libxs_malloc_pool_t *cpool = libxs_malloc_pool(malloc, free);
+    void *p;
+    libxs_malloc_info_t mi;
+    libxs_malloc_pool_info_t pi;
+
+    nerrors += (NULL == cpool);
+    p = libxs_malloc(cpool, 4096, 64);
+    nerrors += (NULL == p);
+    if (NULL != p) {
+      memset(p, 0xCC, 4096);
+      nerrors += (EXIT_SUCCESS != libxs_malloc_info(p, &mi) || mi.size < 4096);
+      nerrors += (EXIT_SUCCESS != libxs_malloc_pool_info(cpool, &pi) || 1 != pi.nactive);
+      libxs_free(p);
+      nerrors += (EXIT_SUCCESS != libxs_malloc_pool_info(cpool, &pi) || 0 != pi.nactive);
+    }
+    libxs_free_pool(cpool);
+  }
+
+  /* Test: extended pool (libxs_malloc_xpool) with per-thread extra arg */
+  if (0 == nerrors) {
+    static int xmalloc_extra_ok = 0, xfree_extra_ok = 0;
+    const int sentinel = 42;
+    libxs_malloc_pool_t *xpool;
+    void *p;
+    libxs_malloc_info_t mi;
+    libxs_malloc_pool_info_t pi;
+
+    xpool = libxs_malloc_xpool(
+      /* malloc_xfn */ test_xmalloc,
+      /* free_xfn */   test_xfree,
+      /* max_nthreads */ 4);
+    nerrors += (NULL == xpool);
+
+    /* set per-thread extra for this thread */
+    libxs_malloc_arg(xpool, &sentinel);
+
+    p = libxs_malloc(xpool, 2048, 0);
+    nerrors += (NULL == p);
+    if (NULL != p) {
+      memset(p, 0xBB, 2048);
+      nerrors += (EXIT_SUCCESS != libxs_malloc_info(p, &mi) || mi.size < 2048);
+      nerrors += (EXIT_SUCCESS != libxs_malloc_pool_info(xpool, &pi) || 1 != pi.nactive);
+      libxs_free(p);
+      nerrors += (EXIT_SUCCESS != libxs_malloc_pool_info(xpool, &pi) || 0 != pi.nactive);
+    }
+    libxs_free_pool(xpool);
+  }
+
+  /* Test: libxs_malloc_xpool rejects NULL fn or zero nthreads */
+  if (0 == nerrors) {
+    nerrors += (NULL != libxs_malloc_xpool(NULL, test_xfree, 4));
+    nerrors += (NULL != libxs_malloc_xpool(test_xmalloc, NULL, 4));
+    nerrors += (NULL != libxs_malloc_xpool(test_xmalloc, test_xfree, 0));
+  }
+
+  /* Test: libxs_malloc_arg on standard pool is a no-op */
+  if (0 == nerrors) {
+    libxs_malloc_pool_t *spool = libxs_malloc_pool(NULL, NULL);
+    int dummy = 0;
+    nerrors += (NULL == spool);
+    libxs_malloc_arg(spool, &dummy); /* must not crash */
+    libxs_free_pool(spool);
+  }
+
+  /* Test: NULL pool returns NULL */
+  if (0 == nerrors) {
+    nerrors += (NULL != libxs_malloc(NULL, 1024, 0));
+  }
+
+  /* Test: libxs_free(NULL) is safe */
+  libxs_free(NULL);
+
+  /* Test: libxs_free_pool(NULL) is safe */
+  libxs_free_pool(NULL);
 
   if (0 == nerrors) {
     return EXIT_SUCCESS;

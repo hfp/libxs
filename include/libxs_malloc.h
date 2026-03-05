@@ -26,6 +26,19 @@ LIBXS_EXTERN_C typedef struct libxs_malloc_pool_info_t {
   size_t nmallocs;
 } libxs_malloc_pool_info_t;
 
+/** Opaque pool type (created by libxs_malloc_pool). */
+LIBXS_EXTERN_C typedef struct libxs_malloc_pool_t libxs_malloc_pool_t;
+
+/** Function type for custom memory allocation (malloc-compatible). */
+LIBXS_EXTERN_C typedef void* (*libxs_malloc_fn)(size_t size);
+/** Function type for custom memory deallocation (free-compatible). */
+LIBXS_EXTERN_C typedef void (*libxs_free_fn)(void* pointer);
+
+/** Extended function type for custom allocation (extra context per thread). */
+LIBXS_EXTERN_C typedef void* (*libxs_malloc_xfn)(size_t size, const void* extra);
+/** Extended function type for custom deallocation (extra context per thread). */
+LIBXS_EXTERN_C typedef void (*libxs_free_xfn)(void* pointer, const void* extra);
+
 
 /**
  * Initialize the pool by drawing from the given storage a number of chunks of the given size.
@@ -43,25 +56,45 @@ LIBXS_API void libxs_pfree_lock(void* pointer, void* pool[], size_t* num, libxs_
 /** Similar to libxs_pfree_lock but using an internal lock. */
 LIBXS_API void libxs_pfree(void* pointer, void* pool[], size_t* num);
 
-/** Allocate from a pool which can reach steady-sate (libxs_malloc_pool). */
-LIBXS_API void* libxs_malloc(size_t size,
-  /**
-   * =0: align automatically according to the size
-   * 0<: align according to the alignment value
-   */
-  size_t alignment);
-/** Free memory allocated by libxs_malloc. */
+/**
+ * Create a memory pool, optionally with custom allocator functions.
+ * If malloc_fn or free_fn is NULL, the standard malloc/free is used.
+ * Both function pointers must be NULL or both must be non-NULL.
+ */
+LIBXS_API libxs_malloc_pool_t* libxs_malloc_pool(libxs_malloc_fn malloc_fn, libxs_free_fn free_fn);
+
+/**
+ * Create a memory pool with extended allocator functions that receive a per-thread
+ * extra argument (see libxs_malloc_arg). The max_nthreads parameter determines the
+ * size of the internal per-thread argument table (indexed by libxs_tid).
+ * Both function pointers must be non-NULL.
+ */
+LIBXS_API libxs_malloc_pool_t* libxs_malloc_xpool(libxs_malloc_xfn malloc_fn, libxs_free_xfn free_fn,
+  int max_nthreads);
+
+/**
+ * Set the per-thread extra argument for an extended pool (created by libxs_malloc_xpool).
+ * The extra pointer is stored at the calling thread's slot (libxs_tid) and passed to
+ * the registered malloc_xfn/free_xfn on subsequent allocations from this thread.
+ * No-op for standard pools (created by libxs_malloc_pool).
+ */
+LIBXS_API void libxs_malloc_arg(libxs_malloc_pool_t* pool, const void* extra);
+
+/** Destroy the pool and free all associated memory. */
+LIBXS_API void libxs_free_pool(libxs_malloc_pool_t* pool);
+
+/**
+ * Allocate from the given pool.
+ * alignment=0: align automatically according to the size
+ * alignment>0: align according to the alignment value
+ */
+LIBXS_API void* libxs_malloc(libxs_malloc_pool_t* pool, size_t size, size_t alignment);
+/** Free memory allocated by libxs_malloc (pool is derived internally). */
 LIBXS_API void libxs_free(void* pointer);
 
-/** Retrieve information about allocated memory (pointer). */
+/** Retrieve information about allocated memory (pool is derived internally). */
 LIBXS_API int libxs_malloc_info(const void* pointer, libxs_malloc_info_t* info);
-
-/** Allocate a pool for libxs_malloc (shall be called before libxs_malloc). */
-LIBXS_API void libxs_malloc_pool(void);
-/** Free unused memory (libxs_malloc_pool). */
-LIBXS_API void libxs_free_pool(void);
-
 /** Retrieve information about the pooled memory domain. */
-LIBXS_API int libxs_malloc_pool_info(libxs_malloc_pool_info_t* info);
+LIBXS_API int libxs_malloc_pool_info(const libxs_malloc_pool_t* pool, libxs_malloc_pool_info_t* info);
 
 #endif /*LIBXS_MALLOC_H*/

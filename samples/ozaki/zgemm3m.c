@@ -163,7 +163,7 @@ LIBXS_API_INTERN void zgemm3m(GEMM_ARGDECL)
   const size_t sz_c = (size_t)M * N;
   /* Ar, Ai, Br, Bi, Ta (=Ar+Ai), Tb (=Br+Bi), P1, P2, P3 */
   GEMM_REAL_TYPE* workspace = (GEMM_REAL_TYPE*)libxs_malloc(
-    sizeof(GEMM_REAL_TYPE) * (3 * sz_a + 3 * sz_b + 3 * sz_c), 0/*auto*/);
+    gemm_pool, sizeof(GEMM_REAL_TYPE) * (3 * sz_a + 3 * sz_b + 3 * sz_c), 0/*auto*/);
   if (NULL == workspace) {
     fprintf(stderr, "zgemm3m: allocation failed (m=%i, n=%i, k=%i)\n",
       (int)M, (int)N, (int)K);

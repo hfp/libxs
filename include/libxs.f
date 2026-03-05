@@ -11,6 +11,7 @@
         USE, INTRINSIC :: ISO_C_BINDING, ONLY:                          &
      &    C_DOUBLE, C_FLOAT, C_LONG_LONG, C_INT,                        &
      &    C_CHAR, C_INT8_T, C_SIZE_T, C_PTR, C_NULL_PTR,                &
+     &    C_FUNPTR, C_NULL_FUNPTR,                                       &
      &    C_F_POINTER, C_ASSOCIATED, C_LOC, C_SIZEOF
         IMPLICIT NONE
         PRIVATE
@@ -39,7 +40,8 @@
         PUBLIC :: libxs_init, libxs_finalize
         PUBLIC :: libxs_timer_tick, libxs_timer_duration
         PUBLIC :: libxs_malloc, libxs_free
-        PUBLIC :: libxs_malloc_pool, libxs_free_pool
+        PUBLIC :: libxs_malloc_pool, libxs_malloc_xpool
+        PUBLIC :: libxs_malloc_arg, libxs_free_pool
         PUBLIC :: libxs_hash, libxs_hash_string
         PUBLIC :: libxs_diff
         PUBLIC :: libxs_matdiff, libxs_matdiff_reduce
@@ -57,6 +59,7 @@
         PUBLIC :: C_DOUBLE, C_FLOAT, C_INT, C_LONG_LONG
         PUBLIC :: C_CHAR, C_INT8_T, C_SIZE_T
         PUBLIC :: C_PTR, C_NULL_PTR
+        PUBLIC :: C_FUNPTR, C_NULL_FUNPTR
         PUBLIC :: C_F_POINTER, C_ASSOCIATED, C_LOC, C_SIZEOF
 
         !> Integer kind used by timer interface.
@@ -145,9 +148,10 @@
           END FUNCTION
 
           !> Internal binding (use libxs_malloc instead).
-          FUNCTION libxs_malloc_c(nbytes, alignment)                    &
+          FUNCTION libxs_malloc_c(pool, nbytes, alignment)              &
      &    BIND(C, NAME="libxs_malloc")
             IMPORT :: C_SIZE_T, C_PTR
+            TYPE(C_PTR), INTENT(IN), VALUE :: pool
             INTEGER(C_SIZE_T), INTENT(IN), VALUE :: nbytes
             INTEGER(C_SIZE_T), INTENT(IN), VALUE :: alignment
             TYPE(C_PTR) :: libxs_malloc_c
@@ -159,12 +163,37 @@
             TYPE(C_PTR), INTENT(IN), VALUE :: ptr
           END SUBROUTINE
 
-          !> Allocate the pool for libxs_malloc.
-          SUBROUTINE libxs_malloc_pool() BIND(C)
+          !> Create a memory pool (returns opaque handle).
+          FUNCTION libxs_malloc_pool(malloc_fn, free_fn)                &
+     &    BIND(C)
+            IMPORT :: C_PTR, C_FUNPTR
+            TYPE(C_FUNPTR), INTENT(IN), VALUE :: malloc_fn
+            TYPE(C_FUNPTR), INTENT(IN), VALUE :: free_fn
+            TYPE(C_PTR) :: libxs_malloc_pool
+          END FUNCTION
+
+          !> Destroy pool and free all associated memory.
+          SUBROUTINE libxs_free_pool(pool) BIND(C)
+            IMPORT :: C_PTR
+            TYPE(C_PTR), INTENT(IN), VALUE :: pool
           END SUBROUTINE
 
-          !> Free unused memory (pool).
-          SUBROUTINE libxs_free_pool() BIND(C)
+          !> Create a pool with extended allocators (per-thread extra).
+          FUNCTION libxs_malloc_xpool(malloc_fn,                        &
+     &    free_fn, max_nthreads) BIND(C)
+            IMPORT :: C_PTR, C_FUNPTR, C_INT
+            TYPE(C_FUNPTR), INTENT(IN), VALUE :: malloc_fn
+            TYPE(C_FUNPTR), INTENT(IN), VALUE :: free_fn
+            INTEGER(C_INT), INTENT(IN), VALUE ::                        &
+     &        max_nthreads
+            TYPE(C_PTR) :: libxs_malloc_xpool
+          END FUNCTION
+
+          !> Set the per-thread extra argument for an extended pool.
+          SUBROUTINE libxs_malloc_arg(pool, extra) BIND(C)
+            IMPORT :: C_PTR
+            TYPE(C_PTR), INTENT(IN), VALUE :: pool
+            TYPE(C_PTR), INTENT(IN), VALUE :: extra
           END SUBROUTINE
 
           !> Calculate a 64-bit hash for a character string.
@@ -315,16 +344,17 @@
 
         !> Allocate from a pool reaching steady-state.
         !> alignment=0 (default): automatic, based on size.
-        FUNCTION libxs_malloc_bytes(nbytes, alignment)
+        FUNCTION libxs_malloc_bytes(pool, nbytes, alignment)
+          TYPE(C_PTR), INTENT(IN) :: pool
           INTEGER(C_SIZE_T), INTENT(IN) :: nbytes
           INTEGER(C_SIZE_T), INTENT(IN), OPTIONAL :: alignment
           TYPE(C_PTR) :: libxs_malloc_bytes
           IF (PRESENT(alignment)) THEN
             libxs_malloc_bytes =                                        &
-     &        libxs_malloc_c(nbytes, alignment)
+     &        libxs_malloc_c(pool, nbytes, alignment)
           ELSE
             libxs_malloc_bytes =                                        &
-     &        libxs_malloc_c(nbytes, 0_C_SIZE_T)
+     &        libxs_malloc_c(pool, nbytes, 0_C_SIZE_T)
           END IF
         END FUNCTION
 

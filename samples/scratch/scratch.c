@@ -53,6 +53,7 @@ int main(int argc, char* argv[])
   unsigned int nallocs = 0, nerrors0 = 0, nerrors1 = 0;
   libxs_timer_tick_t d0 = 0, d1 = 0;
   libxs_malloc_pool_info_t info;
+  libxs_malloc_pool_t *pool;
   int r[MAX_MALLOC_N], i;
   int max_size = 0;
   int scratch = 0;
@@ -78,7 +79,7 @@ int main(int argc, char* argv[])
   fprintf(stdout, "Running %i cycles with max. %i malloc+free (%u calls) using %i thread%s...\n",
     ncycles, max_nactive, nallocs, 1 >= nthreads ? 1 : nthreads, 1 >= nthreads ? "" : "s");
 
-  libxs_malloc_pool();
+  pool = libxs_malloc_pool(NULL, NULL);
 
 #if defined(_OPENMP)
 # pragma omp parallel for num_threads(nthreads) private(i) reduction(+:d1,nerrors1)
@@ -92,7 +93,7 @@ int main(int argc, char* argv[])
       const int k = (i * count + j) % (MAX_MALLOC_N);
       const size_t nbytes = ((size_t)r[k] % (MAX_MALLOC_MB) + 1) << 20;
       const libxs_timer_tick_t t1 = libxs_timer_tick();
-      p[j] = libxs_malloc(nbytes, 0/*auto*/);
+      p[j] = libxs_malloc(pool, nbytes, 0/*auto*/);
       d1 += libxs_timer_ncycles(t1, libxs_timer_tick());
       if (NULL == p[j]) {
         ++nerrors1;
@@ -105,11 +106,12 @@ int main(int argc, char* argv[])
       libxs_free(p[j]);
     }
   }
-  if (EXIT_SUCCESS == libxs_malloc_pool_info(&info) && 0 < info.size) {
+  if (EXIT_SUCCESS == libxs_malloc_pool_info(pool, &info) && 0 < info.size) {
     scratch = (int)LIBXS_UPDIV(info.size, (size_t)1 << 20);
     fprintf(stdout, "\nScratch: %i MB (mallocs=%lu)\n",
       scratch, (unsigned long int)info.nmallocs);
-    libxs_free_pool();
+    libxs_free_pool(pool);
+    pool = NULL;
   }
 
 #if (defined(MALLOC) && defined(FREE))

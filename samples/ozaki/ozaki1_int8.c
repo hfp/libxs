@@ -224,16 +224,16 @@ LIBXS_API_INLINE void gemm_oz1_diff(const char* transa, const char* transb,
   }
 
   ak_panel = (int8_t (*)[BLOCK_M][MAX_NSLICES][BLOCK_K])libxs_malloc(
-    (size_t)NKB_MAX * nblk_m * sizeof(*ak_panel), 0);
+    gemm_pool, (size_t)NKB_MAX * nblk_m * sizeof(*ak_panel), 0);
   expa_panel = (int16_t (*)[BLOCK_M])libxs_malloc(
-    (size_t)NKB_MAX * nblk_m * sizeof(*expa_panel), 0);
+    gemm_pool, (size_t)NKB_MAX * nblk_m * sizeof(*expa_panel), 0);
   bk_panel = (int8_t (*)[BLOCK_N][MAX_NSLICES][BLOCK_K])libxs_malloc(
-    (size_t)NKB_MAX * nblk_n * sizeof(*bk_panel), 0);
+    gemm_pool, (size_t)NKB_MAX * nblk_n * sizeof(*bk_panel), 0);
   expb_panel = (int16_t (*)[BLOCK_N])libxs_malloc(
-    (size_t)NKB_MAX * nblk_n * sizeof(*expb_panel), 0);
+    gemm_pool, (size_t)NKB_MAX * nblk_n * sizeof(*expb_panel), 0);
   if (NULL != diff && 0 == (diff_abc % 3)) {
     ref_panel = (GEMM_REAL_TYPE*)libxs_malloc(
-      (size_t)nblk_m * nblk_n * BLOCK_MN * sizeof(*ref_panel), 0);
+      gemm_pool, (size_t)nblk_m * nblk_n * BLOCK_MN * sizeof(*ref_panel), 0);
   }
 
 #if defined(_OPENMP)

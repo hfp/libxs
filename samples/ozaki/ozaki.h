@@ -175,6 +175,7 @@ LIBXS_APIVAR_PRIVATE(int gemm_exit);
 extern LIBXS_TLS int gemm_dump_inhibit;
 LIBXS_APIVAR_PRIVATE(double gemm_eps);
 LIBXS_APIVAR_PRIVATE(double gemm_rsq);
+LIBXS_APIVAR_PRIVATE(libxs_malloc_pool_t* gemm_pool);
 
 /* Shared int8 dot-product infrastructure (VNNI + scalar fallback).
  * VPDPBSSD: true signed×signed int8 dot product (AVX-VNNI-INT8).

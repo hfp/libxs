@@ -24,6 +24,7 @@ LIBXS_APIVAR_PRIVATE_DEF(int gemm_ozn);
 LIBXS_APIVAR_PRIVATE_DEF(int gemm_exit);
 LIBXS_APIVAR_PRIVATE_DEF(double gemm_eps);
 LIBXS_APIVAR_PRIVATE_DEF(double gemm_rsq);
+LIBXS_APIVAR_PRIVATE_DEF(libxs_malloc_pool_t* gemm_pool);
 LIBXS_TLS int gemm_dump_inhibit;
 
 
@@ -33,6 +34,8 @@ LIBXS_API_INTERN void gemm_atexit(void)
   if (0 != gemm_verbose && 0 < gemm_diff.r) {
     print_diff(stderr, &gemm_diff);
   }
+  libxs_free_pool(gemm_pool);
+  gemm_pool = NULL;
   libxs_finalize();
 }
 
@@ -64,6 +67,7 @@ LIBXS_API_INTERN LIBXS_ATTRIBUTE_WEAK void GEMM_WRAP(const char* transa, const c
       const char *const gemm_eps_env = getenv("GEMM_EPS");
       const char *const gemm_rsq_env = getenv("GEMM_RSQ");
       libxs_init(); /*libxs_malloc_pool()*/
+      gemm_pool = libxs_malloc_pool(NULL, NULL);
       libxs_matdiff_clear(&gemm_diff);
       gemm_ozflags = (NULL == gemm_ozflags_env ? OZ1_DEFAULT : atoi(gemm_ozflags_env));
       gemm_oztrim = (NULL == gemm_oztrim_env ? 0/*exact*/ : atoi(gemm_oztrim_env));

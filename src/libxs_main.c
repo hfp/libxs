@@ -10,6 +10,8 @@
 #include <libxs_cpuid.h>
 #include <libxs_malloc.h>
 
+static libxs_malloc_pool_t* internal_default_pool;
+
 #include <signal.h>
 #if !defined(NDEBUG)
 # include <errno.h>
@@ -409,7 +411,7 @@ LIBXS_API_INTERN void internal_init(void)
   umask(S_IRUSR | S_IWUSR); /* setup default/secure file mask */
 #endif
   libxs_memory_init(libxs_cpuid(NULL));
-  libxs_malloc_pool();
+  internal_default_pool = libxs_malloc_pool(NULL, NULL);
 }
 
 
@@ -530,7 +532,8 @@ LIBXS_API LIBXS_ATTRIBUTE_NO_TRACE void libxs_finalize(void);
 LIBXS_API_DTOR void libxs_finalize(void)
 {
   libxs_memory_finalize();
-  libxs_free_pool();
+  libxs_free_pool(internal_default_pool);
+  internal_default_pool = NULL;
 }
 
 
