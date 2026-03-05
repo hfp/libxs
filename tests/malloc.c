@@ -182,12 +182,11 @@ int main(void)
 
   /* Test: extended pool (libxs_malloc_xpool) with per-thread extra arg */
   if (0 == nerrors) {
-    static int xmalloc_extra_ok = 0, xfree_extra_ok = 0;
     const int sentinel = 42;
     libxs_malloc_pool_t *xpool;
-    void *p;
-    libxs_malloc_info_t mi;
     libxs_malloc_pool_info_t pi;
+    libxs_malloc_info_t mi;
+    void *p;
 
     xpool = libxs_malloc_xpool(
       /* malloc_xfn */ test_xmalloc,

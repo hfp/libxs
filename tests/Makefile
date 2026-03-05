@@ -62,7 +62,7 @@ XFILES  := $(addsuffix .x,$(addprefix $(OUTDIR)/,$(basename $(notdir \
 REALTYPE_INDEX := $(shell bash -c 'echo "$$((RANDOM%2+1))"' 2>/dev/null)
 REALTYPE := $(word $(if $(REALTYPE_INDEX),$(REALTYPE_INDEX),1),double float)
 
-SAMPLES := memcmp scratch shuffle sync
+SAMPLES := memcmp registry scratch shuffle sync
 
 .PHONY: all
 all: $(XFILES)
@@ -86,25 +86,17 @@ test: $(OUTDIR)/.make $(OUTDIR)/test.sh all
 HEADER_ONLY = $(basename $(notdir $(shell grep -H libxs_source *.c | cut -d: -f1)))
 
 define DEFINE_LINK_LD_RULE
-ifneq ($(words $(XLIB)),$(words $(wildcard $(XLIB))))
 $(1).x: $(2) $(OBJECTX) $(dir $(1))/.make $(if $(filter $(1),$(HEADER_ONLY)),$(NULL),$(XLIB))
 	$(LD) $(SLDFLAGS) -o $(1).x $(2) \
 		$(if $(filter $(1),$(HEADER_ONLY)),$(NULL),$(XLIB)) \
 		$(call cleanld,$(LDFLAGS) $(CLDFLAGS))
-else
-.PHONY: $(1).x
-endif
 endef
 
 define DEFINE_LINK_FC_RULE
 ifneq (,$(strip $(FC)))
-ifneq ($(words $(XLIB)),$(words $(wildcard $(XLIB))))
 $(1).x: $(2) $(FTNOBJS) $(XLIB) $(dir $(1))/.make
 	$(FC) $(SLDFLAGS) -o $(1).x $(2) $(XLIB) $(FCMTFLAGS) \
 		$(call cleanld,$(LDFLAGS) $(FLDFLAGS) $(ELDFLAGS))
-else
-.PHONY: $(1).x
-endif
 else
 .PHONY: $(1).x
 endif
