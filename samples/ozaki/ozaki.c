@@ -151,11 +151,10 @@ LIBXS_API_INTERN LIBXS_ATTRIBUTE_WEAK void GEMM_WRAP(const char* transa, const c
       }
       ozaki_target_arch = libxs_cpuid(NULL);
 #if defined(__LIBXSTREAM)
-      /* Initialize GPU Ozaki context (schemes 1 and 3 only) */
-      if (0 != ozaki_ocl && (1 == ozaki || 3 == ozaki)) {
+      /* Initialize GPU Ozaki context (schemes 1, 2, and 3) */
+      if (0 != ozaki_ocl && (0 < ozaki && 3 >= ozaki)) {
         ozaki_gpu_handle = ozaki_gpu_create(
-          GEMM_IS_DOUBLE, ozaki,
-          (0 < ozaki_verbose ? 1 : 0),
+          GEMM_IS_DOUBLE, ozaki, ozaki_verbose,
           ozaki_n, 0, ozaki_flags, ozaki_trim);
       }
 #endif
