@@ -42,4 +42,22 @@ cat <<EOM | ${EXEC} -o /dev/null "$@"
 ./memcmp 0 0 $((SIZE*1)) 32
 ./memcmp 0 0 $((SIZE*2)) 32
 ./memcmp 0 0 $((SIZE*3)) 32
+./memcmp 1 0 $((SIZE*1)) 1
+./memcmp 2 0 $((SIZE*1)) 1
+./memcmp 3 0 $((SIZE*1)) 1
+./memcmp 4 0 $((SIZE*1)) 1
+./memcmp 5 0 $((SIZE*1)) 1
+./memcmp 7 0 $((SIZE*1)) 1
+./memcmp 8 0 $((SIZE*1)) 1
+./memcmp 9 0 $((SIZE*1)) 1
+./memcmp 15 0 $((SIZE*1)) 1
+./memcmp 16 0 $((SIZE*1)) 1
+./memcmp 31 0 $((SIZE*1)) 1
+./memcmp 32 0 $((SIZE*1)) 1
+./memcmp 33 0 $((SIZE*1)) 1
+./memcmp 63 0 $((SIZE*1)) 1
+./memcmp 64 0 $((SIZE*1)) 1
+./memcmp 65 0 $((SIZE*1)) 1
+./memcmp 127 0 $((SIZE*1)) 1
+./memcmp 128 0 $((SIZE*1)) 1
 EOM

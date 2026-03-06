@@ -65,7 +65,7 @@
           IF (.NOT. libxs_diff(a, b)) THEN
             d = libxs_timer_duration(start, libxs_timer_tick())
             duration(1) = duration(1) + d
-            WRITE(*, "(A,F10.1,A)") "DIFF (LIBXS):", 1D3 * d, " ms"
+            WRITE(*, "(A,F14.1,A)") "DIFF   (LIBXS):", 1D3 * d, "   ms"
           ELSE
             WRITE(*, "(A)") "Validation failed!"
           END IF
@@ -74,7 +74,7 @@
           IF (ALL(a .EQ. b)) THEN
             d = libxs_timer_duration(start, libxs_timer_tick())
             duration(2) = duration(2) + d
-            WRITE(*, "(A,F10.1,A)") "ALL  (Fortran):", 1D3 * d, " ms"
+            WRITE(*, "(A,F14.1,A)") "ALL  (Fortran):", 1D3 * d, "   ms"
           ELSE
             WRITE(*, "(A)") "Validation failed!"
           END IF
@@ -83,7 +83,7 @@
           IF (.NOT. ANY(a .NE. b)) THEN
             d = libxs_timer_duration(start, libxs_timer_tick())
             duration(3) = duration(3) + d
-            WRITE(*, "(A,F10.1,A)") "ANY  (Fortran):", 1D3 * d, " ms"
+            WRITE(*, "(A,F14.1,A)") "ANY  (Fortran):", 1D3 * d, "   ms"
           ELSE
             WRITE(*, "(A)") "Validation failed!"
           END IF
@@ -94,13 +94,13 @@
           WRITE(*, "(A,I0,A)") "Arithmetic average of ",                &
      &      nrepeat, " iterations"
           WRITE(*, "(A)") REPEAT("-", W)
-          WRITE(*, "(A,F10.1,A)") "DIFF (LIBXS):",                      &
+          WRITE(*, "(A,F14.1,A)") "DIFF   (LIBXS):",                    &
      &      REAL(nbytes, 8) * REAL(nrepeat, 8) /                        &
      &      (duration(1) * REAL(ISHFT(1, 20), 8)), " MB/s"
-          WRITE(*, "(A,F10.1,A)") "ALL  (Fortran):",                    &
+          WRITE(*, "(A,F14.1,A)") "ALL  (Fortran):",                    &
      &      REAL(nbytes, 8) * REAL(nrepeat, 8) /                        &
      &      (duration(2) * REAL(ISHFT(1, 20), 8)), " MB/s"
-          WRITE(*, "(A,F10.1,A)") "ANY  (Fortran):",                    &
+          WRITE(*, "(A,F14.1,A)") "ANY  (Fortran):",                    &
      &      REAL(nbytes, 8) * REAL(nrepeat, 8) /                        &
      &      (duration(3) * REAL(ISHFT(1, 20), 8)), " MB/s"
           WRITE(*, "(A)") REPEAT("-", W)
