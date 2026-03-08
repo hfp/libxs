@@ -43,6 +43,15 @@ void* ozaki_gpu_create(int use_double, int kind, int verbosity,
     free(h);
     return NULL;
   }
+  /* Refuse the handle if fp64 was requested but the device only supports fp32.
+   * Silently downgrading would cause a type mismatch: the host passes double
+   * arrays while the GPU kernels operate on float, leading to wrong results
+   * and potential memory corruption. */
+  if (use_double && !h->ctx.use_double) {
+    ozaki_destroy(&h->ctx);
+    free(h);
+    return NULL;
+  }
   if (EXIT_SUCCESS != libxstream_stream_create(
         &h->stream, "ozaki_wrap", -1))
   {
