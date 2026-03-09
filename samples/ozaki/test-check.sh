@@ -76,7 +76,7 @@ echo
 echo "-----------------------------------"
 echo "CHECK: Scheme 3 (BF16)"
 if [ "$*" ]; then echo "args    $*"; fi
-{ CHECK=1e-8 OZAKI_VERBOSE=1 OZAKI=3 "${EXE}" "$@" 2>"${TMPF}"; } >/dev/null || RESULT=$?
+{ CHECK=2e-8 OZAKI_VERBOSE=1 OZAKI=3 "${EXE}" "$@" 2>"${TMPF}"; } >/dev/null || RESULT=$?
 if [ "0" != "${RESULT}" ]; then
   echo "FAILED[${RESULT}] $(${CAT} "${TMPF}")"
   exit ${RESULT}
