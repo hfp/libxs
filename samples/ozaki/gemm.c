@@ -24,8 +24,8 @@ int main(int argc, char* argv[])
   const char *const nrepeat_env = getenv("NREPEAT");
   const char *const env_check = getenv("CHECK");
   const double check = (NULL == env_check || 0 == *env_check) ? 0 : atof(env_check);
-  const int nrep = (NULL == nrepeat_env ? 1 : atoi(nrepeat_env));
-  const int nrepeat = (0 < nrep ? nrep : 3);
+  const int nrep = (NULL == nrepeat_env ? 3 : atoi(nrepeat_env));
+  const int nrepeat = (0 < nrep ? nrep : 1);
   GEMM_INT_TYPE m = (1 < argc ? atoi(argv[1]) : 257);
   GEMM_INT_TYPE n = (2 < argc ? atoi(argv[2]) : m);
   GEMM_INT_TYPE k = (3 < argc ? atoi(argv[3]) : m);
@@ -174,8 +174,6 @@ int main(int argc, char* argv[])
       /* Warmup */
       if (0 != complex_input) ZGEMM(&transa, &transb, &m, &n, &k, ga, a, &lda, b, &ldb, gb, c_ref, &ldc);
       else ref_gemm(&transa, &transb, &m, &n, &k, ga, a, &lda, b, &ldb, gb, c_ref, &ldc);
-      /* Reset c_ref for timed run */
-      memcpy(c_ref, c, sizeof(GEMM_REAL_TYPE) * (0 != complex_input ? 2 : 1) * ldc * n);
       start = libxs_timer_tick();
       for (i = 0; i < nrepeat; ++i) {
         if (0 != complex_input) ZGEMM(&transa, &transb, &m, &n, &k, ga, a, &lda, b, &ldb, gb, c_ref, &ldc);
