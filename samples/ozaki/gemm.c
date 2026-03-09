@@ -142,19 +142,16 @@ int main(int argc, char* argv[])
     const GEMM_REAL_TYPE* const ga = (0 != complex_input) ? complex_alpha : &alpha;
     const GEMM_REAL_TYPE* const gb = (0 != complex_input) ? complex_beta : &beta;
     libxs_timer_tick_t start;
-    int ncalls = nrepeat;
-    if (1 < nrepeat) { /* Peel one warmup call */
-      if (0 != complex_input) ZGEMM(&transa, &transb, &m, &n, &k, ga, a, &lda, b, &ldb, gb, c, &ldc);
-      else GEMM(&transa, &transb, &m, &n, &k, ga, a, &lda, b, &ldb, gb, c, &ldc);
-      --ncalls;
-    }
+    /* Warmup: untimed call to trigger lazy initialization (JIT, etc.) */
+    if (0 != complex_input) ZGEMM(&transa, &transb, &m, &n, &k, ga, a, &lda, b, &ldb, gb, c, &ldc);
+    else GEMM(&transa, &transb, &m, &n, &k, ga, a, &lda, b, &ldb, gb, c, &ldc);
     start = libxs_timer_tick();
-    for (i = 0; i < ncalls; ++i) {
+    for (i = 0; i < nrepeat; ++i) {
       if (0 != complex_input) ZGEMM(&transa, &transb, &m, &n, &k, ga, a, &lda, b, &ldb, gb, c, &ldc);
       else GEMM(&transa, &transb, &m, &n, &k, ga, a, &lda, b, &ldb, gb, c, &ldc);
     }
     printf("Called %i times (%.1f ms/call).\n", nrepeat,
-      1E3 * libxs_timer_duration(start, libxs_timer_tick()) / ncalls);
+      1E3 * libxs_timer_duration(start, libxs_timer_tick()) / nrepeat);
   }
 
   if (EXIT_SUCCESS == result) { /* Calculate final checksum */
