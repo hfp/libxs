@@ -12,6 +12,13 @@
 #include "libxs_sync.h"
 
 
+/** Automatic alignment with inline metadata (default). */
+#define LIBXS_MALLOC_AUTO 0
+/** Preserve allocator's native pointer (out-of-band metadata). */
+#define LIBXS_MALLOC_NATIVE 1
+/* Values > 1 are interpreted as explicit alignment (inline metadata). */
+
+
 /** Information about allocated memory (pointer). */
 LIBXS_EXTERN_C typedef struct libxs_malloc_info_t {
   size_t size;
@@ -85,10 +92,11 @@ LIBXS_API void libxs_free_pool(libxs_malloc_pool_t* pool);
 
 /**
  * Allocate from the given pool.
- * alignment=0: align automatically according to the size
- * alignment>0: align according to the alignment value
+ * LIBXS_MALLOC_AUTO: automatic alignment with inline metadata.
+ * LIBXS_MALLOC_NATIVE: preserve allocator's native pointer.
+ * Values > 1: explicit alignment in Bytes (inline metadata).
  */
-LIBXS_API void* libxs_malloc(libxs_malloc_pool_t* pool, size_t size, size_t alignment);
+LIBXS_API void* libxs_malloc(libxs_malloc_pool_t* pool, size_t size, int alignment);
 /** Free memory allocated by libxs_malloc (pool is derived internally). */
 LIBXS_API void libxs_free(void* pointer);
 

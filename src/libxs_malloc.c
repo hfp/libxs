@@ -151,13 +151,13 @@ LIBXS_API_INLINE void internal_malloc_pool_return(internal_malloc_chunk_t *chunk
 }
 
 
-LIBXS_API void* libxs_malloc(libxs_malloc_pool_t* pool, size_t size, size_t alignment)
+LIBXS_API void* libxs_malloc(libxs_malloc_pool_t* pool, size_t size, int alignment)
 {
   void *result = NULL;
   if (NULL == pool || 0 == size) return NULL;
   {
     const size_t alignpot = LIBXS_UP2POT(LIBXS_MAX(sizeof(void*) + 1,
-      0 == alignment ? LIBXS_ALIGNMENT : alignment));
+      1 < alignment ? (size_t)alignment : LIBXS_ALIGNMENT));
     internal_malloc_chunk_t *chunk = NULL;
     void **info = NULL;
 #if defined(LIBXS_MALLOC_SEARCH)
@@ -207,7 +207,7 @@ LIBXS_API void* libxs_malloc(libxs_malloc_pool_t* pool, size_t size, size_t alig
     LIBXS_ATOMIC_RELEASE(&pool->plock, LIBXS_ATOMIC_LOCKORDER);
 #endif
     if (NULL == chunk) return NULL;
-    { libxs_registry_t *const reg = (NULL != pool->fn_malloc.std)
+    { libxs_registry_t *const reg = (LIBXS_MALLOC_NATIVE == alignment)
         ? internal_malloc_get_registry() : NULL;
       const size_t alloc_size = (NULL != reg)
         ? size : (size + sizeof(void*) + alignpot - 1);

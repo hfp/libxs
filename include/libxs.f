@@ -150,10 +150,10 @@
           !> Internal binding (use libxs_malloc instead).
           FUNCTION libxs_malloc_c(pool, nbytes, alignment)              &
      &    BIND(C, NAME="libxs_malloc")
-            IMPORT :: C_SIZE_T, C_PTR
+            IMPORT :: C_SIZE_T, C_INT, C_PTR
             TYPE(C_PTR), INTENT(IN), VALUE :: pool
             INTEGER(C_SIZE_T), INTENT(IN), VALUE :: nbytes
-            INTEGER(C_SIZE_T), INTENT(IN), VALUE :: alignment
+            INTEGER(C_INT), INTENT(IN), VALUE :: alignment
             TYPE(C_PTR) :: libxs_malloc_c
           END FUNCTION
 
@@ -316,7 +316,7 @@
           END FUNCTION
         END INTERFACE
 
-        !> Allocate memory (alignment=0: automatic).
+        !> Allocate memory (flags=0: automatic).
         INTERFACE libxs_malloc
           MODULE PROCEDURE libxs_malloc_bytes
         END INTERFACE
@@ -342,18 +342,19 @@
         END FUNCTION
 
         !> Allocate from a pool reaching steady-state.
-        !> alignment=0 (default): automatic, based on size.
+        !> alignment=0 (LIBXS_MALLOC_AUTO, default): automatic.
+        !> alignment=1 (LIBXS_MALLOC_NATIVE): preserve allocator's pointer.
         FUNCTION libxs_malloc_bytes(pool, nbytes, alignment)
           TYPE(C_PTR), INTENT(IN) :: pool
           INTEGER(C_SIZE_T), INTENT(IN) :: nbytes
-          INTEGER(C_SIZE_T), INTENT(IN), OPTIONAL :: alignment
+          INTEGER(C_INT), INTENT(IN), OPTIONAL :: alignment
           TYPE(C_PTR) :: libxs_malloc_bytes
           IF (PRESENT(alignment)) THEN
             libxs_malloc_bytes =                                        &
      &        libxs_malloc_c(pool, nbytes, alignment)
           ELSE
             libxs_malloc_bytes =                                        &
-     &        libxs_malloc_c(pool, nbytes, 0_C_SIZE_T)
+     &        libxs_malloc_c(pool, nbytes, 0)
           END IF
         END FUNCTION
 
