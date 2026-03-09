@@ -11,6 +11,10 @@
 #include <libxs_mem.h>
 #include <libxs_mhd.h>
 
+#if !defined(BUBBLE_SORT) && 0
+# define BUBBLE_SORT
+#endif
+
 /* Fisher-Yates shuffle */
 #define SHUFFLE(INOUT, ELEMSIZE, COUNT, NSWAPS) do { \
   char *const data = (char*)(INOUT); \
@@ -35,6 +39,7 @@
   for (; i < (N); ++i) (HI) += data[i]; \
 } while(0)
 
+
 typedef enum redop_enum {
   redop_imbalance,
   redop_mdistance
@@ -44,8 +49,13 @@ size_t shuffle(void* inout, size_t elemsize, size_t count);
 /** Compares the sum of values between the left and the right partition. */
 size_t uint_reduce_op(const void* input, size_t elemsize, size_t count,
   redop_enum redop, size_t split);
+#if defined(BUBBLE_SORT)
 /** Bubble-Sort the given data and return the number of swap operations. */
 size_t uint_bsort_asc(void* inout, size_t elemsize, size_t count);
+#else
+/** Count inversions via merge-sort (O(n log n)); data is sorted ascending. */
+size_t uint_msort_inversions(void* inout, size_t elemsize, size_t count);
+#endif
 
 
 int main(int argc, char* argv[])
@@ -61,7 +71,7 @@ int main(int argc, char* argv[])
   const int stats = (NULL == getenv("STATS")
     ? 0 : atoi(getenv("STATS")));
   const size_t elsize = (0 >= insize ? 4 : insize);
-  const size_t m = (0 <= niters ? niters : 1);
+  const size_t m = (0 < niters ? niters : 1);
   const size_t n = (0 >= nelems
     ? (((size_t)64 << 20/*64 MB*/) / elsize)
     : ((size_t)nelems));
@@ -76,7 +86,7 @@ int main(int argc, char* argv[])
   if (NULL != data1 && NULL != data2) {
     size_t a1 = 0, a2 = 0, a3 = 0, b1 = 0, b2 = 0, b3 = 0;
     size_t g1 = 0, g2 = 0, g3 = 0, h1 = 0, h2 = 0, h3 = 0;
-    size_t n0 = 0, n1 = 0, n2 = 0, n3 = 0, j;
+    size_t n1 = 0, n2 = 0, n3 = 0, j;
     double d0, d1 = 0, d2 = 0, d3 = 0;
     const libxs_data_t elemtypes[] = {
       LIBXS_DATATYPE_U64,
@@ -123,25 +133,32 @@ int main(int argc, char* argv[])
       printf("---------------------------------------\n");
 
       if (EXIT_SUCCESS == result) { /* benchmark RNG-based shuffle routine */
-        memcpy(data2, data1, nbytes); n0 = 0;
+        memcpy(data2, data1, nbytes);
         start = libxs_timer_tick();
-        for (j = 0; j < m; ++j) n0 += shuffle(data2, elsize, n);
+        for (j = 0; j < m; ++j) shuffle(data2, elsize, n);
         d0 = libxs_timer_duration(start, libxs_timer_tick()) / mm;
-        if (i == repeat) { /* only last iteration */
+        if (0 < i) { /* skip warm-up; average RNG quality metrics */
           if (0 != stats) {
-            a1 = uint_reduce_op(data2, elsize, n, redop_mdistance, split);
-            b1 = uint_reduce_op(data2, elsize, n, redop_mdistance, split * 2);
-            g1 = uint_reduce_op(data2, elsize, n, redop_imbalance, split);
-            h1 = uint_reduce_op(data2, elsize, n, redop_imbalance, split * 2);
+            a1 += uint_reduce_op(data2, elsize, n, redop_mdistance, split);
+            b1 += uint_reduce_op(data2, elsize, n, redop_mdistance, split * 2);
+            g1 += uint_reduce_op(data2, elsize, n, redop_imbalance, split);
+            h1 += uint_reduce_op(data2, elsize, n, redop_imbalance, split * 2);
           }
-          if (0 == random) {
-            if (0 <= elemtype) {
-              result = libxs_mhd_write("shuffle_rng.mhd", NULL/*offset*/, shape, NULL/*pitch*/,
-                &mhd_write_info, data2, &mhd_winfo);
-            }
+          if (0 != random) {
+#if defined(BUBBLE_SORT)
+            n1 += uint_bsort_asc(data2, elsize, n);
+#else
+            n1 += uint_msort_inversions(data2, elsize, n);
+#endif
           }
-          else n1 = uint_bsort_asc(data2, elsize, n);
         }
+        if (i == repeat && 0 == random) {
+          if (0 <= elemtype) {
+            result = libxs_mhd_write("shuffle_rng.mhd", NULL/*offset*/, shape, NULL/*pitch*/,
+              &mhd_write_info, data2, &mhd_winfo);
+          }
+        }
+        /* bandwidth: 2*n*elsize approximation (RNG skips ~37% of swaps) */
         if (0 < d0) printf("RNG-shuffle: %.8f s (%i MB/s)\n", d0,
           (int)LIBXS_ROUND((2.0 * nbytes) / ((1024.0 * 1024.0) * d0)));
         if (0 < i) d1 += d0; /* ignore first iteration */
@@ -165,7 +182,13 @@ int main(int argc, char* argv[])
                 &mhd_write_info, data2, &mhd_winfo);
             }
           }
-          else n2 = uint_bsort_asc(data2, elsize, n);
+          else {
+#if defined(BUBBLE_SORT)
+            n2 = uint_bsort_asc(data2, elsize, n);
+#else
+            n2 = uint_msort_inversions(data2, elsize, n);
+#endif
+          }
         }
         if (0 < d0) printf("DS1-shuffle: %.8f s (%i MB/s)\n", d0,
           (int)LIBXS_ROUND((2.0 * nbytes) / ((1024.0 * 1024.0) * d0)));
@@ -173,6 +196,7 @@ int main(int argc, char* argv[])
       }
 
       if (EXIT_SUCCESS == result) { /* benchmark out-of-place shuffle (DS2) */
+        memset(data2, 0, nbytes); /* equalize page state (cf. DS1 memcpy) */
         start = libxs_timer_tick();
         libxs_shuffle2(data2, data1, elsize, n, NULL, &m);
         d0 = libxs_timer_duration(start, libxs_timer_tick()) / mm;
@@ -189,7 +213,13 @@ int main(int argc, char* argv[])
                 &mhd_write_info, data2, &mhd_winfo);
             }
           }
-          else n3 = uint_bsort_asc(data2, elsize, n);
+          else {
+#if defined(BUBBLE_SORT)
+            n3 = uint_bsort_asc(data2, elsize, n);
+#else
+            n3 = uint_msort_inversions(data2, elsize, n);
+#endif
+          }
         }
         if (0 < d0) printf("DS2-shuffle: %.8f s (%i MB/s)\n", d0,
           (int)LIBXS_ROUND((2.0 * nbytes) / ((1024.0 * 1024.0) * d0)));
@@ -203,6 +233,9 @@ int main(int argc, char* argv[])
       printf("Arithmetic average of %i iterations\n", repeat);
       printf("---------------------------------------\n");
       d1 /= repeat; d2 /= repeat; d3 /= repeat;
+      /* average accumulated RNG quality metrics */
+      if (0 != stats) { a1 /= repeat; b1 /= repeat; g1 /= repeat; h1 /= repeat; }
+      if (0 != random) n1 /= repeat;
       if (0 < d1) {
         printf("RNG-shuffle: %.8f s (%i MB/s)\n", d1,
           (int)LIBXS_ROUND((2.0 * nbytes) / ((1024.0 * 1024.0) * d1)));
@@ -215,9 +248,8 @@ int main(int argc, char* argv[])
             split, (unsigned long long)LIBXS_UPDIV(100ULL * g1, n));
         }
         if (0 != random) {
-          n0 = (nn * n - 1 + LIBXS_MIN(LIBXS_MIN(n1, nn) * n, n0 * nn)
-            * 100ULL) / (nn * n);
-          printf("             rand=%llu%%\n", (unsigned long long)n0);
+          printf("             rand=%llu%%\n",
+            (unsigned long long)LIBXS_UPDIV(100ULL * LIBXS_MIN(n1, nn), nn));
         }
       }
       if (0 < d2) {
@@ -252,6 +284,10 @@ int main(int argc, char* argv[])
             (unsigned long long)LIBXS_UPDIV(100ULL * LIBXS_MIN(n3, nn), nn));
         }
       }
+    }
+    if (0 > elemtype && 0 == random) {
+      printf("NOTE: MHD output skipped (unsupported element size %i)\n",
+        (int)elsize);
     }
     if (0 < repeat) {
       printf("---------------------------------------\n");
@@ -331,6 +367,7 @@ size_t uint_reduce_op(const void* input, size_t elemsize, size_t count,
 }
 
 
+#if defined(BUBBLE_SORT)
 size_t uint_bsort_asc(void* inout, size_t elemsize, size_t count) {
   size_t nswaps = 0; /* count number of swaps */
   if (0 != count) {
@@ -355,3 +392,63 @@ size_t uint_bsort_asc(void* inout, size_t elemsize, size_t count) {
   }
   return nswaps;
 }
+
+#else /* merge-sort inversion counter O(n log n) */
+
+static size_t msort_inv(unsigned char* data, unsigned char* scratch,
+  size_t elemsize, size_t count)
+{
+  size_t inv = 0, mid, il, ir, nl, nr;
+  if (count <= 1) return 0;
+  mid = count / 2;
+  inv += msort_inv(data, scratch, elemsize, mid);
+  inv += msort_inv(data + elemsize * mid, scratch + elemsize * mid,
+    elemsize, count - mid);
+  /* merge two sorted halves into scratch, counting split inversions */
+  nl = mid; nr = count - mid; il = 0; ir = 0;
+  while (il < nl && ir < nr) {
+    const unsigned char *a = data + elemsize * il;
+    const unsigned char *b = data + elemsize * (mid + ir);
+    size_t k = elemsize;
+    int cmp = 0;
+    for (; 0 < k; --k) {
+      if (a[k - 1] != b[k - 1]) {
+        cmp = (a[k - 1] > b[k - 1]) ? 1 : -1;
+        break;
+      }
+    }
+    if (cmp <= 0) {
+      memcpy(scratch + elemsize * (il + ir), a, elemsize);
+      ++il;
+    }
+    else {
+      memcpy(scratch + elemsize * (il + ir), b, elemsize);
+      ++ir;
+      inv += nl - il;
+    }
+  }
+  while (il < nl) {
+    memcpy(scratch + elemsize * (il + ir), data + elemsize * il, elemsize);
+    ++il;
+  }
+  while (ir < nr) {
+    memcpy(scratch + elemsize * (il + ir),
+      data + elemsize * (mid + ir), elemsize);
+    ++ir;
+  }
+  memcpy(data, scratch, elemsize * count);
+  return inv;
+}
+
+
+size_t uint_msort_inversions(void* inout, size_t elemsize, size_t count) {
+  size_t result = 0;
+  void* scratch = malloc(elemsize * count);
+  if (NULL != scratch) {
+    result = msort_inv((unsigned char*)inout,
+      (unsigned char*)scratch, elemsize, count);
+    free(scratch);
+  }
+  return result;
+}
+#endif
