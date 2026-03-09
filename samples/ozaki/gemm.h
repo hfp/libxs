@@ -41,14 +41,16 @@
 #define GEMM_ARGPASS transa, transb, m, n, k, alpha, a, lda, b, ldb, beta, c, ldc
 
 /* Precision-specific name redirects for public/driver-visible symbols */
-#define gemm_diff      LIBXS_TPREFIX(GEMM_REAL_TYPE, gemm_diff)
-#define ozaki          LIBXS_TPREFIX(GEMM_REAL_TYPE, ozaki)
-#define ozaki_stat     LIBXS_TPREFIX(GEMM_REAL_TYPE, ozaki_stat)
-#define ozaki_verbose  LIBXS_TPREFIX(GEMM_REAL_TYPE, ozaki_verbose)
-#define print_gemm     LIBXS_TPREFIX(GEMM_REAL_TYPE, gemm_print)
-#define print_diff     LIBXS_TPREFIX(GEMM_REAL_TYPE, gemm_print_diff)
-#define gemm_mhd_read  LIBXS_TPREFIX(GEMM_REAL_TYPE, gemm_mhd_read)
-#define gemm_mhd_write LIBXS_TPREFIX(GEMM_REAL_TYPE, gemm_mhd_write)
+#define gemm_function_t LIBXS_TPREFIX(GEMM_REAL_TYPE, gemm_ftype_t)
+#define gemm_original   LIBXS_TPREFIX(GEMM_REAL_TYPE, gemm_original)
+#define gemm_diff       LIBXS_TPREFIX(GEMM_REAL_TYPE, gemm_diff)
+#define ozaki           LIBXS_TPREFIX(GEMM_REAL_TYPE, ozaki)
+#define ozaki_stat      LIBXS_TPREFIX(GEMM_REAL_TYPE, ozaki_stat)
+#define ozaki_verbose   LIBXS_TPREFIX(GEMM_REAL_TYPE, ozaki_verbose)
+#define print_gemm      LIBXS_TPREFIX(GEMM_REAL_TYPE, gemm_print)
+#define print_diff      LIBXS_TPREFIX(GEMM_REAL_TYPE, gemm_print_diff)
+#define gemm_mhd_read   LIBXS_TPREFIX(GEMM_REAL_TYPE, gemm_mhd_read)
+#define gemm_mhd_write  LIBXS_TPREFIX(GEMM_REAL_TYPE, gemm_mhd_write)
 
 /* Size of the serialized settings block */
 #define GEMM_MHD_SETTINGS_SIZE (5 * (int)sizeof(int) + 2 * (int)sizeof(double))
@@ -57,6 +59,9 @@
 LIBXS_API void GEMM(GEMM_ARGDECL);
 /** Complex GEMM entry point (zgemm_ or cgemm_). */
 LIBXS_API void ZGEMM(GEMM_ARGDECL);
+/** Original (unwrapped) real GEMM. */
+#define GEMM_REAL LIBXS_CONCATENATE(__real_, GEMM)
+LIBXS_API_INTERN void GEMM_REAL(GEMM_ARGDECL);
 
 /** Print GEMM arguments. */
 LIBXS_API void print_gemm(FILE* ostream, GEMM_ARGDECL);
@@ -192,6 +197,10 @@ LIBXS_API_INLINE int gemm_mhd_write(const char* filename,
   }
 }
 
+/** Function type for GEMM (precision-specific). */
+LIBXS_EXTERN_C typedef void (*gemm_function_t)(GEMM_ARGDECL);
+
+LIBXS_APIVAR_PUBLIC(gemm_function_t gemm_original);
 LIBXS_APIVAR_PUBLIC(libxs_matdiff_info_t gemm_diff);
 LIBXS_APIVAR_PUBLIC(int ozaki);
 LIBXS_APIVAR_PUBLIC(int ozaki_verbose);

@@ -145,8 +145,6 @@
 # define gemm_oz_gpu_diff   LIBXS_TPREFIX(GEMM_REAL_TYPE, gemm_oz_gpu_diff)
 #endif
 
-/** Function type for GEMM (precision-specific). */
-LIBXS_EXTERN_C typedef void (*gemm_function_t)(GEMM_ARGDECL);
 /** Function type for complex GEMM (precision-specific). */
 LIBXS_EXTERN_C typedef void (*zgemm_function_t)(GEMM_ARGDECL);
 
@@ -168,21 +166,24 @@ LIBXS_API void gemm_oz4(GEMM_ARGDECL);
 /** Complex GEMM 3M (Karatsuba) implementation (internal). */
 LIBXS_API_INTERN void zgemm3m(GEMM_ARGDECL);
 
+LIBXS_APIVAR_PUBLIC(gemm_function_t gemm_original);
 LIBXS_APIVAR_PUBLIC(int ozaki);
 LIBXS_APIVAR_PUBLIC(int ozaki_verbose);
 LIBXS_APIVAR_PUBLIC(int ozaki_stat);
+
 LIBXS_APIVAR_PRIVATE(volatile LIBXS_ATOMIC_LOCKTYPE gemm_lock);
-LIBXS_APIVAR_PRIVATE(gemm_function_t gemm_original);
 LIBXS_APIVAR_PRIVATE(zgemm_function_t zgemm_original);
+LIBXS_APIVAR_PRIVATE(libxs_malloc_pool_t* gemm_pool);
 LIBXS_APIVAR_PRIVATE(int ozaki_target_arch);
-LIBXS_APIVAR_PRIVATE(int ozaki_flags);
-LIBXS_APIVAR_PRIVATE(int ozaki_trim);
-LIBXS_APIVAR_PRIVATE(int ozaki_n);
-LIBXS_APIVAR_PRIVATE(int ozaki_exit);
-extern LIBXS_TLS int gemm_dump_inhibit;
 LIBXS_APIVAR_PRIVATE(double ozaki_eps);
 LIBXS_APIVAR_PRIVATE(double ozaki_rsq);
-LIBXS_APIVAR_PRIVATE(libxs_malloc_pool_t* gemm_pool);
+LIBXS_APIVAR_PRIVATE(int ozaki_flags);
+LIBXS_APIVAR_PRIVATE(int ozaki_trim);
+LIBXS_APIVAR_PRIVATE(int ozaki_exit);
+LIBXS_APIVAR_PRIVATE(int ozaki_n);
+
+extern LIBXS_TLS int gemm_dump_inhibit;
+
 #if defined(__LIBXSTREAM)
 /** Opaque GPU handle (bridge to LIBXSTREAM Ozaki). */
 LIBXS_APIVAR_PRIVATE(void* ozaki_gpu_handle);
@@ -607,9 +608,9 @@ LIBXS_API_INLINE void gemm_dump_matrices(GEMM_ARGDECL, size_t ncomponents)
   else fclose(file);
 
   if (EXIT_SUCCESS == result) {
-  /* avoid repeated dumps */
-  ozaki_eps = libxs_matdiff_epsilon(&gemm_diff);
-  ozaki_rsq = gemm_diff.rsq;
+    /* avoid repeated dumps */
+    ozaki_eps = libxs_matdiff_epsilon(&gemm_diff);
+    ozaki_rsq = gemm_diff.rsq;
   }
   else if (0 != ozaki_verbose) {
     fprintf(stderr, "ERROR: dumping A and B matrix failed!\n");

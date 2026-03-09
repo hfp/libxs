@@ -11,13 +11,13 @@
 
 
 LIBXS_APIVAR_PUBLIC_DEF(libxs_matdiff_info_t gemm_diff);
+LIBXS_APIVAR_PUBLIC_DEF(gemm_function_t gemm_original);
 LIBXS_APIVAR_PUBLIC_DEF(int ozaki_verbose);
 LIBXS_APIVAR_PUBLIC_DEF(int ozaki_stat);
 LIBXS_APIVAR_PUBLIC_DEF(int ozaki);
 
 LIBXS_APIVAR_PRIVATE_DEF(volatile LIBXS_ATOMIC_LOCKTYPE gemm_lock);
 LIBXS_APIVAR_PRIVATE_DEF(libxs_malloc_pool_t* gemm_pool);
-LIBXS_APIVAR_PRIVATE_DEF(gemm_function_t gemm_original);
 LIBXS_APIVAR_PRIVATE_DEF(int ozaki_target_arch);
 LIBXS_APIVAR_PRIVATE_DEF(double ozaki_eps);
 LIBXS_APIVAR_PRIVATE_DEF(double ozaki_rsq);

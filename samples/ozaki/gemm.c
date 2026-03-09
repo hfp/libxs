@@ -13,8 +13,10 @@
 /* Weak references: gemm-blas.x links without the Ozaki library,
  * so these symbols may be undefined. CHECK should not be used
  * with gemm-blas.x (the variables resolve to zero-address). */
+LIBXS_PRAGMA_WEAK(gemm_original)
 LIBXS_PRAGMA_WEAK(ozaki_verbose)
 LIBXS_PRAGMA_WEAK(gemm_diff)
+LIBXS_PRAGMA_WEAK(GEMM_REAL)
 
 
 int main(int argc, char* argv[])
@@ -23,7 +25,7 @@ int main(int argc, char* argv[])
   const char *const env_check = getenv("CHECK");
   const double check = (NULL == env_check || 0 == *env_check) ? 0 : atof(env_check);
   const int nrep = (NULL == nrepeat_env ? 1 : atoi(nrepeat_env));
-  const int nrepeat = (0 < nrep ? nrep : 1);
+  const int nrepeat = (0 < nrep ? nrep : 3);
   GEMM_INT_TYPE m = (1 < argc ? atoi(argv[1]) : 257);
   GEMM_INT_TYPE n = (2 < argc ? atoi(argv[2]) : m);
   GEMM_INT_TYPE k = (3 < argc ? atoi(argv[3]) : m);
@@ -38,7 +40,7 @@ int main(int argc, char* argv[])
   const GEMM_REAL_TYPE scale = (1 < nrepeat ? (1.0 / nrepeat) : 1);
   int result = EXIT_SUCCESS, file_input = 0, complex_input = 0, i;
   GEMM_REAL_TYPE complex_alpha[2] = { 0 }, complex_beta[2] = { 0 };
-  GEMM_REAL_TYPE *a = NULL, *b = NULL, *c = NULL;
+  GEMM_REAL_TYPE *a = NULL, *b = NULL, *c = NULL, *c_ref = NULL;
   GEMM_INT_TYPE a_rows, a_cols, b_rows, b_cols;
   libxs_matdiff_info_t diff;
 
@@ -107,11 +109,13 @@ int main(int argc, char* argv[])
     a = (GEMM_REAL_TYPE*)malloc(sizeof(GEMM_REAL_TYPE) * nc * lda * a_cols);
     b = (GEMM_REAL_TYPE*)malloc(sizeof(GEMM_REAL_TYPE) * nc * ldb * b_cols);
     c = (GEMM_REAL_TYPE*)malloc(sizeof(GEMM_REAL_TYPE) * nc * ldc * n);
-    if (NULL != a && NULL != b && NULL != c) {
+    c_ref = (GEMM_REAL_TYPE*)malloc(sizeof(GEMM_REAL_TYPE) * nc * ldc * n);
+    if (NULL != a && NULL != b && NULL != c && NULL != c_ref) {
       if (0 == file_input || 0 == beta) {
         LIBXS_MATRNG(GEMM_INT_TYPE, GEMM_REAL_TYPE, 0, c, m, n, ldc, scale);
       }
       else memset(c, 0, sizeof(GEMM_REAL_TYPE) * nc * ldc * n);
+      memcpy(c_ref, c, sizeof(GEMM_REAL_TYPE) * nc * ldc * n);
     }
     else result = EXIT_FAILURE;
   }
@@ -141,7 +145,9 @@ int main(int argc, char* argv[])
   if (EXIT_SUCCESS == result) { /* Call GEMM */
     const GEMM_REAL_TYPE* const ga = (0 != complex_input) ? complex_alpha : &alpha;
     const GEMM_REAL_TYPE* const gb = (0 != complex_input) ? complex_beta : &beta;
+    const double gflops = (0 != complex_input ? 8.0 : 2.0) * m * n * k * 1E-9;
     libxs_timer_tick_t start;
+    double duration;
     /* Warmup: untimed call to trigger lazy initialization (JIT, etc.) */
     if (0 != complex_input) ZGEMM(&transa, &transb, &m, &n, &k, ga, a, &lda, b, &ldb, gb, c, &ldc);
     else GEMM(&transa, &transb, &m, &n, &k, ga, a, &lda, b, &ldb, gb, c, &ldc);
@@ -150,19 +156,52 @@ int main(int argc, char* argv[])
       if (0 != complex_input) ZGEMM(&transa, &transb, &m, &n, &k, ga, a, &lda, b, &ldb, gb, c, &ldc);
       else GEMM(&transa, &transb, &m, &n, &k, ga, a, &lda, b, &ldb, gb, c, &ldc);
     }
-    printf("Called %i times (%.1f ms/call).\n", nrepeat,
-      1E3 * libxs_timer_duration(start, libxs_timer_tick()) / nrepeat);
+    duration = libxs_timer_duration(start, libxs_timer_tick()) / nrepeat;
+    printf("Wrapped GEMM: %.1f ms (%.1f GFLOPS/s), %i call(s).\n",
+      1E3 * duration, gflops / duration, nrepeat);
   }
 
-  if (EXIT_SUCCESS == result) { /* Calculate final checksum */
-    const size_t nc = (0 != complex_input ? 2 : 1);
-    const int ldtst = (int)(nc * ldc);
-    result = libxs_matdiff(&diff, LIBXS_DATATYPE(GEMM_REAL_TYPE), (int)(nc * m), n,
-        NULL/*ref*/, c/*tst*/, NULL/*ldref*/, &ldtst);
-  }
-
-  if (EXIT_SUCCESS == result) {
-    printf("\n%f (check)\n", diff.l1_tst);
+  if (EXIT_SUCCESS == result) { /* Reference BLAS GEMM + diff */
+    const GEMM_REAL_TYPE* const ga = (0 != complex_input) ? complex_alpha : &alpha;
+    const GEMM_REAL_TYPE* const gb = (0 != complex_input) ? complex_beta : &beta;
+    /* gemm_original: resolved via dlsym (LD_PRELOAD); GEMM_REAL: static --wrap */
+    const gemm_function_t ref_gemm = (NULL != &gemm_original && NULL != gemm_original)
+      ? gemm_original : (NULL != &GEMM_REAL ? GEMM_REAL : NULL);
+    if (NULL != ref_gemm) {
+      const double gflops = (0 != complex_input ? 8.0 : 2.0) * m * n * k * 1E-9;
+      libxs_timer_tick_t start;
+      double duration;
+      /* Warmup */
+      if (0 != complex_input) ZGEMM(&transa, &transb, &m, &n, &k, ga, a, &lda, b, &ldb, gb, c_ref, &ldc);
+      else ref_gemm(&transa, &transb, &m, &n, &k, ga, a, &lda, b, &ldb, gb, c_ref, &ldc);
+      /* Reset c_ref for timed run */
+      memcpy(c_ref, c, sizeof(GEMM_REAL_TYPE) * (0 != complex_input ? 2 : 1) * ldc * n);
+      start = libxs_timer_tick();
+      for (i = 0; i < nrepeat; ++i) {
+        if (0 != complex_input) ZGEMM(&transa, &transb, &m, &n, &k, ga, a, &lda, b, &ldb, gb, c_ref, &ldc);
+        else ref_gemm(&transa, &transb, &m, &n, &k, ga, a, &lda, b, &ldb, gb, c_ref, &ldc);
+      }
+      duration = libxs_timer_duration(start, libxs_timer_tick()) / nrepeat;
+      printf("BLAS GEMM:    %.1f ms (%.1f GFLOPS/s), %i call(s).\n",
+        1E3 * duration, gflops / duration, nrepeat);
+      { const size_t nc = (0 != complex_input ? 2 : 1);
+        const int ldref = (int)(nc * ldc), ldtst = ldref;
+        result = libxs_matdiff(&diff, LIBXS_DATATYPE(GEMM_REAL_TYPE),
+          (int)(nc * m), n, c_ref, c, &ldref, &ldtst);
+      }
+      if (EXIT_SUCCESS == result) {
+        print_diff(stdout, &diff);
+      }
+    }
+    else { /* fallback: checksum only (no reference GEMM available) */
+      const size_t nc = (0 != complex_input ? 2 : 1);
+      const int ldtst = (int)(nc * ldc);
+      result = libxs_matdiff(&diff, LIBXS_DATATYPE(GEMM_REAL_TYPE), (int)(nc * m), n,
+          NULL/*ref*/, c/*tst*/, NULL/*ldref*/, &ldtst);
+      if (EXIT_SUCCESS == result) {
+        printf("\n%f (check)\n", diff.l1_tst);
+      }
+    }
   }
 
   if (EXIT_SUCCESS == result && 0 != check) { /* Accuracy validation */
@@ -181,9 +220,10 @@ int main(int argc, char* argv[])
   }
 
   libxs_finalize();
-  free(a);
-  free(b);
+  free(c_ref);
   free(c);
+  free(b);
+  free(a);
 
   return result;
 }
