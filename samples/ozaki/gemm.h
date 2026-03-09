@@ -42,9 +42,9 @@
 
 /* Precision-specific name redirects for public/driver-visible symbols */
 #define gemm_diff      LIBXS_TPREFIX(GEMM_REAL_TYPE, gemm_diff)
-#define ozaki     LIBXS_TPREFIX(GEMM_REAL_TYPE, ozaki)
-#define ozaki_stat      LIBXS_TPREFIX(GEMM_REAL_TYPE, ozaki_stat)
-#define ozaki_verbose   LIBXS_TPREFIX(GEMM_REAL_TYPE, ozaki_verbose)
+#define ozaki          LIBXS_TPREFIX(GEMM_REAL_TYPE, ozaki)
+#define ozaki_stat     LIBXS_TPREFIX(GEMM_REAL_TYPE, ozaki_stat)
+#define ozaki_verbose  LIBXS_TPREFIX(GEMM_REAL_TYPE, ozaki_verbose)
 #define print_gemm     LIBXS_TPREFIX(GEMM_REAL_TYPE, gemm_print)
 #define print_diff     LIBXS_TPREFIX(GEMM_REAL_TYPE, gemm_print_diff)
 #define gemm_mhd_read  LIBXS_TPREFIX(GEMM_REAL_TYPE, gemm_mhd_read)
