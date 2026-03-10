@@ -50,7 +50,7 @@ void* ozaki_ocl_create(int use_double, int kind, int verbosity,
       free(h); h = NULL;
     }
     else if (EXIT_SUCCESS != libxstream_stream_create(
-               &h->stream, "ozaki_wrap", -1))
+               &h->stream, "ozaki_wrap", LIBXSTREAM_STREAM_DEFAULT))
     {
       ozaki_destroy(&h->ctx);
       free(h); h = NULL;
