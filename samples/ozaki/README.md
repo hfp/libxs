@@ -140,6 +140,7 @@ make ECFLAGS="-DBLOCK_K=32 -DBATCH_K=2" dgemm-wrap.x
 | `OZAKI` | 1 | Scheme selector: 0 = bypass (call original BLAS directly), 1 = Scheme 1 (mantissa slicing, int8), 2 = Scheme 2 (CRT), 3 = Scheme 3 (BF16 Dekker split), 4 = Scheme 4 (CRT + BF16, no OpenCL). |
 | `OZAKI_N` | *per scheme* | Number of decomposition units: slices for Scheme 1 (double: 1..16, default 8; float: 1..8, default 4) or moduli for Scheme 2 (see Scheme 2 section for per-precision defaults). |
 | `OZAKI_OCL` | 1 | Enable (1) or disable (0) the OpenCL/GPU path at runtime. Only effective when built with LIBXSTREAM support (`__LIBXSTREAM`). When disabled, falls back to the CPU Ozaki scheme. |
+| `OZAKI_SYNC` | 1 | Synchronize after each OpenCL GEMM (1, default) so that the BLAS call is blocking. Set to 0 to skip synchronization for asynchronous benchmarking — the result in C is invalid but the measured time reflects only enqueue overhead. |
 | `OZAKI_FLAGS` | 3 | Scheme 1 bitmask: Triangular (1), Symmetrize (2); see above. |
 | `OZAKI_TRIM` | 0 | Scheme 1 diagonal trim: 0 = exact, T = drop T least significant diagonals (~7 bits each). |
 | `OZAKI_EPS` | inf | Dump A/B matrices as MHD-files when the epsilon error exceeds the given threshold (implies `OZAKI_VERBOSE=1` if unset). |
@@ -175,7 +176,7 @@ TA and TB select transposition: 0&#160;means&#160;'N' (no transpose), non-zero m
 | `ozaki1_bf16.c` | Ozaki Scheme-3 computational kernel (`gemm_oz3`): Dekker-style error-free split into BF16 slices — each carries its own exponent, so no shared-exponent alignment is needed. Dot products via `VDPBF16PS` (scalar fallback). Inherently approximate (FP32 accumulation rounding). Compiled twice (double + float). |
 | `ozaki2_bf16.c` | Ozaki Scheme-4 computational kernel (`gemm_oz4`): CRT-based modular arithmetic (same decomposition as Scheme 2) with BF16 dot products via `VDPBF16PS` instead of VNNI int8. Residues (0–127) are exactly representable in BF16; FP32 accumulation is exact for BLOCK_K ≤ 64. Select with `OZAKI=4`. Compiled twice (double + float). |
 | `zgemm3m.c` | Complex GEMM 3M wrapper (`ZGEMM_WRAP`): deinterleaves complex matrices, issues 3 real GEMM calls (Karatsuba), recombines. Uses `libxs_malloc` for workspace. Compiled twice (double + float). |
-| `ozaki_ocl.c` | OpenCL bridge: wraps LIBXSTREAM behind an opaque handle (`ozaki_ocl_create`/`release`/`dgemm`/`finalize`). Compiled only when LIBXSTREAM is detected; isolates all OpenCL includes from the rest of the code. |
+| `ozaki_ocl.c` | OpenCL bridge: wraps LIBXSTREAM behind an opaque handle (`ozaki_ocl_create`/`release`/`gemm`/`finalize`). Compiled only when LIBXSTREAM is detected; isolates all OpenCL includes from the rest of the code. |
 | `wrap.c` | Entry points (`GEMM`, `ZGEMM`) and dlsym fallbacks (`GEMM_REAL`, `ZGEMM_REAL`) via `GEMM_DEFINE_DLSYM` macro. Used only in the LD_PRELOAD path; excluded from the static archive to keep `__real_` resolution correct. |
 | `gemm.c` | Test driver. Compiled as `dgemm-{wrap,blas}.x` (double) and `sgemm-{wrap,blas}.x` (float). |
 | `gemm-print.c` | `print_gemm` and `print_diff` utilities. |

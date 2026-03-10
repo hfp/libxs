@@ -69,7 +69,7 @@ LIBXS_API_INLINE void gemm_oz_ocl_diff(const char* transa, const char* transb,
     if (NULL != c_ref) memcpy(c_ref, c, c_size);
   }
   /* Compute result on OpenCL device */
-  ozaki_ocl_dgemm(ozaki_ocl_handle,
+  ozaki_ocl_gemm(ozaki_ocl_handle,
     *transa, *transb, *m, *n, *k,
     (double)*alpha, a, *lda, b, *ldb,
     (double)*beta, c, *ldc);

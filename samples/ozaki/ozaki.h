@@ -190,7 +190,7 @@ LIBXS_APIVAR_PRIVATE(void* ozaki_ocl_handle);
 void* ozaki_ocl_create(int use_double, int kind, int verbosity,
   int nslices, int batch_k, int ozflags, int oztrim);
 void ozaki_ocl_release(void* handle);
-int ozaki_ocl_dgemm(void* handle, char transa, char transb,
+int ozaki_ocl_gemm(void* handle, char transa, char transb,
   int M, int N, int K, double alpha, const void* a, int lda,
   const void* b, int ldb, double beta, void* c, int ldc);
 void ozaki_ocl_finalize(void);
