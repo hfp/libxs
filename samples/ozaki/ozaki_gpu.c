@@ -81,6 +81,8 @@ int ozaki_gpu_dgemm(void* handle, char transa, char transb,
     result = ozaki_gemm(&h->ctx, h->stream,
       transa, transb, M, N, K,
       alpha, a, lda, b, ldb, beta, c, ldc);
+    /* BLAS API is synchronous: caller expects result in c upon return. */
+    libxstream_stream_sync(h->stream);
   }
   return result;
 }
