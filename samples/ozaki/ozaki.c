@@ -27,7 +27,7 @@ LIBXS_APIVAR_PRIVATE_DEF(int ozaki_exit);
 LIBXS_APIVAR_PRIVATE_DEF(int ozaki_n);
 LIBXS_TLS int gemm_dump_inhibit;
 #if defined(__LIBXSTREAM)
-LIBXS_APIVAR_PRIVATE_DEF(void* ozaki_gpu_handle);
+LIBXS_APIVAR_PRIVATE_DEF(void* ozaki_ocl_handle);
 #endif
 
 
@@ -38,9 +38,9 @@ LIBXS_API_INTERN void gemm_atexit(void)
     print_diff(stderr, &gemm_diff);
   }
 #if defined(__LIBXSTREAM)
-  ozaki_gpu_release(ozaki_gpu_handle);
-  ozaki_gpu_handle = NULL;
-  ozaki_gpu_finalize();
+  ozaki_ocl_release(ozaki_ocl_handle);
+  ozaki_ocl_handle = NULL;
+  ozaki_ocl_finalize();
 #endif
   libxs_free_pool(gemm_pool);
   gemm_pool = NULL;
@@ -50,11 +50,11 @@ LIBXS_API_INTERN void gemm_atexit(void)
 
 #if defined(__LIBXSTREAM)
 /**
- * GPU diff function matching the CPU _diff signature.
+ * OpenCL diff function matching the CPU _diff signature.
  * Computes GEMM result on GPU via ozaki_gemm, then optionally
  * runs reference BLAS on CPU and computes matdiff.
  */
-LIBXS_API_INLINE void gemm_oz_gpu_diff(const char* transa, const char* transb,
+LIBXS_API_INLINE void gemm_oz_ocl_diff(const char* transa, const char* transb,
   const GEMM_INT_TYPE* m, const GEMM_INT_TYPE* n, const GEMM_INT_TYPE* k,
   const GEMM_REAL_TYPE* alpha, const GEMM_REAL_TYPE* a, const GEMM_INT_TYPE* lda,
                                const GEMM_REAL_TYPE* b, const GEMM_INT_TYPE* ldb,
@@ -62,14 +62,14 @@ LIBXS_API_INLINE void gemm_oz_gpu_diff(const char* transa, const char* transb,
   unsigned int diff_abc, libxs_matdiff_info_t* diff)
 {
   GEMM_REAL_TYPE* c_ref = NULL;
-  /* Save C for reference comparison (before GPU modifies it) */
+  /* Save C for reference comparison (before OpenCL modifies it) */
   if (NULL != diff && 0 == (diff_abc % 3)) {
     const size_t c_size = (size_t)*ldc * (size_t)*n * sizeof(GEMM_REAL_TYPE);
     c_ref = (GEMM_REAL_TYPE*)libxs_malloc(gemm_pool, c_size, 0);
     if (NULL != c_ref) memcpy(c_ref, c, c_size);
   }
-  /* Compute result on GPU */
-  ozaki_gpu_dgemm(ozaki_gpu_handle,
+  /* Compute result on OpenCL device */
+  ozaki_ocl_dgemm(ozaki_ocl_handle,
     *transa, *transb, *m, *n, *k,
     (double)*alpha, a, *lda, b, *ldb,
     (double)*beta, c, *ldc);
@@ -151,9 +151,9 @@ LIBXS_API_INTERN LIBXS_ATTRIBUTE_WEAK void GEMM_WRAP(const char* transa, const c
       }
       ozaki_target_arch = libxs_cpuid(NULL);
 #if defined(__LIBXSTREAM)
-      /* Initialize GPU Ozaki context (schemes 1, 2, and 3) */
+      /* Initialize OpenCL Ozaki context (schemes 1, 2, and 3) */
       if (0 != ozaki_ocl && (0 < ozaki && 3 >= ozaki)) {
-        ozaki_gpu_handle = ozaki_gpu_create(
+        ozaki_ocl_handle = ozaki_ocl_create(
           GEMM_IS_DOUBLE, ozaki, ozaki_verbose,
           ozaki_n, 0, ozaki_flags, ozaki_trim);
       }
@@ -166,8 +166,8 @@ LIBXS_API_INTERN LIBXS_ATTRIBUTE_WEAK void GEMM_WRAP(const char* transa, const c
   LIBXS_ASSERT(0 != gemm_initialized);
 
 #if defined(__LIBXSTREAM)
-  if (NULL != ozaki_gpu_handle) {
-    OZAKI_GEMM_WRAPPER(gemm_oz_gpu_diff)
+  if (NULL != ozaki_ocl_handle) {
+    OZAKI_GEMM_WRAPPER(gemm_oz_ocl_diff)
   }
   else
 #endif

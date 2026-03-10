@@ -141,8 +141,8 @@
 #define gemm_atexit         LIBXS_TPREFIX(GEMM_REAL_TYPE, gemm_atexit)
 #define gemm_pool           LIBXS_TPREFIX(GEMM_REAL_TYPE, gemm_pool)
 #if defined(__LIBXSTREAM)
-# define ozaki_gpu_handle   LIBXS_TPREFIX(GEMM_REAL_TYPE, ozaki_gpu_handle)
-# define gemm_oz_gpu_diff   LIBXS_TPREFIX(GEMM_REAL_TYPE, gemm_oz_gpu_diff)
+# define ozaki_ocl_handle   LIBXS_TPREFIX(GEMM_REAL_TYPE, ozaki_ocl_handle)
+# define gemm_oz_ocl_diff   LIBXS_TPREFIX(GEMM_REAL_TYPE, gemm_oz_ocl_diff)
 #endif
 
 /** Function type for complex GEMM (precision-specific). */
@@ -185,15 +185,15 @@ LIBXS_APIVAR_PRIVATE(int ozaki_n);
 extern LIBXS_TLS int gemm_dump_inhibit;
 
 #if defined(__LIBXSTREAM)
-/** Opaque GPU handle (bridge to LIBXSTREAM Ozaki). */
-LIBXS_APIVAR_PRIVATE(void* ozaki_gpu_handle);
-void* ozaki_gpu_create(int use_double, int kind, int verbosity,
+/** Opaque OpenCL handle (bridge to LIBXSTREAM Ozaki). */
+LIBXS_APIVAR_PRIVATE(void* ozaki_ocl_handle);
+void* ozaki_ocl_create(int use_double, int kind, int verbosity,
   int nslices, int batch_k, int ozflags, int oztrim);
-void ozaki_gpu_release(void* handle);
-int ozaki_gpu_dgemm(void* handle, char transa, char transb,
+void ozaki_ocl_release(void* handle);
+int ozaki_ocl_dgemm(void* handle, char transa, char transb,
   int M, int N, int K, double alpha, const void* a, int lda,
   const void* b, int ldb, double beta, void* c, int ldc);
-void ozaki_gpu_finalize(void);
+void ozaki_ocl_finalize(void);
 #endif
 
 /* Shared int8 dot-product infrastructure (VNNI + scalar fallback).
