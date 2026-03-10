@@ -4,7 +4,7 @@
 
 This code sample intercepts all four standard BLAS GEMM routines — DGEMM, SGEMM, ZGEMM, and CGEMM — and only relies on the LAPACK/BLAS interface. Real GEMM calls (DGEMM/SGEMM) are executed via one of three Ozaki low-precision schemes (mantissa slicing, CRT, or BF16 Dekker split); complex GEMM calls (ZGEMM/CGEMM) are implemented via the 3M (Karatsuba) method using three real GEMM calls each. The wrapper sources are compiled twice (once for `double`, once for `float`), so all four symbols coexist in a single binary.
 
-Two link-time variants are built: (1)&#160;code which is dynamically linked against LAPACK/BLAS (`gemm-blas.x`), (2)&#160;code which is linked using `--wrap=`*symbol* supported by GNU&#160;GCC compatible tool chains (`gemm-wrap.x`). In addition, precision-specific drivers are available: `dgemm-wrap.x`/`dgemm-blas.x` (double only) and `sgemm-wrap.x`/`sgemm-blas.x` (float only). Running `test-wrap.sh` exercises three flavors: the two build variants and additionally the first variant using the LD_PRELOAD mechanism (available under Linux). The `test-check.sh` script validates all four Ozaki schemes for correctness, and `test-mhd.sh` tests MHD file-based GEMM input pairs.
+Two link-time variants are built per precision: (1)&#160;code which is dynamically linked against LAPACK/BLAS (`dgemm-blas.x`/`sgemm-blas.x`), (2)&#160;code which is linked using `--wrap=`*symbol* supported by GNU&#160;GCC compatible tool chains (`dgemm-wrap.x`/`sgemm-wrap.x`). Running `test-wrap.sh` exercises three flavors: the two build variants and additionally the first variant using the LD_PRELOAD mechanism (available under Linux). The `test-check.sh` script validates all four Ozaki schemes for correctness, and `test-mhd.sh` tests MHD file-based GEMM input pairs.
 
 The static wrapper library is built by default (`make`), and suitable for applications with static linkage against a LAPACK/BLAS library (`-Wl,--wrap=dgemm_ -Wl,--wrap=sgemm_ -Wl,--wrap=zgemm_ -Wl,--wrap=cgemm_`). To build and use the shared wrapper library:
 
@@ -83,9 +83,9 @@ Because SYMMETRIZE computes both D(sa,sb) and D(sb,sa), the number of dot produc
 Examples:
 
 ```bash
-./gemm-wrap.x 256                      # exact (default: flags=3, trim=0)
-OZAKI_TRIM=4 ./gemm-wrap.x 256        # drop 4 least significant diagonals
-OZAKI_FLAGS=0 ./gemm-wrap.x 256       # full S^2 square, no symmetrize
+./dgemm-wrap.x 256                      # exact (default: flags=3, trim=0)
+OZAKI_TRIM=4 ./dgemm-wrap.x 256        # drop 4 least significant diagonals
+OZAKI_FLAGS=0 ./dgemm-wrap.x 256       # full S^2 square, no symmetrize
 ```
 
 ## Scheme 2 — Chinese Remainder Theorem
@@ -99,7 +99,7 @@ The number of moduli can be set at runtime via `OZAKI_N`. The default and maximu
 Example:
 
 ```bash
-OZAKI=2 ./gemm-wrap.x 256                        # use CRT scheme
+OZAKI=2 ./dgemm-wrap.x 256                        # use CRT scheme
 ```
 
 ## Scheme 3 — BF16 Dekker Split
@@ -113,7 +113,7 @@ Scheme&#160;3 shares the same runtime knobs as Scheme&#160;1: `OZAKI_N` (number 
 Example:
 
 ```bash
-OZAKI=3 ./gemm-wrap.x 256                        # use BF16 scheme
+OZAKI=3 ./dgemm-wrap.x 256                        # use BF16 scheme
 ```
 
 ## Compile-Time Parameters
@@ -130,7 +130,7 @@ The block and batch sizes can be overridden at compile time via `-D`:
 Example:
 
 ```bash
-make ECFLAGS="-DBLOCK_K=32 -DBATCH_K=2" gemm-wrap.x
+make ECFLAGS="-DBLOCK_K=32 -DBATCH_K=2" dgemm-wrap.x
 ```
 
 ## Environment Variables
@@ -155,13 +155,13 @@ make ECFLAGS="-DBLOCK_K=32 -DBATCH_K=2" gemm-wrap.x
 The test driver (`gemm.c`) accepts positional arguments:
 
 ```text
-gemm-wrap.x  [A.mhd|M [B.mhd|N] [K [TA [TB [ALPHA [BETA [LDA [LDB [LDC]]]]]]]]]
-gemm-blas.x  [A.mhd|M [B.mhd|N] [K [TA [TB [ALPHA [BETA [LDA [LDB [LDC]]]]]]]]]
 dgemm-wrap.x [A.mhd|M [B.mhd|N] [K [TA [TB [ALPHA [BETA [LDA [LDB [LDC]]]]]]]]]
 sgemm-wrap.x [A.mhd|M [B.mhd|N] [K [TA [TB [ALPHA [BETA [LDA [LDB [LDC]]]]]]]]]
+dgemm-blas.x [A.mhd|M [B.mhd|N] [K [TA [TB [ALPHA [BETA [LDA [LDB [LDC]]]]]]]]]
+sgemm-blas.x [A.mhd|M [B.mhd|N] [K [TA [TB [ALPHA [BETA [LDA [LDB [LDC]]]]]]]]]
 ```
 
-TA and TB select transposition: 0&#160;means&#160;'N' (no transpose), non-zero means&#160;'T' (transpose). The `gemm-*` drivers wrap all four GEMM symbols (DGEMM + SGEMM + ZGEMM + CGEMM) in one binary. The `dgemm-*` and `sgemm-*` precision-specific drivers call only DGEMM or SGEMM respectively, and are built with the matching `GEMM_REAL_TYPE` (`double` or `float`). The `GEMM_INT_TYPE` (default `int`) can also be overridden at build time.
+TA and TB select transposition: 0&#160;means&#160;'N' (no transpose), non-zero means&#160;'T' (transpose). The `dgemm-*` and `sgemm-*` drivers call DGEMM or SGEMM respectively, built with the matching `GEMM_REAL_TYPE` (`double` or `float`). The `GEMM_INT_TYPE` (default `int`) can also be overridden at build time.
 
 ## Source Layout
 
@@ -177,7 +177,7 @@ TA and TB select transposition: 0&#160;means&#160;'N' (no transpose), non-zero m
 | `zgemm3m.c` | Complex GEMM 3M wrapper (`ZGEMM_WRAP`): deinterleaves complex matrices, issues 3 real GEMM calls (Karatsuba), recombines. Uses `libxs_malloc` for workspace. Compiled twice (double + float). |
 | `ozaki_gpu.c` | GPU bridge: wraps LIBXSTREAM behind an opaque handle (`ozaki_gpu_create`/`release`/`dgemm`/`finalize`). Compiled only when LIBXSTREAM is detected; isolates all OpenCL includes from the rest of the code. |
 | `wrap.c` | Entry points (`GEMM`, `ZGEMM`) and dlsym fallbacks (`GEMM_REAL`, `ZGEMM_REAL`) via `GEMM_DEFINE_DLSYM` macro. Used only in the LD_PRELOAD path; excluded from the static archive to keep `__real_` resolution correct. |
-| `gemm.c` | Test driver. Compiled as `gemm-{wrap,blas}.x` (all precisions), `dgemm-{wrap,blas}.x` (double), `sgemm-{wrap,blas}.x` (float). |
+| `gemm.c` | Test driver. Compiled as `dgemm-{wrap,blas}.x` (double) and `sgemm-{wrap,blas}.x` (float). |
 | `gemm-print.c` | `print_gemm` and `print_diff` utilities. |
 | `test-wrap.sh` | Integration test: exercises STATIC WRAP, ORIGINAL BLAS, and LD_PRELOAD paths. Auto-discovers built `*-wrap.x` / `*-blas.x` executables; accepts optional test-name prefix as first argument. |
 | `test-check.sh` | Correctness test: runs all four Ozaki schemes with `CHECK` validation. Auto-discovers built `*gemm-wrap.x` executables; accepts optional test-name prefix. |
