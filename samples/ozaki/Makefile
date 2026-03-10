@@ -53,21 +53,25 @@ endif
 
 OUTNAME := $(shell basename "$(ROOTDIR)")
 HEADERS := $(wildcard $(INCDIR)/*.h) $(wildcard $(SRCDIR)/*.h)
-# Driver source (compiled once with default double precision)
+# Driver source (compiled for each precision)
 CSOURCS := $(SRCDIR)/gemm.c
 # Implementation sources: _WRAP + support (compiled for each precision)
 IMPLSRCS := $(SRCDIR)/$(OUTNAME).c $(SRCDIR)/ozaki1_int8.c $(SRCDIR)/ozaki2_int8.c $(SRCDIR)/ozaki1_bf16.c $(SRCDIR)/ozaki2_bf16.c $(SRCDIR)/zgemm3m.c $(SRCDIR)/gemm-print.c
 # Entry/dlsym source: _REAL + entry points (LD_PRELOAD path only)
 ENTRYSRCS := $(SRCDIR)/wrap.c
 COBJCTS := $(patsubst $(SRCDIR)/%.c,$(BLDDIR)/%-c.o,$(CSOURCS))
+COBJCTS_D := $(patsubst $(SRCDIR)/%.c,$(BLDDIR)/%-dc.o,$(CSOURCS))
+COBJCTS_S := $(patsubst $(SRCDIR)/%.c,$(BLDDIR)/%-sc.o,$(CSOURCS))
 IMPLOBJ_D := $(patsubst $(SRCDIR)/%.c,$(BLDDIR)/%-d.o,$(IMPLSRCS))
 IMPLOBJ_S := $(patsubst $(SRCDIR)/%.c,$(BLDDIR)/%-s.o,$(IMPLSRCS))
 IMPLOBJS := $(IMPLOBJ_D) $(IMPLOBJ_S)
 ENTRYOBJ_D := $(patsubst $(SRCDIR)/%.c,$(BLDDIR)/%-d.o,$(ENTRYSRCS))
 ENTRYOBJ_S := $(patsubst $(SRCDIR)/%.c,$(BLDDIR)/%-s.o,$(ENTRYSRCS))
 ENTRYOBJS := $(ENTRYOBJ_D) $(ENTRYOBJ_S)
-OBJECTS := $(COBJCTS) $(IMPLOBJS) $(ENTRYOBJS) $(GPUOBJS)
-XFILES := $(OUTDIR)/gemm-blas.x $(OUTDIR)/gemm-wrap.x
+OBJECTS := $(COBJCTS) $(COBJCTS_D) $(COBJCTS_S) $(IMPLOBJS) $(ENTRYOBJS) $(GPUOBJS)
+XFILES := $(OUTDIR)/gemm-blas.x $(OUTDIR)/gemm-wrap.x \
+          $(OUTDIR)/dgemm-blas.x $(OUTDIR)/dgemm-wrap.x \
+          $(OUTDIR)/sgemm-blas.x $(OUTDIR)/sgemm-wrap.x
 
 .PHONY: all
 all: $(XFILES)
@@ -75,25 +79,40 @@ all: $(XFILES)
 .PHONY: compile
 compile: $(OBJECTS)
 
+# Link recipe for static-wrap executables (handles OMP variants)
+ifneq (0,$(OMP))
+  define LINK_WRAP
+	$(LD) -o $@ $< $(OUTDIR)/libwrap.$(SLIBEXT) $(LIBXSTREAM) $(XLIB) \
+		$(SLDFLAGS) $(LDFLAGS) $(CLDFLAGS) $(WRAP_GEMM)
+  endef
+else ifneq (,$(strip $(OMPLIB)))
+  define LINK_WRAP
+	$(LD) -o $@ $< $(OUTDIR)/libwrap.$(SLIBEXT) $(LIBXSTREAM) $(XLIB) \
+		$(SLDFLAGS) $(LDFLAGS) $(CLDFLAGS) $(WRAP_GEMM) \
+		$(XLIB_BEGIN) $(OMPLIB) $(XLIB_END)
+  endef
+else
+  define LINK_WRAP
+	$(LD) -o $@ $< $(OUTDIR)/libwrap.$(SLIBEXT) $(LIBXSTREAM) $(XLIB) \
+		$(SLDFLAGS) $(LDFLAGS) $(CLDFLAGS) $(WRAP_GEMM)
+  endef
+endif
+
 ifneq (,$(WRAP_GEMM))
 $(OUTDIR)/libwrap.$(SLIBEXT): $(OUTDIR)/.make $(IMPLOBJS) $(GPUOBJS)
 	$(MAKE_AR) $@ $(call tailwords,$^)
 
 $(OUTDIR)/gemm-wrap.x: $(BLDDIR)/gemm-c.o $(OUTDIR)/libwrap.$(SLIBEXT) $(XLIB) $(LIBXSTREAM) $(OUTDIR)/.make
-ifneq (0,$(OMP))
-	$(LD) -o $@ $< $(OUTDIR)/libwrap.$(SLIBEXT) $(LIBXSTREAM) $(XLIB) \
-		$(SLDFLAGS) $(LDFLAGS) $(CLDFLAGS) $(WRAP_GEMM)
-else ifneq (,$(strip $(OMPLIB)))
-	$(LD) -o $@ $< $(OUTDIR)/libwrap.$(SLIBEXT) $(LIBXSTREAM) $(XLIB) \
-		$(SLDFLAGS) $(LDFLAGS) $(CLDFLAGS) $(WRAP_GEMM) \
-		$(XLIB_BEGIN) $(OMPLIB) $(XLIB_END)
-else # should not happen
-	$(LD) -o $@ $< $(OUTDIR)/libwrap.$(SLIBEXT) $(LIBXSTREAM) $(XLIB) \
-		$(SLDFLAGS) $(LDFLAGS) $(CLDFLAGS) $(WRAP_GEMM)
-endif
+	$(LINK_WRAP)
+
+$(OUTDIR)/dgemm-wrap.x: $(BLDDIR)/gemm-dc.o $(OUTDIR)/libwrap.$(SLIBEXT) $(XLIB) $(LIBXSTREAM) $(OUTDIR)/.make
+	$(LINK_WRAP)
+
+$(OUTDIR)/sgemm-wrap.x: $(BLDDIR)/gemm-sc.o $(OUTDIR)/libwrap.$(SLIBEXT) $(XLIB) $(LIBXSTREAM) $(OUTDIR)/.make
+	$(LINK_WRAP)
 
 .PHONY: $(OUTDIR)/libwrap.$(DLIBEXT)
-.PHONY: $(OUTDIR)/gemm-blas.x
+.PHONY: $(OUTDIR)/gemm-blas.x $(OUTDIR)/dgemm-blas.x $(OUTDIR)/sgemm-blas.x
 else
 $(OUTDIR)/libwrap.$(DLIBEXT): $(IMPLOBJS) $(ENTRYOBJS) $(GPUOBJS) $(XLIB) $(LIBXSTREAM) $(OUTDIR)/.make
 	$(LIB_SOLD) $(call solink,$@) $(IMPLOBJS) $(ENTRYOBJS) $(GPUOBJS) \
@@ -102,12 +121,24 @@ $(OUTDIR)/libwrap.$(DLIBEXT): $(IMPLOBJS) $(ENTRYOBJS) $(GPUOBJS) $(XLIB) $(LIBX
 $(OUTDIR)/gemm-blas.x: $(COBJCTS) $(BLDDIR)/gemm-print-d.o $(OUTDIR)/libwrap.$(DLIBEXT) $(XLIB) $(LIBXSTREAM) $(OUTDIR)/.make
 	$(LD) -o $@ $(COBJCTS) $(BLDDIR)/gemm-print-d.o $(XLIB) $(LIBXSTREAM) $(SLDFLAGS) $(LDFLAGS) $(CLDFLAGS)
 
+$(OUTDIR)/dgemm-blas.x: $(BLDDIR)/gemm-dc.o $(BLDDIR)/gemm-print-d.o $(OUTDIR)/libwrap.$(DLIBEXT) $(XLIB) $(LIBXSTREAM) $(OUTDIR)/.make
+	$(LD) -o $@ $(BLDDIR)/gemm-dc.o $(BLDDIR)/gemm-print-d.o $(XLIB) $(LIBXSTREAM) $(SLDFLAGS) $(LDFLAGS) $(CLDFLAGS)
+
+$(OUTDIR)/sgemm-blas.x: $(BLDDIR)/gemm-sc.o $(BLDDIR)/gemm-print-s.o $(OUTDIR)/libwrap.$(DLIBEXT) $(XLIB) $(LIBXSTREAM) $(OUTDIR)/.make
+	$(LD) -o $@ $(BLDDIR)/gemm-sc.o $(BLDDIR)/gemm-print-s.o $(XLIB) $(LIBXSTREAM) $(SLDFLAGS) $(LDFLAGS) $(CLDFLAGS)
+
 .PHONY: $(OUTDIR)/libwrap.$(SLIBEXT)
-.PHONY: $(OUTDIR)/gemm-wrap.x
+.PHONY: $(OUTDIR)/gemm-wrap.x $(OUTDIR)/dgemm-wrap.x $(OUTDIR)/sgemm-wrap.x
 endif
 
 $(BLDDIR)/%-c.o: $(SRCDIR)/%.c .state $(BLDDIR)/.make $(HEADERS) Makefile $(DEPDIR)/Makefile.inc
 	$(CC) $(DFLAGS) $(IFLAGS) $(CFLAGS) $(CTARGET) -c $< -o $@
+
+$(BLDDIR)/%-dc.o: $(SRCDIR)/%.c .state $(BLDDIR)/.make $(HEADERS) Makefile $(DEPDIR)/Makefile.inc
+	$(CC) $(DFLAGS) $(IFLAGS) $(CFLAGS) $(CTARGET) -c $< -o $@
+
+$(BLDDIR)/%-sc.o: $(SRCDIR)/%.c .state $(BLDDIR)/.make $(HEADERS) Makefile $(DEPDIR)/Makefile.inc
+	$(CC) -DGEMM_REAL_TYPE=float $(DFLAGS) $(IFLAGS) $(CFLAGS) $(CTARGET) -c $< -o $@
 
 # GPU sources need __OPENCL for LIBXSTREAM OpenCL headers
 ifneq (,$(GPUOBJS))
@@ -133,17 +164,25 @@ test: test-wrap test-check
 
 .PHONY: test-wrap
 test-wrap: $(ROOTDIR)/test-wrap.sh $(XFILES)
-	@NREPEAT=$(TESTSIZE) $< gemm                               
-	@NREPEAT=$(TESTSIZE) $< gemm  16  20 350 1 0  1 0.0 350 350 1000
-	@NREPEAT=$(TESTSIZE) $< gemm  23  21  32 0 1 -1 0.5  32  32 1000
-	@NREPEAT=$(TESTSIZE) $< gemm 200 200 256 1 1  1 0.0 256 256 1000
+	@NREPEAT=$(TESTSIZE) $< dgemm                               
+	@NREPEAT=$(TESTSIZE) $< dgemm  16  20 350 1 0  1 0.0 350 350 1000
+	@NREPEAT=$(TESTSIZE) $< dgemm  23  21  32 0 1 -1 0.5  32  32 1000
+	@NREPEAT=$(TESTSIZE) $< dgemm 200 200 256 1 1  1 0.0 256 256 1000
+	@NREPEAT=$(TESTSIZE) $< sgemm                               
+	@NREPEAT=$(TESTSIZE) $< sgemm  16  20 350 1 0  1 0.0 350 350 1000
+	@NREPEAT=$(TESTSIZE) $< sgemm  23  21  32 0 1 -1 0.5  32  32 1000
+	@NREPEAT=$(TESTSIZE) $< sgemm 200 200 256 1 1  1 0.0 256 256 1000
 
 .PHONY: test-check
 test-check: $(ROOTDIR)/test-check.sh $(XFILES)
-	@$< gemm                               
-	@$< gemm  16  20 350 1 0  1 0.0 350 350 1000
-	@$< gemm  23  21  32 0 1 -1 0.5  32  32 1000
-	@$< gemm 200 200 256 1 1  1 0.0 256 256 1000
+	@$< dgemm                               
+	@$< dgemm  16  20 350 1 0  1 0.0 350 350 1000
+	@$< dgemm  23  21  32 0 1 -1 0.5  32  32 1000
+	@$< dgemm 200 200 256 1 1  1 0.0 256 256 1000
+	@$< sgemm                               
+	@$< sgemm  16  20 350 1 0  1 0.0 350 350 1000
+	@$< sgemm  23  21  32 0 1 -1 0.5  32  32 1000
+	@$< sgemm 200 200 256 1 1  1 0.0 256 256 1000
 
 .PHONY: clean
 clean:
