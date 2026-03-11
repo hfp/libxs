@@ -468,3 +468,108 @@ LIBXS_API void gemm_oz1(const char* transa, const char* transb,
 {
   OZAKI_GEMM_WRAPPER(gemm_oz1_diff)
 }
+
+
+#if defined(__LIBXSTREAM)
+/**
+ * Host preprocessing wrapper for A (rows) — scheme 1 (int8).
+ * Fills the flat slice buffer and exponent buffer in GPU-compatible layout.
+ * Layout: slices[panel][BM][nslices][BK], exp[panel][BM].
+ *   panel = ki * nblk + ib_idx.
+ */
+void oz1_host_preprocess_a(
+    const void* matrix, int ld, int trans,
+    int dim, int K, int kb_batch,
+    int nkb, int nblk,
+    int brc, int bk, int nslices_p,
+    int kgroup_p, int use_xmx_p,
+    void* slices, void* exp)
+{
+  const GEMM_REAL_TYPE* a = (const GEMM_REAL_TYPE*)matrix;
+  int ki, ib_idx;
+  (void)kgroup_p; (void)use_xmx_p;
+  LIBXS_ASSERT(brc == BLOCK_M && bk == BLOCK_K);
+  for (ki = 0; ki < nkb; ++ki) {
+    for (ib_idx = 0; ib_idx < nblk; ++ib_idx) {
+      const int panel = ki * nblk + ib_idx;
+      const int ib = ib_idx * brc;
+      const int kb = kb_batch + ki * bk;
+      const GEMM_INT_TYPE iblk = (GEMM_INT_TYPE)LIBXS_MIN(brc, dim - ib);
+      const GEMM_INT_TYPE kblk = (GEMM_INT_TYPE)LIBXS_MIN(bk, K - kb);
+      int16_t expa_row[BLOCK_M];
+      int8_t ak_tile[BLOCK_M][MAX_NSLICES][BLOCK_K];
+      int mi;
+      preprocess_rows(a, (GEMM_INT_TYPE)ld, trans,
+        (GEMM_INT_TYPE)dim, (GEMM_INT_TYPE)K,
+        (GEMM_INT_TYPE)ib, (GEMM_INT_TYPE)kb, iblk, kblk,
+        expa_row, ak_tile);
+      for (mi = 0; mi < brc; ++mi) {
+        memcpy((char*)slices + ((long)panel * brc + mi) * nslices_p * bk,
+          &ak_tile[mi][0][0], (size_t)nslices_p * bk);
+      }
+      memcpy((short*)exp + (long)panel * brc, expa_row,
+        (size_t)brc * sizeof(short));
+    }
+  }
+}
+
+
+/**
+ * Host preprocessing wrapper for B (columns) — scheme 1 (int8).
+ * Layout (non-XMX): slices[panel][BN][nslices][BK], exp[panel][BN].
+ * Layout (XMX):     slices[panel][nslices][BK][bn_pad], exp[panel][BN].
+ *   panel = ki * nblk + jb_idx.
+ */
+void oz1_host_preprocess_b(
+    const void* matrix, int ld, int trans,
+    int dim, int K, int kb_batch,
+    int nkb, int nblk,
+    int brc, int bk, int nslices_p,
+    int kgroup_p, int use_xmx_p,
+    void* slices, void* exp)
+{
+  const GEMM_REAL_TYPE* b = (const GEMM_REAL_TYPE*)matrix;
+  const int bn_pad = (0 != use_xmx_p) ? LIBXS_MAX(brc, 64) : brc;
+  int ki, jb_idx;
+  (void)kgroup_p;
+  LIBXS_ASSERT(brc == BLOCK_N && bk == BLOCK_K);
+  for (ki = 0; ki < nkb; ++ki) {
+    for (jb_idx = 0; jb_idx < nblk; ++jb_idx) {
+      const int panel = ki * nblk + jb_idx;
+      const int jb = jb_idx * brc;
+      const int kb = kb_batch + ki * bk;
+      const GEMM_INT_TYPE jblk = (GEMM_INT_TYPE)LIBXS_MIN(brc, dim - jb);
+      const GEMM_INT_TYPE kblk = (GEMM_INT_TYPE)LIBXS_MIN(bk, K - kb);
+      int16_t expb_col[BLOCK_N];
+      int8_t bk_tile[BLOCK_N][MAX_NSLICES][BLOCK_K];
+      int nj, s, kk;
+      preprocess_cols(b, (GEMM_INT_TYPE)ld, trans,
+        (GEMM_INT_TYPE)dim, (GEMM_INT_TYPE)K,
+        (GEMM_INT_TYPE)jb, (GEMM_INT_TYPE)kb, jblk, kblk,
+        expb_col, bk_tile);
+      if (0 == use_xmx_p) {
+        for (nj = 0; nj < brc; ++nj) {
+          memcpy((char*)slices + ((long)panel * brc + nj) * nslices_p * bk,
+            &bk_tile[nj][0][0], (size_t)nslices_p * bk);
+        }
+      }
+      else {
+        /* XMX layout: slices[panel][nslices][BK][bn_pad] (K-major) */
+        for (s = 0; s < nslices_p; ++s) {
+          for (kk = 0; kk < bk; ++kk) {
+            long base = (((long)panel * nslices_p + s) * bk + kk) * bn_pad;
+            for (nj = 0; nj < brc; ++nj) {
+              ((char*)slices)[base + nj] = bk_tile[nj][s][kk];
+            }
+            for (nj = brc; nj < bn_pad; ++nj) {
+              ((char*)slices)[base + nj] = 0;
+            }
+          }
+        }
+      }
+      memcpy((short*)exp + (long)panel * brc, expb_col,
+        (size_t)brc * sizeof(short));
+    }
+  }
+}
+#endif /* __LIBXSTREAM */

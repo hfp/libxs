@@ -322,3 +322,100 @@ LIBXS_API void gemm_oz3(const char* transa, const char* transb,
 {
   OZAKI_GEMM_WRAPPER(gemm_oz3_diff)
 }
+
+
+#if defined(__LIBXSTREAM)
+/**
+ * Host preprocessing wrapper for A (rows) — scheme 3 (bf16 Dekker).
+ * No exponent buffer (each bf16 value carries its own exponent).
+ * Layout: slices[panel][BM][nslices][BK] (ushort elements).
+ *   panel = ki * nblk + ib_idx.
+ */
+void oz3_host_preprocess_a(
+    const void* matrix, int ld, int trans,
+    int dim, int K, int kb_batch,
+    int nkb, int nblk,
+    int brc, int bk, int nslices_p,
+    int kgroup_p, int use_xmx_p,
+    void* slices, void* exp)
+{
+  const GEMM_REAL_TYPE* a = (const GEMM_REAL_TYPE*)matrix;
+  int ki, ib_idx;
+  (void)kgroup_p; (void)use_xmx_p; (void)exp;
+  LIBXS_ASSERT(brc == BLOCK_M && bk == BLOCK_K);
+  for (ki = 0; ki < nkb; ++ki) {
+    for (ib_idx = 0; ib_idx < nblk; ++ib_idx) {
+      const int panel = ki * nblk + ib_idx;
+      const int ib = ib_idx * brc;
+      const int kb = kb_batch + ki * bk;
+      const GEMM_INT_TYPE iblk = (GEMM_INT_TYPE)LIBXS_MIN(brc, dim - ib);
+      const GEMM_INT_TYPE kblk = (GEMM_INT_TYPE)LIBXS_MIN(bk, K - kb);
+      libxs_bf16_t ak_tile[BLOCK_M][MAX_NSLICES][BLOCK_K];
+      int mi;
+      oz3_preprocess_rows(a, (GEMM_INT_TYPE)ld, trans,
+        (GEMM_INT_TYPE)dim, (GEMM_INT_TYPE)K,
+        (GEMM_INT_TYPE)ib, (GEMM_INT_TYPE)kb, iblk, kblk, ak_tile);
+      for (mi = 0; mi < brc; ++mi) {
+        memcpy((unsigned short*)slices + ((long)panel * brc + mi) * nslices_p * bk,
+          &ak_tile[mi][0][0], (size_t)nslices_p * bk * sizeof(unsigned short));
+      }
+    }
+  }
+}
+
+
+/**
+ * Host preprocessing wrapper for B (columns) — scheme 3 (bf16 Dekker).
+ * Layout (non-XMX): slices[panel][BN][nslices][BK] (ushort).
+ * Layout (XMX):     slices[panel][nslices][BK][bn_pad] (ushort).
+ *   panel = ki * nblk + jb_idx.
+ */
+void oz3_host_preprocess_b(
+    const void* matrix, int ld, int trans,
+    int dim, int K, int kb_batch,
+    int nkb, int nblk,
+    int brc, int bk, int nslices_p,
+    int kgroup_p, int use_xmx_p,
+    void* slices, void* exp)
+{
+  const GEMM_REAL_TYPE* b = (const GEMM_REAL_TYPE*)matrix;
+  const int bn_pad = (0 != use_xmx_p) ? LIBXS_MAX(brc, 32) : brc;
+  int ki, jb_idx;
+  (void)kgroup_p; (void)exp;
+  LIBXS_ASSERT(brc == BLOCK_N && bk == BLOCK_K);
+  for (ki = 0; ki < nkb; ++ki) {
+    for (jb_idx = 0; jb_idx < nblk; ++jb_idx) {
+      const int panel = ki * nblk + jb_idx;
+      const int jb = jb_idx * brc;
+      const int kb = kb_batch + ki * bk;
+      const GEMM_INT_TYPE jblk = (GEMM_INT_TYPE)LIBXS_MIN(brc, dim - jb);
+      const GEMM_INT_TYPE kblk = (GEMM_INT_TYPE)LIBXS_MIN(bk, K - kb);
+      libxs_bf16_t bk_tile[BLOCK_N][MAX_NSLICES][BLOCK_K];
+      int nj, s, kk;
+      oz3_preprocess_cols(b, (GEMM_INT_TYPE)ld, trans,
+        (GEMM_INT_TYPE)dim, (GEMM_INT_TYPE)K,
+        (GEMM_INT_TYPE)jb, (GEMM_INT_TYPE)kb, jblk, kblk, bk_tile);
+      if (0 == use_xmx_p) {
+        for (nj = 0; nj < brc; ++nj) {
+          memcpy((unsigned short*)slices + ((long)panel * brc + nj) * nslices_p * bk,
+            &bk_tile[nj][0][0], (size_t)nslices_p * bk * sizeof(unsigned short));
+        }
+      }
+      else {
+        unsigned short* dst = (unsigned short*)slices;
+        for (s = 0; s < nslices_p; ++s) {
+          for (kk = 0; kk < bk; ++kk) {
+            long base = (((long)panel * nslices_p + s) * bk + kk) * bn_pad;
+            for (nj = 0; nj < brc; ++nj) {
+              dst[base + nj] = bk_tile[nj][s][kk];
+            }
+            for (nj = brc; nj < bn_pad; ++nj) {
+              dst[base + nj] = 0;
+            }
+          }
+        }
+      }
+    }
+  }
+}
+#endif /* __LIBXSTREAM */

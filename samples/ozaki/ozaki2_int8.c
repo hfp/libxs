@@ -879,3 +879,206 @@ LIBXS_API void gemm_oz2(const char* transa, const char* transb,
 {
   OZAKI_GEMM_WRAPPER(gemm_oz2_diff)
 }
+
+
+#if defined(__LIBXSTREAM)
+/**
+ * Host preprocessing wrapper for A (rows) — scheme 2 (CRT int8).
+ * Handles K-grouping: the per-row max exponent spans KGROUP panels.
+ * Layout: slices[panel][BM][NPRIMES][BK], exp[group][BM].
+ *   panel = ki * nblk + ib_idx,
+ *   group = ki_group * nblk + ib_idx.
+ */
+void oz2_host_preprocess_a(
+    const void* matrix, int ld, int trans,
+    int dim, int K, int kb_batch,
+    int nkb, int nblk,
+    int brc, int bk, int nslices_p,
+    int kgroup_p, int use_xmx_p,
+    void* slices, void* exp)
+{
+  const GEMM_REAL_TYPE* a = (const GEMM_REAL_TYPE*)matrix;
+  const int nkb_groups = (nkb + kgroup_p - 1) / kgroup_p;
+  int ki_group, ib_idx;
+  (void)use_xmx_p;
+  LIBXS_ASSERT(brc == BLOCK_M && bk == BLOCK_K);
+  for (ki_group = 0; ki_group < nkb_groups; ++ki_group) {
+    for (ib_idx = 0; ib_idx < nblk; ++ib_idx) {
+      const int group_idx = ki_group * nblk + ib_idx;
+      const int ib = ib_idx * brc;
+      const GEMM_INT_TYPE iblk = (GEMM_INT_TYPE)LIBXS_MIN(brc, dim - ib);
+      int16_t group_max_exp[BLOCK_M];
+      int mi, s;
+      /* Phase 1: find per-row max exponent across all K-blocks in group */
+      for (mi = 0; mi < BLOCK_M; ++mi) group_max_exp[mi] = 0;
+      for (s = 0; s < kgroup_p; ++s) {
+        const int ki = ki_group * kgroup_p + s;
+        const int kb = kb_batch + ki * bk;
+        if (ki >= nkb) break;
+        for (mi = 0; mi < iblk; ++mi) {
+          const GEMM_INT_TYPE row = (GEMM_INT_TYPE)(ib + mi);
+          const GEMM_INT_TYPE kblk = (GEMM_INT_TYPE)LIBXS_MIN(bk, K - kb);
+          int kk;
+          for (kk = 0; kk < kblk; ++kk) {
+            int16_t elem_exp; uint64_t elem_mant;
+            const GEMM_INT_TYPE p = (GEMM_INT_TYPE)(kb + kk);
+            const GEMM_REAL_TYPE aval = ((row < dim && p < K)
+              ? a[LIBXS_INDEX(trans, (GEMM_INT_TYPE)ld, row, p)]
+              : (GEMM_REAL_TYPE)0);
+            ozaki_extract_ieee(aval, &elem_exp, &elem_mant);
+            if (elem_exp > group_max_exp[mi]) group_max_exp[mi] = elem_exp;
+          }
+        }
+      }
+      /* Write group exponent */
+      memcpy((short*)exp + (long)group_idx * brc, group_max_exp,
+        (size_t)brc * sizeof(short));
+      /* Phase 2: compute residues per panel using group max exponent */
+      for (s = 0; s < kgroup_p; ++s) {
+        const int ki = ki_group * kgroup_p + s;
+        const int panel = ki * nblk + ib_idx;
+        const int kb = kb_batch + ki * bk;
+        const GEMM_INT_TYPE kblk = (GEMM_INT_TYPE)LIBXS_MIN(bk, K - kb);
+        if (ki >= nkb) break;
+        for (mi = 0; mi < brc; ++mi) {
+          const GEMM_INT_TYPE row = (GEMM_INT_TYPE)(ib + mi);
+          int kk;
+          for (kk = 0; kk < kblk; ++kk) {
+            const GEMM_INT_TYPE p = (GEMM_INT_TYPE)(kb + kk);
+            int16_t elem_exp; uint64_t elem_mant; int elem_sign; int pidx;
+            uint8_t tmp[OZ2_NPRIMES_MAX];
+            const GEMM_REAL_TYPE aval = ((row < dim && p < K)
+              ? a[LIBXS_INDEX(trans, (GEMM_INT_TYPE)ld, row, p)]
+              : (GEMM_REAL_TYPE)0);
+            elem_sign = ozaki_extract_ieee(aval, &elem_exp, &elem_mant);
+            { const int delta = (int)group_max_exp[mi] - (int)elem_exp;
+              oz2_reduce(elem_mant, delta, tmp, nslices_p);
+            }
+            for (pidx = 0; pidx < nslices_p; ++pidx) {
+              ((char*)slices)[(((long)panel * brc + mi) * nslices_p + pidx) * bk + kk]
+                = (char)(elem_sign * (int8_t)tmp[pidx]);
+            }
+          }
+          /* Zero-pad remaining k-entries */
+          { int kk2;
+            for (kk2 = kblk; kk2 < bk; ++kk2) {
+              int pidx2;
+              for (pidx2 = 0; pidx2 < nslices_p; ++pidx2) {
+                ((char*)slices)[(((long)panel * brc + mi) * nslices_p + pidx2) * bk + kk2] = 0;
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
+
+
+/**
+ * Host preprocessing wrapper for B (columns) — scheme 2 (CRT int8).
+ * Layout (non-XMX): slices[panel][BN][NPRIMES][BK], exp[group][BN].
+ * Layout (XMX):     slices[panel][NPRIMES][BK][bn_pad], exp[group][BN].
+ *   panel = ki * nblk + jb_idx.
+ */
+void oz2_host_preprocess_b(
+    const void* matrix, int ld, int trans,
+    int dim, int K, int kb_batch,
+    int nkb, int nblk,
+    int brc, int bk, int nslices_p,
+    int kgroup_p, int use_xmx_p,
+    void* slices, void* exp)
+{
+  const GEMM_REAL_TYPE* b = (const GEMM_REAL_TYPE*)matrix;
+  const int bn_pad = (0 != use_xmx_p) ? LIBXS_MAX(brc, 64) : brc;
+  const int nkb_groups = (nkb + kgroup_p - 1) / kgroup_p;
+  int ki_group, jb_idx;
+  LIBXS_ASSERT(brc == BLOCK_N && bk == BLOCK_K);
+  for (ki_group = 0; ki_group < nkb_groups; ++ki_group) {
+    for (jb_idx = 0; jb_idx < nblk; ++jb_idx) {
+      const int group_idx = ki_group * nblk + jb_idx;
+      const int jb = jb_idx * brc;
+      const GEMM_INT_TYPE jblk = (GEMM_INT_TYPE)LIBXS_MIN(brc, dim - jb);
+      int16_t group_max_exp[BLOCK_N];
+      int nj, s;
+      /* Phase 1: find per-column max exponent across group */
+      for (nj = 0; nj < BLOCK_N; ++nj) group_max_exp[nj] = 0;
+      for (s = 0; s < kgroup_p; ++s) {
+        const int ki = ki_group * kgroup_p + s;
+        const int kb = kb_batch + ki * bk;
+        const GEMM_INT_TYPE kblk = (GEMM_INT_TYPE)LIBXS_MIN(bk, K - kb);
+        int kk;
+        if (ki >= nkb) break;
+        for (kk = 0; kk < kblk; ++kk) {
+          const GEMM_INT_TYPE p = (GEMM_INT_TYPE)(kb + kk);
+          for (nj = 0; nj < jblk; ++nj) {
+            int16_t elem_exp; uint64_t elem_mant;
+            const GEMM_INT_TYPE col = (GEMM_INT_TYPE)(jb + nj);
+            const GEMM_REAL_TYPE bval = ((p < K && col < dim)
+              ? b[LIBXS_INDEX(trans, (GEMM_INT_TYPE)ld, p, col)]
+              : (GEMM_REAL_TYPE)0);
+            ozaki_extract_ieee(bval, &elem_exp, &elem_mant);
+            if (elem_exp > group_max_exp[nj]) group_max_exp[nj] = elem_exp;
+          }
+        }
+      }
+      memcpy((short*)exp + (long)group_idx * brc, group_max_exp,
+        (size_t)brc * sizeof(short));
+      /* Phase 2: compute residues per panel using group max exponent */
+      for (s = 0; s < kgroup_p; ++s) {
+        const int ki = ki_group * kgroup_p + s;
+        const int panel = ki * nblk + jb_idx;
+        const int kb = kb_batch + ki * bk;
+        const GEMM_INT_TYPE kblk = (GEMM_INT_TYPE)LIBXS_MIN(bk, K - kb);
+        int kk;
+        if (ki >= nkb) break;
+        for (kk = 0; kk < kblk; ++kk) {
+          const GEMM_INT_TYPE p = (GEMM_INT_TYPE)(kb + kk);
+          for (nj = 0; nj < brc; ++nj) {
+            const GEMM_INT_TYPE col = (GEMM_INT_TYPE)(jb + nj);
+            int16_t elem_exp; uint64_t elem_mant; int elem_sign; int pidx;
+            uint8_t tmp[OZ2_NPRIMES_MAX];
+            const GEMM_REAL_TYPE bval = ((p < K && col < dim)
+              ? b[LIBXS_INDEX(trans, (GEMM_INT_TYPE)ld, p, col)]
+              : (GEMM_REAL_TYPE)0);
+            elem_sign = ozaki_extract_ieee(bval, &elem_exp, &elem_mant);
+            { const int delta = (int)group_max_exp[nj] - (int)elem_exp;
+              oz2_reduce(elem_mant, delta, tmp, nslices_p);
+            }
+            if (0 == use_xmx_p) {
+              for (pidx = 0; pidx < nslices_p; ++pidx) {
+                ((char*)slices)[(((long)panel * brc + nj) * nslices_p + pidx) * bk + kk]
+                  = (char)(elem_sign * (int8_t)tmp[pidx]);
+              }
+            }
+            else {
+              for (pidx = 0; pidx < nslices_p; ++pidx) {
+                ((char*)slices)[(((long)panel * nslices_p + pidx) * bk + kk) * bn_pad + nj]
+                  = (char)(elem_sign * (int8_t)tmp[pidx]);
+              }
+            }
+          }
+        }
+        /* Zero-pad remaining k-entries */
+        { int kk2;
+          for (kk2 = kblk; kk2 < bk; ++kk2) {
+            for (nj = 0; nj < brc; ++nj) {
+              int pidx2;
+              if (0 == use_xmx_p) {
+                for (pidx2 = 0; pidx2 < nslices_p; ++pidx2) {
+                  ((char*)slices)[(((long)panel * brc + nj) * nslices_p + pidx2) * bk + kk2] = 0;
+                }
+              }
+              else {
+                for (pidx2 = 0; pidx2 < nslices_p; ++pidx2) {
+                  ((char*)slices)[(((long)panel * nslices_p + pidx2) * bk + kk2) * bn_pad + nj] = 0;
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
+#endif /* __LIBXSTREAM */

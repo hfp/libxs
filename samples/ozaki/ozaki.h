@@ -185,15 +185,44 @@ LIBXS_APIVAR_PRIVATE(int ozaki_n);
 extern LIBXS_TLS int gemm_dump_inhibit;
 
 #if defined(__LIBXSTREAM)
+/* Host-side preprocessing callback (same typedef as ozaki_opencl.h). */
+typedef void (*ozaki_host_preprocess_fn)(
+    const void* matrix, int ld, int trans,
+    int dim, int K, int kb_batch,
+    int nkb, int nblk,
+    int brc, int bk, int nslices,
+    int kgroup, int use_xmx,
+    void* slices, void* exp);
 /** Opaque OpenCL handle (bridge to LIBXSTREAM Ozaki). */
 LIBXS_APIVAR_PRIVATE(void* ozaki_ocl_handle);
 void* ozaki_ocl_create(int use_double, int kind, int verbosity,
-  int nslices, int batch_k, int ozflags, int oztrim);
+  int nslices, int batch_k, int ozflags, int oztrim,
+  ozaki_host_preprocess_fn host_a, ozaki_host_preprocess_fn host_b,
+  int host_bm, int host_bn, int host_bk);
 void ozaki_ocl_release(void* handle);
 int ozaki_ocl_gemm(void* handle, char transa, char transb,
   int M, int N, int K, double alpha, const void* a, int lda,
   const void* b, int ldb, double beta, void* c, int ldc);
 void ozaki_ocl_finalize(void);
+/* Precision-mangled host preprocessing wrappers (defined in scheme files) */
+#define oz1_host_preprocess_a LIBXS_TPREFIX(GEMM_REAL_TYPE, oz1_host_prep_a)
+#define oz1_host_preprocess_b LIBXS_TPREFIX(GEMM_REAL_TYPE, oz1_host_prep_b)
+#define oz2_host_preprocess_a LIBXS_TPREFIX(GEMM_REAL_TYPE, oz2_host_prep_a)
+#define oz2_host_preprocess_b LIBXS_TPREFIX(GEMM_REAL_TYPE, oz2_host_prep_b)
+#define oz3_host_preprocess_a LIBXS_TPREFIX(GEMM_REAL_TYPE, oz3_host_prep_a)
+#define oz3_host_preprocess_b LIBXS_TPREFIX(GEMM_REAL_TYPE, oz3_host_prep_b)
+void oz1_host_preprocess_a(const void*, int, int, int, int, int,
+  int, int, int, int, int, int, int, void*, void*);
+void oz1_host_preprocess_b(const void*, int, int, int, int, int,
+  int, int, int, int, int, int, int, void*, void*);
+void oz2_host_preprocess_a(const void*, int, int, int, int, int,
+  int, int, int, int, int, int, int, void*, void*);
+void oz2_host_preprocess_b(const void*, int, int, int, int, int,
+  int, int, int, int, int, int, int, void*, void*);
+void oz3_host_preprocess_a(const void*, int, int, int, int, int,
+  int, int, int, int, int, int, int, void*, void*);
+void oz3_host_preprocess_b(const void*, int, int, int, int, int,
+  int, int, int, int, int, int, int, void*, void*);
 #endif
 
 /* Shared int8 dot-product infrastructure (VNNI + scalar fallback).

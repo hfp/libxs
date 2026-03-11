@@ -23,7 +23,9 @@ typedef struct ozaki_ocl_handle_t {
 
 
 void* ozaki_ocl_create(int use_double, int kind, int verbosity,
-  int nslices, int batch_k, int ozflags, int oztrim)
+  int nslices, int batch_k, int ozflags, int oztrim,
+  ozaki_host_preprocess_fn host_a, ozaki_host_preprocess_fn host_b,
+  int host_bm, int host_bn, int host_bk)
 {
   ozaki_ocl_handle_t* h = NULL;
   int ndevices = 0;
@@ -55,6 +57,17 @@ void* ozaki_ocl_create(int use_double, int kind, int verbosity,
     {
       ozaki_destroy(&h->ctx);
       free(h); h = NULL;
+    }
+    else {
+      /* Set host preprocessing callbacks if block sizes match.
+       * The GPU side auto-selects block sizes; only wire up the host
+       * callbacks when the CPU-side BLOCK_M/N/K are compatible. */
+      if (NULL != host_a && h->ctx.bm == host_bm && h->ctx.bk == host_bk) {
+        h->ctx.host_preprocess_a = host_a;
+      }
+      if (NULL != host_b && h->ctx.bn == host_bn && h->ctx.bk == host_bk) {
+        h->ctx.host_preprocess_b = host_b;
+      }
     }
   }
   return h;
