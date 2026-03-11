@@ -902,6 +902,9 @@ void oz2_host_preprocess_a(
   int ki_group, ib_idx;
   (void)use_xmx_p;
   LIBXS_ASSERT(brc == BLOCK_M && bk == BLOCK_K);
+#if defined(_OPENMP)
+# pragma omp parallel for LIBXS_OPENMP_COLLAPSE(2) schedule(static)
+#endif
   for (ki_group = 0; ki_group < nkb_groups; ++ki_group) {
     for (ib_idx = 0; ib_idx < nblk; ++ib_idx) {
       const int group_idx = ki_group * nblk + ib_idx;
@@ -994,6 +997,9 @@ void oz2_host_preprocess_b(
   const int nkb_groups = (nkb + kgroup_p - 1) / kgroup_p;
   int ki_group, jb_idx;
   LIBXS_ASSERT(brc == BLOCK_N && bk == BLOCK_K);
+#if defined(_OPENMP)
+# pragma omp parallel for LIBXS_OPENMP_COLLAPSE(2) schedule(static)
+#endif
   for (ki_group = 0; ki_group < nkb_groups; ++ki_group) {
     for (jb_idx = 0; jb_idx < nblk; ++jb_idx) {
       const int group_idx = ki_group * nblk + jb_idx;

@@ -489,6 +489,9 @@ void oz1_host_preprocess_a(
   int ki, ib_idx;
   (void)kgroup_p; (void)use_xmx_p;
   LIBXS_ASSERT(brc == BLOCK_M && bk == BLOCK_K);
+#if defined(_OPENMP)
+# pragma omp parallel for LIBXS_OPENMP_COLLAPSE(2) schedule(static)
+#endif
   for (ki = 0; ki < nkb; ++ki) {
     for (ib_idx = 0; ib_idx < nblk; ++ib_idx) {
       const int panel = ki * nblk + ib_idx;
@@ -533,6 +536,9 @@ void oz1_host_preprocess_b(
   int ki, jb_idx;
   (void)kgroup_p;
   LIBXS_ASSERT(brc == BLOCK_N && bk == BLOCK_K);
+#if defined(_OPENMP)
+# pragma omp parallel for LIBXS_OPENMP_COLLAPSE(2) schedule(static)
+#endif
   for (ki = 0; ki < nkb; ++ki) {
     for (jb_idx = 0; jb_idx < nblk; ++jb_idx) {
       const int panel = ki * nblk + jb_idx;
