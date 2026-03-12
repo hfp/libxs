@@ -119,6 +119,9 @@ LIBXS_API_INTERN LIBXS_ATTRIBUTE_WEAK void GEMM_WRAP(const char* transa, const c
       const char *const ozaki_env = getenv("OZAKI");
 #if defined(__LIBXSTREAM)
       const char *const ozaki_ocl_env = getenv("OZAKI_OCL");
+      const char *const ozaki_tm_env = getenv("OZAKI_TM");
+      const char *const ozaki_tn_env = getenv("OZAKI_TN");
+      const char *const ozaki_groups_env = getenv("OZAKI_GROUPS");
       const int ozaki_ocl = (NULL == ozaki_ocl_env ? 1/*default*/ : atoi(ozaki_ocl_env));
 #endif
       libxs_init(); /*libxs_malloc_pool()*/
@@ -151,26 +154,16 @@ LIBXS_API_INTERN LIBXS_ATTRIBUTE_WEAK void GEMM_WRAP(const char* transa, const c
       }
       ozaki_target_arch = libxs_cpuid(NULL);
 #if defined(__LIBXSTREAM)
-      /* Initialize OpenCL Ozaki context (schemes 1, 2, and 3).
-       * OZAKI_OCL=1/neg: host A+B, =2: device A+B,
-       *           =3: device A, =4: device B. */
+      /* Initialize OpenCL Ozaki context (schemes 1, 2, and 3). */
       if (0 != ozaki_ocl && (0 < ozaki && 3 >= ozaki)) {
-        ozaki_host_preprocess_fn hp_a = NULL;
-        ozaki_host_preprocess_fn hp_b = NULL;
-        if (2 != ozaki_ocl && 3 != ozaki_ocl) { /* host-side A */
-          if (1 == ozaki) hp_a = oz1_host_preprocess_a;
-          else if (2 == ozaki) hp_a = oz2_host_preprocess_a;
-          else if (3 == ozaki) hp_a = oz3_host_preprocess_a;
-        }
-        if (2 != ozaki_ocl && 4 != ozaki_ocl) { /* host-side B */
-          if (1 == ozaki) hp_b = oz1_host_preprocess_b;
-          else if (2 == ozaki) hp_b = oz2_host_preprocess_b;
-          else if (3 == ozaki) hp_b = oz3_host_preprocess_b;
-        }
+        const int ocl_tm = (NULL != ozaki_tm_env ? atoi(ozaki_tm_env) : 0);
+        const int ocl_tn = (NULL != ozaki_tn_env ? atoi(ozaki_tn_env) : 0);
+        const int ocl_groups = (NULL != ozaki_groups_env
+          ? atoi(ozaki_groups_env) : 0);
         ozaki_ocl_handle = ozaki_ocl_create(
           GEMM_IS_DOUBLE, ozaki, ozaki_verbose,
-          ozaki_n, 0, ozaki_flags, ozaki_trim,
-          hp_a, hp_b, BLOCK_M, BLOCK_N, BLOCK_K);
+          ocl_tm, ocl_tn, ozaki_n, ozaki_flags, ozaki_trim,
+          ocl_groups);
       }
 #endif
       LIBXS_EXPECT(EXIT_SUCCESS == atexit(gemm_atexit));

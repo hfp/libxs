@@ -139,6 +139,9 @@ make ECFLAGS="-DBLOCK_K=32 -DBATCH_K=2" dgemm-wrap.x
 |----------|:-------:|-------------|
 | `OZAKI` | 1 | Scheme selector: 0 = bypass (call original BLAS directly), 1 = Scheme 1 (mantissa slicing, int8), 2 = Scheme 2 (CRT), 3 = Scheme 3 (BF16 Dekker split), 4 = Scheme 4 (CRT + BF16, no OpenCL). |
 | `OZAKI_N` | *per scheme* | Number of decomposition units: slices for Scheme 1 (double: 1..16, default 8; float: 1..8, default 4) or moduli for Scheme 2 (see Scheme 2 section for per-precision defaults). |
+| `OZAKI_TM` | auto | Output tile height (multiple of 8). 0&#160;=&#160;auto-select (start at 256, halve to fit work-group size). |
+| `OZAKI_TN` | auto | Output tile width (multiple of 16). 0&#160;=&#160;auto-select (start at 256, halve to fit work-group size). |
+| `OZAKI_GROUPS` | 0 | Scheme 2 only: K-grouping factor (0/1&#160;=&#160;disabled). When >&#160;1, that many consecutive K sub-panels share one Garner reconstruction. |
 | `OZAKI_OCL` | 1 | Enable (1) or disable (0) the OpenCL/GPU path at runtime. Only effective when built with LIBXSTREAM support (`__LIBXSTREAM`). When disabled, falls back to the CPU Ozaki scheme. |
 | `OZAKI_FLAGS` | 3 | Scheme 1 bitmask: Triangular (1), Symmetrize (2); see above. |
 | `OZAKI_TRIM` | 0 | Scheme 1 diagonal trim: 0 = exact, T = drop T least significant diagonals (~7 bits each). |
