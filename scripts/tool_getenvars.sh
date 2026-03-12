@@ -29,13 +29,13 @@ if [ "${FIND}" ] && [ "${SORT}" ] && [ "${SED}" ] && [ -d "${SRC}" ]; then
     "${SED}" "s/getenv[[:space:]]*([[:space:]]*\".[^\"]*/\n&/g" {} \; | \
      ${SED} -n "s/.*getenv[[:space:]]*([[:space:]]*\"\(.[^\"]*\)..*/\1/p" | \
      ${SORT} -u)"
-  echo "============================="
+  echo "==========================="
   echo "Other environment variables"
-  echo "============================="
+  echo "==========================="
   echo "${ENVARS}" | ${SED} "/LIBXS_/d"
-  echo "============================="
+  echo "==========================="
   echo "LIBXS environment variables"
-  echo "============================="
+  echo "==========================="
   echo "${ENVARS}" | ${SED} -n "/LIBXS_/p"
 else
   >&2 echo "ERROR: missing prerequisites!"
