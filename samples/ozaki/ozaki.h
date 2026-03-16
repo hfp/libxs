@@ -143,6 +143,12 @@
 #if defined(__LIBXSTREAM)
 # define ozaki_ocl_handle   LIBXS_TPREFIX(GEMM_REAL_TYPE, ozaki_ocl_handle)
 # define gemm_oz_ocl_diff   LIBXS_TPREFIX(GEMM_REAL_TYPE, gemm_oz_ocl_diff)
+# define oz1_host_preprocess_a LIBXS_TPREFIX(GEMM_REAL_TYPE, oz1_host_prep_a)
+# define oz1_host_preprocess_b LIBXS_TPREFIX(GEMM_REAL_TYPE, oz1_host_prep_b)
+# define oz2_host_preprocess_a LIBXS_TPREFIX(GEMM_REAL_TYPE, oz2_host_prep_a)
+# define oz2_host_preprocess_b LIBXS_TPREFIX(GEMM_REAL_TYPE, oz2_host_prep_b)
+# define oz3_host_preprocess_a LIBXS_TPREFIX(GEMM_REAL_TYPE, oz3_host_prep_a)
+# define oz3_host_preprocess_b LIBXS_TPREFIX(GEMM_REAL_TYPE, oz3_host_prep_b)
 #endif
 
 /** Function type for complex GEMM (precision-specific). */
