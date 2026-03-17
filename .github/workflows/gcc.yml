@@ -12,7 +12,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        flags: [DBG=0, DBG=1 PEDANTIC=2]
+        flags: [DBG=0, DBG=1 PEDANTIC=2 UPLOAD=1]
     steps:
     - uses: actions/checkout@v4
 
@@ -35,3 +35,15 @@ jobs:
 
     - name: Test
       run: make -j $(nproc) ${{ matrix.flags }} test
+
+    - name: Upload
+      if: always() && contains(matrix.flags, 'UPLOAD=1')
+      run: make clean
+    - if: always() && contains(matrix.flags, 'UPLOAD=1')
+      uses: actions/upload-artifact@v4
+      with:
+        name: libxs-dbg
+        path: |
+          lib/
+          tests/*.x
+          samples/**/*.x
