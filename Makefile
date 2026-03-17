@@ -302,12 +302,11 @@ flib:
 endif
 
 # use dir not qdir to avoid quotes; also $(ROOTDIR)/$(SPLDIR) is relative
-DIRS_SAMPLES := $(dir $(shell find $(ROOTDIR)/$(SPLDIR) -type f -name Makefile \
-	$(NULL)))
+SAMPLES := $(dir $(shell find $(ROOTDIR)/$(SPLDIR) -type f -name Makefile))
 
-.PHONY: samples $(DIRS_SAMPLES)
-samples: $(DIRS_SAMPLES)
-$(DIRS_SAMPLES): libs
+.PHONY: samples $(SAMPLES)
+samples: $(SAMPLES)
+$(SAMPLES): libs
 	@$(FLOCK) $@ "$(MAKE)"
 
 .PHONY: test-all
@@ -602,10 +601,9 @@ ifneq ($(PREFIX),$(ABSDIR))
 	@echo
 	@echo "$(PROJUPP) installing samples..."
 	@$(MKDIR) -p $(PREFIX)/$(PSHRDIR)/$(SPLDIR)
-	@$(CP) -v $(addprefix $(ROOTDIR)/$(SPLDIR)/memcmp/,*.x) $(PREFIX)/$(PSHRDIR)/$(SPLDIR) 2>/dev/null || true
-	@$(CP) -v $(addprefix $(ROOTDIR)/$(SPLDIR)/scratch/,*.x) $(PREFIX)/$(PSHRDIR)/$(SPLDIR) 2>/dev/null || true
-	@$(CP) -v $(addprefix $(ROOTDIR)/$(SPLDIR)/shuffle/,*.x) $(PREFIX)/$(PSHRDIR)/$(SPLDIR) 2>/dev/null || true
-	@$(CP) -v $(addprefix $(ROOTDIR)/$(SPLDIR)/sync/,*.x) $(PREFIX)/$(PSHRDIR)/$(SPLDIR) 2>/dev/null || true
+	@for SAMPLE in $(SAMPLES); do \
+		$(CP) -v $(addprefix $(ROOTDIR)/$(SPLDIR)/$${SAMPLE}/,*.x) $(PREFIX)/$(PSHRDIR)/$(SPLDIR) 2>/dev/null || true; \
+	done
 endif
 
 ifeq (Windows_NT,$(UNAME))

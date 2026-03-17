@@ -62,7 +62,7 @@ XFILES  := $(addsuffix .x,$(addprefix $(OUTDIR)/,$(basename $(notdir \
 REALTYPE_INDEX := $(shell bash -c 'echo "$$((RANDOM%2+1))"' 2>/dev/null)
 REALTYPE := $(word $(if $(REALTYPE_INDEX),$(REALTYPE_INDEX),1),double float)
 
-SAMPLES := memcmp registry scratch shuffle sync
+SAMPLES := memory registry scratch shuffle sync
 
 .PHONY: all
 all: $(XFILES)
