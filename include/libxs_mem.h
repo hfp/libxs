@@ -131,7 +131,10 @@ LIBXS_API void libxs_otrans_task(void* out, const void* in, unsigned int typesiz
   int m, int n, int ldi, int ldo,
   int tid, int ntasks);
 
-/** Matrix transposition; in-place (square or via scratch). "scratch" can be NULL (auto-allocate). */
+/**
+ * Matrix transposition; in-place (square or via scratch).
+ * The "scratch" argument can be NULL (auto-allocate).
+ */
 LIBXS_API void libxs_itrans(void* inout, unsigned int typesize,
   int m, int n, int ldi, int ldo, void* scratch);
 
