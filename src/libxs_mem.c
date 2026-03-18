@@ -535,6 +535,12 @@ LIBXS_API_INTERN void libxs_memory_init(int target_arch)
   }
   LIBXS_ASSERT(NULL != internal_diff_function);
   LIBXS_ASSERT(NULL != internal_memcmp_function);
+# if (LIBXS_X86_AVX2 <= LIBXS_STATIC_TARGET_ARCH)
+  /* mcopy/tcopy: direct call, no pointer dispatch needed */
+# elif (LIBXS_X86_AVX2 > LIBXS_MAX_STATIC_TARGET_ARCH)
+  internal_mcopy_tile_function = internal_mcopy_tile_sw;
+  internal_tcopy_tile_function = internal_tcopy_tile_sw;
+# else
   if (LIBXS_X86_AVX2 <= target_arch) {
     internal_mcopy_tile_function = internal_mcopy_tile_avx2;
     internal_tcopy_tile_function = internal_tcopy_tile_avx2;
@@ -543,8 +549,11 @@ LIBXS_API_INTERN void libxs_memory_init(int target_arch)
     internal_mcopy_tile_function = internal_mcopy_tile_sw;
     internal_tcopy_tile_function = internal_tcopy_tile_sw;
   }
-  LIBXS_ASSERT(NULL != internal_mcopy_tile_function);
-  LIBXS_ASSERT(NULL != internal_tcopy_tile_function);
+# endif
+  LIBXS_ASSERT(NULL != internal_mcopy_tile_function
+    || LIBXS_X86_AVX2 <= LIBXS_STATIC_TARGET_ARCH);
+  LIBXS_ASSERT(NULL != internal_tcopy_tile_function
+    || LIBXS_X86_AVX2 <= LIBXS_STATIC_TARGET_ARCH);
 #endif
 }
 
@@ -993,12 +1002,18 @@ LIBXS_API_INLINE void internal_itrans_scratch(
   void* inout, void* scratch, unsigned int typesize,
   unsigned int m, unsigned int n, unsigned int ldi, unsigned int ldo)
 {
-#if !defined(LIBXS_MEM_SW)
-  internal_mcopy_tile_function(scratch, inout, typesize, ldi, m, 0, m, 0, n);
-  internal_tcopy_tile_function(inout, scratch, typesize, m, ldo, 0, m, 0, n);
-#else
+#if defined(LIBXS_MEM_SW)
   LIBXS_MCOPY_TILE(typesize, scratch, inout, ldi, m, 0, m, 0, n);
   LIBXS_TCOPY_TILE(typesize, inout, scratch, m, ldo, 0, m, 0, n);
+#elif (LIBXS_X86_AVX2 <= LIBXS_STATIC_TARGET_ARCH)
+  internal_mcopy_tile_avx2(scratch, inout, typesize, ldi, m, 0, m, 0, n);
+  internal_tcopy_tile_avx2(inout, scratch, typesize, m, ldo, 0, m, 0, n);
+#elif (LIBXS_X86_AVX2 > LIBXS_MAX_STATIC_TARGET_ARCH)
+  internal_mcopy_tile_sw(scratch, inout, typesize, ldi, m, 0, m, 0, n);
+  internal_tcopy_tile_sw(inout, scratch, typesize, m, ldo, 0, m, 0, n);
+#else /* pointer based function call */
+  internal_mcopy_tile_function(scratch, inout, typesize, ldi, m, 0, m, 0, n);
+  internal_tcopy_tile_function(inout, scratch, typesize, m, ldo, 0, m, 0, n);
 #endif
 }
 
@@ -1014,10 +1029,7 @@ LIBXS_API void libxs_matcopy_task(void* out, const void* in, unsigned int typesi
     if (0 < m && 0 < n) {
       unsigned int m0, m1, n0, n1;
       LIBXS_XCOPY_TASKS((unsigned int)m, (unsigned int)n, tid, ntasks, m0, m1, n0, n1);
-#if !defined(LIBXS_MEM_SW)
-      internal_mcopy_tile_function(out, in, typesize,
-        (unsigned int)ldi, (unsigned int)ldo, m0, m1, n0, n1);
-#else
+#if defined(LIBXS_MEM_SW)
       if (NULL != in) {
         LIBXS_MCOPY_TILE(typesize, out, in,
           (unsigned int)ldi, (unsigned int)ldo, m0, m1, n0, n1);
@@ -1025,6 +1037,15 @@ LIBXS_API void libxs_matcopy_task(void* out, const void* in, unsigned int typesi
       else {
         LIBXS_MZERO_TILE(typesize, out, (unsigned int)ldo, m0, m1, n0, n1);
       }
+#elif (LIBXS_X86_AVX2 <= LIBXS_STATIC_TARGET_ARCH)
+      internal_mcopy_tile_avx2(out, in, typesize,
+        (unsigned int)ldi, (unsigned int)ldo, m0, m1, n0, n1);
+#elif (LIBXS_X86_AVX2 > LIBXS_MAX_STATIC_TARGET_ARCH)
+      internal_mcopy_tile_sw(out, in, typesize,
+        (unsigned int)ldi, (unsigned int)ldo, m0, m1, n0, n1);
+#else /* pointer based function call */
+      internal_mcopy_tile_function(out, in, typesize,
+        (unsigned int)ldi, (unsigned int)ldo, m0, m1, n0, n1);
 #endif
     }
   }
@@ -1050,11 +1071,17 @@ LIBXS_API void libxs_otrans_task(void* out, const void* in, unsigned int typesiz
       unsigned int m0, m1, n0, n1;
       LIBXS_ASSERT(out != in);
       LIBXS_XCOPY_TASKS((unsigned int)m, (unsigned int)n, tid, ntasks, m0, m1, n0, n1);
-#if !defined(LIBXS_MEM_SW)
-      internal_tcopy_tile_function(out, in, typesize,
-        (unsigned int)ldi, (unsigned int)ldo, m0, m1, n0, n1);
-#else
+#if defined(LIBXS_MEM_SW)
       LIBXS_TCOPY_TILE(typesize, out, in,
+        (unsigned int)ldi, (unsigned int)ldo, m0, m1, n0, n1);
+#elif (LIBXS_X86_AVX2 <= LIBXS_STATIC_TARGET_ARCH)
+      internal_tcopy_tile_avx2(out, in, typesize,
+        (unsigned int)ldi, (unsigned int)ldo, m0, m1, n0, n1);
+#elif (LIBXS_X86_AVX2 > LIBXS_MAX_STATIC_TARGET_ARCH)
+      internal_tcopy_tile_sw(out, in, typesize,
+        (unsigned int)ldi, (unsigned int)ldo, m0, m1, n0, n1);
+#else /* pointer based function call */
+      internal_tcopy_tile_function(out, in, typesize,
         (unsigned int)ldi, (unsigned int)ldo, m0, m1, n0, n1);
 #endif
     }
