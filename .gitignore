@@ -1,10 +1,15 @@
 include/libxs_version.h
+documentation/fortran
+documentation/.libxs_*.tex
+.theme/__pycache__
 lib/libxs*
 .abi.log
 .state
 .make
+*.json
 *.mod
 *.x
 build
+site
 bin
 obj

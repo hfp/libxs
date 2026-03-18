@@ -14,7 +14,6 @@ SRCDIR := src
 OUTDIR := lib
 BINDIR := bin
 SPLDIR := samples
-UTLDIR := $(SPLDIR)/utilities
 DOCDIR := documentation
 
 # subdirectories (relative) to PREFIX (install targets)
@@ -87,7 +86,7 @@ WCHECK := 1
 EXCLUDE_STATE := \
   DESTDIR PREFIX BINDIR CURDIR DOCDIR DOCEXT INCDIR LICFDIR OUTDIR TSTDIR TIMEOUT \
   PBINDIR PINCDIR POUTDIR PPKGDIR PMODDIR PSRCDIR PTSTDIR PSHRDIR PDOCDIR SCRDIR \
-  SPLDIR UTLDIR SRCDIR TEST VERSION_STRING ALIAS_% %_TARGET %ROOT
+  SPLDIR SRCDIR TEST VERSION_STRING ALIAS_% %_TARGET %ROOT
 
 # include common Makefile artifacts
 include $(ROOTDIR)/Makefile.inc
@@ -334,6 +333,7 @@ $(DOCDIR)/index.md: $(DOCDIR)/.make $(ROOTDIR)/Makefile $(ROOTDIR)/README.md
 		-e "s/](${DOCDIR}\//](/g" \
 		-e 'N;/^\n$$/d;P;D' \
 		>$@
+	@$(CP) $(ROOTDIR)/LICENSE.md $(DOCDIR)/LICENSE.md
 
 $(DOCDIR)/libxs_scripts.md: $(DOCDIR)/.make $(ROOTDIR)/Makefile $(ROOTSCR)/README.md
 	@$(SED) $(ROOTSCR)/README.md \
@@ -343,22 +343,24 @@ $(DOCDIR)/libxs_scripts.md: $(DOCDIR)/.make $(ROOTDIR)/Makefile $(ROOTSCR)/READM
 		-e 'N;/^\n$$/d;P;D' \
 		>$@
 
-$(DOCDIR)/libxs_compat.md: $(DOCDIR)/.make $(ROOTDIR)/Makefile $(ROOTDIR)/version.txt
-	@wget -T $(TIMEOUT) -q -O $@ "https://raw.githubusercontent.com/wiki/$(PROJECT)/$(PROJECT)/Compatibility.md"
-	@echo >>$@
-
-$(DOCDIR)/libxs_valid.md: $(DOCDIR)/.make $(ROOTDIR)/Makefile $(ROOTDIR)/version.txt
-	@wget -T $(TIMEOUT) -q -O $@ "https://raw.githubusercontent.com/wiki/$(PROJECT)/$(PROJECT)/Validation.md"
-	@echo >>$@
-
-$(DOCDIR)/libxs_qna.md: $(DOCDIR)/.make $(ROOTDIR)/Makefile $(ROOTDIR)/version.txt
-	@wget -T $(TIMEOUT) -q -O $@ "https://raw.githubusercontent.com/wiki/$(PROJECT)/$(PROJECT)/Q&A.md"
-	@echo >>$@
+$(DOCDIR)/$(PROJECT)_samples.md: $(DOCDIR)/.make $(ROOTDIR)/Makefile $(ROOTDIR)/$(SPLDIR)/*/README.md
+	@cd $(ROOTDIR) && \
+	if [ "$$(command -v git)" ] && [ "$$(git ls-files README.md)" ]; then \
+		git ls-files $(SPLDIR)/*/README.md | xargs -I {} cat {}; \
+	else \
+		cat $(SPLDIR)/*/README.md; \
+	fi \
+	| $(SED) \
+		-e 's/^#/##/' \
+		-e 's/<sub>/~/g' -e 's/<\/sub>/~/g' \
+		-e 's/<sup>/^/g' -e 's/<\/sup>/^/g' \
+		-e 's/----*//g' \
+		-e '1s/^/# [$(PROJUPP) Samples](https:\/\/github.com\/hfp\/$(PROJECT)\/raw\/main\/documentation\/$(PROJECT)_samples.pdf)\n\n/' \
+		>$@
 
 $(DOCDIR)/$(PROJECT).$(DOCEXT): $(DOCDIR)/.make $(ROOTDIR)/$(DOCDIR)/index.md \
-$(ROOTDIR)/$(DOCDIR)/$(PROJECT)_mm.md $(ROOTDIR)/$(DOCDIR)/$(PROJECT)_aux.md $(ROOTDIR)/$(DOCDIR)/$(PROJECT)_prof.md \
-$(ROOTDIR)/$(DOCDIR)/$(PROJECT)_tune.md $(ROOTDIR)/$(DOCDIR)/$(PROJECT)_be.md $(ROOTDIR)/$(DOCDIR)/$(PROJECT)_scripts.md \
-$(ROOTDIR)/$(DOCDIR)/$(PROJECT)_compat.md $(ROOTDIR)/$(DOCDIR)/$(PROJECT)_valid.md $(ROOTDIR)/$(DOCDIR)/$(PROJECT)_qna.md
+$(ROOTDIR)/$(DOCDIR)/$(PROJECT)_mm.md $(ROOTDIR)/$(DOCDIR)/$(PROJECT)_tune.md \
+$(ROOTDIR)/$(DOCDIR)/$(PROJECT)_scripts.md
 	$(eval TMPFILE = $(shell $(MKTEMP) $(ROOTDIR)/$(DOCDIR)/.$(PROJECT)_XXXXXX.tex))
 	@pandoc -D latex \
 	| $(SED) \
@@ -370,15 +372,9 @@ $(ROOTDIR)/$(DOCDIR)/$(PROJECT)_compat.md $(ROOTDIR)/$(DOCDIR)/$(PROJECT)_valid.
 		iconv -t utf-8 index.md && echo && \
 		echo "# $(PROJUPP) Domains" && \
 		iconv -t utf-8 $(PROJECT)_mm.md && echo && \
-		iconv -t utf-8 $(PROJECT)_aux.md && echo && \
-		iconv -t utf-8 $(PROJECT)_prof.md && echo && \
 		iconv -t utf-8 $(PROJECT)_tune.md && echo && \
-		iconv -t utf-8 $(PROJECT)_be.md && echo && \
 		echo "# Appendix" && \
-		$(SED) "s/^\(##*\) /#\1 /" $(PROJECT)_compat.md | iconv -t utf-8 && \
-		$(SED) "s/^\(##*\) /#\1 /" $(PROJECT)_valid.md | iconv -t utf-8 && \
-		$(SED) "s/^\(##*\) /#\1 /" $(PROJECT)_scripts.md | iconv -t utf-8 && \
-		$(SED) "s/^\(##*\) /#\1 /" $(PROJECT)_qna.md | iconv -t utf-8; ) \
+		$(SED) "s/^\(##*\) /#\1 /" $(PROJECT)_scripts.md | iconv -t utf-8; ) \
 	| $(SED) \
 		-e 's/<sub>/~/g' -e 's/<\/sub>/~/g' \
 		-e 's/<sup>/^/g' -e 's/<\/sup>/^/g' \
@@ -395,21 +391,6 @@ $(ROOTDIR)/$(DOCDIR)/$(PROJECT)_compat.md $(ROOTDIR)/$(DOCDIR)/$(PROJECT)_valid.
 		-V urlcolor=black \
 		-o $(call qndir,$@)
 	@rm $(TMPFILE)
-
-$(DOCDIR)/$(PROJECT)_samples.md: $(ROOTDIR)/Makefile $(ROOTDIR)/$(SPLDIR)/*/README.md $(ROOTDIR)/$(SPLDIR)/deeplearning/*/README.md $(ROOTDIR)/$(UTLDIR)/*/README.md
-	@cd $(ROOTDIR)
-	@if [ "$$(command -v git)" ] && [ "$$(git ls-files version.txt)" ]; then \
-		git ls-files $(SPLDIR)/*/README.md $(SPLDIR)/deeplearning/*/README.md $(UTLDIR)/*/README.md | xargs -I {} cat {}; \
-	else \
-		cat $(SPLDIR)/*/README.md $(SPLDIR)/deeplearning/*/README.md $(UTLDIR)/*/README.md; \
-	fi \
-	| $(SED) \
-		-e 's/^#/##/' \
-		-e 's/<sub>/~/g' -e 's/<\/sub>/~/g' \
-		-e 's/<sup>/^/g' -e 's/<\/sup>/^/g' \
-		-e 's/----*//g' \
-		-e '1s/^/# [$(PROJUPP) Samples](https:\/\/github.com\/$(PROJECT)\/$(PROJECT)\/raw\/main\/documentation\/$(PROJECT)_samples.pdf)\n\n/' \
-		>$@
 
 $(DOCDIR)/$(PROJECT)_samples.$(DOCEXT): $(ROOTDIR)/$(DOCDIR)/$(PROJECT)_samples.md
 	$(eval TMPFILE = $(shell $(MKTEMP) .$(PROJECT)_XXXXXX.tex))
@@ -438,7 +419,7 @@ $(DOCDIR)/$(PROJECT).$(DOCEXT) \
 $(DOCDIR)/$(PROJECT)_samples.$(DOCEXT)
 
 .PHONY: mkdocs
-mkdocs: $(ROOTDIR)/$(DOCDIR)/index.md $(ROOTDIR)/$(DOCDIR)/$(PROJECT)_samples.md
+mkdocs: $(ROOTDIR)/$(DOCDIR)/index.md
 	@mkdocs build --clean
 	@mkdocs serve
 
