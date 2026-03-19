@@ -41,6 +41,12 @@ nav:
 - Fortran:
   - Reference: libxs_fortran.md
 - Example Code:
-  - Collection: libxsmm_samples.md
+  - GEMM: samples/libxs_gemm.md
+  - Memory: samples/libxs_memory.md
+  - Ozaki: samples/libxs_ozaki.md
+  - Registry: samples/libxs_registry.md
+  - Scratch: samples/libxs_scratch.md
+  - Shuffle: samples/libxs_shuffle.md
+  - Sync: samples/libxs_sync.md
 - About:
   - License: LICENSE.md

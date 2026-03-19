@@ -1,5 +1,4 @@
 include/libxs_version.h
-documentation/fortran
 .theme/__pycache__
 .libxs_*.tex
 lib/libxs*

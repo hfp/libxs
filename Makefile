@@ -301,8 +301,13 @@ else
 flib:
 endif
 
-# use dir not qdir to avoid quotes; also $(ROOTDIR)/$(SPLDIR) is relative
-SAMPLES := $(dir $(shell find $(ROOTDIR)/$(SPLDIR) -type f -name Makefile))
+# use dir not qdir to avoid quotes
+SAMPLES := $(dir $(if $(GIT), \
+  $(shell $(GIT) ls-files $(SPLDIR)/*/Makefile 2>/dev/null), \
+  $(shell ls -1 $(ROOTDIR)/$(SPLDIR)/*/Makefile 2>/dev/null)))
+SPLMDS := $(if $(GIT), \
+  $(shell $(GIT) ls-files $(SPLDIR)/*/README.md 2>/dev/null), \
+  $(shell ls -1 $(ROOTDIR)/$(SPLDIR)/*/README.md 2>/dev/null))
 
 .PHONY: samples $(SAMPLES)
 samples: $(SAMPLES)
@@ -343,19 +348,21 @@ $(DOCDIR)/libxs_scripts.md: $(DOCDIR)/.make $(ROOTDIR)/Makefile $(ROOTSCR)/READM
 		-e 'N;/^\n$$/d;P;D' \
 		>$@
 
-$(DOCDIR)/$(PROJECT)_samples.md: $(DOCDIR)/.make $(ROOTDIR)/Makefile $(ROOTDIR)/$(SPLDIR)/*/README.md
-	@cd $(ROOTDIR) && \
-	if [ "$$(command -v git)" ] && [ "$$(git ls-files README.md)" ]; then \
-		git ls-files $(SPLDIR)/*/README.md | xargs -I {} cat {}; \
-	else \
-		cat $(SPLDIR)/*/README.md; \
-	fi \
-	| $(SED) \
+$(DOCDIR)/$(PROJECT)_samples.md: $(DOCDIR)/.make $(DOCDIR)/$(SPLDIR)/.make $(ROOTDIR)/Makefile $(SPLMDS)
+	@for MD in $(SPLMDS); do \
+		$(SED) $${MD} \
+			-e 's/\[!\[..*\](..*)\](..*)//g' \
+			-e 's/\[\[..*\](..*)\]//g' \
+			-e "s/](${DOCDIR}\//](/g" \
+			-e 'N;/^\n$$/d;P;D' \
+			>$(DOCDIR)/$(SPLDIR)/libxs_$$(basename $$(dirname $${MD})).md; \
+	done
+	@$(SED) $(SPLMDS) \
 		-e 's/^#/##/' \
 		-e 's/<sub>/~/g' -e 's/<\/sub>/~/g' \
 		-e 's/<sup>/^/g' -e 's/<\/sup>/^/g' \
 		-e 's/----*//g' \
-		-e '1s/^/# [$(PROJUPP) Samples](https:\/\/github.com\/hfp\/$(PROJECT)\/raw\/main\/documentation\/$(PROJECT)_samples.pdf)\n\n/' \
+		-e '1s/^/# [$(PROJUPP) Samples](https:\/\/github.com\/hfp\/$(PROJECT)\/raw\/main\/$(DOCDIR)\/$(PROJECT)_samples.pdf)\n\n/' \
 		>$@
 
 $(DOCDIR)/$(PROJECT).$(DOCEXT): $(DOCDIR)/.make $(ROOTDIR)/$(DOCDIR)/index.md \
@@ -425,9 +432,7 @@ $(DOCDIR)/$(PROJECT)_samples.$(DOCEXT): $(ROOTDIR)/$(DOCDIR)/$(PROJECT)_samples.
 	@rm $(TMPFILE)
 
 .PHONY: documentation
-documentation: \
-$(DOCDIR)/$(PROJECT).$(DOCEXT) \
-$(DOCDIR)/$(PROJECT)_samples.$(DOCEXT)
+documentation: $(DOCDIR)/$(PROJECT).$(DOCEXT) $(DOCDIR)/$(PROJECT)_samples.$(DOCEXT)
 
 .PHONY: mkdocs
 mkdocs: $(ROOTDIR)/$(DOCDIR)/index.md

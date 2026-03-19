@@ -69,14 +69,14 @@ USE :: libxs, ONLY: libxs_memcmp
 
 | Sample | Description |
 |--------|-------------|
-| [gemm](documentation/../samples/gemm/) | Batched DGEMM (strided, pointer-array, grouped) with OpenMP and optional MKL JIT. |
-| [memory](documentation/../samples/memory/) | Benchmarks for `libxs_diff`, `libxs_memcmp`, matrix copy, and transpose. |
-| [ozaki](documentation/../samples/ozaki/) | Ozaki-scheme low-precision GEMM with intercepted BLAS dispatch. |
-| [registry](documentation/../samples/registry/) | Registry dispatch microbenchmark under various access patterns. |
-| [scratch](documentation/../samples/scratch/) | Pool allocator (`libxs_malloc`/`libxs_free`) vs. system `malloc`. |
-| [shuffle](documentation/../samples/shuffle/) | Comparison of shuffling strategies and throughput. |
-| [sync](documentation/../samples/sync/) | Lock implementation microbenchmarks. |
+| [gemm](documentation/samples/libxs_gemm.md) | Batched DGEMM (strided, pointer-array, grouped) with OpenMP and optional MKL JIT. |
+| [memory](documentation/samples/libxs_memory.md) | Benchmarks for `libxs_diff`, `libxs_memcmp`, matrix copy, and transpose. |
+| [ozaki](documentation/samples/libxs_ozaki.md) | Ozaki-scheme low-precision GEMM with intercepted BLAS dispatch. |
+| [registry](documentation/samples/libxs_registry.md) | Registry dispatch microbenchmark under various access patterns. |
+| [scratch](documentation/samples/libxs_scratch.md) | Pool allocator (`libxs_malloc`/`libxs_free`) vs. system `malloc`. |
+| [shuffle](documentation/samples/libxs_shuffle.md) | Comparison of shuffling strategies and throughput. |
+| [sync](documentation/samples/libxs_sync.md) | Lock implementation microbenchmarks. |
 
 ## License
 
-LIBXS is licensed under the [BSD 3-Clause License](documentation/../LICENSE.md).
+LIBXS is licensed under the [BSD 3-Clause License](LICENSE.md).

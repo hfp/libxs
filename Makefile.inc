@@ -31,6 +31,14 @@ ifeq (,$(SED))
   SED := $(call which,sed)
 endif
 
+GIT := $(call which,git)
+# imply rootdir is repository
+ifneq (,$(GIT))
+ifeq (,$(shell $(GIT) ls-files $(MAKEINC)/Makefile.inc 2>/dev/null))
+  GIT := $(NULL)
+endif
+endif
+
 # calculate version number given by up to three components
 version = $(shell echo "$$(( \
   $(if $(strip $1),$(word 1,$1)*10000,0) + \

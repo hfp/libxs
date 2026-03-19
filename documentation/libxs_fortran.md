@@ -1,4 +1,3 @@
-Title: LIBXS
 project: LIBXS
 author: Intel Corporation
 license: <a href="https://libxs.readthedocs.io/LICENSE/">BSD 3-Clause License</a>
