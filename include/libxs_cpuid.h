@@ -36,19 +36,19 @@
  * CPU identification result. Zero-initialization yields
  * conservative (least-capable) properties.
  */
-LIBXS_EXTERN_C typedef struct libxs_cpuid_info_t {
+LIBXS_EXTERN_C typedef struct libxs_cpuid_t {
   /** CPU model name obtained from the OS (e.g., /proc/cpuinfo). */
   char model[256];
   /** Non-zero if the timestamp counter is invariant/monotonic (see libxs_timer_info). */
   int constant_tsc;
-} libxs_cpuid_info_t;
+} libxs_cpuid_t;
 
 /**
  * Returns the detected ISA level for the current platform and optionally
  * fills info with CPU properties (model name, TSC capability).
  * Dispatches to the appropriate architecture-specific implementation.
  */
-LIBXS_API int libxs_cpuid(libxs_cpuid_info_t* LIBXS_ARGDEF(info, NULL));
+LIBXS_API int libxs_cpuid(libxs_cpuid_t* LIBXS_ARGDEF(info, NULL));
 
 /** Returns a human-readable name for the given ISA level id. */
 LIBXS_API const char* libxs_cpuid_name(int id);

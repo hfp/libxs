@@ -10,7 +10,7 @@
 #include <libxs_sync.h>
 
 
-LIBXS_APIVAR_PUBLIC_DEF(libxs_matdiff_info_t gemm_diff);
+LIBXS_APIVAR_PUBLIC_DEF(libxs_matdiff_t gemm_diff);
 LIBXS_APIVAR_PUBLIC_DEF(gemm_function_t gemm_original);
 LIBXS_APIVAR_PUBLIC_DEF(int ozaki_verbose);
 LIBXS_APIVAR_PUBLIC_DEF(int ozaki_stat);
@@ -59,7 +59,7 @@ LIBXS_API_INLINE void gemm_oz_ocl_diff(const char* transa, const char* transb,
   const GEMM_REAL_TYPE* alpha, const GEMM_REAL_TYPE* a, const GEMM_INT_TYPE* lda,
                                const GEMM_REAL_TYPE* b, const GEMM_INT_TYPE* ldb,
   const GEMM_REAL_TYPE*  beta, GEMM_REAL_TYPE* c, const GEMM_INT_TYPE* ldc,
-  unsigned int diff_abc, libxs_matdiff_info_t* diff)
+  unsigned int diff_abc, libxs_matdiff_t* diff)
 {
   GEMM_REAL_TYPE* c_ref = NULL;
   /* Save C for reference comparison (before OpenCL modifies it) */

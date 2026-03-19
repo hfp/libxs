@@ -16,11 +16,10 @@
       PROGRAM registry
         USE :: LIBXS, ONLY: C_PTR, C_INT, C_DOUBLE,                     &
      &    C_SIZE_T, C_LOC, C_SIZEOF, C_ASSOCIATED,                      &
-     &    LIBXS_REGINFO,                                                &
      &    libxs_init, libxs_finalize, libxs_registry_create,            &
      &    libxs_registry_destroy, libxs_registry_set,                   &
      &    libxs_registry_get, libxs_registry_has,                       &
-     &    libxs_registry_info
+     &    libxs_registry_info, libxs_registry_info_t
         IMPLICIT NONE
 
         INTEGER, PARAMETER :: ntotal = 10000                            &
@@ -39,7 +38,7 @@
         TYPE(C_PTR)    :: reg, cptr
         TYPE(bench_key_t),   TARGET :: keys(ntotal)
         TYPE(bench_value_t), TARGET :: vals(ntotal)
-        TYPE(LIBXS_REGINFO) :: info
+        TYPE(libxs_registry_info_t) :: info
         DOUBLE PRECISION :: start, twrite, tcold, tcached
         INTEGER :: i, j, n, result
 

@@ -547,7 +547,7 @@ LIBXS_API_INLINE void gemm_oz2_diff(const char* transa, const char* transb,
   const GEMM_REAL_TYPE* alpha, const GEMM_REAL_TYPE* a, const GEMM_INT_TYPE* lda,
                                  const GEMM_REAL_TYPE* b, const GEMM_INT_TYPE* ldb,
   const GEMM_REAL_TYPE*  beta, GEMM_REAL_TYPE* c, const GEMM_INT_TYPE* ldc,
-  unsigned int diff_abc, libxs_matdiff_info_t* diff)
+  unsigned int diff_abc, libxs_matdiff_t* diff)
 {
   unsigned int garner_inv[OZ2_NPRIMES_MAX][OZ2_NPRIMES_MAX];
   enum {
@@ -571,7 +571,7 @@ LIBXS_API_INLINE void gemm_oz2_diff(const char* transa, const char* transb,
   oz2_res_t (*bk_panel)[BLOCK_N][OZ2_NPRIMES_MAX][BLOCK_K] = NULL;
   int16_t (*expb_panel)[BLOCK_N] = NULL;
   GEMM_REAL_TYPE *ref_panel = NULL; /* diff mode 0 only */
-  libxs_matdiff_info_t tdiff[256];
+  libxs_matdiff_t tdiff[256];
   int nthreads = 1;
   int i, j;
   LIBXS_ASSERT(LIBXS_DATATYPE_F64 == LIBXS_DATATYPE(GEMM_REAL_TYPE)

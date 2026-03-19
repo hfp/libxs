@@ -35,8 +35,8 @@
         PUBLIC :: LIBXS_AARCH64_ALLFEAT
 
         !> Public API: types and procedures.
-        PUBLIC :: LIBXS_MATDIFF_INFO
-        PUBLIC :: LIBXS_REGINFO
+        PUBLIC :: libxs_matdiff_t
+        PUBLIC :: libxs_registry_info_t
         PUBLIC :: libxs_init, libxs_finalize
         PUBLIC :: libxs_timer_tick, libxs_timer_duration
         PUBLIC :: libxs_malloc, libxs_free
@@ -71,16 +71,16 @@
         !> Enumerates element/data types.
         !> The raw value encodes type-size in bits [7:4].
         INTEGER(C_INT), PARAMETER ::                                    &
-     &    LIBXS_DATATYPE_F64     = IOR( 0, ISHFT( 8, 4)),               &
-     &    LIBXS_DATATYPE_F32     = IOR( 1, ISHFT( 4, 4)),               &
-     &    LIBXS_DATATYPE_I64     = IOR( 2, ISHFT( 8, 4)),               &
-     &    LIBXS_DATATYPE_U64     = IOR( 3, ISHFT( 8, 4)),               &
-     &    LIBXS_DATATYPE_I32     = IOR( 4, ISHFT( 4, 4)),               &
-     &    LIBXS_DATATYPE_U32     = IOR( 5, ISHFT( 4, 4)),               &
-     &    LIBXS_DATATYPE_I16     = IOR( 6, ISHFT( 2, 4)),               &
-     &    LIBXS_DATATYPE_U16     = IOR( 7, ISHFT( 2, 4)),               &
-     &    LIBXS_DATATYPE_I8      = IOR( 8, ISHFT( 1, 4)),               &
-     &    LIBXS_DATATYPE_U8      = IOR( 9, ISHFT( 1, 4)),               &
+     &    LIBXS_DATATYPE_F64     = IOR(0, ISHFT(8, 4)),                 &
+     &    LIBXS_DATATYPE_F32     = IOR(1, ISHFT(4, 4)),                 &
+     &    LIBXS_DATATYPE_I64     = IOR(2, ISHFT(8, 4)),                 &
+     &    LIBXS_DATATYPE_U64     = IOR(3, ISHFT(8, 4)),                 &
+     &    LIBXS_DATATYPE_I32     = IOR(4, ISHFT(4, 4)),                 &
+     &    LIBXS_DATATYPE_U32     = IOR(5, ISHFT(4, 4)),                 &
+     &    LIBXS_DATATYPE_I16     = IOR(6, ISHFT(2, 4)),                 &
+     &    LIBXS_DATATYPE_U16     = IOR(7, ISHFT(2, 4)),                 &
+     &    LIBXS_DATATYPE_I8      = IOR(8, ISHFT(1, 4)),                 &
+     &    LIBXS_DATATYPE_U8      = IOR(9, ISHFT(1, 4)),                 &
      &    LIBXS_DATATYPE_UNKNOWN = 10
 
         !> Enumerates the available target architectures and ISA
@@ -103,7 +103,7 @@
 
         !> Structure of differences with matrix norms according
         !> to http://www.netlib.org/lapack/lug/node75.html).
-        TYPE, BIND(C) :: LIBXS_MATDIFF_INFO
+        TYPE, BIND(C) :: libxs_matdiff_t
           REAL(C_DOUBLE) :: norm1_abs, norm1_rel !! One-norm
           REAL(C_DOUBLE) :: normi_abs, normi_rel !! Infinity-norm
           REAL(C_DOUBLE) :: normf_rel            !! Froebenius-norm
@@ -120,7 +120,7 @@
         END TYPE
 
         !> Registry status information.
-        TYPE, BIND(C) :: LIBXS_REGINFO
+        TYPE, BIND(C) :: libxs_registry_info_t
           INTEGER(C_SIZE_T) :: capacity, size, nbytes
         END TYPE
 
@@ -229,23 +229,23 @@
           !> output with libxs_matdiff_clear first.
           PURE SUBROUTINE libxs_matdiff_reduce(output, input)           &
      &    BIND(C)
-            IMPORT :: LIBXS_MATDIFF_INFO
-            TYPE(LIBXS_MATDIFF_INFO), INTENT(INOUT) :: output
-            TYPE(LIBXS_MATDIFF_INFO), INTENT(IN)    :: input
+            IMPORT :: libxs_matdiff_t
+            TYPE(libxs_matdiff_t), INTENT(INOUT) :: output
+            TYPE(libxs_matdiff_t), INTENT(IN)    :: input
           END SUBROUTINE
 
           !> Clears the given info-structure, e.g., for the initial
           !> reduction-value (libxs_matdiff_reduce).
           PURE SUBROUTINE libxs_matdiff_clear(info) BIND(C)
-            IMPORT :: LIBXS_MATDIFF_INFO
-            TYPE(LIBXS_MATDIFF_INFO), INTENT(OUT) :: info
+            IMPORT :: libxs_matdiff_t
+            TYPE(libxs_matdiff_t), INTENT(OUT) :: info
           END SUBROUTINE
 
           !> Combine absolute and relative norms into a single
           !> value which can be used to check against a margin.
           FUNCTION libxs_matdiff_epsilon(input) BIND(C)
-            IMPORT :: LIBXS_MATDIFF_INFO, C_DOUBLE
-            TYPE(LIBXS_MATDIFF_INFO), INTENT(IN) :: input
+            IMPORT :: libxs_matdiff_t, C_DOUBLE
+            TYPE(libxs_matdiff_t), INTENT(IN) :: input
             REAL(C_DOUBLE) :: libxs_matdiff_epsilon
           END FUNCTION
           !> Create a registry (key-value store).
@@ -312,9 +312,9 @@
           !> Returns 0 on success.
           FUNCTION libxs_registry_info(registry,                        &
      &    info) BIND(C)
-            IMPORT :: C_PTR, C_INT, LIBXS_REGINFO
+            IMPORT :: C_PTR, C_INT, libxs_registry_info_t
             TYPE(C_PTR), INTENT(IN), VALUE :: registry
-            TYPE(LIBXS_REGINFO), INTENT(OUT) :: info
+            TYPE(libxs_registry_info_t), INTENT(OUT) :: info
             INTEGER(C_INT) :: libxs_registry_info
           END FUNCTION
 
@@ -408,19 +408,19 @@
           INTEGER(C_INT), INTENT(IN) :: m
           INTEGER(C_INT), INTENT(IN), OPTIONAL :: n, ldref, ldtst
           TYPE(C_PTR), INTENT(IN), OPTIONAL :: ref, tst
-          TYPE(LIBXS_MATDIFF_INFO), INTENT(OUT) :: info
+          TYPE(libxs_matdiff_t), INTENT(OUT) :: info
           INTEGER(C_INT) :: nn, rc
           TYPE(C_PTR) :: rr, tt
           INTERFACE
             FUNCTION internal_matdiff(info,                             &
      &      datatype, m, n, ref, tst, ldref, ldtst)                     &
      &      RESULT(res) BIND(C, NAME="libxs_matdiff")
-              IMPORT :: LIBXS_MATDIFF_INFO, C_PTR, C_INT
+              IMPORT :: libxs_matdiff_t, C_PTR, C_INT
               INTEGER(C_INT), INTENT(IN), VALUE         :: datatype
               INTEGER(C_INT), INTENT(IN), VALUE         :: m, n
               TYPE(C_PTR), INTENT(IN), VALUE            :: ref, tst
               INTEGER(C_INT), INTENT(IN)                :: ldref, ldtst
-              TYPE(LIBXS_MATDIFF_INFO), INTENT(OUT)     :: info
+              TYPE(libxs_matdiff_t), INTENT(OUT)     :: info
               INTEGER(C_INT) :: res
             END FUNCTION
           END INTERFACE

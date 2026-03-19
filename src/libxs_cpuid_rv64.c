@@ -23,10 +23,10 @@ LIBXS_API_INTERN void internal_cpuid_rv64_sigill(int signum) {
 #endif
 
 
-LIBXS_API_INTERN int libxs_cpuid_rv64(libxs_cpuid_info_t* info)
+LIBXS_API_INTERN int libxs_cpuid_rv64(libxs_cpuid_t* info)
 {
   int mvl = 0;
-  libxs_cpuid_info_t cpuid_info;
+  libxs_cpuid_t cpuid_info;
   size_t cpuinfo_model_size = sizeof(cpuid_info.model);
 #if defined(LIBXS_PLATFORM_RV64)
   { void (*const handler)(int) = signal(SIGILL, internal_cpuid_rv64_sigill);

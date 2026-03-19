@@ -16,7 +16,7 @@
  * Structure of differences with matrix norms according
  * to http://www.netlib.org/lapack/lug/node75.html).
  */
-LIBXS_EXTERN_C typedef struct libxs_matdiff_info_t {
+LIBXS_EXTERN_C typedef struct libxs_matdiff_t {
   /** One-norm */         double norm1_abs, norm1_rel;
   /** Infinity-norm */    double normi_abs, normi_rel;
   /** Froebenius-norm */  double normf_rel;
@@ -35,20 +35,20 @@ LIBXS_EXTERN_C typedef struct libxs_matdiff_info_t {
    * difference (libxs_matdiff_epsilon).
    */
   int m, n, i, r;
-} libxs_matdiff_info_t;
+} libxs_matdiff_t;
 
 /** BF16 storage type (raw uint16_t encoding: 1 sign + 8 exponent + 7 fraction). */
 typedef uint16_t libxs_bf16_t;
 
 
 /**
- * Utility function to calculate a collection of scalar differences between two matrices (libxs_matdiff_info_t).
+ * Utility function to calculate a collection of scalar differences between two matrices (libxs_matdiff_t).
  * The location (m, n) of the largest difference (linf_abs) is recorded (also in case of NaN). In case of NaN,
  * differences are set to infinity. If no difference is discovered, the location (m, n) is negative (OOB).
  * The return value does not judge the difference (norm) between reference and test data, but is about
  * missing support for the requested data-type or otherwise invalid input.
  */
-LIBXS_API int libxs_matdiff(libxs_matdiff_info_t* info,
+LIBXS_API int libxs_matdiff(libxs_matdiff_t* info,
   libxs_data_t datatype, int m, int n, const void* ref, const void* tst,
   const int* ldref, const int* ldtst);
 
@@ -58,14 +58,26 @@ LIBXS_API int libxs_matdiff(libxs_matdiff_info_t* info,
  * the epsilon (followed by a line-break), which can be used to calibrate margins of a test case.
  * LIBXS_MATDIFF can carry optional space-separated arguments used to amend the file entry.
  */
-LIBXS_API double libxs_matdiff_epsilon(const libxs_matdiff_info_t* input);
+LIBXS_API double libxs_matdiff_epsilon(const libxs_matdiff_t* input);
+/**
+ * Combine two single-matrix infos (each from libxs_matdiff with ref=NULL)
+ * into a meta-diff. Output supplies the "reference" side and input the
+ * "test" side. Per-side statistics (l1, min, max, avg, var) are exact.
+ * Difference norms are summary bounds:
+ *   linf_abs = |avg_ref - avg_tst| (mean shift),
+ *   l2_abs   = sqrt(var_ref + var_tst) (statistical bound).
+ * Element-wise norms (norm1, normi, normf_rel) are set to zero.
+ * No-op if neither side is a single-matrix info.
+ * Returns EXIT_FAILURE if input is not a single-matrix info.
+ */
+LIBXS_API int libxs_matdiff_combine(libxs_matdiff_t* output, const libxs_matdiff_t* input);
 /**
  * Reduces input into output such that the difference is maintained or increased (max function).
  * The very first (initial) output should be zeroed (libxs_matdiff_clear).
  */
-LIBXS_API void libxs_matdiff_reduce(libxs_matdiff_info_t* output, const libxs_matdiff_info_t* input);
+LIBXS_API void libxs_matdiff_reduce(libxs_matdiff_t* output, const libxs_matdiff_t* input);
 /** Clears the given info-structure, e.g., for the initial reduction-value (libxs_matdiff_reduce). */
-LIBXS_API void libxs_matdiff_clear(libxs_matdiff_info_t* info);
+LIBXS_API void libxs_matdiff_clear(libxs_matdiff_t* info);
 
 /** Greatest common divisor (corner case: the GCD of 0 and 0 is 1). */
 LIBXS_API size_t libxs_gcd(size_t a, size_t b);

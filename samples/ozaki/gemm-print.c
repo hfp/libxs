@@ -26,7 +26,7 @@ LIBXS_API void print_gemm(FILE* ostream, const char* transa, const char* transb,
 }
 
 
-LIBXS_API void print_diff(FILE* ostream, const libxs_matdiff_info_t* diff)
+LIBXS_API void print_diff(FILE* ostream, const libxs_matdiff_t* diff)
 {
   const double epsilon = libxs_matdiff_epsilon(diff);
   if (1E-6 <= epsilon) {

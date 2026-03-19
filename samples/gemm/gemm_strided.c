@@ -34,7 +34,7 @@ int main(int argc, char* argv[])
   const double gflops_per_op = 2.0 * m * n * k * 1E-9;
   double *a = NULL, *b = NULL, *c = NULL;
   libxs_gemm_config_t config;
-  libxs_matdiff_info_t check_diff;
+  libxs_matdiff_t check_diff;
   double duration = 0;
   libxs_timer_tick_t t0, t1;
   int result = EXIT_SUCCESS, r;

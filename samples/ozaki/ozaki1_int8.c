@@ -179,7 +179,7 @@ LIBXS_API_INLINE void gemm_oz1_diff(const char* transa, const char* transb,
   const GEMM_REAL_TYPE* alpha, const GEMM_REAL_TYPE* a, const GEMM_INT_TYPE* lda,
                                const GEMM_REAL_TYPE* b, const GEMM_INT_TYPE* ldb,
   const GEMM_REAL_TYPE*  beta, GEMM_REAL_TYPE* c, const GEMM_INT_TYPE* ldc,
-  unsigned int diff_abc, libxs_matdiff_info_t* diff)
+  unsigned int diff_abc, libxs_matdiff_t* diff)
 {
   int8_t slice_low_bit[MAX_NSLICES];
   double pow2_low[MAX_NSLICES];
@@ -204,7 +204,7 @@ LIBXS_API_INLINE void gemm_oz1_diff(const char* transa, const char* transb,
   int8_t (*bk_panel)[BLOCK_N][MAX_NSLICES][BLOCK_K] = NULL;
   int16_t (*expb_panel)[BLOCK_N] = NULL;
   GEMM_REAL_TYPE *ref_panel = NULL; /* diff mode 0 only */
-  libxs_matdiff_info_t tdiff[256];
+  libxs_matdiff_t tdiff[256];
   int nthreads = 1;
   int s;
   const ozaki_dot_i8_fn dot_i8 = ozaki_dot_i8_init();

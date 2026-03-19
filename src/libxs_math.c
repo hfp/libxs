@@ -42,7 +42,7 @@
   (0 >= (DENREF) ? (FALLBACK) : ((NUMERATOR) / LIBXS_MATDIFF_DIV_DEN(DENREF)))
 
 
-LIBXS_API int libxs_matdiff(libxs_matdiff_info_t* info,
+LIBXS_API int libxs_matdiff(libxs_matdiff_t* info,
   libxs_data_t datatype, int m, int n, const void* ref, const void* tst,
   const int* ldref, const int* ldtst)
 {
@@ -267,11 +267,11 @@ LIBXS_API int libxs_matdiff(libxs_matdiff_info_t* info,
         }
       }
       if (1 == n) LIBXS_ISWAP(info->m, info->n);
-      if (0 != result_swap) { /* ref was NULL: move ref-stats to tst, zero ref-side */
+      if (0 != result_swap) { /* ref was NULL: move ref-stats to tst, sentinel ref-side */
         info->min_tst = info->min_ref;
-        info->min_ref = 0;
+        info->min_ref = +pos_inf; /* sentinel: min > max marks one-sided */
         info->max_tst = info->max_ref;
-        info->max_ref = 0;
+        info->max_ref = -pos_inf;
         info->avg_tst = info->avg_ref;
         info->avg_ref = 0;
         info->var_tst = info->var_ref;
@@ -290,7 +290,7 @@ LIBXS_API int libxs_matdiff(libxs_matdiff_info_t* info,
 }
 
 
-LIBXS_API double libxs_matdiff_epsilon(const libxs_matdiff_info_t* input)
+LIBXS_API double libxs_matdiff_epsilon(const libxs_matdiff_t* input)
 {
   double result;
   if (NULL != input) {
@@ -383,9 +383,71 @@ LIBXS_API double libxs_matdiff_epsilon(const libxs_matdiff_info_t* input)
 }
 
 
-LIBXS_API void libxs_matdiff_reduce(libxs_matdiff_info_t* output, const libxs_matdiff_info_t* input)
+LIBXS_API_INLINE int internal_matdiff_onesided(const libxs_matdiff_t* info)
 {
-  if (NULL != output && NULL != input && input->min_ref <= input->max_ref) {
+  return (NULL != info && info->min_ref > info->max_ref
+                       && info->min_tst <= info->max_tst);
+}
+
+
+LIBXS_API int libxs_matdiff_combine(libxs_matdiff_t* output, const libxs_matdiff_t* input)
+{
+  int result = EXIT_SUCCESS;
+  if (NULL != output && NULL != input) {
+    const int lo = internal_matdiff_onesided(output);
+    const int li = internal_matdiff_onesided(input);
+    if (0 != lo && 0 != li) {
+      double aref, atst, d;
+      libxs_matdiff_t tmp;
+      libxs_matdiff_clear(&tmp);
+      /* reference side: adopt tst-stats from output (lhs) */
+      tmp.l1_ref  = output->l1_tst;
+      tmp.min_ref = output->min_tst;
+      tmp.max_ref = output->max_tst;
+      tmp.avg_ref = output->avg_tst;
+      tmp.var_ref = output->var_tst;
+      /* test side: adopt tst-stats from input (rhs) */
+      tmp.l1_tst  = input->l1_tst;
+      tmp.min_tst = input->min_tst;
+      tmp.max_tst = input->max_tst;
+      tmp.avg_tst = input->avg_tst;
+      tmp.var_tst = input->var_tst;
+      /* mean shift as linf_abs estimate */
+      d = tmp.avg_ref - tmp.avg_tst;
+      tmp.linf_abs = fabs(d);
+      /* values behind the linf_abs estimate */
+      tmp.v_ref = tmp.avg_ref;
+      tmp.v_tst = tmp.avg_tst;
+      /* relative to the larger of the two averages */
+      aref = fabs(tmp.avg_ref);
+      atst = fabs(tmp.avg_tst);
+      d = (aref > atst) ? aref : atst;
+      tmp.linf_rel = (0 < d) ? (tmp.linf_abs / d) : 0;
+      /* statistical L2 bound from pooled variance */
+      tmp.l2_abs = sqrt(tmp.var_ref + tmp.var_tst);
+      /* maintain reduction counter */
+      tmp.r = output->r + 1;
+      tmp.i = tmp.r;
+      *output = tmp;
+    }
+    else if (0 != li || 0 != lo) {
+      result = EXIT_FAILURE; /* input must be single-matrix */
+    }
+    /* both non-single: no-op */
+  }
+  else {
+    result = EXIT_FAILURE;
+  }
+  return result;
+}
+
+
+LIBXS_API void libxs_matdiff_reduce(libxs_matdiff_t* output, const libxs_matdiff_t* input)
+{
+  if (NULL != output && NULL != input && 0 != internal_matdiff_onesided(input)) {
+    libxs_matdiff_combine(output, input);
+  }
+  else if (NULL != output && NULL != input && input->min_ref <= input->max_ref) {
     const double eps_out = libxs_matdiff_epsilon(output);
     const double eps_in  = libxs_matdiff_epsilon(input);
     ++output->r; /* increment reduction counter */
@@ -442,7 +504,7 @@ LIBXS_API void libxs_matdiff_reduce(libxs_matdiff_info_t* output, const libxs_ma
 }
 
 
-LIBXS_API void libxs_matdiff_clear(libxs_matdiff_info_t* info)
+LIBXS_API void libxs_matdiff_clear(libxs_matdiff_t* info)
 {
   if (NULL != info) {
     const union { uint32_t raw; float value; } inf = { 0x7F800000U };

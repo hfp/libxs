@@ -31,16 +31,16 @@ Portable CPU feature detection for x86-64, AArch64, and RISC-V targets. Returns 
 ## Types
 
 ```C
-typedef struct libxs_cpuid_info_t {
+typedef struct libxs_cpuid_t {
   char model[256];   /* CPU model name from OS */
   int constant_tsc;  /* non-zero if TSC is invariant */
-} libxs_cpuid_info_t;
+} libxs_cpuid_t;
 ```
 
 ## Functions
 
 ```C
-int libxs_cpuid(libxs_cpuid_info_t* info);
+int libxs_cpuid(libxs_cpuid_t* info);
 ```
 
 Detect the ISA level of the current platform. Optionally fills `info` with the CPU model name and TSC capability. Returns a constant from the table above.

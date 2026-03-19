@@ -33,7 +33,7 @@ int main(int argc, char* argv[])
   double *storage = NULL;
   size_t total_ptrs = 0, total_elems = 0;
   double total_gflops = 0, duration = 0;
-  libxs_matdiff_info_t check_diff;
+  libxs_matdiff_t check_diff;
   libxs_timer_tick_t t0, t1;
   int result = EXIT_SUCCESS, g, r;
 
@@ -123,7 +123,7 @@ int main(int argc, char* argv[])
     libxs_matdiff_clear(&check_diff);
     { size_t pidx = 0;
       for (g = 0; g < ng; ++g) {
-        libxs_matdiff_info_t diff;
+        libxs_matdiff_t diff;
         libxs_matdiff(&diff, LIBXS_DATATYPE(double),
           m_array[g], n_array[g], NULL/*ref*/,
           c_ptrs[pidx], NULL/*ldref*/, ldc_array + g);

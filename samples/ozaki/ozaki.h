@@ -81,7 +81,7 @@
   } \
   else { \
     double epsilon; \
-    libxs_matdiff_info_t diff; \
+    libxs_matdiff_t diff; \
     libxs_matdiff_clear(&diff); \
     DIFF_FN(transa, transb, m, n, k, alpha, a, lda, b, ldb, beta, c, ldc, \
       LIBXS_ABS(ozaki_stat), &diff); \
@@ -560,12 +560,12 @@ LIBXS_API_INLINE void ozaki_store_block_pair(GEMM_REAL_TYPE* ref_blk,
 
 
 /** Compute matrix diff for one block and reduce into accumulator. */
-LIBXS_API_INLINE void ozaki_accumulate_block_diff(libxs_matdiff_info_t* acc,
+LIBXS_API_INLINE void ozaki_accumulate_block_diff(libxs_matdiff_t* acc,
   const GEMM_REAL_TYPE* ref_blk, const GEMM_REAL_TYPE* tst_blk,
   GEMM_INT_TYPE bm, GEMM_INT_TYPE bn, GEMM_INT_TYPE ld_ref,
   GEMM_INT_TYPE ld_tst)
 {
-  libxs_matdiff_info_t block_diff;
+  libxs_matdiff_t block_diff;
   const int ild_ref = (int)ld_ref, ild_tst = (int)ld_tst;
   if (EXIT_SUCCESS == libxs_matdiff(&block_diff, LIBXS_DATATYPE(GEMM_REAL_TYPE),
     bm, bn, ref_blk, tst_blk, &ild_ref, &ild_tst))

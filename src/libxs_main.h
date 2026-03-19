@@ -80,9 +80,9 @@ LIBXS_API_INTERN void libxs_memory_init(int target_arch);
 LIBXS_API_INTERN void libxs_memory_finalize(void);
 
 /** Architecture-specific CPUID: returns ISA level and optionally fills info. */
-LIBXS_API_INTERN int libxs_cpuid_x86(libxs_cpuid_info_t* info);
-LIBXS_API_INTERN int libxs_cpuid_arm(libxs_cpuid_info_t* info);
-LIBXS_API_INTERN int libxs_cpuid_rv64(libxs_cpuid_info_t* info);
+LIBXS_API_INTERN int libxs_cpuid_x86(libxs_cpuid_t* info);
+LIBXS_API_INTERN int libxs_cpuid_arm(libxs_cpuid_t* info);
+LIBXS_API_INTERN int libxs_cpuid_rv64(libxs_cpuid_t* info);
 /** Reads the CPU model name from OS-specific interfaces. */
 LIBXS_API_INTERN void libxs_cpuid_model(char model[], size_t* model_size);
 

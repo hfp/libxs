@@ -16,7 +16,7 @@
 int main(void)
 {
   int result = EXIT_SUCCESS;
-  libxs_matdiff_info_t di[6], diff /*= { 0 }*/;
+  libxs_matdiff_t di[6], diff /*= { 0 }*/;
   /* http://www.netlib.org/lapack/lug/node75.html */
   const ELEMTYPE a[] = {
     (ELEMTYPE)1.00, (ELEMTYPE)2.00, (ELEMTYPE)3.00,
@@ -277,7 +277,7 @@ int main(void)
   /* test inputs legally leading to an infinite large difference */
   if (EXIT_SUCCESS == result) {
     const ELEMTYPE u = 0.851375, v = 1.01863e+196;
-    libxs_matdiff_info_t d;
+    libxs_matdiff_t d;
     result = libxs_matdiff(&d, LIBXS_DATATYPE(ELEMTYPE), 1/*m*/, 1/*n*/,
       &u/*ref*/, &v/*tst*/, NULL/*ldref*/, NULL/*ldtst*/);
     if (EXIT_SUCCESS == result) {
@@ -296,7 +296,7 @@ int main(void)
     const union { unsigned raw; float value; } nan_bits = { 0x7FC00000 };
     const ELEMTYPE ref_nan[] = { (ELEMTYPE)1.0, (ELEMTYPE)2.0, (ELEMTYPE)3.0 };
     ELEMTYPE tst_nan[3];
-    libxs_matdiff_info_t d;
+    libxs_matdiff_t d;
     tst_nan[0] = (ELEMTYPE)1.1;
     tst_nan[1] = (ELEMTYPE)nan_bits.value; /* NaN */
     tst_nan[2] = (ELEMTYPE)3.3;
@@ -322,7 +322,7 @@ int main(void)
     const union { unsigned raw; float value; } nan_bits = { 0x7FC00000 };
     const union { unsigned raw; float value; } inf_bits = { 0x7F800000 };
     ELEMTYPE ref_nan[3], tst_nan[3];
-    libxs_matdiff_info_t d;
+    libxs_matdiff_t d;
     ref_nan[0] = (ELEMTYPE)nan_bits.value; /* NaN */
     ref_nan[1] = (ELEMTYPE)2.0;
     ref_nan[2] = (ELEMTYPE)3.0;
@@ -352,7 +352,7 @@ int main(void)
    * After swap, original vals stats appear in tst-position. */
   if (EXIT_SUCCESS == result) {
     const ELEMTYPE ref_only[] = { (ELEMTYPE)1.0, (ELEMTYPE)2.0, (ELEMTYPE)3.0 };
-    libxs_matdiff_info_t d;
+    libxs_matdiff_t d;
     result = libxs_matdiff(&d, LIBXS_DATATYPE(ELEMTYPE), 3/*m*/, 1/*n*/,
       NULL/*ref*/, ref_only/*tst*/, NULL/*ldref*/, NULL/*ldtst*/);
     if (EXIT_SUCCESS == result) {
@@ -364,15 +364,15 @@ int main(void)
       /* swapped: original vals stats appear in tst position */
       if (0.0000001 < LIBXS_ABS(d.min_tst - 1.0)) result = EXIT_FAILURE;
       if (0.0000001 < LIBXS_ABS(d.max_tst - 3.0)) result = EXIT_FAILURE;
-      /* ref-side stats are zeroed by swap */
-      if (0 != d.min_ref || 0 != d.max_ref) result = EXIT_FAILURE;
+      /* ref-side: sentinel marks one-sided (min > max) */
+      if (d.min_ref <= d.max_ref) result = EXIT_FAILURE;
       if (0 != d.l1_ref) result = EXIT_FAILURE;
     }
   }
 
   /* test cleared struct yields sensible epsilon (ground state) */
   if (EXIT_SUCCESS == result) {
-    libxs_matdiff_info_t d;
+    libxs_matdiff_t d;
     double epsilon;
     libxs_matdiff_clear(&d);
     epsilon = libxs_matdiff_epsilon(&d);

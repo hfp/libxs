@@ -50,7 +50,7 @@ static libxs_malloc_pool_t* internal_default_pool;
 #endif
 
 
-LIBXS_APIVAR_DEFINE(libxs_cpuid_info_t internal_cpuid_info);
+LIBXS_APIVAR_DEFINE(libxs_cpuid_t internal_cpuid_info);
 LIBXS_APIVAR_DEFINE(const char* internal_build_state);
 
 /* definition of corresponding variables */

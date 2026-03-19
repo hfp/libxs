@@ -42,7 +42,7 @@ int main(int argc, char* argv[])
   GEMM_REAL_TYPE complex_alpha[2] = { 0 }, complex_beta[2] = { 0 };
   GEMM_REAL_TYPE *a = NULL, *b = NULL, *c = NULL, *c_ref = NULL;
   GEMM_INT_TYPE a_rows, a_cols, b_rows, b_cols;
-  libxs_matdiff_info_t diff;
+  libxs_matdiff_t diff;
 
   libxs_init();
 

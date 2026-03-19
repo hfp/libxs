@@ -7,7 +7,7 @@ Matrix comparison, number-theoretic helpers, modular arithmetic, and BF16 conver
 ## Matrix Difference
 
 ```C
-typedef struct libxs_matdiff_info_t {
+typedef struct libxs_matdiff_t {
   double norm1_abs, norm1_rel;   /* one-norm */
   double normi_abs, normi_rel;   /* infinity-norm */
   double normf_rel;              /* Frobenius-norm (relative) */
@@ -17,11 +17,11 @@ typedef struct libxs_matdiff_info_t {
   double l1_tst, min_tst, max_tst, avg_tst, var_tst;  /* test stats */
   double v_ref, v_tst;          /* values at location of max diff */
   int m, n, i, r;               /* location and reduction count */
-} libxs_matdiff_info_t;
+} libxs_matdiff_t;
 ```
 
 ```C
-int libxs_matdiff(libxs_matdiff_info_t* info,
+int libxs_matdiff(libxs_matdiff_t* info,
   libxs_data_t datatype, int m, int n,
   const void* ref, const void* tst,
   const int* ldref, const int* ldtst);
@@ -30,15 +30,21 @@ int libxs_matdiff(libxs_matdiff_info_t* info,
 Compute a collection of scalar differences between two matrices. Supports all `libxs_data_t` element types. The location of the largest absolute difference is recorded.
 
 ```C
-double libxs_matdiff_epsilon(const libxs_matdiff_info_t* input);
+double libxs_matdiff_epsilon(const libxs_matdiff_t* input);
 ```
 
 Combine absolute and relative norms into a single margin value. Can optionally log to a calibration file via the `LIBXS_MATDIFF` environment variable.
 
 ```C
-void libxs_matdiff_reduce(libxs_matdiff_info_t* output,
-  const libxs_matdiff_info_t* input);
-void libxs_matdiff_clear(libxs_matdiff_info_t* info);
+int libxs_matdiff_combine(libxs_matdiff_t* output, const libxs_matdiff_t* input);
+```
+
+Combine two single-matrix infos (each from `libxs_matdiff` with `ref=NULL`) into a meta-diff. The output supplies the reference side, the input the test side. Per-side statistics (l1, min, max, avg, var) are exact. Difference norms are summary bounds: `linf_abs` is the mean shift, `l2_abs` is a statistical bound from pooled variance. Element-wise norms are set to zero. No-op if neither side is a single-matrix info. Returns `EXIT_FAILURE` if only one side is single-matrix. Also called implicitly by `libxs_matdiff_reduce` when the input is a single-matrix info.
+
+```C
+void libxs_matdiff_reduce(libxs_matdiff_t* output,
+  const libxs_matdiff_t* input);
+void libxs_matdiff_clear(libxs_matdiff_t* info);
 ```
 
 Thread-safe reduction (max) of matdiff results. Initialize `output` with `libxs_matdiff_clear` before the first reduction.
