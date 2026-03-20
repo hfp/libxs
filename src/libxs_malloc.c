@@ -56,6 +56,7 @@ struct libxs_malloc_pool_t {
   size_t slots_num;
 #if defined(LIBXS_MALLOC_EVICT)
   size_t pool_bytes;
+  size_t pool_peak;
 #endif
 };
 
@@ -164,6 +165,18 @@ LIBXS_API_INLINE void internal_malloc_pool_return(internal_malloc_chunk_t *chunk
 }
 
 
+#if defined(LIBXS_MALLOC_EVICT)
+LIBXS_API_INLINE void internal_malloc_peak_update(libxs_malloc_pool_t *pool, size_t candidate)
+{
+  size_t peak = LIBXS_ATOMIC(LIBXS_ATOMIC_LOAD, LIBXS_BITS)(&pool->pool_peak, LIBXS_ATOMIC_RELAXED);
+  while (candidate > peak) {
+    if (LIBXS_ATOMIC(LIBXS_ATOMIC_CMPSWP, LIBXS_BITS)(&pool->pool_peak, peak, candidate, LIBXS_ATOMIC_LOCKORDER)) break;
+    peak = LIBXS_ATOMIC(LIBXS_ATOMIC_LOAD, LIBXS_BITS)(&pool->pool_peak, LIBXS_ATOMIC_RELAXED);
+  }
+}
+#endif
+
+
 LIBXS_API void* libxs_malloc(libxs_malloc_pool_t* pool, size_t size, int alignment)
 {
   void *result = NULL;
@@ -240,12 +253,16 @@ LIBXS_API void* libxs_malloc(libxs_malloc_pool_t* pool, size_t size, int alignme
           if (NULL != pointer) {
 #if defined(LIBXS_MALLOC_EVICT)
             const size_t old_size = chunk->size;
+            const int moved = (pointer != chunk->pointer);
 #endif
             chunk->pointer = pointer;
             chunk->size = size;
             ++chunk->nmallocs;
 #if defined(LIBXS_MALLOC_EVICT)
-            LIBXS_ATOMIC(LIBXS_ATOMIC_ADD_FETCH, LIBXS_BITS)(&pool->pool_bytes, size - old_size, LIBXS_ATOMIC_LOCKORDER);
+            { const size_t new_bytes = (size_t)LIBXS_ATOMIC(LIBXS_ATOMIC_ADD_FETCH, LIBXS_BITS)(
+                &pool->pool_bytes, size - old_size, LIBXS_ATOMIC_LOCKORDER);
+              internal_malloc_peak_update(pool, 0 != moved ? new_bytes + old_size : new_bytes);
+            }
 #endif
             if (NULL != reg) {
               result = pointer;
@@ -293,7 +310,10 @@ LIBXS_API void* libxs_malloc(libxs_malloc_pool_t* pool, size_t size, int alignme
           chunk->size = size;
           ++chunk->nmallocs;
 #if defined(LIBXS_MALLOC_EVICT)
-          LIBXS_ATOMIC(LIBXS_ATOMIC_ADD_FETCH, LIBXS_BITS)(&pool->pool_bytes, size, LIBXS_ATOMIC_LOCKORDER);
+          { const size_t new_bytes = (size_t)LIBXS_ATOMIC(LIBXS_ATOMIC_ADD_FETCH, LIBXS_BITS)(
+              &pool->pool_bytes, size, LIBXS_ATOMIC_LOCKORDER);
+            internal_malloc_peak_update(pool, new_bytes);
+          }
 #endif
           if (NULL != reg) {
             result = pointer;
@@ -470,6 +490,7 @@ LIBXS_API void libxs_free_pool(libxs_malloc_pool_t* pool)
       pool->all = NULL;
 #if defined(LIBXS_MALLOC_EVICT)
       pool->pool_bytes = 0;
+      pool->pool_peak = 0;
 #endif
       pool->slots_size = pool->slots_num = 0;
       free(pool->slots);
@@ -497,6 +518,9 @@ LIBXS_API int libxs_malloc_pool_info(const libxs_malloc_pool_t* pool, libxs_mall
         ++nchunks;
       }
       info->nactive = nchunks - pool->slots_num;
+#if defined(LIBXS_MALLOC_EVICT)
+      info->peak = pool->pool_peak;
+#endif
     }
   }
   else {

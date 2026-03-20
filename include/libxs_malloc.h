@@ -27,6 +27,8 @@ LIBXS_EXTERN_C typedef struct libxs_malloc_info_t {
 /** Information about pooled memory. */
 LIBXS_EXTERN_C typedef struct libxs_malloc_pool_info_t {
   size_t size;
+  /** Peak memory consumption. */
+  size_t peak;
   /** Pending allocations (not released). */
   size_t nactive;
   /** Number of allocations so far. */
