@@ -5,12 +5,19 @@ project(libxs
 
 option(LIBXS_HEADER_ONLY "Header-only usage (no library target)" OFF)
 option(LIBXS_SHARED      "Build shared library instead of static" OFF)
+option(LIBXS_FORTRAN     "Build Fortran module interface" OFF)
+
+if(LIBXS_FORTRAN)
+  set(LIBXS_HEADER_ONLY OFF CACHE BOOL "" FORCE)
+  enable_language(Fortran)
+endif()
 
 message(STATUS "******** Build Summary ********")
 message(STATUS "  CMake version         : ${CMAKE_VERSION}")
 message(STATUS "  System                : ${CMAKE_SYSTEM_NAME}")
 message(STATUS "  LIBXS_HEADER_ONLY     : ${LIBXS_HEADER_ONLY}")
 message(STATUS "  LIBXS_SHARED          : ${LIBXS_SHARED}")
+message(STATUS "  LIBXS_FORTRAN         : ${LIBXS_FORTRAN}")
 
 set(LIBXS_ROOT_DIR ${PROJECT_SOURCE_DIR})
 set(LIBXS_INCLUDE_DIR ${LIBXS_ROOT_DIR}/include)
@@ -26,6 +33,10 @@ if(LIBXS_HEADER_ONLY)
 else()
   file(GLOB LIBXS_SRCS LIST_DIRECTORIES false CONFIGURE_DEPENDS
     ${LIBXS_ROOT_DIR}/src/*.c)
+
+  if(LIBXS_FORTRAN)
+    list(APPEND LIBXS_SRCS ${LIBXS_INCLUDE_DIR}/libxs.f)
+  endif()
 
   if(LIBXS_SHARED)
     add_library(libxs SHARED ${LIBXS_SRCS})
@@ -56,5 +67,13 @@ else()
   check_library_exists(rt clock_gettime "" LIBXS_HAS_LIBRT)
   if(LIBXS_HAS_LIBRT)
     target_link_libraries(libxs PUBLIC rt)
+  endif()
+
+  if(LIBXS_FORTRAN)
+    set(LIBXS_Fortran_MODULE_DIR ${CMAKE_CURRENT_BINARY_DIR}/mod)
+    set_target_properties(libxs PROPERTIES Fortran_MODULE_DIRECTORY ${LIBXS_Fortran_MODULE_DIR})
+    target_include_directories(libxs PUBLIC
+      $<BUILD_INTERFACE:${LIBXS_Fortran_MODULE_DIR}>
+      $<INSTALL_INTERFACE:include>)
   endif()
 endif()
