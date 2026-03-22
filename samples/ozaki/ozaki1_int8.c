@@ -238,8 +238,7 @@ LIBXS_API_INLINE void gemm_oz1_diff(const char* transa, const char* transb,
 #if defined(_OPENMP)
 # pragma omp parallel
 #endif
-  { const ozaki_dot_i8_fn dot_i8 = ozaki_dot_i8_init();
-    GEMM_INT_TYPE row, col, ib, jb, mi, nj, kb;
+  { GEMM_INT_TYPE row, col, ib, jb, mi, nj;
     int slice_a, slice_b, tid;
     tid = 0;
 #if defined(_OPENMP)
@@ -439,38 +438,24 @@ LIBXS_API_INLINE void gemm_oz1_diff(const char* transa, const char* transb,
             const GEMM_INT_TYPE iblk = LIBXS_MIN(BLOCK_M, M - ib);
             const GEMM_INT_TYPE jblk = LIBXS_MIN(BLOCK_N, N - jb);
             GEMM_REAL_TYPE *const cb = c + jb * ldcv + ib;
-            int32_t c_acc[BLOCK_M][BLOCK_N];
-            memset(c_acc, 0, sizeof(c_acc));
-
-            for (kb = 0; kb < K_pad; kb += BLOCK_K) {
-              for (mi = 0; mi < iblk; ++mi) {
-                const int8_t *const as_row = a_slices
-                  + (long)slice_a * M * K_pad + (long)(ib + mi) * K_pad + kb;
-                for (nj = 0; nj < jblk; ++nj) {
-                  c_acc[mi][nj] += dot_i8(as_row, b_slices
-                    + (long)slice_b * N * K_pad + (long)(jb + nj) * K_pad + kb);
-                }
-              }
-            }
+            int32_t c_acc[BLOCK_M * BLOCK_N];
+            ozaki_gemm_s8s8s32('N', 'T', iblk, jblk, K_pad,
+              a_slices + (long)slice_a * M * K_pad + (long)ib * K_pad, K_pad,
+              b_slices + (long)slice_b * N * K_pad + (long)jb * K_pad, K_pad,
+              0, c_acc, jblk);
             if (do_mirror) {
-              for (kb = 0; kb < K_pad; kb += BLOCK_K) {
-                for (mi = 0; mi < iblk; ++mi) {
-                  const int8_t *const as_row = a_slices
-                    + (long)slice_b * M * K_pad + (long)(ib + mi) * K_pad + kb;
-                  for (nj = 0; nj < jblk; ++nj) {
-                    c_acc[mi][nj] += dot_i8(as_row, b_slices
-                      + (long)slice_a * N * K_pad + (long)(jb + nj) * K_pad + kb);
-                  }
-                }
-              }
+              ozaki_gemm_s8s8s32('N', 'T', iblk, jblk, K_pad,
+                a_slices + (long)slice_b * M * K_pad + (long)ib * K_pad, K_pad,
+                b_slices + (long)slice_a * N * K_pad + (long)jb * K_pad, K_pad,
+                1, c_acc, jblk);
             }
 
             for (mi = 0; mi < iblk; ++mi) {
               const double ea = pair_scale * expa_fp[ib + mi];
               for (nj = 0; nj < jblk; ++nj) {
-                if (0 != c_acc[mi][nj]) {
+                if (0 != c_acc[mi * jblk + nj]) {
                   cb[mi + nj * ldcv] += (GEMM_REAL_TYPE)(
-                    ea * expb_fp[jb + nj] * (double)c_acc[mi][nj]);
+                    ea * expb_fp[jb + nj] * (double)c_acc[mi * jblk + nj]);
                 }
               }
             }

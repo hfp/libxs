@@ -9,6 +9,7 @@ CXXFLAGS = $(NULL)
 CFLAGS = $(NULL)
 DFLAGS = $(NULL)
 
+DNNL = 0
 OMP = 1
 OCL = 2
 SYM = 1
@@ -36,6 +37,16 @@ ifneq (,$(LIBXSTREAM))
   OCLGENHDR := $(LIBXSTREAMROOT)/samples/ozaki/ozaki_kernels.h
   OCLGENHDR_PROD := $(LIBXSTREAMROOT)/samples/ozaki/ozaki_tinytc.h
   OCLGENSCR_PROD := $(LIBXSTREAMROOT)/samples/ozaki/kernels/ozaki1.sh
+endif
+
+# oneDNN (DNNL) for int8 matmul acceleration
+ifneq (0,$(DNNL))
+  DNNLROOT ?= $(shell echo "$$DNNLROOT")
+  ifneq (,$(wildcard $(DNNLROOT)/include/oneapi/dnnl/dnnl.h))
+    IFLAGS += -I$(call quote,$(DNNLROOT)/include)
+    DFLAGS += -D__DNNL
+    LDFLAGS += -Wl,--rpath=$(DNNLROOT)/lib -L$(DNNLROOT)/lib -ldnnl
+  endif
 endif
 
 # include directories

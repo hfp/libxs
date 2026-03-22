@@ -605,7 +605,6 @@ LIBXS_API_INLINE void gemm_oz2_diff(const char* transa, const char* transb,
 # pragma omp parallel
 #endif
   {
-    const ozaki_dot_i8_fn dot_i8 = ozaki_dot_i8_init();
     GEMM_INT_TYPE row, col, ib, jb, mi, nj, kb;
     int pidx, tid;
     tid = 0;
@@ -812,7 +811,42 @@ LIBXS_API_INLINE void gemm_oz2_diff(const char* transa, const char* transb,
         const GEMM_INT_TYPE iblk = LIBXS_MIN(BLOCK_M, M - ib);
         const GEMM_INT_TYPE jblk = LIBXS_MIN(BLOCK_N, N - jb);
         GEMM_REAL_TYPE *const cb = c + jb * ldcv + ib;
+        unsigned int tile_res[BLOCK_M * BLOCK_N][OZ2_NPRIMES_MAX];
+        memset(tile_res, 0, sizeof(tile_res));
 
+        /* Accumulate per-prime residues via GEMM + mod-reduce */
+        for (kb = 0; kb < K_pad; kb += K_CHUNK) {
+          const GEMM_INT_TYPE chunk_k =
+            ((GEMM_INT_TYPE)K_CHUNK < K_pad - kb)
+              ? (GEMM_INT_TYPE)K_CHUNK : (K_pad - kb);
+          LIBXS_PRAGMA_LOOP_COUNT(1, OZ2_NPRIMES_MAX, OZ2_NPRIMES_DEFAULT)
+          for (pidx = 0; pidx < nprimes; ++pidx) {
+            int32_t partial[BLOCK_M * BLOCK_N];
+            ozaki_gemm_s8s8s32('N', 'T', iblk, jblk, chunk_k,
+              (const int8_t*)(a_res + (long)pidx * M * K_pad
+                + (long)ib * K_pad + kb), K_pad,
+              (const int8_t*)(b_res + (long)pidx * N * K_pad
+                + (long)jb * K_pad + kb), K_pad,
+              0, partial, jblk);
+            for (mi = 0; mi < iblk; ++mi) {
+              for (nj = 0; nj < jblk; ++nj) {
+                const int32_t dot = partial[mi * jblk + nj];
+                unsigned int r;
+                if (dot >= 0) {
+                  r = oz2_mod((uint32_t)dot, pidx);
+                } else {
+                  r = oz2_mod((uint32_t)(-dot), pidx);
+                  r = (0 != r) ? (oz2_moduli[pidx] - r) : 0;
+                }
+                r += tile_res[mi * jblk + nj][pidx];
+                if (r >= oz2_moduli[pidx]) r -= oz2_moduli[pidx];
+                tile_res[mi * jblk + nj][pidx] = r;
+              }
+            }
+          }
+        }
+
+        /* CRT reconstruct, scale, and accumulate to C */
         for (mi = 0; mi < iblk; ++mi) {
           for (nj = 0; nj < jblk; nj += OZ2_BATCH) {
             const GEMM_INT_TYPE bsz = LIBXS_MIN(OZ2_BATCH,
@@ -820,41 +854,14 @@ LIBXS_API_INLINE void gemm_oz2_diff(const char* transa, const char* transb,
             unsigned int batch_res[OZ2_BATCH][OZ2_NPRIMES_MAX];
             double batch_val[OZ2_BATCH];
             int bi;
-
-            memset(batch_res, 0, sizeof(batch_res));
-
-            for (kb = 0; kb < K_pad; kb += K_CHUNK) {
-              const GEMM_INT_TYPE cend = LIBXS_MIN(kb + K_CHUNK, K_pad);
-
-              for (bi = 0; bi < (int)bsz; ++bi) {
-                const GEMM_INT_TYPE jcol = nj + bi;
-                LIBXS_PRAGMA_LOOP_COUNT(1, OZ2_NPRIMES_MAX, OZ2_NPRIMES_DEFAULT)
-                for (pidx = 0; pidx < nprimes; ++pidx) {
-                  const oz2_res_t *const a_row = a_res
-                    + (long)pidx * M * K_pad + (long)(ib + mi) * K_pad;
-                  const oz2_res_t *const b_col = b_res
-                    + (long)pidx * N * K_pad + (long)(jb + jcol) * K_pad;
-                  int32_t dot = 0;
-                  GEMM_INT_TYPE kk;
-                  unsigned int r;
-                  for (kk = kb; kk < cend; kk += BLOCK_K) {
-                    dot += dot_i8((const int8_t*)(a_row + kk),
-                                  (const int8_t*)(b_col + kk));
-                  }
-                  if (dot >= 0) {
-                    r = oz2_mod((uint32_t)dot, pidx);
-                  } else {
-                    r = oz2_mod((uint32_t)(-dot), pidx);
-                    r = (0 != r) ? (oz2_moduli[pidx] - r) : 0;
-                  }
-                  r += batch_res[bi][pidx];
-                  if (r >= oz2_moduli[pidx]) r -= oz2_moduli[pidx];
-                  batch_res[bi][pidx] = r;
-                }
+            for (bi = 0; bi < (int)bsz; ++bi) {
+              LIBXS_PRAGMA_LOOP_COUNT(1, OZ2_NPRIMES_MAX, OZ2_NPRIMES_DEFAULT)
+              for (pidx = 0; pidx < nprimes; ++pidx) {
+                batch_res[bi][pidx] =
+                  tile_res[mi * jblk + nj + bi][pidx];
               }
             }
 
-            /* Batched CRT reconstruction -> signed doubles */
 #if defined(LIBXS_INTRINSICS_AVX512) && 16 == OZ2_BATCH
 # if (LIBXS_X86_AVX512 <= LIBXS_STATIC_TARGET_ARCH)
             oz2_reconstruct_batch_avx512(batch_res, garner_inv,

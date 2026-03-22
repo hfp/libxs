@@ -10,6 +10,9 @@
 #include <libxs_malloc.h>
 #include <libxs_mhd.h>
 #include <libxs_sync.h>
+#if defined(__DNNL)
+#include <oneapi/dnnl/dnnl.h>
+#endif
 
 #if GEMM_IS_DOUBLE
 # define OZ_MANT_BITS 52
@@ -147,8 +150,42 @@
 # define oz2_host_preprocess_b LIBXS_TPREFIX(GEMM_REAL_TYPE, oz2_host_prep_b)
 #endif
 
+/* Int8 dot product dispatch macro.
+ * Priority: VPDPBSSD > VPDPBUSD+bias > scalar. */
+#if defined(LIBXS_INTRINSICS_AVX512) && \
+    (16 == BLOCK_K || 32 == BLOCK_K || 64 == BLOCK_K)
+# if defined(__AVXVNNIINT8__)
+#   define ozaki_dot_i8_init() ozaki_dot_i8_bssd
+# elif (LIBXS_X86_AVX512 <= LIBXS_STATIC_TARGET_ARCH)
+#   define ozaki_dot_i8_init() ozaki_dot_i8_vnni
+# else
+#   define ozaki_dot_i8_init() \
+      ((LIBXS_X86_AVX512 <= ozaki_target_arch) ? ozaki_dot_i8_vnni : ozaki_dot_i8_sw)
+# endif
+#else
+# define ozaki_dot_i8_init() ozaki_dot_i8_sw
+#endif
+
+/* BF16 dot product dispatch macro.
+ * Priority: VDPBF16PS (hardware) > scalar. */
+#if defined(LIBXS_INTRINSICS_AVX512) && defined(__AVX512BF16__) && \
+    (16 == BLOCK_K || 32 == BLOCK_K || 64 == BLOCK_K)
+# if (LIBXS_X86_AVX512 <= LIBXS_STATIC_TARGET_ARCH)
+#   define ozaki_dot_bf16_init() ozaki_dot_bf16_hw
+# else
+#   define ozaki_dot_bf16_init() \
+      ((LIBXS_X86_AVX512 <= ozaki_target_arch) ? ozaki_dot_bf16_hw : ozaki_dot_bf16_sw)
+# endif
+#else
+# define ozaki_dot_bf16_init() ozaki_dot_bf16_sw
+#endif
+
 /** Function type for complex GEMM (precision-specific). */
 LIBXS_EXTERN_C typedef void (*zgemm_function_t)(GEMM_ARGDECL);
+/** Function pointer type for int8 dot product dispatch. */
+typedef int32_t (*ozaki_dot_i8_fn)(const int8_t[BLOCK_K], const int8_t[BLOCK_K]);
+/** Function pointer type for BF16 dot product dispatch. */
+typedef float (*ozaki_dot_bf16_fn)(const libxs_bf16_t[BLOCK_K], const libxs_bf16_t[BLOCK_K]);
 
 /** Function prototypes for wrapped / real / public GEMM and complex GEMM. */
 LIBXS_API_INTERN void GEMM_WRAP(GEMM_ARGDECL);
@@ -328,25 +365,43 @@ LIBXS_API_INLINE int32_t ozaki_dot_i8_sw(const int8_t a[BLOCK_K], const int8_t b
 }
 
 
-/* Function pointer type for int8 dot product dispatch.
- * Dispatch priority: VPDPBSSD (signed×signed, 1 instruction) >
- * VPDPBUSD+bias (unsigned×signed, 2 instructions) > scalar. */
-typedef int32_t (*ozaki_dot_i8_fn)(const int8_t[BLOCK_K], const int8_t[BLOCK_K]);
-
-#if defined(LIBXS_INTRINSICS_AVX512) && \
-    (16 == BLOCK_K || 32 == BLOCK_K || 64 == BLOCK_K)
-# if defined(__AVXVNNIINT8__)
-    /* VPDPBSSD available at compile time: prefer it unconditionally */
-#   define ozaki_dot_i8_init() ozaki_dot_i8_bssd
-# elif (LIBXS_X86_AVX512 <= LIBXS_STATIC_TARGET_ARCH) /* VNNI guaranteed */
-#   define ozaki_dot_i8_init() ozaki_dot_i8_vnni
-# else /* runtime dispatch */
-#   define ozaki_dot_i8_init() \
-      ((LIBXS_X86_AVX512 <= ozaki_target_arch) ? ozaki_dot_i8_vnni : ozaki_dot_i8_sw)
-# endif
+/* Unified int8 GEMM: C[M,N] = op(A)[M,K] * op(B)[K,N], s8*s8 -> s32.
+ * Row-major storage. beta: 0=overwrite C, nonzero=accumulate into C.
+ * With __DNNL: uses dnnl_gemm_s8s8s32.
+ * Without: naive dot_i8 loop (transa='N', transb='T', K % BLOCK_K == 0). */
+LIBXS_API_INLINE void ozaki_gemm_s8s8s32(
+  char transa, char transb,
+  GEMM_INT_TYPE M, GEMM_INT_TYPE N, GEMM_INT_TYPE K,
+  const int8_t *a, GEMM_INT_TYPE lda,
+  const int8_t *b, GEMM_INT_TYPE ldb,
+  int beta,
+  int32_t *c, GEMM_INT_TYPE ldc)
+{
+#if defined(__DNNL)
+  static const int32_t zero = 0;
+  dnnl_gemm_s8s8s32(transa, transb, 'F',
+    (dnnl_dim_t)M, (dnnl_dim_t)N, (dnnl_dim_t)K, 1.0f,
+    a, (dnnl_dim_t)lda, 0, b, (dnnl_dim_t)ldb, 0,
+    0 != beta ? 1.0f : 0.0f, c, (dnnl_dim_t)ldc, &zero);
 #else
-# define ozaki_dot_i8_init() ozaki_dot_i8_sw
+  const ozaki_dot_i8_fn dot = ozaki_dot_i8_init();
+  GEMM_INT_TYPE mi, nj, kb;
+  LIBXS_ASSERT('N' == transa || 'n' == transa);
+  LIBXS_ASSERT('T' == transb || 't' == transb);
+  LIBXS_ASSERT(0 == (K % BLOCK_K));
+  (void)transa; (void)transb;
+  for (mi = 0; mi < M; ++mi) {
+    for (nj = 0; nj < N; ++nj) {
+      int32_t acc = 0;
+      for (kb = 0; kb < K; kb += BLOCK_K) {
+        acc += dot(a + mi * lda + kb, b + nj * ldb + kb);
+      }
+      if (0 != beta) c[mi * ldc + nj] += acc;
+      else c[mi * ldc + nj] = acc;
+    }
+  }
 #endif
+}
 
 
 /* Shared bfloat16 dot-product infrastructure (AVX-512-BF16 + scalar fallback).
@@ -451,24 +506,6 @@ LIBXS_API_INLINE float ozaki_dot_bf16_sw(const libxs_bf16_t a[BLOCK_K], const li
 #endif
   return dot;
 }
-
-
-/* Function pointer type for BF16 dot product dispatch.
- * Dispatch priority: VDPBF16PS (hardware, 1 instruction per pair) >
- * scalar (software fallback). */
-typedef float (*ozaki_dot_bf16_fn)(const libxs_bf16_t[BLOCK_K], const libxs_bf16_t[BLOCK_K]);
-
-#if defined(LIBXS_INTRINSICS_AVX512) && defined(__AVX512BF16__) && \
-    (16 == BLOCK_K || 32 == BLOCK_K || 64 == BLOCK_K)
-# if (LIBXS_X86_AVX512 <= LIBXS_STATIC_TARGET_ARCH)
-#   define ozaki_dot_bf16_init() ozaki_dot_bf16_hw
-# else /* runtime dispatch */
-#   define ozaki_dot_bf16_init() \
-      ((LIBXS_X86_AVX512 <= ozaki_target_arch) ? ozaki_dot_bf16_hw : ozaki_dot_bf16_sw)
-# endif
-#else
-# define ozaki_dot_bf16_init() ozaki_dot_bf16_sw
-#endif
 
 
 /**
