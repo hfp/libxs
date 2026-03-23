@@ -15,29 +15,29 @@
 #define INTERNAL_GEMM_LOCKIDX(PTR) \
   ((int)LIBXS_MOD2(LIBXS_CRCPTR(1975, PTR), INTERNAL_GEMM_NLOCKS))
 #define INTERNAL_GEMM_LOCKFWD(CPTR, LOCKIDX) do { \
-  const int internal_gemm_li_ = INTERNAL_GEMM_LOCKIDX(CPTR); \
-  if (internal_gemm_li_ != (LOCKIDX)) { \
+  const int internal_libxs_gemm_li_ = INTERNAL_GEMM_LOCKIDX(CPTR); \
+  if (internal_libxs_gemm_li_ != (LOCKIDX)) { \
     if (0 <= (LOCKIDX)) \
-      LIBXS_LOCK_RELEASE(LIBXS_LOCK, internal_gemm_locks + (LOCKIDX)); \
-    LIBXS_LOCK_ACQUIRE(LIBXS_LOCK, internal_gemm_locks + internal_gemm_li_); \
-    (LOCKIDX) = internal_gemm_li_; \
+      LIBXS_LOCK_RELEASE(LIBXS_LOCK, internal_libxs_gemm_locks + (LOCKIDX)); \
+    LIBXS_LOCK_ACQUIRE(LIBXS_LOCK, internal_libxs_gemm_locks + internal_libxs_gemm_li_); \
+    (LOCKIDX) = internal_libxs_gemm_li_; \
   } \
 } while(0)
 #define INTERNAL_GEMM_UNLOCK(LOCKIDX) do { \
   if (0 <= (LOCKIDX)) \
-    LIBXS_LOCK_RELEASE(LIBXS_LOCK, internal_gemm_locks + (LOCKIDX)); \
+    LIBXS_LOCK_RELEASE(LIBXS_LOCK, internal_libxs_gemm_locks + (LOCKIDX)); \
 } while(0)
 
-LIBXS_APIVAR_DEFINE(LIBXS_LOCK_TYPE(LIBXS_LOCK) internal_gemm_locks[INTERNAL_GEMM_NLOCKS]);
+LIBXS_APIVAR_DEFINE(LIBXS_LOCK_TYPE(LIBXS_LOCK) internal_libxs_gemm_locks[INTERNAL_GEMM_NLOCKS]);
 
 
-LIBXS_API_INTERN void internal_dgemm_default(
+LIBXS_API_INTERN void internal_libxs_dgemm_default(
   const char* transa, const char* transb,
   const int* m, const int* n, const int* k,
   const double* alpha, const double* a, const int* lda,
                        const double* b, const int* ldb,
   const double* beta,        double* c, const int* ldc);
-LIBXS_API_INTERN void internal_dgemm_default(
+LIBXS_API_INTERN void internal_libxs_dgemm_default(
   const char* transa, const char* transb,
   const int* m, const int* n, const int* k,
   const double* alpha, const double* a, const int* lda,
@@ -69,13 +69,13 @@ LIBXS_API_INTERN void internal_dgemm_default(
 }
 
 
-LIBXS_API_INTERN void internal_sgemm_default(
+LIBXS_API_INTERN void internal_libxs_sgemm_default(
   const char* transa, const char* transb,
   const int* m, const int* n, const int* k,
   const float* alpha, const float* a, const int* lda,
                       const float* b, const int* ldb,
   const float* beta,        float* c, const int* ldc);
-LIBXS_API_INTERN void internal_sgemm_default(
+LIBXS_API_INTERN void internal_libxs_sgemm_default(
   const char* transa, const char* transb,
   const int* m, const int* n, const int* k,
   const float* alpha, const float* a, const int* lda,
@@ -153,7 +153,7 @@ LIBXS_API void libxs_gemm_strided_task(
       }
       else {
         const libxs_dgemm_blas_t dgemm_blas = (NULL != config && NULL != config->dgemm_blas)
-          ? config->dgemm_blas : internal_dgemm_default;
+          ? config->dgemm_blas : internal_libxs_dgemm_default;
         for (i = begin; i < end; ++i) {
           double* ci = (double*)((char*)c + i * dc);
           if (need_lock) INTERNAL_GEMM_LOCKFWD(ci, lockidx);
@@ -188,7 +188,7 @@ LIBXS_API void libxs_gemm_strided_task(
       }
       else {
         const libxs_sgemm_blas_t sgemm_blas = (NULL != config && NULL != config->sgemm_blas)
-          ? config->sgemm_blas : internal_sgemm_default;
+          ? config->sgemm_blas : internal_libxs_sgemm_default;
         for (i = begin; i < end; ++i) {
           float* ci = (float*)((char*)c + i * dc);
           if (need_lock) INTERNAL_GEMM_LOCKFWD(ci, lockidx);
@@ -260,7 +260,7 @@ LIBXS_API void libxs_gemm_batch_task(
       }
       else {
         const libxs_dgemm_blas_t dgemm_blas = (NULL != config && NULL != config->dgemm_blas)
-          ? config->dgemm_blas : internal_dgemm_default;
+          ? config->dgemm_blas : internal_libxs_dgemm_default;
         for (i = begin; i < end; ++i) {
           if (need_lock) INTERNAL_GEMM_LOCKFWD(c_array[i], lockidx);
           dgemm_blas(transa, transb, &m, &n, &k,
@@ -293,7 +293,7 @@ LIBXS_API void libxs_gemm_batch_task(
       }
       else {
         const libxs_sgemm_blas_t sgemm_blas = (NULL != config && NULL != config->sgemm_blas)
-          ? config->sgemm_blas : internal_sgemm_default;
+          ? config->sgemm_blas : internal_libxs_sgemm_default;
         for (i = begin; i < end; ++i) {
           if (need_lock) INTERNAL_GEMM_LOCKFWD(c_array[i], lockidx);
           sgemm_blas(transa, transb, &m, &n, &k,
@@ -338,7 +338,7 @@ LIBXS_API void libxs_gemm_groups(
     int s;
     if (LIBXS_DATATYPE_F64 == datatype) {
       const libxs_dgemm_blas_t dgemm_blas = (NULL != config && NULL != config->dgemm_blas)
-        ? config->dgemm_blas : internal_dgemm_default;
+        ? config->dgemm_blas : internal_libxs_dgemm_default;
       const double *const palpha = (const double*)alpha_array + i;
       const double *const pbeta = (const double*)beta_array + i;
       for (s = 0; s < size; ++s) {
@@ -351,7 +351,7 @@ LIBXS_API void libxs_gemm_groups(
     }
     else if (LIBXS_DATATYPE_F32 == datatype) {
       const libxs_sgemm_blas_t sgemm_blas = (NULL != config && NULL != config->sgemm_blas)
-        ? config->sgemm_blas : internal_sgemm_default;
+        ? config->sgemm_blas : internal_libxs_sgemm_default;
       const float *const palpha = (const float*)alpha_array + i;
       const float *const pbeta = (const float*)beta_array + i;
       for (s = 0; s < size; ++s) {

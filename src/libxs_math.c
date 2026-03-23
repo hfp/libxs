@@ -359,7 +359,7 @@ LIBXS_API double libxs_matdiff_epsilon(const libxs_matdiff_t* input)
           }
           arg = NULL; /* all args consumed */
           { /* append command line and write log */
-            nchars = libxs_print_cmdline(buffer + offset, sizeof(buffer) - offset, " [", "]");
+            nchars = internal_libxs_print_cmdline(buffer + offset, sizeof(buffer) - offset, " [", "]");
             if (0 < nchars && (2 * (offset + nchars)) < sizeof(buffer)) {
               FILE *const file = fopen(filename, "a");
               if (NULL != file) {
@@ -383,7 +383,7 @@ LIBXS_API double libxs_matdiff_epsilon(const libxs_matdiff_t* input)
 }
 
 
-LIBXS_API_INLINE int internal_matdiff_onesided(const libxs_matdiff_t* info)
+LIBXS_API_INLINE int internal_libxs_matdiff_onesided(const libxs_matdiff_t* info)
 {
   return (NULL != info && info->min_ref > info->max_ref
                        && info->min_tst <= info->max_tst);
@@ -394,8 +394,8 @@ LIBXS_API int libxs_matdiff_combine(libxs_matdiff_t* output, const libxs_matdiff
 {
   int result = EXIT_SUCCESS;
   if (NULL != output && NULL != input) {
-    const int lo = internal_matdiff_onesided(output);
-    const int li = internal_matdiff_onesided(input);
+    const int lo = internal_libxs_matdiff_onesided(output);
+    const int li = internal_libxs_matdiff_onesided(input);
     if (0 != lo && 0 != li) {
       double aref, atst, d;
       libxs_matdiff_t tmp;
@@ -444,7 +444,7 @@ LIBXS_API int libxs_matdiff_combine(libxs_matdiff_t* output, const libxs_matdiff
 
 LIBXS_API void libxs_matdiff_reduce(libxs_matdiff_t* output, const libxs_matdiff_t* input)
 {
-  if (NULL != output && NULL != input && 0 != internal_matdiff_onesided(input)) {
+  if (NULL != output && NULL != input && 0 != internal_libxs_matdiff_onesided(input)) {
     libxs_matdiff_combine(output, input);
   }
   else if (NULL != output && NULL != input && input->min_ref <= input->max_ref) {
@@ -591,7 +591,7 @@ LIBXS_API int libxs_primes_u32(unsigned int num, unsigned int num_factors_n32[],
 }
 
 
-LIBXS_API_INLINE unsigned int internal_product_limit(unsigned int product, unsigned int limit)
+LIBXS_API_INLINE unsigned int internal_libxs_product_limit(unsigned int product, unsigned int limit)
 {
   unsigned int fact[32], maxp = limit, result = 1;
   int i, n;
@@ -650,7 +650,7 @@ LIBXS_API unsigned int libxs_product_limit(unsigned int product, unsigned int li
 {
   unsigned int result;
   if (1 < limit) { /* check for fast-path */
-    result = internal_product_limit(product, limit);
+    result = internal_libxs_product_limit(product, limit);
   }
   else {
     result = limit;
@@ -660,7 +660,7 @@ LIBXS_API unsigned int libxs_product_limit(unsigned int product, unsigned int li
       if (result < limit) {
         const unsigned int limit2 = (limit <= (unsigned int)-1 / 2)
           ? (2 * limit - 1) : (unsigned int)-1;
-        result = internal_product_limit(product, limit2);
+        result = internal_libxs_product_limit(product, limit2);
       }
       if (result < limit) {
         result = product;

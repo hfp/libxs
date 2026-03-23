@@ -63,127 +63,127 @@
 } while(0)
 
 
-typedef uint32_t internal_crc32_entry_type[256];
-LIBXS_APIVAR_DEFINE(const internal_crc32_entry_type* internal_crc32_table);
-LIBXS_APIVAR_DEFINE(libxs_hash_function internal_hash_u512_function);
-LIBXS_APIVAR_DEFINE(libxs_hash_function internal_hash_u384_function);
-LIBXS_APIVAR_DEFINE(libxs_hash_function internal_hash_u256_function);
-LIBXS_APIVAR_DEFINE(libxs_hash_function internal_hash_u128_function);
-LIBXS_APIVAR_DEFINE(libxs_hash_function internal_hash_u64_function);
-LIBXS_APIVAR_DEFINE(libxs_hash_function internal_hash_u32_function);
-LIBXS_APIVAR_DEFINE(libxs_hash_function internal_hash_u16_function);
-LIBXS_APIVAR_DEFINE(libxs_hash_function internal_hash_u8_function);
-LIBXS_APIVAR_DEFINE(libxs_hash_function internal_hash_function);
+typedef uint32_t internal_libxs_crc32_entry_type[256];
+LIBXS_APIVAR_DEFINE(const internal_libxs_crc32_entry_type* internal_libxs_crc32_table);
+LIBXS_APIVAR_DEFINE(libxs_hash_function internal_libxs_hash_u512_function);
+LIBXS_APIVAR_DEFINE(libxs_hash_function internal_libxs_hash_u384_function);
+LIBXS_APIVAR_DEFINE(libxs_hash_function internal_libxs_hash_u256_function);
+LIBXS_APIVAR_DEFINE(libxs_hash_function internal_libxs_hash_u128_function);
+LIBXS_APIVAR_DEFINE(libxs_hash_function internal_libxs_hash_u64_function);
+LIBXS_APIVAR_DEFINE(libxs_hash_function internal_libxs_hash_u32_function);
+LIBXS_APIVAR_DEFINE(libxs_hash_function internal_libxs_hash_u16_function);
+LIBXS_APIVAR_DEFINE(libxs_hash_function internal_libxs_hash_u8_function);
+LIBXS_APIVAR_DEFINE(libxs_hash_function internal_libxs_hash_function);
 
 
-LIBXS_API_INLINE unsigned int internal_crc32_u8(unsigned int seed, const void* value, ...);
-LIBXS_API_INLINE unsigned int internal_crc32_u8(unsigned int seed, const void* value, ...)
+LIBXS_API_INLINE unsigned int internal_libxs_crc32_u8(unsigned int seed, const void* value, ...);
+LIBXS_API_INLINE unsigned int internal_libxs_crc32_u8(unsigned int seed, const void* value, ...)
 {
   const uint8_t *const pu8 = (const uint8_t*)value;
-  LIBXS_ASSERT(NULL != pu8 && NULL != internal_crc32_table);
-  return internal_crc32_table[0][(seed^(*pu8)) & 0xFF] ^ (seed >> 8);
+  LIBXS_ASSERT(NULL != pu8 && NULL != internal_libxs_crc32_table);
+  return internal_libxs_crc32_table[0][(seed^(*pu8)) & 0xFF] ^ (seed >> 8);
 }
 
 
-LIBXS_API_INLINE unsigned int internal_crc32_u16(unsigned int seed, const void* value, ...);
-LIBXS_API_INLINE unsigned int internal_crc32_u16(unsigned int seed, const void* value, ...)
+LIBXS_API_INLINE unsigned int internal_libxs_crc32_u16(unsigned int seed, const void* value, ...);
+LIBXS_API_INLINE unsigned int internal_libxs_crc32_u16(unsigned int seed, const void* value, ...)
 {
   const uint8_t *const pu8 = (const uint8_t*)value;
   LIBXS_ASSERT(NULL != pu8);
-  seed = internal_crc32_u8(seed, pu8 + 0);
-  seed = internal_crc32_u8(seed, pu8 + 1);
+  seed = internal_libxs_crc32_u8(seed, pu8 + 0);
+  seed = internal_libxs_crc32_u8(seed, pu8 + 1);
   return seed;
 }
 
 
-LIBXS_API_INTERN unsigned int internal_crc32_u32(unsigned int seed, const void* value, ...);
-LIBXS_API_INTERN unsigned int internal_crc32_u32(unsigned int seed, const void* value, ...)
+LIBXS_API_INTERN unsigned int internal_libxs_crc32_u32(unsigned int seed, const void* value, ...);
+LIBXS_API_INTERN unsigned int internal_libxs_crc32_u32(unsigned int seed, const void* value, ...)
 {
   const uint32_t *const pu32 = (const uint32_t*)value;
   uint32_t c0, c1, c2, c3, s;
-  LIBXS_ASSERT(NULL != pu32 && NULL != internal_crc32_table);
+  LIBXS_ASSERT(NULL != pu32 && NULL != internal_libxs_crc32_table);
   s = seed ^ (*pu32);
-  c0 = internal_crc32_table[0][(s >> 24) & 0xFF];
-  c1 = internal_crc32_table[1][(s >> 16) & 0xFF];
-  c2 = internal_crc32_table[2][(s >> 8) & 0xFF];
-  c3 = internal_crc32_table[3][(s & 0xFF)];
+  c0 = internal_libxs_crc32_table[0][(s >> 24) & 0xFF];
+  c1 = internal_libxs_crc32_table[1][(s >> 16) & 0xFF];
+  c2 = internal_libxs_crc32_table[2][(s >> 8) & 0xFF];
+  c3 = internal_libxs_crc32_table[3][(s & 0xFF)];
   return (c0 ^ c1) ^ (c2 ^ c3);
 }
 
 
-LIBXS_API_INTERN unsigned int internal_crc32_u8_sse4(unsigned int seed, const void* value, ...);
+LIBXS_API_INTERN unsigned int internal_libxs_crc32_u8_sse4(unsigned int seed, const void* value, ...);
 LIBXS_API_INTERN LIBXS_INTRINSICS(LIBXS_X86_SSE42)
-unsigned int internal_crc32_u8_sse4(unsigned int seed, const void* value, ...)
+unsigned int internal_libxs_crc32_u8_sse4(unsigned int seed, const void* value, ...)
 {
 #if defined(LIBXS_INTRINSICS_SSE42)
   return LIBXS_HASH_CRC32_U8(seed, value);
 #else
-  return internal_crc32_u8(seed, value);
+  return internal_libxs_crc32_u8(seed, value);
 #endif
 }
 
 
-LIBXS_API_INTERN unsigned int internal_crc32_u16_sse4(unsigned int seed, const void* value, ...);
+LIBXS_API_INTERN unsigned int internal_libxs_crc32_u16_sse4(unsigned int seed, const void* value, ...);
 LIBXS_API_INTERN LIBXS_INTRINSICS(LIBXS_X86_SSE42)
-unsigned int internal_crc32_u16_sse4(unsigned int seed, const void* value, ...)
+unsigned int internal_libxs_crc32_u16_sse4(unsigned int seed, const void* value, ...)
 {
 #if defined(LIBXS_INTRINSICS_SSE42)
   return LIBXS_HASH_CRC32_U16(seed, value);
 #else
-  return internal_crc32_u16(seed, value);
+  return internal_libxs_crc32_u16(seed, value);
 #endif
 }
 
 
-LIBXS_API_INTERN unsigned int internal_crc32_u32_sse4(unsigned int seed, const void* value, ...);
+LIBXS_API_INTERN unsigned int internal_libxs_crc32_u32_sse4(unsigned int seed, const void* value, ...);
 LIBXS_API_INTERN LIBXS_INTRINSICS(LIBXS_X86_SSE42)
-unsigned int internal_crc32_u32_sse4(unsigned int seed, const void* value, ...)
+unsigned int internal_libxs_crc32_u32_sse4(unsigned int seed, const void* value, ...)
 {
 #if defined(LIBXS_INTRINSICS_SSE42)
   return LIBXS_HASH_CRC32_U32(seed, value);
 #else
-  return internal_crc32_u32(seed, value);
+  return internal_libxs_crc32_u32(seed, value);
 #endif
 }
 
 
-LIBXS_API_INTERN unsigned int internal_crc32_u64(unsigned int seed, const void* value, ...);
-LIBXS_API_INTERN unsigned int internal_crc32_u64(unsigned int seed, const void* value, ...)
+LIBXS_API_INTERN unsigned int internal_libxs_crc32_u64(unsigned int seed, const void* value, ...);
+LIBXS_API_INTERN unsigned int internal_libxs_crc32_u64(unsigned int seed, const void* value, ...)
 {
   const uint32_t *const pu32 = (const uint32_t*)value;
   LIBXS_ASSERT(NULL != pu32);
-  seed = internal_crc32_u32(seed, pu32 + 0);
-  seed = internal_crc32_u32(seed, pu32 + 1);
+  seed = internal_libxs_crc32_u32(seed, pu32 + 0);
+  seed = internal_libxs_crc32_u32(seed, pu32 + 1);
   return seed;
 }
 
 
-LIBXS_API_INTERN unsigned int internal_crc32_u64_sse4(unsigned int seed, const void* value, ...);
+LIBXS_API_INTERN unsigned int internal_libxs_crc32_u64_sse4(unsigned int seed, const void* value, ...);
 LIBXS_API_INTERN LIBXS_INTRINSICS(LIBXS_X86_SSE42)
-unsigned int internal_crc32_u64_sse4(unsigned int seed, const void* value, ...)
+unsigned int internal_libxs_crc32_u64_sse4(unsigned int seed, const void* value, ...)
 {
 #if defined(LIBXS_INTRINSICS_SSE42)
   return (unsigned int)LIBXS_HASH_CRC32_U64(seed, value);
 #else
-  return internal_crc32_u64(seed, value);
+  return internal_libxs_crc32_u64(seed, value);
 #endif
 }
 
 
-LIBXS_API_INTERN unsigned int internal_crc32_u128(unsigned int seed, const void* value, ...);
-LIBXS_API_INTERN unsigned int internal_crc32_u128(unsigned int seed, const void* value, ...)
+LIBXS_API_INTERN unsigned int internal_libxs_crc32_u128(unsigned int seed, const void* value, ...);
+LIBXS_API_INTERN unsigned int internal_libxs_crc32_u128(unsigned int seed, const void* value, ...)
 {
   const uint64_t *const pu64 = (const uint64_t*)value;
   LIBXS_ASSERT(NULL != pu64);
-  seed = internal_crc32_u64(seed, pu64 + 0);
-  seed = internal_crc32_u64(seed, pu64 + 1);
+  seed = internal_libxs_crc32_u64(seed, pu64 + 0);
+  seed = internal_libxs_crc32_u64(seed, pu64 + 1);
   return seed;
 }
 
 
-LIBXS_API_INTERN unsigned int internal_crc32_u128_sse4(unsigned int seed, const void* value, ...);
+LIBXS_API_INTERN unsigned int internal_libxs_crc32_u128_sse4(unsigned int seed, const void* value, ...);
 LIBXS_API_INTERN LIBXS_INTRINSICS(LIBXS_X86_SSE42)
-unsigned int internal_crc32_u128_sse4(unsigned int seed, const void* value, ...)
+unsigned int internal_libxs_crc32_u128_sse4(unsigned int seed, const void* value, ...)
 {
 #if defined(LIBXS_INTRINSICS_SSE42)
   const uint64_t *const pu64 = (const uint64_t*)value;
@@ -191,108 +191,108 @@ unsigned int internal_crc32_u128_sse4(unsigned int seed, const void* value, ...)
   seed = (unsigned int)LIBXS_HASH_CRC32_U64(seed, pu64 + 0);
   seed = (unsigned int)LIBXS_HASH_CRC32_U64(seed, pu64 + 1);
 #else
-  seed = internal_crc32_u128(seed, value);
+  seed = internal_libxs_crc32_u128(seed, value);
 #endif
   return seed;
 }
 
 
-LIBXS_API_INTERN unsigned int internal_crc32_u256(unsigned int seed, const void* value, ...);
-LIBXS_API_INTERN unsigned int internal_crc32_u256(unsigned int seed, const void* value, ...)
+LIBXS_API_INTERN unsigned int internal_libxs_crc32_u256(unsigned int seed, const void* value, ...);
+LIBXS_API_INTERN unsigned int internal_libxs_crc32_u256(unsigned int seed, const void* value, ...)
 {
   const uint8_t *const pu8 = (const uint8_t*)value;
   LIBXS_ASSERT(NULL != pu8);
-  seed = internal_crc32_u128(seed, pu8 + 0x00);
-  seed = internal_crc32_u128(seed, pu8 + 0x10);
+  seed = internal_libxs_crc32_u128(seed, pu8 + 0x00);
+  seed = internal_libxs_crc32_u128(seed, pu8 + 0x10);
   return seed;
 }
 
 
-LIBXS_API_INTERN unsigned int internal_crc32_u256_sse4(unsigned int seed, const void* value, ...);
+LIBXS_API_INTERN unsigned int internal_libxs_crc32_u256_sse4(unsigned int seed, const void* value, ...);
 LIBXS_API_INTERN LIBXS_INTRINSICS(LIBXS_X86_SSE42)
-unsigned int internal_crc32_u256_sse4(unsigned int seed, const void* value, ...)
+unsigned int internal_libxs_crc32_u256_sse4(unsigned int seed, const void* value, ...)
 {
 #if defined(LIBXS_INTRINSICS_SSE42)
   const uint8_t *const pu8 = (const uint8_t*)value;
   LIBXS_ASSERT(NULL != pu8);
-  seed = internal_crc32_u128_sse4(seed, pu8 + 0x00);
-  seed = internal_crc32_u128_sse4(seed, pu8 + 0x10);
+  seed = internal_libxs_crc32_u128_sse4(seed, pu8 + 0x00);
+  seed = internal_libxs_crc32_u128_sse4(seed, pu8 + 0x10);
   return seed;
 #else
-  return internal_crc32_u256(seed, value);
+  return internal_libxs_crc32_u256(seed, value);
 #endif
 }
 
 
-LIBXS_API_INTERN unsigned int internal_crc32_u384(unsigned int seed, const void* value, ...);
-LIBXS_API_INTERN unsigned int internal_crc32_u384(unsigned int seed, const void* value, ...)
+LIBXS_API_INTERN unsigned int internal_libxs_crc32_u384(unsigned int seed, const void* value, ...);
+LIBXS_API_INTERN unsigned int internal_libxs_crc32_u384(unsigned int seed, const void* value, ...)
 {
   const uint8_t *const pu8 = (const uint8_t*)value;
   LIBXS_ASSERT(NULL != pu8);
-  seed = internal_crc32_u256(seed, pu8 + 0x00);
-  seed = internal_crc32_u128(seed, pu8 + 0x20);
+  seed = internal_libxs_crc32_u256(seed, pu8 + 0x00);
+  seed = internal_libxs_crc32_u128(seed, pu8 + 0x20);
   return seed;
 }
 
 
-LIBXS_API_INTERN unsigned int internal_crc32_u384_sse4(unsigned int seed, const void* value, ...);
+LIBXS_API_INTERN unsigned int internal_libxs_crc32_u384_sse4(unsigned int seed, const void* value, ...);
 LIBXS_API_INTERN LIBXS_INTRINSICS(LIBXS_X86_SSE42)
-unsigned int internal_crc32_u384_sse4(unsigned int seed, const void* value, ...)
+unsigned int internal_libxs_crc32_u384_sse4(unsigned int seed, const void* value, ...)
 {
 #if defined(LIBXS_INTRINSICS_SSE42)
   const uint8_t *const pu8 = (const uint8_t*)value;
   LIBXS_ASSERT(NULL != pu8);
-  seed = internal_crc32_u256_sse4(seed, pu8 + 0x00);
-  seed = internal_crc32_u128_sse4(seed, pu8 + 0x20);
+  seed = internal_libxs_crc32_u256_sse4(seed, pu8 + 0x00);
+  seed = internal_libxs_crc32_u128_sse4(seed, pu8 + 0x20);
   return seed;
 #else
-  return internal_crc32_u384(seed, value);
+  return internal_libxs_crc32_u384(seed, value);
 #endif
 }
 
 
-LIBXS_API_INTERN unsigned int internal_crc32_u512(unsigned int seed, const void* value, ...);
-LIBXS_API_INTERN unsigned int internal_crc32_u512(unsigned int seed, const void* value, ...)
+LIBXS_API_INTERN unsigned int internal_libxs_crc32_u512(unsigned int seed, const void* value, ...);
+LIBXS_API_INTERN unsigned int internal_libxs_crc32_u512(unsigned int seed, const void* value, ...)
 {
   const uint8_t *const pu8 = (const uint8_t*)value;
   LIBXS_ASSERT(NULL != pu8);
-  seed = internal_crc32_u256(seed, pu8 + 0x00);
-  seed = internal_crc32_u256(seed, pu8 + 0x20);
+  seed = internal_libxs_crc32_u256(seed, pu8 + 0x00);
+  seed = internal_libxs_crc32_u256(seed, pu8 + 0x20);
   return seed;
 }
 
 
-LIBXS_API_INTERN unsigned int internal_crc32_u512_sse4(unsigned int seed, const void* value, ...);
+LIBXS_API_INTERN unsigned int internal_libxs_crc32_u512_sse4(unsigned int seed, const void* value, ...);
 LIBXS_API_INTERN LIBXS_INTRINSICS(LIBXS_X86_SSE42)
-unsigned int internal_crc32_u512_sse4(unsigned int seed, const void* value, ...)
+unsigned int internal_libxs_crc32_u512_sse4(unsigned int seed, const void* value, ...)
 {
 #if defined(LIBXS_INTRINSICS_SSE42)
   const uint8_t *const pu8 = (const uint8_t*)value;
   LIBXS_ASSERT(NULL != pu8);
-  seed = internal_crc32_u256_sse4(seed, pu8 + 0x00);
-  seed = internal_crc32_u256_sse4(seed, pu8 + 0x20);
+  seed = internal_libxs_crc32_u256_sse4(seed, pu8 + 0x00);
+  seed = internal_libxs_crc32_u256_sse4(seed, pu8 + 0x20);
   return seed;
 #else
-  return internal_crc32_u512(seed, value);
+  return internal_libxs_crc32_u512(seed, value);
 #endif
 }
 
 
-LIBXS_API_INTERN unsigned int internal_crc32(unsigned int seed, const void* data, ...);
-LIBXS_API_INTERN unsigned int internal_crc32(unsigned int seed, const void* data, ...)
+LIBXS_API_INTERN unsigned int internal_libxs_crc32(unsigned int seed, const void* data, ...);
+LIBXS_API_INTERN unsigned int internal_libxs_crc32(unsigned int seed, const void* data, ...)
 {
   va_list ap; size_t size;
   va_start(ap, data);
   size = va_arg(ap, size_t);
   va_end(ap);
   LIBXS_ASSERT(NULL != data || 0 == size);
-  LIBXS_HASH(internal_crc32_u64, internal_crc32_u32, internal_crc32_u16, internal_crc32_u8, seed, data, size);
+  LIBXS_HASH(internal_libxs_crc32_u64, internal_libxs_crc32_u32, internal_libxs_crc32_u16, internal_libxs_crc32_u8, seed, data, size);
 }
 
 
-LIBXS_API_INTERN unsigned int internal_crc32_sse4(unsigned int seed, const void* data, ...);
+LIBXS_API_INTERN unsigned int internal_libxs_crc32_sse4(unsigned int seed, const void* data, ...);
 LIBXS_API_INTERN LIBXS_INTRINSICS(LIBXS_X86_SSE42)
-unsigned int internal_crc32_sse4(unsigned int seed, const void* data, ...)
+unsigned int internal_libxs_crc32_sse4(unsigned int seed, const void* data, ...)
 {
   va_list ap; size_t size;
   va_start(ap, data);
@@ -302,15 +302,15 @@ unsigned int internal_crc32_sse4(unsigned int seed, const void* data, ...)
 #if defined(LIBXS_INTRINSICS_SSE42)
   LIBXS_HASH(LIBXS_HASH_CRC32_U64, LIBXS_HASH_CRC32_U32, LIBXS_HASH_CRC32_U16, LIBXS_HASH_CRC32_U8, seed, data, size);
 #else
-  return internal_crc32(seed, data, size);
+  return internal_libxs_crc32(seed, data, size);
 #endif
 }
 
 
-LIBXS_API_INTERN void libxs_hash_init(int target_arch)
+LIBXS_API_INTERN void internal_libxs_hash_init(int target_arch)
 {
   /* table-based implementation taken from http://dpdk.org/. */
-  static const internal_crc32_entry_type crc32_table[] = {
+  static const internal_libxs_crc32_entry_type crc32_table[] = {
     { /*table0*/
       0x00000000, 0xF26B8303, 0xE13B70F7, 0x1350F3F4, 0xC79A971F, 0x35F1141C, 0x26A1E7E8, 0xD4CA64EB,
       0x8AD958CF, 0x78B2DBCC, 0x6BE22838, 0x9989AB3B, 0x4D43CFD0, 0xBF284CD3, 0xAC78BF27, 0x5E133C24,
@@ -448,22 +448,22 @@ LIBXS_API_INTERN void libxs_hash_init(int target_arch)
       0x31035088, 0xEC46FA30, 0x8E647309, 0x5321D9B1, 0x4A21617B, 0x9764CBC3, 0xF54642FA, 0x2803E842
     }
   };
-  if (NULL == internal_crc32_table) {
+  if (NULL == internal_libxs_crc32_table) {
 #if (LIBXS_X86_SSE42 <= LIBXS_STATIC_TARGET_ARCH)
     LIBXS_UNUSED(target_arch);
 #else
     if (LIBXS_X86_SSE42 <= target_arch)
 #endif
     {
-      internal_hash_u512_function = internal_crc32_u512_sse4;
-      internal_hash_u384_function = internal_crc32_u384_sse4;
-      internal_hash_u256_function = internal_crc32_u256_sse4;
-      internal_hash_u128_function = internal_crc32_u128_sse4;
-      internal_hash_u64_function = internal_crc32_u64_sse4;
-      internal_hash_u32_function = internal_crc32_u32_sse4;
-      internal_hash_u16_function = internal_crc32_u16_sse4;
-      internal_hash_u8_function = internal_crc32_u8_sse4;
-      internal_hash_function = internal_crc32_sse4;
+      internal_libxs_hash_u512_function = internal_libxs_crc32_u512_sse4;
+      internal_libxs_hash_u384_function = internal_libxs_crc32_u384_sse4;
+      internal_libxs_hash_u256_function = internal_libxs_crc32_u256_sse4;
+      internal_libxs_hash_u128_function = internal_libxs_crc32_u128_sse4;
+      internal_libxs_hash_u64_function = internal_libxs_crc32_u64_sse4;
+      internal_libxs_hash_u32_function = internal_libxs_crc32_u32_sse4;
+      internal_libxs_hash_u16_function = internal_libxs_crc32_u16_sse4;
+      internal_libxs_hash_u8_function = internal_libxs_crc32_u8_sse4;
+      internal_libxs_hash_function = internal_libxs_crc32_sse4;
     }
 #if (LIBXS_X86_SSE42 > LIBXS_STATIC_TARGET_ARCH)
     else {
@@ -474,43 +474,43 @@ LIBXS_API_INTERN void libxs_hash_init(int target_arch)
         error_once = 1; /* no need for atomics */
       }
 # endif
-      internal_hash_u512_function = internal_crc32_u512;
-      internal_hash_u384_function = internal_crc32_u384;
-      internal_hash_u256_function = internal_crc32_u256;
-      internal_hash_u128_function = internal_crc32_u128;
-      internal_hash_u64_function = internal_crc32_u64;
-      internal_hash_u32_function = internal_crc32_u32;
-      internal_hash_u16_function = internal_crc32_u16;
-      internal_hash_u8_function = internal_crc32_u8;
-      internal_hash_function = internal_crc32;
+      internal_libxs_hash_u512_function = internal_libxs_crc32_u512;
+      internal_libxs_hash_u384_function = internal_libxs_crc32_u384;
+      internal_libxs_hash_u256_function = internal_libxs_crc32_u256;
+      internal_libxs_hash_u128_function = internal_libxs_crc32_u128;
+      internal_libxs_hash_u64_function = internal_libxs_crc32_u64;
+      internal_libxs_hash_u32_function = internal_libxs_crc32_u32;
+      internal_libxs_hash_u16_function = internal_libxs_crc32_u16;
+      internal_libxs_hash_u8_function = internal_libxs_crc32_u8;
+      internal_libxs_hash_function = internal_libxs_crc32;
     }
 #endif
     LIBXS_ATOMIC_SYNC(LIBXS_ATOMIC_SEQ_CST); /* ensure function ptrs visible before publishing table */
-    internal_crc32_table = crc32_table;
+    internal_libxs_crc32_table = crc32_table;
   }
-  LIBXS_ASSERT(NULL != internal_hash_u512_function);
-  LIBXS_ASSERT(NULL != internal_hash_u384_function);
-  LIBXS_ASSERT(NULL != internal_hash_u256_function);
-  LIBXS_ASSERT(NULL != internal_hash_u128_function);
-  LIBXS_ASSERT(NULL != internal_hash_u64_function);
-  LIBXS_ASSERT(NULL != internal_hash_u32_function);
-  LIBXS_ASSERT(NULL != internal_hash_u16_function);
-  LIBXS_ASSERT(NULL != internal_hash_u8_function);
-  LIBXS_ASSERT(NULL != internal_hash_function);
+  LIBXS_ASSERT(NULL != internal_libxs_hash_u512_function);
+  LIBXS_ASSERT(NULL != internal_libxs_hash_u384_function);
+  LIBXS_ASSERT(NULL != internal_libxs_hash_u256_function);
+  LIBXS_ASSERT(NULL != internal_libxs_hash_u128_function);
+  LIBXS_ASSERT(NULL != internal_libxs_hash_u64_function);
+  LIBXS_ASSERT(NULL != internal_libxs_hash_u32_function);
+  LIBXS_ASSERT(NULL != internal_libxs_hash_u16_function);
+  LIBXS_ASSERT(NULL != internal_libxs_hash_u8_function);
+  LIBXS_ASSERT(NULL != internal_libxs_hash_function);
 }
 
 
-LIBXS_API_INTERN void libxs_hash_finalize(void)
+LIBXS_API_INTERN void internal_libxs_hash_finalize(void)
 {
 #if !defined(NDEBUG) && 0
-  internal_crc32_table = NULL;
-  internal_hash_u32_function = NULL;
-  internal_hash_u64_function = NULL;
-  internal_hash_u128_function = NULL;
-  internal_hash_u256_function = NULL;
-  internal_hash_u384_function = NULL;
-  internal_hash_u512_function = NULL;
-  internal_hash_function = NULL;
+  internal_libxs_crc32_table = NULL;
+  internal_libxs_hash_u32_function = NULL;
+  internal_libxs_hash_u64_function = NULL;
+  internal_libxs_hash_u128_function = NULL;
+  internal_libxs_hash_u256_function = NULL;
+  internal_libxs_hash_u384_function = NULL;
+  internal_libxs_hash_u512_function = NULL;
+  internal_libxs_hash_function = NULL;
 #endif
 }
 
@@ -520,10 +520,10 @@ LIBXS_API_INTERN unsigned int libxs_crc32_u8(unsigned int seed, const void* valu
 #if (LIBXS_X86_SSE42 <= LIBXS_STATIC_TARGET_ARCH)
   return LIBXS_HASH_CRC32_U8(seed, value);
 #elif (LIBXS_X86_SSE42 > LIBXS_MAX_STATIC_TARGET_ARCH)
-  return internal_crc32_u8(seed, value);
+  return internal_libxs_crc32_u8(seed, value);
 #else /* pointer based function call */
-  LIBXS_ASSERT(NULL != internal_hash_u8_function);
-  return internal_hash_u8_function(seed, value);
+  LIBXS_ASSERT(NULL != internal_libxs_hash_u8_function);
+  return internal_libxs_hash_u8_function(seed, value);
 #endif
 }
 
@@ -533,10 +533,10 @@ LIBXS_API_INTERN unsigned int libxs_crc32_u16(unsigned int seed, const void* val
 #if (LIBXS_X86_SSE42 <= LIBXS_STATIC_TARGET_ARCH)
   return LIBXS_HASH_CRC32_U16(seed, value);
 #elif (LIBXS_X86_SSE42 > LIBXS_MAX_STATIC_TARGET_ARCH)
-  return internal_crc32_u16(seed, value);
+  return internal_libxs_crc32_u16(seed, value);
 #else /* pointer based function call */
-  LIBXS_ASSERT(NULL != internal_hash_u16_function);
-  return internal_hash_u16_function(seed, value);
+  LIBXS_ASSERT(NULL != internal_libxs_hash_u16_function);
+  return internal_libxs_hash_u16_function(seed, value);
 #endif
 }
 
@@ -546,10 +546,10 @@ LIBXS_API_INTERN unsigned int libxs_crc32_u32(unsigned int seed, const void* val
 #if (LIBXS_X86_SSE42 <= LIBXS_STATIC_TARGET_ARCH)
   return LIBXS_HASH_CRC32_U32(seed, value);
 #elif (LIBXS_X86_SSE42 > LIBXS_MAX_STATIC_TARGET_ARCH)
-  return internal_crc32_u32(seed, value);
+  return internal_libxs_crc32_u32(seed, value);
 #else /* pointer based function call */
-  LIBXS_ASSERT(NULL != internal_hash_u32_function);
-  return internal_hash_u32_function(seed, value);
+  LIBXS_ASSERT(NULL != internal_libxs_hash_u32_function);
+  return internal_libxs_hash_u32_function(seed, value);
 #endif
 }
 
@@ -559,10 +559,10 @@ LIBXS_API_INTERN unsigned int libxs_crc32_u64(unsigned int seed, const void* val
 #if (LIBXS_X86_SSE42 <= LIBXS_STATIC_TARGET_ARCH)
   return (unsigned int)LIBXS_HASH_CRC32_U64(seed, value);
 #elif (LIBXS_X86_SSE42 > LIBXS_MAX_STATIC_TARGET_ARCH)
-  return internal_crc32_u64(seed, value);
+  return internal_libxs_crc32_u64(seed, value);
 #else /* pointer based function call */
-  LIBXS_ASSERT(NULL != internal_hash_u64_function);
-  return internal_hash_u64_function(seed, value);
+  LIBXS_ASSERT(NULL != internal_libxs_hash_u64_function);
+  return internal_libxs_hash_u64_function(seed, value);
 #endif
 }
 
@@ -570,12 +570,12 @@ LIBXS_API_INTERN unsigned int libxs_crc32_u64(unsigned int seed, const void* val
 LIBXS_API_INTERN unsigned int libxs_crc32_u128(unsigned int seed, const void* value, ...)
 {
 #if (LIBXS_X86_SSE42 <= LIBXS_STATIC_TARGET_ARCH)
-  return internal_crc32_u128_sse4(seed, value);
+  return internal_libxs_crc32_u128_sse4(seed, value);
 #elif (LIBXS_X86_SSE42 > LIBXS_MAX_STATIC_TARGET_ARCH)
-  return internal_crc32_u128(seed, value);
+  return internal_libxs_crc32_u128(seed, value);
 #else /* pointer based function call */
-  LIBXS_ASSERT(NULL != internal_hash_u128_function);
-  return internal_hash_u128_function(seed, value);
+  LIBXS_ASSERT(NULL != internal_libxs_hash_u128_function);
+  return internal_libxs_hash_u128_function(seed, value);
 #endif
 }
 
@@ -583,12 +583,12 @@ LIBXS_API_INTERN unsigned int libxs_crc32_u128(unsigned int seed, const void* va
 LIBXS_API_INTERN unsigned int libxs_crc32_u256(unsigned int seed, const void* value, ...)
 {
 #if (LIBXS_X86_SSE42 <= LIBXS_STATIC_TARGET_ARCH)
-  return internal_crc32_u256_sse4(seed, value);
+  return internal_libxs_crc32_u256_sse4(seed, value);
 #elif (LIBXS_X86_SSE42 > LIBXS_MAX_STATIC_TARGET_ARCH)
-  return internal_crc32_u256(seed, value);
+  return internal_libxs_crc32_u256(seed, value);
 #else /* pointer based function call */
-  LIBXS_ASSERT(NULL != internal_hash_u256_function);
-  return internal_hash_u256_function(seed, value);
+  LIBXS_ASSERT(NULL != internal_libxs_hash_u256_function);
+  return internal_libxs_hash_u256_function(seed, value);
 #endif
 }
 
@@ -596,12 +596,12 @@ LIBXS_API_INTERN unsigned int libxs_crc32_u256(unsigned int seed, const void* va
 LIBXS_API_INTERN unsigned int libxs_crc32_u384(unsigned int seed, const void* value, ...)
 {
 #if (LIBXS_X86_SSE42 <= LIBXS_STATIC_TARGET_ARCH)
-  return internal_crc32_u384_sse4(seed, value);
+  return internal_libxs_crc32_u384_sse4(seed, value);
 #elif (LIBXS_X86_SSE42 > LIBXS_MAX_STATIC_TARGET_ARCH)
-  return internal_crc32_u384(seed, value);
+  return internal_libxs_crc32_u384(seed, value);
 #else /* pointer based function call */
-  LIBXS_ASSERT(NULL != internal_hash_u384_function);
-  return internal_hash_u384_function(seed, value);
+  LIBXS_ASSERT(NULL != internal_libxs_hash_u384_function);
+  return internal_libxs_hash_u384_function(seed, value);
 #endif
 }
 
@@ -609,12 +609,12 @@ LIBXS_API_INTERN unsigned int libxs_crc32_u384(unsigned int seed, const void* va
 LIBXS_API_INTERN unsigned int libxs_crc32_u512(unsigned int seed, const void* value, ...)
 {
 #if (LIBXS_X86_SSE42 <= LIBXS_STATIC_TARGET_ARCH)
-  return internal_crc32_u512_sse4(seed, value);
+  return internal_libxs_crc32_u512_sse4(seed, value);
 #elif (LIBXS_X86_SSE42 > LIBXS_MAX_STATIC_TARGET_ARCH)
-  return internal_crc32_u512(seed, value);
+  return internal_libxs_crc32_u512(seed, value);
 #else /* pointer based function call */
-  LIBXS_ASSERT(NULL != internal_hash_u512_function);
-  return internal_hash_u512_function(seed, value);
+  LIBXS_ASSERT(NULL != internal_libxs_hash_u512_function);
+  return internal_libxs_hash_u512_function(seed, value);
 #endif
 }
 
@@ -622,11 +622,11 @@ LIBXS_API_INTERN unsigned int libxs_crc32_u512(unsigned int seed, const void* va
 LIBXS_API_INTERN unsigned int libxs_crc32(unsigned int seed, const void* data, size_t size)
 {
 #if (LIBXS_X86_SSE42 <= LIBXS_STATIC_TARGET_ARCH)
-  return internal_crc32_sse4(seed, data, size);
+  return internal_libxs_crc32_sse4(seed, data, size);
 #elif (LIBXS_X86_SSE42 > LIBXS_MAX_STATIC_TARGET_ARCH)
-  return internal_crc32(seed, data, size);
+  return internal_libxs_crc32(seed, data, size);
 #else /* pointer based function call */
-  LIBXS_ASSERT(NULL != internal_hash_function);
-  return internal_hash_function(seed, data, size);
+  LIBXS_ASSERT(NULL != internal_libxs_hash_function);
+  return internal_libxs_hash_function(seed, data, size);
 #endif
 }

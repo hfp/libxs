@@ -10,7 +10,7 @@
 #include <libxs_cpuid.h>
 #include <libxs_malloc.h>
 
-static libxs_malloc_pool_t* internal_default_pool;
+static libxs_malloc_pool_t* internal_libxs_default_pool;
 
 #include <signal.h>
 #if !defined(NDEBUG)
@@ -50,8 +50,8 @@ static libxs_malloc_pool_t* internal_default_pool;
 #endif
 
 
-LIBXS_APIVAR_DEFINE(libxs_cpuid_t internal_cpuid_info);
-LIBXS_APIVAR_DEFINE(const char* internal_build_state);
+LIBXS_APIVAR_DEFINE(libxs_cpuid_t internal_libxs_cpuid_info);
+LIBXS_APIVAR_DEFINE(const char* internal_libxs_build_state);
 
 /* definition of corresponding variables */
 LIBXS_APIVAR_PRIVATE_DEF(int libxs_verbosity);
@@ -67,16 +67,16 @@ LIBXS_APIVAR_PRIVATE_DEF(int libxs_se);
 # define INTERNAL_SINGLETON(HANDLE) (NULL != (HANDLE))
 #else
 # define INTERNAL_SINGLETON_HANDLE int
-# define INTERNAL_SINGLETON(HANDLE) (0 <= (HANDLE) && '\0' != *internal_singleton_fname)
-LIBXS_APIVAR_DEFINE(char internal_singleton_fname[64]);
+# define INTERNAL_SINGLETON(HANDLE) (0 <= (HANDLE) && '\0' != *internal_libxs_singleton_fname)
+LIBXS_APIVAR_DEFINE(char internal_libxs_singleton_fname[64]);
 #endif
-LIBXS_APIVAR_DEFINE(INTERNAL_SINGLETON_HANDLE internal_singleton_handle);
-LIBXS_APIVAR_DEFINE(char internal_stdio_fname[64]);
+LIBXS_APIVAR_DEFINE(INTERNAL_SINGLETON_HANDLE internal_libxs_singleton_handle);
+LIBXS_APIVAR_DEFINE(char internal_libxs_stdio_fname[64]);
 
-LIBXS_EXTERN_C typedef struct internal_sigentry_type {
+LIBXS_EXTERN_C typedef struct internal_libxs_sigentry_type {
   int signum; void (*signal)(int);
-} internal_sigentry_type;
-LIBXS_APIVAR_DEFINE(internal_sigentry_type internal_sigentries[2]);
+} internal_libxs_sigentry_type;
+LIBXS_APIVAR_DEFINE(internal_libxs_sigentry_type internal_libxs_sigentries[2]);
 
 /* definition of corresponding variables */
 LIBXS_APIVAR_PRIVATE_DEF(double libxs_timer_scale);
@@ -86,15 +86,15 @@ LIBXS_APIVAR_PRIVATE_DEF(unsigned int libxs_ninit);
 LIBXS_APIVAR_PRIVATE_DEF(int libxs_stdio_handle);
 
 
-LIBXS_API_INTERN LIBXS_ATTRIBUTE_NO_TRACE void internal_dump(FILE* ostream, int urgent);
-LIBXS_API_INTERN void internal_dump(FILE* ostream, int urgent)
+LIBXS_API_INTERN LIBXS_ATTRIBUTE_NO_TRACE void internal_libxs_dump(FILE* ostream, int urgent);
+LIBXS_API_INTERN void internal_libxs_dump(FILE* ostream, int urgent)
 {
   char *const env_dump_build = getenv("LIBXS_DUMP_BUILD");
   char *const env_dump_files_var = getenv("LIBXS_DUMP_FILES");
   char *const env_dump_files = (NULL != env_dump_files_var
     ? env_dump_files_var
     : getenv("LIBXS_DUMP_FILE"));
-  LIBXS_ASSERT_MSG(INTERNAL_SINGLETON(internal_singleton_handle), "Invalid handle");
+  LIBXS_ASSERT_MSG(INTERNAL_SINGLETON(internal_libxs_singleton_handle), "Invalid handle");
   /* determine whether this instance is unique or not */
   if (NULL != env_dump_files && '\0' != *env_dump_files && 0 == urgent) { /* dump per-node info */
     const char* filename = strtok(env_dump_files, LIBXS_MAIN_DELIMS);
@@ -140,19 +140,19 @@ LIBXS_API_INTERN void internal_dump(FILE* ostream, int urgent)
       }
     }
   }
-  if  (NULL != internal_build_state /* dump build state */
+  if  (NULL != internal_libxs_build_state /* dump build state */
     && NULL != env_dump_build && '\0' != *env_dump_build)
   {
     const int dump_build = atoi(env_dump_build);
     if (0 == urgent ? (0 < dump_build) : (0 > dump_build)) {
       fprintf(ostream, "\n\nBUILD_DATE=%i\n", LIBXS_BUILD_DATE);
-      fprintf(ostream, "%s\n", internal_build_state);
+      fprintf(ostream, "%s\n", internal_libxs_build_state);
     }
   }
 }
 
 
-LIBXS_API_INTERN double libxs_timer_duration_rtc(libxs_timer_tick_t tick0, libxs_timer_tick_t tick1)
+LIBXS_API_INTERN double internal_libxs_timer_duration_rtc(libxs_timer_tick_t tick0, libxs_timer_tick_t tick1)
 {
   const libxs_timer_tick_t delta = LIBXS_DELTA(tick0, tick1);
 #if defined(_WIN32)
@@ -173,7 +173,7 @@ LIBXS_API_INTERN double libxs_timer_duration_rtc(libxs_timer_tick_t tick0, libxs
 }
 
 
-LIBXS_API_INTERN libxs_timer_tick_t libxs_timer_tick_rtc(void)
+LIBXS_API_INTERN libxs_timer_tick_t internal_libxs_timer_tick_rtc(void)
 {
 #if defined(_WIN32)
   LARGE_INTEGER t;
@@ -195,33 +195,33 @@ LIBXS_API_INTERN libxs_timer_tick_t libxs_timer_tick_rtc(void)
 }
 
 
-LIBXS_API_INTERN libxs_timer_tick_t libxs_timer_tick_tsc(void)
+LIBXS_API_INTERN libxs_timer_tick_t internal_libxs_timer_tick_tsc(void)
 {
   libxs_timer_tick_t result;
 #if defined(LIBXS_TIMER_RDTSC)
   LIBXS_TIMER_RDTSC(result);
 #else
-  result = libxs_timer_tick_rtc();
+  result = internal_libxs_timer_tick_rtc();
 #endif
   return result;
 }
 
 
-LIBXS_API_INTERN void internal_finalize(void);
-LIBXS_API_INTERN void internal_finalize(void)
+LIBXS_API_INTERN void internal_libxs_finalize(void);
+LIBXS_API_INTERN void internal_libxs_finalize(void)
 {
   libxs_finalize();
 #if (0 != LIBXS_SYNC)
   /* determine whether this instance is unique or not */
-  if (INTERNAL_SINGLETON(internal_singleton_handle)) {
-    internal_dump(stdout, 0/*urgent*/);
+  if (INTERNAL_SINGLETON(internal_libxs_singleton_handle)) {
+    internal_libxs_dump(stdout, 0/*urgent*/);
     /* cleanup singleton */
 # if defined(_WIN32)
-    ReleaseMutex(internal_singleton_handle);
-    CloseHandle(internal_singleton_handle);
+    ReleaseMutex(internal_libxs_singleton_handle);
+    CloseHandle(internal_libxs_singleton_handle);
 # else
-    unlink(internal_singleton_fname);
-    close(internal_singleton_handle);
+    unlink(internal_libxs_singleton_fname);
+    close(internal_libxs_singleton_handle);
 # endif
   }
 #endif
@@ -229,8 +229,8 @@ LIBXS_API_INTERN void internal_finalize(void)
 #if (0 != LIBXS_SYNC)
 # if !defined(_WIN32)
   if (0 < libxs_stdio_handle) {
-    LIBXS_ASSERT('\0' != *internal_stdio_fname);
-    unlink(internal_stdio_fname);
+    LIBXS_ASSERT('\0' != *internal_libxs_stdio_fname);
+    unlink(internal_libxs_stdio_fname);
     close(libxs_stdio_handle - 1);
   }
 # endif
@@ -241,15 +241,15 @@ LIBXS_API_INTERN void internal_finalize(void)
 
 LIBXS_API_INTERN void internal_libxs_signal(int /*signum*/);
 LIBXS_API_INTERN void internal_libxs_signal(int signum) {
-  int n = (int)(sizeof(internal_sigentries) / sizeof(*internal_sigentries)), i = 0;
+  int n = (int)(sizeof(internal_libxs_sigentries) / sizeof(*internal_libxs_sigentries)), i = 0;
   for (; i < n; ++i) {
-    if (signum == internal_sigentries[i].signum) {
+    if (signum == internal_libxs_sigentries[i].signum) {
       if (0 == libxs_tid()) {
         libxs_verbosity = LIBXS_MAX(LIBXS_VERBOSITY_HIGH + 1, libxs_verbosity);
-        internal_finalize();
+        internal_libxs_finalize();
         signal(signum,
-          (NULL == internal_sigentries[i].signal || SIG_ERR == internal_sigentries[i].signal)
-            ? SIG_DFL : internal_sigentries[i].signal); /* restore */
+          (NULL == internal_libxs_sigentries[i].signal || SIG_ERR == internal_libxs_sigentries[i].signal)
+            ? SIG_DFL : internal_libxs_sigentries[i].signal); /* restore */
         raise(signum);
       }
     }
@@ -313,8 +313,8 @@ LIBXS_API LIBXS_ATTRIBUTE_WEAK void for_stop_core_quiet(void)
 #endif
 
 
-LIBXS_API_INTERN size_t internal_strlen(const char* /*cstr*/, size_t /*maxlen*/);
-LIBXS_API_INTERN size_t internal_strlen(const char* cstr, size_t maxlen)
+LIBXS_API_INTERN size_t internal_libxs_strlen(const char* /*cstr*/, size_t /*maxlen*/);
+LIBXS_API_INTERN size_t internal_libxs_strlen(const char* cstr, size_t maxlen)
 {
   size_t result = 0;
   if (NULL != cstr) {
@@ -324,12 +324,12 @@ LIBXS_API_INTERN size_t internal_strlen(const char* cstr, size_t maxlen)
 }
 
 
-LIBXS_API_INTERN size_t internal_parse_nbytes(const char* /*nbytes*/, size_t /*ndefault*/, int* /*valid*/);
-LIBXS_API_INTERN size_t internal_parse_nbytes(const char* nbytes, size_t ndefault, int* valid)
+LIBXS_API_INTERN size_t internal_libxs_parse_nbytes(const char* /*nbytes*/, size_t /*ndefault*/, int* /*valid*/);
+LIBXS_API_INTERN size_t internal_libxs_parse_nbytes(const char* nbytes, size_t ndefault, int* valid)
 {
   size_t result = ndefault;
   if (NULL != nbytes && '\0' != *nbytes) {
-    size_t u = internal_strlen(nbytes, 32) - 1;
+    size_t u = internal_libxs_strlen(nbytes, 32) - 1;
     const char units[] = "kmgKMG";
     const char *const unit = ('\0' != nbytes[u] ? strchr(units, nbytes[u]) : NULL);
     char* end = NULL;
@@ -361,8 +361,8 @@ LIBXS_API_INTERN size_t internal_parse_nbytes(const char* nbytes, size_t ndefaul
 }
 
 
-LIBXS_API_INTERN LIBXS_ATTRIBUTE_NO_TRACE void internal_init(void);
-LIBXS_API_INTERN void internal_init(void)
+LIBXS_API_INTERN LIBXS_ATTRIBUTE_NO_TRACE void internal_libxs_init(void);
+LIBXS_API_INTERN void internal_libxs_init(void)
 {
 #if defined(LIBXS_INTERCEPT_DYNAMIC) && defined(LIBXS_AUTOPIN)
   /* clear error status (dummy condition: it does not matter if MPI_Init or MPI_Abort) */
@@ -410,8 +410,8 @@ LIBXS_API_INTERN void internal_init(void)
 #if !defined(_WIN32) && 0
   umask(S_IRUSR | S_IWUSR); /* setup default/secure file mask */
 #endif
-  libxs_memory_init(libxs_cpuid(NULL));
-  internal_default_pool = libxs_malloc_pool(NULL, NULL);
+  internal_libxs_memory_init(libxs_cpuid(NULL));
+  internal_libxs_default_pool = libxs_malloc_pool(NULL, NULL);
 }
 
 
@@ -423,9 +423,9 @@ LIBXS_API_CTOR void libxs_init(void)
     LIBXS_ASSERT(0 < tid);
     /* libxs_ninit (1: initialization started, 2: library initialized, higher: to invalidate code-TLS) */
     if (1 == tid) {
-      libxs_timer_tick_t s0 = libxs_timer_tick_rtc(); /* warm-up */
-      libxs_timer_tick_t t0 = libxs_timer_tick_tsc(); /* warm-up */
-      s0 = libxs_timer_tick_rtc(); t0 = libxs_timer_tick_tsc(); /* start timing */
+      libxs_timer_tick_t s0 = internal_libxs_timer_tick_rtc(); /* warm-up */
+      libxs_timer_tick_t t0 = internal_libxs_timer_tick_tsc(); /* warm-up */
+      s0 = internal_libxs_timer_tick_rtc(); t0 = internal_libxs_timer_tick_tsc(); /* start timing */
       { const unsigned int ninit = LIBXS_ATOMIC_ADD_FETCH(&libxs_ninit, 1, LIBXS_ATOMIC_SEQ_CST);
         LIBXS_UNUSED_NDEBUG(ninit);
         assert(1 == ninit); /* !LIBXS_ASSERT */
@@ -443,12 +443,12 @@ LIBXS_API_CTOR void libxs_init(void)
       { /* determine whether this instance is unique or not */
 #if (0 != LIBXS_SYNC)
 # if defined(_WIN32)
-        internal_singleton_handle = CreateMutex(NULL, TRUE, "GlobalLIBXS");
+        internal_libxs_singleton_handle = CreateMutex(NULL, TRUE, "GlobalLIBXS");
 # else
         const unsigned int userid = (unsigned int)getuid();
-        const int result_sgltn = LIBXS_SNPRINTF(internal_singleton_fname, sizeof(internal_singleton_fname), "/tmp/.libxs.%u",
+        const int result_sgltn = LIBXS_SNPRINTF(internal_libxs_singleton_fname, sizeof(internal_libxs_singleton_fname), "/tmp/.libxs.%u",
           /*rely on user id to avoid permission issues in case of left-over files*/userid);
-        const int result_stdio = LIBXS_SNPRINTF(internal_stdio_fname, sizeof(internal_stdio_fname), "/tmp/.libxs.stdio.%u",
+        const int result_stdio = LIBXS_SNPRINTF(internal_libxs_stdio_fname, sizeof(internal_libxs_stdio_fname), "/tmp/.libxs.stdio.%u",
           /*rely on user id to avoid permission issues in case of left-over files*/userid);
         struct flock singleton_flock;
         int file_handle;
@@ -456,40 +456,40 @@ LIBXS_API_CTOR void libxs_init(void)
         singleton_flock.l_len = 0; /* entire file */
         singleton_flock.l_type = F_WRLCK; /* exclusive across PIDs */
         singleton_flock.l_whence = SEEK_SET;
-        file_handle = ((0 < result_sgltn && (int)sizeof(internal_singleton_fname) > result_sgltn)
-          ? open(internal_singleton_fname, O_WRONLY | O_CREAT, S_IRUSR | S_IWUSR) : -1);
-        internal_singleton_handle = fcntl(file_handle, F_SETLK, &singleton_flock);
-        if (0 <= file_handle && 0 > internal_singleton_handle) close(file_handle);
-        libxs_stdio_handle = ((0 < result_stdio && (int)sizeof(internal_stdio_fname) > result_stdio)
-          ? (open(internal_stdio_fname, O_WRONLY | O_CREAT, S_IRUSR | S_IWUSR) + 1) : 0);
+        file_handle = ((0 < result_sgltn && (int)sizeof(internal_libxs_singleton_fname) > result_sgltn)
+          ? open(internal_libxs_singleton_fname, O_WRONLY | O_CREAT, S_IRUSR | S_IWUSR) : -1);
+        internal_libxs_singleton_handle = fcntl(file_handle, F_SETLK, &singleton_flock);
+        if (0 <= file_handle && 0 > internal_libxs_singleton_handle) close(file_handle);
+        libxs_stdio_handle = ((0 < result_stdio && (int)sizeof(internal_libxs_stdio_fname) > result_stdio)
+          ? (open(internal_libxs_stdio_fname, O_WRONLY | O_CREAT, S_IRUSR | S_IWUSR) + 1) : 0);
 # endif  /* coverity[leaked_handle] */
 #endif
       }
       { /* calibrate timer */
         int result_atexit = EXIT_SUCCESS;
         libxs_timer_tick_t s1, t1;
-        internal_init(); /* must be first to initialize verbosity, etc. */
-        if (INTERNAL_SINGLETON(internal_singleton_handle)) { /* after internal_init */
-          internal_dump(stdout, 1/*urgent*/);
+        internal_libxs_init(); /* must be first to initialize verbosity, etc. */
+        if (INTERNAL_SINGLETON(internal_libxs_singleton_handle)) { /* after internal_libxs_init */
+          internal_libxs_dump(stdout, 1/*urgent*/);
         }
-        s1 = libxs_timer_tick_rtc(); t1 = libxs_timer_tick_tsc(); /* mid-timing */
+        s1 = internal_libxs_timer_tick_rtc(); t1 = internal_libxs_timer_tick_tsc(); /* mid-timing */
         /* TSC calibration is Release-only: debug overhead would skew the measurement,
          * and the RTC fallback is accurate enough for development/testing. */
 #if defined(NDEBUG)
-        libxs_cpuid(&internal_cpuid_info);
-        if (0 != internal_cpuid_info.constant_tsc && t0 < t1) {
-          libxs_timer_scale = libxs_timer_duration_rtc(s0, s1) / (t1 - t0);
+        libxs_cpuid(&internal_libxs_cpuid_info);
+        if (0 != internal_libxs_cpuid_info.constant_tsc && t0 < t1) {
+          libxs_timer_scale = internal_libxs_timer_duration_rtc(s0, s1) / (t1 - t0);
         }
 #endif
-        internal_sigentries[0].signal = signal(SIGABRT, internal_libxs_signal);
-        internal_sigentries[0].signum = SIGABRT;
-        internal_sigentries[1].signal = signal(SIGSEGV, internal_libxs_signal);
-        internal_sigentries[1].signum = SIGSEGV;
-        result_atexit = atexit(internal_finalize);
-        s1 = libxs_timer_tick_rtc(); t1 = libxs_timer_tick_tsc(); /* final timing */
+        internal_libxs_sigentries[0].signal = signal(SIGABRT, internal_libxs_signal);
+        internal_libxs_sigentries[0].signum = SIGABRT;
+        internal_libxs_sigentries[1].signal = signal(SIGSEGV, internal_libxs_signal);
+        internal_libxs_sigentries[1].signum = SIGSEGV;
+        result_atexit = atexit(internal_libxs_finalize);
+        s1 = internal_libxs_timer_tick_rtc(); t1 = internal_libxs_timer_tick_tsc(); /* final timing */
         /* set timer-scale */
         if (t0 < t1 && 0.0 < libxs_timer_scale) {
-          const double scale = libxs_timer_duration_rtc(s0, s1) / (t1 - t0);
+          const double scale = internal_libxs_timer_duration_rtc(s0, s1) / (t1 - t0);
           const double diff = LIBXS_DELTA(libxs_timer_scale, scale) / scale;
           if (5E-4 > diff) {
             libxs_timer_scale = scale;
@@ -509,7 +509,7 @@ LIBXS_API_CTOR void libxs_init(void)
             fprintf(stderr, "LIBXS ERROR: failed to register termination procedure!\n");
           }
 #if defined(NDEBUG)
-          if (0 == libxs_timer_scale && 0 == internal_cpuid_info.constant_tsc
+          if (0 == libxs_timer_scale && 0 == internal_libxs_cpuid_info.constant_tsc
             && (LIBXS_VERBOSITY_WARN <= libxs_verbosity || 0 > libxs_verbosity))
           {
             fprintf(stderr, "LIBXS WARNING: timer is maybe not cycle-accurate!\n");
@@ -522,7 +522,7 @@ LIBXS_API_CTOR void libxs_init(void)
     else /*if (gid != tid)*/ { /* avoid recursion */
       LIBXS_ASSERT(gid != tid);
       while (2 > LIBXS_ATOMIC_LOAD(&libxs_ninit, LIBXS_ATOMIC_SEQ_CST)) LIBXS_SYNC_YIELD;
-      internal_init();
+      internal_libxs_init();
     }
   }
 }
@@ -531,9 +531,9 @@ LIBXS_API_CTOR void libxs_init(void)
 LIBXS_API LIBXS_ATTRIBUTE_NO_TRACE void libxs_finalize(void);
 LIBXS_API_DTOR void libxs_finalize(void)
 {
-  libxs_memory_finalize();
-  libxs_free_pool(internal_default_pool);
-  internal_default_pool = NULL;
+  internal_libxs_memory_finalize();
+  libxs_free_pool(internal_libxs_default_pool);
+  internal_libxs_default_pool = NULL;
 }
 
 
@@ -651,7 +651,7 @@ LIBXS_EXTERN int* _NSGetArgc(void);
 #endif
 
 
-LIBXS_API_INTERN int libxs_print_cmdline(void* buffer, size_t buffer_size, const char* prefix, const char* postfix)
+LIBXS_API_INTERN int internal_libxs_print_cmdline(void* buffer, size_t buffer_size, const char* prefix, const char* postfix)
 {
   int result = 0;
 #if defined(__linux__)

@@ -241,11 +241,11 @@
 
 
 #if !defined(LIBXS_MEM_SW)
-LIBXS_APIVAR_DEFINE(unsigned char (*internal_diff_function)(const void*, const void*, unsigned char));
-LIBXS_APIVAR_DEFINE(int (*internal_memcmp_function)(const void*, const void*, size_t));
-LIBXS_APIVAR_DEFINE(void (*internal_mcopy_tile_function)(void*, const void*, unsigned int,
+LIBXS_APIVAR_DEFINE(unsigned char (*internal_libxs_diff_function)(const void*, const void*, unsigned char));
+LIBXS_APIVAR_DEFINE(int (*internal_libxs_memcmp_function)(const void*, const void*, size_t));
+LIBXS_APIVAR_DEFINE(void (*internal_libxs_mcopy_tile_function)(void*, const void*, unsigned int,
   unsigned int, unsigned int, unsigned int, unsigned int, unsigned int, unsigned int));
-LIBXS_APIVAR_DEFINE(void (*internal_tcopy_tile_function)(void*, const void*, unsigned int,
+LIBXS_APIVAR_DEFINE(void (*internal_libxs_tcopy_tile_function)(void*, const void*, unsigned int,
   unsigned int, unsigned int, unsigned int, unsigned int, unsigned int, unsigned int));
 #endif
 
@@ -286,7 +286,7 @@ LIBXS_API int libxs_aligned(const void* ptr, const size_t* inc, int* alignment)
 
 
 LIBXS_API_INLINE
-unsigned char internal_diff_sw(const void* a, const void* b, unsigned char size)
+unsigned char internal_libxs_diff_sw(const void* a, const void* b, unsigned char size)
 {
 #if defined(LIBXS_MEM_STDLIB) && defined(LIBXS_MEM_SW)
   return (unsigned char)memcmp(a, b, size);
@@ -306,7 +306,7 @@ unsigned char internal_diff_sw(const void* a, const void* b, unsigned char size)
 
 
 LIBXS_API_INLINE LIBXS_INTRINSICS(LIBXS_X86_GENERIC)
-unsigned char internal_diff_sse(const void* a, const void* b, unsigned char size)
+unsigned char internal_libxs_diff_sse(const void* a, const void* b, unsigned char size)
 {
 #if defined(LIBXS_INTRINSICS_X86) && !defined(LIBXS_MEM_SW)
   const uint8_t *const a8 = (const uint8_t*)a, *const b8 = (const uint8_t*)b;
@@ -320,13 +320,13 @@ unsigned char internal_diff_sse(const void* a, const void* b, unsigned char size
   for (; i < size; ++i) if (a8[i] ^ b8[i]) return 1;
   return 0;
 #else
-  return internal_diff_sw(a, b, size);
+  return internal_libxs_diff_sw(a, b, size);
 #endif
 }
 
 
 LIBXS_API_INLINE LIBXS_INTRINSICS(LIBXS_X86_AVX2)
-unsigned char internal_diff_avx2(const void* a, const void* b, unsigned char size)
+unsigned char internal_libxs_diff_avx2(const void* a, const void* b, unsigned char size)
 {
 #if defined(LIBXS_INTRINSICS_AVX2) && !defined(LIBXS_MEM_SW)
   const uint8_t *const a8 = (const uint8_t*)a, *const b8 = (const uint8_t*)b;
@@ -340,14 +340,14 @@ unsigned char internal_diff_avx2(const void* a, const void* b, unsigned char siz
   for (; i < size; ++i) if (a8[i] ^ b8[i]) return 1;
   return 0;
 #else
-  return internal_diff_sw(a, b, size);
+  return internal_libxs_diff_sw(a, b, size);
 #endif
 }
 
 
 #if defined(LIBXS_DIFF_AVX512_ENABLED)
 LIBXS_API_INLINE LIBXS_INTRINSICS(LIBXS_X86_AVX512)
-unsigned char internal_diff_avx512(const void* a, const void* b, unsigned char size)
+unsigned char internal_libxs_diff_avx512(const void* a, const void* b, unsigned char size)
 {
 #if defined(LIBXS_INTRINSICS_AVX512) && !defined(LIBXS_MEM_SW)
   const uint8_t *const a8 = (const uint8_t*)a, *const b8 = (const uint8_t*)b;
@@ -361,14 +361,14 @@ unsigned char internal_diff_avx512(const void* a, const void* b, unsigned char s
   for (; i < size; ++i) if (a8[i] ^ b8[i]) return 1;
   return 0;
 #else
-  return internal_diff_sw(a, b, size);
+  return internal_libxs_diff_sw(a, b, size);
 #endif
 }
 #endif
 
 
 LIBXS_API_INLINE
-int internal_memcmp_sw(const void* a, const void* b, size_t size)
+int internal_libxs_memcmp_sw(const void* a, const void* b, size_t size)
 {
 #if defined(LIBXS_MEM_STDLIB)
   return memcmp(a, b, size);
@@ -388,7 +388,7 @@ int internal_memcmp_sw(const void* a, const void* b, size_t size)
 
 
 LIBXS_API_INLINE LIBXS_INTRINSICS(LIBXS_X86_GENERIC)
-int internal_memcmp_sse(const void* a, const void* b, size_t size)
+int internal_libxs_memcmp_sse(const void* a, const void* b, size_t size)
 {
 #if defined(LIBXS_INTRINSICS_X86) && !defined(LIBXS_MEM_SW)
   const uint8_t *const a8 = (const uint8_t*)a, *const b8 = (const uint8_t*)b;
@@ -402,13 +402,13 @@ int internal_memcmp_sse(const void* a, const void* b, size_t size)
   for (; i < size; ++i) if (a8[i] ^ b8[i]) return 1;
   return 0;
 #else
-  return internal_memcmp_sw(a, b, size);
+  return internal_libxs_memcmp_sw(a, b, size);
 #endif
 }
 
 
 LIBXS_API_INLINE LIBXS_INTRINSICS(LIBXS_X86_AVX2)
-int internal_memcmp_avx2(const void* a, const void* b, size_t size)
+int internal_libxs_memcmp_avx2(const void* a, const void* b, size_t size)
 {
 #if defined(LIBXS_INTRINSICS_AVX2) && !defined(LIBXS_MEM_SW)
   const uint8_t *const a8 = (const uint8_t*)a, *const b8 = (const uint8_t*)b;
@@ -422,14 +422,14 @@ int internal_memcmp_avx2(const void* a, const void* b, size_t size)
   for (; i < size; ++i) if (a8[i] ^ b8[i]) return 1;
   return 0;
 #else
-  return internal_memcmp_sw(a, b, size);
+  return internal_libxs_memcmp_sw(a, b, size);
 #endif
 }
 
 
 #if defined(LIBXS_DIFF_AVX512_ENABLED)
 LIBXS_API_INLINE LIBXS_INTRINSICS(LIBXS_X86_AVX512)
-int internal_memcmp_avx512(const void* a, const void* b, size_t size)
+int internal_libxs_memcmp_avx512(const void* a, const void* b, size_t size)
 {
 #if defined(LIBXS_INTRINSICS_AVX512) && !defined(LIBXS_MEM_SW)
   const uint8_t *const a8 = (const uint8_t*)a, *const b8 = (const uint8_t*)b;
@@ -443,13 +443,13 @@ int internal_memcmp_avx512(const void* a, const void* b, size_t size)
   for (; i < size; ++i) if (a8[i] ^ b8[i]) return 1;
   return 0;
 #else
-  return internal_memcmp_sw(a, b, size);
+  return internal_libxs_memcmp_sw(a, b, size);
 #endif
 }
 #endif
 
 
-LIBXS_API_INLINE void internal_mcopy_tile_sw(
+LIBXS_API_INLINE void internal_libxs_mcopy_tile_sw(
   void* out, const void* in, unsigned int typesize,
   unsigned int ldi, unsigned int ldo,
   unsigned int m0, unsigned int m1, unsigned int n0, unsigned int n1)
@@ -464,7 +464,7 @@ LIBXS_API_INLINE void internal_mcopy_tile_sw(
 
 
 LIBXS_API_INLINE LIBXS_INTRINSICS(LIBXS_X86_AVX2)
-void internal_mcopy_tile_avx2(
+void internal_libxs_mcopy_tile_avx2(
   void* out, const void* in, unsigned int typesize,
   unsigned int ldi, unsigned int ldo,
   unsigned int m0, unsigned int m1, unsigned int n0, unsigned int n1)
@@ -477,12 +477,12 @@ void internal_mcopy_tile_avx2(
     LIBXS_MZERO_TILE(typesize, out, ldo, m0, m1, n0, n1);
   }
 #else
-  internal_mcopy_tile_sw(out, in, typesize, ldi, ldo, m0, m1, n0, n1);
+  internal_libxs_mcopy_tile_sw(out, in, typesize, ldi, ldo, m0, m1, n0, n1);
 #endif
 }
 
 
-LIBXS_API_INLINE void internal_tcopy_tile_sw(
+LIBXS_API_INLINE void internal_libxs_tcopy_tile_sw(
   void* out, const void* in, unsigned int typesize,
   unsigned int ldi, unsigned int ldo,
   unsigned int m0, unsigned int m1, unsigned int n0, unsigned int n1)
@@ -492,7 +492,7 @@ LIBXS_API_INLINE void internal_tcopy_tile_sw(
 
 
 LIBXS_API_INLINE LIBXS_INTRINSICS(LIBXS_X86_AVX2)
-void internal_tcopy_tile_avx2(
+void internal_libxs_tcopy_tile_avx2(
   void* out, const void* in, unsigned int typesize,
   unsigned int ldi, unsigned int ldo,
   unsigned int m0, unsigned int m1, unsigned int n0, unsigned int n1)
@@ -500,77 +500,77 @@ void internal_tcopy_tile_avx2(
 #if defined(LIBXS_INTRINSICS_AVX2)
   LIBXS_TCOPY_TILE(typesize, out, in, ldi, ldo, m0, m1, n0, n1);
 #else
-  internal_tcopy_tile_sw(out, in, typesize, ldi, ldo, m0, m1, n0, n1);
+  internal_libxs_tcopy_tile_sw(out, in, typesize, ldi, ldo, m0, m1, n0, n1);
 #endif
 }
 
 
-LIBXS_API_INTERN void libxs_memory_init(int target_arch)
+LIBXS_API_INTERN void internal_libxs_memory_init(int target_arch)
 {
-  libxs_hash_init(target_arch);
+  internal_libxs_hash_init(target_arch);
 #if !defined(LIBXS_MEM_SW)
   if (LIBXS_X86_AVX512 <= target_arch) {
 # if defined(LIBXS_DIFF_AVX512_ENABLED)
-    internal_diff_function = internal_diff_avx512;
+    internal_libxs_diff_function = internal_libxs_diff_avx512;
 # else
-    internal_diff_function = internal_diff_avx2;
+    internal_libxs_diff_function = internal_libxs_diff_avx2;
 # endif
 # if defined(LIBXS_DIFF_AVX512_ENABLED)
-    internal_memcmp_function = internal_memcmp_avx512;
+    internal_libxs_memcmp_function = internal_libxs_memcmp_avx512;
 # else
-    internal_memcmp_function = internal_memcmp_avx2;
+    internal_libxs_memcmp_function = internal_libxs_memcmp_avx2;
 # endif
   }
   else if (LIBXS_X86_AVX2 <= target_arch) {
-    internal_diff_function = internal_diff_avx2;
-    internal_memcmp_function = internal_memcmp_avx2;
+    internal_libxs_diff_function = internal_libxs_diff_avx2;
+    internal_libxs_memcmp_function = internal_libxs_memcmp_avx2;
   }
   else if (LIBXS_X86_GENERIC <= target_arch) {
-    internal_diff_function = internal_diff_sse;
-    internal_memcmp_function = internal_memcmp_sse;
+    internal_libxs_diff_function = internal_libxs_diff_sse;
+    internal_libxs_memcmp_function = internal_libxs_memcmp_sse;
   }
   else {
-    internal_diff_function = internal_diff_sw;
-    internal_memcmp_function = internal_memcmp_sw;
+    internal_libxs_diff_function = internal_libxs_diff_sw;
+    internal_libxs_memcmp_function = internal_libxs_memcmp_sw;
   }
-  LIBXS_ASSERT(NULL != internal_diff_function);
-  LIBXS_ASSERT(NULL != internal_memcmp_function);
+  LIBXS_ASSERT(NULL != internal_libxs_diff_function);
+  LIBXS_ASSERT(NULL != internal_libxs_memcmp_function);
 # if (LIBXS_X86_AVX2 <= LIBXS_STATIC_TARGET_ARCH)
   /* mcopy/tcopy: direct call, no pointer dispatch needed */
 # elif (LIBXS_X86_AVX2 > LIBXS_MAX_STATIC_TARGET_ARCH)
-  internal_mcopy_tile_function = internal_mcopy_tile_sw;
-  internal_tcopy_tile_function = internal_tcopy_tile_sw;
+  internal_libxs_mcopy_tile_function = internal_libxs_mcopy_tile_sw;
+  internal_libxs_tcopy_tile_function = internal_libxs_tcopy_tile_sw;
 # else
   if (LIBXS_X86_AVX2 <= target_arch) {
-    internal_mcopy_tile_function = internal_mcopy_tile_avx2;
-    internal_tcopy_tile_function = internal_tcopy_tile_avx2;
+    internal_libxs_mcopy_tile_function = internal_libxs_mcopy_tile_avx2;
+    internal_libxs_tcopy_tile_function = internal_libxs_tcopy_tile_avx2;
   }
   else {
-    internal_mcopy_tile_function = internal_mcopy_tile_sw;
-    internal_tcopy_tile_function = internal_tcopy_tile_sw;
+    internal_libxs_mcopy_tile_function = internal_libxs_mcopy_tile_sw;
+    internal_libxs_tcopy_tile_function = internal_libxs_tcopy_tile_sw;
   }
 # endif
-  LIBXS_ASSERT(NULL != internal_mcopy_tile_function
+  LIBXS_ASSERT(NULL != internal_libxs_mcopy_tile_function
     || LIBXS_X86_AVX2 <= LIBXS_STATIC_TARGET_ARCH);
-  LIBXS_ASSERT(NULL != internal_tcopy_tile_function
+  LIBXS_ASSERT(NULL != internal_libxs_tcopy_tile_function
     || LIBXS_X86_AVX2 <= LIBXS_STATIC_TARGET_ARCH);
 #endif
 }
 
 
-LIBXS_API_INTERN void libxs_memory_finalize(void)
+LIBXS_API_INTERN void internal_libxs_memory_finalize(void)
 {
 #if !defined(NDEBUG) && !defined(LIBXS_MEM_SW) && 0
-  internal_diff_function = NULL;
-  internal_memcmp_function = NULL;
+  internal_libxs_diff_function = NULL;
+  internal_libxs_memcmp_function = NULL;
 #endif
 }
 
 
-LIBXS_API_INTERN unsigned char libxs_diff_4(const void* a, const void* b, ...)
+LIBXS_API_INTERN unsigned char internal_libxs_diff_4(const void* a, const void* b, ...)
 {
 #if defined(LIBXS_MEM_SW)
-  return internal_diff_sw(a, b, 4);
+  return internal_libxs_diff_sw(a, b, 4);
 #else
   LIBXS_DIFF_4_DECL(a4);
   LIBXS_DIFF_4_LOAD(a4, a);
@@ -579,10 +579,10 @@ LIBXS_API_INTERN unsigned char libxs_diff_4(const void* a, const void* b, ...)
 }
 
 
-LIBXS_API_INTERN unsigned char libxs_diff_8(const void* a, const void* b, ...)
+LIBXS_API_INTERN unsigned char internal_libxs_diff_8(const void* a, const void* b, ...)
 {
 #if defined(LIBXS_MEM_SW)
-  return internal_diff_sw(a, b, 8);
+  return internal_libxs_diff_sw(a, b, 8);
 #else
   LIBXS_DIFF_8_DECL(a8);
   LIBXS_DIFF_8_LOAD(a8, a);
@@ -591,10 +591,10 @@ LIBXS_API_INTERN unsigned char libxs_diff_8(const void* a, const void* b, ...)
 }
 
 
-LIBXS_API_INTERN unsigned char libxs_diff_16(const void* a, const void* b, ...)
+LIBXS_API_INTERN unsigned char internal_libxs_diff_16(const void* a, const void* b, ...)
 {
 #if defined(LIBXS_MEM_SW)
-  return internal_diff_sw(a, b, 16);
+  return internal_libxs_diff_sw(a, b, 16);
 #else
   LIBXS_DIFF_16_DECL(a16);
   LIBXS_DIFF_16_LOAD(a16, a);
@@ -603,10 +603,10 @@ LIBXS_API_INTERN unsigned char libxs_diff_16(const void* a, const void* b, ...)
 }
 
 
-LIBXS_API_INTERN unsigned char libxs_diff_32(const void* a, const void* b, ...)
+LIBXS_API_INTERN unsigned char internal_libxs_diff_32(const void* a, const void* b, ...)
 {
 #if defined(LIBXS_MEM_SW)
-  return internal_diff_sw(a, b, 32);
+  return internal_libxs_diff_sw(a, b, 32);
 #else
   LIBXS_DIFF_32_DECL(a32);
   LIBXS_DIFF_32_LOAD(a32, a);
@@ -615,10 +615,10 @@ LIBXS_API_INTERN unsigned char libxs_diff_32(const void* a, const void* b, ...)
 }
 
 
-LIBXS_API_INTERN unsigned char libxs_diff_48(const void* a, const void* b, ...)
+LIBXS_API_INTERN unsigned char internal_libxs_diff_48(const void* a, const void* b, ...)
 {
 #if defined(LIBXS_MEM_SW)
-  return internal_diff_sw(a, b, 48);
+  return internal_libxs_diff_sw(a, b, 48);
 #else
   LIBXS_DIFF_48_DECL(a48);
   LIBXS_DIFF_48_LOAD(a48, a);
@@ -627,10 +627,10 @@ LIBXS_API_INTERN unsigned char libxs_diff_48(const void* a, const void* b, ...)
 }
 
 
-LIBXS_API_INTERN unsigned char libxs_diff_64(const void* a, const void* b, ...)
+LIBXS_API_INTERN unsigned char internal_libxs_diff_64(const void* a, const void* b, ...)
 {
 #if defined(LIBXS_MEM_SW)
-  return internal_diff_sw(a, b, 64);
+  return internal_libxs_diff_sw(a, b, 64);
 #else
   LIBXS_DIFF_64_DECL(a64);
   LIBXS_DIFF_64_LOAD(a64, a);
@@ -642,31 +642,31 @@ LIBXS_API_INTERN unsigned char libxs_diff_64(const void* a, const void* b, ...)
 LIBXS_API unsigned char libxs_diff(const void* a, const void* b, unsigned char size)
 {
 #if defined(LIBXS_MEM_SW) && !defined(LIBXS_MEM_STDLIB)
-  return internal_diff_sw(a, b, size);
+  return internal_libxs_diff_sw(a, b, size);
 #else
 # if defined(LIBXS_MEM_STDLIB)
   return 0 != memcmp(a, b, size);
 # elif (LIBXS_X86_AVX512 <= LIBXS_STATIC_TARGET_ARCH) && defined(LIBXS_DIFF_AVX512_ENABLED)
-  return internal_diff_avx512(a, b, size);
+  return internal_libxs_diff_avx512(a, b, size);
 # elif (LIBXS_X86_AVX2 <= LIBXS_STATIC_TARGET_ARCH)
-  return internal_diff_avx2(a, b, size);
+  return internal_libxs_diff_avx2(a, b, size);
 # elif (LIBXS_X86_SSE3 <= LIBXS_STATIC_TARGET_ARCH)
 # if (LIBXS_X86_AVX2 > LIBXS_MAX_STATIC_TARGET_ARCH)
-  return internal_diff_sse(a, b, size);
+  return internal_libxs_diff_sse(a, b, size);
 # else /* pointer based function call */
 # if defined(LIBXS_INIT_COMPLETED)
-  LIBXS_ASSERT(NULL != internal_diff_function);
+  LIBXS_ASSERT(NULL != internal_libxs_diff_function);
   return (unsigned char)(64 <= size
-    ? internal_diff_function(a, b, size)
-    : internal_diff_sse(a, b, size));
+    ? internal_libxs_diff_function(a, b, size)
+    : internal_libxs_diff_sse(a, b, size));
 # else
-  return (unsigned char)((NULL != internal_diff_function && 64 <= size)
-    ? internal_diff_function(a, b, size)
-    : internal_diff_sse(a, b, size));
+  return (unsigned char)((NULL != internal_libxs_diff_function && 64 <= size)
+    ? internal_libxs_diff_function(a, b, size)
+    : internal_libxs_diff_sse(a, b, size));
 # endif
 # endif
 # else
-  return internal_diff_sw(a, b, size);
+  return internal_libxs_diff_sw(a, b, size);
 # endif
 #endif
 }
@@ -728,31 +728,31 @@ LIBXS_API unsigned int libxs_diff_n(const void* a, const void* bn, unsigned char
 LIBXS_API int libxs_memcmp(const void* a, const void* b, size_t size)
 {
 #if defined(LIBXS_MEM_SW) && !defined(LIBXS_MEM_STDLIB)
-  return internal_memcmp_sw(a, b, size);
+  return internal_libxs_memcmp_sw(a, b, size);
 #else
 # if defined(LIBXS_MEM_STDLIB)
   return memcmp(a, b, size);
 # elif (LIBXS_X86_AVX512 <= LIBXS_STATIC_TARGET_ARCH) && defined(LIBXS_DIFF_AVX512_ENABLED)
-  return internal_memcmp_avx512(a, b, size);
+  return internal_libxs_memcmp_avx512(a, b, size);
 # elif (LIBXS_X86_AVX2 <= LIBXS_STATIC_TARGET_ARCH)
-  return internal_memcmp_avx2(a, b, size);
+  return internal_libxs_memcmp_avx2(a, b, size);
 # elif (LIBXS_X86_SSE3 <= LIBXS_STATIC_TARGET_ARCH)
 # if (LIBXS_X86_AVX2 > LIBXS_MAX_STATIC_TARGET_ARCH)
-  return internal_memcmp_sse(a, b, size);
+  return internal_libxs_memcmp_sse(a, b, size);
 # else /* pointer based function call */
 # if defined(LIBXS_INIT_COMPLETED)
-  LIBXS_ASSERT(NULL != internal_memcmp_function);
+  LIBXS_ASSERT(NULL != internal_libxs_memcmp_function);
   return (64 <= size
-    ? internal_memcmp_function(a, b, size)
-    : internal_memcmp_sse(a, b, size));
+    ? internal_libxs_memcmp_function(a, b, size)
+    : internal_libxs_memcmp_sse(a, b, size));
 # else
-  return ((NULL != internal_memcmp_function && 64 <= size)
-    ? internal_memcmp_function(a, b, size)
-    : internal_memcmp_sse(a, b, size));
+  return ((NULL != internal_libxs_memcmp_function && 64 <= size)
+    ? internal_libxs_memcmp_function(a, b, size)
+    : internal_libxs_memcmp_sse(a, b, size));
 # endif
 # endif
 # else
-  return internal_memcmp_sw(a, b, size);
+  return internal_libxs_memcmp_sw(a, b, size);
 # endif
 #endif
 }
@@ -998,7 +998,7 @@ LIBXS_API size_t libxs_unshuffle(size_t count, const size_t* shuffle)
 }
 
 
-LIBXS_API_INLINE void internal_itrans_scratch(
+LIBXS_API_INLINE void internal_libxs_itrans_scratch(
   void* inout, void* scratch, unsigned int typesize,
   unsigned int m, unsigned int n, unsigned int ldi, unsigned int ldo)
 {
@@ -1006,14 +1006,14 @@ LIBXS_API_INLINE void internal_itrans_scratch(
   LIBXS_MCOPY_TILE(typesize, scratch, inout, ldi, m, 0, m, 0, n);
   LIBXS_TCOPY_TILE(typesize, inout, scratch, m, ldo, 0, m, 0, n);
 #elif (LIBXS_X86_AVX2 <= LIBXS_STATIC_TARGET_ARCH)
-  internal_mcopy_tile_avx2(scratch, inout, typesize, ldi, m, 0, m, 0, n);
-  internal_tcopy_tile_avx2(inout, scratch, typesize, m, ldo, 0, m, 0, n);
+  internal_libxs_mcopy_tile_avx2(scratch, inout, typesize, ldi, m, 0, m, 0, n);
+  internal_libxs_tcopy_tile_avx2(inout, scratch, typesize, m, ldo, 0, m, 0, n);
 #elif (LIBXS_X86_AVX2 > LIBXS_MAX_STATIC_TARGET_ARCH)
-  internal_mcopy_tile_sw(scratch, inout, typesize, ldi, m, 0, m, 0, n);
-  internal_tcopy_tile_sw(inout, scratch, typesize, m, ldo, 0, m, 0, n);
+  internal_libxs_mcopy_tile_sw(scratch, inout, typesize, ldi, m, 0, m, 0, n);
+  internal_libxs_tcopy_tile_sw(inout, scratch, typesize, m, ldo, 0, m, 0, n);
 #else /* pointer based function call */
-  internal_mcopy_tile_function(scratch, inout, typesize, ldi, m, 0, m, 0, n);
-  internal_tcopy_tile_function(inout, scratch, typesize, m, ldo, 0, m, 0, n);
+  internal_libxs_mcopy_tile_function(scratch, inout, typesize, ldi, m, 0, m, 0, n);
+  internal_libxs_tcopy_tile_function(inout, scratch, typesize, m, ldo, 0, m, 0, n);
 #endif
 }
 
@@ -1038,13 +1038,13 @@ LIBXS_API void libxs_matcopy_task(void* out, const void* in, unsigned int typesi
         LIBXS_MZERO_TILE(typesize, out, (unsigned int)ldo, m0, m1, n0, n1);
       }
 #elif (LIBXS_X86_AVX2 <= LIBXS_STATIC_TARGET_ARCH)
-      internal_mcopy_tile_avx2(out, in, typesize,
+      internal_libxs_mcopy_tile_avx2(out, in, typesize,
         (unsigned int)ldi, (unsigned int)ldo, m0, m1, n0, n1);
 #elif (LIBXS_X86_AVX2 > LIBXS_MAX_STATIC_TARGET_ARCH)
-      internal_mcopy_tile_sw(out, in, typesize,
+      internal_libxs_mcopy_tile_sw(out, in, typesize,
         (unsigned int)ldi, (unsigned int)ldo, m0, m1, n0, n1);
 #else /* pointer based function call */
-      internal_mcopy_tile_function(out, in, typesize,
+      internal_libxs_mcopy_tile_function(out, in, typesize,
         (unsigned int)ldi, (unsigned int)ldo, m0, m1, n0, n1);
 #endif
     }
@@ -1075,13 +1075,13 @@ LIBXS_API void libxs_otrans_task(void* out, const void* in, unsigned int typesiz
       LIBXS_TCOPY_TILE(typesize, out, in,
         (unsigned int)ldi, (unsigned int)ldo, m0, m1, n0, n1);
 #elif (LIBXS_X86_AVX2 <= LIBXS_STATIC_TARGET_ARCH)
-      internal_tcopy_tile_avx2(out, in, typesize,
+      internal_libxs_tcopy_tile_avx2(out, in, typesize,
         (unsigned int)ldi, (unsigned int)ldo, m0, m1, n0, n1);
 #elif (LIBXS_X86_AVX2 > LIBXS_MAX_STATIC_TARGET_ARCH)
-      internal_tcopy_tile_sw(out, in, typesize,
+      internal_libxs_tcopy_tile_sw(out, in, typesize,
         (unsigned int)ldi, (unsigned int)ldo, m0, m1, n0, n1);
 #else /* pointer based function call */
-      internal_tcopy_tile_function(out, in, typesize,
+      internal_libxs_tcopy_tile_function(out, in, typesize,
         (unsigned int)ldi, (unsigned int)ldo, m0, m1, n0, n1);
 #endif
     }
@@ -1118,14 +1118,14 @@ LIBXS_API void libxs_itrans_task(void* inout, unsigned int typesize,
     }
     else if (0 == tid) {
       if (NULL != scratch) {
-        internal_itrans_scratch(inout, scratch, typesize,
+        internal_libxs_itrans_scratch(inout, scratch, typesize,
           (unsigned int)m, (unsigned int)n, (unsigned int)ldi, (unsigned int)ldo);
       }
       else {
         const size_t scratchsize = (size_t)m * n * typesize;
         void* scratch_alloc = libxs_malloc(NULL/*pool*/, scratchsize, LIBXS_MALLOC_AUTO);
         if (NULL != scratch_alloc) {
-          internal_itrans_scratch(inout, scratch_alloc, typesize,
+          internal_libxs_itrans_scratch(inout, scratch_alloc, typesize,
             (unsigned int)m, (unsigned int)n, (unsigned int)ldi, (unsigned int)ldo);
           libxs_free(scratch_alloc);
         }
@@ -1175,7 +1175,7 @@ LIBXS_API void libxs_itrans_batch(void* inout, unsigned int typesize,
           for (i = begin; i < end; ++i) {
             const int idx = i * index_stride;
             char *const mat = mat0 + (size_t)(stride[idx] - index_base) * typesize;
-            internal_itrans_scratch(mat, scratch, typesize,
+            internal_libxs_itrans_scratch(mat, scratch, typesize,
               (unsigned int)m, (unsigned int)n, (unsigned int)ldi, (unsigned int)ldo);
           }
         }
@@ -1195,7 +1195,7 @@ LIBXS_API void libxs_itrans_batch(void* inout, unsigned int typesize,
           for (i = (size_t)begin; i < (size_t)end; ++i) {
             void *const mat = *(void**)(mat0 + d * i);
             if (NULL != mat) {
-              internal_itrans_scratch(mat, scratch, typesize,
+              internal_libxs_itrans_scratch(mat, scratch, typesize,
                 (unsigned int)m, (unsigned int)n, (unsigned int)ldi, (unsigned int)ldo);
             }
           }
@@ -1213,7 +1213,7 @@ LIBXS_API void libxs_itrans_batch(void* inout, unsigned int typesize,
       }
       else {
         for (i = begin; i < end; ++i) {
-          internal_itrans_scratch(
+          internal_libxs_itrans_scratch(
             mat0 + (size_t)i * m * n * typesize,
             scratch, typesize,
             (unsigned int)m, (unsigned int)n, (unsigned int)ldi, (unsigned int)ldo);

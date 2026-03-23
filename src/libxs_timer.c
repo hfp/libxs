@@ -72,15 +72,15 @@ LIBXS_API libxs_timer_tick_t libxs_timer_tick(void)
       LIBXS_TIMER_RDTSC(result);
     }
     else {
-      result = libxs_timer_tick_rtc();
+      result = internal_libxs_timer_tick_rtc();
     }
   }
 # endif
   else {
-    result = libxs_timer_tick_rtc();
+    result = internal_libxs_timer_tick_rtc();
   }
 #else
-  result = libxs_timer_tick_rtc();
+  result = internal_libxs_timer_tick_rtc();
 #endif
   return result;
 }
@@ -96,7 +96,7 @@ LIBXS_API double libxs_timer_duration(libxs_timer_tick_t tick0, libxs_timer_tick
   else
 #endif
   {
-    result = libxs_timer_duration_rtc(tick0, tick1);
+    result = internal_libxs_timer_duration_rtc(tick0, tick1);
   }
   return result;
 }

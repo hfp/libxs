@@ -70,7 +70,7 @@
 #endif
 
 
-LIBXS_API_INTERN void libxs_cpuid_model(char model[], size_t* model_size)
+LIBXS_API_INTERN void internal_libxs_cpuid_model(char model[], size_t* model_size)
 {
   if (NULL != model_size && 0 != *model_size) {
     if (NULL != model) {
@@ -115,7 +115,7 @@ LIBXS_API_INTERN void libxs_cpuid_model(char model[], size_t* model_size)
 }
 
 
-LIBXS_API_INTERN int libxs_cpuid_x86(libxs_cpuid_t* info)
+LIBXS_API_INTERN int internal_libxs_cpuid_x86(libxs_cpuid_t* info)
 {
   static int result = LIBXS_TARGET_ARCH_UNKNOWN;
 #if defined(LIBXS_PLATFORM_X86)
@@ -227,7 +227,7 @@ LIBXS_API_INTERN int libxs_cpuid_x86(libxs_cpuid_t* info)
 # endif
       if (NULL != info) {
         size_t model_size = sizeof(info->model);
-        libxs_cpuid_model(info->model, &model_size);
+        internal_libxs_cpuid_model(info->model, &model_size);
         LIBXS_ASSERT(0 != model_size || '\0' == *info->model);
         LIBXS_CPUID_X86(0x80000007, 0/*ecx*/, eax, ebx, ecx, edx);
         info->constant_tsc = LIBXS_CPUID_CHECK(edx, 0x00000100);
@@ -244,7 +244,7 @@ LIBXS_API_INTERN int libxs_cpuid_x86(libxs_cpuid_t* info)
   if (0 != libxs_verbosity /* library code is expected to be mute */
     && 1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED))
   {
-    fprintf(stderr, "LIBXS WARNING: libxs_cpuid_x86 called on non-x86 platform!\n");
+    fprintf(stderr, "LIBXS WARNING: internal_libxs_cpuid_x86 called on non-x86 platform!\n");
   }
 # endif
   if (NULL != info) memset(info, 0, sizeof(*info));
@@ -256,11 +256,11 @@ LIBXS_API_INTERN int libxs_cpuid_x86(libxs_cpuid_t* info)
 LIBXS_API int libxs_cpuid(libxs_cpuid_t* info)
 {
 #if defined(LIBXS_PLATFORM_X86)
-  return libxs_cpuid_x86(info);
+  return internal_libxs_cpuid_x86(info);
 #elif defined(LIBXS_PLATFORM_AARCH64)
-  return libxs_cpuid_arm(info);
+  return internal_libxs_cpuid_arm(info);
 #elif defined(LIBXS_PLATFORM_RV64)
-  return libxs_cpuid_rv64(info);
+  return internal_libxs_cpuid_rv64(info);
 #else
   if (NULL != info) memset(info, 0, sizeof(*info));
   return LIBXS_TARGET_ARCH_UNKNOWN;

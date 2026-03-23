@@ -200,7 +200,7 @@ LIBXS_API libxs_data_t libxs_mhd_typeinfo(const char elemname[])
 }
 
 
-LIBXS_API_INLINE int internal_mhd_readline(char buffer[], char split, size_t* key_end, size_t* value_begin)
+LIBXS_API_INLINE int internal_libxs_mhd_readline(char buffer[], char split, size_t* key_end, size_t* value_begin)
 {
   int result = EXIT_SUCCESS;
   char *const isplit = strchr(buffer, split);
@@ -246,7 +246,7 @@ LIBXS_API int libxs_mhd_read_header(const char header_filename[], size_t filenam
       *filename = 0;
     }
     while (0 != fgets(buffer, sizeof(buffer), file) && EXIT_SUCCESS == result &&
-      EXIT_SUCCESS == internal_mhd_readline(buffer, '=', &key_end, &value_begin))
+      EXIT_SUCCESS == internal_libxs_mhd_readline(buffer, '=', &key_end, &value_begin))
     {
       if (0 == strncmp("NDims", buffer, key_end)
         && key_end == strlen("NDims"))
@@ -310,7 +310,7 @@ LIBXS_API int libxs_mhd_read_header(const char header_filename[], size_t filenam
       {
         char* value = buffer + value_begin;
         size_t *isize = size, n = 0;
-        while (EXIT_SUCCESS == internal_mhd_readline(
+        while (EXIT_SUCCESS == internal_libxs_mhd_readline(
             value, ' ', &key_end, &value_begin)
           && n < info->ndims)
         {
@@ -484,7 +484,7 @@ LIBXS_API int libxs_mhd_element_comparison(void* dst, const libxs_mhd_element_ha
 
 
 /* coverity[var_deref_op] */
-LIBXS_API_INLINE int internal_mhd_minmax(const void* data, size_t nelements,
+LIBXS_API_INLINE int internal_libxs_mhd_minmax(const void* data, size_t nelements,
   libxs_data_t type, void* minval, void* maxval)
 {
   int result;
@@ -521,11 +521,11 @@ LIBXS_API_INLINE int internal_mhd_minmax(const void* data, size_t nelements,
 }
 
 
-LIBXS_API_INTERN int internal_mhd_read(FILE* /*file*/, void* /*data*/, const size_t /*size*/[], const size_t /*pitch*/[],
+LIBXS_API_INTERN int internal_libxs_mhd_read(FILE* /*file*/, void* /*data*/, const size_t /*size*/[], const size_t /*pitch*/[],
   size_t /*ndims*/, size_t /*ncomponents*/, libxs_data_t /*type_stored*/, size_t /*typesize*/,
   const libxs_mhd_element_handler_info_t* /*handler_info*/, libxs_mhd_element_handler_t /*handler*/,
   void* /*minval*/, void* /*maxval*/, int /*minmax*/);
-LIBXS_API_INTERN int internal_mhd_read(FILE* file, void* data, const size_t size[], const size_t pitch[],
+LIBXS_API_INTERN int internal_libxs_mhd_read(FILE* file, void* data, const size_t size[], const size_t pitch[],
   size_t ndims, size_t ncomponents, libxs_data_t type_stored, size_t typesize,
   const libxs_mhd_element_handler_info_t* handler_info, libxs_mhd_element_handler_t handler,
   void* minval, void* maxval, int minmax)
@@ -551,7 +551,7 @@ LIBXS_API_INTERN int internal_mhd_read(FILE* file, void* data, const size_t size
             }
           }
           for (i = 0; i < size[d] && EXIT_SUCCESS == result; ++i) {
-            result = internal_mhd_read(file, data, size, pitch, d, ncomponents,
+            result = internal_libxs_mhd_read(file, data, size, pitch, d, ncomponents,
               type_stored, typesize, handler_info, handler, minval, maxval, minmax);
             data = ((char*)data) + sub_size;
           }
@@ -578,7 +578,7 @@ LIBXS_API_INTERN int internal_mhd_read(FILE* file, void* data, const size_t size
               if (1 == fread(element, typesize_stored, 1, file)) {
                 if (NULL == handle_element) { /* determine value-range for scaled data-conversion */
                   LIBXS_ASSERT(0 != minmax);
-                  result = internal_mhd_minmax(element, 1/*n*/, type_stored, minval, maxval);
+                  result = internal_libxs_mhd_minmax(element, 1/*n*/, type_stored, minval, maxval);
                 }
                 else { /* re-read data incl. conversion */
                   LIBXS_ASSERT(0 == minmax);
@@ -649,7 +649,7 @@ LIBXS_API int libxs_mhd_read(const char filename[], const size_t offset[], const
           LIBXS_MEMCPY(minmax + (LIBXS_MHD_MAX_ELEMSIZE), minmax, typesize_stored);
           result = fseek(file, (long)header_size, SEEK_SET); /* reset file position */
           if (EXIT_SUCCESS == result) {
-            result = internal_mhd_read(file, NULL/*output*/, size, shape,
+            result = internal_libxs_mhd_read(file, NULL/*output*/, size, shape,
               ndims, ncomponents, type_stored, typesize, handler_info, handler,
               minmax, minmax + (LIBXS_MHD_MAX_ELEMSIZE), 1/*search min-max*/);
           }
@@ -660,7 +660,7 @@ LIBXS_API int libxs_mhd_read(const char filename[], const size_t offset[], const
         else result = EXIT_FAILURE;
       }
       if (EXIT_SUCCESS == result) {
-        result = internal_mhd_read(file, output, size, shape,
+        result = internal_libxs_mhd_read(file, output, size, shape,
           ndims, ncomponents, type_stored, typesize, handler_info, handler,
           minmax, minmax + (LIBXS_MHD_MAX_ELEMSIZE), 0/*use min-max*/);
       }
@@ -675,11 +675,11 @@ LIBXS_API int libxs_mhd_read(const char filename[], const size_t offset[], const
 }
 
 
-LIBXS_API_INTERN int internal_mhd_write(FILE* /*file*/, const void* /*data*/, const size_t /*size*/[], const size_t /*pitch*/[],
+LIBXS_API_INTERN int internal_libxs_mhd_write(FILE* /*file*/, const void* /*data*/, const size_t /*size*/[], const size_t /*pitch*/[],
   size_t /*ndims*/, size_t /*ncomponents*/, libxs_data_t /*type_data*/, size_t /*typesize_data*/,
   const libxs_mhd_element_handler_info_t* /*handler_info*/, libxs_mhd_element_handler_t /*handler*/,
   void* /*minval*/, void* /*maxval*/, int /*minmax*/);
-LIBXS_API_INTERN int internal_mhd_write(FILE* file, const void* data, const size_t size[], const size_t pitch[],
+LIBXS_API_INTERN int internal_libxs_mhd_write(FILE* file, const void* data, const size_t size[], const size_t pitch[],
   size_t ndims, size_t ncomponents, libxs_data_t type_data, size_t typesize_data,
   const libxs_mhd_element_handler_info_t* handler_info, libxs_mhd_element_handler_t handler,
   void* minval, void* maxval, int minmax)
@@ -703,7 +703,7 @@ LIBXS_API_INTERN int internal_mhd_write(FILE* file, const void* data, const size
             }
           }
           for (i = 0; i < size[d] && EXIT_SUCCESS == result; ++i) {
-            result = internal_mhd_write(file, data, size, pitch, d, ncomponents,
+            result = internal_libxs_mhd_write(file, data, size, pitch, d, ncomponents,
               type_data, typesize_data, handler_info, handler, minval, maxval, minmax);
             data = ((const char*)data) + sub_size;
           }
@@ -721,7 +721,7 @@ LIBXS_API_INTERN int internal_mhd_write(FILE* file, const void* data, const size
       else { /* data-conversion */
         if (0 != minmax) {
           /* determine value-range for scaled data-conversion */
-          result = internal_mhd_minmax(data, size[0] * ncomponents, type_data, minval, maxval);
+          result = internal_libxs_mhd_minmax(data, size[0] * ncomponents, type_data, minval, maxval);
         }
         else {
           const libxs_mhd_element_handler_t handle_element = (NULL == handler
@@ -827,13 +827,13 @@ LIBXS_API int libxs_mhd_write(const char filename[], const size_t offset[], cons
       { /* conversion needed */
         LIBXS_MEMCPY(minmax, data, typesize_data);
         LIBXS_MEMCPY(minmax + (LIBXS_MHD_MAX_ELEMSIZE), data, typesize_data); /* initial condition */
-        result = internal_mhd_write(file, input, size, shape, ndims, ncomponents, type_data, typesize_data,
+        result = internal_libxs_mhd_write(file, input, size, shape, ndims, ncomponents, type_data, typesize_data,
           handler_info, handler, minmax, minmax + (LIBXS_MHD_MAX_ELEMSIZE), 1/*search min-max*/);
       }
       if (EXIT_SUCCESS == result) {
         if (NULL != info) info->header_size = file_position;
         assert(file_position == ftell(file)); /* !LIBXS_ASSERT */
-        result = internal_mhd_write(file, input, size, shape, ndims, ncomponents, type_data, typesize_data,
+        result = internal_libxs_mhd_write(file, input, size, shape, ndims, ncomponents, type_data, typesize_data,
           handler_info, handler, minmax, minmax + (LIBXS_MHD_MAX_ELEMSIZE), 0/*use min-max*/);
       }
     }

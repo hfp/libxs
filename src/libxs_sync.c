@@ -28,8 +28,8 @@ LIBXS_API unsigned int libxs_pid(void)
 }
 
 
-LIBXS_API_INTERN unsigned int internal_get_tid(void);
-LIBXS_API_INTERN unsigned int internal_get_tid(void)
+LIBXS_API_INTERN unsigned int internal_libxs_get_tid(void);
+LIBXS_API_INTERN unsigned int internal_libxs_get_tid(void)
 {
   const unsigned int nthreads = LIBXS_ATOMIC_ADD_FETCH(&libxs_thread_count, 1, LIBXS_ATOMIC_RELAXED);
 #if !defined(NDEBUG)
@@ -53,7 +53,7 @@ LIBXS_API unsigned int libxs_tid(void)
   return (unsigned int)omp_get_thread_num();
 # else
   static LIBXS_TLS unsigned int tid = 0xFFFFFFFF;
-  if (0xFFFFFFFF == tid) tid = internal_get_tid();
+  if (0xFFFFFFFF == tid) tid = internal_libxs_get_tid();
   return tid;
 # endif
 #else
