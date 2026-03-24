@@ -171,12 +171,12 @@ LIBXS_API_INLINE int libxs_gemm_dispatch(
   const int ta = ('N' != transa && 'n' != transa);
   const int tb = ('N' != transb && 'n' != transb);
 #if defined(mkl_jit_create_dgemm)
-  { const MKL_TRANSPOSE cblas_ta = (ta ? 112 : 111);
-    const MKL_TRANSPOSE cblas_tb = (tb ? 112 : 111);
+  { const MKL_TRANSPOSE mkl_ta = (0 == ta ? MKL_NOTRANS : MKL_TRANS);
+    const MKL_TRANSPOSE mkl_tb = (0 == tb ? MKL_NOTRANS : MKL_TRANS);
     if (LIBXS_DATATYPE_F64 == datatype) {
       void* jitter = NULL;
-      const int status = mkl_cblas_jit_create_dgemm(&jitter,
-        MKL_COL_MAJOR, cblas_ta, cblas_tb, m, n, k,
+      const int status = mkl_jit_create_dgemm(&jitter,
+        MKL_COL_MAJOR, mkl_ta, mkl_tb, m, n, k,
         NULL != alpha ? *(const double*)alpha : 1.0, lda, ldb,
         NULL != beta ? *(const double*)beta : 0.0, ldc);
       if (MKL_JIT_SUCCESS == status) {
@@ -187,8 +187,8 @@ LIBXS_API_INLINE int libxs_gemm_dispatch(
     }
     else if (LIBXS_DATATYPE_F32 == datatype) {
       void* jitter = NULL;
-      const int status = mkl_cblas_jit_create_sgemm(&jitter,
-        MKL_COL_MAJOR, cblas_ta, cblas_tb, m, n, k,
+      const int status = mkl_jit_create_sgemm(&jitter,
+        MKL_COL_MAJOR, mkl_ta, mkl_tb, m, n, k,
         NULL != alpha ? *(const float*)alpha : 1.0f, lda, ldb,
         NULL != beta ? *(const float*)beta : 0.0f, ldc);
       if (MKL_JIT_SUCCESS == status) {
