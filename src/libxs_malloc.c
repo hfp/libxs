@@ -345,19 +345,19 @@ LIBXS_API void libxs_free(void* pointer)
   if (NULL != pointer) {
     internal_libxs_malloc_chunk_t *chunk;
     libxs_malloc_pool_t *pool;
-    { const void *const regval = (NULL != internal_libxs_malloc_registry)
-        ? libxs_registry_get(internal_libxs_malloc_registry, &pointer, sizeof(void*), NULL)
-        : NULL;
-      if (NULL != regval) {
-        chunk = *(internal_libxs_malloc_chunk_t* const*)regval;
-        libxs_registry_remove(internal_libxs_malloc_registry, &pointer, sizeof(void*), NULL);
-      }
-      else {
-        chunk = *(void**)((uintptr_t)pointer - sizeof(void*));
-      }
+    const void *const regval = (NULL != internal_libxs_malloc_registry)
+      ? libxs_registry_get(internal_libxs_malloc_registry, &pointer, sizeof(void*), NULL)
+      : NULL;
+    if (NULL != regval) {
+      chunk = *(internal_libxs_malloc_chunk_t* const*)regval;
+      libxs_registry_remove(internal_libxs_malloc_registry, &pointer, sizeof(void*), NULL);
     }
+    else {
+      chunk = *(void**)((uintptr_t)pointer - sizeof(void*));
+    }
+    LIBXS_ASSERT(NULL != chunk);
     pool = chunk->pool;
-    LIBXS_ASSERT(NULL != chunk && NULL != pool && NULL != pool->slots);
+    LIBXS_ASSERT(NULL != pool && NULL != pool->slots);
 #if defined(LIBXS_MALLOC_EVICT)
     if (NULL != chunk->pointer && LIBXS_MALLOC_EVICT_SIZE <= chunk->size) {
       const size_t total_bytes = LIBXS_ATOMIC(LIBXS_ATOMIC_LOAD, LIBXS_BITS)(&pool->pool_bytes, LIBXS_ATOMIC_RELAXED);
