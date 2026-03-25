@@ -17,6 +17,7 @@
 
 
 typedef struct ozaki_ocl_handle_t {
+  libxs_lock_t lock;
   ozaki_context_t ctx;
   libxstream_stream_t* stream;
 } ozaki_ocl_handle_t;
@@ -80,11 +81,13 @@ int ozaki_ocl_gemm(void* handle, char transa, char transb,
   int result = EXIT_FAILURE;
   ozaki_ocl_handle_t* h = (ozaki_ocl_handle_t*)handle;
   if (NULL != h) {
+    LIBXS_ATOMIC_ACQUIRE(&h->lock, LIBXS_SYNC_NPAUSE, LIBXS_ATOMIC_LOCKORDER);
     result = ozaki_gemm(&h->ctx, h->stream,
       transa, transb, M, N, K,
       alpha, a, lda, b, ldb, beta, c, ldc);
     /* BLAS API is synchronous: caller expects result in c upon return. */
     libxstream_stream_sync(h->stream);
+    LIBXS_ATOMIC_RELEASE(&h->lock, LIBXS_ATOMIC_LOCKORDER);
   }
   return result;
 }
