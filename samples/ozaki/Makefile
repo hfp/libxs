@@ -31,7 +31,7 @@ ifneq (,$(LIBXSTREAM))
   IFLAGS += -I$(call quote,$(LIBXSTREAMROOT)/include)
   IFLAGS += -I$(call quote,$(LIBXSTREAMROOT)/samples/ozaki)
   DFLAGS += -D__LIBXSTREAM
-  OCLOBJS := $(BLDDIR)/ozaki_ocl-c.o $(BLDDIR)/ozaki_opencl-c.o
+  OCLOBJS := $(BLDDIR)/ozaki_ocl-c.o $(BLDDIR)/ozaki_opencl-c.o $(BLDDIR)/ozaki_gemm-c.o
   SCRDIR := $(LIBXSTREAMROOT)/scripts
   OCLKERNELS := $(wildcard $(LIBXSTREAMROOT)/samples/ozaki/kernels/*.cl)
   OCLGENHDR := $(LIBXSTREAMROOT)/samples/ozaki/ozaki_kernels.h
@@ -148,13 +148,20 @@ ifneq (,$(OCLOBJS))
 $(OCLGENHDR): $(OCLKERNELS) $(SCRDIR)/tool_opencl.sh
 	$(SCRDIR)/tool_opencl.sh -p "" $(OCLKERNELS) $@
 
-$(OCLGENHDR_PROD): $(wildcard $(LIBXSTREAMROOT)/samples/ozaki/kernels/ozaki1_*_n*t*_tri.clx $(LIBXSTREAMROOT)/samples/ozaki/kernels/ozaki1_*_n*t*_sq.clx) $(OCLGENSCR_PROD)
+$(OCLGENHDR_PROD): $(wildcard $(LIBXSTREAMROOT)/samples/ozaki/kernels/ozaki1_*_n*t*_tri.clx \
+                              $(LIBXSTREAMROOT)/samples/ozaki/kernels/ozaki1_*_n*t*_sq.clx) \
+                   $(OCLGENSCR_PROD)
 	$(OCLGENSCR_PROD) -h $@
 
 $(BLDDIR)/ozaki_ocl-c.o: $(SRCDIR)/ozaki_ocl.c .state $(BLDDIR)/.make $(HEADERS) Makefile $(DEPDIR)/Makefile.inc
 	$(CC) -D__OPENCL $(DFLAGS) $(IFLAGS) $(CFLAGS) $(CTARGET) -c $< -o $@
 
-$(BLDDIR)/ozaki_opencl-c.o: $(LIBXSTREAMROOT)/samples/ozaki/ozaki_opencl.c $(OCLGENHDR) $(OCLGENHDR_PROD) .state $(BLDDIR)/.make $(HEADERS) Makefile $(DEPDIR)/Makefile.inc
+$(BLDDIR)/ozaki_opencl-c.o: $(LIBXSTREAMROOT)/samples/ozaki/ozaki_opencl.c \
+    $(OCLGENHDR) $(OCLGENHDR_PROD) .state $(BLDDIR)/.make $(HEADERS) Makefile $(DEPDIR)/Makefile.inc
+	$(CC) -D__OPENCL $(DFLAGS) $(IFLAGS) $(CFLAGS) $(CTARGET) -c $< -o $@
+
+$(BLDDIR)/ozaki_gemm-c.o: $(LIBXSTREAMROOT)/samples/ozaki/ozaki_gemm.c \
+    $(OCLGENHDR) $(OCLGENHDR_PROD) .state $(BLDDIR)/.make $(HEADERS) Makefile $(DEPDIR)/Makefile.inc
 	$(CC) -D__OPENCL $(DFLAGS) $(IFLAGS) $(CFLAGS) $(CTARGET) -c $< -o $@
 endif
 
