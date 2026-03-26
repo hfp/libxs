@@ -21,22 +21,28 @@ BLAS = $(if $(filter-out 0,$(OMP)),2,1)
 include $(DEPDIR)/Makefile.inc
 
 # root directory of LIBXSTREAM
-LIBXSTREAMROOT := $(wildcard $(DEPDIR)/../libxstream)
-LIBXSTREAM_SL := $(wildcard $(LIBXSTREAMROOT)/lib/libxstream.$(SLIBEXT))
-LIBXSTREAM_DL := $(wildcard $(LIBXSTREAMROOT)/lib/libxstream.$(DLIBEXT))
-LIBXSTREAM := $(wildcard $(LIBXSTREAMROOT)/lib/libxstream.$(LIBEXT))
-LIBXSTREAM := $(strip $(if $(LIBXSTREAM),$(LIBXSTREAM), \
-  $(if $(LIBXSTREAM_SL),$(LIBXSTREAM_SL),$(LIBXSTREAM_DL))))
-ifneq (,$(LIBXSTREAM))
-  IFLAGS += -I$(call quote,$(LIBXSTREAMROOT)/include)
-  IFLAGS += -I$(call quote,$(LIBXSTREAMROOT)/samples/ozaki)
-  DFLAGS += -D__LIBXSTREAM
-  OCLOBJS := $(BLDDIR)/ozaki_ocl-c.o $(BLDDIR)/ozaki_opencl-c.o $(BLDDIR)/ozaki_gemm-c.o
-  SCRDIR := $(LIBXSTREAMROOT)/scripts
-  OCLKERNELS := $(wildcard $(LIBXSTREAMROOT)/samples/ozaki/kernels/*.cl)
-  OCLGENHDR := $(LIBXSTREAMROOT)/samples/ozaki/ozaki_kernels.h
-  OCLGENHDR_PROD := $(LIBXSTREAMROOT)/samples/ozaki/ozaki_tinytc.h
-  OCLGENSCR_PROD := $(LIBXSTREAMROOT)/samples/ozaki/kernels/ozaki1.sh
+ifneq (0,$(OCL))
+ifneq (0,$(OPENCL))
+ifneq (0,$(LIBXSTREAM))
+  LIBXSTREAMROOT := $(wildcard $(DEPDIR)/../libxstream)
+  XSTREAM_SLIB := $(wildcard $(LIBXSTREAMROOT)/lib/libxstream.$(SLIBEXT))
+  XSTREAM_DLIB := $(wildcard $(LIBXSTREAMROOT)/lib/libxstream.$(DLIBEXT))
+  XSTREAM_LIB := $(wildcard $(LIBXSTREAMROOT)/lib/libxstream.$(LIBEXT))
+  XSTREAM_LIB := $(strip $(if $(XSTREAM_LIB),$(XSTREAM_LIB), \
+    $(if $(XSTREAM_SLIB),$(XSTREAM_SLIB),$(XSTREAM_DLIB))))
+  ifneq (,$(XSTREAM_LIB))
+    IFLAGS += -I$(call quote,$(LIBXSTREAMROOT)/include)
+    IFLAGS += -I$(call quote,$(LIBXSTREAMROOT)/samples/ozaki)
+    DFLAGS += -D__LIBXSTREAM
+    OCLOBJS := $(BLDDIR)/ozaki_ocl-c.o $(BLDDIR)/ozaki_opencl-c.o $(BLDDIR)/ozaki_gemm-c.o
+    SCRDIR := $(LIBXSTREAMROOT)/scripts
+    OCLKERNELS := $(wildcard $(LIBXSTREAMROOT)/samples/ozaki/kernels/*.cl)
+    OCLGENHDR := $(LIBXSTREAMROOT)/samples/ozaki/ozaki_kernels.h
+    OCLGENHDR_PROD := $(LIBXSTREAMROOT)/samples/ozaki/ozaki_tinytc.h
+    OCLGENSCR_PROD := $(LIBXSTREAMROOT)/samples/ozaki/kernels/ozaki1.sh
+  endif
+endif
+endif
 endif
 
 # oneDNN (DNNL) for int8 matmul acceleration
@@ -93,18 +99,18 @@ compile: $(OBJECTS)
 # Link recipe for static-wrap executables (handles OMP variants)
 ifneq (0,$(OMP))
   define LINK_WRAP
-	$(LD) -o $@ $< $(OUTDIR)/libwrap.$(SLIBEXT) $(LIBXSTREAM) $(XLIB) \
+	$(LD) -o $@ $< $(OUTDIR)/libwrap.$(SLIBEXT) $(XSTREAM_LIB) $(XLIB) \
 		$(SLDFLAGS) $(LDFLAGS) $(CLDFLAGS) $(WRAP_GEMM)
   endef
 else ifneq (,$(strip $(OMPLIB)))
   define LINK_WRAP
-	$(LD) -o $@ $< $(OUTDIR)/libwrap.$(SLIBEXT) $(LIBXSTREAM) $(XLIB) \
+	$(LD) -o $@ $< $(OUTDIR)/libwrap.$(SLIBEXT) $(XSTREAM_LIB) $(XLIB) \
 		$(SLDFLAGS) $(LDFLAGS) $(CLDFLAGS) $(WRAP_GEMM) \
 		$(XLIB_BEGIN) $(OMPLIB) $(XLIB_END)
   endef
 else
   define LINK_WRAP
-	$(LD) -o $@ $< $(OUTDIR)/libwrap.$(SLIBEXT) $(LIBXSTREAM) $(XLIB) \
+	$(LD) -o $@ $< $(OUTDIR)/libwrap.$(SLIBEXT) $(XSTREAM_LIB) $(XLIB) \
 		$(SLDFLAGS) $(LDFLAGS) $(CLDFLAGS) $(WRAP_GEMM)
   endef
 endif
@@ -113,24 +119,24 @@ ifneq (,$(WRAP_GEMM))
 $(OUTDIR)/libwrap.$(SLIBEXT): $(OUTDIR)/.make $(IMPLOBJS) $(OCLOBJS)
 	$(MAKE_AR) $@ $(call tailwords,$^)
 
-$(OUTDIR)/dgemm-wrap.x: $(BLDDIR)/gemm-dc.o $(OUTDIR)/libwrap.$(SLIBEXT) $(XLIB) $(LIBXSTREAM) $(OUTDIR)/.make
+$(OUTDIR)/dgemm-wrap.x: $(BLDDIR)/gemm-dc.o $(OUTDIR)/libwrap.$(SLIBEXT) $(XLIB) $(XSTREAM_LIB) $(OUTDIR)/.make
 	$(LINK_WRAP)
 
-$(OUTDIR)/sgemm-wrap.x: $(BLDDIR)/gemm-sc.o $(OUTDIR)/libwrap.$(SLIBEXT) $(XLIB) $(LIBXSTREAM) $(OUTDIR)/.make
+$(OUTDIR)/sgemm-wrap.x: $(BLDDIR)/gemm-sc.o $(OUTDIR)/libwrap.$(SLIBEXT) $(XLIB) $(XSTREAM_LIB) $(OUTDIR)/.make
 	$(LINK_WRAP)
 
 .PHONY: $(OUTDIR)/libwrap.$(DLIBEXT)
 .PHONY: $(OUTDIR)/dgemm-blas.x $(OUTDIR)/sgemm-blas.x
 else
-$(OUTDIR)/libwrap.$(DLIBEXT): $(IMPLOBJS) $(ENTRYOBJS) $(OCLOBJS) $(XLIB) $(LIBXSTREAM) $(OUTDIR)/.make
+$(OUTDIR)/libwrap.$(DLIBEXT): $(IMPLOBJS) $(ENTRYOBJS) $(OCLOBJS) $(XLIB) $(XSTREAM_LIB) $(OUTDIR)/.make
 	$(LIB_SOLD) $(call solink,$@) $(IMPLOBJS) $(ENTRYOBJS) $(OCLOBJS) \
-		$(XLIB) $(LIBXSTREAM) $(XLIB) $(call cleanld,$(LDFLAGS) $(CLDFLAGS))
+		$(XLIB) $(XSTREAM_LIB) $(XLIB) $(call cleanld,$(LDFLAGS) $(CLDFLAGS))
 
-$(OUTDIR)/dgemm-blas.x: $(BLDDIR)/gemm-dc.o $(BLDDIR)/gemm-print-d.o $(OUTDIR)/libwrap.$(DLIBEXT) $(XLIB) $(LIBXSTREAM) $(OUTDIR)/.make
-	$(LD) -o $@ $(BLDDIR)/gemm-dc.o $(BLDDIR)/gemm-print-d.o $(XLIB) $(LIBXSTREAM) $(SLDFLAGS) $(LDFLAGS) $(CLDFLAGS)
+$(OUTDIR)/dgemm-blas.x: $(BLDDIR)/gemm-dc.o $(BLDDIR)/gemm-print-d.o $(OUTDIR)/libwrap.$(DLIBEXT) $(XLIB) $(XSTREAM_LIB) $(OUTDIR)/.make
+	$(LD) -o $@ $(BLDDIR)/gemm-dc.o $(BLDDIR)/gemm-print-d.o $(XLIB) $(XSTREAM_LIB) $(SLDFLAGS) $(LDFLAGS) $(CLDFLAGS)
 
-$(OUTDIR)/sgemm-blas.x: $(BLDDIR)/gemm-sc.o $(BLDDIR)/gemm-print-s.o $(OUTDIR)/libwrap.$(DLIBEXT) $(XLIB) $(LIBXSTREAM) $(OUTDIR)/.make
-	$(LD) -o $@ $(BLDDIR)/gemm-sc.o $(BLDDIR)/gemm-print-s.o $(XLIB) $(LIBXSTREAM) $(SLDFLAGS) $(LDFLAGS) $(CLDFLAGS)
+$(OUTDIR)/sgemm-blas.x: $(BLDDIR)/gemm-sc.o $(BLDDIR)/gemm-print-s.o $(OUTDIR)/libwrap.$(DLIBEXT) $(XLIB) $(XSTREAM_LIB) $(OUTDIR)/.make
+	$(LD) -o $@ $(BLDDIR)/gemm-sc.o $(BLDDIR)/gemm-print-s.o $(XLIB) $(XSTREAM_LIB) $(SLDFLAGS) $(LDFLAGS) $(CLDFLAGS)
 
 .PHONY: $(OUTDIR)/libwrap.$(SLIBEXT)
 .PHONY: $(OUTDIR)/dgemm-wrap.x $(OUTDIR)/sgemm-wrap.x
@@ -142,7 +148,7 @@ $(BLDDIR)/%-dc.o: $(SRCDIR)/%.c .state $(BLDDIR)/.make $(HEADERS) Makefile $(DEP
 $(BLDDIR)/%-sc.o: $(SRCDIR)/%.c .state $(BLDDIR)/.make $(HEADERS) Makefile $(DEPDIR)/Makefile.inc
 	$(CC) -DGEMM_REAL_TYPE=float $(DFLAGS) $(IFLAGS) $(CFLAGS) $(CTARGET) -c $< -o $@
 
-# OpenCL sources need __OPENCL for LIBXSTREAM OpenCL headers
+# OpenCL sources need __OPENCL for XSTREAM_LIB OpenCL headers
 ifneq (,$(OCLOBJS))
 # Generate embedded kernel header from .cl sources
 $(OCLGENHDR): $(OCLKERNELS) $(SCRDIR)/tool_opencl.sh

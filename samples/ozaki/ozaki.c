@@ -165,7 +165,7 @@ LIBXS_API_INTERN LIBXS_ATTRIBUTE_WEAK void GEMM_WRAP(const char* transa, const c
       }
       ozaki_target_arch = libxs_cpuid(NULL);
 #if defined(__LIBXSTREAM)
-      /* Initialize OpenCL Ozaki context (schemes 1, 2, and 3). */
+      /* initialize OpenCL Ozaki context */
       if (0 != ozaki_ocl && (0 < ozaki && 2 >= ozaki)) {
         const int ocl_tm = (NULL != ozaki_tm_env ? atoi(ozaki_tm_env) : 0);
         const int ocl_tn = (NULL != ozaki_tn_env ? atoi(ozaki_tn_env) : 0);
