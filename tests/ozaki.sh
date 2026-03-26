@@ -9,6 +9,8 @@ set -eo pipefail
 
 HERE=$(cd "$(dirname "$0")" && pwd -P)
 
+export OZAKI_THRESHOLD=0
+
 cd "${HERE}/../samples/ozaki"
 ./test-check.sh gemm
 ./test-check.sh gemm  16  20 350 1 0  1 0.0 350 350 1000

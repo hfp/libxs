@@ -99,15 +99,20 @@ LIBXS_API_INTERN LIBXS_ATTRIBUTE_WEAK void GEMM_WRAP(const char* transa, const c
   const GEMM_REAL_TYPE*  beta, GEMM_REAL_TYPE* c, const GEMM_INT_TYPE* ldc)
 {
   static volatile int gemm_initialized = 0;
+  static int gemm_threshold = 0;
   LIBXS_ASSERT(NULL != lda && NULL != ldb && NULL != ldc);
   LIBXS_ASSERT(NULL != a && NULL != b && NULL != c);
   LIBXS_ASSERT(NULL != m && NULL != n && NULL != k);
   LIBXS_ASSERT(NULL != transa && NULL != transb);
 
   if (0 == gemm_initialized) {
+    const char *const ozaki_env = getenv("OZAKI");
     LIBXS_ATOMIC_ACQUIRE(&gemm_lock, LIBXS_SYNC_NPAUSE, LIBXS_ATOMIC_LOCKORDER);
+    ozaki = (NULL == ozaki_env ? 1/*default*/ : atoi(ozaki_env));
+    if (0 == ozaki) gemm_initialized = 1;
     if (0 == gemm_initialized) {
       const union { uint32_t raw; float value; } inf = { 0x7F800000U };
+      const char *const threshold_env = getenv("OZAKI_THRESHOLD");
       const char *const ozaki_stat_env = getenv("OZAKI_STAT");
       const char *const ozaki_exit_env = getenv("OZAKI_EXIT");
       const char *const ozaki_verbose_env = getenv("OZAKI_VERBOSE");
@@ -116,7 +121,6 @@ LIBXS_API_INTERN LIBXS_ATTRIBUTE_WEAK void GEMM_WRAP(const char* transa, const c
       const char *const ozaki_eps_env = getenv("OZAKI_EPS");
       const char *const ozaki_rsq_env = getenv("OZAKI_RSQ");
       const char *const ozaki_n_env = getenv("OZAKI_N");
-      const char *const ozaki_env = getenv("OZAKI");
 #if defined(__LIBXSTREAM)
       const char *const ozaki_ocl_env = getenv("OZAKI_OCL");
       const char *const ozaki_tm_env = getenv("OZAKI_TM");
@@ -125,11 +129,18 @@ LIBXS_API_INTERN LIBXS_ATTRIBUTE_WEAK void GEMM_WRAP(const char* transa, const c
       const int ozaki_ocl = (NULL == ozaki_ocl_env ? 1/*default*/ : atoi(ozaki_ocl_env));
 #endif
       libxs_init(); /*libxs_malloc_pool()*/
-      gemm_pool = libxs_malloc_pool(NULL, NULL);
       libxs_matdiff_clear(&gemm_diff);
+      gemm_pool = libxs_malloc_pool(NULL, NULL);
+      /* consider threshold measured as arithmetic intensity */
+      gemm_threshold = (NULL == threshold_env
+#if defined(NDEBUG)
+        ? 12/*default*/
+#else
+        ? 0/*default*/
+#endif
+        : atoi(threshold_env));
       ozaki_flags = (NULL == ozaki_flags_env ? OZ1_DEFAULT : atoi(ozaki_flags_env));
       ozaki_trim = (NULL == ozaki_trim_env ? 0/*exact*/ : atoi(ozaki_trim_env));
-      ozaki = (NULL == ozaki_env ? 1/*default*/ : atoi(ozaki_env));
       ozaki_exit = (NULL == ozaki_exit_env ? 1/*default*/ : atoi(ozaki_exit_env));
       if (NULL != ozaki_stat_env) ozaki_stat = atoi(ozaki_stat_env);
       if (NULL != ozaki_verbose_env) ozaki_verbose = atoi(ozaki_verbose_env);
@@ -173,29 +184,42 @@ LIBXS_API_INTERN LIBXS_ATTRIBUTE_WEAK void GEMM_WRAP(const char* transa, const c
   }
   LIBXS_ASSERT(0 != gemm_initialized);
 
+  { /* consider threshold */
+    int run_ozaki = 0;
+    if (0 != ozaki) {
+      const size_t size = (size_t)(*m) * (*k) + (*k) * (*n) + (*m) * (*n);
+      const size_t flops = (size_t)(*m) * (*n) * (*k) * 2;
+      const size_t bytes = sizeof(GEMM_REAL_TYPE) * size;
+      if ((bytes * LIBXS_MAX(gemm_threshold, 0)) <= flops) {
+        run_ozaki = ozaki;
+      }
+    }
+    if (0 != run_ozaki) {
 #if defined(__LIBXSTREAM)
-  if (NULL != ozaki_ocl_handle) {
-    OZAKI_GEMM_WRAPPER(gemm_oz_ocl_diff)
-  }
-  else
+      if (NULL != ozaki_ocl_handle) {
+        OZAKI_GEMM_WRAPPER(gemm_oz_ocl_diff)
+      }
+      else
 #endif
-  if (1 == ozaki) { /* slice-based LP-GEMM (Scheme 1, default) */
-    gemm_oz1(transa, transb, m, n, k, alpha, a, lda, b, ldb, beta, c, ldc);
-  }
-  else if (2 == ozaki) { /* CRT-based LP-GEMM (Scheme 2) */
-    gemm_oz2(transa, transb, m, n, k, alpha, a, lda, b, ldb, beta, c, ldc);
-  }
-  else { /* only run original GEMM right away */
-    if (NULL != gemm_original) {
-      gemm_original(transa, transb, m, n, k, alpha, a, lda, b, ldb, beta, c, ldc);
+      if (1 == run_ozaki) { /* slice-based LP-GEMM (Scheme 1, default) */
+        gemm_oz1(transa, transb, m, n, k, alpha, a, lda, b, ldb, beta, c, ldc);
+      }
+      else /*if (2 == run_ozaki)*/ { /* CRT-based LP-GEMM (Scheme 2) */
+        gemm_oz2(transa, transb, m, n, k, alpha, a, lda, b, ldb, beta, c, ldc);
+      }
     }
-    else {
-      GEMM_REAL(transa, transb, m, n, k, alpha, a, lda, b, ldb, beta, c, ldc);
-    }
-    if (0 != ozaki_verbose) {
-      LIBXS_ATOMIC_ACQUIRE(&gemm_lock, LIBXS_SYNC_NPAUSE, LIBXS_ATOMIC_LOCKORDER);
-      ++gemm_diff.r;
-      LIBXS_ATOMIC_RELEASE(&gemm_lock, LIBXS_ATOMIC_LOCKORDER);
+    else { /* only run original GEMM right away */
+      if (NULL != gemm_original) {
+        gemm_original(transa, transb, m, n, k, alpha, a, lda, b, ldb, beta, c, ldc);
+      }
+      else {
+        GEMM_REAL(transa, transb, m, n, k, alpha, a, lda, b, ldb, beta, c, ldc);
+      }
+      if (0 != ozaki_verbose) {
+        LIBXS_ATOMIC_ACQUIRE(&gemm_lock, LIBXS_SYNC_NPAUSE, LIBXS_ATOMIC_LOCKORDER);
+        ++gemm_diff.r;
+        LIBXS_ATOMIC_RELEASE(&gemm_lock, LIBXS_ATOMIC_LOCKORDER);
+      }
     }
   }
 }
