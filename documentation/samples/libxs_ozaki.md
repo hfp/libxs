@@ -48,6 +48,19 @@ Intercepted ZGEMM (double-complex) and CGEMM (single-complex) calls are implemen
 
 The real and imaginary parts of the product are recovered as Re(A*B) = P1 - P2 and Im(A*B) = P3 - P1 - P2. Complex alpha/beta scaling is applied in a final pass. The three real GEMM calls flow through the same wrapper, so they are optionally accelerated by the Ozaki scheme as well.
 
+### GPU-Native 3M (LIBXSTREAM Integration)
+
+When built with LIBXSTREAM support and `OZAKI_OCL=1` (default), the 3M method automatically uses a **GPU-native path** that keeps all intermediate buffers on device:
+
+1. Upload complex A, B, C once (interleaved format)
+2. Deinterleave on-device → Ar, Ai, Br, Bi
+3. Compute temporaries on-device → Ta = Ar+Ai, Tb = Br+Bi
+4. Three Ozaki GEMMs on device (reuse all GPU optimizations)
+5. Recombine on-device with complex alpha/beta
+6. Download result C once
+
+This reduces PCIe transfers from **6 (3 input + 3 output)** to **2 (1 input + 1 output)** compared to calling the CPU-based 3M wrapper three times. The GPU path is transparent — if 3M kernels fail to compile or `OZAKI_OCL=0`, it falls back to the CPU implementation automatically.
+
 ## Scheme 1 Flags (`OZAKI_FLAGS`) and Diagonal Trim (`OZAKI_TRIM`)
 
 The Scheme1 loop is controlled by two runtime knobs:

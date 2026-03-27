@@ -140,93 +140,115 @@ LIBXS_API_INLINE void zgemm3m_finalize(
  * All complex matrices are in standard BLAS interleaved format:
  * element (i,j) occupies a[2*(i + j*lda)] (real) and a[2*(i + j*lda)+1] (imag).
  * The alpha and beta arguments each point to 2 consecutive GEMM_REAL_TYPE values.
+ *
+ * GPU-aware: when OpenCL is available and 3M kernels are compiled, this
+ * function delegates to the GPU-native 3M path which keeps all intermediate
+ * buffers on device, reducing PCIe transfers from 6 (3 in + 3 out) to 2.
  */
 LIBXS_API_INTERN void zgemm3m(GEMM_ARGDECL)
 {
-  const GEMM_INT_TYPE M = *m, N = *n, K = *k;
-  const int ta = (*transa != 'N' && *transa != 'n');
-  const int tb = (*transb != 'N' && *transb != 'n');
-
-  /* Physical (stored) dimensions of A and B */
-  const GEMM_INT_TYPE a_rows = ta ? K : M;
-  const GEMM_INT_TYPE a_cols = ta ? M : K;
-  const GEMM_INT_TYPE b_rows = tb ? N : K;
-  const GEMM_INT_TYPE b_cols = tb ? K : N;
-
-  /* Complex alpha = ar + i*ai, beta = br + i*bi */
-  const GEMM_REAL_TYPE ar = alpha[0], ai = alpha[1];
-  const GEMM_REAL_TYPE br = beta[0],  bi = beta[1];
-
-  /* Workspace: split Re/Im for A, B, and three products + temporaries */
-  const size_t sz_a = (size_t)a_rows * a_cols;
-  const size_t sz_b = (size_t)b_rows * b_cols;
-  const size_t sz_c = (size_t)M * N;
-  /* Ar, Ai, Br, Bi, Ta (=Ar+Ai), Tb (=Br+Bi), P1, P2, P3 */
-  GEMM_REAL_TYPE* workspace = (GEMM_REAL_TYPE*)libxs_malloc(
-    gemm_pool, sizeof(GEMM_REAL_TYPE) * (3 * sz_a + 3 * sz_b + 3 * sz_c), 0/*auto*/);
-  if (NULL == workspace) {
-    fprintf(stderr, "zgemm3m: allocation failed (m=%i, n=%i, k=%i)\n",
-      (int)M, (int)N, (int)K);
+#if defined(__LIBXSTREAM)
+  /* Try GPU-native 3M path if OpenCL is available and 3M kernels are compiled */
+  if (NULL != ozaki_ocl_handle && ozaki_ocl_supports_zgemm3m(ozaki_ocl_handle))
+  {
+    double alpha_d[2], beta_d[2];
+    int result;
+    alpha_d[0] = (double)alpha[0]; alpha_d[1] = (double)alpha[1];
+    beta_d[0]  = (double)beta[0];  beta_d[1]  = (double)beta[1];
+    result = ozaki_ocl_zgemm3m(ozaki_ocl_handle,
+      *transa, *transb, *m, *n, *k,
+      alpha_d, a, *lda, b, *ldb, beta_d, c, *ldc);
+    if (EXIT_SUCCESS == result) return;
+    /* Fall through to CPU path on failure */
   }
-  else
-  { GEMM_REAL_TYPE *const ar_buf = workspace;
-    GEMM_REAL_TYPE *const ai_buf = ar_buf + sz_a;
-    GEMM_REAL_TYPE *const br_buf = ai_buf + sz_a;
-    GEMM_REAL_TYPE *const bi_buf = br_buf + sz_b;
-    GEMM_REAL_TYPE *const ta_buf = bi_buf + sz_b; /* Ar + Ai */
-    GEMM_REAL_TYPE *const tb_buf = ta_buf + sz_a; /* Br + Bi */
-    GEMM_REAL_TYPE *const p1     = tb_buf + sz_b; /* Ar * Br */
-    GEMM_REAL_TYPE *const p2     = p1 + sz_c;     /* Ai * Bi */
-    GEMM_REAL_TYPE *const p3     = p2 + sz_c;     /* (Ar+Ai) * (Br+Bi) */
-    const GEMM_REAL_TYPE one = 1, zero = 0;
-    const GEMM_INT_TYPE lda_ri = a_rows;
-    const GEMM_INT_TYPE ldb_ri = b_rows;
-    const GEMM_INT_TYPE ldc_ri = M;
+#endif
 
-    /* 1. Deinterleave A and B into split real/imaginary */
-    zgemm3m_deinterleave(a, *lda, ar_buf, ai_buf, lda_ri, a_rows, a_cols);
-    zgemm3m_deinterleave(b, *ldb, br_buf, bi_buf, ldb_ri, b_rows, b_cols);
+  { /* CPU-based 3M path (original implementation) */
+    const GEMM_INT_TYPE M = *m, N = *n, K = *k;
+    const int ta = (*transa != 'N' && *transa != 'n');
+    const int tb = (*transb != 'N' && *transb != 'n');
 
-    /* 2. Form temporaries: Ta = Ar + Ai, Tb = Br + Bi */
-    zgemm3m_matadd(ta_buf, lda_ri, ar_buf, lda_ri, ai_buf, lda_ri, a_rows, a_cols);
-    zgemm3m_matadd(tb_buf, ldb_ri, br_buf, ldb_ri, bi_buf, ldb_ri, b_rows, b_cols);
+    /* Physical (stored) dimensions of A and B */
+    const GEMM_INT_TYPE a_rows = ta ? K : M;
+    const GEMM_INT_TYPE a_cols = ta ? M : K;
+    const GEMM_INT_TYPE b_rows = tb ? N : K;
+    const GEMM_INT_TYPE b_cols = tb ? K : N;
 
-    /* 3. Three real GEMM calls (Karatsuba)
-     *    P1 = Ar * Br
-     *    P2 = Ai * Bi
-     *    P3 = (Ar + Ai) * (Br + Bi) */
-    GEMM(transa, transb, &M, &N, &K, &one, ar_buf, &lda_ri,
-                                           br_buf, &ldb_ri,
-                                     &zero, p1,    &ldc_ri);
-    GEMM(transa, transb, &M, &N, &K, &one, ai_buf, &lda_ri,
-                                           bi_buf, &ldb_ri,
-                                     &zero, p2,    &ldc_ri);
-    GEMM(transa, transb, &M, &N, &K, &one, ta_buf, &lda_ri,
-                                           tb_buf, &ldb_ri,
-                                     &zero, p3,    &ldc_ri);
+    /* Complex alpha = ar + i*ai, beta = br + i*bi */
+    const GEMM_REAL_TYPE ar = alpha[0], ai = alpha[1];
+    const GEMM_REAL_TYPE br = beta[0],  bi = beta[1];
 
-    /* 4. Recover complex product components
-     *    Re(A*B) = P1 - P2           (stored in p1)
-     *    Im(A*B) = P3 - P1 - P2     (stored in p3)
-     *    First: p3 = p3 - p1 - p2 (Im part) */
-    { GEMM_INT_TYPE i, j;
-      for (j = 0; j < N; ++j) {
-        for (i = 0; i < M; ++i) {
-          const size_t idx = i + (size_t)j * ldc_ri;
-          const GEMM_REAL_TYPE v1 = p1[idx];
-          const GEMM_REAL_TYPE v2 = p2[idx];
-          const GEMM_REAL_TYPE v3 = p3[idx];
-          p1[idx] = v1 - v2;          /* Re(A*B) */
-          p3[idx] = v3 - v1 - v2;     /* Im(A*B) */
+    /* Workspace: split Re/Im for A, B, and three products + temporaries */
+    const size_t sz_a = (size_t)a_rows * a_cols;
+    const size_t sz_b = (size_t)b_rows * b_cols;
+    const size_t sz_c = (size_t)M * N;
+    /* Ar, Ai, Br, Bi, Ta (=Ar+Ai), Tb (=Br+Bi), P1, P2, P3 */
+    GEMM_REAL_TYPE* workspace = (GEMM_REAL_TYPE*)libxs_malloc(
+      gemm_pool, sizeof(GEMM_REAL_TYPE) * (3 * sz_a + 3 * sz_b + 3 * sz_c), 0/*auto*/);
+    if (NULL == workspace) {
+      fprintf(stderr, "zgemm3m: allocation failed (m=%i, n=%i, k=%i)\n",
+        (int)M, (int)N, (int)K);
+    }
+    else
+    { GEMM_REAL_TYPE *const ar_buf = workspace;
+      GEMM_REAL_TYPE *const ai_buf = ar_buf + sz_a;
+      GEMM_REAL_TYPE *const br_buf = ai_buf + sz_a;
+      GEMM_REAL_TYPE *const bi_buf = br_buf + sz_b;
+      GEMM_REAL_TYPE *const ta_buf = bi_buf + sz_b; /* Ar + Ai */
+      GEMM_REAL_TYPE *const tb_buf = ta_buf + sz_a; /* Br + Bi */
+      GEMM_REAL_TYPE *const p1     = tb_buf + sz_b; /* Ar * Br */
+      GEMM_REAL_TYPE *const p2     = p1 + sz_c;     /* Ai * Bi */
+      GEMM_REAL_TYPE *const p3     = p2 + sz_c;     /* (Ar+Ai) * (Br+Bi) */
+      const GEMM_REAL_TYPE one = 1, zero = 0;
+      const GEMM_INT_TYPE lda_ri = a_rows;
+      const GEMM_INT_TYPE ldb_ri = b_rows;
+      const GEMM_INT_TYPE ldc_ri = M;
+
+      /* 1. Deinterleave A and B into split real/imaginary */
+      zgemm3m_deinterleave(a, *lda, ar_buf, ai_buf, lda_ri, a_rows, a_cols);
+      zgemm3m_deinterleave(b, *ldb, br_buf, bi_buf, ldb_ri, b_rows, b_cols);
+
+      /* 2. Form temporaries: Ta = Ar + Ai, Tb = Br + Bi */
+      zgemm3m_matadd(ta_buf, lda_ri, ar_buf, lda_ri, ai_buf, lda_ri, a_rows, a_cols);
+      zgemm3m_matadd(tb_buf, ldb_ri, br_buf, ldb_ri, bi_buf, ldb_ri, b_rows, b_cols);
+
+      /* 3. Three real GEMM calls (Karatsuba)
+       *    P1 = Ar * Br
+       *    P2 = Ai * Bi
+       *    P3 = (Ar + Ai) * (Br + Bi) */
+      GEMM(transa, transb, &M, &N, &K, &one, ar_buf, &lda_ri,
+                                             br_buf, &ldb_ri,
+                                       &zero, p1,    &ldc_ri);
+      GEMM(transa, transb, &M, &N, &K, &one, ai_buf, &lda_ri,
+                                             bi_buf, &ldb_ri,
+                                       &zero, p2,    &ldc_ri);
+      GEMM(transa, transb, &M, &N, &K, &one, ta_buf, &lda_ri,
+                                             tb_buf, &ldb_ri,
+                                       &zero, p3,    &ldc_ri);
+
+      /* 4. Recover complex product components
+       *    Re(A*B) = P1 - P2           (stored in p1)
+       *    Im(A*B) = P3 - P1 - P2     (stored in p3)
+       *    First: p3 = p3 - p1 - p2 (Im part) */
+      { GEMM_INT_TYPE i, j;
+        for (j = 0; j < N; ++j) {
+          for (i = 0; i < M; ++i) {
+            const size_t idx = i + (size_t)j * ldc_ri;
+            const GEMM_REAL_TYPE v1 = p1[idx];
+            const GEMM_REAL_TYPE v2 = p2[idx];
+            const GEMM_REAL_TYPE v3 = p3[idx];
+            p1[idx] = v1 - v2;          /* Re(A*B) */
+            p3[idx] = v3 - v1 - v2;     /* Im(A*B) */
+          }
         }
       }
+
+      /* 5. Apply complex alpha/beta and write back to interleaved C */
+      zgemm3m_finalize(c, *ldc, p1, p3, ldc_ri, M, N, ar, ai, br, bi);
     }
 
-    /* 5. Apply complex alpha/beta and write back to interleaved C */
-    zgemm3m_finalize(c, *ldc, p1, p3, ldc_ri, M, N, ar, ai, br, bi);
-  }
-
-  libxs_free(workspace);
+    libxs_free(workspace);
+  } /* end CPU path */
 }
 
 

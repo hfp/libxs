@@ -93,6 +93,39 @@ int ozaki_ocl_gemm(void* handle, char transa, char transb,
 }
 
 
+int ozaki_ocl_zgemm3m(void* handle, char transa, char transb,
+  int M, int N, int K,
+  const double* alpha, const void* a, int lda,
+  const void* b, int ldb,
+  const double* beta, void* c, int ldc)
+{
+  int result = EXIT_FAILURE;
+  ozaki_ocl_handle_t* h = (ozaki_ocl_handle_t*)handle;
+  if (NULL != h) {
+    LIBXS_ATOMIC_ACQUIRE(&h->lock, LIBXS_SYNC_NPAUSE, LIBXS_ATOMIC_LOCKORDER);
+    result = ozaki_zgemm3m(&h->ctx, h->stream,
+      transa, transb, M, N, K,
+      alpha, a, lda, b, ldb, beta, c, ldc);
+    /* BLAS API is synchronous: caller expects result in c upon return. */
+    libxstream_stream_sync(h->stream);
+    LIBXS_ATOMIC_RELEASE(&h->lock, LIBXS_ATOMIC_LOCKORDER);
+  }
+  return result;
+}
+
+
+int ozaki_ocl_supports_zgemm3m(void* handle)
+{
+  const ozaki_ocl_handle_t* h = (const ozaki_ocl_handle_t*)handle;
+  if (NULL != h && NULL != h->ctx.kern_zgemm3m_deinterleave
+      && NULL != h->ctx.kern_zgemm3m_matadd
+      && NULL != h->ctx.kern_zgemm3m_finalize) {
+    return 1;
+  }
+  return 0;
+}
+
+
 void ozaki_ocl_finalize(void) {
   libxstream_finalize();
 }

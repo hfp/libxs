@@ -34,7 +34,11 @@ ifneq (0,$(LIBXSTREAM))
     IFLAGS += -I$(call quote,$(LIBXSTREAMROOT)/include)
     IFLAGS += -I$(call quote,$(LIBXSTREAMROOT)/samples/ozaki)
     DFLAGS += -D__LIBXSTREAM
-    OCLOBJS := $(BLDDIR)/ozaki_ocl-c.o $(BLDDIR)/ozaki_opencl-c.o $(BLDDIR)/ozaki_gemm-c.o
+    OCLOBJS := $(BLDDIR)/ozaki_ocl-c.o \
+               $(BLDDIR)/ozaki_opencl-c.o \
+               $(BLDDIR)/ozaki_gemm-c.o \
+               $(BLDDIR)/ozaki_zgemm-c.o \
+               $(NULL)
     SCRDIR := $(LIBXSTREAMROOT)/scripts
     OCLKERNELS := $(wildcard $(LIBXSTREAMROOT)/samples/ozaki/kernels/*.cl)
     OCLGENHDR := $(LIBXSTREAMROOT)/samples/ozaki/ozaki_kernels.h
@@ -75,7 +79,12 @@ HEADERS := $(wildcard $(INCDIR)/*.h) $(wildcard $(SRCDIR)/*.h)
 # Driver source (compiled for each precision)
 CSOURCS := $(SRCDIR)/gemm.c
 # Implementation sources: _WRAP + support (compiled for each precision)
-IMPLSRCS := $(SRCDIR)/$(OUTNAME).c $(SRCDIR)/ozaki1_int8.c $(SRCDIR)/ozaki2_int8.c $(SRCDIR)/zgemm3m.c $(SRCDIR)/gemm-print.c
+IMPLSRCS := $(SRCDIR)/$(OUTNAME).c \
+            $(SRCDIR)/ozaki1_int8.c \
+            $(SRCDIR)/ozaki2_int8.c \
+            $(SRCDIR)/zgemm3m.c \
+            $(SRCDIR)/gemm-print.c \
+            $(NULL)
 # Entry/dlsym source: _REAL + entry points (LD_PRELOAD path only)
 ENTRYSRCS := $(SRCDIR)/wrap.c
 COBJCTS_D := $(patsubst $(SRCDIR)/%.c,$(BLDDIR)/%-dc.o,$(CSOURCS))
@@ -167,6 +176,10 @@ $(BLDDIR)/ozaki_opencl-c.o: $(LIBXSTREAMROOT)/samples/ozaki/ozaki_opencl.c \
 	$(CC) -D__OPENCL $(DFLAGS) $(IFLAGS) $(CFLAGS) $(CTARGET) -c $< -o $@
 
 $(BLDDIR)/ozaki_gemm-c.o: $(LIBXSTREAMROOT)/samples/ozaki/ozaki_gemm.c \
+    $(OCLGENHDR) $(OCLGENHDR_PROD) .state $(BLDDIR)/.make $(HEADERS) Makefile $(DEPDIR)/Makefile.inc
+	$(CC) -D__OPENCL $(DFLAGS) $(IFLAGS) $(CFLAGS) $(CTARGET) -c $< -o $@
+
+$(BLDDIR)/ozaki_zgemm-c.o: $(LIBXSTREAMROOT)/samples/ozaki/ozaki_zgemm.c \
     $(OCLGENHDR) $(OCLGENHDR_PROD) .state $(BLDDIR)/.make $(HEADERS) Makefile $(DEPDIR)/Makefile.inc
 	$(CC) -D__OPENCL $(DFLAGS) $(IFLAGS) $(CFLAGS) $(CTARGET) -c $< -o $@
 endif
