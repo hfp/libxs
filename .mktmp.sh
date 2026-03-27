@@ -5,7 +5,6 @@
 # For information on the license, see the LICENSE file.                       #
 # SPDX-License-Identifier: BSD-3-Clause                                       #
 ###############################################################################
-
 MKTEMP=$(command -v mktemp)
 MV=$(command -v mv)
 
