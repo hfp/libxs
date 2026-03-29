@@ -31,8 +31,8 @@ void* ozaki_ocl_create(int use_double, int kind, int verbosity,
   int ndevices = 0;
   if (EXIT_SUCCESS == libxstream_init()
       && EXIT_SUCCESS == libxstream_device_count(&ndevices)
-      && 0 < ndevices
-      && EXIT_SUCCESS == libxstream_device_set_active(0))
+      /* MPI: avoid activating a particular device */
+      && 0 < ndevices)
   {
     h = (ozaki_ocl_handle_t*)calloc(1, sizeof(*h));
   }
