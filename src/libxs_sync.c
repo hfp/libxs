@@ -18,6 +18,21 @@
 #endif
 
 
+LIBXS_API unsigned int libxs_nranks(void)
+{
+  const char *const env_nranks = getenv("MPI_LOCALNRANKS"); /* TODO */
+  return LIBXS_MAX(NULL == env_nranks ? 1 : atoi(env_nranks), 1);
+}
+
+
+LIBXS_API unsigned int libxs_nrank(void)
+{
+  const char *const env_rank = (NULL != getenv("PMI_RANK")
+    ? getenv("PMI_RANK") : getenv("OMPI_COMM_WORLD_LOCAL_RANK"));
+  return (NULL == env_rank ? 0 : atoi(env_rank)) % libxs_nranks();
+}
+
+
 LIBXS_API unsigned int libxs_pid(void)
 {
 #if defined(_WIN32)
