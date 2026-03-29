@@ -107,8 +107,8 @@
         gemm_dump_inhibit = 2; \
       } \
       else { \
-        gemm_dump_matrices(GEMM_ARGPASS, 1); \
-        if (0 != ozaki_exit) exit(EXIT_FAILURE); \
+        const int result = gemm_dump_matrices(GEMM_ARGPASS, 1); \
+        if (0 != ozaki_exit) exit(EXIT_SUCCESS == result ? EXIT_FAILURE : result); \
       } \
     } \
   }
@@ -510,13 +510,13 @@ LIBXS_API_INLINE void ozaki_accumulate_block_diff(libxs_matdiff_t* acc,
  * Uses gemm_diff.r as the dump ID and updates ozaki_eps/ozaki_rsq thresholds
  * to avoid repeated dumps.
  */
-LIBXS_API_INLINE void gemm_dump_matrices(GEMM_ARGDECL, size_t ncomponents)
+LIBXS_API_INLINE int gemm_dump_matrices(GEMM_ARGDECL, size_t ncomponents)
 {
   char fname[64];
   const char *const env_slurm = getenv("SLURM_JOBID");
   const int slurm = (NULL == env_slurm ? 0 : atoi(env_slurm));
   const int id = (1 < libxs_nranks() ? libxs_nrank() : libxs_pid());
-  int result_a = EXIT_SUCCESS, result_b = EXIT_SUCCESS;
+  int result = EXIT_SUCCESS;
   FILE *file;
 
   gemm_mhd_settings_t settings;
@@ -534,11 +534,12 @@ LIBXS_API_INLINE void gemm_dump_matrices(GEMM_ARGDECL, size_t ncomponents)
   else LIBXS_SNPRINTF(fname, sizeof(fname), "gemm-%i-%u-%i-a.mhd", slurm, id, gemm_diff.r);
   file = fopen(fname, "rb");
   if (NULL == file) { /* Never overwrite an existing file */
-    result_a = gemm_mhd_write(fname, a, *m, *k, *lda, *transa, alpha,
+    const int result_a = gemm_mhd_write(fname, a, *m, *k, *lda, *transa, alpha,
       ncomponents, &settings);
     if (EXIT_SUCCESS != result_a && 0 != ozaki_verbose) {
       fprintf(stderr, "ERROR: dumping A-matrix to %s failed!\n", fname);
     }
+    result |= result_a;
   }
   else fclose(file);
 
@@ -546,19 +547,21 @@ LIBXS_API_INLINE void gemm_dump_matrices(GEMM_ARGDECL, size_t ncomponents)
   else LIBXS_SNPRINTF(fname, sizeof(fname), "gemm-%i-%u-%i-b.mhd", slurm, id, gemm_diff.r);
   file = fopen(fname, "rb");
   if (NULL == file) { /* Never overwrite an existing file */
-    result_b = gemm_mhd_write(fname, b, *k, *n, *ldb, *transb, beta,
+    const int result_b = gemm_mhd_write(fname, b, *k, *n, *ldb, *transb, beta,
       ncomponents, &settings);
     if (EXIT_SUCCESS != result_b && 0 != ozaki_verbose) {
       fprintf(stderr, "ERROR: dumping B-matrix to %s failed!\n", fname);
     }
+    result |= result_b;
   }
   else fclose(file);
 
-  if (EXIT_SUCCESS == result_a && EXIT_SUCCESS == result_b) {
+  if (EXIT_SUCCESS == result) {
     /* avoid repeated dumps */
     ozaki_eps = libxs_matdiff_epsilon(&gemm_diff);
     ozaki_rsq = gemm_diff.rsq;
   }
 
   LIBXS_ATOMIC_RELEASE(&gemm_lock, LIBXS_ATOMIC_LOCKORDER);
+  return result;
 }

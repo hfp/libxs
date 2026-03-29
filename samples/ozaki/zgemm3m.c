@@ -265,8 +265,8 @@ LIBXS_API_INTERN LIBXS_ATTRIBUTE_WEAK void ZGEMM_WRAP(GEMM_ARGDECL)
     gemm_dump_inhibit = 1; /* suppress decomposed sub-GEMM dumps */
     zgemm3m(GEMM_ARGPASS);
     if (2 == gemm_dump_inhibit) {
-      gemm_dump_matrices(GEMM_ARGPASS, 2);
-      if (0 != ozaki_exit) exit(EXIT_FAILURE);
+      const int result = gemm_dump_matrices(GEMM_ARGPASS, 2);
+      if (0 != ozaki_exit) exit(EXIT_SUCCESS == result ? EXIT_FAILURE : result);
     }
     gemm_dump_inhibit = 0;
   }
