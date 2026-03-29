@@ -84,14 +84,16 @@
   } \
   else { \
     double epsilon; \
-    libxs_matdiff_t diff; \
+    libxs_matdiff_t diff, call_diff; \
     libxs_matdiff_clear(&diff); \
     DIFF_FN(transa, transb, m, n, k, alpha, a, lda, b, ldb, beta, c, ldc, \
       LIBXS_ABS(ozaki_stat), &diff); \
+    call_diff = diff; \
     LIBXS_ATOMIC_ACQUIRE(&gemm_lock, LIBXS_SYNC_NPAUSE, LIBXS_ATOMIC_LOCKORDER); \
     libxs_matdiff_reduce(&gemm_diff, &diff); diff.r = gemm_diff.r; \
     LIBXS_ATOMIC_RELEASE(&gemm_lock, LIBXS_ATOMIC_LOCKORDER); \
-    epsilon = libxs_matdiff_epsilon(&diff); \
+    call_diff.r = diff.r; \
+    epsilon = libxs_matdiff_epsilon(&call_diff); \
     if (1 < ozaki_verbose || 0 > ozaki_verbose) { \
       const int nth = (0 < ozaki_verbose ? ozaki_verbose : 1); \
       if (0 == (diff.r % nth)) { \
@@ -102,7 +104,8 @@
         } \
       } \
     } \
-    if (ozaki_eps < epsilon || diff.rsq < ozaki_rsq || -1 > ozaki_verbose) { \
+    if (ozaki_eps < epsilon || call_diff.rsq < ozaki_rsq || -1 > ozaki_verbose) { \
+      print_diff(stderr, &call_diff); \
       if (0 != gemm_dump_inhibit) { \
         gemm_dump_inhibit = 2; \
       } \
