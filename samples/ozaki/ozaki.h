@@ -513,10 +513,13 @@ LIBXS_API_INLINE void ozaki_accumulate_block_diff(libxs_matdiff_t* acc,
 LIBXS_API_INLINE void gemm_dump_matrices(GEMM_ARGDECL, size_t ncomponents)
 {
   char fname[64];
-  gemm_mhd_settings_t settings;
+  const char *const env_slurm = getenv("SLURM_JOBID");
+  const int slurm = (NULL == env_slurm ? 0 : atoi(env_slurm));
+  const int id = (1 < libxs_nranks() ? libxs_nrank() : libxs_pid());
   int result_a = EXIT_SUCCESS, result_b = EXIT_SUCCESS;
   FILE *file;
 
+  gemm_mhd_settings_t settings;
   settings.ozaki = ozaki;
   settings.ozn = ozaki_n;
   settings.ozflags = ozaki_flags;
@@ -527,7 +530,8 @@ LIBXS_API_INLINE void gemm_dump_matrices(GEMM_ARGDECL, size_t ncomponents)
 
   LIBXS_ATOMIC_ACQUIRE(&gemm_lock, LIBXS_SYNC_NPAUSE, LIBXS_ATOMIC_LOCKORDER);
 
-  LIBXS_SNPRINTF(fname, sizeof(fname), "gemm-%u-%i-a.mhd", libxs_pid(), gemm_diff.r);
+  if (0 == slurm) LIBXS_SNPRINTF(fname, sizeof(fname), "gemm-%u-%i-a.mhd", id, gemm_diff.r);
+  else LIBXS_SNPRINTF(fname, sizeof(fname), "gemm-%i-%u-%i-a.mhd", slurm, id, gemm_diff.r);
   file = fopen(fname, "rb");
   if (NULL == file) { /* Never overwrite an existing file */
     result_a = gemm_mhd_write(fname, a, *m, *k, *lda, *transa, alpha,
@@ -538,7 +542,8 @@ LIBXS_API_INLINE void gemm_dump_matrices(GEMM_ARGDECL, size_t ncomponents)
   }
   else fclose(file);
 
-  LIBXS_SNPRINTF(fname, sizeof(fname), "gemm-%u-%i-b.mhd", libxs_pid(), gemm_diff.r);
+  if (0 == slurm) LIBXS_SNPRINTF(fname, sizeof(fname), "gemm-%u-%i-b.mhd", id, gemm_diff.r);
+  else LIBXS_SNPRINTF(fname, sizeof(fname), "gemm-%i-%u-%i-b.mhd", slurm, id, gemm_diff.r);
   file = fopen(fname, "rb");
   if (NULL == file) { /* Never overwrite an existing file */
     result_b = gemm_mhd_write(fname, b, *k, *n, *ldb, *transb, beta,
