@@ -564,6 +564,10 @@ LIBXS_API_INLINE int gemm_dump_matrices(GEMM_ARGDECL, size_t ncomponents)
     ozaki_eps = libxs_matdiff_epsilon(&gemm_diff);
     ozaki_rsq = gemm_diff.rsq;
   }
+  else if (0 != ozaki_verbose) {
+    fprintf(stderr, "GEMM: "); print_gemm(stderr, 1/*compact*/,
+      transa, transb, m, n, k, alpha, a, lda, b, ldb, beta, c, ldc);
+  }
 
   LIBXS_ATOMIC_RELEASE(&gemm_lock, LIBXS_ATOMIC_LOCKORDER);
   return result;
