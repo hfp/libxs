@@ -67,9 +67,9 @@
         PUBLIC :: libxs_gemm_config_t
         PUBLIC :: LIBXS_GEMM_FLAGS_DEFAULT, LIBXS_GEMM_FLAG_NOLOCK
         PUBLIC :: libxs_gemm_ready, libxs_gemm_call
-        PUBLIC :: libxs_gemm_release
         PUBLIC :: libxs_gemm_strided, libxs_gemm_strided_task
         PUBLIC :: libxs_gemm_batch, libxs_gemm_batch_task
+        PUBLIC :: libxs_gemm_index, libxs_gemm_index_task
         PUBLIC :: libxs_gemm_groups
 
         !> Re-exported from ISO_C_BINDING for convenience.
@@ -536,6 +536,59 @@
             TYPE(libxs_gemm_config_t), INTENT(IN) :: config
           END SUBROUTINE
 
+          !> Index-array GEMM batch: element-offsets into
+          !> contiguous A, B, C buffers.
+          !> index_stride is the Byte-stride used to walk
+          !> stride_a, stride_b, stride_c (e.g. 4 for
+          !> packed INTEGER(C_INT) arrays).
+          !> index_base selects the indexing convention:
+          !> 0 for zero-based (C), 1 for one-based (Fortran).
+          SUBROUTINE libxs_gemm_index(datatype,                         &
+     &    transa, transb, m, n, k,                                      &
+     &    alpha, a, lda, stride_a,                                      &
+     &    b, ldb, stride_b,                                             &
+     &    beta, c, ldc, stride_c,                                       &
+     &    index_stride, index_base,                                     &
+     &    batchsize, config) BIND(C)
+            IMPORT :: C_PTR, C_INT, C_CHAR,                             &
+     &        libxs_gemm_config_t
+            INTEGER(C_INT), INTENT(IN), VALUE :: datatype
+            CHARACTER(C_CHAR), INTENT(IN) :: transa, transb
+            INTEGER(C_INT), INTENT(IN), VALUE ::                        &
+     &        m, n, k, lda, ldb, ldc,                                   &
+     &        index_stride, index_base, batchsize
+            TYPE(C_PTR), INTENT(IN), VALUE ::                           &
+     &        alpha, a, b, beta
+            TYPE(C_PTR), VALUE :: c
+            TYPE(C_PTR), INTENT(IN), VALUE ::                           &
+     &        stride_a, stride_b, stride_c
+            TYPE(libxs_gemm_config_t), INTENT(IN) :: config
+          END SUBROUTINE
+
+          !> Index-array GEMM batch: per-thread variant.
+          SUBROUTINE libxs_gemm_index_task(datatype,                    &
+     &    transa, transb, m, n, k,                                      &
+     &    alpha, a, lda, stride_a,                                      &
+     &    b, ldb, stride_b,                                             &
+     &    beta, c, ldc, stride_c,                                       &
+     &    index_stride, index_base,                                     &
+     &    batchsize, config, tid, ntasks) BIND(C)
+            IMPORT :: C_PTR, C_INT, C_CHAR,                             &
+     &        libxs_gemm_config_t
+            INTEGER(C_INT), INTENT(IN), VALUE :: datatype
+            CHARACTER(C_CHAR), INTENT(IN) :: transa, transb
+            INTEGER(C_INT), INTENT(IN), VALUE ::                        &
+     &        m, n, k, lda, ldb, ldc,                                   &
+     &        index_stride, index_base,                                 &
+     &        batchsize, tid, ntasks
+            TYPE(C_PTR), INTENT(IN), VALUE ::                           &
+     &        alpha, a, b, beta
+            TYPE(C_PTR), VALUE :: c
+            TYPE(C_PTR), INTENT(IN), VALUE ::                           &
+     &        stride_a, stride_b, stride_c
+            TYPE(libxs_gemm_config_t), INTENT(IN) :: config
+          END SUBROUTINE
+
           !> Grouped GEMM batch: varying parameters per group.
           SUBROUTINE libxs_gemm_groups(datatype,                        &
      &    transa_array, transb_array,                                   &
@@ -841,18 +894,4 @@
           END INTERFACE
           libxs_gemm_call = internal_gemm_call_f(config, a, b, c)
         END FUNCTION
-
-        !> Release resources acquired by GEMM dispatch.
-        !> Safe to call even if dispatch was not used.
-        SUBROUTINE libxs_gemm_release(config)
-          TYPE(libxs_gemm_config_t), INTENT(INOUT) :: config
-          INTERFACE
-            SUBROUTINE internal_gemm_release_f(config)                  &
-     &      BIND(C, NAME="libxs_gemm_release_f")
-              IMPORT :: libxs_gemm_config_t
-              TYPE(libxs_gemm_config_t), INTENT(INOUT) :: config
-            END SUBROUTINE
-          END INTERFACE
-          CALL internal_gemm_release_f(config)
-        END SUBROUTINE
       END MODULE

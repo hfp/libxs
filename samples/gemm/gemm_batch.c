@@ -13,10 +13,6 @@
 #if defined(_OPENMP)
 # include <omp.h>
 #endif
-#if (defined(__MKL) || defined(MKL_DIRECT_CALL_SEQ) || defined(MKL_DIRECT_CALL)) \
-  && defined(LIBXS_PLATFORM_X86)
-# include <mkl.h>
-#endif
 
 /* Fisher-Yates shuffle of a pointer array (in-place). */
 #define SHUFFLE_PTRS(ARRAY, COUNT) do { \
@@ -56,10 +52,6 @@ int main(int argc, char* argv[])
   double duration = 0;
   libxs_timer_tick_t t0, t1;
   int result = EXIT_SUCCESS;
-#if defined(mkl_jit_create_dgemm)
-  void* jitter = NULL;
-  dgemm_jit_kernel_t jit_kernel = NULL;
-#endif
 
   libxs_init();
 
@@ -116,17 +108,12 @@ int main(int argc, char* argv[])
   memset(&config, 0, sizeof(config));
   config.flags = (0 < dup_mode)
     ? LIBXS_GEMM_FLAGS_DEFAULT : LIBXS_GEMM_FLAG_NOLOCK;
-#if defined(mkl_jit_create_dgemm)
-  if (MKL_JIT_SUCCESS == mkl_cblas_jit_create_dgemm(&jitter,
-    MKL_COL_MAJOR, MKL_NOTRANS, MKL_NOTRANS,
-    m, n, k, alpha, lda, ldb, beta, ldc))
+  if (EXIT_SUCCESS == libxs_gemm_dispatch(&config,
+    LIBXS_DATATYPE(double), 'N', 'N', m, n, k, lda, ldb, ldc,
+    &alpha, &beta))
   {
-    jit_kernel = mkl_jit_get_dgemm_ptr(jitter);
-    config.dgemm_jit = (libxs_gemm_djit_t)jit_kernel;
-    config.jitter = jitter;
-    printf("  MKL JIT kernel enabled\n");
+    printf("  JIT kernel dispatched\n");
   }
-#endif
 
   /* warmup */
   libxs_gemm_batch(LIBXS_DATATYPE(double), "N", "N", m, n, k,
@@ -184,9 +171,7 @@ int main(int argc, char* argv[])
     printf("checksum=%f\n", check_diff.l1_ref + check_diff.l1_tst);
   }
 
-#if defined(mkl_jit_create_dgemm)
-  mkl_jit_destroy(jitter);
-#endif
+  libxs_gemm_release(&config);
   free(a_data); free(b_data); free(c_data);
   free(a_ptrs); free(b_ptrs); free(c_ptrs);
   libxs_finalize();

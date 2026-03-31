@@ -322,6 +322,126 @@ LIBXS_API void libxs_gemm_batch(
 }
 
 
+LIBXS_API void libxs_gemm_index_task(
+  libxs_data_t datatype, const char* transa, const char* transb,
+  int m, int n, int k,
+  const void* alpha, const void* a, int lda, const int stride_a[],
+                     const void* b, int ldb, const int stride_b[],
+  const void* beta,        void* c, int ldc, const int stride_c[],
+  int index_stride, int index_base,
+  int batchsize, const libxs_gemm_config_t* config,
+  int tid, int ntasks)
+{
+  const int size = LIBXS_ABS(batchsize);
+  const int nsplit = LIBXS_MIN(size, ntasks);
+  if (0 < nsplit && 0 <= tid && tid < nsplit
+    && NULL != stride_a && NULL != stride_b && NULL != stride_c
+    && 0 < index_stride)
+  {
+    const int need_lock = (1 < ntasks
+      && (NULL == config || 0 == (config->flags & LIBXS_GEMM_FLAG_NOLOCK)));
+    const int tasksize = (size + nsplit - 1) / nsplit;
+    const int begin = tid * tasksize;
+    int end = begin + tasksize;
+    const size_t elemsize = LIBXS_TYPESIZE(datatype);
+    int lockidx = -1, i;
+    if (end > size) end = size;
+#define INTERNAL_GEMM_INDEX(I, STRIDE) \
+    (*(const int*)((const char*)(STRIDE) + (size_t)(I) * index_stride) \
+      - index_base)
+    if (LIBXS_DATATYPE_F64 == datatype) {
+      if (NULL != config && NULL != config->dgemm_jit && NULL != config->jitter) {
+        for (i = begin; i < end; ++i) {
+          double* ci = (double*)((char*)c + (size_t)INTERNAL_GEMM_INDEX(i, stride_c) * elemsize);
+          if (need_lock) INTERNAL_GEMM_LOCKFWD(ci, lockidx);
+          config->dgemm_jit(config->jitter,
+            (const double*)((const char*)a + (size_t)INTERNAL_GEMM_INDEX(i, stride_a) * elemsize),
+            (const double*)((const char*)b + (size_t)INTERNAL_GEMM_INDEX(i, stride_b) * elemsize), ci);
+        }
+      }
+      else if (NULL != config && NULL != config->xgemm) {
+        libxs_gemm_param_t xparam;
+        memset(&xparam, 0, sizeof(xparam));
+        for (i = begin; i < end; ++i) {
+          char* ci = (char*)c + (size_t)INTERNAL_GEMM_INDEX(i, stride_c) * elemsize;
+          if (need_lock) INTERNAL_GEMM_LOCKFWD(ci, lockidx);
+          xparam.a[0] = (const char*)a + (size_t)INTERNAL_GEMM_INDEX(i, stride_a) * elemsize;
+          xparam.b[0] = (const char*)b + (size_t)INTERNAL_GEMM_INDEX(i, stride_b) * elemsize;
+          xparam.c[0] = ci;
+          config->xgemm(&xparam);
+        }
+      }
+      else {
+        const libxs_gemm_dblas_t dgemm_blas = (NULL != config && NULL != config->dgemm_blas)
+          ? config->dgemm_blas : internal_libxs_dgemm_default;
+        for (i = begin; i < end; ++i) {
+          double* ci = (double*)((char*)c + (size_t)INTERNAL_GEMM_INDEX(i, stride_c) * elemsize);
+          if (need_lock) INTERNAL_GEMM_LOCKFWD(ci, lockidx);
+          dgemm_blas(transa, transb, &m, &n, &k,
+            (const double*)alpha,
+            (const double*)((const char*)a + (size_t)INTERNAL_GEMM_INDEX(i, stride_a) * elemsize), &lda,
+            (const double*)((const char*)b + (size_t)INTERNAL_GEMM_INDEX(i, stride_b) * elemsize), &ldb,
+            (const double*)beta, ci, &ldc);
+        }
+      }
+    }
+    else if (LIBXS_DATATYPE_F32 == datatype) {
+      if (NULL != config && NULL != config->sgemm_jit && NULL != config->jitter) {
+        for (i = begin; i < end; ++i) {
+          float* ci = (float*)((char*)c + (size_t)INTERNAL_GEMM_INDEX(i, stride_c) * elemsize);
+          if (need_lock) INTERNAL_GEMM_LOCKFWD(ci, lockidx);
+          config->sgemm_jit(config->jitter,
+            (const float*)((const char*)a + (size_t)INTERNAL_GEMM_INDEX(i, stride_a) * elemsize),
+            (const float*)((const char*)b + (size_t)INTERNAL_GEMM_INDEX(i, stride_b) * elemsize), ci);
+        }
+      }
+      else if (NULL != config && NULL != config->xgemm) {
+        libxs_gemm_param_t xparam;
+        memset(&xparam, 0, sizeof(xparam));
+        for (i = begin; i < end; ++i) {
+          char* ci = (char*)c + (size_t)INTERNAL_GEMM_INDEX(i, stride_c) * elemsize;
+          if (need_lock) INTERNAL_GEMM_LOCKFWD(ci, lockidx);
+          xparam.a[0] = (const char*)a + (size_t)INTERNAL_GEMM_INDEX(i, stride_a) * elemsize;
+          xparam.b[0] = (const char*)b + (size_t)INTERNAL_GEMM_INDEX(i, stride_b) * elemsize;
+          xparam.c[0] = ci;
+          config->xgemm(&xparam);
+        }
+      }
+      else {
+        const libxs_gemm_sblas_t sgemm_blas = (NULL != config && NULL != config->sgemm_blas)
+          ? config->sgemm_blas : internal_libxs_sgemm_default;
+        for (i = begin; i < end; ++i) {
+          float* ci = (float*)((char*)c + (size_t)INTERNAL_GEMM_INDEX(i, stride_c) * elemsize);
+          if (need_lock) INTERNAL_GEMM_LOCKFWD(ci, lockidx);
+          sgemm_blas(transa, transb, &m, &n, &k,
+            (const float*)alpha,
+            (const float*)((const char*)a + (size_t)INTERNAL_GEMM_INDEX(i, stride_a) * elemsize), &lda,
+            (const float*)((const char*)b + (size_t)INTERNAL_GEMM_INDEX(i, stride_b) * elemsize), &ldb,
+            (const float*)beta, ci, &ldc);
+        }
+      }
+    }
+#undef INTERNAL_GEMM_INDEX
+    INTERNAL_GEMM_UNLOCK(lockidx);
+  }
+}
+
+
+LIBXS_API void libxs_gemm_index(
+  libxs_data_t datatype, const char* transa, const char* transb,
+  int m, int n, int k,
+  const void* alpha, const void* a, int lda, const int stride_a[],
+                     const void* b, int ldb, const int stride_b[],
+  const void* beta,        void* c, int ldc, const int stride_c[],
+  int index_stride, int index_base,
+  int batchsize, const libxs_gemm_config_t* config)
+{
+  libxs_gemm_index_task(datatype, transa, transb, m, n, k,
+    alpha, a, lda, stride_a, b, ldb, stride_b, beta, c, ldc, stride_c,
+    index_stride, index_base, batchsize, config, 0, 1);
+}
+
+
 LIBXS_API void libxs_gemm_groups(
   libxs_data_t datatype, const char transa_array[], const char transb_array[],
   const int m_array[], const int n_array[], const int k_array[],

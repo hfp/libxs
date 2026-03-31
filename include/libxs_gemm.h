@@ -138,6 +138,36 @@ LIBXS_API void libxs_gemm_batch_task(
   int tid, int ntasks);
 
 /**
+ * Process a batch of GEMMs given index arrays into contiguous buffers.
+ * C_i := alpha * op(A_i) * op(B_i) + beta * C_i, for i in [0, batchsize).
+ * Each stride_a[i], stride_b[i], stride_c[i] is an element-offset from
+ * the respective base pointer (a, b, c). index_base selects the indexing
+ * convention: 0 for zero-based (C), 1 for one-based (Fortran).
+ * index_stride is the Byte-stride used to walk the stride arrays
+ * (e.g. sizeof(int) for packed int arrays).
+ * Pass config=NULL to use the built-in kernel.
+ */
+LIBXS_API void libxs_gemm_index(
+  libxs_data_t datatype, const char* transa, const char* transb,
+  int m, int n, int k,
+  const void* alpha, const void* a, int lda, const int stride_a[],
+                     const void* b, int ldb, const int stride_b[],
+  const void* beta,        void* c, int ldc, const int stride_c[],
+  int index_stride, int index_base,
+  int batchsize, const libxs_gemm_config_t* config);
+
+/** Per-thread form of libxs_gemm_index. */
+LIBXS_API void libxs_gemm_index_task(
+  libxs_data_t datatype, const char* transa, const char* transb,
+  int m, int n, int k,
+  const void* alpha, const void* a, int lda, const int stride_a[],
+                     const void* b, int ldb, const int stride_b[],
+  const void* beta,        void* c, int ldc, const int stride_c[],
+  int index_stride, int index_base,
+  int batchsize, const libxs_gemm_config_t* config,
+  int tid, int ntasks);
+
+/**
  * Process groups of batched GEMMs with varying parameters.
  * Each group i has its own transa, transb, m, n, k, lda, ldb, ldc, and batchsize.
  * The a/b/c pointer arrays are concatenated across groups.
