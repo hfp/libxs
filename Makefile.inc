@@ -2319,12 +2319,18 @@ endif
 ifeq (,$(wildcard $(BLAS_INCFILE) $(MKLROOT)/include/mkl.h))
   MKL := 0
 endif
-ifeq (1,$(MKL)) # sequential
-  BLAS_FLAGS += -D__BLAS=1 -D__MKL=1
+ifneq (,$(filter 1 -1,$(MKL))) # sequential
+  BLAS_FLAGS += -D__BLAS=1
   MKL_THREADS := sequential
+  ifeq (1,$(MKL))
+    BLAS_FLAGS += -D__MKL=1
+  endif
 else ifneq (0,$(MKL)) # multi-threaded
-  BLAS_FLAGS += -D__BLAS=$(MKL) -D__MKL=$(MKL)
+  BLAS_FLAGS += -D__BLAS=$(MKL)
   MKL_THREADS := $(MKL_OMPRTL)_thread
+  ifeq (2,$(MKL))
+    BLAS_FLAGS += -D__MKL=2
+  endif
   ifeq (0,$(OMP))
     ifneq (gnu,$(MKL_OMPRTL))
       BLAS_LDFLAGS += $(OMPLIB)
