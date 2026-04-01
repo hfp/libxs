@@ -342,4 +342,24 @@ LIBXS_API_INLINE void libxs_gemm_release(libxs_gemm_config_t* config)
   }
 }
 
+/**
+ * Release all GEMM configs cached in a registry (e.g., MKL jitter),
+ * then destroy the registry itself. Safe to call with NULL.
+ */
+LIBXS_API_INLINE void libxs_gemm_release_registry(libxs_registry_t* registry)
+{
+  if (NULL != registry) {
+    const void* key = NULL;
+    size_t cursor = 0;
+    libxs_gemm_config_t* config = (libxs_gemm_config_t*)
+      libxs_registry_begin(registry, &key, &cursor);
+    while (NULL != config) {
+      libxs_gemm_release(config);
+      config = (libxs_gemm_config_t*)
+        libxs_registry_next(registry, &key, &cursor);
+    }
+    libxs_registry_destroy(registry);
+  }
+}
+
 #endif /*LIBXS_GEMM_H*/
