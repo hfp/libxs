@@ -41,7 +41,7 @@ typedef struct internal_libxs_malloc_chunk_t {
   char *pointer;
   struct internal_libxs_malloc_chunk_t *next;
   struct libxs_malloc_pool_t *pool; /* back-pointer to owning pool */
-  size_t size, nmallocs;
+  size_t used, size, nmallocs;
 } internal_libxs_malloc_chunk_t;
 
 struct libxs_malloc_pool_t {
@@ -236,7 +236,7 @@ LIBXS_API void* libxs_malloc(libxs_malloc_pool_t* pool, size_t size, int alignme
       const size_t alloc_size = (NULL != reg)
         ? size : (size + sizeof(void*) + alignpot - 1);
       if (NULL != chunk->pointer) {
-        if (chunk->size < size) {
+        if (chunk->size < alloc_size) {
           char *pointer;
           if (0 < pool->max_nthreads) { /* extended pool */
             const void *const xarg = pool->extra[libxs_tid() % pool->max_nthreads];
@@ -252,16 +252,17 @@ LIBXS_API void* libxs_malloc(libxs_malloc_pool_t* pool, size_t size, int alignme
           }
           if (NULL != pointer) {
 #if defined(LIBXS_MALLOC_EVICT)
-            const size_t old_size = chunk->size;
+            const size_t old_used = chunk->used;
             const int moved = (pointer != chunk->pointer);
 #endif
             chunk->pointer = pointer;
-            chunk->size = size;
+            chunk->used = size;
+            chunk->size = alloc_size;
             ++chunk->nmallocs;
 #if defined(LIBXS_MALLOC_EVICT)
             { const size_t new_bytes = (size_t)LIBXS_ATOMIC(LIBXS_ATOMIC_ADD_FETCH, LIBXS_BITS)(
-                &pool->pool_bytes, size - old_size, LIBXS_ATOMIC_LOCKORDER);
-              internal_libxs_malloc_peak_update(pool, 0 != moved ? new_bytes + old_size : new_bytes);
+                &pool->pool_bytes, size - old_used, LIBXS_ATOMIC_LOCKORDER);
+              internal_libxs_malloc_peak_update(pool, 0 != moved ? new_bytes + old_used : new_bytes);
             }
 #endif
             if (NULL != reg) {
@@ -284,6 +285,7 @@ LIBXS_API void* libxs_malloc(libxs_malloc_pool_t* pool, size_t size, int alignme
           }
         }
         else { /* reuse */
+          chunk->used = size;
           if (NULL != reg) {
             result = chunk->pointer;
             if (NULL == libxs_registry_set(reg,
@@ -305,9 +307,10 @@ LIBXS_API void* libxs_malloc(libxs_malloc_pool_t* pool, size_t size, int alignme
         else if (pool->fn_malloc.std) pointer = (char*)pool->fn_malloc.std(alloc_size);
         else pointer = (char*)malloc(alloc_size);
         if (NULL != pointer) {
-          LIBXS_ASSERT(0 == chunk->size);
+          LIBXS_ASSERT(0 == chunk->used);
           chunk->pointer = pointer;
-          chunk->size = size;
+          chunk->used = size;
+          chunk->size = alloc_size;
           ++chunk->nmallocs;
 #if defined(LIBXS_MALLOC_EVICT)
           { const size_t new_bytes = (size_t)LIBXS_ATOMIC(LIBXS_ATOMIC_ADD_FETCH, LIBXS_BITS)(
@@ -356,16 +359,17 @@ LIBXS_API void libxs_free(void* pointer)
     pool = chunk->pool;
     LIBXS_ASSERT(NULL != pool && NULL != pool->slots);
 #if defined(LIBXS_MALLOC_EVICT)
-    if (NULL != chunk->pointer && LIBXS_MALLOC_EVICT_SIZE <= chunk->size) {
+    if (NULL != chunk->pointer && LIBXS_MALLOC_EVICT_SIZE <= chunk->used) {
       const size_t total_bytes = LIBXS_ATOMIC(LIBXS_ATOMIC_LOAD, LIBXS_BITS)(&pool->pool_bytes, LIBXS_ATOMIC_RELAXED);
       if (LIBXS_MALLOC_EVICT_LIMIT < total_bytes) {
-        const size_t reclaimed = chunk->size;
+        const size_t reclaimed = chunk->used;
         if (0 < pool->max_nthreads) {
           pool->fn_free.ext(chunk->pointer, pool->extra[libxs_tid() % pool->max_nthreads]);
         }
         else if (pool->fn_free.std) pool->fn_free.std(chunk->pointer);
         else free(chunk->pointer);
         chunk->pointer = NULL;
+        chunk->used = 0;
         chunk->size = 0;
         LIBXS_ATOMIC(LIBXS_ATOMIC_SUB_FETCH, LIBXS_BITS)(&pool->pool_bytes, reclaimed, LIBXS_ATOMIC_LOCKORDER);
       }
@@ -390,7 +394,7 @@ LIBXS_API int libxs_malloc_info(const void* pointer, libxs_malloc_info_t* info)
       if (0 == found) {
         chunk = *(void**)((uintptr_t)pointer - sizeof(void*));
       }
-      info->size = chunk->size;
+      info->size = chunk->used;
     }
   }
   else if (NULL != pointer) {
@@ -512,6 +516,7 @@ LIBXS_API int libxs_malloc_pool_info(const libxs_malloc_pool_t* pool, libxs_mall
       size_t nchunks = 0;
       while (NULL != chunk) {
         info->nmallocs += chunk->nmallocs;
+        info->used += chunk->used;
         info->size += chunk->size;
         chunk = chunk->next;
         ++nchunks;

@@ -161,11 +161,10 @@ int main(int argc, char* argv[])
     }
   }
 
-  if (EXIT_SUCCESS == libxs_malloc_pool_info(pool, &info) && 0 < info.size) {
-    const int size = (int)LIBXS_UPDIV(info.size, (size_t)1 << 20);
+  if (EXIT_SUCCESS == libxs_malloc_pool_info(pool, &info) && 0 < info.peak) {
     scratch = (int)LIBXS_UPDIV(info.peak, (size_t)1 << 20);
-    fprintf(stdout, "\nScratch: peak_mb=%i size_mb=%i mallocs=%lu\n",
-      scratch, size, (unsigned long int)info.nmallocs);
+    fprintf(stdout, "\nScratch: peak_mb=%i mallocs=%lu\n",
+      scratch, (unsigned long int)info.nmallocs);
   }
   libxs_free_pool(pool);
   pool = NULL;
