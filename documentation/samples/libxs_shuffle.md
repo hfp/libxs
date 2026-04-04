@@ -60,7 +60,7 @@ Reported bandwidth is `2 × data-size / time` (in MB/s). The factor of two accou
 
 ### Optional Quality Metrics
 
-* **`rand`** – Enabled by `RANDOM=1`. After shuffling, inversions are counted via merge-sort (O(n log n)) and compared against the expected count for a random permutation (n(n−1)/4) to give a percentage. For the stochastic RNG-shuffle, quality metrics are averaged across all non-warm-up iterations.
+* **`rand`** – Enabled by `RANDOM=1`. After shuffling, inversions are counted via merge-sort (O(n log n)) and compared against the expected count for a random permutation (n(n−1)/4) to give a percentage. For the stochastic RNG-shuffle, quality metrics are averaged across all non-warm-up iterations. For the deterministic DS1/DS2 methods, metrics are taken from the final iteration only.
 * **`dst`** – Manhattan distance of the element sum from the expected uniform value, split into hierarchical partitions (`SPLIT`).
 * **`imb`** – Partition imbalance, measuring how unevenly element sums are distributed across sub-partitions (`SPLIT`).
 

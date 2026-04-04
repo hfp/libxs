@@ -8,9 +8,11 @@ compiled into the library:
 | Lock kind | Description |
 |---|---|
 | `LIBXS_LOCK_DEFAULT` | Compile-time default (typically `atomic`) |
-| `LIBXS_LOCK_SPINLOCK` | OS-native or CAS-based spin lock |
-| `LIBXS_LOCK_MUTEX` | OS-native mutex (`pthread_mutex_t`) |
-| `LIBXS_LOCK_RWLOCK` | Reader/writer lock (atomic or `pthread_rwlock_t`) |
+| `LIBXS_LOCK_SPINLOCK` | OS-native or CAS-based spin lock (if available) |
+| `LIBXS_LOCK_MUTEX` | OS-native mutex (`pthread_mutex_t`, if available) |
+| `LIBXS_LOCK_RWLOCK` | Reader/writer lock (atomic or `pthread_rwlock_t`, if available) |
+
+The default lock is always benchmarked. The remaining lock kinds are conditionally compiled depending on the LIBXS library configuration and platform support.
 
 ## Build
 

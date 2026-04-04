@@ -134,7 +134,7 @@ make ECFLAGS="-DBLOCK_K=32 -DBATCH_K=2" dgemm-wrap.x
 | `OZAKI_RSQ` | 0 | Dump A/B matrices as MHD-files when RSQ drops below the given threshold; the threshold is updated after each dump. |
 | `OZAKI_EXIT` | 1 | Exit with failure after dumping matrices on accuracy violation (eps/rsq threshold exceeded). Set to 0 to continue execution. |
 | `CHECK` | 0 | Accuracy validation against BLAS reference: 0 = disabled, negative = auto-threshold (1e-10 for double, 1e-3 for float), positive = use value as threshold. |
-| `NREPEAT` | 1 | Number of GEMM calls; when > 1 the first call is warmup and excluded from timing. |
+| `NREPEAT` | 3 | Number of GEMM calls; when > 1 the first call is warmup and excluded from timing. |
 | `OZAKI_OCL` | 1 | Enable (1) or disable (0) the OpenCL/GPU path at runtime. Only effective when built with LIBXSTREAM support. |
 | `OZAKI_TM` | auto | GPU output tile height (multiple of 8). 0 = auto-select. |
 | `OZAKI_TN` | auto | GPU output tile width (multiple of 16). 0 = auto-select. |
@@ -145,13 +145,19 @@ make ECFLAGS="-DBLOCK_K=32 -DBATCH_K=2" dgemm-wrap.x
 The test driver (`gemm.c`) accepts positional arguments:
 
 ```text
-dgemm-wrap.x [A.mhd|M [B.mhd|N] [K [TA [TB [ALPHA [BETA [LDA [LDB [LDC]]]]]]]]]
-sgemm-wrap.x [A.mhd|M [B.mhd|N] [K [TA [TB [ALPHA [BETA [LDA [LDB [LDC]]]]]]]]]
-dgemm-blas.x [A.mhd|M [B.mhd|N] [K [TA [TB [ALPHA [BETA [LDA [LDB [LDC]]]]]]]]]
-sgemm-blas.x [A.mhd|M [B.mhd|N] [K [TA [TB [ALPHA [BETA [LDA [LDB [LDC]]]]]]]]]
+dgemm-wrap.x  [A.mhd|M [B.mhd|N] [K [TA [TB [ALPHA [BETA [LDA [LDB [LDC]]]]]]]]]
+sgemm-wrap.x  [A.mhd|M [B.mhd|N] [K [TA [TB [ALPHA [BETA [LDA [LDB [LDC]]]]]]]]]
+dgemm-blas.x  [A.mhd|M [B.mhd|N] [K [TA [TB [ALPHA [BETA [LDA [LDB [LDC]]]]]]]]]
+sgemm-blas.x  [A.mhd|M [B.mhd|N] [K [TA [TB [ALPHA [BETA [LDA [LDB [LDC]]]]]]]]]
+zgemm-wrap.x  [A.mhd|M [B.mhd|N] [K [TA [TB [ALPHA [BETA [LDA [LDB [LDC]]]]]]]]]
+cgemm-wrap.x  [A.mhd|M [B.mhd|N] [K [TA [TB [ALPHA [BETA [LDA [LDB [LDC]]]]]]]]]
 ```
 
-TA and TB select transposition: 0 means 'N' (no transpose), non-zero means 'T' (transpose). The `dgemm-*` and `sgemm-*` drivers call DGEMM or SGEMM respectively. If the driver is called with MHD-files, accuracy issues can be analyzed outside of an application.
+Defaults: M=N=K=257, TA=TB=0, ALPHA=BETA=1.0.
+
+TA and TB select transposition: 0 means 'N' (no transpose), non-zero means 'T' (transpose). The `dgemm-*` and `sgemm-*` drivers call DGEMM or SGEMM respectively. The `zgemm-wrap.x` and `cgemm-wrap.x` drivers call ZGEMM (double-complex) and CGEMM (single-complex) respectively; complex GEMM calls are implemented via the 3M method using three real GEMM calls each.
+
+If the first argument is 0, the remaining arguments are treated as MHD filenames for the A and B matrices, allowing accuracy issues to be analyzed outside of an application.
 
 ## Source Layout
 

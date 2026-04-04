@@ -9,12 +9,12 @@ cd samples/memory
 make
 ```
 
-Produces `memory.x` (C) and, if a Fortran compiler is found, `memoryf.x` and `matcopyf.x`.
+Produces `memcmp.x` (C) and, if a Fortran compiler is found, `memcmpf.x` and `matcpyf.x`.
 
 ## Usage (C)
 
 ```
-./memory.x [elsize [stride [nelems [niters]]]]
+./memcmp.x [elsize [stride [nelems [niters]]]]
 ```
 
 | Argument | Default | Description |
@@ -44,25 +44,44 @@ Produces `memory.x` (C) and, if a Fortran compiler is found, `memoryf.x` and `ma
 
 ```bash
 # 32-byte elements, sequential strided access, 10 repetitions
-./memory.x 32 0 0 10
+./memcmp.x 32 0 0 10
 
 # 8-byte elements, random traversal, 3 repetitions
-STRIDED=2 ./memory.x 8 0 0 3
+STRIDED=2 ./memcmp.x 8 0 0 3
 
 # contiguous (single-call) comparison, ~2 GB
-./memory.x 64 64 0 5
+./memcmp.x 64 64 0 5
 
 # mismatch at last byte, buffer b misaligned by 3 bytes
-MISMATCH=3 OFFSET=3 ./memory.x 32 0 0 5
+MISMATCH=3 OFFSET=3 ./memcmp.x 32 0 0 5
 ```
 
-## Usage (Fortran)
+Note: The environment variables `STRIDED`, `CHECK`, `MISMATCH`, and `OFFSET` apply only to the C program (`memcmp.x`). The compile-time macros `MAXSIZE` and `INSIZE` also apply only to `memcmp.x`.
+
+## Usage (Fortran - memcmpf)
 
 ```
-./memoryf.x [nelements [nrepeat]]
+./memcmpf.x [nelements [nrepeat]]
 ```
 
-Element type is hard-coded as `INTEGER(4)`. Compares ~2 GB by default… reports per-iteration times (ms) and average throughput (MB/s).
+Element type is hard-coded as `INTEGER(4)`. Compares ~2 GB by default (536M elements x 4 bytes). Reports per-iteration times (ms) and average throughput (MB/s).
+
+## Usage (Fortran - matcpyf)
+
+```
+./matcpyf.x [m [n [ldi [ldo [nrepeat [nmb]]]]]]
+```
+
+| Argument | Default | Description |
+|----------|---------|-------------|
+| `m` | 4096 | First matrix dimension |
+| `n` | m | Second matrix dimension |
+| `ldi` | m (enforced >= m) | Leading dimension of input |
+| `ldo` | ldi | Leading dimension of output |
+| `nrepeat` | 2 | Number of repetitions |
+| `nmb` | 2048 | Memory budget in MB (controls how many matrix copies fit in this budget) |
+
+Benchmarks `libxs_matcopy` and `libxs_matcopy_task` (OpenMP-threaded) for matrix copy and zeroing operations, comparing against native Fortran array assignment. When the matrix is square and `ldi == ldo`, also benchmarks `libxs_otrans` and `libxs_otrans_task` for out-of-place transpose, comparing against the Fortran `TRANSPOSE` intrinsic.
 
 ## What Is Measured
 
