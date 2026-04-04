@@ -552,10 +552,10 @@
 
         !> Calculate a hash value for a given array and seed.
         INTERFACE libxs_hash
+          MODULE PROCEDURE libxs_hash_xchar, libxs_hash_xi8
+          MODULE PROCEDURE libxs_hash_xi32, libxs_hash_xi64
           MODULE PROCEDURE libxs_hash_char, libxs_hash_i8
           MODULE PROCEDURE libxs_hash_i32, libxs_hash_i64
-          MODULE PROCEDURE libxs_hash_char0, libxs_hash_i8_0
-          MODULE PROCEDURE libxs_hash_i32_0, libxs_hash_i64_0
         END INTERFACE
 
         !> Check if two arrays differ (.TRUE. if different).
@@ -692,67 +692,67 @@
         END SUBROUTINE
 
         !> Calculates a hash value for the given array and seed.
-        PURE FUNCTION libxs_hash_char(key, seed)
+        PURE FUNCTION libxs_hash_xchar(key, seed)
           CHARACTER(C_CHAR), INTENT(IN), CONTIGUOUS,                    &
      &      TARGET :: key(:)
           INTEGER(C_INT), INTENT(IN) :: seed
+          INTEGER(C_INT) :: libxs_hash_xchar
+          libxs_hash_xchar = libxs_hash_c(C_LOC(key), SIZE(key), seed)
+        END FUNCTION
+
+        PURE FUNCTION libxs_hash_char(key)
+          CHARACTER(C_CHAR), INTENT(IN), CONTIGUOUS,                    &
+     &      TARGET :: key(:)
           INTEGER(C_INT) :: libxs_hash_char
-          libxs_hash_char = libxs_hash_c(C_LOC(key), SIZE(key), seed)
+          libxs_hash_char = libxs_hash_c(C_LOC(key), SIZE(key), 0)
         END FUNCTION
 
-        PURE FUNCTION libxs_hash_char0(key)
-          CHARACTER(C_CHAR), INTENT(IN), CONTIGUOUS,                    &
-     &      TARGET :: key(:)
-          INTEGER(C_INT) :: libxs_hash_char0
-          libxs_hash_char0 = libxs_hash_c(C_LOC(key), SIZE(key), 0)
-        END FUNCTION
-
-        PURE FUNCTION libxs_hash_i8(key, seed)
+        PURE FUNCTION libxs_hash_xi8(key, seed)
           INTEGER(C_INT8_T), INTENT(IN), CONTIGUOUS,                    &
      &      TARGET :: key(:)
           INTEGER(C_INT), INTENT(IN) :: seed
-          INTEGER(C_INT) :: libxs_hash_i8
-          libxs_hash_i8 = libxs_hash_c(C_LOC(key), SIZE(key), seed)
+          INTEGER(C_INT) :: libxs_hash_xi8
+          libxs_hash_xi8 = libxs_hash_c(C_LOC(key), SIZE(key), seed)
         END FUNCTION
 
-        PURE FUNCTION libxs_hash_i8_0(key)
+        PURE FUNCTION libxs_hash_i8(key)
           INTEGER(C_INT8_T), INTENT(IN), CONTIGUOUS,                    &
      &      TARGET :: key(:)
-          INTEGER(C_INT) :: libxs_hash_i8_0
-          libxs_hash_i8_0 = libxs_hash_c(C_LOC(key), SIZE(key), 0)
+          INTEGER(C_INT) :: libxs_hash_i8
+          libxs_hash_i8 = libxs_hash_c(C_LOC(key), SIZE(key), 0)
         END FUNCTION
 
-        PURE FUNCTION libxs_hash_i32(key, seed)
+        PURE FUNCTION libxs_hash_xi32(key, seed)
           INTEGER(C_INT), INTENT(IN), CONTIGUOUS,                       &
      &      TARGET :: key(:)
           INTEGER(C_INT), INTENT(IN) :: seed
-          INTEGER(C_INT) :: libxs_hash_i32
-          libxs_hash_i32 = libxs_hash_c(                                &
+          INTEGER(C_INT) :: libxs_hash_xi32
+          libxs_hash_xi32 = libxs_hash_c(                               &
      &      C_LOC(key), SIZE(key) * 4, seed)
         END FUNCTION
 
-        PURE FUNCTION libxs_hash_i32_0(key)
+        PURE FUNCTION libxs_hash_i32(key)
           INTEGER(C_INT), INTENT(IN), CONTIGUOUS,                       &
      &      TARGET :: key(:)
-          INTEGER(C_INT) :: libxs_hash_i32_0
-          libxs_hash_i32_0 = libxs_hash_c(                              &
+          INTEGER(C_INT) :: libxs_hash_i32
+          libxs_hash_i32 = libxs_hash_c(                                &
      &      C_LOC(key), SIZE(key) * 4, 0)
         END FUNCTION
 
-        PURE FUNCTION libxs_hash_i64(key, seed)
+        PURE FUNCTION libxs_hash_xi64(key, seed)
           INTEGER(C_LONG_LONG), INTENT(IN), CONTIGUOUS,                 &
      &      TARGET :: key(:)
           INTEGER(C_INT), INTENT(IN) :: seed
-          INTEGER(C_INT) :: libxs_hash_i64
-          libxs_hash_i64 = libxs_hash_c(                                &
+          INTEGER(C_INT) :: libxs_hash_xi64
+          libxs_hash_xi64 = libxs_hash_c(                               &
      &      C_LOC(key), SIZE(key) * 8, seed)
         END FUNCTION
 
-        PURE FUNCTION libxs_hash_i64_0(key)
+        PURE FUNCTION libxs_hash_i64(key)
           INTEGER(C_LONG_LONG), INTENT(IN), CONTIGUOUS,                 &
      &      TARGET :: key(:)
-          INTEGER(C_INT) :: libxs_hash_i64_0
-          libxs_hash_i64_0 = libxs_hash_c(                              &
+          INTEGER(C_INT) :: libxs_hash_i64
+          libxs_hash_i64 = libxs_hash_c(                                &
      &      C_LOC(key), SIZE(key) * 8, 0)
         END FUNCTION
 
