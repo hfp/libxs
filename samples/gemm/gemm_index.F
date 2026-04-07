@@ -151,8 +151,8 @@
         ! Warmup
         CALL libxs_gemm_index(                                          &
      &    C_LOC(a), C_LOC(ia), C_LOC(b), C_LOC(ib),                     &
-     &    C_LOC(c), C_LOC(ic),                                           &
-     &    INT(C_SIZEOF(ia(1))), 1,                                       &
+     &    C_LOC(c), C_LOC(ic),                                          &
+     &    INT(C_SIZEOF(ia(1))), 1,                                      &
      &    batchsize, config)
 
         gflops = 2D0 * REAL(m, 8) * REAL(n, 8) * REAL(k, 8) * 1D-9
@@ -163,18 +163,18 @@
           !$OMP PARALLEL DEFAULT(NONE)                                  &
           !$OMP   SHARED(a, ia, b, ib, c, ic,                           &
           !$OMP          batchsize, config)
-          CALL libxs_gemm_index_task(                                    &
+          CALL libxs_gemm_index_task(                                   &
      &      C_LOC(a), C_LOC(ia), C_LOC(b), C_LOC(ib),                   &
-     &      C_LOC(c), C_LOC(ic),                                         &
-     &      INT(C_SIZEOF(ia(1))), 1,                                     &
-     &      batchsize, config,                                           &
+     &      C_LOC(c), C_LOC(ic),                                        &
+     &      INT(C_SIZEOF(ia(1))), 1,                                    &
+     &      batchsize, config,                                          &
      &      omp_get_thread_num(), omp_get_num_threads())
           !$OMP END PARALLEL
 #else
-          CALL libxs_gemm_index(                                         &
+          CALL libxs_gemm_index(                                        &
      &      C_LOC(a), C_LOC(ia), C_LOC(b), C_LOC(ib),                   &
-     &      C_LOC(c), C_LOC(ic),                                         &
-     &      INT(C_SIZEOF(ia(1))), 1,                                     &
+     &      C_LOC(c), C_LOC(ic),                                        &
+     &      INT(C_SIZEOF(ia(1))), 1,                                    &
      &      batchsize, config)
 #endif
         END DO
