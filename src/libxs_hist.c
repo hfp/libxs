@@ -196,10 +196,12 @@ LIBXS_API void libxs_hist_get_percentile(libxs_lock_t* lock, const libxs_hist_t*
             ? (i + 1) * m : ia);
           const double t = (ia != ib)
             ? (fraction < 0.5 ? 0.5 + fraction : fraction - 0.5) : 0;
-          int k;
           vals[0] = range[0] + (i + fraction) * w / nbuckets;
-          for (k = 1; k < m; ++k) {
-            vals[k] = v[ia + k] + t * (v[ib + k] - v[ia + k]);
+          if (1 < m) {
+            int k;
+            for (k = 1; k < m; ++k) {
+              vals[k] = v[ia + k] + t * (v[ib + k] - v[ia + k]);
+            }
           }
           break;
         }
