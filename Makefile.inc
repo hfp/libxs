@@ -1191,6 +1191,9 @@ ifeq (,$(LIBC))
   LIBC := -lc
 endif
 
+IOMPFLAG := -qopenmp
+GOMPFLAG := -fopenmp
+
 # (default) runtime library dependencies
 ifneq (0,$(FORCE_CXX)) # incl. undefined
   FCLDFLAGS += $(XLIB_BEGIN) $(call ldflib,$(FLD),$(SLDFLAGS),$(LIBCPP)) $(XLIB_END)
@@ -1405,15 +1408,15 @@ ifneq (0,$(INTEL))
     endif
   endif
   ifeq (,$(strip $(GFC)))
-    ifneq (0,$(shell echo "$$((150000<=$(FC_VERSION_NUM)))"))
-      OMPFLAG_FORCE := -qopenmp
+    ifneq (0,$(shell echo "$$((150000<=$(FC_VERSION_NUM)||150000<=$(CC_VERSION_NUM)))"))
+      OMPFLAG_FORCE := $(IOMPFLAG)
     else
-      OMPFLAG_FORCE := -fopenmp
+      OMPFLAG_FORCE := $(GOMPFLAG)
     endif
   else
-    OMPFLAG_FORCE := -fopenmp
+    OMPFLAG_FORCE := $(GOMPFLAG)
   endif
-  ifeq (-fopenmp,$(OMPFLAG_FORCE))
+  ifeq ($(GOMPFLAG),$(OMPFLAG_FORCE))
     CXXFLAGS += -Wno-recommended-option
     CFLAGS += -Wno-recommended-option
   endif
@@ -1434,10 +1437,10 @@ ifneq (0,$(INTEL))
   ifneq (0,$(shell echo "$$((150000<=$(CXX_VERSION_NUM)))"))
     DFLAGS += -D__OPENMP_SIMD
     ifeq (0,$(OMP))
-      CXXFLAGS += -qopenmp-simd
-      CFLAGS += -qopenmp-simd
+      CXXFLAGS += $(IOMPFLAG)-simd
+      CFLAGS += $(IOMPFLAG)-simd
       ifeq (,$(strip $(GFC)))
-        FCFLAGS += -qopenmp-simd
+        FCFLAGS += $(IOMPFLAG)-simd
       endif
     endif
     SIMD ?= 1
@@ -1669,16 +1672,16 @@ else # GCC assumed
     else ifeq (0,$(INTEL))
       ifneq (Darwin,$(UNAME))
         ifneq (0,$(XSMM_GCC))
-          OMPFLAG_FORCE := -fopenmp
+          OMPFLAG_FORCE := $(GOMPFLAG)
         else ifneq (0,$(shell echo "$$((0!=$(CLANG)&&30900<=$(CC_VERSION_NUM)))"))
-          OMPFLAG_FORCE := -fopenmp
+          OMPFLAG_FORCE := $(GOMPFLAG)
           OMPRT := omp
         endif
       else ifneq (0,$(CLANG)) # Darwin
-        OMPFLAG_FORCE := -Xpreprocessor -fopenmp
+        OMPFLAG_FORCE := -Xpreprocessor $(GOMPFLAG)
         OMPRT := omp
       else # Darwin/GCC
-        OMPFLAG_FORCE := -fopenmp
+        OMPFLAG_FORCE := $(GOMPFLAG)
       endif
     endif
   endif
@@ -1687,7 +1690,7 @@ else # GCC assumed
   endif
   ifeq (,$(OMPFLAG_FORCE))
     ifneq (,$(filter environment% override command%,$(origin OMP)))
-      OMPFLAG_FORCE := -fopenmp
+      OMPFLAG_FORCE := $(GOMPFLAG)
     endif
   else ifeq (FreeBSD,$(UNAME))
     # avoid include path at begin of compile line
@@ -1743,8 +1746,8 @@ else # GCC assumed
         CFLAGS += $(OMPFLAG_FORCE)
       endif
       ifeq (3,$(XSMM_GCC)) # pure GNU toolchain
-        FLDFLAGS := -fopenmp $(FLDFLAGS)
-        FCFLAGS += -fopenmp
+        FLDFLAGS := $(GOMPFLAG) $(FLDFLAGS)
+        FCFLAGS += $(GOMPFLAG)
       else # mixed toolchain
         FOMPLIBDIR := $(call libpath,$(FLD),$(SLDFLAGS) $(foreach LIB,$(LIBFIND),$(call abslibpath,$(LIB))),$(OMPRT))
         ifeq (,$(FOMPLIBDIR))
@@ -1753,14 +1756,14 @@ else # GCC assumed
         ifneq (,$(FOMPLIBDIR))
           FLDFLAGS += $(foreach LIB,$(LIBFIND),$(call abslibpath,$(LIB))) $(FOMPLIBDIR)
         else
-          FOMPLIBDIR := $(call ftest,$(FLD),$(NULL),-fopenmp)
+          FOMPLIBDIR := $(call ftest,$(FLD),$(NULL),$(GOMPFLAG))
           ifneq (,$(FOMPLIBDIR))
             FLDFLAGS += $(FOMPLIBDIR)
           else # last try
             FLDFLAGS := $(OMPFLAG_FORCE) $(FLDFLAGS)
           endif
         endif
-        TESTRESD := $(call ftest,$(FC),-fopenmp)
+        TESTRESD := $(call ftest,$(FC),$(GOMPFLAG))
         ifneq (,$(TESTRESD))
           FCFLAGS += $(TESTRESD)
         else
@@ -2004,14 +2007,14 @@ ifeq (0,$(COMPATIBLE))
         ifneq (,$(CTARGET))
         ifneq (0,$(shell echo "$$((40900<=$(CC_VERSION_NUM)))"))
           DFLAGS += -D__OPENMP_SIMD
-          CFLAGS += -fopenmp-simd
+          CFLAGS += $(GOMPFLAG)-simd
           ifneq (1,$(XSMM_GCC))
           ifneq (0,$(shell echo "$$((40900<=$(CXX_VERSION_NUM)))"))
-            CXXFLAGS += -fopenmp-simd
+            CXXFLAGS += $(GOMPFLAG)-simd
             ifneq (,$(FTARGET))
             ifneq (2,$(XSMM_GCC))
             ifneq (0,$(shell echo "$$((40900<=$(FC_VERSION_NUM)))"))
-              FCFLAGS += -fopenmp-simd
+              FCFLAGS += $(GOMPFLAG)-simd
               SIMD ?= 1
             endif
             endif
@@ -2026,12 +2029,12 @@ ifeq (0,$(COMPATIBLE))
         ifneq (,$(CTARGET))
         ifneq (0,$(shell echo "$$((60000<=$(CC_VERSION_NUM)&&60000<=$(CXX_VERSION_NUM)))"))
           DFLAGS += -D__OPENMP_SIMD
-          CXXFLAGS += -fopenmp-simd
-          CFLAGS += -fopenmp-simd
+          CXXFLAGS += $(GOMPFLAG)-simd
+          CFLAGS += $(GOMPFLAG)-simd
           ifneq (,$(FTARGET))
           ifneq (,$(strip $(FC)))
           ifneq (0,$(shell echo "$$((40900<=$(FC_VERSION_NUM)))"))
-            FCFLAGS += -fopenmp-simd
+            FCFLAGS += $(GOMPFLAG)-simd
             SIMD ?= 1
           endif
           endif
