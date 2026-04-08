@@ -6,8 +6,6 @@
 ! Further information: https://github.com/hfp/libxs/                    !
 ! SPDX-License-Identifier: BSD-3-Clause                                 !
 !=======================================================================!
-! Hans Pabst (Intel Corp.)
-!=======================================================================!
 
 ! Microbenchmark for the registry (key-value store).
 ! Measures registration (write) and cold/cached lookup.

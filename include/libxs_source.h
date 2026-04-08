@@ -6,8 +6,6 @@
 * Further information: https://github.com/hfp/libxs/                          *
 * SPDX-License-Identifier: BSD-3-Clause                                       *
 ******************************************************************************/
-/* Hans Pabst (Intel Corp.)
-******************************************************************************/
 #ifndef LIBXS_SOURCE_H
 #define LIBXS_SOURCE_H
 

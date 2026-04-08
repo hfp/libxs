@@ -6,8 +6,6 @@
 ! Further information: https://github.com/hfp/libxs/                    !
 ! SPDX-License-Identifier: BSD-3-Clause                                 !
 !=======================================================================!
-! Hans Pabst (Intel Corp.)
-!=======================================================================!
 
       PROGRAM diff
         USE :: LIBXS, ONLY: LIBXS_TIMER_TICK_KIND,                      &
