@@ -203,7 +203,8 @@ LIBXS_API_INLINE int libxs_gemm_dispatch(
   if (NULL != registry && NULL != config) {
     const libxs_gemm_config_t* cached = (const libxs_gemm_config_t*)
       libxs_registry_get((const libxs_registry_t*)registry,
-        &config->shape, sizeof(config->shape), NULL);
+        &config->shape, sizeof(config->shape),
+        libxs_registry_lock((libxs_registry_t*)registry));
     if (NULL != cached) {
       *config = *cached;
       return 0 != libxs_gemm_ready(config)
@@ -288,7 +289,8 @@ LIBXS_API_INLINE int libxs_gemm_dispatch(
   if (NULL != registry && NULL != config) {
     libxs_registry_set((libxs_registry_t*)registry,
       &config->shape, sizeof(config->shape),
-      config, sizeof(*config), NULL);
+      config, sizeof(*config),
+      libxs_registry_lock((libxs_registry_t*)registry));
   }
   return result;
 }

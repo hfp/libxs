@@ -44,6 +44,9 @@ LIBXS_API libxs_registry_t* libxs_registry_create(void);
 /** Destroy registry object (release all entries). */
 LIBXS_API void libxs_registry_destroy(libxs_registry_t* registry);
 
+/** Return pointer to the registry's internal lock (for use as lock argument). */
+LIBXS_API libxs_lock_t* libxs_registry_lock(libxs_registry_t* registry);
+
 /**
  * Enumerate registry. Caller must initialize *cursor to 0 before
  * the first call. Returns the value pointer of the first occupied
@@ -69,8 +72,9 @@ LIBXS_API void* libxs_registry_next(libxs_registry_t* registry,
  * Registered data is released by libxs_registry_remove or libxs_registry_destroy.
  * Re-registering an existing key automatically reallocates if the new value
  * is larger than the currently stored one.
- * If lock is NULL, the registry's internal lock is used; otherwise
- * the caller-provided lock is acquired/released around the operation.
+ * If lock is NULL, no locking is performed (caller guarantees exclusion);
+ * otherwise the provided lock is acquired/released around the operation.
+ * Use libxs_registry_lock(registry) to obtain the registry's internal lock.
  */
 LIBXS_API void* libxs_registry_set(libxs_registry_t* registry, const void* key, size_t key_size,
   const void* value_init, size_t value_size, libxs_lock_t* LIBXS_ARGDEF(lock, NULL));

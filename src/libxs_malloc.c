@@ -268,7 +268,7 @@ LIBXS_API void* libxs_malloc(libxs_malloc_pool_t* pool, size_t size, int alignme
             if (NULL != reg) {
               result = pointer;
               if (NULL == libxs_registry_set(reg,
-                &result, sizeof(void*), &chunk, sizeof(void*), NULL))
+                &result, sizeof(void*), &chunk, sizeof(void*), libxs_registry_lock(reg)))
               {
                 internal_libxs_malloc_pool_return(chunk);
                 result = NULL;
@@ -289,7 +289,7 @@ LIBXS_API void* libxs_malloc(libxs_malloc_pool_t* pool, size_t size, int alignme
           if (NULL != reg) {
             result = chunk->pointer;
             if (NULL == libxs_registry_set(reg,
-              &result, sizeof(void*), &chunk, sizeof(void*), NULL))
+              &result, sizeof(void*), &chunk, sizeof(void*), libxs_registry_lock(reg)))
             {
               internal_libxs_malloc_pool_return(chunk);
               result = NULL;
@@ -321,7 +321,7 @@ LIBXS_API void* libxs_malloc(libxs_malloc_pool_t* pool, size_t size, int alignme
           if (NULL != reg) {
             result = pointer;
             if (NULL == libxs_registry_set(reg,
-              &result, sizeof(void*), &chunk, sizeof(void*), NULL))
+              &result, sizeof(void*), &chunk, sizeof(void*), libxs_registry_lock(reg)))
             {
               internal_libxs_malloc_pool_return(chunk);
               result = NULL;
@@ -350,7 +350,8 @@ LIBXS_API void libxs_free(void* pointer)
     libxs_malloc_pool_t *pool;
     const int found = (NULL != internal_libxs_malloc_registry)
       ? libxs_registry_extract(internal_libxs_malloc_registry,
-          &pointer, sizeof(void*), &chunk, sizeof(chunk), NULL)
+          &pointer, sizeof(void*), &chunk, sizeof(chunk),
+          libxs_registry_lock(internal_libxs_malloc_registry))
       : 0;
     if (0 == found) {
       chunk = *(void**)((uintptr_t)pointer - sizeof(void*));
@@ -389,7 +390,8 @@ LIBXS_API int libxs_malloc_info(const void* pointer, libxs_malloc_info_t* info)
       internal_libxs_malloc_chunk_t *chunk = NULL;
       const int found = (NULL != internal_libxs_malloc_registry)
         ? libxs_registry_get_copy(internal_libxs_malloc_registry,
-            &pointer, sizeof(void*), &chunk, sizeof(chunk), NULL)
+            &pointer, sizeof(void*), &chunk, sizeof(chunk),
+            libxs_registry_lock(internal_libxs_malloc_registry))
         : 0;
       if (0 == found) {
         chunk = *(void**)((uintptr_t)pointer - sizeof(void*));
@@ -479,7 +481,7 @@ LIBXS_API void libxs_free_pool(libxs_malloc_pool_t* pool)
         if (NULL != chunk->pointer) {
           if (NULL != reg) {
             const void *const ptr = chunk->pointer;
-            libxs_registry_remove(reg, &ptr, sizeof(void*), NULL);
+            libxs_registry_remove(reg, &ptr, sizeof(void*), libxs_registry_lock(reg));
           }
           if (0 < pool->max_nthreads) {
             pool->fn_free.ext(chunk->pointer, pool->extra[libxs_tid() % pool->max_nthreads]);

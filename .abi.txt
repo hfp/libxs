@@ -110,6 +110,7 @@ libxs_registry_get
 libxs_registry_get_copy
 libxs_registry_has
 libxs_registry_info
+libxs_registry_lock
 libxs_registry_next
 libxs_registry_remove
 libxs_registry_set
