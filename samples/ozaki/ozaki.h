@@ -197,21 +197,50 @@
 # define oz2_host_preprocess_b LIBXS_TPREFIX(GEMM_REAL_TYPE, oz2_host_prep_b)
 #endif
 
-/* Int8 dot product dispatch macro.
- * Priority: VPDPBSSD > VPDPBUSD+bias > scalar. */
-#if defined(LIBXS_INTRINSICS_AVX512) && \
-    (16 == BLOCK_K || 32 == BLOCK_K || 64 == BLOCK_K)
-# if defined(__AVXVNNIINT8__)
+/* Int8 dot product dispatch macro (Ozaki-1 slicing).
+ * Priority: VPDPBSSD (1 instr) > VPDPBUSD+bias (2 instr) > scalar. */
+#if (16 == BLOCK_K || 32 == BLOCK_K || 64 == BLOCK_K)
+# if (LIBXS_X86_AVX512_INT8 <= LIBXS_STATIC_TARGET_ARCH)
 #   define ozaki_dot_i8_init() ozaki_dot_i8_bssd
 # elif (LIBXS_X86_AVX512 <= LIBXS_STATIC_TARGET_ARCH)
 #   define ozaki_dot_i8_init() ozaki_dot_i8_vnni
-# else
+# elif (LIBXS_X86_AVX512_INT8 <= LIBXS_MAX_STATIC_TARGET_ARCH)
+#   define ozaki_dot_i8_init() \
+      ((LIBXS_X86_AVX512_INT8 <= ozaki_target_arch) ? ozaki_dot_i8_bssd \
+        : ((LIBXS_X86_AVX512 <= ozaki_target_arch) ? ozaki_dot_i8_vnni \
+          : ozaki_dot_i8_sw))
+# elif (LIBXS_X86_AVX512 <= LIBXS_MAX_STATIC_TARGET_ARCH)
 #   define ozaki_dot_i8_init() \
       ((LIBXS_X86_AVX512 <= ozaki_target_arch) ? ozaki_dot_i8_vnni : ozaki_dot_i8_sw)
+# else
+#   define ozaki_dot_i8_init() ozaki_dot_i8_sw
 # endif
 #else
 # define ozaki_dot_i8_init() ozaki_dot_i8_sw
 #endif
+
+/* u8 dot product dispatch macro (Ozaki-2 CRT).
+ * Priority: VPDPBUUD (1 instr) > VPDPBUSD+bias (2 instr) > scalar. */
+#if (16 == BLOCK_K || 32 == BLOCK_K || 64 == BLOCK_K)
+# if (LIBXS_X86_AVX512_INT8 <= LIBXS_STATIC_TARGET_ARCH)
+#   define ozaki_dot_u8_init() ozaki_dot_u8_buud
+# elif (LIBXS_X86_AVX512 <= LIBXS_STATIC_TARGET_ARCH)
+#   define ozaki_dot_u8_init() ozaki_dot_u8_vnni
+# elif (LIBXS_X86_AVX512_INT8 <= LIBXS_MAX_STATIC_TARGET_ARCH)
+#   define ozaki_dot_u8_init() \
+      ((LIBXS_X86_AVX512_INT8 <= ozaki_target_arch) ? ozaki_dot_u8_buud \
+        : ((LIBXS_X86_AVX512 <= ozaki_target_arch) ? ozaki_dot_u8_vnni \
+          : ozaki_dot_u8_sw))
+# elif (LIBXS_X86_AVX512 <= LIBXS_MAX_STATIC_TARGET_ARCH)
+#   define ozaki_dot_u8_init() \
+      ((LIBXS_X86_AVX512 <= ozaki_target_arch) ? ozaki_dot_u8_vnni : ozaki_dot_u8_sw)
+# else
+#   define ozaki_dot_u8_init() ozaki_dot_u8_sw
+# endif
+#else
+# define ozaki_dot_u8_init() ozaki_dot_u8_sw
+#endif
+
 
 /** Function type for complex GEMM (precision-specific). */
 LIBXS_EXTERN_C typedef void (*zgemm_function_t)(GEMM_ARGDECL);
@@ -276,18 +305,19 @@ void ozaki_ocl_finalize(void);
 #endif
 
 /* Shared int8 dot-product infrastructure (VNNI + scalar fallback).
- * VPDPBSSD: true signed×signed int8 dot product (AVX-VNNI-INT8).
- * Only one VPDPBSSD is needed per vector — no bias correction —
- * halving throughput demand versus the VPDPBUSD workaround below.
- * Guard: __AVXVNNIINT8__ is defined by GCC >= 12 / Clang >= 16
- * when -mavxvnniint8 (or implied by -march=graniterapids-d, etc.)
- * is active. The LIBXS_INTRINSICS_AVX512 guard is still needed for
- * the underlying immintrin.h include and multi-versioning support. */
-#if defined(LIBXS_INTRINSICS_AVX512) && defined(__AVXVNNIINT8__)
+ *
+ * VPDPBSSD (i8*i8): true signed×signed, single instruction, no bias.
+ * VPDPBUUD (u8*u8): true unsigned×unsigned, single instruction, no bias.
+ * Both require AVX-VNNI-INT8 (LIBXS_X86_AVX512_INT8 / LIBXS_X86_AVX10_256).
+ * The LIBXS_INTRINSICS guard + target attribute enable the compiler to
+ * emit these instructions via function multi-versioning even when the
+ * baseline -march does not include avxvnniint8. */
+#if (LIBXS_X86_AVX512_INT8 <= LIBXS_MAX_STATIC_TARGET_ARCH) && \
+    (16 == BLOCK_K || 32 == BLOCK_K || 64 == BLOCK_K)
 
 # if 16 == BLOCK_K /* 128-bit: one __m128i */
 
-LIBXS_API_INLINE LIBXS_INTRINSICS(LIBXS_X86_AVX512)
+LIBXS_API_INLINE LIBXS_INTRINSICS(LIBXS_X86_AVX512_INT8)
 int32_t ozaki_dot_i8_bssd(const int8_t a[BLOCK_K], const int8_t b[BLOCK_K])
 {
   const __m128i va = _mm_loadu_si128((const __m128i*)a);
@@ -298,9 +328,20 @@ int32_t ozaki_dot_i8_bssd(const int8_t a[BLOCK_K], const int8_t b[BLOCK_K])
   return _mm_extract_epi32(dp, 0);
 }
 
+LIBXS_API_INLINE LIBXS_INTRINSICS(LIBXS_X86_AVX512_INT8)
+int32_t ozaki_dot_u8_buud(const uint8_t a[BLOCK_K], const uint8_t b[BLOCK_K])
+{
+  const __m128i va = _mm_loadu_si128((const __m128i*)a);
+  const __m128i vb = _mm_loadu_si128((const __m128i*)b);
+  __m128i dp = _mm_dpbuud_epi32(_mm_setzero_si128(), va, vb);
+  dp = _mm_hadd_epi32(dp, dp);
+  dp = _mm_hadd_epi32(dp, dp);
+  return _mm_extract_epi32(dp, 0);
+}
+
 # elif 32 == BLOCK_K /* 256-bit: one __m256i */
 
-LIBXS_API_INLINE LIBXS_INTRINSICS(LIBXS_X86_AVX512)
+LIBXS_API_INLINE LIBXS_INTRINSICS(LIBXS_X86_AVX512_INT8)
 int32_t ozaki_dot_i8_bssd(const int8_t a[BLOCK_K], const int8_t b[BLOCK_K])
 {
   const __m256i va = _mm256_loadu_si256((const __m256i*)a);
@@ -315,9 +356,24 @@ int32_t ozaki_dot_i8_bssd(const int8_t a[BLOCK_K], const int8_t b[BLOCK_K])
   }
 }
 
+LIBXS_API_INLINE LIBXS_INTRINSICS(LIBXS_X86_AVX512_INT8)
+int32_t ozaki_dot_u8_buud(const uint8_t a[BLOCK_K], const uint8_t b[BLOCK_K])
+{
+  const __m256i va = _mm256_loadu_si256((const __m256i*)a);
+  const __m256i vb = _mm256_loadu_si256((const __m256i*)b);
+  __m256i dp = _mm256_dpbuud_epi32(_mm256_setzero_si256(), va, vb);
+  { const __m128i hi = _mm256_extracti128_si256(dp, 1);
+    __m128i lo = _mm256_castsi256_si128(dp);
+    lo = _mm_add_epi32(lo, hi);
+    lo = _mm_hadd_epi32(lo, lo);
+    lo = _mm_hadd_epi32(lo, lo);
+    return _mm_extract_epi32(lo, 0);
+  }
+}
+
 # elif 64 == BLOCK_K /* 512-bit: one __m512i */
 
-LIBXS_API_INLINE LIBXS_INTRINSICS(LIBXS_X86_AVX512)
+LIBXS_API_INLINE LIBXS_INTRINSICS(LIBXS_X86_AVX512_INT8)
 int32_t ozaki_dot_i8_bssd(const int8_t a[BLOCK_K], const int8_t b[BLOCK_K])
 {
   const __m512i va = _mm512_loadu_si512((const __m512i*)a);
@@ -326,8 +382,17 @@ int32_t ozaki_dot_i8_bssd(const int8_t a[BLOCK_K], const int8_t b[BLOCK_K])
   return _mm512_reduce_add_epi32(dp);
 }
 
+LIBXS_API_INLINE LIBXS_INTRINSICS(LIBXS_X86_AVX512_INT8)
+int32_t ozaki_dot_u8_buud(const uint8_t a[BLOCK_K], const uint8_t b[BLOCK_K])
+{
+  const __m512i va = _mm512_loadu_si512((const __m512i*)a);
+  const __m512i vb = _mm512_loadu_si512((const __m512i*)b);
+  __m512i dp = _mm512_dpbuud_epi32(_mm512_setzero_si512(), va, vb);
+  return _mm512_reduce_add_epi32(dp);
+}
+
 # endif /* BLOCK_K width selection */
-#endif /* LIBXS_INTRINSICS_AVX512 && __AVXVNNIINT8__ */
+#endif /* AVX512_INT8 <= MAX_STATIC_TARGET_ARCH */
 
 
 /* VPDPBUSD: unsigned×signed int8 dot product with bias correction.
@@ -491,21 +556,6 @@ LIBXS_API_INLINE int32_t ozaki_dot_u8_sw(const uint8_t a[BLOCK_K], const uint8_t
   }
   return dot;
 }
-
-/* u8 dot product dispatch macro.
- * Priority: VPDPBUSD+bias > scalar.
- * Future: VPDPBUUD (AVX-VNNI-INT8) as single-instruction path. */
-#if defined(LIBXS_INTRINSICS_AVX512) && \
-    (16 == BLOCK_K || 32 == BLOCK_K || 64 == BLOCK_K)
-# if (LIBXS_X86_AVX512 <= LIBXS_STATIC_TARGET_ARCH)
-#   define ozaki_dot_u8_init() ozaki_dot_u8_vnni
-# else
-#   define ozaki_dot_u8_init() \
-      ((LIBXS_X86_AVX512 <= ozaki_target_arch) ? ozaki_dot_u8_vnni : ozaki_dot_u8_sw)
-# endif
-#else
-# define ozaki_dot_u8_init() ozaki_dot_u8_sw
-#endif
 
 
 /* Unified uint8 GEMM: C[M,N] = A[M,K] * B'[N,K], u8*u8 -> s32.
