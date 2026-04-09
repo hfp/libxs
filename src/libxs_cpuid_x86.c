@@ -156,8 +156,39 @@ LIBXS_API_INTERN int internal_libxs_cpuid_x86(libxs_cpuid_t* info)
                 && LIBXS_CPUID_CHECK(ecx2, 0x00000800)) /* AVX512_VNNI */
               {
                 feature_cpu = LIBXS_X86_AVX512; /* AVX512-Core/SKX/baseline */
+                /* Check for AVX-VNNI-INT8: leaf 7, subleaf 1, EAX bit 4.
+                 * Enables VPDPBUUD/VPDPBSSD (u8*u8, i8*i8 dot products). */
+                { unsigned int eax2, ebx2, ecx3, edx2;
+                  LIBXS_CPUID_X86(7, 1/*ecx*/, eax2, ebx2, ecx3, edx2);
+                  if (LIBXS_CPUID_CHECK(eax2, 0x00000010)) { /* AVX_VNNI_INT8 */
+                    feature_cpu = LIBXS_X86_AVX512_INT8;
+                  }
+                  /* Check for AVX10: leaf 7, subleaf 1, EDX bit 19.
+                   * If present, query leaf 0x24 for version and max vector length. */
+                  if (LIBXS_CPUID_CHECK(edx2, 0x00080000)) { /* AVX10 */
+                    unsigned int eax_10, ebx_10, ecx_10, edx_10;
+                    LIBXS_CPUID_X86(0x24, 0/*ecx*/, eax_10, ebx_10, ecx_10, edx_10);
+                    if (LIBXS_CPUID_CHECK(ebx_10, 0x00040000)) { /* bit 18: 512-bit */
+                      feature_cpu = LIBXS_X86_AVX10_512;
+                    }
+                  }
+                }
               }
-              else feature_cpu = LIBXS_X86_AVX2;
+              else {
+                feature_cpu = LIBXS_X86_AVX2;
+                /* AVX10/256 without AVX-512: leaf 7, subleaf 1, EDX bit 19.
+                 * Sierra Forest E-cores: full feature set at 256-bit only. */
+                { unsigned int eax2, ebx2, ecx3, edx2;
+                  LIBXS_CPUID_X86(7, 1/*ecx*/, eax2, ebx2, ecx3, edx2);
+                  if (LIBXS_CPUID_CHECK(edx2, 0x00080000)) { /* AVX10 */
+                    unsigned int eax_10, ebx_10, ecx_10, edx_10;
+                    LIBXS_CPUID_X86(0x24, 0/*ecx*/, eax_10, ebx_10, ecx_10, edx_10);
+                    if (LIBXS_CPUID_CHECK(ebx_10, 0x00020000)) { /* bit 17: 256-bit */
+                      feature_cpu = LIBXS_X86_AVX10_256;
+                    }
+                  }
+                }
+              }
             }
             else feature_cpu = LIBXS_X86_AVX;
           }
@@ -174,9 +205,9 @@ LIBXS_API_INTERN int internal_libxs_cpuid_x86(libxs_cpuid_t* info)
         if (LIBXS_X86_AVX <= feature_cpu) {
           LIBXS_XGETBV(0, eax, edx);
           if (LIBXS_CPUID_CHECK(eax, 0x00000006)) { /* OS XSAVE 256-bit */
-            feature_os = LIBXS_MIN(LIBXS_X86_AVX2, feature_cpu);
+            feature_os = LIBXS_MIN(LIBXS_X86_AVX10_256, feature_cpu);
             if (LIBXS_CPUID_CHECK(eax, 0x000000E0)) { /* OS XSAVE 512-bit */
-              feature_os = LIBXS_MIN(LIBXS_X86_AVX512, feature_cpu);
+              feature_os = LIBXS_MIN(LIBXS_X86_AVX10_512, feature_cpu);
             }
           }
         }
@@ -277,8 +308,17 @@ LIBXS_API const char* libxs_cpuid_name(int id)
 {
   const char* target_arch = NULL;
   switch (id) {
+    case LIBXS_X86_AVX10_512: {
+      target_arch = "avx10_512";
+    } break;
+    case LIBXS_X86_AVX512_INT8: {
+      target_arch = "avx9";
+    } break;
     case LIBXS_X86_AVX512: {
       target_arch = "avx512";
+    } break;
+    case LIBXS_X86_AVX10_256: {
+      target_arch = "avx10_256";
     } break;
     case LIBXS_X86_AVX2: {
       target_arch = "avx2";
@@ -337,10 +377,25 @@ LIBXS_API int libxs_cpuid_id(const char* arch)
 {
   int target_archid = LIBXS_TARGET_ARCH_UNKNOWN;
 
-  if (strcmp(arch, "skx") == 0 || strcmp(arch, "skl") == 0
+  if (strcmp(arch, "avx10-512") == 0 || strcmp(arch, "avx10_512") == 0
+    || strcmp(arch, "gnr") == 0)
+  {
+    target_archid = LIBXS_X86_AVX10_512;
+  }
+  else if (strcmp(arch, "avx9") == 0 || strcmp(arch, "avx512int8") == 0
+    || strcmp(arch, "avx512_int8") == 0)
+  {
+    target_archid = LIBXS_X86_AVX512_INT8;
+  }
+  else if (strcmp(arch, "skx") == 0 || strcmp(arch, "skl") == 0
     || strcmp(arch, "avx3") == 0 || strcmp(arch, "avx512") == 0)
   {
     target_archid = LIBXS_X86_AVX512;
+  }
+  else if (strcmp(arch, "avx10-256") == 0 || strcmp(arch, "avx10_256") == 0
+    || strcmp(arch, "srf") == 0)
+  {
+    target_archid = LIBXS_X86_AVX10_256;
   }
   else if (strcmp(arch, "hsw") == 0 || strcmp(arch, "avx2") == 0) {
     target_archid = LIBXS_X86_AVX2;
@@ -418,10 +473,10 @@ LIBXS_API int libxs_cpuid_vlen(int id)
     result = 64;
   }
   else if (LIBXS_X86_AVX512 <= id) {
-    result = 64;
+    result = 64; /* AVX512, AVX512_INT8, AVX10/512 */
   }
   else if (LIBXS_X86_AVX <= id) {
-    result = 32;
+    result = 32; /* AVX, AVX2, AVX10/256 */
   }
   else if (LIBXS_X86_GENERIC <= id) {
     result = 16;

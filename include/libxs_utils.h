@@ -31,7 +31,26 @@
 #endif
 
 #if !defined(__NO_INTRINSICS)
-# if  defined(__AVX512F__)  && defined(__AVX512CD__) \
+  /* AVX10.1/512: compiler defines __AVX10_1_512__ (GCC >= 14, Clang >= 19) */
+# if defined(__AVX10_1_512__) && defined(__AVX2__) && defined(__FMA__) && defined(__SSE4_2__) && defined(__SSE3__)
+#   if !defined(LIBXS_STATIC_TARGET_ARCH)
+#     define LIBXS_STATIC_TARGET_ARCH LIBXS_X86_AVX10_512
+#   endif
+#   define LIBXS_INTRINSICS_INCLUDE
+  /* AVX-512 + AVX-VNNI-INT8: compiler defines __AVXVNNIINT8__ (GCC >= 12, Clang >= 16) */
+# elif defined(__AVX512F__) && defined(__AVX512CD__) \
+   &&   defined(__AVX512DQ__) && defined(__AVX512BW__) && defined(__AVX512VL__) \
+   &&   defined(__AVX2__) && defined(__FMA__) && defined(__AVX__) && defined(__SSE4_2__) && defined(__SSE4_1__) && defined(__SSE3__) \
+   &&   defined(__AVXVNNIINT8__) \
+   && (!defined(__GNUC__)  || defined(__clang__) || defined(LIBXS_INTEL_COMPILER) || defined(_CRAYC) \
+                           || (LIBXS_VERSION2(12, 0) <= LIBXS_VERSION2(__GNUC__, __GNUC_MINOR__))) \
+   && (!defined(__clang__) || (LIBXS_VERSION2(16, 0) <= LIBXS_VERSION2(__clang_major__, __clang_minor__)))
+#   if !defined(LIBXS_STATIC_TARGET_ARCH)
+#     define LIBXS_STATIC_TARGET_ARCH LIBXS_X86_AVX512_INT8
+#   endif
+#   define LIBXS_INTRINSICS_INCLUDE
+  /* AVX-512 baseline: avx512f+cd+dq+bw+vl+vnni */
+# elif defined(__AVX512F__)  && defined(__AVX512CD__) \
    &&   defined(__AVX512DQ__) && defined(__AVX512BW__) && defined(__AVX512VL__) \
    &&   defined(__AVX2__) && defined(__FMA__) && defined(__AVX__) && defined(__SSE4_2__) && defined(__SSE4_1__) && defined(__SSE3__) \
    && (!defined(__GNUC__)  || defined(__clang__) || defined(LIBXS_INTEL_COMPILER) || defined(_CRAYC) \
@@ -40,6 +59,13 @@
    && (!defined(__APPLE__) || !defined(__MACH__) || LIBXS_VERSION2(9, 0) <= LIBXS_VERSION2(__clang_major__, __clang_minor__))
 #   if !defined(LIBXS_STATIC_TARGET_ARCH)
 #     define LIBXS_STATIC_TARGET_ARCH LIBXS_X86_AVX512
+#   endif
+#   define LIBXS_INTRINSICS_INCLUDE
+  /* AVX10.1/256 without AVX-512: compiler defines __AVX10_1_256__ or __AVX10_1__ */
+# elif (defined(__AVX10_1_256__) || defined(__AVX10_1__)) \
+   &&   defined(__AVX2__) && defined(__FMA__) && defined(__AVX__) && defined(__SSE4_2__) && defined(__SSE4_1__) && defined(__SSE3__)
+#   if !defined(LIBXS_STATIC_TARGET_ARCH)
+#     define LIBXS_STATIC_TARGET_ARCH LIBXS_X86_AVX10_256
 #   endif
 #   define LIBXS_INTRINSICS_INCLUDE
 # elif defined(__AVX2__) && defined(__FMA__) && defined(__AVX__) && defined(__SSE4_2__) && defined(__SSE4_1__) && defined(__SSE3__)
@@ -105,6 +131,15 @@
 #     if !defined(LIBXS_MAX_STATIC_TARGET_ARCH)
 #       if defined(__CYGWIN__) /* Cygwin: invalid register for .seh_savexmm */
 #         define LIBXS_MAX_STATIC_TARGET_ARCH LIBXS_X86_AVX2
+          /* GCC >= 14 / Clang >= 19: target("avx10.1-512") available */
+#       elif (defined(__GNUC__)  && LIBXS_VERSION2(14, 1) <= LIBXS_VERSION2(__GNUC__, __GNUC_MINOR__)) \
+          || (defined(__clang__) && LIBXS_VERSION2(19, 0) <= LIBXS_VERSION2(__clang_major__, __clang_minor__))
+#         define LIBXS_MAX_STATIC_TARGET_ARCH LIBXS_X86_AVX10_512
+          /* GCC >= 12 / Clang >= 16: target("avxvnniint8") available */
+#       elif (defined(__GNUC__)  && LIBXS_VERSION2(12, 0) <= LIBXS_VERSION2(__GNUC__, __GNUC_MINOR__)) \
+          || (defined(__clang__) && LIBXS_VERSION2(16, 0) <= LIBXS_VERSION2(__clang_major__, __clang_minor__))
+#         define LIBXS_MAX_STATIC_TARGET_ARCH LIBXS_X86_AVX512_INT8
+          /* GCC >= 8 / Clang >= 8.1: target("avx512f,...,avx512vnni") available */
 #       elif (defined(__GNUC__)  && LIBXS_VERSION2(8, 0) <= LIBXS_VERSION2(__GNUC__, __GNUC_MINOR__)) \
           || (defined(__clang__) && LIBXS_VERSION2(8, 1) <= LIBXS_VERSION2(__clang_major__, __clang_minor__))
 #         define LIBXS_MAX_STATIC_TARGET_ARCH LIBXS_X86_AVX512
@@ -171,10 +206,25 @@
 #       else
 #         define LIBXS_ATTRIBUTE_TARGET_1006 LIBXS_ATTRIBUTE_TARGET_1005
 #       endif
+#       if (LIBXS_X86_AVX10_256 <= LIBXS_MAX_STATIC_TARGET_ARCH)
+#         define LIBXS_ATTRIBUTE_TARGET_1050 target("avx2,fma,avx512f,avx512cd,avx512dq,avx512bw,avx512vl,avx512vnni,avxvnniint8")
+#       else
+#         define LIBXS_ATTRIBUTE_TARGET_1050 LIBXS_ATTRIBUTE_TARGET_1006
+#       endif
 #       if (LIBXS_X86_AVX512 <= LIBXS_MAX_STATIC_TARGET_ARCH)
 #         define LIBXS_ATTRIBUTE_TARGET_1100 target("avx2,fma,avx512f,avx512cd,avx512dq,avx512bw,avx512vl,avx512vnni")
-#       else /* LIBXS_X86_AVX2 */
-#         define LIBXS_ATTRIBUTE_TARGET_1100 LIBXS_ATTRIBUTE_TARGET_1006
+#       else
+#         define LIBXS_ATTRIBUTE_TARGET_1100 LIBXS_ATTRIBUTE_TARGET_1050
+#       endif
+#       if (LIBXS_X86_AVX512_INT8 <= LIBXS_MAX_STATIC_TARGET_ARCH)
+#         define LIBXS_ATTRIBUTE_TARGET_1110 target("avx2,fma,avx512f,avx512cd,avx512dq,avx512bw,avx512vl,avx512vnni,avxvnniint8")
+#       else
+#         define LIBXS_ATTRIBUTE_TARGET_1110 LIBXS_ATTRIBUTE_TARGET_1100
+#       endif
+#       if (LIBXS_X86_AVX10_512 <= LIBXS_MAX_STATIC_TARGET_ARCH)
+#         define LIBXS_ATTRIBUTE_TARGET_1200 target("avx10.1-512")
+#       else
+#         define LIBXS_ATTRIBUTE_TARGET_1200 LIBXS_ATTRIBUTE_TARGET_1110
 #       endif
 #     else
 #       define LIBXS_INTRINSICS(TARGET)/*no need for target flags*/
