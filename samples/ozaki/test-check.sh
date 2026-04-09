@@ -59,11 +59,31 @@ else
 fi
 echo
 
-# Scheme 2 (CRT modular arithmetic): exact with default nprimes
+# Scheme 2 (CRT modular arithmetic): exact with default nprimes (u8)
 echo "-----------------------------------"
-echo "CHECK [${TEST}]: Scheme 2 (CRT)"
+echo "CHECK [${TEST}]: Scheme 2 (CRT u8)"
 if [ "$*" ]; then echo "args    $*"; fi
 { CHECK=-1 OZAKI_VERBOSE=1 OZAKI=2 "${EXE}" "$@" 2>"${TMPF}"; } >/dev/null || RESULT=$?
+if [ "0" != "${RESULT}" ]; then
+  echo "FAILED[${RESULT}] $(${CAT} "${TMPF}")"
+  exit ${RESULT}
+fi
+if ${GREP} -q "CHECK:" "${TMPF}"; then
+  echo "OK $(${GREP} "CHECK:" "${TMPF}")"
+else
+  echo "FAILED (no CHECK output)"
+  exit 1
+fi
+echo
+
+# Scheme 2 i8 fallback: signed residues, moduli <= 128
+# OZAKI_I8 is a runtime toggle for the GPU path (ozaki_opencl.c) and a
+# compile-time toggle for the CPU path.  This test exercises the GPU i8
+# path when a GPU is available, or harmlessly re-tests the u8 CPU path.
+echo "-----------------------------------"
+echo "CHECK [${TEST}]: Scheme 2 (CRT i8)"
+if [ "$*" ]; then echo "args    $*"; fi
+{ CHECK=-1 OZAKI_VERBOSE=1 OZAKI=2 OZAKI_I8=1 "${EXE}" "$@" 2>"${TMPF}"; } >/dev/null || RESULT=$?
 if [ "0" != "${RESULT}" ]; then
   echo "FAILED[${RESULT}] $(${CAT} "${TMPF}")"
   exit ${RESULT}
