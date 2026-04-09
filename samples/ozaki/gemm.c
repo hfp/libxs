@@ -65,9 +65,17 @@ int main(int argc, char* argv[])
     size_t ncomp = 0;
     gemm_mhd_settings_t settings_a;
     if (EXIT_SUCCESS == gemm_mhd_read(argv[1], &dim0, &dim1, &transa, &lda, scalar, &ncomp, &settings_a, NULL)) {
-      m = dim0;
-      if (3 >= argc) k = dim1;
-      else k = atoi(argv[3]);
+      /* MHD stores physical layout: trans='N' is (m,k), trans='C'/'T' is (k,m) */
+      if ('N' == transa || 'n' == transa) {
+        m = dim0;
+        if (3 >= argc) k = dim1;
+        else k = atoi(argv[3]);
+      }
+      else {
+        m = dim1;
+        if (3 >= argc) k = dim0;
+        else k = atoi(argv[3]);
+      }
       if (4 >= argc) { /*transa from file*/
       }
       else transa = (0 == ta ? 'N' : 'T');
@@ -77,7 +85,7 @@ int main(int argc, char* argv[])
       }
       else lda = atoi(argv[8]);
       if (10 >= argc) {
-        ldc = (0 < settings_a.ldc) ? settings_a.ldc : dim0;
+        ldc = (0 < settings_a.ldc) ? settings_a.ldc : m;
       }
       if (2 == ncomp) {
         complex_alpha[0] = scalar[0];
@@ -89,35 +97,38 @@ int main(int argc, char* argv[])
     if (0 == n) {
       size_t ncomp_b = 0;
       const int b_read = gemm_mhd_read(argv[2], &dim0, &dim1, &transb, &ldb, scalar, &ncomp_b, NULL, NULL);
-      if (EXIT_SUCCESS == b_read && k == dim0 && ncomp_b == ncomp) {
-        n = dim1;
-        if (5 >= argc) { /*transb from file*/
+      /* MHD stores physical layout: transb='N' is (k,n), transb='C'/'T' is (n,k) */
+      if (EXIT_SUCCESS == b_read) {
+        const GEMM_INT_TYPE bk = ('N' == transb || 'n' == transb) ? dim0 : dim1;
+        const GEMM_INT_TYPE bn = ('N' == transb || 'n' == transb) ? dim1 : dim0;
+        if (k == bk && ncomp_b == ncomp) {
+          n = bn;
+          if (5 >= argc) { /*transb from file*/
+          }
+          else transb = (0 == tb ? 'N' : 'T');
+          if (7 >= argc) beta = scalar[0];
+          else beta = atof(argv[7]);
+          if (9 >= argc) { /*ldb from file*/
+          }
+          else ldb = atoi(argv[9]);
+          if (2 == ncomp_b) {
+            complex_beta[0] = scalar[0];
+            complex_beta[1] = scalar[1];
+          }
+          file_input |= 0x2;
         }
-        else transb = (0 == tb ? 'N' : 'T');
-        if (7 >= argc) beta = scalar[0];
-        else beta = atof(argv[7]);
-        if (9 >= argc) { /*ldb from file*/
+        else {
+          fprintf(stderr, "Mismatched files: A implies k=%i but B has k=%i\n", (int)k, (int)bk);
         }
-        else ldb = atoi(argv[9]);
-        if (2 == ncomp_b) {
-          complex_beta[0] = scalar[0];
-          complex_beta[1] = scalar[1];
-        }
-        file_input |= 0x2;
-      }
-      else if (EXIT_SUCCESS == b_read) {
-        fprintf(stderr, "Mismatched files: A implies k=%i but B has k=%i\n", (int)k, (int)dim0);
       }
     }
   }
 
-  /* Compute physical (stored) matrix dimensions.
-   * For file input, the MHD writer stores A as (m, k) and B as (k, n),
-   * so a_cols = k and b_cols = n regardless of transpose. */
+  /* Compute physical (stored) matrix dimensions. */
   a_rows = ('N' == transa || 'n' == transa) ? m : k;
-  a_cols = (0x1 & file_input) ? k : (('N' == transa || 'n' == transa) ? k : m);
+  a_cols = ('N' == transa || 'n' == transa) ? k : m;
   b_rows = ('N' == transb || 'n' == transb) ? k : n;
-  b_cols = (0x2 & file_input) ? n : (('N' == transb || 'n' == transb) ? n : k);
+  b_cols = ('N' == transb || 'n' == transb) ? n : k;
 
   if (1 > m || 1 > n || 1 > k || lda < a_rows || ldb < b_rows || ldc < m) {
     fprintf(stderr, "Invalid dimensions: m=%i n=%i k=%i lda=%i(>=%i) ldb=%i(>=%i) ldc=%i(>=%i)\n", (int)m, (int)n, (int)k, (int)lda,

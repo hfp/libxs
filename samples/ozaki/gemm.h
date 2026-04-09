@@ -164,10 +164,16 @@ LIBXS_API_INLINE int gemm_mhd_write(const char* filename, const GEMM_REAL_TYPE* 
   mhd_info.ncomponents = ncomp;
   mhd_info.header_size = 0;
   mhd_info.ndims = 2;
-  size[0] = rows;
-  size[1] = cols;
+  if ('N' == trans || 'n' == trans) {
+    size[0] = rows;
+    size[1] = cols;
+  }
+  else {
+    size[0] = cols;
+    size[1] = rows;
+  }
   pitch[0] = ld;
-  pitch[1] = cols;
+  pitch[1] = size[1];
   *(char*)ext = trans;
   memcpy(ext + sizeof(char), &ld, sizeof(GEMM_INT_TYPE));
   memcpy(ext + sizeof(char) + sizeof(GEMM_INT_TYPE), scalar, ncomp * sizeof(GEMM_REAL_TYPE));
