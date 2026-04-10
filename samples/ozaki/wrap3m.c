@@ -137,8 +137,8 @@ LIBXS_API_INLINE void zgemm3m_finalize(GEMM_REAL_TYPE* LIBXS_RESTRICT c, GEMM_IN
 LIBXS_API_INTERN void zgemm3m(GEMM_ARGDECL)
 {
 #if defined(__LIBXSTREAM)
-  /* Try GPU-native 3M path if OpenCL is available and 3M kernels are compiled */
-  if (NULL != ozaki_ocl_handle && ozaki_ocl_supports_zgemm3m(ozaki_ocl_handle)) {
+  /* GPU-native 3M path: only when ozaki_3m >= 2 */
+  if (2 <= ozaki_3m && NULL != ozaki_ocl_handle && ozaki_ocl_supports_zgemm3m(ozaki_ocl_handle)) {
     double alpha_d[2], beta_d[2];
     int result;
     alpha_d[0] = (double)alpha[0];
@@ -151,7 +151,7 @@ LIBXS_API_INTERN void zgemm3m(GEMM_ARGDECL)
   }
 #endif
 
-  { /* CPU-based 3M path (original implementation) */
+  { /* CPU-based 3M path (ozaki_3m == 1, or GPU fallback) */
     const GEMM_INT_TYPE M = *m, N = *n, K = *k;
     const int ta = (*transa != 'N' && *transa != 'n');
     const int tb = (*transb != 'N' && *transb != 'n');
@@ -235,15 +235,15 @@ LIBXS_API_INTERN void zgemm3m(GEMM_ARGDECL)
 
 
 /**
- * Complex GEMM wrapper: dispatches to zgemm3m (3M method) or falls back
- * to the original complex BLAS. Controlled by env var OZAKI
- * (shared with the real GEMM Ozaki wrapper):
- *   0 = pass through to original complex BLAS (avoids 3M overhead),
- *   1 = use 3M method (default).
+ * Complex GEMM wrapper: dispatches based on OZAKI_3M env var.
+ *   0 = pass through to original complex BLAS,
+ *   1 = CPU-based 3M (Karatsuba with 3 real sub-GEMMs),
+ *   2 = GPU-native 3M (all on device, falls back to CPU 3M).
+ * Default: follows OZAKI (0 if OZAKI=0, else 2).
  */
 LIBXS_API_INTERN LIBXS_ATTRIBUTE_WEAK void ZGEMM_WRAP(GEMM_ARGDECL)
 {
-  if (0 != ozaki) {
+  if (0 != ozaki_3m) {
     gemm_dump_inhibit = 1; /* suppress decomposed sub-GEMM dumps */
     zgemm3m(GEMM_ARGPASS);
     if (2 == gemm_dump_inhibit) {

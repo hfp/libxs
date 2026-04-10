@@ -167,6 +167,7 @@
 #define gemm_lock LIBXS_TPREFIX(GEMM_REAL_TYPE, gemm_lock)
 #define ozaki_verbose LIBXS_TPREFIX(GEMM_REAL_TYPE, ozaki_verbose)
 #define ozaki LIBXS_TPREFIX(GEMM_REAL_TYPE, ozaki)
+#define ozaki_3m LIBXS_TPREFIX(GEMM_REAL_TYPE, ozaki_3m)
 #define ozaki_n LIBXS_TPREFIX(GEMM_REAL_TYPE, ozaki_n)
 #define ozaki_profile LIBXS_TPREFIX(GEMM_REAL_TYPE, ozaki_profile)
 #define ozaki_hist LIBXS_TPREFIX(GEMM_REAL_TYPE, ozaki_hist)
@@ -260,6 +261,7 @@ LIBXS_API_INTERN void zgemm3m(GEMM_ARGDECL);
 
 LIBXS_APIVAR_PUBLIC(gemm_function_t gemm_original);
 LIBXS_APIVAR_PUBLIC(int ozaki);
+LIBXS_APIVAR_PUBLIC(int ozaki_3m);
 LIBXS_APIVAR_PUBLIC(int ozaki_verbose);
 LIBXS_APIVAR_PUBLIC(int ozaki_stat);
 

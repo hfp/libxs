@@ -17,6 +17,7 @@ LIBXS_APIVAR_PUBLIC_DEF(gemm_function_t gemm_original);
 LIBXS_APIVAR_PUBLIC_DEF(int ozaki_verbose);
 LIBXS_APIVAR_PUBLIC_DEF(int ozaki_stat);
 LIBXS_APIVAR_PUBLIC_DEF(int ozaki);
+LIBXS_APIVAR_PUBLIC_DEF(int ozaki_3m);
 
 LIBXS_APIVAR_PRIVATE_DEF(volatile LIBXS_ATOMIC_LOCKTYPE gemm_lock);
 LIBXS_APIVAR_PRIVATE_DEF(libxs_malloc_pool_t* gemm_pool);
@@ -148,7 +149,11 @@ LIBXS_API_INTERN LIBXS_ATTRIBUTE_WEAK void GEMM_WRAP(const char* transa, const c
       const char* const ozaki_verbose_env = getenv("OZAKI_VERBOSE");
       const char* const ozaki_stat_env = getenv("OZAKI_STAT");
       const char* const ozaki_env = getenv("OZAKI");
+      const char* const ozaki_3m_env = getenv("OZAKI_3M");
       ozaki = (NULL == ozaki_env ? 1 /*default*/ : atoi(ozaki_env));
+      /* OZAKI_3M: 0=original BLAS, 1=CPU 3M, 2=GPU 3M.
+       * Default: 0 if OZAKI=0, else 2 (GPU preferred, CPU fallback). */
+      ozaki_3m = (NULL != ozaki_3m_env ? atoi(ozaki_3m_env) : (0 != ozaki ? 2 : 0));
       if (NULL != ozaki_stat_env) ozaki_stat = atoi(ozaki_stat_env);
       if (NULL != ozaki_verbose_env) ozaki_verbose = atoi(ozaki_verbose_env);
       else if (0 != ozaki_stat) ozaki_verbose = 1;
