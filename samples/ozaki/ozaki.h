@@ -184,6 +184,7 @@
 #define gemm_dump_inhibit LIBXS_TPREFIX(GEMM_REAL_TYPE, gemm_dump_inhibit)
 #define gemm_dump_matrices LIBXS_TPREFIX(GEMM_REAL_TYPE, gemm_dump_mhd)
 #define zgemm3m LIBXS_CPREFIX(GEMM_REAL_TYPE, gemm3m)
+#define gemm_signal_handler LIBXS_TPREFIX(GEMM_REAL_TYPE, gemm_signal_handler)
 #define gemm_atexit LIBXS_TPREFIX(GEMM_REAL_TYPE, gemm_atexit)
 #define gemm_pool LIBXS_TPREFIX(GEMM_REAL_TYPE, gemm_pool)
 #if defined(__LIBXSTREAM)
