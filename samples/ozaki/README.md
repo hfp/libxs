@@ -102,6 +102,14 @@ Intercepted ZGEMM (double-complex) and CGEMM (single-complex) calls are implemen
 
 The real and imaginary parts of the product are recovered as Re(A*B) = P1 - P2 and Im(A*B) = P3 - P1 - P2. Complex alpha/beta scaling is applied in a final pass. The three real GEMM calls flow through the same wrapper, so they are accelerated by the Ozaki scheme as well. When built with LIBXSTREAM and GPU support is available, the 3M method can keep intermediates on-device to reduce transfers.
 
+The 3M dispatch is controlled independently from the real GEMM scheme via `OZAKI_3M`:
+
+- `OZAKI_3M=0` passes complex GEMM calls through to the original BLAS.
+- `OZAKI_3M=1` uses the CPU-based 3M path (three real sub-GEMMs, each dispatched through the Ozaki real GEMM wrapper).
+- `OZAKI_3M=2` uses the GPU-native 3M path (all intermediates on device), falling back to CPU 3M on failure.
+
+By default, `OZAKI_3M` follows `OZAKI`: if `OZAKI=0`, complex GEMMs also pass through; otherwise GPU 3M is preferred (`OZAKI_3M=2`).
+
 ## Compile-Time Parameters
 
 The block and batch sizes can be overridden at compile time via `-D`:
@@ -123,7 +131,9 @@ make ECFLAGS="-DBLOCK_K=32 -DBATCH_K=2" dgemm-wrap.x
 
 | Variable | Default | Description |
 |----------|:-------:|-------------|
-| `OZAKI` | 1 | Scheme selector: 0 = bypass (call original BLAS directly), 1 = Scheme 1 (mantissa slicing, int8), 2 = Scheme 2 (CRT). |
+| `OZAKI` | 1 | Scheme selector for real GEMM: 0 = bypass (call original BLAS directly), 1 = Scheme 1 (mantissa slicing, int8), 2 = Scheme 2 (CRT). |
+| `OZAKI_3M` | *auto* | Complex GEMM (ZGEMM/CGEMM) dispatch: 0 = pass through to original BLAS, 1 = CPU 3M (Karatsuba), 2 = GPU 3M (all on device, CPU fallback). Default: 0 if `OZAKI=0`, else 2. |
+| `OZAKI_MAXK` | 32768 | Max K elements per preprocessing pass (K-group size). 0 = no grouping (full K in one pass). Smaller values narrow the exponent scope per group (better local precision, more FP accumulation steps). Larger values reduce accumulation rounding but widen the exponent scope. Applies to both CPU and GPU, all schemes. |
 | `OZAKI_N` | *per scheme* | Number of decomposition units: slices for Scheme 1 (double: 1..16, default 8; float: 1..8, default 4) or moduli for Scheme 2 (double: 1..20, default 16; float: 1..12, default 9). |
 | `OZAKI_I8` | 0 | Scheme 2 only: use signed i8 residues (moduli <= 128) instead of the default unsigned u8. Compile-time for CPU (`-DOZAKI_I8=1`), runtime for GPU. |
 | `OZAKI_FLAGS` | 3 | Scheme 1 bitmask: Triangular (1), Symmetrize (2); see above. |
