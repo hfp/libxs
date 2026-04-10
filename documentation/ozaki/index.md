@@ -48,8 +48,7 @@ cd $HOME && git clone https://github.com/hfp/libxstream.git
 cd libxstream && make GNU=1 -j $(nproc)
 
 cd $HOME/libxs/samples/ozaki
-make GNU=1 BLAS_STATIC=0 -j $(nproc)  # builds libwrap.so
-make GNU=1               -j $(nproc)  # builds libwrap.a
+make GNU=1 -j $(nproc)
 ```
 
 Produces `libwrap.so` (LD_PRELOAD), `libwrap.a` (--wrap),

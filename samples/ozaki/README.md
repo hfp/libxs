@@ -6,14 +6,14 @@ This code sample intercepts all four standard BLAS GEMM routines - DGEMM, SGEMM,
 
 Two link-time variants are built per precision: (1) code which is dynamically linked against LAPACK/BLAS (`dgemm-blas.x`/`sgemm-blas.x`), (2) code which is linked using `--wrap=`*symbol* supported by GNU GCC compatible tool chains (`dgemm-wrap.x`/`sgemm-wrap.x`). Running `test-wrap.sh` exercises three flavors: the two build variants and additionally the first variant using the LD_PRELOAD mechanism (available under Linux). The `test-check.sh` script validates both Ozaki schemes for correctness, and `test-mhd.sh` tests MHD file-based GEMM input pairs.
 
-The static wrapper library is built by default (`make`), and suitable for applications with static linkage against a LAPACK/BLAS library (`-Wl,--wrap=dgemm_ -Wl,--wrap=sgemm_ -Wl,--wrap=zgemm_ -Wl,--wrap=cgemm_`). To build and use the shared wrapper library:
+Both the static wrapper library (`libwrap.a`) and the shared wrapper library (`libwrap.so`) are built by default. The static library is suitable for applications with static linkage against a LAPACK/BLAS library (`-Wl,--wrap=dgemm_ -Wl,--wrap=sgemm_ -Wl,--wrap=zgemm_ -Wl,--wrap=cgemm_`). The shared library is used via `LD_PRELOAD`:
 
 ```bash
 cd /path/to/libxs
 make -j $(nproc)
 
 cd samples/ozaki
-make BLAS_STATIC=0
+make
 
 LD_PRELOAD=/path/to/libwrap.so ./application
 ```
