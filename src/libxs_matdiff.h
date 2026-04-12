@@ -38,7 +38,7 @@ for (ii = 0; ii < nn; ++ii) {
 
     if (LIBXS_NOTNAN(ti) && (pos_inf > ta || ti == ri)) {
       const double di = ((NULL != real_tst && ri != ti) ? LIBXS_DELTA(ri, ti) : 0);
-      const double dri = LIBXS_MATDIFF_DIV(di, ra, ta);
+      const double dri = LIBXS_MATDIFF_DIV(di, (ra < di ? 0 : ra), ta);
 
       /* minimum/maximum of test set */
       if (ti < info->min_tst) info->min_tst = ti;
