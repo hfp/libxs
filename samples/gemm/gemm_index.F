@@ -18,7 +18,7 @@
      &    libxs_timer_duration,                                         &
      &    libxs_init, libxs_finalize
         USE, INTRINSIC :: ISO_C_BINDING, ONLY: C_LOC, C_INT,            &
-     &    C_DOUBLE, C_SIZEOF, C_FUNPTR, C_PTR, C_NULL_PTR
+     &    C_CHAR, C_DOUBLE, C_SIZEOF, C_FUNPTR, C_PTR, C_NULL_PTR
 !$      USE :: OMP_LIB, ONLY: omp_get_thread_num,                       &
 !$   &    omp_get_num_threads
         IMPLICIT NONE
@@ -40,16 +40,15 @@
 #if defined(__MKL)
         INTEGER, PARAMETER :: MKL_JIT_SUCCESS = 0
         TYPE(C_PTR) :: jitter = C_NULL_PTR
-        TYPE(C_FUNPTR) :: jit_cfptr
         INTEGER :: jit_status
         INTERFACE
           FUNCTION mkl_jit_create_dgemm(jitter,                         &
      &    transa, transb, m, n, k, alpha, lda, ldb, beta, ldc)          &
      &    RESULT(status) BIND(C)
-            IMPORT :: C_PTR, C_INT, C_DOUBLE
+            IMPORT :: C_PTR, C_INT, C_CHAR, C_DOUBLE
             INTEGER(C_INT) :: status
             TYPE(C_PTR) :: jitter
-            CHARACTER :: transa, transb
+            CHARACTER(KIND=C_CHAR) :: transa, transb
             INTEGER(C_INT) :: m, n, k, lda, ldb, ldc
             REAL(C_DOUBLE) :: alpha, beta
           END FUNCTION
@@ -121,8 +120,8 @@
         !$OMP PARALLEL DO DEFAULT(NONE) PRIVATE(i)                      &
         !$OMP   SHARED(batchsize, stride_a, stride_b, stride_c, a, b, c)
         DO i = 1, batchsize
-          a((i-1)*stride_a+1 : i*stride_a) = 1D0 / batchsize
-          b((i-1)*stride_b+1 : i*stride_b) = 1D0 / batchsize
+          a((i-1)*stride_a+1 : i*stride_a) = 1D0 / REAL(batchsize, T)
+          b((i-1)*stride_b+1 : i*stride_b) = 1D0 / REAL(batchsize, T)
           c((i-1)*stride_c+1 : i*stride_c) = 0D0
         END DO
 
@@ -186,7 +185,7 @@
      &      "Total time : ", duration, " s (", nrepeat, " repeats)"
           WRITE(*, "(A,F10.1,A)")                                       &
      &      "Performance: ",                                            &
-     &      gflops * batchsize * nrepeat / duration,                    &
+     &      gflops * REAL(batchsize, T) * REAL(nrepeat, T) / duration,  &
      &      " GFLOPS/s"
         END IF
 
