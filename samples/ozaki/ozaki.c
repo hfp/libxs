@@ -23,6 +23,7 @@ LIBXS_APIVAR_PUBLIC_DEF(int ozaki_maxk);
 LIBXS_APIVAR_PRIVATE_DEF(volatile LIBXS_ATOMIC_LOCKTYPE gemm_lock);
 LIBXS_APIVAR_PRIVATE_DEF(libxs_malloc_pool_t* gemm_pool);
 LIBXS_APIVAR_PRIVATE_DEF(int ozaki_target_arch);
+LIBXS_APIVAR_PRIVATE_DEF(int ozaki_idx);
 LIBXS_APIVAR_PRIVATE_DEF(double ozaki_eps);
 LIBXS_APIVAR_PRIVATE_DEF(double ozaki_rsq);
 LIBXS_APIVAR_PRIVATE_DEF(int ozaki_flags);
@@ -172,6 +173,7 @@ LIBXS_API_INTERN LIBXS_ATTRIBUTE_WEAK void GEMM_WRAP(const char* transa, const c
         const char* const ozaki_exit_env = getenv("OZAKI_EXIT");
         const char* const ozaki_flags_env = getenv("OZAKI_FLAGS");
         const char* const ozaki_trim_env = getenv("OZAKI_TRIM");
+        const char* const ozaki_idx_env = getenv("OZAKI_IDX");
         const char* const ozaki_eps_env = getenv("OZAKI_EPS");
         const char* const ozaki_rsq_env = getenv("OZAKI_RSQ");
         const char* const ozaki_n_env = getenv("OZAKI_N");
@@ -196,6 +198,7 @@ LIBXS_API_INTERN LIBXS_ATTRIBUTE_WEAK void GEMM_WRAP(const char* transa, const c
         ozaki_flags = (NULL == ozaki_flags_env ? OZ1_DEFAULT : atoi(ozaki_flags_env));
         ozaki_trim = (NULL == ozaki_trim_env ? 0 /*exact*/ : atoi(ozaki_trim_env));
         ozaki_exit = (NULL == ozaki_exit_env ? 1 /*default*/ : atoi(ozaki_exit_env));
+        ozaki_idx = (NULL == ozaki_idx_env ? 0 : atoi(ozaki_idx_env));
         if (2 == ozaki) { /* Scheme 2: CRT primes */
           ozaki_n = LIBXS_CLMP(NULL == ozaki_n_env ? OZ2_NPRIMES_DEFAULT : atoi(ozaki_n_env), 1, OZ2_NPRIMES_MAX);
         }
@@ -213,8 +216,7 @@ LIBXS_API_INTERN LIBXS_ATTRIBUTE_WEAK void GEMM_WRAP(const char* transa, const c
           ozaki_rsq = atof(ozaki_rsq_env);
         }
         ozaki_target_arch = libxs_cpuid(NULL);
-        /* Profiling: create histogram if requested */
-        {
+        { /* Profiling: create histogram if requested */
           const char* env_prof = getenv("OZAKI_PROFILE");
           ozaki_profile = (NULL == env_prof ? 0 : atoi(env_prof));
           if (0 != ozaki_profile) {

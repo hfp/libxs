@@ -136,7 +136,12 @@
         } \
       } \
     } \
-    if (call_diff.rsq < ozaki_rsq || -1 > ozaki_verbose || ozaki_eps < libxs_matdiff_epsilon(&call_diff)) { \
+    if (call_diff.rsq < ozaki_rsq || -1 > ozaki_verbose || \
+      (1 == ozaki_idx && ozaki_eps < call_diff.linf_abs) || \
+      (2 == ozaki_idx && ozaki_eps < call_diff.linf_rel) || \
+      (3 == ozaki_idx && ozaki_eps < call_diff.l2_rel) || \
+      ozaki_eps < libxs_matdiff_epsilon(&call_diff)) \
+    { \
       print_diff(stderr, &call_diff); \
       if (0 != gemm_dump_inhibit) { \
         gemm_dump_inhibit = 2; \
@@ -176,6 +181,7 @@
 #define ozaki_trim LIBXS_TPREFIX(GEMM_REAL_TYPE, ozaki_trim)
 #define ozaki_stat LIBXS_TPREFIX(GEMM_REAL_TYPE, ozaki_stat)
 #define ozaki_exit LIBXS_TPREFIX(GEMM_REAL_TYPE, ozaki_exit)
+#define ozaki_idx LIBXS_TPREFIX(GEMM_REAL_TYPE, ozaki_idx)
 #define ozaki_eps LIBXS_TPREFIX(GEMM_REAL_TYPE, ozaki_eps)
 #define ozaki_rsq LIBXS_TPREFIX(GEMM_REAL_TYPE, ozaki_rsq)
 #define ozaki_target_arch LIBXS_TPREFIX(GEMM_REAL_TYPE, ozaki_tarch)
@@ -271,6 +277,7 @@ LIBXS_APIVAR_PRIVATE(volatile LIBXS_ATOMIC_LOCKTYPE gemm_lock);
 LIBXS_APIVAR_PRIVATE(zgemm_function_t zgemm_original);
 LIBXS_APIVAR_PRIVATE(libxs_malloc_pool_t* gemm_pool);
 LIBXS_APIVAR_PRIVATE(int ozaki_target_arch);
+LIBXS_APIVAR_PRIVATE(int ozaki_idx);
 LIBXS_APIVAR_PRIVATE(double ozaki_eps);
 LIBXS_APIVAR_PRIVATE(double ozaki_rsq);
 LIBXS_APIVAR_PRIVATE(int ozaki_flags);
@@ -745,6 +752,7 @@ LIBXS_API_INLINE int gemm_dump_matrices(GEMM_ARGDECL, size_t ncomponents)
   settings.ozflags = ozaki_flags;
   settings.oztrim = ozaki_trim;
   settings.ldc = *ldc;
+  settings.idx = ozaki_idx;
   settings.eps = ozaki_eps;
   settings.rsq = ozaki_rsq;
 
@@ -779,9 +787,13 @@ LIBXS_API_INLINE int gemm_dump_matrices(GEMM_ARGDECL, size_t ncomponents)
     print_gemm(stderr, 1 /*compact*/, transa, transb, m, n, k, alpha, a, lda, b, ldb, beta, c, ldc);
   }
 
-  if (EXIT_SUCCESS == result) {
-    /* avoid repeated dumps */
-    ozaki_eps = libxs_matdiff_epsilon(&gemm_diff);
+  if (EXIT_SUCCESS == result) { /* avoid repeated dumps */
+    switch(ozaki_idx) {
+      case 1: ozaki_eps = gemm_diff.linf_abs; break;
+      case 2: ozaki_eps = gemm_diff.linf_rel; break;
+      case 3: ozaki_eps = gemm_diff.l2_rel; break;
+      default: ozaki_eps = libxs_matdiff_epsilon(&gemm_diff);
+    }
     ozaki_rsq = gemm_diff.rsq;
   }
 
