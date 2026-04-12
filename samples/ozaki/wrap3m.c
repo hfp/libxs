@@ -113,11 +113,19 @@ LIBXS_API_INLINE void zgemm3m_finalize(GEMM_REAL_TYPE* LIBXS_RESTRICT c, GEMM_IN
     GEMM_REAL_TYPE* cj = c + (size_t)j * ldc * 2;
     const GEMM_REAL_TYPE* rej = re_ab + (size_t)j * ld_ri;
     const GEMM_REAL_TYPE* imj = im_ab + (size_t)j * ld_ri;
-    for (i = 0; i < m; ++i) {
-      const GEMM_REAL_TYPE c_re = cj[2 * i];
-      const GEMM_REAL_TYPE c_im = cj[2 * i + 1];
-      cj[2 * i] = ar * rej[i] - ai * imj[i] + br * c_re - bi * c_im;
-      cj[2 * i + 1] = ar * imj[i] + ai * rej[i] + br * c_im + bi * c_re;
+    if ((GEMM_REAL_TYPE)0 != br || (GEMM_REAL_TYPE)0 != bi) {
+      for (i = 0; i < m; ++i) {
+        const GEMM_REAL_TYPE c_re = cj[2 * i];
+        const GEMM_REAL_TYPE c_im = cj[2 * i + 1];
+        cj[2 * i] = ar * rej[i] - ai * imj[i] + br * c_re - bi * c_im;
+        cj[2 * i + 1] = ar * imj[i] + ai * rej[i] + br * c_im + bi * c_re;
+      }
+    }
+    else { /* beta == 0: do not read C (may contain NaN/Inf) */
+      for (i = 0; i < m; ++i) {
+        cj[2 * i] = ar * rej[i] - ai * imj[i];
+        cj[2 * i + 1] = ar * imj[i] + ai * rej[i];
+      }
     }
   }
 }
@@ -174,7 +182,15 @@ LIBXS_API_INTERN void zgemm3m(GEMM_ARGDECL)
     GEMM_REAL_TYPE* workspace = (GEMM_REAL_TYPE*)libxs_malloc(
       gemm_pool, sizeof(GEMM_REAL_TYPE) * (3 * sz_a + 3 * sz_b + 3 * sz_c), 0 /*auto*/);
     if (NULL == workspace) {
-      fprintf(stderr, "zgemm3m: allocation failed (m=%i, n=%i, k=%i)\n", (int)M, (int)N, (int)K);
+      fprintf(stderr, "ERROR: " LIBXS_STRINGIFY(LIBXS_CPREFIX(GEMM_REAL_TYPE, gemm3m))
+        " allocation failed (m=%i, n=%i, k=%i), fallback to BLAS\n",
+        (int)M, (int)N, (int)K);
+      if (NULL != zgemm_original) {
+        zgemm_original(GEMM_ARGPASS);
+      }
+      else {
+        ZGEMM_REAL(GEMM_ARGPASS);
+      }
     }
     else {
       GEMM_REAL_TYPE* const ar_buf = workspace;
