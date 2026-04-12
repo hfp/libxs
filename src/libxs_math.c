@@ -40,6 +40,9 @@
 #define LIBXS_MATDIFF_DIV_DEN(A) (0 < (A) ? (A) : 1)   /* Clang: WA for div-by-zero */
 #define LIBXS_MATDIFF_DIV(NUMERATOR, DENREF, FALLBACK) /* Clang: >= instead of < */ \
   (0 >= (DENREF) ? (FALLBACK) : ((NUMERATOR) / LIBXS_MATDIFF_DIV_DEN(DENREF)))
+/** Relative error: DI / RA with fallback to TA for near-zero reference. */
+#define LIBXS_MATDIFF_REL(DI, RA, TA) \
+  LIBXS_MATDIFF_DIV(DI, ((RA) < (DI) ? 0 : (RA)), TA)
 
 
 LIBXS_API int libxs_matdiff(libxs_matdiff_t* info,
@@ -245,6 +248,8 @@ LIBXS_API int libxs_matdiff(libxs_matdiff_t* info,
           info->var_tst /= ntotal;
         }
         info->normf_rel = sqrt(info->normf_rel); /* sqrt(SS_res/SS_ref) = ||E||_F / ||R||_F */
+        info->linf_rel = LIBXS_MATDIFF_REL(info->linf_abs,
+          fabs(info->v_ref), fabs(info->v_tst));
         info->l2_abs = sqrt(info->l2_abs);
         info->l2_rel = sqrt(info->l2_rel);
       }
@@ -397,7 +402,6 @@ LIBXS_API int libxs_matdiff_combine(libxs_matdiff_t* output, const libxs_matdiff
     const int lo = internal_libxs_matdiff_onesided(output);
     const int li = internal_libxs_matdiff_onesided(input);
     if (0 != lo && 0 != li) {
-      double aref, atst, d;
       libxs_matdiff_t tmp;
       libxs_matdiff_clear(&tmp);
       /* reference side: adopt tst-stats from output (lhs) */
@@ -412,17 +416,12 @@ LIBXS_API int libxs_matdiff_combine(libxs_matdiff_t* output, const libxs_matdiff
       tmp.max_tst = input->max_tst;
       tmp.avg_tst = input->avg_tst;
       tmp.var_tst = input->var_tst;
-      /* mean shift as linf_abs estimate */
-      d = tmp.avg_ref - tmp.avg_tst;
-      tmp.linf_abs = fabs(d);
-      /* values behind the linf_abs estimate */
+      /* values behind the linf_abs estimate (mean shift) */
       tmp.v_ref = tmp.avg_ref;
       tmp.v_tst = tmp.avg_tst;
-      /* relative to the larger of the two averages */
-      aref = fabs(tmp.avg_ref);
-      atst = fabs(tmp.avg_tst);
-      d = (aref > atst) ? aref : atst;
-      tmp.linf_rel = (0 < d) ? (tmp.linf_abs / d) : 0;
+      tmp.linf_abs = fabs(tmp.v_ref - tmp.v_tst);
+      tmp.linf_rel = LIBXS_MATDIFF_REL(tmp.linf_abs,
+        fabs(tmp.v_ref), fabs(tmp.v_tst));
       /* statistical L2 bound from pooled variance */
       tmp.l2_abs = sqrt(tmp.var_ref + tmp.var_tst);
       /* maintain reduction counter */
@@ -453,8 +452,6 @@ LIBXS_API void libxs_matdiff_reduce(libxs_matdiff_t* output, const libxs_matdiff
     ++output->r; /* increment reduction counter */
     /* epsilon is determined before updating the output */
     if (eps_out <= eps_in) {
-      output->linf_abs = input->linf_abs;
-      output->linf_rel = input->linf_rel;
       output->v_ref = input->v_ref;
       output->v_tst = input->v_tst;
       output->rsq = input->rsq;
@@ -465,14 +462,17 @@ LIBXS_API void libxs_matdiff_reduce(libxs_matdiff_t* output, const libxs_matdiff
     else if (output->linf_abs <= input->linf_abs
           || output->linf_rel <= input->linf_rel)
     {
-      output->linf_abs = LIBXS_MAX(output->linf_abs, input->linf_abs);
-      output->linf_rel = LIBXS_MAX(output->linf_rel, input->linf_rel);
       output->v_ref = input->v_ref;
       output->v_tst = input->v_tst;
       output->rsq = input->rsq;
       output->m = input->m;
       output->n = input->n;
       output->i = output->r;
+    }
+    { /* derive linf_abs/linf_rel from v_ref/v_tst */
+      output->linf_abs = fabs(output->v_ref - output->v_tst);
+      output->linf_rel = LIBXS_MATDIFF_REL(output->linf_abs,
+        fabs(output->v_ref), fabs(output->v_tst));
     }
     if (output->norm1_abs <= input->norm1_abs) {
       output->norm1_abs = input->norm1_abs;

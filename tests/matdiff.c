@@ -68,7 +68,7 @@ int main(void)
     if (0.0000007 < LIBXS_ABS(di[0].l1_tst - 45.66)) result = EXIT_FAILURE;
     /* Linf-norm */
     if (0.0000004 < LIBXS_ABS(di[0].linf_abs - 0.9300000)) result = EXIT_FAILURE;
-    if (0.0000001 < LIBXS_ABS(di[0].linf_rel - 0.5600000)) result = EXIT_FAILURE;
+    if (0.0000001 < LIBXS_ABS(di[0].linf_rel - 0.0930000)) result = EXIT_FAILURE;
     /* R-squared */
     if (0.0000001 < LIBXS_ABS(di[0].rsq - 0.9490077)) result = EXIT_FAILURE;
     /* Location of maximum error */
@@ -265,7 +265,7 @@ int main(void)
     if (0.0000007 < LIBXS_ABS(diff.l1_tst - 267.90)) result = EXIT_FAILURE;
     /* Linf-norm */
     if (0.0000001 < LIBXS_ABS(diff.linf_abs - 2.0000000)) result = EXIT_FAILURE;
-    if (0.0000001 < LIBXS_ABS(diff.linf_rel - 0.5600000)) result = EXIT_FAILURE;
+    if (0.0000001 < LIBXS_ABS(diff.linf_rel - 0.2222222)) result = EXIT_FAILURE;
     /* R-squared */
     if (0.0000001 < LIBXS_ABS(diff.rsq - 0.9991717)) result = EXIT_FAILURE;
     /* Location of maximum error */
