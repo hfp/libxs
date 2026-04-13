@@ -198,6 +198,9 @@ LIBXS_API_INLINE int libxs_gemm_dispatch(
       config->shape.alpha = (NULL != alpha ? (double)*(const float*)alpha : 1.0);
       config->shape.beta  = (NULL != beta  ? (double)*(const float*)beta  : 0.0);
     }
+    else {
+      return EXIT_FAILURE;
+    }
   }
   /* Registry lookup. */
   if (NULL != registry && NULL != config) {
