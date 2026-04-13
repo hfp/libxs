@@ -251,6 +251,44 @@ LIBXS_API_INTERN void zgemm3m(GEMM_ARGDECL)
 
 
 /**
+ * Complex GEMM diff: save C, run 3M, reference ZGEMM, matdiff with C64/C32.
+ */
+LIBXS_API_INLINE void zgemm3m_diff(GEMM_ARGDECL, unsigned int diff_stat,
+  libxs_matdiff_t* diff)
+{
+  GEMM_REAL_TYPE* c_ref = NULL;
+  size_t c_size = 0;
+  /* Save C for reference comparison (before 3M modifies it) */
+  if (NULL != diff && 0 == (diff_stat % 3)) {
+    c_size = 2 * (size_t)*ldc * (size_t)*n * sizeof(GEMM_REAL_TYPE);
+    c_ref = (GEMM_REAL_TYPE*)libxs_malloc(gemm_pool, c_size, 0);
+    if (NULL != c_ref) memcpy(c_ref, c, c_size);
+  }
+  /* Compute via 3M */
+  gemm_dump_inhibit = 1;
+  zgemm3m(GEMM_ARGPASS);
+  if (2 == gemm_dump_inhibit) {
+    const int result = gemm_dump_matrices(GEMM_ARGPASS, 2);
+    if (0 != ozaki_exit) exit(EXIT_SUCCESS == result ? EXIT_FAILURE : result);
+  }
+  gemm_dump_inhibit = 0;
+  /* Reference complex BLAS and diff */
+  if (NULL != c_ref) {
+    const libxs_data_t dt = (GEMM_IS_DOUBLE ? LIBXS_DATATYPE_C64 : LIBXS_DATATYPE_C32);
+    if (NULL != zgemm_original) {
+      zgemm_original(transa, transb, m, n, k, alpha, a, lda, b, ldb, beta, c_ref, ldc);
+    }
+    else {
+      ZGEMM_REAL(transa, transb, m, n, k, alpha, a, lda, b, ldb, beta, c_ref, ldc);
+    }
+    libxs_matdiff(diff, dt, *m, *n, c_ref, c, ldc, ldc);
+    if (ozaki_diff_exceeds(diff)) memcpy(c, c_ref, c_size);
+    libxs_free(c_ref);
+  }
+}
+
+
+/**
  * Complex GEMM wrapper: dispatches based on OZAKI_3M env var.
  *   0 = pass through to original complex BLAS,
  *   1 = CPU-based 3M (Karatsuba with 3 real sub-GEMMs),
@@ -260,13 +298,7 @@ LIBXS_API_INTERN void zgemm3m(GEMM_ARGDECL)
 LIBXS_API_INTERN LIBXS_ATTRIBUTE_WEAK void ZGEMM_WRAP(GEMM_ARGDECL)
 {
   if (0 != ozaki_3m) {
-    gemm_dump_inhibit = 1; /* suppress decomposed sub-GEMM dumps */
-    zgemm3m(GEMM_ARGPASS);
-    if (2 == gemm_dump_inhibit) {
-      const int result = gemm_dump_matrices(GEMM_ARGPASS, 2);
-      if (0 != ozaki_exit) exit(EXIT_SUCCESS == result ? EXIT_FAILURE : result);
-    }
-    gemm_dump_inhibit = 0;
+    OZAKI_GEMM_WRAPPER(zgemm3m_diff)
   }
   else {
     /* Passthrough to original complex GEMM */
