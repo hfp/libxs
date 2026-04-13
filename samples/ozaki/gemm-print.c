@@ -38,8 +38,8 @@ LIBXS_API void print_gemm(FILE* ostream, int compact, const char* transa, const 
 LIBXS_API void print_diff(FILE* ostream, const libxs_matdiff_t* diff)
 {
   const double epsilon = libxs_matdiff_epsilon(diff);
-  if (1E-6 <= epsilon) {
-    fprintf(ostream, "GEMM: ncalls=%i linf=%.17g linf_rel=%.17g l2_rel=%.17g eps=%f rsq=%f -> %g != %g\n", diff->r, diff->linf_abs,
+  if (1E-6 <= epsilon || 0 != ozaki_stat) {
+    fprintf(ostream, "GEMM: ncalls=%i linf=%.17g linf_rel=%.17g l2_rel=%.17g eps=%f rsq=%f -> %.17g != %.17g\n", diff->r, diff->linf_abs,
       diff->linf_rel, diff->l2_rel, epsilon, diff->rsq, diff->v_ref, diff->v_tst);
   }
   else {
