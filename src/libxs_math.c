@@ -177,6 +177,38 @@ LIBXS_API int libxs_matdiff(libxs_matdiff_t* info,
 #       undef LIBXS_MATDIFF_TEMPLATE_ELEM_TYPE
 #       undef LIBXS_MATDIFF_TEMPLATE_TYPE2FP64
       } break;
+      case LIBXS_DATATYPE_C64: {
+#       define LIBXS_MATDIFF_TEMPLATE_TYPE2FP64(VALUE) (VALUE)
+#       define LIBXS_MATDIFF_TEMPLATE_ELEM_TYPE double
+#       define LIBXS_MATDIFF_COMPLEX
+        if (0 == matdiff_shuffle) {
+#         include "libxs_matdiff.h"
+        }
+        else {
+#         define LIBXS_MATDIFF_SHUFFLE
+#         include "libxs_matdiff.h"
+#         undef LIBXS_MATDIFF_SHUFFLE
+        }
+#       undef LIBXS_MATDIFF_COMPLEX
+#       undef LIBXS_MATDIFF_TEMPLATE_ELEM_TYPE
+#       undef LIBXS_MATDIFF_TEMPLATE_TYPE2FP64
+      } break;
+      case LIBXS_DATATYPE_C32: {
+#       define LIBXS_MATDIFF_TEMPLATE_TYPE2FP64(VALUE) (VALUE)
+#       define LIBXS_MATDIFF_TEMPLATE_ELEM_TYPE float
+#       define LIBXS_MATDIFF_COMPLEX
+        if (0 == matdiff_shuffle) {
+#         include "libxs_matdiff.h"
+        }
+        else {
+#         define LIBXS_MATDIFF_SHUFFLE
+#         include "libxs_matdiff.h"
+#         undef LIBXS_MATDIFF_SHUFFLE
+        }
+#       undef LIBXS_MATDIFF_COMPLEX
+#       undef LIBXS_MATDIFF_TEMPLATE_ELEM_TYPE
+#       undef LIBXS_MATDIFF_TEMPLATE_TYPE2FP64
+      } break;
       default: {
         static int error_once = 0;
         if (0 != libxs_verbosity /* library code is expected to be mute */

@@ -24,6 +24,7 @@
         PUBLIC :: LIBXS_DATATYPE_I16, LIBXS_DATATYPE_U16
         PUBLIC :: LIBXS_DATATYPE_I8,  LIBXS_DATATYPE_U8
         PUBLIC :: LIBXS_DATATYPE_UNKNOWN
+        PUBLIC :: LIBXS_DATATYPE_C64, LIBXS_DATATYPE_C32
         PUBLIC :: LIBXS_TARGET_ARCH_UNKNOWN
         PUBLIC :: LIBXS_TARGET_ARCH_GENERIC
         PUBLIC :: LIBXS_X86_GENERIC, LIBXS_X86_SSE3
@@ -95,7 +96,9 @@
      &    LIBXS_DATATYPE_U16     = IOR(7, ISHFT(2, 4)),                 &
      &    LIBXS_DATATYPE_I8      = IOR(8, ISHFT(1, 4)),                 &
      &    LIBXS_DATATYPE_U8      = IOR(9, ISHFT(1, 4)),                 &
-     &    LIBXS_DATATYPE_UNKNOWN = 10
+     &    LIBXS_DATATYPE_C64     = IOR(10, ISHFT(16, 4)),               &
+     &    LIBXS_DATATYPE_C32     = IOR(11, ISHFT(8, 4)),                &
+     &    LIBXS_DATATYPE_UNKNOWN = 12
 
         !> Enumerates GEMM batch synchronization flags (bitfield).
         INTEGER(C_INT), PARAMETER ::                                    &

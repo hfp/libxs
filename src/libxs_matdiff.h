@@ -27,8 +27,19 @@ for (ii = 0; ii < nn; ++ii) {
 #else
     const int i = ii, j = jj;
 #endif
+#if defined(LIBXS_MATDIFF_COMPLEX)
+    const size_t idx_ref1 = 2 * ((size_t)i * ldr + j);
+    const double ri_re = LIBXS_MATDIFF_TEMPLATE_TYPE2FP64(real_ref[idx_ref1]);
+    const double ri_im = LIBXS_MATDIFF_TEMPLATE_TYPE2FP64(real_ref[idx_ref1 + 1]);
+    const double ri = sqrt(ri_re * ri_re + ri_im * ri_im);
+    const size_t idx_tst1 = 2 * ((size_t)i * ldt + j);
+    const double ti_re = (NULL != real_tst ? LIBXS_MATDIFF_TEMPLATE_TYPE2FP64(real_tst[idx_tst1]) : 0);
+    const double ti_im = (NULL != real_tst ? LIBXS_MATDIFF_TEMPLATE_TYPE2FP64(real_tst[idx_tst1 + 1]) : 0);
+    const double ti = sqrt(ti_re * ti_re + ti_im * ti_im);
+#else
     const double ti = (NULL != real_tst ? LIBXS_MATDIFF_TEMPLATE_TYPE2FP64(real_tst[(size_t)i*ldt+j]) : 0);
     const double ri = LIBXS_MATDIFF_TEMPLATE_TYPE2FP64(real_ref[(size_t)i*ldr+j]);
+#endif
     const double ta = LIBXS_ABS(ti);
     const double ra = LIBXS_ABS(ri);
 
@@ -41,7 +52,12 @@ for (ii = 0; ii < nn; ++ii) {
     }
 
     if (LIBXS_NOTNAN(ti) && (pos_inf > ta || ti == ri)) {
+#if defined(LIBXS_MATDIFF_COMPLEX)
+      const double di = (NULL != real_tst
+        ? sqrt((ri_re - ti_re) * (ri_re - ti_re) + (ri_im - ti_im) * (ri_im - ti_im)) : 0);
+#else
       const double di = ((NULL != real_tst && ri != ti) ? LIBXS_DELTA(ri, ti) : 0);
+#endif
       const double dri = LIBXS_MATDIFF_REL(di, ra, ta);
 
       /* minimum/maximum of test set */
@@ -146,10 +162,24 @@ if (0 == result_nan) {
 #else
       const int i = ii, j = jj;
 #endif
+#if defined(LIBXS_MATDIFF_COMPLEX)
+      const size_t idx_ref2 = 2 * ((size_t)i * ldr + j);
+      const double ri_re2 = LIBXS_MATDIFF_TEMPLATE_TYPE2FP64(real_ref[idx_ref2]);
+      const double ri_im2 = LIBXS_MATDIFF_TEMPLATE_TYPE2FP64(real_ref[idx_ref2 + 1]);
+      const double ri = sqrt(ri_re2 * ri_re2 + ri_im2 * ri_im2);
+      const size_t idx_tst2 = 2 * ((size_t)i * ldt + j);
+      const double ti_re2 = (NULL != real_tst ? LIBXS_MATDIFF_TEMPLATE_TYPE2FP64(real_tst[idx_tst2]) : 0);
+      const double ti_im2 = (NULL != real_tst ? LIBXS_MATDIFF_TEMPLATE_TYPE2FP64(real_tst[idx_tst2 + 1]) : 0);
+      const double ti = sqrt(ti_re2 * ti_re2 + ti_im2 * ti_im2);
+      const double ta = ti, ra = ri;
+      const double di = (NULL != real_tst
+        ? sqrt((ri_re2 - ti_re2) * (ri_re2 - ti_re2) + (ri_im2 - ti_im2) * (ri_im2 - ti_im2)) : 0);
+#else
       const double ti = (NULL != real_tst ? LIBXS_MATDIFF_TEMPLATE_TYPE2FP64(real_tst[(size_t)i * ldt + j]) : 0);
       const double ri = LIBXS_MATDIFF_TEMPLATE_TYPE2FP64(real_ref[(size_t)i*ldr+j]);
       const double ta = LIBXS_ABS(ti), ra = LIBXS_ABS(ri);
       const double di = ((NULL != real_tst && ri != ti) ? LIBXS_DELTA(ri, ti) : 0);
+#endif
       const double rd = ri - info->avg_ref, td = ti - info->avg_tst;
 
       /* variance of reference set with Kahan compensation */

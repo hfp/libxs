@@ -29,7 +29,7 @@ int libxs_matdiff(libxs_matdiff_t* info,
   const int* ldref, const int* ldtst);
 ```
 
-Compute a collection of scalar differences between two matrices. Supports all `libxs_data_t` element types. The location of the largest absolute difference is recorded.
+Compute a collection of scalar differences between two matrices. Supports all `libxs_data_t` element types including complex (`LIBXS_DATATYPE_C64`, `LIBXS_DATATYPE_C32`). Complex matrices use interleaved storage (real, imaginary pairs); `m`, `n`, and leading dimensions refer to complex elements. All results in `libxs_matdiff_t` are real-valued: element values and statistics use the complex modulus, differences use `|z_ref - z_tst|`.
 
 ```C
 double libxs_matdiff_epsilon(const libxs_matdiff_t* input);

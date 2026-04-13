@@ -564,6 +564,8 @@ LIBXS_API const char* libxs_typename(libxs_data_t datatype)
     case LIBXS_DATATYPE_U16:  return "u16";
     case LIBXS_DATATYPE_I8:   return "i8";
     case LIBXS_DATATYPE_U8:   return "u8";
+    case LIBXS_DATATYPE_C64:  return "c64";
+    case LIBXS_DATATYPE_C32:  return "c32";
     default: return "void";
   }
 }

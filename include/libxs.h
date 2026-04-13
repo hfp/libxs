@@ -36,7 +36,9 @@ typedef enum libxs_data_t {
   LIBXS_DATATYPE_U16 = 7 | (2 << 4),
   LIBXS_DATATYPE_I8  = 8 | (1 << 4),
   LIBXS_DATATYPE_U8  = 9 | (1 << 4),
-  LIBXS_DATATYPE_UNKNOWN = 10
+  LIBXS_DATATYPE_C64 = 10 | (16 << 4),
+  LIBXS_DATATYPE_C32 = 11 | (8 << 4),
+  LIBXS_DATATYPE_UNKNOWN = 12
 } libxs_data_t;
 
 /** Removes type-size info from type (libxs_data_t). */
