@@ -131,7 +131,8 @@
       if (0 == (diff.r % nth)) { \
         if (0 <= ozaki_stat) print_diff(stderr, 0 /*detail*/, &diff); \
         else { \
-          fprintf(stderr, "GEMM [%i]: ", diff.r); \
+          const int id = (1 < libxs_nranks() ? libxs_nrank() : libxs_pid()); \
+          fprintf(stderr, "GEMM [%i.%i]: ", id, diff.r); \
           print_gemm(stderr, LIBXS_ABS(ozaki_stat), transa, transb, m, n, k, alpha, a, lda, b, ldb, beta, c, ldc); \
         } \
       } \
@@ -782,7 +783,7 @@ LIBXS_API_INLINE int gemm_dump_matrices(GEMM_ARGDECL, size_t ncomponents)
   else fclose(file);
 
   if (0 != ozaki_verbose) {
-    fprintf(stderr, "GEMM [%i]: ", gemm_diff.r);
+    fprintf(stderr, "GEMM [%i.%i]: ", id, gemm_diff.r);
     print_gemm(stderr, 1 /*compact*/, transa, transb, m, n, k, alpha, a, lda, b, ldb, beta, c, ldc);
   }
 

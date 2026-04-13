@@ -7,6 +7,7 @@
 * SPDX-License-Identifier: BSD-3-Clause                                       *
 ******************************************************************************/
 #include "gemm.h"
+#include <libxs_sync.h>
 
 
 LIBXS_API void print_gemm(FILE* ostream, int compact, const char* transa, const char* transb, const GEMM_INT_TYPE* m,
@@ -37,14 +38,15 @@ LIBXS_API void print_gemm(FILE* ostream, int compact, const char* transa, const 
 
 LIBXS_API void print_diff(FILE* ostream, int detail, const libxs_matdiff_t* diff)
 {
+  const int id = (1 < libxs_nranks() ? libxs_nrank() : libxs_pid());
   const double epsilon = libxs_matdiff_epsilon(diff);
   const double posdef = libxs_matdiff_posdef(diff);
   if (1E-6 <= epsilon || 0 != detail) {
-    fprintf(ostream, "GEMM [%i]: posdef=%.17g linf=%.17g linf_rel=%g l2_rel=%g eps=%g rsq=%g -> %.17g != %.17g\n",
-      diff->r, posdef, diff->linf_abs, diff->linf_rel, diff->l2_rel, epsilon, diff->rsq, diff->v_ref, diff->v_tst);
+    fprintf(ostream, "GEMM [%i.%i]: posdef=%.17g linf=%.17g linf_rel=%g l2_rel=%g eps=%g rsq=%g -> %.17g != %.17g\n",
+      id, diff->r, posdef, diff->linf_abs, diff->linf_rel, diff->l2_rel, epsilon, diff->rsq, diff->v_ref, diff->v_tst);
   }
   else {
-    fprintf(ostream, "GEMM [%i]: posdef=%.17g linf=%.17g linf_rel=%g l2_rel=%g eps=%g rsq=%g\n",
-      diff->r, posdef, diff->linf_abs, diff->linf_rel, diff->l2_rel, epsilon, diff->rsq);
+    fprintf(ostream, "GEMM [%i.%i]: posdef=%.17g linf=%.17g linf_rel=%g l2_rel=%g eps=%g rsq=%g\n",
+      id, diff->r, posdef, diff->linf_abs, diff->linf_rel, diff->l2_rel, epsilon, diff->rsq);
   }
 }
