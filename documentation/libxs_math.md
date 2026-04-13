@@ -52,10 +52,10 @@ void libxs_matdiff_clear(libxs_matdiff_t* info);
 Thread-safe reduction (max) of matdiff results. Initialize `output` with `libxs_matdiff_clear` before the first reduction.
 
 ```C
-int libxs_matdiff_posdef(const libxs_matdiff_t* info);
+double libxs_matdiff_posdef(const libxs_matdiff_t* info);
 ```
 
-Necessary condition for positive definiteness: returns non-zero if all diagonal elements of the test-side matrix are positive (`diag_min_tst > 0`). For single-matrix info (`ref=NULL`), the matrix is on the test-side after the internal swap.
+Necessary condition for positive definiteness: returns the smallest diagonal element of the test-side matrix. A positive return value means all diagonal elements are positive; the magnitude indicates the margin. Returns zero if no diagonal data is available. For single-matrix info (`ref=NULL`), the matrix is on the test-side after the internal swap.
 
 ## Number Theory
 

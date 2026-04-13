@@ -84,13 +84,13 @@ LIBXS_API void libxs_matdiff_clear(libxs_matdiff_t* info);
 /**
  * Necessary condition for positive definiteness: all diagonal elements are positive.
  * Checks the test-side diagonal (tst); for single-matrix info (ref=NULL) the matrix
- * is on the tst-side after the internal swap. Returns non-zero if the condition holds.
+ * is on the tst-side after the internal swap. Returns the smallest diagonal element
+ * (positive means the condition holds), or zero if no diagonal data is available.
  */
-LIBXS_API_INLINE int libxs_matdiff_posdef(const libxs_matdiff_t* info)
+LIBXS_API_INLINE double libxs_matdiff_posdef(const libxs_matdiff_t* info)
 {
-  return (NULL != info
-    && info->diag_min_tst <= info->diag_max_tst
-    && 0 < info->diag_min_tst);
+  return (NULL != info && info->diag_min_tst <= info->diag_max_tst)
+    ? info->diag_min_tst : 0;
 }
 
 /** Greatest common divisor (corner case: the GCD of 0 and 0 is 1). */
