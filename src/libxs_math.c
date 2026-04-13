@@ -462,7 +462,6 @@ LIBXS_API void libxs_matdiff_reduce(libxs_matdiff_t* output, const libxs_matdiff
     if (eps_out <= eps_in) {
       output->v_ref = input->v_ref;
       output->v_tst = input->v_tst;
-      output->rsq = input->rsq;
       output->m = input->m;
       output->n = input->n;
       output->i = output->r;
@@ -472,11 +471,11 @@ LIBXS_API void libxs_matdiff_reduce(libxs_matdiff_t* output, const libxs_matdiff
     {
       output->v_ref = input->v_ref;
       output->v_tst = input->v_tst;
-      output->rsq = input->rsq;
       output->m = input->m;
       output->n = input->n;
       output->i = output->r;
     }
+    if (output->rsq > input->rsq) output->rsq = input->rsq;
     { /* derive linf_abs/linf_rel from v_ref/v_tst */
       output->linf_abs = fabs(output->v_ref - output->v_tst);
       output->linf_rel = LIBXS_MATDIFF_REL(output->linf_abs,
@@ -528,6 +527,7 @@ LIBXS_API void libxs_matdiff_clear(libxs_matdiff_t* info)
     info->max_ref = info->max_tst = -inf.value;
     info->diag_min_ref = info->diag_min_tst = +inf.value;
     info->diag_max_ref = info->diag_max_tst = -inf.value;
+    info->rsq = 1.0; /* identity for min-reduction */
   }
 }
 

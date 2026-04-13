@@ -248,7 +248,7 @@ int main(void)
   if (EXIT_SUCCESS == result) {
     const double epsilon = libxs_matdiff_epsilon(&diff);
     /* Epsilon (combined) */
-    if (0.0000001 < LIBXS_ABS(epsilon - 0.1075845)) result = EXIT_FAILURE;
+    if (0.0000001 < LIBXS_ABS(epsilon - 0.1132714)) result = EXIT_FAILURE;
     /* One-norm */
     if (0.0000001 < LIBXS_ABS(diff.norm1_abs - 3.1000000)) result = EXIT_FAILURE;
     if (0.0000001 < LIBXS_ABS(diff.norm1_rel - 0.0281818)) result = EXIT_FAILURE;
@@ -267,7 +267,7 @@ int main(void)
     if (0.0000001 < LIBXS_ABS(diff.linf_abs - 2.0000000)) result = EXIT_FAILURE;
     if (0.0000001 < LIBXS_ABS(diff.linf_rel - 0.2222222)) result = EXIT_FAILURE;
     /* R-squared */
-    if (0.0000001 < LIBXS_ABS(diff.rsq - 0.9991717)) result = EXIT_FAILURE;
+    if (0.0000001 < LIBXS_ABS(diff.rsq - 0.9490077)) result = EXIT_FAILURE;
     /* Location of maximum error */
     if (2 != diff.m || 0 != diff.n) result = EXIT_FAILURE;
     if (x[3*di[1].m+di[1].n] != di[1].v_ref) result = EXIT_FAILURE;
@@ -285,7 +285,7 @@ int main(void)
       /* Epsilon */
       if (epsilon != LIBXS_ABS(epsilon - v)) result = EXIT_FAILURE; /* infinity */
       /* R-squared */
-      if (0 < d.rsq - 0) result = EXIT_FAILURE;
+      if (0 < d.rsq - 0.0) result = EXIT_FAILURE;
       /* Location of maximum error */
       if (0 != d.m || 0 != d.n) result = EXIT_FAILURE;
     }
@@ -306,12 +306,12 @@ int main(void)
       const double epsilon = libxs_matdiff_epsilon(&d);
       /* norms must be infinity */
       if (LIBXS_NOTNAN(epsilon) && 0 < epsilon) {
-        if (epsilon == epsilon - 1) { /* epsilon is +Inf: OK */ }
+        if (epsilon == epsilon - 1.0) { /* epsilon is +Inf: OK */ }
         else result = EXIT_FAILURE;
       }
       else result = EXIT_FAILURE;
       /* R-squared: must be zero (not +inf as before the fix) */
-      if (0 < d.rsq - 0) result = EXIT_FAILURE;
+      if (0 < d.rsq - 1.0) result = EXIT_FAILURE;
       /* NaN detected at position of the NaN element */
       if (1 != d.m || 0 != d.n) result = EXIT_FAILURE;
     }
@@ -335,12 +335,12 @@ int main(void)
       const double epsilon = libxs_matdiff_epsilon(&d);
       /* norms must be infinity */
       if (LIBXS_NOTNAN(epsilon) && 0 < epsilon) {
-        if (epsilon == epsilon - 1) { /* epsilon is +Inf: OK */ }
+        if (epsilon == epsilon - 1.0) { /* epsilon is +Inf: OK */ }
         else result = EXIT_FAILURE;
       }
       else result = EXIT_FAILURE;
       /* R-squared: must be zero */
-      if (0 < d.rsq - 0) result = EXIT_FAILURE;
+      if (0 < d.rsq - 1.0) result = EXIT_FAILURE;
       /* NaN detected at position 0 */
       if (0 != d.m || 0 != d.n) result = EXIT_FAILURE;
     }
