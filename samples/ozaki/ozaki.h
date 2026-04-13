@@ -825,8 +825,8 @@ LIBXS_API_INLINE int gemm_dump_matrices(GEMM_ARGDECL, size_t ncomponents)
   else fclose(file);
 
   if (0 < ozaki_verbose) {
-    fprintf(stderr, "GEMM [%i.%i]: ", id, gemm_diff.r);
-    print_gemm(stderr, 1 /*compact*/, transa, transb, m, n, k, alpha, a, lda, b, ldb, beta, c, ldc);
+    fprintf(stderr, GEMM_LABEL " [%i.%i]: ", id, gemm_diff.r);
+    print_gemm(stderr, 2 /*compact*/, transa, transb, m, n, k, alpha, a, lda, b, ldb, beta, c, ldc);
   }
 
   if (EXIT_SUCCESS == result) { /* avoid repeated dumps */
