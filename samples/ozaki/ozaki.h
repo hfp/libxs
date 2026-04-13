@@ -727,13 +727,27 @@ LIBXS_API_INLINE int ozaki_diff_exceeds(const libxs_matdiff_t* diff)
     ozaki_eps < libxs_matdiff_epsilon(diff)));
 }
 
-/** Compute matrix diff for one block and reduce into accumulator. */
+/** Accumulator for global R-squared computation across blocks.
+ * Per-block rsq is meaningless when a block has near-zero variance;
+ * accumulating raw SS_res and SS_tot allows computing global rsq. */
+typedef struct ozaki_rsq_acc_t {
+  double ss_res, ss_tot;
+} ozaki_rsq_acc_t;
+
+/** Compute matrix diff for one block and reduce into accumulator.
+ * If rsq_acc is non-NULL, accumulate raw SS_res/SS_tot for global rsq. */
 LIBXS_API_INLINE void ozaki_accumulate_block_diff(libxs_matdiff_t* acc, const GEMM_REAL_TYPE* ref_blk,
-  const GEMM_REAL_TYPE* tst_blk, GEMM_INT_TYPE bm, GEMM_INT_TYPE bn, GEMM_INT_TYPE ld_ref, GEMM_INT_TYPE ld_tst)
+  const GEMM_REAL_TYPE* tst_blk, GEMM_INT_TYPE bm, GEMM_INT_TYPE bn, GEMM_INT_TYPE ld_ref, GEMM_INT_TYPE ld_tst,
+  ozaki_rsq_acc_t* rsq_acc)
 {
   libxs_matdiff_t block_diff;
   const int ild_ref = (int)ld_ref, ild_tst = (int)ld_tst;
   if (EXIT_SUCCESS == libxs_matdiff(&block_diff, LIBXS_DATATYPE(GEMM_REAL_TYPE), bm, bn, ref_blk, tst_blk, &ild_ref, &ild_tst)) {
+    if (NULL != rsq_acc) {
+      /* after libxs_matdiff: l2_abs = sqrt(SS_res), var_ref = SS_tot / ntotal */
+      rsq_acc->ss_res += block_diff.l2_abs * block_diff.l2_abs;
+      rsq_acc->ss_tot += block_diff.var_ref * (double)(bm * bn);
+    }
     libxs_matdiff_reduce(acc, &block_diff);
   }
 }

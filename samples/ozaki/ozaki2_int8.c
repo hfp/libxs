@@ -591,6 +591,7 @@ LIBXS_API_INLINE void gemm_oz2_diff(const char* transa, const char* transb, cons
   double* expb_fp = NULL;
   GEMM_REAL_TYPE* ref_panel = NULL;
   libxs_matdiff_t tdiff[256];
+  ozaki_rsq_acc_t trsq[256];
   GEMM_PROFILE_DECL;
   int nthreads = 1;
   int i, j;
@@ -626,7 +627,10 @@ LIBXS_API_INLINE void gemm_oz2_diff(const char* transa, const char* transb, cons
 # pragma omp single
     nthreads = omp_get_num_threads();
 #endif
-    if (NULL != diff) libxs_matdiff_clear(&tdiff[tid]);
+    if (NULL != diff) {
+      libxs_matdiff_clear(&tdiff[tid]);
+      trsq[tid].ss_res = trsq[tid].ss_tot = 0;
+    }
     GEMM_PROFILE_TICK(t_start, tid);
 
     /* Phase 3: scale C by beta (once, before K-group loop) */
@@ -959,15 +963,23 @@ LIBXS_API_INLINE void gemm_oz2_diff(const char* transa, const char* transb, cons
             GEMM_REAL(transa, transb, &iblk, &jblk, &K, alpha, a + LIBXS_INDEX(ta, *lda, ib, 0), lda,
               b + LIBXS_INDEX(tb, *ldb, 0, jb), ldb, beta, ref_blk, &mref);
           }
-          ozaki_accumulate_block_diff(&tdiff[tid], ref_blk, cb, iblk, jblk, mref, ldcv);
+          ozaki_accumulate_block_diff(&tdiff[tid], ref_blk, cb, iblk, jblk, mref, ldcv, &trsq[tid]);
         }
       }
     }
   } /* end parallel */
 
   if (NULL != diff) {
+    double total_ss_res = 0, total_ss_tot = 0;
     for (i = 0; i < nthreads; ++i) {
       libxs_matdiff_reduce(diff, &tdiff[i]);
+      total_ss_res += trsq[i].ss_res;
+      total_ss_tot += trsq[i].ss_tot;
+    }
+    /* global rsq from accumulated SS_res/SS_tot (per-block min-reduction is meaningless
+     * when individual blocks have near-zero variance) */
+    if (0 < total_ss_tot) {
+      diff->rsq = LIBXS_MAX(0.0, 1.0 - total_ss_res / total_ss_tot);
     }
     if (NULL != ref_panel && ozaki_diff_exceeds(diff)) {
       ozaki_repair_from_ref_panel(c, ref_panel, M, N, ldcv, nblk_m);
