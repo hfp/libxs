@@ -184,7 +184,7 @@ LIBXS_API_INTERN LIBXS_ATTRIBUTE_WEAK void GEMM_WRAP(const char* transa, const c
         const char* const ozaki_ocl_env = getenv("OZAKI_OCL");
         const char* const ozaki_tm_env = getenv("OZAKI_TM");
         const char* const ozaki_tn_env = getenv("OZAKI_TN");
-        const int ozaki_ocl = (NULL == ozaki_ocl_env ? 1 /*default*/ : atoi(ozaki_ocl_env));
+        const int ozaki_ocl = (NULL == ozaki_ocl_env ? 0 /*default*/ : atoi(ozaki_ocl_env));
 #endif
         libxs_init(); /*libxs_malloc_pool()*/
         libxs_matdiff_clear(&gemm_diff);
