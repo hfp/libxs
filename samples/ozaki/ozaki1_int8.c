@@ -46,110 +46,6 @@ static void split_digits(uint64_t mantissa, int sign, int8_t digits[MAX_NSLICES]
 }
 
 
-/**
- * Preprocess rows of A: decompose, align, split into digits, and write
- * directly into the k-contiguous layout ak[M][S][K] used by dot products.
- * This avoids a separate transpose pass over an intermediate buffer.
- */
-LIBXS_API_INLINE void preprocess_rows(const GEMM_REAL_TYPE* a, GEMM_INT_TYPE lda, int ta, GEMM_INT_TYPE M, GEMM_INT_TYPE K,
-  GEMM_INT_TYPE ib, GEMM_INT_TYPE kb, GEMM_INT_TYPE iblk, GEMM_INT_TYPE kblk, int16_t expa_row[BLOCK_M],
-  int8_t ak[BLOCK_M][MAX_NSLICES][BLOCK_K])
-{
-  int16_t elem_exp[BLOCK_M][BLOCK_K];
-  uint64_t elem_mant[BLOCK_M][BLOCK_K];
-  int elem_sign[BLOCK_M][BLOCK_K];
-  GEMM_INT_TYPE mi, kk;
-
-  /* Pass 1: extract sign, exponent, mantissa and track per-row max exponent */
-  for (mi = 0; mi < iblk; ++mi) {
-    const GEMM_INT_TYPE row = ib + mi;
-    int16_t row_max_exp = INT16_MIN;
-    int s;
-
-    for (kk = 0; kk < kblk; ++kk) {
-      const GEMM_INT_TYPE p = kb + kk;
-      const GEMM_REAL_TYPE aval = ((row < M && p < K) ? a[LIBXS_INDEX(ta, lda, row, p)] : (GEMM_REAL_TYPE)0);
-      elem_sign[mi][kk] = ozaki_extract_ieee(aval, &elem_exp[mi][kk], &elem_mant[mi][kk]);
-      row_max_exp = LIBXS_MAX(row_max_exp, elem_exp[mi][kk]);
-    }
-
-    expa_row[mi] = row_max_exp;
-
-    /* Pass 2: align mantissa, split into digits, scatter into ak[mi][s][kk] */
-    for (kk = 0; kk < kblk; ++kk) {
-      const int delta = (int)row_max_exp - (int)elem_exp[mi][kk];
-      uint64_t aligned = elem_mant[mi][kk];
-      int8_t tmp[MAX_NSLICES];
-      if (delta > 0) {
-        aligned = (delta < 64) ? (aligned >> delta) : 0;
-      }
-      split_digits(aligned, elem_sign[mi][kk], tmp);
-      LIBXS_PRAGMA_LOOP_COUNT(1, MAX_NSLICES, NSLICES_DEFAULT)
-      for (s = 0; s < ozaki_n; ++s) ak[mi][s][kk] = tmp[s];
-    }
-    /* Zero-pad remaining k-entries for fixed-length dot products */
-    LIBXS_PRAGMA_LOOP_COUNT(1, MAX_NSLICES, NSLICES_DEFAULT)
-    for (s = 0; s < ozaki_n; ++s) {
-      for (kk = kblk; kk < BLOCK_K; ++kk) ak[mi][s][kk] = 0;
-    }
-  }
-}
-
-
-/**
- * Preprocess columns of B: decompose, align, split into digits, and write
- * directly into the k-contiguous layout bk[N][S][K] used by dot products.
- * This avoids a separate transpose pass over an intermediate buffer.
- */
-LIBXS_API_INLINE void preprocess_cols(const GEMM_REAL_TYPE* b, GEMM_INT_TYPE ldb, int tb, GEMM_INT_TYPE N, GEMM_INT_TYPE K,
-  GEMM_INT_TYPE jb, GEMM_INT_TYPE kb, GEMM_INT_TYPE jblk, GEMM_INT_TYPE kblk, int16_t expb_col[BLOCK_N],
-  int8_t bk[BLOCK_N][MAX_NSLICES][BLOCK_K])
-{
-  int16_t elem_exp[BLOCK_K][BLOCK_N];
-  uint64_t elem_mant[BLOCK_K][BLOCK_N];
-  int elem_sign[BLOCK_K][BLOCK_N];
-  GEMM_INT_TYPE nj, kk;
-  int s;
-
-  for (nj = 0; nj < jblk; ++nj) {
-    expb_col[nj] = INT16_MIN;
-  }
-
-  /* Pass 1: extract sign, exponent, mantissa and track per-column max exponent */
-  for (kk = 0; kk < kblk; ++kk) {
-    const GEMM_INT_TYPE p = kb + kk;
-    for (nj = 0; nj < jblk; ++nj) {
-      const GEMM_INT_TYPE col = jb + nj;
-      const GEMM_REAL_TYPE bval = ((p < K && col < N) ? b[LIBXS_INDEX(tb, ldb, p, col)] : (GEMM_REAL_TYPE)0);
-      elem_sign[kk][nj] = ozaki_extract_ieee(bval, &elem_exp[kk][nj], &elem_mant[kk][nj]);
-      expb_col[nj] = LIBXS_MAX(expb_col[nj], elem_exp[kk][nj]);
-    }
-  }
-
-  /* Pass 2: align mantissa, split into digits, scatter into bk[nj][s][kk] */
-  for (kk = 0; kk < kblk; ++kk) {
-    for (nj = 0; nj < jblk; ++nj) {
-      const int delta = (int)expb_col[nj] - (int)elem_exp[kk][nj];
-      uint64_t aligned = elem_mant[kk][nj];
-      int8_t tmp[MAX_NSLICES];
-      if (delta > 0) {
-        aligned = (delta < 64) ? (aligned >> delta) : 0;
-      }
-      split_digits(aligned, elem_sign[kk][nj], tmp);
-      LIBXS_PRAGMA_LOOP_COUNT(1, MAX_NSLICES, NSLICES_DEFAULT)
-      for (s = 0; s < ozaki_n; ++s) bk[nj][s][kk] = tmp[s];
-    }
-  }
-  /* Zero-pad remaining k-entries for fixed-length dot products */
-  for (nj = 0; nj < jblk; ++nj) {
-    LIBXS_PRAGMA_LOOP_COUNT(1, MAX_NSLICES, NSLICES_DEFAULT)
-    for (s = 0; s < ozaki_n; ++s) {
-      for (kk = kblk; kk < BLOCK_K; ++kk) bk[nj][s][kk] = 0;
-    }
-  }
-}
-
-
 LIBXS_API_INLINE void gemm_oz1_diff(const char* transa, const char* transb, const GEMM_INT_TYPE* m, const GEMM_INT_TYPE* n,
   const GEMM_INT_TYPE* k, const GEMM_REAL_TYPE* alpha, const GEMM_REAL_TYPE* a, const GEMM_INT_TYPE* lda, const GEMM_REAL_TYPE* b,
   const GEMM_INT_TYPE* ldb, const GEMM_REAL_TYPE* beta, GEMM_REAL_TYPE* c, const GEMM_INT_TYPE* ldc,
@@ -211,7 +107,7 @@ LIBXS_API_INLINE void gemm_oz1_diff(const char* transa, const char* transb, cons
 #if defined(_OPENMP)
     tid = omp_get_thread_num();
 #endif
-    GEMM_PROFILE_TICK(t_start, tid);
+    GEMM_PROFILE_START(tid);
 
     /* Phase 3: scale C by beta (once, before K-group loop).
      * Per BLAS spec, beta=0 must zero C unconditionally (NaN/Inf safe). */
@@ -219,17 +115,14 @@ LIBXS_API_INLINE void gemm_oz1_diff(const char* transa, const char* transb, cons
 # pragma omp for schedule(static)
 #endif
     for (jb = 0; jb < N; ++jb) {
-      GEMM_REAL_TYPE* const col = c + jb * ldcv;
+      GEMM_REAL_TYPE* const cj = c + jb * ldcv;
       if ((GEMM_REAL_TYPE)0 != *beta) {
-        for (ib = 0; ib < M; ++ib) col[ib] *= *beta;
+        for (ib = 0; ib < M; ++ib) cj[ib] *= *beta;
       }
       else {
-        for (ib = 0; ib < M; ++ib) col[ib] = (GEMM_REAL_TYPE)0;
+        for (ib = 0; ib < M; ++ib) cj[ib] = (GEMM_REAL_TYPE)0;
       }
     }
-
-    GEMM_PROFILE_TICK(t_preprocess, tid);
-    GEMM_PROFILE_TICK(t_kernel, tid);
 
     /* K-group loop: process K in chunks of ozaki_maxk */
     for (kb_grp = 0; kb_grp < K; kb_grp += K_grp_size) {
@@ -409,97 +302,3 @@ LIBXS_API void gemm_oz1(const char* transa, const char* transb, const GEMM_INT_T
 {
   OZAKI_GEMM_WRAPPER(gemm_oz1_diff, GEMM_LABEL, 1)
 }
-
-
-#if defined(__LIBXSTREAM)
-/**
- * Host preprocessing wrapper for A (rows) — scheme 1 (int8).
- * Fills the flat slice buffer and exponent buffer in GPU-compatible layout.
- * Layout: slices[panel][BM][nslices][BK], exp[panel][BM].
- *   panel = ki * nblk + ib_idx.
- */
-void oz1_host_preprocess_a(const void* matrix, int ld, int trans, int dim, int K, int kb_batch, int nkb, int nblk, int brc, int bk,
-  int nslices_p, int kgroup_p, int use_xmx_p, void* slices, void* exp)
-{
-  const GEMM_REAL_TYPE* a = (const GEMM_REAL_TYPE*)matrix;
-  int ki, ib_idx;
-  (void)kgroup_p;
-  (void)use_xmx_p;
-  LIBXS_ASSERT(brc == BLOCK_M && bk == BLOCK_K);
-# if defined(_OPENMP)
-#   pragma omp parallel for LIBXS_OPENMP_COLLAPSE(2) schedule(static)
-# endif
-  for (ki = 0; ki < nkb; ++ki) {
-    for (ib_idx = 0; ib_idx < nblk; ++ib_idx) {
-      const int panel = ki * nblk + ib_idx;
-      const int ib = ib_idx * brc;
-      const int kb = kb_batch + ki * bk;
-      const GEMM_INT_TYPE iblk = (GEMM_INT_TYPE)LIBXS_MIN(brc, dim - ib);
-      const GEMM_INT_TYPE kblk = (GEMM_INT_TYPE)LIBXS_MIN(bk, K - kb);
-      int16_t expa_row[BLOCK_M];
-      int8_t ak_tile[BLOCK_M][MAX_NSLICES][BLOCK_K];
-      int mi;
-      preprocess_rows(a, (GEMM_INT_TYPE)ld, trans, (GEMM_INT_TYPE)dim, (GEMM_INT_TYPE)K, (GEMM_INT_TYPE)ib, (GEMM_INT_TYPE)kb, iblk,
-        kblk, expa_row, ak_tile);
-      for (mi = 0; mi < brc; ++mi) {
-        memcpy((char*)slices + ((long)panel * brc + mi) * nslices_p * bk, &ak_tile[mi][0][0], (size_t)nslices_p * bk);
-      }
-      memcpy((short*)exp + (long)panel * brc, expa_row, (size_t)brc * sizeof(short));
-    }
-  }
-}
-
-
-/**
- * Host preprocessing wrapper for B (columns) — scheme 1 (int8).
- * Layout (non-XMX): slices[panel][BN][nslices][BK], exp[panel][BN].
- * Layout (XMX):     slices[panel][nslices][BK][bn_pad], exp[panel][BN].
- *   panel = ki * nblk + jb_idx.
- */
-void oz1_host_preprocess_b(const void* matrix, int ld, int trans, int dim, int K, int kb_batch, int nkb, int nblk, int brc, int bk,
-  int nslices_p, int kgroup_p, int use_xmx_p, void* slices, void* exp)
-{
-  const GEMM_REAL_TYPE* b = (const GEMM_REAL_TYPE*)matrix;
-  const int bn_pad = (0 != use_xmx_p) ? LIBXS_MAX(brc, 64) : brc;
-  int ki, jb_idx;
-  (void)kgroup_p;
-  LIBXS_ASSERT(brc == BLOCK_N && bk == BLOCK_K);
-# if defined(_OPENMP)
-#   pragma omp parallel for LIBXS_OPENMP_COLLAPSE(2) schedule(static)
-# endif
-  for (ki = 0; ki < nkb; ++ki) {
-    for (jb_idx = 0; jb_idx < nblk; ++jb_idx) {
-      const int panel = ki * nblk + jb_idx;
-      const int jb = jb_idx * brc;
-      const int kb = kb_batch + ki * bk;
-      const GEMM_INT_TYPE jblk = (GEMM_INT_TYPE)LIBXS_MIN(brc, dim - jb);
-      const GEMM_INT_TYPE kblk = (GEMM_INT_TYPE)LIBXS_MIN(bk, K - kb);
-      int16_t expb_col[BLOCK_N];
-      int8_t bk_tile[BLOCK_N][MAX_NSLICES][BLOCK_K];
-      int nj, s, kk;
-      preprocess_cols(b, (GEMM_INT_TYPE)ld, trans, (GEMM_INT_TYPE)dim, (GEMM_INT_TYPE)K, (GEMM_INT_TYPE)jb, (GEMM_INT_TYPE)kb, jblk,
-        kblk, expb_col, bk_tile);
-      if (0 == use_xmx_p) {
-        for (nj = 0; nj < brc; ++nj) {
-          memcpy((char*)slices + ((long)panel * brc + nj) * nslices_p * bk, &bk_tile[nj][0][0], (size_t)nslices_p * bk);
-        }
-      }
-      else {
-        /* XMX layout: slices[panel][nslices][BK][bn_pad] (K-major) */
-        for (s = 0; s < nslices_p; ++s) {
-          for (kk = 0; kk < bk; ++kk) {
-            long base = (((long)panel * nslices_p + s) * bk + kk) * bn_pad;
-            for (nj = 0; nj < brc; ++nj) {
-              ((char*)slices)[base + nj] = bk_tile[nj][s][kk];
-            }
-            for (nj = brc; nj < bn_pad; ++nj) {
-              ((char*)slices)[base + nj] = 0;
-            }
-          }
-        }
-      }
-      memcpy((short*)exp + (long)panel * brc, expb_col, (size_t)brc * sizeof(short));
-    }
-  }
-}
-#endif /* __LIBXSTREAM */

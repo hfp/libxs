@@ -91,23 +91,19 @@
 #endif
 
 /* CPU-side profiling helpers (used inside omp parallel regions).
- * GEMM_PROFILE_DECL: declare tick variables.
- * GEMM_PROFILE_TICK(VAR, TID): take a tick on the master thread.
+ * Per-phase timing (modes 2-4) is only meaningful on GPU where
+ * preprocessing and kernel are distinct operations; on CPU the
+ * K-group loop interleaves them, so we always measure total time.
+ * GEMM_PROFILE_START(TID): record start tick on master thread.
  * GEMM_PROFILE_END(TID, M, N, K): compute duration, push GFLOPS to histogram. */
-#define GEMM_PROFILE_DECL libxs_timer_tick_t t_start = 0, t_preprocess = 0, t_kernel = 0
-#define GEMM_PROFILE_TICK(VAR, TID) \
-  if (0 == (TID) && 0 != ozaki_profile) (VAR) = libxs_timer_tick()
+#define GEMM_PROFILE_DECL libxs_timer_tick_t gemm_profile_start_ = 0
+#define GEMM_PROFILE_START(TID) \
+  if (0 == (TID) && 0 != ozaki_profile) gemm_profile_start_ = libxs_timer_tick()
 #define GEMM_PROFILE_END(TID, M, N, K) \
   if (0 == (TID) && 0 != ozaki_profile) { \
-    const libxs_timer_tick_t t_end = libxs_timer_tick(); \
-    const double flops = 2.0 * (M) * (N) * (K); \
-    double duration = 0; \
-    LIBXS_ASSERT(NULL != ozaki_hist); \
-    if (2 == ozaki_profile) duration = libxs_timer_duration(t_kernel, t_end); \
-    else if (3 == ozaki_profile || 4 == ozaki_profile) duration = libxs_timer_duration(t_start, t_preprocess); \
-    else duration = libxs_timer_duration(t_start, t_end); \
+    const double duration = libxs_timer_duration(gemm_profile_start_, libxs_timer_tick()); \
     if (0 < duration) { \
-      const double gflops = flops / (duration * 1E9); \
+      const double gflops = 2.0 * (M) * (N) * (K) / (duration * 1E9); \
       libxs_hist_push(NULL, ozaki_hist, &gflops); \
     } \
   }
@@ -174,10 +170,6 @@ LIBXS_API_INLINE void ozaki_post_diff(GEMM_ARGDECL, const char* label, size_t nc
 #if defined(__LIBXSTREAM)
 # define ozaki_ocl_handle LIBXS_TPREFIX(GEMM_REAL_TYPE, ozaki_ocl_handle)
 # define gemm_oz_ocl_diff LIBXS_TPREFIX(GEMM_REAL_TYPE, gemm_oz_ocl_diff)
-# define oz1_host_preprocess_a LIBXS_TPREFIX(GEMM_REAL_TYPE, oz1_host_prep_a)
-# define oz1_host_preprocess_b LIBXS_TPREFIX(GEMM_REAL_TYPE, oz1_host_prep_b)
-# define oz2_host_preprocess_a LIBXS_TPREFIX(GEMM_REAL_TYPE, oz2_host_prep_a)
-# define oz2_host_preprocess_b LIBXS_TPREFIX(GEMM_REAL_TYPE, oz2_host_prep_b)
 #endif
 
 /* Int8 dot product dispatch macro (Ozaki-1 slicing).
