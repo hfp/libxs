@@ -698,8 +698,8 @@ LIBXS_API_INLINE int gemm_dump_matrices(GEMM_ARGDECL, size_t ncomponents)
 
   LIBXS_ATOMIC_ACQUIRE(&gemm_lock, LIBXS_SYNC_NPAUSE, LIBXS_ATOMIC_LOCKORDER);
 
-  if (0 > slurm) LIBXS_SNPRINTF(fname, sizeof(fname), "gemm-%u-%i-a.mhd", rid, gemm_diff.r);
-  else LIBXS_SNPRINTF(fname, sizeof(fname), "gemm-%i-%u-%i-a.mhd", slurm, rid, gemm_diff.r);
+  if (0 > slurm) LIBXS_SNPRINTF(fname, sizeof(fname), GEMM_LABEL "-%u-%i-a.mhd", rid, gemm_diff.r);
+  else LIBXS_SNPRINTF(fname, sizeof(fname), GEMM_LABEL "-%i-%u-%i-a.mhd", slurm, rid, gemm_diff.r);
   file = fopen(fname, "rb");
   if (NULL == file) { /* Never overwrite an existing file */
     const int result_a = gemm_mhd_write(fname, a, *m, *k, *lda, *transa, alpha, ncomponents, &settings);
@@ -710,8 +710,8 @@ LIBXS_API_INLINE int gemm_dump_matrices(GEMM_ARGDECL, size_t ncomponents)
   }
   else fclose(file);
 
-  if (0 > slurm) LIBXS_SNPRINTF(fname, sizeof(fname), "gemm-%u-%i-b.mhd", rid, gemm_diff.r);
-  else LIBXS_SNPRINTF(fname, sizeof(fname), "gemm-%i-%u-%i-b.mhd", slurm, rid, gemm_diff.r);
+  if (0 > slurm) LIBXS_SNPRINTF(fname, sizeof(fname), GEMM_LABEL "-%u-%i-b.mhd", rid, gemm_diff.r);
+  else LIBXS_SNPRINTF(fname, sizeof(fname), GEMM_LABEL "-%i-%u-%i-b.mhd", slurm, rid, gemm_diff.r);
   file = fopen(fname, "rb");
   if (NULL == file) { /* Never overwrite an existing file */
     const int result_b = gemm_mhd_write(fname, b, *k, *n, *ldb, *transb, beta, ncomponents, &settings);
