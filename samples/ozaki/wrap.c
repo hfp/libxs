@@ -58,7 +58,7 @@ LIBXS_API LIBXS_ATTRIBUTE_USED void GEMM(GEMM_ARGDECL)
   GEMM_WRAP(GEMM_ARGPASS);
 }
 
-/** Complex GEMM entry point: delegates to ZGEMM_WRAP (3M implementation). */
+/** Complex GEMM entry point: delegates to ZGEMM_WRAP. */
 LIBXS_API LIBXS_ATTRIBUTE_USED void ZGEMM(GEMM_ARGDECL)
 {
   ZGEMM_WRAP(GEMM_ARGPASS);

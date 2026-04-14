@@ -156,25 +156,25 @@ LIBXS_API_INLINE void zgemm_block_finalize(GEMM_REAL_TYPE* LIBXS_RESTRICT c, GEM
  * this function delegates to the GPU-native path which keeps all intermediate
  * buffers on device, minimizing PCIe transfers.
  */
-LIBXS_API_INTERN void zgemm3m(GEMM_ARGDECL)
+LIBXS_API_INTERN void gemm_complex(GEMM_ARGDECL)
 {
   int done = 0;
 #if defined(__LIBXSTREAM)
-  /* GPU-native path: only when ozaki_3m >= 2 */
-  if (2 <= ozaki_3m && NULL != ozaki_ocl_handle && ozaki_ocl_supports_zgemm3m(ozaki_ocl_handle)) {
+  /* GPU-native path: only when ozaki_complex >= 2 */
+  if (2 <= ozaki_complex && NULL != ozaki_ocl_handle && ozaki_ocl_supports_gemm_complex(ozaki_ocl_handle)) {
     double alpha_d[2], beta_d[2];
     int result;
     alpha_d[0] = (double)alpha[0];
     alpha_d[1] = (double)alpha[1];
     beta_d[0] = (double)beta[0];
     beta_d[1] = (double)beta[1];
-    result = ozaki_ocl_gemm3m(ozaki_ocl_handle, *transa, *transb, *m, *n, *k, alpha_d, a, *lda, b, *ldb, beta_d, c, *ldc);
+    result = ozaki_ocl_gemm_complex(ozaki_ocl_handle, *transa, *transb, *m, *n, *k, alpha_d, a, *lda, b, *ldb, beta_d, c, *ldc);
     done = (EXIT_SUCCESS == result);
     /* Fall through to CPU path on failure */
   }
 #endif
 
-  if (0 == done) { /* CPU-based block-embedding path (ozaki_3m == 1, or GPU fallback) */
+  if (0 == done) { /* CPU-based block-embedding path (ozaki_complex == 1, or GPU fallback) */
     const GEMM_INT_TYPE M = *m, N = *n, K = *k;
     /* Physical layout: 'T' and 'C' both store the transposed matrix.
      * Block signs: 'C' (conjugate transpose) uses the 'N' sign pattern,
@@ -250,20 +250,20 @@ LIBXS_API_INTERN void zgemm3m(GEMM_ARGDECL)
 /**
  * Complex GEMM diff: save C, run block-embedding, reference ZGEMM, matdiff with C64/C32.
  */
-LIBXS_API_INLINE void zgemm3m_diff(GEMM_ARGDECL,
+LIBXS_API_INLINE void gemm_complex_diff(GEMM_ARGDECL,
   libxs_matdiff_t* diff)
 {
   GEMM_REAL_TYPE* c_ref = NULL;
   size_t c_size = 0;
-  /* Save C for reference comparison (before 3M modifies it) */
+  /* Save C for reference comparison (before complex GEMM modifies it) */
   if (NULL != diff) {
     c_size = 2 * (size_t)*ldc * (size_t)*n * sizeof(GEMM_REAL_TYPE);
     c_ref = (GEMM_REAL_TYPE*)libxs_malloc(gemm_pool, c_size, 0);
     if (NULL != c_ref) memcpy(c_ref, c, c_size);
   }
-  /* Compute via 3M */
+  /* Compute complex GEMM */
   gemm_dump_inhibit = 1;
-  zgemm3m(GEMM_ARGPASS);
+  gemm_complex(GEMM_ARGPASS);
   if (2 == gemm_dump_inhibit) {
     const int result = gemm_dump_matrices(GEMM_ARGPASS, 2);
     if (0 != ozaki_exit) exit(EXIT_SUCCESS == result ? EXIT_FAILURE : result);
@@ -290,7 +290,7 @@ LIBXS_API_INLINE void zgemm3m_diff(GEMM_ARGDECL,
 
 
 /**
- * Complex GEMM wrapper: dispatches based on OZAKI_3M env var.
+ * Complex GEMM wrapper: dispatches based on OZAKI_COMPLEX env var.
  *   0 = pass through to original complex BLAS,
  *   1 = CPU-based block embedding (single real GEMM),
  *   2 = GPU-native block embedding (all on device, falls back to CPU).
@@ -300,8 +300,8 @@ LIBXS_API_INTERN LIBXS_ATTRIBUTE_WEAK void ZGEMM_WRAP(GEMM_ARGDECL)
 {
   gemm_init();
   if (*m > 0 && *n > 0 && *k > 0) {
-    if (0 != ozaki_3m) {
-      OZAKI_GEMM_WRAPPER(zgemm3m_diff, ZGEMM_LABEL, 2)
+    if (0 != ozaki_complex) {
+      OZAKI_GEMM_WRAPPER(gemm_complex_diff, ZGEMM_LABEL, 2)
     }
     else {
       /* Passthrough to original complex GEMM */

@@ -17,7 +17,7 @@ LIBXS_APIVAR_PUBLIC_DEF(gemm_function_t gemm_original);
 LIBXS_APIVAR_PUBLIC_DEF(int ozaki_verbose);
 LIBXS_APIVAR_PUBLIC_DEF(int ozaki_stat);
 LIBXS_APIVAR_PUBLIC_DEF(int ozaki);
-LIBXS_APIVAR_PUBLIC_DEF(int ozaki_3m);
+LIBXS_APIVAR_PUBLIC_DEF(int ozaki_complex);
 LIBXS_APIVAR_PUBLIC_DEF(int ozaki_maxk);
 
 LIBXS_APIVAR_PRIVATE_DEF(volatile LIBXS_ATOMIC_LOCKTYPE gemm_lock);
@@ -142,11 +142,11 @@ LIBXS_API_INTERN void gemm_init(void)
       const char* const ozaki_verbose_env = getenv("OZAKI_VERBOSE");
       const char* const ozaki_stat_env = getenv("OZAKI_STAT");
       const char* const ozaki_env = getenv("OZAKI");
-      const char* const ozaki_3m_env = getenv("OZAKI_3M");
+      const char* const ozaki_complex_env = getenv("OZAKI_COMPLEX");
       ozaki = (NULL == ozaki_env ? 1 /*default*/ : atoi(ozaki_env));
-      /* OZAKI_3M: 0=original BLAS, 1=CPU 3M, 2=GPU 3M.
+      /* OZAKI_COMPLEX: 0=original BLAS, 1=CPU, 2=GPU.
        * Default: 0 if OZAKI=0, else 2 (GPU preferred, CPU fallback). */
-      ozaki_3m = (NULL != ozaki_3m_env ? atoi(ozaki_3m_env) : (0 != ozaki ? 2 : 0));
+      ozaki_complex = (NULL != ozaki_complex_env ? atoi(ozaki_complex_env) : (0 != ozaki ? 2 : 0));
       { /* OZAKI_MAXK: max K per preprocessing pass (0=no grouping).
          * Default: K_GRP (compile-time, typically 32768). */
         const char* const ozaki_maxk_env = getenv("OZAKI_MAXK");

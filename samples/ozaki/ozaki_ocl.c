@@ -92,14 +92,14 @@ int ozaki_ocl_gemm(void* handle, char transa, char transb, int M, int N, int K, 
 }
 
 
-int ozaki_ocl_gemm3m(void* handle, char transa, char transb, int M, int N, int K, const double* alpha, const void* a, int lda,
+int ozaki_ocl_gemm_complex(void* handle, char transa, char transb, int M, int N, int K, const double* alpha, const void* a, int lda,
   const void* b, int ldb, const double* beta, void* c, int ldc)
 {
   int result = EXIT_FAILURE;
   ozaki_ocl_handle_t* h = (ozaki_ocl_handle_t*)handle;
   if (NULL != h) {
     LIBXS_LOCK_ACQUIRE(LIBXS_LOCK, &h->lock);
-    result = ozaki_gemm3m(&h->ctx, h->stream, transa, transb, M, N, K, alpha, a, lda, b, ldb, beta, c, ldc);
+    result = ozaki_gemm_complex(&h->ctx, h->stream, transa, transb, M, N, K, alpha, a, lda, b, ldb, beta, c, ldc);
     /* BLAS API is synchronous: caller expects result in c upon return.
      * Must sync all streams including persistent helper streams used
      * for preprocessing (stream_a, stream_b) to prevent race conditions. */
@@ -112,7 +112,7 @@ int ozaki_ocl_gemm3m(void* handle, char transa, char transb, int M, int N, int K
 }
 
 
-int ozaki_ocl_supports_zgemm3m(void* handle)
+int ozaki_ocl_supports_gemm_complex(void* handle)
 {
   const ozaki_ocl_handle_t* h = (const ozaki_ocl_handle_t*)handle;
   int result = 0;

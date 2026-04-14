@@ -146,7 +146,7 @@ LIBXS_API_INLINE void ozaki_post_diff(GEMM_ARGDECL, const char* label, size_t nc
 #define gemm_lock LIBXS_TPREFIX(GEMM_REAL_TYPE, gemm_lock)
 #define ozaki_verbose LIBXS_TPREFIX(GEMM_REAL_TYPE, ozaki_verbose)
 #define ozaki LIBXS_TPREFIX(GEMM_REAL_TYPE, ozaki)
-#define ozaki_3m LIBXS_TPREFIX(GEMM_REAL_TYPE, ozaki_3m)
+#define ozaki_complex LIBXS_TPREFIX(GEMM_REAL_TYPE, ozaki_complex)
 #define ozaki_maxk LIBXS_TPREFIX(GEMM_REAL_TYPE, ozaki_maxk)
 #define ozaki_n LIBXS_TPREFIX(GEMM_REAL_TYPE, ozaki_n)
 #define ozaki_profile LIBXS_TPREFIX(GEMM_REAL_TYPE, ozaki_profile)
@@ -166,7 +166,7 @@ LIBXS_API_INLINE void ozaki_post_diff(GEMM_ARGDECL, const char* label, size_t nc
 #define gemm_threshold LIBXS_TPREFIX(GEMM_REAL_TYPE, gemm_threshold)
 /* gemm_dump_inhibit: not precision-prefixed (like gemm_nozaki) */
 #define gemm_dump_matrices LIBXS_TPREFIX(GEMM_REAL_TYPE, gemm_dump_mhd)
-#define zgemm3m LIBXS_CPREFIX(GEMM_REAL_TYPE, gemm3m)
+#define gemm_complex LIBXS_CPREFIX(GEMM_REAL_TYPE, gemm_complex)
 #define gemm_signal_handler LIBXS_TPREFIX(GEMM_REAL_TYPE, gemm_signal_handler)
 #define gemm_atexit LIBXS_TPREFIX(GEMM_REAL_TYPE, gemm_atexit)
 #define gemm_pool LIBXS_TPREFIX(GEMM_REAL_TYPE, gemm_pool)
@@ -236,12 +236,12 @@ LIBXS_API void ZGEMM(GEMM_ARGDECL);
 LIBXS_API void gemm_oz1(GEMM_ARGDECL);
 /** Function prototype for GEMM using CRT modular arithmetic (Ozaki scheme 2). */
 LIBXS_API void gemm_oz2(GEMM_ARGDECL);
-/** Complex GEMM 3M (Karatsuba) implementation (internal). */
-LIBXS_API_INTERN void zgemm3m(GEMM_ARGDECL);
+/** Complex GEMM implementation (internal). */
+LIBXS_API_INTERN void gemm_complex(GEMM_ARGDECL);
 
 LIBXS_APIVAR_PUBLIC(gemm_function_t gemm_original);
 LIBXS_APIVAR_PUBLIC(int ozaki);
-LIBXS_APIVAR_PUBLIC(int ozaki_3m);
+LIBXS_APIVAR_PUBLIC(int ozaki_complex);
 LIBXS_APIVAR_PUBLIC(int ozaki_maxk);
 LIBXS_APIVAR_PUBLIC(int ozaki_verbose);
 LIBXS_APIVAR_PUBLIC(int ozaki_stat);
@@ -275,9 +275,9 @@ void* ozaki_ocl_create(
 void ozaki_ocl_release(void* handle);
 int ozaki_ocl_gemm(void* handle, char transa, char transb, int M, int N, int K, double alpha, const void* a, int lda, const void* b,
   int ldb, double beta, void* c, int ldc, libxs_hist_t* hist, int profile);
-int ozaki_ocl_gemm3m(void* handle, char transa, char transb, int M, int N, int K, const double* alpha, const void* a, int lda,
+int ozaki_ocl_gemm_complex(void* handle, char transa, char transb, int M, int N, int K, const double* alpha, const void* a, int lda,
   const void* b, int ldb, const double* beta, void* c, int ldc);
-int ozaki_ocl_supports_zgemm3m(void* handle);
+int ozaki_ocl_supports_gemm_complex(void* handle);
 void ozaki_ocl_invalidate_cache(void* handle, const void* a, const void* b);
 void ozaki_ocl_finalize(void);
 #endif
