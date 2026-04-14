@@ -36,8 +36,8 @@ LIBXS_APIVAR_PRIVATE_DEF(libxs_hist_t* ozaki_hist);
 LIBXS_APIVAR_PRIVATE_DEF(int gemm_threshold);
 #if GEMM_IS_DOUBLE /* single definition across both precision builds */
 LIBXS_TLS int gemm_nozaki;
-#endif
 LIBXS_TLS int gemm_dump_inhibit;
+#endif
 #if defined(__LIBXSTREAM)
 LIBXS_APIVAR_PRIVATE_DEF(void* ozaki_ocl_handle);
 #endif

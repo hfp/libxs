@@ -164,7 +164,7 @@ LIBXS_API_INLINE void ozaki_post_diff(GEMM_ARGDECL, const char* label, size_t nc
 #define gemm_oz2 LIBXS_TPREFIX(GEMM_REAL_TYPE, gemm_oz2)
 #define gemm_init LIBXS_TPREFIX(GEMM_REAL_TYPE, gemm_init)
 #define gemm_threshold LIBXS_TPREFIX(GEMM_REAL_TYPE, gemm_threshold)
-#define gemm_dump_inhibit LIBXS_TPREFIX(GEMM_REAL_TYPE, gemm_dump_inhibit)
+/* gemm_dump_inhibit: not precision-prefixed (like gemm_nozaki) */
 #define gemm_dump_matrices LIBXS_TPREFIX(GEMM_REAL_TYPE, gemm_dump_mhd)
 #define zgemm3m LIBXS_CPREFIX(GEMM_REAL_TYPE, gemm3m)
 #define gemm_signal_handler LIBXS_TPREFIX(GEMM_REAL_TYPE, gemm_signal_handler)
@@ -661,12 +661,14 @@ LIBXS_API_INLINE int ozaki_diff_exceeds(const libxs_matdiff_t* diff)
 /** Run reference BLAS on c_ref, compute matdiff vs c, repair c if diff exceeds threshold. */
 LIBXS_API_INLINE void ozaki_diff_reference(GEMM_ARGDECL, GEMM_REAL_TYPE* c_ref, size_t c_size, libxs_matdiff_t* diff)
 {
+  gemm_nozaki = 1;
   if (NULL != gemm_original) {
     gemm_original(transa, transb, m, n, k, alpha, a, lda, b, ldb, beta, c_ref, ldc);
   }
   else {
     GEMM_REAL(transa, transb, m, n, k, alpha, a, lda, b, ldb, beta, c_ref, ldc);
   }
+  gemm_nozaki = 0;
   libxs_matdiff(diff, LIBXS_DATATYPE(GEMM_REAL_TYPE), *m, *n, c_ref, c, ldc, ldc);
   if (ozaki_diff_exceeds(diff)) memcpy(c, c_ref, c_size);
 }
