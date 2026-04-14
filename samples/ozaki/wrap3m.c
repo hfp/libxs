@@ -10,24 +10,26 @@
 #include <libxs_malloc.h>
 
 /**
- * Complex GEMM via 3M (Karatsuba) method:
+ * Complex GEMM via block embedding into a single real GEMM:
  *   C = alpha * A * B + beta * C
  * where A, B, C are complex matrices stored in interleaved format
  * (pairs of GEMM_REAL_TYPE: real, imaginary).
  *
- * Let alpha = ar + i*ai, A = Ar + i*Ai, B = Br + i*Bi, etc.
- * The 3M method computes:
- *   P1 = Ar * Br                         (real GEMM)
- *   P2 = Ai * Bi                         (real GEMM)
- *   P3 = (Ar + Ai) * (Br + Bi)           (real GEMM)
- * Then:
- *   Re(A*B) = P1 - P2
- *   Im(A*B) = P3 - P1 - P2
- * The complex alpha and beta scaling is applied afterwards.
+ * The block embedding constructs augmented real matrices:
  *
- * This wrapper intercepts ZGEMM (double) or CGEMM (float), deinterleaves
- * into split real/imaginary buffers, issues 3 real GEMM calls (which
- * themselves may be intercepted by the Ozaki wrapper), and recombines.
+ *   A_hat = [ Ar  -Ai ]  (2M x 2K)    B_hat = [ Br ]  (2K x N)
+ *           [ Ai   Ar ]                        [ Bi ]
+ *
+ * so that A_hat * B_hat = [ Re(A*B) ]  (2M x N).
+ *                         [ Im(A*B) ]
+ *
+ * A single real GEMM of size (2M) x N x (2K) produces both real and
+ * imaginary parts.  When the Ozaki wrapper intercepts this GEMM, the
+ * block structure guarantees that Re and Im contributions from the same
+ * complex row/column share a common Ozaki exponent base, eliminating
+ * the catastrophic cancellation that plagued the 3M (Karatsuba) method.
+ *
+ * Complex alpha and beta scaling is applied in a finalize step.
  */
 
 LIBXS_APIVAR_PRIVATE_DEF(zgemm_function_t zgemm_original);
@@ -132,20 +134,129 @@ LIBXS_API_INLINE void zgemm3m_finalize(GEMM_REAL_TYPE* LIBXS_RESTRICT c, GEMM_IN
 
 
 /**
- * Complex GEMM via 3 real GEMM calls (3M / Karatsuba method).
+ * Construct block-augmented A_hat from interleaved complex A.
+ *
+ * For transa='N': A_hat = [Ar, -Ai; Ai, Ar]  (2*a_rows x 2*a_cols)
+ * For transa='T': A_hat = [Ar, Ai; -Ai, Ar]  (2*a_rows x 2*a_cols)
+ *
+ * In both cases, op(A_hat) = [op(Ar), -op(Ai); op(Ai), op(Ar)]
+ * so that op(A_hat) * [op(Br); op(Bi)] = [Re(C); Im(C)].
+ */
+LIBXS_API_INLINE void zgemm_block_construct_a(const GEMM_REAL_TYPE* LIBXS_RESTRICT a, GEMM_INT_TYPE lda,
+  GEMM_REAL_TYPE* LIBXS_RESTRICT a_hat, GEMM_INT_TYPE a_rows, GEMM_INT_TYPE a_cols, int ta)
+{
+  const GEMM_INT_TYPE lda_hat = 2 * a_rows;
+  GEMM_INT_TYPE i, j;
+  for (j = 0; j < a_cols; ++j) {
+    const GEMM_REAL_TYPE* aj = a + (size_t)j * lda * 2;
+    GEMM_REAL_TYPE* left = a_hat + (size_t)j * lda_hat;
+    GEMM_REAL_TYPE* right = a_hat + (size_t)(a_cols + j) * lda_hat;
+    for (i = 0; i < a_rows; ++i) {
+      const GEMM_REAL_TYPE re = aj[2 * i];
+      const GEMM_REAL_TYPE im = aj[2 * i + 1];
+      left[i] = re;                                /* Q1: Ar */
+      left[a_rows + i] = ta ? -im : im;            /* Q3: ta ? -Ai : Ai */
+      right[i] = ta ? im : -im;                    /* Q2: ta ? Ai : -Ai */
+      right[a_rows + i] = re;                      /* Q4: Ar */
+    }
+  }
+}
+
+
+/**
+ * Construct block-augmented B_hat from interleaved complex B.
+ *
+ * For transb='N': B_hat = [Br; Bi]  (2*b_rows x b_cols), stacked vertically
+ * For transb='T': B_hat = [Br, Bi]  (b_rows x 2*b_cols), placed side by side
+ *
+ * In both cases, op(B_hat) = [op(Br); op(Bi)] (2K x N).
+ */
+LIBXS_API_INLINE void zgemm_block_construct_b(const GEMM_REAL_TYPE* LIBXS_RESTRICT b, GEMM_INT_TYPE ldb,
+  GEMM_REAL_TYPE* LIBXS_RESTRICT b_hat, GEMM_INT_TYPE b_rows, GEMM_INT_TYPE b_cols, int tb)
+{
+  GEMM_INT_TYPE i, j;
+  if (0 == tb) {
+    /* transb='N': B_hat (2*b_rows x b_cols), ldb_hat = 2*b_rows */
+    const GEMM_INT_TYPE ldb_hat = 2 * b_rows;
+    for (j = 0; j < b_cols; ++j) {
+      const GEMM_REAL_TYPE* bj = b + (size_t)j * ldb * 2;
+      GEMM_REAL_TYPE* hj = b_hat + (size_t)j * ldb_hat;
+      for (i = 0; i < b_rows; ++i) {
+        hj[i] = bj[2 * i];               /* top: Br */
+        hj[b_rows + i] = bj[2 * i + 1];  /* bottom: Bi */
+      }
+    }
+  }
+  else {
+    /* transb='T': B_hat = [Br, Bi] (b_rows x 2*b_cols), ldb_hat = b_rows */
+    const GEMM_INT_TYPE ldb_hat = b_rows;
+    for (j = 0; j < b_cols; ++j) {
+      const GEMM_REAL_TYPE* bj = b + (size_t)j * ldb * 2;
+      GEMM_REAL_TYPE* left = b_hat + (size_t)j * ldb_hat;
+      GEMM_REAL_TYPE* right = b_hat + (size_t)(b_cols + j) * ldb_hat;
+      for (i = 0; i < b_rows; ++i) {
+        left[i] = bj[2 * i];       /* Br (left half) */
+        right[i] = bj[2 * i + 1];  /* Bi (right half) */
+      }
+    }
+  }
+}
+
+
+/**
+ * Extract Re/Im from block result C_hat (2M x N), apply complex alpha/beta,
+ * write to interleaved complex output C.
+ *
+ * C_hat layout (2M x N, column-major, ldc_hat = 2*m):
+ *   Rows 0..m-1   = Re(A*B)
+ *   Rows m..2m-1  = Im(A*B)
+ */
+LIBXS_API_INLINE void zgemm_block_finalize(GEMM_REAL_TYPE* LIBXS_RESTRICT c, GEMM_INT_TYPE ldc,
+  const GEMM_REAL_TYPE* LIBXS_RESTRICT c_hat, GEMM_INT_TYPE m, GEMM_INT_TYPE n,
+  GEMM_REAL_TYPE ar, GEMM_REAL_TYPE ai, GEMM_REAL_TYPE br, GEMM_REAL_TYPE bi)
+{
+  const GEMM_INT_TYPE ldc_hat = 2 * m;
+  GEMM_INT_TYPE i, j;
+  for (j = 0; j < n; ++j) {
+    GEMM_REAL_TYPE* cj = c + (size_t)j * ldc * 2;
+    const GEMM_REAL_TYPE* hj = c_hat + (size_t)j * ldc_hat;
+    if ((GEMM_REAL_TYPE)0 != br || (GEMM_REAL_TYPE)0 != bi) {
+      for (i = 0; i < m; ++i) {
+        const GEMM_REAL_TYPE re_ab = hj[i];
+        const GEMM_REAL_TYPE im_ab = hj[m + i];
+        const GEMM_REAL_TYPE c_re = cj[2 * i];
+        const GEMM_REAL_TYPE c_im = cj[2 * i + 1];
+        cj[2 * i] = ar * re_ab - ai * im_ab + br * c_re - bi * c_im;
+        cj[2 * i + 1] = ar * im_ab + ai * re_ab + br * c_im + bi * c_re;
+      }
+    }
+    else { /* beta == 0: do not read C (may contain NaN/Inf) */
+      for (i = 0; i < m; ++i) {
+        const GEMM_REAL_TYPE re_ab = hj[i];
+        const GEMM_REAL_TYPE im_ab = hj[m + i];
+        cj[2 * i] = ar * re_ab - ai * im_ab;
+        cj[2 * i + 1] = ar * im_ab + ai * re_ab;
+      }
+    }
+  }
+}
+
+
+/**
+ * Complex GEMM via block embedding into a single real GEMM.
  *
  * All complex matrices are in standard BLAS interleaved format:
  * element (i,j) occupies a[2*(i + j*lda)] (real) and a[2*(i + j*lda)+1] (imag).
  * The alpha and beta arguments each point to 2 consecutive GEMM_REAL_TYPE values.
  *
- * GPU-aware: when OpenCL is available and 3M kernels are compiled, this
- * function delegates to the GPU-native 3M path which keeps all intermediate
- * buffers on device, reducing PCIe transfers from 6 (3 in + 3 out) to 2.
+ * GPU-aware: when OpenCL is available and block-embedding kernels are compiled,
+ * this function delegates to the GPU-native path which keeps all intermediate
+ * buffers on device, minimizing PCIe transfers.
  */
 LIBXS_API_INTERN void zgemm3m(GEMM_ARGDECL)
 {
 #if defined(__LIBXSTREAM)
-  /* GPU-native 3M path: only when ozaki_3m >= 2 */
+  /* GPU-native path: only when ozaki_3m >= 2 */
   if (2 <= ozaki_3m && NULL != ozaki_ocl_handle && ozaki_ocl_supports_zgemm3m(ozaki_ocl_handle)) {
     double alpha_d[2], beta_d[2];
     int result;
@@ -159,7 +270,7 @@ LIBXS_API_INTERN void zgemm3m(GEMM_ARGDECL)
   }
 #endif
 
-  { /* CPU-based 3M path (ozaki_3m == 1, or GPU fallback) */
+  { /* CPU-based block-embedding path (ozaki_3m == 1, or GPU fallback) */
     const GEMM_INT_TYPE M = *m, N = *n, K = *k;
     const int ta = (*transa != 'N' && *transa != 'n');
     const int tb = (*transb != 'N' && *transb != 'n');
@@ -174,15 +285,17 @@ LIBXS_API_INTERN void zgemm3m(GEMM_ARGDECL)
     const GEMM_REAL_TYPE ar = alpha[0], ai = alpha[1];
     const GEMM_REAL_TYPE br = beta[0], bi = beta[1];
 
-    /* Workspace: split Re/Im for A, B, and three products + temporaries */
-    const size_t sz_a = (size_t)a_rows * a_cols;
-    const size_t sz_b = (size_t)b_rows * b_cols;
-    const size_t sz_c = (size_t)M * N;
-    /* Ar, Ai, Br, Bi, Ta (=Ar+Ai), Tb (=Br+Bi), P1, P2, P3 */
+    /* Workspace: A_hat (2*a_rows x 2*a_cols), B_hat, C_hat (2*M x N) */
+    const size_t sz_a_hat = (size_t)(2 * a_rows) * (2 * a_cols);
+    const size_t sz_b_hat = tb
+      ? (size_t)b_rows * (2 * b_cols)
+      : (size_t)(2 * b_rows) * b_cols;
+    const size_t sz_c_hat = (size_t)(2 * M) * N;
     GEMM_REAL_TYPE* workspace = (GEMM_REAL_TYPE*)libxs_malloc(
-      gemm_pool, sizeof(GEMM_REAL_TYPE) * (3 * sz_a + 3 * sz_b + 3 * sz_c), 0 /*auto*/);
+      gemm_pool, sizeof(GEMM_REAL_TYPE) * (sz_a_hat + sz_b_hat + sz_c_hat), 0 /*auto*/);
+
     if (NULL == workspace) {
-      fprintf(stderr, "ERROR: " LIBXS_STRINGIFY(LIBXS_CPREFIX(GEMM_REAL_TYPE, gemm3m))
+      fprintf(stderr, "ERROR: " LIBXS_STRINGIFY(LIBXS_CPREFIX(GEMM_REAL_TYPE, gemm_block))
         " allocation failed (m=%i, n=%i, k=%i), fallback to BLAS\n",
         (int)M, (int)N, (int)K);
       if (NULL != zgemm_original) {
@@ -193,56 +306,28 @@ LIBXS_API_INTERN void zgemm3m(GEMM_ARGDECL)
       }
     }
     else {
-      GEMM_REAL_TYPE* const ar_buf = workspace;
-      GEMM_REAL_TYPE* const ai_buf = ar_buf + sz_a;
-      GEMM_REAL_TYPE* const br_buf = ai_buf + sz_a;
-      GEMM_REAL_TYPE* const bi_buf = br_buf + sz_b;
-      GEMM_REAL_TYPE* const ta_buf = bi_buf + sz_b; /* Ar + Ai */
-      GEMM_REAL_TYPE* const tb_buf = ta_buf + sz_a; /* Br + Bi */
-      GEMM_REAL_TYPE* const p1 = tb_buf + sz_b; /* Ar * Br */
-      GEMM_REAL_TYPE* const p2 = p1 + sz_c; /* Ai * Bi */
-      GEMM_REAL_TYPE* const p3 = p2 + sz_c; /* (Ar+Ai) * (Br+Bi) */
+      GEMM_REAL_TYPE* const a_hat = workspace;
+      GEMM_REAL_TYPE* const b_hat = a_hat + sz_a_hat;
+      GEMM_REAL_TYPE* const c_hat = b_hat + sz_b_hat;
       const GEMM_REAL_TYPE one = 1, zero = 0;
-      const GEMM_INT_TYPE lda_ri = a_rows;
-      const GEMM_INT_TYPE ldb_ri = b_rows;
-      const GEMM_INT_TYPE ldc_ri = M;
+      const GEMM_INT_TYPE m_hat = 2 * M;
+      const GEMM_INT_TYPE k_hat = 2 * K;
+      const GEMM_INT_TYPE lda_hat = 2 * a_rows;
+      const GEMM_INT_TYPE ldb_hat = tb ? b_rows : 2 * b_rows;
+      const GEMM_INT_TYPE ldc_hat = 2 * M;
 
-      /* 1. Deinterleave A and B into split real/imaginary */
-      zgemm3m_deinterleave(a, *lda, ar_buf, ai_buf, lda_ri, a_rows, a_cols);
-      zgemm3m_deinterleave(b, *ldb, br_buf, bi_buf, ldb_ri, b_rows, b_cols);
+      /* 1. Construct A_hat from interleaved complex A */
+      zgemm_block_construct_a(a, *lda, a_hat, a_rows, a_cols, ta);
 
-      /* 2. Form temporaries: Ta = Ar + Ai, Tb = Br + Bi */
-      zgemm3m_matadd(ta_buf, lda_ri, ar_buf, lda_ri, ai_buf, lda_ri, a_rows, a_cols);
-      zgemm3m_matadd(tb_buf, ldb_ri, br_buf, ldb_ri, bi_buf, ldb_ri, b_rows, b_cols);
+      /* 2. Construct B_hat from interleaved complex B */
+      zgemm_block_construct_b(b, *ldb, b_hat, b_rows, b_cols, tb);
 
-      /* 3. Three real GEMM calls (Karatsuba)
-       *    P1 = Ar * Br
-       *    P2 = Ai * Bi
-       *    P3 = (Ar + Ai) * (Br + Bi) */
-      GEMM(transa, transb, &M, &N, &K, &one, ar_buf, &lda_ri, br_buf, &ldb_ri, &zero, p1, &ldc_ri);
-      GEMM(transa, transb, &M, &N, &K, &one, ai_buf, &lda_ri, bi_buf, &ldb_ri, &zero, p2, &ldc_ri);
-      GEMM(transa, transb, &M, &N, &K, &one, ta_buf, &lda_ri, tb_buf, &ldb_ri, &zero, p3, &ldc_ri);
+      /* 3. Single real GEMM: C_hat = op(A_hat) * op(B_hat) */
+      GEMM(transa, transb, &m_hat, &N, &k_hat, &one, a_hat, &lda_hat,
+        b_hat, &ldb_hat, &zero, c_hat, &ldc_hat);
 
-      /* 4. Recover complex product components
-       *    Re(A*B) = P1 - P2           (stored in p1)
-       *    Im(A*B) = P3 - P1 - P2     (stored in p3)
-       *    First: p3 = p3 - p1 - p2 (Im part) */
-      {
-        GEMM_INT_TYPE i, j;
-        for (j = 0; j < N; ++j) {
-          for (i = 0; i < M; ++i) {
-            const size_t idx = i + (size_t)j * ldc_ri;
-            const GEMM_REAL_TYPE v1 = p1[idx];
-            const GEMM_REAL_TYPE v2 = p2[idx];
-            const GEMM_REAL_TYPE v3 = p3[idx];
-            p1[idx] = v1 - v2; /* Re(A*B) */
-            p3[idx] = v3 - v1 - v2; /* Im(A*B) */
-          }
-        }
-      }
-
-      /* 5. Apply complex alpha/beta and write back to interleaved C */
-      zgemm3m_finalize(c, *ldc, p1, p3, ldc_ri, M, N, ar, ai, br, bi);
+      /* 4. Apply complex alpha/beta and write to interleaved C */
+      zgemm_block_finalize(c, *ldc, c_hat, M, N, ar, ai, br, bi);
     }
 
     libxs_free(workspace);
@@ -251,7 +336,7 @@ LIBXS_API_INTERN void zgemm3m(GEMM_ARGDECL)
 
 
 /**
- * Complex GEMM diff: save C, run 3M, reference ZGEMM, matdiff with C64/C32.
+ * Complex GEMM diff: save C, run block-embedding, reference ZGEMM, matdiff with C64/C32.
  */
 LIBXS_API_INLINE void zgemm3m_diff(GEMM_ARGDECL,
   libxs_matdiff_t* diff)
@@ -291,8 +376,8 @@ LIBXS_API_INLINE void zgemm3m_diff(GEMM_ARGDECL,
 /**
  * Complex GEMM wrapper: dispatches based on OZAKI_3M env var.
  *   0 = pass through to original complex BLAS,
- *   1 = CPU-based 3M (Karatsuba with 3 real sub-GEMMs),
- *   2 = GPU-native 3M (all on device, falls back to CPU 3M).
+ *   1 = CPU-based block embedding (single real GEMM),
+ *   2 = GPU-native block embedding (all on device, falls back to CPU).
  * Default: follows OZAKI (0 if OZAKI=0, else 2).
  */
 LIBXS_API_INTERN LIBXS_ATTRIBUTE_WEAK void ZGEMM_WRAP(GEMM_ARGDECL)
