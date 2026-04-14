@@ -44,10 +44,10 @@ LIBXS_API void print_diff(FILE* ostream, const char* label, int detail, const li
   const double posdef = libxs_matdiff_posdef(diff);
   if (1E-6 <= epsilon || 0 != detail) {
     fprintf(ostream, "%s [%i.%i]: posdef=%.17g linf=%.17g linf_rel=%g l2_rel=%g eps=%g rsq=%g -> %.17g != %.17g\n",
-      name, id, diff->r, posdef, diff->linf_abs, diff->linf_rel, diff->l2_rel, epsilon, diff->rsq, diff->v_ref, diff->v_tst);
+      name, diff->r, id, posdef, diff->linf_abs, diff->linf_rel, diff->l2_rel, epsilon, diff->rsq, diff->v_ref, diff->v_tst);
   }
   else {
     fprintf(ostream, "%s [%i.%i]: posdef=%.17g linf=%.17g linf_rel=%g l2_rel=%g eps=%g rsq=%g\n",
-      name, id, diff->r, posdef, diff->linf_abs, diff->linf_rel, diff->l2_rel, epsilon, diff->rsq);
+      name, diff->r, id, posdef, diff->linf_abs, diff->linf_rel, diff->l2_rel, epsilon, diff->rsq);
   }
 }

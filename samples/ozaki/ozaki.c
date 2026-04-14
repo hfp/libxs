@@ -34,6 +34,7 @@ LIBXS_APIVAR_PRIVATE_DEF(int ozaki_n);
 LIBXS_APIVAR_PRIVATE_DEF(int ozaki_profile);
 LIBXS_APIVAR_PRIVATE_DEF(libxs_hist_t* ozaki_hist);
 LIBXS_APIVAR_PRIVATE_DEF(int gemm_threshold);
+LIBXS_TLS int gemm_nozaki;
 LIBXS_TLS int gemm_dump_inhibit;
 #if defined(__LIBXSTREAM)
 LIBXS_APIVAR_PRIVATE_DEF(void* ozaki_ocl_handle);
@@ -257,6 +258,20 @@ LIBXS_API_INTERN LIBXS_ATTRIBUTE_WEAK void GEMM_WRAP(const char* transa, const c
 
   gemm_init();
 
+  /* Bypass Ozaki: fall through to original BLAS.
+   * Used when the reference ZGEMM may internally call sgemm_,
+   * which --wrap redirects back into GEMM_WRAP. Without bypass,
+   * the "reference" result would itself be Ozaki-approximate. */
+  if (0 != gemm_nozaki) {
+    if (NULL != gemm_original) {
+      gemm_original(GEMM_ARGPASS);
+    }
+    else {
+      GEMM_REAL(GEMM_ARGPASS);
+    }
+    return;
+  }
+
   if (0 != ozaki) { /* consider threshold */
     const size_t size = (size_t)(*m) * (*k) + (*k) * (*n) + (*m) * (*n);
     const size_t flops = (size_t)(*m) * (*n) * (*k) * 2;
@@ -293,7 +308,7 @@ LIBXS_API_INTERN LIBXS_ATTRIBUTE_WEAK void GEMM_WRAP(const char* transa, const c
         const int nth = (0 < ozaki_verbose ? ozaki_verbose : 1);
         if (0 == (gemm_diff.r % nth)) {
           const int id = (1 < libxs_nranks() ? libxs_nrank() : libxs_pid());
-          fprintf(stderr, GEMM_LABEL " [%i.%i]: ", id, gemm_diff.r);
+          fprintf(stderr, GEMM_LABEL " [%i.%i]: ", gemm_diff.r, id);
           print_gemm(stderr, 2 /*compact*/, transa, transb, m, n, k, alpha, a, lda, b, ldb, beta, c, ldc);
         }
       }

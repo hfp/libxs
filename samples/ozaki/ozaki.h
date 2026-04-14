@@ -164,6 +164,7 @@ LIBXS_API_INLINE void ozaki_post_diff(GEMM_ARGDECL, const char* label, size_t nc
 #define gemm_oz2 LIBXS_TPREFIX(GEMM_REAL_TYPE, gemm_oz2)
 #define gemm_init LIBXS_TPREFIX(GEMM_REAL_TYPE, gemm_init)
 #define gemm_threshold LIBXS_TPREFIX(GEMM_REAL_TYPE, gemm_threshold)
+#define gemm_nozaki LIBXS_TPREFIX(GEMM_REAL_TYPE, gemm_nozaki)
 #define gemm_dump_inhibit LIBXS_TPREFIX(GEMM_REAL_TYPE, gemm_dump_inhibit)
 #define gemm_dump_matrices LIBXS_TPREFIX(GEMM_REAL_TYPE, gemm_dump_mhd)
 #define zgemm3m LIBXS_CPREFIX(GEMM_REAL_TYPE, gemm3m)
@@ -264,6 +265,7 @@ LIBXS_APIVAR_PRIVATE(int gemm_threshold);
 
 LIBXS_API_INTERN void gemm_init(void);
 
+extern LIBXS_TLS int gemm_nozaki;
 extern LIBXS_TLS int gemm_dump_inhibit;
 
 #if defined(__LIBXSTREAM)
@@ -720,7 +722,7 @@ LIBXS_API_INLINE int gemm_dump_matrices(GEMM_ARGDECL, size_t ncomponents)
   else fclose(file);
 
   if (0 < ozaki_verbose) {
-    fprintf(stderr, GEMM_LABEL " [%i.%i]: ", id, gemm_diff.r);
+    fprintf(stderr, GEMM_LABEL " [%i.%i]: ", gemm_diff.r, id);
     print_gemm(stderr, 2 /*compact*/, transa, transb, m, n, k, alpha, a, lda, b, ldb, beta, c, ldc);
   }
 
@@ -756,7 +758,7 @@ LIBXS_API_INLINE void ozaki_post_diff(GEMM_ARGDECL, const char* label, size_t nc
       if (0 <= ozaki_stat) print_diff(stderr, label, 0 /*detail*/, &call_diff);
       else {
         const int id = (1 < libxs_nranks() ? libxs_nrank() : libxs_pid());
-        fprintf(stderr, "%s [%i.%i]: ", label, id, call_diff.r);
+        fprintf(stderr, "%s [%i.%i]: ", label, call_diff.r, id);
         print_gemm(stderr, LIBXS_ABS(ozaki_stat), transa, transb, m, n, k, alpha, a, lda, b, ldb, beta, c, ldc);
       }
     }

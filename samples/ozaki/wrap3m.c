@@ -259,15 +259,19 @@ LIBXS_API_INLINE void zgemm3m_diff(GEMM_ARGDECL,
     if (0 != ozaki_exit) exit(EXIT_SUCCESS == result ? EXIT_FAILURE : result);
   }
   gemm_dump_inhibit = 0;
-  /* Reference complex BLAS and diff */
+  /* Reference complex BLAS and diff.
+   * Set gemm_nozaki so that any sgemm_ calls MKL's CGEMM makes
+   * internally bypass Ozaki (--wrap redirects them to GEMM_WRAP). */
   if (NULL != c_ref) {
     const libxs_data_t dt = (GEMM_IS_DOUBLE ? LIBXS_DATATYPE_C64 : LIBXS_DATATYPE_C32);
+    gemm_nozaki = 1;
     if (NULL != zgemm_original) {
       zgemm_original(transa, transb, m, n, k, alpha, a, lda, b, ldb, beta, c_ref, ldc);
     }
     else {
       ZGEMM_REAL(transa, transb, m, n, k, alpha, a, lda, b, ldb, beta, c_ref, ldc);
     }
+    gemm_nozaki = 0;
     libxs_matdiff(diff, dt, *m, *n, c_ref, c, ldc, ldc);
     if (ozaki_diff_exceeds(diff)) memcpy(c, c_ref, c_size);
     libxs_free(c_ref);
