@@ -104,13 +104,13 @@ LIBXS_API_INTERN void gemm_signal_handler(int sig)
  */
 LIBXS_API_INLINE void gemm_oz_ocl_diff(const char* transa, const char* transb, const GEMM_INT_TYPE* m, const GEMM_INT_TYPE* n,
   const GEMM_INT_TYPE* k, const GEMM_REAL_TYPE* alpha, const GEMM_REAL_TYPE* a, const GEMM_INT_TYPE* lda, const GEMM_REAL_TYPE* b,
-  const GEMM_INT_TYPE* ldb, const GEMM_REAL_TYPE* beta, GEMM_REAL_TYPE* c, const GEMM_INT_TYPE* ldc, unsigned int diff_stat,
+  const GEMM_INT_TYPE* ldb, const GEMM_REAL_TYPE* beta, GEMM_REAL_TYPE* c, const GEMM_INT_TYPE* ldc,
   libxs_matdiff_t* diff)
 {
   GEMM_REAL_TYPE* c_ref = NULL;
   size_t c_size = 0;
   /* Save C for reference comparison (before OpenCL modifies it) */
-  if (NULL != diff && 0 == (diff_stat % 3)) {
+  if (NULL != diff) {
     c_size = (size_t)*ldc * (size_t)*n * sizeof(GEMM_REAL_TYPE);
     c_ref = (GEMM_REAL_TYPE*)libxs_malloc(gemm_pool, c_size, 0);
     if (NULL != c_ref) memcpy(c_ref, c, c_size);

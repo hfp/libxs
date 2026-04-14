@@ -253,13 +253,13 @@ LIBXS_API_INTERN void zgemm3m(GEMM_ARGDECL)
 /**
  * Complex GEMM diff: save C, run 3M, reference ZGEMM, matdiff with C64/C32.
  */
-LIBXS_API_INLINE void zgemm3m_diff(GEMM_ARGDECL, unsigned int diff_stat,
+LIBXS_API_INLINE void zgemm3m_diff(GEMM_ARGDECL,
   libxs_matdiff_t* diff)
 {
   GEMM_REAL_TYPE* c_ref = NULL;
   size_t c_size = 0;
   /* Save C for reference comparison (before 3M modifies it) */
-  if (NULL != diff && 0 == (diff_stat % 3)) {
+  if (NULL != diff) {
     c_size = 2 * (size_t)*ldc * (size_t)*n * sizeof(GEMM_REAL_TYPE);
     c_ref = (GEMM_REAL_TYPE*)libxs_malloc(gemm_pool, c_size, 0);
     if (NULL != c_ref) memcpy(c_ref, c, c_size);

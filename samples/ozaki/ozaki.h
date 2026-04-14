@@ -119,12 +119,12 @@
  */
 #define OZAKI_GEMM_WRAPPER(DIFF_FN, LABEL) \
   if (0 == ozaki_verbose) { \
-    DIFF_FN(transa, transb, m, n, k, alpha, a, lda, b, ldb, beta, c, ldc, 0, NULL); \
+    DIFF_FN(transa, transb, m, n, k, alpha, a, lda, b, ldb, beta, c, ldc, NULL); \
   } \
   else { \
     libxs_matdiff_t diff, call_diff; \
     libxs_matdiff_clear(&diff); \
-    DIFF_FN(transa, transb, m, n, k, alpha, a, lda, b, ldb, beta, c, ldc, LIBXS_ABS(ozaki_stat), &diff); \
+    DIFF_FN(transa, transb, m, n, k, alpha, a, lda, b, ldb, beta, c, ldc, &diff); \
     call_diff = diff; \
     LIBXS_ATOMIC_ACQUIRE(&gemm_lock, LIBXS_SYNC_NPAUSE, LIBXS_ATOMIC_LOCKORDER); \
     libxs_matdiff_reduce(&gemm_diff, &diff); \
@@ -693,30 +693,20 @@ LIBXS_API_INLINE int ozaki_extract_ieee(GEMM_REAL_TYPE value, int16_t* exp_biase
 
 
 /**
- * Scale a tile of C by beta, optionally capturing the pre-scaled block.
+ * Scale a tile of C by beta.
  * Per BLAS spec, beta=0 must zero out C unconditionally (C may hold NaN
  * or Inf when uninitialized); a plain multiply would give NaN.
  */
 LIBXS_API_INLINE void ozaki_scale_block_beta(GEMM_REAL_TYPE* mb, GEMM_INT_TYPE ldc, GEMM_INT_TYPE iblk, GEMM_INT_TYPE jblk,
-  const GEMM_REAL_TYPE* beta, GEMM_REAL_TYPE* ref_blk, int capture_ref)
+  const GEMM_REAL_TYPE* beta)
 {
   const GEMM_REAL_TYPE b = *beta;
   GEMM_INT_TYPE mi, nj;
   for (mi = 0; mi < iblk; ++mi) {
     for (nj = 0; nj < jblk; ++nj) {
-      if (0 != capture_ref) ref_blk[LIBXS_INDEX(0, BLOCK_M, mi, nj)] = mb[LIBXS_INDEX(0, ldc, mi, nj)];
       mb[LIBXS_INDEX(0, ldc, mi, nj)] = ((GEMM_REAL_TYPE)0 != b) ? mb[LIBXS_INDEX(0, ldc, mi, nj)] * b : (GEMM_REAL_TYPE)0;
     }
   }
-}
-
-
-/** Store a (reference, reconstructed) value pair into block buffers. */
-LIBXS_API_INLINE void ozaki_store_block_pair(GEMM_REAL_TYPE* ref_blk, GEMM_REAL_TYPE* recon_blk, GEMM_INT_TYPE ld,
-  GEMM_INT_TYPE row, GEMM_INT_TYPE col, GEMM_REAL_TYPE ref_val, GEMM_REAL_TYPE recon_val)
-{
-  recon_blk[LIBXS_INDEX(0, ld, row, col)] = recon_val;
-  ref_blk[LIBXS_INDEX(0, ld, row, col)] = ref_val;
 }
 
 
@@ -731,47 +721,6 @@ LIBXS_API_INLINE int ozaki_diff_exceeds(const libxs_matdiff_t* diff)
     ozaki_eps < libxs_matdiff_epsilon(diff)));
 }
 
-/** Accumulator for global R-squared computation across blocks.
- * Per-block rsq is meaningless when a block has near-zero variance;
- * accumulating raw SS_res and SS_tot allows computing global rsq. */
-typedef struct ozaki_rsq_acc_t {
-  double ss_res, ss_tot;
-} ozaki_rsq_acc_t;
-
-/** Compute matrix diff for one block and reduce into accumulator.
- * If rsq_acc is non-NULL, accumulate raw SS_res/SS_tot for global rsq. */
-LIBXS_API_INLINE void ozaki_accumulate_block_diff(libxs_matdiff_t* acc, const GEMM_REAL_TYPE* ref_blk,
-  const GEMM_REAL_TYPE* tst_blk, GEMM_INT_TYPE bm, GEMM_INT_TYPE bn, GEMM_INT_TYPE ld_ref, GEMM_INT_TYPE ld_tst,
-  ozaki_rsq_acc_t* rsq_acc)
-{
-  libxs_matdiff_t block_diff;
-  const int ild_ref = (int)ld_ref, ild_tst = (int)ld_tst;
-  if (EXIT_SUCCESS == libxs_matdiff(&block_diff, LIBXS_DATATYPE(GEMM_REAL_TYPE), bm, bn, ref_blk, tst_blk, &ild_ref, &ild_tst)) {
-    if (NULL != rsq_acc) {
-      /* after libxs_matdiff: l2_abs = sqrt(SS_res), var_ref = SS_tot / ntotal */
-      rsq_acc->ss_res += block_diff.l2_abs * block_diff.l2_abs;
-      rsq_acc->ss_tot += block_diff.var_ref * (double)(bm * bn);
-    }
-    libxs_matdiff_reduce(acc, &block_diff);
-  }
-}
-
-
-/** Copy reference panel (BLOCK_M leading dim) back into C (ldcv leading dim). */
-LIBXS_API_INLINE void ozaki_repair_from_ref_panel(GEMM_REAL_TYPE* c, const GEMM_REAL_TYPE* ref_panel,
-  GEMM_INT_TYPE M, GEMM_INT_TYPE N, GEMM_INT_TYPE ldcv, GEMM_INT_TYPE nblk_m)
-{
-  GEMM_INT_TYPE jb, ib;
-  for (jb = 0; jb < N; jb += BLOCK_N) {
-    for (ib = 0; ib < M; ib += BLOCK_M) {
-      const GEMM_INT_TYPE ibi = ib / BLOCK_M, jbi = jb / BLOCK_N;
-      const GEMM_INT_TYPE iblk = LIBXS_MIN(BLOCK_M, M - ib);
-      const GEMM_INT_TYPE jblk = LIBXS_MIN(BLOCK_N, N - jb);
-      const GEMM_REAL_TYPE *const ref_blk = ref_panel + (jbi * nblk_m + ibi) * BLOCK_M * BLOCK_N;
-      libxs_matcopy(c + jb * ldcv + ib, ref_blk, sizeof(GEMM_REAL_TYPE), iblk, jblk, BLOCK_M, ldcv);
-    }
-  }
-}
 
 
 /**
