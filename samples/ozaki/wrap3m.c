@@ -74,8 +74,9 @@ LIBXS_API_INLINE void zgemm_block_construct_a(const GEMM_REAL_TYPE* LIBXS_RESTRI
  * In both cases, op(B_hat) = [op(Br); op(Bi)] (2K x N).
  */
 LIBXS_API_INLINE void zgemm_block_construct_b(const GEMM_REAL_TYPE* LIBXS_RESTRICT b, GEMM_INT_TYPE ldb,
-  GEMM_REAL_TYPE* LIBXS_RESTRICT b_hat, GEMM_INT_TYPE b_rows, GEMM_INT_TYPE b_cols, int tb)
+  GEMM_REAL_TYPE* LIBXS_RESTRICT b_hat, GEMM_INT_TYPE b_rows, GEMM_INT_TYPE b_cols, int tb, int conj)
 {
+  const GEMM_REAL_TYPE sign_im = (0 != conj) ? (GEMM_REAL_TYPE)-1 : (GEMM_REAL_TYPE)1;
   GEMM_INT_TYPE i, j;
   if (0 == tb) {
     /* transb='N': B_hat (2*b_rows x b_cols), ldb_hat = 2*b_rows */
@@ -84,21 +85,21 @@ LIBXS_API_INLINE void zgemm_block_construct_b(const GEMM_REAL_TYPE* LIBXS_RESTRI
       const GEMM_REAL_TYPE* bj = b + (size_t)j * ldb * 2;
       GEMM_REAL_TYPE* hj = b_hat + (size_t)j * ldb_hat;
       for (i = 0; i < b_rows; ++i) {
-        hj[i] = bj[2 * i];               /* top: Br */
-        hj[b_rows + i] = bj[2 * i + 1];  /* bottom: Bi */
+        hj[i] = bj[2 * i];                       /* top: Br */
+        hj[b_rows + i] = sign_im * bj[2 * i + 1]; /* bottom: Bi (negated for 'C') */
       }
     }
   }
   else {
-    /* transb='T': B_hat = [Br, Bi] (b_rows x 2*b_cols), ldb_hat = b_rows */
+    /* transb='T'/'C': B_hat = [Br, Bi] (b_rows x 2*b_cols), ldb_hat = b_rows */
     const GEMM_INT_TYPE ldb_hat = b_rows;
     for (j = 0; j < b_cols; ++j) {
       const GEMM_REAL_TYPE* bj = b + (size_t)j * ldb * 2;
       GEMM_REAL_TYPE* left = b_hat + (size_t)j * ldb_hat;
       GEMM_REAL_TYPE* right = b_hat + (size_t)(b_cols + j) * ldb_hat;
       for (i = 0; i < b_rows; ++i) {
-        left[i] = bj[2 * i];       /* Br (left half) */
-        right[i] = bj[2 * i + 1];  /* Bi (right half) */
+        left[i] = bj[2 * i];                  /* Br (left half) */
+        right[i] = sign_im * bj[2 * i + 1];   /* Bi (right half, negated for 'C') */
       }
     }
   }
@@ -174,6 +175,12 @@ LIBXS_API_INTERN void zgemm3m(GEMM_ARGDECL)
 
   { /* CPU-based block-embedding path (ozaki_3m == 1, or GPU fallback) */
     const GEMM_INT_TYPE M = *m, N = *n, K = *k;
+    /* Physical layout: 'T' and 'C' both store the transposed matrix.
+     * Block signs: 'C' (conjugate transpose) uses the 'N' sign pattern,
+     * because A^H = conj(A)^T negates the imaginary part, which exactly
+     * cancels the sign flip that 'T' introduces in the block embedding. */
+    const int ca = ('C' == *transa || 'c' == *transa);
+    const int cb = ('C' == *transb || 'c' == *transb);
     const int ta = (*transa != 'N' && *transa != 'n');
     const int tb = (*transb != 'N' && *transb != 'n');
 
@@ -218,11 +225,13 @@ LIBXS_API_INTERN void zgemm3m(GEMM_ARGDECL)
       const GEMM_INT_TYPE ldb_hat = tb ? b_rows : 2 * b_rows;
       const GEMM_INT_TYPE ldc_hat = 2 * M;
 
-      /* 1. Construct A_hat from interleaved complex A */
-      zgemm_block_construct_a(a, *lda, a_hat, a_rows, a_cols, ta);
+      /* 1. Construct A_hat from interleaved complex A.
+       * For 'C': use 'N' sign pattern (ta && !ca = 0) with transposed layout. */
+      zgemm_block_construct_a(a, *lda, a_hat, a_rows, a_cols, ta && !ca);
 
-      /* 2. Construct B_hat from interleaved complex B */
-      zgemm_block_construct_b(b, *ldb, b_hat, b_rows, b_cols, tb);
+      /* 2. Construct B_hat from interleaved complex B.
+       * For 'C': negate Bi (conjugation). */
+      zgemm_block_construct_b(b, *ldb, b_hat, b_rows, b_cols, tb, cb);
 
       /* 3. Single real GEMM: C_hat = op(A_hat) * op(B_hat) */
       GEMM(transa, transb, &m_hat, &N, &k_hat, &one, a_hat, &lda_hat,
