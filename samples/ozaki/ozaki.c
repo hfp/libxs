@@ -144,7 +144,8 @@ LIBXS_API_INTERN void gemm_init(void)
       const char* const ozaki_env = getenv("OZAKI");
       const char* const ozaki_complex_env = getenv("OZAKI_COMPLEX");
       ozaki = (NULL == ozaki_env ? 1 /*default*/ : atoi(ozaki_env));
-      /* OZAKI_COMPLEX: 0=original BLAS, 1=CPU, 2=GPU.
+      /* OZAKI_COMPLEX: 0=original BLAS, 1=CPU, 2=GPU,
+       * 3=original ZGEMM + lock out real GEMM during ZGEMM.
        * Default: 0 if OZAKI=0, else 2 (GPU preferred, CPU fallback). */
       ozaki_complex = (NULL != ozaki_complex_env ? atoi(ozaki_complex_env) : (0 != ozaki ? 2 : 0));
       { /* OZAKI_MAXK: max K per preprocessing pass (0=no grouping).

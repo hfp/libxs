@@ -270,7 +270,7 @@ LIBXS_API_INLINE void gemm_complex_diff(GEMM_ARGDECL,
   }
   gemm_dump_inhibit = 0;
   /* Reference complex BLAS and diff.
-   * Set gemm_nozaki so that any sgemm_ calls MKL's CGEMM makes
+   * Set gemm_nozaki so that any sgemm_ calls BLAS CGEMM makes
    * internally bypass Ozaki (--wrap redirects them to GEMM_WRAP). */
   if (NULL != c_ref) {
     const libxs_data_t dt = (GEMM_IS_DOUBLE ? LIBXS_DATATYPE_C64 : LIBXS_DATATYPE_C32);
@@ -300,7 +300,20 @@ LIBXS_API_INTERN LIBXS_ATTRIBUTE_WEAK void ZGEMM_WRAP(GEMM_ARGDECL)
 {
   gemm_init();
   if (*m > 0 && *n > 0 && *k > 0) {
-    if (0 != ozaki_complex) {
+    if (3 <= ozaki_complex) {
+      /* Mode 3: lock out real GEMM interception, use original ZGEMM.
+       * DGEMMs from BLAS internal ZGEMM implementation use original BLAS.
+       * On exit, real GEMM interception (Ozaki) is restored. */
+      gemm_nozaki = 1;
+      if (NULL != zgemm_original) {
+        zgemm_original(GEMM_ARGPASS);
+      }
+      else {
+        ZGEMM_REAL(GEMM_ARGPASS);
+      }
+      gemm_nozaki = 0;
+    }
+    else if (0 != ozaki_complex) {
       OZAKI_GEMM_WRAPPER(gemm_complex_diff, ZGEMM_LABEL, 2)
     }
     else {
