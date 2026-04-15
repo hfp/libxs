@@ -845,22 +845,8 @@ CPUFLAGS_X86 := $(strip $(shell if [ -e /proc/cpuinfo ]; then \
     | tr "[:upper:]." "[:lower:]_"; \
   fi))
 SSE ?= 1
-ifeq (0,$(SSE)) # discover AVX
-  ifeq (1,$(words $(filter avx512f,$(CPUFLAGS_X86))))
-    ifeq (2,$(words $(filter avx512pf avx512er,$(CPUFLAGS_X86))))
-      AVX ?= 3
-      MIC ?= 1
-    else
-      AVX ?= 3
-    endif
-  else ifeq (1,$(words $(filter avx avx1.0,$(CPUFLAGS_X86))))
-    ifeq (1,$(words $(filter fma,$(CPUFLAGS_X86))))
-      AVX ?= 2
-    else
-      AVX ?= 1
-    endif
-  endif
-else ifeq (1,$(SSE)) # discover SSE
+# SSE=0: native (use AVX=N to select specific level)
+ifeq (1,$(SSE)) # discover SSE
   ifeq (1,$(words $(filter sse4_2 sse4.2,$(CPUFLAGS_X86))))
     SSE := 4
   else ifneq (0,$(words $(filter sse3 ssse3,$(CPUFLAGS_X86))))
@@ -1379,7 +1365,7 @@ ifneq (0,$(INTEL))
         else
           CTARGET := -xSSE$(SSE)
         endif
-      else ifneq (0,$(AVX))
+      else ifeq (0,$(SSE))
         CTARGET := -xHost
         ifneq (0,$(VMAX))
         ifeq (1,$(words $(filter avx512vl,$(CPUFLAGS_X86))))
@@ -1883,7 +1869,7 @@ ifeq (undefined,$(origin TARGET))
         endif
         endif
         # stop here as SSE=2 is implicitly present (64-bit ABI)
-      else ifneq (0,$(AVX))
+      else ifeq (0,$(SSE))
         CTARGET := -march=native -mtune=native
         ifneq (0,$(VMAX))
           ifeq (1,$(words $(filter avx512f,$(CPUFLAGS_X86))))
