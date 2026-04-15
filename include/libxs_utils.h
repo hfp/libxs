@@ -399,6 +399,19 @@
 #define LIBXS_INTRINSICS_MM512_CVTU32_MASK16(A) LIBXS_INTRINSICS_MM512_CVTU32_MASK(A, 16)
 #define LIBXS_INTRINSICS_MM512_CVTU32_MASK8(A) LIBXS_INTRINSICS_MM512_CVTU32_MASK(A, 8)
 
+/** MXCSR get/set for preserving the host FP environment. */
+#if defined(LIBXS_PLATFORM_X86) && defined(LIBXS_INTRINSICS_INCLUDE)
+# define LIBXS_MXCSR_FTZ 0x8000
+# define LIBXS_MXCSR_DAZ 0x0040
+# define LIBXS_MXCSR_GET() _mm_getcsr()
+# define LIBXS_MXCSR_SET(VALUE) _mm_setcsr(VALUE)
+#else
+# define LIBXS_MXCSR_FTZ 0
+# define LIBXS_MXCSR_DAZ 0
+# define LIBXS_MXCSR_GET() 0
+# define LIBXS_MXCSR_SET(VALUE) LIBXS_UNUSED(VALUE)
+#endif
+
 /**
  * Pseudo intrinsics for portability
  */
