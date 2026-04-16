@@ -18,7 +18,11 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        flags: [DBG=0, DBG=1 PEDANTIC=2 UPLOAD=1]
+        flags: [DBG=0, DBG=1 PEDANTIC=2 UPLOAD=0]
+        libxstream: [lib]
+        include:
+          - flags: DBG=1 PEDANTIC=2
+            libxstream: header-only
     steps:
     - uses: actions/checkout@v5
 
@@ -34,6 +38,7 @@ jobs:
         echo "LIBXSTREAMROOT=${{ github.workspace }}/../libxstream" >> ${GITHUB_ENV}
 
     - name: Build LIBXSTREAM
+      if: matrix.libxstream == 'lib'
       run: cd ${LIBXSTREAMROOT} && make -j $(nproc) ${{ matrix.flags }}
 
     - name: Build LIBXS
@@ -41,6 +46,10 @@ jobs:
 
     - name: Test
       run: make -j $(nproc) ${{ matrix.flags }} test
+
+    - name: Build samples
+      if: matrix.libxstream == 'header-only'
+      run: make -j $(nproc) ${{ matrix.flags }} samples
 
     - name: Upload
       if: always() && contains(matrix.flags, 'UPLOAD=1')
