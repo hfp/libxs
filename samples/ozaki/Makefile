@@ -30,7 +30,9 @@ ifneq (0,$(LIBXSTREAM))
   XSTREAM_LIB := $(wildcard $(LIBXSTREAMROOT)/lib/libxstream.$(LIBEXT))
   XSTREAM_LIB := $(strip $(if $(XSTREAM_LIB),$(XSTREAM_LIB), \
     $(if $(XSTREAM_SLIB),$(XSTREAM_SLIB),$(XSTREAM_DLIB))))
-  ifneq (,$(XSTREAM_LIB))
+  XSTREAM_SOURCE := $(wildcard $(LIBXSTREAMROOT)/include/libxstream_source.h)
+  # library or header-only
+  ifneq (,$(XSTREAM_LIB)$(XSTREAM_SOURCE))
     IFLAGS += -I$(call quote,$(LIBXSTREAMROOT)/include)
     IFLAGS += -I$(call quote,$(LIBXSTREAMROOT)/samples/ozaki)
     DFLAGS += -D__LIBXSTREAM
@@ -44,6 +46,10 @@ ifneq (0,$(LIBXSTREAM))
     OCLGENHDR := $(LIBXSTREAMROOT)/samples/ozaki/ozaki_kernels.h
     OCLGENHDR_PROD := $(LIBXSTREAMROOT)/samples/ozaki/ozaki_tinytc.h
     OCLGENSCR_PROD := $(LIBXSTREAMROOT)/samples/ozaki/kernels/ozaki1.sh
+    # header-only fallback: force-include libxstream_source.h
+    ifeq (,$(XSTREAM_LIB))
+      XSTREAM_CFLAGS := -include $(call quote,$(XSTREAM_SOURCE))
+    endif
   endif
 endif
 endif
@@ -189,7 +195,7 @@ $(BLDDIR)/%-zc.o: $(SRCDIR)/%.c .state $(BLDDIR)/.make $(HEADERS) Makefile $(DEP
 $(BLDDIR)/%-cc.o: $(SRCDIR)/%.c .state $(BLDDIR)/.make $(HEADERS) Makefile $(DEPDIR)/Makefile.inc
 	$(CC) -DGEMM_COMPLEX -DGEMM_REAL_TYPE=float $(DFLAGS) $(IFLAGS) $(CFLAGS) $(CTARGET) -c $< -o $@
 
-# OpenCL sources need __OPENCL for XSTREAM_LIB OpenCL headers
+# OpenCL sources need __OPENCL for LIBXSTREAM OpenCL headers
 ifneq (,$(OCLOBJS))
 # Generate embedded kernel header from .cl sources
 $(OCLGENHDR): $(OCLKERNELS) $(SCRDIR)/tool_opencl.sh
@@ -201,19 +207,19 @@ $(OCLGENHDR_PROD): $(wildcard $(LIBXSTREAMROOT)/samples/ozaki/kernels/ozaki1_*_n
 	$(OCLGENSCR_PROD) -h $@
 
 $(BLDDIR)/ozaki_ocl-c.o: $(SRCDIR)/ozaki_ocl.c .state $(BLDDIR)/.make $(HEADERS) Makefile $(DEPDIR)/Makefile.inc
-	$(CC) -D__OPENCL $(DFLAGS) $(IFLAGS) $(CFLAGS) $(CTARGET) -c $< -o $@
+	$(CC) -D__OPENCL $(XSTREAM_CFLAGS) $(DFLAGS) $(IFLAGS) $(CFLAGS) $(CTARGET) -c $< -o $@
 
 $(BLDDIR)/ozaki_opencl-c.o: $(LIBXSTREAMROOT)/samples/ozaki/ozaki_opencl.c \
     $(OCLGENHDR) $(OCLGENHDR_PROD) .state $(BLDDIR)/.make $(HEADERS) Makefile $(DEPDIR)/Makefile.inc
-	$(CC) -D__OPENCL $(DFLAGS) $(IFLAGS) $(CFLAGS) $(CTARGET) -c $< -o $@
+	$(CC) -D__OPENCL $(XSTREAM_CFLAGS) $(DFLAGS) $(IFLAGS) $(CFLAGS) $(CTARGET) -c $< -o $@
 
 $(BLDDIR)/ozaki_gemm-c.o: $(LIBXSTREAMROOT)/samples/ozaki/ozaki_gemm.c \
     $(OCLGENHDR) $(OCLGENHDR_PROD) .state $(BLDDIR)/.make $(HEADERS) Makefile $(DEPDIR)/Makefile.inc
-	$(CC) -D__OPENCL $(DFLAGS) $(IFLAGS) $(CFLAGS) $(CTARGET) -c $< -o $@
+	$(CC) -D__OPENCL $(XSTREAM_CFLAGS) $(DFLAGS) $(IFLAGS) $(CFLAGS) $(CTARGET) -c $< -o $@
 
 $(BLDDIR)/ozaki_zgemm-c.o: $(LIBXSTREAMROOT)/samples/ozaki/ozaki_gemm3m.c \
     $(OCLGENHDR) $(OCLGENHDR_PROD) .state $(BLDDIR)/.make $(HEADERS) Makefile $(DEPDIR)/Makefile.inc
-	$(CC) -D__OPENCL $(DFLAGS) $(IFLAGS) $(CFLAGS) $(CTARGET) -c $< -o $@
+	$(CC) -D__OPENCL $(XSTREAM_CFLAGS) $(DFLAGS) $(IFLAGS) $(CFLAGS) $(CTARGET) -c $< -o $@
 endif
 
 $(BLDDIR)/%-d.o: $(SRCDIR)/%.c .state $(BLDDIR)/.make $(HEADERS) Makefile $(DEPDIR)/Makefile.inc
