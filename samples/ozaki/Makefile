@@ -17,7 +17,6 @@ SSE = 0
 
 BLAS = $(if $(filter-out 0,$(OMP)),2,1)
 #BLAS_STATIC = 0
-STATIC=0
 
 # include common Makefile artifacts
 include $(DEPDIR)/Makefile.inc
