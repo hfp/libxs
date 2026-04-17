@@ -2416,6 +2416,8 @@ else ifneq (0,$(BLAS)) # generic
       ifeq (0,$(BLAS_STATIC)) # shared (END/BEGIN not BEGIN/END)
         BLAS_LDFLAGS += $(XLIB_END_FORCE) $(call abslib,$(BLASLIBFILE)) $(XLIB_BEGIN_FORCE)
       else # static
+        BLASLIBBASE := $(firstword $(subst .$(DLIBEXT), ,$(BLASLIBFILE)))
+        BLASLIBFILE := $(if $(suffix $(BLASLIBBASE)),$(BLASLIBBASE),$(BLASLIBBASE).$(SLIBEXT))
         BLAS_LDFLAGS += $(BLASLIBFILE)
       endif
       BLASREF ?= 1
