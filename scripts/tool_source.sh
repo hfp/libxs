@@ -24,8 +24,8 @@ cat << EOM
 #ifndef LIBXS_SOURCE_H
 #define LIBXS_SOURCE_H
 
-#if defined(LIBXS_MACROS_H)
-# error Please do not include any LIBXS header other than libxs_source.h!
+#if !defined(LIBXS_SOURCE)
+# define LIBXS_SOURCE
 #endif
 #if defined(LIBXS_BUILD)
 # error LIBXS_BUILD cannot be defined for the header-only LIBXS!
