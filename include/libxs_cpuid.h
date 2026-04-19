@@ -14,7 +14,9 @@
 /** Enumerates the target architectures and instruction set extensions.
  * x86 levels use thermometer ordering: higher numeric value implies all
  * features of lower levels.  AVX10/256 sits below AVX512 because it lacks
- * 512-bit vectors — existing LIBXS_X86_AVX512 <= arch guards remain safe. */
+ * 512-bit vectors -- existing LIBXS_X86_AVX512 <= arch guards remain safe.
+ * AVX10_512 (1200) implies AVX512_INT8 (1110); CPUs with AVX10.1/512 but
+ * without AVX-VNNI-INT8 (e.g. Granite Rapids P-core) report as AVX512. */
 #define LIBXS_TARGET_ARCH_UNKNOWN   0
 #define LIBXS_TARGET_ARCH_GENERIC   1
 #define LIBXS_X86_GENERIC           1002
@@ -23,9 +25,9 @@
 #define LIBXS_X86_AVX               1005
 #define LIBXS_X86_AVX2              1006
 #define LIBXS_X86_AVX10_256         1050 /* AVX10.1/256: all features, 256-bit max (Sierra Forest) */
-#define LIBXS_X86_AVX512            1100 /* AVX-512: f+cd+dq+bw+vl+vnni (Cascade Lake+) */
-#define LIBXS_X86_AVX512_INT8       1110 /* AVX-512 + AVX-VNNI-INT8: VPDPBUUD (Granite Rapids) */
-#define LIBXS_X86_AVX10_512         1200 /* AVX10.1/512: all features, 512-bit (Granite Rapids AVX10) */
+#define LIBXS_X86_AVX512            1100 /* AVX-512: f+cd+dq+bw+vl+vnni (Cascade Lake+, Granite Rapids) */
+#define LIBXS_X86_AVX512_INT8       1110 /* AVX-512 + AVX-VNNI-INT8: VPDPBUUD/BSSD */
+#define LIBXS_X86_AVX10_512         1200 /* AVX10.1/512 + AVX-VNNI-INT8: full feature set */
 #define LIBXS_X86_ALLFEAT           1999
 #define LIBXS_AARCH64               2001 /* Baseline v8.1 */
 #define LIBXS_AARCH64_SVE128        2201 /* SVE 128 */

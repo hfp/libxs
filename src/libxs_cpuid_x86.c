@@ -159,17 +159,21 @@ LIBXS_API_INTERN int internal_libxs_cpuid_x86(libxs_cpuid_t* info)
                 /* Check for AVX-VNNI-INT8: leaf 7, subleaf 1, EAX bit 4.
                  * Enables VPDPBUUD/VPDPBSSD (u8*u8, i8*i8 dot products). */
                 { unsigned int eax2, ebx2, ecx3, edx2;
+                  int has_vnni_int8 = 0;
                   LIBXS_CPUID_X86(7, 1/*ecx*/, eax2, ebx2, ecx3, edx2);
                   if (LIBXS_CPUID_CHECK(eax2, 0x00000010)) { /* AVX_VNNI_INT8 */
                     feature_cpu = LIBXS_X86_AVX512_INT8;
+                    has_vnni_int8 = 1;
                   }
                   /* Check for AVX10: leaf 7, subleaf 1, EDX bit 19.
-                   * If present, query leaf 0x24 for version and max vector length. */
+                   * If present, query leaf 0x24 for version and max vector length.
+                   * Only promote to AVX10_512 if VNNI-INT8 is also present
+                   * (the hierarchy 1200 > 1110 implies INT8 capability). */
                   if (LIBXS_CPUID_CHECK(edx2, 0x00080000)) { /* AVX10 */
                     unsigned int eax_10, ebx_10, ecx_10, edx_10;
                     LIBXS_CPUID_X86(0x24, 0/*ecx*/, eax_10, ebx_10, ecx_10, edx_10);
-                    if (LIBXS_CPUID_CHECK(ebx_10, 0x00040000)) { /* bit 18: 512-bit */
-                      feature_cpu = LIBXS_X86_AVX10_512;
+                    if (LIBXS_CPUID_CHECK(ebx_10, 0x00040000) && 0 != has_vnni_int8) {
+                      feature_cpu = LIBXS_X86_AVX10_512; /* 512-bit + INT8 */
                     }
                   }
                 }
@@ -312,7 +316,7 @@ LIBXS_API const char* libxs_cpuid_name(int id)
       target_arch = "avx10_512";
     } break;
     case LIBXS_X86_AVX512_INT8: {
-      target_arch = "avx9";
+      target_arch = "avx8";
     } break;
     case LIBXS_X86_AVX512: {
       target_arch = "avx512";
@@ -377,12 +381,13 @@ LIBXS_API int libxs_cpuid_id(const char* arch)
 {
   int target_archid = LIBXS_TARGET_ARCH_UNKNOWN;
 
-  if (strcmp(arch, "avx10-512") == 0 || strcmp(arch, "avx10_512") == 0
-    || strcmp(arch, "gnr") == 0)
-  {
+  if (strcmp(arch, "avx10-512") == 0 || strcmp(arch, "avx10_512") == 0) {
     target_archid = LIBXS_X86_AVX10_512;
   }
-  else if (strcmp(arch, "avx9") == 0 || strcmp(arch, "avx512int8") == 0
+  else if (strcmp(arch, "gnr") == 0) {
+    target_archid = LIBXS_X86_AVX512;
+  }
+  else if (strcmp(arch, "avx8") == 0 || strcmp(arch, "avx512int8") == 0
     || strcmp(arch, "avx512_int8") == 0)
   {
     target_archid = LIBXS_X86_AVX512_INT8;
