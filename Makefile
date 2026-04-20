@@ -542,19 +542,19 @@ endif
 	@echo
 	@echo "$(PROJUPP) installing pkg-config and module files..."
 	@$(MKDIR) -p $(PREFIX)/$(PPKGDIR)
-	@$(CP) -va $(OUTDIR)/*.pc $(PREFIX)/$(PPKGDIR)
+	@$(CP) -va $(OUTDIR)/*.pc $(PREFIX)/$(PPKGDIR) 2>/dev/null || true
 	@if [ ! -e $(PREFIX)/$(PMODDIR)/$(PROJECT).env ]; then \
 		$(MKDIR) -p $(PREFIX)/$(PMODDIR); \
 		$(CP) -v $(OUTDIR)/$(PROJECT).env $(PREFIX)/$(PMODDIR) 2>/dev/null || true; \
 	fi
 	@echo
 	@echo "$(PROJUPP) installing interface..."
-	@$(MKDIR) -p $(PREFIX)/$(PINCDIR)/$(PSRCDIR)
+	@$(MKDIR) -p $(PREFIX)/$(PINCDIR)
 	@$(CP) -v  $(HEADERS_MAIN) $(PREFIX)/$(PINCDIR)
 	@$(CP) -v  $(INCDIR)/$(PROJECT)_version.h $(PREFIX)/$(PINCDIR)
 	@$(CP) -v  $(INCDIR)/$(PROJECT).h $(PREFIX)/$(PINCDIR)
 	@$(CP) -v  $(INCDIR)/$(PROJECT).f $(PREFIX)/$(PINCDIR)
-	@$(CP) -va $(INCDIR)/*.mod* $(PREFIX)/$(PINCDIR)
+	@$(CP) -va $(INCDIR)/*.mod* $(PREFIX)/$(PINCDIR) 2>/dev/null || true
 	@echo
 	@echo "$(PROJUPP) installing header-only..."
 	@$(MKDIR) -p $(PREFIX)/$(PINCDIR)/$(PSRCDIR)
