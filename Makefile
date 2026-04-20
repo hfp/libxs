@@ -264,6 +264,10 @@ $(foreach OBJ,$(OBJFILES),$(eval $(call DEFINE_COMPILE_RULE, \
 .PHONY: module
 ifneq (,$(strip $(FC)))
 module: $(INCDIR)/$(PROJECT).mod
+ifneq ($(ABSDIR),$(HEREDIR))
+$(INCDIR)/$(PROJECT).f: $(ROOTINC)/$(PROJECT).f $(INCDIR)/.make
+	@$(CP) $< $@
+endif
 $(BLDDIR)/intel64/$(PROJECT)-mod.o: $(BLDDIR)/intel64/.make $(INCDIR)/$(PROJECT).f
 	$(FC) $(DFLAGS) $(IFLAGS) $(FCMTFLAGS) $(filter-out $(FFORM_FLAG),$(FCFLAGS)) $(FTARGET) \
 		-c $(INCDIR)/$(PROJECT).f -o $@ $(FMFLAGS) $(INCDIR)
