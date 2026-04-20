@@ -27,10 +27,6 @@
 #define OZ_BIAS_PLUS_MANT (OZ_EXP_BIAS + OZ_MANT_BITS)
 #define OZ_EXP_MASK (2U * OZ_EXP_BIAS + 1U)
 
-#if !defined(OZAKI_MAX_NTHREADS)
-# define OZAKI_MAX_NTHREADS 2048
-#endif
-
 #if !defined(BLOCK_M)
 # define BLOCK_M 16
 #endif
@@ -39,9 +35,6 @@
 #endif
 #if !defined(BLOCK_K)
 # define BLOCK_K 16
-#endif
-#if !defined(BATCH_K)
-# define BATCH_K 4
 #endif
 #if !defined(K_GRP)
 # define K_GRP 32768
@@ -108,14 +101,6 @@
     } \
   }
 
-/* Forward declaration: ozaki_post_diff is defined after variable declarations. */
-LIBXS_API_INLINE void ozaki_post_diff(GEMM_ARGDECL, const char* label, size_t ncomponents, libxs_matdiff_t* diff);
-
-/**
- * Implement the public gemm_ozN function: call the _diff kernel,
- * then handle verbose output, diff accumulation, and matrix dumps.
- * DIFF_FN is the _diff kernel (gemm_oz1_diff or gemm_oz2_diff).
- */
 #define OZAKI_GEMM_WRAPPER(DIFF_FN, LABEL, NCOMP) \
   if (0 == ozaki_verbose) { \
     DIFF_FN(transa, transb, m, n, k, alpha, a, lda, b, ldb, beta, c, ldc, NULL); \
@@ -175,6 +160,59 @@ LIBXS_API_INLINE void ozaki_post_diff(GEMM_ARGDECL, const char* label, size_t nc
 # define gemm_oz_ocl_diff LIBXS_TPREFIX(GEMM_REAL_TYPE, gemm_oz_ocl_diff)
 #endif
 
+/* Scalar int8 GEMM fallback: C[M,N] += A[M,K] * B'[N,K] via per-element
+ * dot product. Used for edge tiles where N < BLOCK_N (panel path not
+ * applicable). Auto-vectorizable inner loop. */
+#define OZAKI_GEMM_INT8_BODY(ELEM_T, DOT_FN) \
+  { \
+    GEMM_INT_TYPE mi, nj, kb; \
+    LIBXS_ASSERT('N' == transa || 'n' == transa); \
+    LIBXS_ASSERT('T' == transb || 't' == transb); \
+    LIBXS_ASSERT(0 == (K % BLOCK_K)); \
+    LIBXS_UNUSED(transa); \
+    LIBXS_UNUSED(transb); \
+    LIBXS_PRAGMA_LOOP_COUNT(1, BLOCK_M, BLOCK_M) \
+    for (mi = 0; mi < M; ++mi) { \
+      int32_t* const crow = c + mi * ldc; \
+      const ELEM_T* const arow = a + mi * lda; \
+      if (0 == beta) { \
+        LIBXS_PRAGMA_LOOP_COUNT(1, BLOCK_N, BLOCK_N) \
+        for (nj = 0; nj < N; ++nj) crow[nj] = 0; \
+      } \
+      for (kb = 0; kb < K; kb += BLOCK_K) { \
+        const ELEM_T* const ak = arow + kb; \
+        LIBXS_PRAGMA_LOOP_COUNT(1, BLOCK_N, BLOCK_N) \
+        for (nj = 0; nj < N; ++nj) { \
+          crow[nj] += DOT_FN(ak, b + nj * ldb + kb); \
+        } \
+      } \
+    } \
+  }
+
+#if defined(LIBXS_INTRINSICS_AVX512) && 16 == BLOCK_N && (16 == BLOCK_K || 32 == BLOCK_K || 64 == BLOCK_K)
+#define OZAKI_PANEL_REFORMAT_B(B, LDB, KB, N, BUF) do { \
+    int rf_kk, rf_nj; \
+    for (rf_kk = 0; rf_kk < BLOCK_K; rf_kk += 4) { \
+      for (rf_nj = 0; rf_nj < (N); ++rf_nj) { \
+        memcpy((BUF) + (rf_kk >> 2) * (N) + rf_nj, \
+               (const char*)(B) + (long)rf_nj * (LDB) + (KB) + rf_kk, 4); \
+      } \
+    } \
+  } while(0)
+
+#define OZAKI_PANEL_REFORMAT_B_XOR(B, LDB, KB, N, BUF) do { \
+    int rf_kk, rf_nj; \
+    for (rf_kk = 0; rf_kk < BLOCK_K; rf_kk += 4) { \
+      for (rf_nj = 0; rf_nj < (N); ++rf_nj) { \
+        int32_t rf_tmp; \
+        memcpy(&rf_tmp, (const char*)(B) + (long)rf_nj * (LDB) + (KB) + rf_kk, 4); \
+        (BUF)[(rf_kk >> 2) * (N) + rf_nj] = rf_tmp ^ (int32_t)0x80808080; \
+      } \
+    } \
+  } while(0)
+#endif
+
+
 /** Function type for complex GEMM (precision-specific). */
 LIBXS_EXTERN_C typedef void (*zgemm_function_t)(GEMM_ARGDECL);
 
@@ -216,6 +254,7 @@ OZAKI_APIVAR_PRIVATE(libxs_hist_t* ozaki_hist);
 OZAKI_APIVAR_PRIVATE(int gemm_threshold);
 
 OZAKI_API_INTERN void gemm_init(void);
+LIBXS_API_INLINE void ozaki_post_diff(GEMM_ARGDECL, const char* label, size_t ncomponents, libxs_matdiff_t* diff);
 
 extern LIBXS_TLS int gemm_nozaki; /* not precision-prefixed: bypass must cover all precisions */
 extern LIBXS_TLS int gemm_dump_inhibit;
@@ -258,64 +297,12 @@ LIBXS_API_INLINE int32_t ozaki_dot_u8_sw(const uint8_t a[BLOCK_K], const uint8_t
 }
 
 
-/* Scalar int8 GEMM fallback: C[M,N] += A[M,K] * B'[N,K] via per-element
- * dot product. Used for edge tiles where N < BLOCK_N (panel path not
- * applicable). Auto-vectorizable inner loop. */
-#define OZAKI_GEMM_INT8_BODY(ELEM_T, DOT_FN) \
-  { \
-    GEMM_INT_TYPE mi, nj, kb; \
-    LIBXS_ASSERT('N' == transa || 'n' == transa); \
-    LIBXS_ASSERT('T' == transb || 't' == transb); \
-    LIBXS_ASSERT(0 == (K % BLOCK_K)); \
-    LIBXS_UNUSED(transa); \
-    LIBXS_UNUSED(transb); \
-    LIBXS_PRAGMA_LOOP_COUNT(1, BLOCK_M, BLOCK_M) \
-    for (mi = 0; mi < M; ++mi) { \
-      int32_t* const crow = c + mi * ldc; \
-      const ELEM_T* const arow = a + mi * lda; \
-      if (0 == beta) { \
-        LIBXS_PRAGMA_LOOP_COUNT(1, BLOCK_N, BLOCK_N) \
-        for (nj = 0; nj < N; ++nj) crow[nj] = 0; \
-      } \
-      for (kb = 0; kb < K; kb += BLOCK_K) { \
-        const ELEM_T* const ak = arow + kb; \
-        LIBXS_PRAGMA_LOOP_COUNT(1, BLOCK_N, BLOCK_N) \
-        for (nj = 0; nj < N; ++nj) { \
-          crow[nj] += DOT_FN(ak, b + nj * ldb + kb); \
-        } \
-      } \
-    } \
-  }
-
-
 /* Panel GEMM kernels: accumulate N=16 output columns simultaneously
  * using broadcast-A + VNNI dot-product-accumulate (no horizontal
  * reduction). B is reformatted to VNNI dword packing on the fly:
  * b_vnni[K/4][16] where each int32 holds 4 consecutive K-bytes
  * from one B column. This layout matches AMX tile-B format. */
 #if defined(LIBXS_INTRINSICS_AVX512) && 16 == BLOCK_N && (16 == BLOCK_K || 32 == BLOCK_K || 64 == BLOCK_K)
-
-#define OZAKI_PANEL_REFORMAT_B(B, LDB, KB, N, BUF) do { \
-    int rf_kk, rf_nj; \
-    for (rf_kk = 0; rf_kk < BLOCK_K; rf_kk += 4) { \
-      for (rf_nj = 0; rf_nj < (N); ++rf_nj) { \
-        memcpy((BUF) + (rf_kk >> 2) * (N) + rf_nj, \
-               (const char*)(B) + (long)rf_nj * (LDB) + (KB) + rf_kk, 4); \
-      } \
-    } \
-  } while(0)
-
-#define OZAKI_PANEL_REFORMAT_B_XOR(B, LDB, KB, N, BUF) do { \
-    int rf_kk, rf_nj; \
-    for (rf_kk = 0; rf_kk < BLOCK_K; rf_kk += 4) { \
-      for (rf_nj = 0; rf_nj < (N); ++rf_nj) { \
-        int32_t rf_tmp; \
-        memcpy(&rf_tmp, (const char*)(B) + (long)rf_nj * (LDB) + (KB) + rf_kk, 4); \
-        (BUF)[(rf_kk >> 2) * (N) + rf_nj] = rf_tmp ^ (int32_t)0x80808080; \
-      } \
-    } \
-  } while(0)
-
 
 /* s8*s8 panel via DPBSSD (AVX-VNNI-INT8, 512-bit EVEX). */
 #if (LIBXS_X86_AVX512_INT8 <= LIBXS_MAX_STATIC_TARGET_ARCH)

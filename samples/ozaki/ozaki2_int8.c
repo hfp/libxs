@@ -154,7 +154,7 @@ LIBXS_API_INLINE double oz2_horner_grouped(const unsigned int v[], int nprimes);
  * Barrett for the Garner product reduction.
  */
 LIBXS_API_INLINE LIBXS_INTRINSICS(LIBXS_X86_AVX512) void oz2_reconstruct_batch_avx512(
-  unsigned int batch_res[OZ2_BATCH][OZ2_NPRIMES_MAX], unsigned int garner_inv[OZ2_NPRIMES_MAX][OZ2_NPRIMES_MAX], int nprimes,
+  unsigned int batch_res[OZ2_BATCH][OZ2_NPRIMES_MAX], uint8_t garner_inv[OZ2_NPRIMES_MAX][OZ2_NPRIMES_MAX], int nprimes,
   int bsz, double result[OZ2_BATCH])
 {
   /* Transposed layout: vt[prime_idx][OZ2_BATCH] for contiguous SIMD loads */
@@ -279,7 +279,7 @@ LIBXS_API_INLINE double oz2_horner_grouped(const unsigned int v[], int nprimes)
  * is data-parallel, enabling auto-vectorization.
  */
 LIBXS_API_INLINE void oz2_reconstruct_batch(unsigned int batch_res[OZ2_BATCH][OZ2_NPRIMES_MAX],
-  unsigned int garner_inv[OZ2_NPRIMES_MAX][OZ2_NPRIMES_MAX], int nprimes, int bsz, double result[OZ2_BATCH])
+  uint8_t garner_inv[OZ2_NPRIMES_MAX][OZ2_NPRIMES_MAX], int nprimes, int bsz, double result[OZ2_BATCH])
 {
   unsigned int v[OZ2_BATCH][OZ2_NPRIMES_MAX];
   unsigned int u[OZ2_BATCH];
@@ -329,7 +329,7 @@ LIBXS_API_INLINE void gemm_oz2_diff(const char* transa, const char* transb, cons
   const GEMM_INT_TYPE* ldb, const GEMM_REAL_TYPE* beta, GEMM_REAL_TYPE* c, const GEMM_INT_TYPE* ldc,
   libxs_matdiff_t* diff)
 {
-  unsigned int garner_inv[OZ2_NPRIMES_MAX][OZ2_NPRIMES_MAX];
+  uint8_t garner_inv[OZ2_NPRIMES_MAX][OZ2_NPRIMES_MAX];
   /* Max K per int32 accumulation pass: K_CHUNK * max_residue^2 < 2^31.
    * u8 (max 255): 255^2 * 32768 ~ 2.13e9 < 2^31. K_CHUNK = 32768.
    * i8 (max 127): 127^2 * 131072 ~ 2.11e9 < 2^31. K_CHUNK = 131072. */
@@ -362,7 +362,7 @@ LIBXS_API_INLINE void gemm_oz2_diff(const char* transa, const char* transb, cons
   memset(garner_inv, 0, sizeof(garner_inv));
   for (i = 0; i < nprimes; ++i) {
     for (j = i + 1; j < nprimes; ++j) {
-      garner_inv[i][j] = libxs_mod_inverse_u32(oz2_moduli[i] % oz2_moduli[j], oz2_moduli[j]);
+      garner_inv[i][j] = (uint8_t)libxs_mod_inverse_u32(oz2_moduli[i] % oz2_moduli[j], oz2_moduli[j]);
     }
   }
 
@@ -514,44 +514,156 @@ LIBXS_API_INLINE void gemm_oz2_diff(const char* transa, const char* transb, cons
           const GEMM_INT_TYPE iblk = LIBXS_MIN(BLOCK_M, M - ib);
           const GEMM_INT_TYPE jblk = LIBXS_MIN(BLOCK_N, N - jb);
           GEMM_REAL_TYPE* const cb = c + jb * ldcv + ib;
-          unsigned int tile_res[BLOCK_M * BLOCK_N][OZ2_NPRIMES_MAX];
+          uint8_t tile_res[BLOCK_M * BLOCK_N][OZ2_NPRIMES_MAX];
           memset(tile_res, 0, sizeof(tile_res));
 
-          /* Accumulate per-prime residues via GEMM + mod-reduce.
-           * B is column-contiguous, pre-XOR'd with 0x80 for u8 mode.
-           * The panel GEMM reformats B into VNNI layout on the fly. */
-          for (kb = 0; kb < K_grp_pad; kb += K_CHUNK) {
-            const GEMM_INT_TYPE chunk_k = ((GEMM_INT_TYPE)K_CHUNK < K_grp_pad - kb) ? (GEMM_INT_TYPE)K_CHUNK : (K_grp_pad - kb);
+          /* Fused GEMM + mod-reduce: inline VNNI panel per prime, Barrett-
+           * reduce accumulators in-register, accumulate into tile_res.
+           * Eliminates partial[] buffer and per-prime function call overhead. */
+#if defined(LIBXS_INTRINSICS_AVX512) && 16 == BLOCK_N && (LIBXS_X86_AVX512 <= LIBXS_STATIC_TARGET_ARCH \
+    || LIBXS_X86_AVX512 <= LIBXS_MAX_STATIC_TARGET_ARCH)
+          if (BLOCK_N == jblk && LIBXS_X86_AVX512 <= ozaki_target_arch) {
             LIBXS_PRAGMA_LOOP_COUNT(1, OZ2_NPRIMES_MAX, OZ2_NPRIMES_DEFAULT)
             for (pidx = 0; pidx < nprimes; ++pidx) {
-              LIBXS_ALIGNED(int32_t partial[BLOCK_M * BLOCK_N], LIBXS_ALIGNMENT);
+              const unsigned int pi = oz2_moduli[pidx];
+              const unsigned int rcp_i = oz2_rcp[pidx];
+              const __m512i vpi = _mm512_set1_epi32((int)pi);
+              const oz2_res_t* const a_prime = a_res + (long)pidx * M * K_grp_pad + (long)ib * K_grp_pad;
+              const oz2_res_t* const b_prime = b_res + (long)pidx * N * K_grp_pad + (long)jb * K_grp_pad;
+              for (kb = 0; kb < K_grp_pad; kb += K_CHUNK) {
+                const GEMM_INT_TYPE chunk_k = ((GEMM_INT_TYPE)K_CHUNK < K_grp_pad - kb)
+                  ? (GEMM_INT_TYPE)K_CHUNK : (K_grp_pad - kb);
+                __m512i acc[BLOCK_M];
+                GEMM_INT_TYPE kk;
+                for (mi = 0; mi < iblk; ++mi) acc[mi] = _mm512_setzero_si512();
 #if defined(OZAKI_I8) && (OZAKI_I8)
-              ozaki_gemm_s8s8s32('N', 'T', iblk, jblk, chunk_k,
-                (const int8_t*)(a_res + (long)pidx * M * K_grp_pad + (long)ib * K_grp_pad + kb), K_grp_pad,
-                (const int8_t*)(b_res + (long)pidx * N * K_grp_pad + (long)jb * K_grp_pad + kb), K_grp_pad, 0, partial, jblk);
-#else
-              ozaki_gemm_u8u8s32('N', 'T', iblk, jblk, chunk_k,
-                (const uint8_t*)(a_res + (long)pidx * M * K_grp_pad + (long)ib * K_grp_pad + kb), K_grp_pad,
-                (const uint8_t*)(b_res + (long)pidx * N * K_grp_pad + (long)jb * K_grp_pad + kb), K_grp_pad, 0, partial, jblk);
+                { const __m512i bias = _mm512_set1_epi32((int32_t)0x80808080);
+                  const __m512i ones = _mm512_set1_epi32(0x01010101);
+                  __m512i bsum = _mm512_setzero_si512();
+                  for (kk = kb; kk < kb + chunk_k; kk += BLOCK_K) {
+                    LIBXS_ALIGNED(int32_t bv[(BLOCK_K / 4) * BLOCK_N], LIBXS_ALIGNMENT);
+                    int bk;
+                    for (bk = 0; bk < BLOCK_K; bk += 4) {
+                      int rf_nj;
+                      for (rf_nj = 0; rf_nj < BLOCK_N; ++rf_nj) {
+                        memcpy(bv + (bk >> 2) * BLOCK_N + rf_nj,
+                               (const char*)b_prime + (long)rf_nj * K_grp_pad + kk + bk, 4);
+                      }
+                    }
+                    for (bk = 0; bk < BLOCK_K; bk += 4) {
+                      const __m512i vb = _mm512_load_si512((__m512i*)(bv + (bk >> 2) * BLOCK_N));
+                      bsum = _mm512_dpbusd_epi32(bsum, ones, vb);
+                      LIBXS_PRAGMA_LOOP_COUNT(1, BLOCK_M, BLOCK_M)
+                      for (mi = 0; mi < iblk; ++mi) {
+                        const __m512i va = _mm512_xor_si512(
+                          _mm512_set1_epi32(*(const int32_t*)(a_prime + (long)mi * K_grp_pad + kk + bk)), bias);
+                        acc[mi] = _mm512_dpbusd_epi32(acc[mi], va, vb);
+                      }
+                    }
+                  }
+                  { const __m512i correction = _mm512_mullo_epi32(_mm512_set1_epi32(128), bsum);
+                    for (mi = 0; mi < iblk; ++mi) acc[mi] = _mm512_sub_epi32(acc[mi], correction);
+                  }
+                }
+                for (mi = 0; mi < iblk; ++mi) {
+                  const __mmask16 neg = _mm512_cmpgt_epi32_mask(_mm512_setzero_si512(), acc[mi]);
+                  __m512i vr = libxs_mod_u32x16(_mm512_abs_epi32(acc[mi]), pi, rcp_i);
+                  { const __mmask16 nz = _mm512_cmpgt_epu32_mask(vr, _mm512_setzero_si512());
+                    vr = _mm512_mask_sub_epi32(vr, (__mmask16)(neg & nz), vpi, vr);
+                  }
+                  { LIBXS_ALIGNED(unsigned int tmp[BLOCK_N], LIBXS_ALIGNMENT);
+                    __m512i vacc;
+                    int nj2;
+                    for (nj2 = 0; nj2 < BLOCK_N; ++nj2) tmp[nj2] = tile_res[mi * BLOCK_N + nj2][pidx];
+                    vacc = _mm512_add_epi32(_mm512_loadu_si512((__m512i*)tmp), vr);
+                    { const __mmask16 ge = _mm512_cmpge_epu32_mask(vacc, vpi);
+                      vacc = _mm512_mask_sub_epi32(vacc, ge, vacc, vpi);
+                    }
+                    _mm512_storeu_si512((__m512i*)tmp, vacc);
+                    for (nj2 = 0; nj2 < BLOCK_N; ++nj2) tile_res[mi * BLOCK_N + nj2][pidx] = (uint8_t)tmp[nj2];
+                  }
+                }
+#else /* u8 */
+                for (kk = kb; kk < kb + chunk_k; kk += BLOCK_K) {
+                  LIBXS_ALIGNED(int32_t bv[(BLOCK_K / 4) * BLOCK_N], LIBXS_ALIGNMENT);
+                  int bk;
+                  for (bk = 0; bk < BLOCK_K; bk += 4) {
+                    int rf_nj;
+                    for (rf_nj = 0; rf_nj < BLOCK_N; ++rf_nj) {
+                      int32_t bt;
+                      memcpy(&bt, (const char*)b_prime + (long)rf_nj * K_grp_pad + kk + bk, 4);
+                      bv[(bk >> 2) * BLOCK_N + rf_nj] = bt ^ (int32_t)0x80808080;
+                    }
+                  }
+                  for (bk = 0; bk < BLOCK_K; bk += 4) {
+                    const __m512i vb = _mm512_load_si512((__m512i*)(bv + (bk >> 2) * BLOCK_N));
+                    LIBXS_PRAGMA_LOOP_COUNT(1, BLOCK_M, BLOCK_M)
+                    for (mi = 0; mi < iblk; ++mi) {
+                      const __m512i va = _mm512_set1_epi32(
+                        *(const int32_t*)(a_prime + (long)mi * K_grp_pad + kk + bk));
+                      acc[mi] = _mm512_dpbusd_epi32(acc[mi], va, vb);
+                    }
+                  }
+                }
+                for (mi = 0; mi < iblk; ++mi) {
+                  int32_t asum = 0;
+                  for (kk = kb; kk < kb + chunk_k; ++kk) {
+                    asum += (int32_t)a_prime[mi * K_grp_pad + kk];
+                  }
+                  { const __m512i vr = libxs_mod_u32x16(
+                      _mm512_add_epi32(acc[mi], _mm512_set1_epi32(128 * asum)), pi, rcp_i);
+                    LIBXS_ALIGNED(unsigned int tmp[BLOCK_N], LIBXS_ALIGNMENT);
+                    __m512i vacc;
+                    int nj2;
+                    for (nj2 = 0; nj2 < BLOCK_N; ++nj2) tmp[nj2] = tile_res[mi * BLOCK_N + nj2][pidx];
+                    vacc = _mm512_add_epi32(_mm512_loadu_si512((__m512i*)tmp), vr);
+                    { const __mmask16 ge = _mm512_cmpge_epu32_mask(vacc, vpi);
+                      vacc = _mm512_mask_sub_epi32(vacc, ge, vacc, vpi);
+                    }
+                    _mm512_storeu_si512((__m512i*)tmp, vacc);
+                    for (nj2 = 0; nj2 < BLOCK_N; ++nj2) tile_res[mi * BLOCK_N + nj2][pidx] = tmp[nj2];
+                  }
+                }
 #endif
-              for (mi = 0; mi < iblk; ++mi) {
-                for (nj = 0; nj < jblk; ++nj) {
-                  const int32_t dot = partial[mi * jblk + nj];
-                  unsigned int r;
+              }
+            }
+          }
+          else
+#endif
+          { /* Scalar fallback */
+            for (kb = 0; kb < K_grp_pad; kb += K_CHUNK) {
+              const GEMM_INT_TYPE chunk_k = ((GEMM_INT_TYPE)K_CHUNK < K_grp_pad - kb) ? (GEMM_INT_TYPE)K_CHUNK : (K_grp_pad - kb);
+              LIBXS_PRAGMA_LOOP_COUNT(1, OZ2_NPRIMES_MAX, OZ2_NPRIMES_DEFAULT)
+              for (pidx = 0; pidx < nprimes; ++pidx) {
+                LIBXS_ALIGNED(int32_t partial[BLOCK_M * BLOCK_N], LIBXS_ALIGNMENT);
 #if defined(OZAKI_I8) && (OZAKI_I8)
-                  if (dot >= 0) {
+                ozaki_gemm_s8s8s32('N', 'T', iblk, jblk, chunk_k,
+                  (const int8_t*)(a_res + (long)pidx * M * K_grp_pad + (long)ib * K_grp_pad + kb), K_grp_pad,
+                  (const int8_t*)(b_res + (long)pidx * N * K_grp_pad + (long)jb * K_grp_pad + kb), K_grp_pad, 0, partial, jblk);
+#else
+                ozaki_gemm_u8u8s32('N', 'T', iblk, jblk, chunk_k,
+                  (const uint8_t*)(a_res + (long)pidx * M * K_grp_pad + (long)ib * K_grp_pad + kb), K_grp_pad,
+                  (const uint8_t*)(b_res + (long)pidx * N * K_grp_pad + (long)jb * K_grp_pad + kb), K_grp_pad, 0, partial, jblk);
+#endif
+                for (mi = 0; mi < iblk; ++mi) {
+                  for (nj = 0; nj < jblk; ++nj) {
+                    const int32_t dot = partial[mi * jblk + nj];
+                    unsigned int r;
+#if defined(OZAKI_I8) && (OZAKI_I8)
+                    if (dot >= 0) {
+                      r = oz2_mod((uint32_t)dot, pidx);
+                    }
+                    else {
+                      r = oz2_mod((uint32_t)(-dot), pidx);
+                      r = (0 != r) ? (oz2_moduli[pidx] - r) : 0;
+                    }
+#else
                     r = oz2_mod((uint32_t)dot, pidx);
-                  }
-                  else {
-                    r = oz2_mod((uint32_t)(-dot), pidx);
-                    r = (0 != r) ? (oz2_moduli[pidx] - r) : 0;
-                  }
-#else
-                  r = oz2_mod((uint32_t)dot, pidx);
 #endif
-                  r += tile_res[mi * jblk + nj][pidx];
-                  if (r >= oz2_moduli[pidx]) r -= oz2_moduli[pidx];
-                  tile_res[mi * jblk + nj][pidx] = r;
+                    r += tile_res[mi * jblk + nj][pidx];
+                    if (r >= oz2_moduli[pidx]) r -= oz2_moduli[pidx];
+                    tile_res[mi * jblk + nj][pidx] = (uint8_t)r;
+                  }
                 }
               }
             }
