@@ -20,7 +20,7 @@ DOCDIR := documentation
 PINCDIR ?= $(INCDIR)
 PSRCDIR ?= $(PROJECT)
 POUTDIR ?= $(OUTDIR)
-PPKGDIR ?= $(OUTDIR)
+PPKGDIR ?= $(OUTDIR)/pkgconfig
 PMODDIR ?= $(OUTDIR)
 PBINDIR ?= $(BINDIR)
 PTSTDIR ?= $(TSTDIR)
@@ -283,7 +283,7 @@ else
 endif
 
 .PHONY: clib
-clib: cheader $(OUTDIR)/$(PROJECT)-static.pc $(OUTDIR)/$(PROJECT)-shared.pc
+clib: cheader $(PPKGDIR)/$(PROJECT)-static.pc $(PPKGDIR)/$(PROJECT)-shared.pc
 ifeq (,$(filter-out 0 2,$(BUILD)))
 $(OUTDIR)/$(PROJECT).$(SLIBEXT): $(OUTDIR)/.make $(OBJFILES) $(FTNOBJS)
 	$(MAKE_AR) $(OUTDIR)/$(PROJECT).$(SLIBEXT) $(call tailwords,$^)
@@ -486,7 +486,7 @@ endif
 endif
 ifneq (,$(wildcard $(OUTDIR))) # still exists
 	@-rm -f $(OUTDIR)/$(PROJECT)*.$(SLIBEXT) $(OUTDIR)/$(PROJECT)*.$(DLIBEXT)*
-	@-rm -f $(OUTDIR)/$(PROJECT)*.pc
+	@-rm -rf $(PPKGDIR)
 endif
 ifneq ($(call qapath,$(BINDIR)),$(ROOTDIR))
 ifneq ($(call qapath,$(BINDIR)),$(HEREDIR))
@@ -546,7 +546,7 @@ endif
 	@echo
 	@echo "$(PROJUPP) installing pkg-config and module files..."
 	@$(MKDIR) -p $(PREFIX)/$(PPKGDIR)
-	@$(CP) -va $(OUTDIR)/*.pc $(PREFIX)/$(PPKGDIR) 2>/dev/null || true
+	@$(CP) -va $(PPKGDIR)/*.pc $(PREFIX)/$(PPKGDIR) 2>/dev/null || true
 	@if [ ! -e $(PREFIX)/$(PMODDIR)/$(PROJECT).env ]; then \
 		$(MKDIR) -p $(PREFIX)/$(PMODDIR); \
 		$(CP) -v $(OUTDIR)/$(PROJECT).env $(PREFIX)/$(PMODDIR) 2>/dev/null || true; \
@@ -648,7 +648,7 @@ ALIAS_INCDIR := $(subst $$$$,$(if $(findstring $$$$/,$$$$$(PINCDIR)),,\$${prefix
 ALIAS_LIBDIR := $(subst $$$$,$(if $(findstring $$$$/,$$$$$(POUTDIR)),,\$${prefix}/),$(subst $$$$$(ALIAS_PREFIX),\$${prefix},$$$$$(POUTDIR)))
 
 ifeq (,$(filter-out 0 2,$(BUILD)))
-$(OUTDIR)/$(PROJECT)-static.pc: $(OUTDIR)/$(PROJECT).$(SLIBEXT)
+$(PPKGDIR)/$(PROJECT)-static.pc: $(OUTDIR)/$(PROJECT).$(SLIBEXT) $(PPKGDIR)/.make
 	@echo "Name: $(PROJECT)" >$@
 	@echo "Description: Specialized tensor operations" >>$@
 	@echo "URL: https://github.com/hfp/$(PROJECT)/" >>$@
@@ -664,14 +664,14 @@ $(OUTDIR)/$(PROJECT)-static.pc: $(OUTDIR)/$(PROJECT).$(SLIBEXT)
 	@echo "Libs.private: $(ALIAS_PRIVLIBS)" >>$@
   endif
   ifeq (,$(filter-out 0 2,$(BUILD)))
-	@ln -fs $(notdir $@) $(OUTDIR)/$(PROJECT).pc
+	@ln -fs $(notdir $@) $(PPKGDIR)/$(PROJECT).pc
   endif
 else
-.PHONY: $(OUTDIR)/$(PROJECT)-static.pc
+.PHONY: $(PPKGDIR)/$(PROJECT)-static.pc
 endif
 
 ifeq (,$(filter-out 1 2,$(BUILD)))
-$(OUTDIR)/$(PROJECT)-shared.pc: $(OUTDIR)/$(PROJECT).$(DLIBEXT)
+$(PPKGDIR)/$(PROJECT)-shared.pc: $(OUTDIR)/$(PROJECT).$(DLIBEXT) $(PPKGDIR)/.make
 	@echo "Name: $(PROJECT)" >$@
 	@echo "Description: Specialized tensor operations" >>$@
 	@echo "URL: https://github.com/hfp/$(PROJECT)/" >>$@
@@ -687,10 +687,10 @@ $(OUTDIR)/$(PROJECT)-shared.pc: $(OUTDIR)/$(PROJECT).$(DLIBEXT)
 	@echo "Libs.private: $(ALIAS_PRIVLIBS)" >>$@
   endif
   ifeq (,$(filter-out 1,$(BUILD)))
-	@ln -fs $(notdir $@) $(OUTDIR)/$(PROJECT).pc
+	@ln -fs $(notdir $@) $(PPKGDIR)/$(PROJECT).pc
   endif
 else
-.PHONY: $(OUTDIR)/$(PROJECT)-shared.pc
+.PHONY: $(PPKGDIR)/$(PROJECT)-shared.pc
 endif
 
 $(OUTDIR)/$(PROJECT).env: $(OUTDIR)/.make $(INCDIR)/$(PROJECT).h
@@ -702,7 +702,7 @@ $(OUTDIR)/$(PROJECT).env: $(OUTDIR)/.make $(INCDIR)/$(PROJECT).h
 	@echo "prepend-path PATH \"\$$PREFIX/bin\"" >>$@
 	@echo "prepend-path LD_LIBRARY_PATH \"\$$PREFIX/lib\"" >>$@
 	@echo >>$@
-	@echo "prepend-path PKG_CONFIG_PATH \"\$$PREFIX/lib\"" >>$@
+	@echo "prepend-path PKG_CONFIG_PATH \"\$$PREFIX/lib/pkgconfig\"" >>$@
 	@echo "prepend-path LIBRARY_PATH \"\$$PREFIX/lib\"" >>$@
 	@echo "prepend-path CPATH \"\$$PREFIX/include\"" >>$@
 
