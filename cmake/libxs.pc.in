@@ -1,0 +1,14 @@
+# libxs.pc.in
+prefix=@CMAKE_INSTALL_PREFIX@
+exec_prefix=${prefix}
+libdir=${exec_prefix}/@CMAKE_INSTALL_LIBDIR@
+includedir=${prefix}/@CMAKE_INSTALL_INCLUDEDIR@
+
+Name: libxs
+Description: Specialized tensor operations
+URL: https://github.com/hfp/libxs/
+Version: @LIBXS_VERSION_STRING@
+
+Cflags: -I${includedir}
+Libs: -L${libdir} -lxs
+@LIBS_PRIVATE@
