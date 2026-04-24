@@ -106,6 +106,26 @@ else()
   endif()
 endif()
 
+# Pkg-config file
+if(NOT LIBXS_HEADER_ONLY)
+  set(LIBS_PRIVATE "")
+  if(NOT LIBXS_SHARED)
+    set(LIBS_PRIVATE "Libs.private: -lpthread -ldl")
+    if(LIBXS_HAS_LIBM)
+      string(APPEND LIBS_PRIVATE " -lm")
+    endif()
+    if(LIBXS_HAS_LIBRT)
+      string(APPEND LIBS_PRIVATE " -lrt")
+    endif()
+  endif()
+
+  configure_file(
+    "${CMAKE_CURRENT_SOURCE_DIR}/cmake/libxs.pc.in"
+    "${CMAKE_CURRENT_BINARY_DIR}/libxs.pc"
+    @ONLY
+  )
+endif()
+
 # Installation rules
 include(GNUInstallDirs)
 
@@ -133,6 +153,14 @@ if(LIBXS_FORTRAN)
   install(DIRECTORY ${LIBXS_Fortran_MODULE_DIR}/
     DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
     FILES_MATCHING PATTERN "*.mod")
+endif()
+
+# Install pkg-config files
+if(NOT LIBXS_HEADER_ONLY)
+  install(FILES
+    "${CMAKE_CURRENT_BINARY_DIR}/libxs.pc"
+    DESTINATION ${CMAKE_INSTALL_LIBDIR}/pkgconfig
+  )
 endif()
 
 # CMake package config export
