@@ -93,6 +93,9 @@ LIBXS_API unsigned int libxs_hash32(unsigned long long data);
 /** Calculate a 64-bit hash for the given character string; accepts NULL-string. */
 LIBXS_API unsigned long long libxs_hash_string(const char string[]);
 
+/** Case-insensitive character-level edit distance (Levenshtein) between two strings. */
+LIBXS_API int libxs_stridist(const char a[], const char b[]);
+
 /** Return the pointer to the 1st match of "b" in "a", or NULL (no match). */
 LIBXS_API const char* libxs_stristrn(const char a[], const char b[], size_t maxlen);
 LIBXS_API const char* libxs_stristr(const char a[], const char b[]);
@@ -105,6 +108,24 @@ LIBXS_API const char* libxs_stristr(const char a[], const char b[]);
  * Optional count yields total number of words.
  */
 LIBXS_API int libxs_strimatch(const char a[], const char b[], const char delims[], int* count);
+
+/** Matching strategy for libxs_strisimilar. */
+typedef enum libxs_strisimilar_t {
+  LIBXS_STRISIMILAR_GREEDY = 0,
+  LIBXS_STRISIMILAR_TWOOPT = 1,
+  LIBXS_STRISIMILAR_DEFAULT = LIBXS_STRISIMILAR_GREEDY
+} libxs_strisimilar_t;
+
+/**
+ * Compute similarity between strings A and B as a minimum-cost word matching.
+ * Words are split by optional delimiters (same as strimatch). Each matched word
+ * pair contributes its character-level edit distance (case-insensitive Levenshtein).
+ * Unmatched words contribute their full length. The result is order-independent.
+ * Optional order receives a word-order penalty (number of pairwise inversions
+ * among matched words, 0 means same order).
+ */
+LIBXS_API int libxs_strisimilar(const char a[], const char b[],
+  const char delims[], libxs_strisimilar_t kind, int* order);
 
 /**
  * Format for instance an amount of Bytes like libxs_format_value(result, sizeof(result), nbytes, "KMGT", "B", 10).

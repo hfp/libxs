@@ -397,6 +397,117 @@ int main(int argc, char* argv[])
     }
   }
 
+  /* check libxs_stridist */
+  if (EXIT_SUCCESS == result) {
+    if (3 != libxs_stridist("kitten", "sitting")) { /* classic Levenshtein example */
+      FPRINTF(stderr, "ERROR line #%i: stridist kitten/sitting\n", __LINE__);
+      result = EXIT_FAILURE;
+    }
+    if (EXIT_SUCCESS == result && 3 != libxs_stridist("Saturday", "Sunday")) {
+      FPRINTF(stderr, "ERROR line #%i: stridist Saturday/Sunday\n", __LINE__);
+      result = EXIT_FAILURE;
+    }
+    if (EXIT_SUCCESS == result && 1 != libxs_stridist("color", "colour")) {
+      FPRINTF(stderr, "ERROR line #%i: stridist color/colour\n", __LINE__);
+      result = EXIT_FAILURE;
+    }
+    if (EXIT_SUCCESS == result && 0 != libxs_stridist("abc", "ABC")) { /* case-insensitive */
+      FPRINTF(stderr, "ERROR line #%i: stridist case insensitive\n", __LINE__);
+      result = EXIT_FAILURE;
+    }
+    if (EXIT_SUCCESS == result && 0 != libxs_stridist("same", "same")) {
+      FPRINTF(stderr, "ERROR line #%i: stridist identical\n", __LINE__);
+      result = EXIT_FAILURE;
+    }
+    if (EXIT_SUCCESS == result && 5 != libxs_stridist("", "hello")) {
+      FPRINTF(stderr, "ERROR line #%i: stridist empty vs hello\n", __LINE__);
+      result = EXIT_FAILURE;
+    }
+    if (EXIT_SUCCESS == result && 0 > libxs_stridist(NULL, "x")) { /* NULL yields -1 */
+      FPRINTF(stdout, "stridist(NULL, x) = %d (expected -1)\n", libxs_stridist(NULL, "x"));
+    }
+  }
+
+  /* check libxs_strisimilar */
+  if (EXIT_SUCCESS == result) {
+    int order = -1, d;
+    /* identical strings: zero distance, zero inversions */
+    d = libxs_strisimilar("the quick fox", "the quick fox", NULL, LIBXS_STRISIMILAR_GREEDY, &order);
+    if (0 != d || 0 != order) {
+      FPRINTF(stderr, "ERROR line #%i: strisimilar identical d=%d order=%d\n", __LINE__, d, order);
+      result = EXIT_FAILURE;
+    }
+    /* case-insensitive: same words, different case */
+    if (EXIT_SUCCESS == result) {
+      d = libxs_strisimilar("Hello World", "HELLO WORLD", NULL, LIBXS_STRISIMILAR_GREEDY, &order);
+      if (0 != d || 0 != order) {
+        FPRINTF(stderr, "ERROR line #%i: strisimilar case d=%d order=%d\n", __LINE__, d, order);
+        result = EXIT_FAILURE;
+      }
+    }
+    /* reordered words: distance 0, inversions > 0 */
+    if (EXIT_SUCCESS == result) {
+      d = libxs_strisimilar("hello world", "world hello", NULL, LIBXS_STRISIMILAR_GREEDY, &order);
+      if (0 != d || 1 != order) {
+        FPRINTF(stderr, "ERROR line #%i: strisimilar swap d=%d order=%d\n", __LINE__, d, order);
+        result = EXIT_FAILURE;
+      }
+    }
+    /* typos: similar but not identical words */
+    if (EXIT_SUCCESS == result) {
+      d = libxs_strisimilar("Saturday morning", "Sunday evening", NULL, LIBXS_STRISIMILAR_TWOOPT, &order);
+      if (6 != d || 0 != order) {
+        FPRINTF(stderr, "ERROR line #%i: strisimilar typo d=%d order=%d\n", __LINE__, d, order);
+        result = EXIT_FAILURE;
+      }
+    }
+    /* extra words penalized by their length */
+    if (EXIT_SUCCESS == result) {
+      d = libxs_strisimilar("one two three", "one", NULL, LIBXS_STRISIMILAR_GREEDY, &order);
+      if (8 != d || 0 != order) { /* "two"(3) + "three"(5) = 8 */
+        FPRINTF(stderr, "ERROR line #%i: strisimilar extra d=%d order=%d\n", __LINE__, d, order);
+        result = EXIT_FAILURE;
+      }
+    }
+    /* completely different single words */
+    if (EXIT_SUCCESS == result) {
+      d = libxs_strisimilar("abc", "xyz", NULL, LIBXS_STRISIMILAR_GREEDY, &order);
+      if (3 != d || 0 != order) {
+        FPRINTF(stderr, "ERROR line #%i: strisimilar disjoint d=%d order=%d\n", __LINE__, d, order);
+        result = EXIT_FAILURE;
+      }
+    }
+    /* pangram vs reordered pangram: same words, many inversions */
+    if (EXIT_SUCCESS == result) {
+      d = libxs_strisimilar(
+        "the quick brown fox jumps over the lazy dog",
+        "the lazy dog jumps over the quick brown fox",
+        NULL, LIBXS_STRISIMILAR_TWOOPT, &order);
+      if (0 != d || 0 >= order) {
+        FPRINTF(stderr, "ERROR line #%i: strisimilar pangram d=%d order=%d\n", __LINE__, d, order);
+        result = EXIT_FAILURE;
+      }
+    }
+    /* NULL input */
+    if (EXIT_SUCCESS == result) {
+      d = libxs_strisimilar(NULL, "x", NULL, LIBXS_STRISIMILAR_GREEDY, &order);
+      if (-1 != d || 0 != order) {
+        FPRINTF(stderr, "ERROR line #%i: strisimilar NULL d=%d order=%d\n", __LINE__, d, order);
+        result = EXIT_FAILURE;
+      }
+    }
+    /* greedy vs 2-opt should agree or 2-opt should improve */
+    if (EXIT_SUCCESS == result) {
+      int order_g, order_t;
+      const int dg = libxs_strisimilar("color fast", "colour slow", NULL, LIBXS_STRISIMILAR_GREEDY, &order_g);
+      const int dt = libxs_strisimilar("color fast", "colour slow", NULL, LIBXS_STRISIMILAR_TWOOPT, &order_t);
+      if (dt > dg) {
+        FPRINTF(stderr, "ERROR line #%i: 2-opt worse than greedy dg=%d dt=%d\n", __LINE__, dg, dt);
+        result = EXIT_FAILURE;
+      }
+    }
+  }
+
   /* check libxs_format_value */
   if (EXIT_SUCCESS == result) {
     char buffer[32];

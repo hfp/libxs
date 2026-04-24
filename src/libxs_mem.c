@@ -882,6 +882,148 @@ LIBXS_API int libxs_strimatch(const char a[], const char b[], const char delims[
 }
 
 
+LIBXS_API_INLINE
+int internal_libxs_levenshtein(const char* a, int na, const char* b, int nb)
+{
+  int row[64], i, j;
+  if (0 == na) return nb;
+  if (0 == nb) return na;
+  if (na < nb) { /* ensure nb <= na for O(min) space */
+    const char* t = a; a = b; b = t;
+    i = na; na = nb; nb = i;
+  }
+  LIBXS_ASSERT(nb <= 64);
+  for (j = 0; j < nb; ++j) row[j] = j + 1;
+  for (i = 0; i < na; ++i) {
+    const int ca = tolower(a[i]);
+    int prev = i;
+    for (j = 0; j < nb; ++j) {
+      const int cost = (ca != tolower(b[j]));
+      int val = prev + cost; /* substitution */
+      if (row[j] + 1 < val) val = row[j] + 1; /* deletion */
+      if ((j > 0 ? row[j - 1] : i + 1) + 1 < val) val = (j > 0 ? row[j - 1] : i + 1) + 1; /* insertion */
+      prev = row[j];
+      row[j] = val;
+    }
+  }
+  return row[nb - 1];
+}
+
+
+LIBXS_API int libxs_stridist(const char a[], const char b[])
+{
+  if (NULL != a && NULL != b) {
+    return internal_libxs_levenshtein(a, (int)strlen(a), b, (int)strlen(b));
+  }
+  return -1;
+}
+
+
+LIBXS_API int libxs_strisimilar(const char a[], const char b[],
+  const char delims[], libxs_strisimilar_t kind, int* order)
+{
+  int result = 0;
+  if (NULL != a && NULL != b && '\0' != *a && '\0' != *b) {
+    const char* const sep = ((NULL == delims || '\0' == *delims) ? " \t;,:-" : delims);
+    const char* wa[64]; int la[64], na = 0;
+    const char* wb[64]; int lb[64], nb = 0;
+    int cost[64 * 64], used_a[64], used_b[64];
+    int match_ia[64], match_ib[64], nmatched = 0;
+    char s[2] = {'\0'};
+    int i, j, nmax;
+    { /* tokenize A */
+      const char* p = a;
+      for (;;) {
+        while (*s = *p, NULL != strpbrk(s, sep)) ++p;
+        if ('\0' == *p || '[' == *p || 64 <= na) break;
+        wa[na] = p;
+        while ('\0' != *p && (*s = *p, NULL == strpbrk(s, sep))) ++p;
+        la[na] = (int)(p - wa[na]);
+        ++na;
+      }
+    }
+    { /* tokenize B */
+      const char* p = b;
+      for (;;) {
+        while (*s = *p, NULL != strpbrk(s, sep)) ++p;
+        if ('\0' == *p || '[' == *p || 64 <= nb) break;
+        wb[nb] = p;
+        while ('\0' != *p && (*s = *p, NULL == strpbrk(s, sep))) ++p;
+        lb[nb] = (int)(p - wb[nb]);
+        ++nb;
+      }
+    }
+    for (i = 0; i < na; ++i) {
+      for (j = 0; j < nb; ++j) {
+        cost[i * nb + j] = internal_libxs_levenshtein(wa[i], la[i], wb[j], lb[j]);
+      }
+    }
+    for (i = 0; i < na; ++i) used_a[i] = 0;
+    for (j = 0; j < nb; ++j) used_b[j] = 0;
+    nmax = LIBXS_MIN(na, nb);
+    while (nmatched < nmax) { /* greedy minimum-cost matching */
+      int best_i = 0, best_j = 0, best_c = (1 << 30);
+      for (i = 0; i < na; ++i) {
+        if (0 != used_a[i]) continue;
+        for (j = 0; j < nb; ++j) {
+          if (0 != used_b[j]) continue;
+          if (cost[i * nb + j] < best_c) {
+            best_c = cost[i * nb + j];
+            best_i = i; best_j = j;
+          }
+        }
+      }
+      used_a[best_i] = 1; used_b[best_j] = 1;
+      match_ia[nmatched] = best_i;
+      match_ib[nmatched] = best_j;
+      result += best_c;
+      ++nmatched;
+    }
+    if (LIBXS_STRISIMILAR_TWOOPT <= kind) { /* 2-opt refinement */
+      for (;;) {
+        int improved = 0;
+        for (i = 0; i < nmatched; ++i) {
+          for (j = i + 1; j < nmatched; ++j) {
+            const int old_c = cost[match_ia[i] * nb + match_ib[i]]
+                            + cost[match_ia[j] * nb + match_ib[j]];
+            const int new_c = cost[match_ia[i] * nb + match_ib[j]]
+                            + cost[match_ia[j] * nb + match_ib[i]];
+            if (new_c < old_c) {
+              const int tmp = match_ib[i];
+              match_ib[i] = match_ib[j];
+              match_ib[j] = tmp;
+              result += new_c - old_c;
+              improved = 1;
+            }
+          }
+        }
+        if (0 == improved) break;
+      }
+    }
+    for (i = 0; i < na; ++i) { /* unmatched words in A */
+      if (0 == used_a[i]) result += la[i];
+    }
+    for (j = 0; j < nb; ++j) { /* unmatched words in B */
+      if (0 == used_b[j]) result += lb[j];
+    }
+    if (NULL != order) { /* count inversions among matched pairs */
+      int inv = 0;
+      for (i = 0; i < nmatched; ++i) {
+        for (j = i + 1; j < nmatched; ++j) {
+          if ((match_ia[i] < match_ia[j]) != (match_ib[i] < match_ib[j])) ++inv;
+        }
+      }
+      *order = inv;
+    }
+  }
+  else {
+    result = -1;
+    if (NULL != order) *order = 0;
+  }
+  return result;
+}
+
+
 LIBXS_API size_t libxs_format_value(char buffer[],
   int buffer_size, size_t nbytes, const char scale[], const char* unit, int base)
 {
