@@ -150,7 +150,8 @@ int main(int argc, char* argv[])
 
     if (0 != bias || 0 != stats || 0 != random) {
       printf("---------------------------------------\n");
-      printf("N=%zu coprime=%zu bias=%.2f\n", n, coprime, bias);
+      printf("N=%llu coprime=%llu bias=%.2f\n",
+        (unsigned long long)n, (unsigned long long)coprime, bias);
     }
 
     for (i = 0; i <= repeat && EXIT_SUCCESS == result; ++i) {
