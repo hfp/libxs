@@ -192,25 +192,25 @@ int main(int argc, char* argv[])
         start = libxs_timer_tick();
         libxs_shuffle(data2, elsize, n, &coprime, &m);
         d0 = libxs_timer_duration(start, libxs_timer_tick()) / mm;
-        if (i == repeat) { /* only last iteration */
+        if (0 < i) {
           if (0 != stats) {
-            a2 = uint_reduce_op(data2, elsize, n, redop_mdistance, split);
-            b2 = uint_reduce_op(data2, elsize, n, redop_mdistance, split * 2);
-            g2 = uint_reduce_op(data2, elsize, n, redop_imbalance, split);
-            h2 = uint_reduce_op(data2, elsize, n, redop_imbalance, split * 2);
+            a2 += uint_reduce_op(data2, elsize, n, redop_mdistance, split);
+            b2 += uint_reduce_op(data2, elsize, n, redop_mdistance, split * 2);
+            g2 += uint_reduce_op(data2, elsize, n, redop_imbalance, split);
+            h2 += uint_reduce_op(data2, elsize, n, redop_imbalance, split * 2);
           }
-          if (0 == random) {
-            if (0 <= elemtype) {
-              result = libxs_mhd_write("shuffle_ds1.mhd", NULL, shape, NULL,
-                &mhd_write_info, data2, &mhd_winfo);
-            }
-          }
-          else {
+          if (0 != random) {
 #if defined(BUBBLE_SORT)
-            n2 = uint_bsort_asc(data2, elsize, n);
+            n2 += uint_bsort_asc(data2, elsize, n);
 #else
-            n2 = uint_msort_inversions(data2, elsize, n);
+            n2 += uint_msort_inversions(data2, elsize, n);
 #endif
+          }
+        }
+        if (i == repeat && 0 == random) {
+          if (0 <= elemtype) {
+            result = libxs_mhd_write("shuffle_ds1.mhd", NULL, shape, NULL,
+              &mhd_write_info, data2, &mhd_winfo);
           }
         }
         if (0 < d0) printf("DS1-shuffle: %.8f s (%i MB/s)\n", d0,
@@ -223,25 +223,25 @@ int main(int argc, char* argv[])
         start = libxs_timer_tick();
         libxs_shuffle2(data2, data1, elsize, n, &coprime, &m);
         d0 = libxs_timer_duration(start, libxs_timer_tick()) / mm;
-        if (i == repeat) { /* only last iteration */
+        if (0 < i) {
           if (0 != stats) {
-            a3 = uint_reduce_op(data2, elsize, n, redop_mdistance, split);
-            b3 = uint_reduce_op(data2, elsize, n, redop_mdistance, split * 2);
-            g3 = uint_reduce_op(data2, elsize, n, redop_imbalance, split);
-            h3 = uint_reduce_op(data2, elsize, n, redop_imbalance, split * 2);
+            a3 += uint_reduce_op(data2, elsize, n, redop_mdistance, split);
+            b3 += uint_reduce_op(data2, elsize, n, redop_mdistance, split * 2);
+            g3 += uint_reduce_op(data2, elsize, n, redop_imbalance, split);
+            h3 += uint_reduce_op(data2, elsize, n, redop_imbalance, split * 2);
           }
-          if (0 == random) {
-            if (0 <= elemtype) {
-              result = libxs_mhd_write("shuffle_ds2.mhd", NULL, shape, NULL,
-                &mhd_write_info, data2, &mhd_winfo);
-            }
-          }
-          else {
+          if (0 != random) {
 #if defined(BUBBLE_SORT)
-            n3 = uint_bsort_asc(data2, elsize, n);
+            n3 += uint_bsort_asc(data2, elsize, n);
 #else
-            n3 = uint_msort_inversions(data2, elsize, n);
+            n3 += uint_msort_inversions(data2, elsize, n);
 #endif
+          }
+        }
+        if (i == repeat && 0 == random) {
+          if (0 <= elemtype) {
+            result = libxs_mhd_write("shuffle_ds2.mhd", NULL, shape, NULL,
+              &mhd_write_info, data2, &mhd_winfo);
           }
         }
         if (0 < d0) printf("DS2-shuffle: %.8f s (%i MB/s)\n", d0,
@@ -256,9 +256,13 @@ int main(int argc, char* argv[])
       printf("Arithmetic average of %i iterations\n", repeat);
       printf("---------------------------------------\n");
       d1 /= repeat; d2 /= repeat; d3 /= repeat;
-      /* average accumulated RNG quality metrics */
-      if (0 != stats) { a1 /= repeat; b1 /= repeat; g1 /= repeat; h1 /= repeat; }
-      if (0 != random) n1 /= repeat;
+      /* average accumulated quality metrics */
+      if (0 != stats) {
+        a1 /= repeat; b1 /= repeat; g1 /= repeat; h1 /= repeat;
+        a2 /= repeat; b2 /= repeat; g2 /= repeat; h2 /= repeat;
+        a3 /= repeat; b3 /= repeat; g3 /= repeat; h3 /= repeat;
+      }
+      if (0 != random) { n1 /= repeat; n2 /= repeat; n3 /= repeat; }
       if (0 < d1) {
         printf("RNG-shuffle: %.8f s (%i MB/s)\n", d1,
           (int)LIBXS_ROUND((2.0 * nbytes) / ((1024.0 * 1024.0) * d1)));
@@ -307,6 +311,27 @@ int main(int argc, char* argv[])
             (unsigned long long)LIBXS_UPDIV(100ULL * LIBXS_MIN(n3, nn), nn));
         }
       }
+    }
+    if (0 != stats && 0 <= elemtype && EXIT_SUCCESS == result) {
+      const libxs_data_t fptype = elemtypes[elemtype];
+      const size_t fpshape = n;
+      libxs_fprint_t fp_orig, fp_rng, fp_ds1, fp_ds2;
+      libxs_fprint(&fp_orig, fptype, data1, 1, &fpshape, NULL, 4);
+      memcpy(data2, data1, nbytes);
+      shuffle(data2, elsize, n);
+      libxs_fprint(&fp_rng, fptype, data2, 1, &fpshape, NULL, 4);
+      memcpy(data2, data1, nbytes);
+      libxs_shuffle(data2, elsize, n, &coprime, NULL);
+      libxs_fprint(&fp_ds1, fptype, data2, 1, &fpshape, NULL, 4);
+      libxs_shuffle2(data2, data1, elsize, n, &coprime, NULL);
+      libxs_fprint(&fp_ds2, fptype, data2, 1, &fpshape, NULL, 4);
+      printf("---------------------------------------\n");
+      printf("Fingerprint distance (Sobolev, order 4)\n");
+      printf("  orig->RNG: %.6e\n", libxs_fprint_diff(&fp_orig, &fp_rng, NULL));
+      printf("  orig->DS1: %.6e\n", libxs_fprint_diff(&fp_orig, &fp_ds1, NULL));
+      printf("  orig->DS2: %.6e\n", libxs_fprint_diff(&fp_orig, &fp_ds2, NULL));
+      printf("  RNG ->DS1: %.6e\n", libxs_fprint_diff(&fp_rng, &fp_ds1, NULL));
+      printf("  RNG ->DS2: %.6e\n", libxs_fprint_diff(&fp_rng, &fp_ds2, NULL));
     }
     if (0 > elemtype && 0 == random) {
       printf("NOTE: MHD output skipped (unsupported element size %i)\n",
