@@ -193,7 +193,7 @@ int main(int argc, char* argv[])
       LIBXS_EXPECT(EXIT_SUCCESS == libxs_shuffle2(b, init, 1, size - i, NULL, NULL));
       if (0 == strncmp(a, b, size - i)) {
         const size_t r = libxs_unshuffle(size - i, NULL);
-        for (j = 0; j < r; ++j) {
+        for (j = 1; j < r; ++j) {
           libxs_shuffle(a, 1, size - i, NULL, NULL);
         }
         if (0 != strcmp(a, init)) {
@@ -242,10 +242,11 @@ int main(int argc, char* argv[])
           memcpy(a, b, s);
         }
         if (EXIT_SUCCESS == result) {
+          const size_t rm1 = r - 1;
           memset(a, 0, size); /* clear */
           LIBXS_EXPECT(EXIT_SUCCESS == libxs_shuffle2(a, init, 1, s, &shuffle, NULL));
           memset(b, 0, size); /* clear */
-          LIBXS_EXPECT(EXIT_SUCCESS == libxs_shuffle2(b, a, 1, s, &shuffle, &r));
+          LIBXS_EXPECT(EXIT_SUCCESS == libxs_shuffle2(b, a, 1, s, &shuffle, &rm1));
           if (0 != memcmp(b, init, s)) {
             FPRINTF(stderr, "ERROR line #%i: data not restored via nrepeat!\n", __LINE__);
             result = EXIT_FAILURE;
@@ -258,6 +259,93 @@ int main(int argc, char* argv[])
         FPRINTF(stderr, "ERROR line #%i: shuffle argument not coprime!\n", __LINE__);
         result = EXIT_FAILURE;
         break;
+      }
+    }
+  }
+
+  if (EXIT_SUCCESS == result) { /* unshuffle cycle length: R applications restore original */
+    unsigned int data[256], ref[256];
+    size_t s;
+    for (s = 2; s <= 256 && EXIT_SUCCESS == result; ++s) {
+      const size_t shuffle = libxs_coprime2(s);
+      const size_t r = libxs_unshuffle(s, &shuffle);
+      size_t i;
+      for (i = 0; i < s; ++i) ref[i] = (unsigned int)i;
+      memcpy(data, ref, s * sizeof(unsigned int));
+      for (i = 0; i < r; ++i) {
+        unsigned int tmp[256];
+        LIBXS_EXPECT(EXIT_SUCCESS == libxs_shuffle2(tmp, data, sizeof(unsigned int), s, &shuffle, NULL));
+        memcpy(data, tmp, s * sizeof(unsigned int));
+      }
+      if (0 != memcmp(data, ref, s * sizeof(unsigned int))) {
+        FPRINTF(stderr, "ERROR line #%i: unshuffle(s=%i) R=%i does not restore!\n",
+          __LINE__, (int)s, (int)r);
+        result = EXIT_FAILURE;
+      }
+    }
+  }
+
+  if (EXIT_SUCCESS == result) { /* DS1 and DS2 produce the same permutation */
+    unsigned int ds1[256], ds2[256], ref[256];
+    size_t s;
+    for (s = 2; s <= 256 && EXIT_SUCCESS == result; ++s) {
+      size_t i, one = 1;
+      for (i = 0; i < s; ++i) ref[i] = (unsigned int)i;
+      memcpy(ds1, ref, s * sizeof(unsigned int));
+      libxs_shuffle(ds1, sizeof(unsigned int), s, NULL, &one);
+      libxs_shuffle2(ds2, ref, sizeof(unsigned int), s, NULL, &one);
+      if (0 != memcmp(ds1, ds2, s * sizeof(unsigned int))) {
+        FPRINTF(stderr, "ERROR line #%i: DS1 != DS2 for s=%i!\n", __LINE__, (int)s);
+        result = EXIT_FAILURE;
+      }
+    }
+  }
+
+  if (EXIT_SUCCESS == result) { /* coprime_bias: bias=0 matches coprime2 */
+    size_t sizes[] = {7, 100, 10000, 1000000};
+    int si;
+    for (si = 0; si < 4; ++si) {
+      const size_t n = sizes[si];
+      if (libxs_coprime_bias(n, 0.0) != libxs_coprime2(n)) {
+        FPRINTF(stderr, "ERROR line #%i: coprime_bias(n=%i,0) != coprime2!\n", __LINE__, (int)n);
+        result = EXIT_FAILURE; break;
+      }
+    }
+  }
+
+  if (EXIT_SUCCESS == result) { /* coprime_bias: monotonicity along bias */
+    size_t sizes[] = {1000, 100000, 10000000};
+    int si;
+    for (si = 0; si < 3 && EXIT_SUCCESS == result; ++si) {
+      const size_t n = sizes[si];
+      double b;
+      size_t prev = 0;
+      for (b = -1.0; b <= 1.01; b += 0.25) {
+        const size_t c = libxs_coprime_bias(n, b);
+        if (c < prev) {
+          FPRINTF(stderr, "ERROR line #%i: coprime_bias not monotone at n=%i b=%.2f!\n",
+            __LINE__, (int)n, b);
+          result = EXIT_FAILURE; break;
+        }
+        prev = c;
+      }
+    }
+  }
+
+  if (EXIT_SUCCESS == result) { /* shuffle2: nrepeat=R-1 from shuffled state restores original */
+    unsigned int ref[128], a[128], b[128];
+    size_t s;
+    for (s = 2; s <= 128 && EXIT_SUCCESS == result; ++s) {
+      const size_t shuffle = libxs_coprime2(s);
+      const size_t r = libxs_unshuffle(s, &shuffle);
+      const size_t rm1 = r - 1;
+      size_t i;
+      for (i = 0; i < s; ++i) ref[i] = (unsigned int)i;
+      LIBXS_EXPECT(EXIT_SUCCESS == libxs_shuffle2(a, ref, sizeof(unsigned int), s, &shuffle, NULL));
+      LIBXS_EXPECT(EXIT_SUCCESS == libxs_shuffle2(b, a, sizeof(unsigned int), s, &shuffle, &rm1));
+      if (0 != memcmp(b, ref, s * sizeof(unsigned int))) {
+        FPRINTF(stderr, "ERROR line #%i: nrepeat=R-1 restore failed for s=%i!\n", __LINE__, (int)s);
+        result = EXIT_FAILURE;
       }
     }
   }
