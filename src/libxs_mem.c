@@ -23,6 +23,110 @@
 #endif
 
 #define LIBXS_MEM_SHUFFLE_COPRIME(N) libxs_coprime2(N)
+
+#if !defined(LIBXS_MEM_SHUFFLE_CYCLE) && 0
+# define LIBXS_MEM_SHUFFLE_CYCLE
+#endif
+
+#if defined(LIBXS_INTRINSICS_AVX512)
+LIBXS_API_INLINE LIBXS_INTRINSICS(LIBXS_X86_AVX512)
+void internal_libxs_shuffle2_u32_avx512(
+  unsigned int* LIBXS_RESTRICT dst, const unsigned int* LIBXS_RESTRICT src,
+  size_t count, size_t stride)
+{
+  const size_t count16 = count & ~(size_t)15;
+  size_t i = 0, j = 1;
+  for (; i < count16; i += 16) {
+    LIBXS_ALIGNED(int idx[16], LIBXS_ALIGNMENT);
+    __m512i vidx, vdata;
+    int lane;
+    for (lane = 0; lane < 16; ++lane) {
+      if (count < j) j -= count;
+      idx[lane] = (int)(count - j);
+      j += stride;
+    }
+    vidx = _mm512_load_si512((__m512i*)idx);
+    vdata = _mm512_i32gather_epi32(vidx, src, 4);
+    _mm512_storeu_si512((__m512i*)(dst + i), vdata);
+  }
+  for (; i < count; ++i) {
+    if (count < j) j -= count;
+    dst[i] = src[count - j];
+    j += stride;
+  }
+}
+
+LIBXS_API_INLINE LIBXS_INTRINSICS(LIBXS_X86_AVX512)
+void internal_libxs_shuffle2_u64_avx512(
+  unsigned long long* LIBXS_RESTRICT dst, const unsigned long long* LIBXS_RESTRICT src,
+  size_t count, size_t stride)
+{
+  const size_t count8 = count & ~(size_t)7;
+  size_t i = 0, j = 1;
+  for (; i < count8; i += 8) {
+    LIBXS_ALIGNED(long long idx[8], LIBXS_ALIGNMENT);
+    __m512i vidx, vdata;
+    int lane;
+    for (lane = 0; lane < 8; ++lane) {
+      if (count < j) j -= count;
+      idx[lane] = (long long)(count - j);
+      j += stride;
+    }
+    vidx = _mm512_load_si512((__m512i*)idx);
+    vdata = _mm512_i64gather_epi64(vidx, src, 8);
+    _mm512_storeu_si512((__m512i*)(dst + i), vdata);
+  }
+  for (; i < count; ++i) {
+    if (count < j) j -= count;
+    dst[i] = src[count - j];
+    j += stride;
+  }
+}
+#endif /* LIBXS_INTRINSICS_AVX512 */
+
+#if defined(LIBXS_MEM_SHUFFLE_CYCLE)
+#define LIBXS_MEM_SHUFFLE(INOUT, ELEMSIZE, COUNT, SHUFFLE, NREPEAT) do { \
+  unsigned char *const LIBXS_RESTRICT data = (unsigned char*)(INOUT); \
+  const size_t count_ = (COUNT), s_ = (SHUFFLE), c_ = count_ - 1; \
+  const size_t nrep_ = (NREPEAT); \
+  const size_t nbitmask_ = (count_ + 7) / 8; \
+  unsigned char *const visited_ = (unsigned char*)calloc(nbitmask_, 1); \
+  if (NULL != visited_ && 0 != nrep_) { \
+    unsigned char tmp_[(ELEMSIZE) <= 64 ? (ELEMSIZE) : 1]; \
+    void *const tmpbuf_ = (ELEMSIZE) <= 64 ? tmp_ : malloc(ELEMSIZE); \
+    if (NULL != tmpbuf_) { \
+      size_t i_; \
+      for (i_ = 0; i_ < count_; ++i_) { \
+        size_t src_, dst_, k_; \
+        if (0 != (visited_[i_ / 8] & (1u << (i_ % 8)))) continue; \
+        src_ = i_; \
+        for (k_ = 0; k_ < nrep_; ++k_) src_ = c_ - ((s_ * src_) % count_); \
+        if (src_ == i_) { \
+          visited_[i_ / 8] |= (unsigned char)(1u << (i_ % 8)); \
+          continue; \
+        } \
+        LIBXS_MEMCPY(tmpbuf_, data + (ELEMSIZE) * i_, ELEMSIZE); \
+        dst_ = i_; \
+        do { \
+          src_ = dst_; \
+          for (k_ = 0; k_ < nrep_; ++k_) src_ = c_ - ((s_ * src_) % count_); \
+          visited_[dst_ / 8] |= (unsigned char)(1u << (dst_ % 8)); \
+          if (src_ != i_) { \
+            LIBXS_MEMCPY(data + (ELEMSIZE) * dst_, data + (ELEMSIZE) * src_, ELEMSIZE); \
+          } \
+          else { \
+            LIBXS_MEMCPY(data + (ELEMSIZE) * dst_, tmpbuf_, ELEMSIZE); \
+          } \
+          dst_ = src_; \
+        } while (src_ != i_); \
+      } \
+      if ((ELEMSIZE) > 64) free(tmpbuf_); \
+    } \
+    free(visited_); \
+  } \
+} while(0)
+
+#else /* original cycle-leader detection (no extra memory) */
 #define LIBXS_MEM_SHUFFLE(INOUT, ELEMSIZE, COUNT, SHUFFLE, NREPEAT) do { \
   unsigned char *const LIBXS_RESTRICT data = (unsigned char*)(INOUT); \
   const size_t c = (COUNT) - 1, c2 = ((COUNT) + 1) / 2; \
@@ -40,6 +144,7 @@
       ELEMSIZE); \
   } \
 } while(0)
+#endif /* LIBXS_MEM_SHUFFLE_CYCLE */
 
 /* xcopy kernel: consecutive loads and stores (matcopy) */
 #define LIBXS_MCOPY_KERNEL(TYPE, TS, OUT, IN, LDI, LDO, I, J, SRC, DST) \
@@ -1074,7 +1179,31 @@ LIBXS_API int libxs_shuffle2(void* dst, const void* src, size_t elemsize, size_t
     const size_t s = (NULL == shuffle ? LIBXS_MEM_SHUFFLE_COPRIME(count) : *shuffle);
     size_t i = 0, j = 1;
     if (NULL == nrepeat || 1 == *nrepeat) {
-      if (elemsize < 128) {
+#if defined(LIBXS_INTRINSICS_AVX512)
+      if (4 == elemsize && count <= 0x7FFFFFFFU) {
+# if (LIBXS_X86_AVX512 <= LIBXS_STATIC_TARGET_ARCH)
+        internal_libxs_shuffle2_u32_avx512((unsigned int*)out, (const unsigned int*)inp, count, s);
+        i = size;
+# elif (LIBXS_X86_AVX512 <= LIBXS_MAX_STATIC_TARGET_ARCH)
+        if (LIBXS_X86_AVX512 <= libxs_cpuid(NULL)) {
+          internal_libxs_shuffle2_u32_avx512((unsigned int*)out, (const unsigned int*)inp, count, s);
+          i = size;
+        }
+# endif
+      }
+      else if (8 == elemsize) {
+# if (LIBXS_X86_AVX512 <= LIBXS_STATIC_TARGET_ARCH)
+        internal_libxs_shuffle2_u64_avx512((unsigned long long*)out, (const unsigned long long*)inp, count, s);
+        i = size;
+# elif (LIBXS_X86_AVX512 <= LIBXS_MAX_STATIC_TARGET_ARCH)
+        if (LIBXS_X86_AVX512 <= libxs_cpuid(NULL)) {
+          internal_libxs_shuffle2_u64_avx512((unsigned long long*)out, (const unsigned long long*)inp, count, s);
+          i = size;
+        }
+# endif
+      }
+#endif
+      if (i < size && elemsize < 128) {
         switch (elemsize) {
           case 8: for (; i < size; i += 8, j += s) {
             if (count < j) j -= count;
@@ -1098,7 +1227,7 @@ LIBXS_API int libxs_shuffle2(void* dst, const void* src, size_t elemsize, size_t
           }
         }
       }
-      else { /* generic path */
+      if (i < size) { /* generic path */
         for (; i < size; i += elemsize, j += s) {
           if (count < j) j -= count;
           memcpy(out + i, inp + size - elemsize * j, elemsize);
@@ -1129,11 +1258,12 @@ LIBXS_API size_t libxs_unshuffle(size_t count, const size_t* shuffle)
   size_t result = 0;
   if (0 < count) {
     const size_t n = (NULL == shuffle ? LIBXS_MEM_SHUFFLE_COPRIME(count) : *shuffle);
-    size_t c = count - 1, j = c, d = 0;
-    for (; result < count; ++result, j = c - d) {
+    size_t c = count - 1, j = c, d;
+    do {
       d = (j * n) % count;
-      if (0 == d) break;
-    }
+      ++result;
+      j = c - d;
+    } while (0 != d && result < count);
   }
   LIBXS_ASSERT(result <= count);
   return result;
