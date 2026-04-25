@@ -169,10 +169,18 @@ LIBXS_API size_t libxs_lcm(size_t a, size_t b);
  */
 LIBXS_API int libxs_primes_u32(unsigned int num, unsigned int num_factors_n32[], int num_factors_max);
 
-/** Co-prime R of N such that R <= MinCo (libxs_coprime2(0|1) == 0). */
+/** Co-prime R of N such that R <= MinCo (libxs_coprime(0|1, x) == 0). */
 LIBXS_API size_t libxs_coprime(size_t n, size_t minco);
-/** Co-prime R of N such that R <= SQRT(N) (libxs_coprime2(0|1) == 0). */
-LIBXS_API size_t libxs_coprime2(size_t n);
+/**
+ * Co-prime of N selected by bias in [-1, +1].
+ * bias=-1: smallest non-trivial coprime (maximum displacement).
+ * bias= 0: coprime near SQRT(N) (balanced).
+ * bias=+1: coprime near N/2 (near-alternation).
+ * The mapping is logarithmic: target = N^((1+bias)/2).
+ */
+LIBXS_API size_t libxs_coprime_bias(size_t n, double bias);
+/** Co-prime R of N near SQRT(N); equivalent to libxs_coprime_bias(n, 0). */
+LIBXS_API_INLINE size_t libxs_coprime2(size_t n) { return libxs_coprime_bias(n, 0.0); }
 
 /**
  * Minimizes the waste, if "a" can only be processed in multiples of "b".

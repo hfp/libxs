@@ -847,10 +847,18 @@ LIBXS_API size_t libxs_coprime(size_t n, size_t minco)
 }
 
 
-LIBXS_API size_t libxs_coprime2(size_t n)
+LIBXS_API size_t libxs_coprime_bias(size_t n, double bias)
 {
-  return libxs_coprime(n, libxs_isqrt_u64(n));
+  size_t target, result;
+  if (n <= 4) return libxs_coprime(n, libxs_isqrt_u64(n));
+  bias = LIBXS_CLMP(bias, -1.0, 1.0);
+  target = (size_t)(pow((double)n, 0.5 * (1.0 + bias)) + 0.5);
+  target = LIBXS_CLMP(target, 3, n / 2);
+  result = libxs_coprime(n, target);
+  return (result < 2) ? libxs_coprime(n, libxs_isqrt_u64(n)) : result;
 }
+
+
 
 
 LIBXS_API unsigned int libxs_isqrt_u64(unsigned long long x)
