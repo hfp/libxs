@@ -58,12 +58,9 @@ size_t uint_bsort_asc(void* inout, size_t elemsize, size_t count);
 size_t uint_msort_inversions(void* inout, size_t elemsize, size_t count);
 #endif
 
-/** Write shuffled 1D data as a 2D MHD image with pixel-position
- *  scatter to break diagonal ghost patterns. Uses a coprime map
- *  on the linear pixel index to redistribute positions in 2D. */
-static int mhd_write_scattered(const char* filename, const void* data,
-  size_t elemsize, size_t count, const size_t shape[2],
-  libxs_mhd_info_t* info, libxs_mhd_write_info_t* winfo);
+static int mhd_element_hash(void* dst,
+  const libxs_mhd_element_handler_info_t* dst_info, libxs_data_t src_type,
+  const void* src, const void* src_min, const void* src_max);
 
 
 int main(int argc, char* argv[])
@@ -135,10 +132,11 @@ int main(int argc, char* argv[])
     for (j = 0; j < nelemtypes; ++j) {
       typesize = LIBXS_TYPESIZE(elemtypes[j]);
       if (elsize == typesize) {
-        mhdinfo.hint = LIBXS_MHD_ELEMENT_CONVERSION_MODULUS;
+        mhdinfo.hint = LIBXS_MHD_ELEMENT_CONVERSION_DEFAULT;
         mhdinfo.type = LIBXS_DATATYPE_U8;
         mhd_write_info.type = elemtypes[j];
         mhd_winfo.handler_info = &mhdinfo;
+        mhd_winfo.handler = mhd_element_hash;
         elemtype = (int)j;
         break;
       }
@@ -179,8 +177,8 @@ int main(int argc, char* argv[])
         }
         if (i == repeat && 0 == random) {
           if (0 <= elemtype) {
-            result = mhd_write_scattered("shuffle_rng.mhd", data2,
-              elsize, n, shape, &mhd_write_info, &mhd_winfo);
+            result = libxs_mhd_write("shuffle_rng.mhd", NULL, shape, NULL,
+              &mhd_write_info, data2, &mhd_winfo);
           }
         }
         /* bandwidth: 2*n*elsize approximation (RNG skips ~37% of swaps) */
@@ -203,8 +201,8 @@ int main(int argc, char* argv[])
           }
           if (0 == random) {
             if (0 <= elemtype) {
-              result = mhd_write_scattered("shuffle_ds1.mhd", data2,
-                elsize, n, shape, &mhd_write_info, &mhd_winfo);
+              result = libxs_mhd_write("shuffle_ds1.mhd", NULL, shape, NULL,
+                &mhd_write_info, data2, &mhd_winfo);
             }
           }
           else {
@@ -234,8 +232,8 @@ int main(int argc, char* argv[])
           }
           if (0 == random) {
             if (0 <= elemtype) {
-              result = mhd_write_scattered("shuffle_ds2.mhd", data2,
-                elsize, n, shape, &mhd_write_info, &mhd_winfo);
+              result = libxs_mhd_write("shuffle_ds2.mhd", NULL, shape, NULL,
+                &mhd_write_info, data2, &mhd_winfo);
             }
           }
           else {
@@ -479,23 +477,14 @@ size_t uint_msort_inversions(void* inout, size_t elemsize, size_t count) {
 #endif
 
 
-static int mhd_write_scattered(const char* filename, const void* data,
-  size_t elemsize, size_t count, const size_t shape[2],
-  libxs_mhd_info_t* info, libxs_mhd_write_info_t* winfo)
+static int mhd_element_hash(void* dst,
+  const libxs_mhd_element_handler_info_t* dst_info, libxs_data_t src_type,
+  const void* src, const void* src_min, const void* src_max)
 {
-  const size_t npix = shape[0] * shape[1];
-  int result = EXIT_FAILURE;
-  if (0 < npix && npix <= count) {
-    void* buf = malloc(npix * elemsize);
-    if (NULL != buf) {
-      const size_t one = 1;
-      libxs_shuffle2(buf, data, elemsize, npix, NULL, &one);
-      result = libxs_mhd_write(filename, NULL, shape, NULL, info, buf, winfo);
-      free(buf);
-    }
-  }
-  else {
-    result = libxs_mhd_write(filename, NULL, shape, NULL, info, data, winfo);
-  }
-  return result;
+  unsigned int v = 0;
+  const size_t n = LIBXS_MIN(LIBXS_TYPESIZE(src_type), sizeof(v));
+  LIBXS_UNUSED(dst_info); LIBXS_UNUSED(src_min); LIBXS_UNUSED(src_max);
+  LIBXS_MEMCPY(&v, src, n);
+  *(unsigned char*)dst = (unsigned char)(libxs_hash32(v) & 0xFF);
+  return EXIT_SUCCESS;
 }
