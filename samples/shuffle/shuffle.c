@@ -7,6 +7,7 @@
 * SPDX-License-Identifier: BSD-3-Clause                                       *
 ******************************************************************************/
 #include <libxs_timer.h>
+#include <libxs_math.h>
 #include <libxs_rng.h>
 #include <libxs_mem.h>
 #include <libxs_mhd.h>
@@ -57,6 +58,13 @@ size_t uint_bsort_asc(void* inout, size_t elemsize, size_t count);
 size_t uint_msort_inversions(void* inout, size_t elemsize, size_t count);
 #endif
 
+/** Write shuffled 1D data as a 2D MHD image with pixel-position
+ *  scatter to break diagonal ghost patterns. Uses a coprime map
+ *  on the linear pixel index to redistribute positions in 2D. */
+static int mhd_write_scattered(const char* filename, const void* data,
+  size_t elemsize, size_t count, const size_t shape[2],
+  libxs_mhd_info_t* info, libxs_mhd_write_info_t* winfo);
+
 
 int main(int argc, char* argv[])
 {
@@ -70,11 +78,14 @@ int main(int argc, char* argv[])
     ? 1 : atoi(getenv("SPLIT")));
   const int stats = (NULL == getenv("STATS")
     ? 0 : atoi(getenv("STATS")));
+  const double bias = (NULL == getenv("BIAS")
+    ? 0.0 : atof(getenv("BIAS")));
   const size_t elsize = (0 >= insize ? 4 : insize);
   const size_t m = (0 < niters ? niters : 1);
   const size_t n = (0 >= nelems
     ? (((size_t)64 << 20/*64 MB*/) / elsize)
     : ((size_t)nelems));
+  const size_t coprime = libxs_coprime_bias(n, bias);
   const size_t mm = LIBXS_MAX(m, 1);
   const size_t nbytes = n * elsize;
   void *const data1 = malloc(nbytes);
@@ -110,8 +121,16 @@ int main(int argc, char* argv[])
         LIBXS_MIN(elsize, sizeof(size_t)));
     }
 
-    /* prepare writing MHD-image files */
+    /* Prepare writing MHD-image files.
+     * A 1D coprime shuffle has stride C ~ sqrt(N). Reshaping to a
+     * sqrt(N) x sqrt(N) image creates diagonal ghost patterns because
+     * the stride and image width are commensurate. To break this, we
+     * apply an independent 2D coprime scatter: the linear pixel index
+     * i is mapped to row = (Cr * i) mod H, col = (Cc * i) mod W with
+     * Cr coprime to H and Cc coprime to W. This redistributes the 1D
+     * periodicity across both image axes independently. */
     y = (size_t)libxs_isqrt_u64(mhdsize);
+    if (0 == y) y = 1;
     shape[0] = mhdsize / y; shape[1] = y;
     for (j = 0; j < nelemtypes; ++j) {
       typesize = LIBXS_TYPESIZE(elemtypes[j]);
@@ -127,6 +146,11 @@ int main(int argc, char* argv[])
     if (0 > elemtype) {
       printf("---------------------------------------\n");
       printf("Unsupported type for writing MHD-file!\n");
+    }
+
+    if (0 != bias || 0 != stats || 0 != random) {
+      printf("---------------------------------------\n");
+      printf("N=%zu coprime=%zu bias=%.2f\n", n, coprime, bias);
     }
 
     for (i = 0; i <= repeat && EXIT_SUCCESS == result; ++i) {
@@ -154,8 +178,8 @@ int main(int argc, char* argv[])
         }
         if (i == repeat && 0 == random) {
           if (0 <= elemtype) {
-            result = libxs_mhd_write("shuffle_rng.mhd", NULL/*offset*/, shape, NULL/*pitch*/,
-              &mhd_write_info, data2, &mhd_winfo);
+            result = mhd_write_scattered("shuffle_rng.mhd", data2,
+              elsize, n, shape, &mhd_write_info, &mhd_winfo);
           }
         }
         /* bandwidth: 2*n*elsize approximation (RNG skips ~37% of swaps) */
@@ -167,7 +191,7 @@ int main(int argc, char* argv[])
       if (EXIT_SUCCESS == result) { /* benchmark in-place shuffle (DS1) */
         memcpy(data2, data1, nbytes);
         start = libxs_timer_tick();
-        libxs_shuffle(data2, elsize, n, NULL, &m);
+        libxs_shuffle(data2, elsize, n, &coprime, &m);
         d0 = libxs_timer_duration(start, libxs_timer_tick()) / mm;
         if (i == repeat) { /* only last iteration */
           if (0 != stats) {
@@ -178,8 +202,8 @@ int main(int argc, char* argv[])
           }
           if (0 == random) {
             if (0 <= elemtype) {
-              result = libxs_mhd_write("shuffle_ds1.mhd", NULL/*offset*/, shape, NULL/*pitch*/,
-                &mhd_write_info, data2, &mhd_winfo);
+              result = mhd_write_scattered("shuffle_ds1.mhd", data2,
+                elsize, n, shape, &mhd_write_info, &mhd_winfo);
             }
           }
           else {
@@ -198,7 +222,7 @@ int main(int argc, char* argv[])
       if (EXIT_SUCCESS == result) { /* benchmark out-of-place shuffle (DS2) */
         memset(data2, 0, nbytes); /* equalize page state (cf. DS1 memcpy) */
         start = libxs_timer_tick();
-        libxs_shuffle2(data2, data1, elsize, n, NULL, &m);
+        libxs_shuffle2(data2, data1, elsize, n, &coprime, &m);
         d0 = libxs_timer_duration(start, libxs_timer_tick()) / mm;
         if (i == repeat) { /* only last iteration */
           if (0 != stats) {
@@ -209,8 +233,8 @@ int main(int argc, char* argv[])
           }
           if (0 == random) {
             if (0 <= elemtype) {
-              result = libxs_mhd_write("shuffle_ds2.mhd", NULL/*offset*/, shape, NULL/*pitch*/,
-                &mhd_write_info, data2, &mhd_winfo);
+              result = mhd_write_scattered("shuffle_ds2.mhd", data2,
+                elsize, n, shape, &mhd_write_info, &mhd_winfo);
             }
           }
           else {
@@ -452,3 +476,25 @@ size_t uint_msort_inversions(void* inout, size_t elemsize, size_t count) {
   return result;
 }
 #endif
+
+
+static int mhd_write_scattered(const char* filename, const void* data,
+  size_t elemsize, size_t count, const size_t shape[2],
+  libxs_mhd_info_t* info, libxs_mhd_write_info_t* winfo)
+{
+  const size_t npix = shape[0] * shape[1];
+  int result = EXIT_FAILURE;
+  if (0 < npix && npix <= count) {
+    void* buf = malloc(npix * elemsize);
+    if (NULL != buf) {
+      const size_t one = 1;
+      libxs_shuffle2(buf, data, elemsize, npix, NULL, &one);
+      result = libxs_mhd_write(filename, NULL, shape, NULL, info, buf, winfo);
+      free(buf);
+    }
+  }
+  else {
+    result = libxs_mhd_write(filename, NULL, shape, NULL, info, data, winfo);
+  }
+  return result;
+}
