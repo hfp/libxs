@@ -48,8 +48,7 @@ static void split_digits(uint64_t mantissa, int sign, int8_t digits[MAX_NSLICES]
 
 LIBXS_API_INLINE void gemm_oz1_diff(const char* transa, const char* transb, const GEMM_INT_TYPE* m, const GEMM_INT_TYPE* n,
   const GEMM_INT_TYPE* k, const GEMM_REAL_TYPE* alpha, const GEMM_REAL_TYPE* a, const GEMM_INT_TYPE* lda, const GEMM_REAL_TYPE* b,
-  const GEMM_INT_TYPE* ldb, const GEMM_REAL_TYPE* beta, GEMM_REAL_TYPE* c, const GEMM_INT_TYPE* ldc,
-  libxs_matdiff_t* diff)
+  const GEMM_INT_TYPE* ldb, const GEMM_REAL_TYPE* beta, GEMM_REAL_TYPE* c, const GEMM_INT_TYPE* ldc, libxs_matdiff_t* diff)
 {
   int8_t slice_low_bit[MAX_NSLICES];
   double pow2_low[MAX_NSLICES];
@@ -60,6 +59,7 @@ LIBXS_API_INLINE void gemm_oz1_diff(const char* transa, const char* transb, cons
   const int nslices = LIBXS_CLMP(ozaki_n, 1, MAX_NSLICES);
   const int trim = LIBXS_MIN(ozaki_trim, 2 * (nslices - 1));
   const int cutoff = 2 * (nslices - 1) - trim;
+  int eff_cutoff = cutoff, sma = -1, smb = -1;
   const GEMM_INT_TYPE K_grp_size = (0 < ozaki_maxk ? (GEMM_INT_TYPE)ozaki_maxk : K);
   const GEMM_INT_TYPE K_grp_max = LIBXS_MIN(K_grp_size, K);
   const GEMM_INT_TYPE K_grp_pad = ((K_grp_max + BLOCK_K - 1) / BLOCK_K) * BLOCK_K;
@@ -98,7 +98,7 @@ LIBXS_API_INLINE void gemm_oz1_diff(const char* transa, const char* transb, cons
   }
 
 #if defined(_OPENMP)
-# pragma omp parallel
+#  pragma omp parallel
 #endif
   {
     GEMM_INT_TYPE row, col, ib, jb, mi, nj, kb_grp;
@@ -112,7 +112,7 @@ LIBXS_API_INLINE void gemm_oz1_diff(const char* transa, const char* transb, cons
     /* Phase 3: scale C by beta (once, before K-group loop).
      * Per BLAS spec, beta=0 must zero C unconditionally (NaN/Inf safe). */
 #if defined(_OPENMP)
-# pragma omp for schedule(static)
+#  pragma omp for schedule(static)
 #endif
     for (jb = 0; jb < N; ++jb) {
       GEMM_REAL_TYPE* const cj = c + jb * ldcv;
@@ -130,7 +130,7 @@ LIBXS_API_INLINE void gemm_oz1_diff(const char* transa, const char* transb, cons
 
       /* Phase 1: preprocess rows of A for this K-group */
 #if defined(_OPENMP)
-# pragma omp for schedule(static) nowait
+#  pragma omp for schedule(static) nowait
 #endif
       for (row = 0; row < M; ++row) {
         int16_t row_max_exp = 0;
@@ -167,7 +167,7 @@ LIBXS_API_INLINE void gemm_oz1_diff(const char* transa, const char* transb, cons
 
       /* Phase 2: preprocess columns of B for this K-group */
 #if defined(_OPENMP)
-# pragma omp for schedule(static)
+#  pragma omp for schedule(static)
 #endif
       for (col = 0; col < N; ++col) {
         int16_t col_max_exp = 0;
@@ -203,15 +203,64 @@ LIBXS_API_INLINE void gemm_oz1_diff(const char* transa, const char* transb, cons
       }
       /* implicit barrier: preprocessing done */
 
+      /* Adaptive cutoff: find highest occupied slice per side.
+       * Slices beyond the maximum non-zero index contribute nothing;
+       * skipping them reduces the GEMM pair count quadratically. */
+      /* Reset adaptive slice bounds (single ensures visibility + barrier) */
+#if defined(_OPENMP)
+#  pragma omp single
+#endif
+      {
+        sma = -1;
+        smb = -1;
+      }
+#if defined(_OPENMP)
+#  pragma omp for reduction(max : sma) schedule(static) nowait
+#endif
+      for (row = 0; row < M; ++row) {
+        int s;
+        for (s = nslices - 1; s > sma; --s) {
+          const int8_t* sl = a_slices + (long)s * M * K_grp_pad + (long)row * K_grp_pad;
+          GEMM_INT_TYPE kk;
+          for (kk = 0; kk < K_len; ++kk) {
+            if (0 != sl[kk]) {
+              sma = s;
+              break;
+            }
+          }
+        }
+      }
+#if defined(_OPENMP)
+#  pragma omp for reduction(max : smb) schedule(static)
+#endif
+      for (col = 0; col < N; ++col) {
+        int s;
+        for (s = nslices - 1; s > smb; --s) {
+          const int8_t* sl = b_slices + (long)s * N * K_grp_pad + (long)col * K_grp_pad;
+          GEMM_INT_TYPE kk;
+          for (kk = 0; kk < K_len; ++kk) {
+            if (0 != sl[kk]) {
+              smb = s;
+              break;
+            }
+          }
+        }
+      }
+      /* barrier from smb reduction ensures all threads see the update */
+#if defined(_OPENMP)
+#  pragma omp single
+#endif
+      eff_cutoff = (sma >= 0 && smb >= 0) ? LIBXS_MIN(cutoff, sma + smb) : -1;
+
       /* Phase 2b: compute FP exponent scale factors */
 #if defined(_OPENMP)
-# pragma omp for schedule(static) nowait
+#  pragma omp for schedule(static) nowait
 #endif
       for (row = 0; row < M; ++row) {
         expa_fp[row] = libxs_pow2((int)expa_raw[row] - OZ_BIAS_PLUS_MANT);
       }
 #if defined(_OPENMP)
-# pragma omp for schedule(static)
+#  pragma omp for schedule(static)
 #endif
       for (col = 0; col < N; ++col) {
         expb_fp[col] = libxs_pow2((int)expb_raw[col] - OZ_BIAS_PLUS_MANT);
@@ -223,7 +272,7 @@ LIBXS_API_INLINE void gemm_oz1_diff(const char* transa, const char* transb, cons
        * of a read-modify-write per pair.  Also eliminates per-pair
        * omp-for barriers (implicit barrier at end of tile loop suffices). */
 #if defined(_OPENMP)
-# pragma omp for LIBXS_OPENMP_COLLAPSE(2) schedule(static)
+#  pragma omp for LIBXS_OPENMP_COLLAPSE(2) schedule(static)
 #endif
       for (jb = 0; jb < N; jb += BLOCK_N) {
         for (ib = 0; ib < M; ib += BLOCK_M) {
@@ -242,20 +291,18 @@ LIBXS_API_INLINE void gemm_oz1_diff(const char* transa, const char* transb, cons
 
           /* Accumulate all slice pairs into c_local */
           LIBXS_PRAGMA_LOOP_COUNT(1, MAX_NSLICES, NSLICES_DEFAULT)
-          for (slice_a = 0; slice_a < nslices && slice_a <= cutoff; ++slice_a) {
+          for (slice_a = 0; slice_a < nslices && slice_a <= eff_cutoff; ++slice_a) {
             const int sb_start = (0 != (ozaki_flags & OZ1_TRIANGULAR)) ? slice_a : 0;
-            const int sb_end = LIBXS_MIN(nslices, cutoff + 1 - slice_a);
+            const int sb_end = LIBXS_MIN(nslices, eff_cutoff + 1 - slice_a);
             for (slice_b = sb_start; slice_b < sb_end; ++slice_b) {
               const double pair_scale = (*alpha) * pow2_low[slice_a] * pow2_low[slice_b];
               const int do_mirror = (0 != (ozaki_flags & OZ1_SYMMETRIZE)) && (slice_a != slice_b);
 
-              ozaki_gemm_s8s8s32('N', 'T', iblk, jblk, K_grp_pad,
-                a_slices + (long)slice_a * M * K_grp_pad + (long)ib * K_grp_pad, K_grp_pad,
-                b_slices + (long)slice_b * N * K_grp_pad + (long)jb * K_grp_pad, K_grp_pad, 0, c_acc, jblk);
+              ozaki_gemm_s8s8s32('N', 'T', iblk, jblk, K_grp_pad, a_slices + (long)slice_a * M * K_grp_pad + (long)ib * K_grp_pad,
+                K_grp_pad, b_slices + (long)slice_b * N * K_grp_pad + (long)jb * K_grp_pad, K_grp_pad, 0, c_acc, jblk);
               if (do_mirror) {
-                ozaki_gemm_s8s8s32('N', 'T', iblk, jblk, K_grp_pad,
-                  a_slices + (long)slice_b * M * K_grp_pad + (long)ib * K_grp_pad, K_grp_pad,
-                  b_slices + (long)slice_a * N * K_grp_pad + (long)jb * K_grp_pad, K_grp_pad, 1, c_acc, jblk);
+                ozaki_gemm_s8s8s32('N', 'T', iblk, jblk, K_grp_pad, a_slices + (long)slice_b * M * K_grp_pad + (long)ib * K_grp_pad,
+                  K_grp_pad, b_slices + (long)slice_a * N * K_grp_pad + (long)jb * K_grp_pad, K_grp_pad, 1, c_acc, jblk);
               }
 
               for (mi = 0; mi < iblk; ++mi) {
