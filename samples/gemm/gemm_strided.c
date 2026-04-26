@@ -49,12 +49,9 @@ int main(int argc, char* argv[])
     return EXIT_FAILURE;
   }
 
-  /* A: m rows filled per column, ld-padding rows set to SEED (sentinel) */
-  LIBXS_MATRNG(int, double, 1.0, a, m, (size_t)k * batchsize, lda, 1.0);
-  /* B: k rows filled per column, ld-padding rows set to SEED (sentinel) */
-  LIBXS_MATRNG(int, double, 2.0, b, k, (size_t)n * batchsize, ldb, 1.0);
-  /* C: m rows filled per column, ld-padding rows set to SEED (sentinel) */
-  LIBXS_MATRNG(int, double, 0.5, c, m, (size_t)n * batchsize, ldc, 1.0);
+  LIBXS_MATRNG(int, double, 0, a, m, (size_t)k * batchsize, lda, 1.0);
+  LIBXS_MATRNG(int, double, 0, b, k, (size_t)n * batchsize, ldb, 1.0);
+  LIBXS_MATRNG(int, double, 0, c, m, (size_t)n * batchsize, ldc, 1.0);
 
   memset(&config, 0, sizeof(config));
   config.flags = LIBXS_GEMM_FLAG_NOLOCK;

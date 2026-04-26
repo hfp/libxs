@@ -79,12 +79,9 @@ int main(int argc, char* argv[])
     return EXIT_FAILURE;
   }
 
-  /* A: m rows filled per column, ld-padding rows set to SEED (sentinel) */
-  LIBXS_MATRNG(int, double, 1.0, a_data, m, (size_t)k * nunique, lda, 1.0);
-  /* B: k rows filled per column, ld-padding rows set to SEED (sentinel) */
-  LIBXS_MATRNG(int, double, 2.0, b_data, k, (size_t)n * nunique, ldb, 1.0);
-  /* C: m rows filled per column, ld-padding rows set to SEED (sentinel) */
-  LIBXS_MATRNG(int, double, 0.5, c_data, m, (size_t)n * nunique, ldc, 1.0);
+  LIBXS_MATRNG(int, double, 0, a_data, m, (size_t)k * nunique, lda, 1.0);
+  LIBXS_MATRNG(int, double, 0, b_data, k, (size_t)n * nunique, ldb, 1.0);
+  LIBXS_MATRNG(int, double, 0, c_data, m, (size_t)n * nunique, ldc, 1.0);
 
   { int i;
     for (i = 0; i < batchsize; ++i) {

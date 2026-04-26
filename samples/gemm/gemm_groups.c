@@ -94,18 +94,15 @@ int main(int argc, char* argv[])
       for (i = 0; i < batchsize[g]; ++i) {
         double *pa = storage + offset;
         double *pb, *pc;
-        /* A: m rows filled per column, ld-padding rows set to SEED */
-        LIBXS_MATRNG(int, double, 1.0,
+        LIBXS_MATRNG(int, double, 0,
           pa, m_array[g], k_array[g], lda_array[g], 1.0);
         a_ptrs[pidx] = pa; offset += asize;
         pb = storage + offset;
-        /* B: k rows filled per column, ld-padding rows set to SEED */
-        LIBXS_MATRNG(int, double, 2.0,
+        LIBXS_MATRNG(int, double, 0,
           pb, k_array[g], n_array[g], ldb_array[g], 1.0);
         b_ptrs[pidx] = pb; offset += bsize;
         pc = storage + offset;
-        /* C: m rows filled per column, ld-padding rows set to SEED */
-        LIBXS_MATRNG(int, double, 0.5,
+        LIBXS_MATRNG(int, double, 0,
           pc, m_array[g], n_array[g], ldc_array[g], 1.0);
         c_ptrs[pidx] = pc; offset += csize;
         ++pidx;
