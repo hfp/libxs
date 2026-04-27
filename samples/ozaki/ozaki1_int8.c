@@ -112,7 +112,7 @@ LIBXS_API_INLINE void gemm_oz1_diff(const char* transa, const char* transb, cons
     /* Phase 3: scale C by beta (once, before K-group loop).
      * Per BLAS spec, beta=0 must zero C unconditionally (NaN/Inf safe). */
 #if defined(_OPENMP)
-# pragma omp for schedule(static)
+# pragma omp for OZAKI_OMP_SCHEDULE
 #endif
     for (jb = 0; jb < N; ++jb) {
       GEMM_REAL_TYPE* const cj = c + jb * ldcv;
@@ -130,7 +130,7 @@ LIBXS_API_INLINE void gemm_oz1_diff(const char* transa, const char* transb, cons
 
       /* Phase 1: preprocess rows of A for this K-group */
 #if defined(_OPENMP)
-# pragma omp for schedule(static) nowait
+# pragma omp for OZAKI_OMP_SCHEDULE nowait
 #endif
       for (row = 0; row < M; ++row) {
         int16_t row_max_exp = 0;
@@ -167,7 +167,7 @@ LIBXS_API_INLINE void gemm_oz1_diff(const char* transa, const char* transb, cons
 
       /* Phase 2: preprocess columns of B for this K-group */
 #if defined(_OPENMP)
-# pragma omp for schedule(static)
+# pragma omp for OZAKI_OMP_SCHEDULE
 #endif
       for (col = 0; col < N; ++col) {
         int16_t col_max_exp = 0;
@@ -215,34 +215,28 @@ LIBXS_API_INLINE void gemm_oz1_diff(const char* transa, const char* transb, cons
         smb = -1;
       }
 #if defined(_OPENMP)
-# pragma omp for reduction(max : sma) schedule(static) nowait
+# pragma omp for reduction(max : sma) OZAKI_OMP_SCHEDULE nowait
 #endif
       for (row = 0; row < M; ++row) {
         int si;
-        for (si = nslices - 1; si > sma; --si) {
+        for (si = nslices - 1; si >= 0; --si) {
           const int8_t* sl = a_slices + (long)si * M * K_grp_pad + (long)row * K_grp_pad;
           GEMM_INT_TYPE kk;
           for (kk = 0; kk < K_len; ++kk) {
-            if (0 != sl[kk]) {
-              sma = si;
-              break;
-            }
+            if (0 != sl[kk]) { sma = LIBXS_MAX(sma, si); si = 0; break; }
           }
         }
       }
 #if defined(_OPENMP)
-# pragma omp for reduction(max : smb) schedule(static)
+# pragma omp for reduction(max : smb) OZAKI_OMP_SCHEDULE
 #endif
       for (col = 0; col < N; ++col) {
         int si;
-        for (si = nslices - 1; si > smb; --si) {
+        for (si = nslices - 1; si >= 0; --si) {
           const int8_t* sl = b_slices + (long)si * N * K_grp_pad + (long)col * K_grp_pad;
           GEMM_INT_TYPE kk;
           for (kk = 0; kk < K_len; ++kk) {
-            if (0 != sl[kk]) {
-              smb = si;
-              break;
-            }
+            if (0 != sl[kk]) { smb = LIBXS_MAX(smb, si); si = 0; break; }
           }
         }
       }
@@ -254,13 +248,13 @@ LIBXS_API_INLINE void gemm_oz1_diff(const char* transa, const char* transb, cons
 
       /* Phase 2b: compute FP exponent scale factors */
 #if defined(_OPENMP)
-# pragma omp for schedule(static) nowait
+# pragma omp for OZAKI_OMP_SCHEDULE nowait
 #endif
       for (row = 0; row < M; ++row) {
         expa_fp[row] = libxs_pow2((int)expa_raw[row] - OZ_BIAS_PLUS_MANT);
       }
 #if defined(_OPENMP)
-# pragma omp for schedule(static)
+# pragma omp for OZAKI_OMP_SCHEDULE
 #endif
       for (col = 0; col < N; ++col) {
         expb_fp[col] = libxs_pow2((int)expb_raw[col] - OZ_BIAS_PLUS_MANT);
@@ -272,7 +266,7 @@ LIBXS_API_INLINE void gemm_oz1_diff(const char* transa, const char* transb, cons
        * of a read-modify-write per pair.  Also eliminates per-pair
        * omp-for barriers (implicit barrier at end of tile loop suffices). */
 #if defined(_OPENMP)
-# pragma omp for LIBXS_OPENMP_COLLAPSE(2) schedule(static)
+# pragma omp for LIBXS_OPENMP_COLLAPSE(2) OZAKI_OMP_SCHEDULE
 #endif
       for (jb = 0; jb < N; jb += BLOCK_N) {
         for (ib = 0; ib < M; ib += BLOCK_M) {

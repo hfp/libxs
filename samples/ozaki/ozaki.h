@@ -112,6 +112,9 @@
     ozaki_post_diff(GEMM_ARGPASS, LABEL, NCOMP, &diff); \
   }
 
+/* Schedule eventually impacting run-to-run reproducible results */
+#define OZAKI_OMP_SCHEDULE schedule(static)
+
 /* Wrap/real symbol definitions for real GEMM */
 #define GEMM_WRAP LIBXS_CONCATENATE(__wrap_, GEMM)
 #define GEMM_REAL LIBXS_CONCATENATE(__real_, GEMM)
