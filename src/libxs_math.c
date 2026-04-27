@@ -1166,14 +1166,66 @@ LIBXS_API_INTERN int internal_libxs_fprint_load(
 
 LIBXS_API int libxs_fprint(libxs_fprint_t* info,
   libxs_data_t datatype, const void* data,
-  size_t ndims, const size_t shape[], const size_t stride[],
-  int order)
+  int ndims, const size_t shape[], const size_t stride[],
+  int order, int axis)
 {
   int result = EXIT_SUCCESS;
   LIBXS_ASSERT(NULL != info && NULL != data && 0 < ndims);
   LIBXS_ASSERT(NULL != shape);
   memset(info, 0, sizeof(*info));
-  if (1 == ndims) {
+  if (0 <= axis && axis < ndims && 1 < ndims) {
+    /* Per-axis mode: fingerprint along 'axis', max-reduce over others. */
+    const size_t typesize = LIBXS_TYPESIZE((int)datatype);
+    const size_t n_axis = shape[axis];
+    const size_t s_axis = (NULL != stride) ? stride[axis] : (size_t)(
+      0 == axis ? 1 : shape[0] /* only correct for ndims==2; general case below */);
+    size_t ngrid = 1;
+    int d, pool = 0;
+    double *buf;
+    if (1 > (int)n_axis) return EXIT_SUCCESS;
+    for (d = 0; d < ndims; ++d) {
+      if (d != axis) ngrid *= shape[d];
+    }
+    buf = (double*)LIBXS_MATH_MALLOC(2 * n_axis * sizeof(double), pool);
+    if (NULL == buf) return EXIT_FAILURE;
+    { /* Iterate over all positions in the non-axis grid. */
+      size_t gi;
+      int first = 1;
+      for (gi = 0; gi < ngrid && EXIT_SUCCESS == result; ++gi) {
+        /* Compute byte offset for grid position gi (mixed-radix). */
+        size_t offset = 0, rem = gi;
+        for (d = ndims - 1; d >= 0; --d) {
+          size_t sd, coord;
+          if (d == axis) continue;
+          coord = rem % shape[d];
+          rem /= shape[d];
+          if (NULL != stride) sd = stride[d];
+          else { int dd; sd = 1; for (dd = 0; dd < d; ++dd) sd *= shape[dd]; }
+          offset += coord * sd * typesize;
+        }
+        { /* 1D fprint along axis at this grid position. */
+          libxs_fprint_t fp1;
+          result = libxs_fprint(&fp1, datatype, (const char*)data + offset,
+            1, &n_axis, &s_axis, order, -1);
+          if (EXIT_SUCCESS == result) {
+            int k;
+            if (0 != first) { *info = fp1; first = 0; }
+            else {
+              for (k = 0; k <= fp1.order; ++k) {
+                if (fp1.linf[k] > info->linf[k]) info->linf[k] = fp1.linf[k];
+                if (fp1.l2[k] > info->l2[k]) info->l2[k] = fp1.l2[k];
+                if (fp1.l1[k] > info->l1[k]) info->l1[k] = fp1.l1[k];
+              }
+              if (fp1.order > info->order) info->order = fp1.order;
+              if (fp1.n > info->n) info->n = fp1.n;
+            }
+          }
+        }
+      }
+    }
+    LIBXS_MATH_FREE(buf, pool);
+  }
+  else if (1 == ndims) {
     const size_t s = (NULL != stride ? stride[0] : 1);
     const int n = (int)shape[0];
     int kmax, pool = 0;
@@ -1201,6 +1253,7 @@ LIBXS_API int libxs_fprint(libxs_fprint_t* info,
     LIBXS_MATH_FREE(buf, pool);
   }
   else {
+    /* Hierarchical mode (axis < 0 or axis >= ndims). */
     const size_t nouter = shape[ndims - 1];
     size_t souter;
     const size_t typesize = LIBXS_TYPESIZE((int)datatype);
@@ -1212,8 +1265,9 @@ LIBXS_API int libxs_fprint(libxs_fprint_t* info,
       souter = stride[ndims - 1];
     }
     else {
-      size_t p = 1, d;
-      for (d = 0; d + 1 < ndims; ++d) p *= shape[d];
+      size_t p = 1;
+      int dd;
+      for (dd = 0; dd + 1 < ndims; ++dd) p *= shape[dd];
       souter = p;
     }
     if (1 > (int)nouter) return EXIT_SUCCESS;
@@ -1224,7 +1278,7 @@ LIBXS_API int libxs_fprint(libxs_fprint_t* info,
       double snorm = 0, scomp = 0, wk = 1.0;
       int k;
       result = libxs_fprint(&child, datatype, slice,
-        ndims - 1, shape, stride, order);
+        ndims - 1, shape, stride, order, axis);
       for (k = 0; k <= child.order; ++k) {
         if (0 < k) wk /= k;
         libxs_kahan_sum(wk * child.l2[k] * child.l2[k], &snorm, &scomp);

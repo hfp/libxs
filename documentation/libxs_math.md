@@ -150,16 +150,29 @@ noise-robust middle ground between L2 and Linf.
 ```C
 int libxs_fprint(libxs_fprint_t* info,
   libxs_data_t datatype, const void* data,
-  size_t ndims, const size_t shape[], const size_t stride[],
-  int order);
+  int ndims, const size_t shape[], const size_t stride[],
+  int order, int axis);
 ```
 
 Build a fingerprint from data described by shape and stride arrays.
-For 1-D data, pass `ndims=1`, `shape={n}`, `stride=NULL`. For higher
-dimensions, `shape[0]` is the innermost extent and `shape[ndims-1]`
-the outermost. When `stride` is NULL, contiguous storage is assumed
+For 1-D data, pass ndims=1, shape={n}, stride=NULL. For higher
+dimensions, shape[0] is the innermost extent and shape[ndims-1]
+the outermost. When stride is NULL, contiguous storage is assumed
 (stride[0]=1, stride[k]=product of shape[0..k-1]). The requested
 order is clamped to min(order, extent-1, LIBXS_FPRINT_MAXORDER).
+
+The axis parameter controls how multi-dimensional data is handled:
+
+  axis < 0    Hierarchical mode (default). Sweeps the innermost
+              dimension first and collapses each level into the
+              next outer dimension via Sobolev self-norms.
+
+  axis >= 0   Per-axis mode. Differentiates along dimension
+              'axis' only and takes the per-order maximum of
+              each norm (linf, l2, l1) across all positions in
+              the remaining dimensions.
+
+For 1-D data, axis is ignored (both modes are equivalent).
 
 Supported types: F64, F32, and all integer libxs_data_t types
 (I64, I32, U32, I16, U16, I8, U8 -- promoted to double internally).
