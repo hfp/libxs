@@ -43,7 +43,7 @@ for A in "${DIR}"/gemm-*-a.mhd; do
   RESULT=0
   OUTPUT=$(${WRAP} "${A}" "${B}" 2>&1) || RESULT=$?
   if [ "0" != "${RESULT}" ]; then
-    echo "FAIL  gemm-${ID} (exit ${RESULT})"
+    echo "FAIL  gemm-${ID} (exit ${RESULT}: ${OUTPUT})"
     NFAIL=$((NFAIL + 1))
   else
     echo "OK    gemm-${ID}"

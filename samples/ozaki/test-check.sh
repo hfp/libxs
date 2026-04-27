@@ -5,6 +5,7 @@
 # For information on the license, see the LICENSE file.                       #
 # SPDX-License-Identifier: BSD-3-Clause                                       #
 ###############################################################################
+# shellcheck disable=SC2011
 set -eo pipefail
 
 HERE=$(cd "$(dirname "$0")" && pwd -P)
@@ -48,7 +49,7 @@ echo "CHECK [${TEST}]: Scheme 1 (default)"
 if [ "$*" ]; then echo "args    $*"; fi
 { CHECK=-1 OZAKI_VERBOSE=1 OZAKI=1 "${EXE}" "$@" 2>"${TMPF}"; } >/dev/null || RESULT=$?
 if [ "0" != "${RESULT}" ]; then
-  echo "FAILED[${RESULT}] $(${CAT} "${TMPF}")"
+  echo "FAILED[${RESULT}]: $(${CAT} "${TMPF}")"
   exit ${RESULT}
 fi
 if ${GREP} -q "CHECK:" "${TMPF}"; then
