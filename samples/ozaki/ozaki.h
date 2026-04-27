@@ -150,8 +150,7 @@
 #define ozaki_target_arch LIBXS_TPREFIX(GEMM_REAL_TYPE, ozaki_tarch)
 #define gemm_oz1 LIBXS_TPREFIX(GEMM_REAL_TYPE, gemm_oz1)
 #define gemm_oz2 LIBXS_TPREFIX(GEMM_REAL_TYPE, gemm_oz2)
-#define gemm_oz3 LIBXS_TPREFIX(GEMM_REAL_TYPE, gemm_oz3)
-#define ozaki_order LIBXS_TPREFIX(GEMM_REAL_TYPE, ozaki_order)
+#define ozaki_decay LIBXS_TPREFIX(GEMM_REAL_TYPE, ozaki_decay)
 #define gemm_init LIBXS_TPREFIX(GEMM_REAL_TYPE, gemm_init)
 #define gemm_threshold LIBXS_TPREFIX(GEMM_REAL_TYPE, gemm_threshold)
 /* gemm_dump_inhibit: not precision-prefixed (like gemm_nozaki) */
@@ -233,8 +232,6 @@ OZAKI_API void ZGEMM(GEMM_ARGDECL);
 OZAKI_API void gemm_oz1(GEMM_ARGDECL);
 /** Function prototype for GEMM using CRT modular arithmetic (Ozaki scheme 2). */
 OZAKI_API void gemm_oz2(GEMM_ARGDECL);
-/** Function prototype for GEMM using summation by parts (Ozaki scheme 3). */
-OZAKI_API void gemm_oz3(GEMM_ARGDECL);
 /** Complex GEMM implementation (internal). */
 OZAKI_API_INTERN void gemm_complex(GEMM_ARGDECL);
 
@@ -257,7 +254,7 @@ OZAKI_APIVAR_PRIVATE(int ozaki_trim);
 OZAKI_APIVAR_PRIVATE(int ozaki_dump);
 OZAKI_APIVAR_PRIVATE(int ozaki_exit);
 OZAKI_APIVAR_PRIVATE(int ozaki_n);
-OZAKI_APIVAR_PRIVATE(int ozaki_order);
+OZAKI_APIVAR_PRIVATE(int ozaki_decay);
 OZAKI_APIVAR_PRIVATE(int ozaki_profile);
 OZAKI_APIVAR_PRIVATE(libxs_hist_t* ozaki_hist);
 OZAKI_APIVAR_PRIVATE(int gemm_threshold);

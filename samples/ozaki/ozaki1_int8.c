@@ -209,12 +209,7 @@ LIBXS_API_INLINE void gemm_oz1_diff(const char* transa, const char* transb, cons
       /* Reset adaptive slice bounds (single ensures visibility + barrier) */
 #if defined(_OPENMP)
 # pragma omp single
-#endif
-      {
-        sma = -1;
-        smb = -1;
-      }
-#if defined(_OPENMP)
+      sma = smb = -1;
 # pragma omp for reduction(max : sma) OZAKI_OMP_SCHEDULE nowait
 #endif
       for (row = 0; row < M; ++row) {
@@ -245,6 +240,58 @@ LIBXS_API_INLINE void gemm_oz1_diff(const char* transa, const char* transb, cons
 # pragma omp single
 #endif
       eff_cutoff = (sma >= 0 && smb >= 0) ? LIBXS_MIN(cutoff, sma + smb) : -1;
+
+      /* Forward-difference decay diagnostic (first K-group, verbose only).
+       * Uses libxs_fprint (1D) on int8 slice buffers to report per-axis Linf
+       * at each derivative order -- characterizes exploitable smoothness. */
+#if defined(_OPENMP)
+# pragma omp single nowait
+#endif
+      if (0 != ozaki_decay && 0 == kb_grp) {
+        const int forder = LIBXS_MIN(LIBXS_FPRINT_MAXORDER, nslices);
+        /* B layout per slice: [N][K_grp_pad], A layout per slice: [M][K_grp_pad] */
+        size_t bshp[2], bstr[2], ashp[2], astr[2];
+        libxs_fprint_t fp_k, fp_m, fp_n, fp;
+        int ss, dd;
+        bshp[0] = (size_t)N; bshp[1] = (size_t)K_len;
+        bstr[0] = (size_t)K_grp_pad; bstr[1] = 1;
+        ashp[0] = (size_t)M; ashp[1] = (size_t)K_len;
+        astr[0] = (size_t)K_grp_pad; astr[1] = 1;
+        memset(&fp_k, 0, sizeof(fp_k));
+        memset(&fp_m, 0, sizeof(fp_m));
+        memset(&fp_n, 0, sizeof(fp_n));
+        for (ss = 0; ss < nslices; ++ss) {
+          libxs_fprint(&fp, LIBXS_DATATYPE_I8, b_slices + (long)ss * N * K_grp_pad,
+            2, bshp, bstr, forder, 1 /*axis=K*/);
+          for (dd = 0; dd <= fp.order; ++dd) {
+            if (fp.linf[dd] > fp_k.linf[dd]) fp_k.linf[dd] = fp.linf[dd];
+          }
+          fp_k.order = LIBXS_MAX(fp_k.order, fp.order);
+
+          libxs_fprint(&fp, LIBXS_DATATYPE_I8, a_slices + (long)ss * M * K_grp_pad,
+            2, ashp, astr, forder, 0 /*axis=M*/);
+          for (dd = 0; dd <= fp.order; ++dd) {
+            if (fp.linf[dd] > fp_m.linf[dd]) fp_m.linf[dd] = fp.linf[dd];
+          }
+          fp_m.order = LIBXS_MAX(fp_m.order, fp.order);
+
+          libxs_fprint(&fp, LIBXS_DATATYPE_I8, b_slices + (long)ss * N * K_grp_pad,
+            2, bshp, bstr, forder, 0 /*axis=N*/);
+          for (dd = 0; dd <= fp.order; ++dd) {
+            if (fp.linf[dd] > fp_n.linf[dd]) fp_n.linf[dd] = fp.linf[dd];
+          }
+          fp_n.order = LIBXS_MAX(fp_n.order, fp.order);
+        }
+        fprintf(stderr, "OZ1[%dx%dx%d] Delta-K:", (int)M, (int)N, (int)K_len);
+        for (dd = 1; dd <= fp_k.order; ++dd) fprintf(stderr, " d%d=%.6g", dd, fp_k.linf[dd]);
+        fprintf(stderr, "\nOZ1[%dx%dx%d] Delta-M:", (int)M, (int)N, (int)K_len);
+        if (M > 1) { for (dd = 1; dd <= fp_m.order; ++dd) fprintf(stderr, " d%d=%.6g", dd, fp_m.linf[dd]); }
+        else fprintf(stderr, " (M<=1, skipped)");
+        fprintf(stderr, "\nOZ1[%dx%dx%d] Delta-N:", (int)M, (int)N, (int)K_len);
+        if (N > 1) { for (dd = 1; dd <= fp_n.order; ++dd) fprintf(stderr, " d%d=%.6g", dd, fp_n.linf[dd]); }
+        else fprintf(stderr, " (N<=1, skipped)");
+        fprintf(stderr, "\n");
+      }
 
       /* Phase 2b: compute FP exponent scale factors */
 #if defined(_OPENMP)

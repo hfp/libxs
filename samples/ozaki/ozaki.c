@@ -31,7 +31,7 @@ OZAKI_APIVAR_PRIVATE_DEF(int ozaki_trim);
 OZAKI_APIVAR_PRIVATE_DEF(int ozaki_dump);
 OZAKI_APIVAR_PRIVATE_DEF(int ozaki_exit);
 OZAKI_APIVAR_PRIVATE_DEF(int ozaki_n);
-OZAKI_APIVAR_PRIVATE_DEF(int ozaki_order);
+OZAKI_APIVAR_PRIVATE_DEF(int ozaki_decay);
 OZAKI_APIVAR_PRIVATE_DEF(int ozaki_profile);
 OZAKI_APIVAR_PRIVATE_DEF(libxs_hist_t* ozaki_hist);
 OZAKI_APIVAR_PRIVATE_DEF(int gemm_threshold);
@@ -69,9 +69,6 @@ OZAKI_API_INTERN void gemm_atexit(void)
             if (0 != (ozaki_flags & OZ1_SYMMETRIZE) && sa != sb) ++ngemms;
           }
         }
-      }
-      else if (3 == ozaki) { /* Scheme 3: Foeppl SBP (remainder GEMM) */
-        ngemms = 1;
       }
       else { /* Scheme 2: one int8 GEMM per prime */
         ngemms = ozaki_n;
@@ -173,6 +170,7 @@ OZAKI_API_INTERN void gemm_init(void)
         const char* const ozaki_eps_env = getenv("OZAKI_EPS");
         const char* const ozaki_rsq_env = getenv("OZAKI_RSQ");
         const char* const ozaki_n_env = getenv("OZAKI_N");
+        const char* const ozaki_decay_env = getenv("OZAKI_DECAY");
 #if defined(__LIBXSTREAM)
         const char* const ozaki_groups_env = getenv("OZAKI_GROUPS");
         const char* const ozaki_ocl_env = getenv("OZAKI_OCL");
@@ -196,13 +194,9 @@ OZAKI_API_INTERN void gemm_init(void)
         ozaki_trim = (NULL == ozaki_trim_env ? 0 /*exact*/ : atoi(ozaki_trim_env));
         ozaki_exit = (NULL == ozaki_exit_env ? 1 /*default*/ : atoi(ozaki_exit_env));
         ozaki_idx = (NULL == ozaki_idx_env ? 0 : atoi(ozaki_idx_env));
+        ozaki_decay = (NULL != ozaki_decay_env && 0 != *ozaki_decay_env) ? atoi(ozaki_decay_env) : 0;
         if (2 == ozaki) { /* Scheme 2: CRT primes */
           ozaki_n = LIBXS_CLMP(NULL == ozaki_n_env ? OZ2_NPRIMES_DEFAULT : atoi(ozaki_n_env), 1, OZ2_NPRIMES_MAX);
-        }
-        else if (3 == ozaki) { /* Scheme 3: slices (OZAKI_N) + SBP order (OZAKI_ORDER) */
-          const char* const ozaki_order_env = getenv("OZAKI_ORDER");
-          ozaki_n = LIBXS_CLMP(NULL == ozaki_n_env ? NSLICES_DEFAULT : atoi(ozaki_n_env), 1, MAX_NSLICES);
-          ozaki_order = LIBXS_CLMP(NULL == ozaki_order_env ? 4 : atoi(ozaki_order_env), 1, 16);
         }
         else { /* Scheme 1: mantissa slices */
           ozaki_n = LIBXS_CLMP(NULL == ozaki_n_env ? NSLICES_DEFAULT : atoi(ozaki_n_env), 1, MAX_NSLICES);
@@ -312,11 +306,8 @@ OZAKI_API_INTERN LIBXS_ATTRIBUTE_WEAK void GEMM_WRAP(const char* transa, const c
         { /* slice-based LP-GEMM (Scheme 1, default) */
           gemm_oz1(transa, transb, m, n, k, alpha, a, lda, b, ldb, beta, c, ldc);
         }
-        else if (2 == run_ozaki) { /* CRT-based LP-GEMM (Scheme 2) */
+        else { /* CRT-based LP-GEMM (Scheme 2) */
           gemm_oz2(transa, transb, m, n, k, alpha, a, lda, b, ldb, beta, c, ldc);
-        }
-        else { /* summation by parts (Scheme 3) */
-          gemm_oz3(transa, transb, m, n, k, alpha, a, lda, b, ldb, beta, c, ldc);
         }
       }
       else { /* only run original GEMM right away */

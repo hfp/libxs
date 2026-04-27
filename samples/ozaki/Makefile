@@ -88,7 +88,6 @@ CSOURCS := $(SRCDIR)/gemm.c
 IMPLSRCS := $(SRCDIR)/$(OUTNAME).c \
             $(SRCDIR)/ozaki1_int8.c \
             $(SRCDIR)/ozaki2_int8.c \
-            $(SRCDIR)/ozaki3.c \
             $(SRCDIR)/wrap3m.c \
             $(SRCDIR)/gemm-print.c \
             $(NULL)

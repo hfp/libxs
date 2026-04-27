@@ -711,9 +711,6 @@ LIBXS_API_INLINE void gemm_oz2_diff(const char* transa, const char* transb, cons
           }
         }
       }
-#if defined(_OPENMP)
-# pragma omp barrier
-#endif
     } /* end K-group loop */
 
     GEMM_PROFILE_END(tid, M, N, K);
