@@ -48,8 +48,6 @@ ifneq (0,$(LIBXSTREAM))
     SCRDIR := $(LIBXSTREAMROOT)/scripts
     OCLKERNELS := $(wildcard $(LIBXSTREAMROOT)/samples/ozaki/kernels/*.cl)
     OCLGENHDR := $(LIBXSTREAMROOT)/samples/ozaki/ozaki_kernels.h
-    OCLGENHDR_PROD := $(LIBXSTREAMROOT)/samples/ozaki/ozaki_tinytc.h
-    OCLGENSCR_PROD := $(LIBXSTREAMROOT)/samples/ozaki/kernels/ozaki1.sh
   endif
 endif
 endif
@@ -201,24 +199,19 @@ ifneq (,$(OCLOBJS))
 $(OCLGENHDR): $(OCLKERNELS) $(SCRDIR)/tool_opencl.sh
 	$(SCRDIR)/tool_opencl.sh -p "" $(OCLKERNELS) $@
 
-$(OCLGENHDR_PROD): $(wildcard $(LIBXSTREAMROOT)/samples/ozaki/kernels/ozaki1_*_n*t*_tri.clx \
-                              $(LIBXSTREAMROOT)/samples/ozaki/kernels/ozaki1_*_n*t*_sq.clx) \
-                   $(OCLGENSCR_PROD)
-	$(OCLGENSCR_PROD) -h $@
-
 $(BLDDIR)/ozaki_ocl-c.o: $(SRCDIR)/ozaki_ocl.c .state $(BLDDIR)/.make $(HEADERS) Makefile $(DEPDIR)/Makefile.inc
 	$(CC) -D__OPENCL $(DFLAGS) $(IFLAGS) $(CFLAGS) $(CTARGET) -c $< -o $@
 
 $(BLDDIR)/ozaki_opencl-c.o: $(LIBXSTREAMROOT)/samples/ozaki/ozaki_opencl.c \
-    $(OCLGENHDR) $(OCLGENHDR_PROD) .state $(BLDDIR)/.make $(HEADERS) Makefile $(DEPDIR)/Makefile.inc
+    $(OCLGENHDR) .state $(BLDDIR)/.make $(HEADERS) Makefile $(DEPDIR)/Makefile.inc
 	$(CC) -D__OPENCL $(DFLAGS) $(IFLAGS) $(CFLAGS) $(CTARGET) -c $< -o $@
 
 $(BLDDIR)/ozaki_gemm-c.o: $(LIBXSTREAMROOT)/samples/ozaki/ozaki_gemm.c \
-    $(OCLGENHDR) $(OCLGENHDR_PROD) .state $(BLDDIR)/.make $(HEADERS) Makefile $(DEPDIR)/Makefile.inc
+    $(OCLGENHDR) .state $(BLDDIR)/.make $(HEADERS) Makefile $(DEPDIR)/Makefile.inc
 	$(CC) -D__OPENCL $(DFLAGS) $(IFLAGS) $(CFLAGS) $(CTARGET) -c $< -o $@
 
 $(BLDDIR)/ozaki_zgemm-c.o: $(LIBXSTREAMROOT)/samples/ozaki/ozaki_gemm3m.c \
-    $(OCLGENHDR) $(OCLGENHDR_PROD) .state $(BLDDIR)/.make $(HEADERS) Makefile $(DEPDIR)/Makefile.inc
+    $(OCLGENHDR) .state $(BLDDIR)/.make $(HEADERS) Makefile $(DEPDIR)/Makefile.inc
 	$(CC) -D__OPENCL $(DFLAGS) $(IFLAGS) $(CFLAGS) $(CTARGET) -c $< -o $@
 endif
 
@@ -267,7 +260,7 @@ ifneq (,$(wildcard $(OUTDIR))) # still exists
 	@-rm -f $(XFILES)
 endif
 	@-rm -f $(OUTDIR)/libwrap.*
-	@-rm -f $(OCLGENHDR) $(OCLGENHDR_PROD)
+	@-rm -f $(OCLGENHDR)
 
 .PHONY: deepclean
 deepclean: realclean
