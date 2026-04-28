@@ -341,7 +341,8 @@ LIBXS_API_INLINE void gemm_oz2_diff(const char* transa, const char* transb, cons
   const int tb = (*transb != 'N' && *transb != 'n');
   const GEMM_INT_TYPE M = *m, N = *n, K = *k;
   const GEMM_INT_TYPE ldcv = *ldc;
-  const int nprimes = LIBXS_CLMP(ozaki_n, 1, OZ2_NPRIMES_MAX);
+  int nprimes = LIBXS_CLMP(ozaki_n, 1, OZ2_NPRIMES_MAX);
+  int oztrim_bits = 0;
   const GEMM_INT_TYPE K_grp_size = (0 < ozaki_maxk ? (GEMM_INT_TYPE)ozaki_maxk : K);
   const GEMM_INT_TYPE K_grp_max = LIBXS_MIN(K_grp_size, K);
   const GEMM_INT_TYPE K_grp_pad = ((K_grp_max + BLOCK_K - 1) / BLOCK_K) * BLOCK_K;
@@ -356,6 +357,26 @@ LIBXS_API_INLINE void gemm_oz2_diff(const char* transa, const char* transb, cons
   GEMM_PROFILE_DECL;
   int i, j;
   LIBXS_ASSERT(LIBXS_DATATYPE_F64 == LIBXS_DATATYPE(GEMM_REAL_TYPE) || LIBXS_DATATYPE_F32 == LIBXS_DATATYPE(GEMM_REAL_TYPE));
+
+  /* Trim: truncate mantissa bits to reduce nprimes (mirroring GPU Scheme 2).
+   * Each trim level drops 2 input bits (4 product bits). Auto-reduce nprimes
+   * when cumulative CRT product bits exceed the required representation. */
+  if (0 < ozaki_trim) {
+    const int mant = GEMM_IS_DOUBLE ? 52 : 23;
+    const int max_levels = mant / 2;
+#if defined(OZAKI_I8) && (OZAKI_I8)
+    static const int cumbits[20] = {7, 13, 20, 27, 34, 41, 48, 55, 61, 68, 75, 81, 87, 94, 100, 106, 112, 118, 124, 130};
+#else
+    static const int cumbits[20] = {8, 15, 23, 31, 39, 47, 55, 63, 71, 78, 86, 94, 101, 109, 116, 124, 131, 139, 146, 153};
+#endif
+    oztrim_bits = LIBXS_MIN(ozaki_trim, max_levels) * 2;
+    {
+      const int req = 2 * (mant - oztrim_bits) + 23;
+      int np;
+      for (np = 0; np < OZ2_NPRIMES_MAX && cumbits[np] < req; ++np);
+      nprimes = LIBXS_CLMP((np < OZ2_NPRIMES_MAX) ? np + 1 : OZ2_NPRIMES_MAX, 1, nprimes);
+    }
+  }
 
   /* Precompute Garner modular inverse table */
   memset(garner_inv, 0, sizeof(garner_inv));
@@ -433,7 +454,7 @@ LIBXS_API_INLINE void gemm_oz2_diff(const char* transa, const char* transb, cons
           int sign;
           sign = ozaki_extract_ieee(a[LIBXS_INDEX(ta, *lda, row, kk)], &e, &mt);
           if (0 != mt) {
-            const int delta = (int)row_max_exp - (int)e;
+            const int delta = (int)row_max_exp - (int)e + oztrim_bits;
             uint8_t tmp[OZ2_NPRIMES_MAX];
             oz2_reduce(mt, delta, tmp, nprimes);
             LIBXS_PRAGMA_LOOP_COUNT(1, OZ2_NPRIMES_MAX, OZ2_NPRIMES_DEFAULT)
@@ -473,7 +494,7 @@ LIBXS_API_INLINE void gemm_oz2_diff(const char* transa, const char* transb, cons
           int sign;
           sign = ozaki_extract_ieee(b[LIBXS_INDEX(tb, *ldb, kk, col)], &e, &mt);
           if (0 != mt) {
-            const int delta = (int)col_max_exp - (int)e;
+            const int delta = (int)col_max_exp - (int)e + oztrim_bits;
             uint8_t tmp[OZ2_NPRIMES_MAX];
             oz2_reduce(mt, delta, tmp, nprimes);
             LIBXS_PRAGMA_LOOP_COUNT(1, OZ2_NPRIMES_MAX, OZ2_NPRIMES_DEFAULT)
@@ -495,13 +516,13 @@ LIBXS_API_INLINE void gemm_oz2_diff(const char* transa, const char* transb, cons
 # pragma omp for OZAKI_OMP_SCHEDULE nowait
 #endif
       for (row = 0; row < M; ++row) {
-        expa_fp[row] = libxs_pow2((int)expa_raw[row] - OZ_BIAS_PLUS_MANT);
+        expa_fp[row] = libxs_pow2((int)expa_raw[row] - OZ_BIAS_PLUS_MANT + oztrim_bits);
       }
 #if defined(_OPENMP)
 # pragma omp for OZAKI_OMP_SCHEDULE
 #endif
       for (col = 0; col < N; ++col) {
-        expb_fp[col] = libxs_pow2((int)expb_raw[col] - OZ_BIAS_PLUS_MANT);
+        expb_fp[col] = libxs_pow2((int)expb_raw[col] - OZ_BIAS_PLUS_MANT + oztrim_bits);
       }
 
       /* Phase 4: CRT dot products + accumulate for this K-group.
