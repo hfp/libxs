@@ -15,19 +15,6 @@
 # define OZ2_BATCH 16
 #endif
 
-/* Maximum mixed-radix digits per uint64 Horner group.
- * u8: 8 largest moduli product ~ 2^63.2, fits uint64.
- * i8: 9 largest moduli product ~ 2^61.8, fits uint64.
- * Grouping eliminates FP64 from the inner Horner loop. */
-#if !defined(OZ2_HORNER_GROUP)
-# if defined(OZAKI_I8) && (OZAKI_I8)
-#   define OZ2_HORNER_GROUP 9
-# else
-#   define OZ2_HORNER_GROUP 8
-# endif
-#endif
-
-
 /* Chinese Remainder Theorem (CRT) moduli and precomputed Barrett tables.
  * Moduli must be pairwise coprime (not necessarily prime); using the
  * largest prime power of each prime that fits maximizes bits per channel.
@@ -145,10 +132,6 @@ LIBXS_API_INLINE void oz2_reduce(uint64_t mantissa, int delta, uint8_t residues[
 }
 
 
-/* Forward declaration: needed by oz2_reconstruct_batch_avx512 (defined below). */
-LIBXS_API_INLINE double oz2_horner_grouped(const unsigned int v[], int nprimes);
-
-
 /* Hierarchical CRT: two-level Garner reconstruction.
  * Level 1: HIER_GS primes per group (small Garner, 32-bit).
  * Level 2: Garner over HIER_NGROUPS group-moduli (32-bit, 64-bit Barrett). */
@@ -258,7 +241,7 @@ LIBXS_API_INLINE double oz2_hier_horner(const unsigned int d[], int ngroups)
   return result;
 }
 
-LIBXS_API_INLINE void oz2_reconstruct_batch_hier(unsigned int batch_res[OZ2_BATCH][OZ2_NPRIMES_MAX],
+LIBXS_API_INLINE void oz2_reconstruct_batch(unsigned int batch_res[OZ2_BATCH][OZ2_NPRIMES_MAX],
   uint8_t garner_inv[OZ2_NPRIMES_MAX][OZ2_NPRIMES_MAX],
   const uint32_t l2_garner_inv[][HIER_NGROUPS_MAX],
   int nprimes, int bsz, double result[OZ2_BATCH])
@@ -297,7 +280,7 @@ LIBXS_API_INLINE void oz2_reconstruct_batch_hier(unsigned int batch_res[OZ2_BATC
  * Level 1: vectorized Garner across 16 batch elements per group.
  * Level 2: scalar Garner + Horner per element (only HIER_NGROUPS_MAX steps).
  */
-LIBXS_API_INLINE LIBXS_INTRINSICS(LIBXS_X86_AVX512) void oz2_reconstruct_batch_hier_avx512(
+LIBXS_API_INLINE LIBXS_INTRINSICS(LIBXS_X86_AVX512) void oz2_reconstruct_batch_avx512(
   unsigned int batch_res[OZ2_BATCH][OZ2_NPRIMES_MAX],
   uint8_t garner_inv[OZ2_NPRIMES_MAX][OZ2_NPRIMES_MAX],
   const uint32_t l2_garner_inv[][HIER_NGROUPS_MAX],
@@ -375,188 +358,6 @@ LIBXS_API_INLINE LIBXS_INTRINSICS(LIBXS_X86_AVX512) void oz2_reconstruct_batch_h
 }
 
 #endif /* LIBXS_INTRINSICS_AVX512 && OZ2_BATCH == 16 */
-
-
-/* AVX-512 batched CRT reconstruction via Garner's algorithm (flat).
- * Processes OZ2_BATCH (= 16) uint32 values in a single __m512i.
- * Uses libxs_mulhi_epu32 and libxs_mod_u32x16 from libxs_utils.h. */
-#if defined(LIBXS_INTRINSICS_AVX512) && 16 == OZ2_BATCH
-
-/**
- * AVX-512 batched CRT reconstruction via Garner's algorithm.
- * Uses transposed internal layout vt[prime][batch] for contiguous
- * SIMD access, bounded subtracts for digit reduction, and vectorized
- * Barrett for the Garner product reduction.
- */
-LIBXS_API_INLINE LIBXS_INTRINSICS(LIBXS_X86_AVX512) void oz2_reconstruct_batch_avx512(
-  unsigned int batch_res[OZ2_BATCH][OZ2_NPRIMES_MAX], uint8_t garner_inv[OZ2_NPRIMES_MAX][OZ2_NPRIMES_MAX], int nprimes, int bsz,
-  double result[OZ2_BATCH])
-{
-  /* Transposed layout: vt[prime_idx][OZ2_BATCH] for contiguous SIMD loads */
-  unsigned int vt[OZ2_NPRIMES_MAX][OZ2_BATCH];
-  __m512i u_vec;
-  int i, j, bi;
-  nprimes = LIBXS_CLMP(nprimes, 1, OZ2_NPRIMES_MAX);
-
-  /* Garner's algorithm: SIMD across batch elements */
-  LIBXS_PRAGMA_LOOP_COUNT(1, OZ2_NPRIMES_MAX, OZ2_NPRIMES_DEFAULT)
-  for (i = 0; i < nprimes; ++i) {
-    const unsigned int pi = oz2_moduli[i];
-    const unsigned int rcp_i = oz2_rcp[i];
-    const __m512i vpi = _mm512_set1_epi32((int)pi);
-
-    { /* Load residues for prime i across batch elements (strided gather) */
-      unsigned int tmp[OZ2_BATCH];
-      for (bi = 0; bi < bsz; ++bi) tmp[bi] = batch_res[bi][i];
-      for (bi = bsz; bi < OZ2_BATCH; ++bi) tmp[bi] = 0;
-      u_vec = _mm512_loadu_si512((__m512i*)tmp);
-    }
-
-    for (j = 0; j < i; ++j) {
-      const unsigned int inv_ji = garner_inv[j][i];
-      const __m512i vinv = _mm512_set1_epi32((int)inv_ji);
-
-      /* Load vt[j] — contiguous */
-      __m512i vj_vec = _mm512_loadu_si512((__m512i*)vt[j]);
-
-      /* Bounded subtract: reduce vt[j][bi] mod pi.
-       * Digits < max(moduli) = 128, min(moduli) = 61: two subtracts suffice. */
-      {
-        __mmask16 ge = _mm512_cmpge_epu32_mask(vj_vec, vpi);
-        vj_vec = _mm512_mask_sub_epi32(vj_vec, ge, vj_vec, vpi);
-        ge = _mm512_cmpge_epu32_mask(vj_vec, vpi);
-        vj_vec = _mm512_mask_sub_epi32(vj_vec, ge, vj_vec, vpi);
-      }
-
-      { /* diff = (u >= vj) ? (u - vj) : (pi + u - vj) */
-        const __mmask16 ge = _mm512_cmpge_epu32_mask(u_vec, vj_vec);
-        const __m512i d_pos = _mm512_sub_epi32(u_vec, vj_vec);
-        const __m512i d_neg = _mm512_sub_epi32(_mm512_add_epi32(vpi, u_vec), vj_vec);
-        __m512i diff_vec = _mm512_mask_blend_epi32(ge, d_neg, d_pos);
-
-        /* u = (diff * inv_ji) mod pi via vectorized Barrett */
-        diff_vec = _mm512_mullo_epi32(diff_vec, vinv);
-        u_vec = libxs_mod_u32x16(diff_vec, pi, rcp_i);
-      }
-    }
-
-    /* Store u into vt[i] */
-    _mm512_storeu_si512((__m512i*)vt[i], u_vec);
-  }
-
-  { /* Sign detection, complement, Horner — per element (transpose back) */
-    unsigned int v_scalar[OZ2_BATCH][OZ2_NPRIMES_MAX];
-    unsigned int tmp[OZ2_BATCH];
-    for (i = 0; i < nprimes; ++i) {
-      _mm512_storeu_si512((__m512i*)tmp, _mm512_loadu_si512((__m512i*)vt[i]));
-      for (bi = 0; bi < bsz; ++bi) v_scalar[bi][i] = tmp[bi];
-    }
-    for (bi = 0; bi < bsz; ++bi) {
-      const int is_negative = (v_scalar[bi][nprimes - 1] >= (unsigned int)(oz2_moduli[nprimes - 1] + 1) / 2) ? 1 : 0;
-      double r;
-      if (0 != is_negative) {
-        for (i = 0; i < nprimes; ++i) {
-          v_scalar[bi][i] = oz2_moduli[i] - 1 - v_scalar[bi][i];
-        }
-      }
-      r = oz2_horner_grouped(v_scalar[bi], nprimes);
-      result[bi] = (0 != is_negative) ? -(r + 1.0) : r;
-    }
-  }
-}
-
-#endif /* LIBXS_INTRINSICS_AVX512 && OZ2_BATCH == 16 */
-
-
-/**
- * Evaluate mixed-radix digits v[0..nprimes-1] via grouped uint64 Horner.
- * Partitions digits into groups of OZ2_HORNER_GROUP, evaluates each group
- * exactly in uint64 (product of OZ2_HORNER_GROUP moduli < 2^63), then combines groups
- * with Horner in FP64: ceil(nprimes/OZ2_HORNER_GROUP)-1 FP64 mul-adds.
- */
-LIBXS_API_INLINE double oz2_horner_grouped(const unsigned int v[], int nprimes)
-{
-  const int ngroups = (nprimes + OZ2_HORNER_GROUP - 1) / OZ2_HORNER_GROUP;
-  double result;
-  int g;
-
-  { /* MSB group: indices [(ngroups-1)*OZ2_HORNER_GROUP .. nprimes-1] */
-    const int lo = (ngroups - 1) * OZ2_HORNER_GROUP;
-    uint64_t r = (uint64_t)v[nprimes - 1];
-    int i;
-    for (i = nprimes - 2; i >= lo; --i) {
-      r = r * (uint64_t)oz2_moduli[i] + (uint64_t)v[i];
-    }
-    result = (double)r;
-  }
-
-  /* Combine remaining groups MSB to LSB */
-  for (g = ngroups - 2; g >= 0; --g) {
-    const int lo = g * OZ2_HORNER_GROUP;
-    const int hi = lo + OZ2_HORNER_GROUP - 1;
-    uint64_t gval, gprod = 1;
-    int i;
-    for (i = lo; i <= hi; ++i) gprod *= (uint64_t)oz2_moduli[i];
-    gval = (uint64_t)v[hi];
-    for (i = hi - 1; i >= lo; --i) {
-      gval = gval * (uint64_t)oz2_moduli[i] + (uint64_t)v[i];
-    }
-    result = result * (double)gprod + (double)gval;
-  }
-
-  return result;
-}
-
-
-/**
- * Batched CRT reconstruction: process OZ2_BATCH elements in parallel
- * through Garner's algorithm. The innermost loop over batch elements
- * is data-parallel, enabling auto-vectorization.
- */
-LIBXS_API_INLINE void oz2_reconstruct_batch(unsigned int batch_res[OZ2_BATCH][OZ2_NPRIMES_MAX],
-  uint8_t garner_inv[OZ2_NPRIMES_MAX][OZ2_NPRIMES_MAX], int nprimes, int bsz, double result[OZ2_BATCH])
-{
-  unsigned int v[OZ2_BATCH][OZ2_NPRIMES_MAX];
-  unsigned int u[OZ2_BATCH];
-  int i, j, bi;
-  nprimes = LIBXS_CLMP(nprimes, 1, OZ2_NPRIMES_MAX);
-
-  /* Garner's algorithm: vectorized across batch elements */
-  LIBXS_PRAGMA_LOOP_COUNT(1, OZ2_NPRIMES_MAX, OZ2_NPRIMES_DEFAULT)
-  for (i = 0; i < nprimes; ++i) {
-    const unsigned int pi = oz2_moduli[i];
-    for (bi = 0; bi < bsz; ++bi) u[bi] = batch_res[bi][i];
-
-    for (j = 0; j < i; ++j) {
-      const unsigned int inv_ji = garner_inv[j][i];
-      for (bi = 0; bi < bsz; ++bi) {
-        /* Bounded subtract: v[bi][j] < m_j <= 128, two subtracts suffice. */
-        unsigned int vj = v[bi][j];
-        if (vj >= pi) vj -= pi;
-        if (vj >= pi) vj -= pi;
-        {
-          const unsigned int diff = (u[bi] >= vj) ? (u[bi] - vj) : (pi + u[bi] - vj);
-          u[bi] = oz2_mod(diff * inv_ji, i);
-        }
-      }
-    }
-
-    for (bi = 0; bi < bsz; ++bi) v[bi][i] = u[bi];
-  }
-
-  /* Sign detection, complement, Horner — per element */
-  for (bi = 0; bi < bsz; ++bi) {
-    const int is_negative = (v[bi][nprimes - 1] >= (unsigned int)(oz2_moduli[nprimes - 1] + 1) / 2) ? 1 : 0;
-    double r;
-    if (0 != is_negative) {
-      for (i = 0; i < nprimes; ++i) {
-        v[bi][i] = oz2_moduli[i] - 1 - v[bi][i];
-      }
-    }
-    r = oz2_horner_grouped(v[bi], nprimes);
-    result[bi] = (0 != is_negative) ? -(r + 1.0) : r;
-  }
-}
 
 
 LIBXS_API_INLINE void gemm_oz2_diff(const char* transa, const char* transb, const GEMM_INT_TYPE* m, const GEMM_INT_TYPE* n,
@@ -947,17 +748,17 @@ LIBXS_API_INLINE void gemm_oz2_diff(const char* transa, const char* transb, cons
 
 #if defined(LIBXS_INTRINSICS_AVX512) && 16 == OZ2_BATCH
 # if (LIBXS_X86_AVX512 <= LIBXS_STATIC_TARGET_ARCH)
-              oz2_reconstruct_batch_hier_avx512(batch_res, garner_inv, l2_garner_inv, nprimes, (int)bsz, batch_val);
+              oz2_reconstruct_batch_avx512(batch_res, garner_inv, l2_garner_inv, nprimes, (int)bsz, batch_val);
 # else
               if (LIBXS_X86_AVX512 <= ozaki_target_arch) {
-                oz2_reconstruct_batch_hier_avx512(batch_res, garner_inv, l2_garner_inv, nprimes, (int)bsz, batch_val);
+                oz2_reconstruct_batch_avx512(batch_res, garner_inv, l2_garner_inv, nprimes, (int)bsz, batch_val);
               }
               else {
-                oz2_reconstruct_batch_hier(batch_res, garner_inv, l2_garner_inv, nprimes, (int)bsz, batch_val);
+                oz2_reconstruct_batch(batch_res, garner_inv, l2_garner_inv, nprimes, (int)bsz, batch_val);
               }
 # endif
 #else
-              oz2_reconstruct_batch_hier(batch_res, garner_inv, l2_garner_inv, nprimes, (int)bsz, batch_val);
+              oz2_reconstruct_batch(batch_res, garner_inv, l2_garner_inv, nprimes, (int)bsz, batch_val);
 #endif
 
               for (bi = 0; bi < (int)bsz; ++bi) {
