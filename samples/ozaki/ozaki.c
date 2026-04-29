@@ -137,7 +137,7 @@ OZAKI_API_INTERN void gemm_init(void)
       const char* const ozaki_maxk_env = getenv("OZAKI_MAXK");
       const char* const ozaki_verbose_env = getenv("OZAKI_VERBOSE");
       const char* const ozaki_complex_env = getenv("OZAKI_COMPLEX");
-      ozaki = (NULL == ozaki_env ? 1 /*default*/ : atoi(ozaki_env));
+      ozaki = (NULL == ozaki_env ? 2 /*default*/ : atoi(ozaki_env));
       /* OZAKI_MAXK: max K per preprocessing pass (0=no grouping).
        * Default: K_GRP (compile-time, typically 32768). */
       ozaki_maxk = (NULL != ozaki_maxk_env ? atoi(ozaki_maxk_env) : K_GRP);
