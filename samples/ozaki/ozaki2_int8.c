@@ -186,7 +186,7 @@ LIBXS_API_INLINE unsigned int oz2_hier_l1_garner(const unsigned int group_residu
 }
 
 LIBXS_API_INLINE int oz2_hier_l2_garner(const unsigned int gval[], unsigned int d[],
-  const uint32_t l2_garner_inv[][HIER_NGROUPS_MAX], int ngroups)
+  const uint32_t* l2_garner_inv, int ngroups)
 {
   int i, j, is_negative;
 
@@ -197,7 +197,7 @@ LIBXS_API_INLINE int oz2_hier_l2_garner(const unsigned int gval[], unsigned int 
       unsigned int dj = d[j];
       if (dj >= mi) dj = oz2_mod_l2((uint64_t)dj, i);
       { const unsigned int diff = (u >= dj) ? (u - dj) : (mi + u - dj);
-        u = oz2_mod_l2((uint64_t)diff * (uint64_t)l2_garner_inv[j][i], i);
+        u = oz2_mod_l2((uint64_t)diff * (uint64_t)l2_garner_inv[j * HIER_NGROUPS_MAX + i], i);
       }
     }
     d[i] = u;
@@ -243,7 +243,7 @@ LIBXS_API_INLINE double oz2_hier_horner(const unsigned int d[], int ngroups)
 
 LIBXS_API_INLINE void oz2_reconstruct_batch(unsigned int batch_res[OZ2_BATCH][OZ2_NPRIMES_MAX],
   uint8_t garner_inv[OZ2_NPRIMES_MAX][OZ2_NPRIMES_MAX],
-  const uint32_t l2_garner_inv[][HIER_NGROUPS_MAX],
+  uint32_t (*l2_garner_inv)[HIER_NGROUPS_MAX],
   int nprimes, int bsz, double result[OZ2_BATCH])
 {
   const int ngroups = (nprimes + HIER_GS - 1) / HIER_GS;
@@ -283,7 +283,7 @@ LIBXS_API_INLINE void oz2_reconstruct_batch(unsigned int batch_res[OZ2_BATCH][OZ
 LIBXS_API_INLINE LIBXS_INTRINSICS(LIBXS_X86_AVX512) void oz2_reconstruct_batch_avx512(
   unsigned int batch_res[OZ2_BATCH][OZ2_NPRIMES_MAX],
   uint8_t garner_inv[OZ2_NPRIMES_MAX][OZ2_NPRIMES_MAX],
-  const uint32_t l2_garner_inv[][HIER_NGROUPS_MAX],
+  uint32_t (*l2_garner_inv)[HIER_NGROUPS_MAX],
   int nprimes, int bsz, double result[OZ2_BATCH])
 {
   const int ngroups = (nprimes + HIER_GS - 1) / HIER_GS;
@@ -365,7 +365,7 @@ LIBXS_API_INLINE void gemm_oz2_diff(const char* transa, const char* transb, cons
   const GEMM_INT_TYPE* ldb, const GEMM_REAL_TYPE* beta, GEMM_REAL_TYPE* c, const GEMM_INT_TYPE* ldc, libxs_matdiff_t* diff)
 {
   uint8_t garner_inv[OZ2_NPRIMES_MAX][OZ2_NPRIMES_MAX];
-  uint32_t l2_garner_inv[HIER_NGROUPS_MAX][HIER_NGROUPS_MAX];
+  uint32_t l2_garner_inv[HIER_NGROUPS_MAX * HIER_NGROUPS_MAX];
   /* Max K per int32 accumulation pass: K_CHUNK * max_residue^2 < 2^31.
    * u8 (max 255): 255^2 * 32768 ~ 2.13e9 < 2^31. K_CHUNK = 32768.
    * i8 (max 127): 127^2 * 131072 ~ 2.11e9 < 2^31. K_CHUNK = 131072. */
@@ -426,7 +426,7 @@ LIBXS_API_INLINE void gemm_oz2_diff(const char* transa, const char* transb, cons
     memset(l2_garner_inv, 0, sizeof(l2_garner_inv));
     for (i = 0; i < ngroups; ++i) {
       for (j = i + 1; j < ngroups; ++j) {
-        l2_garner_inv[i][j] = libxs_mod_inverse_u32(oz2_hier_gprod[i] % oz2_hier_gprod[j], oz2_hier_gprod[j]);
+        l2_garner_inv[i * HIER_NGROUPS_MAX + j] = libxs_mod_inverse_u32(oz2_hier_gprod[i] % oz2_hier_gprod[j], oz2_hier_gprod[j]);
       }
     }
   }
