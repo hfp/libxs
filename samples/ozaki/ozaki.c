@@ -258,16 +258,16 @@ OZAKI_API_INTERN LIBXS_ATTRIBUTE_WEAK void GEMM_WRAP(const char* transa, const c
   const GEMM_REAL_TYPE* b, const GEMM_INT_TYPE* ldb, const GEMM_REAL_TYPE* beta, GEMM_REAL_TYPE* c, const GEMM_INT_TYPE* ldc)
 {
   int run_ozaki = 0;
-  LIBXS_ASSERT(NULL != lda && NULL != ldb && NULL != ldc);
-  LIBXS_ASSERT(NULL != a && NULL != b && NULL != c);
   LIBXS_ASSERT(NULL != m && NULL != n && NULL != k);
   LIBXS_ASSERT(NULL != transa && NULL != transb);
 
   gemm_init();
 
   /* Quick-return for degenerate dimensions (BLAS spec: valid no-op).
-   * Some BLAS implementations reject lda=0 even when m*n*k=0. */
+   * Pointers may be NULL when any dimension is zero. */
   if (*m > 0 && *n > 0 && *k > 0) {
+    LIBXS_ASSERT(NULL != a && NULL != b && NULL != c);
+    LIBXS_ASSERT(NULL != lda && NULL != ldb && NULL != ldc);
     /* Bypass Ozaki: fall through to original BLAS.
      * Used when the reference ZGEMM may internally call sgemm_,
      * which --wrap redirects back into GEMM_WRAP. Without bypass,
