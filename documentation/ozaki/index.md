@@ -12,6 +12,7 @@ transparently, via LD_PRELOAD. No source changes needed.
 
 - **Scheme 1**: Mantissa slicing (int8) -- quadratic in slices
 - **Scheme 2**: Chinese Remainder Theorem (CRT) -- linear in primes
+- **Adaptive**: Automatic selection based on data characteristics
 - Intercepts DGEMM, SGEMM, ZGEMM, and CGEMM
 
 Built-in accuracy tracking tells if results are trustworthy.
@@ -60,10 +61,13 @@ Produces `libwrap.so`, `libwrap.a`, and test drivers
 ```
 
 ```text
-Ozaki-Scheme Low-Precision GEMM
-GEMM: NN M=256 N=256 K=256
-ozaki_oz1: nslices=8 block=16x16x16 vnni=1
-Time: 0.123 seconds
+dgemm('N', 'N', 256/*m*/, 256/*n*/, 256/*k*/,
+  1/*alpha*/, 0x7cf7c8a02010/*a*/, 256/*lda*/,
+              0x7cf7c8981010/*b*/, 256/*ldb*/,
+   1/*beta*/, 0x7cf7c8900010/*c*/, 256/*ldc*/)
+OZAKI GEMM: 27.3 ms (1.2 GFLOPS/s)
+BLAS GEMM:  0.2 ms (214.3 GFLOPS/s)
+...
 ```
 
 ---
@@ -122,19 +126,20 @@ Run your workload and check the exit summary.
 ## Reading the Statistics Output
 
 ```text
-GEMM: ncalls=90620954 linf=0 linf_rel=0 l2_rel=0 eps=0.000000 rsq=1.000000
+DGEMM[3|410814]: linf=7.81597e-14 linf_rel=2.23531e-15 l2_rel=6.0263e-13 eps=5.20675e-16 rsq=1
 ```
+
+In brackets are the running call-count followed by the PID.
 
 | Metric     | What it tells you              | Healthy value                |
 |------------|--------------------------------|------------------------------|
-| ncalls     | Total intercepted GEMMs        | -                            |
 | linf       | Max absolute error             | ~0                           |
 | linf_rel   | Max relative error             | < 1e-10 (fp64)               |
 | l2_rel     | RMS relative error             | < 1e-12 (fp64)               |
 | eps        | Normalized Frobenius error     | < 1e-10 (fp64)               |
 | rsq        | R-squared (best single metric) | > 0.99 = good, 1.0 = perfect |
 
-The RSQ is the important number. Values below 0.99 need investigation.
+The RSQ is the important number. Investigate if below 0.99.
 
 ---
 
@@ -166,26 +171,24 @@ Reproduce the problem offline:
 
 Try increasing accuracy:
 
-- More slices: `OZAKI_N=12` (Scheme 1, default 8)
-- Switch scheme: `OZAKI=2` (CRT, often better for large K)
 - More primes: `OZAKI_N=20` (Scheme 2, default 16)
+- Switch scheme: `OZAKI=1` (mantissa slicing)
+- More slices: `OZAKI_N=12` (Scheme 1, default 8)
 
 ---
 
 ## Scheme Selection
 
-| Setting   | Cost model            | Best for                      |
-|-----------|-----------------------|-------------------------------|
-| OZAKI=1   | S\*(S+1)/2 dot prods  | Smaller matrices, high acc.   |
-| OZAKI=2   | P dot products        | Large matrices, large K       |
+| Setting   | Cost model               | Best for                              |
+|-----------|--------------------------|---------------------------------------|
+| OZAKI=2   | P integer GEMMs (fixed)  | General use, large matrices (default) |
+| OZAKI=1   | S\*(S+1)/2 integer GEMMs | Narrow exponent spans                 |
+| OZAKI=3\* | Auto-selects 1 or 2      | Repeated calls, unknown data          |
 
-S = number of slices (default 8 for fp64).  
-P = number of primes (default 16 for fp64).
+P = number of primes (default 16 for fp64).  
+S = number of slices (default 8 for fp64).
 
-```bash
-export OZAKI=1              # Scheme 1 (default)
-export OZAKI=2              # Scheme 2 (CRT)
-```
+\* Auto-selection only on GPU (Ozaki-2 on CPU).
 
 ---
 
@@ -209,13 +212,27 @@ When built with LIBXSTREAM (OpenCL), a GPU path is available:
 ```bash
 export OZAKI_OCL=1          # enable GPU offload
 export OZAKI_OCL=0          # CPU only (default)
+
+export OZAKI=1              # Adaptive cut-off
+export OZAKI=2              # CRT scheme (default)
+export OZAKI=3              # Auto-select scheme
 ```
 
-For large matrices with Scheme 2, K-grouping can help:
+Auto-selecting the scheme uses `OZAKI_CACHE` as a bonus.
+
+---
+
+## GPU Offload Cache
+
+Avoid to re-transfer the A-matrix or the B-matrix.
 
 ```bash
-export OZAKI=2 OZAKI_GROUPS=4
+export OZAKI_CACHE=1        # A-matrix
+export OZAKI_CACHE=2        # B-matrix
+export OZAKI_CACHE=3        # A and B
 ```
+
+The content is finger-printed but can still cause wrong results!
 
 ---
 
@@ -240,8 +257,8 @@ Works for both CPU and GPU paths (same histogram).
 
 ## Complex GEMM (ZGEMM/CGEMM)
 
-Complex GEMM is mapped to real GEMM internally.
-The real GEMM goes through the Ozaki wrapper automatically.
+Complex GEMM is mapped to real GEMM internally.  
+The real GEMM is wrapped automatically.
 
 Can be controlled via `OZAKI_COMPLEX`.
 
@@ -259,7 +276,7 @@ Can be controlled via `OZAKI_COMPLEX`.
 #SBATCH -N 1
 
 export LD_PRELOAD=$HOME/libxs/samples/ozaki/libwrap.so
-export OZAKI=2              # CRT scheme
+export OZAKI=2              # CRT scheme (default)
 export OZAKI_VERBOSE=1000   # monitor every 1000th GEMM
 export OZAKI_RSQ=0.9        # dump if accuracy drops
 
@@ -271,7 +288,7 @@ srun --export=ALL ./yourapp.x workload.inp
 ## Troubleshooting
 
 **Segfault on startup?**
-The application may statically link BLAS.  
+The application may statically link BLAS.
 Use --wrap instead:
 
 ```bash
@@ -297,7 +314,7 @@ ldd ./app | grep libwrap
 3. Validate: `export OZAKI_VERBOSE=1 OZAKI_RSQ=0.95`
 4. Monitor: `export OZAKI_VERBOSE=1000 OZAKI_EXIT=0`
 5. Debug: `./dgemm-wrap.x dumped-a.mhd dumped-b.mhd`
-6. Tune: `export OZAKI_TRIM=7` or `export OZAKI=2`
+6. Tune: `export OZAKI_TRIM=7` or `export OZAKI=1`
 
 ---
 
