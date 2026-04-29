@@ -56,9 +56,6 @@ static const uint32_t oz2_pow36[] = {
 };
 typedef int8_t oz2_res_t;
 
-static const uint32_t oz2_hier_gprod[] = {245872000u, 156832361u, 89809099u, 38771541u, 17120443u};
-static const uint64_t oz2_hier_l2_barrett[] = {75025802343ull, 117620776452ull, 205399500486ull, 475780523495ull, 1077468852512ull};
-
 #else /* u8 default */
 
 /* 20 pairwise coprime moduli <= 256 (prime powers + primes).
@@ -83,9 +80,6 @@ static const uint32_t oz2_pow36[] = {
   152U /* 173 */, 118U /* 169 */, 112U /* 167 */, 133U /* 163 */
 };
 typedef uint8_t oz2_res_t;
-
-static const uint32_t oz2_hier_gprod[] = {3763024128u, 2894777321u, 1844618759u, 1194324337u, 795860377u};
-static const uint64_t oz2_hier_l2_barrett[] = {4902106243ull, 6372422479ull, 10000301679ull, 15445338843ull, 23178367219ull};
 
 #endif /* OZAKI_I8 */
 
@@ -139,14 +133,13 @@ LIBXS_API_INLINE void oz2_reduce(uint64_t mantissa, int delta, uint8_t residues[
 #define HIER_NGROUPS_MAX ((OZ2_NPRIMES_MAX + HIER_GS - 1) / HIER_GS)
 #define HIER_L2_HORNER_GROUP 2
 
-LIBXS_API_INLINE unsigned int oz2_mod_l2(uint64_t x, int gidx)
+LIBXS_API_INLINE unsigned int oz2_mod_l2(uint64_t x, uint32_t m, uint64_t barrett)
 {
-  const uint32_t m = oz2_hier_gprod[gidx];
 #if defined(__SIZEOF_INT128__)
-  const uint64_t q = (uint64_t)(((__uint128_t)x * oz2_hier_l2_barrett[gidx]) >> 64);
+  const uint64_t q = (uint64_t)(((__uint128_t)x * barrett) >> 64);
 #else
   const uint64_t x_lo = (uint32_t)x, x_hi = x >> 32;
-  const uint64_t b_lo = (uint32_t)oz2_hier_l2_barrett[gidx], b_hi = oz2_hier_l2_barrett[gidx] >> 32;
+  const uint64_t b_lo = (uint32_t)barrett, b_hi = barrett >> 32;
   const uint64_t q = (x_hi * b_hi) + ((x_hi * b_lo + x_lo * b_hi + ((x_lo * b_lo) >> 32)) >> 32);
 #endif
   { uint32_t r = (uint32_t)(x - q * (uint64_t)m);
@@ -186,33 +179,33 @@ LIBXS_API_INLINE unsigned int oz2_hier_l1_garner(const unsigned int group_residu
 }
 
 LIBXS_API_INLINE int oz2_hier_l2_garner(const unsigned int gval[], unsigned int d[],
-  const uint32_t* l2_garner_inv, int ngroups)
+  const uint32_t* l2_garner_inv, const uint32_t* gprod, const uint64_t* l2_barrett, int ngroups)
 {
   int i, j, is_negative;
 
   for (i = 0; i < ngroups; ++i) {
     unsigned int u = gval[i];
-    const unsigned int mi = oz2_hier_gprod[i];
+    const unsigned int mi = gprod[i];
     for (j = 0; j < i; ++j) {
       unsigned int dj = d[j];
-      if (dj >= mi) dj = oz2_mod_l2((uint64_t)dj, i);
+      if (dj >= mi) dj = oz2_mod_l2((uint64_t)dj, mi, l2_barrett[i]);
       { const unsigned int diff = (u >= dj) ? (u - dj) : (mi + u - dj);
-        u = oz2_mod_l2((uint64_t)diff * (uint64_t)l2_garner_inv[j * HIER_NGROUPS_MAX + i], i);
+        u = oz2_mod_l2((uint64_t)diff * (uint64_t)l2_garner_inv[j * HIER_NGROUPS_MAX + i], mi, l2_barrett[i]);
       }
     }
     d[i] = u;
   }
 
-  is_negative = (d[ngroups - 1] >= (oz2_hier_gprod[ngroups - 1] + 1) / 2) ? 1 : 0;
+  is_negative = (d[ngroups - 1] >= (gprod[ngroups - 1] + 1) / 2) ? 1 : 0;
   if (0 != is_negative) {
     for (i = 0; i < ngroups; ++i) {
-      d[i] = oz2_hier_gprod[i] - 1 - d[i];
+      d[i] = gprod[i] - 1 - d[i];
     }
   }
   return is_negative;
 }
 
-LIBXS_API_INLINE double oz2_hier_horner(const unsigned int d[], int ngroups)
+LIBXS_API_INLINE double oz2_hier_horner(const unsigned int d[], const uint32_t* gprod, int ngroups)
 {
   const int nsuper = (ngroups + HIER_L2_HORNER_GROUP - 1) / HIER_L2_HORNER_GROUP;
   double result;
@@ -221,7 +214,7 @@ LIBXS_API_INLINE double oz2_hier_horner(const unsigned int d[], int ngroups)
   { const int lo = (nsuper - 1) * HIER_L2_HORNER_GROUP;
     uint64_t r = (uint64_t)d[ngroups - 1];
     for (i = ngroups - 2; i >= lo; --i) {
-      r = r * (uint64_t)oz2_hier_gprod[i] + (uint64_t)d[i];
+      r = r * (uint64_t)gprod[i] + (uint64_t)d[i];
     }
     result = (double)r;
   }
@@ -230,10 +223,10 @@ LIBXS_API_INLINE double oz2_hier_horner(const unsigned int d[], int ngroups)
     const int lo = sg * HIER_L2_HORNER_GROUP;
     const int hi = lo + HIER_L2_HORNER_GROUP - 1;
     uint64_t sgval, sgprod = 1;
-    for (i = lo; i <= hi; ++i) sgprod *= (uint64_t)oz2_hier_gprod[i];
+    for (i = lo; i <= hi; ++i) sgprod *= (uint64_t)gprod[i];
     sgval = (uint64_t)d[hi];
     for (i = hi - 1; i >= lo; --i) {
-      sgval = sgval * (uint64_t)oz2_hier_gprod[i] + (uint64_t)d[i];
+      sgval = sgval * (uint64_t)gprod[i] + (uint64_t)d[i];
     }
     result = result * (double)sgprod + (double)sgval;
   }
@@ -243,7 +236,7 @@ LIBXS_API_INLINE double oz2_hier_horner(const unsigned int d[], int ngroups)
 
 LIBXS_API_INLINE void oz2_reconstruct_batch(unsigned int batch_res[OZ2_BATCH][OZ2_NPRIMES_MAX],
   uint8_t garner_inv[OZ2_NPRIMES_MAX][OZ2_NPRIMES_MAX],
-  uint32_t (*l2_garner_inv)[HIER_NGROUPS_MAX],
+  const uint32_t* l2_garner_inv, const uint32_t* gprod, const uint64_t* l2_barrett,
   int nprimes, int bsz, double result[OZ2_BATCH])
 {
   const int ngroups = (nprimes + HIER_GS - 1) / HIER_GS;
@@ -264,8 +257,8 @@ LIBXS_API_INLINE void oz2_reconstruct_batch(unsigned int batch_res[OZ2_BATCH][OZ
       gval[g] = oz2_hier_l1_garner(gr, g, garner_inv, nprimes);
     }
 
-    is_negative = oz2_hier_l2_garner(gval, d, l2_garner_inv, ngroups);
-    r = oz2_hier_horner(d, ngroups);
+    is_negative = oz2_hier_l2_garner(gval, d, l2_garner_inv, gprod, l2_barrett, ngroups);
+    r = oz2_hier_horner(d, gprod, ngroups);
     result[bi] = (0 != is_negative) ? -(r + 1.0) : r;
   }
 }
@@ -283,7 +276,7 @@ LIBXS_API_INLINE void oz2_reconstruct_batch(unsigned int batch_res[OZ2_BATCH][OZ
 LIBXS_API_INLINE LIBXS_INTRINSICS(LIBXS_X86_AVX512) void oz2_reconstruct_batch_avx512(
   unsigned int batch_res[OZ2_BATCH][OZ2_NPRIMES_MAX],
   uint8_t garner_inv[OZ2_NPRIMES_MAX][OZ2_NPRIMES_MAX],
-  uint32_t (*l2_garner_inv)[HIER_NGROUPS_MAX],
+  const uint32_t* l2_garner_inv, const uint32_t* gprod, const uint64_t* l2_barrett,
   int nprimes, int bsz, double result[OZ2_BATCH])
 {
   const int ngroups = (nprimes + HIER_GS - 1) / HIER_GS;
@@ -351,8 +344,8 @@ LIBXS_API_INLINE LIBXS_INTRINSICS(LIBXS_X86_AVX512) void oz2_reconstruct_batch_a
 
   for (bi = 0; bi < bsz; ++bi) {
     unsigned int d[HIER_NGROUPS_MAX];
-    const int is_negative = oz2_hier_l2_garner(gval_all[bi], d, l2_garner_inv, ngroups);
-    const double r = oz2_hier_horner(d, ngroups);
+    const int is_negative = oz2_hier_l2_garner(gval_all[bi], d, l2_garner_inv, gprod, l2_barrett, ngroups);
+    const double r = oz2_hier_horner(d, gprod, ngroups);
     result[bi] = (0 != is_negative) ? -(r + 1.0) : r;
   }
 }
@@ -365,6 +358,8 @@ LIBXS_API_INLINE void gemm_oz2_diff(const char* transa, const char* transb, cons
   const GEMM_INT_TYPE* ldb, const GEMM_REAL_TYPE* beta, GEMM_REAL_TYPE* c, const GEMM_INT_TYPE* ldc, libxs_matdiff_t* diff)
 {
   uint8_t garner_inv[OZ2_NPRIMES_MAX][OZ2_NPRIMES_MAX];
+  uint32_t hier_gprod[HIER_NGROUPS_MAX];
+  uint64_t hier_l2_barrett[HIER_NGROUPS_MAX];
   uint32_t l2_garner_inv[HIER_NGROUPS_MAX * HIER_NGROUPS_MAX];
   /* Max K per int32 accumulation pass: K_CHUNK * max_residue^2 < 2^31.
    * u8 (max 255): 255^2 * 32768 ~ 2.13e9 < 2^31. K_CHUNK = 32768.
@@ -423,10 +418,18 @@ LIBXS_API_INLINE void gemm_oz2_diff(const char* transa, const char* transb, cons
     }
   }
   { const int ngroups = (nprimes + HIER_GS - 1) / HIER_GS;
+    for (i = 0; i < ngroups; ++i) {
+      const int lo = i * HIER_GS;
+      const int hi = (lo + HIER_GS <= nprimes) ? (lo + HIER_GS) : nprimes;
+      uint32_t p = 1;
+      for (j = lo; j < hi; ++j) p *= (uint32_t)oz2_moduli[j];
+      hier_gprod[i] = p;
+      hier_l2_barrett[i] = (uint64_t)(-1) / (uint64_t)p; /* floor(2^64-1 / p) ~ floor(2^64/p) */
+    }
     memset(l2_garner_inv, 0, sizeof(l2_garner_inv));
     for (i = 0; i < ngroups; ++i) {
       for (j = i + 1; j < ngroups; ++j) {
-        l2_garner_inv[i * HIER_NGROUPS_MAX + j] = libxs_mod_inverse_u32(oz2_hier_gprod[i] % oz2_hier_gprod[j], oz2_hier_gprod[j]);
+        l2_garner_inv[i * HIER_NGROUPS_MAX + j] = libxs_mod_inverse_u32(hier_gprod[i] % hier_gprod[j], hier_gprod[j]);
       }
     }
   }
@@ -748,17 +751,17 @@ LIBXS_API_INLINE void gemm_oz2_diff(const char* transa, const char* transb, cons
 
 #if defined(LIBXS_INTRINSICS_AVX512) && 16 == OZ2_BATCH
 # if (LIBXS_X86_AVX512 <= LIBXS_STATIC_TARGET_ARCH)
-              oz2_reconstruct_batch_avx512(batch_res, garner_inv, l2_garner_inv, nprimes, (int)bsz, batch_val);
+              oz2_reconstruct_batch_avx512(batch_res, garner_inv, l2_garner_inv, hier_gprod, hier_l2_barrett, nprimes, (int)bsz, batch_val);
 # else
               if (LIBXS_X86_AVX512 <= ozaki_target_arch) {
-                oz2_reconstruct_batch_avx512(batch_res, garner_inv, l2_garner_inv, nprimes, (int)bsz, batch_val);
+                oz2_reconstruct_batch_avx512(batch_res, garner_inv, l2_garner_inv, hier_gprod, hier_l2_barrett, nprimes, (int)bsz, batch_val);
               }
               else {
-                oz2_reconstruct_batch(batch_res, garner_inv, l2_garner_inv, nprimes, (int)bsz, batch_val);
+                oz2_reconstruct_batch(batch_res, garner_inv, l2_garner_inv, hier_gprod, hier_l2_barrett, nprimes, (int)bsz, batch_val);
               }
 # endif
 #else
-              oz2_reconstruct_batch(batch_res, garner_inv, l2_garner_inv, nprimes, (int)bsz, batch_val);
+              oz2_reconstruct_batch(batch_res, garner_inv, l2_garner_inv, hier_gprod, hier_l2_barrett, nprimes, (int)bsz, batch_val);
 #endif
 
               for (bi = 0; bi < (int)bsz; ++bi) {
