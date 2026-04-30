@@ -42,10 +42,13 @@ nav:
   - Howto: libxs_ozaki.md
   - Details: samples/libxs_ozaki.md
 - LIBXS Domains:
+  - Permutation: libxs_perm.md
   - Histogram: libxs_hist.md
   - Registry: libxs_reg.md
+  - Hashing: libxs_hash.md
   - Malloc: libxs_malloc.md
   - Memory: libxs_mem.md
+  - String: libxs_str.md
   - Timer: libxs_timer.md
   - CPUID: libxs_cpuid.md
   - Utils: libxs_utils.md
@@ -58,25 +61,25 @@ nav:
 - LIBXSTREAM:
   - Reference: libxs_opencl.md
 - Example Code:
-  - GEMM: samples/libxs_gemm.md
-  - Memory: samples/libxs_memory.md
   - Registry: samples/libxs_registry.md
   - Scratch: samples/libxs_scratch.md
   - Shuffle: samples/libxs_shuffle.md
+  - Memory: samples/libxs_memory.md
+  - GEMM: samples/libxs_gemm.md
   - Sync: samples/libxs_sync.md
 - Tests:
-  - Atomics: tests/atomics.md
-  - Hash: tests/hash.md
   - Header-Only: tests/headeronly.md
-  - Histogram: tests/hist.md
   - Intrinsics: tests/intrinsics.md
-  - Malloc: tests/malloc.md
-  - Matdiff: tests/matdiff.md
-  - Math: tests/math.md
-  - Memory: tests/memory.md
-  - MHD: tests/mhd.md
+  - Histogram: tests/hist.md
   - Registry: tests/registry.md
+  - Hashing: tests/hash.md
+  - Matdiff: tests/matdiff.md
+  - Atomics: tests/atomics.md
+  - Malloc: tests/malloc.md
+  - Memory: tests/memory.md
   - Timer: tests/timer.md
+  - Math: tests/math.md
+  - MHD: tests/mhd.md
 - Development:
   - Scripts: libxs_scripts.md
 - About:
