@@ -132,6 +132,7 @@ libxs_setdiff
 libxs_setdiff_min
 libxs_shuffle
 libxs_shuffle2
+libxs_sort_smooth
 libxs_stdio_acquire
 libxs_stdio_release
 libxs_stridist
