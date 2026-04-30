@@ -8,7 +8,7 @@
 ******************************************************************************/
 #include <libxs_mhd.h>
 #include <libxs_mem.h>
-#include "libxs_hash.h"
+#include "libxs_crc32.h"
 
 #include <ctype.h>
 

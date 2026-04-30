@@ -10,7 +10,10 @@ of [LIBXSMM](https://github.com/libxsmm/libxsmm).
 
 | Domain                                            | Header               | Description                                                   |
 |---------------------------------------------------|----------------------|---------------------------------------------------------------|
-| [Memory](documentation/libxs_mem.md)              | `libxs_mem.h`        | Comparison, hashing (CRC32), matrix copy/transpose, shuffle   |
+| [Memory](documentation/libxs_mem.md)              | `libxs_mem.h`        | Byte comparison, matrix copy/transpose, alignment queries     |
+| [Permutation](documentation/libxs_perm.md)        | `libxs_perm.h`       | Co-prime shuffling, smooth row permutations                   |
+| [Hashing](documentation/libxs_hash.md)            | `libxs_hash.h`       | CRC32-based hashing, Adler-32, string hashing                 |
+| [String](documentation/libxs_str.md)              | `libxs_str.h`        | Edit distance, substring search, word similarity, formatting  |
 | [GEMM](documentation/libxs_gemm.md)               | `libxs_gemm.h`       | Batched dense GEMM (strided, pointer-array, grouped)          |
 | [Math](documentation/libxs_math.md)               | `libxs_math.h`       | Matrix comparison, GCD/LCM, coprime, BF16 conversion          |
 | [MHD](documentation/libxs_mhd.md)                 | `libxs_mhd.h`        | Read/write MetaImage (MHD/MHA) files                          |

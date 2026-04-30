@@ -194,7 +194,7 @@ double libxs_fprint_diff(
 ```
 
 Weighted Sobolev distance between two fingerprints:
-d = sqrt( sum over k of weights[k] * (a->l2[k] - b->l2[k])^2 ).
+d = sqrt( sum over k of weights[k] \* (a->l2[k] - b->l2[k])^2 ).
 The number of orders compared is min(a->order, b->order) + 1.
 If weights is NULL, default weights w(k) = 1/k! are used, which
 naturally dampens higher-order (noisier) derivatives.
@@ -214,8 +214,8 @@ double libxs_gss_min(
 ```
 
 Minimizes a unimodal function fn on the interval [x0, x1]. The
-callback receives x and an opaque context pointer. Returns f(x*)
-where x* is the minimizer; xmin (may be NULL) receives x*.
+callback receives x and an opaque context pointer. Returns f(x\*)
+where x\* is the minimizer; xmin (may be NULL) receives x\*.
 
 The bracket shrinks by factor phi = (sqrt(5)-1)/2 per iteration,
 reusing one evaluation from the previous step. Convergence is

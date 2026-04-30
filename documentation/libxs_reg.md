@@ -6,11 +6,11 @@ Thread-safe key-value store backed by a hash table with per-thread caching.
 
 ## Configuration Macros
 
-| Macro | Default | Description |
-|:------|:--------|:------------|
-| `LIBXS_REGKEY_MAXSIZE` | 64 | Maximum key size in bytes |
-| `LIBXS_REGISTRY_NBUCKETS` | 64 | Initial number of hash-table buckets (must be a power of two) |
-| `LIBXS_REGCACHE_NENTRIES` | 16 | Thread-local cache entries per thread (power of two; 0 disables caching) |
+| Macro                     | Default | Description                                                              |
+|:--------------------------|:--------|:-------------------------------------------------------------------------|
+| `LIBXS_REGKEY_MAXSIZE`    | 64      | Maximum key size in bytes                                                |
+| `LIBXS_REGISTRY_NBUCKETS` | 64      | Initial number of hash-table buckets (must be a power of two)            |
+| `LIBXS_REGCACHE_NENTRIES` | 16      | Thread-local cache entries per thread (power of two; 0 disables caching) |
 
 ## Types
 

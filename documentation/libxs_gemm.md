@@ -2,7 +2,7 @@
 
 Header: `libxs_gemm.h`
 
-Batched general matrix-matrix multiplication (GEMM). Operations are expressed as C := alpha * op(A) * op(B) + beta * C, where op() is an optional transpose. The caller can supply MKL JIT, LIBXSMM, or BLAS kernels; otherwise a built-in default kernel (auto-vectorized) is used.
+Batched general matrix-matrix multiplication (GEMM). Operations are expressed as C := alpha \* op(A) \* op(B) + beta \* C, where op() is an optional transpose. The caller can supply MKL JIT, LIBXSMM, or BLAS kernels; otherwise a built-in default kernel (auto-vectorized) is used.
 
 ## Types
 

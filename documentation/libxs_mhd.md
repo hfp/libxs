@@ -37,7 +37,7 @@ Per-element callback for reading or converting image data. The value range (`src
 typedef struct libxs_mhd_info_t {
   size_t ndims;         /* dimensionality */
   size_t ncomponents;   /* interleaved image channels */
-  libxs_data_t type;  /* pixel element type */
+  libxs_data_t type;    /* pixel element type */
   size_t header_size;   /* header size in bytes (LOCAL data) */
 } libxs_mhd_info_t;
 ```

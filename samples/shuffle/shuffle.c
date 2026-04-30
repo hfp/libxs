@@ -8,7 +8,9 @@
 ******************************************************************************/
 #include <libxs_timer.h>
 #include <libxs_math.h>
+#include <libxs_hash.h>
 #include <libxs_rng.h>
+#include <libxs_perm.h>
 #include <libxs_mem.h>
 #include <libxs_mhd.h>
 

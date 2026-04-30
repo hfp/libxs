@@ -6,8 +6,8 @@
 * Further information: https://github.com/hfp/libxs/                          *
 * SPDX-License-Identifier: BSD-3-Clause                                       *
 ******************************************************************************/
-#ifndef LIBXS_HASH_H
-#define LIBXS_HASH_H
+#ifndef LIBXS_CRC32_H
+#define LIBXS_CRC32_H
 
 #include <libxs_macros.h>
 
@@ -53,4 +53,4 @@ LIBXS_API_INTERN unsigned int libxs_crc32_iso3309(unsigned int seed, const void*
 /** Adler-32 checksum (used by zlib). */
 LIBXS_API_INTERN unsigned int internal_libxs_adler32(unsigned int seed, const void* data, size_t size);
 
-#endif /*LIBXS_HASH_H*/
+#endif /*LIBXS_CRC32_H*/

@@ -8,7 +8,7 @@
 ******************************************************************************/
 #include <libxs_gemm.h>
 #include "libxs_main.h"
-#include "libxs_hash.h"
+#include "libxs_crc32.h"
 
 #define INTERNAL_GEMM_NOTRANS(C) ('N' == (C) || 'n' == (C))
 #define INTERNAL_GEMM_NLOCKS 16

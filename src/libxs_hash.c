@@ -6,7 +6,8 @@
 * Further information: https://github.com/hfp/libxs/                          *
 * SPDX-License-Identifier: BSD-3-Clause                                       *
 ******************************************************************************/
-#include "libxs_hash.h"
+#include <libxs_hash.h>
+#include "libxs_crc32.h"
 #include "libxs_main.h"
 
 #include <stdarg.h>
@@ -867,4 +868,69 @@ LIBXS_API_INTERN unsigned int libxs_crc32(unsigned int seed, const void* data, s
   LIBXS_ASSERT(NULL != internal_libxs_hash_function);
   return internal_libxs_hash_function(seed, data, size);
 #endif
+}
+
+
+LIBXS_API unsigned int libxs_hash(const void* data, unsigned int size, unsigned int seed)
+{
+  /*LIBXS_INIT*/
+  return libxs_crc32(seed, data, size);
+}
+
+
+LIBXS_API unsigned int libxs_hash_iso3309(const void* data, unsigned int size, unsigned int seed)
+{
+  return libxs_crc32_iso3309(seed, data, size);
+}
+
+
+LIBXS_API unsigned int libxs_adler32(const void* data, unsigned int size, unsigned int seed)
+{
+  return internal_libxs_adler32(seed, data, size);
+}
+
+
+LIBXS_API unsigned int libxs_hash8(unsigned int data)
+{
+  const unsigned int hash = libxs_hash16(data);
+  uint8_t tmp_data = (uint8_t)hash;
+  unsigned int tmp_seed = (unsigned int)(hash >> 8);
+  return libxs_crc32_u8(tmp_seed, &tmp_data) & 0xFF;
+}
+
+
+LIBXS_API unsigned int libxs_hash16(unsigned int data)
+{
+  uint16_t tmp_data = (uint16_t)data;
+  unsigned int tmp_seed = (unsigned int)(data >> 16);
+  return libxs_crc32_u16(tmp_seed, &tmp_data) & 0xFFFF;
+}
+
+
+LIBXS_API unsigned int libxs_hash32(unsigned long long data)
+{
+  uint32_t tmp_data = (uint32_t)data;
+  unsigned int tmp_seed = (unsigned int)(data >> 32);
+  return libxs_crc32_u32(tmp_seed, &tmp_data) & 0xFFFFFFFF;
+}
+
+
+LIBXS_API unsigned long long libxs_hash_string(const char string[])
+{
+  unsigned long long result = 0;
+  const size_t length = (NULL != string ? strlen(string) : 0);
+  if (sizeof(result) < length) {
+    const size_t length2 = LIBXS_MAX(length / 2, sizeof(result));
+    unsigned int hash32, seed32 = 0; /* seed=0: match else-optimization */
+    /*LIBXS_INIT*/
+    seed32 = libxs_crc32(seed32, string, length2);
+    hash32 = libxs_crc32(seed32, string + length2, length - length2);
+    result = hash32; result = (result << 32) | seed32;
+  }
+  else { /* length <= sizeof(result) */
+    char *const s = (char*)&result; signed char i;
+    for (i = 0; i < (signed char)length; ++i) s[i] = string[i];
+    for (; i < (signed char)sizeof(result); ++i) s[i] = 0;
+  }
+  return result;
 }

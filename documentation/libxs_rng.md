@@ -20,22 +20,22 @@ OpenMP; `_SEQ` is serial.
 ESPAN (exponent span) selects the initialization mode:
 
   ESPAN == 0   Shuffle mode. A coprime permutation maps each
-               linear index to a unique value in [-|SCALE|, +|SCALE|].
-               Covers the full LD*NCOLS range (including padding).
+               linear index to a unique value in \[-|SCALE|, +|SCALE|\].
+               Covers the full LD\*NCOLS range (including padding).
 
   ESPAN != 0   Adversarial exponent-span mode for stress-testing
                floating-point emulation (Ozaki scheme, etc.).
-               Base values are shuffled in [1, 2), then each
+               Base values are shuffled in \[1, 2), then each
                column j is scaled by
 
-                 2^(sign(ESPAN) * floor(|ESPAN| * j / (NCOLS-1)))
+                 2^(sign(ESPAN) \* floor(|ESPAN| \* j / (NCOLS-1)))
 
                so column 0 has exponent 0 and the last column has
-               exponent +/-|ESPAN|. Padding rows [NROWS, LD) are
+               exponent +/-|ESPAN|. Padding rows \[NROWS, LD) are
                zero-filled.
 
                Use +ESPAN for matrix A and -ESPAN for matrix B so
-               that A*B remains well-conditioned while each operand
+               that A\*B remains well-conditioned while each operand
                individually has adversarial exponent range.
 
 Example -- adversarial DGEMM test with exponent span 512:
@@ -60,14 +60,14 @@ with a deterministic default (seed = 1).
 unsigned int libxs_rng_u32(unsigned int n);
 ```
 
-Return a pseudo-random value in [0, n) with uniform distribution
+Return a pseudo-random value in \[0, n) with uniform distribution
 (Lemire's nearly-divisionless method). Thread-safe.
 
 ```C
 double libxs_rng_f64(void);
 ```
 
-Return a double-precision value in [0, 1) with full 53-bit
+Return a double-precision value in \[0, 1) with full 53-bit
 mantissa resolution. Thread-safe.
 
 ```C

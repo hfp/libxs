@@ -9,7 +9,7 @@
 #include <libxs_malloc.h>
 #include <libxs_mem.h>
 #include <libxs_reg.h>
-#include "libxs_hash.h"
+#include "libxs_crc32.h"
 
 #if !defined(LIBXS_MALLOC_SEED)
 # define LIBXS_MALLOC_SEED 1051981

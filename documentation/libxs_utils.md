@@ -94,7 +94,7 @@ Available only when `LIBXS_INTRINSICS_AVX512` is defined.
 __m512i libxs_mulhi_epu32(__m512i a, __m512i b);   /* inline */
 ```
 
-Unsigned 32-bit high-multiply for 16 lanes: floor(a * b / 2^32). Emulates the missing `_mm512_mulhi_epu32` via even/odd `_mm512_mul_epu32`.
+Unsigned 32-bit high-multiply for 16 lanes: floor(a \* b / 2^32). Emulates the missing `_mm512_mulhi_epu32` via even/odd `_mm512_mul_epu32`.
 
 ```C
 __m512i libxs_mod_u32x16(__m512i x,

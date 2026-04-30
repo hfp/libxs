@@ -84,62 +84,6 @@ LIBXS_API unsigned int libxs_diff_n(const void* a, const void* bn, unsigned char
 /** Similar to memcmp (C standard library) with the result conceptually boolean. */
 LIBXS_API int libxs_memcmp(const void* a, const void* b, size_t size);
 
-/** Calculate a hash value for the given buffer and seed; accepts NULL-buffer. */
-LIBXS_API unsigned int libxs_hash(const void* data, unsigned int size, unsigned int seed);
-LIBXS_API unsigned int libxs_hash8(unsigned int data);
-LIBXS_API unsigned int libxs_hash16(unsigned int data);
-LIBXS_API unsigned int libxs_hash32(unsigned long long data);
-
-/** Calculate a CRC32 value (ISO 3309 polynomial) for the given buffer and seed. */
-LIBXS_API unsigned int libxs_hash_iso3309(const void* data, unsigned int size, unsigned int seed);
-
-/** Calculate an Adler-32 checksum for the given buffer and seed. */
-LIBXS_API unsigned int libxs_adler32(const void* data, unsigned int size, unsigned int seed);
-
-/** Calculate a 64-bit hash for the given character string; accepts NULL-string. */
-LIBXS_API unsigned long long libxs_hash_string(const char string[]);
-
-/** Case-insensitive character-level edit distance (Levenshtein) between two strings. */
-LIBXS_API int libxs_stridist(const char a[], const char b[]);
-
-/** Return the pointer to the 1st match of "b" in "a", or NULL (no match). */
-LIBXS_API const char* libxs_stristrn(const char a[], const char b[], size_t maxlen);
-LIBXS_API const char* libxs_stristr(const char a[], const char b[]);
-
-/**
- * Count the number of words in A (or B) with match in B (or A) respectively (case-insensitive).
- * Can be used to score the equality of A and B on a word-basis. The result is independent of
- * A-B or B-A order (symmetry). The score cannot exceed the number of words in A or B.
- * Optional delimiters determine characters splitting words (can be NULL).
- * Optional count yields total number of words.
- */
-LIBXS_API int libxs_strimatch(const char a[], const char b[], const char delims[], int* count);
-
-/** Matching strategy for libxs_strisimilar. */
-typedef enum libxs_strisimilar_t {
-  LIBXS_STRISIMILAR_GREEDY = 0,
-  LIBXS_STRISIMILAR_TWOOPT = 1,
-  LIBXS_STRISIMILAR_DEFAULT = LIBXS_STRISIMILAR_GREEDY
-} libxs_strisimilar_t;
-
-/**
- * Compute similarity between strings A and B as a minimum-cost word matching.
- * Words are split by optional delimiters (same as strimatch). Each matched word
- * pair contributes its character-level edit distance (case-insensitive Levenshtein).
- * Unmatched words contribute their full length. The result is order-independent.
- * Optional order receives a word-order penalty (number of pairwise inversions
- * among matched words, 0 means same order).
- */
-LIBXS_API int libxs_strisimilar(const char a[], const char b[],
-  const char delims[], libxs_strisimilar_t kind, int* order);
-
-/**
- * Format for instance an amount of Bytes like libxs_format_value(result, sizeof(result), nbytes, "KMGT", "B", 10).
- * The value returned is in requested/determined unit so that the user can decide about printing the buffer.
- */
-LIBXS_API size_t libxs_format_value(char buffer[],
-  int buffer_size, size_t nbytes, const char scale[], const char* unit, int base);
-
 /** Matrix copy or zeroing; "in" can be NULL to zero the destination. */
 LIBXS_API void libxs_matcopy(void* out, const void* in, unsigned int typesize,
   int m, int n, int ldi, int ldo);
@@ -176,27 +120,6 @@ LIBXS_API void libxs_itrans_batch(void* inout, unsigned int typesize,
   int index_base, int index_stride,
   const int stride[], int batchsize,
   int tid, int ntasks);
-
-/** Out-of-place shuffling of data given by elemsize and count. */
-LIBXS_API int libxs_shuffle(void* inout, size_t elemsize, size_t count,
-  /** Shall be co-prime to count-argument; uses libxs_coprime2(count) if shuffle=NULL. */
-  const size_t* shuffle,
-  /** If NULL, the default value is one. */
-  const size_t* nrepeat);
-
-/** Out-of-place shuffling of data given by elemsize and count. */
-LIBXS_API int libxs_shuffle2(void* dst, const void* src, size_t elemsize, size_t count,
-  /** Shall be co-prime to count-argument; uses libxs_coprime2(count) if shuffle=NULL. */
-  const size_t* shuffle,
-  /** If NULL, the default value is one. If zero, an ordinary copy is performed. */
-  const size_t* nrepeat);
-
-/** Determines the number of calls to restore the original data (libxs_shuffle2). */
-LIBXS_API size_t libxs_unshuffle(
-  /** The number of elements to be unshuffled. */
-  size_t count,
-  /** Shall be co-prime to count-argument; uses libxs_coprime2(count) if shuffle=NULL. */
-  const size_t* shuffle);
 
 /* header-only: include implementation (deferred from libxs_macros.h) */
 #if defined(LIBXS_SOURCE) && !defined(LIBXS_SOURCE_H)

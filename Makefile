@@ -135,6 +135,7 @@ AVX_STATIC ?= $(AVX)
 HEADERS_MAIN := \
           $(ROOTINC)/$(PROJECT).h \
           $(ROOTINC)/$(PROJECT)_cpuid.h \
+          $(ROOTINC)/$(PROJECT)_hash.h \
           $(ROOTINC)/$(PROJECT)_hist.h \
           $(ROOTINC)/$(PROJECT)_macros.h \
           $(ROOTINC)/$(PROJECT)_malloc.h \
@@ -142,8 +143,10 @@ HEADERS_MAIN := \
           $(ROOTINC)/$(PROJECT)_math.h \
           $(ROOTINC)/$(PROJECT)_mem.h \
           $(ROOTINC)/$(PROJECT)_mhd.h \
+          $(ROOTINC)/$(PROJECT)_perm.h \
           $(ROOTINC)/$(PROJECT)_reg.h \
           $(ROOTINC)/$(PROJECT)_rng.h \
+          $(ROOTINC)/$(PROJECT)_str.h \
           $(ROOTINC)/$(PROJECT)_sync.h \
           $(ROOTINC)/$(PROJECT)_timer.h \
           $(ROOTINC)/$(PROJECT)_utils.h \
@@ -153,8 +156,9 @@ HEADERS := $(HEADERS_SRC) $(HEADERS_MAIN)
 SRCFILES := $(patsubst %,$(ROOTSRC)/%, \
           $(PROJECT)_cpuid_arm.c $(PROJECT)_cpuid_rv64.c $(PROJECT)_cpuid_x86.c \
           $(PROJECT)_hash.c $(PROJECT)_hist.c $(PROJECT)_main.c $(PROJECT)_malloc.c \
-          $(PROJECT)_gemm.c $(PROJECT)_math.c $(PROJECT)_mem.c $(PROJECT)_mhd.c $(PROJECT)_reg.c \
-          $(PROJECT)_rng.c $(PROJECT)_sync.c $(PROJECT)_timer.c $(PROJECT)_utils.c)
+          $(PROJECT)_gemm.c $(PROJECT)_math.c $(PROJECT)_mem.c $(PROJECT)_mhd.c $(PROJECT)_perm.c \
+          $(PROJECT)_reg.c $(PROJECT)_rng.c $(PROJECT)_str.c $(PROJECT)_sync.c \
+          $(PROJECT)_timer.c $(PROJECT)_utils.c)
 
 OBJFILES := $(patsubst %,$(BLDDIR)/intel64/%.o,$(basename $(notdir $(SRCFILES))))
 
