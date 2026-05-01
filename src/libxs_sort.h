@@ -79,20 +79,17 @@
       double best_dist = DBL_MAX;
       int best_row = 0;
       for (jj = 0; jj < m; ++jj) {
-        double dist;
+        double dist = 0.0;
+        int kk;
         if (0 != visited[jj]) continue;
-        dist = 0.0;
-        {
-          int kk;
-          for (kk = 0; kk < n; ++kk) {
-            const double d =
-              LIBXS_SORT_TEMPLATE_TYPE2FP64(
-                real_mat[(size_t)kk * ld + prev]) -
-              LIBXS_SORT_TEMPLATE_TYPE2FP64(
-                real_mat[(size_t)kk * ld + jj]);
-            dist += d * d;
-            if (dist >= best_dist) break;
-          }
+        for (kk = 0; kk < n; ++kk) {
+          const double d =
+            LIBXS_SORT_TEMPLATE_TYPE2FP64(
+              real_mat[(size_t)kk * ld + prev]) -
+            LIBXS_SORT_TEMPLATE_TYPE2FP64(
+              real_mat[(size_t)kk * ld + jj]);
+          dist += d * d;
+          if (dist >= best_dist) break;
         }
         if (dist < best_dist) {
           best_dist = dist;
