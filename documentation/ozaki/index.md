@@ -78,7 +78,7 @@ BLAS GEMM:  0.2 ms (214.3 GFLOPS/s)
 LD_PRELOAD=/path/to/libwrap.so ./your_application
 ```
 
-All DGEMM/SGEMM/ZGEMM/CGEMM calls are intercepted automatically.
+DGEMM/SGEMM/ZGEMM/CGEMM calls are intercepted automatically.
 
 No recompilation needed.
 
@@ -104,9 +104,9 @@ mpirun -np 4 env LD_PRELOAD=/path/to/libwrap.so ./app
 
 ## SLURM and MPI
 
-* **SLURM**: `srun -n 4 --export=ALL,LD_PRELOAD=/path/to/libwrap.so ./app`
-* **OpenMPI**: `mpirun -np 4 -x LD_PRELOAD=/path/to/libwrap.so ./app`
-* **Intel MPI**: `mpiexec -n 4 -genv LD_PRELOAD /path/to/libwrap.so ./app`
+- **SLURM**: `srun -n 4 --export=ALL,LD_PRELOAD=/path/to/libwrap.so ./app`
+- **OpenMPI**: `mpirun -np 4 -x LD_PRELOAD=/path/to/libwrap.so ./app`
+- **Intel MPI**: `mpiexec -n 4 -genv LD_PRELOAD /path/to/libwrap.so ./app`
 
 ---
 
@@ -169,7 +169,7 @@ Reproduce the problem offline:
 ./dgemm-wrap.x gemm-292284-0-500-a.mhd gemm-292284-0-500-b.mhd
 ```
 
-- Dump specific GEMM call using `OZAKI_DUMP`.
+- Dump GEMM call by counter using `OZAKI_DUMP`.
 - Try to increase the accuracy; see [Details](https://libxs.readthedocs.io/samples/libxs_ozaki/).
 
 ---
@@ -192,7 +192,7 @@ S = number of slices (default 8 for fp64).
 ## Tuning: Accuracy vs Speed
 
 ```bash
-export OZAKI_TRIM=4         # drop four precision levels (faster)
+export OZAKI_TRIM=7         # drop seven precision levels (faster)
 export OZAKI_THRESHOLD=0    # apply Ozaki to ALL GEMMs (default: 12)
 export OZAKI_N=12           # more slices/primes (more accurate)
 ```
@@ -257,7 +257,11 @@ Works for both CPU and GPU paths (same histogram).
 Complex GEMM is mapped to real GEMM internally.  
 The real GEMM is wrapped automatically.
 
-Can be controlled via `OZAKI_COMPLEX`.
+```bash
+export OZAKI_COMPLEX=0      # BLAS as linked
+export OZAKI_COMPLEX=1      # CPU Ozaki
+export OZAKI_COMPLEX=2      # GPU+fallback (default)
+```
 
 ---
 
