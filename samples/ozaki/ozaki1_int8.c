@@ -146,7 +146,7 @@ LIBXS_API_INLINE void gemm_oz1_diff(const char* transa, const char* transb, cons
 # pragma omp single
 #endif
         libxs_sort_smooth((libxs_sort_t)ozaki_decay, (int)K_len, (int)N,
-          b + (0 == tb ? kb_grp : (size_t)kb_grp * (*ldb)),
+          b + (0 == tb ? (size_t)kb_grp : (size_t)kb_grp * (*ldb)),
           (int)*ldb, LIBXS_DATATYPE(GEMM_REAL_TYPE), k_perm);
       }
 
