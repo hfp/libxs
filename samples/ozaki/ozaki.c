@@ -286,7 +286,10 @@ OZAKI_API_INTERN LIBXS_ATTRIBUTE_WEAK void GEMM_WRAP(const char* transa, const c
     }
     else {
       if (0 != ozaki) { /* consider threshold */
-        const size_t size = (size_t)(*m) * (*k) + (*k) * (*n) + (*m) * (*n);
+        const size_t mk = (size_t)(*m) * (*k);
+        const size_t kn = (size_t)(*k) * (*n);
+        const size_t mn = (size_t)(*m) * (*n);
+        const size_t size = mk + kn + mn;
         const size_t flops = (size_t)(*m) * (*n) * (*k) * 2;
         const size_t bytes = sizeof(GEMM_REAL_TYPE) * size;
         if ((bytes * LIBXS_MAX(gemm_threshold, 0)) <= flops) {
