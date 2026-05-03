@@ -21,6 +21,13 @@ BLAS = $(if $(filter-out 0,$(OMP)),2,1)
 # include common Makefile artifacts
 include $(DEPDIR)/Makefile.inc
 
+# header-only when library is not (yet) built
+ifeq (,$(XLIB))
+ifneq (,$(wildcard $(DEPDIR)/include/libxs_source.h))
+  DFLAGS += -DLIBXS_SOURCE
+endif
+endif
+
 # root directory of LIBXSTREAM
 ifneq (0,$(OCL))
 ifneq (0,$(OPENCL))

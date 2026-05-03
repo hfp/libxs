@@ -16,6 +16,13 @@ OMP = 1
 # include common Makefile artifacts
 include $(DEPDIR)/Makefile.inc
 
+# header-only when library is not (yet) built
+ifeq (,$(XLIB))
+ifneq (,$(wildcard $(DEPDIR)/include/libxs_source.h))
+  DFLAGS += -DLIBXS_SOURCE
+endif
+endif
+
 # include directories
 IFLAGS += -I$(call quote,$(INCDIR))
 IFLAGS += -I$(call quote,$(DEPDIR)/include)
