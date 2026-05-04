@@ -23,6 +23,7 @@ libxs_dvalue
 libxs_finalize
 libxs_format_value
 libxs_fprint
+libxs_fprint_decay
 libxs_fprint_diff
 libxs_free
 libxs_free_pool

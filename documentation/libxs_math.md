@@ -124,6 +124,7 @@ typedef struct libxs_fprint_t {
   double l1[LIBXS_FPRINT_MAXORDER + 1];
   double linf[LIBXS_FPRINT_MAXORDER + 1];
   int order, n;
+  libxs_data_t datatype;
 } libxs_fprint_t;
 ```
 
@@ -137,7 +138,10 @@ Three norm families are computed per derivative order k = 0..order:
 
 All three are normalized to the unit interval (h = 1/(n-1)).
 The `order` field records how many derivative orders were used;
-`n` is the extent of the fingerprinted dimension.
+`n` is the extent of the fingerprinted dimension. The `datatype`
+field records the element type -- either the type passed by the
+caller, or the type discovered by probing when the caller passes
+LIBXS_DATATYPE_UNKNOWN (see "Type Discovery" below).
 
 To recover raw (unnormalized) finite-difference magnitudes, use
 the inline helper:
@@ -149,6 +153,39 @@ double libxs_fprint_raw(const libxs_fprint_t* info,
 
 This divides by (n-1)^k, undoing the unit-interval scaling.
 For k == 0, the value is returned unchanged.
+
+```C
+double libxs_fprint_decay(const libxs_fprint_t* info);
+```
+
+Geometric-mean per-order decay ratio:
+
+    r = (l2[K] / l2[0])^(1/K) / (n - 1)
+
+The 1/(n-1) factor removes the unit-interval scaling so that
+decay ratios are comparable across different element counts
+(without it, fewer elements always appears to have lower decay).
+
+Interpretation of the return value:
+
+    r << 1   Structured data: forward differences shrink with
+             derivative order. Data is smooth and compressible
+             under Newton truncation.
+
+    r ~= 1   Noise / random data: forward differences grow at the
+             rate expected for uncorrelated sequences (~2x per
+             order before normalization).
+
+    r >> 1   Should not occur for well-formed data; indicates
+             divergent finite differences (numerical overflow or
+             pathological input).
+
+    1e30     Returned when no valid ratio can be computed (e.g.,
+             order == 0 or l2[0] == 0 or n < 2).
+
+The decay ratio is the key discriminator for type discovery
+(see below) and for the compressibility diagnostic described
+in the Foeppl paper.
 
 The L2 norms serve comparison via the Sobolev distance.
 The Linf norms serve as a decay diagnostic: decaying linf[k]
@@ -187,6 +224,18 @@ For 1-D data, axis is ignored (both modes are equivalent).
 Supported types: F64, F32, and all integer libxs_data_t types
 (I64, I32, U32, I16, U16, I8, U8 -- promoted to double internally).
 
+When datatype is LIBXS_DATATYPE_UNKNOWN, the function performs
+automatic type discovery (Level 0 of the hierarchical analysis
+described below). In this mode, shape[0] is the byte count of
+the opaque buffer. The function probes all concrete types whose
+element width divides the byte count, fingerprints each, and
+selects the interpretation with the smallest decay ratio
+(libxs_fprint_decay). The discovered type is written to
+info->datatype. If no candidate has r < 1, the function returns
+EXIT_FAILURE. Ties are broken by preferring the smallest element
+width. Float candidates whose maximum absolute value is below
+1e-37 (subnormals) are rejected.
+
 ```C
 double libxs_fprint_diff(
   const libxs_fprint_t* a, const libxs_fprint_t* b,
@@ -203,6 +252,128 @@ The distance is a metric: symmetric, non-negative, zero if and
 only if the fingerprints are identical. The same function serves
 both as a distance measure and as a fingerprint comparator since
 the fingerprint is the decomposed form of the Sobolev norm.
+
+## Type Discovery for Opaque Data
+
+When data arrives as a raw byte stream with no type metadata, the
+LIBXS toolkit can be composed into a hierarchical analysis that
+discovers the element type and structure. Each level uses a
+different tool, exploiting the fact that each tool is sensitive
+to a different axis of structure while being invariant to others.
+
+    Tool              Invariant to         Sensitive to
+    ---------------------------------------------------------------
+    fprint (decay)    element count        consecutive-element
+                      and scaling          correlation (local)
+    setdiff           element order        value identity (global)
+    matdiff           (positional)         magnitude, spread,
+                                           extrema
+    sort_smooth       row order            row-to-row proximity
+    shuffle           --                   provides controlled
+                                           reordering
+
+The hierarchical procedure:
+
+    Level 0 -- Decay Screening (libxs_fprint + libxs_fprint_decay)
+
+      Interpret the byte stream under every candidate type whose
+      element width divides the stream length. Compute the decay
+      ratio r for each. Discard r >= 1 (noise). Short-list the
+      best few candidates (within a factor 2 of the minimum r).
+
+      This level is built into libxs_fprint when the caller passes
+      LIBXS_DATATYPE_UNKNOWN. The discovered type is reported in
+      the datatype field of the returned libxs_fprint_t.
+
+    Level 1 -- Self-Consistency via Setdiff (libxs_setdiff_min)
+
+      Split the stream into two halves (A, B) under each surviving
+      candidate type. Compute d* = libxs_setdiff_min(A, B). The
+      ratio d* / max(|A|, |B|) is a "novelty fraction": how many
+      values in one half have no counterpart in the other. A correct
+      type produces low novelty (values repeat or cluster); a wrong
+      type scatters values across the range (high novelty).
+
+      Synergy: fprint measures local correlation (adjacent elements);
+      setdiff measures global value identity (ignoring order). A
+      candidate that passes both has independent evidence on two
+      orthogonal axes.
+
+    Level 2 -- Smoothness-Sort Separability (libxs_sort_smooth)
+
+      Reshape the stream as a matrix under each surviving candidate.
+      Compute a GREEDY row permutation that minimizes row-to-row
+      Euclidean distance. Fingerprint the permuted matrix along the
+      row axis and measure the improvement:
+
+          delta = r_before - r_after
+
+      The candidate with the largest delta has the most exploitable
+      row structure.
+
+      Synergy: the GREEDY sort is O(m^2 n) -- too expensive for the
+      initial sweep but affordable for 2-3 survivors. Its sensitivity
+      (row-to-row proximity) is orthogonal to 1-D decay and to
+      order-independent setdiff.
+
+    Level 3 -- Shuffle Stability (libxs_shuffle + libxs_fprint_decay)
+
+      Shuffle the interpreted elements via libxs_shuffle (coprime
+      permutation). Fingerprint the shuffled data. If the decay
+      ratio increases substantially, the original element order
+      carries genuine structure. If it stays the same, the apparent
+      decay was accidental.
+
+      Synergy: this is the only test that probes whether the ORDER
+      of elements matters. Decay (Level 0) measures local correlation
+      but cannot distinguish true order from coincidence. Setdiff
+      (Level 1) is explicitly order-invariant. The shuffle test
+      closes this gap.
+
+    Level 4 -- Statistical Plausibility (libxs_matdiff)
+
+      Compute single-matrix statistics (ref=NULL) for each surviving
+      candidate: mean, variance, min, max, diagonal range. Reject
+      float interpretations with NaN, infinity, or subnormals.
+      Flag integer interpretations whose value range spans less than
+      1% of the type range. Compare two candidates via
+      libxs_matdiff_combine (mean-shift and variance bound).
+
+    Stride Sweep -- Record Layout Discovery
+
+      After discovering the atomic element width w, sweep candidate
+      strides s that are multiples of w. Reshape the stream as an
+      (L/s) x (s/w) matrix. Repeat Levels 0-2 on the outer
+      dimension (across "records"). The stride with the smallest
+      decay and largest sort-improvement likely corresponds to the
+      record boundary.
+
+Why the composition is stronger than any single tool:
+
+  - Decay alone is fooled by reinterpretation artifacts (e.g.,
+    integer data producing subnormal floats that look smooth).
+  - Setdiff alone cannot detect structure -- it only counts
+    matches, and with large enough tolerance any data matches.
+  - Sort-smooth alone is too expensive for a brute-force sweep
+    and cannot discriminate types without a baseline decay.
+  - Shuffle stability alone cannot distinguish true order from
+    accidental order in short sequences.
+  - Statistics alone reject only pathological cases (NaN,
+    subnormals) and cannot resolve two plausible interpretations.
+
+Each level eliminates a different class of false positives. A
+candidate that survives all five has demonstrated structure along
+five orthogonal axes: local smoothness, global value consistency,
+row separability, order sensitivity, and statistical plausibility.
+A false positive would require a simultaneous coincidence on all
+five, which is combinatorially unlikely.
+
+Limitations: the analysis tests fixed-width candidates and cannot
+discover variable-length encodings, compression, or encryption.
+For data that is genuinely random at every granularity, all
+candidates are rejected at Level 0 and the framework reports
+"no structure found." The stride sweep discovers fixed-size
+records but not nested or recursive structures.
 
 ## Golden Section Search
 

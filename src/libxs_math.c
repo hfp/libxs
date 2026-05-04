@@ -1200,7 +1200,7 @@ LIBXS_API int libxs_fprint(libxs_fprint_t* info,
             if (decay == decay
               && (decay < best_decay
                 || (decay == best_decay
-                  && tw < LIBXS_TYPESIZE((int)best_type))))
+                  && tw < (size_t)LIBXS_TYPESIZE((int)best_type))))
             {
               best_decay = decay;
               best_type = probes[p];
