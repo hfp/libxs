@@ -1173,6 +1173,50 @@ LIBXS_API int libxs_fprint(libxs_fprint_t* info,
   LIBXS_ASSERT(NULL != info && NULL != data && 0 < ndims);
   LIBXS_ASSERT(NULL != shape);
   memset(info, 0, sizeof(*info));
+  info->datatype = datatype;
+  if (LIBXS_DATATYPE_UNKNOWN == (int)datatype) {
+    static const libxs_data_t probes[] = {
+      LIBXS_DATATYPE_F64, LIBXS_DATATYPE_F32,
+      LIBXS_DATATYPE_I64, LIBXS_DATATYPE_U64,
+      LIBXS_DATATYPE_I32, LIBXS_DATATYPE_U32,
+      LIBXS_DATATYPE_I16, LIBXS_DATATYPE_U16,
+      LIBXS_DATATYPE_I8,  LIBXS_DATATYPE_U8
+    };
+    const size_t nbytes = shape[0];
+    double best_decay = 1e30;
+    libxs_data_t best_type = LIBXS_DATATYPE_U8;
+    int found = 0, p;
+    for (p = 0; p < (int)(sizeof(probes) / sizeof(*probes)); ++p) {
+      const size_t tw = LIBXS_TYPESIZE((int)probes[p]);
+      if (0 != tw && 0 == nbytes % tw && nbytes / tw > 1) {
+        libxs_fprint_t fp;
+        const size_t ne = nbytes / tw;
+        int r = libxs_fprint(&fp, probes[p], data, 1, &ne, NULL, order, axis);
+        if (EXIT_SUCCESS == r && fp.l2[0] == fp.l2[0] && 0 < fp.l2[0]
+          && fp.linf[0] == fp.linf[0])
+        {
+          if (LIBXS_ENUM_IS_FLOAT(probes[p]) && fp.linf[0] < 1e-37) continue;
+          { const double decay = libxs_fprint_decay(&fp);
+            if (decay == decay
+              && (decay < best_decay
+                || (decay == best_decay
+                  && tw < LIBXS_TYPESIZE((int)best_type))))
+            {
+              best_decay = decay;
+              best_type = probes[p];
+              *info = fp;
+              found = 1;
+            }
+          }
+        }
+      }
+    }
+    if (0 != found && best_decay == best_decay) {
+      info->datatype = best_type;
+      return EXIT_SUCCESS;
+    }
+    return EXIT_FAILURE;
+  }
   if (0 <= axis && axis < ndims && 1 < ndims) {
     /* Per-axis mode: fingerprint along 'axis', max-reduce over others. */
     const size_t typesize = LIBXS_TYPESIZE((int)datatype);
@@ -1322,4 +1366,15 @@ LIBXS_API double libxs_fprint_diff(
     libxs_kahan_sum(wk * d * d, &acc, &comp);
   }
   return sqrt(acc);
+}
+
+
+LIBXS_API double libxs_fprint_decay(const libxs_fprint_t* info)
+{
+  LIBXS_ASSERT(NULL != info);
+  if (0 < info->order && 0 < info->l2[0] && 1 < info->n) {
+    const int k = info->order;
+    return pow(info->l2[k] / info->l2[0], 1.0 / k) / (info->n - 1);
+  }
+  return 1e30;
 }

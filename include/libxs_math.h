@@ -133,6 +133,8 @@ LIBXS_EXTERN_C typedef struct libxs_fprint_t {
   double linf[LIBXS_FPRINT_MAXORDER + 1];
   /** Derivative orders used and original data length. */
   int order, n;
+  /** Discovered or given data type. */
+  libxs_data_t datatype;
 } libxs_fprint_t;
 
 /**
@@ -184,6 +186,13 @@ LIBXS_API_INLINE double libxs_fprint_raw(
   }
   return value;
 }
+
+/**
+ * Geometric-mean per-order decay ratio of a fingerprint:
+ *   r = (l2[K] / l2[0])^(1/K).
+ * Decaying fingerprints have r < 1; noise/random data has r > 1.
+ */
+LIBXS_API double libxs_fprint_decay(const libxs_fprint_t* info);
 
 /** Greatest common divisor (corner case: the GCD of 0 and 0 is 1). */
 LIBXS_API size_t libxs_gcd(size_t a, size_t b);
