@@ -18,6 +18,16 @@ LIBXS_EXTERN_C typedef struct libxs_hist_t libxs_hist_t;
 /** Per-value update function: accumulates src into dst (count includes current sample). */
 LIBXS_EXTERN_C typedef void (*libxs_hist_update_t)(double* /*dst*/, const double* /*src*/, int /*count*/);
 
+/** Histogram query result. */
+LIBXS_EXTERN_C typedef struct libxs_hist_info_t {
+  const int* buckets;
+  const double* vals;
+  double range[2];
+  int nbuckets;
+  int nvals;
+  int nsamples;
+} libxs_hist_info_t;
+
 
 /** Create histogram: nbuckets resolution, nvals per entry. Returns NULL on failure. */
 LIBXS_API libxs_hist_t* libxs_hist_create(int nbuckets, int nvals,
@@ -36,7 +46,7 @@ LIBXS_API void libxs_hist_push(libxs_lock_t* lock, libxs_hist_t* hist, const dou
  * because the histogram is always heap-allocated.
  */
 LIBXS_API void libxs_hist_get(libxs_lock_t* lock, const libxs_hist_t* hist,
-  const int** buckets, int* nbuckets, double range[2], const double** vals, int* nvals);
+  libxs_hist_info_t* info);
 
 /** Query interpolated values at percentile (0..1); commits queued items if pending. */
 LIBXS_API void libxs_hist_get_percentile(libxs_lock_t* lock, const libxs_hist_t* hist,

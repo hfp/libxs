@@ -120,11 +120,10 @@ LIBXS_API void libxs_hist_push(libxs_lock_t* lock, libxs_hist_t* hist, const dou
     int i, j, k;
     if (NULL != lock) LIBXS_LOCK_ACQUIRE(LIBXS_LOCK, lock);
     if (hist->nqueue <= hist->n) {
-      const double *values;
-      const int* buckets;
       double w;
       if (hist->nqueue == hist->n) {
-        libxs_hist_get(NULL /*lock*/, hist, &buckets, NULL /*nbuckets*/, NULL /*range*/, &values, NULL /*nvals*/);
+        libxs_hist_info_t info;
+        libxs_hist_get(NULL /*lock*/, hist, &info);
       }
       if (vals[0] < hist->min || vals[0] > hist->max) {
         internal_libxs_hist_rebin(hist,
@@ -164,13 +163,19 @@ LIBXS_API void libxs_hist_push(libxs_lock_t* lock, libxs_hist_t* hist, const dou
 
 
 LIBXS_API void libxs_hist_get(libxs_lock_t* lock, const libxs_hist_t* hist,
-  const int** buckets, int* nbuckets, double range[2], const double** vals, int* nvals)
+  libxs_hist_info_t* info)
 {
   /* C "mutable": lazy commit mutates internal state via cast (safe: always heap-allocated) */
   libxs_hist_t* const h = (libxs_hist_t*)(uintptr_t)hist;
-  int *b = NULL, m = 0, n = 0, i, j, k;
-  double *v = NULL, r[] = {0, 0};
-  LIBXS_ASSERT(NULL != buckets || NULL != range || NULL != vals);
+  int i, j, k, n, m;
+  LIBXS_ASSERT(NULL != info);
+  info->buckets = NULL;
+  info->vals = NULL;
+  info->range[0] = 0;
+  info->range[1] = 0;
+  info->nbuckets = 0;
+  info->nvals = 0;
+  info->nsamples = 0;
   if (NULL != h) {
     if (NULL != lock) LIBXS_LOCK_ACQUIRE(LIBXS_LOCK, lock);
     if (0 < h->n && h->n <= h->nqueue) {
@@ -204,22 +209,15 @@ LIBXS_API void libxs_hist_get(libxs_lock_t* lock, const libxs_hist_t* hist,
       h->nqueue = 0;
     }
     if (0 < h->n) {
-      r[0] = h->min;
-      r[1] = h->max;
-      b = h->buckets;
-      n = h->nbuckets;
-      v = h->vals;
-      m = h->nvals;
+      info->buckets = h->buckets;
+      info->vals = h->vals;
+      info->range[0] = h->min;
+      info->range[1] = h->max;
+      info->nbuckets = h->nbuckets;
+      info->nvals = h->nvals;
+      info->nsamples = h->n;
     }
     if (NULL != lock) LIBXS_LOCK_RELEASE(LIBXS_LOCK, lock);
-  }
-  if (NULL != nbuckets) *nbuckets = n;
-  if (NULL != buckets) *buckets = b;
-  if (NULL != nvals) *nvals = m;
-  if (NULL != vals) *vals = v;
-  if (NULL != range) {
-    range[0] = r[0];
-    range[1] = r[1];
   }
 }
 
@@ -227,37 +225,35 @@ LIBXS_API void libxs_hist_get(libxs_lock_t* lock, const libxs_hist_t* hist,
 LIBXS_API void libxs_hist_get_percentile(libxs_lock_t* lock, const libxs_hist_t* hist,
   double percentile, double vals[])
 {
-  const double* v = NULL;
-  const int* buckets = NULL;
-  double range[2];
-  int nbuckets = 0, m = 0, i;
+  libxs_hist_info_t info;
+  int i;
   LIBXS_ASSERT(NULL != vals);
-  libxs_hist_get(lock, hist, &buckets, &nbuckets, range, &v, &m);
-  if (NULL != buckets && 0 < nbuckets) {
-    const double w = range[1] - range[0];
+  libxs_hist_get(lock, hist, &info);
+  if (NULL != info.buckets && 0 < info.nbuckets) {
+    const double w = info.range[1] - info.range[0];
     int total = 0, cumulative = 0;
     if (0 > percentile) percentile = 0;
     if (1 < percentile) percentile = 1;
-    for (i = 0; i < nbuckets; ++i) total += buckets[i];
+    for (i = 0; i < info.nbuckets; ++i) total += info.buckets[i];
     if (0 < total) {
       const double target = percentile * total;
-      for (i = 0; i < nbuckets; ++i) {
-        cumulative += buckets[i];
+      for (i = 0; i < info.nbuckets; ++i) {
+        cumulative += info.buckets[i];
         if (target <= cumulative) {
-          const double fraction = (0 < buckets[i])
-            ? (1.0 - (cumulative - target) / buckets[i]) : 0.5;
-          const int ia = i * m, ib = (fraction < 0.5 && 0 < i)
-            ? (i - 1) * m : ((fraction >= 0.5 && i + 1 < nbuckets)
-            ? (i + 1) * m : ia);
+          const double fraction = (0 < info.buckets[i])
+            ? (1.0 - (cumulative - target) / info.buckets[i]) : 0.5;
+          const int ia = i * info.nvals, ib = (fraction < 0.5 && 0 < i)
+            ? (i - 1) * info.nvals : ((fraction >= 0.5 && i + 1 < info.nbuckets)
+            ? (i + 1) * info.nvals : ia);
           int k = 1;
           const double t = (ia != ib
             ? (fraction < 0.5 ? 0.5 + fraction : fraction - 0.5) : 0);
-          vals[0] = range[0] + (i + fraction) * w / nbuckets;
+          vals[0] = info.range[0] + (i + fraction) * w / info.nbuckets;
           LIBXS_PRAGMA_DIAG_PUSH()
           LIBXS_PRAGMA_DIAG_OFF("-Warray-bounds")
           LIBXS_PRAGMA_DIAG_OFF("-Warray-bounds=")
-          for (; k < m; ++k) {
-            vals[k] = v[ia + k] + t * (v[ib + k] - v[ia + k]);
+          for (; k < info.nvals; ++k) {
+            vals[k] = info.vals[ia + k] + t * (info.vals[ib + k] - info.vals[ia + k]);
           }
           LIBXS_PRAGMA_DIAG_POP()
           break;
@@ -278,22 +274,20 @@ LIBXS_API void libxs_hist_get_median(libxs_lock_t* lock, const libxs_hist_t* his
 LIBXS_API void libxs_hist_print(FILE* ostream, const libxs_hist_t* hist, const int prec[],
   const char fmt[], ...)
 {
-  int nbuckets = 0, nvals = 0, i = 1, j = 0, k;
-  const int* buckets = NULL;
-  const double* vals = NULL;
-  double range[2];
-  libxs_hist_get(NULL /*lock*/, hist, &buckets, &nbuckets, range, &vals, &nvals);
-  if (NULL != ostream && NULL != buckets && 0 < nbuckets && NULL != vals && 0 < nvals) {
-    const double w = range[1] - range[0];
+  libxs_hist_info_t info;
+  int i = 1, j = 0, k;
+  libxs_hist_get(NULL /*lock*/, hist, &info);
+  if (NULL != ostream && NULL != info.buckets && 0 < info.nbuckets && NULL != info.vals && 0 < info.nvals) {
+    const double w = info.range[1] - info.range[0];
     if (NULL != fmt) {
       va_list args;
       va_start(args, fmt);
       vfprintf(ostream, fmt, args);
       va_end(args);
     }
-    for (; i <= nbuckets; j = nvals * i++) {
-      const double q = range[0] + i * w / nbuckets;
-      const int c = buckets[i - 1];
+    for (; i <= info.nbuckets; j = info.nvals * i++) {
+      const double q = info.range[0] + i * w / info.nbuckets;
+      const int c = info.buckets[i - 1];
       if (NULL != prec) {
         if (0 > prec[0]) continue;
         fprintf(ostream, "\t#%i <= %.*f: %i", i, prec[0], q, c);
@@ -301,8 +295,8 @@ LIBXS_API void libxs_hist_print(FILE* ostream, const libxs_hist_t* hist, const i
       else fprintf(ostream, "\t#%i <= %f: %i", i, q, c);
       if (0 != c) {
         fprintf(ostream, " ->");
-        for (k = 0; k < nvals; ++k) {
-          const double value = vals[j + k];
+        for (k = 0; k < info.nvals; ++k) {
+          const double value = info.vals[j + k];
           if (NULL != prec && 0 > prec[k]) continue;
           if (NULL != prec) fprintf(ostream, " %.*f", prec[k], value);
           else fprintf(ostream, " %f", value);
