@@ -16,11 +16,19 @@ typedef struct libxs_matdiff_t {
   double diag_min_ref, diag_max_ref;   /* diagonal min/max (reference) */
   double diag_min_tst, diag_max_tst;   /* diagonal min/max (test) */
   double v_ref, v_tst;          /* values at max-diff location */
+  double w;                     /* cumulative weight for online mean */
   int m, n, i, r;               /* location and reduction count */
 } libxs_matdiff_t;
 ```
 
-The fields linf_abs, linf_rel, and v_ref/v_tst always refer to the same element. For complex types, element values and statistics use the modulus; differences use the complex absolute error.
+The fields linf_abs, linf_rel, and v_ref/v_tst always refer to the
+same element. For complex types, statistics use modulus; differences
+use complex absolute error.
+
+The `w` field accumulates element count (m*n) across reductions.
+`libxs_matdiff_reduce` uses weighted online mean (West/Welford) for
+avg_ref/avg_tst: collapses to plain Welford when all matrices are
+the same size; gives the exact element-weighted grand mean otherwise.
 
 ```C
 int libxs_matdiff(libxs_matdiff_t* info,

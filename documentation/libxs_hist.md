@@ -2,77 +2,81 @@
 
 Header: `libxs_hist.h`
 
-Thread-safe histogram that accumulates values and provides running statistics. Values are bucketed by the first element of each inserted tuple; additional per-entry values track user-defined statistics (e.g., timing data).
+Thread-safe histogram with running statistics. Buckets by `vals[0]`;
+additional values per entry track user-defined statistics.
 
 ## Types
 
 ```C
 typedef struct libxs_hist_t libxs_hist_t;  /* opaque */
+
+typedef void (*libxs_hist_update_t)(double* dst, const double* src, int count);
 ```
 
 ```C
-typedef void (*libxs_hist_update_t)(double* dst, const double* src);
+typedef struct libxs_hist_info_t {
+  const int* buckets;   /* per-bucket counts [nbuckets] */
+  const double* vals;   /* per-bucket values [nbuckets * nvals] */
+  double range[2];      /* [min, max] of vals[0] */
+  int nbuckets, nvals, nsamples;
+} libxs_hist_info_t;
 ```
-
-Per-value accumulation callback. Two built-in update functions are provided: `libxs_hist_update_avg` (sliding average) and `libxs_hist_update_add` (additive accumulation).
 
 ## Functions
 
 ```C
 libxs_hist_t* libxs_hist_create(int nbuckets, int nvals,
   const libxs_hist_update_t update[]);
-```
-
-Create a histogram with `nbuckets` resolution. `nvals` is the number of values per entry (the first value determines the bucket). The `update` array (length `nvals`) specifies the accumulation function for each value slot; NULL entries default to `libxs_hist_update_avg`. Returns NULL on failure.
-
-```C
 void libxs_hist_destroy(libxs_hist_t* hist);
 ```
 
-Destroy a histogram. Accepts NULL.
+Create/destroy. `update[nvals]` specifies per-slot accumulation
+(NULL defaults to avg). Destroy accepts NULL.
 
 ```C
 void libxs_hist_push(libxs_lock_t* lock,
   libxs_hist_t* hist, const double vals[]);
 ```
 
-Insert one sample. `vals[0]` selects the bucket; remaining entries are accumulated according to the update functions. The `lock` parameter can be NULL (internal locking is used).
+Insert one sample. Re-bins automatically if `vals[0]` exceeds range.
 
 ```C
-void libxs_hist_get(libxs_lock_t* lock,
-  const libxs_hist_t* hist,
-  const int** buckets, int* nbuckets,
-  double range[2], const double** vals, int* nvals);
+void libxs_hist_query(libxs_lock_t* lock,
+  const libxs_hist_t* hist, libxs_hist_info_t* info);
 ```
 
-Query statistics. Output pointers can be NULL to skip fields.
+Query statistics. Lazy-commits queued items on first call.
 
 ```C
-void libxs_hist_get_percentile(libxs_lock_t* lock,
-  const libxs_hist_t* hist, double percentile,
-  double vals[]);
-```
-
-Query interpolated values at the given percentile. `percentile` is in the range `[0..1]` (clamped). `vals[]` is filled with interpolated results: `vals[0]` is the interpolated primary value (position along the range), and subsequent entries are linearly interpolated between adjacent buckets. Commits queued items if pending.
-
-```C
-void libxs_hist_get_median(libxs_lock_t* lock,
+void libxs_hist_query_percentile(libxs_lock_t* lock,
+  const libxs_hist_t* hist, double vals[], double percentile);
+void libxs_hist_query_median(libxs_lock_t* lock,
   const libxs_hist_t* hist, double vals[]);
 ```
 
-Convenience wrapper equivalent to `libxs_hist_get_percentile(lock, hist, 0.5, vals)`.
+Interpolated values at percentile [0..1] or median (0.5).
 
 ```C
-void libxs_hist_print(FILE* ostream,
-  const libxs_hist_t* hist, const int prec[],
-  const char fmt[], ...);
+void libxs_hist_print(FILE* ostream, const libxs_hist_t* hist,
+  const int prec[], const char fmt[], ...);
 ```
 
-Render the histogram to a stream. `prec` controls decimal precision per value (can be NULL); a negative `prec[k]` omits that value from output, and a negative `prec[0]` skips the bucket line entirely. `fmt` is a printf-style format string for the title line, followed by optional variadic arguments. NULL `ostream` or `fmt` is accepted.
+Print to stream. `prec[k]` controls precision; negative skips output.
+NULL ostream/fmt accepted.
+
+## Update Functions
 
 ```C
-void libxs_hist_update_avg(double* dst, const double* src);
-void libxs_hist_update_add(double* dst, const double* src);
+void libxs_hist_update_avg(double* dst, const double* src, int count);
+void libxs_hist_update_add(double* dst, const double* src, int count);
+void libxs_hist_update_min(double* dst, const double* src, int count);
+void libxs_hist_update_max(double* dst, const double* src, int count);
 ```
 
-Built-in update functions: `libxs_hist_update_avg` computes a sliding average (arithmetic mean), `libxs_hist_update_add` sums values.
+- `avg` -- Welford online mean: `*dst += (*src - *dst) / count`
+- `add` -- sum: `*dst += *src`
+- `min` -- `*dst = min(*dst, *src)`
+- `max` -- `*dst = max(*dst, *src)`
+
+Custom callbacks use the same signature; `count` enables online
+algorithms without external state.
