@@ -57,7 +57,7 @@ OZAKI_API_INTERN void gemm_atexit(void)
       const char* const kind = GEMM_IS_DOUBLE ? "DP" : "SP";
       double median[2] = {0, 0};
       int ngemms_static;
-      libxs_hist_get_median(NULL /*lock*/, ozaki_hist, median);
+      libxs_hist_query_median(NULL /*lock*/, ozaki_hist, median);
       ngemms_static = (1 == ozaki)
         ? ozaki_count_pairs(ozaki_n, 2 * (ozaki_n - 1) - ozaki_trim, ozaki_flags)
         : ozaki_n;

@@ -46,7 +46,7 @@ static int test_single_value(void)
   hist = libxs_hist_create(1/*nbuckets*/, 1/*nvals*/, update);
   if (NULL == hist) return EXIT_FAILURE;
   libxs_hist_push(NULL, hist, value);
-  libxs_hist_get(NULL, hist, &info);
+  libxs_hist_query(NULL, hist, &info);
   if (1 != info.nbuckets || 1 != info.nvals || NULL == info.buckets || NULL == info.vals) {
     FPRINTF(stderr, "ERROR line #%i: unexpected get result\n", __LINE__);
     result = EXIT_FAILURE;
@@ -80,7 +80,7 @@ static int test_fill_phase_range(void)
   libxs_hist_push(NULL, hist, v1);
   libxs_hist_push(NULL, hist, v2);
   libxs_hist_push(NULL, hist, v3);
-  libxs_hist_get(NULL, hist, &info);
+  libxs_hist_query(NULL, hist, &info);
   if (fabs(info.range[0] - 10.0) > TOLERANCE) {
     FPRINTF(stderr, "ERROR line #%i: expected min=10.0, got %f\n", __LINE__, info.range[0]);
     result = EXIT_FAILURE;
@@ -115,7 +115,7 @@ static int test_bucket_distribution(void)
     const double v[] = { 2.5 * i };
     libxs_hist_push(NULL, hist, v);
   }
-  libxs_hist_get(NULL, hist, &info);
+  libxs_hist_query(NULL, hist, &info);
   if (4 != info.nbuckets || NULL == info.buckets) {
     FPRINTF(stderr, "ERROR line #%i: unexpected nbuckets=%i\n", __LINE__, info.nbuckets);
     result = EXIT_FAILURE;
@@ -151,7 +151,7 @@ static int test_update_add(void)
     const double v[] = { 5.0 };
     libxs_hist_push(NULL, hist, v);
   }
-  libxs_hist_get(NULL, hist, &info);
+  libxs_hist_query(NULL, hist, &info);
   if (1 != info.nbuckets || NULL == info.vals) {
     FPRINTF(stderr, "ERROR line #%i: unexpected state\n", __LINE__);
     libxs_hist_destroy(hist);
@@ -163,7 +163,7 @@ static int test_update_add(void)
     libxs_hist_push(NULL, hist, v2);
     libxs_hist_push(NULL, hist, v3);
   }
-  libxs_hist_get(NULL, hist, &info);
+  libxs_hist_query(NULL, hist, &info);
   if (NULL == info.vals || NULL == info.buckets) {
     FPRINTF(stderr, "ERROR line #%i: get failed\n", __LINE__);
     result = EXIT_FAILURE;
@@ -259,7 +259,7 @@ static int test_multiple_values(void)
     libxs_hist_push(NULL, hist, e1);
     libxs_hist_push(NULL, hist, e2);
   }
-  libxs_hist_get(NULL, hist, &info);
+  libxs_hist_query(NULL, hist, &info);
   if (2 != info.nbuckets || 2 != info.nvals || NULL == info.buckets || NULL == info.vals) {
     FPRINTF(stderr, "ERROR line #%i: unexpected state nbuckets=%i nvals=%i\n",
       __LINE__, info.nbuckets, info.nvals);
@@ -324,7 +324,7 @@ static int test_get_null_hist(void)
 {
   libxs_hist_info_t info;
   int result = EXIT_SUCCESS;
-  libxs_hist_get(NULL, NULL, &info);
+  libxs_hist_query(NULL, NULL, &info);
   if (0 != info.nbuckets || 0 != info.nvals || NULL != info.buckets || NULL != info.vals) {
     FPRINTF(stderr, "ERROR line #%i: get on NULL hist should yield empty\n", __LINE__);
     result = EXIT_FAILURE;
@@ -360,7 +360,7 @@ static int test_many_values_bucketing(void)
     const double v[] = { 2.0 * i };
     libxs_hist_push(NULL, hist, v);
   }
-  libxs_hist_get(NULL, hist, &info);
+  libxs_hist_query(NULL, hist, &info);
   if (10 != info.nbuckets || NULL == info.buckets) {
     FPRINTF(stderr, "ERROR line #%i: nbuckets=%i\n", __LINE__, info.nbuckets);
     result = EXIT_FAILURE;
@@ -398,7 +398,7 @@ static int test_underpopulated(void)
     libxs_hist_push(NULL, hist, v2);
     libxs_hist_push(NULL, hist, v3);
   }
-  libxs_hist_get(NULL, hist, &info);
+  libxs_hist_query(NULL, hist, &info);
   if (3 != info.nbuckets) {
     FPRINTF(stderr, "ERROR line #%i: expected 3 buckets, got %i\n", __LINE__, info.nbuckets);
     result = EXIT_FAILURE;
@@ -423,7 +423,7 @@ static int test_underpopulated(void)
     libxs_hist_push(NULL, hist, v4);
     libxs_hist_push(NULL, hist, v5);
   }
-  libxs_hist_get(NULL, hist, &info);
+  libxs_hist_query(NULL, hist, &info);
   if (EXIT_SUCCESS == result) {
     for (total = 0, i = 0; i < info.nbuckets; ++i) total += info.buckets[i];
     if (5 != total) {
@@ -454,7 +454,7 @@ static int test_commit_arithmetic_avg(void)
     libxs_hist_push(NULL, hist, v3);
     libxs_hist_push(NULL, hist, v4);
   }
-  libxs_hist_get(NULL, hist, &info);
+  libxs_hist_query(NULL, hist, &info);
   if (1 != info.nbuckets || NULL == info.vals || NULL == info.buckets) {
     FPRINTF(stderr, "ERROR line #%i: unexpected state\n", __LINE__);
     result = EXIT_FAILURE;
@@ -490,7 +490,7 @@ static int test_hybrid_avg_then_welford(void)
     libxs_hist_push(NULL, hist, v1);
     libxs_hist_push(NULL, hist, v2);
   }
-  libxs_hist_get(NULL, hist, &info);
+  libxs_hist_query(NULL, hist, &info);
   if (EXIT_SUCCESS == result && fabs(info.vals[0] - 20.0) > TOLERANCE) {
     FPRINTF(stderr, "ERROR line #%i: expected 20.0 after commit, got %f\n", __LINE__, info.vals[0]);
     result = EXIT_FAILURE;
@@ -499,7 +499,7 @@ static int test_hybrid_avg_then_welford(void)
     const double v3[] = { 40.0 };
     libxs_hist_push(NULL, hist, v3);
   }
-  libxs_hist_get(NULL, hist, &info);
+  libxs_hist_query(NULL, hist, &info);
   if (EXIT_SUCCESS == result && fabs(info.vals[0] - 80.0 / 3) > TOLERANCE) {
     FPRINTF(stderr, "ERROR line #%i: expected 26.667 after Welford, got %f\n", __LINE__, info.vals[0]);
     result = EXIT_FAILURE;
@@ -522,7 +522,7 @@ static int test_nsamples(void)
     const double v[] = { (double)i };
     libxs_hist_push(NULL, hist, v);
   }
-  libxs_hist_get(NULL, hist, &info);
+  libxs_hist_query(NULL, hist, &info);
   if (20 != info.nsamples) {
     FPRINTF(stderr, "ERROR line #%i: expected nsamples=20, got %i\n", __LINE__, info.nsamples);
     result = EXIT_FAILURE;
@@ -545,15 +545,15 @@ static int test_median_uniform(void)
     const double v[] = { (double)i };
     libxs_hist_push(NULL, hist, v);
   }
-  libxs_hist_get_median(NULL, hist, vals);
+  libxs_hist_query_median(NULL, hist, vals);
   if (fabs(vals[0] - 50.0) > 5.0 + TOLERANCE) {
     FPRINTF(stderr, "ERROR line #%i: expected median ~50.0, got %f\n", __LINE__, vals[0]);
     result = EXIT_FAILURE;
   }
   {
     double p0[1], p1[1];
-    libxs_hist_get_percentile(NULL, hist, 0.0, p0);
-    libxs_hist_get_percentile(NULL, hist, 1.0, p1);
+    libxs_hist_query_percentile(NULL, hist, p0, 0.0);
+    libxs_hist_query_percentile(NULL, hist, p1, 1.0);
     if (p0[0] > 10.0 + TOLERANCE) {
       FPRINTF(stderr, "ERROR line #%i: percentile(0)=%f too high\n", __LINE__, p0[0]);
       result = EXIT_FAILURE;
@@ -580,7 +580,7 @@ static int test_median_single(void)
     const double v[] = { 42.0 };
     libxs_hist_push(NULL, hist, v);
   }
-  libxs_hist_get_median(NULL, hist, vals);
+  libxs_hist_query_median(NULL, hist, vals);
   if (fabs(vals[0] - 42.0) > TOLERANCE) {
     FPRINTF(stderr, "ERROR line #%i: expected 42.0, got %f\n", __LINE__, vals[0]);
     result = EXIT_FAILURE;
@@ -594,7 +594,7 @@ static int test_median_null(void)
 {
   int result = EXIT_SUCCESS;
   double vals[1] = { -1.0 };
-  libxs_hist_get_median(NULL, NULL, vals);
+  libxs_hist_query_median(NULL, NULL, vals);
   if (fabs(vals[0] - (-1.0)) > TOLERANCE) {
     FPRINTF(stderr, "ERROR line #%i: expected -1.0 (untouched), got %f\n", __LINE__, vals[0]);
     result = EXIT_FAILURE;
@@ -616,7 +616,7 @@ static int test_percentile_vals(void)
     const double v[] = { (double)i, 100.0 + i };
     libxs_hist_push(NULL, hist, v);
   }
-  libxs_hist_get_median(NULL, hist, vals);
+  libxs_hist_query_median(NULL, hist, vals);
   if (fabs(vals[0] - 20.0) > 5.0 + TOLERANCE) {
     FPRINTF(stderr, "ERROR line #%i: expected median ~20.0, got %f\n", __LINE__, vals[0]);
     result = EXIT_FAILURE;

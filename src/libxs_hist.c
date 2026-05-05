@@ -123,7 +123,7 @@ LIBXS_API void libxs_hist_push(libxs_lock_t* lock, libxs_hist_t* hist, const dou
       double w;
       if (hist->nqueue == hist->n) {
         libxs_hist_info_t info;
-        libxs_hist_get(NULL /*lock*/, hist, &info);
+        libxs_hist_query(NULL /*lock*/, hist, &info);
       }
       if (vals[0] < hist->min || vals[0] > hist->max) {
         internal_libxs_hist_rebin(hist,
@@ -162,7 +162,7 @@ LIBXS_API void libxs_hist_push(libxs_lock_t* lock, libxs_hist_t* hist, const dou
 }
 
 
-LIBXS_API void libxs_hist_get(libxs_lock_t* lock, const libxs_hist_t* hist,
+LIBXS_API void libxs_hist_query(libxs_lock_t* lock, const libxs_hist_t* hist,
   libxs_hist_info_t* info)
 {
   /* C "mutable": lazy commit mutates internal state via cast (safe: always heap-allocated) */
@@ -222,13 +222,13 @@ LIBXS_API void libxs_hist_get(libxs_lock_t* lock, const libxs_hist_t* hist,
 }
 
 
-LIBXS_API void libxs_hist_get_percentile(libxs_lock_t* lock, const libxs_hist_t* hist,
-  double percentile, double vals[])
+LIBXS_API void libxs_hist_query_percentile(libxs_lock_t* lock, const libxs_hist_t* hist,
+  double vals[], double percentile)
 {
   libxs_hist_info_t info;
   int i;
   LIBXS_ASSERT(NULL != vals);
-  libxs_hist_get(lock, hist, &info);
+  libxs_hist_query(lock, hist, &info);
   if (NULL != info.buckets && 0 < info.nbuckets) {
     const double w = info.range[1] - info.range[0];
     int total = 0, cumulative = 0;
@@ -264,10 +264,10 @@ LIBXS_API void libxs_hist_get_percentile(libxs_lock_t* lock, const libxs_hist_t*
 }
 
 
-LIBXS_API void libxs_hist_get_median(libxs_lock_t* lock, const libxs_hist_t* hist,
+LIBXS_API void libxs_hist_query_median(libxs_lock_t* lock, const libxs_hist_t* hist,
   double vals[])
 {
-  libxs_hist_get_percentile(lock, hist, 0.5, vals);
+  libxs_hist_query_percentile(lock, hist, vals, 0.5);
 }
 
 
@@ -276,7 +276,7 @@ LIBXS_API void libxs_hist_print(FILE* ostream, const libxs_hist_t* hist, const i
 {
   libxs_hist_info_t info;
   int i = 1, j = 0, k;
-  libxs_hist_get(NULL /*lock*/, hist, &info);
+  libxs_hist_query(NULL /*lock*/, hist, &info);
   if (NULL != ostream && NULL != info.buckets && 0 < info.nbuckets && NULL != info.vals && 0 < info.nvals) {
     const double w = info.range[1] - info.range[0];
     if (NULL != fmt) {
