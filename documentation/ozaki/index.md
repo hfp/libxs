@@ -1,19 +1,54 @@
 # Ozaki Scheme
+
 ## High-Precision GEMM via Low-Precision Hardware
 
 LIBXS and LIBXSTREAM
 
 ---
 
+## The Transistor Cost of FP64
+
+Unit     | Transistors | Relative
+---------|-------------|---------
+FP64 FMA | ~150k       | 1×
+FP16 FMA | ~15k        | 0.1×
+INT8 MAC | ~5k         | 0.03×
+
+Same die area: ~30× more INT8 MACs than FP64 FMAs.
+
+---
+
+## Fairness: Matrix Engines
+
+- **Fair**: tensor core INT8 vs. tensor core FP64
+  (both dense matrix engines, same data-flow model)
+- **Unfair**: tensor core INT8 vs. scalar FP64 ALU
+  (scalar unit: register-file and scheduling overhead)
+
+Ozaki targets matrix engines: VNNI/AMX on CPU, DPAS/tensor cores on GPU.
+
+---
+
+## Hardware Targets
+
+Target        | Instruction | Operands | Status
+--------------|-------------|----------|--------
+AVX-512 VNNI  | VPDPBUSD    | u8 × s8  | default
+AVX-512 INT8  | VPDPBUUD    | u8 × u8  | auto
+Intel Xe DPAS | dpas.8×8    | u8/s8    | default
+NVIDIA        | dp4a        | u8/s8    | default
+
+VNNI auto-dispatched on CPU. NVIDIA: dp4a has headroom vs. peak; MMA deferred.
+
+---
+
 ## What Is Ozaki?
 
-Replaces standard BLAS GEMM with low-precision arithmetic --
-transparently, via LD_PRELOAD. No source changes needed.
+Replaces BLAS GEMM with low-precision arithmetic.
 
-- **Scheme 1**: Mantissa slicing (int8) -- quadratic in slices
-- **Scheme 2**: Chinese Remainder Theorem (CRT) -- linear in primes
+- **Scheme 1**: Mantissa slicing (int8) — quadratic in slices
+- **Scheme 2**: Chinese Remainder Theorem (CRT) — linear in primes
 - **Adaptive**: Automatic selection based on data characteristics
-- Intercepts DGEMM, SGEMM, ZGEMM, and CGEMM
 
 Built-in accuracy tracking tells if results are trustworthy.
 
@@ -23,17 +58,17 @@ Built-in accuracy tracking tells if results are trustworthy.
 
 ```text
 Application calls DGEMM/SGEMM/ZGEMM/CGEMM
-            |
-            v
-    libwrap.so intercepts the call
-            |
-            v
+            │
+            ▼
+    libwrap.so intercepts the call (LD_PRELOAD)
+            │
+            ▼
     Decompose FP values into int8 slices or u8 residues
-            |
-            v
+            │
+            ▼
     Low-precision dot products (VNNI on CPU, DPAS on GPU)
-            |
-            v
+            │
+            ▼
     Reconstruct full-precision result
 ```
 
@@ -116,30 +151,31 @@ Before production, enable statistics and set a quality threshold:
 
 ```bash
 export OZAKI_VERBOSE=1      # print summary at exit
-export OZAKI_RSQ=0.95       # dump matrices if R^2 drops below 0.95
+export OZAKI_RSQ=0.95       # dump matrices if R² drops below 0.95
 ```
 
 Run your workload and check the exit summary.
-
----
-
-## Reading the Statistics
 
 ```text
 DGEMM[3|410814]: linf=7.81597e-14 linf_rel=2.23531e-15 l2_rel=6.0263e-13 eps=5.20675e-16 rsq=1
 ```
 
-In brackets are the running call-count followed by the PID.
+In brackets are the call-count followed by the PID.
 
-| Metric     | What it tells you              | Healthy value                |
-|------------|--------------------------------|------------------------------|
-| linf       | Max absolute error             | ~0                           |
-| linf_rel   | Max relative error             | < 1e-10 (fp64)               |
-| l2_rel     | RMS relative error             | < 1e-12 (fp64)               |
-| eps        | Normalized Frobenius error     | < 1e-10 (fp64)               |
-| rsq        | R-squared (best single metric) | > 0.99 = good, 1.0 = perfect |
+---
 
-The RSQ is the important number. Investigate if below 0.99.
+## Reading the Statistics
+
+
+| Metric   | What it tells you       | Healthy value |
+|----------|-------------------------|---------------|
+| linf     | Max abs. error          | ≈0            |
+| linf_rel | Max rel. error          | <1e-10 (FP64) |
+| l2_rel   | RMS rel. error          | <1e-12 (FP64) |
+| eps      | Frobenius               | <1e-10 (FP64) |
+| rsq      | R² (best single metric) | 1.0 = perfect |
+
+R² is the important number. Investigate if below 0.99.
 
 ---
 
@@ -153,7 +189,7 @@ export OZAKI_RSQ=0.9        # auto-dump problematic matrices
 export OZAKI_EXIT=0         # keep running after threshold violation
 ```
 
-Watch for rsq degradation -- it indicates ill-conditioned matrices
+Watch for R² degradation — it indicates ill-conditioned matrices
 or insufficient decomposition depth.
 
 ---
@@ -176,16 +212,16 @@ Reproduce the problem offline:
 
 ## Scheme Selection
 
-| Setting   | Cost model               | Best for                              |
-|-----------|--------------------------|---------------------------------------|
-| OZAKI=2   | P integer GEMMs (fixed)  | General use, large matrices (default) |
-| OZAKI=1   | S\*(S+1)/2 integer GEMMs | Narrow exponent spans                 |
-| OZAKI=3\* | Auto-selects 1 or 2      | Repeated calls, unknown data          |
+| Setting | Cost model              | Best for                              |
+|---------|-------------------------|---------------------------------------|
+| OZAKI=2 | P integer GEMMs (fixed) | General use, large matrices (default) |
+| OZAKI=1 | S·(S+1)/2 integer GEMMs | Narrow exponent spans                 |
+| OZAKI=3 | Auto-selects 1 or 2     | Repeated calls, unknown data          |
 
-P = number of primes (default 16 for fp64).  
-S = number of slices (default 8 for fp64).
+P = number of primes (default 16 for FP64).
+S = number of slices (default 8 for FP64).
 
-\* Auto-selection only on GPU (Ozaki-2 on CPU).
+Auto-selection only on GPU (Ozaki-2 on CPU).
 
 ---
 
@@ -204,7 +240,7 @@ GEMMs below the threshold fall through to the original BLAS.
 
 ## GPU Offload (LIBXSTREAM)
 
-When built with LIBXSTREAM (OpenCL), a GPU path is available:
+When built with LIBXSTREAM, a GPU path is available:
 
 ```bash
 export OZAKI_OCL=1          # enable GPU offload
@@ -215,7 +251,7 @@ export OZAKI=2              # CRT scheme (default)
 export OZAKI=3              # Auto-select scheme
 ```
 
-Auto-selecting the scheme uses `OZAKI_CACHE` as a bonus.
+Auto-selection uses `OZAKI_CACHE` as a bonus.
 
 ---
 
@@ -229,7 +265,8 @@ export OZAKI_CACHE=2        # B-matrix
 export OZAKI_CACHE=3        # A and B
 ```
 
-The content is finger-printed, but can still cause wrong results!
+The content is finger-printed,
+but can be still wrong!
 
 ---
 
@@ -244,17 +281,17 @@ export OZAKI_PROFILE=3      # preprocessing only
 At program exit:
 
 ```text
-OZAKI PROF: 850 DP-GFLOPS/s (17.0 INT8-TOPS/s, 20x)
+OZAKI PROF: 850 DP-GFLOPS/s (17.0 INT8-TOPS/s, 20×)
 ```
 
-Reports effective GFLOPS/s and derived INT8 throughput.  
-Works for both CPU and GPU paths (same histogram).
+Reports effective GFLOPS/s and derived INT8 throughput.
+Same histogram for CPU and GPU.
 
 ---
 
-## Complex GEMM (ZGEMM/CGEMM)
+## Complex GEMM
 
-Complex GEMM is mapped to real GEMM internally.  
+Complex GEMM is mapped to real GEMM internally.
 The real GEMM is wrapped automatically.
 
 ```bash
@@ -310,17 +347,48 @@ ldd ./app | grep libwrap
 
 ## Checklist
 
-1. Build: `cd libxs/samples/ozaki && make GNU=1 -j`
-2. Deploy: `mpirun -np N env LD_PRELOAD=./libwrap.so ./app`
-3. Validate: `export OZAKI_VERBOSE=1 OZAKI_RSQ=0.95`
-4. Monitor: `export OZAKI_VERBOSE=1000 OZAKI_EXIT=0`
-5. Debug: `./dgemm-wrap.x dumped-a.mhd dumped-b.mhd`
-6. Tune: `export OZAKI_TRIM=7` or `export OZAKI=1`
+1. **Build**: `cd libxs/samples/ozaki && make GNU=1 -j`
+2. **Deploy**: `mpirun -np N env LD_PRELOAD=./libwrap.so ./app`
+3. **Validate**: `OZAKI_VERBOSE=1 OZAKI_RSQ=0.95`
+4. **Monitor**: `OZAKI_VERBOSE=1000 OZAKI_EXIT=0`
+5. **Debug**: `./dgemm-wrap.x dumped-a.mhd dumped-b.mhd`
+6. **Tune**: `OZAKI=1 OZAKI_TRIM=7`
+
+---
+
+## The Quadratic Cost — Here or There?
+
+Silicon, Ozaki-1, and Ozaki-2 all scale ~w² with precision width.
+Ozaki shifts this cost from **transistors to algorithm** —
+the ~30× unit cost margin (INT8 vs. FP64) absorbs it.
+
+Only GEMM (O(n³) compute on O(n²) data) can pay this cost.
+Reductions, triangular solves, element-wise ops — still need native FP64.
+
+---
+
+## Hardware Design Implications
+
+Ozaki changes the hardware trade-off:
+
+- **AI-dominated**: minimal FP64, strong LP — viable for HPC GEMM via reconstruction
+- **Balanced**: moderate FP64 + LP — how about CPU?
+- **HPC-dominated**: wide FP64 — solver-heavy, etc.
+
+FP64 stagnation already due to AI dominance.
+
+---
+
+## When LP Wins & When Not
+
+- Favorable: compute-bound GEMM, LP:DP absorbs overhead (16–36×)
+- Unfavorable: small matrices, bandwidth-bound, low LP:DP ratio
+- Structural: only GEMM — nothing else has the compute density
 
 ---
 
 ## Questions?
 
-- Hans Pabst: hans.pabst @ intel.com
-- LIBXS: https://github.com/hfp/libxs
-- LIBXSTREAM: https://github.com/hfp/libxstream
+- Hans Pabst [@ intel.com](mailto:hans.pabst@intel.com)
+- [https://github.com/hfp/libxs](https://github.com/hfp/libxs)
+- [https://github.com/hfp/libxstream](https://github.com/hfp/libxstream)
