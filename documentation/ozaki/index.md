@@ -1,4 +1,4 @@
-# Ozaki Scheme
+# Practical Ozaki Schemes
 
 ## High-Precision GEMM via Low-Precision Hardware
 
@@ -6,13 +6,19 @@ LIBXS and LIBXSTREAM
 
 ---
 
+## Latest Revision of the Slides
+
+https://libxs.readthedocs.io/ozaki/
+
+---
+
 ## The Transistor Cost of FP64
 
-Unit     | Transistors | Relative
----------|-------------|---------
-FP64 FMA | ~150k       | 1×
-FP16 FMA | ~15k        | 0.1×
-INT8 MAC | ~5k         | 0.03×
+| Unit     | Transistors | Relative |
+|----------|-------------|----------|
+| FP64 FMA | ~150k       | 1×       |
+| FP16 FMA | ~15k        | 0.1×     |
+| INT8 MAC | ~5k         | 0.03×    |
 
 Same die area: ~30× more INT8 MACs than FP64 FMAs.
 
@@ -31,12 +37,12 @@ Ozaki targets matrix engines: VNNI/AMX on CPU, DPAS/tensor cores on GPU.
 
 ## Hardware Targets
 
-Target        | Instruction | Operands | Status
---------------|-------------|----------|--------
-AVX-512 VNNI  | VPDPBUSD    | u8 × s8  | default
-AVX-512 INT8  | VPDPBUUD    | u8 × u8  | auto
-Intel Xe DPAS | dpas.8×8    | u8/s8    | default
-NVIDIA        | dp4a        | u8/s8    | default
+| Target        | Instruction | Operands | Status  |
+|---------------|-------------|----------|---------|
+| AVX-512 VNNI  | VPDPBUSD    | u8 × s8  | default |
+| AVX-512 INT8  | VPDPBUUD    | u8 × u8  | auto    |
+| Intel Xe DPAS | dpas.8×8    | u8/s8    | default |
+| NVIDIA        | dp4a        | u8/s8    | default |
 
 VNNI auto-dispatched on CPU. NVIDIA: dp4a has headroom vs. peak; MMA deferred.
 
@@ -389,6 +395,6 @@ FP64 stagnation already due to AI dominance.
 
 ## Questions?
 
-- Hans Pabst [@ intel.com](mailto:hans.pabst@intel.com)
-- [https://github.com/hfp/libxs](https://github.com/hfp/libxs)
-- [https://github.com/hfp/libxstream](https://github.com/hfp/libxstream)
+- Hans Pabst (hans.pabst @ intel.com)
+- https://github.com/hfp/libxs
+- https://github.com/hfp/libxstream
