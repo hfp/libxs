@@ -154,6 +154,8 @@
           REAL(C_DOUBLE) :: diag_min_tst, diag_max_tst
           !> Values(v_ref, v_tst) at location of largest linf_abs.
           REAL(C_DOUBLE) :: v_ref, v_tst
+          !> Cumulative weight for online mean.
+          REAL(C_DOUBLE) :: w
           !> Location (m, n) and reduction index (i, r).
           INTEGER(C_INT) :: m, n, i, r
         END TYPE

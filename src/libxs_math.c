@@ -394,6 +394,7 @@ LIBXS_API int libxs_matdiff(libxs_matdiff_t* info,
           info->max_ref = info->diag_max_ref = -pos_inf;
         }
       }
+      info->w = (double)ntotal;
       if (1 == n) LIBXS_ISWAP(info->m, info->n);
       if (0 != result_swap) { /* ref was NULL: move ref-stats to tst, sentinel ref-side */
         info->min_tst = info->min_ref;
@@ -555,7 +556,8 @@ LIBXS_API int libxs_matdiff_combine(libxs_matdiff_t* output, const libxs_matdiff
         fabs(tmp.v_ref), fabs(tmp.v_tst));
       /* statistical L2 bound from pooled variance */
       tmp.l2_abs = sqrt(tmp.var_ref + tmp.var_tst);
-      /* maintain reduction counter */
+      /* maintain reduction counter and cumulative weight */
+      tmp.w = output->w + input->w;
       tmp.r = output->r + 1;
       tmp.i = tmp.r;
       *output = tmp;
@@ -625,8 +627,11 @@ LIBXS_API void libxs_matdiff_reduce(libxs_matdiff_t* output, const libxs_matdiff
     if (output->diag_max_tst <= input->diag_max_tst) output->diag_max_tst = input->diag_max_tst;
     if (output->diag_min_ref >= input->diag_min_ref) output->diag_min_ref = input->diag_min_ref;
     if (output->diag_min_tst >= input->diag_min_tst) output->diag_min_tst = input->diag_min_tst;
-    output->avg_ref = 0.5 * (output->avg_ref + input->avg_ref);
-    output->avg_tst = 0.5 * (output->avg_tst + input->avg_tst);
+    output->w += input->w;
+    if (0 < output->w) {
+      output->avg_ref += input->w * (input->avg_ref - output->avg_ref) / output->w;
+      output->avg_tst += input->w * (input->avg_tst - output->avg_tst) / output->w;
+    }
     output->l1_ref += input->l1_ref;
     output->l1_tst += input->l1_tst;
   }

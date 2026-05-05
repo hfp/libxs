@@ -39,6 +39,8 @@ LIBXS_EXTERN_C typedef struct libxs_matdiff_t {
   double diag_min_ref, diag_max_ref, diag_min_tst, diag_max_tst;
   /* Values(v_ref, v_tst) and location(m, n) of largest linf_abs. */
   double v_ref, v_tst;
+  /** Cumulative weight for online mean. */
+  double w;
   /**
    * If r is non-zero (i is not negative), values (v_ref, v_tst),
    * and the location (m, n) stem from the i-th reduction
