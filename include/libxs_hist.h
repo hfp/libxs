@@ -15,8 +15,8 @@
 /** Opaque histogram type. */
 LIBXS_EXTERN_C typedef struct libxs_hist_t libxs_hist_t;
 
-/** Per-value update function: accumulates src into dst. */
-LIBXS_EXTERN_C typedef void (*libxs_hist_update_t)(double* /*dst*/, const double* /*src*/);
+/** Per-value update function: accumulates src into dst (count includes current sample). */
+LIBXS_EXTERN_C typedef void (*libxs_hist_update_t)(double* /*dst*/, const double* /*src*/, int /*count*/);
 
 
 /** Create histogram: nbuckets resolution, nvals per entry. Returns NULL on failure. */
@@ -50,10 +50,14 @@ LIBXS_API void libxs_hist_get_median(libxs_lock_t* lock, const libxs_hist_t* his
 LIBXS_API void libxs_hist_print(FILE* ostream, const libxs_hist_t* hist, const int prec[],
   const char fmt[], ...);
 
-/** Update function (libxs_hist_update_t): sliding average, arithmetic at commit. */
-LIBXS_API void libxs_hist_update_avg(double* dst, const double* src);
+/** Update function (libxs_hist_update_t): Welford's online mean. */
+LIBXS_API void libxs_hist_update_avg(double* dst, const double* src, int count);
 /** Update function (libxs_hist_update_t): accumulate. */
-LIBXS_API void libxs_hist_update_add(double* dst, const double* src);
+LIBXS_API void libxs_hist_update_add(double* dst, const double* src, int count);
+/** Update function (libxs_hist_update_t): running minimum. */
+LIBXS_API void libxs_hist_update_min(double* dst, const double* src, int count);
+/** Update function (libxs_hist_update_t): running maximum. */
+LIBXS_API void libxs_hist_update_max(double* dst, const double* src, int count);
 
 /* header-only: include implementation (deferred from libxs_macros.h) */
 #if defined(LIBXS_SOURCE) && !defined(LIBXS_SOURCE_H)

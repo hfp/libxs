@@ -195,16 +195,16 @@ static int test_update_avg(void)
   double a = 10.0;
   const double b = 20.0;
   int result = EXIT_SUCCESS;
-  /* direct test of the avg update function */
-  libxs_hist_update_avg(&a, &b);
+  /* Welford: mean of {10, 20} = 15.0 */
+  libxs_hist_update_avg(&a, &b, 2);
   if (fabs(a - 15.0) > TOLERANCE) {
     FPRINTF(stderr, "ERROR line #%i: expected 15.0, got %f\n", __LINE__, a);
     result = EXIT_FAILURE;
   }
-  /* applying avg again: avg(15, 20) = 17.5 */
-  libxs_hist_update_avg(&a, &b);
-  if (fabs(a - 17.5) > TOLERANCE) {
-    FPRINTF(stderr, "ERROR line #%i: expected 17.5, got %f\n", __LINE__, a);
+  /* Welford: mean of {10, 20, 20} = 16.667 */
+  libxs_hist_update_avg(&a, &b, 3);
+  if (fabs(a - 50.0 / 3) > TOLERANCE) {
+    FPRINTF(stderr, "ERROR line #%i: expected 16.667, got %f\n", __LINE__, a);
     result = EXIT_FAILURE;
   }
   return result;
@@ -217,12 +217,12 @@ static int test_update_add_fn(void)
   const double b = 7.0;
   int result = EXIT_SUCCESS;
   /* direct test of the add update function */
-  libxs_hist_update_add(&a, &b);
+  libxs_hist_update_add(&a, &b, 2);
   if (fabs(a - 10.0) > TOLERANCE) {
     FPRINTF(stderr, "ERROR line #%i: expected 10.0, got %f\n", __LINE__, a);
     result = EXIT_FAILURE;
   }
-  libxs_hist_update_add(&a, &b);
+  libxs_hist_update_add(&a, &b, 3);
   if (fabs(a - 17.0) > TOLERANCE) {
     FPRINTF(stderr, "ERROR line #%i: expected 17.0, got %f\n", __LINE__, a);
     result = EXIT_FAILURE;
@@ -478,7 +478,7 @@ static int test_commit_arithmetic_avg(void)
 }
 
 
-static int test_hybrid_avg_then_slide(void)
+static int test_hybrid_avg_then_welford(void)
 {
   libxs_hist_t* hist = NULL;
   const libxs_hist_update_t update[] = { libxs_hist_update_avg };
@@ -487,9 +487,9 @@ static int test_hybrid_avg_then_slide(void)
   int nbuckets = 0, nvals = 0;
   int result = EXIT_SUCCESS;
   /* 1 bucket, nqueue=2: commit produces arithmetic mean,
-   * then subsequent inserts slide (exponential moving average).
+   * then subsequent inserts use Welford.
    * Queue: {10, 30} -> commit: mean=20.0
-   * Slide with 40.0: avg(20, 40) = 30.0
+   * Welford with 40.0 (count=3): 20 + (40-20)/3 = 26.667
    */
   hist = libxs_hist_create(1/*nbuckets*/, 1/*nvals*/, update);
   if (NULL == hist) return EXIT_FAILURE;
@@ -504,13 +504,13 @@ static int test_hybrid_avg_then_slide(void)
     FPRINTF(stderr, "ERROR line #%i: expected 20.0 after commit, got %f\n", __LINE__, vals[0]);
     result = EXIT_FAILURE;
   }
-  { /* bucket phase: slide */
+  { /* bucket phase: Welford update */
     const double v3[] = { 40.0 };
     libxs_hist_push(NULL, hist, v3);
   }
   libxs_hist_get(NULL, hist, &buckets, &nbuckets, NULL, &vals, &nvals);
-  if (EXIT_SUCCESS == result && fabs(vals[0] - 30.0) > TOLERANCE) {
-    FPRINTF(stderr, "ERROR line #%i: expected 30.0 after slide, got %f\n", __LINE__, vals[0]);
+  if (EXIT_SUCCESS == result && fabs(vals[0] - 80.0 / 3) > TOLERANCE) {
+    FPRINTF(stderr, "ERROR line #%i: expected 26.667 after Welford, got %f\n", __LINE__, vals[0]);
     result = EXIT_FAILURE;
   }
   libxs_hist_destroy(hist);
@@ -683,8 +683,8 @@ int main(void)
     FPRINTF(stderr, "FAILED: test_commit_arithmetic_avg\n");
     result = EXIT_FAILURE;
   }
-  if (EXIT_SUCCESS != test_hybrid_avg_then_slide()) {
-    FPRINTF(stderr, "FAILED: test_hybrid_avg_then_slide\n");
+  if (EXIT_SUCCESS != test_hybrid_avg_then_welford()) {
+    FPRINTF(stderr, "FAILED: test_hybrid_avg_then_welford\n");
     result = EXIT_FAILURE;
   }
   if (EXIT_SUCCESS != test_median_uniform()) {
