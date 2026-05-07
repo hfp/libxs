@@ -82,6 +82,8 @@
         PUBLIC :: libxs_gemm_dispatch, libxs_gemm_release
         PUBLIC :: libxs_gemm_batch, libxs_gemm_batch_task
         PUBLIC :: libxs_gemm_index, libxs_gemm_index_task
+        PUBLIC :: libxs_syr2k_dispatch, libxs_syrk_dispatch
+        PUBLIC :: libxs_syr2k, libxs_syrk
 
         !> Re-exported from ISO_C_BINDING for convenience.
         PUBLIC :: C_DOUBLE, C_FLOAT, C_INT, C_LONG_LONG
@@ -617,6 +619,66 @@
      &        stride_a, stride_b, stride_c
             TYPE(libxs_gemm_config_t), INTENT(IN) :: config
           END SUBROUTINE
+
+          !> Internal C binding for libxs_syr2k_dispatch.
+          FUNCTION internal_syr2k_dispatch(config,                      &
+     &    datatype, n, k, lda, ldb, ldc,                                &
+     &    scratch_size, registry)                                       &
+     &    BIND(C, NAME="libxs_syr2k_dispatch")
+            IMPORT :: libxs_gemm_config_t,                              &
+     &        C_PTR, C_INT, C_SIZE_T
+            TYPE(libxs_gemm_config_t), INTENT(INOUT) :: config
+            INTEGER(C_INT), INTENT(IN), VALUE ::                        &
+     &        datatype, n, k, lda, ldb, ldc
+            TYPE(C_PTR), INTENT(IN), VALUE :: scratch_size
+            TYPE(C_PTR), INTENT(IN), VALUE :: registry
+            INTEGER(C_INT) :: internal_syr2k_dispatch
+          END FUNCTION
+
+          !> Internal C binding for libxs_syrk_dispatch.
+          FUNCTION internal_syrk_dispatch(config,                       &
+     &    datatype, n, k, lda, ldc,                                     &
+     &    scratch_size, registry)                                       &
+     &    BIND(C, NAME="libxs_syrk_dispatch")
+            IMPORT :: libxs_gemm_config_t,                              &
+     &        C_PTR, C_INT, C_SIZE_T
+            TYPE(libxs_gemm_config_t), INTENT(INOUT) :: config
+            INTEGER(C_INT), INTENT(IN), VALUE ::                        &
+     &        datatype, n, k, lda, ldc
+            TYPE(C_PTR), INTENT(IN), VALUE :: scratch_size
+            TYPE(C_PTR), INTENT(IN), VALUE :: registry
+            INTEGER(C_INT) :: internal_syrk_dispatch
+          END FUNCTION
+
+          !> Internal C binding for libxs_syr2k.
+          FUNCTION internal_syr2k(config, uplo,                         &
+     &    alpha, beta, a, b, c, scratch)                                &
+     &    BIND(C, NAME="libxs_syr2k")
+            IMPORT :: libxs_gemm_config_t,                              &
+     &        C_PTR, C_INT, C_DOUBLE, C_CHAR
+            TYPE(libxs_gemm_config_t), INTENT(IN) :: config
+            CHARACTER(C_CHAR), INTENT(IN), VALUE :: uplo
+            REAL(C_DOUBLE), INTENT(IN), VALUE :: alpha, beta
+            TYPE(C_PTR), INTENT(IN), VALUE :: a, b
+            TYPE(C_PTR), VALUE :: c
+            TYPE(C_PTR), INTENT(IN), VALUE :: scratch
+            INTEGER(C_INT) :: internal_syr2k
+          END FUNCTION
+
+          !> Internal C binding for libxs_syrk.
+          FUNCTION internal_syrk(config, uplo,                          &
+     &    alpha, beta, a, c, scratch)                                   &
+     &    BIND(C, NAME="libxs_syrk")
+            IMPORT :: libxs_gemm_config_t,                              &
+     &        C_PTR, C_INT, C_DOUBLE, C_CHAR
+            TYPE(libxs_gemm_config_t), INTENT(IN) :: config
+            CHARACTER(C_CHAR), INTENT(IN), VALUE :: uplo
+            REAL(C_DOUBLE), INTENT(IN), VALUE :: alpha, beta
+            TYPE(C_PTR), INTENT(IN), VALUE :: a
+            TYPE(C_PTR), VALUE :: c
+            TYPE(C_PTR), INTENT(IN), VALUE :: scratch
+            INTEGER(C_INT) :: internal_syrk
+          END FUNCTION
 
           !> Combine two single-matrix diffs into a meta-diff.
           FUNCTION libxs_matdiff_combine(output, input)                 &
@@ -1176,10 +1238,10 @@
         !> cached by shape: a hit copies the cached config,
         !> a miss dispatches and stores the result.
         FUNCTION libxs_gemm_dispatch(config,                            &
-     &    datatype, transa, transb,                                      &
-     &    m, n, k, lda, ldb, ldc, alpha, beta,                           &
-     &    dgemm_jit, sgemm_jit, jitter,                                  &
-     &    xgemm, dgemm_blas, sgemm_blas,                                 &
+     &    datatype, transa, transb,                                     &
+     &    m, n, k, lda, ldb, ldc, alpha, beta,                          &
+     &    dgemm_jit, sgemm_jit, jitter,                                 &
+     &    xgemm, dgemm_blas, sgemm_blas,                                &
      &    registry)
           TYPE(libxs_gemm_config_t), INTENT(INOUT) :: config
           INTEGER(C_INT), INTENT(IN), OPTIONAL :: datatype
@@ -1221,7 +1283,7 @@
           IF (PRESENT(registry)) THEN
             key = config%shape
             ptr = libxs_registry_get(registry,                          &
-     &        C_LOC(key),                                                &
+     &        C_LOC(key),                                               &
      &        INT(C_SIZEOF(key), C_SIZE_T))
             IF (C_ASSOCIATED(ptr)) THEN
               CALL C_F_POINTER(ptr, cached)
@@ -1246,9 +1308,9 @@
             IF (PRESENT(registry)) THEN
               tmp = config
               ptr = libxs_registry_set(registry,                        &
-     &          C_LOC(key),                                              &
-     &          INT(C_SIZEOF(key), C_SIZE_T),                            &
-     &          C_LOC(tmp),                                              &
+     &          C_LOC(key),                                             &
+     &          INT(C_SIZEOF(key), C_SIZE_T),                           &
+     &          C_LOC(tmp),                                             &
      &          INT(C_SIZEOF(tmp), C_SIZE_T))
             END IF
           END IF
@@ -1268,4 +1330,92 @@
           config%dgemm_blas = C_NULL_FUNPTR
           config%sgemm_blas = C_NULL_FUNPTR
         END SUBROUTINE
+
+        !> Dispatch a GEMM config for SYR2K.
+        !> scratch_size (optional): receives required scratch
+        !> buffer size in bytes.
+        !> registry (optional): cache dispatched configs.
+        FUNCTION libxs_syr2k_dispatch(config,                           &
+     &  datatype, n, k, lda, ldb, ldc, scratch_size, registry)
+          TYPE(libxs_gemm_config_t), INTENT(INOUT) :: config
+          INTEGER(C_INT), INTENT(IN) :: datatype, n, k, lda, ldb, ldc
+          INTEGER(C_SIZE_T), INTENT(OUT), OPTIONAL, TARGET ::           &
+     &      scratch_size
+          TYPE(C_PTR), INTENT(IN), OPTIONAL :: registry
+          INTEGER(C_INT) :: libxs_syr2k_dispatch
+          TYPE(C_PTR) :: pss, preg
+          IF (PRESENT(scratch_size)) THEN
+            pss = C_LOC(scratch_size)
+          ELSE; pss = C_NULL_PTR; END IF
+          IF (PRESENT(registry)) THEN
+            preg = registry
+          ELSE; preg = C_NULL_PTR; END IF
+          libxs_syr2k_dispatch = internal_syr2k_dispatch(               &
+     &      config, datatype, n, k, lda, ldb, ldc, pss, preg)
+        END FUNCTION
+
+        !> Dispatch a GEMM config for SYRK.
+        !> scratch_size (optional): receives required scratch
+        !> buffer size in bytes.
+        !> registry (optional): cache dispatched configs.
+        FUNCTION libxs_syrk_dispatch(config,                            &
+     &  datatype, n, k, lda, ldc, scratch_size, registry)
+          TYPE(libxs_gemm_config_t), INTENT(INOUT) :: config
+          INTEGER(C_INT), INTENT(IN) :: datatype, n, k, lda, ldc
+          INTEGER(C_SIZE_T), INTENT(OUT), OPTIONAL, TARGET ::           &
+     &      scratch_size
+          TYPE(C_PTR), INTENT(IN), OPTIONAL :: registry
+          INTEGER(C_INT) :: libxs_syrk_dispatch
+          TYPE(C_PTR) :: pss, preg
+          IF (PRESENT(scratch_size)) THEN
+            pss = C_LOC(scratch_size)
+          ELSE; pss = C_NULL_PTR; END IF
+          IF (PRESENT(registry)) THEN
+            preg = registry
+          ELSE; preg = C_NULL_PTR; END IF
+          libxs_syrk_dispatch = internal_syrk_dispatch(                 &
+     &      config, datatype, n, k, lda, ldc, pss, preg)
+        END FUNCTION
+
+        !> Symmetric rank-2k update.
+        !> C := alpha*(A*B^T + B*A^T) + beta*C.
+        !> scratch (optional): n*n workspace; if absent uses
+        !> two-GEMM path (no scratch needed).
+        FUNCTION libxs_syr2k(config, uplo, alpha, beta,                 &
+     &  a, b, c, scratch)
+          TYPE(libxs_gemm_config_t), INTENT(IN) :: config
+          CHARACTER(C_CHAR), INTENT(IN) :: uplo
+          REAL(C_DOUBLE), INTENT(IN) :: alpha, beta
+          TYPE(C_PTR), INTENT(IN) :: a, b
+          TYPE(C_PTR) :: c
+          TYPE(C_PTR), INTENT(IN), OPTIONAL :: scratch
+          INTEGER(C_INT) :: libxs_syr2k
+          TYPE(C_PTR) :: ss
+          IF (PRESENT(scratch)) THEN
+            ss = scratch
+          ELSE; ss = C_NULL_PTR; END IF
+          libxs_syr2k = internal_syr2k(config, uplo,                    &
+     &      alpha, beta, a, b, c, ss)
+        END FUNCTION
+
+        !> Symmetric rank-k update.
+        !> C := alpha*A*A^T + beta*C.
+        !> scratch (optional): n*n workspace; if absent uses
+        !> single-BLAS path (no scratch needed).
+        FUNCTION libxs_syrk(config, uplo, alpha, beta,                  &
+     &  a, c, scratch)
+          TYPE(libxs_gemm_config_t), INTENT(IN) :: config
+          CHARACTER(C_CHAR), INTENT(IN) :: uplo
+          REAL(C_DOUBLE), INTENT(IN) :: alpha, beta
+          TYPE(C_PTR), INTENT(IN) :: a
+          TYPE(C_PTR) :: c
+          TYPE(C_PTR), INTENT(IN), OPTIONAL :: scratch
+          INTEGER(C_INT) :: libxs_syrk
+          TYPE(C_PTR) :: ss
+          IF (PRESENT(scratch)) THEN
+            ss = scratch
+          ELSE; ss = C_NULL_PTR; END IF
+          libxs_syrk = internal_syrk(config, uplo,                      &
+     &      alpha, beta, a, c, ss)
+        END FUNCTION
       END MODULE

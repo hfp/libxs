@@ -361,6 +361,264 @@ LIBXS_API void libxs_gemm_index(
 }
 
 
+static void internal_libxs_gemm_blas(
+  const libxs_gemm_config_t* config,
+  const void* a, const void* b, void* c,
+  int lda, int ldb, int ldc,
+  double alpha, double beta)
+{
+  const char ta = (char)config->shape.transa;
+  const char tb = (char)config->shape.transb;
+  int m = config->shape.m, n = config->shape.n, k = config->shape.k;
+  if (LIBXS_DATATYPE_F64 == config->shape.datatype) {
+    const libxs_gemm_dblas_t fn = (NULL != config->dgemm_blas)
+      ? config->dgemm_blas : internal_libxs_dgemm_default;
+    fn(&ta, &tb, &m, &n, &k,
+      &alpha, (const double*)a, &lda,
+      (const double*)b, &ldb, &beta, (double*)c, &ldc);
+  }
+  else if (LIBXS_DATATYPE_F32 == config->shape.datatype) {
+    const float falpha = (float)alpha, fbeta = (float)beta;
+    const libxs_gemm_sblas_t fn = (NULL != config->sgemm_blas)
+      ? config->sgemm_blas : internal_libxs_sgemm_default;
+    fn(&ta, &tb, &m, &n, &k,
+      &falpha, (const float*)a, &lda,
+      (const float*)b, &ldb, &fbeta, (float*)c, &ldc);
+  }
+}
+
+
+LIBXS_API int libxs_syr2k_dispatch(
+  libxs_gemm_config_t* config,
+  libxs_data_t datatype, int n, int k, int lda, int ldb, int ldc,
+  size_t* scratch_size, void* registry)
+{
+  const double one = 1.0, zero = 0.0;
+  int result;
+  if (NULL != scratch_size) {
+    *scratch_size = (size_t)n * (size_t)n * (size_t)LIBXS_TYPESIZE(datatype);
+  }
+  result = libxs_gemm_dispatch(config, datatype, 'N', 'T',
+    n, n, k, lda, ldb, n, &one, &zero, registry);
+  if (NULL != config) {
+    config->shape.ldc = ldc;
+  }
+  return result;
+}
+
+
+LIBXS_API int libxs_syrk_dispatch(
+  libxs_gemm_config_t* config,
+  libxs_data_t datatype, int n, int k, int lda, int ldc,
+  size_t* scratch_size, void* registry)
+{
+  return libxs_syr2k_dispatch(config, datatype,
+    n, k, lda, lda, ldc, scratch_size, registry);
+}
+
+
+LIBXS_API int libxs_syr2k(
+  const libxs_gemm_config_t* config, char uplo,
+  double alpha, double beta,
+  const void* a, const void* b, void* c,
+  void* scratch)
+{
+  int n, ldc, upper, j;
+  if (NULL == config || NULL == a || NULL == b || NULL == c) {
+    return EXIT_FAILURE;
+  }
+  n = config->shape.m;
+  ldc = config->shape.ldc;
+  upper = ('U' == uplo || 'u' == uplo);
+  if (LIBXS_DATATYPE_F64 == config->shape.datatype
+    || LIBXS_DATATYPE_F32 == config->shape.datatype)
+  {
+    const size_t elemsize = (size_t)LIBXS_TYPESIZE(config->shape.datatype);
+    if (NULL != scratch) {
+      /* Scratch path: T = A*B^T via JIT (alpha=1,beta=0 baked in),
+       * then C := beta*C + alpha*(T + T^T). */
+      if (EXIT_SUCCESS != libxs_gemm_call(config, a, b, scratch)) {
+        internal_libxs_gemm_blas(config, a, b, scratch,
+          config->shape.lda, config->shape.ldb, n, 1.0, 0.0);
+      }
+      if (LIBXS_DATATYPE_F64 == config->shape.datatype) {
+        double* cc = (double*)c;
+        const double* t = (const double*)scratch;
+        int i;
+        if (upper) {
+          for (j = 0; j < n; ++j)
+            for (i = 0; i <= j; ++i)
+              cc[i + (size_t)j * ldc] = beta * cc[i + (size_t)j * ldc]
+                + alpha * (t[i + (size_t)j * n] + t[j + (size_t)i * n]);
+        }
+        else {
+          for (j = 0; j < n; ++j)
+            for (i = j; i < n; ++i)
+              cc[i + (size_t)j * ldc] = beta * cc[i + (size_t)j * ldc]
+                + alpha * (t[i + (size_t)j * n] + t[j + (size_t)i * n]);
+        }
+      }
+      else {
+        float* cc = (float*)c;
+        const float* t = (const float*)scratch;
+        const float fa = (float)alpha, fb = (float)beta;
+        int i;
+        if (upper) {
+          for (j = 0; j < n; ++j)
+            for (i = 0; i <= j; ++i)
+              cc[i + (size_t)j * ldc] = fb * cc[i + (size_t)j * ldc]
+                + fa * (t[i + (size_t)j * n] + t[j + (size_t)i * n]);
+        }
+        else {
+          for (j = 0; j < n; ++j)
+            for (i = j; i < n; ++i)
+              cc[i + (size_t)j * ldc] = fb * cc[i + (size_t)j * ldc]
+                + fa * (t[i + (size_t)j * n] + t[j + (size_t)i * n]);
+        }
+      }
+    }
+    else {
+      /* No-scratch path: two BLAS calls directly into C. */
+      internal_libxs_gemm_blas(config, a, b, c,
+        config->shape.lda, config->shape.ldb, ldc, alpha, beta);
+      internal_libxs_gemm_blas(config, b, a, c,
+        config->shape.ldb, config->shape.lda, ldc, alpha, 1.0);
+      if (LIBXS_DATATYPE_F64 == config->shape.datatype) {
+        double* cc = (double*)c;
+        int i;
+        if (upper) {
+          for (j = 0; j < n; ++j)
+            for (i = j + 1; i < n; ++i)
+              cc[i + (size_t)j * ldc] = cc[j + (size_t)i * ldc];
+        }
+        else {
+          for (j = 0; j < n; ++j)
+            for (i = 0; i < j; ++i)
+              cc[i + (size_t)j * ldc] = cc[j + (size_t)i * ldc];
+        }
+      }
+      else {
+        float* cc = (float*)c;
+        int i;
+        if (upper) {
+          for (j = 0; j < n; ++j)
+            for (i = j + 1; i < n; ++i)
+              cc[i + (size_t)j * ldc] = cc[j + (size_t)i * ldc];
+        }
+        else {
+          for (j = 0; j < n; ++j)
+            for (i = 0; i < j; ++i)
+              cc[i + (size_t)j * ldc] = cc[j + (size_t)i * ldc];
+        }
+      }
+    }
+    LIBXS_UNUSED(elemsize);
+  }
+  else {
+    return EXIT_FAILURE;
+  }
+  return EXIT_SUCCESS;
+}
+
+
+LIBXS_API int libxs_syrk(
+  const libxs_gemm_config_t* config, char uplo,
+  double alpha, double beta,
+  const void* a, void* c,
+  void* scratch)
+{
+  int n, ldc, upper, j;
+  if (NULL == config || NULL == a || NULL == c) {
+    return EXIT_FAILURE;
+  }
+  n = config->shape.m;
+  ldc = config->shape.ldc;
+  upper = ('U' == uplo || 'u' == uplo);
+  if (LIBXS_DATATYPE_F64 == config->shape.datatype
+    || LIBXS_DATATYPE_F32 == config->shape.datatype)
+  {
+    if (NULL != scratch) {
+      if (EXIT_SUCCESS != libxs_gemm_call(config, a, a, scratch)) {
+        internal_libxs_gemm_blas(config, a, a, scratch,
+          config->shape.lda, config->shape.ldb, n, 1.0, 0.0);
+      }
+      if (LIBXS_DATATYPE_F64 == config->shape.datatype) {
+        double* cc = (double*)c;
+        const double* t = (const double*)scratch;
+        int i;
+        if (upper) {
+          for (j = 0; j < n; ++j)
+            for (i = 0; i <= j; ++i)
+              cc[i + (size_t)j * ldc] = beta * cc[i + (size_t)j * ldc]
+                + alpha * t[i + (size_t)j * n];
+        }
+        else {
+          for (j = 0; j < n; ++j)
+            for (i = j; i < n; ++i)
+              cc[i + (size_t)j * ldc] = beta * cc[i + (size_t)j * ldc]
+                + alpha * t[i + (size_t)j * n];
+        }
+      }
+      else {
+        float* cc = (float*)c;
+        const float* t = (const float*)scratch;
+        const float fa = (float)alpha, fb = (float)beta;
+        int i;
+        if (upper) {
+          for (j = 0; j < n; ++j)
+            for (i = 0; i <= j; ++i)
+              cc[i + (size_t)j * ldc] = fb * cc[i + (size_t)j * ldc]
+                + fa * t[i + (size_t)j * n];
+        }
+        else {
+          for (j = 0; j < n; ++j)
+            for (i = j; i < n; ++i)
+              cc[i + (size_t)j * ldc] = fb * cc[i + (size_t)j * ldc]
+                + fa * t[i + (size_t)j * n];
+        }
+      }
+    }
+    else {
+      /* A*A^T is symmetric -- single BLAS call + mirror */
+      internal_libxs_gemm_blas(config, a, a, c,
+        config->shape.lda, config->shape.lda, ldc, alpha, beta);
+      if (LIBXS_DATATYPE_F64 == config->shape.datatype) {
+        double* cc = (double*)c;
+        int i;
+        if (upper) {
+          for (j = 0; j < n; ++j)
+            for (i = j + 1; i < n; ++i)
+              cc[i + (size_t)j * ldc] = cc[j + (size_t)i * ldc];
+        }
+        else {
+          for (j = 0; j < n; ++j)
+            for (i = 0; i < j; ++i)
+              cc[i + (size_t)j * ldc] = cc[j + (size_t)i * ldc];
+        }
+      }
+      else {
+        float* cc = (float*)c;
+        int i;
+        if (upper) {
+          for (j = 0; j < n; ++j)
+            for (i = j + 1; i < n; ++i)
+              cc[i + (size_t)j * ldc] = cc[j + (size_t)i * ldc];
+        }
+        else {
+          for (j = 0; j < n; ++j)
+            for (i = 0; i < j; ++i)
+              cc[i + (size_t)j * ldc] = cc[j + (size_t)i * ldc];
+        }
+      }
+    }
+  }
+  else {
+    return EXIT_FAILURE;
+  }
+  return EXIT_SUCCESS;
+}
+
+
 #if defined(LIBXS_BUILD) && !defined(LIBXS_NOFORTRAN)
 
 LIBXS_API int libxs_gemm_ready_f(const libxs_gemm_config_t*);

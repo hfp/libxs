@@ -367,6 +367,64 @@ LIBXS_API_INLINE void libxs_gemm_release_registry(libxs_registry_t* registry)
   }
 }
 
+/**
+ * Dispatch a GEMM config suitable for libxs_syr2k.
+ * Internally dispatches GEMM('N','T', n, n, k, lda, ldb, n) with
+ * alpha=1, beta=0 (optimized for the scratch path).
+ * If scratch_size is non-NULL, returns the required scratch buffer
+ * size in bytes (n * n * typesize).
+ * Returns EXIT_SUCCESS if a JIT kernel was obtained.
+ */
+LIBXS_API int libxs_syr2k_dispatch(
+  libxs_gemm_config_t* config,
+  libxs_data_t datatype, int n, int k, int lda, int ldb, int ldc,
+  size_t* scratch_size,
+  void* LIBXS_ARGDEF(registry, NULL));
+
+/**
+ * Dispatch a GEMM config suitable for libxs_syrk.
+ * Internally dispatches GEMM('N','T', n, n, k, lda, lda, n) with
+ * alpha=1, beta=0 (optimized for the scratch path).
+ * If scratch_size is non-NULL, returns the required scratch buffer
+ * size in bytes (n * n * typesize).
+ * Returns EXIT_SUCCESS if a JIT kernel was obtained.
+ */
+LIBXS_API int libxs_syrk_dispatch(
+  libxs_gemm_config_t* config,
+  libxs_data_t datatype, int n, int k, int lda, int ldc,
+  size_t* scratch_size,
+  void* LIBXS_ARGDEF(registry, NULL));
+
+/**
+ * Symmetric rank-2k update using a dispatched GEMM config.
+ * C := alpha*(A*B^T + B*A^T) + beta*C
+ * Only the triangle specified by uplo ('U' or 'L') is written.
+ *
+ * If scratch is non-NULL (n*n elements), uses one GEMM JIT call into
+ * scratch then symmetrizes into C (n^2*k + n^2 FLOPs).
+ * If scratch is NULL, uses two BLAS calls directly into C (2*n^2*k FLOPs).
+ */
+LIBXS_API int libxs_syr2k(
+  const libxs_gemm_config_t* config, char uplo,
+  double alpha, double beta,
+  const void* a, const void* b, void* c,
+  void* scratch);
+
+/**
+ * Symmetric rank-k update using a dispatched GEMM config.
+ * C := alpha*A*A^T + beta*C
+ * Only the triangle specified by uplo ('U' or 'L') is written.
+ *
+ * If scratch is non-NULL (n*n elements), uses one GEMM JIT call into
+ * scratch then combines into C. If scratch is NULL, uses BLAS directly
+ * (A*A^T is symmetric by construction, so a single call suffices).
+ */
+LIBXS_API int libxs_syrk(
+  const libxs_gemm_config_t* config, char uplo,
+  double alpha, double beta,
+  const void* a, void* c,
+  void* scratch);
+
 /* header-only: include implementation (deferred from libxs_macros.h) */
 #if defined(LIBXS_SOURCE) && !defined(LIBXS_SOURCE_H)
 # include "libxs_source.h"
