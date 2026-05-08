@@ -81,6 +81,28 @@ int main(void)
     }
   }
 
+  /* multiset: duplicate in a cannot match single in b twice */
+  { double a[] = {1.0, 1.0}, b[] = {1.0, 2.0};
+    if (1 != libxs_setdiff(LIBXS_DATATYPE_F64, a, 2, b, 2, 0.0)) {
+      FPRINTF(stderr, "ERROR line #%i: F64 multiset double-count\n", __LINE__);
+      exit(EXIT_FAILURE);
+    }
+  }
+  /* multiset: greedy order matters -- sort ensures optimal 1-to-1 */
+  { double a[] = {1.0, 2.0}, b[] = {1.5, 1.0};
+    if (0 != libxs_setdiff(LIBXS_DATATYPE_F64, a, 2, b, 2, 0.6)) {
+      FPRINTF(stderr, "ERROR line #%i: F64 multiset greedy order\n", __LINE__);
+      exit(EXIT_FAILURE);
+    }
+  }
+  /* multiset: three duplicates vs two -- only two can match */
+  { double a[] = {5.0, 5.0, 5.0}, b[] = {5.0, 5.0, 9.0};
+    if (1 != libxs_setdiff(LIBXS_DATATYPE_F64, a, 3, b, 3, 0.0)) {
+      FPRINTF(stderr, "ERROR line #%i: F64 multiset dup count\n", __LINE__);
+      exit(EXIT_FAILURE);
+    }
+  }
+
   /* F32 */
   { float a[] = {1.0f, 2.0f, 3.0f}, b[] = {3.0f, 1.0f, 2.0f};
     if (0 != libxs_setdiff(LIBXS_DATATYPE_F32, a, 3, b, 3, 0.0)) {

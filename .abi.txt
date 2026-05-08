@@ -6,6 +6,10 @@ libxs_aligned
 libxs_barrett_pow18
 libxs_barrett_pow36
 libxs_barrett_rcp
+libxs_cmp_f32
+libxs_cmp_f64
+libxs_cmp_i32
+libxs_cmp_u32
 libxs_coprime
 libxs_coprime_bias
 libxs_cpuid
@@ -54,6 +58,7 @@ libxs_hash_xchar
 libxs_hash_xi32
 libxs_hash_xi64
 libxs_hash_xi8
+libxs_hilbert2d
 libxs_hist_create
 libxs_hist_destroy
 libxs_hist_print
@@ -73,6 +78,8 @@ libxs_itrans
 libxs_itrans_batch
 libxs_itrans_task
 libxs_kahan_sum
+libxs_kdtree2d_build
+libxs_kdtree2d_nearest
 libxs_lcm
 libxs_malloc
 libxs_malloc_arg
@@ -135,6 +142,7 @@ libxs_setdiff
 libxs_setdiff_min
 libxs_shuffle
 libxs_shuffle2
+libxs_sort
 libxs_sort_smooth
 libxs_stdio_acquire
 libxs_stdio_release
@@ -143,6 +151,10 @@ libxs_strimatch
 libxs_strisimilar
 libxs_stristr
 libxs_stristrn
+libxs_syr2k
+libxs_syr2k_dispatch
+libxs_syrk
+libxs_syrk_dispatch
 libxs_tid
 libxs_timer_duration
 libxs_timer_info

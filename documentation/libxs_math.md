@@ -70,16 +70,15 @@ condition for positive definiteness met). Zero if no diagonal data.
 ## Multiset Distance
 
 Order-independent distance between two vectors treated as multisets.
-The metric counts how many elements have no counterpart (within
-tolerance) in the other vector. The result is a non-negative integer
-that satisfies the metric properties: symmetry, non-negativity, and
-identity of indiscernibles.
+Counts elements that cannot be matched 1-to-1 within the given
+tolerance. The result satisfies metric properties: symmetry,
+non-negativity, and identity of indiscernibles.
 
-For each element in b, the algorithm checks whether any element in a
-matches (and vice versa). The maximum of both one-sided match counts
-determines the distance. Elements are compared by absolute difference
-for real types and by complex modulus for C64/C32. The tolerance
-threshold is inclusive (less-than-or-equal).
+For real and integer types, both arrays are sorted and matched via
+a two-pointer merge. For complex types (C64, C32), a 2D k-d tree
+is built on one array and nearest-neighbor queries with consumption
+(used-flags) provide 1-to-1 matching by Euclidean distance. The
+tolerance threshold is inclusive (less-than-or-equal).
 
 ```C
 int libxs_setdiff(libxs_data_t datatype,

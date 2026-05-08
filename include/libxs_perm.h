@@ -36,6 +36,53 @@ typedef enum libxs_sort_t {
 LIBXS_API int libxs_sort_smooth(libxs_sort_t method, int m, int n,
   const void* mat, int ld, libxs_data_t datatype, int* perm);
 
+/** Comparator type for libxs_sort (tristate: negative, zero, positive). */
+LIBXS_EXTERN_C typedef int (*libxs_sort_cmp_t)(
+  const void* a, const void* b, void* ctx);
+
+/** Built-in comparators (enable fast paths when recognized). */
+LIBXS_API int libxs_cmp_f64(const void* a, const void* b, void* ctx);
+LIBXS_API int libxs_cmp_f32(const void* a, const void* b, void* ctx);
+LIBXS_API int libxs_cmp_i32(const void* a, const void* b, void* ctx);
+LIBXS_API int libxs_cmp_u32(const void* a, const void* b, void* ctx);
+
+/**
+ * Sort n elements of given size using comparator with context.
+ * Built-in comparators (libxs_cmp_f64, etc.) trigger a fast path:
+ *   ctx=NULL sorts base in-place; ctx!=NULL reads source from ctx
+ *   and writes sorted result to base (out-of-place, no memcpy).
+ * Unknown comparators use generic in-place heap sort.
+ */
+LIBXS_API void libxs_sort(void* base, int n, size_t size,
+  libxs_sort_cmp_t cmp, void* ctx);
+
+/**
+ * 2D Hilbert curve index. Maps (x, y) grid coordinates to a
+ * locality-preserving 1D index. Order is bits per axis (1..16),
+ * producing a 2*order-bit key. Coordinates must be in [0, 2^order).
+ */
+LIBXS_API unsigned int libxs_hilbert2d(
+  unsigned int x, unsigned int y, int order);
+
+/**
+ * Build a 2D k-d tree in-place. Points are n interleaved (x, y) pairs
+ * in pts[0..2n-1]. The index array idx[0..n-1] is rearranged to
+ * reflect the implicit tree structure (median splits alternating
+ * on x and y). Initialize idx to identity {0, 1, ..., n-1} before
+ * calling. After build, pts is unchanged; idx encodes the tree.
+ */
+LIBXS_API void libxs_kdtree2d_build(double* pts, int* idx, int n);
+
+/**
+ * Find the nearest point to (x, y) within squared Euclidean distance
+ * max_dist2. Returns the point index (into original pts layout) or
+ * -1 if no point is within range. The used array (may be NULL) marks
+ * points to skip (non-zero = skip). This enables repeated queries
+ * with consumption (mark returned index as used after each hit).
+ */
+LIBXS_API int libxs_kdtree2d_nearest(const double* pts, const int* idx,
+  const unsigned char* used, int n, double x, double y, double max_dist2);
+
 /** Out-of-place shuffling of data given by elemsize and count. */
 LIBXS_API int libxs_shuffle(void* inout, size_t elemsize, size_t count,
   /** Shall be co-prime to count-argument; uses libxs_coprime2(count) if shuffle=NULL. */

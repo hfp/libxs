@@ -89,6 +89,372 @@ LIBXS_API_INLINE void internal_libxs_sort_free(void* ptr, int pool) {
 }
 
 
+LIBXS_API_INLINE void internal_libxs_sort_swap(
+  unsigned char* LIBXS_RESTRICT a, unsigned char* LIBXS_RESTRICT b, size_t size)
+{
+  size_t i;
+  for (i = 0; i < size; ++i) {
+    const unsigned char t = a[i];
+    a[i] = b[i]; b[i] = t;
+  }
+}
+
+
+LIBXS_API_INLINE void internal_libxs_sort_heap(
+  void* base, int n, size_t size, libxs_sort_cmp_t cmp, void* ctx)
+{
+  unsigned char* const data = (unsigned char*)base;
+  int i, end;
+  for (i = n / 2 - 1; 0 <= i; --i) {
+    int parent = i, child;
+    while ((child = 2 * parent + 1) < n) {
+      if (child + 1 < n && cmp(data + (size_t)child * size,
+        data + (size_t)(child + 1) * size, ctx) < 0)
+      {
+        ++child;
+      }
+      if (cmp(data + (size_t)parent * size,
+        data + (size_t)child * size, ctx) < 0)
+      {
+        internal_libxs_sort_swap(
+          data + (size_t)parent * size,
+          data + (size_t)child * size, size);
+        parent = child;
+      }
+      else break;
+    }
+  }
+  for (end = n - 1; 0 < end; --end) {
+    int parent = 0, child;
+    internal_libxs_sort_swap(data, data + (size_t)end * size, size);
+    while ((child = 2 * parent + 1) < end) {
+      if (child + 1 < end && cmp(data + (size_t)child * size,
+        data + (size_t)(child + 1) * size, ctx) < 0)
+      {
+        ++child;
+      }
+      if (cmp(data + (size_t)parent * size,
+        data + (size_t)child * size, ctx) < 0)
+      {
+        internal_libxs_sort_swap(
+          data + (size_t)parent * size,
+          data + (size_t)child * size, size);
+        parent = child;
+      }
+      else break;
+    }
+  }
+}
+
+
+LIBXS_API int libxs_cmp_f64(const void* a, const void* b, void* ctx) {
+  const double va = *(const double*)a, vb = *(const double*)b;
+  (void)ctx;
+  return (va > vb) - (va < vb);
+}
+
+
+LIBXS_API int libxs_cmp_f32(const void* a, const void* b, void* ctx) {
+  const float va = *(const float*)a, vb = *(const float*)b;
+  (void)ctx;
+  return (va > vb) - (va < vb);
+}
+
+
+LIBXS_API int libxs_cmp_i32(const void* a, const void* b, void* ctx) {
+  const int va = *(const int*)a, vb = *(const int*)b;
+  (void)ctx;
+  return (va > vb) - (va < vb);
+}
+
+
+LIBXS_API int libxs_cmp_u32(const void* a, const void* b, void* ctx) {
+  const unsigned int va = *(const unsigned int*)a;
+  const unsigned int vb = *(const unsigned int*)b;
+  (void)ctx;
+  return (va > vb) - (va < vb);
+}
+
+
+LIBXS_API_INLINE void internal_libxs_radix_f64(
+  unsigned long long* LIBXS_RESTRICT dst,
+  unsigned long long* LIBXS_RESTRICT src, int n)
+{
+  unsigned long long* LIBXS_RESTRICT a = src;
+  unsigned long long* LIBXS_RESTRICT b = dst;
+  int pass;
+  for (pass = 0; pass < 8; ++pass) {
+    const int shift = pass * 8;
+    int count[256], i;
+    memset(count, 0, sizeof(count));
+    for (i = 0; i < n; ++i) {
+      ++count[(a[i] >> shift) & 0xFF];
+    }
+    { int sum = 0, j;
+      for (j = 0; j < 256; ++j) {
+        const int c = count[j];
+        count[j] = sum; sum += c;
+      }
+    }
+    for (i = 0; i < n; ++i) {
+      b[count[(a[i] >> shift) & 0xFF]++] = a[i];
+    }
+    { unsigned long long* t = a; a = b; b = t; }
+  }
+}
+
+
+LIBXS_API_INLINE void internal_libxs_radix_u32(
+  unsigned int* LIBXS_RESTRICT dst,
+  unsigned int* LIBXS_RESTRICT src, int n)
+{
+  unsigned int* LIBXS_RESTRICT a = src;
+  unsigned int* LIBXS_RESTRICT b = dst;
+  int pass;
+  for (pass = 0; pass < 4; ++pass) {
+    const int shift = pass * 8;
+    int count[256], i;
+    memset(count, 0, sizeof(count));
+    for (i = 0; i < n; ++i) {
+      ++count[(a[i] >> shift) & 0xFF];
+    }
+    { int sum = 0, j;
+      for (j = 0; j < 256; ++j) {
+        const int c = count[j];
+        count[j] = sum; sum += c;
+      }
+    }
+    for (i = 0; i < n; ++i) {
+      b[count[(a[i] >> shift) & 0xFF]++] = a[i];
+    }
+    { unsigned int* t = a; a = b; b = t; }
+  }
+}
+
+
+LIBXS_API_INLINE void internal_libxs_sort_radix_f64(
+  double* LIBXS_RESTRICT dst, const double* src, int n, void* scratch)
+{
+  unsigned long long* const keys = (unsigned long long*)dst;
+  unsigned long long* const aux = (unsigned long long*)scratch;
+  int i;
+  for (i = 0; i < n; ++i) {
+    unsigned long long bits;
+    memcpy(&bits, src + i, 8);
+    keys[i] = (bits >> 63) ? ~bits : (bits | 0x8000000000000000ULL);
+  }
+  internal_libxs_radix_f64(aux, keys, n);
+  for (i = 0; i < n; ++i) {
+    unsigned long long bits = keys[i];
+    bits = (bits >> 63) ? (bits ^ 0x8000000000000000ULL) : ~bits;
+    memcpy(dst + i, &bits, 8);
+  }
+}
+
+
+LIBXS_API_INLINE void internal_libxs_sort_radix_f32(
+  float* LIBXS_RESTRICT dst, const float* src, int n, void* scratch)
+{
+  unsigned int* const keys = (unsigned int*)dst;
+  unsigned int* const aux = (unsigned int*)scratch;
+  int i;
+  for (i = 0; i < n; ++i) {
+    unsigned int bits;
+    memcpy(&bits, src + i, 4);
+    keys[i] = (bits >> 31) ? ~bits : (bits | 0x80000000U);
+  }
+  internal_libxs_radix_u32(aux, keys, n);
+  for (i = 0; i < n; ++i) {
+    unsigned int bits = keys[i];
+    bits = (bits >> 31) ? (bits ^ 0x80000000U) : ~bits;
+    memcpy(dst + i, &bits, 4);
+  }
+}
+
+
+LIBXS_API_INLINE void internal_libxs_sort_radix_i32(
+  int* LIBXS_RESTRICT dst, const int* src, int n, void* scratch)
+{
+  unsigned int* const keys = (unsigned int*)dst;
+  unsigned int* const aux = (unsigned int*)scratch;
+  int i;
+  for (i = 0; i < n; ++i) {
+    keys[i] = (unsigned int)src[i] ^ 0x80000000U;
+  }
+  internal_libxs_radix_u32(aux, keys, n);
+  for (i = 0; i < n; ++i) {
+    dst[i] = (int)(keys[i] ^ 0x80000000U);
+  }
+}
+
+
+LIBXS_API_INLINE void internal_libxs_sort_radix_u32(
+  unsigned int* LIBXS_RESTRICT dst, const unsigned int* src, int n,
+  void* scratch)
+{
+  unsigned int* const aux = (unsigned int*)scratch;
+  memcpy(dst, src, (size_t)n * 4);
+  internal_libxs_radix_u32(aux, dst, n);
+}
+
+
+LIBXS_API void libxs_sort(void* base, int n, size_t size,
+  libxs_sort_cmp_t cmp, void* ctx)
+{
+  if (NULL == base || n < 2 || 0 == size || NULL == cmp) return;
+  if (cmp == libxs_cmp_f64 || cmp == libxs_cmp_f32
+    || cmp == libxs_cmp_i32 || cmp == libxs_cmp_u32)
+  {
+    const void* src = (NULL != ctx) ? ctx : base;
+    int pool = 0;
+    void* scratch = internal_libxs_sort_malloc((size_t)n * size, &pool);
+    if (NULL != scratch) {
+      if (cmp == libxs_cmp_f64) {
+        internal_libxs_sort_radix_f64(
+          (double*)base, (const double*)src, n, scratch);
+      }
+      else if (cmp == libxs_cmp_f32) {
+        internal_libxs_sort_radix_f32(
+          (float*)base, (const float*)src, n, scratch);
+      }
+      else if (cmp == libxs_cmp_i32) {
+        internal_libxs_sort_radix_i32(
+          (int*)base, (const int*)src, n, scratch);
+      }
+      else {
+        internal_libxs_sort_radix_u32(
+          (unsigned int*)base, (const unsigned int*)src, n, scratch);
+      }
+      internal_libxs_sort_free(scratch, pool);
+    }
+    else {
+      if (NULL != ctx) memcpy(base, ctx, (size_t)n * size);
+      internal_libxs_sort_heap(base, n, size, cmp, NULL);
+    }
+  }
+  else {
+    internal_libxs_sort_heap(base, n, size, cmp, ctx);
+  }
+}
+
+
+LIBXS_API unsigned int libxs_hilbert2d(
+  unsigned int x, unsigned int y, int order)
+{
+  unsigned int d = 0;
+  int level;
+  for (level = order - 1; 0 <= level; --level) {
+    const unsigned int rx = (x >> level) & 1;
+    const unsigned int ry = (y >> level) & 1;
+    d += (3 * rx ^ ry) << (2 * level);
+    if (0 == ry) {
+      const unsigned int s = (1u << (level + 1)) - 1;
+      if (0 != rx) { x = s - x; y = s - y; }
+      { const unsigned int t = x; x = y; y = t; }
+    }
+  }
+  return d;
+}
+
+
+LIBXS_API_INLINE void internal_libxs_kdtree2d_build(
+  const double* pts, int* idx, int lo, int hi, int depth)
+{
+  if (hi - lo > 1) {
+    const int mid = lo + (hi - lo) / 2;
+    const int k = depth & 1;
+    int l = lo, r = hi - 1;
+    while (l < r) {
+      const double pivot = pts[2 * idx[mid] + k];
+      int ll = l, rr = r;
+      while (ll <= rr) {
+        while (pts[2 * idx[ll] + k] < pivot) ++ll;
+        while (pts[2 * idx[rr] + k] > pivot) --rr;
+        if (ll <= rr) {
+          { const int t = idx[ll]; idx[ll] = idx[rr]; idx[rr] = t; }
+          ++ll; --rr;
+        }
+      }
+      if (mid <= rr) r = rr;
+      else if (mid >= ll) l = ll;
+      else break;
+    }
+    internal_libxs_kdtree2d_build(pts, idx, lo, mid, depth + 1);
+    internal_libxs_kdtree2d_build(pts, idx, mid + 1, hi, depth + 1);
+  }
+}
+
+
+LIBXS_API void libxs_kdtree2d_build(double* pts, int* idx, int n)
+{
+  if (NULL != pts && NULL != idx && n > 1) {
+    internal_libxs_kdtree2d_build(pts, idx, 0, n, 0);
+  }
+}
+
+
+LIBXS_EXTERN_C typedef struct internal_libxs_kdtree2d_ctx_t {
+  const double* pts;
+  const int* idx;
+  const unsigned char* used;
+  double qx, qy;
+} internal_libxs_kdtree2d_ctx_t;
+
+
+LIBXS_API_INLINE int internal_libxs_kdtree2d_find(
+  const internal_libxs_kdtree2d_ctx_t* ctx,
+  int lo, int hi, int depth, double best_d2, int best_idx)
+{
+  if (lo < hi) {
+    const int mid = lo + (hi - lo) / 2;
+    const int k = depth & 1;
+    const int pi = ctx->idx[mid];
+    double split, dist;
+    int near_lo, near_hi, far_lo, far_hi;
+    if (NULL == ctx->used || 0 == ctx->used[pi]) {
+      const double dx = ctx->pts[2*pi] - ctx->qx;
+      const double dy = ctx->pts[2*pi+1] - ctx->qy;
+      const double d2 = dx * dx + dy * dy;
+      if (d2 <= best_d2) { best_d2 = d2; best_idx = pi; }
+    }
+    split = (0 == k) ? ctx->pts[2*pi] : ctx->pts[2*pi+1];
+    dist = (0 == k) ? (ctx->qx - split) : (ctx->qy - split);
+    if (dist <= 0) {
+      near_lo = lo; near_hi = mid; far_lo = mid + 1; far_hi = hi;
+    }
+    else {
+      near_lo = mid + 1; near_hi = hi; far_lo = lo; far_hi = mid;
+    }
+    best_idx = internal_libxs_kdtree2d_find(
+      ctx, near_lo, near_hi, depth + 1, best_d2, best_idx);
+    if (best_idx >= 0) {
+      const double dx = ctx->pts[2*best_idx] - ctx->qx;
+      const double dy = ctx->pts[2*best_idx+1] - ctx->qy;
+      best_d2 = dx * dx + dy * dy;
+    }
+    if (dist * dist < best_d2) {
+      best_idx = internal_libxs_kdtree2d_find(
+        ctx, far_lo, far_hi, depth + 1, best_d2, best_idx);
+    }
+  }
+  return best_idx;
+}
+
+
+LIBXS_API int libxs_kdtree2d_nearest(const double* pts, const int* idx,
+  const unsigned char* used, int n, double x, double y, double max_dist2)
+{
+  int result = -1;
+  if (NULL != pts && NULL != idx && 0 < n) {
+    internal_libxs_kdtree2d_ctx_t ctx;
+    ctx.pts = pts; ctx.idx = idx; ctx.used = used;
+    ctx.qx = x; ctx.qy = y;
+    result = internal_libxs_kdtree2d_find(&ctx, 0, n, 0, max_dist2, -1);
+  }
+  return result;
+}
+
+
 #if defined(LIBXS_INTRINSICS_AVX2)
 LIBXS_API_INLINE LIBXS_INTRINSICS(LIBXS_X86_AVX2)
 void internal_libxs_shuffle2_u32_avx2(
