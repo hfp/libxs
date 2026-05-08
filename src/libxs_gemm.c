@@ -10,6 +10,10 @@
 #include "libxs_main.h"
 #include "libxs_crc32.h"
 
+#if !defined(LIBXS_SYRK_TRACE) && 1
+# define LIBXS_SYRK_TRACE
+#endif
+
 #define INTERNAL_GEMM_NOTRANS(C) ('N' == (C) || 'n' == (C))
 #define INTERNAL_GEMM_NLOCKS 16
 #define INTERNAL_GEMM_LOCKIDX(PTR) \
@@ -361,7 +365,12 @@ LIBXS_API void libxs_gemm_index(
 }
 
 
-static void internal_libxs_gemm_blas(
+LIBXS_API_INTERN void internal_libxs_gemm_blas(
+  const libxs_gemm_config_t* config,
+  const void* a, const void* b, void* c,
+  int lda, int ldb, int ldc,
+  double alpha, double beta);
+LIBXS_API_INTERN void internal_libxs_gemm_blas(
   const libxs_gemm_config_t* config,
   const void* a, const void* b, void* c,
   int lda, int ldb, int ldc,
@@ -388,6 +397,33 @@ static void internal_libxs_gemm_blas(
 }
 
 
+#if defined(LIBXS_SYRK_TRACE)
+LIBXS_API_INTERN void internal_libxs_syrk_trace(
+  const char* name, void* registry);
+LIBXS_API_INTERN void internal_libxs_syrk_trace(
+  const char* name, void* registry)
+{
+  static int interval = -1;
+  static int counter = 0;
+  if (-1 == interval) {
+    const char* env = getenv("LIBXS_SYRK");
+    interval = (NULL != env) ? atoi(env) : 0;
+  }
+  if (0 < interval && NULL != registry) {
+    if (0 == (++counter % interval)) {
+      libxs_registry_info_t info;
+      if (0 == libxs_registry_info((libxs_registry_t*)registry, &info)) {
+        fprintf(stderr, "LIBXS %s [%d]: registry size=%lu capacity=%lu"
+          " nbytes=%lu\n", name, counter,
+          (unsigned long)info.size, (unsigned long)info.capacity,
+          (unsigned long)info.nbytes);
+      }
+    }
+  }
+}
+#endif
+
+
 LIBXS_API int libxs_syr2k_dispatch(
   libxs_gemm_config_t* config,
   libxs_data_t datatype, int n, int k, int lda, int ldb, int ldc,
@@ -403,6 +439,9 @@ LIBXS_API int libxs_syr2k_dispatch(
   if (NULL != config) {
     config->shape.ldc = ldc;
   }
+#if defined(LIBXS_SYRK_TRACE)
+  internal_libxs_syrk_trace("syr2k", registry);
+#endif
   return result;
 }
 
