@@ -39,16 +39,8 @@
       }
       scores[ii] = acc;
     }
-    for (ii = 1; ii < m; ++ii) {
-      const int key = perm[ii];
-      const double keyval = scores[key];
-      jj = ii - 1;
-      while (jj >= 0 && scores[perm[jj]] > keyval) {
-        perm[jj + 1] = perm[jj];
-        --jj;
-      }
-      perm[jj + 1] = key;
-    }
+    libxs_sort(perm, m, sizeof(int),
+      internal_libxs_sort_smooth_cmp, (void*)scores);
   }
   else if (LIBXS_SORT_MEAN == method) {
     for (ii = 0; ii < m; ++ii) {
@@ -59,45 +51,69 @@
       }
       scores[ii] = (0 < n) ? (acc / n) : 0.0;
     }
-    for (ii = 1; ii < m; ++ii) {
-      const int key = perm[ii];
-      const double keyval = scores[key];
-      jj = ii - 1;
-      while (jj >= 0 && scores[perm[jj]] > keyval) {
-        perm[jj + 1] = perm[jj];
-        --jj;
-      }
-      perm[jj + 1] = key;
-    }
+    libxs_sort(perm, m, sizeof(int),
+      internal_libxs_sort_smooth_cmp, (void*)scores);
   }
   else if (LIBXS_SORT_GREEDY == method) {
-    for (ii = 0; ii < m; ++ii) visited[ii] = 0;
-    perm[0] = 0;
-    visited[0] = 1;
-    for (ii = 1; ii < m; ++ii) {
-      const int prev = perm[ii - 1];
-      double best_dist = DBL_MAX;
-      int best_row = 0;
-      for (jj = 0; jj < m; ++jj) {
-        double dist = 0.0;
-        int kk;
-        if (0 != visited[jj]) continue;
-        for (kk = 0; kk < n; ++kk) {
-          const double d =
-            LIBXS_SORT_TEMPLATE_TYPE2FP64(
-              real_mat[(size_t)kk * ld + prev]) -
-            LIBXS_SORT_TEMPLATE_TYPE2FP64(
-              real_mat[(size_t)kk * ld + jj]);
-          dist += d * d;
-          if (dist >= best_dist) break;
+    int use_kd = 0;
+    if (2 == n) {
+      int pool_kd = 0;
+      const size_t kdsz = (size_t)m * 2 * sizeof(double)
+        + (size_t)m * sizeof(int) + (size_t)m;
+      double* pts = (double*)internal_libxs_sort_malloc(kdsz, &pool_kd);
+      if (NULL != pts) {
+        int* idx = (int*)(pts + 2 * m);
+        unsigned char* used = (unsigned char*)(idx + m);
+        for (ii = 0; ii < m; ++ii) {
+          pts[2*ii] = LIBXS_SORT_TEMPLATE_TYPE2FP64(real_mat[ii]);
+          pts[2*ii+1] = LIBXS_SORT_TEMPLATE_TYPE2FP64(
+            real_mat[(size_t)ld + ii]);
+          idx[ii] = ii;
         }
-        if (dist < best_dist) {
-          best_dist = dist;
-          best_row = jj;
+        libxs_kdtree2d_build(pts, idx, m);
+        memset(used, 0, (size_t)m);
+        perm[0] = 0; used[0] = 1;
+        for (ii = 1; ii < m; ++ii) {
+          const int prev = perm[ii - 1];
+          const double qx = pts[2*prev], qy = pts[2*prev+1];
+          const int hit = libxs_kdtree2d_nearest(
+            pts, idx, used, m, qx, qy, DBL_MAX);
+          perm[ii] = (0 <= hit) ? hit : 0;
+          if (0 <= hit) used[hit] = 1;
         }
+        internal_libxs_sort_free(pts, pool_kd);
+        use_kd = 1;
       }
-      perm[ii] = best_row;
-      visited[best_row] = 1;
+    }
+    if (0 == use_kd) {
+      for (ii = 0; ii < m; ++ii) visited[ii] = 0;
+      perm[0] = 0;
+      visited[0] = 1;
+      for (ii = 1; ii < m; ++ii) {
+        const int prev = perm[ii - 1];
+        double best_dist = DBL_MAX;
+        int best_row = 0;
+        for (jj = 0; jj < m; ++jj) {
+          double dist = 0.0;
+          int kk;
+          if (0 != visited[jj]) continue;
+          for (kk = 0; kk < n; ++kk) {
+            const double d =
+              LIBXS_SORT_TEMPLATE_TYPE2FP64(
+                real_mat[(size_t)kk * ld + prev]) -
+              LIBXS_SORT_TEMPLATE_TYPE2FP64(
+                real_mat[(size_t)kk * ld + jj]);
+            dist += d * d;
+            if (dist >= best_dist) break;
+          }
+          if (dist < best_dist) {
+            best_dist = dist;
+            best_row = jj;
+          }
+        }
+        perm[ii] = best_row;
+        visited[best_row] = 1;
+      }
     }
   }
 }

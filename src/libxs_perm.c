@@ -571,6 +571,16 @@ void internal_libxs_shuffle2_u64_avx512(
 #endif /* LIBXS_INTRINSICS_AVX512 */
 
 
+LIBXS_API_INLINE int internal_libxs_sort_smooth_cmp(
+  const void* a, const void* b, void* ctx)
+{
+  const double* scores = (const double*)ctx;
+  const double va = scores[*(const int*)a];
+  const double vb = scores[*(const int*)b];
+  return (va > vb) - (va < vb);
+}
+
+
 LIBXS_API int libxs_sort_smooth(libxs_sort_t method, int m, int n,
   const void* mat, int ld, libxs_data_t datatype, int* perm)
 {
