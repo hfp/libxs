@@ -411,6 +411,7 @@ LIBXS_API_INTERN void internal_libxs_init(void)
   umask(S_IRUSR | S_IWUSR); /* setup default/secure file mask */
 #endif
   internal_libxs_memory_init(libxs_cpuid(NULL));
+  internal_libxs_gemm_init();
   internal_libxs_default_pool = libxs_malloc_pool(NULL, NULL);
 }
 
@@ -531,6 +532,7 @@ LIBXS_API_CTOR void libxs_init(void)
 LIBXS_API LIBXS_ATTRIBUTE_NO_TRACE void libxs_finalize(void);
 LIBXS_API_DTOR void libxs_finalize(void)
 {
+  internal_libxs_gemm_finalize();
   internal_libxs_memory_finalize();
   libxs_free_pool(internal_libxs_default_pool);
   internal_libxs_default_pool = NULL;

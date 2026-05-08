@@ -2,63 +2,13 @@
 
 Header: `libxs_gemm.h`
 
-Batched general matrix-matrix multiplication (GEMM). Operations are expressed as C := alpha \* op(A) \* op(B) + beta \* C, where op() is an optional transpose. The caller can supply MKL JIT, LIBXSMM, or BLAS kernels; otherwise a built-in default kernel (auto-vectorized) is used.
+Batched general matrix-matrix multiplication (GEMM) and symmetric
+rank-k/2k updates. Operations are expressed as
+C := alpha * op(A) * op(B) + beta * C, where op() is an optional
+transpose. Kernels are dispatched via MKL JIT, LIBXSMM, or BLAS;
+a built-in default kernel (auto-vectorized) is used as fallback.
 
 ## Types
-
-```C
-typedef void (*libxs_gemm_dblas_t)(
-  const char* transa, const char* transb,
-  const int* m, const int* n, const int* k,
-  const double* alpha, const double* a, const int* lda,
-                       const double* b, const int* ldb,
-  const double* beta,        double* c, const int* ldc);
-```
-
-Standard Fortran BLAS dgemm signature (e.g., `dgemm_`).
-
-```C
-typedef void (*libxs_gemm_sblas_t)(
-  const char* transa, const char* transb,
-  const int* m, const int* n, const int* k,
-  const float* alpha, const float* a, const int* lda,
-                      const float* b, const int* ldb,
-  const float* beta,        float* c, const int* ldc);
-```
-
-Standard Fortran BLAS sgemm signature (e.g., `sgemm_`).
-
-```C
-typedef void (*libxs_gemm_djit_t)(void* jitter,
-  const double* a, const double* b, double* c);
-typedef void (*libxs_gemm_sjit_t)(void* jitter,
-  const float* a, const float* b, float* c);
-```
-
-MKL JIT kernel signatures. Shape, alpha, beta, and transpose info are baked into the jitter handle.
-
-```C
-typedef struct libxs_gemm_param_t {
-  void* op[4]; const void* a[6]; const void* b[6]; void* c[6];
-} libxs_gemm_param_t;
-```
-
-XGEMM parameter struct, layout-compatible with `libxsmm_gemm_param`. Only `a[0]` (a.primary), `b[0]` (b.primary), and `c[0]` (c.primary) are used for plain GEMM.
-
-```C
-typedef void (*libxs_gemm_xfn_t)(const void*);
-```
-
-Opaque XGEMM kernel signature: `void(const libxs_gemm_param_t*)`.
-
-```C
-typedef enum libxs_gemm_flags_t {
-  LIBXS_GEMM_FLAGS_DEFAULT = 0,
-  LIBXS_GEMM_FLAG_NOLOCK = 1
-} libxs_gemm_flags_t;
-```
-
-Flags controlling batch synchronization. By default, `_task` variants synchronize C-matrix updates. Set `LIBXS_GEMM_FLAG_NOLOCK` when no duplicate C pointers exist.
 
 ```C
 typedef struct libxs_gemm_shape_t {
@@ -69,7 +19,9 @@ typedef struct libxs_gemm_shape_t {
 } libxs_gemm_shape_t;
 ```
 
-GEMM shape: problem geometry, transpose flags, and scalar coefficients. Alpha and beta are stored as double regardless of datatype (float values are promoted without loss). Also serves as registry key when caching dispatched configurations (all-int fields avoid padding).
+GEMM shape: problem geometry, transpose flags, and scalar
+coefficients. Serves as registry key when caching dispatched
+configurations.
 
 ```C
 typedef struct libxs_gemm_config_t {
@@ -84,35 +36,47 @@ typedef struct libxs_gemm_config_t {
 } libxs_gemm_config_t;
 ```
 
-Configuration supplying GEMM kernels. Pass NULL to batch functions to use the built-in default kernel (auto-vectorized, no BLAS dependency). Kernel selection priority:
+Configuration holding dispatched GEMM kernels. Kernel priority:
+1. JIT kernel (dgemm_jit/sgemm_jit + jitter),
+2. XGEMM kernel (xgemm),
+3. BLAS kernel (dgemm_blas/sgemm_blas),
+4. built-in default.
 
-1. JIT kernel (`dgemm_jit`/`sgemm_jit` + `jitter`) if non-NULL,
-2. XGEMM kernel (`xgemm`) if non-NULL,
-3. BLAS kernel (`dgemm_blas`/`sgemm_blas`) if non-NULL,
-4. built-in default kernel.
+```C
+typedef enum libxs_gemm_flags_t {
+  LIBXS_GEMM_FLAGS_DEFAULT = 0,
+  LIBXS_GEMM_FLAG_NOLOCK = 1
+} libxs_gemm_flags_t;
+```
 
-Only the function pointers matching the datatype need to be set. The `shape` member is populated by `libxs_gemm_dispatch`.
+Flags controlling batch synchronization. Set LIBXS_GEMM_FLAG_NOLOCK
+when no duplicate C pointers exist across the batch.
 
 ## Functions
 
-### Dispatch and Single-Kernel Call
+### Dispatch
 
 ```C
-int libxs_gemm_dispatch(
-  libxs_gemm_config_t* config,
+libxs_gemm_config_t* libxs_gemm_dispatch(
   libxs_data_t datatype, char transa, char transb,
   int m, int n, int k, int lda, int ldb, int ldc,
   const void* alpha, const void* beta,
   void* registry /* = NULL */);
 ```
 
-Dispatch a GEMM kernel and populate `config` accordingly. With MKL JIT (highest priority): sets `config->dgemm_jit` or `sgemm_jit` + `jitter`. With LIBXSMM (fallback): sets `config->xgemm` via `libxsmm_dispatch_gemm`. Without either: config is unchanged (falls through to BLAS/default). The caller should memset config to zero before the first call. Returns `EXIT_SUCCESS` on success, `EXIT_FAILURE` when no JIT backend is available. If `registry` is non-NULL, dispatched configs are cached by shape: a hit copies the cached config, a miss dispatches and stores.
+Dispatch a GEMM kernel. Returns pointer to a ready-to-use config
+(registry-owned), or NULL on failure. On registry hit the lookup
+is a hash-table probe (zero JIT cost). On miss the kernel is
+JIT-compiled and stored. If registry is NULL, an internal registry
+is used (lazy-initialized, destroyed by libxs_finalize).
+
+### Single-Kernel Call
 
 ```C
 int libxs_gemm_ready(const libxs_gemm_config_t* config);
 ```
 
-Check whether a dispatched config holds a usable kernel. Returns nonzero if `libxs_gemm_call` would succeed, zero otherwise.
+Returns nonzero if config holds a usable kernel.
 
 ```C
 int libxs_gemm_call(
@@ -120,19 +84,21 @@ int libxs_gemm_call(
   const void* a, const void* b, void* c);
 ```
 
-Call the GEMM kernel previously dispatched into config. Follows the documented priority (JIT > XGEMM > BLAS fallback). Returns `EXIT_SUCCESS` if a kernel was called, `EXIT_FAILURE` otherwise.
+Call the dispatched GEMM kernel. Returns EXIT_SUCCESS on success.
+
+### Release
 
 ```C
 void libxs_gemm_release(libxs_gemm_config_t* config);
 ```
 
-Release resources acquired by `libxs_gemm_dispatch` (e.g., MKL jitter). Safe to call even if dispatch was not used or returned zero.
+Release resources (e.g., MKL jitter handle) held by config.
 
 ```C
 void libxs_gemm_release_registry(libxs_registry_t* registry);
 ```
 
-Release all GEMM configs cached in a registry (e.g., MKL jitter), then destroy the registry itself. Safe to call with NULL.
+Release all configs in a registry, then destroy the registry.
 
 ### Pointer-Array Batch
 
@@ -140,18 +106,15 @@ Release all GEMM configs cached in a registry (e.g., MKL jitter), then destroy t
 void libxs_gemm_batch(
   const void* a_array[], const void* b_array[], void* c_array[],
   int batchsize, const libxs_gemm_config_t* config);
-```
 
-Process a batch of GEMMs given arrays of pointers to matrices. Shape, alpha, beta, datatype, and transpose info come from `config->shape`.
-
-```C
 void libxs_gemm_batch_task(
   const void* a_array[], const void* b_array[], void* c_array[],
   int batchsize, const libxs_gemm_config_t* config,
   int tid, int ntasks);
 ```
 
-Per-thread form of `libxs_gemm_batch`.
+Batch of GEMMs from pointer arrays. The _task variant splits
+work across ntasks threads (tid = 0..ntasks-1).
 
 ### Index/Strided Batch
 
@@ -162,11 +125,7 @@ void libxs_gemm_index(
         void* c, const int stride_c[],
   int index_stride, int index_base,
   int batchsize, const libxs_gemm_config_t* config);
-```
 
-Process a batch of GEMMs given index arrays into contiguous buffers. Each `stride_a[i]`, `stride_b[i]`, `stride_c[i]` is an element-offset from the respective base pointer. `index_base` selects the indexing convention: 0 for zero-based (C), 1 for one-based (Fortran). `index_stride` is the Byte-stride used to walk the stride arrays (e.g., `sizeof(int)` for packed int arrays). `index_stride=0` selects constant-stride mode: each stride array points to a single element, and batch `i` uses offset `stride[0]*i` (equivalent to the strided batch pattern). Shape, alpha, beta, datatype, and transpose info come from `config->shape`.
-
-```C
 void libxs_gemm_index_task(
   const void* a, const int stride_a[],
   const void* b, const int stride_b[],
@@ -176,4 +135,75 @@ void libxs_gemm_index_task(
   int tid, int ntasks);
 ```
 
-Per-thread form of `libxs_gemm_index`.
+Batch of GEMMs from element-offset index arrays into contiguous
+buffers. index_base: 0 (C) or 1 (Fortran). index_stride: byte
+stride between consecutive index entries (sizeof(int) for packed
+arrays, 0 for constant-stride mode).
+
+## SYR2K / SYRK
+
+Symmetric rank-2k and rank-k updates built on top of GEMM dispatch.
+Scratch memory is managed internally (thread-local, grown as needed).
+
+### Dispatch
+
+```C
+libxs_gemm_config_t* libxs_syr2k_dispatch(
+  libxs_data_t datatype, int n, int k, int lda, int ldb, int ldc,
+  void* registry /* = NULL */);
+
+libxs_gemm_config_t* libxs_syrk_dispatch(
+  libxs_data_t datatype, int n, int k, int lda, int ldc,
+  void* registry /* = NULL */);
+```
+
+Dispatch a GEMM config for SYR2K/SYRK. Internally dispatches
+GEMM('N','T', n, n, k, ...) with alpha=1, beta=0. The returned
+config stores ldc for the output matrix. Returns NULL on failure.
+
+### Call
+
+```C
+int libxs_syr2k(
+  const libxs_gemm_config_t* config, char uplo,
+  double alpha, double beta,
+  const void* a, const void* b, void* c);
+```
+
+C := alpha*(A*B^T + B*A^T) + beta*C. Only the triangle specified
+by uplo ('U' or 'L') is written.
+
+```C
+int libxs_syrk(
+  const libxs_gemm_config_t* config, char uplo,
+  double alpha, double beta,
+  const void* a, void* c);
+```
+
+C := alpha*A*A^T + beta*C. Only the triangle specified by uplo
+('U' or 'L') is written.
+
+## Environment Variables
+
+LIBXS_SYRK=N  Print registry info every N-th syr2k/syrk dispatch
+               call to stderr (diagnostic, compile-time optional
+               via LIBXS_SYRK_TRACE).
+
+## Example
+
+```C
+#include <libxs_gemm.h>
+
+libxs_registry_t* reg = libxs_registry_create();
+
+/* dispatch once per unique shape */
+const libxs_gemm_config_t* cfg = libxs_syr2k_dispatch(
+  LIBXS_DATATYPE_F64, n, k, lda, ldb, ldc, reg);
+
+/* call many times (registry hit = hash probe only) */
+for (batch = 0; batch < nbatches; ++batch) {
+  libxs_syr2k(cfg, 'U', 0.5, 0.0, a[batch], b[batch], c[batch]);
+}
+
+libxs_gemm_release_registry(reg);
+```

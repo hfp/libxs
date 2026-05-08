@@ -53,13 +53,17 @@ int main(int argc, char* argv[])
   LIBXS_MATRNG(int, double, 0, b, k, (size_t)n * batchsize, ldb, 1.0);
   LIBXS_MATRNG(int, double, 0, c, m, (size_t)n * batchsize, ldc, 1.0);
 
-  memset(&config, 0, sizeof(config));
-  config.flags = LIBXS_GEMM_FLAG_NOLOCK;
-  if (EXIT_SUCCESS == libxs_gemm_dispatch(&config,
-    LIBXS_DATATYPE(double), 'N', 'N', m, n, k, lda, ldb, ldc,
-    &alpha, &beta, NULL))
-  {
-    printf("  JIT kernel dispatched\n");
+  { libxs_gemm_config_t* cfg = libxs_gemm_dispatch(
+      LIBXS_DATATYPE(double), 'N', 'N', m, n, k, lda, ldb, ldc,
+      &alpha, &beta, NULL);
+    if (NULL != cfg) {
+      config = *cfg;
+      printf("  JIT kernel dispatched\n");
+    }
+    else {
+      memset(&config, 0, sizeof(config));
+    }
+    config.flags = LIBXS_GEMM_FLAG_NOLOCK;
   }
 
   /* warmup: index_stride=0 selects constant-stride mode */

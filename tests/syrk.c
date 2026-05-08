@@ -85,84 +85,54 @@ static void ref_syrk(int n, int k,
 int main(void)
 {
   int result = EXIT_SUCCESS;
-  libxs_gemm_config_t config;
+  const libxs_gemm_config_t* cfg;
   ELEMTYPE a[N * K], b[N * K];
-  ELEMTYPE c[N * N], cref[N * N], scratch[N * N];
-  size_t scratch_size = 0;
+  ELEMTYPE c[N * N], cref[N * N];
   const double alpha = 0.5, beta = 0.25;
 
   LIBXS_MATRNG(int, ELEMTYPE, 0, a, N, K, N, 1.0);
   LIBXS_MATRNG(int, ELEMTYPE, 0, b, N, K, N, 1.0);
 
-  /* --- Test 1: libxs_syr2k with scratch --- */
-  memset(&config, 0, sizeof(config));
-  libxs_syr2k_dispatch(&config, LIBXS_DATATYPE(ELEMTYPE),
-    N, K, N, N, N, &scratch_size, NULL);
-
-  if (scratch_size != (size_t)N * N * sizeof(ELEMTYPE)) {
-    fprintf(stderr, "scratch_size mismatch: %zu vs %zu\n",
-      scratch_size, (size_t)N * N * sizeof(ELEMTYPE));
-    result = EXIT_FAILURE;
-  }
+  /* --- Test 1: libxs_syr2k --- */
+  cfg = libxs_syr2k_dispatch(LIBXS_DATATYPE(ELEMTYPE),
+    N, K, N, N, N, NULL);
 
   LIBXS_MATRNG(int, ELEMTYPE, 0, c, N, N, N, 0.5);
   memcpy(cref, c, sizeof(c));
   ref_syr2k(N, K, alpha, a, N, b, N, beta, cref, N);
-  libxs_syr2k(&config, 'U', alpha, beta, a, b, c, scratch);
+  libxs_syr2k(cfg, 'U', alpha, beta, a, b, c);
 
-  if (EXIT_SUCCESS != check_upper("syr2k+scratch", c, N, cref, N, N, EPSILON(ELEMTYPE))) {
+  if (EXIT_SUCCESS != check_upper("syr2k", c, N, cref, N, N, EPSILON(ELEMTYPE))) {
     result = EXIT_FAILURE;
   }
 
-  /* --- Test 2: libxs_syr2k without scratch --- */
-  LIBXS_MATRNG(int, ELEMTYPE, 0, c, N, N, N, 0.5);
-  memcpy(cref, c, sizeof(c));
-  ref_syr2k(N, K, alpha, a, N, b, N, beta, cref, N);
-  libxs_syr2k(&config, 'U', alpha, beta, a, b, c, NULL);
-
-  if (EXIT_SUCCESS != check_upper("syr2k-noscratch", c, N, cref, N, N, EPSILON(ELEMTYPE))) {
-    result = EXIT_FAILURE;
-  }
-
-  /* --- Test 3: libxs_syrk with scratch --- */
-  memset(&config, 0, sizeof(config));
-  libxs_syrk_dispatch(&config, LIBXS_DATATYPE(ELEMTYPE),
-    N, K, N, N, &scratch_size, NULL);
+  /* --- Test 2: libxs_syrk --- */
+  cfg = libxs_syrk_dispatch(LIBXS_DATATYPE(ELEMTYPE),
+    N, K, N, N, NULL);
 
   LIBXS_MATRNG(int, ELEMTYPE, 0, c, N, N, N, 0.3);
   memcpy(cref, c, sizeof(c));
   ref_syrk(N, K, alpha, a, N, beta, cref, N);
-  libxs_syrk(&config, 'U', alpha, beta, a, c, scratch);
+  libxs_syrk(cfg, 'U', alpha, beta, a, c);
 
-  if (EXIT_SUCCESS != check_upper("syrk+scratch", c, N, cref, N, N, EPSILON(ELEMTYPE))) {
+  if (EXIT_SUCCESS != check_upper("syrk", c, N, cref, N, N, EPSILON(ELEMTYPE))) {
     result = EXIT_FAILURE;
   }
 
-  /* --- Test 4: libxs_syrk without scratch --- */
-  LIBXS_MATRNG(int, ELEMTYPE, 0, c, N, N, N, 0.3);
-  memcpy(cref, c, sizeof(c));
-  ref_syrk(N, K, alpha, a, N, beta, cref, N);
-  libxs_syrk(&config, 'U', alpha, beta, a, c, NULL);
-
-  if (EXIT_SUCCESS != check_upper("syrk-noscratch", c, N, cref, N, N, EPSILON(ELEMTYPE))) {
-    result = EXIT_FAILURE;
-  }
-
-  /* --- Test 5: beta=0 (fresh output, ignores prior C content) --- */
+  /* --- Test 3: beta=0 (fresh output) --- */
   LIBXS_MATRNG(int, ELEMTYPE, 0, c, N, N, N, 99.0);
   memset(cref, 0, sizeof(cref));
   ref_syr2k(N, K, 1.0, a, N, b, N, 0.0, cref, N);
 
-  memset(&config, 0, sizeof(config));
-  libxs_syr2k_dispatch(&config, LIBXS_DATATYPE(ELEMTYPE),
-    N, K, N, N, N, NULL, NULL);
-  libxs_syr2k(&config, 'U', 1.0, 0.0, a, b, c, scratch);
+  cfg = libxs_syr2k_dispatch(LIBXS_DATATYPE(ELEMTYPE),
+    N, K, N, N, N, NULL);
+  libxs_syr2k(cfg, 'U', 1.0, 0.0, a, b, c);
 
   if (EXIT_SUCCESS != check_upper("syr2k-beta0", c, N, cref, N, N, EPSILON(ELEMTYPE))) {
     result = EXIT_FAILURE;
   }
 
-  /* --- Test 6: non-square leading dimensions --- */
+  /* --- Test 4: non-square leading dimensions --- */
   { const int lda = N + 2, ldb = N + 1, ldc = N + 3;
     ELEMTYPE abig[lda * K], bbig[ldb * K];
     ELEMTYPE cbig[ldc * N], crefbig[ldc * N];
@@ -173,10 +143,9 @@ int main(void)
     memcpy(crefbig, cbig, sizeof(cbig));
     ref_syr2k(N, K, alpha, abig, lda, bbig, ldb, beta, crefbig, ldc);
 
-    memset(&config, 0, sizeof(config));
-    libxs_syr2k_dispatch(&config, LIBXS_DATATYPE(ELEMTYPE),
-      N, K, lda, ldb, ldc, NULL, NULL);
-    libxs_syr2k(&config, 'U', alpha, beta, abig, bbig, cbig, scratch);
+    cfg = libxs_syr2k_dispatch(LIBXS_DATATYPE(ELEMTYPE),
+      N, K, lda, ldb, ldc, NULL);
+    libxs_syr2k(cfg, 'U', alpha, beta, abig, bbig, cbig);
 
     if (EXIT_SUCCESS != check_upper("syr2k-ld", cbig, ldc, crefbig, ldc, N, EPSILON(ELEMTYPE))) {
       result = EXIT_FAILURE;

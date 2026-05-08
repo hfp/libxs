@@ -1226,95 +1226,52 @@
           libxs_gemm_call = internal_gemm_call_f(config, a, b, c)
         END FUNCTION
 
-        !> Populate config with caller-provided kernel
-        !> pointers and GEMM shape. Supports MKL JIT
-        !> (dgemm_jit/sgemm_jit + jitter), LIBXSMM (xgemm),
-        !> and BLAS (dgemm_blas/sgemm_blas).
-        !> Returns nonzero if the config holds a usable
-        !> kernel for libxs_gemm_call (JIT or XGEMM).
-        !> BLAS-only configs return zero but are valid
-        !> for the batch functions.
-        !> If registry is present, dispatched configs are
-        !> cached by shape: a hit copies the cached config,
-        !> a miss dispatches and stores the result.
+        !> Dispatch a GEMM kernel and populate config.
+        !> Delegates to the C dispatch which handles JIT
+        !> (MKL, LIBXSMM) and registry caching.
+        !> Returns nonzero if a usable kernel was obtained.
         FUNCTION libxs_gemm_dispatch(config,                            &
      &    datatype, transa, transb,                                     &
      &    m, n, k, lda, ldb, ldc, alpha, beta,                          &
-     &    dgemm_jit, sgemm_jit, jitter,                                 &
-     &    xgemm, dgemm_blas, sgemm_blas,                                &
      &    registry)
           TYPE(libxs_gemm_config_t), INTENT(INOUT) :: config
-          INTEGER(C_INT), INTENT(IN), OPTIONAL :: datatype
-          CHARACTER(C_CHAR), INTENT(IN), OPTIONAL ::                    &
-     &      transa, transb
-          INTEGER(C_INT), INTENT(IN), OPTIONAL ::                       &
-     &      m, n, k, lda, ldb, ldc
-          REAL(C_DOUBLE), INTENT(IN), OPTIONAL :: alpha, beta
-          TYPE(C_FUNPTR), INTENT(IN), OPTIONAL :: dgemm_jit
-          TYPE(C_FUNPTR), INTENT(IN), OPTIONAL :: sgemm_jit
-          TYPE(C_PTR),    INTENT(IN), OPTIONAL :: jitter
-          TYPE(C_FUNPTR), INTENT(IN), OPTIONAL :: xgemm
-          TYPE(C_FUNPTR), INTENT(IN), OPTIONAL :: dgemm_blas
-          TYPE(C_FUNPTR), INTENT(IN), OPTIONAL :: sgemm_blas
+          INTEGER(C_INT), INTENT(IN) :: datatype
+          CHARACTER(C_CHAR), INTENT(IN) :: transa, transb
+          INTEGER(C_INT), INTENT(IN) :: m, n, k, lda, ldb, ldc
+          REAL(C_DOUBLE), INTENT(IN), TARGET :: alpha, beta
           TYPE(C_PTR), INTENT(IN), OPTIONAL :: registry
           INTEGER(C_INT) :: libxs_gemm_dispatch
-          TYPE(libxs_gemm_shape_t), TARGET :: key
-          TYPE(libxs_gemm_config_t), TARGET :: tmp
           TYPE(libxs_gemm_config_t), POINTER :: cached
-          TYPE(C_PTR) :: ptr
-          LOGICAL :: from_cache
-          from_cache = .FALSE.
-          !> Set shape from optional parameters.
-          IF (PRESENT(datatype))                                        &
-     &      config%shape%datatype = datatype
-          IF (PRESENT(transa))                                          &
-     &      config%shape%transa = ICHAR(transa)
-          IF (PRESENT(transb))                                          &
-     &      config%shape%transb = ICHAR(transb)
-          IF (PRESENT(m)) config%shape%m = m
-          IF (PRESENT(n)) config%shape%n = n
-          IF (PRESENT(k)) config%shape%k = k
-          IF (PRESENT(lda)) config%shape%lda = lda
-          IF (PRESENT(ldb)) config%shape%ldb = ldb
-          IF (PRESENT(ldc)) config%shape%ldc = ldc
-          IF (PRESENT(alpha)) config%shape%alpha = alpha
-          IF (PRESENT(beta)) config%shape%beta = beta
-          !> Registry lookup (cache hit copies full config).
+          TYPE(C_PTR) :: ptr, preg
+          INTERFACE
+            FUNCTION internal_gemm_dispatch_f(datatype,                 &
+     &      transa, transb, m, n, k, lda, ldb, ldc,                     &
+     &      alpha, beta, registry)                                      &
+     &      BIND(C, NAME="libxs_gemm_dispatch_f")
+              IMPORT :: C_PTR, C_INT, C_CHAR, C_DOUBLE
+              INTEGER(C_INT), INTENT(IN), VALUE :: datatype
+              CHARACTER(C_CHAR), INTENT(IN), VALUE ::                   &
+     &          transa, transb
+              INTEGER(C_INT), INTENT(IN), VALUE ::                      &
+     &          m, n, k, lda, ldb, ldc
+              TYPE(C_PTR), INTENT(IN), VALUE :: alpha, beta
+              TYPE(C_PTR), INTENT(IN), VALUE :: registry
+              TYPE(C_PTR) :: internal_gemm_dispatch_f
+            END FUNCTION
+          END INTERFACE
           IF (PRESENT(registry)) THEN
-            key = config%shape
-            ptr = libxs_registry_get(registry,                          &
-     &        C_LOC(key),                                               &
-     &        INT(C_SIZEOF(key), C_SIZE_T))
-            IF (C_ASSOCIATED(ptr)) THEN
-              CALL C_F_POINTER(ptr, cached)
-              config = cached
-              from_cache = .TRUE.
-            END IF
+            preg = registry
+          ELSE; preg = C_NULL_PTR; END IF
+          ptr = internal_gemm_dispatch_f(datatype,                      &
+     &      transa, transb, m, n, k, lda, ldb, ldc,                     &
+     &      C_LOC(alpha), C_LOC(beta), preg)
+          IF (C_ASSOCIATED(ptr)) THEN
+            CALL C_F_POINTER(ptr, cached)
+            config = cached
+            libxs_gemm_dispatch = libxs_gemm_ready(config)
+          ELSE
+            libxs_gemm_dispatch = 0
           END IF
-          !> Set kernel pointers (skipped on cache hit).
-          IF (.NOT. from_cache) THEN
-            IF (PRESENT(dgemm_jit))                                     &
-     &        config%dgemm_jit = dgemm_jit
-            IF (PRESENT(sgemm_jit))                                     &
-     &        config%sgemm_jit = sgemm_jit
-            IF (PRESENT(jitter))                                        &
-     &        config%jitter = jitter
-            IF (PRESENT(xgemm)) config%xgemm = xgemm
-            IF (PRESENT(dgemm_blas))                                    &
-     &        config%dgemm_blas = dgemm_blas
-            IF (PRESENT(sgemm_blas))                                    &
-     &        config%sgemm_blas = sgemm_blas
-            !> Cache miss: store in registry.
-            IF (PRESENT(registry)) THEN
-              tmp = config
-              ptr = libxs_registry_set(registry,                        &
-     &          C_LOC(key),                                             &
-     &          INT(C_SIZEOF(key), C_SIZE_T),                           &
-     &          C_LOC(tmp),                                             &
-     &          INT(C_SIZEOF(tmp), C_SIZE_T))
-            END IF
-          END IF
-          libxs_gemm_dispatch = libxs_gemm_ready(config)
         END FUNCTION
 
         !> Release a GEMM config: clear all kernel pointers.

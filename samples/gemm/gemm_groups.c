@@ -55,14 +55,18 @@ int main(int argc, char* argv[])
     total_gflops += 2.0 * dim * dim * dim * batch_per_group * 1E-9;
 
     /* dispatch a JIT kernel per group (each group has its own shape) */
-    memset(configs + g, 0, sizeof(configs[g]));
-    configs[g].flags = LIBXS_GEMM_FLAG_NOLOCK;
-    if (EXIT_SUCCESS == libxs_gemm_dispatch(configs + g,
-      LIBXS_DATATYPE(double), 'N', 'N', dim, dim, dim,
-      lda_array[g], ldb_array[g], ldc_array[g],
-      alpha_array + g, beta_array + g, NULL))
-    {
-      printf("  group %d: JIT kernel dispatched (M=%d)\n", g, dim);
+    { libxs_gemm_config_t* cfg = libxs_gemm_dispatch(
+        LIBXS_DATATYPE(double), 'N', 'N', dim, dim, dim,
+        lda_array[g], ldb_array[g], ldc_array[g],
+        alpha_array + g, beta_array + g, NULL);
+      if (NULL != cfg) {
+        configs[g] = *cfg;
+        printf("  group %d: JIT kernel dispatched (M=%d)\n", g, dim);
+      }
+      else {
+        memset(configs + g, 0, sizeof(configs[g]));
+      }
+      configs[g].flags = LIBXS_GEMM_FLAG_NOLOCK;
     }
   }
 

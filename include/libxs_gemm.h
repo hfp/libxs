@@ -166,55 +166,53 @@ LIBXS_API_INLINE int libxs_gemm_ready(
 }
 
 /**
- * Dispatch a GEMM kernel and populate config accordingly.
- * With MKL JIT (highest priority): sets config->dgemm_jit or sgemm_jit + jitter.
- * With LIBXSMM (fallback): sets config->xgemm via libxsmm_dispatch_gemm.
- * Without either: config is unchanged (falls through to BLAS/default).
- * The caller should memset config to zero before the first call.
- * Returns EXIT_SUCCESS on success, EXIT_FAILURE when no JIT backend is available.
- * If registry is non-NULL, dispatched configs are cached by shape:
- * a hit copies the cached config, a miss dispatches and stores.
+ * Dispatch a GEMM kernel and return a pointer to the configuration.
+ * On registry hit, returns pointer to cached config (zero-cost).
+ * On miss, JIT-compiles (MKL JIT > LIBXSMM > fallthrough), stores
+ * in registry, and returns pointer to stored config.
+ * Returns NULL on failure (unsupported datatype, NULL registry).
+ * The returned pointer is owned by the registry and valid until
+ * the registry is destroyed.
+ * If registry is NULL, returns pointer to thread-local storage
+ * (valid until next call from the same thread with NULL registry).
  */
-LIBXS_API_INLINE int libxs_gemm_dispatch(
-  libxs_gemm_config_t* config,
+LIBXS_API_INLINE libxs_gemm_config_t* libxs_gemm_dispatch(
   libxs_data_t datatype, char transa, char transb,
   int m, int n, int k, int lda, int ldb, int ldc,
   const void* alpha, const void* beta,
   void* LIBXS_ARGDEF(registry, NULL))
 {
-  int result = EXIT_FAILURE;
-  /* Store shape first (serves as registry key). */
-  if (NULL != config) {
-    config->shape.datatype = datatype;
-    config->shape.transa = transa;
-    config->shape.transb = transb;
-    config->shape.m = m; config->shape.n = n; config->shape.k = k;
-    config->shape.lda = lda; config->shape.ldb = ldb; config->shape.ldc = ldc;
-    if (LIBXS_DATATYPE_F64 == datatype) {
-      config->shape.alpha = (NULL != alpha ? *(const double*)alpha : 1.0);
-      config->shape.beta  = (NULL != beta  ? *(const double*)beta  : 0.0);
-    }
-    else if (LIBXS_DATATYPE_F32 == datatype) {
-      config->shape.alpha = (NULL != alpha ? (double)*(const float*)alpha : 1.0);
-      config->shape.beta  = (NULL != beta  ? (double)*(const float*)beta  : 0.0);
-    }
-    else {
-      return EXIT_FAILURE;
-    }
+  libxs_gemm_shape_t shape;
+  libxs_gemm_config_t config;
+  libxs_gemm_config_t* result;
+  /* Build shape (serves as registry key). */
+  shape.datatype = datatype;
+  shape.transa = transa;
+  shape.transb = transb;
+  shape.m = m; shape.n = n; shape.k = k;
+  shape.lda = lda; shape.ldb = ldb; shape.ldc = ldc;
+  if (LIBXS_DATATYPE_F64 == datatype) {
+    shape.alpha = (NULL != alpha ? *(const double*)alpha : 1.0);
+    shape.beta  = (NULL != beta  ? *(const double*)beta  : 0.0);
+  }
+  else if (LIBXS_DATATYPE_F32 == datatype) {
+    shape.alpha = (NULL != alpha ? (double)*(const float*)alpha : 1.0);
+    shape.beta  = (NULL != beta  ? (double)*(const float*)beta  : 0.0);
+  }
+  else {
+    return NULL;
   }
   /* Registry lookup. */
-  if (NULL != registry && NULL != config) {
-    const libxs_gemm_config_t* cached = (const libxs_gemm_config_t*)
+  if (NULL != registry) {
+    result = (libxs_gemm_config_t*)
       libxs_registry_get((const libxs_registry_t*)registry,
-        &config->shape, sizeof(config->shape),
+        &shape, sizeof(shape),
         libxs_registry_lock((libxs_registry_t*)registry));
-    if (NULL != cached) {
-      *config = *cached;
-      return 0 != libxs_gemm_ready(config)
-        ? EXIT_SUCCESS : EXIT_FAILURE;
-    }
+    if (NULL != result) return result;
   }
   /* Dispatch kernel (MKL JIT > LIBXSMM > fallthrough). */
+  memset(&config, 0, sizeof(config));
+  config.shape = shape;
   { const int ta = ('N' != transa && 'n' != transa);
     const int tb = ('N' != transb && 'n' != transb);
 #if defined(mkl_jit_create_dgemm)
@@ -227,8 +225,7 @@ LIBXS_API_INLINE int libxs_gemm_dispatch(
           NULL != alpha ? *(const double*)alpha : 1.0, lda, ldb,
           NULL != beta ? *(const double*)beta : 0.0, ldc))
         {
-          config->dgemm_jit = (libxs_gemm_djit_t)mkl_jit_get_dgemm_ptr(jitter);
-          result = EXIT_SUCCESS;
+          config.dgemm_jit = (libxs_gemm_djit_t)mkl_jit_get_dgemm_ptr(jitter);
         }
       }
       else if (LIBXS_DATATYPE_F32 == datatype) {
@@ -237,15 +234,14 @@ LIBXS_API_INLINE int libxs_gemm_dispatch(
           NULL != alpha ? *(const float*)alpha : 1.0f, lda, ldb,
           NULL != beta ? *(const float*)beta : 0.0f, ldc))
         {
-          config->sgemm_jit = (libxs_gemm_sjit_t)mkl_jit_get_sgemm_ptr(jitter);
-          result = EXIT_SUCCESS;
+          config.sgemm_jit = (libxs_gemm_sjit_t)mkl_jit_get_sgemm_ptr(jitter);
         }
       }
-      config->jitter = jitter;
+      config.jitter = jitter;
     }
 #endif
 #if defined(LIBXSMM_H)
-    if (EXIT_SUCCESS != result) {
+    if (0 == libxs_gemm_ready(&config)) {
       int xsmm_ok = 0;
       libxsmm_bitfield xflags = LIBXSMM_GEMM_FLAG_NONE;
       libxsmm_datatype xtype = (libxsmm_datatype)0;
@@ -279,8 +275,7 @@ LIBXS_API_INLINE int libxs_gemm_dispatch(
         xresult = libxsmm_dispatch_gemm(gemm_shape, xflags,
           LIBXSMM_GEMM_PREFETCH_NONE);
         if (NULL != xresult) {
-          config->xgemm = (libxs_gemm_xfn_t)xresult;
-          result = EXIT_SUCCESS;
+          config.xgemm = (libxs_gemm_xfn_t)xresult;
         }
       }
     }
@@ -288,14 +283,27 @@ LIBXS_API_INLINE int libxs_gemm_dispatch(
     LIBXS_UNUSED(ta); LIBXS_UNUSED(tb);
 #endif
   }
-  /* Registry store on miss. */
-  if (NULL != registry && NULL != config) {
-    libxs_registry_set((libxs_registry_t*)registry,
-      &config->shape, sizeof(config->shape),
-      config, sizeof(*config),
-      libxs_registry_lock((libxs_registry_t*)registry));
+  /* Store in registry and return pointer to stored config. */
+  if (NULL != registry) {
+    result = (libxs_gemm_config_t*)
+      libxs_registry_set((libxs_registry_t*)registry,
+        &shape, sizeof(shape),
+        &config, sizeof(config),
+        libxs_registry_lock((libxs_registry_t*)registry));
+    return result;
   }
-  return result;
+  /* No registry: use internal registry (lazy-init). */
+  { extern libxs_registry_t* internal_libxs_gemm_registry;
+    if (NULL == internal_libxs_gemm_registry) {
+      internal_libxs_gemm_registry = libxs_registry_create();
+    }
+    result = (libxs_gemm_config_t*)
+      libxs_registry_set(internal_libxs_gemm_registry,
+        &shape, sizeof(shape),
+        &config, sizeof(config),
+        libxs_registry_lock(internal_libxs_gemm_registry));
+    return result;
+  }
 }
 
 /**
@@ -370,60 +378,43 @@ LIBXS_API_INLINE void libxs_gemm_release_registry(libxs_registry_t* registry)
 /**
  * Dispatch a GEMM config suitable for libxs_syr2k.
  * Internally dispatches GEMM('N','T', n, n, k, lda, ldb, n) with
- * alpha=1, beta=0 (optimized for the scratch path).
- * If scratch_size is non-NULL, returns the required scratch buffer
- * size in bytes (n * n * typesize).
- * Returns EXIT_SUCCESS if a JIT kernel was obtained.
+ * alpha=1, beta=0 into the registry. Returns pointer to the
+ * dispatched config (registry-owned), or NULL on failure.
+ * The returned config stores ldc for the output matrix.
  */
-LIBXS_API int libxs_syr2k_dispatch(
-  libxs_gemm_config_t* config,
+LIBXS_API libxs_gemm_config_t* libxs_syr2k_dispatch(
   libxs_data_t datatype, int n, int k, int lda, int ldb, int ldc,
-  size_t* scratch_size,
   void* LIBXS_ARGDEF(registry, NULL));
 
 /**
  * Dispatch a GEMM config suitable for libxs_syrk.
- * Internally dispatches GEMM('N','T', n, n, k, lda, lda, n) with
- * alpha=1, beta=0 (optimized for the scratch path).
- * If scratch_size is non-NULL, returns the required scratch buffer
- * size in bytes (n * n * typesize).
- * Returns EXIT_SUCCESS if a JIT kernel was obtained.
+ * Equivalent to libxs_syr2k_dispatch with ldb=lda.
  */
-LIBXS_API int libxs_syrk_dispatch(
-  libxs_gemm_config_t* config,
+LIBXS_API libxs_gemm_config_t* libxs_syrk_dispatch(
   libxs_data_t datatype, int n, int k, int lda, int ldc,
-  size_t* scratch_size,
   void* LIBXS_ARGDEF(registry, NULL));
 
 /**
- * Symmetric rank-2k update using a dispatched GEMM config.
- * C := alpha*(A*B^T + B*A^T) + beta*C
+ * Symmetric rank-2k update: C := alpha*(A*B^T + B*A^T) + beta*C.
  * Only the triangle specified by uplo ('U' or 'L') is written.
- *
- * If scratch is non-NULL (n*n elements), uses one GEMM JIT call into
- * scratch then symmetrizes into C (n^2*k + n^2 FLOPs).
- * If scratch is NULL, uses two BLAS calls directly into C (2*n^2*k FLOPs).
+ * Scratch is managed internally (TLS buffer, grown as needed).
+ * Returns EXIT_SUCCESS on success.
  */
 LIBXS_API int libxs_syr2k(
   const libxs_gemm_config_t* config, char uplo,
   double alpha, double beta,
-  const void* a, const void* b, void* c,
-  void* scratch);
+  const void* a, const void* b, void* c);
 
 /**
- * Symmetric rank-k update using a dispatched GEMM config.
- * C := alpha*A*A^T + beta*C
+ * Symmetric rank-k update: C := alpha*A*A^T + beta*C.
  * Only the triangle specified by uplo ('U' or 'L') is written.
- *
- * If scratch is non-NULL (n*n elements), uses one GEMM JIT call into
- * scratch then combines into C. If scratch is NULL, uses BLAS directly
- * (A*A^T is symmetric by construction, so a single call suffices).
+ * Scratch is managed internally (TLS buffer, grown as needed).
+ * Returns EXIT_SUCCESS on success.
  */
 LIBXS_API int libxs_syrk(
   const libxs_gemm_config_t* config, char uplo,
   double alpha, double beta,
-  const void* a, void* c,
-  void* scratch);
+  const void* a, void* c);
 
 /* header-only: include implementation (deferred from libxs_macros.h) */
 #if defined(LIBXS_SOURCE) && !defined(LIBXS_SOURCE_H)

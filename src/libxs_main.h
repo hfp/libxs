@@ -67,6 +67,9 @@
 LIBXS_API_INTERN void internal_libxs_memory_init(int target_arch);
 LIBXS_API_INTERN void internal_libxs_memory_finalize(void);
 
+LIBXS_API_INTERN void internal_libxs_gemm_init(void);
+LIBXS_API_INTERN void internal_libxs_gemm_finalize(void);
+
 /** Architecture-specific CPUID: returns ISA level and optionally fills info. */
 LIBXS_API_INTERN int internal_libxs_cpuid_x86(libxs_cpuid_t* info);
 LIBXS_API_INTERN int internal_libxs_cpuid_arm(libxs_cpuid_t* info);

@@ -68,13 +68,17 @@ int main(int argc, char* argv[])
   }
 
   /* dispatch JIT kernel (MKL JIT or XSMM); falls through to BLAS/default */
-  memset(&config, 0, sizeof(config));
-  config.flags = LIBXS_GEMM_FLAG_NOLOCK;
-  if (EXIT_SUCCESS == libxs_gemm_dispatch(&config,
-    LIBXS_DATATYPE(double), 'N', 'N', m, n, k, lda, ldb, ldc,
-    &alpha, &beta, NULL))
-  {
-    printf("  JIT kernel dispatched\n");
+  { libxs_gemm_config_t* cfg = libxs_gemm_dispatch(
+      LIBXS_DATATYPE(double), 'N', 'N', m, n, k, lda, ldb, ldc,
+      &alpha, &beta, NULL);
+    if (NULL != cfg) {
+      config = *cfg;
+      printf("  JIT kernel dispatched\n");
+    }
+    else {
+      memset(&config, 0, sizeof(config));
+    }
+    config.flags = LIBXS_GEMM_FLAG_NOLOCK;
   }
 
   /* warmup */
