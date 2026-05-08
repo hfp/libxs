@@ -156,9 +156,7 @@ LIBXS_API void libxs_gemm_index_task(
  * Check whether a dispatched config holds a usable kernel.
  * Returns nonzero if libxs_gemm_call would succeed, zero otherwise.
  */
-LIBXS_API_INLINE int libxs_gemm_ready(
-  const libxs_gemm_config_t* config)
-{
+LIBXS_API_INLINE int libxs_gemm_ready(const libxs_gemm_config_t* config) {
   return NULL != config
     && (  (NULL != config->dgemm_jit && NULL != config->jitter)
        || (NULL != config->sgemm_jit && NULL != config->jitter)
@@ -184,7 +182,8 @@ LIBXS_API_INLINE libxs_gemm_config_t* libxs_gemm_dispatch(
 {
   libxs_gemm_shape_t shape;
   libxs_gemm_config_t config;
-  libxs_gemm_config_t* result;
+  libxs_gemm_config_t* result = NULL;
+  libxs_registry_t* reg;
   /* Build shape (serves as registry key). */
   shape.datatype = datatype;
   shape.transa = transa;
@@ -199,111 +198,106 @@ LIBXS_API_INLINE libxs_gemm_config_t* libxs_gemm_dispatch(
     shape.alpha = (NULL != alpha ? (double)*(const float*)alpha : 1.0);
     shape.beta  = (NULL != beta  ? (double)*(const float*)beta  : 0.0);
   }
-  else {
-    return NULL;
-  }
-  /* Registry lookup. */
-  if (NULL != registry) {
-    result = (libxs_gemm_config_t*)
-      libxs_registry_get((const libxs_registry_t*)registry,
-        &shape, sizeof(shape),
-        libxs_registry_lock((libxs_registry_t*)registry));
-    if (NULL != result) return result;
-  }
-  /* Dispatch kernel (MKL JIT > LIBXSMM > fallthrough). */
-  memset(&config, 0, sizeof(config));
-  config.shape = shape;
-  { const int ta = ('N' != transa && 'n' != transa);
-    const int tb = ('N' != transb && 'n' != transb);
-#if defined(mkl_jit_create_dgemm)
-    { const MKL_TRANSPOSE mkl_ta = (0 == ta ? MKL_NOTRANS : MKL_TRANS);
-      const MKL_TRANSPOSE mkl_tb = (0 == tb ? MKL_NOTRANS : MKL_TRANS);
-      void* jitter = NULL;
-      if (LIBXS_DATATYPE_F64 == datatype) {
-        if (MKL_JIT_SUCCESS == mkl_jit_create_dgemm(&jitter,
-          MKL_COL_MAJOR, mkl_ta, mkl_tb, m, n, k,
-          NULL != alpha ? *(const double*)alpha : 1.0, lda, ldb,
-          NULL != beta ? *(const double*)beta : 0.0, ldc))
-        {
-          config.dgemm_jit = (libxs_gemm_djit_t)mkl_jit_get_dgemm_ptr(jitter);
-        }
-      }
-      else if (LIBXS_DATATYPE_F32 == datatype) {
-        if (MKL_JIT_SUCCESS == mkl_jit_create_sgemm(&jitter,
-          MKL_COL_MAJOR, mkl_ta, mkl_tb, m, n, k,
-          NULL != alpha ? *(const float*)alpha : 1.0f, lda, ldb,
-          NULL != beta ? *(const float*)beta : 0.0f, ldc))
-        {
-          config.sgemm_jit = (libxs_gemm_sjit_t)mkl_jit_get_sgemm_ptr(jitter);
-        }
-      }
-      config.jitter = jitter;
+  if (LIBXS_DATATYPE_F64 == datatype || LIBXS_DATATYPE_F32 == datatype) {
+    /* Resolve registry (caller-provided or internal). */
+    if (NULL != registry) {
+      reg = (libxs_registry_t*)registry;
     }
+    else {
+      extern libxs_registry_t* internal_libxs_gemm_registry;
+      if (NULL == internal_libxs_gemm_registry) {
+        internal_libxs_gemm_registry = libxs_registry_create();
+      }
+      reg = internal_libxs_gemm_registry;
+    }
+    /* Registry lookup. */
+    result = (libxs_gemm_config_t*)
+      libxs_registry_get((const libxs_registry_t*)reg,
+        &shape, sizeof(shape),
+        libxs_registry_lock(reg));
+    /* Dispatch kernel on miss (MKL JIT > LIBXSMM > fallthrough). */
+    if (NULL == result) {
+      memset(&config, 0, sizeof(config));
+      config.shape = shape;
+      { const int ta = ('N' != transa && 'n' != transa);
+        const int tb = ('N' != transb && 'n' != transb);
+#if defined(mkl_jit_create_dgemm)
+        { const MKL_TRANSPOSE mkl_ta = (0 == ta ? MKL_NOTRANS : MKL_TRANS);
+          const MKL_TRANSPOSE mkl_tb = (0 == tb ? MKL_NOTRANS : MKL_TRANS);
+          void* jitter = NULL;
+          if (LIBXS_DATATYPE_F64 == datatype) {
+            if (MKL_JIT_SUCCESS == mkl_jit_create_dgemm(&jitter,
+              MKL_COL_MAJOR, mkl_ta, mkl_tb, m, n, k,
+              NULL != alpha ? *(const double*)alpha : 1.0, lda, ldb,
+              NULL != beta ? *(const double*)beta : 0.0, ldc))
+            {
+              config.dgemm_jit = (libxs_gemm_djit_t)mkl_jit_get_dgemm_ptr(jitter);
+            }
+          }
+          else if (LIBXS_DATATYPE_F32 == datatype) {
+            if (MKL_JIT_SUCCESS == mkl_jit_create_sgemm(&jitter,
+              MKL_COL_MAJOR, mkl_ta, mkl_tb, m, n, k,
+              NULL != alpha ? *(const float*)alpha : 1.0f, lda, ldb,
+              NULL != beta ? *(const float*)beta : 0.0f, ldc))
+            {
+              config.sgemm_jit = (libxs_gemm_sjit_t)mkl_jit_get_sgemm_ptr(jitter);
+            }
+          }
+          config.jitter = jitter;
+        }
 #endif
 #if defined(LIBXSMM_H)
-    if (0 == libxs_gemm_ready(&config)) {
-      int xsmm_ok = 0;
-      libxsmm_bitfield xflags = LIBXSMM_GEMM_FLAG_NONE;
-      libxsmm_datatype xtype = (libxsmm_datatype)0;
-      if (0 != ta) xflags |= LIBXSMM_GEMM_FLAG_TRANS_A;
-      if (0 != tb) xflags |= LIBXSMM_GEMM_FLAG_TRANS_B;
-      if (LIBXS_DATATYPE_F64 == datatype) {
-        const double a1 = (NULL != alpha ? *(const double*)alpha : 1.0);
-        const double b1 = (NULL != beta ? *(const double*)beta : 0.0);
-        xtype = LIBXSMM_DATATYPE_F64;
-        if (1.0 == a1) {
-          if (0.0 == b1) { xflags |= LIBXSMM_GEMM_FLAG_BETA_0; xsmm_ok = 1; }
-          else if (1.0 == b1) xsmm_ok = 1;
+        if (0 == libxs_gemm_ready(&config)) {
+          int xsmm_ok = 0;
+          libxsmm_bitfield xflags = LIBXSMM_GEMM_FLAG_NONE;
+          libxsmm_datatype xtype = (libxsmm_datatype)0;
+          if (0 != ta) xflags |= LIBXSMM_GEMM_FLAG_TRANS_A;
+          if (0 != tb) xflags |= LIBXSMM_GEMM_FLAG_TRANS_B;
+          if (LIBXS_DATATYPE_F64 == datatype) {
+            const double a1 = (NULL != alpha ? *(const double*)alpha : 1.0);
+            const double b1 = (NULL != beta ? *(const double*)beta : 0.0);
+            xtype = LIBXSMM_DATATYPE_F64;
+            if (1.0 == a1) {
+              if (0.0 == b1) { xflags |= LIBXSMM_GEMM_FLAG_BETA_0; xsmm_ok = 1; }
+              else if (1.0 == b1) xsmm_ok = 1;
+            }
+          }
+          else if (LIBXS_DATATYPE_F32 == datatype) {
+            const float a1 = (NULL != alpha ? *(const float*)alpha : 1.0f);
+            const float b1 = (NULL != beta ? *(const float*)beta : 0.0f);
+            xtype = LIBXSMM_DATATYPE_F32;
+            if (1.0f == a1) {
+              if (0.0f == b1) { xflags |= LIBXSMM_GEMM_FLAG_BETA_0; xsmm_ok = 1; }
+              else if (1.0f == b1) xsmm_ok = 1;
+            }
+          }
+          if (0 != xsmm_ok) {
+            libxsmm_gemm_shape gemm_shape;
+            libxsmm_gemmfunction xresult;
+            gemm_shape.m = m; gemm_shape.n = n; gemm_shape.k = k;
+            gemm_shape.lda = lda; gemm_shape.ldb = ldb; gemm_shape.ldc = ldc;
+            gemm_shape.a_in_type = xtype; gemm_shape.b_in_type = xtype;
+            gemm_shape.comp_type = xtype; gemm_shape.out_type = xtype;
+            xresult = libxsmm_dispatch_gemm(gemm_shape, xflags,
+              LIBXSMM_GEMM_PREFETCH_NONE);
+            if (NULL != xresult) {
+              config.xgemm = (libxs_gemm_xfn_t)xresult;
+            }
+          }
         }
-      }
-      else if (LIBXS_DATATYPE_F32 == datatype) {
-        const float a1 = (NULL != alpha ? *(const float*)alpha : 1.0f);
-        const float b1 = (NULL != beta ? *(const float*)beta : 0.0f);
-        xtype = LIBXSMM_DATATYPE_F32;
-        if (1.0f == a1) {
-          if (0.0f == b1) { xflags |= LIBXSMM_GEMM_FLAG_BETA_0; xsmm_ok = 1; }
-          else if (1.0f == b1) xsmm_ok = 1;
-        }
-      }
-      if (0 != xsmm_ok) {
-        libxsmm_gemm_shape gemm_shape;
-        libxsmm_gemmfunction xresult;
-        gemm_shape.m = m; gemm_shape.n = n; gemm_shape.k = k;
-        gemm_shape.lda = lda; gemm_shape.ldb = ldb; gemm_shape.ldc = ldc;
-        gemm_shape.a_in_type = xtype; gemm_shape.b_in_type = xtype;
-        gemm_shape.comp_type = xtype; gemm_shape.out_type = xtype;
-        xresult = libxsmm_dispatch_gemm(gemm_shape, xflags,
-          LIBXSMM_GEMM_PREFETCH_NONE);
-        if (NULL != xresult) {
-          config.xgemm = (libxs_gemm_xfn_t)xresult;
-        }
-      }
-    }
 #elif !defined(mkl_jit_create_dgemm)
-    LIBXS_UNUSED(ta); LIBXS_UNUSED(tb);
+        LIBXS_UNUSED(ta); LIBXS_UNUSED(tb);
 #endif
-  }
-  /* Store in registry and return pointer to stored config. */
-  if (NULL != registry) {
-    result = (libxs_gemm_config_t*)
-      libxs_registry_set((libxs_registry_t*)registry,
-        &shape, sizeof(shape),
-        &config, sizeof(config),
-        libxs_registry_lock((libxs_registry_t*)registry));
-    return result;
-  }
-  /* No registry: use internal registry (lazy-init). */
-  { extern libxs_registry_t* internal_libxs_gemm_registry;
-    if (NULL == internal_libxs_gemm_registry) {
-      internal_libxs_gemm_registry = libxs_registry_create();
+      }
+      /* Store in registry. */
+      result = (libxs_gemm_config_t*)
+        libxs_registry_set(reg,
+          &shape, sizeof(shape),
+          &config, sizeof(config),
+          libxs_registry_lock(reg));
     }
-    result = (libxs_gemm_config_t*)
-      libxs_registry_set(internal_libxs_gemm_registry,
-        &shape, sizeof(shape),
-        &config, sizeof(config),
-        libxs_registry_lock(internal_libxs_gemm_registry));
-    return result;
   }
+  return result;
 }
 
 /**
@@ -340,8 +334,7 @@ LIBXS_API_INLINE int libxs_gemm_call(
  * Release resources acquired by libxs_gemm_dispatch (e.g., MKL jitter).
  * Safe to call even if dispatch was not used or returned zero.
  */
-LIBXS_API_INLINE void libxs_gemm_release(libxs_gemm_config_t* config)
-{
+LIBXS_API_INLINE void libxs_gemm_release(libxs_gemm_config_t* config) {
   if (NULL != config) {
 #if defined(mkl_jit_create_dgemm)
     if (NULL != config->jitter) {
@@ -359,8 +352,7 @@ LIBXS_API_INLINE void libxs_gemm_release(libxs_gemm_config_t* config)
  * Release all GEMM configs cached in a registry (e.g., MKL jitter),
  * then destroy the registry itself. Safe to call with NULL.
  */
-LIBXS_API_INLINE void libxs_gemm_release_registry(libxs_registry_t* registry)
-{
+LIBXS_API_INLINE void libxs_gemm_release_registry(libxs_registry_t* registry) {
   if (NULL != registry) {
     const void* key = NULL;
     size_t cursor = 0;

@@ -12,13 +12,13 @@
      &    LIBXS_GEMM_FLAG_NOLOCK,                                       &
      &    LIBXS_TIMER_TICK_KIND,                                        &
      &    libxs_gemm_config_t,                                          &
+     &    libxs_gemm_dispatch,                                          &
      &    libxs_gemm_index,                                             &
      &    libxs_gemm_index_task,                                        &
      &    libxs_timer_tick,                                             &
      &    libxs_timer_duration,                                         &
-     &    libxs_init, libxs_finalize
-        USE, INTRINSIC :: ISO_C_BINDING, ONLY: C_LOC, C_INT,            &
-     &    C_CHAR, C_DOUBLE, C_SIZEOF, C_FUNPTR, C_PTR, C_NULL_PTR
+     &    libxs_init, libxs_finalize,                                   &
+     &    C_LOC, C_INT, C_DOUBLE, C_SIZEOF, C_PTR, C_NULL_PTR
 !$      USE :: OMP_LIB, ONLY: omp_get_thread_num,                       &
 !$   &    omp_get_num_threads
         IMPLICIT NONE
@@ -37,35 +37,7 @@
         TYPE(libxs_gemm_config_t) :: config
         INTEGER(LIBXS_TIMER_TICK_KIND) :: t0, t1
         DOUBLE PRECISION :: duration, gflops
-#if defined(__MKL)
-        INTEGER, PARAMETER :: MKL_JIT_SUCCESS = 0
-        TYPE(C_PTR) :: jitter = C_NULL_PTR
-        INTEGER :: jit_status
-        INTERFACE
-          FUNCTION mkl_jit_create_dgemm(jitter,                         &
-     &    transa, transb, m, n, k, alpha, lda, ldb, beta, ldc)          &
-     &    RESULT(status) BIND(C)
-            IMPORT :: C_PTR, C_INT, C_CHAR, C_DOUBLE
-            INTEGER(C_INT) :: status
-            TYPE(C_PTR) :: jitter
-            CHARACTER(KIND=C_CHAR) :: transa, transb
-            INTEGER(C_INT) :: m, n, k, lda, ldb, ldc
-            REAL(C_DOUBLE) :: alpha, beta
-          END FUNCTION
-          FUNCTION mkl_jit_get_dgemm_ptr(jitter)                        &
-     &    RESULT(ptr) BIND(C)
-            IMPORT :: C_FUNPTR, C_PTR
-            TYPE(C_FUNPTR) :: ptr
-            TYPE(C_PTR), INTENT(IN), VALUE :: jitter
-          END FUNCTION
-          FUNCTION mkl_jit_destroy(jitter)                              &
-     &    RESULT(status) BIND(C)
-            IMPORT :: C_PTR, C_INT
-            INTEGER(C_INT) :: status
-            TYPE(C_PTR), INTENT(IN), VALUE :: jitter
-          END FUNCTION
-        END INTERFACE
-#endif
+        INTEGER(C_INT) :: rc
 
         argc = COMMAND_ARGUMENT_COUNT()
         IF (1 <= argc) THEN
@@ -132,20 +104,13 @@
           ic(i) = (i - 1) * stride_c + 1
         END DO
 
-        ! Zero-initialize config, enable NOLOCK (unique C locations)
-        config = libxs_gemm_config_t()
+        rc = libxs_gemm_dispatch(config,                                &
+     &    LIBXS_DATATYPE_F64, 'N', 'N', m, n, k,                        &
+     &    lda, ldb, ldc, alpha, beta)
         config%flags = LIBXS_GEMM_FLAG_NOLOCK
-
-        ! Dispatch MKL JIT kernel if available
-#if defined(__MKL)
-        jit_status = mkl_jit_create_dgemm(jitter,                       &
-     &    'N', 'N', m, n, k, alpha, lda, ldb, beta, ldc)
-        IF (MKL_JIT_SUCCESS .EQ. jit_status) THEN
-          config%dgemm_jit = mkl_jit_get_dgemm_ptr(jitter)
-          config%jitter = jitter
-          WRITE(*, "(A)") "  MKL JIT kernel dispatched"
+        IF (0 .NE. rc) THEN
+          WRITE(*, "(A)") "  JIT kernel dispatched"
         END IF
-#endif
 
         ! Warmup
         CALL libxs_gemm_index(                                          &
@@ -189,9 +154,6 @@
      &      " GFLOPS/s"
         END IF
 
-#if defined(__MKL)
-        jit_status = mkl_jit_destroy(jitter)
-#endif
         DEALLOCATE(a, b, c)
         DEALLOCATE(ia, ib, ic)
         CALL libxs_finalize()
