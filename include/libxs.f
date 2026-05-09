@@ -85,6 +85,16 @@
         PUBLIC :: libxs_syr2k_dispatch, libxs_syrk_dispatch
         PUBLIC :: libxs_syr2k, libxs_syrk
 
+        INTERFACE libxs_syr2k
+          MODULE PROCEDURE libxs_syr2k_config
+          MODULE PROCEDURE libxs_syr2k_direct
+        END INTERFACE
+
+        INTERFACE libxs_syrk
+          MODULE PROCEDURE libxs_syrk_config
+          MODULE PROCEDURE libxs_syrk_direct
+        END INTERFACE
+
         !> Re-exported from ISO_C_BINDING for convenience.
         PUBLIC :: C_DOUBLE, C_FLOAT, C_INT, C_LONG_LONG
         PUBLIC :: C_CHAR, C_INT8_T, C_SIZE_T
@@ -621,38 +631,30 @@
           END SUBROUTINE
 
           !> Internal C binding for libxs_syr2k_dispatch.
-          FUNCTION internal_syr2k_dispatch(config,                      &
-     &    datatype, n, k, lda, ldb, ldc,                                &
-     &    scratch_size, registry)                                       &
+          FUNCTION internal_syr2k_dispatch(                             &
+     &    datatype, n, k, lda, ldb, ldc, registry)                      &
      &    BIND(C, NAME="libxs_syr2k_dispatch")
-            IMPORT :: libxs_gemm_config_t,                              &
-     &        C_PTR, C_INT, C_SIZE_T
-            TYPE(libxs_gemm_config_t), INTENT(INOUT) :: config
+            IMPORT :: C_PTR, C_INT
             INTEGER(C_INT), INTENT(IN), VALUE ::                        &
      &        datatype, n, k, lda, ldb, ldc
-            TYPE(C_PTR), INTENT(IN), VALUE :: scratch_size
             TYPE(C_PTR), INTENT(IN), VALUE :: registry
-            INTEGER(C_INT) :: internal_syr2k_dispatch
+            TYPE(C_PTR) :: internal_syr2k_dispatch
           END FUNCTION
 
           !> Internal C binding for libxs_syrk_dispatch.
-          FUNCTION internal_syrk_dispatch(config,                       &
-     &    datatype, n, k, lda, ldc,                                     &
-     &    scratch_size, registry)                                       &
+          FUNCTION internal_syrk_dispatch(                              &
+     &    datatype, n, k, lda, ldc, registry)                           &
      &    BIND(C, NAME="libxs_syrk_dispatch")
-            IMPORT :: libxs_gemm_config_t,                              &
-     &        C_PTR, C_INT, C_SIZE_T
-            TYPE(libxs_gemm_config_t), INTENT(INOUT) :: config
+            IMPORT :: C_PTR, C_INT
             INTEGER(C_INT), INTENT(IN), VALUE ::                        &
      &        datatype, n, k, lda, ldc
-            TYPE(C_PTR), INTENT(IN), VALUE :: scratch_size
             TYPE(C_PTR), INTENT(IN), VALUE :: registry
-            INTEGER(C_INT) :: internal_syrk_dispatch
+            TYPE(C_PTR) :: internal_syrk_dispatch
           END FUNCTION
 
           !> Internal C binding for libxs_syr2k.
           FUNCTION internal_syr2k(config, uplo,                         &
-     &    alpha, beta, a, b, c, scratch)                                &
+     &    alpha, beta, a, b, c)                                         &
      &    BIND(C, NAME="libxs_syr2k")
             IMPORT :: libxs_gemm_config_t,                              &
      &        C_PTR, C_INT, C_DOUBLE, C_CHAR
@@ -661,13 +663,12 @@
             REAL(C_DOUBLE), INTENT(IN), VALUE :: alpha, beta
             TYPE(C_PTR), INTENT(IN), VALUE :: a, b
             TYPE(C_PTR), VALUE :: c
-            TYPE(C_PTR), INTENT(IN), VALUE :: scratch
             INTEGER(C_INT) :: internal_syr2k
           END FUNCTION
 
           !> Internal C binding for libxs_syrk.
           FUNCTION internal_syrk(config, uplo,                          &
-     &    alpha, beta, a, c, scratch)                                   &
+     &    alpha, beta, a, c)                                            &
      &    BIND(C, NAME="libxs_syrk")
             IMPORT :: libxs_gemm_config_t,                              &
      &        C_PTR, C_INT, C_DOUBLE, C_CHAR
@@ -676,7 +677,6 @@
             REAL(C_DOUBLE), INTENT(IN), VALUE :: alpha, beta
             TYPE(C_PTR), INTENT(IN), VALUE :: a
             TYPE(C_PTR), VALUE :: c
-            TYPE(C_PTR), INTENT(IN), VALUE :: scratch
             INTEGER(C_INT) :: internal_syrk
           END FUNCTION
 
@@ -1292,87 +1292,117 @@
         !> scratch_size (optional): receives required scratch
         !> buffer size in bytes.
         !> registry (optional): cache dispatched configs.
-        FUNCTION libxs_syr2k_dispatch(config,                           &
-     &  datatype, n, k, lda, ldb, ldc, scratch_size, registry)
-          TYPE(libxs_gemm_config_t), INTENT(INOUT) :: config
-          INTEGER(C_INT), INTENT(IN) :: datatype, n, k, lda, ldb, ldc
-          INTEGER(C_SIZE_T), INTENT(OUT), OPTIONAL, TARGET ::           &
-     &      scratch_size
+        !> Dispatch a GEMM config for SYR2K.
+        !> Returns C_PTR to registry-owned config (NULL on
+        !> failure). registry (optional): user registry.
+        FUNCTION libxs_syr2k_dispatch(datatype,                         &
+     &  n, k, lda, ldb, ldc, registry)
+          INTEGER(C_INT), INTENT(IN) :: datatype, n, k
+          INTEGER(C_INT), INTENT(IN) :: lda, ldb, ldc
           TYPE(C_PTR), INTENT(IN), OPTIONAL :: registry
-          INTEGER(C_INT) :: libxs_syr2k_dispatch
-          TYPE(C_PTR) :: pss, preg
-          IF (PRESENT(scratch_size)) THEN
-            pss = C_LOC(scratch_size)
-          ELSE; pss = C_NULL_PTR; END IF
+          TYPE(C_PTR) :: libxs_syr2k_dispatch
+          TYPE(C_PTR) :: preg
           IF (PRESENT(registry)) THEN
             preg = registry
           ELSE; preg = C_NULL_PTR; END IF
           libxs_syr2k_dispatch = internal_syr2k_dispatch(               &
-     &      config, datatype, n, k, lda, ldb, ldc, pss, preg)
+     &      datatype, n, k, lda, ldb, ldc, preg)
         END FUNCTION
 
         !> Dispatch a GEMM config for SYRK.
-        !> scratch_size (optional): receives required scratch
-        !> buffer size in bytes.
-        !> registry (optional): cache dispatched configs.
-        FUNCTION libxs_syrk_dispatch(config,                            &
-     &  datatype, n, k, lda, ldc, scratch_size, registry)
-          TYPE(libxs_gemm_config_t), INTENT(INOUT) :: config
-          INTEGER(C_INT), INTENT(IN) :: datatype, n, k, lda, ldc
-          INTEGER(C_SIZE_T), INTENT(OUT), OPTIONAL, TARGET ::           &
-     &      scratch_size
+        !> Returns C_PTR to registry-owned config (NULL on
+        !> failure). registry (optional): user registry.
+        FUNCTION libxs_syrk_dispatch(datatype,                          &
+     &  n, k, lda, ldc, registry)
+          INTEGER(C_INT), INTENT(IN) :: datatype, n, k
+          INTEGER(C_INT), INTENT(IN) :: lda, ldc
           TYPE(C_PTR), INTENT(IN), OPTIONAL :: registry
-          INTEGER(C_INT) :: libxs_syrk_dispatch
-          TYPE(C_PTR) :: pss, preg
-          IF (PRESENT(scratch_size)) THEN
-            pss = C_LOC(scratch_size)
-          ELSE; pss = C_NULL_PTR; END IF
+          TYPE(C_PTR) :: libxs_syrk_dispatch
+          TYPE(C_PTR) :: preg
           IF (PRESENT(registry)) THEN
             preg = registry
           ELSE; preg = C_NULL_PTR; END IF
           libxs_syrk_dispatch = internal_syrk_dispatch(                 &
-     &      config, datatype, n, k, lda, ldc, pss, preg)
+     &      datatype, n, k, lda, ldc, preg)
         END FUNCTION
 
-        !> Symmetric rank-2k update.
-        !> C := alpha*(A*B^T + B*A^T) + beta*C.
-        !> scratch (optional): n*n workspace; if absent uses
-        !> two-GEMM path (no scratch needed).
-        FUNCTION libxs_syr2k(config, uplo, alpha, beta,                 &
-     &  a, b, c, scratch)
+        !> SYR2K with pre-dispatched config.
+        FUNCTION libxs_syr2k_config(config, uplo,                       &
+     &  alpha, beta, a, b, c)
           TYPE(libxs_gemm_config_t), INTENT(IN) :: config
           CHARACTER(C_CHAR), INTENT(IN) :: uplo
           REAL(C_DOUBLE), INTENT(IN) :: alpha, beta
           TYPE(C_PTR), INTENT(IN) :: a, b
           TYPE(C_PTR) :: c
-          TYPE(C_PTR), INTENT(IN), OPTIONAL :: scratch
-          INTEGER(C_INT) :: libxs_syr2k
-          TYPE(C_PTR) :: ss
-          IF (PRESENT(scratch)) THEN
-            ss = scratch
-          ELSE; ss = C_NULL_PTR; END IF
-          libxs_syr2k = internal_syr2k(config, uplo,                    &
-     &      alpha, beta, a, b, c, ss)
+          INTEGER(C_INT) :: libxs_syr2k_config
+          libxs_syr2k_config = internal_syr2k(config, uplo,             &
+     &      alpha, beta, a, b, c)
         END FUNCTION
 
-        !> Symmetric rank-k update.
-        !> C := alpha*A*A^T + beta*C.
-        !> scratch (optional): n*n workspace; if absent uses
-        !> single-BLAS path (no scratch needed).
-        FUNCTION libxs_syrk(config, uplo, alpha, beta,                  &
-     &  a, c, scratch)
+        !> SYR2K direct: dispatch + call in one shot.
+        FUNCTION libxs_syr2k_direct(datatype, n, k,                     &
+     &  lda, ldb, ldc, uplo, alpha, beta, a, b, c, registry)
+          INTEGER(C_INT), INTENT(IN) :: datatype, n, k
+          INTEGER(C_INT), INTENT(IN) :: lda, ldb, ldc
+          CHARACTER(C_CHAR), INTENT(IN) :: uplo
+          REAL(C_DOUBLE), INTENT(IN) :: alpha, beta
+          TYPE(C_PTR), INTENT(IN) :: a, b
+          TYPE(C_PTR) :: c
+          TYPE(C_PTR), INTENT(IN), OPTIONAL :: registry
+          INTEGER(C_INT) :: libxs_syr2k_direct
+          TYPE(libxs_gemm_config_t), POINTER :: cfg
+          TYPE(C_PTR) :: ptr, preg
+          IF (PRESENT(registry)) THEN
+            preg = registry
+          ELSE; preg = C_NULL_PTR; END IF
+          ptr = internal_syr2k_dispatch(                                &
+     &      datatype, n, k, lda, ldb, ldc, preg)
+          IF (C_ASSOCIATED(ptr)) THEN
+            CALL C_F_POINTER(ptr, cfg)
+            libxs_syr2k_direct = internal_syr2k(cfg, uplo,              &
+     &        alpha, beta, a, b, c)
+          ELSE
+            libxs_syr2k_direct = 1
+          END IF
+        END FUNCTION
+
+        !> SYRK with pre-dispatched config.
+        FUNCTION libxs_syrk_config(config, uplo,                        &
+     &  alpha, beta, a, c)
           TYPE(libxs_gemm_config_t), INTENT(IN) :: config
           CHARACTER(C_CHAR), INTENT(IN) :: uplo
           REAL(C_DOUBLE), INTENT(IN) :: alpha, beta
           TYPE(C_PTR), INTENT(IN) :: a
           TYPE(C_PTR) :: c
-          TYPE(C_PTR), INTENT(IN), OPTIONAL :: scratch
-          INTEGER(C_INT) :: libxs_syrk
-          TYPE(C_PTR) :: ss
-          IF (PRESENT(scratch)) THEN
-            ss = scratch
-          ELSE; ss = C_NULL_PTR; END IF
-          libxs_syrk = internal_syrk(config, uplo,                      &
-     &      alpha, beta, a, c, ss)
+          INTEGER(C_INT) :: libxs_syrk_config
+          libxs_syrk_config = internal_syrk(config, uplo,               &
+     &      alpha, beta, a, c)
+        END FUNCTION
+
+        !> SYRK direct: dispatch + call in one shot.
+        FUNCTION libxs_syrk_direct(datatype, n, k,                      &
+     &  lda, ldc, uplo, alpha, beta, a, c, registry)
+          INTEGER(C_INT), INTENT(IN) :: datatype, n, k
+          INTEGER(C_INT), INTENT(IN) :: lda, ldc
+          CHARACTER(C_CHAR), INTENT(IN) :: uplo
+          REAL(C_DOUBLE), INTENT(IN) :: alpha, beta
+          TYPE(C_PTR), INTENT(IN) :: a
+          TYPE(C_PTR) :: c
+          TYPE(C_PTR), INTENT(IN), OPTIONAL :: registry
+          INTEGER(C_INT) :: libxs_syrk_direct
+          TYPE(libxs_gemm_config_t), POINTER :: cfg
+          TYPE(C_PTR) :: ptr, preg
+          IF (PRESENT(registry)) THEN
+            preg = registry
+          ELSE; preg = C_NULL_PTR; END IF
+          ptr = internal_syrk_dispatch(                                 &
+     &      datatype, n, k, lda, ldc, preg)
+          IF (C_ASSOCIATED(ptr)) THEN
+            CALL C_F_POINTER(ptr, cfg)
+            libxs_syrk_direct = internal_syrk(cfg, uplo,                &
+     &        alpha, beta, a, c)
+          ELSE
+            libxs_syrk_direct = 1
+          END IF
         END FUNCTION
       END MODULE
