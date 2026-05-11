@@ -252,7 +252,6 @@ OZAKI_API_INTERN void gemm_oz_test_diff(const char* transa, const char* transb,
   const GEMM_REAL_TYPE* beta, GEMM_REAL_TYPE* c, const GEMM_INT_TYPE* ldc,
   libxs_matdiff_t* diff)
 {
-  static element64 avec[OZAKI_TEST_N], bvec[OZAKI_TEST_N];
   const GEMM_INT_TYPE M = *m, N_ = *n, K = *k;
   const int ta = ('N' != *transa && 'n' != *transa);
   const int tb = ('N' != *transb && 'n' != *transb);
@@ -266,9 +265,15 @@ OZAKI_API_INTERN void gemm_oz_test_diff(const char* transa, const char* transb,
     if (NULL != c_ref) memcpy(c_ref, c, c_size);
   }
 
-  gemm_oz1(transa, transb, m, n, k, alpha, a, lda, b, ldb, beta, c, ldc);
+  { const int saved_verbose = ozaki_verbose;
+    ozaki_verbose = 0;
+    gemm_oz1(transa, transb, m, n, k, alpha, a, lda, b, ldb, beta, c, ldc);
+    ozaki_verbose = saved_verbose;
+  }
 
   if (NULL != c_ref && K <= OZAKI_TEST_N) {
+    element64* const avec = (element64*)libxs_malloc(gemm_pool, N * sizeof(element64), 0);
+    element64* const bvec = (element64*)libxs_malloc(gemm_pool, N * sizeof(element64), 0);
     GEMM_INT_TYPE mi, nj, ki;
     memcpy(c_test, c_ref, c_size);
     for (nj = 0; nj < N_; ++nj) {
@@ -284,6 +289,8 @@ OZAKI_API_INTERN void gemm_oz_test_diff(const char* transa, const char* transb,
         c_test[(size_t)nj * (*ldc) + mi] = (*alpha) * result + (*beta) * c_ref[(size_t)nj * (*ldc) + mi];
       }
     }
+    libxs_free(avec);
+    libxs_free(bvec);
     gemm_nozaki = 1;
     if (NULL != gemm_original) gemm_original(transa, transb, m, n, k, alpha, a, lda, b, ldb, beta, c_ref, ldc);
     else GEMM_REAL(transa, transb, m, n, k, alpha, a, lda, b, ldb, beta, c_ref, ldc);
