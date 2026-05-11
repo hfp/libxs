@@ -13,6 +13,11 @@ Supports two splitting modes:
 
 Auto-detection (default): if the input contains a \\n---\\n
 separator, rule mode is used; otherwise heading mode is assumed.
+
+In heading mode, slides are further broken up when they exceed a
+content-line budget (overflow splitting).  Continuation slides
+receive Roman-numeral suffixes (II, III, ...).  This behaviour is
+suppressed in rule mode unless --breakup is given explicitly.
 """
 import argparse
 import os
@@ -32,7 +37,6 @@ CODE_FONT = "Courier New"
 CODE_SIZE = Pt(20)
 TABLE_SIZE = Pt(12)
 BODY_SIZE = Pt(18)
-INLINE_CODE_SCALE = 0.85
 
 MARGIN = Inches(0.5)
 TITLE_TOP = Inches(0.5)
@@ -44,6 +48,8 @@ TABLE_ROW_HEIGHT = Inches(0.5)
 CODE_LINE_HEIGHT = Inches(0.35)
 TEXT_LINE_HEIGHT = Inches(0.4)
 BLOCK_SPACING = Inches(0.6)
+
+MAX_CONTENT_LINES = 15
 
 
 # ---------------------------------------------------------------------------
@@ -83,7 +89,6 @@ def add_runs(para, text, font_size=None, code=False):
         if font_size:
             run.font.size = font_size
         return
-    base = font_size or BODY_SIZE
     for content, style in parse_inline(text):
         run = para.add_run()
         run.text = content
@@ -95,7 +100,8 @@ def add_runs(para, text, font_size=None, code=False):
             run.font.italic = True
         elif style == "code":
             run.font.name = CODE_FONT
-            run.font.size = Pt(int(base / Pt(1) * INLINE_CODE_SCALE))
+            if font_size:
+                run.font.size = font_size
 
 
 def no_bullet(para):
@@ -111,7 +117,7 @@ def no_bullet(para):
 # ---------------------------------------------------------------------------
 # Markdown parsing
 # ---------------------------------------------------------------------------
-def parse_markdown(path, split):
+def parse_markdown(path, split, breakup):
     with open(path) as f:
         raw = f.read()
     if split == "auto":
@@ -120,21 +126,122 @@ def parse_markdown(path, split):
         parts = re.split(r"\n---\n", raw)
     else:
         parts = _split_on_headings(raw)
-    return [s for s in (_parse_slide(p.strip()) for p in parts) if s]
+    slides = [s for s in (_parse_slide(p.strip()) for p in parts) if s]
+    slides = [s for s in slides if s["is_title"] or s["blocks"]]
+    slides = _split_title_body(slides)
+    if breakup or (breakup is None and split == "heading"):
+        slides = _breakup_slides(slides)
+    return slides
+
+
+def _split_title_body(slides):
+    """Separate title slides that carry heavy body content into title + content."""
+    result = []
+    for s in slides:
+        if not s["is_title"] or not s["blocks"]:
+            result.append(s)
+            continue
+        heavy = any(
+            b["type"] in ("code", "table", "bullets")
+            or (b["type"] == "text" and len(b["lines"]) > 2)
+            for b in s["blocks"]
+        )
+        if not heavy:
+            result.append(s)
+            continue
+        result.append(
+            {
+                "title": s["title"],
+                "subtitle": s["subtitle"],
+                "is_title": True,
+                "blocks": [],
+            }
+        )
+        result.append(
+            {
+                "title": s["title"],
+                "subtitle": "",
+                "is_title": False,
+                "blocks": s["blocks"],
+            }
+        )
+    return result
 
 
 def _split_on_headings(raw):
-    """Split on # or ## headings, keeping each heading with its body."""
+    """Split on #, ##, or ### headings, keeping each heading with its body."""
     parts = []
     cur = []
+    in_code = False
     for line in raw.split("\n"):
-        if re.match(r"^##? (?!#)", line) and cur:
+        if line.strip().startswith("```"):
+            in_code = not in_code
+        if not in_code and re.match(r"^#{1,3} (?!#)", line) and cur:
             parts.append("\n".join(cur))
             cur = []
         cur.append(line)
     if cur:
         parts.append("\n".join(cur))
     return parts
+
+
+def _block_lines(block):
+    """Estimate the number of content lines a block occupies."""
+    btype = block["type"]
+    if btype == "code":
+        return len(block["lines"]) + 1
+    if btype == "bullets":
+        return len(block["items"])
+    if btype == "table":
+        return len(block["rows"]) + 1
+    if btype == "text":
+        nchars = sum(len(l) for l in block["lines"]) + len(block["lines"]) - 1
+        return max(1, (nchars + 79) // 80)
+    if btype == "heading":
+        return 2
+    return 1
+
+
+_ROMAN = ["I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX", "X"]
+
+
+def _breakup_slides(slides):
+    """Split slides that exceed MAX_CONTENT_LINES at block boundaries."""
+    result = []
+    for slide in slides:
+        total = sum(_block_lines(b) for b in slide["blocks"])
+        if total <= MAX_CONTENT_LINES or slide["is_title"]:
+            result.append(slide)
+            continue
+        chunks = []
+        cur_blocks = []
+        cur_lines = 0
+        for block in slide["blocks"]:
+            bl = _block_lines(block)
+            if cur_blocks and cur_lines + bl > MAX_CONTENT_LINES:
+                chunks.append(cur_blocks)
+                cur_blocks = []
+                cur_lines = 0
+            cur_blocks.append(block)
+            cur_lines += bl
+        if cur_blocks:
+            chunks.append(cur_blocks)
+        if len(chunks) <= 1:
+            result.append(slide)
+            continue
+        base_title = slide["title"]
+        for idx, chunk in enumerate(chunks):
+            numeral = _ROMAN[idx] if idx < len(_ROMAN) else str(idx + 1)
+            title = base_title if idx == 0 else f"{base_title} ({numeral})"
+            result.append(
+                {
+                    "title": title,
+                    "subtitle": slide["subtitle"] if idx == 0 else "",
+                    "is_title": False,
+                    "blocks": chunk,
+                }
+            )
+    return result
 
 
 def _skip_blank(lines, i):
@@ -150,15 +257,19 @@ def _parse_slide(text):
     slide = {"title": "", "subtitle": "", "is_title": False, "blocks": []}
     i = _skip_blank(lines, 0)
 
+    h1 = False
     if i < len(lines) and re.match(r"^# (?!#)", lines[i]):
         slide["title"] = lines[i][2:].strip()
-        slide["is_title"] = True
+        h1 = True
         i = _skip_blank(lines, i + 1)
         if i < len(lines) and lines[i].startswith("## "):
             slide["subtitle"] = lines[i][3:].strip()
             i += 1
     elif i < len(lines) and lines[i].startswith("## "):
         slide["title"] = lines[i][3:].strip()
+        i += 1
+    elif i < len(lines) and lines[i].startswith("### "):
+        slide["title"] = lines[i][4:].strip()
         i += 1
 
     cur = None
@@ -205,13 +316,17 @@ def _parse_slide(text):
             continue
 
         m_bullet = re.match(r"^\s*(?:\\?[-*])\s+(.*)$", line)
-        if m_bullet:
+        m_enum = re.match(r"^\s*(\d+)[.)]\s+(.*)$", line)
+        if m_bullet or m_enum:
             if cur and cur["type"] != "bullets":
                 slide["blocks"].append(cur)
                 cur = None
             if not cur:
                 cur = {"type": "bullets", "items": []}
-            cur["items"].append(m_bullet.group(1))
+            if m_enum:
+                cur["items"].append(f"{m_enum.group(1)}. {m_enum.group(2)}")
+            else:
+                cur["items"].append(m_bullet.group(1))
             i += 1
             continue
 
@@ -232,6 +347,8 @@ def _parse_slide(text):
 
     if cur:
         slide["blocks"].append(cur)
+    if h1:
+        slide["is_title"] = True
     return slide
 
 
@@ -282,9 +399,8 @@ def _title_slide(prs, data):
         tf.text = data["subtitle"]
     for block in data["blocks"]:
         if block["type"] == "text":
-            for line in block["lines"]:
-                p = tf.add_paragraph()
-                add_runs(p, line)
+            p = tf.add_paragraph()
+            add_runs(p, " ".join(block["lines"]))
 
 
 def _content_slide(prs, data):
@@ -328,13 +444,12 @@ def _render_blocks(tf, blocks, placeholder=False):
         btype = block["type"]
 
         if btype == "text":
-            for line in block["lines"]:
-                p = tf.paragraphs[0] if first else tf.add_paragraph()
-                first = False
-                add_runs(p, line)
-                p.line_spacing = 1.0
-                if placeholder:
-                    no_bullet(p)
+            p = tf.paragraphs[0] if first else tf.add_paragraph()
+            first = False
+            add_runs(p, " ".join(block["lines"]))
+            p.line_spacing = 1.0
+            if placeholder:
+                no_bullet(p)
 
         elif btype == "heading":
             p = tf.paragraphs[0] if first else tf.add_paragraph()
@@ -458,17 +573,34 @@ def main():
         help="slide splitting mode (default: auto)",
     )
     ap.add_argument(
+        "--breakup",
+        action="store_true",
+        default=None,
+        help="break up oversized slides (auto in heading mode)",
+    )
+    ap.add_argument(
+        "--no-breakup",
+        action="store_true",
+        help="disable overflow splitting even in heading mode",
+    )
+    ap.add_argument(
         "--no-resave",
         action="store_true",
         help="skip PowerPoint COM reflow step",
     )
     args = ap.parse_args()
 
+    breakup = None
+    if args.breakup:
+        breakup = True
+    elif args.no_breakup:
+        breakup = False
+
     output = args.output
     if output is None:
         output = os.path.splitext(args.input)[0] + ".pptx"
 
-    slides = parse_markdown(args.input, args.split)
+    slides = parse_markdown(args.input, args.split, breakup)
     prs = build_presentation(slides)
     prs.save(output)
     autofit(output)
