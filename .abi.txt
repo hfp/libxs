@@ -153,8 +153,12 @@ libxs_strisimilar
 libxs_stristr
 libxs_stristrn
 libxs_syr2k
+libxs_syr2k_config
+libxs_syr2k_direct
 libxs_syr2k_dispatch
 libxs_syrk
+libxs_syrk_config
+libxs_syrk_direct
 libxs_syrk_dispatch
 libxs_tid
 libxs_timer_duration
