@@ -269,6 +269,11 @@ OZAKI_API void gemm_oz2(GEMM_ARGDECL);
 /** Complex GEMM implementation (internal). */
 OZAKI_API_INTERN void gemm_complex(GEMM_ARGDECL);
 
+#if defined(OZAKI_TESTROOT) && defined(OZAKI_TEST_N) && GEMM_IS_DOUBLE
+#define gemm_oz_test_diff LIBXS_TPREFIX(GEMM_REAL_TYPE, gemm_oz_test_diff)
+OZAKI_API_INTERN void gemm_oz_test_diff(GEMM_ARGDECL, libxs_matdiff_t* diff);
+#endif
+
 OZAKI_APIVAR_PUBLIC(gemm_function_t gemm_original);
 OZAKI_APIVAR_PUBLIC(int ozaki);
 OZAKI_APIVAR_PUBLIC(int ozaki_complex);

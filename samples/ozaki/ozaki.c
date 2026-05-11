@@ -305,7 +305,11 @@ OZAKI_API_INTERN LIBXS_ATTRIBUTE_WEAK void GEMM_WRAP(const char* transa, const c
 #endif
           if (1 == run_ozaki)
         { /* slice-based LP-GEMM (Scheme 1, default) */
+#if defined(OZAKI_TESTROOT) && defined(OZAKI_TEST_N) && GEMM_IS_DOUBLE
+          OZAKI_GEMM_WRAPPER(gemm_oz_test_diff, "OZTEST", 1)
+#else
           gemm_oz1(transa, transb, m, n, k, alpha, a, lda, b, ldb, beta, c, ldc);
+#endif
         }
         else { /* CRT-based LP-GEMM (Scheme 2) */
           gemm_oz2(transa, transb, m, n, k, alpha, a, lda, b, ldb, beta, c, ldc);

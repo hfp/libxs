@@ -28,6 +28,10 @@ else
 fi
 if [ $# -gt 0 ]; then shift; fi
 
+if [ ! "${OZAKI_THRESHOLD}" ]; then
+  export OZAKI_THRESHOLD=0
+fi
+
 TMPF=$(mktemp)
 trap 'rm -f ${TMPF}' EXIT
 

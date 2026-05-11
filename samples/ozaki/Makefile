@@ -60,6 +60,16 @@ endif
 endif
 endif
 
+# external Ozaki test code (scalar dot-product reference)
+TESTROOT ?=
+ifneq (,$(TESTROOT))
+ifneq (,$(wildcard $(TESTROOT)/ozaki1_main_dp.c))
+  OZAKI_TEST_N ?= 4096
+  DFLAGS += -DOZAKI_TESTROOT=\"$(TESTROOT)\" -DOZAKI_TEST_N=$(OZAKI_TEST_N)
+  IFLAGS += -I$(call quote,$(TESTROOT))
+endif
+endif
+
 # oneDNN (DNNL) for int8 matmul acceleration
 ifneq (0,$(DNNL))
   DNNLROOT ?= $(shell echo "$$DNNLROOT")
@@ -92,6 +102,7 @@ CSOURCS := $(SRCDIR)/gemm.c
 # Implementation sources: _WRAP + support (compiled for each precision)
 IMPLSRCS := $(SRCDIR)/$(OUTNAME).c \
             $(SRCDIR)/ozaki1_int8.c \
+            $(SRCDIR)/ozaki1_test.c \
             $(SRCDIR)/ozaki2_int8.c \
             $(SRCDIR)/wrap3m.c \
             $(SRCDIR)/gemm-print.c \
