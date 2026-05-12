@@ -129,10 +129,10 @@
 
         rc = libxs_gemm_dispatch(config,                                &
      &    LIBXS_DATATYPE_F64, 'N', 'N', m, n, k,                        &
-     &    lda, ldb, ldc, alpha, beta,                                   &
+     &    lda, ldb, ldc, alpha, beta                                    &
 #if defined(__MKL)
-     &    jit_create_dgemm=C_FUNLOC(mkl_cblas_jit_create_dgemm),        &
-     &    jit_get_dgemm=C_FUNLOC(mkl_jit_get_dgemm_ptr)                 &
+     &    , jit_create_dgemm=C_FUNLOC(mkl_cblas_jit_create_dgemm)       &
+     &    , jit_get_dgemm=C_FUNLOC(mkl_jit_get_dgemm_ptr)               &
 #endif
      &    )
         config%flags = LIBXS_GEMM_FLAG_NOLOCK

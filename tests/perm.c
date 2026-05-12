@@ -70,7 +70,7 @@ int main(void)
   /* out-of-place sort of doubles (ctx = source) */
   { const double src[] = {9.0, 1.0, 5.0, 3.0, 7.0};
     double dst[5];
-    libxs_sort(dst, 5, sizeof(double), libxs_cmp_f64, (void*)src);
+    libxs_sort(dst, 5, sizeof(double), libxs_cmp_f64, (void*)(uintptr_t)src);
     if (!check_sorted_f64(dst, 5)) {
       FPRINTF(stderr, "ERROR line #%i: f64 out-of-place\n", __LINE__);
       exit(EXIT_FAILURE);
@@ -119,7 +119,7 @@ int main(void)
   /* indirect sort (argsort): sort index array by key values */
   { const double keys[] = {3.0, 1.0, 4.0, 1.5, 2.0};
     int perm[] = {0, 1, 2, 3, 4};
-    libxs_sort(perm, 5, sizeof(int), cmp_indirect_f64, (void*)keys);
+    libxs_sort(perm, 5, sizeof(int), cmp_indirect_f64, (void*)(uintptr_t)keys);
     if (perm[0] != 1 || perm[1] != 3 || perm[2] != 4
       || perm[3] != 0 || perm[4] != 2)
     {
