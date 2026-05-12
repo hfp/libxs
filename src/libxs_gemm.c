@@ -185,7 +185,7 @@ LIBXS_API libxs_gemm_config_t* libxs_gemm_dispatch_rt(
   libxs_gemm_config_t* result = NULL;
   libxs_gemm_config_t config;
   libxs_gemm_shape_t shape;
-  libxs_registry_t* reg;
+  libxs_registry_t* reg = NULL;
   LIBXS_MEMZERO(&shape);
   shape.datatype = datatype;
   shape.transa = transa;
@@ -200,24 +200,23 @@ LIBXS_API libxs_gemm_config_t* libxs_gemm_dispatch_rt(
     shape.alpha = (NULL != alpha ? (double)*(const float*)alpha : 1.0);
     shape.beta  = (NULL != beta  ? (double)*(const float*)beta  : 0.0);
   }
-  else {
-    return NULL;
-  }
-  if (NULL != registry) {
-    reg = (libxs_registry_t*)registry;
-  }
-  else {
-    if (NULL == internal_libxs_gemm_registry) {
-      internal_libxs_gemm_registry = libxs_registry_create();
+  if (LIBXS_DATATYPE_F64 == datatype || LIBXS_DATATYPE_F32 == datatype) {
+    if (NULL != registry) {
+      reg = (libxs_registry_t*)registry;
     }
-    reg = internal_libxs_gemm_registry;
+    else {
+      if (NULL == internal_libxs_gemm_registry) {
+        internal_libxs_gemm_registry = libxs_registry_create();
+      }
+      reg = internal_libxs_gemm_registry;
+    }
+    if (NULL != reg) {
+      result = (libxs_gemm_config_t*)
+        libxs_registry_get((const libxs_registry_t*)reg,
+          &shape, sizeof(shape), libxs_registry_lock(reg));
+    }
   }
-  if (NULL != reg) {
-    result = (libxs_gemm_config_t*)
-      libxs_registry_get((const libxs_registry_t*)reg,
-        &shape, sizeof(shape), libxs_registry_lock(reg));
-  }
-  if (NULL == result) {
+  if (NULL == result && NULL != reg) {
     const int ta = ('N' != transa && 'n' != transa);
     const int tb = ('N' != transb && 'n' != transb);
     LIBXS_MEMZERO(&config);
@@ -228,7 +227,7 @@ LIBXS_API libxs_gemm_config_t* libxs_gemm_dispatch_rt(
       const int mkl_ta = (0 == ta) ? 111 : 112;
       const int mkl_tb = (0 == tb) ? 111 : 112;
       void* jitter = NULL;
-      if (0 == jit_create_dgemm(&jitter, 102, mkl_ta, mkl_tb, m, n, k,
+      if (2 != jit_create_dgemm(&jitter, 102, mkl_ta, mkl_tb, m, n, k,
         NULL != alpha ? *(const double*)alpha : 1.0, lda, ldb,
         NULL != beta ? *(const double*)beta : 0.0, ldc))
       {
@@ -238,12 +237,12 @@ LIBXS_API libxs_gemm_config_t* libxs_gemm_dispatch_rt(
       }
     }
     /* MKL JIT (sgemm) */
-    if (NULL != jit_create_sgemm && NULL != jit_get_sgemm
+    else if (NULL != jit_create_sgemm && NULL != jit_get_sgemm
         && LIBXS_DATATYPE_F32 == datatype) {
       const int mkl_ta = (0 == ta) ? 111 : 112;
       const int mkl_tb = (0 == tb) ? 111 : 112;
       void* jitter = NULL;
-      if (0 == jit_create_sgemm(&jitter, 101, mkl_ta, mkl_tb, m, n, k,
+      if (2 != jit_create_sgemm(&jitter, 101, mkl_ta, mkl_tb, m, n, k,
         NULL != alpha ? *(const float*)alpha : 1.0f, lda, ldb,
         NULL != beta ? *(const float*)beta : 0.0f, ldc))
       {
@@ -623,16 +622,20 @@ LIBXS_API int libxs_syr2k(
         const double* t = (const double*)scratch;
         int i;
         if (upper) {
-          for (j = 0; j < n; ++j)
-            for (i = 0; i <= j; ++i)
+          for (j = 0; j < n; ++j) {
+            for (i = 0; i <= j; ++i) {
               cc[i + (size_t)j * ldc] = beta * cc[i + (size_t)j * ldc]
                 + alpha * (t[i + (size_t)j * lds] + t[j + (size_t)i * lds]);
+            }
+          }
         }
         else {
-          for (j = 0; j < n; ++j)
-            for (i = j; i < n; ++i)
+          for (j = 0; j < n; ++j) {
+            for (i = j; i < n; ++i) {
               cc[i + (size_t)j * ldc] = beta * cc[i + (size_t)j * ldc]
                 + alpha * (t[i + (size_t)j * lds] + t[j + (size_t)i * lds]);
+            }
+          }
         }
       }
       else {
@@ -641,16 +644,20 @@ LIBXS_API int libxs_syr2k(
         const float fa = (float)alpha, fb = (float)beta;
         int i;
         if (upper) {
-          for (j = 0; j < n; ++j)
-            for (i = 0; i <= j; ++i)
+          for (j = 0; j < n; ++j) {
+            for (i = 0; i <= j; ++i) {
               cc[i + (size_t)j * ldc] = fb * cc[i + (size_t)j * ldc]
                 + fa * (t[i + (size_t)j * lds] + t[j + (size_t)i * lds]);
+            }
+          }
         }
         else {
-          for (j = 0; j < n; ++j)
-            for (i = j; i < n; ++i)
+          for (j = 0; j < n; ++j) {
+            for (i = j; i < n; ++i) {
               cc[i + (size_t)j * ldc] = fb * cc[i + (size_t)j * ldc]
                 + fa * (t[i + (size_t)j * lds] + t[j + (size_t)i * lds]);
+            }
+          }
         }
       }
       result = EXIT_SUCCESS;
@@ -687,16 +694,20 @@ LIBXS_API int libxs_syrk(
         const double* t = (const double*)scratch;
         int i;
         if (upper) {
-          for (j = 0; j < n; ++j)
-            for (i = 0; i <= j; ++i)
+          for (j = 0; j < n; ++j) {
+            for (i = 0; i <= j; ++i) {
               cc[i + (size_t)j * ldc] = beta * cc[i + (size_t)j * ldc]
                 + alpha * t[i + (size_t)j * lds];
+            }
+          }
         }
         else {
-          for (j = 0; j < n; ++j)
-            for (i = j; i < n; ++i)
+          for (j = 0; j < n; ++j) {
+            for (i = j; i < n; ++i) {
               cc[i + (size_t)j * ldc] = beta * cc[i + (size_t)j * ldc]
                 + alpha * t[i + (size_t)j * lds];
+            }
+          }
         }
       }
       else {
@@ -705,16 +716,20 @@ LIBXS_API int libxs_syrk(
         const float fa = (float)alpha, fb = (float)beta;
         int i;
         if (upper) {
-          for (j = 0; j < n; ++j)
-            for (i = 0; i <= j; ++i)
+          for (j = 0; j < n; ++j) {
+            for (i = 0; i <= j; ++i) {
               cc[i + (size_t)j * ldc] = fb * cc[i + (size_t)j * ldc]
                 + fa * t[i + (size_t)j * lds];
+            }
+          }
         }
         else {
-          for (j = 0; j < n; ++j)
-            for (i = j; i < n; ++i)
+          for (j = 0; j < n; ++j) {
+            for (i = j; i < n; ++i) {
               cc[i + (size_t)j * ldc] = fb * cc[i + (size_t)j * ldc]
                 + fa * t[i + (size_t)j * lds];
+            }
+          }
         }
       }
       result = EXIT_SUCCESS;

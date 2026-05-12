@@ -79,7 +79,7 @@
         alpha = 1D0; beta = 1D0
 
         WRITE(*, "(A,I0,A,I0,A,I0)")                                    &
-     &    "syrk(F): N=", n, " K=", k, " nrepeat=", nrepeat
+     &    "SYRK: N=", n, " K=", k, " nrepeat=", nrepeat
 
         CALL libxs_init()
 
