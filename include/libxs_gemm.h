@@ -365,7 +365,7 @@ LIBXS_API libxs_gemm_config_t* libxs_syrk_dispatch(
 LIBXS_API int libxs_syr2k(
   const libxs_gemm_config_t* config, char uplo,
   double alpha, double beta,
-  const void* a, const void* b, void* c);
+  const void* a, const void* b, void* c, int ldc);
 
 /**
  * Symmetric rank-k update: C := alpha*A*A^T + beta*C.
@@ -376,7 +376,7 @@ LIBXS_API int libxs_syr2k(
 LIBXS_API int libxs_syrk(
   const libxs_gemm_config_t* config, char uplo,
   double alpha, double beta,
-  const void* a, void* c);
+  const void* a, void* c, int ldc);
 
 /* header-only: include implementation (deferred from libxs_macros.h) */
 #if defined(LIBXS_SOURCE) && !defined(LIBXS_SOURCE_H)

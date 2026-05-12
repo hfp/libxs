@@ -11,7 +11,7 @@
 #include "libxs_main.h"
 #include "libxs_crc32.h"
 
-#if !defined(LIBXS_SYRK_TRACE) && 1
+#if !defined(LIBXS_SYRK_TRACE) && 0
 # define LIBXS_SYRK_TRACE
 #endif
 
@@ -145,6 +145,31 @@ LIBXS_API_INTERN void internal_libxs_sgemm_default(
 }
 
 
+#if defined(LIBXS_SYRK_TRACE)
+LIBXS_API_INTERN void internal_libxs_syrk_trace(const char name[], void* registry);
+LIBXS_API_INTERN void internal_libxs_syrk_trace(const char name[], void* registry)
+{
+  static int interval = -1;
+  static int counter = 0;
+  if (-1 == interval) {
+    const char* env = getenv("LIBXS_SYRK");
+    interval = (NULL != env) ? atoi(env) : 0;
+  }
+  if (0 < interval && NULL != registry) {
+    if (0 == (++counter % interval)) {
+      libxs_registry_info_t info;
+      if (0 == libxs_registry_info((libxs_registry_t*)registry, &info)) {
+        fprintf(stderr, "LIBXS %s [%d]: registry size=%lu capacity=%lu"
+          " nbytes=%lu\n", name, counter,
+          (unsigned long)info.size, (unsigned long)info.capacity,
+          (unsigned long)info.nbytes);
+      }
+    }
+  }
+}
+#endif
+
+
 LIBXS_API libxs_gemm_config_t* libxs_gemm_dispatch_rt(
   int datatype, char transa, char transb,
   int m, int n, int k, int lda, int ldb, int ldc,
@@ -204,7 +229,7 @@ LIBXS_API libxs_gemm_config_t* libxs_gemm_dispatch_rt(
       const int mkl_ta = (0 == ta) ? 111 : 112;
       const int mkl_tb = (0 == tb) ? 111 : 112;
       void* jitter = NULL;
-      if (0 == jit_create_dgemm(&jitter, 101, mkl_ta, mkl_tb, m, n, k,
+      if (0 == jit_create_dgemm(&jitter, 102, mkl_ta, mkl_tb, m, n, k,
             (NULL != alpha ? *(const double*)alpha : 1.0),
             lda, ldb,
             (NULL != beta ? *(const double*)beta : 0.0), ldc))
@@ -271,6 +296,9 @@ LIBXS_API libxs_gemm_config_t* libxs_gemm_dispatch_rt(
       result = &fallback;
     }
   }
+#if defined(LIBXS_SYRK_TRACE)
+  internal_libxs_syrk_trace("syr2k", reg);
+#endif
   return result;
 }
 
@@ -551,55 +579,18 @@ LIBXS_API_INTERN void internal_libxs_gemm_blas(
 }
 
 
-#if defined(LIBXS_SYRK_TRACE)
-LIBXS_API_INTERN void internal_libxs_syrk_trace(const char name[], void* registry);
-LIBXS_API_INTERN void internal_libxs_syrk_trace(const char name[], void* registry)
-{
-  static int interval = -1;
-  static int counter = 0;
-  if (-1 == interval) {
-    const char* env = getenv("LIBXS_SYRK");
-    interval = (NULL != env) ? atoi(env) : 0;
-  }
-  if (0 < interval && NULL != registry) {
-    if (0 == (++counter % interval)) {
-      libxs_registry_info_t info;
-      if (0 == libxs_registry_info((libxs_registry_t*)registry, &info)) {
-        fprintf(stderr, "LIBXS %s [%d]: registry size=%lu capacity=%lu"
-          " nbytes=%lu\n", name, counter,
-          (unsigned long)info.size, (unsigned long)info.capacity,
-          (unsigned long)info.nbytes);
-      }
-    }
-  }
-}
-#endif
-
-
-LIBXS_API libxs_gemm_config_t* libxs_syr2k_dispatch(
-  libxs_data_t datatype, int n, int k, int lda, int ldb, int ldc,
-  void* registry);
 LIBXS_API libxs_gemm_config_t* libxs_syr2k_dispatch(
   libxs_data_t datatype, int n, int k, int lda, int ldb, int ldc,
   void* registry)
 {
   const double one = 1.0, zero = 0.0;
   libxs_gemm_config_t* result = libxs_gemm_dispatch_rt(
-    datatype, 'N', 'T', n, n, k, lda, ldb, n, &one, &zero,
+    datatype, 'N', 'T', n, n, k, lda, ldb, ldc, &one, &zero,
     NULL, NULL, NULL, NULL, NULL, NULL, NULL, registry);
-  if (NULL != result) {
-    result->shape.ldc = ldc;
-  }
-#if defined(LIBXS_SYRK_TRACE)
-  internal_libxs_syrk_trace("syr2k", registry);
-#endif
   return result;
 }
 
 
-LIBXS_API libxs_gemm_config_t* libxs_syrk_dispatch(
-  libxs_data_t datatype, int n, int k, int lda, int ldc,
-  void* registry);
 LIBXS_API libxs_gemm_config_t* libxs_syrk_dispatch(
   libxs_data_t datatype, int n, int k, int lda, int ldc,
   void* registry)
@@ -623,11 +614,7 @@ LIBXS_API_INTERN void* internal_libxs_syrk_scratch(size_t need)
 LIBXS_API int libxs_syr2k(
   const libxs_gemm_config_t* config, char uplo,
   double alpha, double beta,
-  const void* a, const void* b, void* c);
-LIBXS_API int libxs_syr2k(
-  const libxs_gemm_config_t* config, char uplo,
-  double alpha, double beta,
-  const void* a, const void* b, void* c)
+  const void* a, const void* b, void* c, int ldc)
 {
   int result = EXIT_FAILURE;
   if (NULL != config && NULL != a && NULL != b && NULL != c
@@ -635,16 +622,16 @@ LIBXS_API int libxs_syr2k(
      || LIBXS_DATATYPE_F32 == config->shape.datatype))
   {
     const int n = config->shape.m;
-    const int ldc = config->shape.ldc;
+    const int lds = config->shape.ldc;
     const int upper = ('U' == uplo || 'u' == uplo);
-    const size_t need = (size_t)n * (size_t)n
+    const size_t need = (size_t)lds * (size_t)n
       * (size_t)LIBXS_TYPESIZE(config->shape.datatype);
     void* scratch = internal_libxs_syrk_scratch(need);
     if (NULL != scratch) {
       int j;
       if (EXIT_SUCCESS != libxs_gemm_call(config, a, b, scratch)) {
         internal_libxs_gemm_blas(config, a, b, scratch,
-          config->shape.lda, config->shape.ldb, n, 1.0, 0.0);
+          config->shape.lda, config->shape.ldb, lds, 1.0, 0.0);
       }
       if (LIBXS_DATATYPE_F64 == config->shape.datatype) {
         double* cc = (double*)c;
@@ -654,13 +641,13 @@ LIBXS_API int libxs_syr2k(
           for (j = 0; j < n; ++j)
             for (i = 0; i <= j; ++i)
               cc[i + (size_t)j * ldc] = beta * cc[i + (size_t)j * ldc]
-                + alpha * (t[i + (size_t)j * n] + t[j + (size_t)i * n]);
+                + alpha * (t[i + (size_t)j * lds] + t[j + (size_t)i * lds]);
         }
         else {
           for (j = 0; j < n; ++j)
             for (i = j; i < n; ++i)
               cc[i + (size_t)j * ldc] = beta * cc[i + (size_t)j * ldc]
-                + alpha * (t[i + (size_t)j * n] + t[j + (size_t)i * n]);
+                + alpha * (t[i + (size_t)j * lds] + t[j + (size_t)i * lds]);
         }
       }
       else {
@@ -672,13 +659,13 @@ LIBXS_API int libxs_syr2k(
           for (j = 0; j < n; ++j)
             for (i = 0; i <= j; ++i)
               cc[i + (size_t)j * ldc] = fb * cc[i + (size_t)j * ldc]
-                + fa * (t[i + (size_t)j * n] + t[j + (size_t)i * n]);
+                + fa * (t[i + (size_t)j * lds] + t[j + (size_t)i * lds]);
         }
         else {
           for (j = 0; j < n; ++j)
             for (i = j; i < n; ++i)
               cc[i + (size_t)j * ldc] = fb * cc[i + (size_t)j * ldc]
-                + fa * (t[i + (size_t)j * n] + t[j + (size_t)i * n]);
+                + fa * (t[i + (size_t)j * lds] + t[j + (size_t)i * lds]);
         }
       }
       result = EXIT_SUCCESS;
@@ -691,11 +678,7 @@ LIBXS_API int libxs_syr2k(
 LIBXS_API int libxs_syrk(
   const libxs_gemm_config_t* config, char uplo,
   double alpha, double beta,
-  const void* a, void* c);
-LIBXS_API int libxs_syrk(
-  const libxs_gemm_config_t* config, char uplo,
-  double alpha, double beta,
-  const void* a, void* c)
+  const void* a, void* c, int ldc)
 {
   int result = EXIT_FAILURE;
   if (NULL != config && NULL != a && NULL != c
@@ -703,16 +686,16 @@ LIBXS_API int libxs_syrk(
      || LIBXS_DATATYPE_F32 == config->shape.datatype))
   {
     const int n = config->shape.m;
-    const int ldc = config->shape.ldc;
+    const int lds = config->shape.ldc;
     const int upper = ('U' == uplo || 'u' == uplo);
-    const size_t need = (size_t)n * (size_t)n
+    const size_t need = (size_t)lds * (size_t)n
       * (size_t)LIBXS_TYPESIZE(config->shape.datatype);
     void* scratch = internal_libxs_syrk_scratch(need);
     if (NULL != scratch) {
       int j;
       if (EXIT_SUCCESS != libxs_gemm_call(config, a, a, scratch)) {
         internal_libxs_gemm_blas(config, a, a, scratch,
-          config->shape.lda, config->shape.lda, n, 1.0, 0.0);
+          config->shape.lda, config->shape.lda, lds, 1.0, 0.0);
       }
       if (LIBXS_DATATYPE_F64 == config->shape.datatype) {
         double* cc = (double*)c;
@@ -722,13 +705,13 @@ LIBXS_API int libxs_syrk(
           for (j = 0; j < n; ++j)
             for (i = 0; i <= j; ++i)
               cc[i + (size_t)j * ldc] = beta * cc[i + (size_t)j * ldc]
-                + alpha * t[i + (size_t)j * n];
+                + alpha * t[i + (size_t)j * lds];
         }
         else {
           for (j = 0; j < n; ++j)
             for (i = j; i < n; ++i)
               cc[i + (size_t)j * ldc] = beta * cc[i + (size_t)j * ldc]
-                + alpha * t[i + (size_t)j * n];
+                + alpha * t[i + (size_t)j * lds];
         }
       }
       else {
@@ -740,13 +723,13 @@ LIBXS_API int libxs_syrk(
           for (j = 0; j < n; ++j)
             for (i = 0; i <= j; ++i)
               cc[i + (size_t)j * ldc] = fb * cc[i + (size_t)j * ldc]
-                + fa * t[i + (size_t)j * n];
+                + fa * t[i + (size_t)j * lds];
         }
         else {
           for (j = 0; j < n; ++j)
             for (i = j; i < n; ++i)
               cc[i + (size_t)j * ldc] = fb * cc[i + (size_t)j * ldc]
-                + fa * t[i + (size_t)j * n];
+                + fa * t[i + (size_t)j * lds];
         }
       }
       result = EXIT_SUCCESS;

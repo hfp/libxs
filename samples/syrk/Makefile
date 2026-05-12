@@ -34,23 +34,23 @@ HEADERS := $(wildcard $(INCDIR)/*.h) \
 CSOURCS := $(wildcard $(SRCDIR)/*.c)
 COBJCTS := $(patsubst %,$(BLDDIR)/%,$(notdir $(CSOURCS:.c=-c.o)))
 ifneq (,$(strip $(FC)))
-FXXSRCS := $(wildcard $(SRCDIR)/*.f)
-FXXOBJS := $(patsubst %,$(BLDDIR)/%,$(notdir $(FXXSRCS:.f=-f.o)))
+F77SRCS := $(wildcard $(SRCDIR)/*.F)
+F77OBJS := $(patsubst %,$(BLDDIR)/%,$(notdir $(F77SRCS:.F=-f77.o)))
 endif
 OBJECTS := $(COBJCTS)
-FTNOBJS := $(FXXOBJS)
+FTNOBJS := $(F77OBJS)
 XFILES := $(OUTDIR)/$(OUTNAME).x
 
 .PHONY: all
 all: $(XFILES)
 
 .PHONY: compile
-compile: $(FTNOBJS)
+compile: $(OBJECTS) $(FTNOBJS)
 
 ifneq (,$(strip $(FC)))
 ifneq (0,$(shell echo "$$((3>$(XSMM_GCC) || 40600<=$(FC_VERSION_NUM)))"))
-$(OUTDIR)/$(OUTNAME).x: $(OUTDIR)/.make $(FTNOBJS) $(XLIB)
-	$(FLD) -o $@ $(FTNOBJS) $(XLIB) $(FCMTFLAGS) $(SLDFLAGS) $(LDFLAGS) $(FLDFLAGS) $(ELDFLAGS)
+$(OUTDIR)/$(OUTNAME).x: $(OUTDIR)/.make $(OBJECTS) $(FTNOBJS) $(XLIB)
+	$(FLD) -o $@ $(OBJECTS) $(FTNOBJS) $(XLIB) $(FCMTFLAGS) $(SLDFLAGS) $(LDFLAGS) $(FLDFLAGS) $(ELDFLAGS)
 else
 .PHONY: $(OUTDIR)/$(OUTNAME).x
 endif
@@ -61,7 +61,7 @@ endif
 $(BLDDIR)/%-c.o: $(SRCDIR)/%.c .state $(BLDDIR)/.make $(HEADERS) Makefile $(DEPDIR)/Makefile.inc
 	$(CC) $(DFLAGS) $(IFLAGS) $(CFLAGS) $(CTARGET) -c $< -o $@
 
-$(BLDDIR)/%-f.o: $(SRCDIR)/%.f .state $(BLDDIR)/.make Makefile $(DEPDIR)/Makefile.inc
+$(BLDDIR)/%-f77.o: $(SRCDIR)/%.F .state $(BLDDIR)/.make Makefile $(DEPDIR)/Makefile.inc
 	$(FC) $(FCMTFLAGS) $(DFLAGS) $(IFLAGS) $(FCFLAGS) $(FTARGET) -c $< -o $@
 
 .PHONY: clean

@@ -231,15 +231,17 @@ libxs_gemm_config_t* libxs_syrk_dispatch(
 ```
 
 Dispatch a GEMM config for SYR2K/SYRK. Internally dispatches
-GEMM('N','T', n, n, k, ...) with alpha=1, beta=0. The returned
-config stores ldc for the output matrix. Returns NULL on failure.
+GEMM('N','T', n, n, k, lda, ldb, ldc) with alpha=1, beta=0.
+The ldc parameter is part of the registry key and determines
+the scratch buffer stride. Returns NULL on failure.
 
 Fortran variants accept the same OPTIONAL backend function
 pointers as libxs_gemm_dispatch:
 
 ```fortran
 ptr = libxs_syrk_dispatch(LIBXS_DATATYPE_F64, n, k, lda, ldc,
-     &  dgemm_blas=C_FUNLOC(DGEMM))
+     &  jit_create_dgemm=C_FUNLOC(mkl_cblas_jit_create_dgemm),
+     &  jit_get_dgemm=C_FUNLOC(mkl_jit_get_dgemm_ptr))
 ```
 
 ### Call
@@ -248,21 +250,22 @@ ptr = libxs_syrk_dispatch(LIBXS_DATATYPE_F64, n, k, lda, ldc,
 int libxs_syr2k(
   const libxs_gemm_config_t* config, char uplo,
   double alpha, double beta,
-  const void* a, const void* b, void* c);
+  const void* a, const void* b, void* c, int ldc);
 ```
 
 C := alpha*(A*B^T + B*A^T) + beta*C. Only the triangle specified
-by uplo ('U' or 'L') is written.
+by uplo ('U' or 'L') is written. ldc is the leading dimension
+of the output matrix C.
 
 ```C
 int libxs_syrk(
   const libxs_gemm_config_t* config, char uplo,
   double alpha, double beta,
-  const void* a, void* c);
+  const void* a, void* c, int ldc);
 ```
 
 C := alpha*A*A^T + beta*C. Only the triangle specified by uplo
-('U' or 'L') is written.
+('U' or 'L') is written. ldc is the leading dimension of C.
 
 ## Environment Variables
 
