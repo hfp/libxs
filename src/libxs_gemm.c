@@ -162,7 +162,7 @@ LIBXS_API libxs_gemm_config_t* libxs_gemm_dispatch_rt(
   libxs_gemm_config_t config;
   libxs_gemm_config_t* result = NULL;
   libxs_registry_t* reg;
-  memset(&shape, 0, sizeof(shape));
+  LIBXS_MEMZERO(&shape);
   shape.datatype = datatype;
   shape.transa = transa;
   shape.transb = transb;
@@ -196,7 +196,7 @@ LIBXS_API libxs_gemm_config_t* libxs_gemm_dispatch_rt(
   if (NULL == result) {
     const int ta = ('N' != transa && 'n' != transa);
     const int tb = ('N' != transb && 'n' != transb);
-    memset(&config, 0, sizeof(config));
+    LIBXS_MEMZERO(&config);
     config.shape = shape;
     /* MKL JIT (dgemm) */
     if (NULL != jit_create_dgemm && NULL != jit_get_dgemm
