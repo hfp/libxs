@@ -10,21 +10,21 @@ of [LIBXSMM](https://github.com/libxsmm/libxsmm).
 
 | Domain                                            | Header               | Description                                                   |
 |---------------------------------------------------|----------------------|---------------------------------------------------------------|
-| [Memory](libxs_mem.md)              | `libxs_mem.h`        | Byte comparison, matrix copy/transpose, alignment queries     |
 | [Permutation](libxs_perm.md)        | `libxs_perm.h`       | Co-prime shuffling, smooth row permutations                   |
+| [Histogram](libxs_hist.md)          | `libxs_hist.h`       | Thread-safe histogram with running statistics                 |
+| [Registry](libxs_reg.md)            | `libxs_reg.h`        | Thread-safe key-value store with per-thread caching           |
 | [Hashing](libxs_hash.md)            | `libxs_hash.h`       | CRC32-based hashing, Adler-32, string hashing                 |
+| [Malloc](libxs_malloc.md)           | `libxs_malloc.h`     | Pool-based allocator (steady-state, no system calls)          |
+| [Memory](libxs_mem.md)              | `libxs_mem.h`        | Byte comparison, matrix copy/transpose, alignment queries     |
 | [String](libxs_str.md)              | `libxs_str.h`        | Edit distance, substring search, word similarity, formatting  |
+| [Timer](libxs_timer.md)             | `libxs_timer.h`      | High-resolution timing via calibrated TSC                     |
+| [CPUID](libxs_cpuid.md)             | `libxs_cpuid.h`      | CPU feature detection (SSE to AVX-512, AArch64, RISC-V)       |
+| [Utils](libxs_utils.md)             | `libxs_utils.h`      | ISA feature gates, bit-scan, SIMD helpers                     |
+| [Sync](libxs_sync.md)               | `libxs_sync.h`       | Portable atomics, locks, TLS, and file locking                |
 | [GEMM](libxs_gemm.md)               | `libxs_gemm.h`       | Batched dense GEMM (strided, pointer-array, grouped)          |
 | [Math](libxs_math.md)               | `libxs_math.h`       | Matrix comparison, GCD/LCM, coprime, BF16 conversion          |
 | [MHD](libxs_mhd.md)                 | `libxs_mhd.h`        | Read/write MetaImage (MHD/MHA) files                          |
-| [Histogram](libxs_hist.md)          | `libxs_hist.h`       | Thread-safe histogram with running statistics                 |
-| [Malloc](libxs_malloc.md)           | `libxs_malloc.h`     | Pool-based allocator (steady-state, no system calls)          |
 | [RNG](libxs_rng.md)                 | `libxs_rng.h`        | Thread-safe pseudo-random number generation (SplitMix64)      |
-| [Sync](libxs_sync.md)               | `libxs_sync.h`       | Portable atomics, locks, TLS, and file locking                |
-| [Timer](libxs_timer.md)             | `libxs_timer.h`      | High-resolution timing via calibrated TSC                     |
-| [CPUID](libxs_cpuid.md)             | `libxs_cpuid.h`      | CPU feature detection (SSE to AVX-512, AArch64, RISC-V)       |
-| [Registry](libxs_reg.md)            | `libxs_reg.h`        | Thread-safe key-value store with per-thread caching           |
-| [Utils](libxs_utils.md)             | `libxs_utils.h`      | ISA feature gates, bit-scan, SIMD helpers                     |
 
 See also: [Fortran Interface](libxs_fortran.md),
 [Scripts](libxs_scripts.md).
@@ -107,12 +107,14 @@ USE :: libxs, ONLY: libxs_memcmp
 
 | Sample                                                    | Description                                                  |
 |-----------------------------------------------------------|--------------------------------------------------------------|
-| [gemm](samples/libxs_gemm.md)               | Batched DGEMM (strided, pointer-array, grouped) with OMP     |
-| [memory](samples/libxs_memory.md)           | Benchmarks for comparison, matrix copy, and transpose        |
-| [ozaki](samples/libxs_ozaki.md)             | Ozaki-scheme low-precision GEMM with intercepted BLAS        |
 | [registry](samples/libxs_registry.md)       | Registry dispatch microbenchmark                             |
 | [scratch](samples/libxs_scratch.md)         | Pool allocator vs system malloc                              |
+| [rosetta](samples/libxs_rosetta.md)         | Hierarchical type discovery on opaque binary data            |
 | [shuffle](samples/libxs_shuffle.md)         | Shuffling strategies comparison                              |
+| [memory](samples/libxs_memory.md)           | Benchmarks for comparison, matrix copy, and transpose        |
+| [gemm](samples/libxs_gemm.md)               | Batched DGEMM (strided, pointer-array, grouped) with OMP     |
+| [syrk](samples/libxs_syrk.md)               | Symmetric rank-k/2k update (SYRK/SYR2K) with validation      |
+| [ozaki](samples/libxs_ozaki.md)             | Ozaki-scheme low-precision GEMM with intercepted BLAS        |
 | [sync](samples/libxs_sync.md)               | Lock implementation microbenchmarks                          |
 
 ## License

@@ -63,9 +63,11 @@ nav:
 - Example Code:
   - Registry: samples/libxs_registry.md
   - Scratch: samples/libxs_scratch.md
+  - Rosetta: samples/libxs_rosetta.md
   - Shuffle: samples/libxs_shuffle.md
   - Memory: samples/libxs_memory.md
   - GEMM: samples/libxs_gemm.md
+  - SYRK: samples/libxs_syrk.md
   - Sync: samples/libxs_sync.md
 - Tests:
   - Header-Only: tests/headeronly.md

@@ -11,36 +11,32 @@ content from anonymous bytes.
 The sample proceeds through the levels described in the algebra
 paper (Section "Hierarchical Type Discovery"):
 
-    Step              Tool used                   What it finds
-    ----------------------------------------------------------------
-    Flat probe        libxs_fprint (UNKNOWN)      inconclusive (expected)
-    Stride sweep      libxs_fprint per-column     f64, stride=6
-    Shuffle test      libxs_shuffle + fprint      order matters (3-4x)
-    Field analysis    libxs_fprint per-field      decay rates per column
-    Sort test         libxs_sort_smooth (GREEDY)  already optimally ordered
-    Verification      libxs_setdiff_min           0 unmatched, tol=0
+| Step           | Tool used                  | What it finds               |
+|----------------|----------------------------|-----------------------------|
+| Flat probe     | libxs_fprint (UNKNOWN)     | inconclusive (expected)     |
+| Stride sweep   | libxs_fprint per-column    | f64, stride=6               |
+| Shuffle test   | libxs_shuffle + fprint     | order matters (3-4x)        |
+| Field analysis | libxs_fprint per-field     | decay rates per column      |
+| Sort test      | libxs_sort_smooth (GREEDY) | already optimally ordered   |
+| Verification   | libxs_setdiff_min          | 0 unmatched, tol=0          |
 
 Key observations from the output:
 
-  - The flat 1-D probe fails because interleaved fields of different
-    scales (1/n mixed with n mixed with ln(n)) look like noise when
-    read sequentially. This motivates the stride sweep.
-
-  - The stride sweep requires ALL columns at a candidate width to
-    have decay < 1 before accepting it, which eliminates false
-    positives from partial correlations at wrong strides.
-
-  - Shuffle stability confirms that the record order carries genuine
-    structure (decay increases ~4x after coprime permutation).
-
-  - Per-field analysis reveals:
-      [0] decay=0     perfect ramp (sequential index)
-      [1] decay~0.63  1/n (decaying but not ultra-smooth)
-      [2] decay~0.20  H_n (partial sums, very smooth)
-      [5] decay~0.29  converges to Euler-Mascheroni gamma
-
-  - GREEDY sort confirms the data is already optimally ordered
-    (the natural 1..64 sequence is the smoothest permutation).
+- The flat 1-D probe fails because interleaved fields of different
+  scales (1/n mixed with n mixed with ln(n)) look like noise when
+  read sequentially. This motivates the stride sweep.
+- The stride sweep requires ALL columns at a candidate width to
+  have decay < 1 before accepting it, which eliminates false
+  positives from partial correlations at wrong strides.
+- Shuffle stability confirms that the record order carries genuine
+  structure (decay increases ~4x after coprime permutation).
+- Per-field analysis reveals:
+    - `[0]` decay=0 -- perfect ramp (sequential index)
+    - `[1]` decay~0.63 -- 1/n (decaying but not ultra-smooth)
+    - `[2]` decay~0.20 -- H_n (partial sums, very smooth)
+    - `[5]` decay~0.29 -- converges to Euler-Mascheroni gamma
+- GREEDY sort confirms the data is already optimally ordered
+  (the natural 1..64 sequence is the smoothest permutation).
 
 ## The Data
 
@@ -124,11 +120,11 @@ Verification: setdiff(original, blob)
 
 From 3072 anonymous bytes the framework discovers:
 
-  1. The element type (f64) -- not i32, not f32, not i64.
-  2. The record structure (6-field records of 48 bytes each).
-  3. A sequential index column (field [0], decay = 0).
-  4. A column converging to Euler-Mascheroni gamma (field [5]).
-  5. That the natural ordering is already optimal (no resorting).
+1. The element type (f64) -- not i32, not f32, not i64.
+2. The record structure (6-field records of 48 bytes each).
+3. A sequential index column (field [0], decay = 0).
+4. A column converging to Euler-Mascheroni gamma (field [5]).
+5. That the natural ordering is already optimal (no resorting).
 
 No metadata, no format knowledge, no human guidance. The hierarchical
 composition -- stride sweep with all-columns-must-pass filtering,

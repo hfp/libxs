@@ -375,7 +375,7 @@ $(DOCDIR)/$(PROJECT)_samples.md: $(DOCDIR)/.make $(DOCDIR)/$(SPLDIR)/.make $(ROO
 		-e 's/^#/##/' \
 		-e 's/<sub>/~/g' -e 's/<\/sub>/~/g' \
 		-e 's/<sup>/^/g' -e 's/<\/sup>/^/g' \
-		-e 's/----*//g' \
+		-e '/^----*$$/d' \
 		-e '1s/^/# [$(PROJUPP) Samples](https:\/\/github.com\/hfp\/$(PROJECT)\/raw\/main\/$(DOCDIR)\/$(PROJECT)_samples.pdf)\n\n/' \
 		>$@
 
@@ -398,7 +398,7 @@ $(DOCDIR)/$(PROJECT).$(DOCEXT): $(DOCDIR)/.make $(DOCDIR)/index.md $(DOCDIR)/$(P
 	| $(SED) \
 		-e 's/<sub>/~/g' -e 's/<\/sub>/~/g' \
 		-e 's/<sup>/^/g' -e 's/<\/sup>/^/g' \
-		-e 's/----*//g' \
+		-e '/^----*$$/d' \
 	| pandoc \
 		--template=$(call qndir,$(TMPFILE)) --listings \
 		-f gfm+subscript+superscript \
@@ -433,7 +433,7 @@ $(DOCDIR)/$(PROJECT)_samples.$(DOCEXT): $(ROOTDIR)/$(DOCDIR)/$(PROJECT)_samples.
 		-e 's/\xc2\xb2/2/g' \
 		-e 's/\xc2\xa0/ /g' \
 		-e 's/\xe2\x80\xaf/ /g' \
-		-e 's/----*//g' \
+		-e '/^----*$$/d' \
 	| pandoc \
 		--template=$(TMPFILE) --listings \
 		-f gfm+subscript+superscript \

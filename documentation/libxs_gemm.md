@@ -1,6 +1,7 @@
 # GEMM: Matrix Multiplication
 
 Header: `libxs_gemm.h`
+Fortran: `USE LIBXS` (include/libxs.f)
 
 Batched general matrix-matrix multiplication (GEMM) and symmetric
 rank-k/2k updates. Operations are expressed as
@@ -52,9 +53,9 @@ typedef enum libxs_gemm_flags_t {
 Flags controlling batch synchronization. Set LIBXS_GEMM_FLAG_NOLOCK
 when no duplicate C pointers exist across the batch.
 
-## Functions
+## Dispatch
 
-### Dispatch
+### C (inline, compile-time backend selection)
 
 ```C
 libxs_gemm_config_t* libxs_gemm_dispatch(
@@ -64,13 +65,85 @@ libxs_gemm_config_t* libxs_gemm_dispatch(
   void* registry /* = NULL */);
 ```
 
-Dispatch a GEMM kernel. Returns pointer to a ready-to-use config
-(registry-owned), or NULL on failure. On registry hit the lookup
-is a hash-table probe (zero JIT cost). On miss the kernel is
-JIT-compiled and stored. If registry is NULL, an internal registry
-is used (lazy-initialized, destroyed by libxs_finalize).
+Inline function that selects the backend at compile time:
+- MKL JIT (if mkl.h is included before libxs_gemm.h),
+- LIBXSMM (if libxsmm.h is included),
+- built-in default otherwise.
 
-### Single-Kernel Call
+On registry hit, returns a pointer to the cached config (hash
+probe only). On miss, dispatches a new kernel and stores it.
+If registry is NULL, an internal registry is used.
+
+### C (runtime, explicit backend selection)
+
+```C
+libxs_gemm_config_t* libxs_gemm_dispatch_rt(
+  int datatype, char transa, char transb,
+  int m, int n, int k, int lda, int ldb, int ldc,
+  const void* alpha, const void* beta,
+  libxs_jit_create_dgemm_t jit_create_dgemm,
+  libxs_jit_get_dgemm_t   jit_get_dgemm,
+  libxs_jit_create_sgemm_t jit_create_sgemm,
+  libxs_jit_get_sgemm_t   jit_get_sgemm,
+  libxs_xgemm_dispatch_t  xgemm_dispatch,
+  libxs_gemm_dblas_t dgemm_blas,
+  libxs_gemm_sblas_t sgemm_blas,
+  void* registry);
+```
+
+Non-inline function that accepts backend function pointers
+explicitly. All pointers are nullable (NULL = skip that backend).
+This is the single entry point used by both the C inline wrapper
+and the Fortran module. Same registry semantics as above.
+
+Backend callback signatures (MKL-compatible):
+
+    jit_create_dgemm: int(void** jitter, int layout, int transa,
+                          int transb, int m, int n, int k,
+                          double alpha, int lda, int ldb,
+                          double beta, int ldc)
+                      Return 0 on success.
+
+    jit_get_dgemm:    void*(void* jitter)
+                      Return kernel function pointer.
+
+    xgemm_dispatch:   libxs_gemm_xfn_t(int datatype, int flags,
+                          int m, int n, int k,
+                          int lda, int ldb, int ldc)
+                      flags: bit 0 = transa, bit 1 = transb,
+                             bit 2 = beta==0.
+
+### Fortran
+
+```fortran
+rc = libxs_gemm_dispatch(config, datatype, transa, transb,
+     &  m, n, k, lda, ldb, ldc, alpha, beta,
+     &  jit_create_dgemm=..., jit_get_dgemm=...,
+     &  dgemm_blas=..., registry=...)
+```
+
+All backend arguments are OPTIONAL C_FUNPTR (named arguments).
+Returns nonzero if a usable kernel was obtained. The config is
+populated from the registry-owned copy.
+
+Typical usage with MKL JIT:
+
+```fortran
+rc = libxs_gemm_dispatch(config, LIBXS_DATATYPE_F64,
+     &  'N', 'N', m, n, k, lda, ldb, ldc, alpha, beta,
+     &  jit_create_dgemm=C_FUNLOC(mkl_jit_create_dgemm),
+     &  jit_get_dgemm=C_FUNLOC(mkl_jit_get_dgemm_ptr))
+```
+
+Typical usage with BLAS only:
+
+```fortran
+rc = libxs_gemm_dispatch(config, LIBXS_DATATYPE_F64,
+     &  'N', 'N', m, n, k, lda, ldb, ldc, alpha, beta,
+     &  dgemm_blas=C_FUNLOC(DGEMM))
+```
+
+## Single-Kernel Call
 
 ```C
 int libxs_gemm_ready(const libxs_gemm_config_t* config);
@@ -86,7 +159,7 @@ int libxs_gemm_call(
 
 Call the dispatched GEMM kernel. Returns EXIT_SUCCESS on success.
 
-### Release
+## Release
 
 ```C
 void libxs_gemm_release(libxs_gemm_config_t* config);
@@ -100,7 +173,7 @@ void libxs_gemm_release_registry(libxs_registry_t* registry);
 
 Release all configs in a registry, then destroy the registry.
 
-### Pointer-Array Batch
+## Pointer-Array Batch
 
 ```C
 void libxs_gemm_batch(
@@ -116,7 +189,7 @@ void libxs_gemm_batch_task(
 Batch of GEMMs from pointer arrays. The _task variant splits
 work across ntasks threads (tid = 0..ntasks-1).
 
-### Index/Strided Batch
+## Index/Strided Batch
 
 ```C
 void libxs_gemm_index(
@@ -161,6 +234,14 @@ Dispatch a GEMM config for SYR2K/SYRK. Internally dispatches
 GEMM('N','T', n, n, k, ...) with alpha=1, beta=0. The returned
 config stores ldc for the output matrix. Returns NULL on failure.
 
+Fortran variants accept the same OPTIONAL backend function
+pointers as libxs_gemm_dispatch:
+
+```fortran
+ptr = libxs_syrk_dispatch(LIBXS_DATATYPE_F64, n, k, lda, ldc,
+     &  dgemm_blas=C_FUNLOC(DGEMM))
+```
+
 ### Call
 
 ```C
@@ -189,7 +270,7 @@ LIBXS_SYRK=N  Print registry info every N-th syr2k/syrk dispatch
                call to stderr (diagnostic, compile-time optional
                via LIBXS_SYRK_TRACE).
 
-## Example
+## Example (C)
 
 ```C
 #include <libxs_gemm.h>
@@ -206,4 +287,21 @@ for (batch = 0; batch < nbatches; ++batch) {
 }
 
 libxs_gemm_release_registry(reg);
+```
+
+## Example (Fortran)
+
+```fortran
+USE :: LIBXS
+
+TYPE(libxs_gemm_config_t) :: config
+INTEGER(C_INT) :: rc
+
+rc = libxs_gemm_dispatch(config, LIBXS_DATATYPE_F64,
+     &  'N', 'N', m, n, k, lda, ldb, ldc, alpha, beta,
+     &  dgemm_blas=C_FUNLOC(DGEMM))
+
+IF (0 /= rc) THEN
+  rc = libxs_gemm_call(config, C_LOC(a), C_LOC(b), C_LOC(c))
+END IF
 ```
