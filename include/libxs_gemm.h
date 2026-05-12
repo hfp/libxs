@@ -110,7 +110,7 @@ typedef enum libxs_gemm_flags_t {
  */
 typedef struct libxs_gemm_shape_t {
   libxs_data_t datatype;
-  int transa, transb;
+  char transa, transb;
   int m, n, k, lda, ldb, ldc;
   double alpha, beta;
 } libxs_gemm_shape_t;
@@ -146,7 +146,7 @@ typedef struct libxs_gemm_config_t {
  * Returns pointer to cached config (registry-owned), NULL on failure.
  */
 LIBXS_API libxs_gemm_config_t* libxs_gemm_dispatch_rt(
-  int datatype, char transa, char transb,
+  libxs_data_t datatype, char transa, char transb,
   int m, int n, int k, int lda, int ldb, int ldc,
   const void* alpha, const void* beta,
   libxs_jit_create_dgemm_t jit_create_dgemm,

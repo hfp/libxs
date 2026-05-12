@@ -10,7 +10,7 @@
       MODULE LIBXS
         USE, INTRINSIC :: ISO_C_BINDING, ONLY:                          &
      &    C_DOUBLE, C_FLOAT, C_LONG_LONG, C_INT,                        &
-     &    C_CHAR, C_INT8_T, C_SIZE_T, C_PTR, C_NULL_PTR,                &
+     &    C_CHAR, C_NULL_CHAR, C_INT8_T, C_SIZE_T, C_PTR, C_NULL_PTR,   &
      &    C_FUNPTR, C_NULL_FUNPTR,                                      &
      &    C_F_POINTER, C_ASSOCIATED, C_LOC, C_SIZEOF
         IMPLICIT NONE
@@ -207,8 +207,8 @@
         !> as registry key when caching configurations.
         TYPE, BIND(C) :: libxs_gemm_shape_t
           INTEGER(C_INT) :: datatype   = 0
-          INTEGER(C_INT) :: transa     = 0
-          INTEGER(C_INT) :: transb     = 0
+          CHARACTER(C_CHAR) :: transa  = C_NULL_CHAR
+          CHARACTER(C_CHAR) :: transb  = C_NULL_CHAR
           INTEGER(C_INT) :: m = 0, n = 0, k = 0
           INTEGER(C_INT) :: lda = 0, ldb = 0, ldc = 0
           REAL(C_DOUBLE)  :: alpha = 0, beta = 0
