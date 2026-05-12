@@ -505,7 +505,7 @@ LIBXS_API int libxs_registry_extract(libxs_registry_t* registry,
 }
 
 
-LIBXS_API void* libxs_registry_begin(libxs_registry_t* registry,
+LIBXS_API void* libxs_registry_begin(const libxs_registry_t* registry,
   const void** key, size_t* cursor)
 {
   void* result = NULL;
@@ -528,7 +528,7 @@ LIBXS_API void* libxs_registry_begin(libxs_registry_t* registry,
 }
 
 
-LIBXS_API void* libxs_registry_next(libxs_registry_t* registry,
+LIBXS_API void* libxs_registry_next(const libxs_registry_t* registry,
   const void** key, size_t* cursor)
 {
   void* result = NULL;
@@ -550,7 +550,7 @@ LIBXS_API void* libxs_registry_next(libxs_registry_t* registry,
 }
 
 
-LIBXS_API int libxs_registry_has(libxs_registry_t* registry,
+LIBXS_API int libxs_registry_has(const libxs_registry_t* registry,
   const void* key, size_t key_size, libxs_lock_t* lock)
 {
   int result = 0;
@@ -573,7 +573,7 @@ LIBXS_API int libxs_registry_has(libxs_registry_t* registry,
 }
 
 
-LIBXS_API size_t libxs_registry_value_size(libxs_registry_t* registry,
+LIBXS_API size_t libxs_registry_value_size(const libxs_registry_t* registry,
   const void* key, size_t key_size, libxs_lock_t* lock)
 {
   size_t result = 0;
@@ -623,8 +623,7 @@ LIBXS_API int libxs_registry_get_copy(const libxs_registry_t* registry,
 }
 
 
-LIBXS_API int libxs_registry_info(libxs_registry_t* registry,
-  libxs_registry_info_t* info)
+LIBXS_API int libxs_registry_info(const libxs_registry_t* registry, libxs_registry_info_t* info)
 {
   int result = EXIT_FAILURE;
   if (NULL != registry && NULL != info && NULL != registry->entries) {

@@ -52,14 +52,14 @@ LIBXS_API libxs_lock_t* libxs_registry_lock(libxs_registry_t* registry);
  * the first call. Returns the value pointer of the first occupied
  * entry, or NULL when the registry is empty.
  */
-LIBXS_API void* libxs_registry_begin(libxs_registry_t* registry,
+LIBXS_API void* libxs_registry_begin(const libxs_registry_t* registry,
   const void** key, size_t* cursor);
 
 /**
  * Advance to the next entry. Returns the value pointer of the
  * next occupied entry, or NULL when iteration is complete.
  */
-LIBXS_API void* libxs_registry_next(libxs_registry_t* registry,
+LIBXS_API void* libxs_registry_next(const libxs_registry_t* registry,
   const void** key, size_t* cursor);
 
 /**
@@ -93,11 +93,11 @@ LIBXS_API int libxs_registry_get_copy(const libxs_registry_t* registry, const vo
   void* value_out, size_t value_size, libxs_lock_t* LIBXS_ARGDEF(lock, NULL));
 
 /** Check whether a key exists. Returns non-zero if found, zero otherwise. */
-LIBXS_API int libxs_registry_has(libxs_registry_t* registry, const void* key, size_t key_size,
+LIBXS_API int libxs_registry_has(const libxs_registry_t* registry, const void* key, size_t key_size,
   libxs_lock_t* LIBXS_ARGDEF(lock, NULL));
 
 /** Query the stored value size (Bytes) for a given key. Returns 0 if not found. */
-LIBXS_API size_t libxs_registry_value_size(libxs_registry_t* registry,
+LIBXS_API size_t libxs_registry_value_size(const libxs_registry_t* registry,
   const void* key, size_t key_size, libxs_lock_t* LIBXS_ARGDEF(lock, NULL));
 
 /** Remove key-value pair from registry and release associated memory. */
@@ -113,7 +113,7 @@ LIBXS_API int libxs_registry_extract(libxs_registry_t* registry, const void* key
   void* value_out, size_t value_size, libxs_lock_t* LIBXS_ARGDEF(lock, NULL));
 
 /** Get information about the registry. */
-LIBXS_API int libxs_registry_info(libxs_registry_t* registry, libxs_registry_info_t* info);
+LIBXS_API int libxs_registry_info(const libxs_registry_t* registry, libxs_registry_info_t* info);
 
 /* header-only: include implementation (deferred from libxs_macros.h) */
 #if defined(LIBXS_SOURCE) && !defined(LIBXS_SOURCE_H)
