@@ -38,6 +38,7 @@ libxs_gemm_call
 libxs_gemm_call_f
 libxs_gemm_dispatch
 libxs_gemm_dispatch_f
+libxs_gemm_dispatch_rt
 libxs_gemm_index
 libxs_gemm_index_task
 libxs_gemm_ready

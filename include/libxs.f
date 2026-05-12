@@ -630,26 +630,27 @@
             TYPE(libxs_gemm_config_t), INTENT(IN) :: config
           END SUBROUTINE
 
-          !> Internal C binding for libxs_syr2k_dispatch.
-          FUNCTION internal_syr2k_dispatch(                             &
-     &    datatype, n, k, lda, ldb, ldc, registry)                      &
-     &    BIND(C, NAME="libxs_syr2k_dispatch")
-            IMPORT :: C_PTR, C_INT
+          !> Runtime GEMM dispatch (accepts backend fn ptrs).
+          FUNCTION internal_gemm_dispatch_rt(datatype,                  &
+     &    transa, transb, m, n, k, lda, ldb, ldc,                       &
+     &    alpha, beta,                                                  &
+     &    jit_create_dgemm, jit_get_dgemm,                              &
+     &    jit_create_sgemm, jit_get_sgemm,                              &
+     &    xgemm_dispatch, dgemm_blas, sgemm_blas,                       &
+     &    registry) BIND(C, NAME="libxs_gemm_dispatch_rt")
+            IMPORT :: C_PTR, C_INT, C_CHAR, C_FUNPTR
+            INTEGER(C_INT), INTENT(IN), VALUE :: datatype
+            CHARACTER(C_CHAR), INTENT(IN), VALUE ::                     &
+     &        transa, transb
             INTEGER(C_INT), INTENT(IN), VALUE ::                        &
-     &        datatype, n, k, lda, ldb, ldc
+     &        m, n, k, lda, ldb, ldc
+            TYPE(C_PTR), INTENT(IN), VALUE :: alpha, beta
+            TYPE(C_FUNPTR), INTENT(IN), VALUE ::                        &
+     &        jit_create_dgemm, jit_get_dgemm,                          &
+     &        jit_create_sgemm, jit_get_sgemm,                          &
+     &        xgemm_dispatch, dgemm_blas, sgemm_blas
             TYPE(C_PTR), INTENT(IN), VALUE :: registry
-            TYPE(C_PTR) :: internal_syr2k_dispatch
-          END FUNCTION
-
-          !> Internal C binding for libxs_syrk_dispatch.
-          FUNCTION internal_syrk_dispatch(                              &
-     &    datatype, n, k, lda, ldc, registry)                           &
-     &    BIND(C, NAME="libxs_syrk_dispatch")
-            IMPORT :: C_PTR, C_INT
-            INTEGER(C_INT), INTENT(IN), VALUE ::                        &
-     &        datatype, n, k, lda, ldc
-            TYPE(C_PTR), INTENT(IN), VALUE :: registry
-            TYPE(C_PTR) :: internal_syrk_dispatch
+            TYPE(C_PTR) :: internal_gemm_dispatch_rt
           END FUNCTION
 
           !> Internal C binding for libxs_syr2k.
@@ -1227,44 +1228,49 @@
         END FUNCTION
 
         !> Dispatch a GEMM kernel and populate config.
-        !> Delegates to the C dispatch which handles JIT
-        !> (MKL, LIBXSMM) and registry caching.
+        !> Accepts OPTIONAL backend function pointers for
+        !> MKL JIT, LIBXSMM xgemm, and BLAS fallback.
         !> Returns nonzero if a usable kernel was obtained.
         FUNCTION libxs_gemm_dispatch(config,                            &
      &    datatype, transa, transb,                                     &
      &    m, n, k, lda, ldb, ldc, alpha, beta,                          &
+     &    jit_create_dgemm, jit_get_dgemm,                              &
+     &    jit_create_sgemm, jit_get_sgemm,                              &
+     &    xgemm_dispatch, dgemm_blas, sgemm_blas,                       &
      &    registry)
           TYPE(libxs_gemm_config_t), INTENT(INOUT) :: config
           INTEGER(C_INT), INTENT(IN) :: datatype
           CHARACTER(C_CHAR), INTENT(IN) :: transa, transb
           INTEGER(C_INT), INTENT(IN) :: m, n, k, lda, ldb, ldc
           REAL(C_DOUBLE), INTENT(IN), TARGET :: alpha, beta
+          TYPE(C_FUNPTR), INTENT(IN), OPTIONAL ::                       &
+     &      jit_create_dgemm, jit_get_dgemm,                            &
+     &      jit_create_sgemm, jit_get_sgemm,                            &
+     &      xgemm_dispatch, dgemm_blas, sgemm_blas
           TYPE(C_PTR), INTENT(IN), OPTIONAL :: registry
           INTEGER(C_INT) :: libxs_gemm_dispatch
           TYPE(libxs_gemm_config_t), POINTER :: cached
           TYPE(C_PTR) :: ptr, preg
-          INTERFACE
-            FUNCTION internal_gemm_dispatch_f(datatype,                 &
-     &      transa, transb, m, n, k, lda, ldb, ldc,                     &
-     &      alpha, beta, registry)                                      &
-     &      BIND(C, NAME="libxs_gemm_dispatch_f")
-              IMPORT :: C_PTR, C_INT, C_CHAR, C_DOUBLE
-              INTEGER(C_INT), INTENT(IN), VALUE :: datatype
-              CHARACTER(C_CHAR), INTENT(IN), VALUE ::                   &
-     &          transa, transb
-              INTEGER(C_INT), INTENT(IN), VALUE ::                      &
-     &          m, n, k, lda, ldb, ldc
-              TYPE(C_PTR), INTENT(IN), VALUE :: alpha, beta
-              TYPE(C_PTR), INTENT(IN), VALUE :: registry
-              TYPE(C_PTR) :: internal_gemm_dispatch_f
-            END FUNCTION
-          END INTERFACE
+          TYPE(C_FUNPTR) :: fp(7)
+          INTEGER :: ii
+          DO ii = 1, 7
+            fp(ii) = C_NULL_FUNPTR
+          END DO
+          IF (PRESENT(jit_create_dgemm)) fp(1) = jit_create_dgemm
+          IF (PRESENT(jit_get_dgemm))    fp(2) = jit_get_dgemm
+          IF (PRESENT(jit_create_sgemm)) fp(3) = jit_create_sgemm
+          IF (PRESENT(jit_get_sgemm))    fp(4) = jit_get_sgemm
+          IF (PRESENT(xgemm_dispatch))   fp(5) = xgemm_dispatch
+          IF (PRESENT(dgemm_blas))       fp(6) = dgemm_blas
+          IF (PRESENT(sgemm_blas))       fp(7) = sgemm_blas
           IF (PRESENT(registry)) THEN
             preg = registry
           ELSE; preg = C_NULL_PTR; END IF
-          ptr = internal_gemm_dispatch_f(datatype,                      &
+          ptr = internal_gemm_dispatch_rt(datatype,                     &
      &      transa, transb, m, n, k, lda, ldb, ldc,                     &
-     &      C_LOC(alpha), C_LOC(beta), preg)
+     &      C_LOC(alpha), C_LOC(beta),                                  &
+     &      fp(1), fp(2), fp(3), fp(4),                                 &
+     &      fp(5), fp(6), fp(7), preg)
           IF (C_ASSOCIATED(ptr)) THEN
             CALL C_F_POINTER(ptr, cached)
             config = cached
@@ -1289,51 +1295,89 @@
         END SUBROUTINE
 
         !> Dispatch a GEMM config for SYR2K.
-        !> scratch_size (optional): receives required scratch
-        !> buffer size in bytes.
-        !> registry (optional): cache dispatched configs.
-        !> Dispatch a GEMM config for SYR2K.
+        !> Accepts OPTIONAL backend function pointers.
         !> Returns C_PTR to registry-owned config (NULL on
-        !> failure). registry (optional): user registry.
+        !> failure).
         FUNCTION libxs_syr2k_dispatch(datatype,                         &
-     &  n, k, lda, ldb, ldc, registry)
+     &  n, k, lda, ldb, ldc,                                            &
+     &  jit_create_dgemm, jit_get_dgemm,                                &
+     &  jit_create_sgemm, jit_get_sgemm,                                &
+     &  xgemm_dispatch, dgemm_blas, sgemm_blas,                         &
+     &  registry)
           INTEGER(C_INT), INTENT(IN) :: datatype, n, k
           INTEGER(C_INT), INTENT(IN) :: lda, ldb, ldc
+          TYPE(C_FUNPTR), INTENT(IN), OPTIONAL ::                       &
+     &      jit_create_dgemm, jit_get_dgemm,                            &
+     &      jit_create_sgemm, jit_get_sgemm,                            &
+     &      xgemm_dispatch, dgemm_blas, sgemm_blas
           TYPE(C_PTR), INTENT(IN), OPTIONAL :: registry
           TYPE(C_PTR) :: libxs_syr2k_dispatch
           TYPE(C_PTR) :: preg
+          TYPE(C_FUNPTR) :: fp(7)
+          INTEGER :: ii
+          DO ii = 1, 7
+            fp(ii) = C_NULL_FUNPTR
+          END DO
+          IF (PRESENT(jit_create_dgemm)) fp(1) = jit_create_dgemm
+          IF (PRESENT(jit_get_dgemm))    fp(2) = jit_get_dgemm
+          IF (PRESENT(jit_create_sgemm)) fp(3) = jit_create_sgemm
+          IF (PRESENT(jit_get_sgemm))    fp(4) = jit_get_sgemm
+          IF (PRESENT(xgemm_dispatch))   fp(5) = xgemm_dispatch
+          IF (PRESENT(dgemm_blas))       fp(6) = dgemm_blas
+          IF (PRESENT(sgemm_blas))       fp(7) = sgemm_blas
           IF (PRESENT(registry)) THEN
             preg = registry
           ELSE; preg = C_NULL_PTR; END IF
-          libxs_syr2k_dispatch = internal_syr2k_dispatch(               &
-     &      datatype, n, k, lda, ldb, ldc, preg)
+          BLOCK
+            REAL(C_DOUBLE), TARGET :: one, zero
+            TYPE(libxs_gemm_config_t), POINTER :: cached
+            one = 1D0; zero = 0D0
+            libxs_syr2k_dispatch = internal_gemm_dispatch_rt(           &
+     &        datatype, 'N', 'T', n, n, k, lda, ldb, n,                 &
+     &        C_LOC(one), C_LOC(zero),                                  &
+     &        fp(1), fp(2), fp(3), fp(4),                               &
+     &        fp(5), fp(6), fp(7), preg)
+            IF (C_ASSOCIATED(libxs_syr2k_dispatch)) THEN
+              CALL C_F_POINTER(libxs_syr2k_dispatch, cached)
+              cached%shape%ldc = ldc
+            END IF
+          END BLOCK
         END FUNCTION
 
         !> Dispatch a GEMM config for SYRK.
+        !> Accepts OPTIONAL backend function pointers.
         !> Returns C_PTR to registry-owned config (NULL on
-        !> failure). registry (optional): user registry.
+        !> failure).
         FUNCTION libxs_syrk_dispatch(datatype,                          &
-     &  n, k, lda, ldc, registry)
+     &  n, k, lda, ldc,                                                 &
+     &  jit_create_dgemm, jit_get_dgemm,                                &
+     &  jit_create_sgemm, jit_get_sgemm,                                &
+     &  xgemm_dispatch, dgemm_blas, sgemm_blas,                         &
+     &  registry)
           INTEGER(C_INT), INTENT(IN) :: datatype, n, k
           INTEGER(C_INT), INTENT(IN) :: lda, ldc
+          TYPE(C_FUNPTR), INTENT(IN), OPTIONAL ::                       &
+     &      jit_create_dgemm, jit_get_dgemm,                            &
+     &      jit_create_sgemm, jit_get_sgemm,                            &
+     &      xgemm_dispatch, dgemm_blas, sgemm_blas
           TYPE(C_PTR), INTENT(IN), OPTIONAL :: registry
           TYPE(C_PTR) :: libxs_syrk_dispatch
-          TYPE(C_PTR) :: preg
-          IF (PRESENT(registry)) THEN
-            preg = registry
-          ELSE; preg = C_NULL_PTR; END IF
-          libxs_syrk_dispatch = internal_syrk_dispatch(                 &
-     &      datatype, n, k, lda, ldc, preg)
+          libxs_syrk_dispatch = libxs_syr2k_dispatch(datatype,          &
+     &      n, k, lda, lda, ldc,                                        &
+     &      jit_create_dgemm, jit_get_dgemm,                            &
+     &      jit_create_sgemm, jit_get_sgemm,                            &
+     &      xgemm_dispatch, dgemm_blas, sgemm_blas,                     &
+     &      registry)
         END FUNCTION
 
         !> SYR2K with pre-dispatched config.
         FUNCTION libxs_syr2k_config(config, uplo,                       &
      &  alpha, beta, a, b, c)
-          TYPE(libxs_gemm_config_t), INTENT(IN) :: config
-          CHARACTER(C_CHAR), INTENT(IN) :: uplo
-          REAL(C_DOUBLE), INTENT(IN) :: alpha, beta
-          TYPE(C_PTR), INTENT(IN) :: a, b
-          TYPE(C_PTR) :: c
+          TYPE(libxs_gemm_config_t), INTENT(IN), TARGET :: config
+          CHARACTER(C_CHAR), INTENT(IN), VALUE :: uplo
+          REAL(C_DOUBLE), INTENT(IN), VALUE :: alpha, beta
+          TYPE(C_PTR), INTENT(IN), VALUE :: a, b
+          TYPE(C_PTR), VALUE :: c
           INTEGER(C_INT) :: libxs_syr2k_config
           libxs_syr2k_config = internal_syr2k(config, uplo,             &
      &      alpha, beta, a, b, c)
@@ -1355,8 +1399,8 @@
           IF (PRESENT(registry)) THEN
             preg = registry
           ELSE; preg = C_NULL_PTR; END IF
-          ptr = internal_syr2k_dispatch(                                &
-     &      datatype, n, k, lda, ldb, ldc, preg)
+          ptr = libxs_syr2k_dispatch(datatype,                          &
+     &      n, k, lda, ldb, ldc, registry=preg)
           IF (C_ASSOCIATED(ptr)) THEN
             CALL C_F_POINTER(ptr, cfg)
             libxs_syr2k_direct = internal_syr2k(cfg, uplo,              &
@@ -1369,11 +1413,11 @@
         !> SYRK with pre-dispatched config.
         FUNCTION libxs_syrk_config(config, uplo,                        &
      &  alpha, beta, a, c)
-          TYPE(libxs_gemm_config_t), INTENT(IN) :: config
-          CHARACTER(C_CHAR), INTENT(IN) :: uplo
-          REAL(C_DOUBLE), INTENT(IN) :: alpha, beta
-          TYPE(C_PTR), INTENT(IN) :: a
-          TYPE(C_PTR) :: c
+          TYPE(libxs_gemm_config_t), INTENT(IN), TARGET :: config
+          CHARACTER(C_CHAR), INTENT(IN), VALUE :: uplo
+          REAL(C_DOUBLE), INTENT(IN), VALUE :: alpha, beta
+          TYPE(C_PTR), INTENT(IN), VALUE :: a
+          TYPE(C_PTR), VALUE :: c
           INTEGER(C_INT) :: libxs_syrk_config
           libxs_syrk_config = internal_syrk(config, uplo,               &
      &      alpha, beta, a, c)
@@ -1395,8 +1439,8 @@
           IF (PRESENT(registry)) THEN
             preg = registry
           ELSE; preg = C_NULL_PTR; END IF
-          ptr = internal_syrk_dispatch(                                 &
-     &      datatype, n, k, lda, ldc, preg)
+          ptr = libxs_syrk_dispatch(datatype,                           &
+     &      n, k, lda, ldc, registry=preg)
           IF (C_ASSOCIATED(ptr)) THEN
             CALL C_F_POINTER(ptr, cfg)
             libxs_syrk_direct = internal_syrk(cfg, uplo,                &
