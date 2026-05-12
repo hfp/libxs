@@ -421,10 +421,8 @@ LIBXS_API_INTERN void internal_libxs_gemm_blas(
 
 
 #if defined(LIBXS_SYRK_TRACE)
-LIBXS_API_INTERN void internal_libxs_syrk_trace(
-  const char* name, void* registry);
-LIBXS_API_INTERN void internal_libxs_syrk_trace(
-  const char* name, void* registry)
+LIBXS_API_INTERN void internal_libxs_syrk_trace(const char name[], void* registry);
+LIBXS_API_INTERN void internal_libxs_syrk_trace(const char name[], void* registry)
 {
   static int interval = -1;
   static int counter = 0;
