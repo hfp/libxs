@@ -86,14 +86,12 @@ LIBXS_API_INTERN void internal_libxs_dgemm_default(
   const int llda = *lda, lldb = *ldb, lldc = *ldc;
   const double dalpha = (NULL != alpha ? *alpha : 1.0);
   const double dbeta = (NULL != beta ? *beta : 0.0);
-  int j;
+  int i, j, p;
   LIBXS_ASSERT(NULL != transa && NULL != transb);
   LIBXS_ASSERT(NULL != a && NULL != b && NULL != c);
   for (j = 0; j < nn; ++j) {
-    int i;
     for (i = 0; i < mm; ++i) {
       double sum = 0.0;
-      int p;
       for (p = 0; p < kk; ++p) {
         const double aval = INTERNAL_GEMM_NOTRANS(*transa)
           ? a[i + p * llda] : a[p + i * llda];
@@ -124,14 +122,12 @@ LIBXS_API_INTERN void internal_libxs_sgemm_default(
   const int llda = *lda, lldb = *ldb, lldc = *ldc;
   const float falpha = (NULL != alpha ? *alpha : 1.f);
   const float fbeta = (NULL != beta ? *beta : 0.f);
-  int j;
+  int i, j, p;
   LIBXS_ASSERT(NULL != transa && NULL != transb);
   LIBXS_ASSERT(NULL != a && NULL != b && NULL != c);
   for (j = 0; j < nn; ++j) {
-    int i;
     for (i = 0; i < mm; ++i) {
       float sum = 0.f;
-      int p;
       for (p = 0; p < kk; ++p) {
         const float aval = INTERNAL_GEMM_NOTRANS(*transa)
           ? a[i + p * llda] : a[p + i * llda];
@@ -146,8 +142,10 @@ LIBXS_API_INTERN void internal_libxs_sgemm_default(
 
 
 #if defined(LIBXS_GEMM_PRINT)
-LIBXS_API_INTERN void internal_libxs_gemm_print(FILE* ostream, const libxs_gemm_config_t* config);
-LIBXS_API_INTERN void internal_libxs_gemm_print(FILE* ostream, const libxs_gemm_config_t* config)
+LIBXS_API_INTERN void internal_libxs_gemm_print(FILE* ostream,
+  const libxs_gemm_config_t* config, const libxs_registry_t* reg);
+LIBXS_API_INTERN void internal_libxs_gemm_print(FILE* ostream,
+  const libxs_gemm_config_t* config, const libxs_registry_t* reg)
 {
   static int interval = -1;
   if (-1 == interval) {
@@ -157,11 +155,14 @@ LIBXS_API_INTERN void internal_libxs_gemm_print(FILE* ostream, const libxs_gemm_
   if (0 < interval) {
     static int counter = 0;
     if (0 == (++counter % interval) && NULL != config) {
-      fprintf(ostream, "LIBXS INFO: gemm=%s trans=%c%c mnk=%ix%ix%i ld=%ix%ix%i alpha=%g beta=%g ready=%i\n",
+      libxs_registry_info_t info;
+      LIBXS_EXPECT(EXIT_SUCCESS == libxs_registry_info(reg, &info));
+      fprintf(ostream, "LIBXS INFO: gemm=%s trans=%c%c mnk=%ix%ix%i ld=%ix%ix%i alpha=%g beta=%g regsize=%lu ready=%i\n",
         libxs_typename(config->shape.datatype), config->shape.transa, config->shape.transb,
         config->shape.m, config->shape.n, config->shape.k,
         config->shape.lda, config->shape.ldb, config->shape.ldc,
-        config->shape.alpha, config->shape.beta, libxs_gemm_ready(config));
+        config->shape.alpha, config->shape.beta,
+        (unsigned long)info.size, libxs_gemm_ready(config));
     }
   }
 }
@@ -228,9 +229,8 @@ LIBXS_API libxs_gemm_config_t* libxs_gemm_dispatch_rt(
       const int mkl_tb = (0 == tb) ? 111 : 112;
       void* jitter = NULL;
       if (0 == jit_create_dgemm(&jitter, 102, mkl_ta, mkl_tb, m, n, k,
-            (NULL != alpha ? *(const double*)alpha : 1.0),
-            lda, ldb,
-            (NULL != beta ? *(const double*)beta : 0.0), ldc))
+        NULL != alpha ? *(const double*)alpha : 1.0, lda, ldb,
+        NULL != beta ? *(const double*)beta : 0.0, ldc))
       {
         void* fn = jit_get_dgemm(jitter);
         if (NULL != fn) LIBXS_VALUE_ASSIGN(config.dgemm_jit, fn);
@@ -244,9 +244,8 @@ LIBXS_API libxs_gemm_config_t* libxs_gemm_dispatch_rt(
       const int mkl_tb = (0 == tb) ? 111 : 112;
       void* jitter = NULL;
       if (0 == jit_create_sgemm(&jitter, 101, mkl_ta, mkl_tb, m, n, k,
-            (NULL != alpha ? *(const float*)alpha : 1.0f),
-            lda, ldb,
-            (NULL != beta ? *(const float*)beta : 0.0f), ldc))
+        NULL != alpha ? *(const float*)alpha : 1.0f, lda, ldb,
+        NULL != beta ? *(const float*)beta : 0.0f, ldc))
       {
         void* fn = jit_get_sgemm(jitter);
         if (NULL != fn) LIBXS_VALUE_ASSIGN(config.sgemm_jit, fn);
@@ -295,7 +294,7 @@ LIBXS_API libxs_gemm_config_t* libxs_gemm_dispatch_rt(
     }
   }
 #if defined(LIBXS_GEMM_PRINT)
-  internal_libxs_gemm_print(stderr, result);
+  internal_libxs_gemm_print(stderr, result, reg);
 #endif
   return result;
 }
@@ -338,11 +337,11 @@ LIBXS_API void libxs_gemm_batch_task(
         }
       }
       else {
-        int m = config->shape.m, n = config->shape.n, k = config->shape.k;
-        int lda = config->shape.lda, ldb = config->shape.ldb, ldc = config->shape.ldc;
+        const int m = config->shape.m, n = config->shape.n, k = config->shape.k;
+        const int lda = config->shape.lda, ldb = config->shape.ldb, ldc = config->shape.ldc;
         const double dalpha = config->shape.alpha, dbeta = config->shape.beta;
-        const libxs_gemm_dblas_t dgemm_blas = NULL != config->dgemm_blas
-          ? config->dgemm_blas : internal_libxs_dgemm_default;
+        const libxs_gemm_dblas_t dgemm_blas = (NULL != config->dgemm_blas
+          ? config->dgemm_blas : internal_libxs_dgemm_default);
         for (i = begin; i < end; ++i) {
           if (need_lock) INTERNAL_GEMM_LOCKFWD(c_array[i], lockidx);
           dgemm_blas(&config->shape.transa, &config->shape.transb, &m, &n, &k,
@@ -374,11 +373,11 @@ LIBXS_API void libxs_gemm_batch_task(
         }
       }
       else {
-        int m = config->shape.m, n = config->shape.n, k = config->shape.k;
-        int lda = config->shape.lda, ldb = config->shape.ldb, ldc = config->shape.ldc;
+        const int m = config->shape.m, n = config->shape.n, k = config->shape.k;
+        const int lda = config->shape.lda, ldb = config->shape.ldb, ldc = config->shape.ldc;
         const float falpha = (float)config->shape.alpha, fbeta = (float)config->shape.beta;
-        const libxs_gemm_sblas_t sgemm_blas = NULL != config->sgemm_blas
-          ? config->sgemm_blas : internal_libxs_sgemm_default;
+        const libxs_gemm_sblas_t sgemm_blas = (NULL != config->sgemm_blas
+          ? config->sgemm_blas : internal_libxs_sgemm_default);
         for (i = begin; i < end; ++i) {
           if (need_lock) INTERNAL_GEMM_LOCKFWD(c_array[i], lockidx);
           sgemm_blas(&config->shape.transa, &config->shape.transb, &m, &n, &k,
@@ -419,12 +418,12 @@ LIBXS_API void libxs_gemm_index_task(
     && NULL != stride_a && NULL != stride_b && NULL != stride_c
     && 0 <= index_stride)
   {
+    const size_t elemsize = LIBXS_TYPESIZE(config->shape.datatype);
     const int need_lock = (1 < ntasks
       && 0 == (config->flags & LIBXS_GEMM_FLAG_NOLOCK));
     const int tasksize = (size + nsplit - 1) / nsplit;
     const int begin = tid * tasksize;
     int end = begin + tasksize;
-    const size_t elemsize = LIBXS_TYPESIZE(config->shape.datatype);
     int lockidx = -1, i;
     if (end > size) end = size;
 #define INTERNAL_GEMM_INDEX(I, STRIDE) \
@@ -457,11 +456,11 @@ LIBXS_API void libxs_gemm_index_task(
         }
       }
       else {
-        int m = config->shape.m, n = config->shape.n, k = config->shape.k;
-        int lda = config->shape.lda, ldb = config->shape.ldb, ldc = config->shape.ldc;
+        const int m = config->shape.m, n = config->shape.n, k = config->shape.k;
+        const int lda = config->shape.lda, ldb = config->shape.ldb, ldc = config->shape.ldc;
         const double dalpha = config->shape.alpha, dbeta = config->shape.beta;
-        const libxs_gemm_dblas_t dgemm_blas = NULL != config->dgemm_blas
-          ? config->dgemm_blas : internal_libxs_dgemm_default;
+        const libxs_gemm_dblas_t dgemm_blas = (NULL != config->dgemm_blas
+          ? config->dgemm_blas : internal_libxs_dgemm_default);
         for (i = begin; i < end; ++i) {
           const int ci_idx = INTERNAL_GEMM_INDEX(i, stride_c);
           double* ci = (double*)((char*)c + (size_t)ci_idx * elemsize);
@@ -498,11 +497,11 @@ LIBXS_API void libxs_gemm_index_task(
         }
       }
       else {
-        int m = config->shape.m, n = config->shape.n, k = config->shape.k;
-        int lda = config->shape.lda, ldb = config->shape.ldb, ldc = config->shape.ldc;
+        const int m = config->shape.m, n = config->shape.n, k = config->shape.k;
+        const int lda = config->shape.lda, ldb = config->shape.ldb, ldc = config->shape.ldc;
         const float falpha = (float)config->shape.alpha, fbeta = (float)config->shape.beta;
-        const libxs_gemm_sblas_t sgemm_blas = NULL != config->sgemm_blas
-          ? config->sgemm_blas : internal_libxs_sgemm_default;
+        const libxs_gemm_sblas_t sgemm_blas = (NULL != config->sgemm_blas
+          ? config->sgemm_blas : internal_libxs_sgemm_default);
         for (i = begin; i < end; ++i) {
           const int ci_idx = INTERNAL_GEMM_INDEX(i, stride_c);
           float* ci = (float*)((char*)c + (size_t)ci_idx * elemsize);
@@ -546,10 +545,10 @@ LIBXS_API_INTERN void internal_libxs_gemm_blas(
   int lda, int ldb, int ldc,
   double alpha, double beta)
 {
-  int m = config->shape.m, n = config->shape.n, k = config->shape.k;
+  const int m = config->shape.m, n = config->shape.n, k = config->shape.k;
   if (LIBXS_DATATYPE_F64 == config->shape.datatype) {
-    const libxs_gemm_dblas_t fn = (NULL != config->dgemm_blas)
-      ? config->dgemm_blas : internal_libxs_dgemm_default;
+    const libxs_gemm_dblas_t fn = (NULL != config->dgemm_blas
+      ? config->dgemm_blas : internal_libxs_dgemm_default);
     fn(&config->shape.transa, &config->shape.transb, &m, &n, &k,
       &alpha, (const double*)a, &lda,
       (const double*)b, &ldb, &beta, (double*)c, &ldc);
