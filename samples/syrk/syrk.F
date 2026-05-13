@@ -114,7 +114,7 @@
           END DO
         END DO
 
-        rc = libxs_syrk(config, 'L', alpha, beta, C_LOC(a), C_LOC(c), n)
+        rc = libxs_syrk(config, 'L', alpha, beta, C_LOC(a), C_LOC(c))
         IF (0 /= rc) THEN
           WRITE(*, "(A)") "FAILED: libxs_syrk returned error"
           ERROR STOP 1
@@ -158,7 +158,7 @@
         END DO
 
         rc = libxs_syr2k(config, 'U', alpha, beta,                      &
-     &    C_LOC(a), C_LOC(b), C_LOC(c), n)
+     &    C_LOC(a), C_LOC(b), C_LOC(c))
         IF (0 /= rc) THEN
           WRITE(*, "(A)") "FAILED: libxs_syr2k returned error"
           ERROR STOP 1
@@ -186,12 +186,12 @@
         c = 0D0
 
         ! warmup
-        rc = libxs_syrk(config, 'L', alpha, beta, C_LOC(a), C_LOC(c), n)
+        rc = libxs_syrk(config, 'L', alpha, beta, C_LOC(a), C_LOC(c))
 
         t0 = libxs_timer_tick()
         DO r = 1, nrepeat
           rc = libxs_syrk(config, 'L', alpha, beta,                     &
-     &      C_LOC(a), C_LOC(c), n)
+     &      C_LOC(a), C_LOC(c))
         END DO
         t1 = libxs_timer_tick()
         duration = libxs_timer_duration(t0, t1)

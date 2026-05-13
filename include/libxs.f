@@ -655,7 +655,7 @@
 
           !> Internal C binding for libxs_syr2k.
           FUNCTION internal_syr2k(config, uplo,                         &
-     &    alpha, beta, a, b, c, ldc)                                    &
+     &    alpha, beta, a, b, c)                                         &
      &    BIND(C, NAME="libxs_syr2k")
             IMPORT :: libxs_gemm_config_t,                              &
      &        C_PTR, C_INT, C_DOUBLE, C_CHAR
@@ -664,13 +664,12 @@
             REAL(C_DOUBLE), INTENT(IN), VALUE :: alpha, beta
             TYPE(C_PTR), INTENT(IN), VALUE :: a, b
             TYPE(C_PTR), VALUE :: c
-            INTEGER(C_INT), INTENT(IN), VALUE :: ldc
             INTEGER(C_INT) :: internal_syr2k
           END FUNCTION
 
           !> Internal C binding for libxs_syrk.
           FUNCTION internal_syrk(config, uplo,                          &
-     &    alpha, beta, a, c, ldc)                                       &
+     &    alpha, beta, a, c)                                            &
      &    BIND(C, NAME="libxs_syrk")
             IMPORT :: libxs_gemm_config_t,                              &
      &        C_PTR, C_INT, C_DOUBLE, C_CHAR
@@ -679,7 +678,6 @@
             REAL(C_DOUBLE), INTENT(IN), VALUE :: alpha, beta
             TYPE(C_PTR), INTENT(IN), VALUE :: a
             TYPE(C_PTR), VALUE :: c
-            INTEGER(C_INT), INTENT(IN), VALUE :: ldc
             INTEGER(C_INT) :: internal_syrk
           END FUNCTION
 
@@ -1369,16 +1367,15 @@
 
         !> SYR2K with pre-dispatched config.
         FUNCTION libxs_syr2k_config(config, uplo,                       &
-     &  alpha, beta, a, b, c, ldc)
+     &  alpha, beta, a, b, c)
           TYPE(libxs_gemm_config_t), INTENT(IN), TARGET :: config
           CHARACTER(C_CHAR), INTENT(IN), VALUE :: uplo
           REAL(C_DOUBLE), INTENT(IN), VALUE :: alpha, beta
           TYPE(C_PTR), INTENT(IN), VALUE :: a, b
           TYPE(C_PTR), VALUE :: c
-          INTEGER(C_INT), INTENT(IN), VALUE :: ldc
           INTEGER(C_INT) :: libxs_syr2k_config
           libxs_syr2k_config = internal_syr2k(config, uplo,             &
-     &      alpha, beta, a, b, c, ldc)
+     &      alpha, beta, a, b, c)
         END FUNCTION
 
         !> SYR2K direct: dispatch + call in one shot.
@@ -1402,7 +1399,7 @@
           IF (C_ASSOCIATED(ptr)) THEN
             CALL C_F_POINTER(ptr, cfg)
             libxs_syr2k_direct = internal_syr2k(cfg, uplo,              &
-     &        alpha, beta, a, b, c, ldc)
+     &        alpha, beta, a, b, c)
           ELSE
             libxs_syr2k_direct = 1
           END IF
@@ -1410,16 +1407,15 @@
 
         !> SYRK with pre-dispatched config.
         FUNCTION libxs_syrk_config(config, uplo,                        &
-     &  alpha, beta, a, c, ldc)
+     &  alpha, beta, a, c)
           TYPE(libxs_gemm_config_t), INTENT(IN), TARGET :: config
           CHARACTER(C_CHAR), INTENT(IN), VALUE :: uplo
           REAL(C_DOUBLE), INTENT(IN), VALUE :: alpha, beta
           TYPE(C_PTR), INTENT(IN), VALUE :: a
           TYPE(C_PTR), VALUE :: c
-          INTEGER(C_INT), INTENT(IN), VALUE :: ldc
           INTEGER(C_INT) :: libxs_syrk_config
           libxs_syrk_config = internal_syrk(config, uplo,               &
-     &      alpha, beta, a, c, ldc)
+     &      alpha, beta, a, c)
         END FUNCTION
 
         !> SYRK direct: dispatch + call in one shot.
@@ -1443,7 +1439,7 @@
           IF (C_ASSOCIATED(ptr)) THEN
             CALL C_F_POINTER(ptr, cfg)
             libxs_syrk_direct = internal_syrk(cfg, uplo,                &
-     &        alpha, beta, a, c, ldc)
+     &        alpha, beta, a, c)
           ELSE
             libxs_syrk_direct = 1
           END IF

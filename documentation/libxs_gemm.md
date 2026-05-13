@@ -250,22 +250,23 @@ ptr = libxs_syrk_dispatch(LIBXS_DATATYPE_F64, n, k, lda, ldc,
 int libxs_syr2k(
   const libxs_gemm_config_t* config, char uplo,
   double alpha, double beta,
-  const void* a, const void* b, void* c, int ldc);
+  const void* a, const void* b, void* c);
 ```
 
 C := alpha*(A*B^T + B*A^T) + beta*C. Only the triangle specified
-by uplo ('U' or 'L') is written. ldc is the leading dimension
-of the output matrix C.
+by uplo ('U' or 'L') is written. Leading dimensions are taken from
+the dispatched configuration.
 
 ```C
 int libxs_syrk(
   const libxs_gemm_config_t* config, char uplo,
   double alpha, double beta,
-  const void* a, void* c, int ldc);
+  const void* a, void* c);
 ```
 
 C := alpha*A*A^T + beta*C. Only the triangle specified by uplo
-('U' or 'L') is written. ldc is the leading dimension of C.
+('U' or 'L') is written. Leading dimensions are taken from
+the dispatched configuration.
 
 ## Environment Variables
 
