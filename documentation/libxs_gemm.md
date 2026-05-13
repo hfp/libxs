@@ -292,9 +292,9 @@ required. Thread-local scratch buffers are used internally.
 The block sizes used for tiled SYRK/SYR2K can be overridden at
 compile time via preprocessor defines:
 
-    LIBXS_GEMM_BLOCK_M   Row block size    (default: 64)
+    LIBXS_GEMM_BLOCK_M   Row block size    (default: 32)
     LIBXS_GEMM_BLOCK_N   Column block size (default: BLOCK_M)
-    LIBXS_GEMM_BLOCK_K   K-direction block (default: BLOCK_M)
+    LIBXS_GEMM_BLOCK_K   K-direction block (default: 128)
 
 Problems fitting within these limits use a single specialized
 kernel call (MKL JIT or LIBXSMM when available).

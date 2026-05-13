@@ -16,13 +16,13 @@
 #endif
 
 #if !defined(LIBXS_GEMM_BLOCK_M)
-# define LIBXS_GEMM_BLOCK_M 64
+# define LIBXS_GEMM_BLOCK_M 32
 #endif
 #if !defined(LIBXS_GEMM_BLOCK_N)
 # define LIBXS_GEMM_BLOCK_N LIBXS_GEMM_BLOCK_M
 #endif
 #if !defined(LIBXS_GEMM_BLOCK_K)
-# define LIBXS_GEMM_BLOCK_K LIBXS_GEMM_BLOCK_M
+# define LIBXS_GEMM_BLOCK_K 128
 #endif
 #if !defined(INTERNAL_GEMM_NLOCKS)
 # define INTERNAL_GEMM_NLOCKS 16
