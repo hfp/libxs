@@ -68,6 +68,7 @@ libxs_gemm_config_t* libxs_gemm_dispatch(
 Inline function that selects the backend at compile time:
 - MKL JIT (if mkl.h is included before libxs_gemm.h),
 - LIBXSMM (if libxsmm.h is included),
+- BLAS dgemm/sgemm (if __BLAS, __MKL, or MKL_H is defined),
 - built-in default otherwise.
 
 On registry hit, returns a pointer to the cached config (hash
@@ -77,24 +78,31 @@ If registry is NULL, an internal registry is used.
 ### C (runtime, explicit backend selection)
 
 ```C
+typedef struct libxs_gemm_backend_t {
+  libxs_jit_create_dgemm_t jit_create_dgemm;
+  libxs_jit_get_dgemm_t   jit_get_dgemm;
+  libxs_jit_create_sgemm_t jit_create_sgemm;
+  libxs_jit_get_sgemm_t   jit_get_sgemm;
+  libxs_xgemm_dispatch_t  xgemm_dispatch;
+  libxs_gemm_dblas_t dgemm_blas;
+  libxs_gemm_sblas_t sgemm_blas;
+} libxs_gemm_backend_t;
+
 libxs_gemm_config_t* libxs_gemm_dispatch_rt(
-  int datatype, char transa, char transb,
-  int m, int n, int k, int lda, int ldb, int ldc,
-  const void* alpha, const void* beta,
-  libxs_jit_create_dgemm_t jit_create_dgemm,
-  libxs_jit_get_dgemm_t   jit_get_dgemm,
-  libxs_jit_create_sgemm_t jit_create_sgemm,
-  libxs_jit_get_sgemm_t   jit_get_sgemm,
-  libxs_xgemm_dispatch_t  xgemm_dispatch,
-  libxs_gemm_dblas_t dgemm_blas,
-  libxs_gemm_sblas_t sgemm_blas,
+  const libxs_gemm_shape_t* shape,
+  const libxs_gemm_shape_t* kernel_shape,
+  const libxs_gemm_backend_t* backend,
   void* registry);
 ```
 
-Non-inline function that accepts backend function pointers
-explicitly. All pointers are nullable (NULL = skip that backend).
-This is the single entry point used by both the C inline wrapper
-and the Fortran module. Same registry semantics as above.
+Non-inline function that accepts backend and shape structs.
+shape: full problem shape (registry key, stored in config).
+kernel_shape: actual kernel dimensions (may differ, e.g., tight
+ldc for scratch). NULL means same as shape. If kernel_shape
+differs from shape, the kernel is looked up under kernel_shape
+first (double-dispatch), avoiding redundant code generation.
+backend: function pointers for backends. NULL means built-in
+default only. Same registry semantics as above.
 
 Backend callback signatures (MKL-compatible):
 
@@ -219,33 +227,39 @@ arrays, 0 for constant-stride mode).
 
 Symmetric rank-2k and rank-k updates built on top of GEMM dispatch.
 
-For small problems (n <= LIBXS_GEMM_BLOCK_M and k <= LIBXS_GEMM_BLOCK_K,
-default 64), the dispatched kernel handles the full GEMM in one call.
-For larger problems, the implementation tiles the N x N output into
-blocks and accumulates along K. Scratch memory is thread-local.
+For small problems (n <= LIBXS_GEMM_BLOCK_M and k <= LIBXS_GEMM_BLOCK_K),
+the dispatched kernel handles the full GEMM in one call. For larger
+problems, the implementation tiles the output into blocks and
+accumulates along K. Full-size tiles use the dispatched JIT kernel;
+remainder tiles fall back to BLAS (if available) or the built-in
+default. Scratch memory is thread-local.
 
 ### Dispatch
 
 ```C
 libxs_gemm_config_t* libxs_syr2k_dispatch(
   libxs_data_t datatype, int n, int k, int lda, int ldb, int ldc,
+  const libxs_gemm_backend_t* backend /* = NULL */,
   void* registry /* = NULL */);
 
 libxs_gemm_config_t* libxs_syrk_dispatch(
   libxs_data_t datatype, int n, int k, int lda, int ldc,
+  const libxs_gemm_backend_t* backend /* = NULL */,
   void* registry /* = NULL */);
 ```
 
 Dispatch a GEMM config for SYR2K/SYRK. The shape (n, k, lda, ldb,
 ldc) is stored in the config and used by the call functions.
-Returns NULL on failure.
+backend supplies JIT and BLAS function pointers (NULL = built-in
+default). Returns NULL on failure.
 
 Fortran variants accept OPTIONAL backend function pointers:
 
 ```fortran
 ptr = libxs_syrk_dispatch(LIBXS_DATATYPE_F64, n, k, lda, ldc,
      &  jit_create_dgemm=C_FUNLOC(mkl_cblas_jit_create_dgemm),
-     &  jit_get_dgemm=C_FUNLOC(mkl_jit_get_dgemm_ptr))
+     &  jit_get_dgemm=C_FUNLOC(mkl_jit_get_dgemm_ptr),
+     &  dgemm_blas=C_FUNLOC(DGEMM))
 ```
 
 ### Call

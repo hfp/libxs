@@ -286,12 +286,32 @@ LIBXS_API_INLINE libxs_gemm_config_t* libxs_gemm_dispatch(
 #if defined(LIBXSMM_H)
   be.xgemm_dispatch = internal_libxs_xgemm_dispatch;
 #endif
+#if defined(__MKL) || defined(MKL_H)
+  be.dgemm_blas = (libxs_gemm_dblas_t)dgemm;
+  be.sgemm_blas = (libxs_gemm_sblas_t)sgemm;
+#elif defined(__BLAS)
+  { extern void LIBXS_FSYMBOL(dgemm)(
+      const char*, const char*,
+      const int*, const int*, const int*,
+      const double*, const double*, const int*,
+      const double*, const int*,
+      const double*, double*, const int*);
+    extern void LIBXS_FSYMBOL(sgemm)(
+      const char*, const char*,
+      const int*, const int*, const int*,
+      const float*, const float*, const int*,
+      const float*, const int*,
+      const float*, float*, const int*);
+    be.dgemm_blas = LIBXS_FSYMBOL(dgemm);
+    be.sgemm_blas = LIBXS_FSYMBOL(sgemm);
+  }
+#endif
   return libxs_gemm_dispatch_rt(&shape, NULL, &be, registry);
 }
 
 /**
  * Call the GEMM kernel previously dispatched into config.
- * Follows the documented priority (JIT > XGEMM > BLAS fallback).
+ * Priority: JIT > XGEMM > EXIT_FAILURE.
  * Returns EXIT_SUCCESS if a kernel was called, EXIT_FAILURE otherwise.
  */
 LIBXS_API_INLINE int libxs_gemm_call(
@@ -308,7 +328,7 @@ LIBXS_API_INLINE int libxs_gemm_call(
     }
     else {
       libxs_gemm_param_t xparam;
-      LIBXS_EXPECT(NULL != memset(&xparam, 0, sizeof(xparam)));
+      memset(&xparam, 0, sizeof(xparam));
       xparam.a[0] = a;
       xparam.b[0] = b;
       xparam.c[0] = c;

@@ -61,6 +61,19 @@
           END FUNCTION
         END INTERFACE
 #endif
+#if defined(__BLAS) || defined(__MKL)
+        INTERFACE
+          SUBROUTINE DGEMM(transa, transb, m, n, k,                     &
+     &    alpha, a, lda, b, ldb, beta, c, ldc) BIND(C, NAME="dgemm_")
+            USE, INTRINSIC :: ISO_C_BINDING,                            &
+     &        ONLY: C_DOUBLE, C_INT, C_CHAR
+            CHARACTER(1, C_CHAR), INTENT(IN) :: transa, transb
+            INTEGER(C_INT), INTENT(IN) :: m, n, k, lda, ldb, ldc
+            REAL(C_DOUBLE), INTENT(IN) :: alpha, beta, a(*), b(*)
+            REAL(C_DOUBLE), INTENT(INOUT) :: c(*)
+          END SUBROUTINE
+        END INTERFACE
+#endif
 
         argc = COMMAND_ARGUMENT_COUNT()
         IF (1 <= argc) THEN
@@ -133,6 +146,9 @@
 #if defined(__MKL)
      &    , jit_create_dgemm=C_FUNLOC(mkl_cblas_jit_create_dgemm)       &
      &    , jit_get_dgemm=C_FUNLOC(mkl_jit_get_dgemm_ptr)               &
+#endif
+#if defined(__BLAS) || defined(__MKL)
+     &    , dgemm_blas=C_FUNLOC(DGEMM)                                  &
 #endif
      &    )
         config%flags = LIBXS_GEMM_FLAG_NOLOCK

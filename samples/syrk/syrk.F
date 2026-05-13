@@ -41,6 +41,40 @@
           END FUNCTION
         END INTERFACE
 #endif
+#if defined(__BLAS) || defined(__MKL)
+        INTERFACE
+          SUBROUTINE DGEMM(transa, transb, m, n, k,                     &
+     &    alpha, a, lda, b, ldb, beta, c, ldc)                          &
+     &    BIND(C, NAME="dgemm_")
+            USE, INTRINSIC :: ISO_C_BINDING,                            &
+     &        ONLY: C_DOUBLE, C_INT, C_CHAR
+            CHARACTER(1, C_CHAR), INTENT(IN) :: transa, transb
+            INTEGER(C_INT), INTENT(IN) :: m, n, k, lda, ldb, ldc
+            REAL(C_DOUBLE), INTENT(IN) :: alpha, beta, a(*), b(*)
+            REAL(C_DOUBLE), INTENT(INOUT) :: c(*)
+          END SUBROUTINE
+          SUBROUTINE DSYRK(uplo, trans, n, k,                           &
+     &    alpha, a, lda, beta, c, ldc)                                  &
+     &    BIND(C, NAME="dsyrk_")
+            USE, INTRINSIC :: ISO_C_BINDING,                            &
+     &        ONLY: C_DOUBLE, C_INT, C_CHAR
+            CHARACTER(1, C_CHAR), INTENT(IN) :: uplo, trans
+            INTEGER(C_INT), INTENT(IN) :: n, k, lda, ldc
+            REAL(C_DOUBLE), INTENT(IN) :: alpha, beta, a(*)
+            REAL(C_DOUBLE), INTENT(INOUT) :: c(*)
+          END SUBROUTINE
+          SUBROUTINE DSYR2K(uplo, trans, n, k,                          &
+     &    alpha, a, lda, b, ldb, beta, c, ldc)                          &
+     &    BIND(C, NAME="dsyr2k_")
+            USE, INTRINSIC :: ISO_C_BINDING,                            &
+     &        ONLY: C_DOUBLE, C_INT, C_CHAR
+            CHARACTER(1, C_CHAR), INTENT(IN) :: uplo, trans
+            INTEGER(C_INT), INTENT(IN) :: n, k, lda, ldb, ldc
+            REAL(C_DOUBLE), INTENT(IN) :: alpha, beta, a(*), b(*)
+            REAL(C_DOUBLE), INTENT(INOUT) :: c(*)
+          END SUBROUTINE
+        END INTERFACE
+#endif
 
         INTEGER, PARAMETER :: T = KIND(0D0)
         INTEGER :: n, k, argc, r, nrepeat
@@ -96,7 +130,11 @@
 #if defined(__MKL)
         ptr = libxs_syrk_dispatch(LIBXS_DATATYPE_F64, n, k, n, n,       &
      &    jit_create_dgemm=C_FUNLOC(mkl_cblas_jit_create_dgemm),        &
-     &    jit_get_dgemm=C_FUNLOC(mkl_jit_get_dgemm_ptr))
+     &    jit_get_dgemm=C_FUNLOC(mkl_jit_get_dgemm_ptr),                &
+     &    dgemm_blas=C_FUNLOC(DGEMM))
+#elif defined(__BLAS)
+        ptr = libxs_syrk_dispatch(LIBXS_DATATYPE_F64, n, k, n, n,       &
+     &    dgemm_blas=C_FUNLOC(DGEMM))
 #else
         ptr = libxs_syrk_dispatch(LIBXS_DATATYPE_F64, n, k, n, n)
 #endif
@@ -126,12 +164,17 @@
         c = 0D0; cref = 0D0
 
 #if defined(__MKL)
-        ptr = libxs_syr2k_dispatch(LIBXS_DATATYPE_F64, n, k, n, n, n,   &
+        ptr = libxs_syr2k_dispatch(LIBXS_DATATYPE_F64,                  &
+     &    n, k, n, n, n,                                                &
      &    jit_create_dgemm=C_FUNLOC(mkl_cblas_jit_create_dgemm),        &
-     &    jit_get_dgemm=C_FUNLOC(mkl_jit_get_dgemm_ptr))
+     &    jit_get_dgemm=C_FUNLOC(mkl_jit_get_dgemm_ptr),                &
+     &    dgemm_blas=C_FUNLOC(DGEMM))
+#elif defined(__BLAS)
+        ptr = libxs_syr2k_dispatch(LIBXS_DATATYPE_F64,                  &
+     &    n, k, n, n, n, dgemm_blas=C_FUNLOC(DGEMM))
 #else
-        ptr = libxs_syr2k_dispatch(                                     &
-     &    LIBXS_DATATYPE_F64, n, k, n, n, n)
+        ptr = libxs_syr2k_dispatch(LIBXS_DATATYPE_F64,                  &
+     &    n, k, n, n, n)
 #endif
         IF (.NOT. C_ASSOCIATED(ptr)) THEN
           WRITE(*, "(A)") "FAILED: libxs_syr2k_dispatch returned NULL"
@@ -160,7 +203,11 @@
 #if defined(__MKL)
         ptr = libxs_syrk_dispatch(LIBXS_DATATYPE_F64, n, k, n, n,       &
      &    jit_create_dgemm=C_FUNLOC(mkl_cblas_jit_create_dgemm),        &
-     &    jit_get_dgemm=C_FUNLOC(mkl_jit_get_dgemm_ptr))
+     &    jit_get_dgemm=C_FUNLOC(mkl_jit_get_dgemm_ptr),                &
+     &    dgemm_blas=C_FUNLOC(DGEMM))
+#elif defined(__BLAS)
+        ptr = libxs_syrk_dispatch(LIBXS_DATATYPE_F64, n, k, n, n,       &
+     &    dgemm_blas=C_FUNLOC(DGEMM))
 #else
         ptr = libxs_syrk_dispatch(LIBXS_DATATYPE_F64, n, k, n, n)
 #endif
