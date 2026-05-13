@@ -87,9 +87,9 @@ typedef uint8_t oz2_res_t;
  * u8: additive inverse (p - r) for negatives.
  * i8: sign negation (-r) for negatives. */
 #if defined(OZAKI_I8) && (OZAKI_I8)
-# define OZ2_SIGN_FOLD_(SIGN, RES, PIDX) ((oz2_res_t)((SIGN) * (int8_t)(RES)))
+# define OZ2_SIGN_FOLD(SIGN, RES, PIDX) ((oz2_res_t)((SIGN) * (int8_t)(RES)))
 #else
-# define OZ2_SIGN_FOLD_(SIGN, RES, PIDX) ((oz2_res_t)(((SIGN) < 0 && 0 != (RES)) ? (oz2_moduli[(PIDX)] - (RES)) : (RES)))
+# define OZ2_SIGN_FOLD(SIGN, RES, PIDX) ((oz2_res_t)(((SIGN) < 0 && 0 != (RES)) ? (oz2_moduli[(PIDX)] - (RES)) : (RES)))
 #endif
 
 /** Fast modular reduction: x mod oz2_moduli[pidx] (table-indexed wrapper). */
