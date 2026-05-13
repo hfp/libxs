@@ -311,32 +311,27 @@ LIBXS_API_INLINE libxs_gemm_config_t* libxs_gemm_dispatch(
 
 /**
  * Call the GEMM kernel previously dispatched into config.
- * Priority: JIT > XGEMM > EXIT_FAILURE.
- * Returns EXIT_SUCCESS if a kernel was called, EXIT_FAILURE otherwise.
+ * Priority: JIT > XGEMM. Caller must ensure libxs_gemm_ready()
+ * returns nonzero before calling.
  */
-LIBXS_API_INLINE int libxs_gemm_call(
+LIBXS_API_INLINE void libxs_gemm_call(
   const libxs_gemm_config_t* config,
   const void* a, const void* b, void* c)
 {
-  int result = EXIT_FAILURE;
-  if (0 != libxs_gemm_ready(config)) {
-    if (NULL != config->dgemm_jit) {
-      config->dgemm_jit(config->jitter, a, b, c);
-    }
-    else if (NULL != config->sgemm_jit) {
-      config->sgemm_jit(config->jitter, a, b, c);
-    }
-    else {
-      libxs_gemm_param_t xparam;
-      memset(&xparam, 0, sizeof(xparam));
-      xparam.a[0] = a;
-      xparam.b[0] = b;
-      xparam.c[0] = c;
-      config->xgemm(&xparam);
-    }
-    result = EXIT_SUCCESS;
+  if (NULL != config->dgemm_jit) {
+    config->dgemm_jit(config->jitter, a, b, c);
   }
-  return result;
+  else if (NULL != config->sgemm_jit) {
+    config->sgemm_jit(config->jitter, a, b, c);
+  }
+  else {
+    libxs_gemm_param_t xparam;
+    memset(&xparam, 0, sizeof(xparam));
+    xparam.a[0] = a;
+    xparam.b[0] = b;
+    xparam.c[0] = c;
+    config->xgemm(&xparam);
+  }
 }
 
 /**
@@ -399,15 +394,14 @@ LIBXS_API libxs_gemm_config_t* libxs_syrk_dispatch(
  * Symmetric rank-2k update: C := alpha*(A*B^T + B*A^T) + beta*C.
  * Only the triangle specified by uplo ('U' or 'L') is written.
  * Scratch is managed internally (TLS buffer, grown as needed).
- * Returns EXIT_SUCCESS on success.
  */
-LIBXS_API int libxs_syr2k(
+LIBXS_API void libxs_syr2k(
   const libxs_gemm_config_t* config, char uplo,
   double alpha, double beta,
   const void* a, const void* b, void* c);
 
 /** Per-thread form of libxs_syr2k. */
-LIBXS_API int libxs_syr2k_task(
+LIBXS_API void libxs_syr2k_task(
   const libxs_gemm_config_t* config, char uplo,
   double alpha, double beta,
   const void* a, const void* b, void* c,
@@ -417,15 +411,14 @@ LIBXS_API int libxs_syr2k_task(
  * Symmetric rank-k update: C := alpha*A*A^T + beta*C.
  * Only the triangle specified by uplo ('U' or 'L') is written.
  * Scratch is managed internally (TLS buffer, grown as needed).
- * Returns EXIT_SUCCESS on success.
  */
-LIBXS_API int libxs_syrk(
+LIBXS_API void libxs_syrk(
   const libxs_gemm_config_t* config, char uplo,
   double alpha, double beta,
   const void* a, void* c);
 
 /** Per-thread form of libxs_syrk. */
-LIBXS_API int libxs_syrk_task(
+LIBXS_API void libxs_syrk_task(
   const libxs_gemm_config_t* config, char uplo,
   double alpha, double beta,
   const void* a, void* c,

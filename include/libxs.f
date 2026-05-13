@@ -654,32 +654,30 @@
           END FUNCTION
 
           !> Internal C binding for libxs_syr2k.
-          FUNCTION internal_syr2k(config, uplo,                         &
+          SUBROUTINE internal_syr2k(config, uplo,                       &
      &    alpha, beta, a, b, c)                                         &
      &    BIND(C, NAME="libxs_syr2k")
             IMPORT :: libxs_gemm_config_t,                              &
-     &        C_PTR, C_INT, C_DOUBLE, C_CHAR
+     &        C_PTR, C_DOUBLE, C_CHAR
             TYPE(libxs_gemm_config_t), INTENT(IN) :: config
             CHARACTER(C_CHAR), INTENT(IN), VALUE :: uplo
             REAL(C_DOUBLE), INTENT(IN), VALUE :: alpha, beta
             TYPE(C_PTR), INTENT(IN), VALUE :: a, b
             TYPE(C_PTR), VALUE :: c
-            INTEGER(C_INT) :: internal_syr2k
-          END FUNCTION
+          END SUBROUTINE
 
           !> Internal C binding for libxs_syrk.
-          FUNCTION internal_syrk(config, uplo,                          &
+          SUBROUTINE internal_syrk(config, uplo,                        &
      &    alpha, beta, a, c)                                            &
      &    BIND(C, NAME="libxs_syrk")
             IMPORT :: libxs_gemm_config_t,                              &
-     &        C_PTR, C_INT, C_DOUBLE, C_CHAR
+     &        C_PTR, C_DOUBLE, C_CHAR
             TYPE(libxs_gemm_config_t), INTENT(IN) :: config
             CHARACTER(C_CHAR), INTENT(IN), VALUE :: uplo
             REAL(C_DOUBLE), INTENT(IN), VALUE :: alpha, beta
             TYPE(C_PTR), INTENT(IN), VALUE :: a
             TYPE(C_PTR), VALUE :: c
-            INTEGER(C_INT) :: internal_syrk
-          END FUNCTION
+          END SUBROUTINE
 
           !> Combine two single-matrix diffs into a meta-diff.
           FUNCTION libxs_matdiff_combine(output, input)                 &
@@ -1219,24 +1217,21 @@
         END FUNCTION
 
         !> Call the GEMM kernel dispatched into config.
-        !> Returns 0 on success, nonzero on failure.
-        FUNCTION libxs_gemm_call(config, a, b, c)
+        SUBROUTINE libxs_gemm_call(config, a, b, c)
           TYPE(libxs_gemm_config_t), INTENT(IN) :: config
           TYPE(C_PTR), INTENT(IN), VALUE :: a, b
           TYPE(C_PTR), VALUE :: c
-          INTEGER(C_INT) :: libxs_gemm_call
           INTERFACE
-            FUNCTION internal_gemm_call_f(config, a, b, c)              &
-     &      RESULT(res) BIND(C, NAME="libxs_gemm_call_f")
-              IMPORT :: libxs_gemm_config_t, C_PTR, C_INT
+            SUBROUTINE internal_gemm_call_f(config, a, b, c)            &
+     &      BIND(C, NAME="libxs_gemm_call_f")
+              IMPORT :: libxs_gemm_config_t, C_PTR
               TYPE(libxs_gemm_config_t), INTENT(IN) :: config
               TYPE(C_PTR), INTENT(IN), VALUE :: a, b
               TYPE(C_PTR), VALUE :: c
-              INTEGER(C_INT) :: res
-            END FUNCTION
+            END SUBROUTINE
           END INTERFACE
-          libxs_gemm_call = internal_gemm_call_f(config, a, b, c)
-        END FUNCTION
+          CALL internal_gemm_call_f(config, a, b, c)
+        END SUBROUTINE
 
         !> Dispatch a GEMM kernel and populate config.
         !> Accepts OPTIONAL backend function pointers for
@@ -1392,20 +1387,18 @@
         END FUNCTION
 
         !> SYR2K with pre-dispatched config.
-        FUNCTION libxs_syr2k_config(config, uplo,                       &
+        SUBROUTINE libxs_syr2k_config(config, uplo,                     &
      &  alpha, beta, a, b, c)
           TYPE(libxs_gemm_config_t), INTENT(IN), TARGET :: config
           CHARACTER(C_CHAR), INTENT(IN), VALUE :: uplo
           REAL(C_DOUBLE), INTENT(IN), VALUE :: alpha, beta
           TYPE(C_PTR), INTENT(IN), VALUE :: a, b
           TYPE(C_PTR), VALUE :: c
-          INTEGER(C_INT) :: libxs_syr2k_config
-          libxs_syr2k_config = internal_syr2k(config, uplo,             &
-     &      alpha, beta, a, b, c)
-        END FUNCTION
+          CALL internal_syr2k(config, uplo, alpha, beta, a, b, c)
+        END SUBROUTINE
 
         !> SYR2K direct: dispatch + call in one shot.
-        FUNCTION libxs_syr2k_direct(datatype, n, k,                     &
+        SUBROUTINE libxs_syr2k_direct(datatype, n, k,                   &
      &  lda, ldb, ldc, uplo, alpha, beta, a, b, c, registry)
           INTEGER(C_INT), INTENT(IN) :: datatype, n, k
           INTEGER(C_INT), INTENT(IN) :: lda, ldb, ldc
@@ -1414,7 +1407,6 @@
           TYPE(C_PTR), INTENT(IN) :: a, b
           TYPE(C_PTR) :: c
           TYPE(C_PTR), INTENT(IN), OPTIONAL :: registry
-          INTEGER(C_INT) :: libxs_syr2k_direct
           TYPE(libxs_gemm_config_t), POINTER :: cfg
           TYPE(C_PTR) :: ptr, preg
           IF (PRESENT(registry)) THEN
@@ -1424,28 +1416,23 @@
      &      n, k, lda, ldb, ldc, registry=preg)
           IF (C_ASSOCIATED(ptr)) THEN
             CALL C_F_POINTER(ptr, cfg)
-            libxs_syr2k_direct = internal_syr2k(cfg, uplo,              &
-     &        alpha, beta, a, b, c)
-          ELSE
-            libxs_syr2k_direct = 1
+            CALL internal_syr2k(cfg, uplo, alpha, beta, a, b, c)
           END IF
-        END FUNCTION
+        END SUBROUTINE
 
         !> SYRK with pre-dispatched config.
-        FUNCTION libxs_syrk_config(config, uplo,                        &
+        SUBROUTINE libxs_syrk_config(config, uplo,                      &
      &  alpha, beta, a, c)
           TYPE(libxs_gemm_config_t), INTENT(IN), TARGET :: config
           CHARACTER(C_CHAR), INTENT(IN), VALUE :: uplo
           REAL(C_DOUBLE), INTENT(IN), VALUE :: alpha, beta
           TYPE(C_PTR), INTENT(IN), VALUE :: a
           TYPE(C_PTR), VALUE :: c
-          INTEGER(C_INT) :: libxs_syrk_config
-          libxs_syrk_config = internal_syrk(config, uplo,               &
-     &      alpha, beta, a, c)
-        END FUNCTION
+          CALL internal_syrk(config, uplo, alpha, beta, a, c)
+        END SUBROUTINE
 
         !> SYRK direct: dispatch + call in one shot.
-        FUNCTION libxs_syrk_direct(datatype, n, k,                      &
+        SUBROUTINE libxs_syrk_direct(datatype, n, k,                    &
      &  lda, ldc, uplo, alpha, beta, a, c, registry)
           INTEGER(C_INT), INTENT(IN) :: datatype, n, k
           INTEGER(C_INT), INTENT(IN) :: lda, ldc
@@ -1454,7 +1441,6 @@
           TYPE(C_PTR), INTENT(IN) :: a
           TYPE(C_PTR) :: c
           TYPE(C_PTR), INTENT(IN), OPTIONAL :: registry
-          INTEGER(C_INT) :: libxs_syrk_direct
           TYPE(libxs_gemm_config_t), POINTER :: cfg
           TYPE(C_PTR) :: ptr, preg
           IF (PRESENT(registry)) THEN
@@ -1464,10 +1450,7 @@
      &      n, k, lda, ldc, registry=preg)
           IF (C_ASSOCIATED(ptr)) THEN
             CALL C_F_POINTER(ptr, cfg)
-            libxs_syrk_direct = internal_syrk(cfg, uplo,                &
-     &        alpha, beta, a, c)
-          ELSE
-            libxs_syrk_direct = 1
+            CALL internal_syrk(cfg, uplo, alpha, beta, a, c)
           END IF
-        END FUNCTION
+        END SUBROUTINE
       END MODULE

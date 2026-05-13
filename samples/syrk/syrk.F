@@ -88,7 +88,6 @@
         TYPE(libxs_matdiff_t) :: diff
         INTEGER(LIBXS_TIMER_TICK_KIND) :: t0, t1
         DOUBLE PRECISION :: duration, gflops
-        INTEGER(C_INT) :: rc
 
         argc = COMMAND_ARGUMENT_COUNT()
         IF (1 <= argc) THEN
@@ -145,11 +144,7 @@
         CALL C_F_POINTER(ptr, config)
 
         CALL DSYRK('L', 'N', n, k, alpha, a, n, beta, cref, n)
-        rc = libxs_syrk(config, 'L', alpha, beta, C_LOC(a), C_LOC(c))
-        IF (0 /= rc) THEN
-          WRITE(*, "(A)") "FAILED: libxs_syrk returned error"
-          ERROR STOP 1
-        END IF
+        CALL libxs_syrk(config, 'L', alpha, beta, C_LOC(a), C_LOC(c))
 
         CALL libxs_matdiff_clear(diff)
         CALL libxs_matdiff(diff, LIBXS_DATATYPE_F64, n, n,              &
@@ -183,12 +178,8 @@
         CALL C_F_POINTER(ptr, config)
 
         CALL DSYR2K('U', 'N', n, k, alpha, a, n, b, n, beta, cref, n)
-        rc = libxs_syr2k(config, 'U', alpha, beta,                      &
+        CALL libxs_syr2k(config, 'U', alpha, beta,                      &
      &    C_LOC(a), C_LOC(b), C_LOC(c))
-        IF (0 /= rc) THEN
-          WRITE(*, "(A)") "FAILED: libxs_syr2k returned error"
-          ERROR STOP 1
-        END IF
 
         CALL libxs_matdiff_clear(diff)
         CALL libxs_matdiff(diff, LIBXS_DATATYPE_F64, n, n,              &
@@ -234,10 +225,10 @@
 
         ! LIBXS timing
         c = 0D0
-        rc = libxs_syrk(config, 'L', alpha, beta, C_LOC(a), C_LOC(c))
+        CALL libxs_syrk(config, 'L', alpha, beta, C_LOC(a), C_LOC(c))
         t0 = libxs_timer_tick()
         DO r = 1, nrepeat
-          rc = libxs_syrk(config, 'L', alpha, beta,                     &
+          CALL libxs_syrk(config, 'L', alpha, beta,                     &
      &      C_LOC(a), C_LOC(c))
         END DO
         t1 = libxs_timer_tick()

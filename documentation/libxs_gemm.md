@@ -162,12 +162,13 @@ int libxs_gemm_ready(const libxs_gemm_config_t* config);
 Returns nonzero if config holds a usable kernel.
 
 ```C
-int libxs_gemm_call(
+void libxs_gemm_call(
   const libxs_gemm_config_t* config,
   const void* a, const void* b, void* c);
 ```
 
-Call the dispatched GEMM kernel. Returns EXIT_SUCCESS on success.
+Call the dispatched GEMM kernel. The caller must verify
+`libxs_gemm_ready(config)` before calling this function.
 
 ## Release
 
@@ -265,12 +266,12 @@ ptr = libxs_syrk_dispatch(LIBXS_DATATYPE_F64, n, k, lda, ldc,
 ### Call
 
 ```C
-int libxs_syr2k(
+void libxs_syr2k(
   const libxs_gemm_config_t* config, char uplo,
   double alpha, double beta,
   const void* a, const void* b, void* c);
 
-int libxs_syr2k_task(
+void libxs_syr2k_task(
   const libxs_gemm_config_t* config, char uplo,
   double alpha, double beta,
   const void* a, const void* b, void* c,
@@ -282,12 +283,12 @@ by uplo ('U' or 'L') is written. All dimensions and leading
 dimensions come from the dispatched config.
 
 ```C
-int libxs_syrk(
+void libxs_syrk(
   const libxs_gemm_config_t* config, char uplo,
   double alpha, double beta,
   const void* a, void* c);
 
-int libxs_syrk_task(
+void libxs_syrk_task(
   const libxs_gemm_config_t* config, char uplo,
   double alpha, double beta,
   const void* a, void* c,
@@ -350,6 +351,6 @@ rc = libxs_gemm_dispatch(config, LIBXS_DATATYPE_F64,
      &  dgemm_blas=C_FUNLOC(DGEMM))
 
 IF (0 /= rc) THEN
-  rc = libxs_gemm_call(config, C_LOC(a), C_LOC(b), C_LOC(c))
+  CALL libxs_gemm_call(config, C_LOC(a), C_LOC(b), C_LOC(c))
 END IF
 ```

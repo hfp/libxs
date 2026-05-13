@@ -729,17 +729,16 @@ LIBXS_API_INTERN void* internal_libxs_syrk_scratch(size_t need)
 }
 
 
-LIBXS_API int libxs_syr2k_task(
+LIBXS_API void libxs_syr2k_task(
   const libxs_gemm_config_t* config, char uplo,
   double alpha, double beta,
   const void* a, const void* b, void* c,
   int tid, int ntasks)
 {
-  int result = EXIT_FAILURE;
-  if (NULL != config && NULL != a && NULL != b && NULL != c
-    && 0 <= tid && tid < ntasks
-    && (LIBXS_DATATYPE_F64 == config->shape.datatype
-     || LIBXS_DATATYPE_F32 == config->shape.datatype))
+  LIBXS_ASSERT(NULL != config && NULL != a && NULL != b && NULL != c);
+  LIBXS_ASSERT(0 <= tid && tid < ntasks);
+  if (LIBXS_DATATYPE_F64 == config->shape.datatype
+   || LIBXS_DATATYPE_F32 == config->shape.datatype)
   {
     const size_t elemsize = LIBXS_TYPESIZE(config->shape.datatype);
     const int upper = ('U' == uplo || 'u' == uplo);
@@ -755,7 +754,10 @@ LIBXS_API int libxs_syr2k_task(
         void* scratch = internal_libxs_syrk_scratch(need);
         if (NULL != scratch) {
           memset(scratch, 0, need);
-          if (EXIT_SUCCESS != libxs_gemm_call(config, a, b, scratch)) {
+          if (0 != libxs_gemm_ready(config)) {
+            libxs_gemm_call(config, a, b, scratch);
+          }
+          else {
             internal_libxs_gemm_blas(config, a, b, scratch,
               n, n, k, lda, ldb, n, 1.0, 0.0);
           }
@@ -767,10 +769,8 @@ LIBXS_API int libxs_syr2k_task(
             INTERNAL_SYR2K_SCATTER(float, c, ldc, scratch, scratch,
               n, 0, 0, n, n, upper, 1, (float)alpha, (float)beta);
           }
-          result = EXIT_SUCCESS;
         }
       }
-      result = EXIT_SUCCESS;
     }
     else if (0 == tid && LIBXS_DATATYPE_F64 == config->shape.datatype
       && NULL != internal_libxs_dsyr2k_blas)
@@ -779,7 +779,6 @@ LIBXS_API int libxs_syr2k_task(
         (const double*)&alpha, (const double*)a, &lda,
         (const double*)b, &ldb,
         (const double*)&beta, (double*)c, &ldc);
-      result = EXIT_SUCCESS;
     }
     else if (0 == tid && LIBXS_DATATYPE_F32 == config->shape.datatype
       && NULL != internal_libxs_ssyr2k_blas)
@@ -789,7 +788,6 @@ LIBXS_API int libxs_syr2k_task(
         &fa, (const float*)a, &lda,
         (const float*)b, &ldb,
         &fb, (float*)c, &ldc);
-      result = EXIT_SUCCESS;
     }
     else {
       const int bm = LIBXS_GEMM_BLOCK_M;
@@ -872,36 +870,32 @@ LIBXS_API int libxs_syr2k_task(
               }
             }
           }
-          result = EXIT_SUCCESS;
         }
       }
-      result = EXIT_SUCCESS;
     }
   }
-  return result;
 }
 
 
-LIBXS_API int libxs_syr2k(
+LIBXS_API void libxs_syr2k(
   const libxs_gemm_config_t* config, char uplo,
   double alpha, double beta,
   const void* a, const void* b, void* c)
 {
-  return libxs_syr2k_task(config, uplo, alpha, beta, a, b, c, 0, 1);
+  libxs_syr2k_task(config, uplo, alpha, beta, a, b, c, 0, 1);
 }
 
 
-LIBXS_API int libxs_syrk_task(
+LIBXS_API void libxs_syrk_task(
   const libxs_gemm_config_t* config, char uplo,
   double alpha, double beta,
   const void* a, void* c,
   int tid, int ntasks)
 {
-  int result = EXIT_FAILURE;
-  if (NULL != config && NULL != a && NULL != c
-    && 0 <= tid && tid < ntasks
-    && (LIBXS_DATATYPE_F64 == config->shape.datatype
-     || LIBXS_DATATYPE_F32 == config->shape.datatype))
+  LIBXS_ASSERT(NULL != config && NULL != a && NULL != c);
+  LIBXS_ASSERT(0 <= tid && tid < ntasks);
+  if (LIBXS_DATATYPE_F64 == config->shape.datatype
+   || LIBXS_DATATYPE_F32 == config->shape.datatype)
   {
     const int n = config->shape.m;
     const int k = config->shape.k;
@@ -917,7 +911,10 @@ LIBXS_API int libxs_syrk_task(
         void* scratch = internal_libxs_syrk_scratch(need);
         if (NULL != scratch) {
           memset(scratch, 0, need);
-          if (EXIT_SUCCESS != libxs_gemm_call(config, a, a, scratch)) {
+          if (0 != libxs_gemm_ready(config)) {
+            libxs_gemm_call(config, a, a, scratch);
+          }
+          else {
             internal_libxs_gemm_blas(config, a, a, scratch,
               n, n, k, lda, lda, n, 1.0, 0.0);
           }
@@ -929,10 +926,8 @@ LIBXS_API int libxs_syrk_task(
             INTERNAL_SYRK_SCATTER(float, c, ldc, scratch, n,
               0, 0, n, n, upper, 1, (float)alpha, (float)beta);
           }
-          result = EXIT_SUCCESS;
         }
       }
-      result = EXIT_SUCCESS;
     }
     else if (0 == tid && LIBXS_DATATYPE_F64 == config->shape.datatype
       && NULL != internal_libxs_dsyrk_blas)
@@ -940,7 +935,6 @@ LIBXS_API int libxs_syrk_task(
       internal_libxs_dsyrk_blas(&uplo, "N", &n, &k,
         (const double*)&alpha, (const double*)a, &lda,
         (const double*)&beta, (double*)c, &ldc);
-      result = EXIT_SUCCESS;
     }
     else if (0 == tid && LIBXS_DATATYPE_F32 == config->shape.datatype
       && NULL != internal_libxs_ssyrk_blas)
@@ -949,7 +943,6 @@ LIBXS_API int libxs_syrk_task(
       internal_libxs_ssyrk_blas(&uplo, "N", &n, &k,
         &fa, (const float*)a, &lda,
         &fb, (float*)c, &ldc);
-      result = EXIT_SUCCESS;
     }
     else {
       const int bm = LIBXS_GEMM_BLOCK_M;
@@ -1013,22 +1006,19 @@ LIBXS_API int libxs_syrk_task(
               }
             }
           }
-          result = EXIT_SUCCESS;
         }
       }
-      result = EXIT_SUCCESS;
     }
   }
-  return result;
 }
 
 
-LIBXS_API int libxs_syrk(
+LIBXS_API void libxs_syrk(
   const libxs_gemm_config_t* config, char uplo,
   double alpha, double beta,
   const void* a, void* c)
 {
-  return libxs_syrk_task(config, uplo, alpha, beta, a, c, 0, 1);
+  libxs_syrk_task(config, uplo, alpha, beta, a, c, 0, 1);
 }
 
 
@@ -1041,12 +1031,12 @@ LIBXS_API int libxs_gemm_ready_f(const libxs_gemm_config_t* config)
 }
 
 
-LIBXS_API int libxs_gemm_call_f(const libxs_gemm_config_t*,
+LIBXS_API void libxs_gemm_call_f(const libxs_gemm_config_t*,
   const void*, const void*, void*);
-LIBXS_API int libxs_gemm_call_f(const libxs_gemm_config_t* config,
+LIBXS_API void libxs_gemm_call_f(const libxs_gemm_config_t* config,
   const void* a, const void* b, void* c)
 {
-  return libxs_gemm_call(config, a, b, c);
+  libxs_gemm_call(config, a, b, c);
 }
 
 
