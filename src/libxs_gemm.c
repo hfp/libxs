@@ -24,11 +24,90 @@
 #if !defined(LIBXS_GEMM_BLOCK_K)
 # define LIBXS_GEMM_BLOCK_K LIBXS_GEMM_BLOCK_M
 #endif
+#if !defined(INTERNAL_GEMM_NLOCKS)
+# define INTERNAL_GEMM_NLOCKS 16
+#endif
 
 #define INTERNAL_GEMM_NOTRANS(C) ('N' == (C) || 'n' == (C))
-#define INTERNAL_GEMM_NLOCKS 16
+
+#define INTERNAL_GEMM_ACCUM(TYPE, A, LDA, B, LDB, T, LDT, CM, CN, CK) \
+  do { \
+    int ii_, jj_, pp_; \
+    for (jj_ = 0; jj_ < (CN); ++jj_) { \
+      for (ii_ = 0; ii_ < (CM); ++ii_) { \
+        TYPE sum_ = 0; \
+        for (pp_ = 0; pp_ < (CK); ++pp_) { \
+          sum_ += (A)[ii_ + (size_t)pp_ * (LDA)] \
+               *  (B)[jj_ + (size_t)pp_ * (LDB)]; \
+        } \
+        (T)[ii_ + (size_t)jj_ * (LDT)] += sum_; \
+      } \
+    } \
+  } while(0)
+
+#define INTERNAL_SYRK_IRANGE(UPPER, JJ, CM, ISTART, IEND) \
+  do { \
+    (ISTART) = (UPPER) ? 0 : (JJ); \
+    (IEND)   = (UPPER) ? (JJ) + 1 : (CM); \
+  } while(0)
+
+#define INTERNAL_SYRK_SCATTER(TYPE, CC, LDC, T, LDT, \
+  IB, JB, CM, CN, UPPER, DIAG, ALPHA, BETA) \
+  do { \
+    int ii_, jj_; \
+    if (DIAG) { \
+      for (jj_ = 0; jj_ < (CN); ++jj_) { \
+        int istart_, iend_; \
+        INTERNAL_SYRK_IRANGE(UPPER, jj_, CM, istart_, iend_); \
+        for (ii_ = istart_; ii_ < iend_; ++ii_) { \
+          ((TYPE*)(CC))[(IB) + ii_ + (size_t)((JB) + jj_) * (LDC)] = \
+            (BETA) * ((TYPE*)(CC))[(IB) + ii_ + (size_t)((JB) + jj_) * (LDC)] \
+            + (ALPHA) * ((const TYPE*)(T))[ii_ + (size_t)jj_ * (LDT)]; \
+        } \
+      } \
+    } \
+    else { \
+      for (jj_ = 0; jj_ < (CN); ++jj_) { \
+        for (ii_ = 0; ii_ < (CM); ++ii_) { \
+          ((TYPE*)(CC))[(IB) + ii_ + (size_t)((JB) + jj_) * (LDC)] = \
+            (BETA) * ((TYPE*)(CC))[(IB) + ii_ + (size_t)((JB) + jj_) * (LDC)] \
+            + (ALPHA) * ((const TYPE*)(T))[ii_ + (size_t)jj_ * (LDT)]; \
+        } \
+      } \
+    } \
+  } while(0)
+
+#define INTERNAL_SYR2K_SCATTER(TYPE, CC, LDC, T1, T2, LDT, \
+  IB, JB, CM, CN, UPPER, DIAG, ALPHA, BETA) \
+  do { \
+    int ii_, jj_; \
+    if (DIAG) { \
+      for (jj_ = 0; jj_ < (CN); ++jj_) { \
+        int istart_, iend_; \
+        INTERNAL_SYRK_IRANGE(UPPER, jj_, CM, istart_, iend_); \
+        for (ii_ = istart_; ii_ < iend_; ++ii_) { \
+          ((TYPE*)(CC))[(IB) + ii_ + (size_t)((JB) + jj_) * (LDC)] = \
+            (BETA) * ((TYPE*)(CC))[(IB) + ii_ + (size_t)((JB) + jj_) * (LDC)] \
+            + (ALPHA) * (((const TYPE*)(T1))[ii_ + (size_t)jj_ * (LDT)] \
+                       + ((const TYPE*)(T1))[jj_ + (size_t)ii_ * (LDT)]); \
+        } \
+      } \
+    } \
+    else { \
+      for (jj_ = 0; jj_ < (CN); ++jj_) { \
+        for (ii_ = 0; ii_ < (CM); ++ii_) { \
+          ((TYPE*)(CC))[(IB) + ii_ + (size_t)((JB) + jj_) * (LDC)] = \
+            (BETA) * ((TYPE*)(CC))[(IB) + ii_ + (size_t)((JB) + jj_) * (LDC)] \
+            + (ALPHA) * (((const TYPE*)(T1))[ii_ + (size_t)jj_ * (LDT)] \
+                       + ((const TYPE*)(T2))[ii_ + (size_t)jj_ * (LDT)]); \
+        } \
+      } \
+    } \
+  } while(0)
+
 #define INTERNAL_GEMM_LOCKIDX(PTR) \
   ((int)LIBXS_MOD2(LIBXS_CRCPTR(1975, PTR), INTERNAL_GEMM_NLOCKS))
+
 #define INTERNAL_GEMM_LOCKFWD(CPTR, LOCKIDX) do { \
   const int internal_libxs_gemm_li_ = INTERNAL_GEMM_LOCKIDX(CPTR); \
   if (internal_libxs_gemm_li_ != (LOCKIDX)) { \
@@ -38,6 +117,7 @@
     (LOCKIDX) = internal_libxs_gemm_li_; \
   } \
 } while(0)
+
 #define INTERNAL_GEMM_LOCKFWD_IDX(IDX, LOCKIDX) do { \
   const int internal_libxs_gemm_li_ = \
     (int)LIBXS_MOD2((IDX), INTERNAL_GEMM_NLOCKS); \
@@ -48,6 +128,7 @@
     (LOCKIDX) = internal_libxs_gemm_li_; \
   } \
 } while(0)
+
 #define INTERNAL_GEMM_UNLOCK(LOCKIDX) do { \
   if (0 <= (LOCKIDX)) \
     LIBXS_LOCK_RELEASE(LIBXS_LOCK, internal_libxs_gemm_locks + (LOCKIDX)); \
@@ -738,122 +819,36 @@ LIBXS_API int libxs_syr2k_task(
                 if (LIBXS_DATATYPE_F64 == config->shape.datatype) {
                   const double* ai = (const double*)a + ib + (size_t)kb * lda;
                   const double* bj = (const double*)b + jb + (size_t)kb * ldb;
-                  double* t1 = (double*)scratch;
-                  int ii, jj, pp;
-                  for (jj = 0; jj < cn; ++jj) {
-                    for (ii = 0; ii < cm; ++ii) {
-                      double sum = 0.0;
-                      for (pp = 0; pp < ck; ++pp) {
-                        sum += ai[ii + (size_t)pp * lda]
-                             * bj[jj + (size_t)pp * ldb];
-                      }
-                      t1[ii + (size_t)jj * bm] += sum;
-                    }
-                  }
+                  INTERNAL_GEMM_ACCUM(double, ai, lda, bj, ldb,
+                    (double*)scratch, bm, cm, cn, ck);
                   if (0 == diag) {
                     const double* bi = (const double*)b + ib + (size_t)kb * ldb;
                     const double* aj = (const double*)a + jb + (size_t)kb * lda;
-                    double* t2 = (double*)scratch2;
-                    for (jj = 0; jj < cn; ++jj) {
-                      for (ii = 0; ii < cm; ++ii) {
-                        double sum = 0.0;
-                        for (pp = 0; pp < ck; ++pp) {
-                          sum += bi[ii + (size_t)pp * ldb]
-                               * aj[jj + (size_t)pp * lda];
-                        }
-                        t2[ii + (size_t)jj * bm] += sum;
-                      }
-                    }
+                    INTERNAL_GEMM_ACCUM(double, bi, ldb, aj, lda,
+                      (double*)scratch2, bm, cm, cn, ck);
                   }
                 }
                 else {
                   const float* ai = (const float*)a + ib + (size_t)kb * lda;
                   const float* bj = (const float*)b + jb + (size_t)kb * ldb;
-                  float* t1 = (float*)scratch;
-                  int ii, jj, pp;
-                  for (jj = 0; jj < cn; ++jj) {
-                    for (ii = 0; ii < cm; ++ii) {
-                      float sum = 0.f;
-                      for (pp = 0; pp < ck; ++pp) {
-                        sum += ai[ii + (size_t)pp * lda]
-                             * bj[jj + (size_t)pp * ldb];
-                      }
-                      t1[ii + (size_t)jj * bm] += sum;
-                    }
-                  }
+                  INTERNAL_GEMM_ACCUM(float, ai, lda, bj, ldb,
+                    (float*)scratch, bm, cm, cn, ck);
                   if (0 == diag) {
                     const float* bi = (const float*)b + ib + (size_t)kb * ldb;
                     const float* aj = (const float*)a + jb + (size_t)kb * lda;
-                    float* t2 = (float*)scratch2;
-                    for (jj = 0; jj < cn; ++jj) {
-                      for (ii = 0; ii < cm; ++ii) {
-                        float sum = 0.f;
-                        for (pp = 0; pp < ck; ++pp) {
-                          sum += bi[ii + (size_t)pp * ldb]
-                               * aj[jj + (size_t)pp * lda];
-                        }
-                        t2[ii + (size_t)jj * bm] += sum;
-                      }
-                    }
+                    INTERNAL_GEMM_ACCUM(float, bi, ldb, aj, lda,
+                      (float*)scratch2, bm, cm, cn, ck);
                   }
                 }
               }
               if (LIBXS_DATATYPE_F64 == config->shape.datatype) {
-                double* cc = (double*)c;
-                const double* t1 = (const double*)scratch;
-                int ii, jj;
-                if (diag) {
-                  for (jj = 0; jj < cn; ++jj) {
-                    const int istart = upper ? 0 : jj;
-                    const int iend = upper ? jj + 1 : cm;
-                    for (ii = istart; ii < iend; ++ii) {
-                      cc[(ib + ii) + (size_t)(jb + jj) * ldc] =
-                        beta * cc[(ib + ii) + (size_t)(jb + jj) * ldc]
-                        + alpha * (t1[ii + (size_t)jj * bm]
-                                 + t1[jj + (size_t)ii * bm]);
-                    }
-                  }
-                }
-                else {
-                  const double* t2 = (const double*)scratch2;
-                  for (jj = 0; jj < cn; ++jj) {
-                    for (ii = 0; ii < cm; ++ii) {
-                      cc[(ib + ii) + (size_t)(jb + jj) * ldc] =
-                        beta * cc[(ib + ii) + (size_t)(jb + jj) * ldc]
-                        + alpha * (t1[ii + (size_t)jj * bm]
-                                 + t2[ii + (size_t)jj * bm]);
-                    }
-                  }
-                }
+                INTERNAL_SYR2K_SCATTER(double, c, ldc, scratch, scratch2,
+                  bm, ib, jb, cm, cn, upper, diag, alpha, beta);
               }
               else {
-                float* cc = (float*)c;
-                const float* t1 = (const float*)scratch;
-                const float fa = (float)alpha, fb = (float)beta;
-                int ii, jj;
-                if (diag) {
-                  for (jj = 0; jj < cn; ++jj) {
-                    const int istart = upper ? 0 : jj;
-                    const int iend = upper ? jj + 1 : cm;
-                    for (ii = istart; ii < iend; ++ii) {
-                      cc[(ib + ii) + (size_t)(jb + jj) * ldc] =
-                        fb * cc[(ib + ii) + (size_t)(jb + jj) * ldc]
-                        + fa * (t1[ii + (size_t)jj * bm]
-                               + t1[jj + (size_t)ii * bm]);
-                    }
-                  }
-                }
-                else {
-                  const float* t2 = (const float*)scratch2;
-                  for (jj = 0; jj < cn; ++jj) {
-                    for (ii = 0; ii < cm; ++ii) {
-                      cc[(ib + ii) + (size_t)(jb + jj) * ldc] =
-                        fb * cc[(ib + ii) + (size_t)(jb + jj) * ldc]
-                        + fa * (t1[ii + (size_t)jj * bm]
-                               + t2[ii + (size_t)jj * bm]);
-                    }
-                  }
-                }
+                INTERNAL_SYR2K_SCATTER(float, c, ldc, scratch, scratch2,
+                  bm, ib, jb, cm, cn, upper, diag,
+                  (float)alpha, (float)beta);
               }
             }
           }
@@ -983,74 +978,31 @@ LIBXS_API int libxs_syrk_task(
               skip = (ib + cm - 1 < jb);
             }
             if (0 == skip) {
+              const int diag = (ib == jb);
               memset(scratch, 0, need);
               for (kb = 0; kb < k; kb += bk) {
                 const int ck = LIBXS_MIN(bk, k - kb);
                 if (LIBXS_DATATYPE_F64 == config->shape.datatype) {
                   const double* ai = (const double*)a + ib + (size_t)kb * lda;
                   const double* aj = (const double*)a + jb + (size_t)kb * lda;
-                  double* t = (double*)scratch;
-                  int ii, jj, pp;
-                  for (jj = 0; jj < cn; ++jj) {
-                    for (ii = 0; ii < cm; ++ii) {
-                      double sum = 0.0;
-                      for (pp = 0; pp < ck; ++pp) {
-                        sum += ai[ii + (size_t)pp * lda]
-                             * aj[jj + (size_t)pp * lda];
-                      }
-                      t[ii + (size_t)jj * bm] += sum;
-                    }
-                  }
+                  INTERNAL_GEMM_ACCUM(double, ai, lda, aj, lda,
+                    (double*)scratch, bm, cm, cn, ck);
                 }
                 else {
                   const float* ai = (const float*)a + ib + (size_t)kb * lda;
                   const float* aj = (const float*)a + jb + (size_t)kb * lda;
-                  float* t = (float*)scratch;
-                  int ii, jj, pp;
-                  for (jj = 0; jj < cn; ++jj) {
-                    for (ii = 0; ii < cm; ++ii) {
-                      float sum = 0.f;
-                      for (pp = 0; pp < ck; ++pp) {
-                        sum += ai[ii + (size_t)pp * lda]
-                             * aj[jj + (size_t)pp * lda];
-                      }
-                      t[ii + (size_t)jj * bm] += sum;
-                    }
-                  }
+                  INTERNAL_GEMM_ACCUM(float, ai, lda, aj, lda,
+                    (float*)scratch, bm, cm, cn, ck);
                 }
               }
               if (LIBXS_DATATYPE_F64 == config->shape.datatype) {
-                double* cc = (double*)c;
-                const double* t = (const double*)scratch;
-                int ii, jj;
-                for (jj = 0; jj < cn; ++jj) {
-                  const int istart = (upper && ib == jb) ? 0
-                    : (upper ? 0 : (ib == jb ? jj : 0));
-                  const int iend = (upper && ib == jb) ? jj + 1
-                    : (upper ? cm : (ib == jb ? cm : cm));
-                  for (ii = istart; ii < iend; ++ii) {
-                    cc[(ib + ii) + (size_t)(jb + jj) * ldc] =
-                      beta * cc[(ib + ii) + (size_t)(jb + jj) * ldc]
-                      + alpha * t[ii + (size_t)jj * bm];
-                  }
-                }
+                INTERNAL_SYRK_SCATTER(double, c, ldc, scratch, bm,
+                  ib, jb, cm, cn, upper, diag, alpha, beta);
               }
               else {
-                float* cc = (float*)c;
-                const float* t = (const float*)scratch;
-                const float fa = (float)alpha, fb = (float)beta;
-                int ii, jj;
-                for (jj = 0; jj < cn; ++jj) {
-                  const int istart = (upper && ib == jb) ? 0
-                    : (upper ? 0 : (ib == jb ? jj : 0));
-                  const int iend = (upper && ib == jb) ? jj + 1
-                    : (upper ? cm : (ib == jb ? cm : cm));
-                  for (ii = istart; ii < iend; ++ii) {
-                    cc[(ib + ii) + (size_t)(jb + jj) * ldc] =
-                      fb * cc[(ib + ii) + (size_t)(jb + jj) * ldc]
-                      + fa * t[ii + (size_t)jj * bm];
-                  }
-                }
+                INTERNAL_SYRK_SCATTER(float, c, ldc, scratch, bm,
+                  ib, jb, cm, cn, upper, diag,
+                  (float)alpha, (float)beta);
               }
             }
           }
