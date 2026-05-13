@@ -181,122 +181,124 @@ LIBXS_API_INTERN void internal_libxs_gemm_print(FILE* ostream,
 
 
 LIBXS_API libxs_gemm_config_t* libxs_gemm_dispatch_rt(
-  libxs_data_t datatype, char transa, char transb,
-  int m, int n, int k, int lda, int ldb, int ldc,
-  const void* alpha, const void* beta,
-  libxs_jit_create_dgemm_t jit_create_dgemm,
-  libxs_jit_get_dgemm_t jit_get_dgemm,
-  libxs_jit_create_sgemm_t jit_create_sgemm,
-  libxs_jit_get_sgemm_t jit_get_sgemm,
-  libxs_xgemm_dispatch_t  xgemm_dispatch,
-  libxs_gemm_dblas_t dgemm_blas,
-  libxs_gemm_sblas_t sgemm_blas,
+  const libxs_gemm_shape_t* shape,
+  const libxs_gemm_shape_t* kernel_shape,
+  const libxs_gemm_backend_t* backend,
   void* registry)
 {
   libxs_gemm_config_t* result = NULL;
-  libxs_gemm_config_t config;
-  libxs_gemm_shape_t shape;
   libxs_registry_t* reg = NULL;
-  LIBXS_MEMZERO(&shape);
-  shape.datatype = datatype;
-  shape.transa = transa;
-  shape.transb = transb;
-  shape.m = m; shape.n = n; shape.k = k;
-  shape.lda = lda; shape.ldb = ldb; shape.ldc = ldc;
-  if (LIBXS_DATATYPE_F64 == datatype) {
-    shape.alpha = (NULL != alpha ? *(const double*)alpha : 1.0);
-    shape.beta  = (NULL != beta  ? *(const double*)beta  : 0.0);
+  if (NULL == shape
+    || (LIBXS_DATATYPE_F64 != shape->datatype
+     && LIBXS_DATATYPE_F32 != shape->datatype))
+  {
+    return result;
   }
-  else if (LIBXS_DATATYPE_F32 == datatype) {
-    shape.alpha = (NULL != alpha ? (double)*(const float*)alpha : 1.0);
-    shape.beta  = (NULL != beta  ? (double)*(const float*)beta  : 0.0);
+  if (NULL == kernel_shape) kernel_shape = shape;
+  if (NULL != registry) {
+    reg = (libxs_registry_t*)registry;
   }
-  if (LIBXS_DATATYPE_F64 == datatype || LIBXS_DATATYPE_F32 == datatype) {
-    if (NULL != registry) {
-      reg = (libxs_registry_t*)registry;
+  else {
+    if (NULL == internal_libxs_gemm_registry) {
+      internal_libxs_gemm_registry = libxs_registry_create();
     }
-    else {
-      if (NULL == internal_libxs_gemm_registry) {
-        internal_libxs_gemm_registry = libxs_registry_create();
-      }
-      reg = internal_libxs_gemm_registry;
-    }
-    if (NULL != reg) {
-      result = (libxs_gemm_config_t*)
-        libxs_registry_get((const libxs_registry_t*)reg,
-          &shape, sizeof(shape), libxs_registry_lock(reg));
-    }
+    reg = internal_libxs_gemm_registry;
+  }
+  if (NULL != reg) {
+    result = (libxs_gemm_config_t*)libxs_registry_get(
+      (const libxs_registry_t*)reg,
+      shape, sizeof(*shape), libxs_registry_lock(reg));
   }
   if (NULL == result && NULL != reg) {
-    const int ta = ('N' != transa && 'n' != transa);
-    const int tb = ('N' != transb && 'n' != transb);
+    libxs_gemm_config_t config;
+    const libxs_gemm_config_t* kernel = NULL;
+    if (0 != memcmp(shape, kernel_shape, sizeof(*shape))) {
+      kernel = (const libxs_gemm_config_t*)libxs_registry_get(
+        (const libxs_registry_t*)reg,
+        kernel_shape, sizeof(*kernel_shape), libxs_registry_lock(reg));
+    }
     LIBXS_MEMZERO(&config);
-    config.shape = shape;
-    /* MKL JIT (dgemm) */
-    if (NULL != jit_create_dgemm && NULL != jit_get_dgemm
-        && LIBXS_DATATYPE_F64 == datatype) {
-      const int mkl_ta = (0 == ta) ? 111 : 112;
-      const int mkl_tb = (0 == tb) ? 111 : 112;
-      void* jitter = NULL;
-      if (2 != jit_create_dgemm(&jitter, 102, mkl_ta, mkl_tb, m, n, k,
-        NULL != alpha ? *(const double*)alpha : 1.0, lda, ldb,
-        NULL != beta ? *(const double*)beta : 0.0, ldc))
-      {
-        void* fn = jit_get_dgemm(jitter);
-        if (NULL != fn) LIBXS_VALUE_ASSIGN(config.dgemm_jit, fn);
-        config.jitter = jitter;
-      }
+    config.shape = *shape;
+    if (NULL != kernel) {
+      config.dgemm_jit = kernel->dgemm_jit;
+      config.sgemm_jit = kernel->sgemm_jit;
+      config.xgemm = kernel->xgemm;
+      config.jitter = kernel->jitter;
+      config.dgemm_blas = kernel->dgemm_blas;
+      config.sgemm_blas = kernel->sgemm_blas;
     }
-    /* MKL JIT (sgemm) */
-    else if (NULL != jit_create_sgemm && NULL != jit_get_sgemm
-        && LIBXS_DATATYPE_F32 == datatype) {
-      const int mkl_ta = (0 == ta) ? 111 : 112;
-      const int mkl_tb = (0 == tb) ? 111 : 112;
-      void* jitter = NULL;
-      if (2 != jit_create_sgemm(&jitter, 101, mkl_ta, mkl_tb, m, n, k,
-        NULL != alpha ? *(const float*)alpha : 1.0f, lda, ldb,
-        NULL != beta ? *(const float*)beta : 0.0f, ldc))
-      {
-        void* fn = jit_get_sgemm(jitter);
-        if (NULL != fn) LIBXS_VALUE_ASSIGN(config.sgemm_jit, fn);
-        config.jitter = jitter;
-      }
-    }
-    /* LIBXSMM-style xgemm dispatch */
-    if (0 == libxs_gemm_ready(&config) && NULL != xgemm_dispatch) {
-      int xflags = 0, xsmm_ok = 0;
-      if (0 != ta) xflags |= 1;
-      if (0 != tb) xflags |= 2;
-      if (LIBXS_DATATYPE_F64 == datatype) {
-        const double a1 = (NULL != alpha ? *(const double*)alpha : 1.0);
-        const double b1 = (NULL != beta ? *(const double*)beta : 0.0);
-        if (1.0 == a1) {
-          if (0.0 == b1) { xflags |= 4; xsmm_ok = 1; }
-          else if (1.0 == b1) xsmm_ok = 1;
+    else {
+      const int ta = ('N' != kernel_shape->transa && 'n' != kernel_shape->transa);
+      const int tb = ('N' != kernel_shape->transb && 'n' != kernel_shape->transb);
+      const int km = kernel_shape->m, kn = kernel_shape->n, kk = kernel_shape->k;
+      const int klda = kernel_shape->lda, kldb = kernel_shape->ldb;
+      const int kldc = kernel_shape->ldc;
+      if (NULL != backend && NULL != backend->jit_create_dgemm
+          && NULL != backend->jit_get_dgemm
+          && LIBXS_DATATYPE_F64 == kernel_shape->datatype) {
+        const int mkl_ta = (0 == ta) ? 111 : 112;
+        const int mkl_tb = (0 == tb) ? 111 : 112;
+        void* jitter = NULL;
+        if (2 != backend->jit_create_dgemm(&jitter, 102, mkl_ta, mkl_tb,
+          km, kn, kk, kernel_shape->alpha, klda, kldb,
+          kernel_shape->beta, kldc))
+        {
+          void* fn = backend->jit_get_dgemm(jitter);
+          if (NULL != fn) LIBXS_VALUE_ASSIGN(config.dgemm_jit, fn);
+          config.jitter = jitter;
         }
       }
-      else if (LIBXS_DATATYPE_F32 == datatype) {
-        const float a1 = (NULL != alpha ? *(const float*)alpha : 1.0f);
-        const float b1 = (NULL != beta ? *(const float*)beta : 0.0f);
-        if (1.0f == a1) {
-          if (0.0f == b1) { xflags |= 4; xsmm_ok = 1; }
-          else if (1.0f == b1) xsmm_ok = 1;
+      else if (NULL != backend && NULL != backend->jit_create_sgemm
+          && NULL != backend->jit_get_sgemm
+          && LIBXS_DATATYPE_F32 == kernel_shape->datatype) {
+        const int mkl_ta = (0 == ta) ? 111 : 112;
+        const int mkl_tb = (0 == tb) ? 111 : 112;
+        void* jitter = NULL;
+        if (2 != backend->jit_create_sgemm(&jitter, 101, mkl_ta, mkl_tb,
+          km, kn, kk, (float)kernel_shape->alpha, klda, kldb,
+          (float)kernel_shape->beta, kldc))
+        {
+          void* fn = backend->jit_get_sgemm(jitter);
+          if (NULL != fn) LIBXS_VALUE_ASSIGN(config.sgemm_jit, fn);
+          config.jitter = jitter;
         }
       }
-      if (0 != xsmm_ok) {
-        libxs_gemm_xfn_t fn = xgemm_dispatch(
-          datatype, xflags, m, n, k, lda, ldb, ldc);
-        if (NULL != fn) config.xgemm = fn;
+      if (0 == libxs_gemm_ready(&config)
+          && NULL != backend && NULL != backend->xgemm_dispatch) {
+        int xflags = 0, xsmm_ok = 0;
+        if (0 != ta) xflags |= 1;
+        if (0 != tb) xflags |= 2;
+        if (1.0 == kernel_shape->alpha) {
+          if (0.0 == kernel_shape->beta) { xflags |= 4; xsmm_ok = 1; }
+          else if (1.0 == kernel_shape->beta) xsmm_ok = 1;
+        }
+        if (0 != xsmm_ok) {
+          libxs_gemm_xfn_t fn = backend->xgemm_dispatch(
+            kernel_shape->datatype, xflags, km, kn, kk, klda, kldb, kldc);
+          if (NULL != fn) config.xgemm = fn;
+        }
+      }
+      if (NULL != backend) {
+        config.dgemm_blas = backend->dgemm_blas;
+        config.sgemm_blas = backend->sgemm_blas;
+      }
+      if (0 != memcmp(shape, kernel_shape, sizeof(*shape))) {
+        libxs_gemm_config_t kconfig;
+        LIBXS_MEMZERO(&kconfig);
+        kconfig.shape = *kernel_shape;
+        kconfig.dgemm_jit = config.dgemm_jit;
+        kconfig.sgemm_jit = config.sgemm_jit;
+        kconfig.xgemm = config.xgemm;
+        kconfig.jitter = config.jitter;
+        kconfig.dgemm_blas = config.dgemm_blas;
+        kconfig.sgemm_blas = config.sgemm_blas;
+        libxs_registry_set(reg, kernel_shape, sizeof(*kernel_shape),
+          &kconfig, sizeof(kconfig), libxs_registry_lock(reg));
       }
     }
-    /* BLAS fallback pointers */
-    config.dgemm_blas = dgemm_blas;
-    config.sgemm_blas = sgemm_blas;
-    if (NULL != reg) {
-      result = (libxs_gemm_config_t*)
-        libxs_registry_set(reg, &shape, sizeof(shape),
-          &config, sizeof(config), libxs_registry_lock(reg));
-    }
+    result = (libxs_gemm_config_t*)libxs_registry_set(
+      reg, shape, sizeof(*shape),
+      &config, sizeof(config), libxs_registry_lock(reg));
     if (NULL == result) {
       static LIBXS_TLS libxs_gemm_config_t fallback;
       fallback = config;
@@ -578,53 +580,23 @@ LIBXS_API libxs_gemm_config_t* libxs_syr2k_dispatch(
   libxs_data_t datatype, int n, int k, int lda, int ldb, int ldc,
   void* registry)
 {
-  const double one = 1.0, zero = 0.0;
   const int km = LIBXS_MIN(n, LIBXS_GEMM_BLOCK_M);
   const int kn = LIBXS_MIN(n, LIBXS_GEMM_BLOCK_N);
   const int kk = LIBXS_MIN(k, LIBXS_GEMM_BLOCK_K);
-  libxs_gemm_config_t* result = NULL;
-  libxs_gemm_config_t config;
-  libxs_gemm_shape_t shape;
-  libxs_registry_t* reg;
+  libxs_gemm_shape_t shape, kshape;
   LIBXS_MEMZERO(&shape);
   shape.datatype = datatype;
   shape.transa = 'N'; shape.transb = 'T';
   shape.m = n; shape.n = n; shape.k = k;
   shape.lda = lda; shape.ldb = ldb; shape.ldc = ldc;
   shape.alpha = 1.0; shape.beta = 0.0;
-  if (NULL != registry) {
-    reg = (libxs_registry_t*)registry;
-  }
-  else {
-    if (NULL == internal_libxs_gemm_registry) {
-      internal_libxs_gemm_registry = libxs_registry_create();
-    }
-    reg = internal_libxs_gemm_registry;
-  }
-  if (NULL != reg) {
-    result = (libxs_gemm_config_t*)libxs_registry_get(
-      (const libxs_registry_t*)reg,
-      &shape, sizeof(shape), libxs_registry_lock(reg));
-  }
-  if (NULL == result && NULL != reg) {
-    libxs_gemm_config_t* kernel = libxs_gemm_dispatch_rt(
-      datatype, 'N', 'T', km, kn, kk, lda, ldb, km, &one, &zero,
-      NULL, NULL, NULL, NULL, NULL, NULL, NULL, registry);
-    LIBXS_MEMZERO(&config);
-    config.shape = shape;
-    if (NULL != kernel) {
-      config.dgemm_jit = kernel->dgemm_jit;
-      config.sgemm_jit = kernel->sgemm_jit;
-      config.xgemm = kernel->xgemm;
-      config.jitter = kernel->jitter;
-      config.dgemm_blas = kernel->dgemm_blas;
-      config.sgemm_blas = kernel->sgemm_blas;
-    }
-    result = (libxs_gemm_config_t*)libxs_registry_set(
-      reg, &shape, sizeof(shape),
-      &config, sizeof(config), libxs_registry_lock(reg));
-  }
-  return result;
+  LIBXS_MEMZERO(&kshape);
+  kshape.datatype = datatype;
+  kshape.transa = 'N'; kshape.transb = 'T';
+  kshape.m = km; kshape.n = kn; kshape.k = kk;
+  kshape.lda = lda; kshape.ldb = ldb; kshape.ldc = km;
+  kshape.alpha = 1.0; kshape.beta = 0.0;
+  return libxs_gemm_dispatch_rt(&shape, &kshape, NULL, registry);
 }
 
 

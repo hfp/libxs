@@ -157,10 +157,12 @@ libxs_syr2k
 libxs_syr2k_config
 libxs_syr2k_direct
 libxs_syr2k_dispatch
+libxs_syr2k_task
 libxs_syrk
 libxs_syrk_config
 libxs_syrk_direct
 libxs_syrk_dispatch
+libxs_syrk_task
 libxs_tid
 libxs_timer_duration
 libxs_timer_info

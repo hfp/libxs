@@ -76,6 +76,7 @@
         PUBLIC :: libxs_cpuid_amx_enable
 
         !> Public API: GEMM dispatch.
+        PUBLIC :: libxs_gemm_backend_t
         PUBLIC :: libxs_gemm_shape_t, libxs_gemm_config_t
         PUBLIC :: LIBXS_GEMM_FLAGS_DEFAULT, LIBXS_GEMM_FLAG_NOLOCK
         PUBLIC :: libxs_gemm_ready, libxs_gemm_call
@@ -205,6 +206,16 @@
         !> and scalar coefficients. Alpha/beta stored as
         !> double (float promoted without loss). Also serves
         !> as registry key when caching configurations.
+        TYPE, BIND(C) :: libxs_gemm_backend_t
+          TYPE(C_FUNPTR) :: jit_create_dgemm = C_NULL_FUNPTR
+          TYPE(C_FUNPTR) :: jit_get_dgemm    = C_NULL_FUNPTR
+          TYPE(C_FUNPTR) :: jit_create_sgemm = C_NULL_FUNPTR
+          TYPE(C_FUNPTR) :: jit_get_sgemm    = C_NULL_FUNPTR
+          TYPE(C_FUNPTR) :: xgemm_dispatch   = C_NULL_FUNPTR
+          TYPE(C_FUNPTR) :: dgemm_blas       = C_NULL_FUNPTR
+          TYPE(C_FUNPTR) :: sgemm_blas       = C_NULL_FUNPTR
+        END TYPE
+
         TYPE, BIND(C) :: libxs_gemm_shape_t
           INTEGER(C_INT) :: datatype   = 0
           CHARACTER(C_CHAR) :: transa  = C_NULL_CHAR
@@ -630,25 +641,14 @@
             TYPE(libxs_gemm_config_t), INTENT(IN) :: config
           END SUBROUTINE
 
-          !> Runtime GEMM dispatch (accepts backend fn ptrs).
-          FUNCTION internal_gemm_dispatch_rt(datatype,                  &
-     &    transa, transb, m, n, k, lda, ldb, ldc,                       &
-     &    alpha, beta,                                                  &
-     &    jit_create_dgemm, jit_get_dgemm,                              &
-     &    jit_create_sgemm, jit_get_sgemm,                              &
-     &    xgemm_dispatch, dgemm_blas, sgemm_blas,                       &
-     &    registry) BIND(C, NAME="libxs_gemm_dispatch_rt")
-            IMPORT :: C_PTR, C_INT, C_CHAR, C_FUNPTR
-            INTEGER(C_INT), INTENT(IN), VALUE :: datatype
-            CHARACTER(C_CHAR), INTENT(IN), VALUE ::                     &
-     &        transa, transb
-            INTEGER(C_INT), INTENT(IN), VALUE ::                        &
-     &        m, n, k, lda, ldb, ldc
-            TYPE(C_PTR), INTENT(IN), VALUE :: alpha, beta
-            TYPE(C_FUNPTR), INTENT(IN), VALUE ::                        &
-     &        jit_create_dgemm, jit_get_dgemm,                          &
-     &        jit_create_sgemm, jit_get_sgemm,                          &
-     &        xgemm_dispatch, dgemm_blas, sgemm_blas
+          !> Runtime GEMM dispatch (struct-based).
+          FUNCTION internal_gemm_dispatch_rt(shape,                     &
+     &    kernel_shape, backend, registry)                              &
+     &    BIND(C, NAME="libxs_gemm_dispatch_rt")
+            IMPORT :: libxs_gemm_shape_t, libxs_gemm_backend_t, C_PTR
+            TYPE(libxs_gemm_shape_t), INTENT(IN) :: shape
+            TYPE(libxs_gemm_shape_t), INTENT(IN) :: kernel_shape
+            TYPE(libxs_gemm_backend_t), INTENT(IN) :: backend
             TYPE(C_PTR), INTENT(IN), VALUE :: registry
             TYPE(C_PTR) :: internal_gemm_dispatch_rt
           END FUNCTION
@@ -1242,7 +1242,7 @@
           INTEGER(C_INT), INTENT(IN) :: datatype
           CHARACTER(C_CHAR), INTENT(IN) :: transa, transb
           INTEGER(C_INT), INTENT(IN) :: m, n, k, lda, ldb, ldc
-          REAL(C_DOUBLE), INTENT(IN), TARGET :: alpha, beta
+          REAL(C_DOUBLE), INTENT(IN) :: alpha, beta
           TYPE(C_FUNPTR), INTENT(IN), OPTIONAL ::                       &
      &      jit_create_dgemm, jit_get_dgemm,                            &
      &      jit_create_sgemm, jit_get_sgemm,                            &
@@ -1250,27 +1250,39 @@
           TYPE(C_PTR), INTENT(IN), OPTIONAL :: registry
           INTEGER(C_INT) :: libxs_gemm_dispatch
           TYPE(libxs_gemm_config_t), POINTER :: cached
+          TYPE(libxs_gemm_shape_t) :: shape
+          TYPE(libxs_gemm_backend_t) :: be
           TYPE(C_PTR) :: ptr, preg
-          TYPE(C_FUNPTR) :: fp(7)
-          INTEGER :: ii
-          DO ii = 1, 7
-            fp(ii) = C_NULL_FUNPTR
-          END DO
-          IF (PRESENT(jit_create_dgemm)) fp(1) = jit_create_dgemm
-          IF (PRESENT(jit_get_dgemm))    fp(2) = jit_get_dgemm
-          IF (PRESENT(jit_create_sgemm)) fp(3) = jit_create_sgemm
-          IF (PRESENT(jit_get_sgemm))    fp(4) = jit_get_sgemm
-          IF (PRESENT(xgemm_dispatch))   fp(5) = xgemm_dispatch
-          IF (PRESENT(dgemm_blas))       fp(6) = dgemm_blas
-          IF (PRESENT(sgemm_blas))       fp(7) = sgemm_blas
+          shape%datatype = datatype
+          shape%transa = transa; shape%transb = transb
+          shape%m = m; shape%n = n; shape%k = k
+          shape%lda = lda; shape%ldb = ldb; shape%ldc = ldc
+          shape%alpha = alpha; shape%beta = beta
+          IF (PRESENT(jit_create_dgemm)) THEN
+            be%jit_create_dgemm = jit_create_dgemm
+          END IF
+          IF (PRESENT(jit_get_dgemm)) THEN
+            be%jit_get_dgemm = jit_get_dgemm
+          END IF
+          IF (PRESENT(jit_create_sgemm)) THEN
+            be%jit_create_sgemm = jit_create_sgemm
+          END IF
+          IF (PRESENT(jit_get_sgemm)) THEN
+            be%jit_get_sgemm = jit_get_sgemm
+          END IF
+          IF (PRESENT(xgemm_dispatch)) THEN
+            be%xgemm_dispatch = xgemm_dispatch
+          END IF
+          IF (PRESENT(dgemm_blas)) THEN
+            be%dgemm_blas = dgemm_blas
+          END IF
+          IF (PRESENT(sgemm_blas)) THEN
+            be%sgemm_blas = sgemm_blas
+          END IF
           IF (PRESENT(registry)) THEN
             preg = registry
           ELSE; preg = C_NULL_PTR; END IF
-          ptr = internal_gemm_dispatch_rt(datatype,                     &
-     &      transa, transb, m, n, k, lda, ldb, ldc,                     &
-     &      C_LOC(alpha), C_LOC(beta),                                  &
-     &      fp(1), fp(2), fp(3), fp(4),                                 &
-     &      fp(5), fp(6), fp(7), preg)
+          ptr = internal_gemm_dispatch_rt(shape, shape, be, preg)
           IF (C_ASSOCIATED(ptr)) THEN
             CALL C_F_POINTER(ptr, cached)
             config = cached
@@ -1312,31 +1324,40 @@
      &      xgemm_dispatch, dgemm_blas, sgemm_blas
           TYPE(C_PTR), INTENT(IN), OPTIONAL :: registry
           TYPE(C_PTR) :: libxs_syr2k_dispatch
+          TYPE(libxs_gemm_shape_t) :: shape
+          TYPE(libxs_gemm_backend_t) :: be
           TYPE(C_PTR) :: preg
-          TYPE(C_FUNPTR) :: fp(7)
-          INTEGER :: ii
-          DO ii = 1, 7
-            fp(ii) = C_NULL_FUNPTR
-          END DO
-          IF (PRESENT(jit_create_dgemm)) fp(1) = jit_create_dgemm
-          IF (PRESENT(jit_get_dgemm))    fp(2) = jit_get_dgemm
-          IF (PRESENT(jit_create_sgemm)) fp(3) = jit_create_sgemm
-          IF (PRESENT(jit_get_sgemm))    fp(4) = jit_get_sgemm
-          IF (PRESENT(xgemm_dispatch))   fp(5) = xgemm_dispatch
-          IF (PRESENT(dgemm_blas))       fp(6) = dgemm_blas
-          IF (PRESENT(sgemm_blas))       fp(7) = sgemm_blas
+          shape%datatype = datatype
+          shape%transa = 'N'; shape%transb = 'T'
+          shape%m = n; shape%n = n; shape%k = k
+          shape%lda = lda; shape%ldb = ldb; shape%ldc = ldc
+          shape%alpha = 1D0; shape%beta = 0D0
+          IF (PRESENT(jit_create_dgemm)) THEN
+            be%jit_create_dgemm = jit_create_dgemm
+          END IF
+          IF (PRESENT(jit_get_dgemm)) THEN
+            be%jit_get_dgemm = jit_get_dgemm
+          END IF
+          IF (PRESENT(jit_create_sgemm)) THEN
+            be%jit_create_sgemm = jit_create_sgemm
+          END IF
+          IF (PRESENT(jit_get_sgemm)) THEN
+            be%jit_get_sgemm = jit_get_sgemm
+          END IF
+          IF (PRESENT(xgemm_dispatch)) THEN
+            be%xgemm_dispatch = xgemm_dispatch
+          END IF
+          IF (PRESENT(dgemm_blas)) THEN
+            be%dgemm_blas = dgemm_blas
+          END IF
+          IF (PRESENT(sgemm_blas)) THEN
+            be%sgemm_blas = sgemm_blas
+          END IF
           IF (PRESENT(registry)) THEN
             preg = registry
           ELSE; preg = C_NULL_PTR; END IF
-          BLOCK
-            REAL(C_DOUBLE), TARGET :: one, zero
-            one = 1D0; zero = 0D0
-            libxs_syr2k_dispatch = internal_gemm_dispatch_rt(           &
-     &        datatype, 'N', 'T', n, n, k, lda, ldb,                    &
-     &        ldc, C_LOC(one), C_LOC(zero),                             &
-     &        fp(1), fp(2), fp(3), fp(4),                               &
-     &        fp(5), fp(6), fp(7), preg)
-          END BLOCK
+          libxs_syr2k_dispatch = internal_gemm_dispatch_rt(             &
+     &      shape, shape, be, preg)
         END FUNCTION
 
         !> Dispatch a GEMM config for SYRK.

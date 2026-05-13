@@ -95,6 +95,17 @@ typedef libxs_gemm_xfn_t (*libxs_xgemm_dispatch_t)(
   int datatype, int flags, int m, int n, int k,
   int lda, int ldb, int ldc);
 
+/** Backend function pointers for GEMM dispatch. */
+typedef struct libxs_gemm_backend_t {
+  libxs_jit_create_dgemm_t jit_create_dgemm;
+  libxs_jit_get_dgemm_t   jit_get_dgemm;
+  libxs_jit_create_sgemm_t jit_create_sgemm;
+  libxs_jit_get_sgemm_t   jit_get_sgemm;
+  libxs_xgemm_dispatch_t  xgemm_dispatch;
+  libxs_gemm_dblas_t dgemm_blas;
+  libxs_gemm_sblas_t sgemm_blas;
+} libxs_gemm_backend_t;
+
 /** Flags controlling GEMM batch synchronization (bitfield). */
 typedef enum libxs_gemm_flags_t {
   LIBXS_GEMM_FLAGS_DEFAULT = 0,
@@ -140,22 +151,20 @@ typedef struct libxs_gemm_config_t {
 } libxs_gemm_config_t;
 
 /**
- * Runtime GEMM dispatch: accepts backend function pointers explicitly.
- * Accepts nullable function pointers for MKL JIT, LIBXSMM xgemm, and
- * BLAS fallback. Priority: MKL JIT > xgemm > BLAS > built-in default.
+ * Runtime GEMM dispatch with double-dispatch support.
+ * shape: full problem shape (used as registry key and stored in config).
+ * kernel_shape: actual kernel dimensions to dispatch (may differ from
+ *   shape, e.g., tight ldc for scratch). NULL means same as shape.
+ *   If kernel_shape differs, the kernel is looked up/registered under
+ *   its own key, avoiding redundant code generation.
+ * backend: backend function pointers (MKL JIT, LIBXSMM, BLAS). NULL
+ *   means no backends (built-in default only).
  * Returns pointer to cached config (registry-owned), NULL on failure.
  */
 LIBXS_API libxs_gemm_config_t* libxs_gemm_dispatch_rt(
-  libxs_data_t datatype, char transa, char transb,
-  int m, int n, int k, int lda, int ldb, int ldc,
-  const void* alpha, const void* beta,
-  libxs_jit_create_dgemm_t jit_create_dgemm,
-  libxs_jit_get_dgemm_t   jit_get_dgemm,
-  libxs_jit_create_sgemm_t jit_create_sgemm,
-  libxs_jit_get_sgemm_t   jit_get_sgemm,
-  libxs_xgemm_dispatch_t  xgemm_dispatch,
-  libxs_gemm_dblas_t dgemm_blas,
-  libxs_gemm_sblas_t sgemm_blas,
+  const libxs_gemm_shape_t* shape,
+  const libxs_gemm_shape_t* kernel_shape,
+  const libxs_gemm_backend_t* backend,
   void* registry);
 
 /**
@@ -252,22 +261,32 @@ LIBXS_API_INLINE libxs_gemm_config_t* libxs_gemm_dispatch(
   const void* alpha, const void* beta,
   void* LIBXS_ARGDEF(registry, NULL))
 {
-  return libxs_gemm_dispatch_rt(datatype, transa, transb,
-    m, n, k, lda, ldb, ldc, alpha, beta,
+  libxs_gemm_shape_t shape;
+  libxs_gemm_backend_t be;
+  memset(&shape, 0, sizeof(shape));
+  shape.datatype = datatype;
+  shape.transa = transa; shape.transb = transb;
+  shape.m = m; shape.n = n; shape.k = k;
+  shape.lda = lda; shape.ldb = ldb; shape.ldc = ldc;
+  if (LIBXS_DATATYPE_F64 == datatype) {
+    shape.alpha = (NULL != alpha ? *(const double*)alpha : 1.0);
+    shape.beta  = (NULL != beta  ? *(const double*)beta  : 0.0);
+  }
+  else if (LIBXS_DATATYPE_F32 == datatype) {
+    shape.alpha = (NULL != alpha ? (double)*(const float*)alpha : 1.0);
+    shape.beta  = (NULL != beta  ? (double)*(const float*)beta  : 0.0);
+  }
+  memset(&be, 0, sizeof(be));
 #if defined(mkl_jit_create_dgemm)
-    (libxs_jit_create_dgemm_t)mkl_jit_create_dgemm,
-    (libxs_jit_get_dgemm_t)mkl_jit_get_dgemm_ptr,
-    (libxs_jit_create_sgemm_t)mkl_jit_create_sgemm,
-    (libxs_jit_get_sgemm_t)mkl_jit_get_sgemm_ptr,
-#else
-    NULL, NULL, NULL, NULL,
+  be.jit_create_dgemm = (libxs_jit_create_dgemm_t)mkl_jit_create_dgemm;
+  be.jit_get_dgemm = (libxs_jit_get_dgemm_t)mkl_jit_get_dgemm_ptr;
+  be.jit_create_sgemm = (libxs_jit_create_sgemm_t)mkl_jit_create_sgemm;
+  be.jit_get_sgemm = (libxs_jit_get_sgemm_t)mkl_jit_get_sgemm_ptr;
 #endif
 #if defined(LIBXSMM_H)
-    internal_libxs_xgemm_dispatch,
-#else
-    NULL,
+  be.xgemm_dispatch = internal_libxs_xgemm_dispatch;
 #endif
-    NULL, NULL, registry);
+  return libxs_gemm_dispatch_rt(&shape, NULL, &be, registry);
 }
 
 /**
