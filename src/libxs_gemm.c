@@ -11,7 +11,7 @@
 #include "libxs_main.h"
 #include "libxs_crc32.h"
 
-#if !defined(LIBXS_GEMM_PRINT) && 0
+#if !defined(LIBXS_GEMM_PRINT) && 1
 # define LIBXS_GEMM_PRINT
 #endif
 
@@ -659,7 +659,7 @@ LIBXS_API_INTERN void internal_libxs_gemm_blas(
 
 LIBXS_API libxs_gemm_config_t* libxs_syr2k_dispatch(
   libxs_data_t datatype, int n, int k, int lda, int ldb, int ldc,
-  void* registry)
+  const libxs_gemm_backend_t* backend, void* registry)
 {
   const int km = LIBXS_MIN(n, LIBXS_GEMM_BLOCK_M);
   const int kn = LIBXS_MIN(n, LIBXS_GEMM_BLOCK_N);
@@ -676,16 +676,17 @@ LIBXS_API libxs_gemm_config_t* libxs_syr2k_dispatch(
   kshape.transa = 'N'; kshape.transb = 'T';
   kshape.m = km; kshape.n = kn; kshape.k = kk;
   kshape.lda = lda; kshape.ldb = ldb; kshape.ldc = km;
-  kshape.alpha = 1.0; kshape.beta = 0.0;
-  return libxs_gemm_dispatch_rt(&shape, &kshape, NULL, registry);
+  kshape.alpha = 1.0; kshape.beta = 1.0;
+  return libxs_gemm_dispatch_rt(&shape, &kshape, backend, registry);
 }
 
 
 LIBXS_API libxs_gemm_config_t* libxs_syrk_dispatch(
   libxs_data_t datatype, int n, int k, int lda, int ldc,
-  void* registry)
+  const libxs_gemm_backend_t* backend, void* registry)
 {
-  return libxs_syr2k_dispatch(datatype, n, k, lda, lda, ldc, registry);
+  return libxs_syr2k_dispatch(datatype, n, k, lda, lda, ldc,
+    backend, registry);
 }
 
 
@@ -726,6 +727,7 @@ LIBXS_API int libxs_syr2k_task(
         const size_t need = (size_t)n * (size_t)n * elemsize;
         void* scratch = internal_libxs_syrk_scratch(need);
         if (NULL != scratch) {
+          memset(scratch, 0, need);
           if (EXIT_SUCCESS != libxs_gemm_call(config, a, b, scratch)) {
             internal_libxs_gemm_blas(config, a, b, scratch,
               lda, ldb, n, 1.0, 0.0);
@@ -810,13 +812,28 @@ LIBXS_API int libxs_syr2k_task(
             }
             if (0 == skip) {
               const int diag = (ib == jb);
+              const int full = (cm == bm && cn == bn);
               const size_t clear = diag
                 ? (size_t)bm * bn * elemsize
                 : need;
               memset(scratch, 0, clear);
               for (kb = 0; kb < k; kb += bk) {
                 const int ck = LIBXS_MIN(bk, k - kb);
-                if (LIBXS_DATATYPE_F64 == config->shape.datatype) {
+                if (full && ck == bk && 0 != libxs_gemm_ready(config)) {
+                  const size_t aoff = ((size_t)ib + (size_t)kb * lda) * elemsize;
+                  const size_t boff = ((size_t)jb + (size_t)kb * ldb) * elemsize;
+                  const size_t bioff = ((size_t)ib + (size_t)kb * ldb) * elemsize;
+                  const size_t ajoff = ((size_t)jb + (size_t)kb * lda) * elemsize;
+                  libxs_gemm_call(config,
+                    (const char*)a + aoff,
+                    (const char*)b + boff, scratch);
+                  if (0 == diag) {
+                    libxs_gemm_call(config,
+                      (const char*)b + bioff,
+                      (const char*)a + ajoff, scratch2);
+                  }
+                }
+                else if (LIBXS_DATATYPE_F64 == config->shape.datatype) {
                   const double* ai = (const double*)a + ib + (size_t)kb * lda;
                   const double* bj = (const double*)b + jb + (size_t)kb * ldb;
                   INTERNAL_GEMM_ACCUM(double, ai, lda, bj, ldb,
@@ -896,6 +913,7 @@ LIBXS_API int libxs_syrk_task(
         const size_t need = (size_t)n * (size_t)n * elemsize;
         void* scratch = internal_libxs_syrk_scratch(need);
         if (NULL != scratch) {
+          memset(scratch, 0, need);
           if (EXIT_SUCCESS != libxs_gemm_call(config, a, a, scratch)) {
             internal_libxs_gemm_blas(config, a, a, scratch,
               lda, lda, n, 1.0, 0.0);
@@ -979,10 +997,18 @@ LIBXS_API int libxs_syrk_task(
             }
             if (0 == skip) {
               const int diag = (ib == jb);
+              const int full = (cm == bm && cn == bn);
               memset(scratch, 0, need);
               for (kb = 0; kb < k; kb += bk) {
                 const int ck = LIBXS_MIN(bk, k - kb);
-                if (LIBXS_DATATYPE_F64 == config->shape.datatype) {
+                if (full && ck == bk && 0 != libxs_gemm_ready(config)) {
+                  const size_t aoff = ((size_t)ib + (size_t)kb * lda) * elemsize;
+                  const size_t ajoff = ((size_t)jb + (size_t)kb * lda) * elemsize;
+                  libxs_gemm_call(config,
+                    (const char*)a + aoff,
+                    (const char*)a + ajoff, scratch);
+                }
+                else if (LIBXS_DATATYPE_F64 == config->shape.datatype) {
                   const double* ai = (const double*)a + ib + (size_t)kb * lda;
                   const double* aj = (const double*)a + jb + (size_t)kb * lda;
                   INTERNAL_GEMM_ACCUM(double, ai, lda, aj, lda,

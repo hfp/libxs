@@ -43,7 +43,7 @@
 #endif
 
         INTEGER, PARAMETER :: T = KIND(0D0)
-        INTEGER :: n, k, argc, r, nrepeat, i, j
+        INTEGER :: n, k, argc, r, nrepeat
         CHARACTER(32) :: argv
         REAL(T), ALLOCATABLE, TARGET :: a(:,:), b(:,:)
         REAL(T), ALLOCATABLE, TARGET :: c(:,:), cref(:,:)
@@ -106,21 +106,13 @@
         END IF
         CALL C_F_POINTER(ptr, config)
 
-        ! Reference: DSYRK via loops
-        DO j = 1, n
-          DO i = j, n
-            cref(i, j) = alpha * DOT_PRODUCT(a(i,:), a(j,:))            &
-     &                 + beta * cref(i, j)
-          END DO
-        END DO
-
+        CALL DSYRK('L', 'N', n, k, alpha, a, n, beta, cref, n)
         rc = libxs_syrk(config, 'L', alpha, beta, C_LOC(a), C_LOC(c))
         IF (0 /= rc) THEN
           WRITE(*, "(A)") "FAILED: libxs_syrk returned error"
           ERROR STOP 1
         END IF
 
-        ! Validate lower triangle
         CALL libxs_matdiff_clear(diff)
         CALL libxs_matdiff(diff, LIBXS_DATATYPE_F64, n, n,              &
      &    C_LOC(cref), C_LOC(c))
@@ -147,16 +139,7 @@
         END IF
         CALL C_F_POINTER(ptr, config)
 
-        ! Reference: DSYR2K via loops
-        DO j = 1, n
-          DO i = 1, j
-            cref(i, j) = alpha                                          &
-     &        * (DOT_PRODUCT(a(i,:), b(j,:))                            &
-     &         + DOT_PRODUCT(b(i,:), a(j,:)))                           &
-     &        + beta * cref(i, j)
-          END DO
-        END DO
-
+        CALL DSYR2K('U', 'N', n, k, alpha, a, n, b, n, beta, cref, n)
         rc = libxs_syr2k(config, 'U', alpha, beta,                      &
      &    C_LOC(a), C_LOC(b), C_LOC(c))
         IF (0 /= rc) THEN
@@ -164,14 +147,13 @@
           ERROR STOP 1
         END IF
 
-        ! Validate upper triangle
         CALL libxs_matdiff_clear(diff)
         CALL libxs_matdiff(diff, LIBXS_DATATYPE_F64, n, n,              &
      &    C_LOC(cref), C_LOC(c))
         WRITE(*, "(A,E12.5)")                                           &
      &    "  max error (upper): ", diff%linf_abs
 
-        ! Performance: SYRK
+        ! Performance comparison
         WRITE(*, "(A)") ""
         WRITE(*, "(A)") "--- SYRK performance ---"
 
@@ -183,11 +165,29 @@
         ptr = libxs_syrk_dispatch(LIBXS_DATATYPE_F64, n, k, n, n)
 #endif
         CALL C_F_POINTER(ptr, config)
+
+        gflops = DBLE(n) * DBLE(n) * DBLE(k) * 2D-9
+
+        ! BLAS timing
+        cref = 0D0
+        CALL DSYRK('L', 'N', n, k, alpha, a, n, beta, cref, n)
+        t0 = libxs_timer_tick()
+        DO r = 1, nrepeat
+          CALL DSYRK('L', 'N', n, k, alpha, a, n, beta, cref, n)
+        END DO
+        t1 = libxs_timer_tick()
+        duration = libxs_timer_duration(t0, t1)
+        IF (0D0 < duration) THEN
+          WRITE(*, "(A,F10.3,A,I0,A)")                                  &
+     &      "  BLAS: ", duration, " s (", nrepeat, " calls)"
+          WRITE(*, "(A,F10.1,A)")                                       &
+     &      "        ", gflops * DBLE(nrepeat) / duration,              &
+     &      " GFLOPS/s"
+        END IF
+
+        ! LIBXS timing
         c = 0D0
-
-        ! warmup
         rc = libxs_syrk(config, 'L', alpha, beta, C_LOC(a), C_LOC(c))
-
         t0 = libxs_timer_tick()
         DO r = 1, nrepeat
           rc = libxs_syrk(config, 'L', alpha, beta,                     &
@@ -195,13 +195,11 @@
         END DO
         t1 = libxs_timer_tick()
         duration = libxs_timer_duration(t0, t1)
-
-        gflops = DBLE(n) * DBLE(n) * DBLE(k) * 2D-9
         IF (0D0 < duration) THEN
           WRITE(*, "(A,F10.3,A,I0,A)")                                  &
-     &      "  time: ", duration, " s (", nrepeat, " calls)"
+     &      "  LIBXS:", duration, " s (", nrepeat, " calls)"
           WRITE(*, "(A,F10.1,A)")                                       &
-     &      "  perf: ", gflops * DBLE(nrepeat) / duration,              &
+     &      "        ", gflops * DBLE(nrepeat) / duration,              &
      &      " GFLOPS/s"
         END IF
 

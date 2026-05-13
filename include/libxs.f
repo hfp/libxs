@@ -756,6 +756,17 @@
      &      m, n, ldi, ldo, tid, ntasks
           END SUBROUTINE
 
+          FUNCTION internal_syr2k_dispatch(datatype,                    &
+     &    n, k, lda, ldb, ldc, backend, registry)                       &
+     &    BIND(C, NAME="libxs_syr2k_dispatch")
+            IMPORT :: libxs_gemm_backend_t, C_PTR, C_INT
+            INTEGER(C_INT), INTENT(IN), VALUE ::                        &
+     &        datatype, n, k, lda, ldb, ldc
+            TYPE(libxs_gemm_backend_t), INTENT(IN) :: backend
+            TYPE(C_PTR), INTENT(IN), VALUE :: registry
+            TYPE(C_PTR) :: internal_syr2k_dispatch
+          END FUNCTION
+
         END INTERFACE
 
         !> Allocate memory (flags=0: automatic).
@@ -1324,14 +1335,8 @@
      &      xgemm_dispatch, dgemm_blas, sgemm_blas
           TYPE(C_PTR), INTENT(IN), OPTIONAL :: registry
           TYPE(C_PTR) :: libxs_syr2k_dispatch
-          TYPE(libxs_gemm_shape_t) :: shape
           TYPE(libxs_gemm_backend_t) :: be
           TYPE(C_PTR) :: preg
-          shape%datatype = datatype
-          shape%transa = 'N'; shape%transb = 'T'
-          shape%m = n; shape%n = n; shape%k = k
-          shape%lda = lda; shape%ldb = ldb; shape%ldc = ldc
-          shape%alpha = 1D0; shape%beta = 0D0
           IF (PRESENT(jit_create_dgemm)) THEN
             be%jit_create_dgemm = jit_create_dgemm
           END IF
@@ -1356,8 +1361,8 @@
           IF (PRESENT(registry)) THEN
             preg = registry
           ELSE; preg = C_NULL_PTR; END IF
-          libxs_syr2k_dispatch = internal_gemm_dispatch_rt(             &
-     &      shape, shape, be, preg)
+          libxs_syr2k_dispatch = internal_syr2k_dispatch(               &
+     &      datatype, n, k, lda, ldb, ldc, be, preg)
         END FUNCTION
 
         !> Dispatch a GEMM config for SYRK.

@@ -358,13 +358,12 @@ LIBXS_API_INLINE void libxs_gemm_release_registry(libxs_registry_t* registry) {
 
 /**
  * Dispatch a GEMM config suitable for libxs_syr2k.
- * Internally dispatches GEMM('N','T', n, n, k, lda, ldb, n) with
- * alpha=1, beta=0 into the registry. Returns pointer to the
- * dispatched config (registry-owned), or NULL on failure.
- * The returned config stores ldc for the output matrix.
+ * backend: optional backend pointers (NULL = built-in only).
+ * Returns pointer to cached config (registry-owned), or NULL.
  */
 LIBXS_API libxs_gemm_config_t* libxs_syr2k_dispatch(
   libxs_data_t datatype, int n, int k, int lda, int ldb, int ldc,
+  const libxs_gemm_backend_t* LIBXS_ARGDEF(backend, NULL),
   void* LIBXS_ARGDEF(registry, NULL));
 
 /**
@@ -373,6 +372,7 @@ LIBXS_API libxs_gemm_config_t* libxs_syr2k_dispatch(
  */
 LIBXS_API libxs_gemm_config_t* libxs_syrk_dispatch(
   libxs_data_t datatype, int n, int k, int lda, int ldc,
+  const libxs_gemm_backend_t* LIBXS_ARGDEF(backend, NULL),
   void* LIBXS_ARGDEF(registry, NULL));
 
 /**
