@@ -579,58 +579,50 @@ LIBXS_API libxs_gemm_config_t* libxs_syr2k_dispatch(
   void* registry)
 {
   const double one = 1.0, zero = 0.0;
-  libxs_gemm_config_t* result;
-  if (n <= LIBXS_GEMM_BLOCK_M && n <= LIBXS_GEMM_BLOCK_N
-    && k <= LIBXS_GEMM_BLOCK_K)
-  {
-    result = libxs_gemm_dispatch_rt(
-      datatype, 'N', 'T', n, n, k, lda, ldb, ldc, &one, &zero,
-      NULL, NULL, NULL, NULL, NULL, NULL, NULL, registry);
+  const int km = LIBXS_MIN(n, LIBXS_GEMM_BLOCK_M);
+  const int kn = LIBXS_MIN(n, LIBXS_GEMM_BLOCK_N);
+  const int kk = LIBXS_MIN(k, LIBXS_GEMM_BLOCK_K);
+  libxs_gemm_config_t* result = NULL;
+  libxs_gemm_config_t config;
+  libxs_gemm_shape_t shape;
+  libxs_registry_t* reg;
+  LIBXS_MEMZERO(&shape);
+  shape.datatype = datatype;
+  shape.transa = 'N'; shape.transb = 'T';
+  shape.m = n; shape.n = n; shape.k = k;
+  shape.lda = lda; shape.ldb = ldb; shape.ldc = ldc;
+  shape.alpha = 1.0; shape.beta = 0.0;
+  if (NULL != registry) {
+    reg = (libxs_registry_t*)registry;
   }
   else {
-    libxs_gemm_config_t config;
-    libxs_gemm_shape_t shape;
-    libxs_registry_t* reg;
-    result = NULL;
-    LIBXS_MEMZERO(&shape);
-    shape.datatype = datatype;
-    shape.transa = 'N'; shape.transb = 'T';
-    shape.m = n; shape.n = n; shape.k = k;
-    shape.lda = lda; shape.ldb = ldb; shape.ldc = ldc;
-    shape.alpha = 1.0; shape.beta = 0.0;
-    if (NULL != registry) {
-      reg = (libxs_registry_t*)registry;
+    if (NULL == internal_libxs_gemm_registry) {
+      internal_libxs_gemm_registry = libxs_registry_create();
     }
-    else {
-      if (NULL == internal_libxs_gemm_registry) {
-        internal_libxs_gemm_registry = libxs_registry_create();
-      }
-      reg = internal_libxs_gemm_registry;
+    reg = internal_libxs_gemm_registry;
+  }
+  if (NULL != reg) {
+    result = (libxs_gemm_config_t*)libxs_registry_get(
+      (const libxs_registry_t*)reg,
+      &shape, sizeof(shape), libxs_registry_lock(reg));
+  }
+  if (NULL == result && NULL != reg) {
+    libxs_gemm_config_t* kernel = libxs_gemm_dispatch_rt(
+      datatype, 'N', 'T', km, kn, kk, lda, ldb, km, &one, &zero,
+      NULL, NULL, NULL, NULL, NULL, NULL, NULL, registry);
+    LIBXS_MEMZERO(&config);
+    config.shape = shape;
+    if (NULL != kernel) {
+      config.dgemm_jit = kernel->dgemm_jit;
+      config.sgemm_jit = kernel->sgemm_jit;
+      config.xgemm = kernel->xgemm;
+      config.jitter = kernel->jitter;
+      config.dgemm_blas = kernel->dgemm_blas;
+      config.sgemm_blas = kernel->sgemm_blas;
     }
-    if (NULL != reg) {
-      result = (libxs_gemm_config_t*)libxs_registry_get(
-        (const libxs_registry_t*)reg,
-        &shape, sizeof(shape), libxs_registry_lock(reg));
-    }
-    if (NULL == result && NULL != reg) {
-      libxs_gemm_config_t* kernel = libxs_gemm_dispatch_rt(
-        datatype, 'N', 'T', LIBXS_GEMM_BLOCK_M, LIBXS_GEMM_BLOCK_N, LIBXS_GEMM_BLOCK_K,
-        LIBXS_GEMM_BLOCK_M, LIBXS_GEMM_BLOCK_N, LIBXS_GEMM_BLOCK_M, &one, &zero,
-        NULL, NULL, NULL, NULL, NULL, NULL, NULL, registry);
-      LIBXS_MEMZERO(&config);
-      config.shape = shape;
-      if (NULL != kernel) {
-        config.dgemm_jit = kernel->dgemm_jit;
-        config.sgemm_jit = kernel->sgemm_jit;
-        config.xgemm = kernel->xgemm;
-        config.jitter = kernel->jitter;
-        config.dgemm_blas = kernel->dgemm_blas;
-        config.sgemm_blas = kernel->sgemm_blas;
-      }
-      result = (libxs_gemm_config_t*)libxs_registry_set(
-        reg, &shape, sizeof(shape),
-        &config, sizeof(config), libxs_registry_lock(reg));
-    }
+    result = (libxs_gemm_config_t*)libxs_registry_set(
+      reg, &shape, sizeof(shape),
+      &config, sizeof(config), libxs_registry_lock(reg));
   }
   return result;
 }
@@ -678,56 +670,56 @@ LIBXS_API int libxs_syr2k_task(
       && k <= LIBXS_GEMM_BLOCK_K)
     {
       if (0 == tid) {
-        const size_t need = (size_t)ldc * (size_t)n * elemsize;
+        const size_t need = (size_t)n * (size_t)n * elemsize;
         void* scratch = internal_libxs_syrk_scratch(need);
         if (NULL != scratch) {
           if (EXIT_SUCCESS != libxs_gemm_call(config, a, b, scratch)) {
             internal_libxs_gemm_blas(config, a, b, scratch,
-              lda, ldb, ldc, 1.0, 0.0);
+              lda, ldb, n, 1.0, 0.0);
           }
-        if (LIBXS_DATATYPE_F64 == config->shape.datatype) {
-          double* cc = (double*)c;
-          const double* t = (const double*)scratch;
-          int i, j;
-          if (upper) {
-            for (j = 0; j < n; ++j) {
-              for (i = 0; i <= j; ++i) {
-                cc[i + (size_t)j * ldc] = beta * cc[i + (size_t)j * ldc]
-                  + alpha * (t[i + (size_t)j * ldc] + t[j + (size_t)i * ldc]);
+          if (LIBXS_DATATYPE_F64 == config->shape.datatype) {
+            double* cc = (double*)c;
+            const double* t = (const double*)scratch;
+            int i, j;
+            if (upper) {
+              for (j = 0; j < n; ++j) {
+                for (i = 0; i <= j; ++i) {
+                  cc[i + (size_t)j * ldc] = beta * cc[i + (size_t)j * ldc]
+                    + alpha * (t[i + (size_t)j * n] + t[j + (size_t)i * n]);
+                }
+              }
+            }
+            else {
+              for (j = 0; j < n; ++j) {
+                for (i = j; i < n; ++i) {
+                  cc[i + (size_t)j * ldc] = beta * cc[i + (size_t)j * ldc]
+                    + alpha * (t[i + (size_t)j * n] + t[j + (size_t)i * n]);
+                }
               }
             }
           }
           else {
-            for (j = 0; j < n; ++j) {
-              for (i = j; i < n; ++i) {
-                cc[i + (size_t)j * ldc] = beta * cc[i + (size_t)j * ldc]
-                  + alpha * (t[i + (size_t)j * ldc] + t[j + (size_t)i * ldc]);
+            float* cc = (float*)c;
+            const float* t = (const float*)scratch;
+            const float fa = (float)alpha, fb = (float)beta;
+            int i, j;
+            if (upper) {
+              for (j = 0; j < n; ++j) {
+                for (i = 0; i <= j; ++i) {
+                  cc[i + (size_t)j * ldc] = fb * cc[i + (size_t)j * ldc]
+                    + fa * (t[i + (size_t)j * n] + t[j + (size_t)i * n]);
+                }
+              }
+            }
+            else {
+              for (j = 0; j < n; ++j) {
+                for (i = j; i < n; ++i) {
+                  cc[i + (size_t)j * ldc] = fb * cc[i + (size_t)j * ldc]
+                    + fa * (t[i + (size_t)j * n] + t[j + (size_t)i * n]);
+                }
               }
             }
           }
-        }
-        else {
-          float* cc = (float*)c;
-          const float* t = (const float*)scratch;
-          const float fa = (float)alpha, fb = (float)beta;
-          int i, j;
-          if (upper) {
-            for (j = 0; j < n; ++j) {
-              for (i = 0; i <= j; ++i) {
-                cc[i + (size_t)j * ldc] = fb * cc[i + (size_t)j * ldc]
-                  + fa * (t[i + (size_t)j * ldc] + t[j + (size_t)i * ldc]);
-              }
-            }
-          }
-          else {
-            for (j = 0; j < n; ++j) {
-              for (i = j; i < n; ++i) {
-                cc[i + (size_t)j * ldc] = fb * cc[i + (size_t)j * ldc]
-                  + fa * (t[i + (size_t)j * ldc] + t[j + (size_t)i * ldc]);
-              }
-            }
-          }
-        }
           result = EXIT_SUCCESS;
         }
       }
@@ -892,56 +884,56 @@ LIBXS_API int libxs_syrk_task(
       && k <= LIBXS_GEMM_BLOCK_K)
     {
       if (0 == tid) {
-        const size_t need = (size_t)ldc * (size_t)n * elemsize;
+        const size_t need = (size_t)n * (size_t)n * elemsize;
         void* scratch = internal_libxs_syrk_scratch(need);
         if (NULL != scratch) {
           if (EXIT_SUCCESS != libxs_gemm_call(config, a, a, scratch)) {
             internal_libxs_gemm_blas(config, a, a, scratch,
-              lda, lda, ldc, 1.0, 0.0);
+              lda, lda, n, 1.0, 0.0);
           }
-        if (LIBXS_DATATYPE_F64 == config->shape.datatype) {
-          double* cc = (double*)c;
-          const double* t = (const double*)scratch;
-          int i, j;
-          if (upper) {
-            for (j = 0; j < n; ++j) {
-              for (i = 0; i <= j; ++i) {
-                cc[i + (size_t)j * ldc] = beta * cc[i + (size_t)j * ldc]
-                  + alpha * t[i + (size_t)j * ldc];
+          if (LIBXS_DATATYPE_F64 == config->shape.datatype) {
+            double* cc = (double*)c;
+            const double* t = (const double*)scratch;
+            int i, j;
+            if (upper) {
+              for (j = 0; j < n; ++j) {
+                for (i = 0; i <= j; ++i) {
+                  cc[i + (size_t)j * ldc] = beta * cc[i + (size_t)j * ldc]
+                    + alpha * t[i + (size_t)j * n];
+                }
+              }
+            }
+            else {
+              for (j = 0; j < n; ++j) {
+                for (i = j; i < n; ++i) {
+                  cc[i + (size_t)j * ldc] = beta * cc[i + (size_t)j * ldc]
+                    + alpha * t[i + (size_t)j * n];
+                }
               }
             }
           }
           else {
-            for (j = 0; j < n; ++j) {
-              for (i = j; i < n; ++i) {
-                cc[i + (size_t)j * ldc] = beta * cc[i + (size_t)j * ldc]
-                  + alpha * t[i + (size_t)j * ldc];
+            float* cc = (float*)c;
+            const float* t = (const float*)scratch;
+            const float fa = (float)alpha, fb = (float)beta;
+            int i, j;
+            if (upper) {
+              for (j = 0; j < n; ++j) {
+                for (i = 0; i <= j; ++i) {
+                  cc[i + (size_t)j * ldc] = fb * cc[i + (size_t)j * ldc]
+                    + fa * t[i + (size_t)j * n];
+                }
+              }
+            }
+            else {
+              for (j = 0; j < n; ++j) {
+                for (i = j; i < n; ++i) {
+                  cc[i + (size_t)j * ldc] = fb * cc[i + (size_t)j * ldc]
+                    + fa * t[i + (size_t)j * n];
+                }
               }
             }
           }
-        }
-        else {
-          float* cc = (float*)c;
-          const float* t = (const float*)scratch;
-          const float fa = (float)alpha, fb = (float)beta;
-          int i, j;
-          if (upper) {
-            for (j = 0; j < n; ++j) {
-              for (i = 0; i <= j; ++i) {
-                cc[i + (size_t)j * ldc] = fb * cc[i + (size_t)j * ldc]
-                  + fa * t[i + (size_t)j * ldc];
-              }
-            }
-          }
-          else {
-            for (j = 0; j < n; ++j) {
-              for (i = j; i < n; ++i) {
-                cc[i + (size_t)j * ldc] = fb * cc[i + (size_t)j * ldc]
-                  + fa * t[i + (size_t)j * ldc];
-              }
-            }
-          }
-        }
           result = EXIT_SUCCESS;
         }
       }
