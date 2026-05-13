@@ -728,50 +728,72 @@ LIBXS_API int libxs_syr2k_task(
               skip = (ib + cm - 1 < jb);
             }
             if (0 == skip) {
-              memset(scratch, 0, need);
+              const int diag = (ib == jb);
+              const size_t clear = diag
+                ? (size_t)bm * bn * elemsize
+                : need;
+              memset(scratch, 0, clear);
               for (kb = 0; kb < k; kb += bk) {
                 const int ck = LIBXS_MIN(bk, k - kb);
                 if (LIBXS_DATATYPE_F64 == config->shape.datatype) {
                   const double* ai = (const double*)a + ib + (size_t)kb * lda;
                   const double* bj = (const double*)b + jb + (size_t)kb * ldb;
-                  const double* bi = (const double*)b + ib + (size_t)kb * ldb;
-                  const double* aj = (const double*)a + jb + (size_t)kb * lda;
                   double* t1 = (double*)scratch;
-                  double* t2 = (double*)scratch2;
                   int ii, jj, pp;
                   for (jj = 0; jj < cn; ++jj) {
                     for (ii = 0; ii < cm; ++ii) {
-                      double s1 = 0.0, s2 = 0.0;
+                      double sum = 0.0;
                       for (pp = 0; pp < ck; ++pp) {
-                        s1 += ai[ii + (size_t)pp * lda]
-                            * bj[jj + (size_t)pp * ldb];
-                        s2 += bi[ii + (size_t)pp * ldb]
-                            * aj[jj + (size_t)pp * lda];
+                        sum += ai[ii + (size_t)pp * lda]
+                             * bj[jj + (size_t)pp * ldb];
                       }
-                      t1[ii + (size_t)jj * bm] += s1;
-                      t2[ii + (size_t)jj * bm] += s2;
+                      t1[ii + (size_t)jj * bm] += sum;
+                    }
+                  }
+                  if (0 == diag) {
+                    const double* bi = (const double*)b + ib + (size_t)kb * ldb;
+                    const double* aj = (const double*)a + jb + (size_t)kb * lda;
+                    double* t2 = (double*)scratch2;
+                    for (jj = 0; jj < cn; ++jj) {
+                      for (ii = 0; ii < cm; ++ii) {
+                        double sum = 0.0;
+                        for (pp = 0; pp < ck; ++pp) {
+                          sum += bi[ii + (size_t)pp * ldb]
+                               * aj[jj + (size_t)pp * lda];
+                        }
+                        t2[ii + (size_t)jj * bm] += sum;
+                      }
                     }
                   }
                 }
                 else {
                   const float* ai = (const float*)a + ib + (size_t)kb * lda;
                   const float* bj = (const float*)b + jb + (size_t)kb * ldb;
-                  const float* bi = (const float*)b + ib + (size_t)kb * ldb;
-                  const float* aj = (const float*)a + jb + (size_t)kb * lda;
                   float* t1 = (float*)scratch;
-                  float* t2 = (float*)scratch2;
                   int ii, jj, pp;
                   for (jj = 0; jj < cn; ++jj) {
                     for (ii = 0; ii < cm; ++ii) {
-                      float s1 = 0.f, s2 = 0.f;
+                      float sum = 0.f;
                       for (pp = 0; pp < ck; ++pp) {
-                        s1 += ai[ii + (size_t)pp * lda]
-                            * bj[jj + (size_t)pp * ldb];
-                        s2 += bi[ii + (size_t)pp * ldb]
-                            * aj[jj + (size_t)pp * lda];
+                        sum += ai[ii + (size_t)pp * lda]
+                             * bj[jj + (size_t)pp * ldb];
                       }
-                      t1[ii + (size_t)jj * bm] += s1;
-                      t2[ii + (size_t)jj * bm] += s2;
+                      t1[ii + (size_t)jj * bm] += sum;
+                    }
+                  }
+                  if (0 == diag) {
+                    const float* bi = (const float*)b + ib + (size_t)kb * ldb;
+                    const float* aj = (const float*)a + jb + (size_t)kb * lda;
+                    float* t2 = (float*)scratch2;
+                    for (jj = 0; jj < cn; ++jj) {
+                      for (ii = 0; ii < cm; ++ii) {
+                        float sum = 0.f;
+                        for (pp = 0; pp < ck; ++pp) {
+                          sum += bi[ii + (size_t)pp * ldb]
+                               * aj[jj + (size_t)pp * lda];
+                        }
+                        t2[ii + (size_t)jj * bm] += sum;
+                      }
                     }
                   }
                 }
@@ -779,37 +801,57 @@ LIBXS_API int libxs_syr2k_task(
               if (LIBXS_DATATYPE_F64 == config->shape.datatype) {
                 double* cc = (double*)c;
                 const double* t1 = (const double*)scratch;
-                const double* t2 = (const double*)scratch2;
                 int ii, jj;
-                for (jj = 0; jj < cn; ++jj) {
-                  const int istart = (upper && ib == jb) ? 0
-                    : (upper ? 0 : (ib == jb ? jj : 0));
-                  const int iend = (upper && ib == jb) ? jj + 1
-                    : (upper ? cm : (ib == jb ? cm : cm));
-                  for (ii = istart; ii < iend; ++ii) {
-                    cc[(ib + ii) + (size_t)(jb + jj) * ldc] =
-                      beta * cc[(ib + ii) + (size_t)(jb + jj) * ldc]
-                      + alpha * (t1[ii + (size_t)jj * bm]
-                               + t2[ii + (size_t)jj * bm]);
+                if (diag) {
+                  for (jj = 0; jj < cn; ++jj) {
+                    const int istart = upper ? 0 : jj;
+                    const int iend = upper ? jj + 1 : cm;
+                    for (ii = istart; ii < iend; ++ii) {
+                      cc[(ib + ii) + (size_t)(jb + jj) * ldc] =
+                        beta * cc[(ib + ii) + (size_t)(jb + jj) * ldc]
+                        + alpha * (t1[ii + (size_t)jj * bm]
+                                 + t1[jj + (size_t)ii * bm]);
+                    }
+                  }
+                }
+                else {
+                  const double* t2 = (const double*)scratch2;
+                  for (jj = 0; jj < cn; ++jj) {
+                    for (ii = 0; ii < cm; ++ii) {
+                      cc[(ib + ii) + (size_t)(jb + jj) * ldc] =
+                        beta * cc[(ib + ii) + (size_t)(jb + jj) * ldc]
+                        + alpha * (t1[ii + (size_t)jj * bm]
+                                 + t2[ii + (size_t)jj * bm]);
+                    }
                   }
                 }
               }
               else {
                 float* cc = (float*)c;
                 const float* t1 = (const float*)scratch;
-                const float* t2 = (const float*)scratch2;
                 const float fa = (float)alpha, fb = (float)beta;
                 int ii, jj;
-                for (jj = 0; jj < cn; ++jj) {
-                  const int istart = (upper && ib == jb) ? 0
-                    : (upper ? 0 : (ib == jb ? jj : 0));
-                  const int iend = (upper && ib == jb) ? jj + 1
-                    : (upper ? cm : (ib == jb ? cm : cm));
-                  for (ii = istart; ii < iend; ++ii) {
-                    cc[(ib + ii) + (size_t)(jb + jj) * ldc] =
-                      fb * cc[(ib + ii) + (size_t)(jb + jj) * ldc]
-                      + fa * (t1[ii + (size_t)jj * bm]
-                             + t2[ii + (size_t)jj * bm]);
+                if (diag) {
+                  for (jj = 0; jj < cn; ++jj) {
+                    const int istart = upper ? 0 : jj;
+                    const int iend = upper ? jj + 1 : cm;
+                    for (ii = istart; ii < iend; ++ii) {
+                      cc[(ib + ii) + (size_t)(jb + jj) * ldc] =
+                        fb * cc[(ib + ii) + (size_t)(jb + jj) * ldc]
+                        + fa * (t1[ii + (size_t)jj * bm]
+                               + t1[jj + (size_t)ii * bm]);
+                    }
+                  }
+                }
+                else {
+                  const float* t2 = (const float*)scratch2;
+                  for (jj = 0; jj < cn; ++jj) {
+                    for (ii = 0; ii < cm; ++ii) {
+                      cc[(ib + ii) + (size_t)(jb + jj) * ldc] =
+                        fb * cc[(ib + ii) + (size_t)(jb + jj) * ldc]
+                        + fa * (t1[ii + (size_t)jj * bm]
+                               + t2[ii + (size_t)jj * bm]);
+                    }
                   }
                 }
               }
