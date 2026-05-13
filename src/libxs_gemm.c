@@ -15,14 +15,14 @@
 # define LIBXS_GEMM_PRINT
 #endif
 
-#if !defined(LIBXS_GEMM_BLOCK_M)
-# define LIBXS_GEMM_BLOCK_M 32
+#if !defined(LIBXS_GEMM_BM)
+# define LIBXS_GEMM_BM 32
 #endif
-#if !defined(LIBXS_GEMM_BLOCK_N)
-# define LIBXS_GEMM_BLOCK_N LIBXS_GEMM_BLOCK_M
+#if !defined(LIBXS_GEMM_BN)
+# define LIBXS_GEMM_BN LIBXS_GEMM_BM
 #endif
-#if !defined(LIBXS_GEMM_BLOCK_K)
-# define LIBXS_GEMM_BLOCK_K 128
+#if !defined(LIBXS_GEMM_BK)
+# define LIBXS_GEMM_BK 128
 #endif
 #if !defined(INTERNAL_GEMM_NLOCKS)
 # define INTERNAL_GEMM_NLOCKS 16
@@ -136,6 +136,10 @@ typedef void (*internal_libxs_ssyr2k_t)(const char*, const char*, const int*, co
 LIBXS_APIVAR_DEFINE(LIBXS_LOCK_TYPE(LIBXS_LOCK) internal_libxs_gemm_locks[INTERNAL_GEMM_NLOCKS]);
 LIBXS_APIVAR_DEFINE(libxs_registry_t* internal_libxs_gemm_registry);
 
+LIBXS_APIVAR_DEFINE(int internal_libxs_gemm_bm);
+LIBXS_APIVAR_DEFINE(int internal_libxs_gemm_bn);
+LIBXS_APIVAR_DEFINE(int internal_libxs_gemm_bk);
+
 LIBXS_APIVAR_DEFINE(LIBXS_TLS void* internal_libxs_syrk_buffer);
 LIBXS_APIVAR_DEFINE(LIBXS_TLS size_t internal_libxs_syrk_buffer_size);
 
@@ -150,34 +154,47 @@ LIBXS_APIVAR_DEFINE(internal_libxs_ssyr2k_t internal_libxs_ssyr2k_blas);
 
 LIBXS_API_INTERN void internal_libxs_gemm_init(void)
 {
+  const char *const gemm_bm_env = getenv("LIBXS_GEMM_BM");
+  const char *const gemm_bn_env = getenv("LIBXS_GEMM_BN");
+  const char *const gemm_bk_env = getenv("LIBXS_GEMM_BK");
+  internal_libxs_gemm_bm = (NULL == gemm_bm_env
+    ? LIBXS_GEMM_BM : atoi(gemm_bm_env));
+  internal_libxs_gemm_bn = (NULL == gemm_bn_env
+    ? LIBXS_GEMM_BN : atoi(gemm_bn_env));
+  internal_libxs_gemm_bk = (NULL == gemm_bk_env
+    ? LIBXS_GEMM_BK : atoi(gemm_bk_env));
   if (NULL == internal_libxs_gemm_registry) {
     internal_libxs_gemm_registry = libxs_registry_create();
   }
   if (NULL == internal_libxs_dgemm_blas) {
     union { const void* pin; libxs_gemm_dblas_t pout; } wd;
     union { const void* pin; libxs_gemm_sblas_t pout; } ws;
-    union { const void* pin; internal_libxs_dsyrk_t pout; } wdk;
-    union { const void* pin; internal_libxs_ssyrk_t pout; } wsk;
-    union { const void* pin; internal_libxs_dsyr2k_t pout; } wd2k;
-    union { const void* pin; internal_libxs_ssyr2k_t pout; } ws2k;
+    const char *const env = getenv("LIBXS_SYRK_BLAS");
+    const int syrk_blas = (NULL == env ? 1/*default*/ : atoi(env));
     dlerror();
     wd.pin = dlsym(LIBXS_RTLD_NEXT, LIBXS_STRINGIFY(LIBXS_FSYMBOL(dgemm)));
     if (NULL == dlerror() && NULL != wd.pout) internal_libxs_dgemm_blas = wd.pout;
     dlerror();
     ws.pin = dlsym(LIBXS_RTLD_NEXT, LIBXS_STRINGIFY(LIBXS_FSYMBOL(sgemm)));
     if (NULL == dlerror() && NULL != ws.pout) internal_libxs_sgemm_blas = ws.pout;
-    dlerror();
-    wdk.pin = dlsym(LIBXS_RTLD_NEXT, LIBXS_STRINGIFY(LIBXS_FSYMBOL(dsyrk)));
-    if (NULL == dlerror() && NULL != wdk.pout) internal_libxs_dsyrk_blas = wdk.pout;
-    dlerror();
-    wsk.pin = dlsym(LIBXS_RTLD_NEXT, LIBXS_STRINGIFY(LIBXS_FSYMBOL(ssyrk)));
-    if (NULL == dlerror() && NULL != wsk.pout) internal_libxs_ssyrk_blas = wsk.pout;
-    dlerror();
-    wd2k.pin = dlsym(LIBXS_RTLD_NEXT, LIBXS_STRINGIFY(LIBXS_FSYMBOL(dsyr2k)));
-    if (NULL == dlerror() && NULL != wd2k.pout) internal_libxs_dsyr2k_blas = wd2k.pout;
-    dlerror();
-    ws2k.pin = dlsym(LIBXS_RTLD_NEXT, LIBXS_STRINGIFY(LIBXS_FSYMBOL(ssyr2k)));
-    if (NULL == dlerror() && NULL != ws2k.pout) internal_libxs_ssyr2k_blas = ws2k.pout;
+    if (0 != syrk_blas) {
+      union { const void* pin; internal_libxs_dsyrk_t pout; } wdk;
+      union { const void* pin; internal_libxs_ssyrk_t pout; } wsk;
+      union { const void* pin; internal_libxs_dsyr2k_t pout; } wd2k;
+      union { const void* pin; internal_libxs_ssyr2k_t pout; } ws2k;
+      dlerror();
+      wdk.pin = dlsym(LIBXS_RTLD_NEXT, LIBXS_STRINGIFY(LIBXS_FSYMBOL(dsyrk)));
+      if (NULL == dlerror() && NULL != wdk.pout) internal_libxs_dsyrk_blas = wdk.pout;
+      dlerror();
+      wsk.pin = dlsym(LIBXS_RTLD_NEXT, LIBXS_STRINGIFY(LIBXS_FSYMBOL(ssyrk)));
+      if (NULL == dlerror() && NULL != wsk.pout) internal_libxs_ssyrk_blas = wsk.pout;
+      dlerror();
+      wd2k.pin = dlsym(LIBXS_RTLD_NEXT, LIBXS_STRINGIFY(LIBXS_FSYMBOL(dsyr2k)));
+      if (NULL == dlerror() && NULL != wd2k.pout) internal_libxs_dsyr2k_blas = wd2k.pout;
+      dlerror();
+      ws2k.pin = dlsym(LIBXS_RTLD_NEXT, LIBXS_STRINGIFY(LIBXS_FSYMBOL(ssyr2k)));
+      if (NULL == dlerror() && NULL != ws2k.pout) internal_libxs_ssyr2k_blas = ws2k.pout;
+    }
   }
 }
 
@@ -427,7 +444,7 @@ LIBXS_API void libxs_gemm_batch_task(
   if (NULL != config && 0 < nsplit && 0 <= tid && tid < nsplit) {
     const int need_lock = (1 < ntasks
       && 0 == (config->flags & LIBXS_GEMM_FLAG_NOLOCK));
-    const int tasksize = (size + nsplit - 1) / nsplit;
+    const int tasksize = LIBXS_UPDIV(size, nsplit);
     const int begin = tid * tasksize;
     int end = begin + tasksize;
     int lockidx = -1, i;
@@ -538,7 +555,7 @@ LIBXS_API void libxs_gemm_index_task(
     const size_t elemsize = LIBXS_TYPESIZE(config->shape.datatype);
     const int need_lock = (1 < ntasks
       && 0 == (config->flags & LIBXS_GEMM_FLAG_NOLOCK));
-    const int tasksize = (size + nsplit - 1) / nsplit;
+    const int tasksize = LIBXS_UPDIV(size, nsplit);
     const int begin = tid * tasksize;
     int end = begin + tasksize;
     int lockidx = -1, i;
@@ -688,9 +705,9 @@ LIBXS_API libxs_gemm_config_t* libxs_syr2k_dispatch(
   libxs_data_t datatype, int n, int k, int lda, int ldb, int ldc,
   const libxs_gemm_backend_t* backend, void* registry)
 {
-  const int km = LIBXS_MIN(n, LIBXS_GEMM_BLOCK_M);
-  const int kn = LIBXS_MIN(n, LIBXS_GEMM_BLOCK_N);
-  const int kk = LIBXS_MIN(k, LIBXS_GEMM_BLOCK_K);
+  const int km = LIBXS_MIN(n, internal_libxs_gemm_bm);
+  const int kn = LIBXS_MIN(n, internal_libxs_gemm_bn);
+  const int kk = LIBXS_MIN(k, internal_libxs_gemm_bk);
   libxs_gemm_shape_t shape, kshape;
   LIBXS_MEMZERO(&shape);
   shape.datatype = datatype;
@@ -746,8 +763,9 @@ LIBXS_API void libxs_syr2k_task(
     const int lda = config->shape.lda;
     const int ldb = config->shape.ldb;
     const int ldc = config->shape.ldc;
-    if (n <= LIBXS_GEMM_BLOCK_M && n <= LIBXS_GEMM_BLOCK_N
-      && k <= LIBXS_GEMM_BLOCK_K)
+    if  (n <= internal_libxs_gemm_bm
+      && n <= internal_libxs_gemm_bn
+      && k <= internal_libxs_gemm_bk)
     {
       if (0 == tid) {
         const size_t need = (size_t)n * (size_t)n * elemsize;
@@ -790,15 +808,15 @@ LIBXS_API void libxs_syr2k_task(
         &fb, (float*)c, &ldc);
     }
     else {
-      const int bm = LIBXS_GEMM_BLOCK_M;
-      const int bn = LIBXS_GEMM_BLOCK_N;
-      const int bk = LIBXS_GEMM_BLOCK_K;
-      const int nb_m = (n + bm - 1) / bm;
-      const int nb_n = (n + bn - 1) / bn;
+      const int bm = internal_libxs_gemm_bm;
+      const int bn = internal_libxs_gemm_bn;
+      const int bk = internal_libxs_gemm_bk;
+      const int nb_m = LIBXS_UPDIV(n, bm);
+      const int nb_n = LIBXS_UPDIV(n, bn);
       const int nblocks = nb_m * nb_n;
       const int nsplit = LIBXS_MIN(nblocks, ntasks);
       if (tid < nsplit) {
-        const int tasksize = (nblocks + nsplit - 1) / nsplit;
+        const int tasksize = LIBXS_UPDIV(nblocks, nsplit);
         const int begin = tid * tasksize;
         int end = begin + tasksize;
         const size_t need = (size_t)bm * bn * 2 * elemsize;
@@ -903,8 +921,8 @@ LIBXS_API void libxs_syrk_task(
     const int ldc = config->shape.ldc;
     const int upper = ('U' == uplo || 'u' == uplo);
     const size_t elemsize = LIBXS_TYPESIZE(config->shape.datatype);
-    if (n <= LIBXS_GEMM_BLOCK_M && n <= LIBXS_GEMM_BLOCK_N
-      && k <= LIBXS_GEMM_BLOCK_K)
+    if (n <= internal_libxs_gemm_bm && n <= internal_libxs_gemm_bn
+      && k <= internal_libxs_gemm_bk)
     {
       if (0 == tid) {
         const size_t need = (size_t)n * (size_t)n * elemsize;
@@ -945,15 +963,15 @@ LIBXS_API void libxs_syrk_task(
         &fb, (float*)c, &ldc);
     }
     else {
-      const int bm = LIBXS_GEMM_BLOCK_M;
-      const int bn = LIBXS_GEMM_BLOCK_N;
-      const int bk = LIBXS_GEMM_BLOCK_K;
-      const int nb_m = (n + bm - 1) / bm;
-      const int nb_n = (n + bn - 1) / bn;
+      const int bm = internal_libxs_gemm_bm;
+      const int bn = internal_libxs_gemm_bn;
+      const int bk = internal_libxs_gemm_bk;
+      const int nb_m = LIBXS_UPDIV(n, bm);
+      const int nb_n = LIBXS_UPDIV(n, bn);
       const int nblocks = nb_m * nb_n;
       const int nsplit = LIBXS_MIN(nblocks, ntasks);
       if (tid < nsplit) {
-        const int tasksize = (nblocks + nsplit - 1) / nsplit;
+        const int tasksize = LIBXS_UPDIV(nblocks, nsplit);
         const int begin = tid * tasksize;
         int end = begin + tasksize;
         const size_t need = (size_t)bm * bn * elemsize;
