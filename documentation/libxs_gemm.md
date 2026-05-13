@@ -102,7 +102,9 @@ Backend callback signatures (MKL-compatible):
                           int transb, int m, int n, int k,
                           double alpha, int lda, int ldb,
                           double beta, int ldc)
-                      Return 0 on success.
+                      Return: MKL_JIT_SUCCESS (0) or
+                              MKL_NO_JIT (1) on success,
+                              MKL_JIT_ERROR (2) on failure.
 
     jit_get_dgemm:    void*(void* jitter)
                       Return kernel function pointer.
@@ -216,7 +218,11 @@ arrays, 0 for constant-stride mode).
 ## SYR2K / SYRK
 
 Symmetric rank-2k and rank-k updates built on top of GEMM dispatch.
-Scratch memory is managed internally (thread-local, grown as needed).
+
+For small problems (n <= LIBXS_GEMM_BLOCK_M and k <= LIBXS_GEMM_BLOCK_K,
+default 64), the dispatched kernel handles the full GEMM in one call.
+For larger problems, the implementation tiles the N x N output into
+blocks and accumulates along K. Scratch memory is thread-local.
 
 ### Dispatch
 
@@ -230,13 +236,11 @@ libxs_gemm_config_t* libxs_syrk_dispatch(
   void* registry /* = NULL */);
 ```
 
-Dispatch a GEMM config for SYR2K/SYRK. Internally dispatches
-GEMM('N','T', n, n, k, lda, ldb, ldc) with alpha=1, beta=0.
-The ldc parameter is part of the registry key and determines
-the scratch buffer stride. Returns NULL on failure.
+Dispatch a GEMM config for SYR2K/SYRK. The shape (n, k, lda, ldb,
+ldc) is stored in the config and used by the call functions.
+Returns NULL on failure.
 
-Fortran variants accept the same OPTIONAL backend function
-pointers as libxs_gemm_dispatch:
+Fortran variants accept OPTIONAL backend function pointers:
 
 ```fortran
 ptr = libxs_syrk_dispatch(LIBXS_DATATYPE_F64, n, k, lda, ldc,
@@ -251,28 +255,54 @@ int libxs_syr2k(
   const libxs_gemm_config_t* config, char uplo,
   double alpha, double beta,
   const void* a, const void* b, void* c);
+
+int libxs_syr2k_task(
+  const libxs_gemm_config_t* config, char uplo,
+  double alpha, double beta,
+  const void* a, const void* b, void* c,
+  int tid, int ntasks);
 ```
 
 C := alpha*(A*B^T + B*A^T) + beta*C. Only the triangle specified
-by uplo ('U' or 'L') is written. Leading dimensions are taken from
-the dispatched configuration.
+by uplo ('U' or 'L') is written. All dimensions and leading
+dimensions come from the dispatched config.
 
 ```C
 int libxs_syrk(
   const libxs_gemm_config_t* config, char uplo,
   double alpha, double beta,
   const void* a, void* c);
+
+int libxs_syrk_task(
+  const libxs_gemm_config_t* config, char uplo,
+  double alpha, double beta,
+  const void* a, void* c,
+  int tid, int ntasks);
 ```
 
 C := alpha*A*A^T + beta*C. Only the triangle specified by uplo
-('U' or 'L') is written. Leading dimensions are taken from
-the dispatched configuration.
+('U' or 'L') is written.
+
+The _task variants partition work across ntasks threads. Each
+thread operates on independent output blocks; no locking is
+required. Thread-local scratch buffers are used internally.
+
+## Compile-Time Tuning
+
+The block sizes used for tiled SYRK/SYR2K can be overridden at
+compile time via preprocessor defines:
+
+    LIBXS_GEMM_BLOCK_M   Row block size    (default: 64)
+    LIBXS_GEMM_BLOCK_N   Column block size (default: BLOCK_M)
+    LIBXS_GEMM_BLOCK_K   K-direction block (default: BLOCK_M)
+
+Problems fitting within these limits use a single specialized
+kernel call (MKL JIT or LIBXSMM when available).
 
 ## Environment Variables
 
-LIBXS_SYRK=N  Print registry info every N-th syr2k/syrk dispatch
-               call to stderr (diagnostic, compile-time optional
-               via LIBXS_SYRK_TRACE).
+    LIBXS_GEMM_PRINT=N   Print dispatch info every N-th call
+                          to stderr (compile-time gate).
 
 ## Example (C)
 

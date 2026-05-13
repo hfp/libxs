@@ -656,13 +656,15 @@ LIBXS_API_INTERN void* internal_libxs_syrk_scratch(size_t need)
 }
 
 
-LIBXS_API int libxs_syr2k(
+LIBXS_API int libxs_syr2k_task(
   const libxs_gemm_config_t* config, char uplo,
   double alpha, double beta,
-  const void* a, const void* b, void* c)
+  const void* a, const void* b, void* c,
+  int tid, int ntasks)
 {
   int result = EXIT_FAILURE;
   if (NULL != config && NULL != a && NULL != b && NULL != c
+    && 0 <= tid && tid < ntasks
     && (LIBXS_DATATYPE_F64 == config->shape.datatype
      || LIBXS_DATATYPE_F32 == config->shape.datatype))
   {
@@ -675,13 +677,14 @@ LIBXS_API int libxs_syr2k(
     if (n <= LIBXS_GEMM_BLOCK_M && n <= LIBXS_GEMM_BLOCK_N
       && k <= LIBXS_GEMM_BLOCK_K)
     {
-      const size_t need = (size_t)ldc * (size_t)n * elemsize;
-      void* scratch = internal_libxs_syrk_scratch(need);
-      if (NULL != scratch) {
-        if (EXIT_SUCCESS != libxs_gemm_call(config, a, b, scratch)) {
-          internal_libxs_gemm_blas(config, a, b, scratch,
-            lda, ldb, ldc, 1.0, 0.0);
-        }
+      if (0 == tid) {
+        const size_t need = (size_t)ldc * (size_t)n * elemsize;
+        void* scratch = internal_libxs_syrk_scratch(need);
+        if (NULL != scratch) {
+          if (EXIT_SUCCESS != libxs_gemm_call(config, a, b, scratch)) {
+            internal_libxs_gemm_blas(config, a, b, scratch,
+              lda, ldb, ldc, 1.0, 0.0);
+          }
         if (LIBXS_DATATYPE_F64 == config->shape.datatype) {
           double* cc = (double*)c;
           const double* t = (const double*)scratch;
@@ -725,23 +728,35 @@ LIBXS_API int libxs_syr2k(
             }
           }
         }
-        result = EXIT_SUCCESS;
+          result = EXIT_SUCCESS;
+        }
       }
+      result = EXIT_SUCCESS;
     }
     else {
       const int bm = LIBXS_GEMM_BLOCK_M;
       const int bn = LIBXS_GEMM_BLOCK_N;
       const int bk = LIBXS_GEMM_BLOCK_K;
-      const size_t need = (size_t)bm * bn * 2 * elemsize;
-      void* scratch = internal_libxs_syrk_scratch(need);
-      if (NULL != scratch) {
-        void* scratch2 = (char*)scratch + (size_t)bm * bn * elemsize;
-        int jb, ib, kb;
-        for (jb = 0; jb < n; jb += bn) {
-          const int cn = LIBXS_MIN(bn, n - jb);
-          for (ib = 0; ib < n; ib += bm) {
+      const int nb_m = (n + bm - 1) / bm;
+      const int nb_n = (n + bn - 1) / bn;
+      const int nblocks = nb_m * nb_n;
+      const int nsplit = LIBXS_MIN(nblocks, ntasks);
+      if (tid < nsplit) {
+        const int tasksize = (nblocks + nsplit - 1) / nsplit;
+        const int begin = tid * tasksize;
+        int end = begin + tasksize;
+        const size_t need = (size_t)bm * bn * 2 * elemsize;
+        void* scratch = internal_libxs_syrk_scratch(need);
+        if (end > nblocks) end = nblocks;
+        if (NULL != scratch) {
+          void* scratch2 = (char*)scratch + (size_t)bm * bn * elemsize;
+          int idx;
+          for (idx = begin; idx < end; ++idx) {
+            const int jb = (idx / nb_m) * bn;
+            const int ib = (idx % nb_m) * bm;
+            const int cn = LIBXS_MIN(bn, n - jb);
             const int cm = LIBXS_MIN(bm, n - ib);
-            int skip;
+            int skip, kb;
             if (upper) {
               skip = (ib > jb + cn - 1);
             }
@@ -836,22 +851,34 @@ LIBXS_API int libxs_syr2k(
               }
             }
           }
+          result = EXIT_SUCCESS;
         }
-        result = EXIT_SUCCESS;
       }
+      result = EXIT_SUCCESS;
     }
   }
   return result;
 }
 
 
-LIBXS_API int libxs_syrk(
+LIBXS_API int libxs_syr2k(
   const libxs_gemm_config_t* config, char uplo,
   double alpha, double beta,
-  const void* a, void* c)
+  const void* a, const void* b, void* c)
+{
+  return libxs_syr2k_task(config, uplo, alpha, beta, a, b, c, 0, 1);
+}
+
+
+LIBXS_API int libxs_syrk_task(
+  const libxs_gemm_config_t* config, char uplo,
+  double alpha, double beta,
+  const void* a, void* c,
+  int tid, int ntasks)
 {
   int result = EXIT_FAILURE;
   if (NULL != config && NULL != a && NULL != c
+    && 0 <= tid && tid < ntasks
     && (LIBXS_DATATYPE_F64 == config->shape.datatype
      || LIBXS_DATATYPE_F32 == config->shape.datatype))
   {
@@ -864,13 +891,14 @@ LIBXS_API int libxs_syrk(
     if (n <= LIBXS_GEMM_BLOCK_M && n <= LIBXS_GEMM_BLOCK_N
       && k <= LIBXS_GEMM_BLOCK_K)
     {
-      const size_t need = (size_t)ldc * (size_t)n * elemsize;
-      void* scratch = internal_libxs_syrk_scratch(need);
-      if (NULL != scratch) {
-        if (EXIT_SUCCESS != libxs_gemm_call(config, a, a, scratch)) {
-          internal_libxs_gemm_blas(config, a, a, scratch,
-            lda, lda, ldc, 1.0, 0.0);
-        }
+      if (0 == tid) {
+        const size_t need = (size_t)ldc * (size_t)n * elemsize;
+        void* scratch = internal_libxs_syrk_scratch(need);
+        if (NULL != scratch) {
+          if (EXIT_SUCCESS != libxs_gemm_call(config, a, a, scratch)) {
+            internal_libxs_gemm_blas(config, a, a, scratch,
+              lda, lda, ldc, 1.0, 0.0);
+          }
         if (LIBXS_DATATYPE_F64 == config->shape.datatype) {
           double* cc = (double*)c;
           const double* t = (const double*)scratch;
@@ -914,22 +942,34 @@ LIBXS_API int libxs_syrk(
             }
           }
         }
-        result = EXIT_SUCCESS;
+          result = EXIT_SUCCESS;
+        }
       }
+      result = EXIT_SUCCESS;
     }
     else {
       const int bm = LIBXS_GEMM_BLOCK_M;
       const int bn = LIBXS_GEMM_BLOCK_N;
       const int bk = LIBXS_GEMM_BLOCK_K;
-      const size_t need = (size_t)bm * bn * elemsize;
-      void* scratch = internal_libxs_syrk_scratch(need);
-      if (NULL != scratch) {
-        int jb, ib, kb;
-        for (jb = 0; jb < n; jb += bn) {
-          const int cn = LIBXS_MIN(bn, n - jb);
-          for (ib = 0; ib < n; ib += bm) {
+      const int nb_m = (n + bm - 1) / bm;
+      const int nb_n = (n + bn - 1) / bn;
+      const int nblocks = nb_m * nb_n;
+      const int nsplit = LIBXS_MIN(nblocks, ntasks);
+      if (tid < nsplit) {
+        const int tasksize = (nblocks + nsplit - 1) / nsplit;
+        const int begin = tid * tasksize;
+        int end = begin + tasksize;
+        const size_t need = (size_t)bm * bn * elemsize;
+        void* scratch = internal_libxs_syrk_scratch(need);
+        if (end > nblocks) end = nblocks;
+        if (NULL != scratch) {
+          int idx;
+          for (idx = begin; idx < end; ++idx) {
+            const int jb = (idx / nb_m) * bn;
+            const int ib = (idx % nb_m) * bm;
+            const int cn = LIBXS_MIN(bn, n - jb);
             const int cm = LIBXS_MIN(bm, n - ib);
-            int skip;
+            int skip, kb;
             if (upper) {
               skip = (ib > jb + cn - 1);
             }
@@ -1008,12 +1048,22 @@ LIBXS_API int libxs_syrk(
               }
             }
           }
+          result = EXIT_SUCCESS;
         }
-        result = EXIT_SUCCESS;
       }
+      result = EXIT_SUCCESS;
     }
   }
   return result;
+}
+
+
+LIBXS_API int libxs_syrk(
+  const libxs_gemm_config_t* config, char uplo,
+  double alpha, double beta,
+  const void* a, void* c)
+{
+  return libxs_syrk_task(config, uplo, alpha, beta, a, c, 0, 1);
 }
 
 

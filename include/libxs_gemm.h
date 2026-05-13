@@ -367,6 +367,13 @@ LIBXS_API int libxs_syr2k(
   double alpha, double beta,
   const void* a, const void* b, void* c);
 
+/** Per-thread form of libxs_syr2k. */
+LIBXS_API int libxs_syr2k_task(
+  const libxs_gemm_config_t* config, char uplo,
+  double alpha, double beta,
+  const void* a, const void* b, void* c,
+  int tid, int ntasks);
+
 /**
  * Symmetric rank-k update: C := alpha*A*A^T + beta*C.
  * Only the triangle specified by uplo ('U' or 'L') is written.
@@ -377,6 +384,13 @@ LIBXS_API int libxs_syrk(
   const libxs_gemm_config_t* config, char uplo,
   double alpha, double beta,
   const void* a, void* c);
+
+/** Per-thread form of libxs_syrk. */
+LIBXS_API int libxs_syrk_task(
+  const libxs_gemm_config_t* config, char uplo,
+  double alpha, double beta,
+  const void* a, void* c,
+  int tid, int ntasks);
 
 /* header-only: include implementation (deferred from libxs_macros.h) */
 #if defined(LIBXS_SOURCE) && !defined(LIBXS_SOURCE_H)
