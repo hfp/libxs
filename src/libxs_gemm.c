@@ -16,10 +16,10 @@
 #endif
 
 #if !defined(LIBXS_GEMM_BM)
-# define LIBXS_GEMM_BM 32
+# define LIBXS_GEMM_BM 24
 #endif
 #if !defined(LIBXS_GEMM_BN)
-# define LIBXS_GEMM_BN LIBXS_GEMM_BM
+# define LIBXS_GEMM_BN 48
 #endif
 #if !defined(LIBXS_GEMM_BK)
 # define LIBXS_GEMM_BK 128
@@ -154,23 +154,22 @@ LIBXS_APIVAR_DEFINE(internal_libxs_ssyr2k_t internal_libxs_ssyr2k_blas);
 
 LIBXS_API_INTERN void internal_libxs_gemm_init(void)
 {
-  const char *const gemm_bm_env = getenv("LIBXS_GEMM_BM");
-  const char *const gemm_bn_env = getenv("LIBXS_GEMM_BN");
-  const char *const gemm_bk_env = getenv("LIBXS_GEMM_BK");
-  internal_libxs_gemm_bm = (NULL == gemm_bm_env
-    ? LIBXS_GEMM_BM : atoi(gemm_bm_env));
-  internal_libxs_gemm_bn = (NULL == gemm_bn_env
-    ? LIBXS_GEMM_BN : atoi(gemm_bn_env));
-  internal_libxs_gemm_bk = (NULL == gemm_bk_env
-    ? LIBXS_GEMM_BK : atoi(gemm_bk_env));
-  if (NULL == internal_libxs_gemm_registry) {
-    internal_libxs_gemm_registry = libxs_registry_create();
-  }
-  if (NULL == internal_libxs_dgemm_blas) {
-    union { const void* pin; libxs_gemm_dblas_t pout; } wd;
-    union { const void* pin; libxs_gemm_sblas_t pout; } ws;
+  static int internal_libxs_gemm_init_once = 0;
+  if (0 == internal_libxs_gemm_init_once) {
+    const char *const gemm_bm_env = getenv("LIBXS_GEMM_BM");
+    const char *const gemm_bn_env = getenv("LIBXS_GEMM_BN");
+    const char *const gemm_bk_env = getenv("LIBXS_GEMM_BK");
     const char *const env = getenv("LIBXS_SYRK_BLAS");
     const int syrk_blas = (NULL == env ? 1/*default*/ : atoi(env));
+    union { const void* pin; libxs_gemm_dblas_t pout; } wd;
+    union { const void* pin; libxs_gemm_sblas_t pout; } ws;
+    internal_libxs_gemm_bm = (NULL == gemm_bm_env
+      ? LIBXS_GEMM_BM : atoi(gemm_bm_env));
+    internal_libxs_gemm_bn = (NULL == gemm_bn_env
+      ? LIBXS_GEMM_BN : atoi(gemm_bn_env));
+    internal_libxs_gemm_bk = (NULL == gemm_bk_env
+      ? LIBXS_GEMM_BK : atoi(gemm_bk_env));
+    internal_libxs_gemm_registry = libxs_registry_create();
     dlerror();
     wd.pin = dlsym(LIBXS_RTLD_NEXT, LIBXS_STRINGIFY(LIBXS_FSYMBOL(dgemm)));
     if (NULL == dlerror() && NULL != wd.pout) internal_libxs_dgemm_blas = wd.pout;
@@ -195,6 +194,7 @@ LIBXS_API_INTERN void internal_libxs_gemm_init(void)
       ws2k.pin = dlsym(LIBXS_RTLD_NEXT, LIBXS_STRINGIFY(LIBXS_FSYMBOL(ssyr2k)));
       if (NULL == dlerror() && NULL != ws2k.pout) internal_libxs_ssyr2k_blas = ws2k.pout;
     }
+    internal_libxs_gemm_init_once = 1;
   }
 }
 
@@ -288,20 +288,14 @@ LIBXS_API libxs_gemm_config_t* libxs_gemm_dispatch_rt(
 {
   libxs_gemm_config_t* result = NULL;
   libxs_registry_t* reg = NULL;
+  LIBXS_ASSERT(NULL != shape);
   if (NULL == kernel_shape) kernel_shape = shape;
-  if (NULL != shape
-    && (LIBXS_DATATYPE_F64 == shape->datatype
-     || LIBXS_DATATYPE_F32 == shape->datatype))
+  if (LIBXS_DATATYPE_F64 == shape->datatype
+   || LIBXS_DATATYPE_F32 == shape->datatype)
   {
-    if (NULL != registry) {
-      reg = (libxs_registry_t*)registry;
-    }
-    else {
-      if (NULL == internal_libxs_gemm_registry) {
-        internal_libxs_gemm_registry = libxs_registry_create();
-      }
-      reg = internal_libxs_gemm_registry;
-    }
+    internal_libxs_gemm_init();
+    reg = (NULL != registry)
+      ? (libxs_registry_t*)registry : internal_libxs_gemm_registry;
     if (NULL != reg) {
       result = (libxs_gemm_config_t*)libxs_registry_get(
         (const libxs_registry_t*)reg,
@@ -441,7 +435,9 @@ LIBXS_API void libxs_gemm_batch_task(
 {
   const int size = LIBXS_ABS(batchsize);
   const int nsplit = LIBXS_MIN(size, ntasks);
-  if (NULL != config && 0 < nsplit && 0 <= tid && tid < nsplit) {
+  LIBXS_ASSERT(NULL != config);
+  LIBXS_ASSERT(0 <= tid);
+  if (0 < nsplit && tid < nsplit) {
     const int need_lock = (1 < ntasks
       && 0 == (config->flags & LIBXS_GEMM_FLAG_NOLOCK));
     const int tasksize = LIBXS_UPDIV(size, nsplit);
@@ -548,10 +544,11 @@ LIBXS_API void libxs_gemm_index_task(
 {
   const int size = LIBXS_ABS(batchsize);
   const int nsplit = LIBXS_MIN(size, ntasks);
-  if (NULL != config && 0 < nsplit && 0 <= tid && tid < nsplit
-    && NULL != stride_a && NULL != stride_b && NULL != stride_c
-    && 0 <= index_stride)
-  {
+  LIBXS_ASSERT(NULL != config);
+  LIBXS_ASSERT(NULL != stride_a && NULL != stride_b && NULL != stride_c);
+  LIBXS_ASSERT(0 <= index_stride);
+  LIBXS_ASSERT(0 <= tid);
+  if (0 < nsplit && tid < nsplit) {
     const size_t elemsize = LIBXS_TYPESIZE(config->shape.datatype);
     const int need_lock = (1 < ntasks
       && 0 == (config->flags & LIBXS_GEMM_FLAG_NOLOCK));
@@ -754,8 +751,8 @@ LIBXS_API void libxs_syr2k_task(
 {
   LIBXS_ASSERT(NULL != config && NULL != a && NULL != b && NULL != c);
   LIBXS_ASSERT(0 <= tid && tid < ntasks);
-  if (LIBXS_DATATYPE_F64 == config->shape.datatype
-   || LIBXS_DATATYPE_F32 == config->shape.datatype)
+  LIBXS_ASSERT_MSG(LIBXS_DATATYPE_F64 == config->shape.datatype
+    || LIBXS_DATATYPE_F32 == config->shape.datatype, "unsupported datatype");
   {
     const size_t elemsize = LIBXS_TYPESIZE(config->shape.datatype);
     const int upper = ('U' == uplo || 'u' == uplo);
@@ -830,13 +827,9 @@ LIBXS_API void libxs_syr2k_task(
             const int ib = (idx % nb_m) * bm;
             const int cn = LIBXS_MIN(bn, n - jb);
             const int cm = LIBXS_MIN(bm, n - ib);
-            int skip, kb;
-            if (upper) {
-              skip = (ib > jb + cn - 1);
-            }
-            else {
-              skip = (ib + cm - 1 < jb);
-            }
+            int kb;
+            const int skip = upper
+              ? (ib > jb + cn - 1) : (ib + cm - 1 < jb);
             if (0 == skip) {
               const int diag = (ib == jb);
               const int full = (cm == bm && cn == bn);
@@ -912,8 +905,8 @@ LIBXS_API void libxs_syrk_task(
 {
   LIBXS_ASSERT(NULL != config && NULL != a && NULL != c);
   LIBXS_ASSERT(0 <= tid && tid < ntasks);
-  if (LIBXS_DATATYPE_F64 == config->shape.datatype
-   || LIBXS_DATATYPE_F32 == config->shape.datatype)
+  LIBXS_ASSERT_MSG(LIBXS_DATATYPE_F64 == config->shape.datatype
+    || LIBXS_DATATYPE_F32 == config->shape.datatype, "unsupported datatype");
   {
     const int n = config->shape.m;
     const int k = config->shape.k;
@@ -984,13 +977,9 @@ LIBXS_API void libxs_syrk_task(
             const int ib = (idx % nb_m) * bm;
             const int cn = LIBXS_MIN(bn, n - jb);
             const int cm = LIBXS_MIN(bm, n - ib);
-            int skip, kb;
-            if (upper) {
-              skip = (ib > jb + cn - 1);
-            }
-            else {
-              skip = (ib + cm - 1 < jb);
-            }
+            int kb;
+            const int skip = upper
+              ? (ib > jb + cn - 1) : (ib + cm - 1 < jb);
             if (0 == skip) {
               const int diag = (ib == jb);
               const int full = (cm == bm && cn == bn);
