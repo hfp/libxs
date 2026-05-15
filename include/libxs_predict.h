@@ -63,6 +63,7 @@ LIBXS_API int libxs_predict_push(libxs_lock_t* lock,
  * quality:   compression-vs-accuracy tradeoff in [0,1].
  *            0.0 = maximum compression (aggressive truncation).
  *            1.0 = maximum fidelity (minimal truncation).
+ *            <0  = auto-optimize (finds best quality via GSS).
  *
  * Returns EXIT_SUCCESS or EXIT_FAILURE.
  * May be called again after pushing additional entries (rebuilds).

@@ -348,18 +348,55 @@ LIBXS_API int libxs_predict_push(
 }
 
 
+typedef struct internal_libxs_predict_quality_ctx_t {
+  libxs_predict_t* model;
+  int nclusters;
+} internal_libxs_predict_quality_ctx_t;
+
+LIBXS_API_INLINE double internal_libxs_predict_quality_fn(
+  double quality, const void* data)
+{
+  const internal_libxs_predict_quality_ctx_t* ctx =
+    (const internal_libxs_predict_quality_ctx_t*)data;
+  double total_err = 1e30;
+  if (EXIT_SUCCESS == libxs_predict_build(ctx->model, ctx->nclusters, quality)) {
+    const int p = ctx->model->nentries;
+    const int n = ctx->model->noutputs;
+    int i, j;
+    total_err = 0;
+    for (i = 0; i < p; ++i) {
+      double outputs[128];
+      libxs_predict_eval(NULL, ctx->model,
+        ctx->model->entries[i].inputs, outputs, NULL, 1);
+      for (j = 0; j < n; ++j) {
+        total_err += LIBXS_DELTA(outputs[j], ctx->model->entries[i].outputs[j]);
+      }
+    }
+  }
+  return total_err;
+}
+
+
 LIBXS_API int libxs_predict_build(libxs_predict_t* model, int nclusters, double quality)
 {
   int result = EXIT_SUCCESS;
   if (NULL == model || 0 >= model->nentries) {
     result = EXIT_FAILURE;
   }
+  else if (quality < 0.0) {
+    internal_libxs_predict_quality_ctx_t ctx;
+    double best_quality = 0.8;
+    ctx.model = model;
+    ctx.nclusters = nclusters;
+    libxs_gss_min(internal_libxs_predict_quality_fn, &ctx,
+      0.1, 1.0, &best_quality, 20);
+    result = libxs_predict_build(model, nclusters, best_quality);
+  }
   else {
     const int p = model->nentries;
     const int m = model->ninputs;
     const int n = model->noutputs;
     int c, i;
-    if (quality < 0.0) quality = 0.0;
     if (quality > 1.0) quality = 1.0;
     internal_libxs_predict_free_clusters(model);
     if (0 >= nclusters) {
