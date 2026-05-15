@@ -135,15 +135,16 @@ AVX_STATIC ?= $(AVX)
 HEADERS_MAIN := \
           $(ROOTINC)/$(PROJECT).h \
           $(ROOTINC)/$(PROJECT)_cpuid.h \
+          $(ROOTINC)/$(PROJECT)_gemm.h \
           $(ROOTINC)/$(PROJECT)_hash.h \
           $(ROOTINC)/$(PROJECT)_hist.h \
           $(ROOTINC)/$(PROJECT)_macros.h \
           $(ROOTINC)/$(PROJECT)_malloc.h \
-          $(ROOTINC)/$(PROJECT)_gemm.h \
           $(ROOTINC)/$(PROJECT)_math.h \
           $(ROOTINC)/$(PROJECT)_mem.h \
           $(ROOTINC)/$(PROJECT)_mhd.h \
           $(ROOTINC)/$(PROJECT)_perm.h \
+          $(ROOTINC)/$(PROJECT)_predict.h \
           $(ROOTINC)/$(PROJECT)_reg.h \
           $(ROOTINC)/$(PROJECT)_rng.h \
           $(ROOTINC)/$(PROJECT)_str.h \
