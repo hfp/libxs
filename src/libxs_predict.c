@@ -232,11 +232,10 @@ LIBXS_API_INLINE double internal_libxs_predict_classify(
 {
   double candidates[LIBXS_PREDICT_KNN];
   double best_val = cl->raw_outputs[output_j];
-  unsigned char used_buf[256];
+  unsigned char used_buf[256] = {0};
   unsigned char* used = (nc <= 256) ? used_buf : (unsigned char*)calloc((size_t)nc, 1);
   int nfound = 0, best_count = 0, i, exact = 0;
   if (NULL != used) {
-    if (used != used_buf) memset(used, 0, (size_t)nc);
     while (nfound < LIBXS_PREDICT_KNN && nfound < nc && 0 == exact) {
       const int hit = libxs_kdtree_nearest(
         kd_pts, kd_idx, used, nc, m, m, inputs, DBL_MAX);
@@ -392,11 +391,11 @@ LIBXS_API int libxs_predict_build(libxs_predict_t* model, int nclusters, double 
   else if (quality < 0.0) {
     internal_libxs_predict_quality_ctx_t ctx;
     double best_quality = 0.8;
-    const int maxiter = (quality < -1.0) ? (int)(-quality) : 20;
+    const int maxiter = (quality < -1.0) ? (int)(-quality) : 15;
     ctx.model = model;
     ctx.nclusters = nclusters;
     libxs_gss_min(internal_libxs_predict_quality_fn, &ctx,
-      0.1, 1.0, &best_quality, maxiter);
+      0.0, 1.0, &best_quality, maxiter);
     model->iterations = maxiter;
     result = libxs_predict_build(model, nclusters, best_quality);
   }
