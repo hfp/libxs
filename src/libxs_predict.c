@@ -23,7 +23,7 @@
 #  define LIBXS_PREDICT_VERSION 1
 #endif
 #if !defined(LIBXS_PREDICT_KNN)
-#  define LIBXS_PREDICT_KNN 5
+#  define LIBXS_PREDICT_KNN 32
 #endif
 
 
@@ -54,6 +54,8 @@ LIBXS_EXTERN_C struct libxs_predict_t {
   internal_libxs_predict_cluster_t* clusters;
   int* assignments;
   double* eval_buf;
+  double* input_min;
+  double* input_rng;
   libxs_lock_t lock;
   double quality;
   int ninputs, noutputs;
@@ -97,40 +99,57 @@ LIBXS_API_INLINE void internal_libxs_predict_free_clusters(libxs_predict_t* mode
 }
 
 
+LIBXS_API_INLINE void internal_libxs_predict_normalize(
+  const libxs_predict_t* model, const double* inputs, double* norm)
+{
+  const int m = model->ninputs;
+  int i;
+  for (i = 0; i < m; ++i) {
+    norm[i] = (NULL != model->input_rng && model->input_rng[i] > 0)
+      ? (inputs[i] - model->input_min[i]) / model->input_rng[i] : inputs[i];
+  }
+}
+
+
 LIBXS_API_INLINE void internal_libxs_predict_kmeans(libxs_predict_t* model, int nclusters)
 {
   const int m = model->ninputs;
   const int p = model->nentries;
+  double* pts = (double*)malloc((size_t)p * (size_t)m * sizeof(double));
   double* centroids = (double*)calloc((size_t)nclusters * (size_t)m, sizeof(double));
   double* comp = (double*)calloc((size_t)nclusters * (size_t)m, sizeof(double));
   int* counts = (int*)calloc((size_t)nclusters, sizeof(int));
   double* dists = (double*)malloc((size_t)p * sizeof(double));
-  if (NULL != centroids && NULL != counts && NULL != comp && NULL != dists) {
+  if (NULL != pts && NULL != centroids && NULL != counts && NULL != comp && NULL != dists) {
     int c, i, j, iter;
+    for (i = 0; i < p; ++i) {
+      internal_libxs_predict_normalize(model,
+        model->entries[i].inputs, pts + (size_t)i * m);
+    }
     /* farthest-first initialization */
-    memcpy(centroids, model->entries[0].inputs, (size_t)m * sizeof(double));
+    memcpy(centroids, pts, (size_t)m * sizeof(double));
     for (i = 0; i < p; ++i) dists[i] = DBL_MAX;
     for (c = 1; c < nclusters; ++c) {
       int farthest = 0;
       double maxd = 0;
       for (i = 0; i < p; ++i) {
         const double d = libxs_dist2(
-          model->entries[i].inputs, centroids + (size_t)(c - 1) * m, m);
+          pts + (size_t)i * m, centroids + (size_t)(c - 1) * m, m);
         if (d < dists[i]) dists[i] = d;
         if (dists[i] > maxd) { maxd = dists[i]; farthest = i; }
       }
-      memcpy(centroids + (size_t)c * m,
-        model->entries[farthest].inputs, (size_t)m * sizeof(double));
+      memcpy(centroids + (size_t)c * m, pts + (size_t)farthest * m,
+        (size_t)m * sizeof(double));
     }
     /* Lloyd iterations with Kahan-compensated centroid accumulation */
     for (iter = 0; iter < LIBXS_PREDICT_MAXITER; ++iter) {
       int changed = 0;
       for (i = 0; i < p; ++i) {
-        double best = libxs_dist2(model->entries[i].inputs, centroids, m);
+        double best = libxs_dist2(pts + (size_t)i * m, centroids, m);
         int bestc = 0;
         for (c = 1; c < nclusters; ++c) {
           const double d = libxs_dist2(
-            model->entries[i].inputs, centroids + (size_t)c * m, m);
+            pts + (size_t)i * m, centroids + (size_t)c * m, m);
           if (d < best) { best = d; bestc = c; }
         }
         if (model->assignments[i] != bestc) {
@@ -148,7 +167,7 @@ LIBXS_API_INLINE void internal_libxs_predict_kmeans(libxs_predict_t* model, int 
           double* cen = centroids + (size_t)ci * m;
           double* cmp = comp + (size_t)ci * m;
           for (j = 0; j < m; ++j) {
-            libxs_kahan_sum(model->entries[i].inputs[j], &cen[j], &cmp[j]);
+            libxs_kahan_sum(pts[(size_t)i * m + j], &cen[j], &cmp[j]);
           }
           ++counts[ci];
         }
@@ -168,6 +187,7 @@ LIBXS_API_INLINE void internal_libxs_predict_kmeans(libxs_predict_t* model, int 
   free(comp);
   free(centroids);
   free(counts);
+  free(pts);
 }
 
 
@@ -230,13 +250,14 @@ LIBXS_API_INLINE double internal_libxs_predict_classify(
   const internal_libxs_predict_cluster_t* cl, const double* kd_pts,
   const int* kd_idx, int nc, int m, const double* inputs, int output_j, int nouts)
 {
+  const int k = LIBXS_MIN(LIBXS_MAX(5, nc / 3), LIBXS_PREDICT_KNN);
   double candidates[LIBXS_PREDICT_KNN];
   double best_val = cl->raw_outputs[output_j];
   unsigned char used_buf[256] = {0};
   unsigned char* used = (nc <= 256) ? used_buf : (unsigned char*)calloc((size_t)nc, 1);
-  int nfound = 0, best_count = 0, i, exact = 0;
+  int nfound = 0, exact = 0;
   if (NULL != used) {
-    while (nfound < LIBXS_PREDICT_KNN && nfound < nc && 0 == exact) {
+    while (nfound < k && nfound < nc && 0 == exact) {
       const int hit = libxs_kdtree_nearest(
         kd_pts, kd_idx, used, nc, m, m, inputs, DBL_MAX);
       if (0 > hit) nfound = LIBXS_PREDICT_KNN;
@@ -252,6 +273,7 @@ LIBXS_API_INLINE double internal_libxs_predict_classify(
     }
     if (used != used_buf) free(used);
     if (0 == exact) {
+      int best_count = 0, i;
       for (i = 0; i < nfound; ++i) {
         int cnt = 0, ii;
         for (ii = 0; ii < nfound; ++ii) {
@@ -290,6 +312,8 @@ LIBXS_API void libxs_predict_destroy(libxs_predict_t* model)
       free(model->entries[i].outputs);
     }
     free(model->entries);
+    free(model->input_min);
+    free(model->input_rng);
     free(model);
   }
 }
@@ -407,6 +431,29 @@ LIBXS_API int libxs_predict_build(libxs_predict_t* model, int nclusters, double 
     if (quality > 1.0) quality = 1.0;
     model->quality = quality;
     internal_libxs_predict_free_clusters(model);
+    free(model->input_min); free(model->input_rng);
+    model->input_min = (double*)malloc((size_t)m * sizeof(double));
+    model->input_rng = (double*)malloc((size_t)m * sizeof(double));
+    if (NULL != model->input_min && NULL != model->input_rng) {
+      int j;
+      for (j = 0; j < m; ++j) {
+        model->input_min[j] = model->entries[0].inputs[j];
+        model->input_rng[j] = model->entries[0].inputs[j];
+      }
+      for (i = 1; i < p; ++i) {
+        for (j = 0; j < m; ++j) {
+          if (model->entries[i].inputs[j] < model->input_min[j]) {
+            model->input_min[j] = model->entries[i].inputs[j];
+          }
+          if (model->entries[i].inputs[j] > model->input_rng[j]) {
+            model->input_rng[j] = model->entries[i].inputs[j];
+          }
+        }
+      }
+      for (j = 0; j < m; ++j) {
+        model->input_rng[j] -= model->input_min[j];
+      }
+    }
     if (0 >= nclusters) {
       nclusters = (int)(sqrt((double)p) + 0.5);
       if (nclusters < 1) nclusters = 1;
@@ -482,9 +529,9 @@ LIBXS_API int libxs_predict_build(libxs_predict_t* model, int nclusters, double 
           cl->kd_idx = (int*)malloc((size_t)nc * sizeof(int));
           if (NULL != cl->kd_pts && NULL != cl->kd_idx) {
             for (k = 0; k < nc; ++k) {
-              memcpy(cl->kd_pts + (size_t)k * m,
+              internal_libxs_predict_normalize(model,
                 model->entries[cl->sorted_idx[k]].inputs,
-                (size_t)m * sizeof(double));
+                cl->kd_pts + (size_t)k * m);
               cl->kd_idx[k] = k;
             }
             libxs_kdtree_build(cl->kd_pts, cl->kd_idx, nc, m, m);
@@ -618,29 +665,31 @@ LIBXS_API void libxs_predict_eval(libxs_lock_t* lock, const libxs_predict_t* mod
   {
     const int m = model->ninputs, n = model->noutputs;
     const int force_classify = (nblend < 0) ? 1 : 0;
+    double norm_buf[64], *norm_inputs = (m <= 64) ? norm_buf : (double*)malloc((size_t)m * sizeof(double));
     double *vals, *errs, best_dist;
     int *rels, c, j, best_c = 0;
     if (NULL != lock) LIBXS_LOCK_ACQUIRE(LIBXS_LOCK, lock);
+    internal_libxs_predict_normalize(model, inputs, norm_inputs);
     vals = model->eval_buf;
     errs = vals + n;
     rels = (int*)(errs + n);
     nblend = (nblend < 0) ? -nblend : nblend;
     if (nblend <= 0) nblend = 0;
     if (nblend > model->nclusters) nblend = model->nclusters;
-    best_dist = libxs_dist2(inputs, model->clusters[0].centroid, m);
+    best_dist = libxs_dist2(norm_inputs, model->clusters[0].centroid, m);
     for (c = 1; c < model->nclusters; ++c) {
-      const double d = libxs_dist2(inputs, model->clusters[c].centroid, m);
+      const double d = libxs_dist2(norm_inputs, model->clusters[c].centroid, m);
       if (d < best_dist) { best_dist = d; best_c = c; }
     }
     if (nblend <= 1) {
       const internal_libxs_predict_cluster_t* cl = &model->clusters[best_c];
-      const int nearest = (int)internal_libxs_predict_position(model, cl, inputs);
+      const int nearest = (int)internal_libxs_predict_position(model, cl, norm_inputs);
       for (j = 0; j < n; ++j) {
         const int use_classify = (0 != force_classify || 1 == model->eval_mode)
           ? 1 : ((0 == model->eval_mode) ? 0 : cl->mode[j]);
         if (0 != use_classify) {
           vals[j] = internal_libxs_predict_classify(
-            cl, cl->kd_pts, cl->kd_idx, cl->nentries, m, inputs, j, n);
+            cl, cl->kd_pts, cl->kd_idx, cl->nentries, m, norm_inputs, j, n);
           errs[j] = 0;
           rels[j] = 0;
         }
@@ -692,14 +741,14 @@ LIBXS_API void libxs_predict_eval(libxs_lock_t* lock, const libxs_predict_t* mod
         const int ci = dists[b].idx;
         const internal_libxs_predict_cluster_t* cl = &model->clusters[ci];
         const double dq = dists[b].dist;
-        const int nearest = (int)internal_libxs_predict_position(model, cl, inputs);
+        const int nearest = (int)internal_libxs_predict_position(model, cl, norm_inputs);
         const double w = ((dq > 0) ? (1.0 / dq) : 1e30) / wsum;
         for (j = 0; j < n; ++j) {
           const int use_classify = (0 != force_classify || 1 == model->eval_mode)
             ? 1 : ((0 == model->eval_mode) ? 0 : cl->mode[j]);
           if (0 != use_classify) {
             vals[j] += w * internal_libxs_predict_classify(
-              cl, cl->kd_pts, cl->kd_idx, cl->nentries, m, inputs, j, n);
+              cl, cl->kd_pts, cl->kd_idx, cl->nentries, m, norm_inputs, j, n);
           }
           else {
             const int pos = nearest;
@@ -729,6 +778,7 @@ LIBXS_API void libxs_predict_eval(libxs_lock_t* lock, const libxs_predict_t* mod
       info->interpolated = rels;
       info->noutputs = n;
     }
+    if (norm_inputs != norm_buf) free(norm_inputs);
     if (NULL != lock) LIBXS_LOCK_RELEASE(LIBXS_LOCK, lock);
   }
 }
@@ -812,6 +862,7 @@ LIBXS_API int libxs_predict_save(const libxs_predict_t* model, void* buffer, siz
     size_t required = 0;
     int c, j;
     required += sizeof(uint32_t) + 4 * sizeof(uint16_t);
+    required += (size_t)model->ninputs * 2 * sizeof(double);
     for (c = 0; c < model->nclusters; ++c) {
       const internal_libxs_predict_cluster_t* cl = &model->clusters[c];
       required += (size_t)model->ninputs * sizeof(double);
@@ -844,6 +895,8 @@ LIBXS_API int libxs_predict_save(const libxs_predict_t* model, void* buffer, siz
       WRITE_U16(model->ninputs);
       WRITE_U16(model->noutputs);
       WRITE_U16(model->nclusters);
+      WRITE_BLK(model->input_min, (size_t)model->ninputs * sizeof(double));
+      WRITE_BLK(model->input_rng, (size_t)model->ninputs * sizeof(double));
       for (c = 0; c < model->nclusters; ++c) {
         const internal_libxs_predict_cluster_t* cl = &model->clusters[c];
         WRITE_BLK(cl->centroid, (size_t)model->ninputs * sizeof(double));
@@ -907,6 +960,19 @@ LIBXS_API libxs_predict_t* libxs_predict_load(const void* buffer, size_t size)
     if (EXIT_SUCCESS == ok) {
       model = libxs_predict_create((int)ninp, (int)nout);
       if (NULL == model) ok = EXIT_FAILURE;
+    }
+    if (EXIT_SUCCESS == ok) {
+      model->input_min = (double*)malloc((size_t)ninp * sizeof(double));
+      model->input_rng = (double*)malloc((size_t)ninp * sizeof(double));
+      if (NULL == model->input_min || NULL == model->input_rng) ok = EXIT_FAILURE;
+      if (EXIT_SUCCESS == ok) {
+        ok = internal_libxs_predict_read(&src, end,
+          model->input_min, (size_t)ninp * sizeof(double));
+      }
+      if (EXIT_SUCCESS == ok) {
+        ok = internal_libxs_predict_read(&src, end,
+          model->input_rng, (size_t)ninp * sizeof(double));
+      }
     }
     if (EXIT_SUCCESS == ok) {
       model->nclusters = (int)nclust;
