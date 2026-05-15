@@ -63,13 +63,25 @@ LIBXS_API int libxs_predict_push(libxs_lock_t* lock,
  * quality:   compression-vs-accuracy tradeoff in [0,1].
  *            0.0 = maximum compression (aggressive truncation).
  *            1.0 = maximum fidelity (minimal truncation).
- *            <0  = auto-optimize (finds best quality via GSS).
+ *            <0  = auto-optimize via GSS; |quality| is the iteration
+ *                  count (e.g., -1 = 10 default, -20 = 20 iterations).
  *
  * Returns EXIT_SUCCESS or EXIT_FAILURE.
  * May be called again after pushing additional entries (rebuilds).
  */
 LIBXS_API int libxs_predict_build(libxs_predict_t* model,
   int nclusters, double quality);
+
+/**
+ * Per-thread form of libxs_predict_build. All threads must call
+ * this collectively with the same model/nclusters/quality.
+ * tid==0 performs the build; other threads cooperate on the
+ * quality evaluation loop when quality < 0.
+ * The lock is optional (NULL is accepted).
+ */
+LIBXS_API int libxs_predict_build_task(libxs_lock_t* lock,
+  libxs_predict_t* model, int nclusters, double quality,
+  int tid, int ntasks);
 
 /**
  * Predict output parameters for a given input.

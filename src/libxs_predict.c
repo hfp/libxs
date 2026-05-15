@@ -8,7 +8,6 @@
 ******************************************************************************/
 #include <libxs_predict.h>
 #include <libxs_perm.h>
-#include <libxs_rng.h>
 #include <libxs_str.h>
 #include <libxs_malloc.h>
 #include "libxs_main.h"
@@ -60,6 +59,7 @@ LIBXS_EXTERN_C struct libxs_predict_t {
   int nentries, capacity;
   int nclusters;
   int built;
+  volatile int phase;
 };
 
 
@@ -105,31 +105,20 @@ LIBXS_API_INLINE void internal_libxs_predict_kmeans(libxs_predict_t* model, int 
   double* dists = (double*)malloc((size_t)p * sizeof(double));
   if (NULL != centroids && NULL != counts && NULL != comp && NULL != dists) {
     int c, i, j, iter;
-    /* k-means++ initialization */
-    memcpy(centroids, model->entries[libxs_rng_u32((unsigned int)p)].inputs,
-      (size_t)m * sizeof(double));
+    /* farthest-first initialization */
+    memcpy(centroids, model->entries[0].inputs, (size_t)m * sizeof(double));
+    for (i = 0; i < p; ++i) dists[i] = DBL_MAX;
     for (c = 1; c < nclusters; ++c) {
-      double total = 0, cumul = 0, threshold;
+      int farthest = 0;
+      double maxd = 0;
       for (i = 0; i < p; ++i) {
-        double mind = libxs_dist2(model->entries[i].inputs, centroids, m);
-        int cc;
-        for (cc = 1; cc < c; ++cc) {
-          const double d = libxs_dist2(
-            model->entries[i].inputs, centroids + (size_t)cc * m, m);
-          if (d < mind) mind = d;
-        }
-        dists[i] = mind;
-        total += mind;
+        const double d = libxs_dist2(
+          model->entries[i].inputs, centroids + (size_t)(c - 1) * m, m);
+        if (d < dists[i]) dists[i] = d;
+        if (dists[i] > maxd) { maxd = dists[i]; farthest = i; }
       }
-      threshold = libxs_rng_f64() * total;
-      for (i = 0; i < p; ++i) {
-        cumul += dists[i];
-        if (cumul >= threshold) {
-          memcpy(centroids + (size_t)c * m,
-            model->entries[i].inputs, (size_t)m * sizeof(double));
-          i = p;
-        }
-      }
+      memcpy(centroids + (size_t)c * m,
+        model->entries[farthest].inputs, (size_t)m * sizeof(double));
     }
     /* Lloyd iterations with Kahan-compensated centroid accumulation */
     for (iter = 0; iter < LIBXS_PREDICT_MAXITER; ++iter) {
@@ -387,10 +376,11 @@ LIBXS_API int libxs_predict_build(libxs_predict_t* model, int nclusters, double 
   else if (quality < 0.0) {
     internal_libxs_predict_quality_ctx_t ctx;
     double best_quality = 0.8;
+    const int maxiter = (quality < -1.0) ? (int)(-quality) : 10;
     ctx.model = model;
     ctx.nclusters = nclusters;
     libxs_gss_min(internal_libxs_predict_quality_fn, &ctx,
-      0.1, 1.0, &best_quality, 20);
+      0.1, 1.0, &best_quality, maxiter);
     result = libxs_predict_build(model, nclusters, best_quality);
   }
   else {
@@ -609,6 +599,26 @@ LIBXS_API int libxs_predict_build(libxs_predict_t* model, int nclusters, double 
 }
 
 
+LIBXS_API int libxs_predict_build_task(libxs_lock_t* lock,
+  libxs_predict_t* model, int nclusters, double quality,
+  int tid, int ntasks)
+{
+  int result;
+  LIBXS_ASSERT(NULL != model);
+  if (0 == tid) {
+    model->phase = 0;
+    result = libxs_predict_build(model, nclusters, quality);
+    model->phase = 1;
+  }
+  else {
+    while (0 == model->phase) { /* spin-wait for tid==0 */ }
+    result = (0 != model->built) ? EXIT_SUCCESS : EXIT_FAILURE;
+  }
+  (void)lock; (void)ntasks;
+  return result;
+}
+
+
 LIBXS_API void libxs_predict_eval(libxs_lock_t* lock, const libxs_predict_t* model,
   const double inputs[], double outputs[], libxs_predict_info_t* info, int nblend)
 {
@@ -734,7 +744,7 @@ LIBXS_API void libxs_predict_eval_batch_task(
   int count, int nblend, int tid, int ntasks)
 {
   const int m = model->ninputs, n = model->noutputs;
-  const int chunk = (count + ntasks - 1) / ntasks;
+  const int chunk = (int)LIBXS_UPDIV(count, ntasks);
   const int begin = tid * chunk;
   const int end = LIBXS_MIN(begin + chunk, count);
   int i;

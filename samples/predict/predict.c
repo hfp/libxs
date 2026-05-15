@@ -35,12 +35,32 @@ static void evaluate(const libxs_predict_t* model,
 
 int main(int argc, char* argv[])
 {
-  const char* filename = (1 < argc) ? argv[1] : NULL;
-  const char* modelfile = (2 < argc) ? argv[2] : "predict.bin";
+  int argi = 1;
+  double quality_iter = -1.0;
+  const char *filename, *modelfile;
   int result = EXIT_FAILURE;
+  if (argi < argc && '-' == argv[argi][0] && '\0' != argv[argi][1]) {
+    quality_iter = atof(argv[argi]);
+    ++argi;
+  }
+  filename = (argi < argc) ? argv[argi] : NULL;
+  modelfile = (argi + 1 < argc) ? argv[argi + 1] : NULL;
+  { static char modelpath[512];
+    if (NULL == modelfile && NULL != filename) {
+      const char* sep = strrchr(filename, '/');
+      const char* base = (NULL != sep) ? (sep + 1) : filename;
+      const char* dot = strrchr(base, '.');
+      size_t len = (NULL != dot) ? (size_t)(dot - base) : strlen(base);
+      if (len >= sizeof(modelpath) - 4) len = sizeof(modelpath) - 5;
+      memcpy(modelpath, base, len);
+      memcpy(modelpath + len, ".bin", 5);
+      modelfile = modelpath;
+    }
+  }
   if (NULL == filename) {
     fprintf(stdout,
-      "Usage: %s <csvfile> [modelfile]\n"
+      "Usage: %s [-N] <csvfile> [modelfile]\n"
+      "  -N: quality GSS iterations for final build (default: -1 = 10)\n"
       "  Finds the optimal training fraction via GSS, then saves\n"
       "  the best model. Evaluates against all samples.\n", argv[0]);
   }
@@ -73,7 +93,17 @@ int main(int argc, char* argv[])
               libxs_predict_get(source, perm[i], inputs, outputs);
               libxs_predict_push(NULL, model, inputs, outputs);
             }
-            if (EXIT_SUCCESS == libxs_predict_build(model, 0, -1.0)) {
+            { int build_ok = EXIT_FAILURE;
+#if defined(_OPENMP)
+#             pragma omp parallel
+              { const int br = libxs_predict_build_task(NULL, model, 0, quality_iter,
+                  omp_get_thread_num(), omp_get_num_threads());
+                if (0 == omp_get_thread_num()) build_ok = br;
+              }
+#else
+              build_ok = libxs_predict_build_task(NULL, model, 0, quality_iter, 0, 1);
+#endif
+            if (EXIT_SUCCESS == build_ok) {
               int nclusters = 0;
               double compression = 0;
               libxs_predict_query(model, &nclusters, NULL, &compression);
@@ -98,6 +128,7 @@ int main(int argc, char* argv[])
                   free(buffer);
                 }
               }
+            }
             }
             libxs_predict_destroy(model);
           }
@@ -127,7 +158,7 @@ static double trial_fraction(double fraction, const void* data)
       libxs_predict_get(ctx->source, ctx->perm[i], inputs, outputs);
       libxs_predict_push(NULL, model, inputs, outputs);
     }
-    if (EXIT_SUCCESS == libxs_predict_build(model, 0, -1.0)) {
+    if (EXIT_SUCCESS == libxs_predict_build(model, 0, 0.8)) {
       double* all_inputs = (double*)malloc((size_t)ctx->ntotal * NINPUTS * sizeof(double));
       double* all_predicted = (double*)malloc((size_t)ctx->ntotal * NOUTPUTS * sizeof(double));
       if (NULL != all_inputs && NULL != all_predicted) {

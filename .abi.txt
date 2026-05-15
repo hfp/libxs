@@ -121,6 +121,7 @@ libxs_pmalloc_init
 libxs_pmalloc_lock
 libxs_pow2
 libxs_predict_build
+libxs_predict_build_task
 libxs_predict_create
 libxs_predict_destroy
 libxs_predict_eval
