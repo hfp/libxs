@@ -1,7 +1,7 @@
 # Predict Sample
 
 Train a prediction model from a CSV file and save it for later use.
-Optionally hold out a fraction of entries for validation.
+Finds the optimal training fraction and quality automatically.
 ## Build
 
     make
@@ -11,59 +11,65 @@ Or from the LIBXS root:
     make GNU=1 samples/predict
 ## Usage
 
-    ./predict.x <csvfile> [modelfile] [fraction]
+    ./predict.x [-N] <csvfile> [modelfile]
 
+    -N         Quality GSS iterations for final build (default: -1 = converge).
+               Use -5 for faster, -20 for more thorough optimization.
     csvfile    Delimited text file (semicolons, commas, or tabs).
                The first line may be a header (auto-skipped if non-numeric).
-    modelfile  Output path for the binary model (default: predict.bin).
-    fraction   Training split in 0..1 (default: 1.0 = use all entries).
-               Values below 1.0 hold out the rest for validation.
-## Examples
-
-Full model (no validation):
+    modelfile  Output path for the binary model.
+               Default: derived from CSV basename (e.g., data.csv -> data.bin).
+## Example
 
     ./predict.x ../../samples/smm/params/tune_multiply_H100.csv
 
     Loaded 295 entries from ...tune_multiply_H100.csv
-    Training: 295, held out: 0
-    Built: 17 clusters, 8.3x compression
-    Saved model to predict.bin (4720 bytes)
+    Optimal fraction: 0.76 (224/295 entries)
+    Built: 15 clusters, 15.2x compression
+    Quality (295 samples):
+      param   avg-err   max-err  avg-bound
+      BM *   2.01e+00  5.20e+01   7.40e-01
+      BN     7.52e-01  6.30e+01   0.00e+00
+      BK *   5.13e+00  5.50e+01   6.40e-01
+      ...
+    Saved model to tune_multiply_H100.bin (43123 bytes)
 
-80/20 train-test split:
+Parameters marked with * use polynomial interpolation; others use
+kNN majority vote (auto-detected from fingerprint decay).
+## How It Works
 
-    ./predict.x ../../samples/smm/params/tune_multiply_H100.csv model.bin 0.8
+1. libxs_predict_load_csv loads the file using column names ("M", "N",
+   "K" as inputs; "BM", "BN", etc. as outputs). Names are matched
+   case-insensitively against the CSV header.
 
-    Loaded 295 entries from ...tune_multiply_H100.csv
-    Training: 236, held out: 59
-    Built: 15 clusters, 6.9x compression
-    Validation (59 samples):
-      col  avg-err  max-err
-        8     1.42     6.00
-        9     0.31     2.00
-       10     0.85     4.00
-       ...
+2. libxs_shuffle produces a deterministic permutation of entries.
+   libxs_gss_min finds the training fraction that minimizes total
+   prediction error across all samples.
+
+3. libxs_predict_build (with quality=-1) auto-optimizes the truncation
+   quality via an internal GSS. Per output, the fingerprint decides:
+   - Decaying norms (decay < 0.5): polynomial interpolation along a
+     per-output smooth ordering (libxs_sort_smooth).
+   - Non-decaying or few distinct values: kNN majority vote from
+     k=5 nearest neighbors via the k-d tree.
+
+4. The model is saved as a compact binary (centroids, k-d tree points,
+   raw outputs for kNN, polynomial coefficients for interpolation).
 ## Column Layout
 
-The sample uses fixed column indices matching the SMM tuning CSV format:
+The sample uses column names matching the SMM tuning CSV header:
 
-    Inputs (3):   M=2  N=3  K=4
-    Outputs (14): BM=8  BN=9  BK=10  WS=11  WG=12  LU=13  NZ=14
-                  AL=15  TB=16  TC=17  AP=18  AA=19  AB=20  AC=21
+    Inputs (3):   M  N  K
+    Outputs (14): BM  BN  BK  WS  WG  LU  NZ
+                  AL  TB  TC  AP  AA  AB  AC
 
-Column indices are 0-based. Adjust the arrays in predict.c to match
-other CSV layouts.
-## Validation
+Column names are resolved against the header line. To use a different
+CSV layout, adjust input_names and output_names in predict.c.
+## Parallelism
 
-When fraction < 1.0, a random subset is selected for training and
-the remaining entries are predicted. For each output column, the
-average and maximum absolute error are reported. This allows tuning
-the quality parameter or cluster count before deploying the model.
-## Parameters
+When built with OMP=1, the sample uses OpenMP for:
+- Batch evaluation during the fraction GSS (libxs_predict_eval_batch_task)
+- Final quality report
 
-The build call uses:
-
-    libxs_predict_build(model, 0, 0.8)
-
-    nclusters = 0    Auto-determine (sqrt of entry count).
-    quality   = 0.8  Favor fidelity over compression.
-                     0.0 = aggressive truncation, 1.0 = minimal truncation.
+The library itself is thread-safe: use libxs_predict_lock(model)
+for the internal lock, or pass NULL for single-threaded operation.

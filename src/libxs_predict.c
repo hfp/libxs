@@ -55,6 +55,7 @@ LIBXS_EXTERN_C struct libxs_predict_t {
   internal_libxs_predict_cluster_t* clusters;
   int* assignments;
   double* eval_buf;
+  libxs_lock_t lock;
   int ninputs, noutputs;
   int nentries, capacity;
   int nclusters;
@@ -290,6 +291,12 @@ LIBXS_API void libxs_predict_destroy(libxs_predict_t* model)
     free(model->entries);
     free(model);
   }
+}
+
+
+LIBXS_API libxs_lock_t* libxs_predict_lock(libxs_predict_t* model)
+{
+  return (NULL != model) ? &model->lock : NULL;
 }
 
 

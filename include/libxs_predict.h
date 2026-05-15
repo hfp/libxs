@@ -42,6 +42,9 @@ LIBXS_API libxs_predict_t* libxs_predict_create(int ninputs, int noutputs);
 /** Destroy prediction model (NULL is accepted). */
 LIBXS_API void libxs_predict_destroy(libxs_predict_t* model);
 
+/** Return pointer to the model's internal lock (for use as lock argument). */
+LIBXS_API libxs_lock_t* libxs_predict_lock(libxs_predict_t* model);
+
 /**
  * Push one training entry (incremental).
  * inputs:  M values (input parameters).

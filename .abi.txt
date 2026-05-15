@@ -130,6 +130,7 @@ libxs_predict_eval_batch_task
 libxs_predict_get
 libxs_predict_load
 libxs_predict_load_csv
+libxs_predict_lock
 libxs_predict_push
 libxs_predict_query
 libxs_predict_save
