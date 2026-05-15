@@ -20,7 +20,7 @@
 #  define LIBXS_PREDICT_MAGIC 0x58535052U /* "XSPR" */
 #endif
 #if !defined(LIBXS_PREDICT_VERSION)
-#  define LIBXS_PREDICT_VERSION 2
+#  define LIBXS_PREDICT_VERSION 1
 #endif
 #if !defined(LIBXS_PREDICT_KNN)
 #  define LIBXS_PREDICT_KNN 5
@@ -759,19 +759,17 @@ LIBXS_API int libxs_predict_save(const libxs_predict_t* model, void* buffer, siz
   else {
     size_t required = 0;
     int c, j;
-    required += 5 * sizeof(uint32_t);
+    required += sizeof(uint32_t) + 4 * sizeof(uint16_t);
     for (c = 0; c < model->nclusters; ++c) {
       const internal_libxs_predict_cluster_t* cl = &model->clusters[c];
       required += (size_t)model->ninputs * sizeof(double);
       required += sizeof(double);
-      required += 2 * sizeof(uint32_t);
-      required += (size_t)model->noutputs * sizeof(int32_t);
-      required += (size_t)model->noutputs * sizeof(int32_t);
-      required += (size_t)model->noutputs * sizeof(int32_t);
+      required += sizeof(uint16_t) + sizeof(uint8_t);
+      required += (size_t)model->noutputs * 3;
       required += (size_t)model->noutputs * sizeof(double);
       required += (size_t)cl->nentries * (size_t)model->ninputs * sizeof(double);
       required += (size_t)cl->nentries * (size_t)model->noutputs * sizeof(double);
-      required += (size_t)cl->nentries * (size_t)model->noutputs * sizeof(int32_t);
+      required += (size_t)cl->nentries * (size_t)model->noutputs * sizeof(uint16_t);
       for (j = 0; j < model->noutputs; ++j) {
         required += (size_t)(cl->order[j] + 1) * sizeof(double);
       }
@@ -785,53 +783,41 @@ LIBXS_API int libxs_predict_save(const libxs_predict_t* model, void* buffer, siz
     }
     else {
       unsigned char* dst = (unsigned char*)buffer;
-#define WRITE_U32(V) \
-  do { \
-    const uint32_t v_ = (uint32_t)(V); \
-    memcpy(dst, &v_, sizeof(uint32_t)); \
-    dst += sizeof(uint32_t); \
-  } while (0)
-#define WRITE_F64(V) \
-  do { \
-    const double v_ = (V); \
-    memcpy(dst, &v_, sizeof(double)); \
-    dst += sizeof(double); \
-  } while (0)
-#define WRITE_BLK(PTR, SZ) \
-  do { \
-    memcpy(dst, (PTR), (SZ)); \
-    dst += (SZ); \
-  } while (0)
+#define WRITE_U32(V) do { const uint32_t v_=(uint32_t)(V); memcpy(dst,&v_,4); dst+=4; } while(0)
+#define WRITE_U16(V) do { const uint16_t v_=(uint16_t)(V); memcpy(dst,&v_,2); dst+=2; } while(0)
+#define WRITE_U8(V)  do { *dst++ = (unsigned char)(V); } while(0)
+#define WRITE_F64(V) do { const double v_=(V); memcpy(dst,&v_,8); dst+=8; } while(0)
+#define WRITE_BLK(PTR,SZ) do { memcpy(dst,(PTR),(SZ)); dst+=(SZ); } while(0)
       WRITE_U32(LIBXS_PREDICT_MAGIC);
-      WRITE_U32(LIBXS_PREDICT_VERSION);
-      WRITE_U32(model->ninputs);
-      WRITE_U32(model->noutputs);
-      WRITE_U32(model->nclusters);
+      WRITE_U16(LIBXS_PREDICT_VERSION);
+      WRITE_U16(model->ninputs);
+      WRITE_U16(model->noutputs);
+      WRITE_U16(model->nclusters);
       for (c = 0; c < model->nclusters; ++c) {
         const internal_libxs_predict_cluster_t* cl = &model->clusters[c];
+        int k;
         WRITE_BLK(cl->centroid, (size_t)model->ninputs * sizeof(double));
         WRITE_F64(cl->dmax);
-        WRITE_U32(cl->nentries);
-        WRITE_U32(cl->maxorder);
-        WRITE_BLK(cl->order, (size_t)model->noutputs * sizeof(int32_t));
-        WRITE_BLK(cl->reliable, (size_t)model->noutputs * sizeof(int32_t));
-        WRITE_BLK(cl->mode, (size_t)model->noutputs * sizeof(int32_t));
+        WRITE_U16(cl->nentries);
+        WRITE_U8(cl->maxorder);
+        for (j = 0; j < model->noutputs; ++j) WRITE_U8(cl->order[j]);
+        for (j = 0; j < model->noutputs; ++j) WRITE_U8(cl->reliable[j]);
+        for (j = 0; j < model->noutputs; ++j) WRITE_U8(cl->mode[j]);
         WRITE_BLK(cl->errors, (size_t)model->noutputs * sizeof(double));
         WRITE_BLK(cl->kd_pts, (size_t)cl->nentries * (size_t)model->ninputs * sizeof(double));
         WRITE_BLK(cl->raw_outputs, (size_t)cl->nentries * (size_t)model->noutputs * sizeof(double));
-        if (NULL != cl->interp_pos) {
-          WRITE_BLK(cl->interp_pos, (size_t)cl->nentries * (size_t)model->noutputs * sizeof(int32_t));
-        }
-        else {
-          memset(dst, 0, (size_t)cl->nentries * (size_t)model->noutputs * sizeof(int32_t));
-          dst += (size_t)cl->nentries * (size_t)model->noutputs * sizeof(int32_t);
+        for (k = 0; k < cl->nentries * model->noutputs; ++k) {
+          const int v = (NULL != cl->interp_pos) ? cl->interp_pos[k] : 0;
+          WRITE_U16(v);
         }
         for (j = 0; j < model->noutputs; ++j) {
-          WRITE_BLK(
-            cl->coeffs + (size_t)j * (cl->maxorder + 1), (size_t)(cl->order[j] + 1) * sizeof(double));
+          WRITE_BLK(cl->coeffs + (size_t)j * (cl->maxorder + 1),
+            (size_t)(cl->order[j] + 1) * sizeof(double));
         }
       }
 #undef WRITE_U32
+#undef WRITE_U16
+#undef WRITE_U8
 #undef WRITE_F64
 #undef WRITE_BLK
       *size = (size_t)(dst - (unsigned char*)buffer);
@@ -841,37 +827,7 @@ LIBXS_API int libxs_predict_save(const libxs_predict_t* model, void* buffer, siz
 }
 
 
-LIBXS_API_INLINE int internal_libxs_predict_read_u32(
-  const unsigned char** src, const unsigned char* end, uint32_t* val)
-{
-  int result = EXIT_SUCCESS;
-  if (*src + sizeof(uint32_t) > end) {
-    result = EXIT_FAILURE;
-  }
-  else {
-    memcpy(val, *src, sizeof(uint32_t));
-    *src += sizeof(uint32_t);
-  }
-  return result;
-}
-
-
-LIBXS_API_INLINE int internal_libxs_predict_read_f64(
-  const unsigned char** src, const unsigned char* end, double* val)
-{
-  int result = EXIT_SUCCESS;
-  if (*src + sizeof(double) > end) {
-    result = EXIT_FAILURE;
-  }
-  else {
-    memcpy(val, *src, sizeof(double));
-    *src += sizeof(double);
-  }
-  return result;
-}
-
-
-LIBXS_API_INLINE int internal_libxs_predict_read_blk(
+LIBXS_API_INLINE int internal_libxs_predict_read(
   const unsigned char** src, const unsigned char* end, void* dst, size_t sz)
 {
   int result = EXIT_SUCCESS;
@@ -889,19 +845,19 @@ LIBXS_API_INLINE int internal_libxs_predict_read_blk(
 LIBXS_API libxs_predict_t* libxs_predict_load(const void* buffer, size_t size)
 {
   libxs_predict_t* model = NULL;
-  if (NULL != buffer && size >= 5 * sizeof(uint32_t)) {
+  if (NULL != buffer && size >= sizeof(uint32_t) + 4 * sizeof(uint16_t)) {
     const unsigned char* src = (const unsigned char*)buffer;
     const unsigned char* end = src + size;
-    uint32_t magic = 0, version = 0, ninp = 0, nout = 0, nclust = 0;
+    uint32_t magic = 0;
+    uint16_t version = 0, ninp = 0, nout = 0, nclust = 0;
     int ok = EXIT_SUCCESS;
-    if (EXIT_SUCCESS == ok) ok = internal_libxs_predict_read_u32(&src, end, &magic);
-    if (EXIT_SUCCESS == ok) ok = internal_libxs_predict_read_u32(&src, end, &version);
-    if (EXIT_SUCCESS == ok && (magic != LIBXS_PREDICT_MAGIC || version != LIBXS_PREDICT_VERSION)) {
-      ok = EXIT_FAILURE;
-    }
-    if (EXIT_SUCCESS == ok) ok = internal_libxs_predict_read_u32(&src, end, &ninp);
-    if (EXIT_SUCCESS == ok) ok = internal_libxs_predict_read_u32(&src, end, &nout);
-    if (EXIT_SUCCESS == ok) ok = internal_libxs_predict_read_u32(&src, end, &nclust);
+    if (EXIT_SUCCESS == ok) ok = internal_libxs_predict_read(&src, end, &magic, 4);
+    if (EXIT_SUCCESS == ok) ok = internal_libxs_predict_read(&src, end, &version, 2);
+    if (EXIT_SUCCESS == ok && (magic != LIBXS_PREDICT_MAGIC
+      || version != LIBXS_PREDICT_VERSION)) ok = EXIT_FAILURE;
+    if (EXIT_SUCCESS == ok) ok = internal_libxs_predict_read(&src, end, &ninp, 2);
+    if (EXIT_SUCCESS == ok) ok = internal_libxs_predict_read(&src, end, &nout, 2);
+    if (EXIT_SUCCESS == ok) ok = internal_libxs_predict_read(&src, end, &nclust, 2);
     if (EXIT_SUCCESS == ok) {
       model = libxs_predict_create((int)ninp, (int)nout);
       if (NULL == model) ok = EXIT_FAILURE;
@@ -914,10 +870,11 @@ LIBXS_API libxs_predict_t* libxs_predict_load(const void* buffer, size_t size)
         (size_t)nout * 2 * sizeof(double) + (size_t)nout * sizeof(int));
       if (NULL == model->clusters || NULL == model->eval_buf) ok = EXIT_FAILURE;
     }
-    {
-      int c;
+    { int c;
       for (c = 0; c < (int)nclust && EXIT_SUCCESS == ok; ++c) {
         internal_libxs_predict_cluster_t* cl = &model->clusters[c];
+        uint16_t ne = 0;
+        uint8_t mo = 0;
         int j;
         cl->centroid = (double*)malloc((size_t)ninp * sizeof(double));
         cl->order = (int*)malloc((size_t)nout * sizeof(int));
@@ -925,38 +882,38 @@ LIBXS_API libxs_predict_t* libxs_predict_load(const void* buffer, size_t size)
         cl->mode = (int*)malloc((size_t)nout * sizeof(int));
         cl->errors = (double*)malloc((size_t)nout * sizeof(double));
         if (NULL == cl->centroid || NULL == cl->order || NULL == cl->reliable
-          || NULL == cl->mode || NULL == cl->errors)
-          ok = EXIT_FAILURE;
+          || NULL == cl->mode || NULL == cl->errors) ok = EXIT_FAILURE;
         if (EXIT_SUCCESS == ok) {
-          ok = internal_libxs_predict_read_blk(
-            &src, end, cl->centroid, (size_t)ninp * sizeof(double));
+          ok = internal_libxs_predict_read(&src, end,
+            cl->centroid, (size_t)ninp * sizeof(double));
         }
-        if (EXIT_SUCCESS == ok) ok = internal_libxs_predict_read_f64(&src, end, &cl->dmax);
+        if (EXIT_SUCCESS == ok) ok = internal_libxs_predict_read(&src, end, &cl->dmax, 8);
         if (EXIT_SUCCESS == ok) {
-          uint32_t ne;
-          ok = internal_libxs_predict_read_u32(&src, end, &ne);
+          ok = internal_libxs_predict_read(&src, end, &ne, 2);
           if (EXIT_SUCCESS == ok) cl->nentries = (int)ne;
         }
         if (EXIT_SUCCESS == ok) {
-          uint32_t mo;
-          ok = internal_libxs_predict_read_u32(&src, end, &mo);
+          ok = internal_libxs_predict_read(&src, end, &mo, 1);
           if (EXIT_SUCCESS == ok) cl->maxorder = (int)mo;
         }
-        if (EXIT_SUCCESS == ok) {
-          ok = internal_libxs_predict_read_blk(
-            &src, end, cl->order, (size_t)nout * sizeof(int32_t));
+        for (j = 0; j < (int)nout && EXIT_SUCCESS == ok; ++j) {
+          uint8_t v = 0;
+          ok = internal_libxs_predict_read(&src, end, &v, 1);
+          cl->order[j] = (int)v;
+        }
+        for (j = 0; j < (int)nout && EXIT_SUCCESS == ok; ++j) {
+          uint8_t v = 0;
+          ok = internal_libxs_predict_read(&src, end, &v, 1);
+          cl->reliable[j] = (int)v;
+        }
+        for (j = 0; j < (int)nout && EXIT_SUCCESS == ok; ++j) {
+          uint8_t v = 0;
+          ok = internal_libxs_predict_read(&src, end, &v, 1);
+          cl->mode[j] = (int)v;
         }
         if (EXIT_SUCCESS == ok) {
-          ok = internal_libxs_predict_read_blk(
-            &src, end, cl->reliable, (size_t)nout * sizeof(int32_t));
-        }
-        if (EXIT_SUCCESS == ok) {
-          ok = internal_libxs_predict_read_blk(
-            &src, end, cl->mode, (size_t)nout * sizeof(int32_t));
-        }
-        if (EXIT_SUCCESS == ok) {
-          ok = internal_libxs_predict_read_blk(
-            &src, end, cl->errors, (size_t)nout * sizeof(double));
+          ok = internal_libxs_predict_read(&src, end,
+            cl->errors, (size_t)nout * sizeof(double));
         }
         if (EXIT_SUCCESS == ok) {
           cl->kd_pts = (double*)malloc(
@@ -964,7 +921,7 @@ LIBXS_API libxs_predict_t* libxs_predict_load(const void* buffer, size_t size)
           cl->kd_idx = (int*)malloc((size_t)cl->nentries * sizeof(int));
           if (NULL == cl->kd_pts || NULL == cl->kd_idx) ok = EXIT_FAILURE;
           if (EXIT_SUCCESS == ok) {
-            ok = internal_libxs_predict_read_blk(&src, end,
+            ok = internal_libxs_predict_read(&src, end,
               cl->kd_pts, (size_t)cl->nentries * (size_t)ninp * sizeof(double));
           }
           if (EXIT_SUCCESS == ok) {
@@ -978,7 +935,7 @@ LIBXS_API libxs_predict_t* libxs_predict_load(const void* buffer, size_t size)
             (size_t)cl->nentries * (size_t)nout * sizeof(double));
           if (NULL == cl->raw_outputs) ok = EXIT_FAILURE;
           if (EXIT_SUCCESS == ok) {
-            ok = internal_libxs_predict_read_blk(&src, end,
+            ok = internal_libxs_predict_read(&src, end,
               cl->raw_outputs, (size_t)cl->nentries * (size_t)nout * sizeof(double));
           }
         }
@@ -987,8 +944,12 @@ LIBXS_API libxs_predict_t* libxs_predict_load(const void* buffer, size_t size)
             (size_t)cl->nentries * (size_t)nout * sizeof(int));
           if (NULL == cl->interp_pos) ok = EXIT_FAILURE;
           if (EXIT_SUCCESS == ok) {
-            ok = internal_libxs_predict_read_blk(&src, end,
-              cl->interp_pos, (size_t)cl->nentries * (size_t)nout * sizeof(int32_t));
+            int k;
+            for (k = 0; k < cl->nentries * (int)nout && EXIT_SUCCESS == ok; ++k) {
+              uint16_t v = 0;
+              ok = internal_libxs_predict_read(&src, end, &v, 2);
+              cl->interp_pos[k] = (int)v;
+            }
           }
         }
         if (EXIT_SUCCESS == ok) {
@@ -996,7 +957,7 @@ LIBXS_API libxs_predict_t* libxs_predict_load(const void* buffer, size_t size)
             (size_t)nout * (size_t)(cl->maxorder + 1), sizeof(double));
           if (NULL == cl->coeffs) ok = EXIT_FAILURE;
           for (j = 0; j < (int)nout && EXIT_SUCCESS == ok; ++j) {
-            ok = internal_libxs_predict_read_blk(&src, end,
+            ok = internal_libxs_predict_read(&src, end,
               cl->coeffs + (size_t)j * (cl->maxorder + 1),
               (size_t)(cl->order[j] + 1) * sizeof(double));
           }
