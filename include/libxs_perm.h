@@ -65,23 +65,39 @@ LIBXS_API unsigned int libxs_hilbert2d(
   unsigned int x, unsigned int y, int order);
 
 /**
- * Build a 2D k-d tree in-place. Points are n interleaved (x, y) pairs
- * in pts[0..2n-1]. The index array idx[0..n-1] is rearranged to
- * reflect the implicit tree structure (median splits alternating
- * on x and y). Initialize idx to identity {0, 1, ..., n-1} before
- * calling. After build, pts is unchanged; idx encodes the tree.
+ * Build a k-d tree in-place for n points in ndims dimensions.
+ * Points are stored row-major: pts[i*stride + k] is coordinate k of point i.
+ * stride >= ndims (allows for padding or interleaved auxiliary data).
+ * The index array idx[0..n-1] is rearranged to encode the implicit tree
+ * (median splits cycling through dimensions). Initialize idx to identity
+ * {0, 1, ..., n-1} before calling. pts is not modified.
+ * When ndims == 2 and stride == 2, an optimized 2D path is used.
  */
-LIBXS_API void libxs_kdtree2d_build(double* pts, int* idx, int n);
+LIBXS_API void libxs_kdtree_build(
+  const double* pts, int* idx, int n, int ndims, int stride);
 
 /**
- * Find the nearest point to (x, y) within squared Euclidean distance
- * max_dist2. Returns the point index (into original pts layout) or
- * -1 if no point is within range. The used array (may be NULL) marks
- * points to skip (non-zero = skip). This enables repeated queries
- * with consumption (mark returned index as used after each hit).
+ * Find the nearest point to query[0..ndims-1] within squared Euclidean
+ * distance max_dist2. Returns the point index (into original pts layout)
+ * or -1 if no point is within range. The used array (may be NULL) marks
+ * points to skip (non-zero = skip).
+ * When ndims == 2 and stride == 2, an optimized 2D path is used.
  */
-LIBXS_API int libxs_kdtree2d_nearest(const double* pts, const int* idx,
-  const unsigned char* used, int n, double x, double y, double max_dist2);
+LIBXS_API int libxs_kdtree_nearest(
+  const double* pts, const int* idx, const unsigned char* used,
+  int n, int ndims, int stride, const double* query, double max_dist2);
+
+/** Convenience wrappers for 2D (interleaved x,y layout, dispatches to 2D fast path). */
+LIBXS_API_INLINE void libxs_kdtree2d_build(double* pts, int* idx, int n) {
+  libxs_kdtree_build(pts, idx, n, 2, 2);
+}
+LIBXS_API_INLINE int libxs_kdtree2d_nearest(const double* pts, const int* idx,
+  const unsigned char* used, int n, double x, double y, double max_dist2)
+{
+  double q[2];
+  q[0] = x; q[1] = y;
+  return libxs_kdtree_nearest(pts, idx, used, n, 2, 2, q, max_dist2);
+}
 
 /** Out-of-place shuffling of data given by elemsize and count. */
 LIBXS_API int libxs_shuffle(void* inout, size_t elemsize, size_t count,

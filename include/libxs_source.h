@@ -36,6 +36,7 @@
 #include "../src/libxs_mem.c"
 #include "../src/libxs_mhd.c"
 #include "../src/libxs_perm.c"
+#include "../src/libxs_predict.c"
 #include "../src/libxs_reg.c"
 #include "../src/libxs_rng.c"
 #include "../src/libxs_str.c"

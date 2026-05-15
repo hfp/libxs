@@ -1513,6 +1513,18 @@ LIBXS_API double libxs_fprint_diff(
 }
 
 
+LIBXS_API double libxs_fprint_raw(
+  const libxs_fprint_t* info, int k, double value)
+{
+  if (0 < k && 1 < info->n) {
+    const double h = 1.0 / (info->n - 1);
+    int i;
+    for (i = 0; i < k; ++i) value *= h;
+  }
+  return value;
+}
+
+
 LIBXS_API double libxs_fprint_decay(const libxs_fprint_t* info)
 {
   LIBXS_ASSERT(NULL != info);
@@ -1521,4 +1533,25 @@ LIBXS_API double libxs_fprint_decay(const libxs_fprint_t* info)
     return pow(info->l2[k] / info->l2[0], 1.0 / k) / (info->n - 1);
   }
   return 1e30;
+}
+
+
+LIBXS_API double libxs_binom(double t, int k)
+{
+  double result = 1.0;
+  int i;
+  for (i = 0; i < k; ++i) result *= (t - i) / (i + 1);
+  return result;
+}
+
+
+LIBXS_API double libxs_dist2(const double* a, const double* b, int n)
+{
+  double d = 0;
+  int i;
+  for (i = 0; i < n; ++i) {
+    const double di = a[i] - b[i];
+    d += di * di;
+  }
+  return d;
 }

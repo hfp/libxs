@@ -72,7 +72,8 @@ LIBXS_API int libxs_dvalue(libxs_data_t datatype, const void* value, double* dva
  && !defined(LIBXS_MHD_H) && !defined(LIBXS_TIMER_H) && !defined(LIBXS_MEM_H) \
  && !defined(LIBXS_SYNC_H) && !defined(LIBXS_UTILS_H) && !defined(LIBXS_RNG_H) \
  && !defined(LIBXS_HIST_H) && !defined(LIBXS_MALLOC_H) && !defined(LIBXS_REG_H) \
- && !defined(LIBXS_PERM_H) && !defined(LIBXS_STR_H) && !defined(LIBXS_HASH_H)
+ && !defined(LIBXS_PERM_H) && !defined(LIBXS_STR_H) && !defined(LIBXS_HASH_H) \
+ && !defined(LIBXS_PREDICT_H)
 # include "libxs_source.h"
 #endif
 
