@@ -9,6 +9,7 @@
 #include <libxs_predict.h>
 #include <libxs_perm.h>
 #include <libxs_rng.h>
+#include <libxs_str.h>
 #include <libxs_malloc.h>
 #include "libxs_main.h"
 
@@ -750,6 +751,19 @@ LIBXS_API void libxs_predict_query(
 }
 
 
+LIBXS_API void libxs_predict_get(const libxs_predict_t* model, int index,
+  double inputs[], double outputs[])
+{
+  LIBXS_ASSERT(NULL != model && 0 <= index && index < model->nentries);
+  if (NULL != inputs) {
+    memcpy(inputs, model->entries[index].inputs, (size_t)model->ninputs * sizeof(double));
+  }
+  if (NULL != outputs) {
+    memcpy(outputs, model->entries[index].outputs, (size_t)model->noutputs * sizeof(double));
+  }
+}
+
+
 LIBXS_API int libxs_predict_save(const libxs_predict_t* model, void* buffer, size_t* size)
 {
   int result = EXIT_SUCCESS;
@@ -986,6 +1000,31 @@ LIBXS_API_INLINE const char* internal_libxs_predict_detect_delims(const char* li
 }
 
 
+LIBXS_API_INLINE int internal_libxs_predict_resolve_col(
+  const char* name, const char* header, const char* delims)
+{
+  int col = 0;
+  const char* p = header;
+  char* endptr = NULL;
+  const long idx = strtol(name, &endptr, 10);
+  if (endptr != name && '\0' == *endptr) return (int)idx;
+  if (NULL == header) return -1;
+  while ('\0' != *p) {
+    const char* field = p;
+    size_t flen;
+    while ('\0' != *p && NULL == strchr(delims, *p)) ++p;
+    flen = (size_t)(p - field);
+    if (flen == strlen(name)) {
+      const char* hit = libxs_stristrn(field, name, flen);
+      if (hit == field) return col;
+    }
+    if ('\0' != *p) ++p;
+    ++col;
+  }
+  return -1;
+}
+
+
 LIBXS_API_INLINE int internal_libxs_predict_parse_row(
   const char* line, const char* delims, const int idx[], int nidx, double vals[])
 {
@@ -1018,13 +1057,13 @@ LIBXS_API_INLINE int internal_libxs_predict_parse_row(
 
 LIBXS_API int libxs_predict_load_csv(libxs_predict_t* model,
   const char filename[], const char delims[],
-  const int inputs_idx[], int ninputs,
-  const int outputs_idx[], int noutputs)
+  const char* inputs[], int ninputs,
+  const char* outputs[], int noutputs)
 {
   int result = -1;
   FILE* file;
   LIBXS_ASSERT(NULL != model && NULL != filename);
-  LIBXS_ASSERT(NULL != inputs_idx && NULL != outputs_idx);
+  LIBXS_ASSERT(NULL != inputs && NULL != outputs);
   LIBXS_ASSERT(ninputs == model->ninputs && noutputs == model->noutputs);
   file = fopen(filename, "r");
   if (NULL != file) {
@@ -1033,24 +1072,45 @@ LIBXS_API int libxs_predict_load_csv(libxs_predict_t* model,
     double* inp = vals;
     double* outp = vals + ninputs;
     const char* sep = delims;
+    int idx[128];
+    int i, resolved = 1;
     LIBXS_ASSERT(ninputs + noutputs <= 128);
     result = 0;
     if (NULL == sep && NULL != fgets(line, (int)sizeof(line), file)) {
+      size_t len = strlen(line);
+      if (0 < len && '\n' == line[len - 1]) line[--len] = '\0';
+      if (0 < len && '\r' == line[len - 1]) line[--len] = '\0';
       sep = internal_libxs_predict_detect_delims(line);
-      if (0 != internal_libxs_predict_parse_row(line, sep, inputs_idx, ninputs, inp)
-        && 0 != internal_libxs_predict_parse_row(line, sep, outputs_idx, noutputs, outp))
-      {
-        if (EXIT_SUCCESS == libxs_predict_push(NULL, model, inp, outp)) {
-          ++result;
+      for (i = 0; i < ninputs && 0 != resolved; ++i) {
+        idx[i] = internal_libxs_predict_resolve_col(inputs[i], line, sep);
+        if (0 > idx[i]) resolved = 0;
+      }
+      for (i = 0; i < noutputs && 0 != resolved; ++i) {
+        idx[ninputs + i] = internal_libxs_predict_resolve_col(outputs[i], line, sep);
+        if (0 > idx[ninputs + i]) resolved = 0;
+      }
+      if (0 == resolved) {
+        rewind(file);
+        for (i = 0; i < ninputs; ++i) {
+          idx[i] = (int)strtol(inputs[i], NULL, 10);
+        }
+        for (i = 0; i < noutputs; ++i) {
+          idx[ninputs + i] = (int)strtol(outputs[i], NULL, 10);
         }
       }
     }
-    else if (NULL == sep) {
-      sep = ";";
+    else {
+      if (NULL == sep) sep = ";";
+      for (i = 0; i < ninputs; ++i) {
+        idx[i] = (int)strtol(inputs[i], NULL, 10);
+      }
+      for (i = 0; i < noutputs; ++i) {
+        idx[ninputs + i] = (int)strtol(outputs[i], NULL, 10);
+      }
     }
     while (NULL != fgets(line, (int)sizeof(line), file)) {
-      if (0 != internal_libxs_predict_parse_row(line, sep, inputs_idx, ninputs, inp)
-        && 0 != internal_libxs_predict_parse_row(line, sep, outputs_idx, noutputs, outp))
+      if (0 != internal_libxs_predict_parse_row(line, sep, idx, ninputs, inp)
+        && 0 != internal_libxs_predict_parse_row(line, sep, idx + ninputs, noutputs, outp))
       {
         if (EXIT_SUCCESS == libxs_predict_push(NULL, model, inp, outp)) {
           ++result;

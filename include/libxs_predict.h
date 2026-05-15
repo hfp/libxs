@@ -99,6 +99,14 @@ LIBXS_API void libxs_predict_query(const libxs_predict_t* model,
   int* nclusters, int* nentries, double* compression);
 
 /**
+ * Retrieve the i-th pushed entry (0-based).
+ * inputs: receives M values (may be NULL).
+ * outputs: receives N values (may be NULL).
+ */
+LIBXS_API void libxs_predict_get(const libxs_predict_t* model, int index,
+  double inputs[], double outputs[]);
+
+/**
  * Save built model to a binary buffer.
  * buffer: destination (may be NULL to query required size).
  * size: on input, available buffer size in bytes;
@@ -118,13 +126,17 @@ LIBXS_API libxs_predict_t* libxs_predict_load(
 
 /**
  * Load delimited text (CSV) and push entries into a prediction model.
- * filename:    path to the delimited text file.
- * delims:      string of delimiter characters (NULL = auto-detect: ;,\t space).
- *              Any character in the string acts as a field separator.
- * inputs_idx:  array of 0-based column indices for input parameters.
- * ninputs:     length of inputs_idx (must match model's ninputs).
- * outputs_idx: array of 0-based column indices for output parameters.
- * noutputs:    length of outputs_idx (must match model's noutputs).
+ * filename: path to the delimited text file.
+ * delims:   string of delimiter characters (NULL = auto-detect: ;,\t space).
+ *           Any character in the string acts as a field separator.
+ * inputs:   array of column identifiers for input parameters.
+ * ninputs:  length of inputs array (must match model's ninputs).
+ * outputs:  array of column identifiers for output parameters.
+ * noutputs: length of outputs array (must match model's noutputs).
+ *
+ * Each identifier is matched case-insensitively against the header line.
+ * If no header match is found, the identifier is parsed as a numeric
+ * column index (0-based).
  *
  * Rows where any selected column fails numeric parsing are skipped
  * (handles header lines and non-numeric fields automatically).
@@ -132,8 +144,8 @@ LIBXS_API libxs_predict_t* libxs_predict_load(
  */
 LIBXS_API int libxs_predict_load_csv(libxs_predict_t* model,
   const char filename[], const char delims[],
-  const int inputs_idx[], int ninputs,
-  const int outputs_idx[], int noutputs);
+  const char* inputs[], int ninputs,
+  const char* outputs[], int noutputs);
 
 /* header-only: include implementation (deferred from libxs_macros.h) */
 #if defined(LIBXS_SOURCE) && !defined(LIBXS_SOURCE_H)
