@@ -41,6 +41,7 @@ typedef struct internal_libxs_predict_cluster_t {
   double* sorted_dist;
   double dmax;
   int nentries;
+  int maxorder;
 } internal_libxs_predict_cluster_t;
 
 LIBXS_EXTERN_C struct libxs_predict_t {
@@ -408,6 +409,7 @@ LIBXS_API int libxs_predict_build(libxs_predict_t* model, int nclusters, double 
           maxorder = LIBXS_MAX(qorder, 1);
           maxorder = LIBXS_MIN(maxorder, nc - 1);
         }
+        cl->maxorder = maxorder;
         cl->coeffs = (double*)calloc((size_t)n * (size_t)(maxorder + 1), sizeof(double));
         cl->errors = (double*)calloc((size_t)n, sizeof(double));
         if (NULL == cl->coeffs || NULL == cl->errors) {
@@ -430,11 +432,8 @@ LIBXS_API int libxs_predict_build(libxs_predict_t* model, int nclusters, double 
         else {
           const size_t shape = (size_t)nc;
           const double decay_threshold = 0.01 + 0.99 * quality;
-          const int maxord = LIBXS_MIN(nc - 1, LIBXS_FPRINT_MAXORDER);
           for (j = 0; j < n && EXIT_SUCCESS == result; ++j) {
-            const int maxorder_j = LIBXS_MIN(
-              (int)(quality * LIBXS_MIN(nc - 1, LIBXS_FPRINT_MAXORDER) + 0.5), nc - 1);
-            int trunc_order = LIBXS_MAX(maxorder_j, 1);
+            int trunc_order = maxorder;
             int d;
             libxs_fprint_t fp;
             for (k = 0; k < nc; ++k) {
@@ -450,17 +449,17 @@ LIBXS_API int libxs_predict_build(libxs_predict_t* model, int nclusters, double 
                 for (d = 1; d <= trunc_order; ++d) {
                   if (fp.l2[d] >= decay_threshold * fp.l2[0]) {
                     trunc_order = LIBXS_MAX(d - 1, 1);
-                    d = maxord + 1;
+                    d = maxorder + 1;
                   }
                 }
               }
             }
             cl->order[j] = trunc_order;
             memcpy(buf, seq, (size_t)nc * sizeof(double));
-            cl->coeffs[(size_t)j * (maxord + 1)] = buf[0];
+            cl->coeffs[(size_t)j * (maxorder + 1)] = buf[0];
             for (d = 1; d <= trunc_order && d < nc; ++d) {
               for (k = 0; k < nc - d; ++k) buf[k] = buf[k + 1] - buf[k];
-              cl->coeffs[(size_t)j * (maxord + 1) + d] = buf[0];
+              cl->coeffs[(size_t)j * (maxorder + 1) + d] = buf[0];
             }
             if (trunc_order < nc - 1) {
               double emax = 0;
@@ -511,10 +510,9 @@ LIBXS_API void libxs_predict_eval(libxs_lock_t* lock, const libxs_predict_t* mod
       const internal_libxs_predict_cluster_t* cl = &model->clusters[best_c];
       const double t = internal_libxs_predict_position(model, cl, inputs);
       const int pos = (int)(t + 0.5);
-      const int maxord = LIBXS_MIN(cl->nentries - 1, LIBXS_FPRINT_MAXORDER);
       for (j = 0; j < n; ++j) {
         const int d = cl->order[j];
-        const double* cj = cl->coeffs + (size_t)j * (maxord + 1);
+        const double* cj = cl->coeffs + (size_t)j * (cl->maxorder + 1);
         double val = 0;
         int k;
         for (k = 0; k <= d; ++k) val += cj[k] * libxs_binom(t, k);
@@ -559,11 +557,10 @@ LIBXS_API void libxs_predict_eval(libxs_lock_t* lock, const libxs_predict_t* mod
         const double dq = dists[b].dist;
         const double t = internal_libxs_predict_position(model, cl, inputs);
         const int pos = (int)(t + 0.5);
-        const int maxord = LIBXS_MIN(cl->nentries - 1, LIBXS_FPRINT_MAXORDER);
         const double w = ((dq > 0) ? (1.0 / dq) : 1e30) / wsum;
         for (j = 0; j < n; ++j) {
           const int d = cl->order[j];
-          const double* cj = cl->coeffs + (size_t)j * (maxord + 1);
+          const double* cj = cl->coeffs + (size_t)j * (cl->maxorder + 1);
           double val = 0;
           int k;
           for (k = 0; k <= d; ++k) val += cj[k] * libxs_binom(t, k);
@@ -628,7 +625,7 @@ LIBXS_API int libxs_predict_save(const libxs_predict_t* model, void* buffer, siz
       const internal_libxs_predict_cluster_t* cl = &model->clusters[c];
       required += (size_t)model->ninputs * sizeof(double);
       required += sizeof(double);
-      required += sizeof(uint32_t);
+      required += 2 * sizeof(uint32_t);
       required += (size_t)model->noutputs * sizeof(int32_t);
       required += (size_t)model->noutputs * sizeof(int32_t);
       required += (size_t)model->noutputs * sizeof(double);
@@ -669,16 +666,16 @@ LIBXS_API int libxs_predict_save(const libxs_predict_t* model, void* buffer, siz
       WRITE_U32(model->nclusters);
       for (c = 0; c < model->nclusters; ++c) {
         const internal_libxs_predict_cluster_t* cl = &model->clusters[c];
-        const int maxord = LIBXS_MIN(cl->nentries - 1, LIBXS_FPRINT_MAXORDER);
         WRITE_BLK(cl->centroid, (size_t)model->ninputs * sizeof(double));
         WRITE_F64(cl->dmax);
         WRITE_U32(cl->nentries);
+        WRITE_U32(cl->maxorder);
         WRITE_BLK(cl->order, (size_t)model->noutputs * sizeof(int32_t));
         WRITE_BLK(cl->reliable, (size_t)model->noutputs * sizeof(int32_t));
         WRITE_BLK(cl->errors, (size_t)model->noutputs * sizeof(double));
         for (j = 0; j < model->noutputs; ++j) {
           WRITE_BLK(
-            cl->coeffs + (size_t)j * (maxord + 1), (size_t)(cl->order[j] + 1) * sizeof(double));
+            cl->coeffs + (size_t)j * (cl->maxorder + 1), (size_t)(cl->order[j] + 1) * sizeof(double));
         }
       }
 #undef WRITE_U32
@@ -768,7 +765,7 @@ LIBXS_API libxs_predict_t* libxs_predict_load(const void* buffer, size_t size)
       int c;
       for (c = 0; c < (int)nclust && EXIT_SUCCESS == ok; ++c) {
         internal_libxs_predict_cluster_t* cl = &model->clusters[c];
-        int maxord, j;
+        int j;
         cl->centroid = (double*)malloc((size_t)ninp * sizeof(double));
         cl->order = (int*)malloc((size_t)nout * sizeof(int));
         cl->reliable = (int*)malloc((size_t)nout * sizeof(int));
@@ -787,6 +784,11 @@ LIBXS_API libxs_predict_t* libxs_predict_load(const void* buffer, size_t size)
           if (EXIT_SUCCESS == ok) cl->nentries = (int)ne;
         }
         if (EXIT_SUCCESS == ok) {
+          uint32_t mo;
+          ok = internal_libxs_predict_read_u32(&src, end, &mo);
+          if (EXIT_SUCCESS == ok) cl->maxorder = (int)mo;
+        }
+        if (EXIT_SUCCESS == ok) {
           ok = internal_libxs_predict_read_blk(
             &src, end, cl->order, (size_t)nout * sizeof(int32_t));
         }
@@ -799,12 +801,12 @@ LIBXS_API libxs_predict_t* libxs_predict_load(const void* buffer, size_t size)
             &src, end, cl->errors, (size_t)nout * sizeof(double));
         }
         if (EXIT_SUCCESS == ok) {
-          maxord = LIBXS_MIN(cl->nentries - 1, LIBXS_FPRINT_MAXORDER);
-          cl->coeffs = (double*)calloc((size_t)nout * (size_t)(maxord + 1), sizeof(double));
+          cl->coeffs = (double*)calloc(
+            (size_t)nout * (size_t)(cl->maxorder + 1), sizeof(double));
           if (NULL == cl->coeffs) ok = EXIT_FAILURE;
           for (j = 0; j < (int)nout && EXIT_SUCCESS == ok; ++j) {
             ok = internal_libxs_predict_read_blk(&src, end,
-              cl->coeffs + (size_t)j * (maxord + 1),
+              cl->coeffs + (size_t)j * (cl->maxorder + 1),
               (size_t)(cl->order[j] + 1) * sizeof(double));
           }
         }

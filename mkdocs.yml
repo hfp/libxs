@@ -46,6 +46,7 @@ nav:
   - Histogram: libxs_hist.md
   - Registry: libxs_reg.md
   - Hashing: libxs_hash.md
+  - Predict: libxs_predict.md
   - Malloc: libxs_malloc.md
   - Memory: libxs_mem.md
   - String: libxs_str.md
@@ -62,9 +63,10 @@ nav:
   - Reference: libxs_opencl.md
 - Example Code:
   - Registry: samples/libxs_registry.md
-  - Scratch: samples/libxs_scratch.md
   - Rosetta: samples/libxs_rosetta.md
+  - Predict: samples/libxs_predict.md
   - Shuffle: samples/libxs_shuffle.md
+  - Scratch: samples/libxs_scratch.md
   - Memory: samples/libxs_memory.md
   - GEMM: samples/libxs_gemm.md
   - SYRK: samples/libxs_syrk.md

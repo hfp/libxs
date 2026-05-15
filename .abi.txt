@@ -125,6 +125,7 @@ libxs_predict_create
 libxs_predict_destroy
 libxs_predict_eval
 libxs_predict_load
+libxs_predict_load_csv
 libxs_predict_push
 libxs_predict_query
 libxs_predict_save
