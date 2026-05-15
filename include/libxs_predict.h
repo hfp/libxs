@@ -115,6 +115,25 @@ LIBXS_API int libxs_predict_save(const libxs_predict_t* model,
 LIBXS_API libxs_predict_t* libxs_predict_load(
   const void* buffer, size_t size);
 
+/**
+ * Load delimited text (CSV) and push entries into a prediction model.
+ * filename:    path to the delimited text file.
+ * delims:      string of delimiter characters (NULL = auto-detect: ;,\t space).
+ *              Any character in the string acts as a field separator.
+ * inputs_idx:  array of 0-based column indices for input parameters.
+ * ninputs:     length of inputs_idx (must match model's ninputs).
+ * outputs_idx: array of 0-based column indices for output parameters.
+ * noutputs:    length of outputs_idx (must match model's noutputs).
+ *
+ * Rows where any selected column fails numeric parsing are skipped
+ * (handles header lines and non-numeric fields automatically).
+ * Returns the number of entries successfully pushed, or -1 on I/O error.
+ */
+LIBXS_API int libxs_predict_load_csv(libxs_predict_t* model,
+  const char filename[], const char delims[],
+  const int inputs_idx[], int ninputs,
+  const int outputs_idx[], int noutputs);
+
 /* header-only: include implementation (deferred from libxs_macros.h) */
 #if defined(LIBXS_SOURCE) && !defined(LIBXS_SOURCE_H)
 # include "libxs_source.h"

@@ -820,3 +820,90 @@ LIBXS_API libxs_predict_t* libxs_predict_load(const void* buffer, size_t size)
   }
   return model;
 }
+
+
+LIBXS_API_INLINE const char* internal_libxs_predict_detect_delims(const char* line)
+{
+  const char* result = " ";
+  if (NULL != strchr(line, ';')) result = ";";
+  else if (NULL != strchr(line, ',')) result = ",";
+  else if (NULL != strchr(line, '\t')) result = "\t";
+  return result;
+}
+
+
+LIBXS_API_INLINE int internal_libxs_predict_parse_row(
+  const char* line, const char* delims, const int idx[], int nidx, double vals[])
+{
+  int filled = 0, col = 0, ok = 1, i;
+  const char* p = line;
+  while ('\0' != *p && filled < nidx && 0 != ok) {
+    const char* field = p;
+    while ('\0' != *p && NULL == strchr(delims, *p)) ++p;
+    for (i = 0; i < nidx && 0 != ok; ++i) {
+      if (col == idx[i]) {
+        char* endptr = NULL;
+        const double v = strtod(field, &endptr);
+        if (endptr == field || (endptr != p && '\0' != *endptr
+          && NULL == strchr(delims, *endptr)))
+        {
+          ok = 0;
+        }
+        else {
+          vals[i] = v;
+          ++filled;
+        }
+      }
+    }
+    if ('\0' != *p) ++p;
+    ++col;
+  }
+  return (0 != ok && filled >= nidx) ? 1 : 0;
+}
+
+
+LIBXS_API int libxs_predict_load_csv(libxs_predict_t* model,
+  const char filename[], const char delims[],
+  const int inputs_idx[], int ninputs,
+  const int outputs_idx[], int noutputs)
+{
+  int result = -1;
+  FILE* file;
+  LIBXS_ASSERT(NULL != model && NULL != filename);
+  LIBXS_ASSERT(NULL != inputs_idx && NULL != outputs_idx);
+  LIBXS_ASSERT(ninputs == model->ninputs && noutputs == model->noutputs);
+  file = fopen(filename, "r");
+  if (NULL != file) {
+    char line[4096];
+    double vals[128];
+    double* inp = vals;
+    double* outp = vals + ninputs;
+    const char* sep = delims;
+    LIBXS_ASSERT(ninputs + noutputs <= 128);
+    result = 0;
+    if (NULL == sep && NULL != fgets(line, (int)sizeof(line), file)) {
+      sep = internal_libxs_predict_detect_delims(line);
+      if (0 != internal_libxs_predict_parse_row(line, sep, inputs_idx, ninputs, inp)
+        && 0 != internal_libxs_predict_parse_row(line, sep, outputs_idx, noutputs, outp))
+      {
+        if (EXIT_SUCCESS == libxs_predict_push(NULL, model, inp, outp)) {
+          ++result;
+        }
+      }
+    }
+    else if (NULL == sep) {
+      sep = ";";
+    }
+    while (NULL != fgets(line, (int)sizeof(line), file)) {
+      if (0 != internal_libxs_predict_parse_row(line, sep, inputs_idx, ninputs, inp)
+        && 0 != internal_libxs_predict_parse_row(line, sep, outputs_idx, noutputs, outp))
+      {
+        if (EXIT_SUCCESS == libxs_predict_push(NULL, model, inp, outp)) {
+          ++result;
+        }
+      }
+    }
+    fclose(file);
+  }
+  return result;
+}
