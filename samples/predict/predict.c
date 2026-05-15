@@ -16,11 +16,11 @@
 
 static const char* input_names[] = { "M", "N", "K" };
 static const char* output_names[] = {
-  "BM", "BN", "BK", "WS", "WG", "LU", "NZ",
+  "BS", "BM", "BN", "BK", "WS", "WG", "LU", "NZ",
   "AL", "TB", "TC", "AP", "AA", "AB", "AC"
 };
 
-enum { NINPUTS = 3, NOUTPUTS = 14 };
+enum { NINPUTS = 3, NOUTPUTS = 15 };
 
 typedef struct trial_ctx_t {
   libxs_predict_t* source;
