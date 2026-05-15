@@ -10,6 +10,10 @@
 #include <libxs_math.h>
 #include <libxs_perm.h>
 
+#if defined(_OPENMP)
+# include <omp.h>
+#endif
+
 static const char* input_names[] = { "M", "N", "K" };
 static const char* output_names[] = {
   "BM", "BN", "BK", "WS", "WG", "LU", "NZ",
@@ -117,21 +121,40 @@ static double trial_fraction(double fraction, const void* data)
   double total_err = 0;
   libxs_predict_t* model = libxs_predict_create(NINPUTS, NOUTPUTS);
   if (NULL != model) {
-    int i, j;
+    int i;
     double inputs[NINPUTS], outputs[NOUTPUTS];
     for (i = 0; i < ntrain; ++i) {
       libxs_predict_get(ctx->source, ctx->perm[i], inputs, outputs);
       libxs_predict_push(NULL, model, inputs, outputs);
     }
     if (EXIT_SUCCESS == libxs_predict_build(model, 0, -1.0)) {
-      for (i = 0; i < ctx->ntotal; ++i) {
-        double predicted[NOUTPUTS], expected[NOUTPUTS];
-        libxs_predict_get(ctx->source, i, inputs, expected);
-        libxs_predict_eval(NULL, model, inputs, predicted, NULL, 1);
-        for (j = 0; j < NOUTPUTS; ++j) {
-          total_err += LIBXS_DELTA(predicted[j], expected[j]);
+      double* all_inputs = (double*)malloc((size_t)ctx->ntotal * NINPUTS * sizeof(double));
+      double* all_predicted = (double*)malloc((size_t)ctx->ntotal * NOUTPUTS * sizeof(double));
+      if (NULL != all_inputs && NULL != all_predicted) {
+        int j;
+        for (i = 0; i < ctx->ntotal; ++i) {
+          libxs_predict_get(ctx->source, i, all_inputs + (size_t)i * NINPUTS, NULL);
+        }
+#if defined(_OPENMP)
+#       pragma omp parallel
+        { const int tid = omp_get_thread_num(), ntasks = omp_get_num_threads();
+          libxs_predict_eval_batch_task(model, all_inputs, all_predicted,
+            ctx->ntotal, 1, tid, ntasks);
+        }
+#else
+        libxs_predict_eval_batch(model, all_inputs, all_predicted, ctx->ntotal, 1);
+#endif
+        for (i = 0; i < ctx->ntotal; ++i) {
+          double expected[NOUTPUTS];
+          libxs_predict_get(ctx->source, i, NULL, expected);
+          for (j = 0; j < NOUTPUTS; ++j) {
+            total_err += LIBXS_DELTA(all_predicted[(size_t)i * NOUTPUTS + j], expected[j]);
+          }
         }
       }
+      else total_err = 1e30;
+      free(all_inputs);
+      free(all_predicted);
     }
     else total_err = 1e30;
     libxs_predict_destroy(model);
@@ -146,20 +169,37 @@ static void evaluate(const libxs_predict_t* model,
 {
   double maxerr[NOUTPUTS] = {0}, sumerr[NOUTPUTS] = {0};
   double sum_bound[NOUTPUTS] = {0};
+  double* all_inputs = (double*)malloc((size_t)ntotal * NINPUTS * sizeof(double));
+  double* all_predicted = (double*)malloc((size_t)ntotal * NOUTPUTS * sizeof(double));
   int ninterp[NOUTPUTS] = {0}, i, j;
   for (i = 0; i < ntotal; ++i) {
-    double inputs[NINPUTS], expected[NOUTPUTS], predicted[NOUTPUTS];
+    libxs_predict_get(reference, i, all_inputs + (size_t)i * NINPUTS, NULL);
+  }
+#if defined(_OPENMP)
+# pragma omp parallel
+  { const int tid = omp_get_thread_num(), ntasks = omp_get_num_threads();
+    libxs_predict_eval_batch_task(model, all_inputs, all_predicted,
+      ntotal, 1, tid, ntasks);
+  }
+#else
+  libxs_predict_eval_batch(model, all_inputs, all_predicted, ntotal, 1);
+#endif
+  for (i = 0; i < ntotal; ++i) {
+    double expected[NOUTPUTS];
     libxs_predict_info_t info;
-    libxs_predict_get(reference, i, inputs, expected);
-    libxs_predict_eval(NULL, model, inputs, predicted, &info, 1);
+    libxs_predict_get(reference, i, NULL, expected);
+    libxs_predict_eval(NULL, model,
+      all_inputs + (size_t)i * NINPUTS, NULL, &info, 1);
     for (j = 0; j < NOUTPUTS; ++j) {
-      const double err = LIBXS_DELTA(predicted[j], expected[j]);
+      const double err = LIBXS_DELTA(all_predicted[(size_t)i * NOUTPUTS + j], expected[j]);
       sumerr[j] += err;
       if (err > maxerr[j]) maxerr[j] = err;
       sum_bound[j] += info.error[j];
       ninterp[j] += info.reliable[j];
     }
   }
+  free(all_inputs);
+  free(all_predicted);
   fprintf(stdout, "%s (%d samples):\n", label, ntotal);
   fprintf(stdout, "  param   avg-err   max-err  avg-bound\n");
   for (j = 0; j < NOUTPUTS; ++j) {

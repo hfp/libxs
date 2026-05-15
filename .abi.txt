@@ -124,6 +124,9 @@ libxs_predict_build
 libxs_predict_create
 libxs_predict_destroy
 libxs_predict_eval
+libxs_predict_eval_batch
+libxs_predict_eval_batch_task
+libxs_predict_get
 libxs_predict_load
 libxs_predict_load_csv
 libxs_predict_push

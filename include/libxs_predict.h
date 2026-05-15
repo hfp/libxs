@@ -107,6 +107,24 @@ LIBXS_API void libxs_predict_get(const libxs_predict_t* model, int index,
   double inputs[], double outputs[]);
 
 /**
+ * Predict output parameters for a batch of inputs.
+ * inputs_batch: count*M values (contiguous, row-major).
+ * outputs_batch: count*N values written.
+ * count: number of queries in the batch.
+ * nblend: number of nearest clusters to blend per query.
+ */
+LIBXS_API void libxs_predict_eval_batch(
+  const libxs_predict_t* model,
+  const double inputs_batch[], double outputs_batch[],
+  int count, int nblend);
+
+/** Per-thread form of libxs_predict_eval_batch. */
+LIBXS_API void libxs_predict_eval_batch_task(
+  const libxs_predict_t* model,
+  const double inputs_batch[], double outputs_batch[],
+  int count, int nblend, int tid, int ntasks);
+
+/**
  * Save built model to a binary buffer.
  * buffer: destination (may be NULL to query required size).
  * size: on input, available buffer size in bytes;

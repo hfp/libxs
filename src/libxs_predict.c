@@ -728,6 +728,37 @@ LIBXS_API void libxs_predict_eval(libxs_lock_t* lock, const libxs_predict_t* mod
 }
 
 
+LIBXS_API void libxs_predict_eval_batch_task(
+  const libxs_predict_t* model,
+  const double inputs_batch[], double outputs_batch[],
+  int count, int nblend, int tid, int ntasks)
+{
+  const int m = model->ninputs, n = model->noutputs;
+  const int chunk = (count + ntasks - 1) / ntasks;
+  const int begin = tid * chunk;
+  const int end = LIBXS_MIN(begin + chunk, count);
+  int i;
+  LIBXS_ASSERT(NULL != model && 0 != model->built);
+  LIBXS_ASSERT(NULL != inputs_batch && NULL != outputs_batch);
+  for (i = begin; i < end; ++i) {
+    libxs_predict_eval(NULL, model,
+      inputs_batch + (size_t)i * m,
+      outputs_batch + (size_t)i * n,
+      NULL, nblend);
+  }
+}
+
+
+LIBXS_API void libxs_predict_eval_batch(
+  const libxs_predict_t* model,
+  const double inputs_batch[], double outputs_batch[],
+  int count, int nblend)
+{
+  libxs_predict_eval_batch_task(model, inputs_batch, outputs_batch,
+    count, nblend, 0, 1);
+}
+
+
 LIBXS_API void libxs_predict_query(
   const libxs_predict_t* model, int* nclusters, int* nentries, double* compression)
 {
