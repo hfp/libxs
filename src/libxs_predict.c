@@ -544,17 +544,17 @@ LIBXS_API int libxs_predict_build(libxs_predict_t* model, int nclusters, double 
             libxs_fprint(&fp, LIBXS_DATATYPE_F64, seq, 1, &shape, &stride,
               LIBXS_FPRINT_MAXORDER, -1);
           }
-          cl->interpolated[j] = 0;
-          if (ndistinct <= ndistinct_thresh || 0 == fp.l2[0]
-            || libxs_fprint_decay(&fp) >= 0.5)
-          {
-            cl->mode[j] = 1;
-            cl->order[j] = 0;
-          }
-          else {
-            int trunc_order = maxorder;
-            cl->mode[j] = 0;
-            cl->interpolated[j] = 1;
+          { int trunc_order = maxorder;
+            cl->interpolated[j] = 0;
+            if (ndistinct <= ndistinct_thresh || 0 == fp.l2[0]
+              || libxs_fprint_decay(&fp) >= 0.5)
+            {
+              cl->mode[j] = 1;
+            }
+            else {
+              cl->mode[j] = 0;
+              cl->interpolated[j] = 1;
+            }
             for (d = 1; d <= trunc_order; ++d) {
               if (fp.l2[d] >= decay_threshold * fp.l2[0]) {
                 trunc_order = LIBXS_MAX(d - 1, 1);
