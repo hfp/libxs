@@ -63,8 +63,8 @@ LIBXS_API int libxs_predict_push(libxs_lock_t* lock,
  * quality:   compression-vs-accuracy tradeoff in [0,1].
  *            0.0 = maximum compression (aggressive truncation).
  *            1.0 = maximum fidelity (minimal truncation).
- *            <0  = auto-optimize via GSS; |quality| is the iteration
- *                  count (e.g., -1 = 10 default, -20 = 20 iterations).
+ *            -1  = auto-optimize via GSS (converges to precision).
+ *            -N  = auto-optimize with exactly N GSS iterations (N > 1).
  *
  * Returns EXIT_SUCCESS or EXIT_FAILURE.
  * May be called again after pushing additional entries (rebuilds).

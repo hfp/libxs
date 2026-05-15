@@ -376,7 +376,7 @@ LIBXS_API int libxs_predict_build(libxs_predict_t* model, int nclusters, double 
   else if (quality < 0.0) {
     internal_libxs_predict_quality_ctx_t ctx;
     double best_quality = 0.8;
-    const int maxiter = (quality < -1.0) ? (int)(-quality) : 10;
+    const int maxiter = (quality < -1.0) ? (int)(-quality) : 100;
     ctx.model = model;
     ctx.nclusters = nclusters;
     libxs_gss_min(internal_libxs_predict_quality_fn, &ctx,
@@ -536,7 +536,7 @@ LIBXS_API int libxs_predict_build(libxs_predict_t* model, int nclusters, double 
           }
           cl->reliable[j] = 0;
           if (ndistinct <= ndistinct_thresh || 0 == fp.l2[0]
-            || libxs_fprint_decay(&fp) >= 1.0)
+            || libxs_fprint_decay(&fp) >= 0.5)
           {
             cl->mode[j] = 1;
             cl->order[j] = 0;
