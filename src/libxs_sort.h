@@ -116,4 +116,34 @@
       }
     }
   }
+  else if (LIBXS_SORT_MORTON == method) {
+    const int bpd = LIBXS_MIN(53 / LIBXS_MAX(n, 1), 21);
+    const unsigned int levels = (1u << bpd) - 1;
+    double col_min[64], col_range[64];
+    for (jj = 0; jj < n && jj < 64; ++jj) {
+      double lo, hi;
+      lo = hi = LIBXS_SORT_TEMPLATE_TYPE2FP64(real_mat[(size_t)jj * ld]);
+      for (ii = 1; ii < m; ++ii) {
+        const double v = LIBXS_SORT_TEMPLATE_TYPE2FP64(
+          real_mat[(size_t)jj * ld + ii]);
+        if (v < lo) lo = v;
+        if (v > hi) hi = v;
+      }
+      col_min[jj] = lo;
+      col_range[jj] = (hi > lo) ? (hi - lo) : 1.0;
+    }
+    for (ii = 0; ii < m; ++ii) {
+      unsigned int coords[64];
+      for (jj = 0; jj < n && jj < 64; ++jj) {
+        const double v = LIBXS_SORT_TEMPLATE_TYPE2FP64(
+          real_mat[(size_t)jj * ld + ii]);
+        unsigned int q = (unsigned int)((v - col_min[jj]) * levels / col_range[jj]);
+        if (q > levels) q = levels;
+        coords[jj] = q;
+      }
+      scores[ii] = (double)libxs_morton(coords, n);
+    }
+    libxs_sort(perm, m, sizeof(int),
+      internal_libxs_sort_smooth_cmp, (void*)scores);
+  }
 }

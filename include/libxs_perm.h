@@ -17,7 +17,8 @@ typedef enum libxs_sort_t {
   LIBXS_SORT_IDENTITY = 1,
   LIBXS_SORT_NORM     = 2,
   LIBXS_SORT_MEAN     = 3,
-  LIBXS_SORT_GREEDY   = 4
+  LIBXS_SORT_GREEDY   = 4,
+  LIBXS_SORT_MORTON   = 5
 } libxs_sort_t;
 
 /**
@@ -63,6 +64,14 @@ LIBXS_API void libxs_sort(void* base, int n, size_t size,
  */
 LIBXS_API unsigned int libxs_hilbert2d(
   unsigned int x, unsigned int y, int order);
+
+/**
+ * N-dimensional Morton code (Z-order curve). Bit-interleaves ndims
+ * coordinates into a 64-bit key. Each coordinate is quantized to
+ * floor(64/ndims) bits. coords[k] must be in [0, 2^bits_per_dim).
+ */
+LIBXS_API uint64_t libxs_morton(
+  const unsigned int coords[], int ndims);
 
 /**
  * Build a k-d tree in-place for n points in ndims dimensions.

@@ -357,6 +357,20 @@ LIBXS_API unsigned int libxs_hilbert2d(
 }
 
 
+LIBXS_API uint64_t libxs_morton(const unsigned int coords[], int ndims)
+{
+  const int bpd = 64 / ndims;
+  uint64_t code = 0;
+  int bit, d;
+  for (bit = bpd - 1; 0 <= bit; --bit) {
+    for (d = ndims - 1; 0 <= d; --d) {
+      code = (code << 1) | ((coords[d] >> bit) & 1u);
+    }
+  }
+  return code;
+}
+
+
 LIBXS_API_INLINE void internal_libxs_kdtree2d_build(
   const double* pts, int* idx, int lo, int hi, int depth)
 {
