@@ -108,6 +108,7 @@ libxs_mhd_typeinfo
 libxs_mhd_typename
 libxs_mhd_write
 libxs_mod_inverse_u32
+libxs_morton
 libxs_nrank
 libxs_nranks
 libxs_offset
@@ -134,6 +135,7 @@ libxs_predict_lock
 libxs_predict_push
 libxs_predict_query
 libxs_predict_save
+libxs_predict_set_mode
 libxs_primes_u32
 libxs_product_limit
 libxs_registry_begin

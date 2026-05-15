@@ -55,11 +55,13 @@ LIBXS_EXTERN_C struct libxs_predict_t {
   int* assignments;
   double* eval_buf;
   libxs_lock_t lock;
+  double quality;
   int ninputs, noutputs;
   int nentries, capacity;
   int nclusters;
   int built;
   int eval_mode;
+  int iterations;
   volatile int phase;
 };
 
@@ -395,6 +397,7 @@ LIBXS_API int libxs_predict_build(libxs_predict_t* model, int nclusters, double 
     ctx.nclusters = nclusters;
     libxs_gss_min(internal_libxs_predict_quality_fn, &ctx,
       0.1, 1.0, &best_quality, maxiter);
+    model->iterations = maxiter;
     result = libxs_predict_build(model, nclusters, best_quality);
   }
   else {
@@ -403,6 +406,7 @@ LIBXS_API int libxs_predict_build(libxs_predict_t* model, int nclusters, double 
     const int n = model->noutputs;
     int c, i;
     if (quality > 1.0) quality = 1.0;
+    model->quality = quality;
     internal_libxs_predict_free_clusters(model);
     if (0 >= nclusters) {
       nclusters = (int)(sqrt((double)p) + 0.5);
@@ -763,13 +767,10 @@ LIBXS_API void libxs_predict_eval_batch(
 
 
 LIBXS_API void libxs_predict_query(
-  const libxs_predict_t* model, int* nclusters, int* nentries, double* compression)
+  const libxs_predict_t* model, libxs_predict_query_t* info)
 {
-  LIBXS_ASSERT(NULL != model && 0 != model->built);
-  if (NULL != nclusters) *nclusters = model->nclusters;
-  if (NULL != nentries) *nentries = model->nentries;
-  if (NULL != compression) {
-    const double raw = (double)model->nentries * (model->ninputs + model->noutputs);
+  LIBXS_ASSERT(NULL != model && 0 != model->built && NULL != info);
+  { const double raw = (double)model->nentries * (model->ninputs + model->noutputs);
     double compressed = 0;
     int c;
     for (c = 0; c < model->nclusters; ++c) {
@@ -780,8 +781,12 @@ LIBXS_API void libxs_predict_query(
         compressed += cl->order[j] + 1;
       }
     }
-    *compression = (compressed > 0) ? (raw / compressed) : 0;
+    info->compression = (compressed > 0) ? (raw / compressed) : 0;
   }
+  info->quality = model->quality;
+  info->nclusters = model->nclusters;
+  info->nentries = model->nentries;
+  info->iterations = model->iterations;
 }
 
 

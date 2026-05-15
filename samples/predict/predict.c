@@ -26,6 +26,7 @@ typedef struct trial_ctx_t {
   libxs_predict_t* source;
   int* perm;
   int ntotal;
+  int mode;
 } trial_ctx_t;
 
 static double trial_fraction(double fraction, const void* data);
@@ -35,10 +36,16 @@ static void evaluate(const libxs_predict_t* model,
 
 int main(int argc, char* argv[])
 {
-  int argi = 1;
+  int argi = 1, mode = -1;
   double quality_iter = -1.0;
   const char *filename, *modelfile;
   int result = EXIT_FAILURE;
+  if (argi < argc && 'a' <= argv[argi][0]) {
+    if ('a' == argv[argi][0]) mode = -1;
+    else if ('c' == argv[argi][0]) mode = 1;
+    else if ('i' == argv[argi][0]) mode = 0;
+    ++argi;
+  }
   if (argi < argc && '-' == argv[argi][0] && '\0' != argv[argi][1]) {
     quality_iter = atof(argv[argi]);
     ++argi;
@@ -59,8 +66,11 @@ int main(int argc, char* argv[])
   }
   if (NULL == filename) {
     fprintf(stdout,
-      "Usage: %s [-N] <csvfile> [modelfile]\n"
-      "  -N: quality GSS iterations for final build (default: -1 = 10)\n"
+      "Usage: %s [auto|cat|interp] [-N] <csvfile> [modelfile]\n"
+      "  auto:    auto-detect mode per output (default)\n"
+      "  cat:     force categorical (kNN) for all outputs\n"
+      "  interp:  force interpolation for all outputs\n"
+      "  -N: quality GSS iterations for final build (default: -1)\n"
       "  Finds the optimal training fraction via GSS, then saves\n"
       "  the best model. Evaluates against all samples.\n", argv[0]);
   }
@@ -82,6 +92,7 @@ int main(int argc, char* argv[])
           ctx.source = source;
           ctx.perm = perm;
           ctx.ntotal = ntotal;
+          ctx.mode = mode;
           libxs_gss_min(trial_fraction, &ctx, 0.3, 1.0, &best_fraction, 20);
           ntrain = LIBXS_MAX((int)(ntotal * best_fraction + 0.5), 1);
           fprintf(stdout, "Optimal fraction: %.2f (%d/%d entries)\n",
@@ -89,6 +100,7 @@ int main(int argc, char* argv[])
           model = libxs_predict_create(NINPUTS, NOUTPUTS);
           if (NULL != model) {
             double inputs[NINPUTS], outputs[NOUTPUTS];
+            libxs_predict_set_mode(model, mode);
             for (i = 0; i < ntrain; ++i) {
               libxs_predict_get(source, perm[i], inputs, outputs);
               libxs_predict_push(NULL, model, inputs, outputs);
@@ -104,11 +116,11 @@ int main(int argc, char* argv[])
               build_ok = libxs_predict_build_task(NULL, model, 0, quality_iter, 0, 1);
 #endif
             if (EXIT_SUCCESS == build_ok) {
-              int nclusters = 0;
-              double compression = 0;
-              libxs_predict_query(model, &nclusters, NULL, &compression);
-              fprintf(stdout, "Built: %d clusters, %.1fx compression\n",
-                nclusters, compression);
+            { libxs_predict_query_t qi = {0};
+              libxs_predict_query(model, &qi);
+              fprintf(stdout, "Built: %d clusters, %.1fx compression, quality=%.2f (%d iter)\n",
+                qi.nclusters, qi.compression, qi.quality, qi.iterations);
+            }
               evaluate(model, source, ntotal, "Quality");
               { size_t size = 0;
                 void* buffer;
@@ -154,6 +166,7 @@ static double trial_fraction(double fraction, const void* data)
   if (NULL != model) {
     int i;
     double inputs[NINPUTS], outputs[NOUTPUTS];
+    libxs_predict_set_mode(model, ctx->mode);
     for (i = 0; i < ntrain; ++i) {
       libxs_predict_get(ctx->source, ctx->perm[i], inputs, outputs);
       libxs_predict_push(NULL, model, inputs, outputs);

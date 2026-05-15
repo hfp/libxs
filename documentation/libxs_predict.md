@@ -20,6 +20,20 @@ Returns NULL on invalid arguments. Destroy accepts NULL.
 The lock accessor returns a pointer to the model's internal
 lock for use with push/eval (NULL if model is NULL).
 
+## Configuration
+
+```C
+void libxs_predict_set_mode(libxs_predict_t* model, int mode);
+```
+
+Set prediction mode for all outputs.
+-1 = auto (use build-time fingerprint decision, default).
+ 0 = force interpolation for all outputs.
+ 1 = force classify (kNN majority vote) for all outputs.
+
+The mode can also be overridden per eval call via negative
+nblend (forces classify for that call only).
+
 ## Training
 
 ```C
@@ -37,11 +51,11 @@ int libxs_predict_build(libxs_predict_t* model,
   int nclusters, double quality);
 ```
 
-Build the model from pushed entries. nclusters=0 selects
-sqrt(n) clusters automatically. quality in [0,1] controls
-truncation: 0=maximum compression, 1=maximum fidelity.
-quality=-1 auto-optimizes via GSS (converges to precision).
-quality=-N uses exactly N GSS iterations (N > 1).
+Build the model from pushed entries. A value of nclusters=0
+selects sqrt(n) clusters automatically. The quality parameter
+controls truncation in [0,1]: 0=maximum compression,
+1=maximum fidelity. A negative value auto-optimizes via GSS
+(-1 converges to precision, -N uses exactly N iterations).
 May be called again after pushing additional entries.
 
 ```C
@@ -65,8 +79,9 @@ void libxs_predict_eval(libxs_lock_t* lock,
 
 Predict outputs for given inputs. outputs may be NULL if
 only info is needed. nblend controls multi-cluster blending:
-1=nearest only, 0=auto. info (optional) receives per-output
-error bounds and reliability flags.
+1=nearest only, 0=auto. Negative nblend forces classify mode
+(absolute value is used as blend count). info (optional)
+receives per-output error bounds and mode flags.
 
 ```C
 void libxs_predict_eval_batch(
@@ -80,23 +95,24 @@ void libxs_predict_eval_batch_task(
   int count, int nblend, int tid, int ntasks);
 ```
 
-Batch prediction. inputs_batch is count*M values (row-major),
-outputs_batch receives count*N values. The task variant
-distributes queries across threads by slice.
+Batch prediction. The input array holds count*M values
+(row-major), the output array receives count*N values.
+The task variant distributes queries across threads by slice.
 
 ## Query and Access
 
 ```C
 void libxs_predict_query(const libxs_predict_t* model,
-  int* nclusters, int* nentries, double* compression);
+  libxs_predict_query_t* info);
 
 void libxs_predict_get(const libxs_predict_t* model,
   int index, double inputs[], double outputs[]);
 ```
 
-Query retrieves model statistics. Any output pointer may
-be NULL. Get retrieves the i-th pushed entry (0-based);
-inputs and outputs may independently be NULL.
+Query fills a statistics struct with cluster count, entry
+count, compression ratio, quality used, and GSS iterations.
+Get retrieves the i-th pushed entry (0-based); inputs and
+outputs may independently be NULL.
 
 ## Persistence
 
@@ -127,20 +143,36 @@ it is parsed as a numeric index (0-based). Rows with
 non-numeric values at selected columns are skipped. Returns
 the number of entries pushed, or -1 on I/O error.
 
-## Info Structure
+## Structures
 
 ```C
 typedef struct libxs_predict_info_t {
   const double* values;
   const double* error;
-  const int* reliable;
+  const int* interpolated;
   int noutputs;
   int cluster;
 } libxs_predict_info_t;
 ```
 
 Populated by libxs_predict_eval when info is non-NULL.
-error[j] is the per-output truncation error bound.
-reliable[j] is non-zero when the output uses polynomial
-interpolation (decaying fingerprint). cluster is the
-assigned cluster index (-1 if blended).
+The error array holds per-output truncation error bounds.
+The interpolated array is non-zero for outputs where
+polynomial interpolation was used. The cluster field
+gives the assigned cluster index (-1 if blended).
+
+```C
+typedef struct libxs_predict_query_t {
+  double compression;
+  double quality;
+  int nclusters;
+  int nentries;
+  int iterations;
+} libxs_predict_query_t;
+```
+
+Populated by libxs_predict_query. The compression field
+gives the ratio of raw data size to model size. The quality
+field holds the value used (after auto-optimization if the
+build parameter was negative). The iterations field reports
+the number of GSS steps performed (0 if quality >= 0).

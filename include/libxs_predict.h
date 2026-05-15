@@ -30,6 +30,20 @@ LIBXS_EXTERN_C typedef struct libxs_predict_info_t {
   int cluster;
 } libxs_predict_info_t;
 
+/** Model statistics returned by libxs_predict_query. */
+LIBXS_EXTERN_C typedef struct libxs_predict_query_t {
+  /** Compression ratio (raw size / model size). */
+  double compression;
+  /** Quality value used (after auto-optimization if quality < 0). */
+  double quality;
+  /** Number of clusters. */
+  int nclusters;
+  /** Total number of pushed entries. */
+  int nentries;
+  /** GSS iterations performed during quality optimization (0 if quality >= 0). */
+  int iterations;
+} libxs_predict_query_t;
+
 
 /**
  * Create a prediction model for the given input/output dimensionality.
@@ -114,14 +128,9 @@ LIBXS_API void libxs_predict_eval(libxs_lock_t* lock,
   const double inputs[], double outputs[],
   libxs_predict_info_t* info, int nblend);
 
-/**
- * Query model statistics after build.
- * nclusters: receives the number of clusters (may be NULL).
- * nentries:  receives total number of pushed entries (may be NULL).
- * compression: receives the compression ratio (may be NULL).
- */
+/** Query model statistics after build. */
 LIBXS_API void libxs_predict_query(const libxs_predict_t* model,
-  int* nclusters, int* nentries, double* compression);
+  libxs_predict_query_t* info);
 
 /**
  * Retrieve the i-th pushed entry (0-based).
