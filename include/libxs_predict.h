@@ -22,8 +22,8 @@ LIBXS_EXTERN_C typedef struct libxs_predict_info_t {
   const double* values;
   /** Per-output error bound from truncation (noutputs elements). */
   const double* error;
-  /** Per-output predictability flag: non-zero if fingerprint norms decay. */
-  const int* reliable;
+  /** Per-output mode used: non-zero if polynomial interpolation was applied. */
+  const int* interpolated;
   /** Number of outputs. */
   int noutputs;
   /** Cluster index assigned to the query (-1 if blended). */
@@ -44,6 +44,14 @@ LIBXS_API void libxs_predict_destroy(libxs_predict_t* model);
 
 /** Return pointer to the model's internal lock (for use as lock argument). */
 LIBXS_API libxs_lock_t* libxs_predict_lock(libxs_predict_t* model);
+
+/**
+ * Set prediction mode for all outputs.
+ * -1 = auto (use build-time decision, default).
+ *  0 = force interpolation.
+ *  1 = force classify (kNN majority vote).
+ */
+LIBXS_API void libxs_predict_set_mode(libxs_predict_t* model, int mode);
 
 /**
  * Push one training entry (incremental).
@@ -96,6 +104,8 @@ LIBXS_API int libxs_predict_build_task(libxs_lock_t* lock,
  *       or libxs_predict_destroy.
  * nblend: number of nearest clusters to blend (1 = nearest only,
  *         0 = auto based on distance ratios).
+ *         Negative nblend forces classify mode for this call
+ *         (absolute value is used as blend count).
  * The lock is optional (NULL if single-threaded); concurrent eval
  * calls with distinct locks or NULL are safe on a built model.
  */

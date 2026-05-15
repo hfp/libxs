@@ -226,7 +226,7 @@ static void evaluate(const libxs_predict_t* model,
       sumerr[j] += err;
       if (err > maxerr[j]) maxerr[j] = err;
       sum_bound[j] += info.error[j];
-      ninterp[j] += info.reliable[j];
+      ninterp[j] += info.interpolated[j];
     }
   }
   free(all_inputs);
