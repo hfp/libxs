@@ -130,9 +130,13 @@ int main(int argc, char* argv[])
           fprintf(stdout, "Built: %d clusters, %.1fx compression\n",
             nclusters, compression);
           {
+            static const char* names[] = {
+              "BM", "BN", "BK", "WS", "WG", "LU", "NZ",
+              "AL", "TB", "TC", "AP", "AA", "AB", "AC"
+            };
             double maxerr[14] = {0}, sumerr[14] = {0};
             double sum_bound[14] = {0}, outputs[14];
-            int nreliable[14] = {0}, neval = 0, j;
+            int ninterp[14] = {0}, neval = 0, j;
             for (i = 0; i < ntotal; ++i) {
               if (0 == is_train[i] || 0 == ntest) {
                 libxs_predict_info_t info;
@@ -143,21 +147,20 @@ int main(int argc, char* argv[])
                   sumerr[j] += err;
                   if (err > maxerr[j]) maxerr[j] = err;
                   sum_bound[j] += info.error[j];
-                  nreliable[j] += info.reliable[j];
+                  ninterp[j] += info.reliable[j];
                 }
                 ++neval;
               }
             }
             fprintf(stdout, "%s (%d samples):\n",
               (0 < ntest) ? "Validation" : "Self-evaluation", neval);
-            fprintf(stdout, "  col    avg-err    max-err  avg-bound  reliable\n");
+            fprintf(stdout, "  param   avg-err   max-err  avg-bound\n");
             for (j = 0; j < noutputs; ++j) {
-              fprintf(stdout, "  %3d  %9.2e  %9.2e  %9.2e  %4d/%-4d\n",
-                8 + j,
+              fprintf(stdout, "  %-3s%c  %9.2e %9.2e  %9.2e\n",
+                names[j], (0 < ninterp[j]) ? '*' : ' ',
                 (0 < neval) ? (sumerr[j] / neval) : 0.0,
                 maxerr[j],
-                (0 < neval) ? (sum_bound[j] / neval) : 0.0,
-                nreliable[j], neval);
+                (0 < neval) ? (sum_bound[j] / neval) : 0.0);
             }
           }
           { size_t size = 0;
