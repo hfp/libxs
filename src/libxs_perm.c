@@ -338,22 +338,42 @@ LIBXS_API void libxs_sort(void* base, int n, size_t size,
 }
 
 
-LIBXS_API unsigned int libxs_hilbert2d(
-  unsigned int x, unsigned int y, int order)
+LIBXS_API uint64_t libxs_hilbert(const unsigned int coords[], int ndims)
 {
-  unsigned int d = 0;
-  int level;
-  for (level = order - 1; 0 <= level; --level) {
-    const unsigned int rx = (x >> level) & 1;
-    const unsigned int ry = (y >> level) & 1;
-    d += (3 * rx ^ ry) << (2 * level);
-    if (0 == ry) {
-      const unsigned int s = (1u << (level + 1)) - 1;
-      if (0 != rx) { x = s - x; y = s - y; }
-      { const unsigned int t = x; x = y; y = t; }
+  const int bpd = 64 / ndims;
+  unsigned int x[64];
+  uint64_t code = 0;
+  int i, level;
+  for (i = 0; i < ndims; ++i) x[i] = coords[i];
+  /* Transpose: apply inverse Gray code and rotations (Skilling method) */
+  { const unsigned int m = 1u << (bpd - 1);
+    unsigned int q, p, t;
+    for (q = m; 0 < q; q >>= 1) {
+      p = q - 1;
+      for (i = 0; i < ndims; ++i) {
+        if (0 != (x[i] & q)) {
+          x[0] ^= p;
+        }
+        else {
+          t = (x[0] ^ x[i]) & p;
+          x[0] ^= t; x[i] ^= t;
+        }
+      }
+    }
+    for (i = 1; i < ndims; ++i) x[i] ^= x[i - 1];
+    t = 0;
+    for (q = m; 0 < q; q >>= 1) {
+      if (0 != (x[ndims - 1] & q)) t ^= q - 1;
+    }
+    for (i = 0; i < ndims; ++i) x[i] ^= t;
+  }
+  /* Interleave transposed bits into the code */
+  for (level = bpd - 1; 0 <= level; --level) {
+    for (i = ndims - 1; 0 <= i; --i) {
+      code = (code << 1) | ((x[i] >> level) & 1u);
     }
   }
-  return d;
+  return code;
 }
 
 

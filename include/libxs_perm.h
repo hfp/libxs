@@ -18,7 +18,8 @@ typedef enum libxs_sort_t {
   LIBXS_SORT_NORM     = 2,
   LIBXS_SORT_MEAN     = 3,
   LIBXS_SORT_GREEDY   = 4,
-  LIBXS_SORT_MORTON   = 5
+  LIBXS_SORT_MORTON   = 5,
+  LIBXS_SORT_HILBERT  = 6
 } libxs_sort_t;
 
 /**
@@ -58,20 +59,19 @@ LIBXS_API void libxs_sort(void* base, int n, size_t size,
   libxs_sort_cmp_t cmp, void* ctx);
 
 /**
- * 2D Hilbert curve index. Maps (x, y) grid coordinates to a
- * locality-preserving 1D index. Order is bits per axis (1..16),
- * producing a 2*order-bit key. Coordinates must be in [0, 2^order).
+ * N-dimensional Hilbert curve index. Maps ndims coordinates to a
+ * 64-bit key with strong locality guarantees (no quadrant-boundary
+ * jumps). Each coordinate is quantized to floor(64/ndims) bits.
+ * coords[k] must be in [0, 2^bits_per_dim).
  */
-LIBXS_API unsigned int libxs_hilbert2d(
-  unsigned int x, unsigned int y, int order);
+LIBXS_API uint64_t libxs_hilbert(const unsigned int coords[], int ndims);
 
 /**
  * N-dimensional Morton code (Z-order curve). Bit-interleaves ndims
  * coordinates into a 64-bit key. Each coordinate is quantized to
  * floor(64/ndims) bits. coords[k] must be in [0, 2^bits_per_dim).
  */
-LIBXS_API uint64_t libxs_morton(
-  const unsigned int coords[], int ndims);
+LIBXS_API uint64_t libxs_morton(const unsigned int coords[], int ndims);
 
 /**
  * Build a k-d tree in-place for n points in ndims dimensions.
