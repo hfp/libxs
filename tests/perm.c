@@ -168,43 +168,75 @@ int main(void)
     }
   }
 
-  /* hilbert2d: order=1 (2x2 grid), verify known curve */
-  { const unsigned int h00 = libxs_hilbert2d(0, 0, 1);
-    const unsigned int h10 = libxs_hilbert2d(1, 0, 1);
-    const unsigned int h11 = libxs_hilbert2d(1, 1, 1);
-    const unsigned int h01 = libxs_hilbert2d(0, 1, 1);
-    if (h00 != 0 || h10 != 3 || h11 != 2 || h01 != 1) {
-      FPRINTF(stderr, "ERROR line #%i: hilbert2d order=1: "
-        "%u %u %u %u\n", __LINE__, h00, h10, h11, h01);
-      exit(EXIT_FAILURE);
+  /* hilbert (ndims=2): verify locality on 4x4 grid */
+  { const unsigned int n = 4;
+    uint64_t codes[16];
+    unsigned int order[16];
+    unsigned int coords[2], x, y, idx;
+    for (y = 0; y < n; ++y) {
+      for (x = 0; x < n; ++x) {
+        coords[0] = x; coords[1] = y;
+        codes[y * n + x] = libxs_hilbert(coords, 2);
+      }
     }
-  }
-  /* hilbert2d: locality -- adjacent curve positions are nearby */
-  { const int order = 4;
-    const unsigned int n = 1u << order;
-    unsigned int prev_x = 0, prev_y = 0, idx;
-    for (idx = 1; idx < n * n; ++idx) {
-      unsigned int x, y, found = 0, dx, dy;
-      for (y = 0; y < n && !found; ++y) {
-        for (x = 0; x < n && !found; ++x) {
-          if (libxs_hilbert2d(x, y, order) == idx) {
-            found = 1;
-            dx = (x > prev_x) ? x - prev_x : prev_x - x;
-            dy = (y > prev_y) ? y - prev_y : prev_y - y;
-            if (dx + dy != 1) {
-              FPRINTF(stderr, "ERROR line #%i: hilbert2d locality "
-                "idx=%u dx=%u dy=%u\n", __LINE__, idx, dx, dy);
-              exit(EXIT_FAILURE);
-            }
-            prev_x = x; prev_y = y;
+    /* sort by code to get curve order */
+    for (idx = 0; idx < n * n; ++idx) order[idx] = idx;
+    { unsigned int i, j;
+      for (i = 0; i < n * n - 1; ++i) {
+        for (j = i + 1; j < n * n; ++j) {
+          if (codes[order[j]] < codes[order[i]]) {
+            unsigned int t = order[i]; order[i] = order[j]; order[j] = t;
           }
         }
       }
-      if (!found) {
-        FPRINTF(stderr, "ERROR line #%i: hilbert2d not bijective "
-          "idx=%u\n", __LINE__, idx);
-        exit(EXIT_FAILURE);
+    }
+    /* check all distinct */
+    { unsigned int i;
+      for (i = 1; i < n * n; ++i) {
+        if (codes[order[i]] == codes[order[i - 1]]) {
+          FPRINTF(stderr, "ERROR line #%i: hilbert 2D not bijective\n", __LINE__);
+          exit(EXIT_FAILURE);
+        }
       }
+    }
+    /* check locality: consecutive curve positions are Manhattan-adjacent */
+    { unsigned int i;
+      for (i = 1; i < n * n; ++i) {
+        const unsigned int px = order[i - 1] % n, py = order[i - 1] / n;
+        const unsigned int cx = order[i] % n, cy = order[i] / n;
+        const unsigned int dx = (cx > px) ? cx - px : px - cx;
+        const unsigned int dy = (cy > py) ? cy - py : py - cy;
+        if (dx + dy != 1) {
+          FPRINTF(stderr, "ERROR line #%i: hilbert 2D locality "
+            "i=%u dx=%u dy=%u\n", __LINE__, i, dx, dy);
+          exit(EXIT_FAILURE);
+        }
+      }
+    }
+  }
+  /* hilbert (ndims=3): verify bijectivity on 4x4x4 grid */
+  { const unsigned int n = 4;
+    const unsigned int total = n * n * n;
+    uint64_t codes[64];
+    unsigned int x, y, z, i, j, collisions = 0;
+    for (z = 0; z < n; ++z) {
+      for (y = 0; y < n; ++y) {
+        for (x = 0; x < n; ++x) {
+          unsigned int coords[3];
+          coords[0] = x; coords[1] = y; coords[2] = z;
+          codes[z * n * n + y * n + x] = libxs_hilbert(coords, 3);
+        }
+      }
+    }
+    for (i = 0; i < total; ++i) {
+      for (j = i + 1; j < total; ++j) {
+        if (codes[i] == codes[j]) ++collisions;
+      }
+    }
+    if (0 != collisions) {
+      FPRINTF(stderr, "ERROR line #%i: hilbert 3D collisions=%u\n",
+        __LINE__, collisions);
+      exit(EXIT_FAILURE);
     }
   }
 

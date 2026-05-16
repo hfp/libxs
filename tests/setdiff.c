@@ -183,7 +183,7 @@ int main(void)
   { double xmin = -1;
     double fmin;
     double parabola(double, const void*);
-    fmin = libxs_gss_min(parabola, NULL, 0.0, 5.0, &xmin, 10000);
+    fmin = libxs_gss_min(parabola, NULL, 0.0, 5.0, &xmin, 10000, NULL);
     if (1E-10 < LIBXS_FABS(xmin - 3.0) || 1E-10 < fmin) {
       FPRINTF(stderr, "ERROR line #%i: gss parabola xmin=%.17g fmin=%.17g\n",
         __LINE__, xmin, fmin);

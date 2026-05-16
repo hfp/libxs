@@ -345,10 +345,10 @@ LIBXS_API uint64_t libxs_hilbert(const unsigned int coords[], int ndims)
   uint64_t code = 0;
   int i, level;
   for (i = 0; i < ndims; ++i) x[i] = coords[i];
-  /* Transpose: apply inverse Gray code and rotations (Skilling method) */
+  /* Skilling: AxestoTranspose -- convert coordinates to transposed form */
   { const unsigned int m = 1u << (bpd - 1);
-    unsigned int q, p, t;
-    for (q = m; 0 < q; q >>= 1) {
+    unsigned int p, q, t;
+    for (q = m; q > 1; q >>= 1) {
       p = q - 1;
       for (i = 0; i < ndims; ++i) {
         if (0 != (x[i] & q)) {
@@ -360,16 +360,17 @@ LIBXS_API uint64_t libxs_hilbert(const unsigned int coords[], int ndims)
         }
       }
     }
+    /* Gray encode */
     for (i = 1; i < ndims; ++i) x[i] ^= x[i - 1];
     t = 0;
-    for (q = m; 0 < q; q >>= 1) {
-      if (0 != (x[ndims - 1] & q)) t ^= q - 1;
+    for (q = m; q > 1; q >>= 1) {
+      if (0 != (x[ndims - 1] & q)) t ^= (q - 1);
     }
     for (i = 0; i < ndims; ++i) x[i] ^= t;
   }
-  /* Interleave transposed bits into the code */
-  for (level = bpd - 1; 0 <= level; --level) {
-    for (i = ndims - 1; 0 <= i; --i) {
+  /* Interleave transposed bits into the code (MSB first) */
+  for (level = bpd - 1; level >= 0; --level) {
+    for (i = 0; i < ndims; ++i) {
       code = (code << 1) | ((x[i] >> level) & 1u);
     }
   }
