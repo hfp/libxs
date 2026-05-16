@@ -256,11 +256,14 @@ LIBXS_API double libxs_kahan_sum(double value, double* accumulator, double* comp
  * The function f is evaluated via a callback; context is forwarded opaquely.
  * Returns f(x*) where x* is the minimizer; *xmin optionally receives x*
  * (may be NULL). Converges when the bracket width reaches zero or maxiter
- * iterations are exhausted.
+ * iterations are exhausted. If unimodality is non-NULL, it receives a score
+ * in [0,1] indicating how consistent the samples are with a single valley
+ * (1.0 = perfectly unimodal, 0.0 = highly irregular).
  */
 LIBXS_API double libxs_gss_min(
   double (*fn)(double x, const void* data), const void* data,
-  double x0, double x1, double* xmin, int maxiter);
+  double x0, double x1, double* xmin, int maxiter,
+  double* unimodality);
 
 /** SQRT with Newton's method using integer arithmetic. */
 LIBXS_API unsigned int libxs_isqrt_u64(unsigned long long x);

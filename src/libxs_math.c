@@ -1024,29 +1024,61 @@ LIBXS_API unsigned int libxs_barrett_pow36(unsigned int p)
 
 LIBXS_API double libxs_gss_min(
   double (*fn)(double x, const void* data), const void* data,
-  double x0, double x1, double* xmin, int maxiter)
+  double x0, double x1, double* xmin, int maxiter,
+  double* unimodality)
 {
   const double phi = (sqrt(5.0) - 1.0) * 0.5;
   double b0 = x0, b1 = x1, d = b1 - b0;
   double c0 = b0 + (1.0 - phi) * d;
   double c1 = b0 + phi * d;
   double f0, f1;
-  int n;
+  double samples_x[64], samples_f[64];
+  int n, nsamples = 0, consistent = 0;
   LIBXS_ASSERT(NULL != fn && x0 <= x1 && 0 < maxiter);
   f0 = fn(c0, data); f1 = fn(c1, data);
+  if (nsamples < 64) { samples_x[nsamples] = c0; samples_f[nsamples] = f0; ++nsamples; }
+  if (nsamples < 64) { samples_x[nsamples] = c1; samples_f[nsamples] = f1; ++nsamples; }
   for (n = 0; n < maxiter && b0 != c0 && b1 != c1; ++n) {
     if (f0 <= f1) {
       b1 = c1; c1 = c0; f1 = f0;
       d = b1 - b0;
       c0 = b0 + (1.0 - phi) * d;
       f0 = fn(c0, data);
+      if (nsamples < 64) { samples_x[nsamples] = c0; samples_f[nsamples] = f0; ++nsamples; }
     }
     else {
       b0 = c0; c0 = c1; f0 = f1;
       d = b1 - b0;
       c1 = b0 + phi * d;
       f1 = fn(c1, data);
+      if (nsamples < 64) { samples_x[nsamples] = c1; samples_f[nsamples] = f1; ++nsamples; }
     }
+  }
+  if (NULL != unimodality && nsamples >= 3) {
+    int i, j, min_idx = 0;
+    for (i = 1; i < nsamples; ++i) {
+      if (samples_f[i] < samples_f[min_idx]) min_idx = i;
+    }
+    /* sort by x */
+    for (i = 0; i < nsamples - 1; ++i) {
+      for (j = i + 1; j < nsamples; ++j) {
+        if (samples_x[j] < samples_x[i]) {
+          { double t = samples_x[i]; samples_x[i] = samples_x[j]; samples_x[j] = t; }
+          { double t = samples_f[i]; samples_f[i] = samples_f[j]; samples_f[j] = t; }
+          if (min_idx == i) min_idx = j;
+          else if (min_idx == j) min_idx = i;
+        }
+      }
+    }
+    consistent = 0;
+    for (i = 1; i < nsamples; ++i) {
+      if (i <= min_idx && samples_f[i] <= samples_f[i - 1]) ++consistent;
+      else if (i > min_idx && samples_f[i] >= samples_f[i - 1]) ++consistent;
+    }
+    *unimodality = (double)consistent / (nsamples - 1);
+  }
+  else if (NULL != unimodality) {
+    *unimodality = 1.0;
   }
   if (f0 <= f1) {
     if (NULL != xmin) *xmin = c0;
@@ -1221,7 +1253,7 @@ LIBXS_API int libxs_setdiff_min(
       }
     }
     result = (int)libxs_gss_min(
-      internal_libxs_setdiff_fn, &ctx, 0.0, x1, tol, 10000);
+      internal_libxs_setdiff_fn, &ctx, 0.0, x1, tol, 10000, NULL);
     if (NULL != buf) {
       LIBXS_MATH_FREE(buf, pool);
     }

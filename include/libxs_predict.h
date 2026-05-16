@@ -34,8 +34,8 @@ LIBXS_EXTERN_C typedef struct libxs_predict_info_t {
 LIBXS_EXTERN_C typedef struct libxs_predict_query_t {
   /** Compression ratio (raw size / model size). */
   double compression;
-  /** Quality value used (after auto-optimization if quality < 0). */
-  double quality;
+  /** Polynomial order used (after auto-optimization if order <= 0). */
+  int order;
   /** Number of clusters. */
   int nclusters;
   /** Total number of pushed entries. */
@@ -85,27 +85,25 @@ LIBXS_API int libxs_predict_push(libxs_lock_t* lock,
  * polynomial fitting. Must be called before libxs_predict_eval.
  *
  * nclusters: number of clusters (0 = auto-determine).
- * quality:   compression-vs-accuracy tradeoff in [0,1].
- *            0.0 = maximum compression (aggressive truncation).
- *            1.0 = maximum fidelity (minimal truncation).
- *            -1  = auto-optimize via GSS (converges to precision).
- *            -N  = auto-optimize with exactly N GSS iterations (N > 1).
+ * order:     maximum polynomial order for interpolation.
+ *            >0 = use at most this order.
+ *             0 = auto-optimize via GSS.
+ *            <0 = auto-optimize with |order| GSS iterations.
  *
  * Returns EXIT_SUCCESS or EXIT_FAILURE.
  * May be called again after pushing additional entries (rebuilds).
  */
 LIBXS_API int libxs_predict_build(libxs_predict_t* model,
-  int nclusters, double quality);
+  int nclusters, int order);
 
 /**
  * Per-thread form of libxs_predict_build. All threads must call
- * this collectively with the same model/nclusters/quality.
- * tid==0 performs the build; other threads cooperate on the
- * quality evaluation loop when quality < 0.
+ * this collectively with the same model/nclusters/order.
+ * tid==0 performs the build; other threads spin-wait.
  * The lock is optional (NULL is accepted).
  */
 LIBXS_API int libxs_predict_build_task(libxs_lock_t* lock,
-  libxs_predict_t* model, int nclusters, double quality,
+  libxs_predict_t* model, int nclusters, int order,
   int tid, int ntasks);
 
 /**

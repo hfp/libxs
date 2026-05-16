@@ -62,7 +62,7 @@ libxs_hash_xchar
 libxs_hash_xi32
 libxs_hash_xi64
 libxs_hash_xi8
-libxs_hilbert2d
+libxs_hilbert
 libxs_hist_create
 libxs_hist_destroy
 libxs_hist_print

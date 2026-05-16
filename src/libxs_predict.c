@@ -57,7 +57,7 @@ LIBXS_EXTERN_C struct libxs_predict_t {
   double* input_min;
   double* input_rng;
   libxs_lock_t lock;
-  double quality;
+  int order;
   int ninputs, noutputs;
   int nentries, capacity;
   int nclusters;
@@ -234,6 +234,17 @@ LIBXS_API_INLINE double internal_libxs_predict_position(
       cl->kd_pts, cl->kd_idx, NULL, nc, m, m, inputs, DBL_MAX);
     if (0 <= hit) best_k = hit;
   }
+  else {
+    double norm[64], best = DBL_MAX;
+    int k;
+    for (k = 0; k < nc; ++k) {
+      internal_libxs_predict_normalize(model,
+        model->entries[cl->sorted_idx[k]].inputs, norm);
+      { const double d = libxs_dist2(inputs, norm, m);
+        if (d < best) { best = d; best_k = k; }
+      }
+    }
+  }
   return (double)best_k;
 }
 
@@ -369,18 +380,19 @@ LIBXS_API int libxs_predict_push(
 }
 
 
-typedef struct internal_libxs_predict_quality_ctx_t {
+typedef struct internal_libxs_predict_order_ctx_t {
   libxs_predict_t* model;
   int nclusters;
-} internal_libxs_predict_quality_ctx_t;
+} internal_libxs_predict_order_ctx_t;
 
-LIBXS_API_INLINE double internal_libxs_predict_quality_fn(
-  double quality, const void* data)
+LIBXS_API_INLINE double internal_libxs_predict_order_fn(
+  double x, const void* data)
 {
-  const internal_libxs_predict_quality_ctx_t* ctx =
-    (const internal_libxs_predict_quality_ctx_t*)data;
+  const internal_libxs_predict_order_ctx_t* ctx =
+    (const internal_libxs_predict_order_ctx_t*)data;
+  const int ord = LIBXS_MAX(LIBXS_ROUNDX(int, x), 1);
   double total_err = 1e30;
-  if (EXIT_SUCCESS == libxs_predict_build(ctx->model, ctx->nclusters, quality)) {
+  if (EXIT_SUCCESS == libxs_predict_build(ctx->model, ctx->nclusters, ord)) {
     const int p = ctx->model->nentries;
     const int n = ctx->model->noutputs;
     int i, j;
@@ -398,30 +410,33 @@ LIBXS_API_INLINE double internal_libxs_predict_quality_fn(
 }
 
 
-LIBXS_API int libxs_predict_build(libxs_predict_t* model, int nclusters, double quality)
+LIBXS_API int libxs_predict_build(libxs_predict_t* model, int nclusters, int order)
 {
   int result = EXIT_SUCCESS;
   if (NULL == model || 0 >= model->nentries) {
     result = EXIT_FAILURE;
   }
-  else if (quality < 0.0) {
-    internal_libxs_predict_quality_ctx_t ctx;
-    double best_quality = 0.8;
-    const int maxiter = (quality < -1.0) ? (int)(-quality) : 15;
+  else if (order <= 0) {
+    internal_libxs_predict_order_ctx_t ctx;
+    const int max_ord = (order < 0) ? -order : LIBXS_FPRINT_MAXORDER;
+    int best_ord = 1, ord;
+    double best_err = 1e30;
     ctx.model = model;
     ctx.nclusters = nclusters;
-    libxs_gss_min(internal_libxs_predict_quality_fn, &ctx,
-      0.0, 1.0, &best_quality, maxiter);
-    model->iterations = maxiter;
-    result = libxs_predict_build(model, nclusters, best_quality);
+    for (ord = 1; ord <= max_ord; ++ord) {
+      const double err = internal_libxs_predict_order_fn((double)ord, &ctx);
+      if (err < best_err) { best_err = err; best_ord = ord; }
+    }
+    model->iterations = max_ord;
+    result = libxs_predict_build(model, nclusters, best_ord);
   }
   else {
     const int p = model->nentries;
     const int m = model->ninputs;
     const int n = model->noutputs;
     int c, i;
-    if (quality > 1.0) quality = 1.0;
-    model->quality = quality;
+    if (order > LIBXS_FPRINT_MAXORDER) order = LIBXS_FPRINT_MAXORDER;
+    model->order = order;
     internal_libxs_predict_free_clusters(model);
     free(model->input_min); free(model->input_rng);
     model->input_min = (double*)malloc((size_t)m * sizeof(double));
@@ -534,12 +549,9 @@ LIBXS_API int libxs_predict_build(libxs_predict_t* model, int nclusters, double 
         free(inmat);
       }
       if (EXIT_SUCCESS == result) {
-        maxorder = LIBXS_MIN(nc - 1, LIBXS_FPRINT_MAXORDER);
-        {
-          const int qorder = (int)(quality * maxorder + 0.5);
-          maxorder = LIBXS_MAX(qorder, 1);
-          maxorder = LIBXS_MIN(maxorder, nc - 1);
-        }
+        maxorder = LIBXS_MIN(nc - 1, order);
+        maxorder = LIBXS_MIN(maxorder, LIBXS_FPRINT_MAXORDER);
+        if (maxorder < 1) maxorder = 1;
         cl->maxorder = maxorder;
         cl->coeffs = (double*)calloc((size_t)n * (size_t)(maxorder + 1), sizeof(double));
         cl->errors = (double*)calloc((size_t)n, sizeof(double));
@@ -630,14 +642,14 @@ LIBXS_API int libxs_predict_build(libxs_predict_t* model, int nclusters, double 
 
 
 LIBXS_API int libxs_predict_build_task(libxs_lock_t* lock,
-  libxs_predict_t* model, int nclusters, double quality,
+  libxs_predict_t* model, int nclusters, int order,
   int tid, int ntasks)
 {
   int result;
   LIBXS_ASSERT(NULL != model);
   if (0 == tid) {
     model->phase = 0;
-    result = libxs_predict_build(model, nclusters, quality);
+    result = libxs_predict_build(model, nclusters, order);
     model->phase = 1;
   }
   else {
@@ -657,11 +669,17 @@ LIBXS_API void libxs_predict_eval(libxs_lock_t* lock, const libxs_predict_t* mod
     const int m = model->ninputs, n = model->noutputs;
     const int force_classify = (nblend < 0) ? 1 : 0;
     double norm_buf[64], *norm_inputs = (m <= 64) ? norm_buf : (double*)malloc((size_t)m * sizeof(double));
+    double local_buf[128];
     double *vals, *errs, best_dist;
     int *rels, c, j, best_c = 0;
     if (NULL != lock) LIBXS_LOCK_ACQUIRE(LIBXS_LOCK, lock);
     internal_libxs_predict_normalize(model, inputs, norm_inputs);
-    vals = model->eval_buf;
+    if (NULL == lock && NULL != outputs && n * 2 + n <= 128) {
+      vals = local_buf;
+    }
+    else {
+      vals = model->eval_buf;
+    }
     errs = vals + n;
     rels = (int*)(errs + n);
     nblend = (nblend < 0) ? -nblend : nblend;
@@ -823,7 +841,7 @@ LIBXS_API void libxs_predict_query(
     }
     info->compression = (compressed > 0) ? (raw / compressed) : 0;
   }
-  info->quality = model->quality;
+  info->order = model->order;
   info->nclusters = model->nclusters;
   info->nentries = model->nentries;
   info->iterations = model->iterations;
