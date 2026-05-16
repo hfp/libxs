@@ -234,14 +234,6 @@ LIBXS_API_INLINE double internal_libxs_predict_position(
       cl->kd_pts, cl->kd_idx, NULL, nc, m, m, inputs, DBL_MAX);
     if (0 <= hit) best_k = hit;
   }
-  else {
-    double best = libxs_dist2(inputs, model->entries[cl->sorted_idx[0]].inputs, m);
-    int k;
-    for (k = 1; k < nc; ++k) {
-      const double d = libxs_dist2(inputs, model->entries[cl->sorted_idx[k]].inputs, m);
-      if (d < best) { best = d; best_k = k; }
-    }
-  }
   return (double)best_k;
 }
 
@@ -260,7 +252,7 @@ LIBXS_API_INLINE double internal_libxs_predict_classify(
     while (nfound < k && nfound < nc && 0 == exact) {
       const int hit = libxs_kdtree_nearest(
         kd_pts, kd_idx, used, nc, m, m, inputs, DBL_MAX);
-      if (0 > hit) nfound = LIBXS_PREDICT_KNN;
+      if (0 > hit) nfound = k;
       else {
         candidates[nfound] = cl->raw_outputs[(size_t)hit * nouts + output_j];
         if (0 == nfound && 0.0 == libxs_dist2(inputs, kd_pts + (size_t)hit * m, m)) {
@@ -512,7 +504,7 @@ LIBXS_API int libxs_predict_build(libxs_predict_t* model, int nclusters, double 
               ++ki;
             }
           }
-          libxs_sort_smooth(LIBXS_SORT_MORTON, nc, m, inmat, nc,
+          libxs_sort_smooth(LIBXS_SORT_HILBERT, nc, m, inmat, nc,
             LIBXS_DATATYPE_F64, morton_perm);
           for (k = 0; k < nc; ++k) {
             cl->sorted_idx[k] = entry_map[morton_perm[k]];
@@ -566,7 +558,6 @@ LIBXS_API int libxs_predict_build(libxs_predict_t* model, int nclusters, double 
       }
       if (EXIT_SUCCESS == result) {
         const size_t shape = (size_t)nc;
-        const double decay_threshold = 0.01 + 0.99 * quality;
         const int ndistinct_thresh = (int)(sqrt((double)nc) + 0.5);
         for (j = 0; j < n && EXIT_SUCCESS == result; ++j) {
           int ndistinct = 0, d;
@@ -591,21 +582,21 @@ LIBXS_API int libxs_predict_build(libxs_predict_t* model, int nclusters, double 
               LIBXS_FPRINT_MAXORDER, -1);
           }
           { int trunc_order = maxorder;
+            int decay_order = 0;
             cl->interpolated[j] = 0;
-            if (ndistinct <= ndistinct_thresh || 0 == fp.l2[0]
-              || libxs_fprint_decay(&fp) >= 0.5)
-            {
+            if (0 < fp.l2[0]) {
+              for (d = 1; d <= fp.order; ++d) {
+                if (fp.l2[d] < fp.l2[d - 1]) ++decay_order;
+                else d = fp.order + 1;
+              }
+            }
+            if (ndistinct <= ndistinct_thresh || decay_order < 2) {
               cl->mode[j] = 1;
             }
             else {
               cl->mode[j] = 0;
               cl->interpolated[j] = 1;
-            }
-            for (d = 1; d <= trunc_order; ++d) {
-              if (fp.l2[d] >= decay_threshold * fp.l2[0]) {
-                trunc_order = LIBXS_MAX(d - 1, 1);
-                d = maxorder + 1;
-              }
+              trunc_order = LIBXS_MIN(decay_order, maxorder);
             }
             cl->order[j] = trunc_order;
             cl->coeffs[(size_t)j * (maxorder + 1)] = buf[0];
