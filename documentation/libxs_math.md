@@ -151,15 +151,7 @@ caller, or the type discovered by probing when the caller passes
 LIBXS_DATATYPE_UNKNOWN (see "Type Discovery" below).
 
 To recover raw (unnormalized) finite-difference magnitudes, use
-the inline helper:
-
-```C
-double libxs_fprint_raw(const libxs_fprint_t* info,
-  int k, double value);
-```
-
-This divides by (n-1)^k, undoing the unit-interval scaling.
-For k == 0, the value is returned unchanged.
+libxs_fprint_raw (see Generalized Binomial and Distance section).
 
 ```C
 double libxs_fprint_decay(const libxs_fprint_t* info);
@@ -388,7 +380,8 @@ records but not nested or recursive structures.
 double libxs_gss_min(
   double (*fn)(double x, const void* data),
   const void* data,
-  double x0, double x1, double* xmin, int maxiter);
+  double x0, double x1, double* xmin, int maxiter,
+  double* unimodality);
 ```
 
 Minimizes a unimodal function fn on the interval [x0, x1]. The
@@ -399,6 +392,39 @@ The bracket shrinks by factor phi = (sqrt(5)-1)/2 per iteration,
 reusing one evaluation from the previous step. Convergence is
 reached when the bracket collapses to machine precision or maxiter
 iterations are exhausted.
+
+The optional unimodality pointer (may be NULL) receives a score
+in [0, 1] indicating how consistent the sampled points are with
+a single valley: 1.0 means all samples are monotonically
+decreasing before the minimum and increasing after; lower values
+indicate irregularity or multimodality.
+
+## Generalized Binomial and Distance
+
+```C
+double libxs_binom(double t, int k);
+```
+
+Generalized binomial coefficient C(t, k) for real-valued t:
+C(t, k) = t * (t-1) * ... * (t-k+1) / k!. Evaluates the Newton
+basis polynomial at position t. For integer t >= k >= 0, this
+equals the standard binomial coefficient.
+
+```C
+double libxs_dist2(const double* a, const double* b, int n);
+```
+
+Squared Euclidean distance between two n-dimensional vectors.
+Returns the sum of squared component differences.
+
+```C
+double libxs_fprint_raw(const libxs_fprint_t* info,
+  int k, double value);
+```
+
+Recover unnormalized finite-difference magnitude by dividing by
+(n-1)^k, undoing the unit-interval scaling. For k == 0, the
+value is returned unchanged.
 
 ## Number Theory
 

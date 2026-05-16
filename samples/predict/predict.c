@@ -38,8 +38,13 @@ int main(int argc, char* argv[])
 {
   int argi = 1, mode = -1;
   int order_arg = 0;
+  double eval_fraction = 0.8;
   const char *filename, *modelfile;
   int result = EXIT_FAILURE;
+  if (argi < argc && '0' <= argv[argi][0] && '9' >= argv[argi][0]) {
+    eval_fraction = atof(argv[argi]);
+    ++argi;
+  }
   if (argi < argc && 'a' <= argv[argi][0]) {
     if ('a' == argv[argi][0]) mode = -1;
     else if ('c' == argv[argi][0]) mode = 1;
@@ -66,13 +71,14 @@ int main(int argc, char* argv[])
   }
   if (NULL == filename) {
     fprintf(stdout,
-      "Usage: %s [auto|cat|interp] [-N] <csvfile> [modelfile]\n"
-      "  auto:    auto-detect mode per output (default)\n"
-      "  cat:     force categorical (kNN) for all outputs\n"
-      "  interp:  force interpolation for all outputs\n"
-      "  -N: order GSS iterations for final build (default: 0 = auto)\n"
-      "  Finds the optimal training fraction via GSS, then saves\n"
-      "  the best model. Evaluates against all samples.\n", argv[0]);
+      "Usage: %s [fraction] [auto|cat|interp] [-N] <csvfile> [modelfile]\n"
+      "  fraction: validation split 0..1 for quality report (default: 0.8)\n"
+      "  auto:     auto-detect mode per output (default)\n"
+      "  cat:      force categorical (kNN) for all outputs\n"
+      "  interp:   force interpolation for all outputs\n"
+      "  -N: max polynomial order for final build (default: 0 = auto)\n"
+      "  Finds the optimal training fraction via GSS, saves the full\n"
+      "  model, and reports quality on a held-out validation set.\n", argv[0]);
   }
   else {
     libxs_predict_t* source = libxs_predict_create(NINPUTS, NOUTPUTS);
@@ -93,10 +99,12 @@ int main(int argc, char* argv[])
           ctx.perm = perm;
           ctx.ntotal = ntotal;
           ctx.mode = mode;
-          libxs_gss_min(trial_fraction, &ctx, 0.3, 1.0, &best_fraction, 20, NULL);
-          ntrain = LIBXS_MAX((int)(ntotal * best_fraction + 0.5), 1);
-          fprintf(stdout, "Optimal fraction: %.2f (%d/%d entries)\n",
-            best_fraction, ntrain, ntotal);
+          { double unimodality = 0;
+            libxs_gss_min(trial_fraction, &ctx, 0.3, 1.0, &best_fraction, 20, &unimodality);
+            ntrain = LIBXS_MAX((int)(ntotal * best_fraction + 0.5), 1);
+            fprintf(stdout, "Optimal fraction: %.2f (%d/%d entries, unimodality=%.2f)\n",
+              best_fraction, ntrain, ntotal, unimodality);
+          }
           model = libxs_predict_create(NINPUTS, NOUTPUTS);
           if (NULL != model) {
             double inputs[NINPUTS], outputs[NOUTPUTS];
@@ -121,7 +129,21 @@ int main(int argc, char* argv[])
               fprintf(stdout, "Built: %d clusters, %.1fx compression, order=%d (%d iter)\n",
                 qi.nclusters, qi.compression, qi.order, qi.iterations);
             }
-              evaluate(model, source, ntotal, "Quality");
+              { const int nval = LIBXS_MAX((int)(ntotal * eval_fraction + 0.5), 1);
+                libxs_predict_t* val_model = libxs_predict_create(NINPUTS, NOUTPUTS);
+                if (NULL != val_model) {
+                  double vi[NINPUTS], vo[NOUTPUTS];
+                  libxs_predict_set_mode(val_model, mode);
+                  for (i = 0; i < nval; ++i) {
+                    libxs_predict_get(source, perm[i], vi, vo);
+                    libxs_predict_push(NULL, val_model, vi, vo);
+                  }
+                  if (EXIT_SUCCESS == libxs_predict_build(val_model, 0, order_arg)) {
+                    evaluate(val_model, source, ntotal, "Validation");
+                  }
+                  libxs_predict_destroy(val_model);
+                }
+              }
               { size_t size = 0;
                 void* buffer;
                 libxs_predict_save(model, NULL, &size);

@@ -42,31 +42,31 @@ int libxs_predict_push(libxs_lock_t* lock,
   const double inputs[], const double outputs[]);
 ```
 
-Push one training entry. Lock is optional (NULL if
+Push one training entry. The lock is optional (NULL if
 single-threaded, or libxs_predict_lock(model) for
 thread-safe access). Returns EXIT_SUCCESS or EXIT_FAILURE.
 
 ```C
 int libxs_predict_build(libxs_predict_t* model,
-  int nclusters, double quality);
+  int nclusters, int order);
 ```
 
 Build the model from pushed entries. A value of nclusters=0
-selects sqrt(n) clusters automatically. The quality parameter
-controls truncation in [0,1]: 0=maximum compression,
-1=maximum fidelity. A negative value auto-optimizes via GSS
-(-1 converges to precision, -N uses exactly N iterations).
-May be called again after pushing additional entries.
+selects sqrt(n) clusters automatically. The order parameter
+controls maximum polynomial order for interpolation:
+order > 0 uses at most that order, order = 0 auto-optimizes
+via exhaustive scan over [1..MAXORDER], order < 0 scans up
+to |order|. May be called again after pushing more entries.
 
 ```C
 int libxs_predict_build_task(libxs_lock_t* lock,
-  libxs_predict_t* model, int nclusters, double quality,
+  libxs_predict_t* model, int nclusters, int order,
   int tid, int ntasks);
 ```
 
 Per-thread collective form. All threads call with same
-model/nclusters/quality. tid=0 performs the build, others
-spin-wait. Lock is optional (NULL is accepted).
+model/nclusters/order. tid=0 performs the build, others
+spin-wait. The lock is optional (NULL is accepted).
 
 ## Evaluation
 
@@ -77,11 +77,12 @@ void libxs_predict_eval(libxs_lock_t* lock,
   libxs_predict_info_t* info, int nblend);
 ```
 
-Predict outputs for given inputs. outputs may be NULL if
-only info is needed. nblend controls multi-cluster blending:
-1=nearest only, 0=auto. Negative nblend forces classify mode
-(absolute value is used as blend count). info (optional)
-receives per-output error bounds and mode flags.
+Predict outputs for given inputs. The outputs array may be
+NULL if only info is needed. The nblend parameter controls
+multi-cluster blending: 1=nearest only, 0=auto. Negative
+nblend forces classify mode (absolute value is used as blend
+count). The info pointer (optional) receives per-output error
+bounds and mode flags.
 
 ```C
 void libxs_predict_eval_batch(
@@ -109,10 +110,11 @@ void libxs_predict_get(const libxs_predict_t* model,
   int index, double inputs[], double outputs[]);
 ```
 
-Query fills a statistics struct with cluster count, entry
-count, compression ratio, quality used, and GSS iterations.
-Get retrieves the i-th pushed entry (0-based); inputs and
-outputs may independently be NULL.
+The query function fills a statistics struct with cluster
+count, entry count, compression ratio, polynomial order used,
+and order-scan iterations. The get function retrieves the
+i-th pushed entry (0-based); inputs and outputs may
+independently be NULL.
 
 ## Persistence
 
@@ -136,12 +138,12 @@ int libxs_predict_load_csv(libxs_predict_t* model,
   const char* outputs[], int noutputs);
 ```
 
-Load delimited text and push entries. delims=NULL auto-detects
-the separator. Each column identifier is matched
-case-insensitively against the header line; if no match,
-it is parsed as a numeric index (0-based). Rows with
-non-numeric values at selected columns are skipped. Returns
-the number of entries pushed, or -1 on I/O error.
+Load delimited text and push entries. Setting delims to NULL
+auto-detects the separator. Each column identifier is matched
+case-insensitively against the header line; if no match, it
+is parsed as a numeric index (0-based). Rows with non-numeric
+values at selected columns are skipped. Returns the number of
+entries pushed, or -1 on I/O error.
 
 ## Structures
 
@@ -158,13 +160,13 @@ typedef struct libxs_predict_info_t {
 Populated by libxs_predict_eval when info is non-NULL.
 The error array holds per-output truncation error bounds.
 The interpolated array is non-zero for outputs where
-polynomial interpolation was used. The cluster field
-gives the assigned cluster index (-1 if blended).
+polynomial interpolation was used. The cluster field gives
+the assigned cluster index (-1 if blended).
 
 ```C
 typedef struct libxs_predict_query_t {
   double compression;
-  double quality;
+  int order;
   int nclusters;
   int nentries;
   int iterations;
@@ -172,7 +174,8 @@ typedef struct libxs_predict_query_t {
 ```
 
 Populated by libxs_predict_query. The compression field
-gives the ratio of raw data size to model size. The quality
-field holds the value used (after auto-optimization if the
-build parameter was negative). The iterations field reports
-the number of GSS steps performed (0 if quality >= 0).
+gives the ratio of raw data size to model size. The order
+field holds the polynomial order used (after auto-optimization
+if the build parameter was <= 0). The iterations field reports
+the number of orders scanned (0 if order > 0 was given
+directly).
