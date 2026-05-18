@@ -22,6 +22,8 @@ LIBXS_EXTERN_C typedef struct libxs_predict_info_t {
   const double* values;
   /** Per-output error bound from truncation (noutputs elements). */
   const double* error;
+  /** Per-output confidence from kNN vote (noutputs elements, 0..1). */
+  const double* confidence;
   /** Per-output mode used: non-zero if polynomial interpolation was applied. */
   const int* interpolated;
   /** Number of outputs. */
