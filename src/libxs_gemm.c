@@ -159,17 +159,11 @@ LIBXS_API_INTERN void internal_libxs_gemm_init(void)
     const char *const gemm_bm_env = getenv("LIBXS_GEMM_BM");
     const char *const gemm_bn_env = getenv("LIBXS_GEMM_BN");
     const char *const gemm_bk_env = getenv("LIBXS_GEMM_BK");
+#if defined(LIBXS_INTERCEPT_DYNAMIC)
     const char *const env = getenv("LIBXS_SYRK_BLAS");
     const int syrk_blas = (NULL == env ? 1/*default*/ : atoi(env));
     union { const void* pin; libxs_gemm_dblas_t pout; } wd;
     union { const void* pin; libxs_gemm_sblas_t pout; } ws;
-    internal_libxs_gemm_bm = (NULL == gemm_bm_env
-      ? LIBXS_GEMM_BM : atoi(gemm_bm_env));
-    internal_libxs_gemm_bn = (NULL == gemm_bn_env
-      ? LIBXS_GEMM_BN : atoi(gemm_bn_env));
-    internal_libxs_gemm_bk = (NULL == gemm_bk_env
-      ? LIBXS_GEMM_BK : atoi(gemm_bk_env));
-    internal_libxs_gemm_registry = libxs_registry_create();
     dlerror();
     wd.pin = dlsym(LIBXS_RTLD_NEXT, LIBXS_STRINGIFY(LIBXS_FSYMBOL(dgemm)));
     if (NULL == dlerror() && NULL != wd.pout) internal_libxs_dgemm_blas = wd.pout;
@@ -194,6 +188,11 @@ LIBXS_API_INTERN void internal_libxs_gemm_init(void)
       ws2k.pin = dlsym(LIBXS_RTLD_NEXT, LIBXS_STRINGIFY(LIBXS_FSYMBOL(ssyr2k)));
       if (NULL == dlerror() && NULL != ws2k.pout) internal_libxs_ssyr2k_blas = ws2k.pout;
     }
+#endif
+    internal_libxs_gemm_bm = (NULL == gemm_bm_env ? LIBXS_GEMM_BM : atoi(gemm_bm_env));
+    internal_libxs_gemm_bn = (NULL == gemm_bn_env ? LIBXS_GEMM_BN : atoi(gemm_bn_env));
+    internal_libxs_gemm_bk = (NULL == gemm_bk_env ? LIBXS_GEMM_BK : atoi(gemm_bk_env));
+    internal_libxs_gemm_registry = libxs_registry_create();
     internal_libxs_gemm_init_once = 1;
   }
 }
