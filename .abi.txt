@@ -93,11 +93,7 @@ libxs_malloc_pool
 libxs_malloc_pool_info
 libxs_malloc_xpool
 libxs_matcopy
-libxs_matcopy_array
-libxs_matcopy_cptr
 libxs_matcopy_task
-libxs_matcopy_task_array
-libxs_matcopy_task_cptr
 libxs_matdiff
 libxs_matdiff_clear
 libxs_matdiff_combine
@@ -117,11 +113,7 @@ libxs_nrank
 libxs_nranks
 libxs_offset
 libxs_otrans
-libxs_otrans_array
-libxs_otrans_cptr
 libxs_otrans_task
-libxs_otrans_task_array
-libxs_otrans_task_cptr
 libxs_pfree
 libxs_pfree_lock
 libxs_pid
