@@ -87,13 +87,25 @@ typedef int (*libxs_jit_create_sgemm_t)(void** jitter,
 typedef void* (*libxs_jit_get_sgemm_t)(void* jitter);
 
 /**
- * LIBXSMM-compatible dispatch (scalar args, no struct dependency).
- * flags: bit 0 = transpose A, bit 1 = transpose B, bit 2 = beta==0.
- * Returns kernel function pointer, or NULL on failure.
+ * Layout-compatible with libxsmm_gemm_shape (LIBXSMM_BLASINT=int).
+ * Fields: m,n,k,lda,ldb,ldc (dimensions), then 4 datatype ints
+ * (a_in_type, b_in_type, out_type, comp_type).
+ */
+typedef struct libxs_xgemm_shape_t {
+  int m, n, k, lda, ldb, ldc;
+  int a_in_type, b_in_type, out_type, comp_type;
+} libxs_xgemm_shape_t;
+
+/**
+ * LIBXSMM-compatible dispatch. Signature matches libxsmm_dispatch_gemm
+ * when libxsmm_blasint=int: takes shape by value plus two bitfield args.
+ * Returns kernel function pointer (libxs_gemm_xfn_t), or NULL.
  */
 typedef libxs_gemm_xfn_t (*libxs_xgemm_dispatch_t)(
-  int datatype, int flags, int m, int n, int k,
-  int lda, int ldb, int ldc);
+  const libxs_xgemm_shape_t shape,
+  unsigned int gemm_flags,
+  unsigned int prefetch_flags);
+
 
 /** Backend function pointers for GEMM dispatch. */
 typedef struct libxs_gemm_backend_t {
@@ -232,29 +244,6 @@ LIBXS_API_INLINE int libxs_gemm_ready(const libxs_gemm_config_t* config) {
  * the registry is destroyed.
  * If registry is NULL, uses the internal global registry.
  */
-#if defined(LIBXSMM_H)
-static LIBXS_INLINE libxs_gemm_xfn_t internal_libxs_xgemm_dispatch(
-  int datatype, int flags, int m, int n, int k,
-  int lda, int ldb, int ldc)
-{
-  libxsmm_gemm_shape gemm_shape;
-  libxsmm_bitfield xflags = LIBXSMM_GEMM_FLAG_NONE;
-  libxsmm_datatype xtype;
-  libxsmm_gemmfunction xresult;
-  if (0 != (flags & 1)) xflags |= LIBXSMM_GEMM_FLAG_TRANS_A;
-  if (0 != (flags & 2)) xflags |= LIBXSMM_GEMM_FLAG_TRANS_B;
-  if (0 != (flags & 4)) xflags |= LIBXSMM_GEMM_FLAG_BETA_0;
-  xtype = (LIBXS_DATATYPE_F64 == datatype)
-    ? LIBXSMM_DATATYPE_F64 : LIBXSMM_DATATYPE_F32;
-  gemm_shape.m = m; gemm_shape.n = n; gemm_shape.k = k;
-  gemm_shape.lda = lda; gemm_shape.ldb = ldb; gemm_shape.ldc = ldc;
-  gemm_shape.a_in_type = xtype; gemm_shape.b_in_type = xtype;
-  gemm_shape.comp_type = xtype; gemm_shape.out_type = xtype;
-  xresult = libxsmm_dispatch_gemm(gemm_shape, xflags,
-    LIBXSMM_GEMM_PREFETCH_NONE);
-  return (libxs_gemm_xfn_t)xresult;
-}
-#endif
 LIBXS_API_INLINE libxs_gemm_config_t* libxs_gemm_dispatch(
   libxs_data_t datatype, char transa, char transb,
   int m, int n, int k, int lda, int ldb, int ldc,
@@ -284,7 +273,7 @@ LIBXS_API_INLINE libxs_gemm_config_t* libxs_gemm_dispatch(
   be.jit_get_sgemm = (libxs_jit_get_sgemm_t)mkl_jit_get_sgemm_ptr;
 #endif
 #if defined(LIBXSMM_H)
-  be.xgemm_dispatch = internal_libxs_xgemm_dispatch;
+  be.xgemm_dispatch = (libxs_xgemm_dispatch_t)libxsmm_dispatch_gemm;
 #endif
 #if defined(__MKL) || defined(MKL_H)
   be.dgemm_blas = (libxs_gemm_dblas_t)dgemm;

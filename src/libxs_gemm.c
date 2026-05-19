@@ -357,7 +357,8 @@ LIBXS_API libxs_gemm_config_t* libxs_gemm_dispatch_rt(
         }
         if (0 == libxs_gemm_ready(&config)
             && NULL != backend && NULL != backend->xgemm_dispatch) {
-          int xflags = 0, xsmm_ok = 0;
+          unsigned int xflags = 0;
+          int xsmm_ok = 0;
           if (0 != ta) xflags |= 1;
           if (0 != tb) xflags |= 2;
           if (1.0 == kernel_shape->alpha) {
@@ -365,9 +366,17 @@ LIBXS_API libxs_gemm_config_t* libxs_gemm_dispatch_rt(
             else if (1.0 == kernel_shape->beta) xsmm_ok = 1;
           }
           if (0 != xsmm_ok) {
-            libxs_gemm_xfn_t fn = backend->xgemm_dispatch(
-              kernel_shape->datatype, xflags, km, kn, kk, klda, kldb, kldc);
-            if (NULL != fn) config.xgemm = fn;
+            libxs_xgemm_shape_t xs;
+            xs.m = km; xs.n = kn; xs.k = kk;
+            xs.lda = klda; xs.ldb = kldb; xs.ldc = kldc;
+            xs.a_in_type = kernel_shape->datatype;
+            xs.b_in_type = kernel_shape->datatype;
+            xs.out_type = kernel_shape->datatype;
+            xs.comp_type = kernel_shape->datatype;
+            {
+              const libxs_gemm_xfn_t fn = backend->xgemm_dispatch(xs, xflags, 0);
+              if (NULL != fn) config.xgemm = fn;
+            }
           }
         }
         if (NULL != backend) {
@@ -1045,8 +1054,5 @@ LIBXS_API void libxs_gemm_call_f(const libxs_gemm_config_t* config,
 {
   libxs_gemm_call(config, a, b, c);
 }
-
-
-
 
 #endif /*defined(LIBXS_BUILD) && !defined(LIBXS_NOFORTRAN)*/
