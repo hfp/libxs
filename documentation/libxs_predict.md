@@ -5,7 +5,29 @@ Header: `libxs_predict.h`
 Predict output parameters from input parameters using
 fingerprint-guided polynomial interpolation and kNN
 classification. Supports incremental training, model
-persistence, and thread-safe evaluation.
+persistence, confidence-gated evaluation, and thread-safe
+operation.
+
+## Mode Flags
+
+```C
+typedef enum libxs_predict_mode_t {
+  LIBXS_PREDICT_AUTO        = 0,
+  LIBXS_PREDICT_INTERPOLATE = 1,
+  LIBXS_PREDICT_CLASSIFY    = 2,
+  LIBXS_PREDICT_EXTRAPOLATE = 4
+} libxs_predict_mode_t;
+```
+
+ORable flags controlling prediction behavior:
+- AUTO (0): fingerprint decides per-output (default).
+- INTERPOLATE: force polynomial for all outputs.
+- CLASSIFY: force kNN vote for all outputs.
+- EXTRAPOLATE: evaluate polynomial beyond last known
+  position (timeseries forecasting).
+
+Example: `LIBXS_PREDICT_CLASSIFY | LIBXS_PREDICT_EXTRAPOLATE`
+forces kNN-weighted projection forward.
 
 ## Create and Destroy
 
@@ -26,13 +48,8 @@ lock for use with push/eval (NULL if model is NULL).
 void libxs_predict_set_mode(libxs_predict_t* model, int mode);
 ```
 
-Set prediction mode for all outputs.
--1 = auto (use build-time fingerprint decision, default).
- 0 = force interpolation for all outputs.
- 1 = force classify (kNN majority vote) for all outputs.
-
-The mode can also be overridden per eval call via negative
-nblend (forces classify for that call only).
+Set prediction mode (ORable flags from libxs_predict_mode_t).
+Default is LIBXS_PREDICT_AUTO.
 
 ## Training
 
@@ -79,10 +96,9 @@ void libxs_predict_eval(libxs_lock_t* lock,
 
 Predict outputs for given inputs. The outputs array may be
 NULL if only info is needed. The nblend parameter controls
-multi-cluster blending: 1=nearest only, 0=auto. Negative
-nblend forces classify mode (absolute value is used as blend
-count). The info pointer (optional) receives per-output error
-bounds and mode flags.
+multi-cluster blending: 1=nearest only, 0=auto. The info
+pointer (optional) receives per-output confidence, error
+bounds, and mode flags.
 
 ```C
 void libxs_predict_eval_batch(
@@ -141,9 +157,11 @@ int libxs_predict_load_csv(libxs_predict_t* model,
 Load delimited text and push entries. Setting delims to NULL
 auto-detects the separator. Each column identifier is matched
 case-insensitively against the header line; if no match, it
-is parsed as a numeric index (0-based). Rows with non-numeric
-values at selected columns are skipped. Returns the number of
-entries pushed, or -1 on I/O error.
+is parsed as a numeric index (0-based). Column names not found
+in the header are assigned to trailing unlabeled data columns
+in order. Rows with non-numeric values at selected columns
+are skipped. Returns the number of entries pushed, or -1 on
+I/O error.
 
 ## Structures
 
@@ -151,17 +169,24 @@ entries pushed, or -1 on I/O error.
 typedef struct libxs_predict_info_t {
   const double* values;
   const double* error;
+  const double* confidence;
   const int* interpolated;
   int noutputs;
   int cluster;
+  double distance;
 } libxs_predict_info_t;
 ```
 
 Populated by libxs_predict_eval when info is non-NULL.
 The error array holds per-output truncation error bounds.
+The confidence array holds per-output kNN vote fraction
+(0..1): the weighted agreement among k nearest neighbors.
 The interpolated array is non-zero for outputs where
 polynomial interpolation was used. The cluster field gives
-the assigned cluster index (-1 if blended).
+the assigned cluster index (-1 if blended). The distance
+field gives the normalized distance to the nearest cluster
+centroid relative to its radius (0 = at centroid, >1 =
+outside training region).
 
 ```C
 typedef struct libxs_predict_query_t {

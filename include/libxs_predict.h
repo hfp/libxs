@@ -13,6 +13,14 @@
 #include "libxs_sync.h"
 
 
+/** Prediction mode flags (ORable). */
+typedef enum libxs_predict_mode_t {
+  LIBXS_PREDICT_AUTO        = 0,
+  LIBXS_PREDICT_INTERPOLATE = 1,
+  LIBXS_PREDICT_CLASSIFY    = 2,
+  LIBXS_PREDICT_EXTRAPOLATE = 4
+} libxs_predict_mode_t;
+
 /** Opaque prediction model type. */
 LIBXS_EXTERN_C typedef struct libxs_predict_t libxs_predict_t;
 
@@ -64,10 +72,11 @@ LIBXS_API void libxs_predict_destroy(libxs_predict_t* model);
 LIBXS_API libxs_lock_t* libxs_predict_lock(libxs_predict_t* model);
 
 /**
- * Set prediction mode for all outputs.
- * -1 = auto (use build-time decision, default).
- *  0 = force interpolation.
- *  1 = force classify (kNN majority vote).
+ * Set prediction mode (ORable flags from libxs_predict_mode_t).
+ * LIBXS_PREDICT_AUTO (0): fingerprint decides per output (default).
+ * LIBXS_PREDICT_INTERPOLATE: force polynomial for all outputs.
+ * LIBXS_PREDICT_CLASSIFY: force kNN vote for all outputs.
+ * LIBXS_PREDICT_EXTRAPOLATE: allow position beyond last known entry.
  */
 LIBXS_API void libxs_predict_set_mode(libxs_predict_t* model, int mode);
 
@@ -120,8 +129,6 @@ LIBXS_API int libxs_predict_build_task(libxs_lock_t* lock,
  *       or libxs_predict_destroy.
  * nblend: number of nearest clusters to blend (1 = nearest only,
  *         0 = auto based on distance ratios).
- *         Negative nblend forces classify mode for this call
- *         (absolute value is used as blend count).
  * The lock is optional (NULL if single-threaded); concurrent eval
  * calls with distinct locks or NULL are safe on a built model.
  */

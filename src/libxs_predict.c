@@ -342,7 +342,7 @@ LIBXS_API libxs_predict_t* libxs_predict_create(int ninputs, int noutputs)
     if (NULL != model) {
       model->ninputs = ninputs;
       model->noutputs = noutputs;
-      model->eval_mode = -1;
+      model->eval_mode = LIBXS_PREDICT_AUTO;
     }
   }
   return model;
@@ -714,7 +714,10 @@ LIBXS_API void libxs_predict_eval(libxs_lock_t* lock, const libxs_predict_t* mod
   LIBXS_ASSERT(NULL != model && 0 != model->built && NULL != inputs);
   {
     const int m = model->ninputs, n = model->noutputs;
-    const int force_classify = (nblend < 0) ? 1 : 0;
+    const int mode = model->eval_mode;
+    const int force_classify = (0 != (mode & LIBXS_PREDICT_CLASSIFY)) ? 1 : 0;
+    const int force_interp = (0 != (mode & LIBXS_PREDICT_INTERPOLATE)) ? 1 : 0;
+    const int extrapolate = (0 != (mode & LIBXS_PREDICT_EXTRAPOLATE)) ? 1 : 0;
     double norm_buf[64], *norm_inputs = (m <= 64) ? norm_buf : (double*)malloc((size_t)m * sizeof(double));
     double local_buf[192];
     double *vals, *errs, *conf, best_dist;
@@ -730,8 +733,7 @@ LIBXS_API void libxs_predict_eval(libxs_lock_t* lock, const libxs_predict_t* mod
     errs = vals + n;
     conf = errs + n;
     rels = (int*)(conf + n);
-    nblend = (nblend < 0) ? -nblend : nblend;
-    if (nblend <= 0) nblend = 0;
+    if (nblend < 0) nblend = 0;
     if (nblend > model->nclusters) nblend = model->nclusters;
     best_dist = libxs_dist2(norm_inputs, model->clusters[0].centroid, m);
     for (c = 1; c < model->nclusters; ++c) {
@@ -742,8 +744,8 @@ LIBXS_API void libxs_predict_eval(libxs_lock_t* lock, const libxs_predict_t* mod
       const internal_libxs_predict_cluster_t* cl = &model->clusters[best_c];
       const int nearest = (int)internal_libxs_predict_position(model, cl, norm_inputs);
       for (j = 0; j < n; ++j) {
-        { const int use_classify = (0 != force_classify || 1 == model->eval_mode)
-            ? 1 : ((0 == model->eval_mode) ? 0 : cl->mode[j]);
+        { const int use_classify = (0 != force_classify)
+            ? 1 : ((0 != force_interp) ? 0 : cl->mode[j]);
           if (0 != use_classify) {
             vals[j] = internal_libxs_predict_classify(
               cl, cl->kd_pts, cl->kd_idx, cl->nentries, m, norm_inputs, j, n,
@@ -752,7 +754,8 @@ LIBXS_API void libxs_predict_eval(libxs_lock_t* lock, const libxs_predict_t* mod
             rels[j] = 0;
           }
           else {
-            const double t = (double)nearest;
+            const double t = (0 != extrapolate)
+              ? (double)cl->nentries : (double)nearest;
             const int d = cl->order[j];
             const double* cj = cl->coeffs + (size_t)j * (cl->maxorder + 1);
             double val = 0;
@@ -808,8 +811,8 @@ LIBXS_API void libxs_predict_eval(libxs_lock_t* lock, const libxs_predict_t* mod
         const int nearest = (int)internal_libxs_predict_position(model, cl, norm_inputs);
         const double cw = ((dq > 0) ? (1.0 / dq) : 1e30) / wsum;
         for (j = 0; j < n; ++j) {
-          { const int use_classify = (0 != force_classify || 1 == model->eval_mode)
-              ? 1 : ((0 == model->eval_mode) ? 0 : cl->mode[j]);
+          { const int use_classify = (0 != force_classify)
+              ? 1 : ((0 != force_interp) ? 0 : cl->mode[j]);
             if (0 != use_classify) {
               double cj_conf = 1.0;
               vals[j] += cw * internal_libxs_predict_classify(
@@ -818,7 +821,8 @@ LIBXS_API void libxs_predict_eval(libxs_lock_t* lock, const libxs_predict_t* mod
               conf[j] += cw * cj_conf;
             }
             else {
-              const double t = (double)nearest;
+              const double t = (0 != extrapolate)
+                ? (double)cl->nentries : (double)nearest;
               const int d = cl->order[j];
               const double* cj = cl->coeffs + (size_t)j * (cl->maxorder + 1);
               double val = 0;

@@ -36,7 +36,7 @@ static void evaluate(const libxs_predict_t* model,
 
 int main(int argc, char* argv[])
 {
-  int argi = 1, mode = -1;
+  int argi = 1, mode = LIBXS_PREDICT_AUTO;
   int order_arg = 0;
   double eval_fraction = 0.8;
   const char *filename, *modelfile;
@@ -46,9 +46,9 @@ int main(int argc, char* argv[])
     ++argi;
   }
   if (argi < argc && 'a' <= argv[argi][0]) {
-    if ('a' == argv[argi][0]) mode = -1;
-    else if ('c' == argv[argi][0]) mode = 1;
-    else if ('i' == argv[argi][0]) mode = 0;
+    if ('a' == argv[argi][0]) mode = LIBXS_PREDICT_AUTO;
+    else if ('c' == argv[argi][0]) mode = LIBXS_PREDICT_CLASSIFY;
+    else if ('i' == argv[argi][0]) mode = LIBXS_PREDICT_INTERPOLATE;
     ++argi;
   }
   if (argi < argc && '-' == argv[argi][0] && '\0' != argv[argi][1]) {
