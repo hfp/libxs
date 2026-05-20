@@ -293,8 +293,28 @@ LIBXS_API libxs_gemm_config_t* libxs_gemm_dispatch_rt(
 {
   libxs_gemm_config_t* result = NULL;
   libxs_registry_t* reg = NULL;
+  libxs_gemm_shape_t key, kkey;
   LIBXS_ASSERT(NULL != shape);
+  LIBXS_MEMZERO(&key);
+  key.datatype = shape->datatype;
+  key.transa = shape->transa; key.transb = shape->transb;
+  key.m = shape->m; key.n = shape->n; key.k = shape->k;
+  key.lda = shape->lda; key.ldb = shape->ldb; key.ldc = shape->ldc;
+  key.alpha = shape->alpha; key.beta = shape->beta;
   if (NULL == kernel_shape) kernel_shape = shape;
+  if (kernel_shape != shape) {
+    LIBXS_MEMZERO(&kkey);
+    kkey.datatype = kernel_shape->datatype;
+    kkey.transa = kernel_shape->transa; kkey.transb = kernel_shape->transb;
+    kkey.m = kernel_shape->m; kkey.n = kernel_shape->n; kkey.k = kernel_shape->k;
+    kkey.lda = kernel_shape->lda; kkey.ldb = kernel_shape->ldb; kkey.ldc = kernel_shape->ldc;
+    kkey.alpha = kernel_shape->alpha; kkey.beta = kernel_shape->beta;
+    kernel_shape = &kkey;
+  }
+  else {
+    kernel_shape = &key;
+  }
+  shape = &key;
   if (LIBXS_DATATYPE_F64 == shape->datatype
    || LIBXS_DATATYPE_F32 == shape->datatype)
   {
