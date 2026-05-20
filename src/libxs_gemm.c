@@ -371,7 +371,7 @@ LIBXS_API libxs_gemm_config_t* libxs_gemm_dispatch_rt(
           const int mkl_ta = (0 == ta) ? 111 : 112;
           const int mkl_tb = (0 == tb) ? 111 : 112;
           void* jitter = NULL;
-          if (2 != backend->jit_create_sgemm(&jitter, 101, mkl_ta, mkl_tb,
+          if (2 != backend->jit_create_sgemm(&jitter, 102, mkl_ta, mkl_tb,
             km, kn, kk, (float)kernel_shape->alpha, klda, kldb,
             (float)kernel_shape->beta, kldc))
           {
