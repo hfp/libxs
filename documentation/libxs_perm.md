@@ -8,29 +8,39 @@ smoothness-optimized row permutations for matrices.
 
 ## Shuffling
 
-All three functions use a co-prime stride to produce a fixed,
-deterministic permutation of count elements. The stride must be
-co-prime to count; passing NULL selects libxs_coprime2(count).
+The shuffle functions use a co-prime stride C to produce a fixed,
+deterministic permutation of count elements. The mapping is affine:
+
+    dst[k] = src[(N-1) - ((C*k + offset) mod N)]
+
+The stride must be co-prime to count; passing NULL selects
+libxs_coprime2(count). The offset parameter extends the basic
+co-prime permutation into an affine family, expanding the number
+of available permutations from ~phi(N)/2 to ~N*phi(N)/2.
+Pass offset=0 for the standard (non-affine) shuffle.
 
 ```C
 int libxs_shuffle(void* inout, size_t elemsize, size_t count,
-  const size_t* shuffle, const size_t* nrepeat);
+  const size_t* shuffle, size_t offset,
+  const size_t* nrepeat);
 ```
 
 In-place shuffle of count elements of elemsize bytes each.
+Uses cycle following with a bit vector (N/8 bytes auxiliary).
 nrepeat controls the number of successive permutation
 applications (NULL or pointing to 1 means one pass). Returns
 EXIT_SUCCESS or EXIT_FAILURE.
 
 ```C
 int libxs_shuffle2(void* dst, const void* src, size_t elemsize,
-  size_t count, const size_t* shuffle, const size_t* nrepeat);
+  size_t count, const size_t* shuffle, size_t offset,
+  const size_t* nrepeat);
 ```
 
 Out-of-place shuffle from src to dst. dst and src must not
 overlap. If \*nrepeat is zero an ordinary copy is performed.
 Uses AVX2/AVX-512 gather instructions when available for 4-
-and 8-byte elements.
+and 8-byte elements (offset=0 path).
 
 ```C
 size_t libxs_unshuffle(size_t count, const size_t* shuffle);
@@ -38,7 +48,27 @@ size_t libxs_unshuffle(size_t count, const size_t* shuffle);
 
 Return the number of libxs_shuffle2 applications needed to
 restore the original element order for the given count and
-co-prime stride.
+co-prime stride. The cycle length depends only on C and N,
+not on the offset.
+
+```C
+int libxs_unshuffle2(void* dst, const void* src, size_t elemsize,
+  size_t count, const size_t* shuffle, size_t offset,
+  const size_t* nrepeat);
+```
+
+Single-pass inverse of libxs_shuffle2. Computes the modular
+inverse C_inv = C^{-1} mod N via the extended Euclidean
+algorithm, then gathers elements using the inverse permutation:
+
+    dst[m] = src[C_inv * (N-1-offset-m) mod N]
+
+This restores the original order in one O(N) pass rather than
+the R-1 repeated applications that libxs_unshuffle would
+require. The loop structure (sequential write, strided read)
+is identical to the forward shuffle and amenable to the same
+SIMD gather optimizations. Supports multi-pass inversion
+(nrepeat > 1) by iterating f^{-1}.
 
 ## General-Purpose Sort
 
@@ -81,39 +111,54 @@ Examples:
   libxs_sort(dst, n, sizeof(double), libxs_cmp_f64, src);
   libxs_sort(perm, n, sizeof(int), my_indirect_cmp, keys);
 
-## Hilbert Curve
+## Space-Filling Curves
 
 ```C
-unsigned int libxs_hilbert2d(
-  unsigned int x, unsigned int y, int order);
+uint64_t libxs_hilbert(const unsigned int coords[], int ndims);
 ```
 
-Maps 2D grid coordinates (x, y) to a locality-preserving 1D
-index on the Hilbert curve. Order is bits per axis (1..16),
-producing a key of 2*order bits. Coordinates must be in
-[0, 2^order). Adjacent positions on the curve are grid-adjacent.
+N-dimensional Hilbert curve index. Maps ndims coordinates to a
+64-bit key with strong locality guarantees. Each coordinate is
+quantized to floor(64/ndims) bits. coords[k] must be in
+[0, 2^bits_per_dim).
 
-## 2D k-d Tree
+```C
+uint64_t libxs_morton(const unsigned int coords[], int ndims);
+```
+
+N-dimensional Morton code (Z-order curve). Bit-interleaves ndims
+coordinates into a 64-bit key. Each coordinate is quantized to
+floor(64/ndims) bits.
+
+## k-d Tree
+
+```C
+void libxs_kdtree_build(const double* pts, int* idx, int n,
+  int ndims, int stride);
+int libxs_kdtree_nearest(const double* pts, const int* idx,
+  const unsigned char* used, int n, int ndims, int stride,
+  const double* query, double max_dist2);
+```
+
+Dense-array k-d tree for nearest-neighbor queries in arbitrary
+dimensions. Points are stored row-major: pts[i*stride + k] is
+coordinate k of point i. stride >= ndims allows padding or
+interleaved auxiliary data. The index array idx[0..n-1] is
+rearranged into implicit tree structure during build.
+
+Query: finds the nearest point to query[0..ndims-1] within
+squared Euclidean distance max_dist2. Returns the point index
+or -1. The used array (may be NULL) marks consumed points
+(non-zero entries are skipped).
+
+Convenience wrappers for 2D (interleaved x,y layout):
 
 ```C
 void libxs_kdtree2d_build(double* pts, int* idx, int n);
-
 int libxs_kdtree2d_nearest(const double* pts, const int* idx,
   const unsigned char* used, int n,
   double x, double y, double max_dist2);
 ```
-
-Dense-array k-d tree for 2D nearest-neighbor queries.
-
-Build: pts holds n interleaved (x, y) pairs. idx is an
-identity-initialized index array [0..n-1] that gets rearranged
-into implicit tree structure. pts is unchanged after build.
-
-Query: finds the nearest point to (x, y) within squared
-Euclidean distance max_dist2. Returns the point index or -1.
-The used array (may be NULL) marks consumed points (non-zero
-entries are skipped), enabling repeated queries with 1-to-1
-consumption.
 
 ## Smooth Sorting
 
@@ -123,7 +168,9 @@ typedef enum libxs_sort_t {
   LIBXS_SORT_IDENTITY = 1,
   LIBXS_SORT_NORM     = 2,
   LIBXS_SORT_MEAN     = 3,
-  LIBXS_SORT_GREEDY   = 4
+  LIBXS_SORT_GREEDY   = 4,
+  LIBXS_SORT_MORTON   = 5,
+  LIBXS_SORT_HILBERT  = 6
 } libxs_sort_t;
 
 int libxs_sort_smooth(libxs_sort_t method, int m, int n,
@@ -153,5 +200,9 @@ Methods:
   GREEDY    Nearest-neighbor chain: starting from row 0,
             each step picks the unvisited row with the
             smallest Euclidean distance to the current row.
+  MORTON    Sort rows by Morton (Z-order) key computed from
+            quantized column values.
+  HILBERT   Sort rows by Hilbert curve key computed from
+            quantized column values.
 
 Returns EXIT_SUCCESS or EXIT_FAILURE.

@@ -107,6 +107,7 @@ libxs_mhd_read_header
 libxs_mhd_typeinfo
 libxs_mhd_typename
 libxs_mhd_write
+libxs_mod_inverse
 libxs_mod_inverse_u32
 libxs_morton
 libxs_nrank
@@ -194,3 +195,4 @@ libxs_timer_tick
 libxs_typename
 libxs_typesize
 libxs_unshuffle
+libxs_unshuffle2

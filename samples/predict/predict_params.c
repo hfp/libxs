@@ -94,7 +94,7 @@ int main(int argc, char* argv[])
           int i, ntrain;
           libxs_predict_t* model;
           for (i = 0; i < ntotal; ++i) perm[i] = i;
-          libxs_shuffle(perm, sizeof(int), (size_t)ntotal, NULL, NULL);
+          libxs_shuffle(perm, sizeof(int), (size_t)ntotal, NULL, 0, NULL);
           ctx.source = source;
           ctx.perm = perm;
           ctx.ntotal = ntotal;

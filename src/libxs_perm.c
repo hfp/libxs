@@ -17,9 +17,10 @@
   internal_libxs_scratch_malloc(SIZE, &(POOL))
 #define LIBXS_MEM_SHUFFLE_FREE(PTR, POOL) \
   internal_libxs_scratch_free(PTR, POOL)
-#define LIBXS_MEM_SHUFFLE(INOUT, ELEMSIZE, COUNT, SHUFFLE, NREPEAT) do { \
+#define LIBXS_MEM_SHUFFLE(INOUT, ELEMSIZE, COUNT, SHUFFLE, OFFSET, NREPEAT) do { \
   unsigned char *const LIBXS_RESTRICT shfl_data = (unsigned char*)(INOUT); \
   const size_t shfl_count = (COUNT), shfl_stride = (SHUFFLE); \
+  const size_t shfl_off = (OFFSET) % shfl_count; \
   const size_t shfl_last = shfl_count - 1, shfl_nrep = (NREPEAT); \
   const size_t shfl_nbitmask = (shfl_count + 7) / 8; \
   int shfl_pool_v = 0, shfl_pool_t = 0; \
@@ -35,7 +36,7 @@
         if (0 != (shfl_visited[shfl_i / 8] & (1u << (shfl_i % 8)))) continue; \
         shfl_src = shfl_i; \
         for (shfl_k = 0; shfl_k < shfl_nrep; ++shfl_k) { \
-          shfl_src = shfl_last - ((shfl_stride * shfl_src) % shfl_count); \
+          shfl_src = shfl_last - ((shfl_stride * shfl_src + shfl_off) % shfl_count); \
         } \
         if (shfl_src == shfl_i) { \
           shfl_visited[shfl_i / 8] |= (unsigned char)(1u << (shfl_i % 8)); \
@@ -46,7 +47,7 @@
         do { \
           shfl_src = shfl_dst; \
           for (shfl_k = 0; shfl_k < shfl_nrep; ++shfl_k) { \
-            shfl_src = shfl_last - ((shfl_stride * shfl_src) % shfl_count); \
+            shfl_src = shfl_last - ((shfl_stride * shfl_src + shfl_off) % shfl_count); \
           } \
           shfl_visited[shfl_dst / 8] |= (unsigned char)(1u << (shfl_dst % 8)); \
           if (shfl_src != shfl_i) { \
@@ -823,7 +824,7 @@ LIBXS_API int libxs_sort_smooth(libxs_sort_t method, int m, int n,
 
 
 LIBXS_API int libxs_shuffle(void* inout, size_t elemsize, size_t count,
-  const size_t* shuffle, const size_t* nrepeat)
+  const size_t* shuffle, size_t offset, const size_t* nrepeat)
 {
   int result;
   if (0 == count || 0 == elemsize) {
@@ -833,11 +834,11 @@ LIBXS_API int libxs_shuffle(void* inout, size_t elemsize, size_t count,
     const size_t s = (NULL == shuffle ? LIBXS_MEM_SHUFFLE_COPRIME(count) : *shuffle);
     const size_t n = (NULL == nrepeat ? 1 : *nrepeat);
     switch (elemsize) {
-      case 8:   LIBXS_MEM_SHUFFLE(inout, 8, count, s, n); break;
-      case 4:   LIBXS_MEM_SHUFFLE(inout, 4, count, s, n); break;
-      case 2:   LIBXS_MEM_SHUFFLE(inout, 2, count, s, n); break;
-      case 1:   LIBXS_MEM_SHUFFLE(inout, 1, count, s, n); break;
-      default:  LIBXS_MEM_SHUFFLE(inout, elemsize, count, s, n);
+      case 8:   LIBXS_MEM_SHUFFLE(inout, 8, count, s, offset, n); break;
+      case 4:   LIBXS_MEM_SHUFFLE(inout, 4, count, s, offset, n); break;
+      case 2:   LIBXS_MEM_SHUFFLE(inout, 2, count, s, offset, n); break;
+      case 1:   LIBXS_MEM_SHUFFLE(inout, 1, count, s, offset, n); break;
+      default:  LIBXS_MEM_SHUFFLE(inout, elemsize, count, s, offset, n);
     }
     result = EXIT_SUCCESS;
   }
@@ -847,18 +848,23 @@ LIBXS_API int libxs_shuffle(void* inout, size_t elemsize, size_t count,
 
 
 LIBXS_API int libxs_shuffle2(void* dst, const void* src, size_t elemsize, size_t count,
-  const size_t* shuffle, const size_t* nrepeat)
+  const size_t* shuffle, size_t offset, const size_t* nrepeat)
 {
   const unsigned char *const LIBXS_RESTRICT inp = (const unsigned char*)src;
   unsigned char *const LIBXS_RESTRICT out = (unsigned char*)dst;
   const size_t size = elemsize * count;
   int result;
-  if ((NULL != inp && NULL != out && ((out + size) <= inp || (inp + size) <= out)) || 0 == size) {
+  if (0 == size) {
+    result = EXIT_SUCCESS;
+  }
+  else if (NULL != inp && NULL != out && ((out + size) <= inp || (inp + size) <= out)) {
     const size_t s = (NULL == shuffle ? LIBXS_MEM_SHUFFLE_COPRIME(count) : *shuffle);
-    size_t i = 0, j = 1;
+    size_t i = 0, j;
+    j = 1 + (offset % count);
+    if (count < j) j -= count;
     if (NULL == nrepeat || 1 == *nrepeat) {
 #if defined(LIBXS_INTRINSICS_AVX512) || defined(LIBXS_INTRINSICS_AVX2)
-      if (4 == elemsize && count <= 0x7FFFFFFFU) {
+      if (0 == offset && 4 == elemsize && count <= 0x7FFFFFFFU) {
 # if defined(LIBXS_INTRINSICS_AVX512)
 #   if (LIBXS_X86_AVX512 <= LIBXS_STATIC_TARGET_ARCH)
         internal_libxs_shuffle2_u32_avx512((unsigned int*)out, (const unsigned int*)inp, count, s);
@@ -884,7 +890,7 @@ LIBXS_API int libxs_shuffle2(void* dst, const void* src, size_t elemsize, size_t
         }
 # endif
       }
-      else if (8 == elemsize) {
+      else if (0 == offset && 8 == elemsize) {
 # if defined(LIBXS_INTRINSICS_AVX512)
 #   if (LIBXS_X86_AVX512 <= LIBXS_STATIC_TARGET_ARCH)
         internal_libxs_shuffle2_u64_avx512((unsigned long long*)out, (const unsigned long long*)inp, count, s);
@@ -944,10 +950,10 @@ LIBXS_API int libxs_shuffle2(void* dst, const void* src, size_t elemsize, size_t
     }
     else if (0 != *nrepeat) { /* generic path */
       const size_t c = count - 1;
-      for (; i < count; ++i) {
+      const size_t off = offset % count;
+      for (i = 0; i < count; ++i) {
         size_t k = 0;
-        LIBXS_ASSERT(NULL != inp && NULL != out);
-        for (j = i; k < *nrepeat; ++k) j = c - ((s * j) % count);
+        for (j = i; k < *nrepeat; ++k) j = c - ((s * j + off) % count);
         memcpy(out + elemsize * i, inp + elemsize * j, elemsize);
       }
     }
@@ -974,5 +980,73 @@ LIBXS_API size_t libxs_unshuffle(size_t count, const size_t* shuffle)
     } while (0 != d && result < count);
   }
   LIBXS_ASSERT(result <= count);
+  return result;
+}
+
+
+LIBXS_API int libxs_unshuffle2(void* dst, const void* src, size_t elemsize, size_t count,
+  const size_t* shuffle, size_t offset, const size_t* nrepeat)
+{
+  const unsigned char *const LIBXS_RESTRICT inp = (const unsigned char*)src;
+  unsigned char *const LIBXS_RESTRICT out = (unsigned char*)dst;
+  const size_t size = elemsize * count;
+  int result;
+  if (0 == size) {
+    result = EXIT_SUCCESS;
+  }
+  else if (NULL != inp && NULL != out && ((out + size) <= inp || (inp + size) <= out)) {
+    const size_t s = (NULL == shuffle ? LIBXS_MEM_SHUFFLE_COPRIME(count) : *shuffle);
+    const size_t si = (1 < count ? libxs_mod_inverse(s, count) : 0);
+    size_t i = 0;
+    if (NULL == nrepeat || 1 == *nrepeat) {
+      const size_t off = offset % count;
+      size_t j = (si * ((count - 1 - off + count) % count)) % count;
+      const size_t step = count - si;
+      if (elemsize < 128) {
+        switch (elemsize) {
+          case 8: for (; i < size; i += 8) {
+            LIBXS_MEMCPY(out + i, inp + 8 * j, 8);
+            j += step; if (count <= j) j -= count;
+          } break;
+          case 4: for (; i < size; i += 4) {
+            LIBXS_MEMCPY(out + i, inp + 4 * j, 4);
+            j += step; if (count <= j) j -= count;
+          } break;
+          case 2: for (; i < size; i += 2) {
+            LIBXS_MEMCPY(out + i, inp + 2 * j, 2);
+            j += step; if (count <= j) j -= count;
+          } break;
+          case 1: for (; i < size; ++i) {
+            out[i] = inp[j];
+            j += step; if (count <= j) j -= count;
+          } break;
+          default: for (; i < size; i += elemsize) {
+            LIBXS_MEMCPY(out + i, inp + elemsize * j, elemsize);
+            j += step; if (count <= j) j -= count;
+          }
+        }
+      }
+      if (i < size) {
+        for (; i < size; i += elemsize) {
+          memcpy(out + i, inp + elemsize * j, elemsize);
+          j += step; if (count <= j) j -= count;
+        }
+      }
+    }
+    else if (0 != *nrepeat) {
+      const size_t c = count - 1;
+      const size_t off = offset % count;
+      for (; i < count; ++i) {
+        size_t k = 0, j = i;
+        for (; k < *nrepeat; ++k) j = (si * ((c - j - off + count) % count)) % count;
+        memcpy(out + elemsize * i, inp + elemsize * j, elemsize);
+      }
+    }
+    else {
+      memcpy(out, inp, size);
+    }
+    result = EXIT_SUCCESS;
+  }
+  else result = EXIT_FAILURE;
   return result;
 }

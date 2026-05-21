@@ -284,6 +284,7 @@ LIBXS_API double libxs_pow2(int n);
  * Requires gcd(a, m) = 1 and 0 < a, 1 < m.
  */
 LIBXS_API unsigned int libxs_mod_inverse_u32(unsigned int a, unsigned int m);
+LIBXS_API size_t libxs_mod_inverse(size_t a, size_t m);
 
 /**
  * Barrett reciprocal for a 32-bit modulus: floor(2^32 / p).

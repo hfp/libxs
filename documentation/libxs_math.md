@@ -500,9 +500,12 @@ double libxs_pow2(int n);
 
 ```C
 unsigned int libxs_mod_inverse_u32(unsigned int a, unsigned int m);
+size_t libxs_mod_inverse(size_t a, size_t m);
 ```
 
-Modular inverse (extended Euclidean). Requires gcd(a, m) = 1.
+Modular inverse via extended Euclidean algorithm: a^{-1} mod m.
+Requires gcd(a, m) = 1 and 0 < a, 1 < m. The size_t variant
+supports counts up to 2^63 - 1.
 
 ```C
 unsigned int libxs_barrett_rcp(unsigned int p);

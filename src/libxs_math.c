@@ -990,6 +990,21 @@ LIBXS_API unsigned int libxs_mod_inverse_u32(unsigned int a, unsigned int m)
 }
 
 
+LIBXS_API size_t libxs_mod_inverse(size_t a, size_t m)
+{
+  long long t = 0, newt = 1;
+  size_t r = m, newr = a % m;
+  LIBXS_ASSERT(0 != m && 0 != a);
+  while (0 != newr) {
+    const size_t q = r / newr;
+    { const long long tmp = t - (long long)(q) * newt; t = newt; newt = tmp; }
+    { const size_t tmp = r - q * newr; r = newr; newr = tmp; }
+  }
+  LIBXS_ASSERT(1 == r);
+  return (size_t)(t < 0 ? t + (long long)m : t);
+}
+
+
 LIBXS_API unsigned int libxs_barrett_rcp(unsigned int p)
 {
   LIBXS_ASSERT(0 != p);

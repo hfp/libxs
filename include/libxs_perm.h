@@ -108,17 +108,17 @@ LIBXS_API_INLINE int libxs_kdtree2d_nearest(const double* pts, const int* idx,
   return libxs_kdtree_nearest(pts, idx, used, n, 2, 2, q, max_dist2);
 }
 
-/** Out-of-place shuffling of data given by elemsize and count. */
+/** In-place shuffle: element i goes to (N-1) - ((C*i + offset) mod N). */
 LIBXS_API int libxs_shuffle(void* inout, size_t elemsize, size_t count,
   /** Shall be co-prime to count-argument; uses libxs_coprime2(count) if shuffle=NULL. */
-  const size_t* shuffle,
+  const size_t* shuffle, size_t offset,
   /** If NULL, the default value is one. */
   const size_t* nrepeat);
 
-/** Out-of-place shuffling of data given by elemsize and count. */
+/** Out-of-place shuffle: dst[k] = src[(N-1) - ((C*k + offset) mod N)]. */
 LIBXS_API int libxs_shuffle2(void* dst, const void* src, size_t elemsize, size_t count,
   /** Shall be co-prime to count-argument; uses libxs_coprime2(count) if shuffle=NULL. */
-  const size_t* shuffle,
+  const size_t* shuffle, size_t offset,
   /** If NULL, the default value is one. If zero, an ordinary copy is performed. */
   const size_t* nrepeat);
 
@@ -128,6 +128,13 @@ LIBXS_API size_t libxs_unshuffle(
   size_t count,
   /** Shall be co-prime to count-argument; uses libxs_coprime2(count) if shuffle=NULL. */
   const size_t* shuffle);
+
+/** Single-pass inverse of libxs_shuffle2 (uses modular inverse of coprime). */
+LIBXS_API int libxs_unshuffle2(void* dst, const void* src, size_t elemsize, size_t count,
+  /** Shall be co-prime to count-argument; uses libxs_coprime2(count) if shuffle=NULL. */
+  const size_t* shuffle, size_t offset,
+  /** If NULL, the default value is one. If zero, an ordinary copy is performed. */
+  const size_t* nrepeat);
 
 /* header-only: include implementation (deferred from libxs_macros.h) */
 #if defined(LIBXS_SOURCE) && !defined(LIBXS_SOURCE_H)

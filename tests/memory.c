@@ -189,12 +189,12 @@ int main(int argc, char* argv[])
     size_t i = 1, j;
     memcpy(a, init, size);
     for (; i < size; ++i) {
-      LIBXS_EXPECT(EXIT_SUCCESS == libxs_shuffle(a, 1, size - i, NULL, NULL));
-      LIBXS_EXPECT(EXIT_SUCCESS == libxs_shuffle2(b, init, 1, size - i, NULL, NULL));
+      LIBXS_EXPECT(EXIT_SUCCESS == libxs_shuffle(a, 1, size - i, NULL, 0, NULL));
+      LIBXS_EXPECT(EXIT_SUCCESS == libxs_shuffle2(b, init, 1, size - i, NULL, 0, NULL));
       if (0 == strncmp(a, b, size - i)) {
         const size_t r = libxs_unshuffle(size - i, NULL);
         for (j = 1; j < r; ++j) {
-          libxs_shuffle(a, 1, size - i, NULL, NULL);
+          libxs_shuffle(a, 1, size - i, NULL, 0, NULL);
         }
         if (0 != strcmp(a, init)) {
           FPRINTF(stderr, "libxs_shuffle: data not restored!\n");
@@ -219,7 +219,7 @@ int main(int argc, char* argv[])
         const size_t r = libxs_unshuffle(s, &shuffle);
         int cmp;
         memset(a, 0, size); /* clear */
-        LIBXS_EXPECT(EXIT_SUCCESS == libxs_shuffle2(a, init, 1, s, &shuffle, NULL));
+        LIBXS_EXPECT(EXIT_SUCCESS == libxs_shuffle2(a, init, 1, s, &shuffle, 0, NULL));
         cmp = memcmp(a, init, s);
         if ((1 >= s || 0 == cmp) && (1 < s || 0 != cmp)) {
           FPRINTF(stderr, "ERROR line #%i: data not shuffled or copy failed!\n", __LINE__);
@@ -228,7 +228,7 @@ int main(int argc, char* argv[])
         /* shuffle restores initial input */
         for (i = 0; i < r; ++i) {
           memset(b, 0, size); /* clear */
-          LIBXS_EXPECT(EXIT_SUCCESS == libxs_shuffle2(b, a, 1, s, &shuffle, NULL));
+          LIBXS_EXPECT(EXIT_SUCCESS == libxs_shuffle2(b, a, 1, s, &shuffle, 0, NULL));
           /* every shuffle is different from input */
           if (1 < s && 0 == memcmp(a, b, s)) {
             FPRINTF(stderr, "ERROR line #%i: data not shuffled!\n", __LINE__);
@@ -244,9 +244,9 @@ int main(int argc, char* argv[])
         if (EXIT_SUCCESS == result) {
           const size_t rm1 = r - 1;
           memset(a, 0, size); /* clear */
-          LIBXS_EXPECT(EXIT_SUCCESS == libxs_shuffle2(a, init, 1, s, &shuffle, NULL));
+          LIBXS_EXPECT(EXIT_SUCCESS == libxs_shuffle2(a, init, 1, s, &shuffle, 0, NULL));
           memset(b, 0, size); /* clear */
-          LIBXS_EXPECT(EXIT_SUCCESS == libxs_shuffle2(b, a, 1, s, &shuffle, &rm1));
+          LIBXS_EXPECT(EXIT_SUCCESS == libxs_shuffle2(b, a, 1, s, &shuffle, 0, &rm1));
           if (0 != memcmp(b, init, s)) {
             FPRINTF(stderr, "ERROR line #%i: data not restored via nrepeat!\n", __LINE__);
             result = EXIT_FAILURE;
@@ -274,7 +274,7 @@ int main(int argc, char* argv[])
       memcpy(data, ref, s * sizeof(unsigned int));
       for (i = 0; i < r; ++i) {
         unsigned int tmp[256];
-        LIBXS_EXPECT(EXIT_SUCCESS == libxs_shuffle2(tmp, data, sizeof(unsigned int), s, &shuffle, NULL));
+        LIBXS_EXPECT(EXIT_SUCCESS == libxs_shuffle2(tmp, data, sizeof(unsigned int), s, &shuffle, 0, NULL));
         memcpy(data, tmp, s * sizeof(unsigned int));
       }
       if (0 != memcmp(data, ref, s * sizeof(unsigned int))) {
@@ -292,8 +292,8 @@ int main(int argc, char* argv[])
       size_t i, one = 1;
       for (i = 0; i < s; ++i) ref[i] = (unsigned int)i;
       memcpy(ds1, ref, s * sizeof(unsigned int));
-      libxs_shuffle(ds1, sizeof(unsigned int), s, NULL, &one);
-      libxs_shuffle2(ds2, ref, sizeof(unsigned int), s, NULL, &one);
+      libxs_shuffle(ds1, sizeof(unsigned int), s, NULL, 0, &one);
+      libxs_shuffle2(ds2, ref, sizeof(unsigned int), s, NULL, 0, &one);
       if (0 != memcmp(ds1, ds2, s * sizeof(unsigned int))) {
         FPRINTF(stderr, "ERROR line #%i: DS1 != DS2 for s=%i!\n", __LINE__, (int)s);
         result = EXIT_FAILURE;
@@ -341,8 +341,8 @@ int main(int argc, char* argv[])
       const size_t rm1 = r - 1;
       size_t i;
       for (i = 0; i < s; ++i) ref[i] = (unsigned int)i;
-      LIBXS_EXPECT(EXIT_SUCCESS == libxs_shuffle2(a, ref, sizeof(unsigned int), s, &shuffle, NULL));
-      LIBXS_EXPECT(EXIT_SUCCESS == libxs_shuffle2(b, a, sizeof(unsigned int), s, &shuffle, &rm1));
+      LIBXS_EXPECT(EXIT_SUCCESS == libxs_shuffle2(a, ref, sizeof(unsigned int), s, &shuffle, 0, NULL));
+      LIBXS_EXPECT(EXIT_SUCCESS == libxs_shuffle2(b, a, sizeof(unsigned int), s, &shuffle, 0, &rm1));
       if (0 != memcmp(b, ref, s * sizeof(unsigned int))) {
         FPRINTF(stderr, "ERROR line #%i: nrepeat=R-1 restore failed for s=%i!\n", __LINE__, (int)s);
         result = EXIT_FAILURE;

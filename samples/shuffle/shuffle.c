@@ -194,7 +194,7 @@ int main(int argc, char* argv[])
       if (EXIT_SUCCESS == result) { /* benchmark in-place shuffle (DS1) */
         memcpy(data2, data1, nbytes);
         start = libxs_timer_tick();
-        libxs_shuffle(data2, elsize, n, &coprime, &m);
+        libxs_shuffle(data2, elsize, n, &coprime, 0, &m);
         d0 = libxs_timer_duration(start, libxs_timer_tick()) / mm;
         if (0 < i) {
           if (0 != stats) {
@@ -226,7 +226,7 @@ int main(int argc, char* argv[])
       if (EXIT_SUCCESS == result) { /* benchmark out-of-place shuffle (DS2) */
         memset(data2, 0, nbytes); /* equalize page state (cf. DS1 memcpy) */
         start = libxs_timer_tick();
-        libxs_shuffle2(data2, data1, elsize, n, &coprime, &m);
+        libxs_shuffle2(data2, data1, elsize, n, &coprime, 0, &m);
         d0 = libxs_timer_duration(start, libxs_timer_tick()) / mm;
         if (0 < i) {
           if (0 != stats) {
@@ -327,9 +327,9 @@ int main(int argc, char* argv[])
       shuffle(data2, elsize, n);
       libxs_fprint(&fp_rng, fptype, data2, 1, &fpshape, NULL, 4, -1);
       memcpy(data2, data1, nbytes);
-      libxs_shuffle(data2, elsize, n, &coprime, NULL);
+      libxs_shuffle(data2, elsize, n, &coprime, 0, NULL);
       libxs_fprint(&fp_ds1, fptype, data2, 1, &fpshape, NULL, 4, -1);
-      libxs_shuffle2(data2, data1, elsize, n, &coprime, NULL);
+      libxs_shuffle2(data2, data1, elsize, n, &coprime, 0, NULL);
       libxs_fprint(&fp_ds2, fptype, data2, 1, &fpshape, NULL, 4, -1);
       printf("---------------------------------------\n");
       printf("Fingerprint distance (Sobolev, order 4)\n");
@@ -338,6 +338,40 @@ int main(int argc, char* argv[])
       printf("  orig->DS2: %.6e\n", libxs_fprint_diff(&fp_orig, &fp_ds2, NULL));
       printf("  RNG ->DS1: %.6e\n", libxs_fprint_diff(&fp_rng, &fp_ds1, NULL));
       printf("  RNG ->DS2: %.6e\n", libxs_fprint_diff(&fp_rng, &fp_ds2, NULL));
+    }
+    if (EXIT_SUCCESS == result) {
+      const size_t vmask = (elsize < sizeof(size_t)
+        ? (((size_t)1 << (8 * elsize)) - 1) : ~(size_t)0);
+      size_t errors = 0;
+      libxs_shuffle2(data2, data1, elsize, n, &coprime, 0, NULL);
+      libxs_unshuffle2(data1, data2, elsize, n, &coprime, 0, NULL);
+      for (j = 0; j < n && 0 == errors; ++j) {
+        size_t v = 0;
+        LIBXS_MEMCPY(&v, (const char*)data1 + elsize * j,
+          LIBXS_MIN(elsize, sizeof(size_t)));
+        if (v != (j & vmask)) ++errors;
+      }
+      printf("Round-trip (shuffle2+unshuffle2): %s\n",
+        0 == errors ? "PASS" : "FAIL");
+      for (j = 0; j < n; ++j) {
+        LIBXS_MEMCPY((char*)data1 + elsize * j, &j,
+          LIBXS_MIN(elsize, sizeof(size_t)));
+      }
+      errors = 0;
+      libxs_shuffle2(data2, data1, elsize, n, &coprime, 42, NULL);
+      libxs_unshuffle2(data1, data2, elsize, n, &coprime, 42, NULL);
+      for (j = 0; j < n && 0 == errors; ++j) {
+        size_t v = 0;
+        LIBXS_MEMCPY(&v, (const char*)data1 + elsize * j,
+          LIBXS_MIN(elsize, sizeof(size_t)));
+        if (v != (j & vmask)) ++errors;
+      }
+      printf("Round-trip (affine+unaffine, B=42): %s\n",
+        0 == errors ? "PASS" : "FAIL");
+      for (j = 0; j < n; ++j) {
+        LIBXS_MEMCPY((char*)data1 + elsize * j, &j,
+          LIBXS_MIN(elsize, sizeof(size_t)));
+      }
     }
     if (0 > elemtype && 0 == random) {
       printf("NOTE: MHD output skipped (unsupported element size %i)\n",

@@ -229,7 +229,7 @@ static void shuffle_test(const void* blob, size_t nbytes,
   if (NULL != shuffled) {
     double r_orig = 0, r_shuf = 0;
     int f, count = 0;
-    libxs_shuffle2(shuffled, blob, row_bytes, nrows, NULL, NULL);
+    libxs_shuffle2(shuffled, blob, row_bytes, nrows, NULL, 0, NULL);
     for (f = 0; f < stride; ++f) {
       const size_t stride_sz = (size_t)stride;
       libxs_fprint_t fp_o, fp_s;
