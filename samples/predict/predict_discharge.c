@@ -41,13 +41,14 @@ int main(int argc, char* argv[])
     fprintf(stdout, "Window=%d (+%d diffs +day-of-year), Horizon=%d, Train=%d, Test=%d\n",
       WINDOW, NDIFFS, HORIZON, train_end - WINDOW, total - train_end);
     if (NULL != model) {
-      libxs_predict_set_mode(model, LIBXS_PREDICT_EXTRAPOLATE);
       double inputs[NINPUTS], outputs[HORIZON];
       int t;
+      libxs_predict_set_mode(model, LIBXS_PREDICT_EXTRAPOLATE);
+      libxs_predict_set_transform(model, -1, LIBXS_PREDICT_LOG);
       for (t = WINDOW; t <= train_end - HORIZON; ++t) {
         int i;
         fill_inputs(series, t, inputs);
-        for (i = 0; i < HORIZON; ++i) outputs[i] = log(series[t + i] + 1.0);
+        for (i = 0; i < HORIZON; ++i) outputs[i] = series[t + i];
         libxs_predict_push(NULL, model, inputs, outputs);
       }
       if (EXIT_SUCCESS == libxs_predict_build(model, 0, 2)) {
@@ -136,8 +137,7 @@ static void evaluate_forecast(const libxs_predict_t* model,
     fill_inputs(series, t, inputs);
     libxs_predict_eval(NULL, model, inputs, outputs, &info, 1);
     for (h = 0; h < HORIZON; ++h) {
-      const double predicted = exp(outputs[h]) - 1.0;
-      const double err = LIBXS_FABS(predicted - series[t + h]);
+      const double err = LIBXS_FABS(outputs[h] - series[t + h]);
       sum_err[h] += err;
       if (err > max_err[h]) max_err[h] = err;
     }

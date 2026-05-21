@@ -64,6 +64,7 @@ LIBXS_EXTERN_C struct libxs_predict_t {
   double* input_min;
   double* input_rng;
   double* weights;
+  int* transforms;
   libxs_lock_t lock;
   int order;
   int ninputs, noutputs;
@@ -292,17 +293,23 @@ LIBXS_API_INLINE double internal_libxs_predict_classify(
   }
   if (0 == exact && nfound > 0) {
     if (ndistinct > ndistinct_thresh) {
-      double wsum = 0, wavg = 0, best_dist = DBL_MAX;
+      double wsum = 0, wavg = 0;
       for (i = 0; i < nfound; ++i) {
         const double wi = (dists[i] > 0.0) ? (1.0 / dists[i]) : 1e30;
         wavg += wi * candidates[i];
         wsum += wi;
       }
       wavg = (wsum > 0.0) ? wavg / wsum : candidates[0];
-      for (i = 0; i < nc; ++i) {
-        const double v = cl->raw_outputs[(size_t)i * nouts + output_j];
-        const double d = (v > wavg) ? (v - wavg) : (wavg - v);
-        if (d < best_dist) { best_dist = d; best_val = v; }
+      if (0 != extrapolate) {
+        best_val = wavg;
+      }
+      else {
+        double best_dist = DBL_MAX;
+        for (i = 0; i < nc; ++i) {
+          const double v = cl->raw_outputs[(size_t)i * nouts + output_j];
+          const double d = (v > wavg) ? (v - wavg) : (wavg - v);
+          if (d < best_dist) { best_dist = d; best_val = v; }
+        }
       }
       if (NULL != confidence) {
         *confidence = 1.0;
@@ -364,6 +371,7 @@ LIBXS_API void libxs_predict_destroy(libxs_predict_t* model)
     free(model->input_min);
     free(model->input_rng);
     free(model->weights);
+    free(model->transforms);
     free(model);
   }
 }
@@ -401,6 +409,48 @@ LIBXS_API void libxs_predict_set_weights(libxs_predict_t* model, const double we
 }
 
 
+LIBXS_API void libxs_predict_set_transform(libxs_predict_t* model, int output, int transform)
+{
+  LIBXS_ASSERT(NULL != model);
+  if (NULL == model->transforms) {
+    model->transforms = (int*)calloc((size_t)model->noutputs, sizeof(int));
+  }
+  if (NULL != model->transforms) {
+    if (0 > output) {
+      int j;
+      for (j = 0; j < model->noutputs; ++j) model->transforms[j] = transform;
+    }
+    else if (output < model->noutputs) {
+      model->transforms[output] = transform;
+    }
+  }
+}
+
+
+LIBXS_API_INLINE double internal_libxs_predict_fwd(int transform, double v)
+{
+  double result = v;
+  switch (transform) {
+    case LIBXS_PREDICT_LOG: result = log(v + 1.0); break;
+    case LIBXS_PREDICT_SQRT: result = sqrt(v > 0 ? v : 0); break;
+    default: break;
+  }
+  return result;
+}
+
+
+LIBXS_API_INLINE double internal_libxs_predict_inv(int transform, double v)
+{
+  double result = v;
+  switch (transform) {
+    case LIBXS_PREDICT_LOG: result = exp(v) - 1.0; break;
+    case LIBXS_PREDICT_SQRT: result = v * v; break;
+    default: break;
+  }
+  return result;
+}
+
+
 LIBXS_API int libxs_predict_push(
   libxs_lock_t* lock, libxs_predict_t* model, const double inputs[], const double outputs[])
 {
@@ -429,7 +479,15 @@ LIBXS_API int libxs_predict_push(
       e->outputs = (double*)malloc((size_t)n * sizeof(double));
       if (NULL != e->inputs && NULL != e->outputs) {
         memcpy(e->inputs, inputs, (size_t)m * sizeof(double));
-        memcpy(e->outputs, outputs, (size_t)n * sizeof(double));
+        if (NULL != model->transforms) {
+          int j;
+          for (j = 0; j < n; ++j) {
+            e->outputs[j] = internal_libxs_predict_fwd(model->transforms[j], outputs[j]);
+          }
+        }
+        else {
+          memcpy(e->outputs, outputs, (size_t)n * sizeof(double));
+        }
         ++model->nentries;
       }
       else {
@@ -898,6 +956,11 @@ LIBXS_API void libxs_predict_eval(libxs_lock_t* lock, const libxs_predict_t* mod
         vals[k] = 0.75 * vals[k] + 0.25 * avg;
       }
     }
+    if (NULL != model->transforms) {
+      for (j = 0; j < n; ++j) {
+        vals[j] = internal_libxs_predict_inv(model->transforms[j], vals[j]);
+      }
+    }
     if (NULL != outputs) {
       memcpy(outputs, vals, (size_t)n * sizeof(double));
     }
@@ -991,9 +1054,10 @@ LIBXS_API int libxs_predict_save(const libxs_predict_t* model, void* buffer, siz
   else {
     size_t required = 0;
     int c, j;
-    required += sizeof(uint32_t) + 4 * sizeof(uint16_t) + sizeof(uint8_t);
+    required += sizeof(uint32_t) + 4 * sizeof(uint16_t) + 2 * sizeof(uint8_t);
     required += (size_t)model->ninputs * 2 * sizeof(double);
     if (NULL != model->weights) required += (size_t)model->ninputs * sizeof(double);
+    if (NULL != model->transforms) required += (size_t)model->noutputs * sizeof(uint8_t);
     for (c = 0; c < model->nclusters; ++c) {
       const internal_libxs_predict_cluster_t* cl = &model->clusters[c];
       required += (size_t)model->ninputs * sizeof(double);
@@ -1028,10 +1092,14 @@ LIBXS_API int libxs_predict_save(const libxs_predict_t* model, void* buffer, siz
       WRITE_U16(model->noutputs);
       WRITE_U16(model->nclusters);
       WRITE_U8(NULL != model->weights ? 1 : 0);
+      WRITE_U8(NULL != model->transforms ? 1 : 0);
       WRITE_BLK(model->input_min, (size_t)model->ninputs * sizeof(double));
       WRITE_BLK(model->input_rng, (size_t)model->ninputs * sizeof(double));
       if (NULL != model->weights) {
         WRITE_BLK(model->weights, (size_t)model->ninputs * sizeof(double));
+      }
+      if (NULL != model->transforms) {
+        for (j = 0; j < model->noutputs; ++j) WRITE_U8(model->transforms[j]);
       }
       for (c = 0; c < model->nclusters; ++c) {
         const internal_libxs_predict_cluster_t* cl = &model->clusters[c];
@@ -1100,8 +1168,9 @@ LIBXS_API libxs_predict_t* libxs_predict_load(const void* buffer, size_t size)
       if (NULL == model) ok = EXIT_FAILURE;
     }
     if (EXIT_SUCCESS == ok) {
-      uint8_t has_weights = 0;
+      uint8_t has_weights = 0, has_transforms = 0;
       ok = internal_libxs_predict_read(&src, end, &has_weights, 1);
+      if (EXIT_SUCCESS == ok) ok = internal_libxs_predict_read(&src, end, &has_transforms, 1);
       model->input_min = (double*)malloc((size_t)ninp * sizeof(double));
       model->input_rng = (double*)malloc((size_t)ninp * sizeof(double));
       if (NULL == model->input_min || NULL == model->input_rng) ok = EXIT_FAILURE;
@@ -1118,6 +1187,18 @@ LIBXS_API libxs_predict_t* libxs_predict_load(const void* buffer, size_t size)
         if (NULL != model->weights) {
           ok = internal_libxs_predict_read(&src, end,
             model->weights, (size_t)ninp * sizeof(double));
+        }
+        else ok = EXIT_FAILURE;
+      }
+      if (EXIT_SUCCESS == ok && 0 != has_transforms) {
+        int j;
+        model->transforms = (int*)calloc((size_t)nout, sizeof(int));
+        if (NULL != model->transforms) {
+          for (j = 0; j < (int)nout && EXIT_SUCCESS == ok; ++j) {
+            uint8_t v = 0;
+            ok = internal_libxs_predict_read(&src, end, &v, 1);
+            model->transforms[j] = (int)v;
+          }
         }
         else ok = EXIT_FAILURE;
       }

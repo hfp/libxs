@@ -136,6 +136,8 @@ libxs_predict_push
 libxs_predict_query
 libxs_predict_save
 libxs_predict_set_mode
+libxs_predict_set_transform
+libxs_predict_set_weights
 libxs_primes_u32
 libxs_product_limit
 libxs_registry_begin

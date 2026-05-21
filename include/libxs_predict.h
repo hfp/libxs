@@ -21,6 +21,13 @@ typedef enum libxs_predict_mode_t {
   LIBXS_PREDICT_EXTRAPOLATE = 4
 } libxs_predict_mode_t;
 
+/** Output transform applied during push/eval. */
+typedef enum libxs_predict_transform_t {
+  LIBXS_PREDICT_IDENTITY = 0,
+  LIBXS_PREDICT_LOG      = 1,
+  LIBXS_PREDICT_SQRT     = 2
+} libxs_predict_transform_t;
+
 /** Opaque prediction model type. */
 LIBXS_EXTERN_C typedef struct libxs_predict_t libxs_predict_t;
 
@@ -88,6 +95,15 @@ LIBXS_API void libxs_predict_set_mode(libxs_predict_t* model, int mode);
  */
 LIBXS_API void libxs_predict_set_weights(libxs_predict_t* model,
   const double weights[]);
+
+/**
+ * Set per-output transform applied transparently during push/eval.
+ * output: output index (0-based), or -1 to set all outputs.
+ * transform: LIBXS_PREDICT_IDENTITY (default), _LOG, or _SQRT.
+ * Push applies the forward transform, eval applies the inverse.
+ */
+LIBXS_API void libxs_predict_set_transform(libxs_predict_t* model,
+  int output, int transform);
 
 /**
  * Push one training entry (incremental).

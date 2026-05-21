@@ -116,7 +116,9 @@ Comma-delimited: time, latitude, longitude, depth, mag, magType, ...
 
 River discharge (streamflow) forecasting using sliding-window kNN
 with day-of-year as an additional input dimension to capture
-seasonality. Predicts the next 7 days from the previous 14 days.
+seasonality. Uses log-transform on outputs (via API) for
+heavy-tailed data. Predicts the next 7 days from the previous
+14 days + rate-of-change derivatives.
 
 ### Usage
 
@@ -130,17 +132,17 @@ seasonality. Predicts the next 7 days from the previous 14 days.
     ./predict_discharge.x predict_discharge.tsv
 
     Loaded 9135 daily discharge values from predict_discharge.tsv
-    Window=14 (+day-of-year), Horizon=7, Train=7294, Test=1827
-    Built: 85 clusters, 58.9x compression, order=2
+    Window=14 (+3 diffs +day-of-year), Horizon=7, Train=7294, Test=1827
+    Built: 85 clusters, 58.4x compression, order=2
     Forecast quality (1821 test windows):
       step   avg-err   max-err
-      t+1      763.6   22600.0
-      t+2      895.3   28800.0
-      t+3     1015.9   29800.0
-      t+4     1091.7   27100.0
-      t+5     1162.7   27200.0
-      t+6     1249.7   27100.0
-      t+7     1353.2   27200.0
+      t+1      644.5   17726.6
+      t+2      769.0   21363.5
+      t+3      877.9   23199.8
+      t+4      963.7   24193.4
+      t+5     1044.1   25086.3
+      t+6     1131.3   25735.3
+      t+7     1225.9   26729.3
       avg confidence: 1.000
 
 ### Data Source
@@ -169,10 +171,16 @@ All samples share the same prediction library (libxs_predict):
    magnitude for new locations.
 
 4. **predict_discharge**: Combines temporal sliding-window (14 days)
-   with day-of-year seasonality as an extra input dimension. The
-   model captures both short-term flow dynamics and annual patterns.
+   with day-of-year seasonality as an extra input dimension.
+   Log-transform on outputs (via `libxs_predict_set_transform`)
+   handles heavy-tailed discharge data transparently.
 
 The fingerprint automatically determines per-output whether polynomial
 interpolation or distance-weighted kNN voting is more appropriate.
 Per-output confidence scores enable the caller to gate predictions
 and fall back to safe defaults when the model is uncertain.
+
+Timeseries samples use `LIBXS_PREDICT_EXTRAPOLATE` mode which enables
+recency weighting (recent neighbors preferred), adaptive multi-cluster
+blending on low confidence, and continuous-valued output without
+snap-to-nearest discretization.
