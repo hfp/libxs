@@ -35,22 +35,19 @@ int main(int argc, char* argv[])
     const int train_end = LIBXS_MAX((int)(total * split + 0.5), WINDOW + 1);
     libxs_predict_t* model = libxs_predict_create(NINPUTS, HORIZON);
     fprintf(stdout, "Loaded %d monthly sunspot values from %s\n", total, filename);
-    fprintf(stdout, "Window=%d, Horizon=%d, Train=%d, Test=%d\n",
-      WINDOW, HORIZON, train_end - WINDOW, total - train_end);
     if (NULL != model) {
-      double inputs[NINPUTS], outputs[HORIZON];
       int t;
       libxs_predict_set_mode(model, LIBXS_PREDICT_EXTRAPOLATE);
-      for (t = WINDOW; t <= train_end - HORIZON; ++t) {
-        int i;
-        for (i = 0; i < WINDOW; ++i) inputs[i] = series[t - WINDOW + i];
-        for (i = 0; i < HORIZON; ++i) outputs[i] = series[t + i];
-        libxs_predict_push(NULL, model, inputs, outputs);
+      libxs_predict_set_series(model, 1, WINDOW);
+      for (t = 0; t < train_end; ++t) {
+        libxs_predict_push(NULL, model, &series[t], NULL);
       }
       if (EXIT_SUCCESS == libxs_predict_build(model, 0, 2)) {
         libxs_predict_query_t qi;
         LIBXS_MEMZERO(&qi);
         libxs_predict_query(model, &qi);
+        fprintf(stdout, "Window=%d, Horizon=%d, Train=%d, Test=%d\n",
+          WINDOW, HORIZON, qi.nentries, total - train_end);
         fprintf(stdout, "Built: %d clusters, %.1fx compression, order=%d\n",
           qi.nclusters, qi.compression, qi.order);
         evaluate_forecast(model, series, total, train_end);

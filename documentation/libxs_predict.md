@@ -31,6 +31,28 @@ ORable flags controlling prediction behavior:
 Example: `LIBXS_PREDICT_CLASSIFY | LIBXS_PREDICT_EXTRAPOLATE`
 forces kNN-weighted projection forward.
 
+## Cross-Series Decomposition
+
+```C
+typedef enum libxs_predict_decompose_t {
+  LIBXS_PREDICT_RAW    = 0,
+  LIBXS_PREDICT_SPREAD = 1,
+  LIBXS_PREDICT_PCA    = 2
+} libxs_predict_decompose_t;
+```
+
+Controls how multiple co-observed series are represented
+internally when using set_series with nseries >= 2:
+- RAW (0): concatenate raw windows (default).
+- SPREAD: sum/diff modes for anti-correlated pairs (2 series).
+  Forward: sum = (A+B)/2, diff = (A-B)/2.
+  Inverse: A = sum+diff, B = sum-diff.
+- PCA: principal components across stacked series (reserved).
+
+The decomposition is applied at build time to stored entries
+and at eval time to user queries. Inverse prediction returns
+inputs in raw (user) space.
+
 ## Output Transforms
 
 ```C
@@ -91,6 +113,56 @@ Set per-output transform. The output parameter is 0-based,
 or -1 to set all outputs. Must be called before pushing
 entries. Transforms are persisted in save/load.
 
+## Timeseries Configuration
+
+```C
+void libxs_predict_set_series(libxs_predict_t* model,
+  int nseries, int window);
+void libxs_predict_set_target(libxs_predict_t* model,
+  int target);
+void libxs_predict_set_decompose(libxs_predict_t* model,
+  int decompose);
+```
+
+Declare timeseries structure for automatic sliding-window
+construction. The model's ninputs must equal nseries * window;
+noutputs is the forecast horizon.
+
+When set_series has been called, push(lock, model, values, NULL)
+accumulates one timestep (nseries values per call). The build
+step then constructs all valid sliding windows internally:
+input = concatenated windows across all series, output = the
+next horizon values of the target series.
+
+set_target selects which series to predict (0-based, default 0).
+set_decompose selects cross-series decomposition (see above).
+
+Single-series example (sunspots):
+```C
+model = libxs_predict_create(WINDOW, HORIZON);
+libxs_predict_set_series(model, 1, WINDOW);
+for (t = 0; t < n; ++t)
+    libxs_predict_push(NULL, model, &series[t], NULL);
+libxs_predict_build(model, 0, 2);
+```
+
+Multi-series example (anti-correlated pair):
+```C
+model = libxs_predict_create(WINDOW * 2, HORIZON);
+libxs_predict_set_series(model, 2, WINDOW);
+libxs_predict_set_target(model, 0);
+libxs_predict_set_decompose(model, LIBXS_PREDICT_SPREAD);
+for (t = 0; t < n; ++t) {
+    double vals[2] = {A[t], B[t]};
+    libxs_predict_push(NULL, model, vals, NULL);
+}
+libxs_predict_build(model, 0, 2);
+```
+
+The eval signature is unchanged: provide ninputs values
+(raw window for all series) and receive horizon predictions.
+The decomposition is applied transparently to the query.
+
 ## Training
 
 ```C
@@ -99,7 +171,11 @@ int libxs_predict_push(libxs_lock_t* lock,
   const double inputs[], const double outputs[]);
 ```
 
-Push one training entry. Output values are transformed
+Push one training entry. When set_series was called and
+outputs is NULL, the inputs array holds nseries values
+representing one timestep; sliding windows are constructed
+at build time. Otherwise, inputs holds M values and outputs
+holds N values as before. Output values are transformed
 internally if a transform was set. The lock is optional
 (NULL if single-threaded). Returns EXIT_SUCCESS or
 EXIT_FAILURE.

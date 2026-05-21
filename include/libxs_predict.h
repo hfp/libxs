@@ -28,6 +28,13 @@ typedef enum libxs_predict_transform_t {
   LIBXS_PREDICT_SQRT     = 2
 } libxs_predict_transform_t;
 
+/** Cross-series decomposition mode. */
+typedef enum libxs_predict_decompose_t {
+  LIBXS_PREDICT_RAW    = 0,
+  LIBXS_PREDICT_SPREAD = 1,
+  LIBXS_PREDICT_PCA    = 2
+} libxs_predict_decompose_t;
+
 /** Opaque prediction model type. */
 LIBXS_EXTERN_C typedef struct libxs_predict_t libxs_predict_t;
 
@@ -108,9 +115,37 @@ LIBXS_API void libxs_predict_set_transform(libxs_predict_t* model,
   int output, int transform);
 
 /**
+ * Declare timeseries structure: nseries co-observed series, each with
+ * the given window size. ninputs must equal nseries * window, noutputs
+ * is the forecast horizon. When set, push(lock, model, values, NULL)
+ * accumulates one timestep (nseries values); build constructs sliding
+ * windows internally. Must be called before push.
+ */
+LIBXS_API void libxs_predict_set_series(libxs_predict_t* model,
+  int nseries, int window);
+
+/**
+ * Set which series index to predict (0-based, default: 0).
+ * Only relevant when nseries > 1.
+ */
+LIBXS_API void libxs_predict_set_target(libxs_predict_t* model, int target);
+
+/**
+ * Set cross-series decomposition applied to input windows.
+ * LIBXS_PREDICT_RAW (default): concatenate raw windows.
+ * LIBXS_PREDICT_SPREAD: sum/diff modes (for anti-correlated pairs).
+ * LIBXS_PREDICT_PCA: principal components across stacked series.
+ * Only effective when nseries >= 2. Applied at build and eval time.
+ */
+LIBXS_API void libxs_predict_set_decompose(libxs_predict_t* model,
+  int decompose);
+
+/**
  * Push one training entry (incremental).
  * inputs:  M values (input parameters).
- * outputs: N values (output parameters).
+ * outputs: N values (output parameters), or NULL for timeseries mode
+ *          (when set_series was called, inputs has nseries values
+ *          representing one timestep; windows are built internally).
  * May be called any number of times before libxs_predict_build.
  * The lock is optional (NULL if single-threaded).
  * Returns EXIT_SUCCESS or EXIT_FAILURE.

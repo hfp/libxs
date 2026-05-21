@@ -171,11 +171,11 @@ All samples share the same prediction library (libxs_predict):
    pair. The model learns spatial relationships in the input space
    and predicts outputs for unseen input combinations.
 
-2. **predict_sunspots**: Each sliding window of W consecutive values
-   becomes an input vector; the next H values become outputs. The
-   model finds historically similar windows and predicts the
-   continuation. The kNN confidence reflects how well the current
-   pattern matches training history.
+2. **predict_sunspots**: Uses `libxs_predict_set_series` to declare
+   timeseries structure; the framework constructs sliding windows
+   internally from accumulated timesteps. The model finds historically
+   similar windows and predicts the continuation. The kNN confidence
+   reflects how well the current pattern matches training history.
 
 3. **predict_earthquakes**: Each earthquake event provides
    (lat, lon, depth) as inputs and magnitude as output. The model
@@ -200,6 +200,14 @@ Timeseries samples use `LIBXS_PREDICT_EXTRAPOLATE` mode which enables
 recency weighting (recent neighbors preferred), continuous-valued
 output without snap-to-nearest discretization, and local coherence
 smoothing across horizon steps.
+
+The sunspot sample uses `libxs_predict_set_series` to declare
+timeseries structure: instead of manually constructing sliding windows,
+the caller pushes one timestep at a time (with outputs=NULL) and the
+framework builds all valid windows at build time. For multiple
+co-observed series, `libxs_predict_set_decompose(LIBXS_PREDICT_SPREAD)`
+transforms the stacked windows into sum/diff modes, exploiting
+anti-correlation between series (e.g., one's gain is the other's loss).
 
 The sunspot sample additionally demonstrates forward-inverse-forward
 iteration: predicting outputs, finding the canonical historical window

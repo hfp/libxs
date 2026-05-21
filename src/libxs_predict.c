@@ -64,6 +64,8 @@ LIBXS_EXTERN_C struct libxs_predict_t {
   double* input_rng;
   double* weights;
   int* transforms;
+  double* ts_buf;
+  double* decompose_mat;
   libxs_lock_t lock;
   int order;
   int ninputs, noutputs;
@@ -72,6 +74,8 @@ LIBXS_EXTERN_C struct libxs_predict_t {
   int built;
   int eval_mode;
   int iterations;
+  int nseries, window, target, decompose;
+  int nts, ts_capacity;
   volatile int phase;
 };
 
@@ -386,6 +390,8 @@ LIBXS_API void libxs_predict_destroy(libxs_predict_t* model)
     free(model->input_rng);
     free(model->weights);
     free(model->transforms);
+    free(model->ts_buf);
+    free(model->decompose_mat);
     free(model);
   }
 }
@@ -465,11 +471,165 @@ LIBXS_API_INLINE double internal_libxs_predict_inv(int transform, double v)
 }
 
 
+LIBXS_API void libxs_predict_set_series(libxs_predict_t* model, int nseries, int window)
+{
+  LIBXS_ASSERT(NULL != model);
+  if (NULL != model && 0 < nseries && 0 < window
+    && model->ninputs == nseries * window)
+  {
+    model->nseries = nseries;
+    model->window = window;
+  }
+}
+
+
+LIBXS_API void libxs_predict_set_target(libxs_predict_t* model, int target)
+{
+  LIBXS_ASSERT(NULL != model);
+  if (NULL != model && 0 <= target && target < model->nseries) {
+    model->target = target;
+  }
+}
+
+
+LIBXS_API void libxs_predict_set_decompose(libxs_predict_t* model, int decompose)
+{
+  LIBXS_ASSERT(NULL != model);
+  if (NULL != model) {
+    model->decompose = decompose;
+  }
+}
+
+
+LIBXS_API_INLINE void internal_libxs_predict_decompose_apply(
+  const libxs_predict_t* model, const double* raw, double* out)
+{
+  const int w = model->window;
+  const int s = model->nseries;
+  if (LIBXS_PREDICT_SPREAD == model->decompose && 2 == s) {
+    int i;
+    for (i = 0; i < w; ++i) {
+      out[i] = 0.5 * (raw[i] + raw[w + i]);
+      out[w + i] = 0.5 * (raw[i] - raw[w + i]);
+    }
+  }
+  else {
+    memcpy(out, raw, (size_t)(w * s) * sizeof(double));
+  }
+}
+
+
+LIBXS_API_INLINE void internal_libxs_predict_decompose_inverse(
+  const libxs_predict_t* model, const double* modes, double* raw)
+{
+  const int w = model->window;
+  const int s = model->nseries;
+  if (LIBXS_PREDICT_SPREAD == model->decompose && 2 == s) {
+    int i;
+    for (i = 0; i < w; ++i) {
+      raw[i] = modes[i] + modes[w + i];
+      raw[w + i] = modes[i] - modes[w + i];
+    }
+  }
+  else {
+    memcpy(raw, modes, (size_t)(w * s) * sizeof(double));
+  }
+}
+
+
+LIBXS_API_INLINE void internal_libxs_predict_ts_expand(libxs_predict_t* model)
+{
+  const int s = model->nseries;
+  const int w = model->window;
+  const int h = model->noutputs;
+  const int m = model->ninputs;
+  const int nwindows = model->nts - w - h + 1;
+  double raw_buf[256];
+  double* raw = (m <= 256) ? raw_buf : (double*)malloc((size_t)m * sizeof(double));
+  int t;
+  if (NULL == raw) return;
+  for (t = 0; t < nwindows; ++t) {
+    double* inputs = (double*)malloc((size_t)m * sizeof(double));
+    double* outputs = (double*)malloc((size_t)h * sizeof(double));
+    if (NULL != inputs && NULL != outputs) {
+      int si, i;
+      for (si = 0; si < s; ++si) {
+        for (i = 0; i < w; ++i) {
+          raw[si * w + i] = model->ts_buf[(t + i) * s + si];
+        }
+      }
+      if (LIBXS_PREDICT_RAW != model->decompose && s >= 2) {
+        internal_libxs_predict_decompose_apply(model, raw, inputs);
+      }
+      else {
+        memcpy(inputs, raw, (size_t)m * sizeof(double));
+      }
+      for (i = 0; i < h; ++i) {
+        outputs[i] = model->ts_buf[(t + w + i) * s + model->target];
+      }
+      if (model->nentries >= model->capacity) {
+        const int newcap = (0 < model->capacity) ? (model->capacity * 2) : 64;
+        internal_libxs_predict_entry_t* ne = (internal_libxs_predict_entry_t*)realloc(
+          model->entries, (size_t)newcap * sizeof(internal_libxs_predict_entry_t));
+        if (NULL != ne) {
+          memset(ne + model->capacity, 0,
+            (size_t)(newcap - model->capacity) * sizeof(internal_libxs_predict_entry_t));
+          model->entries = ne;
+          model->capacity = newcap;
+        }
+      }
+      if (model->nentries < model->capacity) {
+        internal_libxs_predict_entry_t* e = &model->entries[model->nentries];
+        e->inputs = inputs;
+        if (NULL != model->transforms) {
+          int j;
+          for (j = 0; j < h; ++j) {
+            outputs[j] = internal_libxs_predict_fwd(model->transforms[j], outputs[j]);
+          }
+        }
+        e->outputs = outputs;
+        ++model->nentries;
+      }
+      else {
+        free(inputs);
+        free(outputs);
+      }
+    }
+    else {
+      free(inputs);
+      free(outputs);
+    }
+  }
+  if (raw != raw_buf) free(raw);
+}
+
+
 LIBXS_API int libxs_predict_push(
   libxs_lock_t* lock, libxs_predict_t* model, const double inputs[], const double outputs[])
 {
   int result = EXIT_SUCCESS;
-  if (NULL == model || NULL == inputs || NULL == outputs) {
+  if (NULL == model || NULL == inputs) {
+    result = EXIT_FAILURE;
+  }
+  else if (NULL == outputs && 0 < model->nseries) {
+    const int s = model->nseries;
+    if (NULL != lock) LIBXS_LOCK_ACQUIRE(LIBXS_LOCK, lock);
+    if (model->nts >= model->ts_capacity) {
+      const int newcap = (0 < model->ts_capacity) ? (model->ts_capacity * 2) : 256;
+      double* nb = (double*)realloc(model->ts_buf, (size_t)newcap * (size_t)s * sizeof(double));
+      if (NULL != nb) {
+        model->ts_buf = nb;
+        model->ts_capacity = newcap;
+      }
+      else result = EXIT_FAILURE;
+    }
+    if (EXIT_SUCCESS == result) {
+      memcpy(model->ts_buf + (size_t)model->nts * s, inputs, (size_t)s * sizeof(double));
+      ++model->nts;
+    }
+    if (NULL != lock) LIBXS_LOCK_RELEASE(LIBXS_LOCK, lock);
+  }
+  else if (NULL == outputs) {
     result = EXIT_FAILURE;
   }
   else {
@@ -528,7 +688,9 @@ LIBXS_API_INLINE double internal_libxs_predict_order_fn(
   if (EXIT_SUCCESS == libxs_predict_build(ctx->model, ctx->nclusters, ord)) {
     const int p = ctx->model->nentries;
     const int n = ctx->model->noutputs;
+    const int saved_decompose = ctx->model->decompose;
     int i, j;
+    ctx->model->decompose = LIBXS_PREDICT_RAW;
     total_err = 0;
     for (i = 0; i < p; ++i) {
       double outputs[128];
@@ -538,6 +700,7 @@ LIBXS_API_INLINE double internal_libxs_predict_order_fn(
         total_err += LIBXS_DELTA(outputs[j], ctx->model->entries[i].outputs[j]);
       }
     }
+    ctx->model->decompose = saved_decompose;
   }
   return total_err;
 }
@@ -546,6 +709,9 @@ LIBXS_API_INLINE double internal_libxs_predict_order_fn(
 LIBXS_API int libxs_predict_build(libxs_predict_t* model, int nclusters, int order)
 {
   int result = EXIT_SUCCESS;
+  if (NULL != model && 0 < model->nts && 0 == model->nentries) {
+    internal_libxs_predict_ts_expand(model);
+  }
   if (NULL == model || 0 >= model->nentries) {
     result = EXIT_FAILURE;
   }
@@ -815,10 +981,16 @@ LIBXS_API void libxs_predict_eval(libxs_lock_t* lock, const libxs_predict_t* mod
     const int force_classify = (0 != (mode & LIBXS_PREDICT_CLASSIFY)) ? 1 : 0;
     const int force_interp = (0 != (mode & LIBXS_PREDICT_INTERPOLATE)) ? 1 : 0;
     const int extrapolate = (0 != (mode & LIBXS_PREDICT_EXTRAPOLATE)) ? 1 : 0;
+    double decomp_buf[128], *decomp_inputs = NULL;
     double norm_buf[64], *norm_inputs = (m <= 64) ? norm_buf : (double*)malloc((size_t)m * sizeof(double));
     double local_buf[256];
     double *vals, *errs, *conf, *var, best_dist;
     int *rels, c, j, best_c = 0;
+    if (LIBXS_PREDICT_RAW != model->decompose && model->nseries >= 2) {
+      decomp_inputs = (m <= 128) ? decomp_buf : (double*)malloc((size_t)m * sizeof(double));
+      internal_libxs_predict_decompose_apply(model, inputs, decomp_inputs);
+      inputs = decomp_inputs;
+    }
     if (NULL != lock) LIBXS_LOCK_ACQUIRE(LIBXS_LOCK, lock);
     internal_libxs_predict_normalize(model, inputs, norm_inputs);
     if (NULL == lock && NULL != outputs && n * 4 + n <= 256) {
@@ -1016,6 +1188,7 @@ LIBXS_API void libxs_predict_eval(libxs_lock_t* lock, const libxs_predict_t* mod
       info->noutputs = n;
     }
     if (norm_inputs != norm_buf) free(norm_inputs);
+    if (NULL != decomp_inputs && decomp_inputs != decomp_buf) free(decomp_inputs);
     if (NULL != lock) LIBXS_LOCK_RELEASE(LIBXS_LOCK, lock);
   }
 }
@@ -1108,7 +1281,15 @@ LIBXS_API void libxs_predict_inverse(libxs_lock_t* lock,
         if (score < best_score) { best_score = score; best_i = i; }
       }
     }
-    memcpy(inputs, model->entries[best_i].inputs, (size_t)m * sizeof(double));
+    if (LIBXS_PREDICT_RAW != model->decompose && model->nseries >= 2) {
+      double raw_buf[128], *raw = (m <= 128) ? raw_buf : (double*)malloc((size_t)m * sizeof(double));
+      internal_libxs_predict_decompose_inverse(model, model->entries[best_i].inputs, raw);
+      memcpy(inputs, raw, (size_t)m * sizeof(double));
+      if (raw != raw_buf) free(raw);
+    }
+    else {
+      memcpy(inputs, model->entries[best_i].inputs, (size_t)m * sizeof(double));
+    }
     if (NULL != info) {
       info->noutputs = n;
       info->cluster = (NULL != model->assignments) ? model->assignments[best_i] : -1;
@@ -1170,6 +1351,7 @@ LIBXS_API int libxs_predict_save(const libxs_predict_t* model, void* buffer, siz
     size_t required = 0;
     int c, j;
     required += sizeof(uint32_t) + 4 * sizeof(uint16_t) + 2 * sizeof(uint8_t);
+    required += 4 * sizeof(uint16_t);
     required += (size_t)model->ninputs * 2 * sizeof(double);
     if (NULL != model->weights) required += (size_t)model->ninputs * sizeof(double);
     if (NULL != model->transforms) required += (size_t)model->noutputs * sizeof(uint8_t);
@@ -1208,6 +1390,10 @@ LIBXS_API int libxs_predict_save(const libxs_predict_t* model, void* buffer, siz
       WRITE_U16(model->nclusters);
       WRITE_U8(NULL != model->weights ? 1 : 0);
       WRITE_U8(NULL != model->transforms ? 1 : 0);
+      WRITE_U16(model->nseries);
+      WRITE_U16(model->window);
+      WRITE_U16(model->target);
+      WRITE_U16(model->decompose);
       WRITE_BLK(model->input_min, (size_t)model->ninputs * sizeof(double));
       WRITE_BLK(model->input_rng, (size_t)model->ninputs * sizeof(double));
       if (NULL != model->weights) {
@@ -1284,8 +1470,19 @@ LIBXS_API libxs_predict_t* libxs_predict_load(const void* buffer, size_t size)
     }
     if (EXIT_SUCCESS == ok) {
       uint8_t has_weights = 0, has_transforms = 0;
+      uint16_t ts_nseries = 0, ts_window = 0, ts_target = 0, ts_decompose = 0;
       ok = internal_libxs_predict_read(&src, end, &has_weights, 1);
       if (EXIT_SUCCESS == ok) ok = internal_libxs_predict_read(&src, end, &has_transforms, 1);
+      if (EXIT_SUCCESS == ok) ok = internal_libxs_predict_read(&src, end, &ts_nseries, 2);
+      if (EXIT_SUCCESS == ok) ok = internal_libxs_predict_read(&src, end, &ts_window, 2);
+      if (EXIT_SUCCESS == ok) ok = internal_libxs_predict_read(&src, end, &ts_target, 2);
+      if (EXIT_SUCCESS == ok) ok = internal_libxs_predict_read(&src, end, &ts_decompose, 2);
+      if (EXIT_SUCCESS == ok) {
+        model->nseries = (int)ts_nseries;
+        model->window = (int)ts_window;
+        model->target = (int)ts_target;
+        model->decompose = (int)ts_decompose;
+      }
       model->input_min = (double*)malloc((size_t)ninp * sizeof(double));
       model->input_rng = (double*)malloc((size_t)ninp * sizeof(double));
       if (NULL == model->input_min || NULL == model->input_rng) ok = EXIT_FAILURE;
