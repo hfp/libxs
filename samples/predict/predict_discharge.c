@@ -10,9 +10,10 @@
 #include <libxs_math.h>
 #include <libxs_mem.h>
 
-enum { WINDOW = 14, HORIZON = 7 };
+enum { WINDOW = 14, HORIZON = 7, NDIFFS = 3, NINPUTS = WINDOW + NDIFFS + 1 };
 
 static int load_discharge(const char* filename, double** values, int* count);
+static void fill_inputs(const double* series, int t, double* inputs);
 static void evaluate_forecast(const libxs_predict_t* model,
   const double* series, int total, int train_end);
 
@@ -29,23 +30,23 @@ int main(int argc, char* argv[])
       "Usage: %s <discharge_file> [train_fraction]\n"
       "  River discharge forecasting using sliding-window kNN.\n"
       "  Input: USGS NWIS daily discharge (tab-delimited, # comments).\n"
-      "  Predicts next %d days from previous %d days.\n"
+      "  Predicts next %d days from previous %d days + derivatives.\n"
+      "  Log-transform applied for heavy-tailed data.\n"
       "  Default train_fraction: 0.8\n", argv[0], HORIZON, WINDOW);
   }
   else if (0 < load_discharge(filename, &series, &total)) {
     const int train_end = LIBXS_MAX((int)(total * split + 0.5), WINDOW + 1);
-    libxs_predict_t* model = libxs_predict_create(WINDOW + 1, HORIZON);
+    libxs_predict_t* model = libxs_predict_create(NINPUTS, HORIZON);
     fprintf(stdout, "Loaded %d daily discharge values from %s\n", total, filename);
-    fprintf(stdout, "Window=%d (+day-of-year), Horizon=%d, Train=%d, Test=%d\n",
-      WINDOW, HORIZON, train_end - WINDOW, total - train_end);
+    fprintf(stdout, "Window=%d (+%d diffs +day-of-year), Horizon=%d, Train=%d, Test=%d\n",
+      WINDOW, NDIFFS, HORIZON, train_end - WINDOW, total - train_end);
     if (NULL != model) {
-      double inputs[WINDOW + 1], outputs[HORIZON];
+      double inputs[NINPUTS], outputs[HORIZON];
       int t;
       for (t = WINDOW; t <= train_end - HORIZON; ++t) {
         int i;
-        for (i = 0; i < WINDOW; ++i) inputs[i] = series[t - WINDOW + i];
-        inputs[WINDOW] = (double)(t % 365);
-        for (i = 0; i < HORIZON; ++i) outputs[i] = series[t + i];
+        fill_inputs(series, t, inputs);
+        for (i = 0; i < HORIZON; ++i) outputs[i] = log(series[t + i] + 1.0);
         libxs_predict_push(NULL, model, inputs, outputs);
       }
       if (EXIT_SUCCESS == libxs_predict_build(model, 0, 2)) {
@@ -65,6 +66,19 @@ int main(int argc, char* argv[])
     fprintf(stderr, "Failed to load discharge data from %s\n", filename);
   }
   return result;
+}
+
+
+static void fill_inputs(const double* series, int t, double* inputs)
+{
+  int i;
+  for (i = 0; i < WINDOW; ++i) {
+    inputs[i] = log(series[t - WINDOW + i] + 1.0);
+  }
+  for (i = 0; i < NDIFFS; ++i) {
+    inputs[WINDOW + i] = log(series[t - 1 - i] + 1.0) - log(series[t - 2 - i] + 1.0);
+  }
+  inputs[WINDOW + NDIFFS] = (double)(t % 365);
 }
 
 
@@ -116,14 +130,13 @@ static void evaluate_forecast(const libxs_predict_t* model,
   double sum_conf = 0;
   int neval = 0, t, h;
   for (t = train_end; t <= total - HORIZON; ++t) {
-    double inputs[WINDOW + 1], outputs[HORIZON];
+    double inputs[NINPUTS], outputs[HORIZON];
     libxs_predict_info_t info;
-    int i;
-    for (i = 0; i < WINDOW; ++i) inputs[i] = series[t - WINDOW + i];
-    inputs[WINDOW] = (double)(t % 365);
+    fill_inputs(series, t, inputs);
     libxs_predict_eval(NULL, model, inputs, outputs, &info, 1);
     for (h = 0; h < HORIZON; ++h) {
-      const double err = LIBXS_FABS(outputs[h] - series[t + h]);
+      const double predicted = exp(outputs[h]) - 1.0;
+      const double err = LIBXS_FABS(predicted - series[t + h]);
       sum_err[h] += err;
       if (err > max_err[h]) max_err[h] = err;
     }
