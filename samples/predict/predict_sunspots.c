@@ -38,6 +38,7 @@ int main(int argc, char* argv[])
     fprintf(stdout, "Window=%d, Horizon=%d, Train=%d, Test=%d\n",
       WINDOW, HORIZON, train_end - WINDOW, total - train_end);
     if (NULL != model) {
+      libxs_predict_set_mode(model, LIBXS_PREDICT_EXTRAPOLATE);
       double inputs[WINDOW], outputs[HORIZON];
       int t;
       for (t = WINDOW; t <= train_end - HORIZON; ++t) {
