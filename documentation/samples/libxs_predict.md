@@ -10,6 +10,9 @@ Four executables demonstrating fingerprint-guided prediction:
   from location and depth (USGS catalog).
 - **predict_discharge** -- River discharge forecasting via sliding-window
   kNN with day-of-year seasonality (USGS NWIS daily streamflow).
+- **predict_soi** -- Southern Oscillation Index prediction from
+  anti-correlated Tahiti/Darwin sea level pressure using SPREAD
+  decomposition (sum/diff modes).
 ## Build
 
     make
@@ -151,6 +154,35 @@ heavy-tailed data. Predicts the next 7 days from the previous
 (public domain, US Government). Colorado River at Lees Ferry, site 09380000.
 Tab-delimited RDB, comment lines start with #, data columns:
 agency_cd, site_no, datetime, discharge_value, qualification_code.
+## predict_soi
+
+Southern Oscillation Index prediction from anti-correlated sea level
+pressure at Tahiti and Darwin. Demonstrates cross-series decomposition
+via `libxs_predict_set_decompose(LIBXS_PREDICT_SPREAD)`: the sum/diff
+modes separate the common trend from the anti-correlated signal,
+making the spread (which *is* the SOI) easier to predict.
+
+### Usage
+
+    ./predict_soi.x <tahiti_file> <darwin_file> [train_fraction]
+
+    tahiti_file     NOAA CPC monthly Tahiti SLP (fixed-width).
+    darwin_file     NOAA CPC monthly Darwin SLP (fixed-width).
+    train_fraction  Fraction of data for training (default: 0.8).
+
+### Example
+
+    ./predict_soi.x predict_soi_tahiti.dat predict_soi_darwin.dat
+
+### Data Source
+
+[NOAA Climate Prediction Center](https://www.cpc.ncep.noaa.gov/data/indices/)
+(public domain, US Government).
+- Tahiti: https://www.cpc.ncep.noaa.gov/data/indices/tahiti
+- Darwin: https://www.cpc.ncep.noaa.gov/data/indices/darwin
+
+Fixed-width: YEAR followed by 12 monthly sea level pressure values
+(mb above 1000 mb). Data from 1951 to present.
 ## How It Works
 
 All samples share the same prediction library (libxs_predict):
@@ -174,6 +206,12 @@ All samples share the same prediction library (libxs_predict):
    with day-of-year seasonality as an extra input dimension.
    Log-transform on outputs (via `libxs_predict_set_transform`)
    handles heavy-tailed discharge data transparently.
+
+5. **predict_soi**: Two anti-correlated series (Tahiti and Darwin
+   sea level pressure) feed a single model via `set_series(2, W)`.
+   SPREAD decomposition transforms the stacked windows into sum/diff
+   modes before kNN matching, exploiting the anti-correlation structure
+   that defines the Southern Oscillation Index.
 
 The fingerprint automatically determines per-output whether polynomial
 interpolation or distance-weighted kNN voting is more appropriate.
