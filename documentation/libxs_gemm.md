@@ -40,8 +40,8 @@ typedef struct libxs_gemm_config_t {
 Configuration holding dispatched GEMM kernels. Kernel priority:
 1. JIT kernel (dgemm_jit/sgemm_jit + jitter),
 2. XGEMM kernel (xgemm),
-3. BLAS kernel (dgemm_blas/sgemm_blas),
-4. built-in default.
+3. BLAS kernel (dgemm_blas/sgemm_blas) -- always non-NULL after
+   dispatch (falls back to built-in auto-vectorized C code).
 
 ```C
 typedef enum libxs_gemm_flags_t {
@@ -133,8 +133,8 @@ rc = libxs_gemm_dispatch(config, datatype, transa, transb,
 ```
 
 All backend arguments are OPTIONAL C_FUNPTR (named arguments).
-Returns nonzero if a usable kernel was obtained. The config is
-populated from the registry-owned copy.
+Returns nonzero on success (dispatch produced a callable config).
+The config is populated from the registry-owned copy.
 
 Typical usage with MKL JIT:
 
@@ -167,10 +167,12 @@ The caller must ensure config is non-NULL (dispatch succeeded).
 ## Release
 
 ```C
-void libxs_gemm_release(libxs_gemm_config_t* config);
+void libxs_gemm_release(const libxs_gemm_config_t* config);
 ```
 
 Release resources (e.g., MKL jitter handle) held by config.
+In debug builds (NDEBUG not defined), zeros the config to
+poison use-after-release.
 
 ```C
 void libxs_gemm_release_registry(libxs_registry_t* registry);
@@ -347,4 +349,6 @@ rc = libxs_gemm_dispatch(config, LIBXS_DATATYPE_F64,
 IF (0 /= rc) THEN
   CALL libxs_gemm_call(config, C_LOC(a), C_LOC(b), C_LOC(c))
 END IF
+! rc /= 0 guarantees libxs_gemm_call will succeed
+! (JIT, XGEMM, or BLAS/built-in fallback)
 ```

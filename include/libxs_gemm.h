@@ -341,17 +341,18 @@ LIBXS_API_INLINE void libxs_gemm_call(
  * Release resources acquired by libxs_gemm_dispatch (e.g., MKL jitter).
  * Safe to call even if dispatch was not used or returned zero.
  */
-LIBXS_API_INLINE void libxs_gemm_release(libxs_gemm_config_t* config) {
+LIBXS_API_INLINE void libxs_gemm_release(const libxs_gemm_config_t* config) {
   if (NULL != config) {
 #if defined(mkl_jit_create_dgemm)
     if (NULL != config->jitter) {
       mkl_jit_destroy(config->jitter);
-      config->jitter = NULL;
     }
 #endif
-    config->xgemm = NULL;
-    config->dgemm_jit = NULL;
-    config->sgemm_jit = NULL;
+#if !defined(NDEBUG)
+    { const uintptr_t addr = (uintptr_t)config;
+      LIBXS_MEMZERO((libxs_gemm_config_t*)addr);
+    }
+#endif
   }
 }
 
