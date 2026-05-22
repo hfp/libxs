@@ -130,11 +130,12 @@ LIBXS_API_INLINE void internal_libxs_predict_kmeans(libxs_predict_t* model, int 
 {
   const int m = model->ninputs;
   const int p = model->nentries;
-  double* pts = (double*)malloc((size_t)p * (size_t)m * sizeof(double));
-  double* centroids = (double*)calloc((size_t)nclusters * (size_t)m, sizeof(double));
-  double* comp = (double*)calloc((size_t)nclusters * (size_t)m, sizeof(double));
-  int* counts = (int*)calloc((size_t)nclusters, sizeof(int));
-  double* dists = (double*)malloc((size_t)p * sizeof(double));
+  int pool_pts = 0, pool_cen = 0, pool_comp = 0, pool_cnt = 0, pool_dist = 0;
+  double* pts = (double*)LIBXS_PREDICT_MALLOC((size_t)p * (size_t)m * sizeof(double), pool_pts);
+  double* centroids = (double*)LIBXS_PREDICT_MALLOC((size_t)nclusters * (size_t)m * sizeof(double), pool_cen);
+  double* comp = (double*)LIBXS_PREDICT_MALLOC((size_t)nclusters * (size_t)m * sizeof(double), pool_comp);
+  int* counts = (int*)LIBXS_PREDICT_MALLOC((size_t)nclusters * sizeof(int), pool_cnt);
+  double* dists = (double*)LIBXS_PREDICT_MALLOC((size_t)p * sizeof(double), pool_dist);
   if (NULL != pts && NULL != centroids && NULL != counts && NULL != comp && NULL != dists) {
     int c, i, j, iter;
     for (i = 0; i < p; ++i) {
@@ -198,11 +199,11 @@ LIBXS_API_INLINE void internal_libxs_predict_kmeans(libxs_predict_t* model, int 
       memcpy(model->clusters[c].centroid, centroids + (size_t)c * m, (size_t)m * sizeof(double));
     }
   }
-  free(dists);
-  free(comp);
-  free(centroids);
-  free(counts);
-  free(pts);
+  LIBXS_PREDICT_FREE(dists, pool_dist);
+  LIBXS_PREDICT_FREE(comp, pool_comp);
+  LIBXS_PREDICT_FREE(centroids, pool_cen);
+  LIBXS_PREDICT_FREE(counts, pool_cnt);
+  LIBXS_PREDICT_FREE(pts, pool_pts);
 }
 
 
@@ -507,9 +508,21 @@ LIBXS_API void libxs_predict_set_decompose(libxs_predict_t* model, int decompose
 LIBXS_API_INLINE void internal_libxs_predict_decompose_apply(
   const libxs_predict_t* model, const double* raw, double* out)
 {
-  const int w = model->window;
-  const int s = model->nseries;
-  if (LIBXS_PREDICT_SPREAD == model->decompose && 2 == s) {
+  const int m = model->ninputs;
+  if (LIBXS_PREDICT_PCA == model->decompose && NULL != model->decompose_mat) {
+    int i, j;
+    for (i = 0; i < m; ++i) {
+      double sum = 0;
+      for (j = 0; j < m; ++j) {
+        sum += model->decompose_mat[i * m + j] * raw[j];
+      }
+      out[i] = sum;
+    }
+  }
+  else if (LIBXS_PREDICT_SPREAD == model->decompose
+    && model->nseries >= 2 && model->window > 0)
+  {
+    const int w = model->window;
     int i;
     for (i = 0; i < w; ++i) {
       out[i] = 0.5 * (raw[i] + raw[w + i]);
@@ -517,9 +530,7 @@ LIBXS_API_INLINE void internal_libxs_predict_decompose_apply(
     }
   }
   else {
-    LIBXS_ASSERT_MSG(LIBXS_PREDICT_PCA != model->decompose,
-      "PCA decomposition not implemented");
-    memcpy(out, raw, (size_t)(w * s) * sizeof(double));
+    memcpy(out, raw, (size_t)m * sizeof(double));
   }
 }
 
@@ -527,9 +538,21 @@ LIBXS_API_INLINE void internal_libxs_predict_decompose_apply(
 LIBXS_API_INLINE void internal_libxs_predict_decompose_inverse(
   const libxs_predict_t* model, const double* modes, double* raw)
 {
-  const int w = model->window;
-  const int s = model->nseries;
-  if (LIBXS_PREDICT_SPREAD == model->decompose && 2 == s) {
+  const int m = model->ninputs;
+  if (LIBXS_PREDICT_PCA == model->decompose && NULL != model->decompose_mat) {
+    int i, j;
+    for (i = 0; i < m; ++i) {
+      double sum = 0;
+      for (j = 0; j < m; ++j) {
+        sum += model->decompose_mat[j * m + i] * modes[j];
+      }
+      raw[i] = sum;
+    }
+  }
+  else if (LIBXS_PREDICT_SPREAD == model->decompose
+    && model->nseries >= 2 && model->window > 0)
+  {
+    const int w = model->window;
     int i;
     for (i = 0; i < w; ++i) {
       raw[i] = modes[i] + modes[w + i];
@@ -537,10 +560,152 @@ LIBXS_API_INLINE void internal_libxs_predict_decompose_inverse(
     }
   }
   else {
-    LIBXS_ASSERT_MSG(LIBXS_PREDICT_PCA != model->decompose,
-      "PCA decomposition not implemented");
-    memcpy(raw, modes, (size_t)(w * s) * sizeof(double));
+    memcpy(raw, modes, (size_t)m * sizeof(double));
   }
+}
+
+
+LIBXS_API_INLINE void internal_libxs_predict_pca_build(libxs_predict_t* model)
+{
+  const int p = model->nentries;
+  const int m = model->ninputs;
+  const size_t msz = (size_t)m * (size_t)m;
+  int pool_mean = 0, pool_cov = 0, pool_evec = 0, pool_eval = 0;
+  double* mean = (double*)LIBXS_PREDICT_MALLOC((size_t)m * sizeof(double), pool_mean);
+  double* cov = (double*)LIBXS_PREDICT_MALLOC(msz * sizeof(double), pool_cov);
+  double* evec = (double*)LIBXS_PREDICT_MALLOC(msz * sizeof(double), pool_evec);
+  double* eval = (double*)LIBXS_PREDICT_MALLOC((size_t)m * sizeof(double), pool_eval);
+  if (NULL == mean || NULL == cov || NULL == evec || NULL == eval) {
+    LIBXS_PREDICT_FREE(mean, pool_mean);
+    LIBXS_PREDICT_FREE(cov, pool_cov);
+    LIBXS_PREDICT_FREE(evec, pool_evec);
+    LIBXS_PREDICT_FREE(eval, pool_eval);
+    return;
+  }
+  memset(mean, 0, (size_t)m * sizeof(double));
+  memset(cov, 0, msz * sizeof(double));
+  { int i, j, k;
+    for (i = 0; i < p; ++i) {
+      const double* inp = model->entries[i].inputs;
+      for (j = 0; j < m; ++j) mean[j] += inp[j];
+    }
+    for (j = 0; j < m; ++j) mean[j] /= p;
+    for (i = 0; i < p; ++i) {
+      const double* inp = model->entries[i].inputs;
+      for (j = 0; j < m; ++j) {
+        const double dj = inp[j] - mean[j];
+        for (k = j; k < m; ++k) {
+          cov[j * m + k] += dj * (inp[k] - mean[k]);
+        }
+      }
+    }
+    for (j = 0; j < m; ++j) {
+      for (k = j; k < m; ++k) {
+        cov[j * m + k] /= p;
+        cov[k * m + j] = cov[j * m + k];
+      }
+    }
+    for (j = 0; j < m; ++j) {
+      for (k = 0; k < m; ++k) evec[j * m + k] = (j == k) ? 1.0 : 0.0;
+    }
+    { int iter;
+      for (iter = 0; iter < 100 * m; ++iter) {
+        int pi = 0, qi = 1;
+        double maxoff = 0;
+        for (j = 0; j < m; ++j) {
+          for (k = j + 1; k < m; ++k) {
+            const double a = cov[j * m + k] < 0 ? -cov[j * m + k] : cov[j * m + k];
+            if (a > maxoff) { maxoff = a; pi = j; qi = k; }
+          }
+        }
+        if (maxoff < 1e-12) break;
+        { const double app = cov[pi * m + pi], aqq = cov[qi * m + qi];
+          const double apq = cov[pi * m + qi];
+          const double tau = (aqq - app) / (2.0 * apq);
+          const double t = (tau >= 0 ? 1.0 : -1.0)
+            / (LIBXS_FABS(tau) + sqrt(1.0 + tau * tau));
+          const double c = 1.0 / sqrt(1.0 + t * t);
+          const double s = t * c;
+          for (k = 0; k < m; ++k) {
+            const double ik = cov[k * m + pi], jk = cov[k * m + qi];
+            cov[k * m + pi] = c * ik - s * jk;
+            cov[k * m + qi] = s * ik + c * jk;
+            cov[pi * m + k] = cov[k * m + pi];
+            cov[qi * m + k] = cov[k * m + qi];
+          }
+          cov[pi * m + pi] = c * c * app - 2.0 * s * c * apq + s * s * aqq;
+          cov[qi * m + qi] = s * s * app + 2.0 * s * c * apq + c * c * aqq;
+          cov[pi * m + qi] = 0;
+          cov[qi * m + pi] = 0;
+          for (k = 0; k < m; ++k) {
+            const double ek = evec[k * m + pi], fk = evec[k * m + qi];
+            evec[k * m + pi] = c * ek - s * fk;
+            evec[k * m + qi] = s * ek + c * fk;
+          }
+        }
+      }
+    }
+    for (j = 0; j < m; ++j) eval[j] = cov[j * m + j];
+    for (j = 0; j < m - 1; ++j) {
+      int best = j;
+      for (k = j + 1; k < m; ++k) {
+        if (eval[k] > eval[best]) best = k;
+      }
+      if (best != j) {
+        { double tmp = eval[j]; eval[j] = eval[best]; eval[best] = tmp; }
+        for (k = 0; k < m; ++k) {
+          double tmp = evec[k * m + j];
+          evec[k * m + j] = evec[k * m + best];
+          evec[k * m + best] = tmp;
+        }
+      }
+    }
+    free(model->decompose_mat);
+    model->decompose_mat = (double*)malloc(msz * sizeof(double));
+    if (NULL != model->decompose_mat) {
+      double total_var = 0, cum_var = 0;
+      int npc = m;
+      for (j = 0; j < m; ++j) total_var += (eval[j] > 0 ? eval[j] : 0);
+      for (j = 0; j < m; ++j) {
+        for (k = 0; k < m; ++k) {
+          model->decompose_mat[j * m + k] = evec[k * m + j];
+        }
+      }
+      for (j = 0; j < m; ++j) {
+        cum_var += (eval[j] > 0 ? eval[j] : 0);
+        if (cum_var >= 0.95 * total_var && npc == m) npc = j + 1;
+      }
+      if (npc < m) {
+        if (NULL == model->weights) {
+          model->weights = (double*)malloc((size_t)m * sizeof(double));
+        }
+        if (NULL != model->weights) {
+          for (j = 0; j < m; ++j) model->weights[j] = (j < npc) ? 1.0 : 0.0;
+        }
+      }
+      { int tmp_pool = 0;
+        double* tmp = (double*)LIBXS_PREDICT_MALLOC((size_t)m * sizeof(double), tmp_pool);
+        if (NULL != tmp) {
+          for (i = 0; i < p; ++i) {
+            double* inp = model->entries[i].inputs;
+            memcpy(tmp, inp, (size_t)m * sizeof(double));
+            for (j = 0; j < m; ++j) {
+              double sum = 0;
+              for (k = 0; k < m; ++k) {
+                sum += model->decompose_mat[j * m + k] * tmp[k];
+              }
+              inp[j] = sum;
+            }
+          }
+          LIBXS_PREDICT_FREE(tmp, tmp_pool);
+        }
+      }
+    }
+  }
+  LIBXS_PREDICT_FREE(mean, pool_mean);
+  LIBXS_PREDICT_FREE(cov, pool_cov);
+  LIBXS_PREDICT_FREE(evec, pool_evec);
+  LIBXS_PREDICT_FREE(eval, pool_eval);
 }
 
 
@@ -716,6 +881,11 @@ LIBXS_API int libxs_predict_build(libxs_predict_t* model, int nclusters, int ord
   if (NULL != model && 0 < model->nts && 0 == model->nentries) {
     internal_libxs_predict_ts_expand(model);
   }
+  if (NULL != model && 0 < model->nentries
+    && LIBXS_PREDICT_PCA == model->decompose && NULL == model->decompose_mat)
+  {
+    internal_libxs_predict_pca_build(model);
+  }
   if (NULL == model || 0 >= model->nentries) {
     result = EXIT_FAILURE;
   }
@@ -807,9 +977,10 @@ LIBXS_API int libxs_predict_build(libxs_predict_t* model, int nclusters, int ord
         result = EXIT_FAILURE;
       }
       if (EXIT_SUCCESS == result) {
-        double *const inmat = (double*)malloc((size_t)nc * (size_t)m * sizeof(double));
-        int *const sort_perm = (int*)malloc((size_t)nc * sizeof(int));
-        int *const entry_map = (int*)malloc((size_t)nc * sizeof(int));
+        int pool_inmat = 0, pool_perm = 0, pool_map = 0;
+        double *const inmat = (double*)LIBXS_PREDICT_MALLOC((size_t)nc * (size_t)m * sizeof(double), pool_inmat);
+        int *const sort_perm = (int*)LIBXS_PREDICT_MALLOC((size_t)nc * sizeof(int), pool_perm);
+        int *const entry_map = (int*)LIBXS_PREDICT_MALLOC((size_t)nc * sizeof(int), pool_map);
         if (NULL == entry_map || NULL == inmat || NULL == sort_perm) {
           result = EXIT_FAILURE;
         }
@@ -846,9 +1017,9 @@ LIBXS_API int libxs_predict_build(libxs_predict_t* model, int nclusters, int ord
             }
           }
         }
-        free(sort_perm);
-        free(entry_map);
-        free(inmat);
+        LIBXS_PREDICT_FREE(sort_perm, pool_perm);
+        LIBXS_PREDICT_FREE(entry_map, pool_map);
+        LIBXS_PREDICT_FREE(inmat, pool_inmat);
       }
       if (EXIT_SUCCESS == result) {
         maxorder = LIBXS_MIN(nc - 1, order);
@@ -990,7 +1161,8 @@ LIBXS_API void libxs_predict_eval(libxs_lock_t* lock, const libxs_predict_t* mod
     double local_buf[256];
     double *vals, *errs, *conf, *var, best_dist;
     int *rels, c, j, best_c = 0;
-    if (LIBXS_PREDICT_RAW != model->decompose && model->nseries >= 2) {
+    if (LIBXS_PREDICT_RAW != model->decompose
+      && (model->nseries >= 2 || NULL != model->decompose_mat)) {
       decomp_inputs = (double*)LIBXS_PREDICT_MALLOC((size_t)m * sizeof(double), decomp_pool);
       internal_libxs_predict_decompose_apply(model, inputs, decomp_inputs);
       inputs = decomp_inputs;
@@ -1278,7 +1450,8 @@ LIBXS_API void libxs_predict_inverse(libxs_lock_t* lock,
         if (score < best_score) { best_score = score; best_i = i; }
       }
     }
-    if (LIBXS_PREDICT_RAW != model->decompose && model->nseries >= 2) {
+    if (LIBXS_PREDICT_RAW != model->decompose
+      && (model->nseries >= 2 || NULL != model->decompose_mat)) {
       int inv_pool = 0;
       double* raw = (double*)LIBXS_PREDICT_MALLOC((size_t)m * sizeof(double), inv_pool);
       internal_libxs_predict_decompose_inverse(model, model->entries[best_i].inputs, raw);
