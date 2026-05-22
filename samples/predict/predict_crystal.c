@@ -10,6 +10,7 @@
 #include <libxs_math.h>
 #include <libxs_mem.h>
 
+
 enum { NFEAT = 37 };
 
 static void compute_fisher_weights(const libxs_predict_t* source,

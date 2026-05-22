@@ -80,6 +80,7 @@ LIBXS_EXTERN_C struct libxs_predict_t {
   int iterations;
   int nseries, window, target, decompose;
   int nts, ts_capacity;
+  int refine;
   volatile int phase;
 };
 
@@ -412,6 +413,13 @@ LIBXS_API void libxs_predict_set_mode(libxs_predict_t* model, int mode)
 {
   LIBXS_ASSERT(NULL != model);
   model->eval_mode = mode;
+}
+
+
+LIBXS_API void libxs_predict_set_refine(libxs_predict_t* model, int iterations)
+{
+  LIBXS_ASSERT(NULL != model);
+  model->refine = iterations;
 }
 
 
@@ -1341,6 +1349,78 @@ LIBXS_API void libxs_predict_eval(libxs_lock_t* lock, const libxs_predict_t* mod
               vals[j] = (1.0 - alpha) * vals[j] + alpha * mean;
             }
           }
+        }
+      }
+    }
+    { double min_conf = 1.0;
+      int iter_count = 0, max_iter = (model->refine > 0) ? model->refine : 1;
+      for (j = 0; j < n; ++j) {
+        if (conf[j] < min_conf) min_conf = conf[j];
+      }
+      if (0 >= model->refine && min_conf >= 0.9) max_iter = 0;
+      for (; iter_count < max_iter && model->nentries > 0; ++iter_count) {
+        double target[128];
+        int canon_pool = 0;
+        double* canon = (double*)LIBXS_PREDICT_MALLOC(
+          (size_t)m * sizeof(double), canon_pool);
+        if (NULL != canon) {
+          for (j = 0; j < n; ++j) {
+            target[j] = (NULL != model->transforms)
+              ? internal_libxs_predict_inv(model->transforms[j], vals[j])
+              : vals[j];
+          }
+          libxs_predict_inverse(NULL, model, target, canon, NULL);
+          { double refined[128], rconf[128];
+            int rpool = 0;
+            double* rnorm = (double*)LIBXS_PREDICT_MALLOC(
+              (size_t)m * sizeof(double), rpool);
+            if (NULL != rnorm) {
+              int decomp2_pool = 0;
+              double* dcinp = NULL;
+              const double* eval_inp = canon;
+              if (LIBXS_PREDICT_RAW != model->decompose
+                && (model->nseries >= 2 || NULL != model->decompose_mat))
+              {
+                dcinp = (double*)LIBXS_PREDICT_MALLOC(
+                  (size_t)m * sizeof(double), decomp2_pool);
+                if (NULL != dcinp) {
+                  internal_libxs_predict_decompose_apply(model, canon, dcinp);
+                  eval_inp = dcinp;
+                }
+              }
+              internal_libxs_predict_normalize(model, eval_inp, rnorm);
+              { const int rc = best_c;
+                const internal_libxs_predict_cluster_t* rcl = &model->clusters[rc];
+                for (j = 0; j < n; ++j) {
+                  if (conf[j] >= 0.9) continue;
+                  { const int use_classify = (0 != force_classify)
+                      ? 1 : ((0 != force_interp) ? 0 : rcl->mode[j]);
+                    if (0 != use_classify) {
+                      double rc_conf = 0;
+                      refined[j] = internal_libxs_predict_classify(
+                        rcl, rcl->kd_pts, rcl->nentries, m, rnorm, j, n,
+                        rcl->ndistinct[j], extrapolate, &rc_conf, NULL);
+                      rconf[j] = rc_conf;
+                    }
+                    else {
+                      refined[j] = vals[j];
+                      rconf[j] = conf[j];
+                    }
+                  }
+                }
+                for (j = 0; j < n; ++j) {
+                  if (conf[j] >= 0.9) continue;
+                  if (rconf[j] > conf[j]) {
+                    vals[j] = refined[j];
+                    conf[j] = rconf[j];
+                  }
+                }
+              }
+              if (NULL != dcinp) LIBXS_PREDICT_FREE(dcinp, decomp2_pool);
+              LIBXS_PREDICT_FREE(rnorm, rpool);
+            }
+          }
+          LIBXS_PREDICT_FREE(canon, canon_pool);
         }
       }
     }

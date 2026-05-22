@@ -41,17 +41,23 @@ typedef enum libxs_predict_decompose_t {
 } libxs_predict_decompose_t;
 ```
 
-Controls how multiple co-observed series are represented
-internally when using set_series with nseries >= 2:
-- RAW (0): concatenate raw windows (default).
+Controls input space decomposition:
+- RAW (0): no decomposition (default).
 - SPREAD: sum/diff modes for anti-correlated pairs (2 series).
   Forward: sum = (A+B)/2, diff = (A-B)/2.
   Inverse: A = sum+diff, B = sum-diff.
-- PCA: principal components across stacked series (reserved).
+  Only effective when nseries == 2.
+- PCA: principal component rotation of the input space.
+  At build time, computes eigenvectors of the input covariance
+  matrix (Jacobi iteration), stores the rotation matrix, and
+  transforms all entries into PC space. Weights are auto-set
+  to zero out PCs below the 95% cumulative variance threshold
+  (dimensionality reduction). Applicable to any model, not
+  just timeseries.
 
 The decomposition is applied at build time to stored entries
-and at eval time to user queries. Inverse prediction returns
-inputs in raw (user) space.
+and at eval time to user queries (via libxs_gemm). Inverse
+prediction returns inputs in raw (user) space.
 
 ## Output Transforms
 
@@ -112,6 +118,24 @@ void libxs_predict_set_transform(libxs_predict_t* model,
 Set per-output transform. The output parameter is 0-based,
 or -1 to set all outputs. Must be called before pushing
 entries. Transforms are persisted in save/load.
+
+```C
+void libxs_predict_set_refine(libxs_predict_t* model,
+  int iterations);
+```
+
+Set the number of forward-inverse-forward refinement
+iterations applied during eval. Default (0): iterate
+automatically when per-output confidence drops below 0.9.
+When set to >0, always perform the given number of iterations
+regardless of confidence.
+
+Refinement works by: (1) predicting outputs, (2) finding the
+canonical historical entry matching those outputs via inverse,
+(3) re-predicting from the canonical inputs. If the refined
+prediction has higher confidence, it replaces the original.
+This improves self-consistency for uncertain queries without
+affecting confident predictions.
 
 ## Timeseries Configuration
 
@@ -219,10 +243,17 @@ multi-cluster blending: 1=nearest only, 0=auto. The info
 pointer (optional) receives per-output confidence, variance,
 error bounds, and mode flags.
 
-When confidence is below 0.7, the framework automatically
-expands to multi-cluster blending (adaptive nblend). This
-self-correcting behavior improves predictions in uncertain
-regions without caller intervention.
+When average confidence is below 0.7, the framework
+automatically expands to multi-cluster blending for outputs
+with low confidence (per-output selective blend). Only
+outputs with confidence below the threshold are blended;
+high-confidence outputs retain their primary-cluster
+prediction. This self-correcting behavior improves uncertain
+outputs without degrading confident ones.
+
+After blending, if any output remains below confidence 0.9,
+one forward-inverse-forward refinement iteration is applied
+automatically (see set_refine).
 
 ```C
 void libxs_predict_inverse(libxs_lock_t* lock,
@@ -294,13 +325,19 @@ int libxs_predict_load_csv(libxs_predict_t* model,
 
 Load delimited text and push entries. Setting delims to NULL
 auto-detects the separator. Lines starting with '#' are
-skipped as comments. Each column identifier is matched
-case-insensitively against the header line; if no match, it
-is parsed as a numeric index (0-based). Column names not found
-in the header are assigned to trailing unlabeled data columns
-in order. Rows with non-numeric values at selected columns
-are skipped. Returns the number of entries pushed, or -1 on
-I/O error.
+skipped as comments.
+
+The inputs and outputs arrays may be NULL: when NULL, columns
+are assigned sequentially (inputs = columns 0..ninputs-1,
+outputs = columns ninputs..ninputs+noutputs-1). When non-NULL,
+each column identifier is matched case-insensitively against
+the header line; if no match, it is parsed as a numeric index
+(0-based). Column names not found in the header are assigned
+to trailing unlabeled data columns in order.
+
+Rows with non-numeric values at selected columns are skipped
+(handles header lines automatically). Returns the number of
+entries pushed, or -1 on I/O error.
 
 ## Structures
 

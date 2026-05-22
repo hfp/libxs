@@ -137,6 +137,7 @@ libxs_predict_query
 libxs_predict_save
 libxs_predict_set_decompose
 libxs_predict_set_mode
+libxs_predict_set_refine
 libxs_predict_set_series
 libxs_predict_set_target
 libxs_predict_set_transform

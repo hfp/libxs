@@ -115,6 +115,16 @@ LIBXS_API void libxs_predict_set_transform(libxs_predict_t* model,
   int output, int transform);
 
 /**
+ * Set the number of forward-inverse-forward refinement iterations.
+ * 0 (default): iterate only when confidence is below threshold.
+ * >0: always perform this many refinement iterations per eval.
+ * Refinement finds the canonical historical pattern matching the
+ * prediction, then re-predicts from it to improve self-consistency.
+ */
+LIBXS_API void libxs_predict_set_refine(libxs_predict_t* model,
+  int iterations);
+
+/**
  * Declare timeseries structure: nseries co-observed series, each with
  * the given window size. ninputs must equal nseries * window, noutputs
  * is the forecast horizon. When set, push(lock, model, values, NULL)
