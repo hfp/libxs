@@ -721,6 +721,157 @@ LIBXS_API_INLINE void internal_libxs_predict_pca_build(libxs_predict_t* model)
 }
 
 
+LIBXS_API_INLINE void internal_libxs_predict_fisher_build(libxs_predict_t* model)
+{
+  const int p = model->nentries;
+  const int m = model->ninputs;
+  int nclasses = 0, j, i, ci;
+  int class_id[128], class_count[128];
+  double class_mean[128][128], class_var[128][128];
+  double scores[128], sorted_scores[128], thr;
+  LIBXS_ASSERT(m <= 128);
+  memset(class_count, 0, sizeof(class_count));
+  memset(class_mean, 0, sizeof(class_mean));
+  memset(class_var, 0, sizeof(class_var));
+  for (i = 0; i < p; ++i) {
+    const int label = LIBXS_ROUNDX(int, model->entries[i].outputs[0]);
+    int found = 0;
+    for (ci = 0; ci < nclasses; ++ci) {
+      if (class_id[ci] == label) { found = 1; break; }
+    }
+    if (0 == found && nclasses < 128) { class_id[nclasses] = label; ci = nclasses++; }
+    if (ci < 128) {
+      ++class_count[ci];
+      for (j = 0; j < m; ++j) class_mean[ci][j] += model->entries[i].inputs[j];
+    }
+  }
+  for (ci = 0; ci < nclasses; ++ci) {
+    if (0 < class_count[ci]) {
+      for (j = 0; j < m; ++j) class_mean[ci][j] /= class_count[ci];
+    }
+  }
+  for (i = 0; i < p; ++i) {
+    const int label = LIBXS_ROUNDX(int, model->entries[i].outputs[0]);
+    for (ci = 0; ci < nclasses; ++ci) {
+      if (class_id[ci] == label) {
+        for (j = 0; j < m; ++j) {
+          double d = model->entries[i].inputs[j] - class_mean[ci][j];
+          class_var[ci][j] += d * d;
+        }
+        break;
+      }
+    }
+  }
+  if (nclasses < 2 || 1 != model->noutputs) return;
+  for (j = 0; j < m; ++j) {
+    double between = 0, within = 0, grand_mean = 0;
+    int total_n = 0;
+    for (ci = 0; ci < nclasses; ++ci) {
+      if (0 < class_count[ci]) {
+        grand_mean += class_mean[ci][j] * class_count[ci];
+        total_n += class_count[ci];
+        within += class_var[ci][j];
+      }
+    }
+    if (0 < total_n) grand_mean /= total_n;
+    for (ci = 0; ci < nclasses; ++ci) {
+      if (0 < class_count[ci]) {
+        double d = class_mean[ci][j] - grand_mean;
+        between += class_count[ci] * d * d;
+      }
+    }
+    scores[j] = (within > 0) ? between / within : 0.0;
+  }
+  memcpy(sorted_scores, scores, (size_t)m * sizeof(double));
+  libxs_sort(sorted_scores, m, sizeof(double), libxs_cmp_f64, NULL);
+  thr = sorted_scores[m / 2];
+  if (NULL == model->weights) {
+    model->weights = (double*)malloc((size_t)m * sizeof(double));
+  }
+  if (NULL != model->weights) {
+    for (j = 0; j < m; ++j) {
+      model->weights[j] = (scores[j] >= thr) ? sqrt(scores[j]) : 0.0;
+    }
+  }
+}
+
+
+LIBXS_API_INLINE void internal_libxs_predict_setdiff_build(libxs_predict_t* model)
+{
+  const int p = model->nentries;
+  const int m = model->ninputs;
+  const int n = model->noutputs;
+  int nclasses = 0, j, i, a, b;
+  int class_id[128], class_count[128];
+  double scores[128], sorted_scores[128], thr;
+  LIBXS_ASSERT(m <= 128);
+  memset(class_count, 0, sizeof(class_count));
+  for (i = 0; i < p; ++i) {
+    const int label = LIBXS_ROUNDX(int, model->entries[i].outputs[0]);
+    int found = 0, ci;
+    for (ci = 0; ci < nclasses; ++ci) {
+      if (class_id[ci] == label) { ++class_count[ci]; found = 1; break; }
+    }
+    if (0 == found && nclasses < 128) {
+      class_id[nclasses] = label;
+      class_count[nclasses] = 1;
+      ++nclasses;
+    }
+  }
+  if (nclasses < 2 || 1 != n) return;
+  for (j = 0; j < m; ++j) {
+    double score = 0;
+    int npairs = 0;
+    { double fmin = model->entries[0].inputs[j];
+      double fmax = fmin, frange;
+      for (i = 1; i < p; ++i) {
+        const double v = model->entries[i].inputs[j];
+        if (v < fmin) fmin = v;
+        if (v > fmax) fmax = v;
+      }
+      frange = fmax - fmin;
+      if (frange <= 0) frange = 1.0;
+      for (a = 0; a < nclasses; ++a) {
+        for (b = a + 1; b < nclasses; ++b) {
+          int ca_pool = 0, cb_pool = 0;
+          double* va = (double*)LIBXS_PREDICT_MALLOC(
+            (size_t)class_count[a] * sizeof(double), ca_pool);
+          double* vb = (double*)LIBXS_PREDICT_MALLOC(
+            (size_t)class_count[b] * sizeof(double), cb_pool);
+          if (NULL != va && NULL != vb) {
+            int na = 0, nb = 0;
+            for (i = 0; i < p; ++i) {
+              const int label = LIBXS_ROUNDX(int, model->entries[i].outputs[0]);
+              if (label == class_id[a]) va[na++] = model->entries[i].inputs[j];
+              else if (label == class_id[b]) vb[nb++] = model->entries[i].inputs[j];
+            }
+            { const int sd = libxs_setdiff(LIBXS_DATATYPE_F64,
+                va, na, vb, nb, frange * 0.05);
+              score += (double)sd / LIBXS_MAX(na, nb);
+            }
+            ++npairs;
+          }
+          LIBXS_PREDICT_FREE(vb, cb_pool);
+          LIBXS_PREDICT_FREE(va, ca_pool);
+        }
+      }
+    }
+    scores[j] = (npairs > 0) ? score / npairs : 0.0;
+  }
+  memcpy(sorted_scores, scores, (size_t)m * sizeof(double));
+  libxs_sort(sorted_scores, m, sizeof(double), libxs_cmp_f64, NULL);
+  thr = sorted_scores[m / 2];
+  if (NULL == model->weights) {
+    model->weights = (double*)malloc((size_t)m * sizeof(double));
+  }
+  if (NULL != model->weights) {
+    for (j = 0; j < m; ++j) {
+      model->weights[j] = (scores[j] >= thr) ? scores[j] : 0.0;
+    }
+  }
+}
+
+
 LIBXS_API_INLINE int internal_libxs_predict_grow(libxs_predict_t* model)
 {
   int result = EXIT_SUCCESS;
@@ -897,6 +1048,14 @@ LIBXS_API int libxs_predict_build(libxs_predict_t* model, int nclusters, int ord
     && LIBXS_PREDICT_PCA == model->decompose && NULL == model->decompose_mat)
   {
     internal_libxs_predict_pca_build(model);
+  }
+  if (NULL != model && 0 < model->nentries && NULL == model->weights) {
+    if (LIBXS_PREDICT_SETDIFF == model->decompose) {
+      internal_libxs_predict_setdiff_build(model);
+    }
+    else if (LIBXS_PREDICT_FISHER == model->decompose) {
+      internal_libxs_predict_fisher_build(model);
+    }
   }
   if (NULL == model || 0 >= model->nentries) {
     result = EXIT_FAILURE;

@@ -28,11 +28,13 @@ typedef enum libxs_predict_transform_t {
   LIBXS_PREDICT_SQRT     = 2
 } libxs_predict_transform_t;
 
-/** Cross-series decomposition mode. */
+/** Input decomposition / feature selection mode. */
 typedef enum libxs_predict_decompose_t {
-  LIBXS_PREDICT_RAW    = 0,
-  LIBXS_PREDICT_SPREAD = 1,
-  LIBXS_PREDICT_PCA    = 2
+  LIBXS_PREDICT_RAW     = 0,
+  LIBXS_PREDICT_SPREAD  = 1,
+  LIBXS_PREDICT_PCA     = 2,
+  LIBXS_PREDICT_SETDIFF = 3,
+  LIBXS_PREDICT_FISHER  = 4
 } libxs_predict_decompose_t;
 
 /** Opaque prediction model type. */

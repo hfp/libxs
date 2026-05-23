@@ -7,14 +7,10 @@
 * SPDX-License-Identifier: BSD-3-Clause                                       *
 ******************************************************************************/
 #include <libxs_predict.h>
-#include <libxs_math.h>
 #include <libxs_mem.h>
 
 
 enum { NFEAT = 37 };
-
-static void compute_fisher_weights(const libxs_predict_t* source,
-  int ntotal, int nfeat, double* weights);
 
 
 int main(int argc, char* argv[])
@@ -44,11 +40,9 @@ int main(int argc, char* argv[])
         fprintf(stdout, "Loaded %d entries (%d features) from %s\n",
           total, NFEAT, filename);
         if (NULL != model) {
-          double weights[NFEAT];
           int t, correct = 0, ntest = 0, gated = 0, gated_correct = 0;
           double sum_conf = 0;
-          compute_fisher_weights(source, train_end, NFEAT, weights);
-          libxs_predict_set_weights(model, weights);
+          libxs_predict_set_decompose(model, LIBXS_PREDICT_FISHER);
           for (t = 0; t < train_end; ++t) {
             double inputs[NFEAT], output;
             libxs_predict_get(source, t, inputs, &output);
@@ -102,56 +96,3 @@ int main(int argc, char* argv[])
 }
 
 
-static void compute_fisher_weights(const libxs_predict_t* source,
-  int ntotal, int nfeat, double* weights)
-{
-  double class_mean[8][64], class_var[8][64];
-  int class_count[8], t, ci, fi;
-  memset(class_mean, 0, sizeof(class_mean));
-  memset(class_var, 0, sizeof(class_var));
-  memset(class_count, 0, sizeof(class_count));
-  for (t = 0; t < ntotal; ++t) {
-    double inputs[NFEAT], output;
-    libxs_predict_get(source, t, inputs, &output);
-    ci = LIBXS_ROUNDX(int, output);
-    if (ci >= 1 && ci <= 7) {
-      ++class_count[ci];
-      for (fi = 0; fi < nfeat; ++fi) class_mean[ci][fi] += inputs[fi];
-    }
-  }
-  for (ci = 1; ci <= 7; ++ci) {
-    if (0 < class_count[ci]) {
-      for (fi = 0; fi < nfeat; ++fi) class_mean[ci][fi] /= class_count[ci];
-    }
-  }
-  for (t = 0; t < ntotal; ++t) {
-    double inputs[NFEAT], output;
-    libxs_predict_get(source, t, inputs, &output);
-    ci = LIBXS_ROUNDX(int, output);
-    if (ci >= 1 && ci <= 7) {
-      for (fi = 0; fi < nfeat; ++fi) {
-        double d = inputs[fi] - class_mean[ci][fi];
-        class_var[ci][fi] += d * d;
-      }
-    }
-  }
-  for (fi = 0; fi < nfeat; ++fi) {
-    double between = 0, within = 0, grand_mean = 0;
-    int total_n = 0;
-    for (ci = 1; ci <= 7; ++ci) {
-      if (0 < class_count[ci]) {
-        grand_mean += class_mean[ci][fi] * class_count[ci];
-        total_n += class_count[ci];
-        within += class_var[ci][fi];
-      }
-    }
-    if (0 < total_n) grand_mean /= total_n;
-    for (ci = 1; ci <= 7; ++ci) {
-      if (0 < class_count[ci]) {
-        double d = class_mean[ci][fi] - grand_mean;
-        between += class_count[ci] * d * d;
-      }
-    }
-    weights[fi] = (within > 0) ? sqrt(between / within) : 1.0;
-  }
-}
