@@ -11,7 +11,6 @@
 #include <libxs_str.h>
 #include <libxs_malloc.h>
 #include <libxs_gemm.h>
-#include <libxs_rng.h>
 #include "libxs_main.h"
 
 #if !defined(LIBXS_PREDICT_MAXITER)
@@ -916,12 +915,13 @@ LIBXS_API_INLINE int internal_libxs_predict_rf_pair_cmp(
 LIBXS_API_INLINE int internal_libxs_predict_rf_split(
   const internal_libxs_predict_entry_t* entries,
   const int* subset, int nsub, int nfeat, int nfeatsub,
-  internal_libxs_predict_rf_node_t* node)
+  internal_libxs_predict_rf_node_t* node, size_t seed)
 {
   int result = 0;
   double best_gini = 2.0;
   int trial;
   int pairs_pool = 0;
+  const size_t feat_coprime = libxs_coprime2((size_t)nfeat);
   internal_libxs_predict_rf_pair_t* pairs =
     (internal_libxs_predict_rf_pair_t*)LIBXS_PREDICT_MALLOC(
       (size_t)nsub * sizeof(internal_libxs_predict_rf_pair_t), pairs_pool);
@@ -929,7 +929,8 @@ LIBXS_API_INLINE int internal_libxs_predict_rf_split(
   node->label = -1;
   if (NULL == pairs) return 0;
   for (trial = 0; trial < nfeatsub; ++trial) {
-    const int f = (int)libxs_rng_u32((unsigned int)nfeat);
+    const int f = (int)(LIBXS_SHUFFLE_INDEX(
+      (size_t)trial, (size_t)nfeat, feat_coprime, seed) % (size_t)nfeat);
     int left_counts[128], right_counts[128];
     int nleft, nright, i, k;
     for (i = 0; i < nsub; ++i) {
@@ -1008,7 +1009,7 @@ LIBXS_API_INLINE int internal_libxs_predict_rf_build_tree(
     nodes[ni].label = best_label;
     if (depth >= max_depth || nc <= min_leaf || best_count == nc
       || 0 == internal_libxs_predict_rf_split(entries, subset + si, nc,
-        nfeat, nfeatsub, &split))
+        nfeat, nfeatsub, &split, (size_t)ni))
     {
       nodes[ni].feature = -1;
       continue;
@@ -1089,14 +1090,18 @@ LIBXS_API_INLINE void internal_libxs_predict_rf_build(libxs_predict_t* model)
   rf->noutputs = model->noutputs;
   if (NULL != rf->trees) {
     int t;
-    libxs_rng_set_seed((unsigned int)p);
     for (t = 0; t < ntrees; ++t) {
+      const size_t boot_n = (size_t)p * 2 + 1;
+      const size_t boot_coprime = libxs_coprime2(boot_n);
       int nodes_pool = 0;
       internal_libxs_predict_rf_node_t* nodes =
         (internal_libxs_predict_rf_node_t*)LIBXS_PREDICT_MALLOC(
           (size_t)max_nodes * sizeof(internal_libxs_predict_rf_node_t), nodes_pool);
       int i, nn;
-      for (i = 0; i < p; ++i) bootstrap[i] = (int)libxs_rng_u32((unsigned int)p);
+      for (i = 0; i < p; ++i) {
+        bootstrap[i] = (int)(LIBXS_SHUFFLE_INDEX(
+          i, boot_n, boot_coprime, (size_t)t * 7 + 13) % (size_t)p);
+      }
       if (NULL == nodes) continue;
       nn = internal_libxs_predict_rf_build_tree(
         model->entries, bootstrap, p, m, max_depth, min_leaf,
