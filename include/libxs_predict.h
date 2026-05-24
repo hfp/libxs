@@ -34,7 +34,8 @@ typedef enum libxs_predict_decompose_t {
   LIBXS_PREDICT_SPREAD  = 1,
   LIBXS_PREDICT_PCA     = 2,
   LIBXS_PREDICT_SETDIFF = 3,
-  LIBXS_PREDICT_FISHER  = 4
+  LIBXS_PREDICT_FISHER  = 4,
+  LIBXS_PREDICT_RF      = 5
 } libxs_predict_decompose_t;
 
 /** Opaque prediction model type. */

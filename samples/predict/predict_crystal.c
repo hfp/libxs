@@ -42,7 +42,7 @@ int main(int argc, char* argv[])
         if (NULL != model) {
           int t, correct = 0, ntest = 0, gated = 0, gated_correct = 0;
           double sum_conf = 0;
-          libxs_predict_set_decompose(model, LIBXS_PREDICT_FISHER);
+          libxs_predict_set_decompose(model, LIBXS_PREDICT_RF);
           for (t = 0; t < train_end; ++t) {
             double inputs[NFEAT], output;
             libxs_predict_get(source, t, inputs, &output);
