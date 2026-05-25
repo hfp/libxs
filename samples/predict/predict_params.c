@@ -7,6 +7,7 @@
 * SPDX-License-Identifier: BSD-3-Clause                                       *
 ******************************************************************************/
 #include <libxs_predict.h>
+#include <libxs_timer.h>
 
 #if defined(_OPENMP)
 # include <omp.h>
@@ -21,7 +22,7 @@ static const char* output_names[] = {
 enum { NINPUTS = 3, NOUTPUTS = 16 };
 
 static void evaluate(const libxs_predict_t* model,
-  const libxs_predict_t* reference, int ntotal, const char* label);
+  const libxs_predict_t* reference, int ntotal);
 
 
 int main(int argc, char* argv[])
@@ -62,13 +63,14 @@ int main(int argc, char* argv[])
   }
   if (NULL == filename) {
     fprintf(stdout,
-      "Usage: %s [fraction] [auto|cat|interp] [-N] <csvfile> [modelfile]\n"
+      "Usage: %s [fraction] [auto|cat|interp|rf] [-N] <csvfile> [modelfile]\n"
       "  fraction: validation split 0..1 for quality report (default: 0.8)\n"
       "  auto:     auto-detect mode per output (default)\n"
       "  cat:      force categorical (kNN) for all outputs\n"
       "  interp:   force interpolation for all outputs\n"
+      "  rf:       Random Forest classification\n"
       "  -N: max polynomial order for final build (default: 0 = auto)\n"
-  "  Trains on all entries, saves the model, and reports\n"
+      "  Trains on all entries, saves the model, and reports\n"
       "  quality on a held-out validation set.\n", argv[0]);
   }
   else {
@@ -80,14 +82,16 @@ int main(int argc, char* argv[])
         libxs_predict_t* model = libxs_predict_create(NINPUTS, NOUTPUTS);
         fprintf(stdout, "Loaded %d entries from %s\n", ntotal, filename);
         if (NULL != model) {
+          libxs_timer_tick_t tick;
           int i, build_ok = EXIT_FAILURE;
-          double inputs[NINPUTS], outputs[NOUTPUTS];
+          double inputs[NINPUTS], outputs[NOUTPUTS], dt_build;
           libxs_predict_set_mode(model, mode);
           if (0 != use_rf) libxs_predict_set_decompose(model, LIBXS_PREDICT_RF);
           for (i = 0; i < ntotal; ++i) {
             libxs_predict_get(source, i, inputs, outputs);
             libxs_predict_push(NULL, model, inputs, outputs);
           }
+          tick = libxs_timer_tick();
 #if defined(_OPENMP)
 #         pragma omp parallel
           { const int br = libxs_predict_build_task(NULL, model, 0, order_arg,
@@ -97,11 +101,12 @@ int main(int argc, char* argv[])
 #else
           build_ok = libxs_predict_build_task(NULL, model, 0, order_arg, 0, 1);
 #endif
+          dt_build = libxs_timer_duration(tick, libxs_timer_tick());
           if (EXIT_SUCCESS == build_ok) {
             { libxs_predict_query_t qi = {0};
               libxs_predict_query(model, &qi);
-              fprintf(stdout, "Built: %d clusters, %.1fx compression, order=%d (%d iter)\n",
-                qi.nclusters, qi.compression, qi.order, qi.iterations);
+              fprintf(stdout, "Built: %d clusters, %.1fx compression, order=%d"
+                " (%.2f s)\n", qi.nclusters, qi.compression, qi.order, dt_build);
             }
             { const int nval = LIBXS_MAX((int)(ntotal * eval_fraction + 0.5), 1);
               libxs_predict_t* val_model = libxs_predict_create(NINPUTS, NOUTPUTS);
@@ -114,7 +119,7 @@ int main(int argc, char* argv[])
                   libxs_predict_push(NULL, val_model, vi, vo);
                 }
                 if (EXIT_SUCCESS == libxs_predict_build(val_model, 0, order_arg)) {
-                  evaluate(val_model, source, ntotal, "Validation");
+                  evaluate(val_model, source, ntotal);
                 }
                 libxs_predict_destroy(val_model);
               }
@@ -151,18 +156,24 @@ int main(int argc, char* argv[])
 }
 
 
-
 static void evaluate(const libxs_predict_t* model,
-  const libxs_predict_t* reference, int ntotal, const char* label)
+  const libxs_predict_t* reference, int ntotal)
 {
+  libxs_timer_tick_t tick;
   double maxerr[NOUTPUTS] = {0}, sumerr[NOUTPUTS] = {0};
-  double sum_bound[NOUTPUTS] = {0};
+  double dt_eval;
   double* all_inputs = (double*)malloc((size_t)ntotal * NINPUTS * sizeof(double));
   double* all_predicted = (double*)malloc((size_t)ntotal * NOUTPUTS * sizeof(double));
-  int ninterp[NOUTPUTS] = {0}, i, j;
+  int i, j;
+  if (NULL == all_inputs || NULL == all_predicted) {
+    free(all_inputs);
+    free(all_predicted);
+    return;
+  }
   for (i = 0; i < ntotal; ++i) {
     libxs_predict_get(reference, i, all_inputs + (size_t)i * NINPUTS, NULL);
   }
+  tick = libxs_timer_tick();
 #if defined(_OPENMP)
 # pragma omp parallel
   { const int tid = omp_get_thread_num(), ntasks = omp_get_num_threads();
@@ -172,29 +183,25 @@ static void evaluate(const libxs_predict_t* model,
 #else
   libxs_predict_eval_batch(model, all_inputs, all_predicted, ntotal, 1);
 #endif
+  dt_eval = libxs_timer_duration(tick, libxs_timer_tick());
   for (i = 0; i < ntotal; ++i) {
     double expected[NOUTPUTS];
-    libxs_predict_info_t info;
     libxs_predict_get(reference, i, NULL, expected);
-    libxs_predict_eval(NULL, model,
-      all_inputs + (size_t)i * NINPUTS, NULL, &info, 1);
     for (j = 0; j < NOUTPUTS; ++j) {
-      const double err = LIBXS_DELTA(all_predicted[(size_t)i * NOUTPUTS + j], expected[j]);
+      const double err = LIBXS_DELTA(
+        all_predicted[(size_t)i * NOUTPUTS + j], expected[j]);
       sumerr[j] += err;
       if (err > maxerr[j]) maxerr[j] = err;
-      sum_bound[j] += info.error[j];
-      ninterp[j] += info.interpolated[j];
     }
   }
   free(all_inputs);
   free(all_predicted);
-  fprintf(stdout, "%s (%d samples):\n", label, ntotal);
-  fprintf(stdout, "  param   avg-err   max-err  avg-bound\n");
+  fprintf(stdout, "Validation (%d samples):\n", ntotal);
+  fprintf(stdout, "  param   avg-err   max-err\n");
   for (j = 0; j < NOUTPUTS; ++j) {
-    fprintf(stdout, "  %-3s%c  %9.2e %9.2e  %9.2e\n",
-      output_names[j], (0 < ninterp[j]) ? '*' : ' ',
-      (0 < ntotal) ? (sumerr[j] / ntotal) : 0.0,
-      maxerr[j],
-      (0 < ntotal) ? (sum_bound[j] / ntotal) : 0.0);
+    fprintf(stdout, "  %-4s  %9.2e %9.2e\n",
+      output_names[j],
+      (0 < ntotal) ? (sumerr[j] / ntotal) : 0.0, maxerr[j]);
   }
+  fprintf(stdout, "Eval: %d queries (%.2f s)\n", ntotal, dt_eval);
 }

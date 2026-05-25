@@ -7,8 +7,12 @@
 * SPDX-License-Identifier: BSD-3-Clause                                       *
 ******************************************************************************/
 #include <libxs_predict.h>
+#include <libxs_timer.h>
 #include <libxs_mem.h>
 
+#if defined(_OPENMP)
+# include <omp.h>
+#endif
 
 enum { NFEAT = 37 };
 
@@ -40,21 +44,34 @@ int main(int argc, char* argv[])
         fprintf(stdout, "Loaded %d entries (%d features) from %s\n",
           total, NFEAT, filename);
         if (NULL != model) {
+          libxs_timer_tick_t tick;
           int t, correct = 0, ntest = 0, gated = 0, gated_correct = 0;
-          double sum_conf = 0;
+          int build_ok = EXIT_FAILURE;
+          double sum_conf = 0, dt_build, dt_eval;
           libxs_predict_set_decompose(model, LIBXS_PREDICT_RF);
           for (t = 0; t < train_end; ++t) {
             double inputs[NFEAT], output;
             libxs_predict_get(source, t, inputs, &output);
             libxs_predict_push(NULL, model, inputs, &output);
           }
-          if (EXIT_SUCCESS == libxs_predict_build(model, nclusters, order)) {
+          tick = libxs_timer_tick();
+#if defined(_OPENMP)
+#         pragma omp parallel
+          { build_ok = libxs_predict_build_task(NULL, model, nclusters, order,
+              omp_get_thread_num(), omp_get_num_threads());
+          }
+#else
+          build_ok = libxs_predict_build(model, nclusters, order);
+#endif
+          dt_build = libxs_timer_duration(tick, libxs_timer_tick());
+          if (EXIT_SUCCESS == build_ok) {
             libxs_predict_query_t qi;
             LIBXS_MEMZERO(&qi);
             libxs_predict_query(model, &qi);
             fprintf(stdout, "Train=%d, Test=%d\n", qi.nentries, total - train_end);
-            fprintf(stdout, "Built: %d clusters, %.1fx compression, order=%d\n",
-              qi.nclusters, qi.compression, qi.order);
+            fprintf(stdout, "Built: %d clusters, %.1fx compression, order=%d"
+              " (%.2f s)\n", qi.nclusters, qi.compression, qi.order, dt_build);
+            tick = libxs_timer_tick();
             for (t = train_end; t < total; ++t) {
               double inputs[NFEAT], predicted;
               libxs_predict_info_t info;
@@ -73,13 +90,17 @@ int main(int argc, char* argv[])
               sum_conf += info.confidence[0];
               ++ntest;
             }
+            dt_eval = libxs_timer_duration(tick, libxs_timer_tick());
             if (0 < ntest) {
               fprintf(stdout, "Accuracy: %d/%d = %.1f%%\n",
                 correct, ntest, 100.0 * correct / ntest);
-              fprintf(stdout, "Confidence-gated (>=0.9): %d/%d = %.1f%% (coverage %.1f%%)\n",
-                gated_correct, gated, (0 < gated) ? 100.0 * gated_correct / gated : 0.0,
+              fprintf(stdout, "Confidence-gated (>=0.9): %d/%d = %.1f%%"
+                " (coverage %.1f%%)\n",
+                gated_correct, gated,
+                (0 < gated) ? 100.0 * gated_correct / gated : 0.0,
                 100.0 * gated / ntest);
               fprintf(stdout, "Avg confidence: %.3f\n", sum_conf / ntest);
+              fprintf(stdout, "Eval: %d queries (%.2f s)\n", ntest, dt_eval);
             }
             result = EXIT_SUCCESS;
           }
@@ -94,5 +115,3 @@ int main(int argc, char* argv[])
   }
   return result;
 }
-
-

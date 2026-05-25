@@ -7,16 +7,18 @@
 * SPDX-License-Identifier: BSD-3-Clause                                       *
 ******************************************************************************/
 #include <libxs_predict.h>
+#include <libxs_timer.h>
 #include <libxs_math.h>
 #include <libxs_mem.h>
+
+#if defined(_OPENMP)
+# include <omp.h>
+#endif
 
 static const char* input_names[] = { "latitude", "longitude", "depth" };
 static const char* output_names[] = { "mag" };
 
 enum { NINPUTS = 3, NOUTPUTS = 1 };
-
-static void evaluate(const libxs_predict_t* model,
-  const libxs_predict_t* source, int total, int train_end);
 
 
 int main(int argc, char* argv[])
@@ -44,19 +46,51 @@ int main(int argc, char* argv[])
         fprintf(stdout, "Inputs: latitude, longitude, depth -> Output: magnitude\n");
         fprintf(stdout, "Train=%d, Test=%d\n", train_end, total - train_end);
         if (NULL != model) {
-          double inputs[NINPUTS], outputs[NOUTPUTS];
-          int i;
+          libxs_timer_tick_t tick;
+          double inputs[NINPUTS], outputs[NOUTPUTS], dt_build;
+          int i, build_ok = EXIT_FAILURE;
           for (i = 0; i < train_end; ++i) {
             libxs_predict_get(source, i, inputs, outputs);
             libxs_predict_push(NULL, model, inputs, outputs);
           }
-          if (EXIT_SUCCESS == libxs_predict_build(model, 0, 2)) {
+          tick = libxs_timer_tick();
+#if defined(_OPENMP)
+#         pragma omp parallel
+          { build_ok = libxs_predict_build_task(NULL, model, 0, 2,
+              omp_get_thread_num(), omp_get_num_threads());
+          }
+#else
+          build_ok = libxs_predict_build(model, 0, 2);
+#endif
+          dt_build = libxs_timer_duration(tick, libxs_timer_tick());
+          if (EXIT_SUCCESS == build_ok) {
             libxs_predict_query_t qi;
+            double sum_err = 0, max_err = 0, sum_conf = 0, dt_eval;
+            int neval = 0;
             LIBXS_MEMZERO(&qi);
             libxs_predict_query(model, &qi);
-            fprintf(stdout, "Built: %d clusters, %.1fx compression, order=%d\n",
-              qi.nclusters, qi.compression, qi.order);
-            evaluate(model, source, total, train_end);
+            fprintf(stdout, "Built: %d clusters, %.1fx compression, order=%d"
+              " (%.2f s)\n", qi.nclusters, qi.compression, qi.order, dt_build);
+            tick = libxs_timer_tick();
+            for (i = train_end; i < total; ++i) {
+              double predicted[NOUTPUTS], expected[NOUTPUTS], err;
+              libxs_predict_info_t info;
+              libxs_predict_get(source, i, inputs, expected);
+              libxs_predict_eval(NULL, model, inputs, predicted, &info, 1);
+              err = LIBXS_FABS(predicted[0] - expected[0]);
+              sum_err += err;
+              if (err > max_err) max_err = err;
+              sum_conf += info.confidence[0];
+              ++neval;
+            }
+            dt_eval = libxs_timer_duration(tick, libxs_timer_tick());
+            if (0 < neval) {
+              fprintf(stdout, "Prediction quality (%d test events):\n", neval);
+              fprintf(stdout, "  avg magnitude error: %.3f\n", sum_err / neval);
+              fprintf(stdout, "  max magnitude error: %.3f\n", max_err);
+              fprintf(stdout, "  avg confidence:      %.3f\n", sum_conf / neval);
+              fprintf(stdout, "Eval: %d queries (%.2f s)\n", neval, dt_eval);
+            }
             result = EXIT_SUCCESS;
           }
           libxs_predict_destroy(model);
@@ -69,30 +103,4 @@ int main(int argc, char* argv[])
     }
   }
   return result;
-}
-
-
-static void evaluate(const libxs_predict_t* model,
-  const libxs_predict_t* source, int total, int train_end)
-{
-  double sum_err = 0, max_err = 0, sum_conf = 0;
-  int neval = 0, i;
-  for (i = train_end; i < total; ++i) {
-    double inputs[NINPUTS], expected[NOUTPUTS], predicted[NOUTPUTS];
-    libxs_predict_info_t info;
-    double err;
-    libxs_predict_get(source, i, inputs, expected);
-    libxs_predict_eval(NULL, model, inputs, predicted, &info, 1);
-    err = LIBXS_FABS(predicted[0] - expected[0]);
-    sum_err += err;
-    if (err > max_err) max_err = err;
-    sum_conf += info.confidence[0];
-    ++neval;
-  }
-  if (0 < neval) {
-    fprintf(stdout, "Prediction quality (%d test events):\n", neval);
-    fprintf(stdout, "  avg magnitude error: %.3f\n", sum_err / neval);
-    fprintf(stdout, "  max magnitude error: %.3f\n", max_err);
-    fprintf(stdout, "  avg confidence:      %.3f\n", sum_conf / neval);
-  }
 }
