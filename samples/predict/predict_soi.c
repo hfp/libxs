@@ -44,7 +44,7 @@ int main(int argc, char* argv[])
       total, ntahiti, ndarwin);
     if (NULL != model) {
       int t;
-      libxs_predict_set_mode(model, LIBXS_PREDICT_EXTRAPOLATE);
+      libxs_predict_set_mode(model, LIBXS_PREDICT_TEMPORAL);
       libxs_predict_set_series(model, NSERIES, WINDOW);
       libxs_predict_set_target(model, 0);
       libxs_predict_set_decompose(model, LIBXS_PREDICT_SPREAD);
@@ -69,7 +69,7 @@ int main(int argc, char* argv[])
       libxs_predict_destroy(model);
       { libxs_predict_t* raw_model = libxs_predict_create(NINPUTS, HORIZON);
         if (NULL != raw_model) {
-          libxs_predict_set_mode(raw_model, LIBXS_PREDICT_EXTRAPOLATE);
+          libxs_predict_set_mode(raw_model, LIBXS_PREDICT_TEMPORAL);
           libxs_predict_set_series(raw_model, NSERIES, WINDOW);
           libxs_predict_set_target(raw_model, 0);
           for (t = 0; t < train_end; ++t) {
@@ -87,7 +87,7 @@ int main(int argc, char* argv[])
       }
       { libxs_predict_t* solo_model = libxs_predict_create(WINDOW, HORIZON);
         if (NULL != solo_model) {
-          libxs_predict_set_mode(solo_model, LIBXS_PREDICT_EXTRAPOLATE);
+          libxs_predict_set_mode(solo_model, LIBXS_PREDICT_TEMPORAL);
           libxs_predict_set_series(solo_model, 1, WINDOW);
           for (t = 0; t < train_end; ++t) {
             libxs_predict_push(NULL, solo_model, &tahiti[t], NULL);

@@ -15,7 +15,7 @@ typedef enum libxs_predict_mode_t {
   LIBXS_PREDICT_AUTO        = 0,
   LIBXS_PREDICT_INTERPOLATE = 1,
   LIBXS_PREDICT_CLASSIFY    = 2,
-  LIBXS_PREDICT_EXTRAPOLATE = 4
+  LIBXS_PREDICT_TEMPORAL    = 4
 } libxs_predict_mode_t;
 ```
 
@@ -23,13 +23,16 @@ ORable flags controlling prediction behavior:
 - AUTO (0): fingerprint decides per-output (default).
 - INTERPOLATE: force polynomial for all outputs.
 - CLASSIFY: force kNN vote for all outputs.
-- EXTRAPOLATE: timeseries mode -- enables recency weighting,
-  adaptive multi-cluster blending on low confidence,
-  fingerprint-based cluster weighting, local coherence
-  smoothing, and continuous output (no snap-to-nearest).
+- TEMPORAL: timeseries mode -- enables recency weighting
+  (recent neighbors preferred), continuous output (no
+  snap-to-nearest), and local coherence smoothing across
+  horizon steps. Only effective when set_series was called
+  (nseries > 0). For timeseries models without this flag,
+  temporal heuristics auto-enable only when the query falls
+  outside the training bounding box.
 
-Example: `LIBXS_PREDICT_CLASSIFY | LIBXS_PREDICT_EXTRAPOLATE`
-forces kNN-weighted projection forward.
+Example: `LIBXS_PREDICT_CLASSIFY | LIBXS_PREDICT_TEMPORAL`
+forces kNN-weighted projection forward with temporal heuristics.
 
 ## Input Decomposition and Feature Selection
 

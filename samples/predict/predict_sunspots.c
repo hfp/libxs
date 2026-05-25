@@ -37,7 +37,7 @@ int main(int argc, char* argv[])
     fprintf(stdout, "Loaded %d monthly sunspot values from %s\n", total, filename);
     if (NULL != model) {
       int t;
-      libxs_predict_set_mode(model, LIBXS_PREDICT_EXTRAPOLATE);
+      libxs_predict_set_mode(model, LIBXS_PREDICT_TEMPORAL);
       libxs_predict_set_series(model, 1, WINDOW);
       for (t = 0; t < train_end; ++t) {
         libxs_predict_push(NULL, model, &series[t], NULL);

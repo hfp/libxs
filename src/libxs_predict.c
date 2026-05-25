@@ -613,13 +613,7 @@ LIBXS_API_INLINE void internal_libxs_predict_pca_build(libxs_predict_t* model)
   double* cov = (double*)LIBXS_PREDICT_MALLOC(msz * sizeof(double), pool_cov);
   double* evec = (double*)LIBXS_PREDICT_MALLOC(msz * sizeof(double), pool_evec);
   double* eval = (double*)LIBXS_PREDICT_MALLOC((size_t)m * sizeof(double), pool_eval);
-  if (NULL == mean || NULL == cov || NULL == evec || NULL == eval) {
-    LIBXS_PREDICT_FREE(mean, pool_mean);
-    LIBXS_PREDICT_FREE(cov, pool_cov);
-    LIBXS_PREDICT_FREE(evec, pool_evec);
-    LIBXS_PREDICT_FREE(eval, pool_eval);
-    return;
-  }
+  if (NULL != mean && NULL != cov && NULL != evec && NULL != eval) {
   memset(mean, 0, (size_t)m * sizeof(double));
   memset(cov, 0, msz * sizeof(double));
   { int i, j, k;
@@ -747,6 +741,7 @@ LIBXS_API_INLINE void internal_libxs_predict_pca_build(libxs_predict_t* model)
       }
     }
   }
+  }
   LIBXS_PREDICT_FREE(mean, pool_mean);
   LIBXS_PREDICT_FREE(cov, pool_cov);
   LIBXS_PREDICT_FREE(evec, pool_evec);
@@ -795,35 +790,36 @@ LIBXS_API_INLINE void internal_libxs_predict_fisher_build(libxs_predict_t* model
       }
     }
   }
-  if (nclasses < 2 || 1 != model->noutputs) return;
-  for (j = 0; j < m; ++j) {
-    double between = 0, within = 0, grand_mean = 0;
-    int total_n = 0;
-    for (ci = 0; ci < nclasses; ++ci) {
-      if (0 < class_count[ci]) {
-        grand_mean += class_mean[ci][j] * class_count[ci];
-        total_n += class_count[ci];
-        within += class_var[ci][j];
-      }
-    }
-    if (0 < total_n) grand_mean /= total_n;
-    for (ci = 0; ci < nclasses; ++ci) {
-      if (0 < class_count[ci]) {
-        double d = class_mean[ci][j] - grand_mean;
-        between += class_count[ci] * d * d;
-      }
-    }
-    scores[j] = (within > 0) ? between / within : 0.0;
-  }
-  memcpy(sorted_scores, scores, (size_t)m * sizeof(double));
-  libxs_sort(sorted_scores, m, sizeof(double), libxs_cmp_f64, NULL);
-  thr = sorted_scores[m / 2];
-  if (NULL == model->weights) {
-    model->weights = (double*)malloc((size_t)m * sizeof(double));
-  }
-  if (NULL != model->weights) {
+  if (nclasses >= 2 && 1 == model->noutputs) {
     for (j = 0; j < m; ++j) {
-      model->weights[j] = (scores[j] >= thr) ? sqrt(scores[j]) : 0.0;
+      double between = 0, within = 0, grand_mean = 0;
+      int total_n = 0;
+      for (ci = 0; ci < nclasses; ++ci) {
+        if (0 < class_count[ci]) {
+          grand_mean += class_mean[ci][j] * class_count[ci];
+          total_n += class_count[ci];
+          within += class_var[ci][j];
+        }
+      }
+      if (0 < total_n) grand_mean /= total_n;
+      for (ci = 0; ci < nclasses; ++ci) {
+        if (0 < class_count[ci]) {
+          double d = class_mean[ci][j] - grand_mean;
+          between += class_count[ci] * d * d;
+        }
+      }
+      scores[j] = (within > 0) ? between / within : 0.0;
+    }
+    memcpy(sorted_scores, scores, (size_t)m * sizeof(double));
+    libxs_sort(sorted_scores, m, sizeof(double), libxs_cmp_f64, NULL);
+    thr = sorted_scores[m / 2];
+    if (NULL == model->weights) {
+      model->weights = (double*)malloc((size_t)m * sizeof(double));
+    }
+    if (NULL != model->weights) {
+      for (j = 0; j < m; ++j) {
+        model->weights[j] = (scores[j] >= thr) ? sqrt(scores[j]) : 0.0;
+      }
     }
   }
 }
@@ -839,6 +835,7 @@ LIBXS_API_INLINE void internal_libxs_predict_setdiff_build(libxs_predict_t* mode
   double scores[128], sorted_scores[128], thr;
   LIBXS_ASSERT(m <= 128);
   memset(class_count, 0, sizeof(class_count));
+  memset(scores, 0, sizeof(scores));
   for (i = 0; i < p; ++i) {
     const int label = LIBXS_ROUNDX(int, model->entries[i].outputs[0]);
     int found = 0, ci;
@@ -851,7 +848,7 @@ LIBXS_API_INLINE void internal_libxs_predict_setdiff_build(libxs_predict_t* mode
       ++nclasses;
     }
   }
-  if (nclasses < 2 || 1 != n) return;
+  if (nclasses >= 2 && 1 == n) {
   for (j = 0; j < m; ++j) {
     double score = 0;
     int npairs = 0;
@@ -889,17 +886,18 @@ LIBXS_API_INLINE void internal_libxs_predict_setdiff_build(libxs_predict_t* mode
         }
       }
     }
-    scores[j] = (npairs > 0) ? score / npairs : 0.0;
-  }
-  memcpy(sorted_scores, scores, (size_t)m * sizeof(double));
-  libxs_sort(sorted_scores, m, sizeof(double), libxs_cmp_f64, NULL);
-  thr = sorted_scores[m / 2];
-  if (NULL == model->weights) {
-    model->weights = (double*)malloc((size_t)m * sizeof(double));
-  }
-  if (NULL != model->weights) {
-    for (j = 0; j < m; ++j) {
-      model->weights[j] = (scores[j] >= thr) ? scores[j] : 0.0;
+      scores[j] = (npairs > 0) ? score / npairs : 0.0;
+    }
+    memcpy(sorted_scores, scores, (size_t)m * sizeof(double));
+    libxs_sort(sorted_scores, m, sizeof(double), libxs_cmp_f64, NULL);
+    thr = sorted_scores[m / 2];
+    if (NULL == model->weights) {
+      model->weights = (double*)malloc((size_t)m * sizeof(double));
+    }
+    if (NULL != model->weights) {
+      for (j = 0; j < m; ++j) {
+        model->weights[j] = (scores[j] >= thr) ? scores[j] : 0.0;
+      }
     }
   }
 }
@@ -931,7 +929,7 @@ LIBXS_API_INLINE int internal_libxs_predict_rf_split(
       (size_t)nsub * sizeof(internal_libxs_predict_rf_pair_t), pairs_pool);
   node->feature = -1;
   node->label = -1;
-  if (NULL == pairs) return 0;
+  if (NULL != pairs) {
   for (trial = 0; trial < nfeatsub; ++trial) {
     const int f = (int)(LIBXS_SHUFFLE_INDEX(
       (size_t)trial, (size_t)nfeat, feat_coprime, seed) % (size_t)nfeat);
@@ -973,6 +971,7 @@ LIBXS_API_INLINE int internal_libxs_predict_rf_split(
         }
       }
     }
+  }
   }
   LIBXS_PREDICT_FREE(pairs, pairs_pool);
   result = (node->feature >= 0) ? 1 : 0;
@@ -1087,9 +1086,8 @@ LIBXS_API_INLINE void internal_libxs_predict_rf_build(libxs_predict_t* model)
   internal_libxs_predict_rf_t* rf;
   int bootstrap_pool = 0;
   int* bootstrap = (int*)LIBXS_PREDICT_MALLOC((size_t)p * sizeof(int), bootstrap_pool);
-  if (NULL == bootstrap) return;
   rf = (internal_libxs_predict_rf_t*)calloc(1, sizeof(internal_libxs_predict_rf_t));
-  if (NULL == rf) { LIBXS_PREDICT_FREE(bootstrap, bootstrap_pool); return; }
+  if (NULL != bootstrap && NULL != rf) {
   rf->trees = (internal_libxs_predict_rf_tree_t*)calloc(
     (size_t)ntrees * (size_t)n, sizeof(internal_libxs_predict_rf_tree_t));
   rf->label_offset = (int*)malloc((size_t)n * sizeof(int));
@@ -1133,8 +1131,14 @@ LIBXS_API_INLINE void internal_libxs_predict_rf_build(libxs_predict_t* model)
       }
     }
   }
+  }
   LIBXS_PREDICT_FREE(bootstrap, bootstrap_pool);
-  model->rf = rf;
+  if (NULL != rf && NULL != rf->trees) {
+    model->rf = rf;
+  }
+  else {
+    free(rf);
+  }
 }
 
 
@@ -1196,7 +1200,7 @@ LIBXS_API_INLINE void internal_libxs_predict_ts_expand(libxs_predict_t* model)
   int raw_pool = 0;
   double* raw = (double*)LIBXS_PREDICT_MALLOC((size_t)m * sizeof(double), raw_pool);
   int t;
-  if (NULL == raw) return;
+  if (NULL != raw) {
   for (t = 0; t < nwindows; ++t) {
     double* inputs = (double*)malloc((size_t)m * sizeof(double));
     double* outputs = (double*)malloc((size_t)h * sizeof(double));
@@ -1237,6 +1241,7 @@ LIBXS_API_INLINE void internal_libxs_predict_ts_expand(libxs_predict_t* model)
       free(inputs);
       free(outputs);
     }
+  }
   }
   LIBXS_PREDICT_FREE(raw, raw_pool);
 }
@@ -1625,7 +1630,8 @@ LIBXS_API void libxs_predict_eval(libxs_lock_t* lock, const libxs_predict_t* mod
     const int mode = model->eval_mode;
     const int force_classify = (0 != (mode & LIBXS_PREDICT_CLASSIFY)) ? 1 : 0;
     const int force_interp = (0 != (mode & LIBXS_PREDICT_INTERPOLATE)) ? 1 : 0;
-    const int extrapolate = (0 != (mode & LIBXS_PREDICT_EXTRAPOLATE)) ? 1 : 0;
+    const int extrapolate_mode = (0 != (mode & LIBXS_PREDICT_TEMPORAL)) ? 1 : 0;
+    int extrapolate = 0;
     int norm_pool = 0, decomp_pool = 0;
     double* decomp_inputs = NULL;
     double* norm_inputs = (double*)LIBXS_PREDICT_MALLOC((size_t)m * sizeof(double), norm_pool);
@@ -1637,6 +1643,21 @@ LIBXS_API void libxs_predict_eval(libxs_lock_t* lock, const libxs_predict_t* mod
       decomp_inputs = (double*)LIBXS_PREDICT_MALLOC((size_t)m * sizeof(double), decomp_pool);
       internal_libxs_predict_decompose_apply(model, inputs, decomp_inputs);
       inputs = decomp_inputs;
+    }
+    if (0 != extrapolate_mode && model->nseries > 0) {
+      extrapolate = 1;
+    }
+    else if (model->nseries > 0
+      && NULL != model->input_min && NULL != model->input_rng)
+    {
+      for (j = 0; j < m && 0 == extrapolate; ++j) {
+        if (inputs[j] < model->input_min[j]
+          || (model->input_rng[j] > 0
+            && inputs[j] > model->input_min[j] + model->input_rng[j]))
+        {
+          extrapolate = 1;
+        }
+      }
     }
     if (NULL != lock) LIBXS_LOCK_ACQUIRE(LIBXS_LOCK, lock);
     internal_libxs_predict_normalize(model, inputs, norm_inputs);

@@ -263,10 +263,12 @@ When confidence is low (<0.7), the framework automatically expands to
 multi-cluster blending, improving predictions by averaging over
 distinct regimes (e.g., -4% MAE on earthquake magnitude prediction).
 
-Timeseries samples use `LIBXS_PREDICT_EXTRAPOLATE` mode which enables
+Timeseries samples use `LIBXS_PREDICT_TEMPORAL` mode which enables
 recency weighting (recent neighbors preferred), continuous-valued
 output without snap-to-nearest discretization, and local coherence
-smoothing across horizon steps.
+smoothing across horizon steps. These heuristics also auto-enable
+for any timeseries model (nseries > 0) when the query falls outside
+the training bounding box.
 
 The sunspot sample uses `libxs_predict_set_series` to declare
 timeseries structure: instead of manually constructing sliding windows,

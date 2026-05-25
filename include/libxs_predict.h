@@ -18,7 +18,7 @@ typedef enum libxs_predict_mode_t {
   LIBXS_PREDICT_AUTO        = 0,
   LIBXS_PREDICT_INTERPOLATE = 1,
   LIBXS_PREDICT_CLASSIFY    = 2,
-  LIBXS_PREDICT_EXTRAPOLATE = 4
+  LIBXS_PREDICT_TEMPORAL    = 4
 } libxs_predict_mode_t;
 
 /** Output transform applied during push/eval. */
@@ -95,7 +95,8 @@ LIBXS_API libxs_lock_t* libxs_predict_lock(libxs_predict_t* model);
  * LIBXS_PREDICT_AUTO (0): fingerprint decides per output (default).
  * LIBXS_PREDICT_INTERPOLATE: force polynomial for all outputs.
  * LIBXS_PREDICT_CLASSIFY: force kNN vote for all outputs.
- * LIBXS_PREDICT_EXTRAPOLATE: allow position beyond last known entry.
+ * LIBXS_PREDICT_TEMPORAL: timeseries mode -- recency weighting,
+ *   continuous output (no snap), and horizon smoothing.
  */
 LIBXS_API void libxs_predict_set_mode(libxs_predict_t* model, int mode);
 

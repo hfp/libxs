@@ -43,7 +43,7 @@ int main(int argc, char* argv[])
     if (NULL != model) {
       double inputs[NINPUTS], outputs[HORIZON];
       int t;
-      libxs_predict_set_mode(model, LIBXS_PREDICT_EXTRAPOLATE);
+      libxs_predict_set_mode(model, LIBXS_PREDICT_TEMPORAL);
       libxs_predict_set_transform(model, -1, LIBXS_PREDICT_LOG);
       for (t = WINDOW; t <= train_end - HORIZON; ++t) {
         int i;
