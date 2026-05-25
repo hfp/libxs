@@ -392,13 +392,15 @@ LIBXS_API libxs_gemm_config_t* libxs_gemm_dispatch_rt(
           }
           if (0 != xsmm_ok) {
             libxs_xgemm_shape_t xs;
+            const int xtype = (LIBXS_DATATYPE_F64 == kernel_shape->datatype) ? 0
+              : ((LIBXS_DATATYPE_F32 == kernel_shape->datatype) ? 1 : -1);
             xs.m = km; xs.n = kn; xs.k = kk;
             xs.lda = klda; xs.ldb = kldb; xs.ldc = kldc;
-            xs.a_in_type = kernel_shape->datatype;
-            xs.b_in_type = kernel_shape->datatype;
-            xs.out_type = kernel_shape->datatype;
-            xs.comp_type = kernel_shape->datatype;
-            {
+            xs.a_in_type = xtype;
+            xs.b_in_type = xtype;
+            xs.out_type = xtype;
+            xs.comp_type = xtype;
+            if (0 <= xtype) {
               const libxs_gemm_xfn_t fn = backend->xgemm_dispatch(xs, xflags, 0);
               if (NULL != fn) config.xgemm = fn;
             }
