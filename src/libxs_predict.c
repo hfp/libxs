@@ -1002,7 +1002,7 @@ LIBXS_API_INLINE int internal_libxs_predict_rf_build_tree(
     const int nc = stack_count[sp];
     const int depth = stack_depth[sp];
     const int ni = stack_node[sp];
-    int counts[128] = {0}, best_label = 0, best_count = 0, k;
+    int counts[128] = { 0 }, best_label = 0, best_count = 0, k;
     internal_libxs_predict_rf_node_t split;
     for (k = 0; k < nc; ++k) {
       ++counts[(LIBXS_ROUNDX(int, entries[subset[si + k]].outputs[output_idx]) + label_off) & 127];
@@ -1174,7 +1174,7 @@ LIBXS_API_INLINE int internal_libxs_predict_rf_eval_output(
   const internal_libxs_predict_rf_t* rf, int output_idx,
   const double* inputs, double* confidence)
 {
-  int votes[128] = {0};
+  int votes[128] = { 0 };
   int best_label = 0, best_count = 0, t, k;
   const int base = output_idx * rf->ntrees;
   for (t = 0; t < rf->ntrees; ++t) {
