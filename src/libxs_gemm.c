@@ -449,18 +449,14 @@ LIBXS_API libxs_gemm_config_t* libxs_gemm_dispatch_rt(
       if (0 < interval) {
         static int counter = 0;
         if (0 == (++counter % interval)) {
-          const int ready = (NULL != internal_libxs_dsyr2k_blas && NULL != internal_libxs_ssyr2k_blas
-              && NULL != internal_libxs_dgemm_blas && NULL != internal_libxs_sgemm_blas
-              && NULL != internal_libxs_dsyrk_blas && NULL != internal_libxs_ssyrk_blas)
-            ? 1 : (NULL != result->dgemm_jit || NULL != result->sgemm_jit || NULL != result->xgemm);
           libxs_registry_info_t info = { 0 };
           LIBXS_EXPECT(EXIT_SUCCESS == libxs_registry_info(reg, &info));
           LIBXS_ASSERT((NULL != result));
           fprintf(stderr, "LIBXS INFO: "
-            "gemm=%s trans=%c%c mnk=%ix%ix%i ld=%ix%ix%i alpha=%g beta=%g regsize=%lu ready=%i\n",
-            libxs_typename(shape->datatype), shape->transa, shape->transb,
-            shape->m, shape->n, shape->k, shape->lda, shape->ldb, shape->ldc,
-            shape->alpha, shape->beta, (unsigned long)info.size, ready);
+            "gemm=%s trans=%c%c mnk=%ix%ix%i ld=%ix%ix%i alpha=%g beta=%g regsize=%lu jit=%i\n",
+            libxs_typename(shape->datatype), shape->transa, shape->transb, shape->m, shape->n, shape->k,
+            shape->lda, shape->ldb, shape->ldc, shape->alpha, shape->beta, (unsigned long)info.size,
+            NULL != result->dgemm_jit || NULL != result->sgemm_jit || NULL != result->xgemm);
         }
       }
     }
