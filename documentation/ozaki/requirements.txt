@@ -1,1 +1,2 @@
+mkslides>=2
 python-pptx

@@ -37,14 +37,16 @@ Ozaki targets matrix engines: VNNI/AMX on CPU, DPAS/tensor cores on GPU.
 
 ## Hardware Targets
 
-| Target        | Instruction | Operands | Status  |
-|---------------|-------------|----------|---------|
-| AVX-512 VNNI  | VPDPBUSD    | u8 × s8  | default |
-| AVX-512 INT8  | VPDPBUUD    | u8 × u8  | auto    |
-| Intel Xe DPAS | dpas.8×8    | u8/s8    | default |
-| NVIDIA        | dp4a        | u8/s8    | default |
+| Target        | Instruction  | Operands | Status  |
+|---------------|--------------|----------|---------|
+| AVX-512 VNNI  | VPDPBUSD     | u8 × s8  | default |
+| AVX-512 INT8  | VPDPBUUD     | u8 × u8  | auto    |
+| Intel Xe DPAS | dpas.8×8     | u8/s8    | default |
+| NVIDIA        | dp4a         | u8/s8    | default |
+| NVIDIA        | MMA m16n8k32 | u8/s8    | auto    |
 
-VNNI auto-dispatched on CPU. NVIDIA: dp4a has headroom vs. peak; MMA deferred.
+CPU selects VNNI/AMX automatically. NVIDIA: dp4a reuses the DPAS-style
+layout; MMA uses m16n8k32. Both are mainly limited by 2D block loads.
 
 ---
 
