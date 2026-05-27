@@ -241,7 +241,7 @@ LIBXS_API_INLINE double internal_libxs_predict_local_error(
   double result = cl->errors[output_j];
   const int nc = cl->nentries;
   const int radius = LIBXS_MIN(4, nc / 2);
-  if (radius >= 2) {
+  if (radius >= 2 && NULL != model->entries && NULL != cl->sorted_idx) {
     const int lo = LIBXS_MAX(pos - radius, 0);
     const int hi = LIBXS_MIN(pos + radius, nc - 1);
     const int len = hi - lo + 1;
