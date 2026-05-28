@@ -13,11 +13,9 @@
 # include <omp.h>
 #endif
 
-static const char* input_names[] = { "M", "N", "K" };
-static const char* output_names[] = {
-  "BS", "BM", "BN", "BK", "WS", "WG", "LU", "NZ",
-  "AL", "TB", "TC", "AP", "AA", "AB", "AC", "XF"
-};
+static const char input_names[] = "M,N,K";
+static const char output_names[] =
+  "BS,BM,BN,BK,WS,WG,LU,NZ,AL,TB,TC,AP,AA,AB,AC,XF";
 
 enum { NINPUTS = 3, NOUTPUTS = 16 };
 
@@ -77,7 +75,7 @@ int main(int argc, char* argv[])
     libxs_predict_t* source = libxs_predict_create(NINPUTS, NOUTPUTS);
     if (NULL != source) {
       const int ntotal = libxs_predict_load_csv(source, filename, NULL,
-        input_names, NINPUTS, output_names, NOUTPUTS);
+        input_names, output_names);
       if (0 < ntotal) {
         libxs_predict_t* model = libxs_predict_create(NINPUTS, NOUTPUTS);
         fprintf(stdout, "Loaded %d entries from %s\n", ntotal, filename);
@@ -199,8 +197,10 @@ static void evaluate(const libxs_predict_t* model,
   fprintf(stdout, "Validation (%d samples):\n", ntotal);
   fprintf(stdout, "  param   avg-err   max-err\n");
   for (j = 0; j < NOUTPUTS; ++j) {
-    fprintf(stdout, "  %-4s  %9.2e %9.2e\n",
-      output_names[j],
+    int len = 0;
+    const char* name = libxs_predict_token(output_names, j, &len);
+    fprintf(stdout, "  %-4.*s  %9.2e %9.2e\n",
+      len, name,
       (0 < ntotal) ? (sumerr[j] / ntotal) : 0.0, maxerr[j]);
   }
   fprintf(stdout, "Eval: %d queries (%.2f s)\n", ntotal, dt_eval);

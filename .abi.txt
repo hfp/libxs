@@ -178,6 +178,7 @@ libxs_strimatch
 libxs_strisimilar
 libxs_stristr
 libxs_stristrn
+libxs_strtoken
 libxs_syr2k
 libxs_syr2k_config
 libxs_syr2k_direct

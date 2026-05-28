@@ -45,6 +45,32 @@ LIBXS_API const char* libxs_stristr(const char a[], const char b[])
 }
 
 
+LIBXS_API const char* libxs_strtoken(const char str[],
+  const char delims[], int index, int* length)
+{
+  const char* result = NULL;
+  if (NULL != str) {
+    const char* const sep = (NULL != delims && '\0' != *delims) ? delims : LIBXS_DELIMS;
+    const char* p = str;
+    int i = 0;
+    while (i < index && '\0' != *p) {
+      if (NULL != strchr(sep, *p)) ++i;
+      ++p;
+    }
+    if (i == index && '\0' != *p) {
+      const char* end;
+      while (' ' == *p || '\t' == *p) ++p;
+      end = p;
+      while ('\0' != *end && NULL == strchr(sep, *end)) ++end;
+      while (end > p && (' ' == end[-1] || '\t' == end[-1])) --end;
+      result = p;
+      if (NULL != length) *length = (int)(end - p);
+    }
+  }
+  return result;
+}
+
+
 LIBXS_API int libxs_strimatch(const char a[], const char b[], const char delims[], int* count)
 {
   int result = 0, na = 0, nb = 0;

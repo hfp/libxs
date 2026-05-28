@@ -25,7 +25,7 @@
 # endif
 #endif
 #if !defined(LIBXS_MATH_DELIMS)
-# define LIBXS_MATH_DELIMS " \t;,:"
+# define LIBXS_MATH_DELIMS " \t" LIBXS_DELIMS
 #endif
 #if !defined(LIBXS_MATH_ISDIR)
 # if defined(S_IFDIR)

@@ -46,7 +46,7 @@ LIBXS_APIVAR_PRIVATE_DEF(struct libxs_malloc_pool_t* internal_libxs_default_pool
 # define LIBXS_AUTOPIN
 #endif
 #if !defined(LIBXS_MAIN_DELIMS)
-# define LIBXS_MAIN_DELIMS ";,:"
+# define LIBXS_MAIN_DELIMS LIBXS_DELIMS
 #endif
 
 

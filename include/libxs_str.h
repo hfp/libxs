@@ -46,6 +46,17 @@ LIBXS_API int libxs_strisimilar(const char a[], const char b[],
   const char delims[], libxs_strisimilar_t kind, int* order);
 
 /**
+ * Return a pointer to the i-th token in a delimited string (non-destructive).
+ * str: delimited string (e.g., "M,N,K" or "foo;bar;baz").
+ * delims: delimiter characters (NULL defaults to ",").
+ * index: 0-based token index.
+ * length: if non-NULL, receives the trimmed token length.
+ * Returns pointer into str, or NULL if index is out of range.
+ */
+LIBXS_API const char* libxs_strtoken(const char str[],
+  const char delims[], int index, int* length);
+
+/**
  * Format for instance an amount of Bytes like libxs_format_value(result, sizeof(result), nbytes, "KMGT", "B", 10).
  * The value returned is in requested/determined unit so that the user can decide about printing the buffer.
  */

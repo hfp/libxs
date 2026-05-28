@@ -15,8 +15,8 @@
 # include <omp.h>
 #endif
 
-static const char* input_names[] = { "latitude", "longitude", "depth" };
-static const char* output_names[] = { "mag" };
+static const char input_names[] = "latitude,longitude,depth";
+static const char output_names[] = "mag";
 
 enum { NINPUTS = 3, NOUTPUTS = 1 };
 
@@ -38,7 +38,7 @@ int main(int argc, char* argv[])
     libxs_predict_t* source = libxs_predict_create(NINPUTS, NOUTPUTS);
     if (NULL != source) {
       const int total = libxs_predict_load_csv(source, filename, NULL,
-        input_names, NINPUTS, output_names, NOUTPUTS);
+        input_names, output_names);
       if (0 < total) {
         const int train_end = LIBXS_MAX((int)(total * split + 0.5), 1);
         libxs_predict_t* model = libxs_predict_create(NINPUTS, NOUTPUTS);

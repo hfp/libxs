@@ -2573,15 +2573,37 @@ LIBXS_API_INLINE int internal_libxs_predict_parse_row(
 }
 
 
+LIBXS_API_INLINE int internal_libxs_predict_tokenize(
+  const char spec[], char buf[], const char* tokens[], int maxtokens)
+{
+  int n = 0;
+  const char* p = spec;
+  char* dst = buf;
+  while ('\0' != *p && n < maxtokens) {
+    while (' ' == *p || '\t' == *p) ++p;
+    if ('\0' == *p) break;
+    tokens[n] = dst;
+    while ('\0' != *p && ',' != *p) {
+      *dst++ = *p++;
+    }
+    while (dst > tokens[n] && (' ' == dst[-1] || '\t' == dst[-1])) --dst;
+    *dst++ = '\0';
+    ++n;
+    if (',' == *p) ++p;
+  }
+  return n;
+}
+
+
 LIBXS_API int libxs_predict_load_csv(libxs_predict_t* model,
   const char filename[], const char delims[],
-  const char* inputs[], int ninputs,
-  const char* outputs[], int noutputs)
+  const char inputs[], const char outputs[])
 {
   int result = -1;
   FILE* file;
+  const int ninputs = model->ninputs;
+  const int noutputs = model->noutputs;
   LIBXS_ASSERT(NULL != model && NULL != filename);
-  LIBXS_ASSERT(ninputs == model->ninputs && noutputs == model->noutputs);
   file = fopen(filename, "r");
   if (NULL != file) {
     char line[4096];
@@ -2589,18 +2611,32 @@ LIBXS_API int libxs_predict_load_csv(libxs_predict_t* model,
     double* inp = vals;
     double* outp = vals + ninputs;
     const char* sep = delims;
+    const char* input_tokens[64];
+    const char* output_tokens[64];
+    char tokbuf[2048];
     int idx[128];
     int i, resolved = 1;
+    int ni = 0, no = 0;
     LIBXS_ASSERT(ninputs + noutputs <= 128);
+    if (NULL != inputs) {
+      ni = internal_libxs_predict_tokenize(inputs, tokbuf, input_tokens, 64);
+    }
+    if (NULL != outputs) {
+      no = internal_libxs_predict_tokenize(outputs,
+        tokbuf + sizeof(tokbuf) / 2, output_tokens, 64);
+    }
+    LIBXS_ASSERT((NULL == inputs || ni == ninputs)
+      && (NULL == outputs || no == noutputs));
     result = 0;
     while (NULL != fgets(line, (int)sizeof(line), file) && '#' == line[0]) {}
     if (NULL == inputs || NULL == outputs) {
       for (i = 0; i < ninputs; ++i) {
-        idx[i] = (NULL != inputs) ? (int)strtol(inputs[i], NULL, 10) : i;
+        idx[i] = (NULL != inputs)
+          ? (int)strtol(input_tokens[i], NULL, 10) : i;
       }
       for (i = 0; i < noutputs; ++i) {
         idx[ninputs + i] = (NULL != outputs)
-          ? (int)strtol(outputs[i], NULL, 10) : ninputs + i;
+          ? (int)strtol(output_tokens[i], NULL, 10) : ninputs + i;
       }
       if (NULL == sep && '\0' != line[0]) {
         size_t len = strlen(line);
@@ -2620,11 +2656,12 @@ LIBXS_API int libxs_predict_load_csv(libxs_predict_t* model,
         const char* cp = line;
         while ('\0' != *cp) { if (NULL != strchr(sep, *cp)) ++ncols; ++cp; }
         for (i = 0; i < ninputs && 0 != resolved; ++i) {
-          idx[i] = internal_libxs_predict_resolve_col(inputs[i], line, sep);
+          idx[i] = internal_libxs_predict_resolve_col(input_tokens[i], line, sep);
           if (0 > idx[i]) resolved = 0;
         }
         for (i = 0; i < noutputs && 0 != resolved; ++i) {
-          idx[ninputs + i] = internal_libxs_predict_resolve_col(outputs[i], line, sep);
+          idx[ninputs + i] = internal_libxs_predict_resolve_col(
+            output_tokens[i], line, sep);
           if (0 > idx[ninputs + i]) {
             idx[ninputs + i] = ncols + nextra;
             ++nextra;
@@ -2634,22 +2671,24 @@ LIBXS_API int libxs_predict_load_csv(libxs_predict_t* model,
       if (0 == resolved) {
         rewind(file);
         for (i = 0; i < ninputs; ++i) {
-          idx[i] = (NULL != inputs) ? (int)strtol(inputs[i], NULL, 10) : i;
+          idx[i] = (NULL != inputs)
+            ? (int)strtol(input_tokens[i], NULL, 10) : i;
         }
         for (i = 0; i < noutputs; ++i) {
           idx[ninputs + i] = (NULL != outputs)
-            ? (int)strtol(outputs[i], NULL, 10) : ninputs + i;
+            ? (int)strtol(output_tokens[i], NULL, 10) : ninputs + i;
         }
       }
     }
     else if (0 != resolved) {
       if (NULL == sep) sep = ";";
       for (i = 0; i < ninputs; ++i) {
-        idx[i] = (NULL != inputs) ? (int)strtol(inputs[i], NULL, 10) : i;
+        idx[i] = (NULL != inputs)
+          ? (int)strtol(input_tokens[i], NULL, 10) : i;
       }
       for (i = 0; i < noutputs; ++i) {
         idx[ninputs + i] = (NULL != outputs)
-          ? (int)strtol(outputs[i], NULL, 10) : ninputs + i;
+          ? (int)strtol(output_tokens[i], NULL, 10) : ninputs + i;
       }
     }
     while (NULL != fgets(line, (int)sizeof(line), file)) {

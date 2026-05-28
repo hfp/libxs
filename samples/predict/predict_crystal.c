@@ -37,7 +37,7 @@ int main(int argc, char* argv[])
     libxs_predict_t* source = libxs_predict_create(NFEAT, 1);
     if (NULL != source) {
       const int total = libxs_predict_load_csv(source, filename, NULL,
-        NULL, NFEAT, NULL, 1);
+        NULL, NULL);
       if (0 < total) {
         const int train_end = LIBXS_MAX((int)(total * split + 0.5), 2);
         libxs_predict_t* model = libxs_predict_create(NFEAT, 1);

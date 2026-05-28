@@ -32,6 +32,8 @@
 #define LIBXS_CACHELINE 64
 #define LIBXS_ALIGNMENT LIBXS_CACHELINE
 #define LIBXS_SYNC 1
+/* first character may be used as default output separator */
+#define LIBXS_DELIMS ",;:"
 
 #if !defined(LIBXS_LOCK)
 # define LIBXS_LOCK LIBXS_LOCK_DEFAULT

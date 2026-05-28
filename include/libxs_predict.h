@@ -11,6 +11,7 @@
 
 #include "libxs_math.h"
 #include "libxs_sync.h"
+#include "libxs_str.h"
 
 
 /** Prediction mode flags (ORable). */
@@ -281,15 +282,16 @@ LIBXS_API libxs_predict_t* libxs_predict_load(
  * filename: path to the delimited text file.
  * delims:   string of delimiter characters (NULL = auto-detect: ;,\t space).
  *           Any character in the string acts as a field separator.
- * inputs:   array of column identifiers for input parameters,
- *           or NULL for sequential columns 0..ninputs-1.
- * ninputs:  length of inputs array (must match model's ninputs).
- * outputs:  array of column identifiers for output parameters,
- *           or NULL for sequential columns ninputs..ninputs+noutputs-1.
- * noutputs: length of outputs array (must match model's noutputs).
+ * inputs:   comma-separated column names or numeric indices for input
+ *           parameters, or NULL for sequential columns 0..ninputs-1.
+ * outputs:  comma-separated column names or numeric indices for output
+ *           parameters, or NULL for sequential columns ninputs..ninputs+noutputs-1.
  *
- * Each identifier is matched case-insensitively against the header line.
- * If no header match is found, the identifier is parsed as a numeric
+ * The number of tokens in each string must match the model's ninputs/noutputs
+ * respectively (as set at creation time).
+ *
+ * Each token is matched case-insensitively against the header line.
+ * If no header match is found, the token is parsed as a numeric
  * column index (0-based).
  *
  * Rows where any selected column fails numeric parsing are skipped
@@ -298,8 +300,14 @@ LIBXS_API libxs_predict_t* libxs_predict_load(
  */
 LIBXS_API int libxs_predict_load_csv(libxs_predict_t* model,
   const char filename[], const char delims[],
-  const char* inputs[], int ninputs,
-  const char* outputs[], int noutputs);
+  const char inputs[], const char outputs[]);
+
+/** Return pointer to the i-th comma-separated column name in spec. */
+LIBXS_API_INLINE const char* libxs_predict_token(
+  const char spec[], int index, int* length)
+{
+  return libxs_strtoken(spec, ",", index, length);
+}
 
 /* header-only: include implementation (deferred from libxs_macros.h) */
 #if defined(LIBXS_SOURCE) && !defined(LIBXS_SOURCE_H)
