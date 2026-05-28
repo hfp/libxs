@@ -63,7 +63,8 @@ size_t uint_msort_inversions(void* inout, size_t elemsize, size_t count);
 static const void* mhd_element_hash_base;
 static int mhd_element_hash(void* dst,
   const libxs_mhd_element_handler_info_t* dst_info, libxs_data_t src_type,
-  const void* src, const void* src_min, const void* src_max);
+  const void* src, const void* src_min, const void* src_max,
+  size_t index, void* context);
 
 
 int main(int argc, char* argv[])
@@ -548,16 +549,19 @@ size_t uint_msort_inversions(void* inout, size_t elemsize, size_t count) {
 
 static int mhd_element_hash(void* dst,
   const libxs_mhd_element_handler_info_t* dst_info, libxs_data_t src_type,
-  const void* src, const void* src_min, const void* src_max)
+  const void* src, const void* src_min, const void* src_max,
+  size_t index, void* context)
 {
   unsigned int v = 0;
   const size_t typesize = LIBXS_TYPESIZE(src_type);
   const size_t n = LIBXS_MIN(typesize, sizeof(v));
   LIBXS_UNUSED(dst_info); LIBXS_UNUSED(src_min); LIBXS_UNUSED(src_max);
+  LIBXS_UNUSED(context);
   LIBXS_MEMCPY(&v, src, n);
-  if (NULL != mhd_element_hash_base) {
-    const unsigned int i = (unsigned int)(
-      ((const char*)src - (const char*)mhd_element_hash_base) / typesize);
+  if (0 != index || NULL != mhd_element_hash_base) {
+    const unsigned int i = (unsigned int)(NULL != mhd_element_hash_base
+      ? ((const char*)src - (const char*)mhd_element_hash_base) / typesize
+      : index);
     v = libxs_hash32(((unsigned long long)libxs_hash32(v) << 32) | i);
   }
   *(unsigned char*)dst = (unsigned char)(libxs_hash32(v) & 0xFF);

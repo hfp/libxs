@@ -29,7 +29,8 @@ LIBXS_EXTERN_C typedef struct libxs_mhd_element_handler_info_t {
  */
 LIBXS_EXTERN_C typedef int (*libxs_mhd_element_handler_t)(void* dst,
   const libxs_mhd_element_handler_info_t* dst_info, libxs_data_t src_type,
-  const void* src, const void* src_min, const void* src_max);
+  const void* src, const void* src_min, const void* src_max,
+  size_t index, void* context);
 
 /**
  * Image descriptor containing metadata fields.
@@ -56,6 +57,8 @@ LIBXS_EXTERN_C typedef struct libxs_mhd_write_info_t {
   const libxs_mhd_element_handler_info_t* handler_info;
   /** Custom per-element callback (NULL: use built-in conversion). */
   libxs_mhd_element_handler_t handler;
+  /** User data passed to the custom per-element callback. */
+  void* handler_context;
   /** Extension header text appended to the MHD header (NULL: none). */
   const char* extension_header;
   /** Extension data appended after the image data (NULL: none). */
@@ -71,7 +74,8 @@ LIBXS_EXTERN_C typedef struct libxs_mhd_write_info_t {
  */
 LIBXS_API int libxs_mhd_element_conversion(void* dst,
   const libxs_mhd_element_handler_info_t* dst_info, libxs_data_t src_type,
-  const void* src, const void* src_min, const void* src_max);
+  const void* src, const void* src_min, const void* src_max,
+  size_t index, void* context);
 
 /**
  * Predefined function to check a buffer against file content.
@@ -80,7 +84,8 @@ LIBXS_API int libxs_mhd_element_conversion(void* dst,
  */
 LIBXS_API int libxs_mhd_element_comparison(void* dst,
   const libxs_mhd_element_handler_info_t* dst_info, libxs_data_t src_type,
-  const void* src, const void* src_min, const void* src_max);
+  const void* src, const void* src_min, const void* src_max,
+  size_t index, void* context);
 
 
 /** Returns the name of the element type; result may be NULL/0 in case of an unknown type. */
@@ -141,7 +146,8 @@ LIBXS_API int libxs_mhd_read(
    * allows to only compare with present data. Can be used to
    * avoid allocating an actual destination.
    */
-  libxs_mhd_element_handler_t handler);
+  libxs_mhd_element_handler_t handler,
+  void* handler_context);
 
 
 /**

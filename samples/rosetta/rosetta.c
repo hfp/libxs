@@ -28,6 +28,7 @@
  *   [5] gamma_n    running estimate: H_n - ln(n) - 1/(2n)
  */
 #include <libxs_math.h>
+#include <libxs_mhd.h>
 #include <libxs_perm.h>
 
 #include <stdio.h>
@@ -37,17 +38,41 @@
 
 #define NROWS   64
 #define NFIELDS 6
+#define ROSETTA_PATH_MAX 1024
 #define EULER_MASCHERONI 0.5772156649015329
+
+typedef struct field_image_context_t {
+  const double* values;
+  double vmin[NFIELDS];
+  double vmax[NFIELDS];
+  size_t nrows;
+  int stride;
+} field_image_context_t;
+
+static FILE* artifact_file = NULL;
+static char artifact_dir[ROSETTA_PATH_MAX] = { 0 };
 
 static const char* field_names[NFIELDS] = {
   "n", "1/n", "H_n", "ln(n)", "H_n-ln(n)", "gamma_est"
 };
+
 
 static void separator(void) {
   printf("--------------------------------------------------\n");
 }
 
 
+static int artifact_path(char path[ROSETTA_PATH_MAX], const char name[]);
+static void artifact_open(void);
+static void artifact_close(void);
+static void artifact_write_matrix(const char name[], const void* data,
+  libxs_data_t dtype, size_t nrows, int stride);
+static void artifact_write_field_image(const char name[], const void* data,
+  libxs_data_t dtype, size_t nrows, int stride);
+static int field_image_handler(void* dst,
+  const libxs_mhd_element_handler_info_t* dst_info, libxs_data_t src_type,
+  const void* src, const void* src_min, const void* src_max,
+  size_t index, void* context);
 static void generate_table(double table[NROWS][NFIELDS]);
 /* Level 0: flat 1-D probe -- expected to be inconclusive. */
 static libxs_data_t flat_probe(const void* blob, size_t nbytes);
@@ -82,6 +107,7 @@ int main(void)
   blob = malloc(nbytes);
   if (NULL == blob) return EXIT_FAILURE;
   memcpy(blob, table, nbytes);
+  artifact_open();
 
   printf("ROSETTA: Recovering structure from opaque bytes\n");
   separator();
@@ -96,6 +122,10 @@ int main(void)
   separator();
 
   stride = stride_sweep(blob, nbytes, &discovered);
+  artifact_write_matrix("rosetta_original.mhd", blob, discovered,
+    (size_t)(nbytes / (LIBXS_TYPESIZE(discovered) * stride)), stride);
+  artifact_write_field_image("rosetta_fields.mhd", blob, discovered,
+    (size_t)(nbytes / (LIBXS_TYPESIZE(discovered) * stride)), stride);
   separator();
 
   shuffle_test(blob, nbytes, discovered, stride);
@@ -110,8 +140,147 @@ int main(void)
   verify(table, blob, nbytes, discovered);
   separator();
 
+  artifact_close();
   free(blob);
   return EXIT_SUCCESS;
+}
+
+
+static int artifact_path(char path[ROSETTA_PATH_MAX], const char name[])
+{
+  int result = EXIT_FAILURE;
+  if (0 != artifact_dir[0] && NULL != name) {
+    const size_t dlen = strlen(artifact_dir);
+    const size_t nlen = strlen(name);
+    if (dlen + nlen + 2 < ROSETTA_PATH_MAX) {
+      strcpy(path, artifact_dir);
+      if ('/' != path[dlen - 1]) strcat(path, "/");
+      strcat(path, name);
+      result = EXIT_SUCCESS;
+    }
+  }
+  return result;
+}
+
+
+static void artifact_open(void)
+{
+  const char* const outdir = getenv("ROSETTA_OUTDIR");
+  char path[ROSETTA_PATH_MAX];
+  if (NULL != outdir && 0 != *outdir && strlen(outdir) < sizeof(artifact_dir)) {
+    strcpy(artifact_dir, outdir);
+    if (EXIT_SUCCESS == artifact_path(path, "summary.csv")) {
+      artifact_file = fopen(path, "w");
+      if (NULL != artifact_file) {
+        fprintf(artifact_file, "stage,index,name,value\n");
+      }
+    }
+  }
+}
+
+
+static void artifact_close(void)
+{
+  if (NULL != artifact_file) {
+    fclose(artifact_file);
+    artifact_file = NULL;
+  }
+}
+
+
+static void artifact_write_matrix(const char name[], const void* data,
+  libxs_data_t dtype, size_t nrows, int stride)
+{
+  char path[ROSETTA_PATH_MAX];
+  if (NULL != data && 0 < nrows && 0 < stride
+    && EXIT_SUCCESS == artifact_path(path, name))
+  {
+    size_t size[2];
+    libxs_mhd_info_t info;
+    size[0] = (size_t)stride;
+    size[1] = nrows;
+    info.ndims = 2;
+    info.ncomponents = 1;
+    info.type = dtype;
+    info.header_size = 0;
+    libxs_mhd_write(path, NULL, size, NULL, &info, data, NULL);
+  }
+}
+
+
+static void artifact_write_field_image(const char name[], const void* data,
+  libxs_data_t dtype, size_t nrows, int stride)
+{
+  char path[ROSETTA_PATH_MAX];
+  int result = EXIT_FAILURE;
+  if (LIBXS_DATATYPE_F64 == dtype && NULL != data && 0 < nrows
+    && 0 < stride && stride <= NFIELDS
+    && EXIT_SUCCESS == artifact_path(path, name))
+  {
+    field_image_context_t context;
+    libxs_mhd_element_handler_info_t handler_info;
+    libxs_mhd_write_info_t write_info;
+    size_t size[2];
+    libxs_mhd_info_t info;
+    int f;
+    context.values = (const double*)data;
+    context.nrows = nrows;
+    context.stride = stride;
+    for (f = 0; f < stride; ++f) {
+      size_t r;
+      context.vmin[f] = context.values[f];
+      context.vmax[f] = context.values[f];
+      for (r = 1; r < nrows; ++r) {
+        const double value = context.values[r * (size_t)stride + (size_t)f];
+        if (value < context.vmin[f]) context.vmin[f] = value;
+        if (context.vmax[f] < value) context.vmax[f] = value;
+      }
+    }
+    handler_info.type = LIBXS_DATATYPE_U8;
+    handler_info.hint = LIBXS_MHD_ELEMENT_CONVERSION_DEFAULT;
+    memset(&write_info, 0, sizeof(write_info));
+    write_info.handler_info = &handler_info;
+    write_info.handler = field_image_handler;
+    write_info.handler_context = &context;
+    size[0] = nrows;
+    size[1] = (size_t)stride;
+    info.ndims = 2;
+    info.ncomponents = 1;
+    info.type = dtype;
+    info.header_size = 0;
+    result = libxs_mhd_write(path, NULL, size, NULL, &info, data, &write_info);
+  }
+  if (EXIT_SUCCESS != result && NULL != artifact_file) {
+    fprintf(artifact_file, "artifact,,%s,not_written\n", name);
+  }
+}
+
+
+static int field_image_handler(void* dst,
+  const libxs_mhd_element_handler_info_t* dst_info, libxs_data_t src_type,
+  const void* src, const void* src_min, const void* src_max,
+  size_t index, void* context)
+{
+  const field_image_context_t* const info = (const field_image_context_t*)context;
+  int result = EXIT_FAILURE;
+  LIBXS_UNUSED(dst_info); LIBXS_UNUSED(src_type); LIBXS_UNUSED(src);
+  LIBXS_UNUSED(src_min); LIBXS_UNUSED(src_max);
+  if (NULL != dst && NULL != info && 0 < info->nrows) {
+    const size_t row = index % info->nrows;
+    const int field = (int)(index / info->nrows);
+    unsigned char pixel = 0;
+    if (0 <= field && field < info->stride) {
+      const double vmin = info->vmin[field], vmax = info->vmax[field];
+      if (vmin < vmax) {
+        const double value = info->values[row * (size_t)info->stride + (size_t)field];
+        const double scaled = 255.0 * (value - vmin) / (vmax - vmin);
+        pixel = (unsigned char)(scaled + 0.5);
+      }
+      *(unsigned char*)dst = pixel;
+      result = EXIT_SUCCESS;
+    }
+  }
+  return result;
 }
 
 
@@ -137,18 +306,32 @@ static libxs_data_t flat_probe(const void* blob, size_t nbytes)
 {
   libxs_fprint_t fp;
   int r;
+  double decay = -1;
   printf("Level 0: Flat 1-D probe (all bytes as one sequence)\n");
   printf("  Input: %i opaque bytes\n", (int)nbytes);
   r = libxs_fprint(&fp, LIBXS_DATATYPE_UNKNOWN, blob,
     1, &nbytes, NULL, 6, -1);
-  if (EXIT_SUCCESS == r && libxs_fprint_decay(&fp) < 1.0) {
+  if (EXIT_SUCCESS == r) decay = libxs_fprint_decay(&fp);
+  if (NULL != artifact_file) {
+    fprintf(artifact_file, "flat,,success,%i\n", EXIT_SUCCESS == r ? 1 : 0);
+    fprintf(artifact_file, "flat,,decay,%.17g\n", decay);
+  }
+  if (EXIT_SUCCESS == r && decay < 1.0) {
     printf("  Discovered: %s, decay=%.6f\n",
-      libxs_typename(fp.datatype), libxs_fprint_decay(&fp));
+      libxs_typename(fp.datatype), decay);
+    if (NULL != artifact_file) {
+      fprintf(artifact_file, "flat,,type,%s\n", libxs_typename(fp.datatype));
+      fprintf(artifact_file, "flat,,accepted,1\n");
+    }
     return fp.datatype;
   }
   printf("  No type has decay < 1 -- flat stream is not smooth.\n");
   printf("  This is expected: interleaved fields of different\n");
   printf("  scales look like noise when read sequentially.\n");
+  if (NULL != artifact_file) {
+    fprintf(artifact_file, "flat,,type,unknown\n");
+    fprintf(artifact_file, "flat,,accepted,0\n");
+  }
   return LIBXS_DATATYPE_UNKNOWN;
 }
 
@@ -210,6 +393,13 @@ static int stride_sweep(const void* blob, size_t nbytes,
   printf("  Records:     %i\n",
     (int)(nbytes / (LIBXS_TYPESIZE(best_type) * best_stride)));
   printf("  Avg decay:   %.6f\n", best_decay);
+  if (NULL != artifact_file) {
+    fprintf(artifact_file, "stride,,type,%s\n", libxs_typename(best_type));
+    fprintf(artifact_file, "stride,,elements,%i\n", best_stride);
+    fprintf(artifact_file, "stride,,records,%i\n",
+      (int)(nbytes / (LIBXS_TYPESIZE(best_type) * best_stride)));
+    fprintf(artifact_file, "stride,,avg_decay,%.17g\n", best_decay);
+  }
   *out_type = best_type;
   return best_stride;
 }
@@ -251,7 +441,19 @@ static void shuffle_test(const void* blob, size_t nbytes,
         (0 < r_orig) ? (r_shuf / r_orig) : 0);
       printf("  -> Record order %s structure.\n",
         (r_shuf > 2 * r_orig) ? "carries" : "does not carry");
+      if (NULL != artifact_file) {
+        fprintf(artifact_file, "shuffle,,original_decay,%.17g\n", r_orig);
+        fprintf(artifact_file, "shuffle,,shuffled_decay,%.17g\n", r_shuf);
+        fprintf(artifact_file, "shuffle,,ratio,%.17g\n",
+          (0 < r_orig) ? (r_shuf / r_orig) : 0);
+        fprintf(artifact_file, "shuffle,,carries_structure,%i\n",
+          (r_shuf > 2 * r_orig) ? 1 : 0);
+      }
     }
+    artifact_write_matrix("rosetta_shuffled.mhd", shuffled, dtype,
+      nrows, stride);
+    artifact_write_field_image("rosetta_fields_shuffled.mhd", shuffled,
+      dtype, nrows, stride);
     free(shuffled);
   }
 }
@@ -277,6 +479,10 @@ static void field_analysis(const void* blob, size_t nbytes,
       const double decay = libxs_fprint_decay(&fp);
       printf("  [%i] %-10s  decay=%.6f", f, field_names[f], decay);
       if (decay < best_decay) { best_decay = decay; best_f = f; }
+      if (NULL != artifact_file) {
+        fprintf(artifact_file, "field,%i,%s,%.17g\n",
+          f, field_names[f], decay);
+      }
       if (5 == f) {
         const double* vals = (const double*)col;
         printf("  (last=%.10f, gamma=%.10f)",
@@ -294,6 +500,9 @@ static void field_analysis(const void* blob, size_t nbytes,
   }
   else {
     printf("  Smoothest: [%i] %s\n", best_f, field_names[best_f]);
+  }
+  if (NULL != artifact_file) {
+    fprintf(artifact_file, "field,,smoothest,%i\n", best_f);
   }
 }
 
@@ -326,6 +535,9 @@ static void sort_test(const void* blob, size_t nbytes,
     }
     printf("  Data is %s ordered for row smoothness.\n",
       is_identity ? "already optimally" : "NOT optimally");
+    if (NULL != artifact_file) {
+      fprintf(artifact_file, "sort,,identity,%i\n", is_identity);
+    }
     if (0 == is_identity) {
       printf("  Permutation (first 16): ");
       for (i = 0; i < LIBXS_MIN(nrows, 16); ++i)
@@ -350,4 +562,8 @@ static void verify(const void* table,
   printf("  Unmatched: %i, tolerance: %.2e\n", d, tol);
   printf("  -> %s\n", (0 == d) ? "Byte-perfect recovery."
     : "Values differ (unexpected).");
+  if (NULL != artifact_file) {
+    fprintf(artifact_file, "verify,,unmatched,%i\n", d);
+    fprintf(artifact_file, "verify,,tolerance,%.17g\n", tol);
+  }
 }

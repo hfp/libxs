@@ -68,6 +68,22 @@ No arguments. The sample is self-contained: it generates the data,
 encodes it as a flat blob, runs the full analysis, and prints the
 results.
 
+To collect machine-readable artifacts, set `ROSETTA_OUTDIR` to an
+existing directory:
+
+```bash
+mkdir -p results/rosetta
+ROSETTA_OUTDIR=results/rosetta ./rosetta.x
+```
+
+This writes `summary.csv`, `rosetta_original.mhd`,
+`rosetta_shuffled.mhd`, `rosetta_fields.mhd`, and
+`rosetta_fields_shuffled.mhd`. If `LIBXS_MHD_PNG=1` is also set, the
+MHD writer emits PNG files with the same basenames. The `fields`
+images are normalized per field, making the ordered and shuffled
+record traces easy to compare visually. The artifact mode is optional
+and leaves the interactive sample output unchanged.
+
 ## Example Output
 
 ```

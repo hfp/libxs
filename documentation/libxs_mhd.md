@@ -28,10 +28,11 @@ Destination type and conversion hint, passed to built-in or custom element handl
 typedef int (*libxs_mhd_element_handler_t)(void* dst,
   const libxs_mhd_element_handler_info_t* dst_info,
   libxs_data_t src_type,
-  const void* src, const void* src_min, const void* src_max);
+  const void* src, const void* src_min, const void* src_max,
+  size_t index, void* context);
 ```
 
-Per-element callback for reading or converting image data. The value range (`src_min`, `src_max`) is available for scaling.
+Per-element callback for reading or converting image data. The value range (`src_min`, `src_max`) is available for scaling. `index` is the logical element index in write/read traversal order, and `context` is user data supplied by the caller.
 
 ```C
 typedef struct libxs_mhd_info_t {
@@ -48,6 +49,7 @@ Image descriptor populated by `libxs_mhd_read_header` and consumed by read/write
 typedef struct libxs_mhd_write_info_t {
   const libxs_mhd_element_handler_info_t* handler_info;
   libxs_mhd_element_handler_t handler;
+  void* handler_context;
   const char* extension_header;
   const void* extension;
   size_t extension_size;
@@ -62,7 +64,8 @@ Optional write parameters (conversion, custom handler, extension data). NULL is 
 int libxs_mhd_element_conversion(void* dst,
   const libxs_mhd_element_handler_info_t* dst_info,
   libxs_data_t src_type,
-  const void* src, const void* src_min, const void* src_max);
+  const void* src, const void* src_min, const void* src_max,
+  size_t index, void* context);
 ```
 
 Built-in element conversion. Scales values when `src_min` and `src_max` are non-NULL; otherwise clamps to the destination type.
@@ -71,7 +74,8 @@ Built-in element conversion. Scales values when `src_min` and `src_max` are non-
 int libxs_mhd_element_comparison(void* dst,
   const libxs_mhd_element_handler_info_t* dst_info,
   libxs_data_t src_type,
-  const void* src, const void* src_min, const void* src_max);
+  const void* src, const void* src_min, const void* src_max,
+  size_t index, void* context);
 ```
 
 Check an in-memory buffer against file content (element-wise comparison with optional type conversion).
@@ -108,7 +112,8 @@ int libxs_mhd_read(const char filename[],
   const size_t pitch[], const libxs_mhd_info_t* info,
   void* data,
   const libxs_mhd_element_handler_info_t* handler_info,
-  libxs_mhd_element_handler_t handler);
+  libxs_mhd_element_handler_t handler,
+  void* handler_context);
 ```
 
 Read image data into `data`. Optional `handler_info` triggers type conversion; optional `handler` supplies a custom per-element callback (can also serve as a comparison function without allocating a buffer).

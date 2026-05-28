@@ -158,7 +158,7 @@ LIBXS_API_INLINE int gemm_mhd_read(const char* filename, GEMM_INT_TYPE* rows, GE
       size_t pitch[2];
       pitch[0] = file_ld;
       pitch[1] = size[1];
-      result = libxs_mhd_read(data_filename, NULL /*offset*/, size, pitch, &info, data, NULL /*handler_info*/, NULL /*handler*/);
+      result = libxs_mhd_read(data_filename, NULL /*offset*/, size, pitch, &info, data, NULL /*handler_info*/, NULL /*handler*/, NULL /*handler_context*/);
     }
   }
   return result;

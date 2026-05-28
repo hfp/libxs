@@ -51,25 +51,25 @@ int main(int argc, char* argv[])
     dst_info.type = LIBXS_DATATYPE_F32;
     result = libxs_mhd_element_conversion(
       &dst_f32, &dst_info, LIBXS_DATATYPE_I16/*src_type*/,
-      &src, NULL/*src_min*/, NULL/*src_max*/);
+      &src, NULL/*src_min*/, NULL/*src_max*/, 0, NULL);
     if (EXIT_SUCCESS == result && src != dst_f32) result = EXIT_FAILURE;
     if (EXIT_SUCCESS == result) {
       result = libxs_mhd_element_conversion(
         &dst_f32, &dst_info, LIBXS_DATATYPE_I16/*src_type*/,
-        &src, &src_min, &src_max);
+        &src, &src_min, &src_max, 0, NULL);
       if (EXIT_SUCCESS == result && src != dst_f32) result = EXIT_FAILURE;
     }
     dst_info.type = LIBXS_DATATYPE_I8;
     if (EXIT_SUCCESS == result) {
       result = libxs_mhd_element_conversion(
         &dst_i8, &dst_info, LIBXS_DATATYPE_I16/*src_type*/,
-        &src, NULL/*src_min*/, NULL/*src_max*/);
+        &src, NULL/*src_min*/, NULL/*src_max*/, 0, NULL);
       if (EXIT_SUCCESS == result && LIBXS_MIN(127, src) != dst_i8) result = EXIT_FAILURE;
     }
     if (EXIT_SUCCESS == result) {
       result = libxs_mhd_element_conversion(
         &dst_i8, &dst_info, LIBXS_DATATYPE_I16/*src_type*/,
-        &src, &src_min, &src_max);
+        &src, &src_min, &src_max, 0, NULL);
       if (EXIT_SUCCESS == result && 64 != dst_i8) result = EXIT_FAILURE;
     }
   }
@@ -82,39 +82,39 @@ int main(int argc, char* argv[])
     dst_info.type = LIBXS_DATATYPE_I16;
     result = libxs_mhd_element_conversion(
       &dst_i16, &dst_info, LIBXS_DATATYPE_F64/*src_type*/,
-      &src, NULL/*src_min*/, NULL/*src_max*/);
+      &src, NULL/*src_min*/, NULL/*src_max*/, 0, NULL);
     if (EXIT_SUCCESS == result && src != dst_i16) result = EXIT_FAILURE;
     if (EXIT_SUCCESS == result) {
       result = libxs_mhd_element_conversion(
         &dst_i16, &dst_info, LIBXS_DATATYPE_F64/*src_type*/,
-        &src, &src_min, &src_max);
+        &src, &src_min, &src_max, 0, NULL);
       if (EXIT_SUCCESS == result && 2 != dst_i16) result = EXIT_FAILURE;
     }
     dst_info.type = LIBXS_DATATYPE_U8;
     if (EXIT_SUCCESS == result) {
       result = libxs_mhd_element_conversion(
         &dst_u8, &dst_info, LIBXS_DATATYPE_F64/*src_type*/,
-        &src, NULL/*src_min*/, NULL/*src_max*/);
+        &src, NULL/*src_min*/, NULL/*src_max*/, 0, NULL);
       if (EXIT_SUCCESS == result && LIBXS_MIN(255, src) != dst_u8) result = EXIT_FAILURE;
     }
     if (EXIT_SUCCESS == result) {
       result = libxs_mhd_element_conversion(
         &dst_u8, &dst_info, LIBXS_DATATYPE_F64/*src_type*/,
-        &src, &src_min, &src_max);
+        &src, &src_min, &src_max, 0, NULL);
       if (EXIT_SUCCESS == result && 255 != dst_u8) result = EXIT_FAILURE;
     }
     if (EXIT_SUCCESS == result) {
       src = -src;
       result = libxs_mhd_element_conversion(
         &dst_u8, &dst_info, LIBXS_DATATYPE_F64/*src_type*/,
-        &src, &src_min, &src_max);
+        &src, &src_min, &src_max, 0, NULL);
       if (EXIT_SUCCESS == result && 0 != dst_u8) result = EXIT_FAILURE;
     }
     dst_info.type = LIBXS_DATATYPE_I16;
     if (EXIT_SUCCESS == result) {
       result = libxs_mhd_element_conversion(
         &dst_i16, &dst_info, LIBXS_DATATYPE_F64/*src_type*/,
-        &src, &src_min, &src_max);
+        &src, &src_min, &src_max, 0, NULL);
       if (EXIT_SUCCESS == result && -3 != dst_i16) result = EXIT_FAILURE;
     }
   }
@@ -123,7 +123,7 @@ int main(int argc, char* argv[])
   if (EXIT_SUCCESS == result) {
     result = libxs_mhd_read(data_filename,
       offset, size, pitch, &info, data,
-      NULL/*handler_info*/, NULL/*handler*/);
+      NULL/*handler_info*/, NULL/*handler*/, NULL/*handler_context*/);
   }
 
   /* Write the data into a new file; update header_size. */
@@ -137,7 +137,7 @@ int main(int argc, char* argv[])
     info.header_size = 0;
     result = libxs_mhd_read(data_filename,
       offset, size, pitch, &info, data,
-      NULL/*handler_info*/, libxs_mhd_element_comparison);
+      NULL/*handler_info*/, libxs_mhd_element_comparison, NULL/*handler_context*/);
   }
 
   /* Check the written data against the buffer with conversion. */
@@ -150,7 +150,7 @@ int main(int argc, char* argv[])
     info.header_size = 0;
     result = libxs_mhd_read(data_filename,
       offset, size, pitch, &info, buffer,
-      &dst_info, NULL/*libxs_mhd_element_comparison*/);
+      &dst_info, NULL/*libxs_mhd_element_comparison*/, NULL/*handler_context*/);
     free(buffer);
   }
 
