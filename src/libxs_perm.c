@@ -67,6 +67,11 @@
   } \
 } while(0)
 
+LIBXS_EXTERN_C typedef uint64_t (*internal_libxs_sfc_encode_t)(
+  const unsigned int coords[], int ndims);
+LIBXS_EXTERN_C typedef void (*internal_libxs_sfc_decode_t)(
+  uint64_t code, unsigned int coords[], int ndims);
+
 
 LIBXS_API_INLINE size_t internal_libxs_shuffle_coprime(
   size_t count, const size_t* shuffle)
@@ -378,6 +383,99 @@ LIBXS_API uint64_t libxs_morton(const unsigned int coords[], int ndims)
     }
   }
   return code;
+}
+
+
+LIBXS_API void libxs_morton_decode(
+  uint64_t code, unsigned int coords[], int ndims)
+{
+  if (NULL != coords && 0 < ndims && ndims <= 64) {
+    const int bpd = 64 / ndims;
+    int bit, d;
+    for (d = 0; d < ndims; ++d) coords[d] = 0;
+    for (bit = 0; bit < bpd; ++bit) {
+      for (d = 0; d < ndims; ++d) {
+        coords[d] |= (unsigned int)(code & 1u) << bit;
+        code >>= 1;
+      }
+    }
+  }
+}
+
+
+LIBXS_API void libxs_hilbert_decode(
+  uint64_t code, unsigned int coords[], int ndims)
+{
+  if (NULL != coords && 0 < ndims && ndims <= 64) {
+    const int bpd = 64 / ndims;
+    int i, level;
+    for (i = 0; i < ndims; ++i) coords[i] = 0;
+    for (level = 0; level < bpd; ++level) {
+      const int shift = level;
+      int d;
+      for (d = ndims - 1; 0 <= d; --d) {
+        coords[d] |= (unsigned int)(code & 1u) << shift;
+        code >>= 1;
+      }
+    }
+    if (1 < ndims) {
+      const unsigned int m = 1u << (bpd - 1);
+      unsigned int q;
+      unsigned int t = coords[ndims - 1] >> 1;
+      for (i = ndims - 1; 0 < i; --i) coords[i] ^= coords[i - 1];
+      coords[0] ^= t;
+      for (q = 2; 0 != q && q <= m; q <<= 1) {
+        const unsigned int p = q - 1;
+        for (i = ndims - 1; 0 <= i; --i) {
+          if (0 != (coords[i] & q)) {
+            coords[0] ^= p;
+          }
+          else {
+            t = (coords[0] ^ coords[i]) & p;
+            coords[0] ^= t; coords[i] ^= t;
+          }
+        }
+      }
+    }
+  }
+}
+
+
+LIBXS_API_INLINE int internal_libxs_stratify(
+  const unsigned int src_coords[], int src_ndims,
+  unsigned int dst_coords[], int dst_ndims,
+  internal_libxs_sfc_encode_t encode, internal_libxs_sfc_decode_t decode)
+{
+  int result = EXIT_FAILURE;
+  if (NULL != src_coords && NULL != dst_coords && NULL != encode
+    && NULL != decode && 0 < dst_ndims && dst_ndims < src_ndims
+    && src_ndims <= 64)
+  {
+    const uint64_t code = encode(src_coords, src_ndims);
+    decode(code, dst_coords, dst_ndims);
+    result = EXIT_SUCCESS;
+  }
+  return result;
+}
+
+
+LIBXS_API int libxs_stratify_morton(
+  const unsigned int src_coords[], int src_ndims,
+  unsigned int dst_coords[], int dst_ndims)
+{
+  int result = internal_libxs_stratify(src_coords, src_ndims,
+    dst_coords, dst_ndims, libxs_morton, libxs_morton_decode);
+  return result;
+}
+
+
+LIBXS_API int libxs_stratify_hilbert(
+  const unsigned int src_coords[], int src_ndims,
+  unsigned int dst_coords[], int dst_ndims)
+{
+  int result = internal_libxs_stratify(src_coords, src_ndims,
+    dst_coords, dst_ndims, libxs_hilbert, libxs_hilbert_decode);
+  return result;
 }
 
 

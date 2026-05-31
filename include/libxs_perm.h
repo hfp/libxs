@@ -76,11 +76,43 @@ LIBXS_API void libxs_sort(void* base, int n, size_t size,
 LIBXS_API uint64_t libxs_hilbert(const unsigned int coords[], int ndims);
 
 /**
+ * Inverse N-dimensional Hilbert curve index. Maps a 64-bit key back
+ * to ndims coordinates using floor(64/ndims) bits per coordinate.
+ */
+LIBXS_API void libxs_hilbert_decode(
+  uint64_t code, unsigned int coords[], int ndims);
+
+/**
  * N-dimensional Morton code (Z-order curve). Bit-interleaves ndims
  * coordinates into a 64-bit key. Each coordinate is quantized to
  * floor(64/ndims) bits. coords[k] must be in [0, 2^bits_per_dim).
  */
 LIBXS_API uint64_t libxs_morton(const unsigned int coords[], int ndims);
+
+/**
+ * Inverse N-dimensional Morton code. Deinterleaves a 64-bit key back
+ * to ndims coordinates using floor(64/ndims) bits per coordinate.
+ */
+LIBXS_API void libxs_morton_decode(
+  uint64_t code, unsigned int coords[], int ndims);
+
+/**
+ * Stratify higher-dimensional coordinates into a lower-dimensional
+ * Morton layout. Encodes src_coords as a source-dimensional Morton key
+ * and decodes that key into dst_ndims Morton coordinates.
+ */
+LIBXS_API int libxs_stratify_morton(
+  const unsigned int src_coords[], int src_ndims,
+  unsigned int dst_coords[], int dst_ndims);
+
+/**
+ * Stratify higher-dimensional coordinates into a lower-dimensional
+ * Hilbert layout. Encodes src_coords as a source-dimensional Hilbert key
+ * and decodes that key into dst_ndims Hilbert coordinates.
+ */
+LIBXS_API int libxs_stratify_hilbert(
+  const unsigned int src_coords[], int src_ndims,
+  unsigned int dst_coords[], int dst_ndims);
 
 /**
  * Build a k-d tree in-place for n points in ndims dimensions.

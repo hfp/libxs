@@ -115,20 +115,46 @@ Examples:
 
 ```C
 uint64_t libxs_hilbert(const unsigned int coords[], int ndims);
+void libxs_hilbert_decode(uint64_t code, unsigned int coords[], int ndims);
 ```
 
 N-dimensional Hilbert curve index. Maps ndims coordinates to a
 64-bit key with strong locality guarantees. Each coordinate is
 quantized to floor(64/ndims) bits. coords[k] must be in
-[0, 2^bits_per_dim).
+[0, 2^bits_per_dim). The decode routine maps such a key back
+to ndims coordinates with the same bit budget.
 
 ```C
 uint64_t libxs_morton(const unsigned int coords[], int ndims);
+void libxs_morton_decode(uint64_t code, unsigned int coords[], int ndims);
 ```
 
 N-dimensional Morton code (Z-order curve). Bit-interleaves ndims
 coordinates into a 64-bit key. Each coordinate is quantized to
-floor(64/ndims) bits.
+floor(64/ndims) bits. The decode routine deinterleaves the key
+back to ndims coordinates.
+
+```C
+int libxs_stratify_morton(
+  const unsigned int src_coords[], int src_ndims,
+  unsigned int dst_coords[], int dst_ndims);
+int libxs_stratify_hilbert(
+  const unsigned int src_coords[], int src_ndims,
+  unsigned int dst_coords[], int dst_ndims);
+```
+
+Stratify higher-dimensional coordinates into a lower-dimensional
+layout without slicing. The source coordinates are encoded using
+the selected source-dimensional space-filling curve, and the
+resulting key is decoded as target-dimensional coordinates using
+the same curve family. This gives deterministic rank-preserving
+embeddings such as 3D to 2D:
+
+    code = curve(src_coords, 3)
+    dst_coords = inverse_curve(code, 2)
+
+The target dimensionality must be smaller than the source
+dimensionality. The functions return EXIT_SUCCESS or EXIT_FAILURE.
 
 ## k-d Tree
 

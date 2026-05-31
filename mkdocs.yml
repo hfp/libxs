@@ -63,6 +63,7 @@ nav:
   - Reference: libxs_opencl.md
 - Example Code:
   - Registry: samples/libxs_registry.md
+  - Stratify: samples/libxs_stratify.md
   - Rosetta: samples/libxs_rosetta.md
   - Predict: samples/libxs_predict.md
   - Shuffle: samples/libxs_shuffle.md

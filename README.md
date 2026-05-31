@@ -109,6 +109,7 @@ USE :: libxs, ONLY: libxs_memcmp
 | Sample                                                    | Description                                                  |
 |-----------------------------------------------------------|--------------------------------------------------------------|
 | [registry](documentation/samples/libxs_registry.md)       | Registry dispatch microbenchmark                             |
+| [stratify](documentation/samples/libxs_stratify.md)       | Space-filling 3D-to-2D stratification for dense volumes      |
 | [rosetta](documentation/samples/libxs_rosetta.md)         | Hierarchical type discovery on opaque binary data            |
 | [predict](documentation/samples/libxs_predict.md)         | Train a prediction model from CSV and save it                |
 | [shuffle](documentation/samples/libxs_shuffle.md)         | Shuffling strategies comparison                              |

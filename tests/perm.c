@@ -239,6 +239,53 @@ int main(void)
       exit(EXIT_FAILURE);
     }
   }
+  /* morton/hilbert decode: verify small-grid round trips */
+  { const unsigned int n = 4;
+    unsigned int coords[3], decoded[3], x, y, z;
+    for (z = 0; z < n; ++z) {
+      for (y = 0; y < n; ++y) {
+        for (x = 0; x < n; ++x) {
+          coords[0] = x; coords[1] = y; coords[2] = z;
+          libxs_morton_decode(libxs_morton(coords, 3), decoded, 3);
+          if (decoded[0] != x || decoded[1] != y || decoded[2] != z) {
+            FPRINTF(stderr, "ERROR line #%i: morton round trip\n", __LINE__);
+            exit(EXIT_FAILURE);
+          }
+          libxs_hilbert_decode(libxs_hilbert(coords, 3), decoded, 3);
+          if (decoded[0] != x || decoded[1] != y || decoded[2] != z) {
+            FPRINTF(stderr, "ERROR line #%i: hilbert round trip\n", __LINE__);
+            exit(EXIT_FAILURE);
+          }
+        }
+      }
+    }
+  }
+  /* stratify: verify 3D to 2D composition */
+  { unsigned int src[3], dst[2], ref[2];
+    src[0] = 1; src[1] = 2; src[2] = 3;
+    if (EXIT_SUCCESS != libxs_stratify_morton(src, 3, dst, 2)) {
+      FPRINTF(stderr, "ERROR line #%i: morton stratify failed\n", __LINE__);
+      exit(EXIT_FAILURE);
+    }
+    libxs_morton_decode(libxs_morton(src, 3), ref, 2);
+    if (dst[0] != ref[0] || dst[1] != ref[1]) {
+      FPRINTF(stderr, "ERROR line #%i: morton stratify mismatch\n", __LINE__);
+      exit(EXIT_FAILURE);
+    }
+    if (EXIT_SUCCESS != libxs_stratify_hilbert(src, 3, dst, 2)) {
+      FPRINTF(stderr, "ERROR line #%i: hilbert stratify failed\n", __LINE__);
+      exit(EXIT_FAILURE);
+    }
+    libxs_hilbert_decode(libxs_hilbert(src, 3), ref, 2);
+    if (dst[0] != ref[0] || dst[1] != ref[1]) {
+      FPRINTF(stderr, "ERROR line #%i: hilbert stratify mismatch\n", __LINE__);
+      exit(EXIT_FAILURE);
+    }
+    if (EXIT_FAILURE != libxs_stratify_hilbert(src, 2, dst, 3)) {
+      FPRINTF(stderr, "ERROR line #%i: invalid stratify accepted\n", __LINE__);
+      exit(EXIT_FAILURE);
+    }
+  }
 
   /* kdtree2d: basic nearest neighbor */
   { double pts[] = {0.0,0.0, 1.0,0.0, 0.0,1.0, 1.0,1.0};

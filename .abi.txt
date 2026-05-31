@@ -63,6 +63,7 @@ libxs_hash_xi32
 libxs_hash_xi64
 libxs_hash_xi8
 libxs_hilbert
+libxs_hilbert_decode
 libxs_hist_create
 libxs_hist_destroy
 libxs_hist_print
@@ -110,6 +111,7 @@ libxs_mhd_write
 libxs_mod_inverse
 libxs_mod_inverse_u32
 libxs_morton
+libxs_morton_decode
 libxs_nrank
 libxs_nranks
 libxs_offset
@@ -174,6 +176,8 @@ libxs_sort
 libxs_sort_smooth
 libxs_stdio_acquire
 libxs_stdio_release
+libxs_stratify_hilbert
+libxs_stratify_morton
 libxs_stridist
 libxs_strimatch
 libxs_strisimilar
