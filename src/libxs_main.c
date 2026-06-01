@@ -10,8 +10,6 @@
 #include <libxs_cpuid.h>
 #include <libxs_malloc.h>
 
-LIBXS_APIVAR_PRIVATE_DEF(struct libxs_malloc_pool_t* internal_libxs_default_pool);
-
 #include <signal.h>
 #if !defined(NDEBUG)
 # include <errno.h>
@@ -49,18 +47,21 @@ LIBXS_APIVAR_PRIVATE_DEF(struct libxs_malloc_pool_t* internal_libxs_default_pool
 # define LIBXS_MAIN_DELIMS LIBXS_DELIMS
 #endif
 
-
-LIBXS_APIVAR_DEFINE(libxs_cpuid_t internal_libxs_cpuid_info);
-LIBXS_APIVAR_DEFINE(const char* internal_libxs_build_state);
-
-/* definition of corresponding variables */
-LIBXS_APIVAR_PRIVATE_DEF(int libxs_verbosity);
-LIBXS_APIVAR_PRIVATE_DEF(int libxs_se);
-
 #define LIBXS_TIMER_DURATION_FDIV(A, B) ((double)(A) / (B))
 #define LIBXS_TIMER_DURATION_IDIV(A, B) ((A) <= (B) \
   ? LIBXS_TIMER_DURATION_FDIV(A, B) \
   : ((A) / (B) + LIBXS_TIMER_DURATION_FDIV((A) % (B), B)))
+
+
+/* definition of corresponding variables */
+LIBXS_APIVAR_PRIVATE_DEF(struct libxs_malloc_pool_t* internal_libxs_default_pool);
+LIBXS_APIVAR_PRIVATE_DEF(LIBXS_LOCK_TYPE(LIBXS_LOCK) libxs_lock_global);
+LIBXS_APIVAR_PRIVATE_DEF(unsigned int libxs_thread_count);
+LIBXS_APIVAR_PRIVATE_DEF(unsigned int libxs_ninit);
+LIBXS_APIVAR_PRIVATE_DEF(double libxs_timer_scale);
+LIBXS_APIVAR_PRIVATE_DEF(int libxs_stdio_handle);
+LIBXS_APIVAR_PRIVATE_DEF(int libxs_verbosity);
+LIBXS_APIVAR_PRIVATE_DEF(int libxs_se);
 
 #if defined(_WIN32)
 # define INTERNAL_SINGLETON_HANDLE HANDLE
@@ -72,18 +73,17 @@ LIBXS_APIVAR_DEFINE(char internal_libxs_singleton_fname[64]);
 #endif
 LIBXS_APIVAR_DEFINE(INTERNAL_SINGLETON_HANDLE internal_libxs_singleton_handle);
 LIBXS_APIVAR_DEFINE(char internal_libxs_stdio_fname[64]);
+LIBXS_APIVAR_DEFINE(libxs_cpuid_t internal_libxs_cpuid_info);
+LIBXS_APIVAR_DEFINE(const char* internal_libxs_build_state);
 
 LIBXS_EXTERN_C typedef struct internal_libxs_sigentry_type {
   int signum; void (*signal)(int);
 } internal_libxs_sigentry_type;
 LIBXS_APIVAR_DEFINE(internal_libxs_sigentry_type internal_libxs_sigentries[2]);
 
-/* definition of corresponding variables */
-LIBXS_APIVAR_PRIVATE_DEF(double libxs_timer_scale);
-LIBXS_APIVAR_PRIVATE_DEF(unsigned int libxs_thread_count);
-LIBXS_APIVAR_PRIVATE_DEF(LIBXS_LOCK_TYPE(LIBXS_LOCK) libxs_lock_global);
-LIBXS_APIVAR_PRIVATE_DEF(unsigned int libxs_ninit);
-LIBXS_APIVAR_PRIVATE_DEF(int libxs_stdio_handle);
+#if defined(LIBXS_BUILD_STATE) && defined(LIBXS_INCBIN)
+LIBXS_INCBIN(internal_libxs_build_state_data, LIBXS_BUILD_STATE, 1);
+#endif
 
 
 LIBXS_API_INTERN void* internal_libxs_scratch_malloc(size_t size, int* pool)
@@ -106,32 +106,60 @@ LIBXS_API_INTERN void internal_libxs_scratch_free(void* ptr, int pool)
 }
 
 
-LIBXS_API_INTERN LIBXS_ATTRIBUTE_NO_TRACE void internal_libxs_dump(FILE* ostream, int urgent);
-LIBXS_API_INTERN void internal_libxs_dump(FILE* ostream, int urgent)
+LIBXS_API_INTERN void internal_libxs_dump_build_state(FILE* ostream);
+LIBXS_API_INTERN void internal_libxs_dump_build_state(FILE* ostream)
 {
-  char *const env_dump_build = getenv("LIBXS_DUMP_BUILD");
-  char *const env_dump_files_var = getenv("LIBXS_DUMP_FILES");
-  char *const env_dump_files = (NULL != env_dump_files_var
-    ? env_dump_files_var
-    : getenv("LIBXS_DUMP_FILE"));
-  LIBXS_ASSERT_MSG(INTERNAL_SINGLETON(internal_libxs_singleton_handle), "Invalid handle");
-  /* determine whether this instance is unique or not */
-  if (NULL != env_dump_files && '\0' != *env_dump_files && 0 == urgent) { /* dump per-node info */
-    const char* filename = strtok(env_dump_files, LIBXS_MAIN_DELIMS);
-    char buffer[1024] = "";
-    for (; NULL != filename; filename = strtok(NULL, LIBXS_MAIN_DELIMS)) {
-      FILE* file = fopen(filename, "r");
-      if (NULL != file) buffer[0] = '\0';
-      else { /* parse keywords */
-        const int seconds = atoi(filename);
+#if defined(LIBXS_BUILD_STATE) && defined(LIBXS_INCBIN)
+  const char* p = internal_libxs_build_state_data;
+  const char* const end = internal_libxs_build_state_data_end;
+  int active = 0;
+  for (; p < end; ++p) {
+    const char c = *p;
+    if (0 == active) {
+      if ('"' == c) active = 1;
+    }
+    else if ('\\' == c && p + 1 < end && 'n' == p[1]) {
+      fputc('\n', ostream);
+      ++p;
+    }
+    else if ('"' == c) {
+      active = 0;
+    }
+    else {
+      fputc(c, ostream);
+    }
+  }
+#else
+  fprintf(ostream, "%s\n", internal_libxs_build_state);
+#endif
+}
+
+
+LIBXS_API_INTERN void internal_libxs_dump_files(FILE* ostream, const char* env_dump_files);
+LIBXS_API_INTERN void internal_libxs_dump_files(FILE* ostream, const char* env_dump_files)
+{
+  const char* filename = env_dump_files;
+  char token[1024];
+  char buffer[1024];
+  while (NULL != filename && '\0' != *filename) {
+    const size_t length = strcspn(filename, LIBXS_MAIN_DELIMS);
+    if (0 < length && sizeof(token) > length) {
+      const char* dump_name = token;
+      FILE* file;
+      memcpy(token, filename, length);
+      token[length] = '\0';
+      file = fopen(token, "r");
+      if (NULL == file) {
+        const int seconds = atoi(token);
         if (0 == seconds) {
-          const char *const pid = strstr(filename, "PID");
-          if (NULL != pid) { /* PID-keyword is present */
-            int n = (int)(pid - filename);
-            n = LIBXS_SNPRINTF(buffer, sizeof(buffer), "%.*s%u%s", n, filename, libxs_pid(), filename + n + 3);
-            if (0 < n && (int)sizeof(buffer) > n) {
+          const char *const pid = strstr(token, "PID");
+          if (NULL != pid) {
+            const int n = (int)(pid - token);
+            const int m = LIBXS_SNPRINTF(buffer, sizeof(buffer), "%.*s%u%s",
+              n, token, libxs_pid(), pid + 3);
+            if (0 < m && (int)sizeof(buffer) > m) {
               file = fopen(buffer, "r");
-              filename = buffer;
+              dump_name = buffer;
             }
           }
         }
@@ -149,8 +177,7 @@ LIBXS_API_INTERN void internal_libxs_dump(FILE* ostream, int urgent)
       }
       if (NULL != file) {
         int c = fgetc(file);
-        fprintf(ostream, "\n\nLIBXS_DUMP_FILE: %s\n", filename);
-        /* coverity[tainted_data] */
+        fprintf(ostream, "\n\nLIBXS_DUMP_FILE: %s\n", dump_name);
         while (EOF != c) {
           fputc(c, stdout);
           c = fgetc(file);
@@ -159,14 +186,34 @@ LIBXS_API_INTERN void internal_libxs_dump(FILE* ostream, int urgent)
         fclose(file);
       }
     }
+    filename += length;
+    filename += strspn(filename, LIBXS_MAIN_DELIMS);
   }
-  if  (NULL != internal_libxs_build_state /* dump build state */
-    && NULL != env_dump_build && '\0' != *env_dump_build)
+}
+
+
+LIBXS_API_INTERN LIBXS_ATTRIBUTE_NO_TRACE void internal_libxs_dump(FILE* ostream, int urgent);
+LIBXS_API_INTERN void internal_libxs_dump(FILE* ostream, int urgent)
+{
+  const char *const env_dump_build = getenv("LIBXS_DUMP_BUILD");
+  const char *const env_dump_files_var = getenv("LIBXS_DUMP_FILES");
+  const char *const env_dump_files = (NULL != env_dump_files_var
+    ? env_dump_files_var
+    : getenv("LIBXS_DUMP_FILE"));
+  LIBXS_ASSERT_MSG(INTERNAL_SINGLETON(internal_libxs_singleton_handle), "Invalid handle");
+  if (NULL != env_dump_files && '\0' != *env_dump_files && 0 == urgent) {
+    internal_libxs_dump_files(ostream, env_dump_files);
+  }
+  if  (NULL != env_dump_build && '\0' != *env_dump_build
+#if !(defined(LIBXS_BUILD_STATE) && defined(LIBXS_INCBIN))
+    && NULL != internal_libxs_build_state
+#endif
+  )
   {
     const int dump_build = atoi(env_dump_build);
     if (0 == urgent ? (0 < dump_build) : (0 > dump_build)) {
       fprintf(ostream, "\n\nBUILD_DATE=%i\n", LIBXS_BUILD_DATE);
-      fprintf(ostream, "%s\n", internal_libxs_build_state);
+      internal_libxs_dump_build_state(ostream);
     }
   }
 }

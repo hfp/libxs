@@ -75,6 +75,7 @@ TIMEOUT := 30
 
 # fixed .state file directory (included by source)
 DIRSTATE := $(OUTDIR)/..
+LIBXS_BUILD_STATE := $(abspath $(DIRSTATE)/.state)
 
 # avoid to link with C++ standard library
 FORCE_CXX := 0
@@ -86,7 +87,7 @@ WCHECK := 1
 EXCLUDE_STATE := \
   DESTDIR PREFIX BINDIR CURDIR DOCDIR DOCEXT INCDIR LICFDIR OUTDIR TSTDIR TIMEOUT \
   PBINDIR PINCDIR POUTDIR PPKGDIR PMODDIR PSRCDIR PTSTDIR PSHRDIR PDOCDIR SCRDIR \
-  SPLDIR SRCDIR TEST VERSION_STRING ALIAS_% %ROOT
+  SPLDIR SRCDIR TEST VERSION_STRING ALIAS_% LIBXS_BUILD_STATE %ROOT
 
 # include common Makefile artifacts
 include $(ROOTDIR)/Makefile.inc
@@ -264,7 +265,11 @@ endif
 $(foreach OBJ,$(OBJFILES),$(eval $(call DEFINE_COMPILE_RULE, \
   $(OBJ),$(patsubst %.o,$(ROOTSRC)/%.c,$(notdir $(OBJ))), \
   $(HEADERS_MAIN) $(INCDIR)/$(PROJECT)_version.h, \
-  $(DFLAGS) $(IFLAGS) $(CTARGET) $(CFLAGS))))
+  $(DFLAGS) $(if $(filter $(BLDDIR)/intel64/$(PROJECT)_main.o,$(OBJ)), \
+    -DLIBXS_BUILD_STATE=\"$(LIBXS_BUILD_STATE)\") \
+  $(IFLAGS) $(CTARGET) $(CFLAGS))))
+
+$(BLDDIR)/intel64/$(PROJECT)_main.o: $(DIRSTATE)/.state
 
 .PHONY: module
 ifneq (,$(strip $(FC)))
