@@ -196,9 +196,9 @@ def sheet_neighbor_source_distances(sheet_height, sheet_width, dst_to_src):
     return distances, adjacent
 
 
-def compute_metrics(libxs, curve, depth, height, width, volume):
+def compute_metrics(libxs, curve, frame, depth, height, width, volume):
     sheet, sheet_height, sheet_width, records, map_seconds = stratify_dense3d.stratify(
-        libxs, curve, depth, height, width, volume)
+        libxs, curve, depth, height, width, volume, frame)
     src_to_dst, dst_to_src = build_maps(records, sheet_width)
     reconstructed = reconstruct_volume(sheet, records, sheet_width, len(volume))
     source_sum = sum(volume)
@@ -207,6 +207,7 @@ def compute_metrics(libxs, curve, depth, height, width, volume):
     cells = sheet_height * sheet_width
     metrics = {
         "curve": curve,
+        "frame": frame,
         "source.depth": depth,
         "source.height": height,
         "source.width": width,
@@ -267,6 +268,9 @@ def parse_args(argv):
     parser.add_argument("--shape", type=int, nargs=3, metavar=("D", "H", "W"),
                         default=(8, 16, 16), help="source volume shape")
     parser.add_argument("--curve", choices=("hilbert", "morton"), default="hilbert")
+    parser.add_argument("--frame", choices=("compact", "canonical"),
+                        default="compact",
+                        help="sheet framing policy for finite-bit stratification")
     parser.add_argument("--libxs", help="path to libxs shared library")
     parser.add_argument("--hdf5", help="read source volume from an HDF5 file")
     parser.add_argument("--hdf5-dataset", default="ECAL",
@@ -316,7 +320,8 @@ def main(argv):
         volume = stratify_dense3d.shower_volume(depth, height, width)
     libxs, lib_path = stratify_dense3d.load_libxs(args.libxs)
     configure_fprint(libxs)
-    metrics = compute_metrics(libxs, args.curve, depth, height, width, volume)
+    metrics = compute_metrics(libxs, args.curve, args.frame,
+                              depth, height, width, volume)
     metrics["libxs"] = lib_path
     write_metrics(metrics, args.csv)
     return 0

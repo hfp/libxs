@@ -98,6 +98,9 @@ def parse_args(argv):
     parser.add_argument("--split", choices=("train", "val", "test"), default="train")
     parser.add_argument("--index", type=int, default=0, help="sample index within the split")
     parser.add_argument("--curve", choices=("hilbert", "morton"), default="hilbert")
+    parser.add_argument("--frame", choices=("compact", "canonical"),
+                        default="compact",
+                        help="sheet framing policy for finite-bit stratification")
     parser.add_argument("--libxs", help="path to libxs shared library")
     parser.add_argument("--out", help="write stratified sheet as an 8-bit PGM image")
     parser.add_argument("--map-csv", help="write source-to-destination map as CSV")
@@ -113,12 +116,13 @@ def main(argv):
         npz_path, args.split, args.index)
     libxs, lib_path = stratify_dense3d.load_libxs(args.libxs)
     sheet, sheet_height, sheet_width, records, map_seconds = stratify_dense3d.stratify(
-        libxs, args.curve, depth, height, width, volume)
+        libxs, args.curve, depth, height, width, volume, args.frame)
     volume_sum = sum(volume)
     sheet_sum = sum(sheet)
     density = float(len(records)) / float(sheet_height * sheet_width)
     print("libxs: %s" % lib_path)
     print("curve: %s" % args.curve)
+    print("frame: %s" % args.frame)
     print("input: %s:%s[%d]" % (npz_path, args.split, args.index))
     print("label: %s" % ("none" if label is None else " ".join(str(value) for value in label)))
     print("source: D=%d H=%d W=%d voxels=%d" %
@@ -139,7 +143,8 @@ def main(argv):
         print("wrote: %s" % args.label_csv)
     if args.out_hdf5:
         stratify_dense3d.write_hdf5(args.out_hdf5, sheet, sheet_height, sheet_width,
-                                   records, depth, height, width, args.curve)
+                                   records, depth, height, width, args.curve,
+                                   args.frame)
         print("wrote: %s" % args.out_hdf5)
     return 0
 

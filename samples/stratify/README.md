@@ -32,6 +32,13 @@ encoded as a 3D Hilbert or Morton key and decoded as a 2D coordinate:
 This preserves the deterministic curve order while giving downstream code
 a 2D tensor layout that can be consumed by optimized 2D convolution kernels.
 
+The samples distinguish the curve order from the 2D frame. The default
+`compact` frame streams voxels in curve-rank order into a dense near-square
+sheet, avoiding unused cells when an exact factor pair is available. The
+`canonical` frame decodes the finite 3D curve rank through the corresponding
+2D curve, preserving the canonical destination curve coordinate at the cost of
+possible empty cells.
+
 ## Usage
 
 Build libxs first so that `lib/libxs.so` exists:
@@ -57,6 +64,7 @@ explicitly:
 
 ```bash
 make dense3d
+make dense3d FRAME=canonical
 ```
 
 The older `make volume` spelling remains as a compatibility alias.
@@ -64,8 +72,10 @@ The older `make volume` spelling remains as a compatibility alias.
 Direct invocation:
 
 ```bash
-python3 stratify_dense3d.py --shape 8 16 16 --curve hilbert --out sheet.pgm
-python3 stratify_dense3d.py --shape 8 16 16 --curve morton --map-csv map.csv
+python3 stratify_dense3d.py --shape 8 16 16 --curve hilbert \
+  --frame compact --out sheet.pgm
+python3 stratify_dense3d.py --shape 8 16 16 --curve morton \
+  --frame canonical --map-csv map.csv
 ```
 
 HDF5 input is optional and requires `h5py` and `numpy`. The input dataset may
@@ -77,14 +87,14 @@ be a single `D,H,W` volume, a batched `N,D,H,W` dataset, a channelled
 ```bash
 python3 stratify_dense3d.py --hdf5 /tmp/3Dgan-risk-audit/caffe/train.h5 \
   --hdf5-dataset ECAL --hdf5-event 0 --hdf5-channel 0 \
-  --curve hilbert --out sheet.pgm --out-hdf5 sheet.h5
+  --curve hilbert --frame compact --out sheet.pgm --out-hdf5 sheet.h5
 ```
 
 The Makefile exposes the same path without making the default target depend on
 external data:
 
 ```bash
-make hdf5 HDF5_FILE=/tmp/3Dgan-risk-audit/caffe/train.h5
+make hdf5 HDF5_FILE=/tmp/3Dgan-risk-audit/caffe/train.h5 FRAME=compact
 ```
 
 For flattened HDF5 files, pass the dataset name, layout, and target 3D shape:
@@ -114,6 +124,7 @@ Arguments:
 | ------ | ----------- |
 | `--shape D H W` | Source volume shape. Default: `8 16 16`. |
 | `--curve` | `hilbert` or `morton`. Default: `hilbert`. |
+| `--frame` | `compact` or `canonical`. Default: `compact`. |
 | `--libxs` | Explicit path to the libxs shared library. |
 | `--hdf5` | Read the source volume from an HDF5 file. |
 | `--hdf5-dataset` | Dataset to read from the HDF5 file. Default: `ECAL`. |
@@ -147,7 +158,7 @@ Direct invocation with an explicit NPZ file:
 
 ```bash
 python3 stratify_medmnist3d.py --npz ~/.medmnist/organmnist3d.npz \
-  --split train --index 0 --curve hilbert \
+  --split train --index 0 --curve hilbert --frame compact \
   --out stratified_medmnist3d.pgm \
   --map-csv stratified_medmnist3d.csv \
   --label-csv stratified_medmnist3d_label.csv
@@ -157,7 +168,7 @@ The Makefile exposes the same path without making the default target depend on
 external data:
 
 ```bash
-make medmnist3d MEDMNIST3D_NPZ=~/.medmnist/organmnist3d.npz
+make medmnist3d MEDMNIST3D_NPZ=~/.medmnist/organmnist3d.npz FRAME=compact
 ```
 
 The same NPZ input can be used with the metrics script to report invariants,
@@ -166,7 +177,7 @@ volume:
 
 ```bash
 make medmnist3d-metrics MEDMNIST3D_NPZ=~/.medmnist/organmnist3d.npz \
-  MEDMNIST3D_SPLIT=test MEDMNIST3D_INDEX=0
+  MEDMNIST3D_SPLIT=test MEDMNIST3D_INDEX=0 FRAME=canonical
 ```
 
 If `MEDMNIST3D_NPZ` is omitted, the script looks for a dataset under

@@ -57,6 +57,110 @@ static int cmp_indirect_f64(const void* a, const void* b, void* ctx) {
 }
 
 
+static uint64_t encode_morton_bits(
+  const unsigned int coords[], int ndims, int bits_per_dim)
+{
+  uint64_t code = 0;
+  int bit, dim;
+  for (bit = bits_per_dim - 1; 0 <= bit; --bit) {
+    for (dim = ndims - 1; 0 <= dim; --dim) {
+      code = (code << 1) | ((coords[dim] >> bit) & 1u);
+    }
+  }
+  return code;
+}
+
+
+static uint64_t encode_hilbert_bits(
+  const unsigned int coords[], int ndims, int bits_per_dim)
+{
+  unsigned int transposed[64];
+  uint64_t code = 0;
+  int index, level;
+  for (index = 0; index < ndims; ++index) transposed[index] = coords[index];
+  { const unsigned int top = 1u << (bits_per_dim - 1);
+    unsigned int side, mask, swap;
+    for (side = top; side > 1; side >>= 1) {
+      mask = side - 1;
+      for (index = 0; index < ndims; ++index) {
+        if (0 != (transposed[index] & side)) {
+          transposed[0] ^= mask;
+        }
+        else {
+          swap = (transposed[0] ^ transposed[index]) & mask;
+          transposed[0] ^= swap; transposed[index] ^= swap;
+        }
+      }
+    }
+    for (index = 1; index < ndims; ++index) {
+      transposed[index] ^= transposed[index - 1];
+    }
+    swap = 0;
+    for (side = top; side > 1; side >>= 1) {
+      if (0 != (transposed[ndims - 1] & side)) swap ^= (side - 1);
+    }
+    for (index = 0; index < ndims; ++index) transposed[index] ^= swap;
+  }
+  for (level = bits_per_dim - 1; 0 <= level; --level) {
+    for (index = 0; index < ndims; ++index) {
+      code = (code << 1) | ((transposed[index] >> level) & 1u);
+    }
+  }
+  return code;
+}
+
+
+static void decode_morton_bits(
+  uint64_t code, unsigned int coords[], int ndims, int bits_per_dim)
+{
+  int bit, dim;
+  for (dim = 0; dim < ndims; ++dim) coords[dim] = 0;
+  for (bit = 0; bit < bits_per_dim; ++bit) {
+    for (dim = 0; dim < ndims; ++dim) {
+      coords[dim] |= (unsigned int)(code & 1u) << bit;
+      code >>= 1;
+    }
+  }
+}
+
+
+static void decode_hilbert_bits(
+  uint64_t code, unsigned int coords[], int ndims, int bits_per_dim)
+{
+  int index, level;
+  for (index = 0; index < ndims; ++index) coords[index] = 0;
+  for (level = 0; level < bits_per_dim; ++level) {
+    const int shift = level;
+    int dim;
+    for (dim = ndims - 1; 0 <= dim; --dim) {
+      coords[dim] |= (unsigned int)(code & 1u) << shift;
+      code >>= 1;
+    }
+  }
+  if (1 < ndims) {
+    const unsigned int top = 1u << (bits_per_dim - 1);
+    unsigned int side;
+    unsigned int swap = coords[ndims - 1] >> 1;
+    for (index = ndims - 1; 0 < index; --index) {
+      coords[index] ^= coords[index - 1];
+    }
+    coords[0] ^= swap;
+    for (side = 2; 0 != side && side <= top; side <<= 1) {
+      const unsigned int mask = side - 1;
+      for (index = ndims - 1; 0 <= index; --index) {
+        if (0 != (coords[index] & side)) {
+          coords[0] ^= mask;
+        }
+        else {
+          swap = (coords[0] ^ coords[index]) & mask;
+          coords[0] ^= swap; coords[index] ^= swap;
+        }
+      }
+    }
+  }
+}
+
+
 int main(void)
 {
   /* direct in-place sort of doubles */
@@ -283,6 +387,44 @@ int main(void)
     }
     if (EXIT_FAILURE != libxs_stratify_hilbert(src, 2, dst, 3)) {
       FPRINTF(stderr, "ERROR line #%i: invalid stratify accepted\n", __LINE__);
+      exit(EXIT_FAILURE);
+    }
+  }
+  /* stratify: verify finite-bit canonical rank-preserving layout */
+  { unsigned int src[3], dst[2], ref[2];
+    const int src_ndims = 3, dst_ndims = 2, src_bits = 2, dst_bits = 3;
+    src[0] = 1; src[1] = 2; src[2] = 3;
+    if (EXIT_SUCCESS != libxs_stratify_morton_bits(
+      src, src_ndims, src_bits, dst, dst_ndims, dst_bits))
+    {
+      FPRINTF(stderr, "ERROR line #%i: finite morton stratify failed\n",
+        __LINE__);
+      exit(EXIT_FAILURE);
+    }
+    decode_morton_bits(encode_morton_bits(src, src_ndims, src_bits),
+      ref, dst_ndims, dst_bits);
+    if (dst[0] != ref[0] || dst[1] != ref[1]) {
+      FPRINTF(stderr, "ERROR line #%i: finite morton mismatch\n", __LINE__);
+      exit(EXIT_FAILURE);
+    }
+    if (EXIT_SUCCESS != libxs_stratify_hilbert_bits(
+      src, src_ndims, src_bits, dst, dst_ndims, dst_bits))
+    {
+      FPRINTF(stderr, "ERROR line #%i: finite hilbert stratify failed\n",
+        __LINE__);
+      exit(EXIT_FAILURE);
+    }
+    decode_hilbert_bits(encode_hilbert_bits(src, src_ndims, src_bits),
+      ref, dst_ndims, dst_bits);
+    if (dst[0] != ref[0] || dst[1] != ref[1]) {
+      FPRINTF(stderr, "ERROR line #%i: finite hilbert mismatch\n", __LINE__);
+      exit(EXIT_FAILURE);
+    }
+    if (EXIT_FAILURE != libxs_stratify_hilbert_bits(
+      src, src_ndims, src_bits, dst, dst_ndims, 2))
+    {
+      FPRINTF(stderr, "ERROR line #%i: invalid finite stratify accepted\n",
+        __LINE__);
       exit(EXIT_FAILURE);
     }
   }

@@ -47,10 +47,26 @@ def load_libxs(path):
 def configure_libxs(libxs):
     uint_ptr = ctypes.POINTER(ctypes.c_uint)
     signature = [uint_ptr, ctypes.c_int, uint_ptr, ctypes.c_int]
+    bits_signature = [uint_ptr, ctypes.c_int, ctypes.c_int,
+                      uint_ptr, ctypes.c_int, ctypes.c_int]
+    rank_signature = [uint_ptr, ctypes.c_int, ctypes.c_int]
     libxs.libxs_stratify_hilbert.argtypes = signature
     libxs.libxs_stratify_hilbert.restype = ctypes.c_int
     libxs.libxs_stratify_morton.argtypes = signature
     libxs.libxs_stratify_morton.restype = ctypes.c_int
+    libxs._libxs_stratify_bits_available = False
+    try:
+        libxs.libxs_stratify_hilbert_bits.argtypes = bits_signature
+        libxs.libxs_stratify_hilbert_bits.restype = ctypes.c_int
+        libxs.libxs_stratify_morton_bits.argtypes = bits_signature
+        libxs.libxs_stratify_morton_bits.restype = ctypes.c_int
+        libxs.libxs_hilbert_bits.argtypes = rank_signature
+        libxs.libxs_hilbert_bits.restype = ctypes.c_uint64
+        libxs.libxs_morton_bits.argtypes = rank_signature
+        libxs.libxs_morton_bits.restype = ctypes.c_uint64
+        libxs._libxs_stratify_bits_available = True
+    except AttributeError:
+        pass
 
 
 def shower_volume(depth, height, width):
@@ -164,14 +180,30 @@ def load_hdf5_volume(path, dataset_name, layout, event, channel, reshape):
     return volume, depth, height, width
 
 
-def stratify(libxs, curve, depth, height, width, volume):
+def compact_sheet_shape(count):
+    sheet_height = int(math.floor(math.sqrt(float(count))))
+    while sheet_height > 1 and count % sheet_height != 0:
+        sheet_height -= 1
+    sheet_width = (count + sheet_height - 1) // sheet_height
+    return sheet_height, sheet_width
+
+
+def stratify(libxs, curve, depth, height, width, volume, frame="compact"):
     src_coords = (ctypes.c_uint * 3)()
     dst_coords = (ctypes.c_uint * 2)()
+    src_bits = max(1, (max(depth, height, width) - 1).bit_length())
+    dst_bits = (3 * src_bits + 1) // 2
+    use_bits = getattr(libxs, "_libxs_stratify_bits_available", False)
     if curve == "hilbert":
-        stratify_fn = libxs.libxs_stratify_hilbert
+        stratify_fn = (libxs.libxs_stratify_hilbert_bits if use_bits
+                       else libxs.libxs_stratify_hilbert)
+        rank_fn = libxs.libxs_hilbert_bits if use_bits else None
     else:
-        stratify_fn = libxs.libxs_stratify_morton
+        stratify_fn = (libxs.libxs_stratify_morton_bits if use_bits
+                       else libxs.libxs_stratify_morton)
+        rank_fn = libxs.libxs_morton_bits if use_bits else None
     records = []
+    ranked_records = []
     max_u = 0
     max_v = 0
     start = time.perf_counter()
@@ -181,21 +213,42 @@ def stratify(libxs, curve, depth, height, width, volume):
                 src_coords[0] = x_coord
                 src_coords[1] = y_coord
                 src_coords[2] = z_coord
-                result = stratify_fn(src_coords, 3, dst_coords, 2)
+                if use_bits:
+                    result = stratify_fn(src_coords, 3, src_bits,
+                                         dst_coords, 2, dst_bits)
+                else:
+                    result = stratify_fn(src_coords, 3, dst_coords, 2)
                 if result != 0:
                     raise RuntimeError("libxs_stratify_%s failed" % curve)
                 src_index = (z_coord * height + y_coord) * width + x_coord
+                if use_bits:
+                    rank = int(rank_fn(src_coords, 3, src_bits))
+                else:
+                    rank = None
                 u_coord = int(dst_coords[0])
                 v_coord = int(dst_coords[1])
                 if u_coord > max_u:
                     max_u = u_coord
                 if v_coord > max_v:
                     max_v = v_coord
-                records.append((src_index, z_coord, y_coord, x_coord,
-                                v_coord, u_coord, volume[src_index]))
+                record = (src_index, z_coord, y_coord, x_coord,
+                          v_coord, u_coord, volume[src_index])
+                records.append(record)
+                if rank is not None:
+                    ranked_records.append((rank, record))
     map_seconds = time.perf_counter() - start
-    sheet_width = max_u + 1
-    sheet_height = max_v + 1
+    if frame == "compact" and use_bits:
+        sheet_height, sheet_width = compact_sheet_shape(len(records))
+        records = []
+        for ordinal, ranked_record in enumerate(sorted(ranked_records)):
+            record = ranked_record[1]
+            v_coord = ordinal // sheet_width
+            u_coord = ordinal % sheet_width
+            records.append((record[0], record[1], record[2], record[3],
+                            v_coord, u_coord, record[6]))
+    else:
+        sheet_width = max_u + 1
+        sheet_height = max_v + 1
     sheet = [0.0] * (sheet_width * sheet_height)
     used = set()
     for record in records:
@@ -228,7 +281,7 @@ def write_map_csv(path, depth, height, source_width, sheet_width, records):
 
 
 def write_hdf5(path, data, height, width, records, depth, source_height,
-               source_width, curve):
+               source_width, curve, frame):
     h5py = require_h5py()
     np = require_numpy()
     sheet = np.asarray(data, dtype=np.float32).reshape((height, width))
@@ -239,6 +292,7 @@ def write_hdf5(path, data, height, width, records, depth, source_height,
         out_file.create_dataset("sheet", data=sheet)
         out_file.create_dataset("map", data=mapping)
         out_file["sheet"].attrs["curve"] = curve
+        out_file["sheet"].attrs["frame"] = frame
         out_file["sheet"].attrs["source_shape"] = (depth, source_height, source_width)
         out_file["map"].attrs["columns"] = "src,z,y,x,dst,v,u"
 
@@ -248,6 +302,9 @@ def parse_args(argv):
     parser.add_argument("--shape", type=int, nargs=3, metavar=("D", "H", "W"),
                         default=(8, 16, 16), help="source volume shape")
     parser.add_argument("--curve", choices=("hilbert", "morton"), default="hilbert")
+    parser.add_argument("--frame", choices=("compact", "canonical"),
+                        default="compact",
+                        help="sheet framing policy for finite-bit stratification")
     parser.add_argument("--libxs", help="path to libxs shared library")
     parser.add_argument("--hdf5", help="read source volume from an HDF5 file")
     parser.add_argument("--hdf5-dataset", default="ECAL",
@@ -281,12 +338,13 @@ def main(argv):
     else:
         volume = shower_volume(depth, height, width)
     sheet, sheet_height, sheet_width, records, map_seconds = stratify(
-        libxs, args.curve, depth, height, width, volume)
+        libxs, args.curve, depth, height, width, volume, args.frame)
     volume_sum = sum(volume)
     sheet_sum = sum(sheet)
     density = float(len(records)) / float(sheet_height * sheet_width)
     print("libxs: %s" % lib_path)
     print("curve: %s" % args.curve)
+    print("frame: %s" % args.frame)
     print("input: %s" % source)
     print("source: D=%d H=%d W=%d voxels=%d" %
           (depth, height, width, depth * height * width))
@@ -303,7 +361,7 @@ def main(argv):
         print("wrote: %s" % args.map_csv)
     if args.out_hdf5:
         write_hdf5(args.out_hdf5, sheet, sheet_height, sheet_width, records,
-                   depth, height, width, args.curve)
+                   depth, height, width, args.curve, args.frame)
         print("wrote: %s" % args.out_hdf5)
     return 0
 
