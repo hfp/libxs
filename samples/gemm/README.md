@@ -94,3 +94,10 @@ CHECK=1 ./gemm_groups.x
 
 When padding is enabled (pad>0), the check also verifies that
 leading-dimension padding in C-matrices has not been overwritten.
+
+## Runtime Controls
+
+Set `LIBXS_GEMM_PRINT=0` to print a compact GEMM registry summary at
+termination. The first line reports registry size, capacity, memory,
+and the selected `LIBXS_GEMM_BACKEND` policy; the second line reports
+a histogram by datatype and backend.

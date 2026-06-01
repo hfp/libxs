@@ -173,6 +173,7 @@ typedef struct libxs_gemm_config_t {
  * Backend selection can be restricted with LIBXS_GEMM_BACKEND:
  *   0=auto/default, 1=MKL JIT, 2=LIBXSMM, 3=BLAS/MKL, 4=built-in.
  *   Selected external backends still fall back when unavailable.
+ * LIBXS_GEMM_PRINT=0 prints a registry summary at termination.
  * Returns pointer to cached config (registry-owned), NULL on failure.
  */
 LIBXS_API libxs_gemm_config_t* libxs_gemm_dispatch_rt(

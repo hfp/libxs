@@ -219,15 +219,6 @@ LIBXS_API_INTERN void internal_libxs_gemm_init(void)
 }
 
 
-LIBXS_API_INTERN void internal_libxs_gemm_finalize(void)
-{
-  if (NULL != internal_libxs_gemm_registry) {
-    libxs_gemm_release_registry(internal_libxs_gemm_registry);
-    internal_libxs_gemm_registry = NULL;
-  }
-}
-
-
 LIBXS_API_INTERN void internal_libxs_dgemm_default(
   const char* transa, const char* transb,
   const int* m, const int* n, const int* k,
@@ -296,6 +287,49 @@ LIBXS_API_INTERN void internal_libxs_sgemm_default(
       }
       c[i + j * lldc] = falpha * sum + fbeta * c[i + j * lldc];
     }
+  }
+}
+
+
+LIBXS_API_INTERN void internal_libxs_gemm_finalize(void)
+{
+  if (NULL != internal_libxs_gemm_registry) {
+#if defined(LIBXS_GEMM_PRINT)
+    const char *const env = getenv("LIBXS_GEMM_PRINT");
+    if (NULL != env && 0 == atoi(env)) {
+      libxs_registry_info_t info = { 0 };
+      if (EXIT_SUCCESS == libxs_registry_info(internal_libxs_gemm_registry, &info)) {
+        const void* key = NULL;
+        size_t cursor = 0;
+        unsigned long nf64 = 0, nf32 = 0, njit = 0, nxgemm = 0, nblas = 0, nfallback = 0;
+        const char* backend = "0:auto";
+        const libxs_gemm_config_t* config = (const libxs_gemm_config_t*)
+          libxs_registry_begin(internal_libxs_gemm_registry, &key, &cursor);
+        if (INTERNAL_GEMM_BACKEND_MKL_JIT == internal_libxs_gemm_backend) backend = "1:mkl-jit";
+        else if (INTERNAL_GEMM_BACKEND_LIBXSMM == internal_libxs_gemm_backend) backend = "2:libxsmm";
+        else if (INTERNAL_GEMM_BACKEND_BLAS == internal_libxs_gemm_backend) backend = "3:blas";
+        else if (INTERNAL_GEMM_BACKEND_DEFAULT == internal_libxs_gemm_backend) backend = "4:fallback";
+        while (NULL != config && NULL != key) {
+          const libxs_gemm_shape_t* shape = (const libxs_gemm_shape_t*)key;
+          if (LIBXS_DATATYPE_F64 == shape->datatype) ++nf64;
+          else if (LIBXS_DATATYPE_F32 == shape->datatype) ++nf32;
+          if (NULL != config->dgemm_jit || NULL != config->sgemm_jit) ++njit;
+          else if (NULL != config->xgemm) ++nxgemm;
+          else if ((LIBXS_DATATYPE_F64 == shape->datatype && internal_libxs_dgemm_default != config->dgemm_blas)
+            || (LIBXS_DATATYPE_F32 == shape->datatype && internal_libxs_sgemm_default != config->sgemm_blas)) ++nblas;
+          else ++nfallback;
+          config = (const libxs_gemm_config_t*)
+            libxs_registry_next(internal_libxs_gemm_registry, &key, &cursor);
+        }
+        fprintf(stderr, "LIBXS INFO: GEMM registry entries=%lu capacity=%lu nbytes=%lu backend=%s\n",
+          (unsigned long)info.size, (unsigned long)info.capacity, (unsigned long)info.nbytes, backend);
+        fprintf(stderr, "LIBXS INFO: GEMM histogram f64=%lu f32=%lu mkl-jit=%lu libxsmm=%lu blas=%lu fallback=%lu\n",
+          nf64, nf32, njit, nxgemm, nblas, nfallback);
+      }
+    }
+#endif
+    libxs_gemm_release_registry(internal_libxs_gemm_registry);
+    internal_libxs_gemm_registry = NULL;
   }
 }
 
