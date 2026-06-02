@@ -298,7 +298,7 @@ LIBXS_API_INLINE void internal_libxs_gemm_print_registry(const libxs_registry_t*
     const char *const env = getenv("LIBXS_GEMM_PRINT");
     if (NULL != env && 0 == atoi(env)) {
       libxs_registry_info_t info = { 0 };
-      if (EXIT_SUCCESS == libxs_registry_info(registry, &info)) {
+      if (EXIT_SUCCESS == libxs_registry_info(registry, &info) && 0 < info.size) {
         const void* key = NULL;
         size_t cursor = 0;
         unsigned long nf64 = 0, nf32 = 0, njit = 0, nxgemm = 0, nblas = 0, nfallback = 0;
