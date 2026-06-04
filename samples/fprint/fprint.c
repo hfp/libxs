@@ -1,4 +1,5 @@
 #include <libxs_math.h>
+#include <libxs_timer.h>
 
 #include <math.h>
 #include <stdio.h>
@@ -62,6 +63,9 @@ static double field_value(const char name[], size_t row, size_t col,
   size_t nrows, size_t ncols);
 static int run_hierarchy(void);
 static int run_compression(void);
+static int run_collision(void);
+static int run_timing(void);
+static int run_convergence_rate(void);
 
 
 int main(void)
@@ -78,6 +82,9 @@ int main(void)
   if (EXIT_SUCCESS == result) result = run_geometry();
   if (EXIT_SUCCESS == result) result = run_hierarchy();
   if (EXIT_SUCCESS == result) result = run_compression();
+  if (EXIT_SUCCESS == result) result = run_collision();
+  if (EXIT_SUCCESS == result) result = run_timing();
+  if (EXIT_SUCCESS == result) result = run_convergence_rate();
   if (EXIT_SUCCESS == result) printf("FPRINT: done\n");
   return result;
 }
@@ -642,5 +649,194 @@ static int run_compression(void)
   free(values);
   if (NULL != file) fclose(file);
   printf("  compression.csv\n");
+  return result;
+}
+
+
+static int run_collision(void)
+{
+  const size_t count = 256;
+  FILE* file = open_csv("collision.csv");
+  int result = (NULL != file) ? EXIT_SUCCESS : EXIT_FAILURE;
+  double* data_a = NULL;
+  double* data_b = NULL;
+  if (EXIT_SUCCESS == result) {
+    data_a = (double*)malloc(count * sizeof(double));
+    data_b = (double*)malloc(count * sizeof(double));
+    fprintf(file, "case_a,case_b,fprint_distance,rms_diff,"
+      "l2_0_a,l2_1_a,l2_2_a,l2_3_a,l2_4_a,"
+      "l2_0_b,l2_1_b,l2_2_b,l2_3_b,l2_4_b\n");
+  }
+  if (EXIT_SUCCESS == result && (NULL == data_a || NULL == data_b)) {
+    result = EXIT_FAILURE;
+  }
+  if (EXIT_SUCCESS == result) {
+    static const char* const case_a[] = {
+      "sin(2pi*x)", "arch", "rising_ramp", "sin(2pi*x)" };
+    static const char* const case_b[] = {
+      "-sin(2pi*x)", "-arch", "falling_ramp", "cos(2pi*x)" };
+    size_t pair;
+    for (pair = 0; pair < 4 && EXIT_SUCCESS == result; ++pair) {
+      libxs_fprint_t fp_a, fp_b;
+      double rms = 0.0;
+      size_t index;
+      for (index = 0; index < count; ++index) {
+        const double pos = (double)index / (double)(count - 1);
+        if (0 == pair) {
+          data_a[index] = sin(2.0 * FPRINT_PI * pos);
+          data_b[index] = -sin(2.0 * FPRINT_PI * pos);
+        }
+        else if (1 == pair) {
+          data_a[index] = 4.0 * pos * (1.0 - pos);
+          data_b[index] = -4.0 * pos * (1.0 - pos);
+        }
+        else if (2 == pair) {
+          data_a[index] = pos;
+          data_b[index] = 1.0 - pos;
+        }
+        else {
+          data_a[index] = sin(2.0 * FPRINT_PI * pos);
+          data_b[index] = cos(2.0 * FPRINT_PI * pos);
+        }
+        rms += (data_a[index] - data_b[index])
+          * (data_a[index] - data_b[index]);
+      }
+      rms = sqrt(rms / (double)count);
+      result = fingerprint_sequence(&fp_a, data_a, count, FPRINT_ORDER);
+      if (EXIT_SUCCESS == result) {
+        result = fingerprint_sequence(&fp_b, data_b, count, FPRINT_ORDER);
+      }
+      if (EXIT_SUCCESS == result) {
+        fprintf(file, "%s,%s,%.17g,%.17g",
+          case_a[pair], case_b[pair],
+          libxs_fprint_diff(&fp_a, &fp_b, NULL), rms);
+        write_fprint_values(file, &fp_a);
+        write_fprint_values(file, &fp_b);
+        fprintf(file, "\n");
+      }
+    }
+  }
+  free(data_b);
+  free(data_a);
+  if (NULL != file) fclose(file);
+  printf("  collision.csv\n");
+  return result;
+}
+
+
+static int run_timing(void)
+{
+  static const size_t sizes[] = { 64, 128, 256, 512, 1024, 4096, 16384 };
+  const int nreps = 100000;
+  FILE* file = open_csv("timing.csv");
+  int result = (NULL != file) ? EXIT_SUCCESS : EXIT_FAILURE;
+  double* values = NULL;
+  if (EXIT_SUCCESS == result) {
+    values = (double*)malloc(sizes[sizeof(sizes) / sizeof(*sizes) - 1] * sizeof(double));
+    fprintf(file, "n,seconds,ns_per_element\n");
+  }
+  if (EXIT_SUCCESS == result && NULL == values) result = EXIT_FAILURE;
+  if (EXIT_SUCCESS == result) {
+    size_t size_index;
+    fill_sequence(values, sizes[sizeof(sizes) / sizeof(*sizes) - 1], SAMPLE_SIN);
+    for (size_index = 0; size_index < sizeof(sizes) / sizeof(*sizes)
+      && EXIT_SUCCESS == result; ++size_index)
+    {
+      const size_t n = sizes[size_index];
+      libxs_timer_tick_t tick0, tick1;
+      double elapsed;
+      int rep;
+      libxs_fprint_t fp;
+      tick0 = libxs_timer_tick();
+      for (rep = 0; rep < nreps; ++rep) {
+        result = fingerprint_sequence(&fp, values, n, FPRINT_ORDER);
+      }
+      tick1 = libxs_timer_tick();
+      elapsed = libxs_timer_duration(tick0, tick1) / nreps;
+      if (EXIT_SUCCESS == result) {
+        fprintf(file, "%i,%.17g,%.17g\n", (int)n, elapsed,
+          elapsed * 1.0e9 / (double)n);
+      }
+    }
+  }
+  free(values);
+  if (NULL != file) fclose(file);
+  printf("  timing.csv\n");
+  return result;
+}
+
+
+static int run_convergence_rate(void)
+{
+  static const size_t sizes[] = { 16, 32, 64, 128, 256, 512 };
+  static const sample_kind_t kinds[] = { SAMPLE_SIN, SAMPLE_ARCH };
+  static const char* const names[] = { "sin", "arch" };
+  const size_t nsizes = sizeof(sizes) / sizeof(*sizes);
+  FILE* file = open_csv("convergence_rate.csv");
+  int result = (NULL != file) ? EXIT_SUCCESS : EXIT_FAILURE;
+  double* reference = NULL;
+  double* values = NULL;
+  if (EXIT_SUCCESS == result) {
+    fprintf(file, "case,rate,r_squared\n");
+    reference = (double*)malloc(FPRINT_NREF * sizeof(double));
+  }
+  if (EXIT_SUCCESS == result && NULL == reference) result = EXIT_FAILURE;
+  if (EXIT_SUCCESS == result) {
+    size_t kind_index;
+    for (kind_index = 0; kind_index < sizeof(kinds) / sizeof(*kinds)
+      && EXIT_SUCCESS == result; ++kind_index)
+    {
+      libxs_fprint_t fp_ref;
+      double log_n[6], log_d[6];
+      double sum_x = 0.0, sum_y = 0.0, sum_xy = 0.0, sum_xx = 0.0;
+      double mean_y, ss_tot, ss_res, slope, r_squared;
+      size_t size_index;
+      result = fill_sequence(reference, FPRINT_NREF, kinds[kind_index]);
+      if (EXIT_SUCCESS == result) {
+        result = fingerprint_sequence(&fp_ref, reference, FPRINT_NREF, FPRINT_ORDER);
+      }
+      for (size_index = 0; size_index < nsizes && EXIT_SUCCESS == result; ++size_index) {
+        libxs_fprint_t fp;
+        values = (double*)malloc(sizes[size_index] * sizeof(double));
+        if (NULL == values) result = EXIT_FAILURE;
+        if (EXIT_SUCCESS == result) {
+          result = fill_sequence(values, sizes[size_index], kinds[kind_index]);
+        }
+        if (EXIT_SUCCESS == result) {
+          result = fingerprint_sequence(&fp, values, sizes[size_index], FPRINT_ORDER);
+        }
+        if (EXIT_SUCCESS == result) {
+          const double dist = libxs_fprint_diff(&fp, &fp_ref, NULL);
+          log_n[size_index] = log((double)sizes[size_index]);
+          log_d[size_index] = log(dist > 0.0 ? dist : 1e-300);
+          sum_x += log_n[size_index];
+          sum_y += log_d[size_index];
+          sum_xy += log_n[size_index] * log_d[size_index];
+          sum_xx += log_n[size_index] * log_n[size_index];
+        }
+        free(values);
+        values = NULL;
+      }
+      if (EXIT_SUCCESS == result) {
+        slope = (nsizes * sum_xy - sum_x * sum_y)
+          / (nsizes * sum_xx - sum_x * sum_x);
+        mean_y = sum_y / nsizes;
+        ss_tot = 0.0;
+        ss_res = 0.0;
+        for (size_index = 0; size_index < nsizes; ++size_index) {
+          const double predicted = (sum_y - slope * sum_x) / nsizes
+            + slope * log_n[size_index];
+          ss_tot += (log_d[size_index] - mean_y) * (log_d[size_index] - mean_y);
+          ss_res += (log_d[size_index] - predicted) * (log_d[size_index] - predicted);
+        }
+        r_squared = (ss_tot > 0.0) ? 1.0 - ss_res / ss_tot : 0.0;
+        fprintf(file, "%s,%.17g,%.17g\n", names[kind_index], slope, r_squared);
+      }
+    }
+  }
+  free(values);
+  free(reference);
+  if (NULL != file) fclose(file);
+  printf("  convergence_rate.csv\n");
   return result;
 }
