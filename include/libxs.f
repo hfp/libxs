@@ -786,13 +786,13 @@
           FUNCTION internal_fprint(info,                                &
      &    datatype, data, ndims, shape, stride,                         &
      &    order, axis) BIND(C, NAME="libxs_fprint")
-            IMPORT :: libxs_fprint_t, C_PTR, C_INT, C_SIZE_T
+            IMPORT :: libxs_fprint_t, C_PTR, C_INT
             TYPE(libxs_fprint_t), INTENT(OUT)   :: info
             INTEGER(C_INT), INTENT(IN), VALUE   :: datatype
             TYPE(C_PTR), INTENT(IN), VALUE      :: data
             INTEGER(C_INT), INTENT(IN), VALUE   :: ndims
-            INTEGER(C_SIZE_T), INTENT(IN)       :: shape(*)
-            INTEGER(C_SIZE_T), INTENT(IN)       :: stride(*)
+            TYPE(C_PTR), INTENT(IN), VALUE      :: shape
+            TYPE(C_PTR), INTENT(IN), VALUE      :: stride
             INTEGER(C_INT), INTENT(IN), VALUE   :: order
             INTEGER(C_INT), INTENT(IN), VALUE   :: axis
             INTEGER(C_INT) :: internal_fprint
@@ -1050,6 +1050,15 @@
           MODULE PROCEDURE libxs_diff_i32, libxs_diff_i64
         END INTERFACE
 
+        !> Foeppl polynomial fingerprint (generic).
+        INTERFACE libxs_fprint
+          MODULE PROCEDURE libxs_fprint_ptr
+          MODULE PROCEDURE libxs_fprint_f64
+          MODULE PROCEDURE libxs_fprint_f32
+          MODULE PROCEDURE libxs_fprint_i32
+          MODULE PROCEDURE libxs_fprint_i8
+        END INTERFACE
+
       CONTAINS
         !> Extract type-size (in Bytes) from datatype enum.
         ELEMENTAL FUNCTION libxs_typesize(datatype)
@@ -1184,28 +1193,101 @@
      &      rr, tt, plr, plt)
         END SUBROUTINE
 
-        !> Foeppl polynomial fingerprint.
-        !> order defaults to LIBXS_FPRINT_MAXORDER.
-        !> axis defaults to -1 (hierarchical).
-        FUNCTION libxs_fprint(info, datatype, data,                     &
-     &  ndims, shape, stride, order, axis)
+        !> General fingerprint: C_PTR data, explicit shape/stride.
+        !> stride and order and axis are optional.
+        FUNCTION libxs_fprint_ptr(info, datatype, data,                 &
+     &  ndims, shape, stride, order, axis) RESULT(rc)
           TYPE(libxs_fprint_t), INTENT(OUT) :: info
           INTEGER(C_INT), INTENT(IN) :: datatype
           TYPE(C_PTR), INTENT(IN) :: data
           INTEGER(C_INT), INTENT(IN) :: ndims
-          INTEGER(C_SIZE_T), INTENT(IN) :: shape(ndims)
-          INTEGER(C_SIZE_T), INTENT(IN) :: stride(ndims)
+          INTEGER(C_SIZE_T), INTENT(IN), TARGET :: shape(ndims)
+          INTEGER(C_SIZE_T), INTENT(IN), OPTIONAL, TARGET ::            &
+     &      stride(ndims)
           INTEGER(C_INT), INTENT(IN), OPTIONAL :: order, axis
-          INTEGER(C_INT) :: libxs_fprint
+          INTEGER(C_INT) :: rc
           INTEGER(C_INT) :: oo, aa
-          IF (PRESENT(order)) THEN
-            oo = order
+          TYPE(C_PTR) :: pstride
+          IF (PRESENT(order)) THEN; oo = order
           ELSE; oo = LIBXS_FPRINT_MAXORDER; END IF
-          IF (PRESENT(axis)) THEN
-            aa = axis
+          IF (PRESENT(axis)) THEN; aa = axis
           ELSE; aa = -1; END IF
-          libxs_fprint = internal_fprint(info, datatype, data,          &
-     &      ndims, shape, stride, oo, aa)
+          IF (PRESENT(stride)) THEN; pstride = C_LOC(stride)
+          ELSE; pstride = C_NULL_PTR; END IF
+          rc = internal_fprint(info, datatype, data,                    &
+     &      ndims, C_LOC(shape), pstride, oo, aa)
+        END FUNCTION
+
+        !> 1-D fingerprint for REAL(C_DOUBLE) array.
+        FUNCTION libxs_fprint_f64(info, data, order, axis)              &
+     &  RESULT(rc)
+          TYPE(libxs_fprint_t), INTENT(OUT) :: info
+          REAL(C_DOUBLE), INTENT(IN), TARGET :: data(:)
+          INTEGER(C_INT), INTENT(IN), OPTIONAL :: order, axis
+          INTEGER(C_INT) :: rc
+          INTEGER(C_INT) :: oo, aa
+          INTEGER(C_SIZE_T), TARGET :: shp(1)
+          IF (PRESENT(order)) THEN; oo = order
+          ELSE; oo = LIBXS_FPRINT_MAXORDER; END IF
+          IF (PRESENT(axis)) THEN; aa = axis
+          ELSE; aa = -1; END IF
+          shp(1) = SIZE(data, KIND=C_SIZE_T)
+          rc = internal_fprint(info, LIBXS_DATATYPE_F64,                &
+     &      C_LOC(data), 1, C_LOC(shp), C_NULL_PTR, oo, aa)
+        END FUNCTION
+
+        !> 1-D fingerprint for REAL(C_FLOAT) array.
+        FUNCTION libxs_fprint_f32(info, data, order, axis)              &
+     &  RESULT(rc)
+          TYPE(libxs_fprint_t), INTENT(OUT) :: info
+          REAL(C_FLOAT), INTENT(IN), TARGET :: data(:)
+          INTEGER(C_INT), INTENT(IN), OPTIONAL :: order, axis
+          INTEGER(C_INT) :: rc
+          INTEGER(C_INT) :: oo, aa
+          INTEGER(C_SIZE_T), TARGET :: shp(1)
+          IF (PRESENT(order)) THEN; oo = order
+          ELSE; oo = LIBXS_FPRINT_MAXORDER; END IF
+          IF (PRESENT(axis)) THEN; aa = axis
+          ELSE; aa = -1; END IF
+          shp(1) = SIZE(data, KIND=C_SIZE_T)
+          rc = internal_fprint(info, LIBXS_DATATYPE_F32,                &
+     &      C_LOC(data), 1, C_LOC(shp), C_NULL_PTR, oo, aa)
+        END FUNCTION
+
+        !> 1-D fingerprint for INTEGER(C_INT) array.
+        FUNCTION libxs_fprint_i32(info, data, order, axis)              &
+     &  RESULT(rc)
+          TYPE(libxs_fprint_t), INTENT(OUT) :: info
+          INTEGER(C_INT), INTENT(IN), TARGET :: data(:)
+          INTEGER(C_INT), INTENT(IN), OPTIONAL :: order, axis
+          INTEGER(C_INT) :: rc
+          INTEGER(C_INT) :: oo, aa
+          INTEGER(C_SIZE_T), TARGET :: shp(1)
+          IF (PRESENT(order)) THEN; oo = order
+          ELSE; oo = LIBXS_FPRINT_MAXORDER; END IF
+          IF (PRESENT(axis)) THEN; aa = axis
+          ELSE; aa = -1; END IF
+          shp(1) = SIZE(data, KIND=C_SIZE_T)
+          rc = internal_fprint(info, LIBXS_DATATYPE_I32,                &
+     &      C_LOC(data), 1, C_LOC(shp), C_NULL_PTR, oo, aa)
+        END FUNCTION
+
+        !> 1-D fingerprint for INTEGER(C_INT8_T) array.
+        FUNCTION libxs_fprint_i8(info, data, order, axis)               &
+     &  RESULT(rc)
+          TYPE(libxs_fprint_t), INTENT(OUT) :: info
+          INTEGER(C_INT8_T), INTENT(IN), TARGET :: data(:)
+          INTEGER(C_INT), INTENT(IN), OPTIONAL :: order, axis
+          INTEGER(C_INT) :: rc
+          INTEGER(C_INT) :: oo, aa
+          INTEGER(C_SIZE_T), TARGET :: shp(1)
+          IF (PRESENT(order)) THEN; oo = order
+          ELSE; oo = LIBXS_FPRINT_MAXORDER; END IF
+          IF (PRESENT(axis)) THEN; aa = axis
+          ELSE; aa = -1; END IF
+          shp(1) = SIZE(data, KIND=C_SIZE_T)
+          rc = internal_fprint(info, LIBXS_DATATYPE_I8,                 &
+     &      C_LOC(data), 1, C_LOC(shp), C_NULL_PTR, oo, aa)
         END FUNCTION
 
         !> Weighted Sobolev distance between two fingerprints.
