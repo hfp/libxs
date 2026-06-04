@@ -165,6 +165,8 @@ LIBXS_EXTERN_C typedef struct libxs_fprint_t {
   double l1[LIBXS_FPRINT_MAXORDER + 1];
   /** Per-order Linf (max absolute value). */
   double linf[LIBXS_FPRINT_MAXORDER + 1];
+  /** Per-order signed mean (sum / count, preserves sign and phase). */
+  double mean[LIBXS_FPRINT_MAXORDER + 1];
   /** Derivative orders used and original data length. */
   int order, n;
   /** Discovered or given data type. */
@@ -194,7 +196,9 @@ LIBXS_API int libxs_fprint(libxs_fprint_t* info,
 
 /**
  * Weighted Sobolev distance between two fingerprints:
- *   d = sqrt(sum_k weights[k] * (a->l2[k] - b->l2[k])^2).
+ *   d = sqrt(sum_k w_k * [(a->l2[k] - b->l2[k])^2
+ *                        + (a->mean[k] - b->mean[k])^2]).
+ * The signed mean breaks collisions from negation and reflection.
  * The number of orders used is min(a->order, b->order) + 1.
  * If weights is NULL, default weights w_k = 1/(k!) are used.
  */

@@ -130,20 +130,27 @@ typedef struct libxs_fprint_t {
   double l2[LIBXS_FPRINT_MAXORDER + 1];
   double l1[LIBXS_FPRINT_MAXORDER + 1];
   double linf[LIBXS_FPRINT_MAXORDER + 1];
+  double mean[LIBXS_FPRINT_MAXORDER + 1];
   int order, n;
   libxs_data_t datatype;
 } libxs_fprint_t;
 ```
 
-Three norm families are computed per derivative order k = 0..order:
+Three norm families and a signed mean are computed per derivative
+order k = 0..order:
 
-| Field     | Norm | Description                               |
-|-----------|------|-------------------------------------------|
-| `l2[k]`   | L2   | RMS of the k-th finite difference         |
-| `l1[k]`   | L1   | Mean absolute value (total variation)     |
-| `linf[k]` | Linf | Maximum absolute value (worst-case decay) |
+| Field      | Description                                    |
+|------------|------------------------------------------------|
+| `l2[k]`   | L2 norm of the k-th finite difference          |
+| `l1[k]`   | Mean absolute value (total variation)          |
+| `linf[k]` | Maximum absolute value (worst-case decay)      |
+| `mean[k]` | Signed mean (sum / count, preserves sign/phase)|
 
-All three are normalized to the unit interval (h = 1/(n-1)).
+All norms are normalized to the unit interval (h = 1/(n-1)).
+The signed mean preserves the dominant direction of the k-th
+derivative and breaks pseudometric collisions that pure norms
+cannot distinguish (negation, reflection).
+
 The `order` field records how many derivative orders were used;
 `n` is the extent of the fingerprinted dimension. The `datatype`
 field records the element type -- either the type passed by the
@@ -186,12 +193,12 @@ The decay ratio is the key discriminator for type discovery
 (see below) and for the compressibility diagnostic described
 in the Foeppl paper.
 
-The L2 norms serve comparison via the Sobolev distance.
-The Linf norms serve as a decay diagnostic: decaying linf[k]
-indicates structurally smooth data (compressible under Newton
-truncation), while growing linf[k] indicates unstructured data
-(no exploitable smoothness). The L1 norms provide a
-noise-robust middle ground between L2 and Linf.
+The L2 norms and signed means serve comparison via the Sobolev
+distance (libxs_fprint_diff). The Linf norms serve as a decay
+diagnostic: decaying linf[k] indicates structurally smooth data
+(compressible under Newton truncation), while growing linf[k]
+indicates unstructured data (no exploitable smoothness). The L1
+norms provide a noise-robust middle ground between L2 and Linf.
 
 ```C
 int libxs_fprint(libxs_fprint_t* info,
@@ -242,15 +249,19 @@ double libxs_fprint_diff(
 ```
 
 Weighted Sobolev distance between two fingerprints:
-d = sqrt( sum over k of weights[k] \* (a->l2[k] - b->l2[k])^2 ).
+d = sqrt( sum over k of weights[k] \* [(a->l2[k] - b->l2[k])^2
++ (a->mean[k] - b->mean[k])^2] ).
 The number of orders compared is min(a->order, b->order) + 1.
 If weights is NULL, default weights w(k) = 1/k! are used, which
 naturally dampens higher-order (noisier) derivatives.
 
-The distance is a metric: symmetric, non-negative, zero if and
-only if the fingerprints are identical. The same function serves
-both as a distance measure and as a fingerprint comparator since
-the fingerprint is the decomposed form of the Sobolev norm.
+The inclusion of the signed mean difference breaks collisions from
+negation (identical L2 norms but opposite means) and reflection
+(identical L2 but opposite first-derivative means). The distance
+is a metric in fingerprint space: symmetric, non-negative, zero if
+and only if the fingerprints are identical. The same function
+serves both as a distance measure and as a fingerprint comparator
+since the fingerprint is the decomposed form of the Sobolev norm.
 
 ## Type Discovery for Opaque Data
 

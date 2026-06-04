@@ -1374,31 +1374,37 @@ LIBXS_API_INTERN void internal_libxs_fprint_core(
   const double h = 1 < n ? 1.0 / (n - 1) : 1.0;
   double *prv = (cur == buf) ? buf + n : buf;
   int k, i;
-  { double l2acc = 0, l2comp = 0, l1acc = 0, l1comp = 0, amax = 0;
+  { double l2acc = 0, l2comp = 0, l1acc = 0, l1comp = 0;
+    double macc = 0, mcomp = 0, amax = 0;
     for (i = 0; i < n; ++i) {
       const double a = cur[i] < 0 ? -cur[i] : cur[i];
       libxs_kahan_sum(cur[i] * cur[i], &l2acc, &l2comp);
+      libxs_kahan_sum(cur[i], &macc, &mcomp);
       libxs_kahan_sum(a, &l1acc, &l1comp);
       if (a > amax) amax = a;
     }
     info->l2[0] = sqrt(l2acc * h);
     info->l1[0] = l1acc * h;
     info->linf[0] = amax;
+    info->mean[0] = macc / n;
   }
   for (k = 1; k <= kmax; ++k) {
     const int nk = n - k;
-    double *tmp, l2acc = 0, l2comp = 0, l1acc = 0, l1comp = 0, amax = 0;
+    double *tmp, l2acc = 0, l2comp = 0, l1acc = 0, l1comp = 0;
+    double macc = 0, mcomp = 0, amax = 0;
     tmp = prv; prv = cur; cur = tmp;
     for (i = 0; i < nk; ++i) cur[i] = (prv[i + 1] - prv[i]) / h;
     for (i = 0; i < nk; ++i) {
       const double a = cur[i] < 0 ? -cur[i] : cur[i];
       libxs_kahan_sum(cur[i] * cur[i], &l2acc, &l2comp);
+      libxs_kahan_sum(cur[i], &macc, &mcomp);
       libxs_kahan_sum(a, &l1acc, &l1comp);
       if (a > amax) amax = a;
     }
     info->l2[k] = sqrt(l2acc * h);
     info->l1[k] = l1acc * h;
     info->linf[k] = amax;
+    info->mean[k] = macc / nk;
   }
 }
 
@@ -1530,12 +1536,17 @@ LIBXS_API int libxs_fprint(libxs_fprint_t* info,
                 if (fp1.linf[k] > info->linf[k]) info->linf[k] = fp1.linf[k];
                 if (fp1.l2[k] > info->l2[k]) info->l2[k] = fp1.l2[k];
                 if (fp1.l1[k] > info->l1[k]) info->l1[k] = fp1.l1[k];
+                info->mean[k] += fp1.mean[k];
               }
               if (fp1.order > info->order) info->order = fp1.order;
               if (fp1.n > info->n) info->n = fp1.n;
             }
           }
         }
+      }
+      if (EXIT_SUCCESS == result && 1 < ngrid) {
+        int k;
+        for (k = 0; k <= info->order; ++k) info->mean[k] /= (double)ngrid;
       }
     }
   }
@@ -1628,10 +1639,11 @@ LIBXS_API double libxs_fprint_diff(
   LIBXS_ASSERT(NULL != a && NULL != b);
   kmax = LIBXS_MIN(a->order, b->order);
   for (k = 0; k <= kmax; ++k) {
-    const double d = a->l2[k] - b->l2[k];
+    const double dl2 = a->l2[k] - b->l2[k];
+    const double dm = a->mean[k] - b->mean[k];
     if (NULL != weights) wk = weights[k];
     else if (0 < k) wk /= k; /* 1/k! */
-    libxs_kahan_sum(wk * d * d, &acc, &comp);
+    libxs_kahan_sum(wk * (dl2 * dl2 + dm * dm), &acc, &comp);
   }
   return sqrt(acc);
 }

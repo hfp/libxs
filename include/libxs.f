@@ -236,7 +236,9 @@
           REAL(C_DOUBLE) :: l2(LIBXS_FPRINT_MAXORDER + 1)
           REAL(C_DOUBLE) :: l1(LIBXS_FPRINT_MAXORDER + 1)
           REAL(C_DOUBLE) :: linf(LIBXS_FPRINT_MAXORDER + 1)
+          REAL(C_DOUBLE) :: mean(LIBXS_FPRINT_MAXORDER + 1)
           INTEGER(C_INT) :: order, n
+          INTEGER(C_INT) :: datatype
         END TYPE
 
         !> Timer properties.
