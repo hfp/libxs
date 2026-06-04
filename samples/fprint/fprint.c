@@ -664,6 +664,7 @@ static int run_collision(void)
     data_a = (double*)malloc(count * sizeof(double));
     data_b = (double*)malloc(count * sizeof(double));
     fprintf(file, "case_a,case_b,fprint_distance,rms_diff,"
+      "mean_0_a,mean_1_a,mean_0_b,mean_1_b,"
       "l2_0_a,l2_1_a,l2_2_a,l2_3_a,l2_4_a,"
       "l2_0_b,l2_1_b,l2_2_b,l2_3_b,l2_4_b\n");
   }
@@ -707,9 +708,10 @@ static int run_collision(void)
         result = fingerprint_sequence(&fp_b, data_b, count, FPRINT_ORDER);
       }
       if (EXIT_SUCCESS == result) {
-        fprintf(file, "%s,%s,%.17g,%.17g",
+        fprintf(file, "%s,%s,%.17g,%.17g,%.17g,%.17g,%.17g,%.17g",
           case_a[pair], case_b[pair],
-          libxs_fprint_diff(&fp_a, &fp_b, NULL), rms);
+          libxs_fprint_diff(&fp_a, &fp_b, NULL), rms,
+          fp_a.mean[0], fp_a.mean[1], fp_b.mean[0], fp_b.mean[1]);
         write_fprint_values(file, &fp_a);
         write_fprint_values(file, &fp_b);
         fprintf(file, "\n");
@@ -727,7 +729,7 @@ static int run_collision(void)
 static int run_timing(void)
 {
   static const size_t sizes[] = { 64, 128, 256, 512, 1024, 4096, 16384 };
-  const int nreps = 100000;
+  const int nreps = 10000;
   FILE* file = open_csv("timing.csv");
   int result = (NULL != file) ? EXIT_SUCCESS : EXIT_FAILURE;
   double* values = NULL;
