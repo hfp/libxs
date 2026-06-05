@@ -25,7 +25,7 @@ static void evaluate_forecast(
   const libxs_predict_t* const split_models[],
   const libxs_predict_t* const full_models[],
   const libxs_predict_t* source, int total, int train_end,
-  int nseries, int joint, const char names[][32]);
+  int nseries, int joint, const char (*names)[32]);
 
 
 int main(int argc, char* argv[])
@@ -47,10 +47,12 @@ int main(int argc, char* argv[])
     char inputs_spec[256], target_spec[16];
     libxs_predict_t* source;
     int total;
-    { const char* p = colspec;
-      while (nseries < STOCK_MAXCOLS && *p != '\0') {
-        cols[nseries++] = (int)strtol(p, (char**)&p, 10);
-        if (',' == *p) ++p;
+    { int pos = 0;
+      while (nseries < STOCK_MAXCOLS && colspec[pos] != '\0') {
+        char* end = NULL;
+        cols[nseries++] = (int)strtol(colspec + pos, &end, 10);
+        pos = (int)(end - colspec);
+        if (',' == colspec[pos]) ++pos;
       }
     }
     if (nseries < 1) {
@@ -79,18 +81,19 @@ int main(int argc, char* argv[])
       if (0 < total) {
         const int train_end = LIBXS_MAX(
           (int)(total * split + 0.5), WINDOW + 1);
-        char names[STOCK_MAXCOLS][32];
+        char names_buf[STOCK_MAXCOLS][32];
+        const char (*names)[32] = (const char (*)[32])names_buf;
         { char sep[2];
           sep[0] = delim; sep[1] = '\0';
           for (s = 0; s < nseries; ++s) {
             int len = 0;
             const char* tok = libxs_strtoken(csv_header, sep, cols[s], &len);
             if (NULL != tok && len > 0 && len < 32) {
-              memcpy(names[s], tok, (size_t)len);
-              names[s][len] = '\0';
+              memcpy(names_buf[s], tok, (size_t)len);
+              names_buf[s][len] = '\0';
             }
             else {
-              LIBXS_SNPRINTF(names[s], 32, "%d", cols[s]);
+              LIBXS_SNPRINTF(names_buf[s], 32, "%d", cols[s]);
             }
           }
         }
@@ -306,7 +309,7 @@ static void evaluate_forecast(
   const libxs_predict_t* const split_models[],
   const libxs_predict_t* const full_models[],
   const libxs_predict_t* source, int total, int train_end,
-  int nseries, int joint, const char names[][32])
+  int nseries, int joint, const char (*names)[32])
 {
   double sum_err[STOCK_MAXCOLS][HORIZON];
   double max_err[STOCK_MAXCOLS][HORIZON];
