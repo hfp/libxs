@@ -22,7 +22,7 @@ log = logging.getLogger("mkdocs.hooks")
 
 FORD_PROJECT = "libxs_fortran.md"
 FORD_OUTPUT = "fortran"
-SLIDES_DIR = "ozaki"
+SLIDES_DIRS = ("ozaki", "predict")
 
 _built = False
 
@@ -63,31 +63,32 @@ def _build_ford(docs_dir, site_dir):
 
 def _build_slides(docs_dir, site_dir):
     """Build mkslides presentations into the site output."""
-    slides_src = os.path.join(docs_dir, SLIDES_DIR)
-    slides_dst = os.path.join(site_dir, SLIDES_DIR)
-
-    if not os.path.isdir(slides_src):
-        return
-
     if not shutil.which("mkslides"):
         log.warning("mkslides not installed, skipping slides")
         return
 
-    log.info("Building slides from %s into %s", slides_src, slides_dst)
-    try:
-        result = subprocess.run(
-            ["mkslides", "build", slides_src, "-d", slides_dst],
-            capture_output=True, text=True,
-        )
-        if result.returncode == 0:
-            log.info("Slides built successfully")
-        else:
-            log.warning(
-                "mkslides exited with %d: %s",
-                result.returncode, result.stderr.strip(),
+    for slides_dir in SLIDES_DIRS:
+        slides_src = os.path.join(docs_dir, slides_dir)
+        slides_dst = os.path.join(site_dir, slides_dir)
+
+        if not os.path.isdir(slides_src):
+            continue
+
+        log.info("Building slides from %s into %s", slides_src, slides_dst)
+        try:
+            result = subprocess.run(
+                ["mkslides", "build", slides_src, "-d", slides_dst],
+                capture_output=True, text=True,
             )
-    except Exception:
-        log.exception("mkslides build failed")
+            if result.returncode == 0:
+                log.info("Slides built successfully")
+            else:
+                log.warning(
+                    "mkslides exited with %d: %s",
+                    result.returncode, result.stderr.strip(),
+                )
+        except Exception:
+            log.exception("mkslides build failed")
 
 
 def on_post_build(config):

@@ -461,9 +461,10 @@ mkdocs: mkdocs-tests $(ROOTDIR)/$(DOCDIR)/index.md
 	@mkdocs serve
 
 .PHONY: mkslides
+SLIDES ?= ozaki
 mkslides:
-#	@mkslides build $(DOCDIR)/ozaki -d site/slides
-	@mkslides serve $(DOCDIR)/ozaki
+#	@mkslides build $(DOCDIR)/$(SLIDES) -d site/$(SLIDES)
+	@mkslides serve $(DOCDIR)/$(SLIDES)
 
 .PHONY: mkdocs-tests
 mkdocs-tests: $(TSTMDS)
