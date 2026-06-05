@@ -13,7 +13,7 @@ Seven executables demonstrating fingerprint-guided prediction:
 - **predict_soi** -- Southern Oscillation Index prediction from
   anti-correlated Tahiti/Darwin sea level pressure using SPREAD
   decomposition (sum/diff modes).
-- **predict_stock2** -- Paired-stock timeseries prediction from CSV
+- **predict_stock** -- Paired-stock timeseries prediction from CSV
   using SPREAD decomposition on two correlated price series.
 - **predict_crystal** -- Crystal system classification from composition
   features (AFLOW ICSD, 7 classes, 60K entries).
@@ -187,27 +187,26 @@ making the spread (which *is* the SOI) easier to predict.
 
 Fixed-width: YEAR followed by 12 monthly sea level pressure values
 (mb above 1000 mb). Data from 1951 to present.
-## predict_stock2
+## predict_stock
 
-Paired-stock timeseries prediction from a CSV file containing two
-correlated price series. Uses `libxs_predict_set_diff(model, 0)` for
-automatic differencing (non-stationary data) and SPREAD decomposition
-(sum/diff modes) to exploit correlation between the stocks. Compares
-against a raw concatenation baseline and a single-series baseline to
-show whether the cross-series signal improves forecasts.
+Multi-stock timeseries prediction from a CSV file containing one
+or more correlated price series. Uses `libxs_predict_set_diff(model, 0)`
+for automatic differencing (non-stationary data) and PCA decomposition
+for 3+ series (SPREAD for 2). Compares against a raw concatenation
+baseline and a single-series baseline to show whether the cross-series
+signal improves forecasts.
 
 ### Usage
 
-    ./predict_stock2.x <csv_file> [col1] [col2] [train_fraction]
+    ./predict_stock.x <csv_file> [columns] [train_fraction]
 
     csv_file        Comma-delimited CSV with header row.
-    col1            0-based column index for stock 1 (default: 1).
-    col2            0-based column index for stock 2 (default: 2).
+    columns         Comma-separated 0-based column indices (default: 1,2).
     train_fraction  Fraction of data for training (default: 0.8).
 
 ### Example
 
-    ./predict_stock2.x stocks.csv 1 2
+    ./predict_stock.x stocks.csv 1,2,3
 
 ### Data Format
 
@@ -285,7 +284,7 @@ All samples share the same prediction library (libxs_predict):
    modes before kNN matching, exploiting the anti-correlation structure
    that defines the Southern Oscillation Index.
 
-6. **predict_stock2**: Two stock price series loaded via
+6. **predict_stock**: Two stock price series loaded via
    `libxs_predict_load_csv` with numeric column indices.
    `libxs_predict_set_diff(model, 0)` auto-detects that stock prices
    are non-stationary and differences them before window construction;

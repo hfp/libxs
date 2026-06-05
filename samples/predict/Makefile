@@ -37,7 +37,7 @@ SOURCES := $(CSOURCS)
 OBJECTS := $(COBJCTS)
 XFILES := $(OUTDIR)/predict_params.x $(OUTDIR)/predict_sunspots.x \
           $(OUTDIR)/predict_earthquakes.x $(OUTDIR)/predict_discharge.x \
-          $(OUTDIR)/predict_soi.x $(OUTDIR)/predict_stock2.x \
+          $(OUTDIR)/predict_soi.x $(OUTDIR)/predict_stock.x \
           $(OUTDIR)/predict_crystal.x
 
 .PHONY: all
@@ -61,8 +61,8 @@ $(OUTDIR)/predict_discharge.x: $(OUTDIR)/.make $(BLDDIR)/predict_discharge-c.o $
 $(OUTDIR)/predict_soi.x: $(OUTDIR)/.make $(BLDDIR)/predict_soi-c.o $(XLIB)
 	$(LD) -o $@ $(BLDDIR)/predict_soi-c.o $(XLIB) $(SLDFLAGS) $(LDFLAGS) $(CLDFLAGS)
 
-$(OUTDIR)/predict_stock2.x: $(OUTDIR)/.make $(BLDDIR)/predict_stock2-c.o $(XLIB)
-	$(LD) -o $@ $(BLDDIR)/predict_stock2-c.o $(XLIB) $(SLDFLAGS) $(LDFLAGS) $(CLDFLAGS)
+$(OUTDIR)/predict_stock.x: $(OUTDIR)/.make $(BLDDIR)/predict_stock-c.o $(XLIB)
+	$(LD) -o $@ $(BLDDIR)/predict_stock-c.o $(XLIB) $(SLDFLAGS) $(LDFLAGS) $(CLDFLAGS)
 
 $(OUTDIR)/predict_crystal.x: $(OUTDIR)/.make $(BLDDIR)/predict_crystal-c.o $(XLIB)
 	$(LD) -o $@ $(BLDDIR)/predict_crystal-c.o $(XLIB) $(SLDFLAGS) $(LDFLAGS) $(CLDFLAGS)

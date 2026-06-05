@@ -103,7 +103,6 @@ LIBXS_EXTERN_C struct libxs_predict_t {
   int built;
   int eval_mode;
   int iterations;
-  double spread_alpha, spread_beta;
   int nseries, window, target, decompose;
   int nts, ts_capacity;
   int diff_mode, diff_order;
@@ -407,7 +406,6 @@ LIBXS_API libxs_predict_t* libxs_predict_create(int ninputs, int noutputs)
       model->noutputs = noutputs;
       model->eval_mode = LIBXS_PREDICT_AUTO;
       model->diff_mode = -1;
-      model->spread_alpha = 1.0;
     }
   }
   return model;
@@ -567,31 +565,13 @@ LIBXS_API_INLINE void internal_libxs_predict_decompose_apply(
   const libxs_predict_t* model, const double* raw, double* out)
 {
   const int m = model->ninputs;
-  if (LIBXS_PREDICT_PCA == model->decompose && NULL != model->decompose_mat) {
+  if (NULL != model->decompose_mat) {
     const double alpha = 1.0, beta = 0.0;
     const libxs_gemm_config_t *const gemm = libxs_gemm_dispatch(
       LIBXS_DATATYPE_F64, 'N', 'N', m, 1, m, m, m, m,
       &alpha, &beta, NULL);
     libxs_gemm_call(gemm, model->decompose_mat, raw, out);
     libxs_gemm_release(gemm);
-  }
-  else if (LIBXS_PREDICT_SPREAD == model->decompose
-    && model->nseries >= 2 && model->window > 0)
-  {
-    const int w = m / model->nseries;
-    const int tgt = model->target;
-    const int other = (0 == tgt) ? 1 : 0;
-    const double alpha = model->spread_alpha;
-    const double beta = model->spread_beta;
-    const double* a = raw + tgt * w;
-    const double* b = raw + other * w;
-    int i;
-    for (i = 0; i < w; ++i) {
-      const double bn = (LIBXS_FABS(alpha) > 1e-30)
-        ? (b[i] - beta) / alpha : b[i];
-      out[i] = 0.5 * (a[i] + bn);
-      out[w + i] = 0.5 * (a[i] - bn);
-    }
   }
   else {
     memcpy(out, raw, (size_t)m * sizeof(double));
@@ -603,29 +583,13 @@ LIBXS_API_INLINE void internal_libxs_predict_decompose_inverse(
   const libxs_predict_t* model, const double* modes, double* raw)
 {
   const int m = model->ninputs;
-  if (LIBXS_PREDICT_PCA == model->decompose && NULL != model->decompose_mat) {
+  if (NULL != model->decompose_mat) {
     const double alpha = 1.0, beta = 0.0;
     const libxs_gemm_config_t *const gemm = libxs_gemm_dispatch(
       LIBXS_DATATYPE_F64, 'T', 'N', m, 1, m, m, m, m,
       &alpha, &beta, NULL);
     libxs_gemm_call(gemm, model->decompose_mat, modes, raw);
     libxs_gemm_release(gemm);
-  }
-  else if (LIBXS_PREDICT_SPREAD == model->decompose
-    && model->nseries >= 2 && model->window > 0)
-  {
-    const int w = m / model->nseries;
-    const int tgt = model->target;
-    const int other = (0 == tgt) ? 1 : 0;
-    const double alpha = model->spread_alpha;
-    const double beta = model->spread_beta;
-    int i;
-    for (i = 0; i < w; ++i) {
-      const double a = modes[i] + modes[w + i];
-      const double bn = modes[i] - modes[w + i];
-      raw[tgt * w + i] = a;
-      raw[other * w + i] = alpha * bn + beta;
-    }
   }
   else {
     memcpy(raw, modes, (size_t)m * sizeof(double));
@@ -1310,30 +1274,6 @@ LIBXS_API_INLINE void internal_libxs_predict_ts_expand(libxs_predict_t* model)
   if (diff_d > 0) {
     model->ninputs = m;
   }
-  if (LIBXS_PREDICT_SPREAD == model->decompose && s >= 2 && nts > 1) {
-    const int tgt = model->target;
-    const int other = (0 == tgt) ? 1 : 0;
-    double sum_a = 0, sum_b = 0, sum_aa = 0, sum_ab = 0;
-    int i;
-    for (i = 0; i < nts; ++i) {
-      const double a = model->ts_buf[i * s + tgt];
-      const double b = model->ts_buf[i * s + other];
-      sum_a += a;
-      sum_b += b;
-      sum_aa += a * a;
-      sum_ab += a * b;
-    }
-    { const double denom = (double)nts * sum_aa - sum_a * sum_a;
-      if (LIBXS_FABS(denom) > 1e-30) {
-        model->spread_alpha = ((double)nts * sum_ab - sum_a * sum_b) / denom;
-        model->spread_beta = (sum_b - model->spread_alpha * sum_a) / nts;
-      }
-      else {
-        model->spread_alpha = 1.0;
-        model->spread_beta = 0.0;
-      }
-    }
-  }
   nwindows = nts - w - h + 1;
   raw = (double*)LIBXS_PREDICT_MALLOC((size_t)m * sizeof(double), raw_pool);
   if (NULL != raw && nwindows > 0) {
@@ -1480,8 +1420,9 @@ LIBXS_API int libxs_predict_build(libxs_predict_t* model, int nclusters, int ord
   if (NULL != model && 0 < model->nts && 0 == model->nentries) {
     internal_libxs_predict_ts_expand(model);
   }
-  if (NULL != model && 0 < model->nentries
-    && LIBXS_PREDICT_PCA == model->decompose && NULL == model->decompose_mat)
+  if (NULL != model && 0 < model->nentries && NULL == model->decompose_mat
+    && (LIBXS_PREDICT_PCA == model->decompose
+      || (LIBXS_PREDICT_SPREAD == model->decompose && model->nseries >= 2)))
   {
     internal_libxs_predict_pca_build(model);
   }
@@ -2293,10 +2234,13 @@ LIBXS_API int libxs_predict_save(const libxs_predict_t* model, void* buffer, siz
     size_t required = 0;
     int c, j;
     required += sizeof(uint32_t) + 4 * sizeof(uint16_t) + 2 * sizeof(uint8_t);
-    required += 4 * sizeof(uint16_t);
+    required += 4 * sizeof(uint16_t) + 3 * sizeof(uint8_t);
     required += (size_t)model->ninputs * 2 * sizeof(double);
     if (NULL != model->weights) required += (size_t)model->ninputs * sizeof(double);
     if (NULL != model->transforms) required += (size_t)model->noutputs * sizeof(uint8_t);
+    if (NULL != model->decompose_mat) {
+      required += (size_t)model->ninputs * (size_t)model->ninputs * sizeof(double);
+    }
     for (c = 0; c < model->nclusters; ++c) {
       const internal_libxs_predict_cluster_t* cl = &model->clusters[c];
       required += (size_t)model->ninputs * sizeof(double);
@@ -2346,6 +2290,9 @@ LIBXS_API int libxs_predict_save(const libxs_predict_t* model, void* buffer, siz
       WRITE_U16(model->window);
       WRITE_U16(model->target);
       WRITE_U16(model->decompose);
+      WRITE_U8(model->eval_mode);
+      WRITE_U8(model->diff_order);
+      WRITE_U8(NULL != model->decompose_mat ? 1 : 0);
       WRITE_BLK(model->input_min, (size_t)model->ninputs * sizeof(double));
       WRITE_BLK(model->input_rng, (size_t)model->ninputs * sizeof(double));
       if (NULL != model->weights) {
@@ -2353,6 +2300,10 @@ LIBXS_API int libxs_predict_save(const libxs_predict_t* model, void* buffer, siz
       }
       if (NULL != model->transforms) {
         for (j = 0; j < model->noutputs; ++j) WRITE_U8(model->transforms[j]);
+      }
+      if (NULL != model->decompose_mat) {
+        const size_t msz = (size_t)model->ninputs * (size_t)model->ninputs;
+        WRITE_BLK(model->decompose_mat, msz * sizeof(double));
       }
       for (c = 0; c < model->nclusters; ++c) {
         const internal_libxs_predict_cluster_t* cl = &model->clusters[c];
@@ -2448,7 +2399,8 @@ LIBXS_API libxs_predict_t* libxs_predict_load(const void* buffer, size_t size)
       if (NULL == model) ok = EXIT_FAILURE;
     }
     if (EXIT_SUCCESS == ok) {
-      uint8_t has_weights = 0, has_transforms = 0;
+      uint8_t has_weights = 0, has_transforms = 0, has_dmat = 0;
+      uint8_t eval_mode = 0, diff_order = 0;
       uint16_t ts_nseries = 0, ts_window = 0, ts_target = 0, ts_decompose = 0;
       ok = internal_libxs_predict_read(&src, end, &has_weights, 1);
       if (EXIT_SUCCESS == ok) ok = internal_libxs_predict_read(&src, end, &has_transforms, 1);
@@ -2456,11 +2408,17 @@ LIBXS_API libxs_predict_t* libxs_predict_load(const void* buffer, size_t size)
       if (EXIT_SUCCESS == ok) ok = internal_libxs_predict_read(&src, end, &ts_window, 2);
       if (EXIT_SUCCESS == ok) ok = internal_libxs_predict_read(&src, end, &ts_target, 2);
       if (EXIT_SUCCESS == ok) ok = internal_libxs_predict_read(&src, end, &ts_decompose, 2);
+      if (EXIT_SUCCESS == ok) ok = internal_libxs_predict_read(&src, end, &eval_mode, 1);
+      if (EXIT_SUCCESS == ok) ok = internal_libxs_predict_read(&src, end, &diff_order, 1);
+      if (EXIT_SUCCESS == ok) ok = internal_libxs_predict_read(&src, end, &has_dmat, 1);
       if (EXIT_SUCCESS == ok) {
         model->nseries = (int)ts_nseries;
         model->window = (int)ts_window;
         model->target = (int)ts_target;
         model->decompose = (int)ts_decompose;
+        model->eval_mode = (int)eval_mode;
+        model->diff_order = (int)diff_order;
+        if (0 != diff_order) model->diff_mode = (int)diff_order;
       }
       model->input_min = (double*)malloc((size_t)ninp * sizeof(double));
       model->input_rng = (double*)malloc((size_t)ninp * sizeof(double));
@@ -2490,6 +2448,15 @@ LIBXS_API libxs_predict_t* libxs_predict_load(const void* buffer, size_t size)
             ok = internal_libxs_predict_read(&src, end, &v, 1);
             model->transforms[j] = (int)v;
           }
+        }
+        else ok = EXIT_FAILURE;
+      }
+      if (EXIT_SUCCESS == ok && 0 != has_dmat) {
+        const size_t msz = (size_t)ninp * (size_t)ninp;
+        model->decompose_mat = (double*)malloc(msz * sizeof(double));
+        if (NULL != model->decompose_mat) {
+          ok = internal_libxs_predict_read(&src, end,
+            model->decompose_mat, msz * sizeof(double));
         }
         else ok = EXIT_FAILURE;
       }
@@ -2753,7 +2720,8 @@ LIBXS_API_INLINE int internal_libxs_predict_tokenize(
 
 LIBXS_API int libxs_predict_load_csv(libxs_predict_t* model,
   const char filename[], const char delims[],
-  const char inputs[], const char outputs[])
+  const char inputs[], const char outputs[],
+  char header[], int header_size, char* delim_out)
 {
   int result = -1;
   FILE* file;
@@ -2785,6 +2753,15 @@ LIBXS_API int libxs_predict_load_csv(libxs_predict_t* model,
       && (NULL == outputs || no == noutputs));
     result = 0;
     while (NULL != fgets(line, (int)sizeof(line), file) && '#' == line[0]) {}
+    if (NULL != header && header_size > 0) {
+      size_t hlen = strlen(line);
+      while (hlen > 0 && ('\n' == line[hlen-1] || '\r' == line[hlen-1])) {
+        --hlen;
+      }
+      if ((int)hlen >= header_size) hlen = (size_t)(header_size - 1);
+      memcpy(header, line, hlen);
+      header[hlen] = '\0';
+    }
     if (NULL == inputs || NULL == outputs) {
       for (i = 0; i < ninputs; ++i) {
         idx[i] = (NULL != inputs)
@@ -2846,6 +2823,9 @@ LIBXS_API int libxs_predict_load_csv(libxs_predict_t* model,
         idx[ninputs + i] = (NULL != outputs)
           ? (int)strtol(output_tokens[i], NULL, 10) : ninputs + i;
       }
+    }
+    if (NULL != delim_out) {
+      *delim_out = sep[0];
     }
     while (NULL != fgets(line, (int)sizeof(line), file)) {
       size_t len;

@@ -105,6 +105,7 @@
         PUBLIC :: libxs_predict_set_series
         PUBLIC :: libxs_predict_set_target
         PUBLIC :: libxs_predict_set_decompose
+        PUBLIC :: libxs_predict_set_diff
         PUBLIC :: libxs_predict_push
         PUBLIC :: libxs_predict_build, libxs_predict_build_task
         PUBLIC :: libxs_predict_eval, libxs_predict_inverse
@@ -906,6 +907,13 @@
             INTEGER(C_INT), INTENT(IN), VALUE :: decompose
           END SUBROUTINE
 
+          SUBROUTINE libxs_predict_set_diff(model, order)               &
+     &    BIND(C)
+            IMPORT :: C_PTR, C_INT
+            TYPE(C_PTR), INTENT(IN), VALUE :: model
+            INTEGER(C_INT), INTENT(IN), VALUE :: order
+          END SUBROUTINE
+
           FUNCTION libxs_predict_push(lock, model, inputs, outputs)     &
      &    BIND(C)
             IMPORT :: C_PTR, C_INT, C_DOUBLE
@@ -1009,13 +1017,17 @@
           END FUNCTION
 
           FUNCTION libxs_predict_load_csv(model,                        &
-     &    filename, delims, inputs, outputs) BIND(C)
+     &    filename, delims, inputs, outputs, header, header_size,       &
+     &    delim_out) BIND(C)
             IMPORT :: C_PTR, C_INT, C_CHAR
             TYPE(C_PTR), INTENT(IN), VALUE :: model
             CHARACTER(C_CHAR), INTENT(IN) :: filename(*)
-            CHARACTER(C_CHAR), INTENT(IN) :: delims(*)
-            CHARACTER(C_CHAR), INTENT(IN) :: inputs(*)
-            CHARACTER(C_CHAR), INTENT(IN) :: outputs(*)
+            TYPE(C_PTR), INTENT(IN), VALUE :: delims
+            TYPE(C_PTR), INTENT(IN), VALUE :: inputs
+            TYPE(C_PTR), INTENT(IN), VALUE :: outputs
+            TYPE(C_PTR), INTENT(IN), VALUE :: header
+            INTEGER(C_INT), INTENT(IN), VALUE :: header_size
+            TYPE(C_PTR), INTENT(IN), VALUE :: delim_out
             INTEGER(C_INT) :: libxs_predict_load_csv
           END FUNCTION
 

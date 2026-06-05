@@ -318,18 +318,17 @@ LIBXS_API libxs_predict_t* libxs_predict_load(
  *
  * Rows where any selected column fails numeric parsing are skipped
  * (handles header lines and non-numeric fields automatically).
+ * header: if non-NULL, receives the CSV header line (up to header_size
+ *         bytes). Use libxs_strtoken(header, sep, col, &len) to extract
+ *         column names by index.
+ * delim_out: if non-NULL, receives the detected (or given) delimiter
+ *         character.
  * Returns the number of entries successfully pushed, or -1 on I/O error.
  */
 LIBXS_API int libxs_predict_load_csv(libxs_predict_t* model,
   const char filename[], const char delims[],
-  const char inputs[], const char outputs[]);
-
-/** Return pointer to the i-th comma-separated column name in spec. */
-LIBXS_API_INLINE const char* libxs_predict_token(
-  const char spec[], int index, int* length)
-{
-  return libxs_strtoken(spec, ",", index, length);
-}
+  const char inputs[], const char outputs[],
+  char header[], int header_size, char* delim_out);
 
 /* header-only: include implementation (deferred from libxs_macros.h) */
 #if defined(LIBXS_SOURCE) && !defined(LIBXS_SOURCE_H)
