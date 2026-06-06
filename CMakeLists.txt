@@ -109,7 +109,7 @@ endif()
 # Pkg-config file
 if(NOT LIBXS_HEADER_ONLY)
   set(PREFIX "${CMAKE_INSTALL_PREFIX}")
-  set(INCLUDEDIR "\${prefix}/${CMAKE_INSTALL_INCLUDEDIR}")
+  set(INCLUDEDIR "\${prefix}/${CMAKE_INSTALL_INCLUDEDIR}/libxs")
   set(LIBDIR "\${prefix}/${CMAKE_INSTALL_LIBDIR}")
   set(PROJECT "libxs")
   set(DESCRIPTION "Specialized tensor operations")
@@ -140,7 +140,7 @@ include(GNUInstallDirs)
 if(LIBXS_HEADER_ONLY)
   install(TARGETS libxs
     EXPORT libxsTargets
-    INCLUDES DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
+    INCLUDES DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/libxs)
 else()
   install(TARGETS libxs
     EXPORT libxsTargets
@@ -151,7 +151,7 @@ endif()
 
 # Install public headers (picks up the freshly generated libxs_version.h)
 install(DIRECTORY ${LIBXS_INCLUDE_DIR}/
-  DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
+  DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/libxs
   FILES_MATCHING
     PATTERN "*.h"
     PATTERN "*.f"
@@ -159,7 +159,7 @@ install(DIRECTORY ${LIBXS_INCLUDE_DIR}/
 
 if(LIBXS_FORTRAN)
   install(DIRECTORY ${LIBXS_Fortran_MODULE_DIR}/
-    DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
+    DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/libxs
     FILES_MATCHING PATTERN "*.mod")
 endif()
 
