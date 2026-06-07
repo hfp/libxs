@@ -18,7 +18,7 @@ include $(DEPDIR)/Makefile.inc
 
 # header-only when library is not (yet) built
 ifeq (,$(XLIB))
-ifneq (,$(wildcard $(DEPDIR)/include/libxs_source.h))
+ifneq (,$(wildcard $(DEPDIR)/libxs/libxs_source.h))
   DFLAGS += -DLIBXS_SOURCE
   HEADERONLY = 1
 endif
@@ -26,12 +26,13 @@ endif
 
 # include directories
 IFLAGS += -I$(call quote,$(INCDIR))
-IFLAGS += -I$(call quote,$(DEPDIR)/include)
+IFLAGS += -I$(call quote,$(DEPDIR))
+IFLAGS += -I$(call quote,$(DEPDIR)/libxs)
 
 OUTNAME := $(shell basename "$(ROOTDIR)")
 HEADERS := $(wildcard $(INCDIR)/*.h) $(wildcard $(INCDIR)/*.hpp) $(wildcard $(INCDIR)/*.hxx) $(wildcard $(INCDIR)/*.hh) \
            $(wildcard $(SRCDIR)/*.h) $(wildcard $(SRCDIR)/*.hpp) $(wildcard $(SRCDIR)/*.hxx) $(wildcard $(SRCDIR)/*.hh) \
-           $(DEPDIR)/include/libxs_source.h
+           $(DEPDIR)/libxs/libxs_source.h
 CPPSRCS := $(wildcard $(SRCDIR)/*.cpp)
 CXXSRCS := $(wildcard $(SRCDIR)/*.cxx)
 CCXSRCS := $(wildcard $(SRCDIR)/*.cc)

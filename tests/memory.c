@@ -6,7 +6,7 @@
 * Further information: https://github.com/hfp/libxs/                          *
 * SPDX-License-Identifier: BSD-3-Clause                                       *
 ******************************************************************************/
-#include <libxs_source.h>
+#include <libxs/libxs_source.h>
 
 #if !defined(PRINT) && (defined(_DEBUG) || 0)
 # define PRINT

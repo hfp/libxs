@@ -21,7 +21,7 @@ message(STATUS "  LIBXS_SHARED          : ${LIBXS_SHARED}")
 message(STATUS "  LIBXS_FORTRAN         : ${LIBXS_FORTRAN}")
 
 set(LIBXS_ROOT_DIR ${PROJECT_SOURCE_DIR})
-set(LIBXS_INCLUDE_DIR ${LIBXS_ROOT_DIR}/include)
+set(LIBXS_INCLUDE_DIR ${LIBXS_ROOT_DIR}/libxs)
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
@@ -54,7 +54,7 @@ set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS
 if(LIBXS_HEADER_ONLY)
   add_library(libxs INTERFACE)
   target_include_directories(libxs INTERFACE
-    $<BUILD_INTERFACE:${LIBXS_INCLUDE_DIR}>
+    $<BUILD_INTERFACE:${LIBXS_ROOT_DIR}>
     $<INSTALL_INTERFACE:include>)
   add_library(libxs::libxs ALIAS libxs)
 else()
@@ -77,9 +77,10 @@ else()
 
   target_include_directories(libxs
     PUBLIC
-      $<BUILD_INTERFACE:${LIBXS_INCLUDE_DIR}>
+      $<BUILD_INTERFACE:${LIBXS_ROOT_DIR}>
       $<INSTALL_INTERFACE:include>
     PRIVATE
+      ${LIBXS_INCLUDE_DIR}
       ${LIBXS_ROOT_DIR}/src)
 
   set(THREADS_PREFER_PTHREAD_FLAG ON)
@@ -159,7 +160,7 @@ install(DIRECTORY ${LIBXS_INCLUDE_DIR}/
 
 if(LIBXS_FORTRAN)
   install(DIRECTORY ${LIBXS_Fortran_MODULE_DIR}/
-    DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/libxs
+    DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
     FILES_MATCHING PATTERN "*.mod")
 endif()
 

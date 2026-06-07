@@ -6,10 +6,10 @@
 * Further information: https://github.com/hfp/libxs/                          *
 * SPDX-License-Identifier: BSD-3-Clause                                       *
 ******************************************************************************/
-#include <libxs_perm.h>
-#include <libxs_mem.h>
-#include <libxs_math.h>
-#include <libxs_malloc.h>
+#include <libxs/libxs_perm.h>
+#include <libxs/libxs_mem.h>
+#include <libxs/libxs_math.h>
+#include <libxs/libxs_malloc.h>
 #include "libxs_main.h"
 
 #if !defined (LIBXS_PERM_STRATIFY_SIMPLE) && 0

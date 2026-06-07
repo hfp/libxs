@@ -6,7 +6,7 @@
 * Further information: https://github.com/hfp/libxs/                          *
 * SPDX-License-Identifier: BSD-3-Clause                                       *
 ******************************************************************************/
-#include <libxs_gemm.h>
+#include <libxs/libxs_gemm.h>
 #include "libxs_main.h"
 #include "libxs_crc32.h"
 

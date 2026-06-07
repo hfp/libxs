@@ -6,9 +6,9 @@
 * Further information: https://github.com/hfp/libxs/                          *
 * SPDX-License-Identifier: BSD-3-Clause                                       *
 ******************************************************************************/
-#include <libxs_math.h>
-#include <libxs_perm.h>
-#include <libxs_malloc.h>
+#include <libxs/libxs_math.h>
+#include <libxs/libxs_perm.h>
+#include <libxs/libxs_malloc.h>
 #include "libxs_main.h"
 
 #include <sys/types.h>
@@ -20,7 +20,7 @@
 
 #if defined(LIBXS_DEFAULT_CONFIG) || (defined(LIBXS_SOURCE_H) && !defined(LIBXS_CONFIGURED))
 # if !defined(LIBXS_MATHDIFF_MHD)
-#   include <libxs_mhd.h>
+#   include <libxs/libxs_mhd.h>
 #   define LIBXS_MATHDIFF_MHD
 # endif
 #endif

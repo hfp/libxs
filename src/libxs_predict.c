@@ -6,11 +6,11 @@
 * Further information: https://github.com/hfp/libxs/                          *
 * SPDX-License-Identifier: BSD-3-Clause                                       *
 ******************************************************************************/
-#include <libxs_predict.h>
-#include <libxs_perm.h>
-#include <libxs_str.h>
-#include <libxs_malloc.h>
-#include <libxs_gemm.h>
+#include <libxs/libxs_predict.h>
+#include <libxs/libxs_perm.h>
+#include <libxs/libxs_str.h>
+#include <libxs/libxs_malloc.h>
+#include <libxs/libxs_gemm.h>
 #include "libxs_main.h"
 
 #if !defined(LIBXS_PREDICT_MAXITER)

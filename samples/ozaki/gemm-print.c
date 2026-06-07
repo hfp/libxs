@@ -7,7 +7,7 @@
 * SPDX-License-Identifier: BSD-3-Clause                                       *
 ******************************************************************************/
 #include "gemm.h"
-#include <libxs_sync.h>
+#include <libxs/libxs_sync.h>
 
 
 OZAKI_API void print_gemm(FILE* ostream, int compact, const char* transa, const char* transb, const GEMM_INT_TYPE* m,

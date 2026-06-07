@@ -20,7 +20,8 @@ include $(DEPDIR)/Makefile.inc
 
 # include directories
 IFLAGS += -I$(call quote,$(INCDIR))
-IFLAGS += -I$(call quote,$(DEPDIR)/include)
+IFLAGS += -I$(call quote,$(DEPDIR))
+IFLAGS += -I$(call quote,$(DEPDIR)/libxs)
 #IFLAGS += -I$(call quote,$(DEPDIR)/src)
 
 ifneq (0,$(shell echo "$$((100000>$(GCC_VERSION_NUM)))"))
@@ -32,9 +33,9 @@ endif
 OUTNAME := $(shell basename "$(ROOTDIR)")
 HEADERS := $(wildcard $(INCDIR)/*.h) $(wildcard $(INCDIR)/*.hpp) $(wildcard $(INCDIR)/*.hxx) $(wildcard $(INCDIR)/*.hh) \
 		   $(wildcard $(SRCDIR)/*.h) $(wildcard $(SRCDIR)/*.hpp) $(wildcard $(SRCDIR)/*.hxx) $(wildcard $(SRCDIR)/*.hh) \
-		   $(wildcard $(DEPDIR)/include/*.h) $(wildcard $(DEPDIR)/include/*.hpp) \
-		   $(wildcard $(DEPDIR)/include/*.hxx) $(wildcard $(DEPDIR)/include/*.hh) \
-		   $(DEPDIR)/include/libxs_source.h
+		   $(wildcard $(DEPDIR)/libxs/*.h) $(wildcard $(DEPDIR)/libxs/*.hpp) \
+		   $(wildcard $(DEPDIR)/libxs/*.hxx) $(wildcard $(DEPDIR)/libxs/*.hh) \
+		   $(DEPDIR)/libxs/libxs_source.h
 CPPSRCS := $(shell grep -L '$(CMAIN)' $(SRCDIR)/*.cpp 2>/dev/null | tr -s "\n" " ")
 CPPSRCX := $(shell grep -l '$(CMAIN)' $(SRCDIR)/*.cpp 2>/dev/null | tr -s "\n" " ")
 CXXSRCS := $(shell grep -L '$(CMAIN)' $(SRCDIR)/*.cxx 2>/dev/null | tr -s "\n" " ")
@@ -129,7 +130,7 @@ endif
 $(BLDDIR)/%-cpp.o: $(SRCDIR)/%.cpp .state $(BLDDIR)/.make $(HEADERS) Makefile $(DEPDIR)/Makefile.inc #$(DEPDIR)/include/libxs_source.h
 	$(CXX) $(DFLAGS) $(IFLAGS) $(CXXFLAGS) $(CTARGET) -c $< -o $@
 
-$(BLDDIR)/%-c.o: $(SRCDIR)/%.c .state $(BLDDIR)/.make $(HEADERS) Makefile $(DEPDIR)/Makefile.inc $(DEPDIR)/include/libxs_source.h
+$(BLDDIR)/%-c.o: $(SRCDIR)/%.c .state $(BLDDIR)/.make $(HEADERS) Makefile $(DEPDIR)/Makefile.inc $(DEPDIR)/libxs/libxs_source.h
 	$(CC) $(DFLAGS) $(IFLAGS) $(CFLAGS) $(CTARGET) -c $< -o $@
 
 #$(BLDDIR)/%-f.o: $(SRCDIR)/%.f .state $(BLDDIR)/.make Makefile $(DEPDIR)/Makefile.inc $(DEPDIR)/include/libxs_source.h

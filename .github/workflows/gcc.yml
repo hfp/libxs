@@ -53,10 +53,10 @@ jobs:
 
     - name: Verify install (PREFIX)
       run: |
-        test -f $HOME/libxs-install/include/libxs.h
-        test -f $HOME/libxs-install/include/libxs_version.h
-        test -f $HOME/libxs-install/include/libxs_source.h
-        test -d $HOME/libxs-install/include/libxs
+        test -f $HOME/libxs-install/include/libxs/libxs.h
+        test -f $HOME/libxs-install/include/libxs/libxs_version.h
+        test -f $HOME/libxs-install/include/libxs/libxs_source.h
+        test -d $HOME/libxs-install/include/libxs/libxs
         ls $HOME/libxs-install/lib/libxs.* >/dev/null
 
     - name: Out-of-tree build and test

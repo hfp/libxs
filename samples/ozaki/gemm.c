@@ -7,8 +7,8 @@
 * SPDX-License-Identifier: BSD-3-Clause                                       *
 ******************************************************************************/
 #include "gemm.h"
-#include <libxs_timer.h>
-#include <libxs_rng.h>
+#include <libxs/libxs_timer.h>
+#include <libxs/libxs_rng.h>
 
 /* Weak references: gemm-blas.x links without the Ozaki library,
  * so these symbols may be undefined. CHECK should not be used

@@ -27,9 +27,9 @@
  *   [4] H_n-ln(n)  difference (converges to Euler-Mascheroni gamma)
  *   [5] gamma_n    running estimate: H_n - ln(n) - 1/(2n)
  */
-#include <libxs_math.h>
-#include <libxs_mhd.h>
-#include <libxs_perm.h>
+#include <libxs/libxs_math.h>
+#include <libxs/libxs_mhd.h>
+#include <libxs/libxs_perm.h>
 
 #include <stdio.h>
 #include <stdlib.h>

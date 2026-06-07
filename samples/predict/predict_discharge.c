@@ -6,9 +6,9 @@
 * Further information: https://github.com/hfp/libxs/                          *
 * SPDX-License-Identifier: BSD-3-Clause                                       *
 ******************************************************************************/
-#include <libxs_predict.h>
-#include <libxs_math.h>
-#include <libxs_mem.h>
+#include <libxs/libxs_predict.h>
+#include <libxs/libxs_math.h>
+#include <libxs/libxs_mem.h>
 
 enum { WINDOW = 14, HORIZON = 7, NDIFFS = 3, NINPUTS = WINDOW + NDIFFS + 1 };
 

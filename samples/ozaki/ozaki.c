@@ -7,8 +7,8 @@
 * SPDX-License-Identifier: BSD-3-Clause                                       *
 ******************************************************************************/
 #include "ozaki.h"
-#include <libxs_hist.h>
-#include <libxs_sync.h>
+#include <libxs/libxs_hist.h>
+#include <libxs/libxs_sync.h>
 #include <signal.h>
 
 

@@ -9,7 +9,7 @@
 #ifndef LIBXS_DIFF_H
 #define LIBXS_DIFF_H
 
-#include <libxs_utils.h>
+#include <libxs/libxs_utils.h>
 
 #if !defined(LIBXS_DIFF_AVX512_ENABLED) && 0
 # define LIBXS_DIFF_AVX512_ENABLED

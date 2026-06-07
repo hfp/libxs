@@ -6,8 +6,8 @@
 * Further information: https://github.com/hfp/libxs/                          *
 * SPDX-License-Identifier: BSD-3-Clause                                       *
 ******************************************************************************/
-#include <libxs_malloc.h>
-#include <libxs_timer.h>
+#include <libxs/libxs_malloc.h>
+#include <libxs/libxs_timer.h>
 
 #if defined(_OPENMP)
 # include <omp.h>

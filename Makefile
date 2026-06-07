@@ -2,11 +2,11 @@
 ROOTDIR := $(subst //,,$(dir $(firstword $(MAKEFILE_LIST)))/)
 PROJECT := libxs
 # Source and scripts locations
-ROOTINC := $(ROOTDIR)/include
+ROOTINC := $(ROOTDIR)/$(PROJECT)
 ROOTSCR := $(ROOTDIR)/scripts
 ROOTSRC := $(ROOTDIR)/src
 # Project directory structure
-INCDIR := include
+INCDIR := $(PROJECT)
 SCRDIR := scripts
 TSTDIR := tests
 BLDDIR := obj
@@ -17,7 +17,7 @@ SPLDIR := samples
 DOCDIR := documentation
 
 # subdirectories (relative) to PREFIX (install targets)
-PINCDIR ?= $(INCDIR)
+PINCDIR ?= include/$(PROJECT)
 PSRCDIR ?= $(PROJECT)
 POUTDIR ?= $(OUTDIR)
 PPKGDIR ?= $(OUTDIR)/pkgconfig
@@ -111,6 +111,7 @@ ifneq (,$(MAXTARGET))
 endif
 
 # include directories
+IFLAGS += -I.
 IFLAGS += -I$(call quote,$(INCDIR))
 
 # Version numbers according to interface

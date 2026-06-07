@@ -7,7 +7,7 @@
 * SPDX-License-Identifier: BSD-3-Clause                                       *
 ******************************************************************************/
 #include "ozaki.h"
-#include <libxs_malloc.h>
+#include <libxs/libxs_malloc.h>
 
 /**
  * Complex GEMM via block embedding into a single real GEMM:

@@ -6,7 +6,7 @@
 * Further information: https://github.com/hfp/libxs/                          *
 * SPDX-License-Identifier: BSD-3-Clause                                       *
 ******************************************************************************/
-#include <libxs_malloc.h>
+#include <libxs/libxs_malloc.h>
 
 #if !defined(LIBXS_MALLOC_UPSIZE)
 # define LIBXS_MALLOC_UPSIZE (2 << 20)

@@ -7,13 +7,13 @@
 * SPDX-License-Identifier: BSD-3-Clause                                       *
 ******************************************************************************/
 #include "gemm.h"
-#include <libxs_hist.h>
-#include <libxs_malloc.h>
-#include <libxs_timer.h>
-#include <libxs_sync.h>
-#include <libxs_perm.h>
-#include <libxs_mhd.h>
-#include <libxs_mem.h>
+#include <libxs/libxs_hist.h>
+#include <libxs/libxs_malloc.h>
+#include <libxs/libxs_timer.h>
+#include <libxs/libxs_sync.h>
+#include <libxs/libxs_perm.h>
+#include <libxs/libxs_mhd.h>
+#include <libxs/libxs_mem.h>
 #if defined(__DNNL)
 # include <oneapi/dnnl/dnnl.h>
 #endif

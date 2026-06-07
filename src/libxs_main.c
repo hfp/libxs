@@ -7,8 +7,8 @@
 * SPDX-License-Identifier: BSD-3-Clause                                       *
 ******************************************************************************/
 #include "libxs_main.h"
-#include <libxs_cpuid.h>
-#include <libxs_malloc.h>
+#include <libxs/libxs_cpuid.h>
+#include <libxs/libxs_malloc.h>
 
 #include <signal.h>
 #if !defined(NDEBUG)

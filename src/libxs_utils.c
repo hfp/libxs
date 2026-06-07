@@ -6,7 +6,7 @@
 * Further information: https://github.com/hfp/libxs/                          *
 * SPDX-License-Identifier: BSD-3-Clause                                       *
 ******************************************************************************/
-#include <libxs_utils.h>
+#include <libxs/libxs_utils.h>
 
 
 LIBXS_API int LIBXS_INTRINSICS_BITSCANFWD32_SW(unsigned int n)

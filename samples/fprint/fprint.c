@@ -1,5 +1,5 @@
-#include <libxs_math.h>
-#include <libxs_timer.h>
+#include <libxs/libxs_math.h>
+#include <libxs/libxs_timer.h>
 
 #include <math.h>
 #include <stdio.h>

@@ -1,7 +1,7 @@
 # GEMM: Matrix Multiplication
 
 Header: `libxs_gemm.h`
-Fortran: `USE LIBXS` (include/libxs.f)
+Fortran: `USE LIBXS` (libxs/libxs.f)
 
 Batched general matrix-matrix multiplication (GEMM) and symmetric
 rank-k/2k updates. Operations are expressed as

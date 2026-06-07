@@ -6,9 +6,9 @@
 * Further information: https://github.com/hfp/libxs/                          *
 * SPDX-License-Identifier: BSD-3-Clause                                       *
 ******************************************************************************/
-#include <libxs_timer.h>
-#include <libxs_mem.h>
-#include <libxs_rng.h>
+#include <libxs/libxs_timer.h>
+#include <libxs/libxs_mem.h>
+#include <libxs/libxs_rng.h>
 
 #if !defined(MAXSIZE)
 # define MAXSIZE 64

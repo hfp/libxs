@@ -16,19 +16,20 @@ SYM = 1
 include $(DEPDIR)/Makefile.inc
 
 ifeq (,$(XLIB))
-ifneq (,$(wildcard $(DEPDIR)/include/libxs_source.h))
+ifneq (,$(wildcard $(DEPDIR)/libxs/libxs_source.h))
   DFLAGS += -DLIBXS_SOURCE
   HEADERONLY = 1
 endif
 endif
 
 IFLAGS += -I$(call quote,$(INCDIR))
-IFLAGS += -I$(call quote,$(DEPDIR)/include)
+IFLAGS += -I$(call quote,$(DEPDIR))
+IFLAGS += -I$(call quote,$(DEPDIR)/libxs)
 
 OUTNAME := $(shell basename "$(ROOTDIR)")
 HEADERS := $(wildcard $(INCDIR)/*.h) \
            $(wildcard $(SRCDIR)/*.h) \
-           $(DEPDIR)/include/libxs_source.h
+           $(DEPDIR)/libxs/libxs_source.h
 CSOURCS := $(wildcard $(SRCDIR)/*.c)
 COBJCTS := $(patsubst %,$(BLDDIR)/%,$(notdir $(CSOURCS:.c=-c.o)))
 SOURCES := $(CSOURCS)

@@ -6,13 +6,13 @@
 * Further information: https://github.com/hfp/libxs/                          *
 * SPDX-License-Identifier: BSD-3-Clause                                       *
 ******************************************************************************/
-#include <libxs_timer.h>
-#include <libxs_math.h>
-#include <libxs_hash.h>
-#include <libxs_rng.h>
-#include <libxs_perm.h>
-#include <libxs_mem.h>
-#include <libxs_mhd.h>
+#include <libxs/libxs_timer.h>
+#include <libxs/libxs_math.h>
+#include <libxs/libxs_hash.h>
+#include <libxs/libxs_rng.h>
+#include <libxs/libxs_perm.h>
+#include <libxs/libxs_mem.h>
+#include <libxs/libxs_mhd.h>
 
 #if !defined(BUBBLE_SORT) && 0
 # define BUBBLE_SORT

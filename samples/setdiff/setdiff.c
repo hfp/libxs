@@ -1,4 +1,4 @@
-#include <libxs_math.h>
+#include <libxs/libxs_math.h>
 
 #define SETDIFF_PATH_MAX 4096
 

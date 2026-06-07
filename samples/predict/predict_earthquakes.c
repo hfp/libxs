@@ -6,10 +6,10 @@
 * Further information: https://github.com/hfp/libxs/                          *
 * SPDX-License-Identifier: BSD-3-Clause                                       *
 ******************************************************************************/
-#include <libxs_predict.h>
-#include <libxs_timer.h>
-#include <libxs_math.h>
-#include <libxs_mem.h>
+#include <libxs/libxs_predict.h>
+#include <libxs/libxs_timer.h>
+#include <libxs/libxs_math.h>
+#include <libxs/libxs_mem.h>
 
 #if defined(_OPENMP)
 # include <omp.h>

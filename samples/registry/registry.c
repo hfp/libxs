@@ -10,9 +10,9 @@
  * Measures: registration, cold lookup, cached lookup, multi-threaded
  *           reads, contended writes, and mixed read/write scenarios. */
 
-#include <libxs_reg.h>
-#include <libxs_timer.h>
-#include <libxs_math.h>
+#include <libxs/libxs_reg.h>
+#include <libxs/libxs_timer.h>
+#include <libxs/libxs_math.h>
 
 #include <stdio.h>
 #include <stdlib.h>

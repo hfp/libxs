@@ -23,7 +23,7 @@ include $(DEPDIR)/Makefile.inc
 
 # header-only when library is not (yet) built
 ifeq (,$(XLIB))
-ifneq (,$(wildcard $(DEPDIR)/include/libxs_source.h))
+ifneq (,$(wildcard $(DEPDIR)/libxs/libxs_source.h))
   DFLAGS += -DLIBXS_SOURCE
   HEADERONLY = 1
 endif
@@ -39,10 +39,10 @@ ifneq (0,$(LIBXSTREAM))
   XSTREAM_LIB := $(wildcard $(LIBXSTREAMROOT)/lib/libxstream.$(LIBEXT))
   XSTREAM_LIB := $(strip $(if $(XSTREAM_LIB),$(XSTREAM_LIB), \
     $(if $(XSTREAM_SLIB),$(XSTREAM_SLIB),$(XSTREAM_DLIB))))
-  XSTREAM_SOURCE := $(wildcard $(LIBXSTREAMROOT)/include/libxstream_source.h)
+  XSTREAM_SOURCE := $(wildcard $(LIBXSTREAMROOT)/libxstream/libxstream_source.h)
   # library or header-only
   ifneq (,$(XSTREAM_LIB)$(XSTREAM_SOURCE))
-    IFLAGS += -I$(call quote,$(LIBXSTREAMROOT)/include)
+    IFLAGS += -I$(call quote,$(LIBXSTREAMROOT))
     IFLAGS += -I$(call quote,$(LIBXSTREAMROOT)/samples/ozaki)
     DFLAGS += -D__LIBXSTREAM
     ifeq (,$(XSTREAM_LIB))
@@ -82,7 +82,8 @@ ifneq (0,$(DNNL))
 endif
 
 # include directories
-IFLAGS += -I$(call quote,$(DEPDIR)/include)
+IFLAGS += -I$(call quote,$(DEPDIR))
+IFLAGS += -I$(call quote,$(DEPDIR)/libxs)
 IFLAGS += -I$(call quote,$(INCDIR))
 
 # Wrap all four BLAS GEMM symbols (dgemm, sgemm, zgemm, cgemm)

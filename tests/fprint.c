@@ -6,7 +6,7 @@
 * Further information: https://github.com/hfp/libxs/                          *
 * SPDX-License-Identifier: BSD-3-Clause                                       *
 ******************************************************************************/
-#include <libxs_math.h>
+#include <libxs/libxs_math.h>
 
 #if defined(_DEBUG)
 # define FPRINTF(STREAM, ...) do { fprintf(STREAM, __VA_ARGS__); } while(0)

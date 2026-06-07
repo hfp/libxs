@@ -9,9 +9,9 @@
 #ifndef LIBXS_MAIN_H
 #define LIBXS_MAIN_H
 
-#include <libxs_timer.h>
-#include <libxs_cpuid.h>
-#include <libxs_sync.h>
+#include <libxs/libxs_timer.h>
+#include <libxs/libxs_cpuid.h>
+#include <libxs/libxs_sync.h>
 
 #if defined(LIBXS_PLATFORM_AARCH64)
 # if defined(_MSC_VER)
