@@ -28,9 +28,6 @@ set(LIBXS_INCLUDE_DIR ${LIBXS_ROOT_DIR}/libxs)
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
-include(GNUInstallDirs)
-include(CMakePackageConfigHelpers)
-
 # Generate include/libxs_version.h
 set(LIBXS_VERSION_HEADER "${LIBXS_INCLUDE_DIR}/libxs_version.h")
 set(LIBXS_VERSION_SCRIPT "${CMAKE_CURRENT_SOURCE_DIR}/scripts/tool_version.sh")
