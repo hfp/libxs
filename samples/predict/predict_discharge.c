@@ -22,12 +22,13 @@ int main(int argc, char* argv[])
 {
   const char* filename = (argc > 1) ? argv[1] : NULL;
   const double split = (argc > 2) ? atof(argv[2]) : 0.8;
+  const int distill = (argc > 3 && 'd' == argv[3][0]) ? 1 : 0;
   int result = EXIT_FAILURE;
   double* series = NULL;
   int total = 0;
   if (NULL == filename) {
     fprintf(stdout,
-      "Usage: %s <discharge_file> [train_fraction]\n"
+      "Usage: %s <discharge_file> [train_fraction] [distill]\n"
       "  River discharge forecasting using sliding-window kNN.\n"
       "  Input: USGS NWIS daily discharge (tab-delimited, # comments).\n"
       "  Predicts next %d days from previous %d days + derivatives.\n"
@@ -45,6 +46,9 @@ int main(int argc, char* argv[])
       int t;
       libxs_predict_set_mode(model, LIBXS_PREDICT_TEMPORAL);
       libxs_predict_set_transform(model, -1, LIBXS_PREDICT_LOG);
+      if (0 != distill) {
+        libxs_predict_set_distill(model, 0);
+      }
       for (t = WINDOW; t <= train_end - HORIZON; ++t) {
         int i;
         fill_inputs(series, t, inputs);

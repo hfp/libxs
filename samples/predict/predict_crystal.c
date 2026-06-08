@@ -23,10 +23,12 @@ int main(int argc, char* argv[])
   const double split = (argc > 2) ? atof(argv[2]) : 0.8;
   const int order = (argc > 3) ? atoi(argv[3]) : 2;
   const int nclusters = (argc > 4) ? atoi(argv[4]) : 0;
+  const int distill = (argc > 5 && 'd' == argv[5][0]) ? 1 : 0;
   int result = EXIT_FAILURE;
   if (NULL == filename) {
     fprintf(stdout,
-      "Usage: %s <crystal_csv> [train_fraction] [order] [nclusters]\n"
+      "Usage: %s <crystal_csv> [train_fraction] [order] [nclusters]"
+      " [distill]\n"
       "  Crystal system prediction from composition features.\n"
       "  Input: CSV with numeric features + crystal_system label (last col).\n"
       "  Crystal systems: 1=triclinic, 2=monoclinic, 3=orthorhombic,\n"
@@ -49,6 +51,9 @@ int main(int argc, char* argv[])
           int build_ok = EXIT_FAILURE;
           double sum_conf = 0, dt_build, dt_eval;
           libxs_predict_set_decompose(model, LIBXS_PREDICT_RF);
+          if (0 != distill) {
+            libxs_predict_set_distill(model, 0);
+          }
           for (t = 0; t < train_end; ++t) {
             double inputs[NFEAT], output;
             libxs_predict_get(source, t, inputs, &output);

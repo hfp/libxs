@@ -39,13 +39,6 @@ typedef enum libxs_predict_decompose_t {
   LIBXS_PREDICT_RF      = 5
 } libxs_predict_decompose_t;
 
-/** Distillation point-selection method. */
-typedef enum libxs_predict_distill_t {
-  LIBXS_PREDICT_DISTILL_SHUFFLE    = 0,
-  LIBXS_PREDICT_DISTILL_CONFIDENCE = 1,
-  LIBXS_PREDICT_DISTILL_COVERAGE   = 2
-} libxs_predict_distill_t;
-
 /** Opaque prediction model type. */
 LIBXS_EXTERN_C typedef struct libxs_predict_t libxs_predict_t;
 
@@ -187,18 +180,17 @@ LIBXS_API void libxs_predict_set_decompose(libxs_predict_t* model,
 LIBXS_API void libxs_predict_set_diff(libxs_predict_t* model, int order);
 
 /**
- * Enable distillation: the build step performs sliding-fold
- * cross-prediction so that every training point is predicted from a
- * model that never saw it, then builds the final model on those
- * predictions rather than the original outputs.
- * method: point-selection strategy (LIBXS_PREDICT_DISTILL_SHUFFLE, etc).
- * keep_denom: keep 1/keep_denom of the predicted points for the final
- *             model (1 = keep all, 2 = keep 50%, 4 = keep 25%, etc).
- * The resulting model has no exact recall of training data: every
- * stored output is a genuine prediction from held-out neighbors.
+ * Enable distillation: the build step performs leave-one-out (or
+ * fold-based) cross-prediction so that every training point is
+ * predicted from a model that never saw it, then builds the final
+ * model on those predictions rather than the original outputs.
+ * nfolds: 0 = leave-one-out (default/purest), >0 = explicit fold count
+ *         (larger folds trade purity for speed).
+ * Call with nfolds < 0 to disable (default state).
+ * The resulting model has no exact recall of training data.
  */
 LIBXS_API void libxs_predict_set_distill(libxs_predict_t* model,
-  int method, int keep_denom);
+  int nfolds);
 
 /**
  * Push one training entry (incremental).

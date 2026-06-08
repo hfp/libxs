@@ -859,12 +859,11 @@
             INTEGER(C_INT), INTENT(IN), VALUE :: order
           END SUBROUTINE
 
-          SUBROUTINE libxs_predict_set_distill(model, method,           &
-     &    keep_denom) BIND(C)
+          SUBROUTINE libxs_predict_set_distill(model, nfolds)            &
+     &    BIND(C)
             IMPORT :: C_PTR, C_INT
             TYPE(C_PTR), INTENT(IN), VALUE :: model
-            INTEGER(C_INT), INTENT(IN), VALUE :: method
-            INTEGER(C_INT), INTENT(IN), VALUE :: keep_denom
+            INTEGER(C_INT), INTENT(IN), VALUE :: nfolds
           END SUBROUTINE
 
           FUNCTION libxs_predict_push(lock, model, inputs, outputs)     &

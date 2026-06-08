@@ -24,12 +24,13 @@ int main(int argc, char* argv[])
 {
   const char* filename = (argc > 1) ? argv[1] : NULL;
   const double split = (argc > 2) ? atof(argv[2]) : 0.8;
+  const int distill = (argc > 3 && 'd' == argv[3][0]) ? 1 : 0;
   int result = EXIT_FAILURE;
   double* series = NULL;
   int total = 0;
   if (NULL == filename) {
     fprintf(stdout,
-      "Usage: %s <sunspot_csv> [train_fraction]\n"
+      "Usage: %s <sunspot_csv> [train_fraction] [distill]\n"
       "  Timeseries prediction using sliding-window kNN.\n"
       "  Input: SILSO monthly sunspot CSV (semicolon-delimited).\n"
       "  Default train_fraction: 0.8\n", argv[0]);
@@ -44,6 +45,9 @@ int main(int argc, char* argv[])
       int t, build_ok = EXIT_FAILURE;
       libxs_predict_set_mode(model, LIBXS_PREDICT_TEMPORAL);
       libxs_predict_set_series(model, 1, WINDOW);
+      if (0 != distill) {
+        libxs_predict_set_distill(model, 0);
+      }
       for (t = 0; t < train_end; ++t) {
         libxs_predict_push(NULL, model, &series[t], NULL);
       }
