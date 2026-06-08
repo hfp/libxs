@@ -88,3 +88,43 @@ jobs:
           lib/
           tests/*.x
           samples/**/*.x
+
+  CMake:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        gcc: [12, 14]
+        shared: [static, shared]
+    env:
+      CC: gcc-${{ matrix.gcc }}
+      CXX: g++-${{ matrix.gcc }}
+      FC: gfortran-${{ matrix.gcc }}
+    steps:
+    - uses: actions/checkout@v5
+
+    - name: Install GCC ${{ matrix.gcc }}
+      run: sudo apt install -y gcc-${{ matrix.gcc }} g++-${{ matrix.gcc }} gfortran-${{ matrix.gcc }}
+
+    - name: Configure
+      run: |
+        cmake -B build \
+          -DCMAKE_BUILD_TYPE=Debug \
+          -DCMAKE_INSTALL_PREFIX=$HOME/libxs-install \
+          -DLIBXS_SHARED=${{ matrix.shared == 'shared' && 'ON' || 'OFF' }} \
+          -DLIBXS_FORTRAN=ON
+
+    - name: Build
+      run: cmake --build build -j $(nproc)
+
+    - name: Install
+      run: cmake --install build
+
+    - name: Verify install
+      run: |
+        test -f $HOME/libxs-install/include/libxs/libxs.h
+        test -f $HOME/libxs-install/include/libxs/libxs.f
+        test -f $HOME/libxs-install/include/libxs/libxs_spec.fi
+        test -f $HOME/libxs-install/include/libxs/libxs_jit.F
+        ls $HOME/libxs-install/lib/libxs* >/dev/null
+        ls $HOME/libxs-install/lib/pkgconfig/libxs.pc >/dev/null

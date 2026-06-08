@@ -156,6 +156,8 @@ install(DIRECTORY ${LIBXS_INCLUDE_DIR}/
   FILES_MATCHING
     PATTERN "*.h"
     PATTERN "*.f"
+    PATTERN "*.fi"
+    PATTERN "*.F"
     PATTERN "*.mod")
 
 if(LIBXS_FORTRAN)
