@@ -25,7 +25,10 @@ set(LIBXS_INCLUDE_DIR ${LIBXS_ROOT_DIR}/libxs)
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
-# Generate libxs/libxs_version.h
+include(GNUInstallDirs)
+include(CMakePackageConfigHelpers)
+
+# Generate include/libxs_version.h
 set(LIBXS_VERSION_HEADER "${LIBXS_INCLUDE_DIR}/libxs_version.h")
 set(LIBXS_VERSION_SCRIPT "${CMAKE_CURRENT_SOURCE_DIR}/scripts/tool_version.sh")
 
@@ -135,9 +138,19 @@ if(NOT LIBXS_HEADER_ONLY)
   )
 endif()
 
-# Installation rules
-include(GNUInstallDirs)
+# CMake package config files
+configure_package_config_file(
+  "${CMAKE_CURRENT_SOURCE_DIR}/scripts/libxsConfig.cmake.in"
+  "${CMAKE_CURRENT_BINARY_DIR}/libxsConfig.cmake"
+  INSTALL_DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/libxs
+  PATH_VARS CMAKE_INSTALL_INCLUDEDIR CMAKE_INSTALL_LIBDIR)
 
+write_basic_package_version_file(
+  "${CMAKE_CURRENT_BINARY_DIR}/libxsConfigVersion.cmake"
+  VERSION ${PROJECT_VERSION}
+  COMPATIBILITY SameMajorVersion)
+
+# Installation rules
 if(LIBXS_HEADER_ONLY)
   install(TARGETS libxs
     EXPORT libxsTargets
@@ -178,4 +191,9 @@ endif()
 install(EXPORT libxsTargets
   FILE libxsTargets.cmake
   NAMESPACE libxs::
+  DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/libxs)
+
+install(FILES
+  "${CMAKE_CURRENT_BINARY_DIR}/libxsConfig.cmake"
+  "${CMAKE_CURRENT_BINARY_DIR}/libxsConfigVersion.cmake"
   DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/libxs)
