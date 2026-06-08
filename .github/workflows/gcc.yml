@@ -19,13 +19,22 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
+        gcc: [12, 14]
         flags: [DBG=0, DBG=1 PEDANTIC=2 UPLOAD=0]
         libxstream: [prebuilt]
         include:
-          - flags: DBG=1 PEDANTIC=2
+          - gcc: 14
+            flags: DBG=1 PEDANTIC=2
             libxstream: header-only
+    env:
+      CC: gcc-${{ matrix.gcc }}
+      CXX: g++-${{ matrix.gcc }}
+      FC: gfortran-${{ matrix.gcc }}
     steps:
     - uses: actions/checkout@v5
+
+    - name: Install GCC ${{ matrix.gcc }}
+      run: sudo apt install -y gcc-${{ matrix.gcc }} g++-${{ matrix.gcc }} gfortran-${{ matrix.gcc }}
 
     - name: Install OpenBLAS
       run: sudo apt install -y libopenblas-openmp-dev
