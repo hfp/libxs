@@ -78,8 +78,8 @@ make -j $(nproc) -f /path/to/libxs/Makefile
 desired headers:
 
 ```c
-#include <libxs_mem.h>
-#include <libxs_timer.h>
+#include <libxs/libxs_mem.h>
+#include <libxs/libxs_timer.h>
 ```
 
 **Header-only** (explicit) -- include `libxs_source.h` (no
@@ -87,7 +87,7 @@ separate library needed). Safe to include from multiple
 translation units:
 
 ```c
-#include <libxs_source.h>
+#include <libxs/libxs_source.h>
 ```
 
 **Header-only** (implicit) -- compile with `-DLIBXS_SOURCE` and

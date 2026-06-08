@@ -20,7 +20,7 @@ CP=$(command -v cp)
 MV=$(command -v mv)
 
 if [ "${CPPCHECK}" ] && [ "${CAT}" ]; then
-  ${CPPCHECK} "${HERE}/../src" -isrc/template --file-filter="*.c*" -I"${HERE}/../include" \
+  ${CPPCHECK} "${HERE}/../src" -isrc/template --file-filter="*.c*" -I"${HERE}/../libxs" \
     --error-exitcode=111 --force \
     --suppress=preprocessorErrorDirective \
     --suppress=ConfigurationNotChecked \
@@ -52,8 +52,8 @@ then
     ARG=lib
   fi
   TMPF=$("${MKTEMP}" .tool_analyze.XXXXXX)
-  ${CP} "${HERE}/../include/libxs_config.h" "${TMPF}"
-  trap "${MV} ${TMPF} ${HERE}/../include/libxs_config.h" EXIT
+  ${CP} "${HERE}/../libxs/libxs_config.h" "${TMPF}"
+  trap "${MV} ${TMPF} ${HERE}/../libxs/libxs_config.h" EXIT
   ${MAKE} -e CXX="${CXX}" CC="${CC}" FORTRAN=0 DBG=1 ILP64=1 WERROR=0 ANALYZE=1 ${ARG} 2>.analyze.log
   ISSUES=$(${GREP} -e "error:" -e "warning:" .analyze.log \
     | ${GREP} -v "make:" \
