@@ -54,11 +54,31 @@ endif()
 set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS
   "${LIBXS_VERSION_SCRIPT}")
 
+set(THREADS_PREFER_PTHREAD_FLAG ON)
+find_package(Threads REQUIRED)
+
+include(CheckLibraryExists)
+set(LIBXS_PUBLIC_LIBRARIES Threads::Threads ${CMAKE_DL_LIBS})
+check_library_exists(m sqrt "" LIBXS_HAS_LIBM)
+if(LIBXS_HAS_LIBM)
+  list(APPEND LIBXS_PUBLIC_LIBRARIES m)
+endif()
+check_library_exists(rt clock_gettime "" LIBXS_HAS_LIBRT)
+if(LIBXS_HAS_LIBRT)
+  list(APPEND LIBXS_PUBLIC_LIBRARIES rt)
+endif()
+
+set(LIBXS_PUBLIC_INCLUDE_DIRS
+  $<BUILD_INTERFACE:${LIBXS_ROOT_DIR}>
+  $<BUILD_INTERFACE:${LIBXS_INCLUDE_DIR}>
+  $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
+  $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}/libxs>)
+
 if(LIBXS_HEADER_ONLY)
   add_library(libxs INTERFACE)
-  target_include_directories(libxs INTERFACE
-    $<BUILD_INTERFACE:${LIBXS_ROOT_DIR}>
-    $<INSTALL_INTERFACE:include>)
+  target_include_directories(libxs INTERFACE ${LIBXS_PUBLIC_INCLUDE_DIRS})
+  target_compile_definitions(libxs INTERFACE LIBXS_SOURCE=1)
+  target_link_libraries(libxs INTERFACE ${LIBXS_PUBLIC_LIBRARIES})
   add_library(libxs::libxs ALIAS libxs)
 else()
   file(GLOB LIBXS_SRCS LIST_DIRECTORIES false CONFIGURE_DEPENDS
@@ -80,26 +100,11 @@ else()
 
   target_include_directories(libxs
     PUBLIC
-      $<BUILD_INTERFACE:${LIBXS_ROOT_DIR}>
-      $<INSTALL_INTERFACE:include>
+      ${LIBXS_PUBLIC_INCLUDE_DIRS}
     PRIVATE
-      ${LIBXS_INCLUDE_DIR}
       ${LIBXS_ROOT_DIR}/src)
 
-  set(THREADS_PREFER_PTHREAD_FLAG ON)
-  find_package(Threads REQUIRED)
-  target_link_libraries(libxs PUBLIC Threads::Threads)
-  target_link_libraries(libxs PUBLIC ${CMAKE_DL_LIBS})
-
-  include(CheckLibraryExists)
-  check_library_exists(m sqrt "" LIBXS_HAS_LIBM)
-  if(LIBXS_HAS_LIBM)
-    target_link_libraries(libxs PUBLIC m)
-  endif()
-  check_library_exists(rt clock_gettime "" LIBXS_HAS_LIBRT)
-  if(LIBXS_HAS_LIBRT)
-    target_link_libraries(libxs PUBLIC rt)
-  endif()
+  target_link_libraries(libxs PUBLIC ${LIBXS_PUBLIC_LIBRARIES})
 
   if(LIBXS_FORTRAN)
     set(LIBXS_Fortran_MODULE_DIR ${CMAKE_CURRENT_BINARY_DIR}/mod)
@@ -153,8 +158,7 @@ write_basic_package_version_file(
 # Installation rules
 if(LIBXS_HEADER_ONLY)
   install(TARGETS libxs
-    EXPORT libxsTargets
-    INCLUDES DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/libxs)
+    EXPORT libxsTargets)
 else()
   install(TARGETS libxs
     EXPORT libxsTargets
@@ -173,9 +177,23 @@ install(DIRECTORY ${LIBXS_INCLUDE_DIR}/
     PATTERN "*.F"
     PATTERN "*.mod")
 
+if(LIBXS_HEADER_ONLY)
+  file(READ "${LIBXS_INCLUDE_DIR}/libxs_source.h" LIBXS_SOURCE_HEADER)
+  string(REPLACE "../src/" "src/" LIBXS_SOURCE_HEADER "${LIBXS_SOURCE_HEADER}")
+  file(WRITE "${CMAKE_CURRENT_BINARY_DIR}/libxs_source.h" "${LIBXS_SOURCE_HEADER}")
+
+  install(FILES "${CMAKE_CURRENT_BINARY_DIR}/libxs_source.h"
+    DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/libxs)
+  install(DIRECTORY ${LIBXS_ROOT_DIR}/src/
+    DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/libxs/src
+    FILES_MATCHING
+      PATTERN "*.c"
+      PATTERN "*.h")
+endif()
+
 if(LIBXS_FORTRAN)
   install(DIRECTORY ${LIBXS_Fortran_MODULE_DIR}/
-    DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
+    DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/libxs
     FILES_MATCHING PATTERN "*.mod")
 endif()
 
