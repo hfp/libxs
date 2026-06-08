@@ -36,12 +36,13 @@ CSOURCS := $(wildcard $(SRCDIR)/gemm_*.c)
 COBJCTS := $(patsubst %,$(BLDDIR)/%,$(notdir $(CSOURCS:.c=-c.o)))
 ifneq (1,$(HEADERONLY))
 ifneq (,$(strip $(FC)))
-F77SRCS := $(wildcard $(SRCDIR)/gemm_*.F)
-F77OBJS := $(patsubst %,$(BLDDIR)/%,$(notdir $(F77SRCS:.F=-f77.o)))
+F77SRCS := $(wildcard $(SRCDIR)/gemm_*.f)
+F77OBJS := $(patsubst %,$(BLDDIR)/%,$(notdir $(F77SRCS:.f=-f77.o)))
+JITOBJ := $(BLDDIR)/libxs_jit-f77.o
 endif
 endif
 OBJECTS := $(COBJCTS)
-FTNOBJS := $(F77OBJS)
+FTNOBJS := $(F77OBJS) $(JITOBJ)
 XFILES := $(OUTDIR)/gemm_strided.x $(OUTDIR)/gemm_batch.x \
           $(OUTDIR)/gemm_groups.x $(OUTDIR)/gemm_index.x \
           $(OUTDIR)/gemm_indexf.x
@@ -67,8 +68,8 @@ $(OUTDIR)/gemm_index.x: $(OUTDIR)/.make $(BLDDIR)/gemm_index-c.o $(XLIB)
 ifneq (1,$(HEADERONLY))
 ifneq (,$(strip $(FC)))
 ifneq (0,$(shell echo "$$((3>$(XSMM_GCC) || 40600<=$(FC_VERSION_NUM)))"))
-$(OUTDIR)/gemm_indexf.x: $(OUTDIR)/.make $(BLDDIR)/gemm_index-f77.o $(XLIB)
-	$(FLD) -o $@ $(BLDDIR)/gemm_index-f77.o $(XLIB) $(FCMTFLAGS) $(SLDFLAGS) $(LDFLAGS) $(FLDFLAGS) $(ELDFLAGS)
+$(OUTDIR)/gemm_indexf.x: $(OUTDIR)/.make $(BLDDIR)/gemm_index-f77.o $(JITOBJ) $(XLIB)
+	$(FLD) -o $@ $(BLDDIR)/gemm_index-f77.o $(JITOBJ) $(XLIB) $(FCMTFLAGS) $(SLDFLAGS) $(LDFLAGS) $(FLDFLAGS) $(ELDFLAGS)
 else
 .PHONY: $(OUTDIR)/gemm_indexf.x
 endif
@@ -82,8 +83,11 @@ endif
 $(BLDDIR)/%-c.o: $(SRCDIR)/%.c .state $(BLDDIR)/.make $(HEADERS) Makefile $(DEPDIR)/Makefile.inc
 	$(CC) $(DFLAGS) $(IFLAGS) $(CFLAGS) $(CTARGET) -c $< -o $@
 
-$(BLDDIR)/%-f77.o: $(SRCDIR)/%.F .state $(BLDDIR)/.make Makefile $(DEPDIR)/Makefile.inc
-	$(FC) $(FCMTFLAGS) $(DFLAGS) $(IFLAGS) $(FCFLAGS) $(FTARGET) -c $< -o $@
+$(BLDDIR)/libxs_jit-f77.o: $(DEPDIR)/libxs/libxs_jit.F .state $(BLDDIR)/.make Makefile $(DEPDIR)/Makefile.inc
+	$(FC) $(FCMTFLAGS) $(DFLAGS) $(IFLAGS) $(FCFLAGS) $(FTARGET) -c $< -o $@ $(FMFLAGS) $(BLDDIR)
+
+$(BLDDIR)/%-f77.o: $(SRCDIR)/%.f .state $(BLDDIR)/.make $(JITOBJ) Makefile $(DEPDIR)/Makefile.inc
+	$(FC) $(FCMTFLAGS) $(DFLAGS) $(IFLAGS) $(FCFLAGS) $(FTARGET) -c $< -o $@ $(FMFLAGS) $(BLDDIR)
 
 .PHONY: clean
 clean:

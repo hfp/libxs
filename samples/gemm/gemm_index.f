@@ -8,7 +8,7 @@
 !=======================================================================!
 
       PROGRAM gemm_index
-        USE :: LIBXS, ONLY: LIBXS_DATATYPE_F64,                         &
+        USE :: LIBXS_JIT, ONLY: LIBXS_DATATYPE_F64,                     &
      &    LIBXS_GEMM_FLAG_NOLOCK,                                       &
      &    LIBXS_TIMER_TICK_KIND,                                        &
      &    libxs_gemm_config_t,                                          &
@@ -19,8 +19,7 @@
      &    libxs_timer_duration,                                         &
      &    libxs_init, libxs_finalize,                                   &
      &    C_LOC, C_INT, C_DOUBLE, C_SIZEOF,                             &
-     &    C_FUNPTR, C_PTR, C_NULL_PTR
-        USE, INTRINSIC :: ISO_C_BINDING, ONLY: C_FUNLOC
+     &    C_PTR, C_NULL_PTR
 !$      USE :: OMP_LIB, ONLY: omp_get_thread_num,                       &
 !$   &    omp_get_num_threads
         IMPLICIT NONE
@@ -40,40 +39,6 @@
         INTEGER(LIBXS_TIMER_TICK_KIND) :: t0, t1
         DOUBLE PRECISION :: duration, gflops
         INTEGER(C_INT) :: rc
-#if defined(__MKL)
-        INTERFACE
-          FUNCTION mkl_cblas_jit_create_dgemm(jitter,                   &
-     &    layout, transa, transb, m, n, k,                              &
-     &    alpha, lda, ldb, beta, ldc)                                   &
-     &    RESULT(status) BIND(C)
-            IMPORT :: C_PTR, C_INT, C_DOUBLE
-            INTEGER(C_INT) :: status
-            TYPE(C_PTR) :: jitter
-            INTEGER(C_INT), VALUE :: layout, transa, transb
-            INTEGER(C_INT), VALUE :: m, n, k, lda, ldb, ldc
-            REAL(C_DOUBLE), VALUE :: alpha, beta
-          END FUNCTION
-          FUNCTION mkl_jit_get_dgemm_ptr(jitter)                        &
-     &    RESULT(ptr) BIND(C)
-            IMPORT :: C_FUNPTR, C_PTR
-            TYPE(C_FUNPTR) :: ptr
-            TYPE(C_PTR), INTENT(IN), VALUE :: jitter
-          END FUNCTION
-        END INTERFACE
-#endif
-#if defined(__BLAS) || defined(__MKL)
-        INTERFACE
-          SUBROUTINE DGEMM(transa, transb, m, n, k,                     &
-     &    alpha, a, lda, b, ldb, beta, c, ldc) BIND(C, NAME="dgemm_")
-            USE, INTRINSIC :: ISO_C_BINDING,                            &
-     &        ONLY: C_DOUBLE, C_INT, C_CHAR
-            CHARACTER(1, C_CHAR), INTENT(IN) :: transa, transb
-            INTEGER(C_INT), INTENT(IN) :: m, n, k, lda, ldb, ldc
-            REAL(C_DOUBLE), INTENT(IN) :: alpha, beta, a(*), b(*)
-            REAL(C_DOUBLE), INTENT(INOUT) :: c(*)
-          END SUBROUTINE
-        END INTERFACE
-#endif
 
         argc = COMMAND_ARGUMENT_COUNT()
         IF (1 <= argc) THEN
@@ -124,7 +89,6 @@
         ALLOCATE(c(stride_c * batchsize))
         ALLOCATE(ia(batchsize), ib(batchsize), ic(batchsize))
 
-        ! Initialize matrices with simple values
         !$OMP PARALLEL DO DEFAULT(NONE) PRIVATE(i)                      &
         !$OMP   SHARED(batchsize, stride_a, stride_b, stride_c, a, b, c)
         DO i = 1, batchsize
@@ -133,7 +97,6 @@
           c((i-1)*stride_c+1 : i*stride_c) = 0D0
         END DO
 
-        ! Populate one-based element-offset index arrays (Fortran)
         DO i = 1, batchsize
           ia(i) = (i - 1) * stride_a + 1
           ib(i) = (i - 1) * stride_b + 1
@@ -142,21 +105,12 @@
 
         rc = libxs_gemm_dispatch(config,                                &
      &    LIBXS_DATATYPE_F64, 'N', 'N', m, n, k,                        &
-     &    lda, ldb, ldc, alpha, beta                                    &
-#if defined(__MKL)
-     &    , jit_create_dgemm=C_FUNLOC(mkl_cblas_jit_create_dgemm)       &
-     &    , jit_get_dgemm=C_FUNLOC(mkl_jit_get_dgemm_ptr)               &
-#endif
-#if defined(__BLAS) || defined(__MKL)
-     &    , dgemm_blas=C_FUNLOC(DGEMM)                                  &
-#endif
-     &    )
+     &    lda, ldb, ldc, alpha, beta)
         config%flags = LIBXS_GEMM_FLAG_NOLOCK
         IF (0 .NE. rc) THEN
           WRITE(*, "(A)") "  JIT kernel dispatched"
         END IF
 
-        ! Warmup
         CALL libxs_gemm_index(                                          &
      &    C_LOC(a), C_LOC(ia), C_LOC(b), C_LOC(ib),                     &
      &    C_LOC(c), C_LOC(ic),                                          &
@@ -167,24 +121,23 @@
 
         t0 = libxs_timer_tick()
         DO r = 1, nrepeat
-#if defined(_OPENMP)
-          !$OMP PARALLEL DEFAULT(NONE)                                  &
-          !$OMP   SHARED(a, ia, b, ib, c, ic,                           &
-          !$OMP          batchsize, config)
-          CALL libxs_gemm_index_task(                                   &
-     &      C_LOC(a), C_LOC(ia), C_LOC(b), C_LOC(ib),                   &
-     &      C_LOC(c), C_LOC(ic),                                        &
-     &      INT(C_SIZEOF(ia(1))), 1,                                    &
-     &      batchsize, config,                                          &
-     &      omp_get_thread_num(), omp_get_num_threads())
-          !$OMP END PARALLEL
-#else
+!$        !$OMP PARALLEL DEFAULT(NONE)                                  &
+!$        !$OMP   SHARED(a, ia, b, ib, c, ic,                           &
+!$        !$OMP          batchsize, config)
+!$        CALL libxs_gemm_index_task(                                   &
+!$   &      C_LOC(a), C_LOC(ia), C_LOC(b), C_LOC(ib),                   &
+!$   &      C_LOC(c), C_LOC(ic),                                        &
+!$   &      INT(C_SIZEOF(ia(1))), 1,                                    &
+!$   &      batchsize, config,                                          &
+!$   &      omp_get_thread_num(), omp_get_num_threads())
+!$        !$OMP END PARALLEL
+!$        IF (.FALSE.) THEN
           CALL libxs_gemm_index(                                        &
      &      C_LOC(a), C_LOC(ia), C_LOC(b), C_LOC(ib),                   &
      &      C_LOC(c), C_LOC(ic),                                        &
      &      INT(C_SIZEOF(ia(1))), 1,                                    &
      &      batchsize, config)
-#endif
+!$        END IF
         END DO
         t1 = libxs_timer_tick()
         duration = libxs_timer_duration(t0, t1)

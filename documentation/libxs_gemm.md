@@ -128,9 +128,22 @@ Backend callback signatures (MKL-compatible):
                       flags: bit 0 = transa, bit 1 = transb,
                              bit 2 = beta==0.
 
-### Fortran
+### Fortran (LIBXS_JIT, recommended)
 
 ```fortran
+USE LIBXS_JIT
+rc = libxs_gemm_dispatch(config, LIBXS_DATATYPE_F64,
+     &  'N', 'N', m, n, k, lda, ldb, ldc, alpha, beta)
+```
+
+The LIBXS_JIT adapter module provides the same dispatch API
+but fills in BLAS (and MKL JIT when compiled with __MKL)
+automatically. Requires BLAS at link time.
+
+### Fortran (LIBXS, explicit backends)
+
+```fortran
+USE LIBXS
 rc = libxs_gemm_dispatch(config, datatype, transa, transb,
      &  m, n, k, lda, ldb, ldc, alpha, beta,
      &  jit_create_dgemm=..., jit_get_dgemm=...,
@@ -140,23 +153,6 @@ rc = libxs_gemm_dispatch(config, datatype, transa, transb,
 All backend arguments are OPTIONAL C_FUNPTR (named arguments).
 Returns nonzero on success (dispatch produced a callable config).
 The config is populated from the registry-owned copy.
-
-Typical usage with MKL JIT:
-
-```fortran
-rc = libxs_gemm_dispatch(config, LIBXS_DATATYPE_F64,
-     &  'N', 'N', m, n, k, lda, ldb, ldc, alpha, beta,
-     &  jit_create_dgemm=C_FUNLOC(mkl_jit_create_dgemm),
-     &  jit_get_dgemm=C_FUNLOC(mkl_jit_get_dgemm_ptr))
-```
-
-Typical usage with BLAS only:
-
-```fortran
-rc = libxs_gemm_dispatch(config, LIBXS_DATATYPE_F64,
-     &  'N', 'N', m, n, k, lda, ldb, ldc, alpha, beta,
-     &  dgemm_blas=C_FUNLOC(DGEMM))
-```
 
 ## Single-Kernel Call
 
@@ -326,7 +322,7 @@ kernel call (MKL JIT or LIBXSMM when available).
 ## Example (C)
 
 ```C
-#include <libxs_gemm.h>
+#include <libxs/libxs_gemm.h>
 
 libxs_registry_t* reg = libxs_registry_create();
 

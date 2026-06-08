@@ -39,12 +39,13 @@ CSOURCS := $(wildcard $(SRCDIR)/*.c)
 COBJCTS := $(patsubst %,$(BLDDIR)/%,$(notdir $(CSOURCS:.c=-c.o)))
 ifneq (1,$(HEADERONLY))
 ifneq (,$(strip $(FC)))
-F77SRCS := $(wildcard $(SRCDIR)/*.F)
-F77OBJS := $(patsubst %,$(BLDDIR)/%,$(notdir $(F77SRCS:.F=-f77.o)))
+F77SRCS := $(wildcard $(SRCDIR)/*.f)
+F77OBJS := $(patsubst %,$(BLDDIR)/%,$(notdir $(F77SRCS:.f=-f77.o)))
+JITOBJ := $(BLDDIR)/libxs_jit-f77.o
 endif
 endif
 OBJECTS := $(COBJCTS)
-FTNOBJS := $(F77OBJS)
+FTNOBJS := $(F77OBJS) $(JITOBJ)
 XFILES := $(OUTDIR)/$(OUTNAME).x
 
 .PHONY: all
@@ -71,8 +72,11 @@ endif
 $(BLDDIR)/%-c.o: $(SRCDIR)/%.c .state $(BLDDIR)/.make $(HEADERS) Makefile $(DEPDIR)/Makefile.inc
 	$(CC) $(DFLAGS) $(IFLAGS) $(CFLAGS) $(CTARGET) -c $< -o $@
 
-$(BLDDIR)/%-f77.o: $(SRCDIR)/%.F .state $(BLDDIR)/.make Makefile $(DEPDIR)/Makefile.inc
-	$(FC) $(FCMTFLAGS) $(DFLAGS) $(IFLAGS) $(FCFLAGS) $(FTARGET) -c $< -o $@
+$(BLDDIR)/libxs_jit-f77.o: $(DEPDIR)/libxs/libxs_jit.F .state $(BLDDIR)/.make Makefile $(DEPDIR)/Makefile.inc
+	$(FC) $(FCMTFLAGS) $(DFLAGS) $(IFLAGS) $(FCFLAGS) $(FTARGET) -c $< -o $@ $(FMFLAGS) $(BLDDIR)
+
+$(BLDDIR)/%-f77.o: $(SRCDIR)/%.f .state $(BLDDIR)/.make $(JITOBJ) Makefile $(DEPDIR)/Makefile.inc
+	$(FC) $(FCMTFLAGS) $(DFLAGS) $(IFLAGS) $(FCFLAGS) $(FTARGET) -c $< -o $@ $(FMFLAGS) $(BLDDIR)
 
 .PHONY: clean
 clean:

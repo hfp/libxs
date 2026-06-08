@@ -8,7 +8,7 @@
 !=======================================================================!
 
       PROGRAM syrk_sample
-        USE :: LIBXS, ONLY: LIBXS_DATATYPE_F64,                         &
+        USE :: LIBXS_JIT, ONLY: LIBXS_DATATYPE_F64,                     &
      &    LIBXS_TIMER_TICK_KIND,                                        &
      &    libxs_gemm_config_t,                                          &
      &    libxs_syrk_dispatch, libxs_syrk,                              &
@@ -17,42 +17,10 @@
      &    libxs_timer_tick, libxs_timer_duration,                       &
      &    libxs_init, libxs_finalize,                                   &
      &    C_LOC, C_PTR, C_NULL_PTR, C_ASSOCIATED,                       &
-     &    C_FUNPTR, C_F_POINTER, C_DOUBLE, C_INT
-        USE, INTRINSIC :: ISO_C_BINDING, ONLY: C_FUNLOC
+     &    C_F_POINTER, C_DOUBLE, C_INT
         IMPLICIT NONE
-#if defined(__MKL)
+
         INTERFACE
-          FUNCTION mkl_cblas_jit_create_dgemm(jitter,                   &
-     &    layout, transa, transb, m, n, k,                              &
-     &    alpha, lda, ldb, beta, ldc)                                   &
-     &    RESULT(status) BIND(C)
-            IMPORT :: C_PTR, C_INT, C_DOUBLE
-            INTEGER(C_INT) :: status
-            TYPE(C_PTR) :: jitter
-            INTEGER(C_INT), VALUE :: layout, transa, transb
-            INTEGER(C_INT), VALUE :: m, n, k, lda, ldb, ldc
-            REAL(C_DOUBLE), VALUE :: alpha, beta
-          END FUNCTION
-          FUNCTION mkl_jit_get_dgemm_ptr(jitter)                        &
-     &    RESULT(ptr) BIND(C)
-            IMPORT :: C_FUNPTR, C_PTR
-            TYPE(C_FUNPTR) :: ptr
-            TYPE(C_PTR), INTENT(IN), VALUE :: jitter
-          END FUNCTION
-        END INTERFACE
-#endif
-#if defined(__BLAS) || defined(__MKL)
-        INTERFACE
-          SUBROUTINE DGEMM(transa, transb, m, n, k,                     &
-     &    alpha, a, lda, b, ldb, beta, c, ldc)                          &
-     &    BIND(C, NAME="dgemm_")
-            USE, INTRINSIC :: ISO_C_BINDING,                            &
-     &        ONLY: C_DOUBLE, C_INT, C_CHAR
-            CHARACTER(1, C_CHAR), INTENT(IN) :: transa, transb
-            INTEGER(C_INT), INTENT(IN) :: m, n, k, lda, ldb, ldc
-            REAL(C_DOUBLE), INTENT(IN) :: alpha, beta, a(*), b(*)
-            REAL(C_DOUBLE), INTENT(INOUT) :: c(*)
-          END SUBROUTINE
           SUBROUTINE DSYRK(uplo, trans, n, k,                           &
      &    alpha, a, lda, beta, c, ldc)                                  &
      &    BIND(C, NAME="dsyrk_")
@@ -74,7 +42,6 @@
             REAL(C_DOUBLE), INTENT(INOUT) :: c(*)
           END SUBROUTINE
         END INTERFACE
-#endif
 
         INTEGER, PARAMETER :: T = KIND(0D0)
         INTEGER :: n, k, argc, r, nrepeat
@@ -122,21 +89,10 @@
         CALL RANDOM_NUMBER(b)
         c = 0D0; cref = 0D0
 
-        ! SYRK: C := alpha*A*A^T + beta*C (lower triangle)
         WRITE(*, "(A)") ""
         WRITE(*, "(A)") "--- libxs_syrk (lower) ---"
 
-#if defined(__MKL)
-        ptr = libxs_syrk_dispatch(LIBXS_DATATYPE_F64, n, k, n, n,       &
-     &    jit_create_dgemm=C_FUNLOC(mkl_cblas_jit_create_dgemm),        &
-     &    jit_get_dgemm=C_FUNLOC(mkl_jit_get_dgemm_ptr),                &
-     &    dgemm_blas=C_FUNLOC(DGEMM))
-#elif defined(__BLAS)
-        ptr = libxs_syrk_dispatch(LIBXS_DATATYPE_F64, n, k, n, n,       &
-     &    dgemm_blas=C_FUNLOC(DGEMM))
-#else
         ptr = libxs_syrk_dispatch(LIBXS_DATATYPE_F64, n, k, n, n)
-#endif
         IF (.NOT. C_ASSOCIATED(ptr)) THEN
           WRITE(*, "(A)") "FAILED: libxs_syrk_dispatch returned NULL"
           ERROR STOP 1
@@ -152,25 +108,13 @@
         WRITE(*, "(A,E12.5)")                                           &
      &    "  max error (lower): ", diff%linf_abs
 
-        ! SYR2K: C := alpha*(A*B^T + B*A^T) + beta*C (upper)
         WRITE(*, "(A)") ""
         WRITE(*, "(A)") "--- libxs_syr2k (upper) ---"
 
         c = 0D0; cref = 0D0
 
-#if defined(__MKL)
-        ptr = libxs_syr2k_dispatch(LIBXS_DATATYPE_F64,                  &
-     &    n, k, n, n, n,                                                &
-     &    jit_create_dgemm=C_FUNLOC(mkl_cblas_jit_create_dgemm),        &
-     &    jit_get_dgemm=C_FUNLOC(mkl_jit_get_dgemm_ptr),                &
-     &    dgemm_blas=C_FUNLOC(DGEMM))
-#elif defined(__BLAS)
-        ptr = libxs_syr2k_dispatch(LIBXS_DATATYPE_F64,                  &
-     &    n, k, n, n, n, dgemm_blas=C_FUNLOC(DGEMM))
-#else
         ptr = libxs_syr2k_dispatch(LIBXS_DATATYPE_F64,                  &
      &    n, k, n, n, n)
-#endif
         IF (.NOT. C_ASSOCIATED(ptr)) THEN
           WRITE(*, "(A)") "FAILED: libxs_syr2k_dispatch returned NULL"
           ERROR STOP 1
@@ -187,26 +131,14 @@
         WRITE(*, "(A,E12.5)")                                           &
      &    "  max error (upper): ", diff%linf_abs
 
-        ! Performance comparison
         WRITE(*, "(A)") ""
         WRITE(*, "(A)") "--- SYRK performance ---"
 
-#if defined(__MKL)
-        ptr = libxs_syrk_dispatch(LIBXS_DATATYPE_F64, n, k, n, n,       &
-     &    jit_create_dgemm=C_FUNLOC(mkl_cblas_jit_create_dgemm),        &
-     &    jit_get_dgemm=C_FUNLOC(mkl_jit_get_dgemm_ptr),                &
-     &    dgemm_blas=C_FUNLOC(DGEMM))
-#elif defined(__BLAS)
-        ptr = libxs_syrk_dispatch(LIBXS_DATATYPE_F64, n, k, n, n,       &
-     &    dgemm_blas=C_FUNLOC(DGEMM))
-#else
         ptr = libxs_syrk_dispatch(LIBXS_DATATYPE_F64, n, k, n, n)
-#endif
         CALL C_F_POINTER(ptr, config)
 
         gflops = DBLE(n) * DBLE(n) * DBLE(k) * 2D-9
 
-        ! BLAS timing
         cref = 0D0
         CALL DSYRK('L', 'N', n, k, alpha, a, n, beta, cref, n)
         t0 = libxs_timer_tick()
@@ -223,7 +155,6 @@
      &      " GFLOPS/s"
         END IF
 
-        ! LIBXS timing
         c = 0D0
         CALL libxs_syrk(config, 'L', alpha, beta, C_LOC(a), C_LOC(c))
         t0 = libxs_timer_tick()

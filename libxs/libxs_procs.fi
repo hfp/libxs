@@ -1,0 +1,693 @@
+        !> Type-size (Bytes) from datatype enum.
+        ELEMENTAL FUNCTION libxs_typesize(datatype)
+          INTEGER(C_INT), INTENT(IN) :: datatype
+          INTEGER(C_INT) :: libxs_typesize
+          libxs_typesize = ISHFT(datatype, -4)
+        END FUNCTION
+
+        !> Copy a matrix (or zero if source is NULL).
+        PURE SUBROUTINE libxs_matcopy(outm, inm, typesize,              &
+     &  m, n, ldi, ldo)
+          TYPE(C_PTR), INTENT(IN), VALUE :: outm, inm
+          INTEGER(C_INT), INTENT(IN), VALUE :: typesize
+          INTEGER(C_INT), INTENT(IN), VALUE :: m, n, ldi
+          INTEGER(C_INT), INTENT(IN), VALUE, OPTIONAL :: ldo
+          IF (PRESENT(ldo)) THEN
+            CALL internal_matcopy(outm, inm, typesize,                  &
+     &        m, n, ldi, ldo)
+          ELSE
+            CALL internal_matcopy(outm, inm, typesize,                  &
+     &        m, n, ldi, m)
+          END IF
+        END SUBROUTINE
+
+        !> Copy a matrix: task variant for external threading.
+        PURE SUBROUTINE libxs_matcopy_task(outm, inm,                   &
+     &  typesize, m, n, ldi, ldo, tid, ntasks)
+          TYPE(C_PTR), INTENT(IN), VALUE :: outm, inm
+          INTEGER(C_INT), INTENT(IN), VALUE :: typesize
+          INTEGER(C_INT), INTENT(IN), VALUE ::                          &
+     &      m, n, ldi, tid, ntasks
+          INTEGER(C_INT), INTENT(IN), VALUE, OPTIONAL :: ldo
+          IF (PRESENT(ldo)) THEN
+            CALL internal_matcopy_task(outm, inm, typesize,             &
+     &        m, n, ldi, ldo, tid, ntasks)
+          ELSE
+            CALL internal_matcopy_task(outm, inm, typesize,             &
+     &        m, n, ldi, m, tid, ntasks)
+          END IF
+        END SUBROUTINE
+
+        !> Out-of-place matrix transpose.
+        PURE SUBROUTINE libxs_otrans(outm, inm, typesize,               &
+     &  m, n, ldi, ldo)
+          TYPE(C_PTR), INTENT(IN), VALUE :: outm, inm
+          INTEGER(C_INT), INTENT(IN), VALUE :: typesize
+          INTEGER(C_INT), INTENT(IN), VALUE :: m, n, ldi
+          INTEGER(C_INT), INTENT(IN), VALUE, OPTIONAL :: ldo
+          IF (PRESENT(ldo)) THEN
+            CALL internal_otrans(outm, inm, typesize,                   &
+     &        m, n, ldi, ldo)
+          ELSE
+            CALL internal_otrans(outm, inm, typesize,                   &
+     &        m, n, ldi, n)
+          END IF
+        END SUBROUTINE
+
+        !> Out-of-place transpose: task variant.
+        PURE SUBROUTINE libxs_otrans_task(outm, inm,                    &
+     &  typesize, m, n, ldi, ldo, tid, ntasks)
+          TYPE(C_PTR), INTENT(IN), VALUE :: outm, inm
+          INTEGER(C_INT), INTENT(IN), VALUE :: typesize
+          INTEGER(C_INT), INTENT(IN), VALUE ::                          &
+     &      m, n, ldi, tid, ntasks
+          INTEGER(C_INT), INTENT(IN), VALUE, OPTIONAL :: ldo
+          IF (PRESENT(ldo)) THEN
+            CALL internal_otrans_task(outm, inm, typesize,              &
+     &        m, n, ldi, ldo, tid, ntasks)
+          ELSE
+            CALL internal_otrans_task(outm, inm, typesize,              &
+     &        m, n, ldi, n, tid, ntasks)
+          END IF
+        END SUBROUTINE
+
+        !> Allocate from a pool reaching steady-state.
+        FUNCTION libxs_malloc_bytes(pool, nbytes, alignment)
+          TYPE(C_PTR), INTENT(IN) :: pool
+          INTEGER(C_SIZE_T), INTENT(IN) :: nbytes
+          INTEGER(C_INT), INTENT(IN), OPTIONAL :: alignment
+          TYPE(C_PTR) :: libxs_malloc_bytes
+          IF (PRESENT(alignment)) THEN
+            libxs_malloc_bytes =                                        &
+     &        libxs_malloc_c(pool, nbytes, alignment)
+          ELSE
+            libxs_malloc_bytes =                                        &
+     &        libxs_malloc_c(pool, nbytes, 0)
+          END IF
+        END FUNCTION
+
+        ! matdiff wrapper with OPTIONAL arguments
+        SUBROUTINE libxs_matdiff(info, datatype, m, n,                  &
+     &  ref, tst, ldref, ldtst)
+          INTEGER(C_INT), INTENT(IN) :: datatype
+          INTEGER(C_INT), INTENT(IN) :: m
+          INTEGER(C_INT), INTENT(IN), OPTIONAL :: n, ldref, ldtst
+          TYPE(C_PTR), INTENT(IN), OPTIONAL :: ref, tst
+          TYPE(libxs_matdiff_t), INTENT(OUT) :: info
+          INTEGER(C_INT) :: nn, rc
+          INTEGER(C_INT), TARGET :: lr, lt
+          TYPE(C_PTR) :: rr, tt, plr, plt
+          INTERFACE
+            FUNCTION internal_matdiff(info,                             &
+     &      datatype, m, n, ref, tst, ldref, ldtst)                     &
+     &      RESULT(res) BIND(C, NAME="libxs_matdiff")
+              IMPORT :: libxs_matdiff_t, C_PTR, C_INT
+              INTEGER(C_INT), INTENT(IN), VALUE :: datatype
+              INTEGER(C_INT), INTENT(IN), VALUE :: m, n
+              TYPE(C_PTR), INTENT(IN), VALUE :: ref, tst
+              TYPE(C_PTR), INTENT(IN), VALUE :: ldref, ldtst
+              TYPE(libxs_matdiff_t), INTENT(OUT) :: info
+              INTEGER(C_INT) :: res
+            END FUNCTION
+          END INTERFACE
+          IF (PRESENT(n)) THEN; nn = n; ELSE; nn = m; END IF
+          IF (PRESENT(ref)) THEN; rr = ref
+          ELSE; rr = C_NULL_PTR; END IF
+          IF (PRESENT(tst)) THEN; tt = tst
+          ELSE; tt = C_NULL_PTR; END IF
+          IF (PRESENT(ldref)) THEN
+            lr = ldref; plr = C_LOC(lr)
+          ELSE; plr = C_NULL_PTR; END IF
+          IF (PRESENT(ldtst)) THEN
+            lt = ldtst; plt = C_LOC(lt)
+          ELSE; plt = C_NULL_PTR; END IF
+          rc = internal_matdiff(info, datatype, m, nn,                  &
+     &      rr, tt, plr, plt)
+        END SUBROUTINE
+
+        !> General fingerprint: C_PTR data, explicit shape/stride.
+        FUNCTION libxs_fprint_ptr(info, datatype, data,                 &
+     &  ndims, shape, stride, order, axis) RESULT(rc)
+          TYPE(libxs_fprint_t), INTENT(OUT) :: info
+          INTEGER(C_INT), INTENT(IN) :: datatype
+          TYPE(C_PTR), INTENT(IN) :: data
+          INTEGER(C_INT), INTENT(IN) :: ndims
+          INTEGER(C_SIZE_T), INTENT(IN), TARGET :: shape(ndims)
+          INTEGER(C_SIZE_T), INTENT(IN), OPTIONAL, TARGET ::            &
+     &      stride(ndims)
+          INTEGER(C_INT), INTENT(IN), OPTIONAL :: order, axis
+          INTEGER(C_INT) :: rc
+          INTEGER(C_INT) :: oo, aa
+          TYPE(C_PTR) :: pstride
+          IF (PRESENT(order)) THEN; oo = order
+          ELSE; oo = LIBXS_FPRINT_MAXORDER; END IF
+          IF (PRESENT(axis)) THEN; aa = axis
+          ELSE; aa = -1; END IF
+          IF (PRESENT(stride)) THEN; pstride = C_LOC(stride)
+          ELSE; pstride = C_NULL_PTR; END IF
+          rc = internal_fprint(info, datatype, data,                    &
+     &      ndims, C_LOC(shape), pstride, oo, aa)
+        END FUNCTION
+
+        !> 1-D fingerprint for REAL(C_DOUBLE).
+        FUNCTION libxs_fprint_f64(info, data, order, axis)              &
+     &  RESULT(rc)
+          TYPE(libxs_fprint_t), INTENT(OUT) :: info
+          REAL(C_DOUBLE), INTENT(IN), TARGET :: data(:)
+          INTEGER(C_INT), INTENT(IN), OPTIONAL :: order, axis
+          INTEGER(C_INT) :: rc
+          INTEGER(C_INT) :: oo, aa
+          INTEGER(C_SIZE_T), TARGET :: shp(1)
+          IF (PRESENT(order)) THEN; oo = order
+          ELSE; oo = LIBXS_FPRINT_MAXORDER; END IF
+          IF (PRESENT(axis)) THEN; aa = axis
+          ELSE; aa = -1; END IF
+          shp(1) = SIZE(data, KIND=C_SIZE_T)
+          rc = internal_fprint(info, LIBXS_DATATYPE_F64,                &
+     &      C_LOC(data), 1, C_LOC(shp), C_NULL_PTR, oo, aa)
+        END FUNCTION
+
+        !> 1-D fingerprint for REAL(C_FLOAT).
+        FUNCTION libxs_fprint_f32(info, data, order, axis)              &
+     &  RESULT(rc)
+          TYPE(libxs_fprint_t), INTENT(OUT) :: info
+          REAL(C_FLOAT), INTENT(IN), TARGET :: data(:)
+          INTEGER(C_INT), INTENT(IN), OPTIONAL :: order, axis
+          INTEGER(C_INT) :: rc
+          INTEGER(C_INT) :: oo, aa
+          INTEGER(C_SIZE_T), TARGET :: shp(1)
+          IF (PRESENT(order)) THEN; oo = order
+          ELSE; oo = LIBXS_FPRINT_MAXORDER; END IF
+          IF (PRESENT(axis)) THEN; aa = axis
+          ELSE; aa = -1; END IF
+          shp(1) = SIZE(data, KIND=C_SIZE_T)
+          rc = internal_fprint(info, LIBXS_DATATYPE_F32,                &
+     &      C_LOC(data), 1, C_LOC(shp), C_NULL_PTR, oo, aa)
+        END FUNCTION
+
+        !> 1-D fingerprint for INTEGER(C_INT).
+        FUNCTION libxs_fprint_i32(info, data, order, axis)              &
+     &  RESULT(rc)
+          TYPE(libxs_fprint_t), INTENT(OUT) :: info
+          INTEGER(C_INT), INTENT(IN), TARGET :: data(:)
+          INTEGER(C_INT), INTENT(IN), OPTIONAL :: order, axis
+          INTEGER(C_INT) :: rc
+          INTEGER(C_INT) :: oo, aa
+          INTEGER(C_SIZE_T), TARGET :: shp(1)
+          IF (PRESENT(order)) THEN; oo = order
+          ELSE; oo = LIBXS_FPRINT_MAXORDER; END IF
+          IF (PRESENT(axis)) THEN; aa = axis
+          ELSE; aa = -1; END IF
+          shp(1) = SIZE(data, KIND=C_SIZE_T)
+          rc = internal_fprint(info, LIBXS_DATATYPE_I32,                &
+     &      C_LOC(data), 1, C_LOC(shp), C_NULL_PTR, oo, aa)
+        END FUNCTION
+
+        !> 1-D fingerprint for INTEGER(C_INT8_T).
+        FUNCTION libxs_fprint_i8(info, data, order, axis)               &
+     &  RESULT(rc)
+          TYPE(libxs_fprint_t), INTENT(OUT) :: info
+          INTEGER(C_INT8_T), INTENT(IN), TARGET :: data(:)
+          INTEGER(C_INT), INTENT(IN), OPTIONAL :: order, axis
+          INTEGER(C_INT) :: rc
+          INTEGER(C_INT) :: oo, aa
+          INTEGER(C_SIZE_T), TARGET :: shp(1)
+          IF (PRESENT(order)) THEN; oo = order
+          ELSE; oo = LIBXS_FPRINT_MAXORDER; END IF
+          IF (PRESENT(axis)) THEN; aa = axis
+          ELSE; aa = -1; END IF
+          shp(1) = SIZE(data, KIND=C_SIZE_T)
+          rc = internal_fprint(info, LIBXS_DATATYPE_I8,                 &
+     &      C_LOC(data), 1, C_LOC(shp), C_NULL_PTR, oo, aa)
+        END FUNCTION
+
+        !> Weighted Sobolev distance between two fingerprints.
+        FUNCTION libxs_fprint_diff(a, b, weights)
+          TYPE(libxs_fprint_t), INTENT(IN) :: a, b
+          REAL(C_DOUBLE), INTENT(IN), OPTIONAL, TARGET ::               &
+     &      weights(*)
+          REAL(C_DOUBLE) :: libxs_fprint_diff
+          IF (PRESENT(weights)) THEN
+            libxs_fprint_diff = internal_fprint_diff(                   &
+     &        a, b, C_LOC(weights))
+          ELSE
+            libxs_fprint_diff = internal_fprint_diff(                   &
+     &        a, b, C_NULL_PTR)
+          END IF
+        END FUNCTION
+
+        !> In-place matrix transpose.
+        SUBROUTINE libxs_itrans(inout, typesize,                        &
+     &  m, n, ldi, ldo, scratch)
+          TYPE(C_PTR), INTENT(IN) :: inout
+          INTEGER(C_INT), INTENT(IN) :: typesize
+          INTEGER(C_INT), INTENT(IN) :: m, n, ldi
+          INTEGER(C_INT), INTENT(IN), OPTIONAL :: ldo
+          TYPE(C_PTR), INTENT(IN), OPTIONAL :: scratch
+          INTEGER(C_INT) :: lo
+          TYPE(C_PTR) :: ss
+          IF (PRESENT(ldo)) THEN; lo = ldo
+          ELSE; lo = n; END IF
+          IF (PRESENT(scratch)) THEN; ss = scratch
+          ELSE; ss = C_NULL_PTR; END IF
+          CALL internal_itrans(inout, typesize,                         &
+     &      m, n, ldi, lo, ss)
+        END SUBROUTINE
+
+        !> In-place transpose: task variant.
+        SUBROUTINE libxs_itrans_task(inout, typesize,                   &
+     &  m, n, ldi, ldo, scratch, tid, ntasks)
+          TYPE(C_PTR), INTENT(IN) :: inout
+          INTEGER(C_INT), INTENT(IN) :: typesize
+          INTEGER(C_INT), INTENT(IN) ::                                 &
+     &      m, n, ldi, tid, ntasks
+          INTEGER(C_INT), INTENT(IN), OPTIONAL :: ldo
+          TYPE(C_PTR), INTENT(IN), OPTIONAL :: scratch
+          INTEGER(C_INT) :: lo
+          TYPE(C_PTR) :: ss
+          IF (PRESENT(ldo)) THEN; lo = ldo
+          ELSE; lo = n; END IF
+          IF (PRESENT(scratch)) THEN; ss = scratch
+          ELSE; ss = C_NULL_PTR; END IF
+          CALL internal_itrans_task(inout, typesize,                    &
+     &      m, n, ldi, lo, ss, tid, ntasks)
+        END SUBROUTINE
+
+        ! hash variants by element type
+        PURE FUNCTION libxs_hash_xchar(key, seed)
+          CHARACTER(C_CHAR), INTENT(IN), CONTIGUOUS,                    &
+     &      TARGET :: key(:)
+          INTEGER(C_INT), INTENT(IN) :: seed
+          INTEGER(C_INT) :: libxs_hash_xchar
+          libxs_hash_xchar = libxs_hash_c(C_LOC(key), SIZE(key), seed)
+        END FUNCTION
+
+        PURE FUNCTION libxs_hash_char(key)
+          CHARACTER(C_CHAR), INTENT(IN), CONTIGUOUS,                    &
+     &      TARGET :: key(:)
+          INTEGER(C_INT) :: libxs_hash_char
+          libxs_hash_char = libxs_hash_c(C_LOC(key), SIZE(key), 0)
+        END FUNCTION
+
+        PURE FUNCTION libxs_hash_xi8(key, seed)
+          INTEGER(C_INT8_T), INTENT(IN), CONTIGUOUS,                    &
+     &      TARGET :: key(:)
+          INTEGER(C_INT), INTENT(IN) :: seed
+          INTEGER(C_INT) :: libxs_hash_xi8
+          libxs_hash_xi8 = libxs_hash_c(C_LOC(key), SIZE(key), seed)
+        END FUNCTION
+
+        PURE FUNCTION libxs_hash_i8(key)
+          INTEGER(C_INT8_T), INTENT(IN), CONTIGUOUS,                    &
+     &      TARGET :: key(:)
+          INTEGER(C_INT) :: libxs_hash_i8
+          libxs_hash_i8 = libxs_hash_c(C_LOC(key), SIZE(key), 0)
+        END FUNCTION
+
+        PURE FUNCTION libxs_hash_xi32(key, seed)
+          INTEGER(C_INT), INTENT(IN), CONTIGUOUS,                       &
+     &      TARGET :: key(:)
+          INTEGER(C_INT), INTENT(IN) :: seed
+          INTEGER(C_INT) :: libxs_hash_xi32
+          libxs_hash_xi32 = libxs_hash_c(                               &
+     &      C_LOC(key), SIZE(key) * 4, seed)
+        END FUNCTION
+
+        PURE FUNCTION libxs_hash_i32(key)
+          INTEGER(C_INT), INTENT(IN), CONTIGUOUS,                       &
+     &      TARGET :: key(:)
+          INTEGER(C_INT) :: libxs_hash_i32
+          libxs_hash_i32 = libxs_hash_c(                                &
+     &      C_LOC(key), SIZE(key) * 4, 0)
+        END FUNCTION
+
+        PURE FUNCTION libxs_hash_xi64(key, seed)
+          INTEGER(C_LONG_LONG), INTENT(IN), CONTIGUOUS,                 &
+     &      TARGET :: key(:)
+          INTEGER(C_INT), INTENT(IN) :: seed
+          INTEGER(C_INT) :: libxs_hash_xi64
+          libxs_hash_xi64 = libxs_hash_c(                               &
+     &      C_LOC(key), SIZE(key) * 8, seed)
+        END FUNCTION
+
+        PURE FUNCTION libxs_hash_i64(key)
+          INTEGER(C_LONG_LONG), INTENT(IN), CONTIGUOUS,                 &
+     &      TARGET :: key(:)
+          INTEGER(C_INT) :: libxs_hash_i64
+          libxs_hash_i64 = libxs_hash_c(                                &
+     &      C_LOC(key), SIZE(key) * 8, 0)
+        END FUNCTION
+
+        ! diff variants by element type
+        PURE FUNCTION libxs_diff_char(a, b)
+          CHARACTER(C_CHAR), INTENT(IN), CONTIGUOUS,                    &
+     &      TARGET :: a(:), b(:)
+          LOGICAL :: libxs_diff_char
+          IF (SIZE(a, KIND=C_LONG_LONG)                                 &
+     &      .EQ. SIZE(b, KIND=C_LONG_LONG)) THEN
+            libxs_diff_char = (0 .NE. libxs_memcmp(                     &
+     &        C_LOC(a), C_LOC(b),                                       &
+     &        INT(SIZE(a), KIND=C_SIZE_T)))
+          ELSE
+            libxs_diff_char = .TRUE.
+          END IF
+        END FUNCTION
+
+        PURE FUNCTION libxs_diff_i8(a, b)
+          INTEGER(C_INT8_T), INTENT(IN), CONTIGUOUS,                    &
+     &      TARGET :: a(:), b(:)
+          LOGICAL :: libxs_diff_i8
+          IF (SIZE(a, KIND=C_LONG_LONG)                                 &
+     &      .EQ. SIZE(b, KIND=C_LONG_LONG)) THEN
+            libxs_diff_i8 = (0 .NE. libxs_memcmp(                       &
+     &        C_LOC(a), C_LOC(b),                                       &
+     &        INT(SIZE(a), KIND=C_SIZE_T)))
+          ELSE
+            libxs_diff_i8 = .TRUE.
+          END IF
+        END FUNCTION
+
+        PURE FUNCTION libxs_diff_i32(a, b)
+          INTEGER(C_INT), INTENT(IN), CONTIGUOUS,                       &
+     &      TARGET :: a(:), b(:)
+          LOGICAL :: libxs_diff_i32
+          IF (SIZE(a, KIND=C_LONG_LONG)                                 &
+     &      .EQ. SIZE(b, KIND=C_LONG_LONG)) THEN
+            libxs_diff_i32 = (0 .NE. libxs_memcmp(                      &
+     &        C_LOC(a), C_LOC(b),                                       &
+     &        INT(SIZE(a), KIND=C_SIZE_T) * 4))
+          ELSE
+            libxs_diff_i32 = .TRUE.
+          END IF
+        END FUNCTION
+
+        PURE FUNCTION libxs_diff_i64(a, b)
+          INTEGER(C_LONG_LONG), INTENT(IN), CONTIGUOUS,                 &
+     &      TARGET :: a(:), b(:)
+          LOGICAL :: libxs_diff_i64
+          IF (SIZE(a, KIND=C_LONG_LONG)                                 &
+     &      .EQ. SIZE(b, KIND=C_LONG_LONG)) THEN
+            libxs_diff_i64 = (0 .NE. libxs_memcmp(                      &
+     &        C_LOC(a), C_LOC(b),                                       &
+     &        INT(SIZE(a), KIND=C_SIZE_T) * 8))
+          ELSE
+            libxs_diff_i64 = .TRUE.
+          END IF
+        END FUNCTION
+
+        !> Register a key-value pair. Returns a pointer
+        FUNCTION libxs_registry_set(registry,                           &
+     &  key, key_size, value_init, value_size)
+          TYPE(C_PTR), INTENT(IN) :: registry
+          TYPE(C_PTR), INTENT(IN) :: key
+          INTEGER(C_SIZE_T), INTENT(IN) :: key_size
+          TYPE(C_PTR), INTENT(IN) :: value_init
+          INTEGER(C_SIZE_T), INTENT(IN) :: value_size
+          TYPE(C_PTR) :: libxs_registry_set
+          libxs_registry_set = internal_registry_set_c(                 &
+     &      registry, key, key_size,                                    &
+     &      value_init, value_size, libxs_registry_lock(registry))
+        END FUNCTION
+
+        !> Query a value by key. Returns C_NULL_PTR
+        FUNCTION libxs_registry_get(registry, key, key_size)
+          TYPE(C_PTR), INTENT(IN) :: registry
+          TYPE(C_PTR), INTENT(IN) :: key
+          INTEGER(C_SIZE_T), INTENT(IN) :: key_size
+          TYPE(C_PTR) :: libxs_registry_get
+          libxs_registry_get = internal_registry_get_c(                 &
+     &      registry, key, key_size, libxs_registry_lock(registry))
+        END FUNCTION
+
+        !> Thread-safe query: copies up to value_size bytes
+        FUNCTION libxs_registry_get_copy(registry,                      &
+     &  key, key_size, value_out, value_size)
+          TYPE(C_PTR), INTENT(IN) :: registry
+          TYPE(C_PTR), INTENT(IN) :: key
+          INTEGER(C_SIZE_T), INTENT(IN) :: key_size
+          TYPE(C_PTR), INTENT(IN) :: value_out
+          INTEGER(C_SIZE_T), INTENT(IN) :: value_size
+          INTEGER(C_INT) :: libxs_registry_get_copy
+          libxs_registry_get_copy = internal_registry_get_copy_c(       &
+     &      registry, key, key_size,                                    &
+     &      value_out, value_size, libxs_registry_lock(registry))
+        END FUNCTION
+
+        !> Check if a key exists.
+        FUNCTION libxs_registry_has(registry, key, key_size)
+          TYPE(C_PTR), INTENT(IN) :: registry
+          TYPE(C_PTR), INTENT(IN) :: key
+          INTEGER(C_SIZE_T), INTENT(IN) :: key_size
+          INTEGER(C_INT) :: libxs_registry_has
+          libxs_registry_has = internal_registry_has_c(                 &
+     &      registry, key, key_size, libxs_registry_lock(registry))
+        END FUNCTION
+
+        !> Remove a key-value pair.
+        SUBROUTINE libxs_registry_remove(registry, key, key_size)
+          TYPE(C_PTR), INTENT(IN) :: registry
+          TYPE(C_PTR), INTENT(IN) :: key
+          INTEGER(C_SIZE_T), INTENT(IN) :: key_size
+          CALL internal_registry_remove_c(                              &
+     &      registry, key, key_size, libxs_registry_lock(registry))
+        END SUBROUTINE
+
+        !> Atomically retrieve and remove a key-value pair.
+        FUNCTION libxs_registry_extract(registry,                       &
+     &  key, key_size, value_out, value_size)
+          TYPE(C_PTR), INTENT(IN) :: registry
+          TYPE(C_PTR), INTENT(IN) :: key
+          INTEGER(C_SIZE_T), INTENT(IN) :: key_size
+          TYPE(C_PTR), INTENT(IN) :: value_out
+          INTEGER(C_SIZE_T), INTENT(IN) :: value_size
+          INTEGER(C_INT) :: libxs_registry_extract
+          libxs_registry_extract = internal_registry_extract_c(         &
+     &      registry, key, key_size,                                    &
+     &      value_out, value_size, libxs_registry_lock(registry))
+        END FUNCTION
+
+        !> Call the dispatched GEMM kernel.
+        SUBROUTINE libxs_gemm_call(config, a, b, c)
+          TYPE(libxs_gemm_config_t), INTENT(IN) :: config
+          TYPE(C_PTR), INTENT(IN), VALUE :: a, b
+          TYPE(C_PTR), VALUE :: c
+          INTERFACE
+            SUBROUTINE internal_gemm_call_f(config, a, b, c)            &
+     &      BIND(C, NAME="libxs_gemm_call_f")
+              IMPORT :: libxs_gemm_config_t, C_PTR
+              TYPE(libxs_gemm_config_t), INTENT(IN) :: config
+              TYPE(C_PTR), INTENT(IN), VALUE :: a, b
+              TYPE(C_PTR), VALUE :: c
+            END SUBROUTINE
+          END INTERFACE
+          CALL internal_gemm_call_f(config, a, b, c)
+        END SUBROUTINE
+
+        !> Dispatch a GEMM kernel and populate config.
+        FUNCTION libxs_gemm_dispatch_base(config,                            &
+     &    datatype, transa, transb,                                     &
+     &    m, n, k, lda, ldb, ldc, alpha, beta,                          &
+     &    jit_create_dgemm, jit_get_dgemm,                              &
+     &    jit_create_sgemm, jit_get_sgemm,                              &
+     &    xgemm_dispatch, dgemm_blas, sgemm_blas,                       &
+     &    registry)
+          TYPE(libxs_gemm_config_t), INTENT(INOUT) :: config
+          INTEGER(C_INT), INTENT(IN) :: datatype
+          CHARACTER(C_CHAR), INTENT(IN) :: transa, transb
+          INTEGER(C_INT), INTENT(IN) :: m, n, k, lda, ldb, ldc
+          REAL(C_DOUBLE), INTENT(IN) :: alpha, beta
+          TYPE(C_FUNPTR), INTENT(IN), OPTIONAL ::                       &
+     &      jit_create_dgemm, jit_get_dgemm,                            &
+     &      jit_create_sgemm, jit_get_sgemm,                            &
+     &      xgemm_dispatch, dgemm_blas, sgemm_blas
+          TYPE(C_PTR), INTENT(IN), OPTIONAL :: registry
+          INTEGER(C_INT) :: libxs_gemm_dispatch_base
+          TYPE(libxs_gemm_config_t), POINTER :: cached
+          TYPE(libxs_gemm_shape_t) :: shape
+          TYPE(libxs_gemm_backend_t) :: be
+          TYPE(C_PTR) :: ptr, preg
+          shape%datatype = datatype
+          shape%transa = transa; shape%transb = transb
+          shape%m = m; shape%n = n; shape%k = k
+          shape%lda = lda; shape%ldb = ldb; shape%ldc = ldc
+          shape%alpha = alpha; shape%beta = beta
+          IF (PRESENT(jit_create_dgemm)) THEN
+            be%jit_create_dgemm = jit_create_dgemm
+          END IF
+          IF (PRESENT(jit_get_dgemm)) THEN
+            be%jit_get_dgemm = jit_get_dgemm
+          END IF
+          IF (PRESENT(jit_create_sgemm)) THEN
+            be%jit_create_sgemm = jit_create_sgemm
+          END IF
+          IF (PRESENT(jit_get_sgemm)) THEN
+            be%jit_get_sgemm = jit_get_sgemm
+          END IF
+          IF (PRESENT(xgemm_dispatch)) THEN
+            be%xgemm_dispatch = xgemm_dispatch
+          END IF
+          IF (PRESENT(dgemm_blas)) THEN
+            be%dgemm_blas = dgemm_blas
+          END IF
+          IF (PRESENT(sgemm_blas)) THEN
+            be%sgemm_blas = sgemm_blas
+          END IF
+          IF (PRESENT(registry)) THEN
+            preg = registry
+          ELSE; preg = C_NULL_PTR; END IF
+          ptr = internal_gemm_dispatch_rt(shape, shape, be, preg)
+          IF (C_ASSOCIATED(ptr)) THEN
+            CALL C_F_POINTER(ptr, cached)
+            config = cached
+            libxs_gemm_dispatch_base = 1
+          ELSE
+            libxs_gemm_dispatch_base = 0
+          END IF
+        END FUNCTION
+
+        !> Release a GEMM config: clear all kernel pointers.
+        SUBROUTINE libxs_gemm_release(config)
+          TYPE(libxs_gemm_config_t), INTENT(INOUT) :: config
+          config%dgemm_jit  = C_NULL_FUNPTR
+          config%sgemm_jit  = C_NULL_FUNPTR
+          config%jitter     = C_NULL_PTR
+          config%xgemm      = C_NULL_FUNPTR
+          config%dgemm_blas = C_NULL_FUNPTR
+          config%sgemm_blas = C_NULL_FUNPTR
+        END SUBROUTINE
+
+        !> Dispatch a GEMM config for SYR2K.
+        FUNCTION libxs_syr2k_dispatch_base(datatype,                         &
+     &  n, k, lda, ldb, ldc,                                            &
+     &  jit_create_dgemm, jit_get_dgemm,                                &
+     &  jit_create_sgemm, jit_get_sgemm,                                &
+     &  xgemm_dispatch, dgemm_blas, sgemm_blas,                         &
+     &  registry)
+          INTEGER(C_INT), INTENT(IN) :: datatype, n, k
+          INTEGER(C_INT), INTENT(IN) :: lda, ldb, ldc
+          TYPE(C_FUNPTR), INTENT(IN), OPTIONAL ::                       &
+     &      jit_create_dgemm, jit_get_dgemm,                            &
+     &      jit_create_sgemm, jit_get_sgemm,                            &
+     &      xgemm_dispatch, dgemm_blas, sgemm_blas
+          TYPE(C_PTR), INTENT(IN), OPTIONAL :: registry
+          TYPE(C_PTR) :: libxs_syr2k_dispatch_base
+          TYPE(libxs_gemm_backend_t) :: be
+          TYPE(C_PTR) :: preg
+          IF (PRESENT(jit_create_dgemm)) THEN
+            be%jit_create_dgemm = jit_create_dgemm
+          END IF
+          IF (PRESENT(jit_get_dgemm)) THEN
+            be%jit_get_dgemm = jit_get_dgemm
+          END IF
+          IF (PRESENT(jit_create_sgemm)) THEN
+            be%jit_create_sgemm = jit_create_sgemm
+          END IF
+          IF (PRESENT(jit_get_sgemm)) THEN
+            be%jit_get_sgemm = jit_get_sgemm
+          END IF
+          IF (PRESENT(xgemm_dispatch)) THEN
+            be%xgemm_dispatch = xgemm_dispatch
+          END IF
+          IF (PRESENT(dgemm_blas)) THEN
+            be%dgemm_blas = dgemm_blas
+          END IF
+          IF (PRESENT(sgemm_blas)) THEN
+            be%sgemm_blas = sgemm_blas
+          END IF
+          IF (PRESENT(registry)) THEN
+            preg = registry
+          ELSE; preg = C_NULL_PTR; END IF
+          libxs_syr2k_dispatch_base = internal_syr2k_dispatch(               &
+     &      datatype, n, k, lda, ldb, ldc, be, preg)
+        END FUNCTION
+
+        !> Dispatch a GEMM config for SYRK.
+        FUNCTION libxs_syrk_dispatch_base(datatype,                          &
+     &  n, k, lda, ldc,                                                 &
+     &  jit_create_dgemm, jit_get_dgemm,                                &
+     &  jit_create_sgemm, jit_get_sgemm,                                &
+     &  xgemm_dispatch, dgemm_blas, sgemm_blas,                         &
+     &  registry)
+          INTEGER(C_INT), INTENT(IN) :: datatype, n, k
+          INTEGER(C_INT), INTENT(IN) :: lda, ldc
+          TYPE(C_FUNPTR), INTENT(IN), OPTIONAL ::                       &
+     &      jit_create_dgemm, jit_get_dgemm,                            &
+     &      jit_create_sgemm, jit_get_sgemm,                            &
+     &      xgemm_dispatch, dgemm_blas, sgemm_blas
+          TYPE(C_PTR), INTENT(IN), OPTIONAL :: registry
+          TYPE(C_PTR) :: libxs_syrk_dispatch_base
+          libxs_syrk_dispatch_base = libxs_syr2k_dispatch_base(datatype,          &
+     &      n, k, lda, lda, ldc,                                        &
+     &      jit_create_dgemm, jit_get_dgemm,                            &
+     &      jit_create_sgemm, jit_get_sgemm,                            &
+     &      xgemm_dispatch, dgemm_blas, sgemm_blas,                     &
+     &      registry)
+        END FUNCTION
+
+        !> SYR2K with pre-dispatched config.
+        SUBROUTINE libxs_syr2k_config(config, uplo,                     &
+     &  alpha, beta, a, b, c)
+          TYPE(libxs_gemm_config_t), INTENT(IN), TARGET :: config
+          CHARACTER(C_CHAR), INTENT(IN), VALUE :: uplo
+          REAL(C_DOUBLE), INTENT(IN), VALUE :: alpha, beta
+          TYPE(C_PTR), INTENT(IN), VALUE :: a, b
+          TYPE(C_PTR), VALUE :: c
+          CALL internal_syr2k(config, uplo, alpha, beta, a, b, c)
+        END SUBROUTINE
+
+        !> SYR2K direct (dispatch + call).
+        SUBROUTINE libxs_syr2k_direct(datatype, n, k,                   &
+     &  lda, ldb, ldc, uplo, alpha, beta, a, b, c, registry)
+          INTEGER(C_INT), INTENT(IN) :: datatype, n, k
+          INTEGER(C_INT), INTENT(IN) :: lda, ldb, ldc
+          CHARACTER(C_CHAR), INTENT(IN) :: uplo
+          REAL(C_DOUBLE), INTENT(IN) :: alpha, beta
+          TYPE(C_PTR), INTENT(IN) :: a, b
+          TYPE(C_PTR) :: c
+          TYPE(C_PTR), INTENT(IN), OPTIONAL :: registry
+          TYPE(libxs_gemm_config_t), POINTER :: cfg
+          TYPE(C_PTR) :: ptr, preg
+          IF (PRESENT(registry)) THEN
+            preg = registry
+          ELSE; preg = C_NULL_PTR; END IF
+          ptr = libxs_syr2k_dispatch_base(datatype,                          &
+     &      n, k, lda, ldb, ldc, registry=preg)
+          IF (C_ASSOCIATED(ptr)) THEN
+            CALL C_F_POINTER(ptr, cfg)
+            CALL internal_syr2k(cfg, uplo, alpha, beta, a, b, c)
+          END IF
+        END SUBROUTINE
+
+        !> SYRK with pre-dispatched config.
+        SUBROUTINE libxs_syrk_config(config, uplo,                      &
+     &  alpha, beta, a, c)
+          TYPE(libxs_gemm_config_t), INTENT(IN), TARGET :: config
+          CHARACTER(C_CHAR), INTENT(IN), VALUE :: uplo
+          REAL(C_DOUBLE), INTENT(IN), VALUE :: alpha, beta
+          TYPE(C_PTR), INTENT(IN), VALUE :: a
+          TYPE(C_PTR), VALUE :: c
+          CALL internal_syrk(config, uplo, alpha, beta, a, c)
+        END SUBROUTINE
+
+        !> SYRK direct (dispatch + call).
+        SUBROUTINE libxs_syrk_direct(datatype, n, k,                    &
+     &  lda, ldc, uplo, alpha, beta, a, c, registry)
+          INTEGER(C_INT), INTENT(IN) :: datatype, n, k
+          INTEGER(C_INT), INTENT(IN) :: lda, ldc
+          CHARACTER(C_CHAR), INTENT(IN) :: uplo
+          REAL(C_DOUBLE), INTENT(IN) :: alpha, beta
+          TYPE(C_PTR), INTENT(IN) :: a
+          TYPE(C_PTR) :: c
+          TYPE(C_PTR), INTENT(IN), OPTIONAL :: registry
+          TYPE(libxs_gemm_config_t), POINTER :: cfg
+          TYPE(C_PTR) :: ptr, preg
+          IF (PRESENT(registry)) THEN
+            preg = registry
+          ELSE; preg = C_NULL_PTR; END IF
+          ptr = libxs_syrk_dispatch_base(datatype,                           &
+     &      n, k, lda, ldc, registry=preg)
+          IF (C_ASSOCIATED(ptr)) THEN
+            CALL C_F_POINTER(ptr, cfg)
+            CALL internal_syrk(cfg, uplo, alpha, beta, a, c)
+          END IF
+        END SUBROUTINE

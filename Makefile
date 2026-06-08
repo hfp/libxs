@@ -276,8 +276,8 @@ $(BLDDIR)/intel64/$(PROJECT)_main.o: $(DIRSTATE)/.state
 ifneq (,$(strip $(FC)))
 module: $(INCDIR)/$(PROJECT).mod
 ifneq ($(ABSDIR),$(HEREDIR))
-$(INCDIR)/$(PROJECT).f: $(ROOTINC)/$(PROJECT).f $(INCDIR)/.make
-	@$(CP) $< $@
+$(INCDIR)/$(PROJECT).f: $(ROOTINC)/$(PROJECT).f $(ROOTINC)/$(PROJECT)_spec.fi $(ROOTINC)/$(PROJECT)_procs.fi $(INCDIR)/.make
+	@$(CP) $(ROOTINC)/$(PROJECT).f $(ROOTINC)/$(PROJECT)_spec.fi $(ROOTINC)/$(PROJECT)_procs.fi $(INCDIR)
 endif
 $(BLDDIR)/intel64/$(PROJECT)-mod.o: $(BLDDIR)/intel64/.make $(INCDIR)/$(PROJECT).f
 	$(FC) $(DFLAGS) $(IFLAGS) $(FCMTFLAGS) $(filter-out $(FFORM_FLAG),$(FCFLAGS)) $(FTARGET) \
@@ -322,7 +322,8 @@ SPLMDS := $(addprefix $(ABSDIR)/,$(shell $(if $(GIT),$(GIT) ls-files,ls -1) \
   $(SPLDIR)/*/README.md 2>/dev/null))
 DOCMDS := $(addprefix $(ABSDIR)/,$(filter-out \
     $(DOCDIR)/$(PROJECT)_samples.md \
-    $(DOCDIR)/$(PROJECT)_scripts.md, \
+    $(DOCDIR)/$(PROJECT)_scripts.md \
+    $(DOCDIR)/$(PROJECT)_fortran.md, \
   $(shell $(if $(GIT),$(GIT) ls-files,ls -1) \
     $(DOCDIR)/$(PROJECT)_*.md 2>/dev/null)))
 TSTSRC := $(filter-out $(TSTDIR)/headeronly_aux.c, \
