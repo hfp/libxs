@@ -290,7 +290,8 @@ LIBXS_API_INLINE double internal_libxs_predict_position(
 LIBXS_API_INLINE double internal_libxs_predict_classify(
   const internal_libxs_predict_cluster_t* cl, const double* kd_pts,
   int nc, int m, const double* inputs, int output_j, int nouts,
-  int ndistinct, int extrapolate, double* confidence, double* out_variance)
+  int ndistinct, int extrapolate, int skip_local,
+  double* confidence, double* out_variance)
 {
   const int k = cl->k_eff;
   const int ndistinct_thresh = (int)(sqrt((double)nc) + 0.5);
@@ -305,7 +306,9 @@ LIBXS_API_INLINE double internal_libxs_predict_classify(
   }
   /* linear scan: find k nearest by distance within cluster */
   for (i = 0; i < nc; ++i) {
-    double d2 = libxs_dist2(inputs, kd_pts + (size_t)i * m, m);
+    double d2;
+    if (i == skip_local) continue;
+    d2 = libxs_dist2(inputs, kd_pts + (size_t)i * m, m);
     if (0 != extrapolate && max_idx > 0) {
       const double age = 1.0 - (double)cl->sorted_idx[i] / (double)max_idx;
       d2 *= 1.0 + 0.5 * age;
@@ -1543,7 +1546,7 @@ LIBXS_API void libxs_predict_eval(libxs_lock_t* lock, const libxs_predict_t* mod
           if (0 != use_classify) {
             vals[j] = internal_libxs_predict_classify(
               cl, cl->kd_pts, cl->nentries, m, norm_inputs, j, n,
-              cl->ndistinct[j], extrapolate, &conf[j], &var[j]);
+              cl->ndistinct[j], extrapolate, -1, &conf[j], &var[j]);
             errs[j] = 0;
             rels[j] = 0;
           }
@@ -1618,7 +1621,7 @@ LIBXS_API void libxs_predict_eval(libxs_lock_t* lock, const libxs_predict_t* mod
               double cj_conf = 1.0, cj_var = 0;
               const double v = internal_libxs_predict_classify(
                 cl2, cl2->kd_pts, cl2->nentries, m, norm_inputs, j, n,
-                cl2->ndistinct[j], extrapolate, &cj_conf, &cj_var);
+                cl2->ndistinct[j], extrapolate, -1, &cj_conf, &cj_var);
               blend_val += w * v;
               blend_conf += w * cj_conf;
               blend_var += w * cj_var;
@@ -1735,7 +1738,7 @@ LIBXS_API void libxs_predict_eval(libxs_lock_t* lock, const libxs_predict_t* mod
                       double rc_conf = 0;
                       refined[j] = internal_libxs_predict_classify(
                         rcl, rcl->kd_pts, rcl->nentries, m, rnorm, j, n,
-                        rcl->ndistinct[j], extrapolate, &rc_conf, NULL);
+                        rcl->ndistinct[j], extrapolate, -1, &rc_conf, NULL);
                       rconf[j] = rc_conf;
                     }
                     else {
