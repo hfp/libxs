@@ -34,7 +34,9 @@ jobs:
     - uses: actions/checkout@v5
 
     - name: Install GCC ${{ matrix.gcc }}
-      run: sudo apt install -y gcc-${{ matrix.gcc }} g++-${{ matrix.gcc }} gfortran-${{ matrix.gcc }}
+      run: |
+        sudo apt update -y
+        sudo apt install -y gcc-${{ matrix.gcc }} g++-${{ matrix.gcc }} gfortran-${{ matrix.gcc }}
 
     - name: Install OpenBLAS
       run: sudo apt install -y libopenblas-openmp-dev
@@ -105,17 +107,26 @@ jobs:
     - uses: actions/checkout@v5
 
     - name: Install GCC ${{ matrix.gcc }}
-      run: sudo apt install -y gcc-${{ matrix.gcc }} g++-${{ matrix.gcc }} gfortran-${{ matrix.gcc }}
+      run: |
+        sudo apt update -y
+        sudo apt install -y gcc-${{ matrix.gcc }} g++-${{ matrix.gcc }} gfortran-${{ matrix.gcc }}
+
+    - name: Install OpenBLAS
+      run: sudo apt install -y libopenblas-openmp-dev
 
     - name: Configure
       run: |
         cmake -B build \
           -DCMAKE_BUILD_TYPE=Debug \
           -DCMAKE_INSTALL_PREFIX=$HOME/libxs-install \
+          -DBUILD_TESTING=ON \
           -DBUILD_SHARED_LIBS=${{ matrix.shared == 'shared' && 'ON' || 'OFF' }}
 
     - name: Build
       run: cmake --build build -j $(nproc)
+
+    - name: Test
+      run: cmake --build build --target test -j $(nproc)
 
     - name: Install
       run: cmake --install build

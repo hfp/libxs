@@ -26,6 +26,7 @@
  */
 int main(void)
 {
+  libxs_init();
   const unsigned int seed = 1975, size = 2507;
   const unsigned int n512 = 512 / (8 * sizeof(ELEMTYPE));
   unsigned int s = LIBXS_UP(size, n512), i, h1, h2;

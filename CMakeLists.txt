@@ -9,6 +9,7 @@ include(CMakePackageConfigHelpers)
 include(CheckLanguage)
 
 option(LIBXS_FORTRAN "Build Fortran module interface (auto-detected if not set)" OFF)
+option(BUILD_TESTING "Build unit tests; requires BLAS" OFF)
 
 check_language(Fortran)
 if(CMAKE_Fortran_COMPILER)
@@ -30,6 +31,8 @@ set(LIBXS_ROOT_DIR ${PROJECT_SOURCE_DIR})
 set(LIBXS_INCLUDE_DIR ${LIBXS_ROOT_DIR}/libxs)
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+
+include(CTest)
 
 # Generate include/libxs_version.h
 set(LIBXS_VERSION_HEADER "${LIBXS_INCLUDE_DIR}/libxs_version.h")
@@ -106,6 +109,10 @@ if(LIBXS_FORTRAN)
   target_include_directories(libxs PUBLIC
     $<BUILD_INTERFACE:${LIBXS_Fortran_MODULE_DIR}>
     $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}/libxs>)
+endif()
+
+if(BUILD_TESTING)
+  add_subdirectory(tests)
 endif()
 
 # Pkg-config file

@@ -14,6 +14,7 @@ LIBXS_EXTERN_C int headeronly_aux(void);
 
 int main(void)
 {
+  libxs_init();
   int result = EXIT_SUCCESS;
   { /* exercise functions from this (C) translation unit */ const size_t g = libxs_gcd(12, 8);
     const size_t l = libxs_lcm(12, 8);
