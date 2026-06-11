@@ -64,10 +64,14 @@ struct libxs_malloc_pool_t {
   internal_libxs_malloc_chunk_t **slots;
   size_t slots_size;
   size_t slots_num;
+  size_t nreuses;
+  size_t ngrows;
 #if defined(LIBXS_MALLOC_EVICT)
   size_t generation;
   size_t pool_bytes;
   size_t pool_peak;
+  size_t nevict_age;
+  size_t nevict_limit;
 #endif
 };
 
@@ -271,6 +275,7 @@ LIBXS_API void* libxs_malloc(libxs_malloc_pool_t* pool, size_t size, int alignme
         else pool->fn_free.std(chunk->pointer);
         chunk->pointer = NULL;
         LIBXS_ATOMIC(LIBXS_ATOMIC_SUB_FETCH, LIBXS_BITS)(&pool->pool_bytes, chunk->used, LIBXS_ATOMIC_LOCKORDER);
+        LIBXS_ATOMIC(LIBXS_ATOMIC_ADD_FETCH, LIBXS_BITS)(&pool->nevict_age, 1, LIBXS_ATOMIC_RELAXED);
         chunk->used = 0;
         chunk->size = 0;
       }
@@ -299,6 +304,7 @@ LIBXS_API void* libxs_malloc(libxs_malloc_pool_t* pool, size_t size, int alignme
             chunk->used = size;
             chunk->size = alloc_size;
             ++chunk->nmallocs;
+            LIBXS_ATOMIC(LIBXS_ATOMIC_ADD_FETCH, LIBXS_BITS)(&pool->ngrows, 1, LIBXS_ATOMIC_RELAXED);
 #if defined(LIBXS_MALLOC_EVICT)
             { const size_t new_bytes = (size_t)LIBXS_ATOMIC(LIBXS_ATOMIC_ADD_FETCH, LIBXS_BITS)(
                 &pool->pool_bytes, size - old_used, LIBXS_ATOMIC_LOCKORDER);
@@ -326,6 +332,7 @@ LIBXS_API void* libxs_malloc(libxs_malloc_pool_t* pool, size_t size, int alignme
         }
         else { /* reuse */
           chunk->used = size;
+          LIBXS_ATOMIC(LIBXS_ATOMIC_ADD_FETCH, LIBXS_BITS)(&pool->nreuses, 1, LIBXS_ATOMIC_RELAXED);
           if (NULL != reg) {
             result = chunk->pointer;
             if (NULL == libxs_registry_set(reg,
@@ -414,6 +421,7 @@ LIBXS_API void libxs_free(void* pointer)
         chunk->used = 0;
         chunk->size = 0;
         LIBXS_ATOMIC(LIBXS_ATOMIC_SUB_FETCH, LIBXS_BITS)(&pool->pool_bytes, reclaimed, LIBXS_ATOMIC_LOCKORDER);
+        LIBXS_ATOMIC(LIBXS_ATOMIC_ADD_FETCH, LIBXS_BITS)(&pool->nevict_limit, 1, LIBXS_ATOMIC_RELAXED);
       }
     }
     chunk->last_tick = LIBXS_ATOMIC(LIBXS_ATOMIC_LOAD, LIBXS_BITS)(&pool->generation, LIBXS_ATOMIC_RELAXED)
@@ -568,8 +576,12 @@ LIBXS_API int libxs_malloc_pool_info(const libxs_malloc_pool_t* pool, libxs_mall
         ++nchunks;
       }
       info->nactive = nchunks - pool->slots_num;
+      info->nreuses = pool->nreuses;
+      info->ngrows = pool->ngrows;
 #if defined(LIBXS_MALLOC_EVICT)
       info->peak = pool->pool_peak;
+      info->nevict_age = pool->nevict_age;
+      info->nevict_limit = pool->nevict_limit;
 #endif
     }
   }

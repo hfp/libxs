@@ -36,6 +36,14 @@ LIBXS_EXTERN_C typedef struct libxs_malloc_pool_info_t {
   size_t nactive;
   /** Number of allocations so far. */
   size_t nmallocs;
+  /** Chunk reused without reallocation. */
+  size_t nreuses;
+  /** Chunk reallocated because it was too small. */
+  size_t ngrows;
+  /** Evictions triggered by age threshold. */
+  size_t nevict_age;
+  /** Evictions triggered by pool memory limit. */
+  size_t nevict_limit;
 } libxs_malloc_pool_info_t;
 
 /** Opaque pool type (created by libxs_malloc_pool). */
