@@ -32,6 +32,7 @@ set(LIBXS_INCLUDE_DIR ${LIBXS_ROOT_DIR}/libxs)
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
+set(CMAKE_SKIP_TEST_ALL_DEPENDENCY FALSE)
 include(CTest)
 
 # Generate include/libxs_version.h

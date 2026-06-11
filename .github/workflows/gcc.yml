@@ -126,7 +126,7 @@ jobs:
       run: cmake --build build -j $(nproc)
 
     - name: Test
-      run: cmake --build build --target test -j $(nproc)
+      run: cmake --build build --target libxs-check -j $(nproc)
 
     - name: Install
       run: cmake --install build
