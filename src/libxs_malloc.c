@@ -79,6 +79,9 @@ struct libxs_malloc_pool_t {
 
 LIBXS_APIVAR_DEFINE(libxs_lock_t internal_libxs_malloc_plocks[LIBXS_MALLOC_NLOCKS]);
 LIBXS_APIVAR_DEFINE(libxs_registry_t* internal_libxs_malloc_registry);
+#if defined(LIBXS_MALLOC_EVICT)
+LIBXS_APIVAR_DEFINE(size_t internal_libxs_malloc_evict_limit);
+#endif
 
 
 LIBXS_API_INLINE libxs_registry_t* internal_libxs_malloc_get_registry(int alignment)
@@ -426,7 +429,12 @@ LIBXS_API void libxs_free(void* pointer)
         (0 < pool->max_nthreads || NULL != pool->fn_malloc.std))
     {
       const size_t total_bytes = LIBXS_ATOMIC(LIBXS_ATOMIC_LOAD, LIBXS_BITS)(&pool->pool_bytes, LIBXS_ATOMIC_RELAXED);
-      if (LIBXS_MALLOC_EVICT_LIMIT < total_bytes) {
+      if (0 == internal_libxs_malloc_evict_limit) {
+        const char *const env = getenv("LIBXS_MALLOC_EVICT_LIMIT");
+        internal_libxs_malloc_evict_limit = (NULL != env && '\0' != *env)
+          ? (size_t)atol(env) << 20 : LIBXS_MALLOC_EVICT_LIMIT;
+      }
+      if (internal_libxs_malloc_evict_limit < total_bytes) {
         const int evict_b = internal_libxs_malloc_hist_bucket(chunk->used);
         const size_t reclaimed = chunk->used;
         if (0 < pool->max_nthreads) {
