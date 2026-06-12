@@ -5,10 +5,12 @@
 # For information on the license, see the LICENSE file.                       #
 # SPDX-License-Identifier: BSD-3-Clause                                       #
 ###############################################################################
-
+# shellcheck disable=SC2086
+#
 HERE=$(cd "$(dirname "$0")" && pwd -P)
 LIBS=${HERE}/../lib
 
+PROJECT=libxs
 #EXCLUDE="libxsf"
 INCLUDE="*"
 ABINEW=.abi.log
@@ -30,6 +32,7 @@ DIFF=$(command -v diff)
 SED=$(command -v gsed)
 CUT=$(command -v cut)
 LS=$(command -v ls)
+TR=$(command -v tr)
 WC=$(command -v wc)
 CP=$(command -v cp)
 MV=$(command -v mv)
@@ -42,8 +45,10 @@ fi
 
 if [ "${NM}" ] && [ "${SED}"  ] && [ "${CUT}"  ] && \
    [ "${LS}" ] && [ "${CP}"   ] && [ "${MV}"   ] && \
-   [ "${WC}" ] && [ "${SORT}" ] && [ "${DIFF}" ];
+   [ "${TR}" ] && [ "${WC}" ] && [ "${SORT}" ] && \
+   [ "${DIFF}" ];
 then
+  PROJUPP=$(${TR} '[:lower:]' '[:upper:]' <<<"${PROJECT}")
   # determine behavior of sort command
   export LC_ALL=C IFS=$'\n'
   if [ "0" != "$(${LS} -1 "${LIBS}"/${INCLUDE}.${LIBTYPE} 2>/dev/null | ${WC} -l)" ]; then
@@ -65,13 +70,15 @@ then
           if [ "${SYMBOL}" ]; then
             # cleanup compiler-specific symbols (Intel Fortran, GNU Fortran)
             SYMBOL=$(${SED} <<<"${SYMBOL}" \
-              -e "s/^libxs_mp_libxs_\(..*\)_/libxs_\1/" \
-              -e "s/^__libxs_MOD_libxs_/libxs_/")
-            if [ "$(${SED} -n "/^LIBXS_[^.]/p" <<<"${SYMBOL}")" ] || \
-               [ "$(${SED} -n "/^libxs_[^.]/p" <<<"${SYMBOL}")" ];
+              -e "s/^${PROJECT}_mp_${PROJECT}_\(..*\)_/${PROJECT}_\1/" \
+              -e "s/^__${PROJECT}_MOD_${PROJECT}_/${PROJECT}_/")
+            if [ "$(${SED} -n "/^${PROJUPP}_[^.]/p" <<<"${SYMBOL}")" ] || \
+               [ "$(${SED} -n "/^${PROJECT}_[^.]/p" <<<"${SYMBOL}")" ] || \
+               [ "$(${SED} -n "/^c_dbcsr_acc_[^.]/p" <<<"${SYMBOL}")" ] || \
+               [ "$(${SED} -n "/^offload[^.]/p" <<<"${SYMBOL}")" ];
             then
               echo "${SYMBOL}" >>${ABINEW}
-            elif [ ! "$(${SED} <<<"${SYMBOL}" -n "/^__libxs_MOD___/p")" ] && \
+            elif [ ! "$(${SED} <<<"${SYMBOL}" -n "/^__${PROJECT}_MOD___/p")" ] && \
                  [ ! "$(${SED} <<<"${SYMBOL}" -n "/^__wrap_..*/p")" ] && \
                  [ ! "$(${SED} <<<"${SYMBOL}" -n "/^internal_/p")" ] && \
                  [ ! "$(${SED} <<<"${SYMBOL}" -n "/^_init/p")" ] && \
@@ -90,7 +97,7 @@ then
     ${SORT} -u ${ABINEW} >${ABITMP}
     ${MV} ${ABITMP} ${ABINEW}
     if [ "so" != "${LIBTYPE}" ]; then
-      echo "Note: LIBXS must be built with \"make STATIC=0 SYM|DBG=1\"!"
+      echo "Note: ${PROJUPP} must be built with \"make STATIC=0 SYM|DBG=1\"!"
     fi
     REMOVED=$(${DIFF} --new-line-format="" --unchanged-line-format="" <(${SORT} ${ABICUR}) ${ABINEW})
     if [ ! "${REMOVED}" ]; then

@@ -6,7 +6,7 @@
 # SPDX-License-Identifier: BSD-3-Clause                                       #
 ###############################################################################
 # shellcheck disable=SC2064
-
+#
 HERE=$(cd "$(dirname "$0")" && pwd -P)
 CPPCHECK=$(command -v cppcheck)
 MKTEMP=${HERE}/../.mktmp.sh
