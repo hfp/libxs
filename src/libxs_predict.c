@@ -1972,11 +1972,50 @@ LIBXS_API void libxs_predict_get(const libxs_predict_t* model, int index,
   double inputs[], double outputs[])
 {
   LIBXS_ASSERT(NULL != model && 0 <= index && index < model->nentries);
-  if (NULL != inputs) {
-    memcpy(inputs, model->entries[index].inputs, (size_t)model->ninputs * sizeof(double));
+  if (NULL != model->entries) {
+    if (NULL != inputs) {
+      memcpy(inputs, model->entries[index].inputs, (size_t)model->ninputs * sizeof(double));
+    }
+    if (NULL != outputs) {
+      memcpy(outputs, model->entries[index].outputs, (size_t)model->noutputs * sizeof(double));
+    }
   }
-  if (NULL != outputs) {
-    memcpy(outputs, model->entries[index].outputs, (size_t)model->noutputs * sizeof(double));
+  else {
+    int c, offset = 0;
+    for (c = 0; c < model->nclusters; ++c) {
+      const internal_libxs_predict_cluster_t* cl = &model->clusters[c];
+      if (index < offset + cl->nentries) {
+        const int local = index - offset;
+        if (NULL != inputs) {
+          const double* pt = cl->kd_pts + (size_t)local * model->ninputs;
+          int i;
+          for (i = 0; i < model->ninputs; ++i) {
+            double v = pt[i];
+            if (NULL != model->weights && model->weights[i] != 0) {
+              v /= model->weights[i];
+            }
+            if (NULL != model->input_rng && model->input_rng[i] > 0) {
+              v = v * model->input_rng[i] + model->input_min[i];
+            }
+            inputs[i] = v;
+          }
+          if (NULL != model->decompose_mat) {
+            double* tmp = (double*)malloc((size_t)model->ninputs * sizeof(double));
+            if (NULL != tmp) {
+              memcpy(tmp, inputs, (size_t)model->ninputs * sizeof(double));
+              internal_libxs_predict_decompose_inverse(model, tmp, inputs);
+              free(tmp);
+            }
+          }
+        }
+        if (NULL != outputs) {
+          memcpy(outputs, cl->raw_outputs + (size_t)local * model->noutputs,
+            (size_t)model->noutputs * sizeof(double));
+        }
+        break;
+      }
+      offset += cl->nentries;
+    }
   }
 }
 
