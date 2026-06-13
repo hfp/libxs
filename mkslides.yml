@@ -4,8 +4,8 @@ slides:
   separator_notes: "^Note:"
 
 revealjs:
-  width: 1280
-  height: 720
+  width: 1536
+  height: 864
   controls: true
   progress: true
   history: true

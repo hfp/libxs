@@ -36,7 +36,7 @@ Reports validation quality on a held-out subset.
 
 ### Usage
 
-    ./predict_params.x [fraction] [auto|cat|compress[Q]|interp|rf] [-N] <csvfile> [modelfile]
+    ./predict_params.x [fraction] [auto|cat|compress[Q]|interp|rf] [-N] <csvfile> [modelfile [confidence-prefix]]
 
     fraction   Validation split 0..1 for quality report (default: 0.8).
                The full model always trains on all entries.
@@ -53,11 +53,16 @@ Reports validation quality on a held-out subset.
                The first line may be a header (auto-skipped if non-numeric).
     modelfile  Output path for the binary model.
                Default: derived from CSV basename (e.g., data.csv -> data.bin).
+    confidence-prefix
+           Optional output prefix for saved-model confidence maps.
+           Writes a 3D MHD cube and 2D minK/meanK MHD projections.
+           With LIBXS_MHD_PNG=1, the 2D projections also produce PNG files.
 
 ### Example
 
     ./predict_params.x ../../samples/smm/params/tune_multiply_PVC.csv
     ./predict_params.x 0.8 compress0.9 tune_multiply_PVC.csv model.bin
+    LIBXS_MHD_PNG=1 ./predict_params.x 0.8 compress0.9 tune_multiply_PVC.csv model.bin pvc_confidence
 
 
 ## predict_sunspots

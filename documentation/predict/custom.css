@@ -27,6 +27,12 @@
   font-size: 0.7em;
 }
 
+.reveal section img {
+  max-width: 90%;
+  max-height: 60vh;
+  object-fit: contain;
+}
+
 .reveal .important {
   color: #ff6b6b;
   font-weight: bold;
