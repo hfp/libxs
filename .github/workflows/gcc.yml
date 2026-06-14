@@ -92,6 +92,56 @@ jobs:
           tests/*.x
           samples/**/*.x
 
+  Debian:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v5
+
+    - name: Install dependencies
+      run: |
+        sudo apt update -y
+        sudo apt install -y debhelper devscripts fakeroot gfortran
+
+    - name: Build Debian package
+      run: |
+        cp -a scripts/debian .
+        dpkg-buildpackage -us -uc -b
+
+    - name: Verify Debian packages
+      run: |
+        dpkg-deb -c ../libxs0_*.deb
+        dpkg-deb -c ../libxs-dev_*.deb
+
+    - name: Upload packages
+      uses: actions/upload-artifact@v5
+      with:
+        name: libxs-deb
+        path: ../*.deb
+
+  RPM:
+    runs-on: ubuntu-latest
+    container: fedora:latest
+    steps:
+    - uses: actions/checkout@v5
+
+    - name: Install dependencies
+      run: dnf install -y rpm-build gcc gcc-gfortran make bash
+
+    - name: Build RPM package
+      run: |
+        mkdir -p $HOME/rpmbuild/{SOURCES,SPECS}
+        cp scripts/fedora/libxs.spec $HOME/rpmbuild/SPECS/
+        VERSION=$(grep '^Version:' scripts/fedora/libxs.spec | awk '{print $2}')
+        tar czf $HOME/rpmbuild/SOURCES/libxs-${VERSION}.tar.gz \
+          --transform="s,^\.,libxs-${VERSION}," .
+        rpmbuild -bb --nocheck $HOME/rpmbuild/SPECS/libxs.spec
+
+    - name: Upload packages
+      uses: actions/upload-artifact@v5
+      with:
+        name: libxs-rpm
+        path: ~/rpmbuild/RPMS/
+
   CMake:
     runs-on: ubuntu-latest
     strategy:
