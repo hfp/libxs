@@ -1,0 +1,5 @@
+usr/include/libxs/
+usr/lib/*/libxs.so
+usr/lib/*/pkgconfig/libxs.pc
+usr/lib/*/cmake/libxs/
+usr/share/libxs/

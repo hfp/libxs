@@ -1,0 +1,33 @@
+Source: libxs
+Section: libs
+Priority: optional
+Maintainer: Hans Pabst <hans.pabst@intel.com>
+Build-Depends:
+ debhelper-compat (= 13),
+ cmake (>= 3.13),
+ ninja-build,
+ gfortran,
+Standards-Version: 4.7.0
+Homepage: https://github.com/hfp/libxs
+Rules-Requires-Root: no
+
+Package: libxs0
+Architecture: any
+Multi-Arch: same
+Depends: ${shlibs:Depends}, ${misc:Depends}
+Description: Portable C library for numerics, memory operations, and utilities
+ LIBXS is a portable C library providing building blocks for memory operations,
+ numerics, synchronization, hashing, random number generation, and related
+ low-level utilities.  It was originally developed as part of LIBXSMM.
+
+Package: libxs-dev
+Section: libdevel
+Architecture: any
+Multi-Arch: same
+Depends:
+ libxs0 (= ${binary:Version}),
+ ${misc:Depends},
+Description: Development files for LIBXS
+ This package contains headers, the Fortran module interface, pkg-config
+ metadata, CMake package files, the supported header-only source tree, and API
+ documentation for developing applications that use LIBXS.

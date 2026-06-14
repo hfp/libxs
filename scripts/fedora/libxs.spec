@@ -1,13 +1,5 @@
 %bcond_without tests
 
-%if %{with tests}
-%global libxs_build_testing ON
-%global libxs_blas_vendor -DBLA_VENDOR=FlexiBLAS
-%else
-%global libxs_build_testing OFF
-%global libxs_blas_vendor %{nil}
-%endif
-
 Name:           libxs
 Version:        0.0.0
 Release:        %autorelease
@@ -18,11 +10,9 @@ URL:            https://github.com/hfp/libxs
 Source0:        %{name}-%{version}.tar.gz
 
 BuildRequires:  bash
-BuildRequires:  cmake
-BuildRequires:  cmake-rpm-macros
 BuildRequires:  gcc
 BuildRequires:  gcc-gfortran
-BuildRequires:  ninja-build
+BuildRequires:  make
 %if %{with tests}
 BuildRequires:  flexiblas-devel
 BuildRequires:  gawk
@@ -46,23 +36,19 @@ documentation for developing applications that use LIBXS.
 %autosetup
 
 %build
-%cmake \
-    -DBUILD_SHARED_LIBS=ON \
-    -DBUILD_TESTING=%{libxs_build_testing} \
-    -DLIBXS_FORTRAN=ON \
-    %{libxs_blas_vendor}
-%cmake_build
+%make_build GNU=1 STATIC=0 \
+    POUTDIR=%{_lib} PPKGDIR=%{_lib}/pkgconfig PCMKDIR=%{_lib}/cmake/%{name}
 
 %install
-%cmake_install
+%make_install PREFIX=%{_prefix} CLEAN=0 \
+    POUTDIR=%{_lib} PPKGDIR=%{_lib}/pkgconfig PCMKDIR=%{_lib}/cmake/%{name} \
+    LICFDIR=%{_licensedir}/%{name}
 
-# The license is already installed via %%license below; avoid a duplicate copy
-# in the API documentation directory.
-rm -f %{buildroot}%{_datadir}/%{name}/LICENSE.md
+rm -f %{buildroot}%{_licensedir}/%{name}/LICENSE.md
 
 %check
 %if %{with tests}
-%ctest --output-on-failure --parallel %{_smp_build_ncpus}
+%make_build tests GNU=1 STATIC=0
 %endif
 
 %files

@@ -246,6 +246,7 @@ $(INCDIR)/$(PROJECT)_version.h: $(INCDIR)/.make $(DIRSTATE)/.state $(ROOTSCR)/to
 	@$(CP) $(SRCFILES) $(HEADERS_SRC) $(SRCDIR) 2>/dev/null || true
 	@$(ROOTSCR)/tool_version.sh $(PROJECT) -1 >$@
 	@$(SED) 's/^\(  VERSION \)[0-9][0-9.]*/\1$(VERSION_STRING)/' $(ROOTDIR)/CMakeLists.txt >$(ROOTDIR)/CMakeLists.tmp 2>/dev/null && mv $(ROOTDIR)/CMakeLists.tmp $(ROOTDIR)/CMakeLists.txt || true
+	@$(ROOTSCR)/tool_pkgversion.sh 2>/dev/null || true
 
 .PHONY: cheader
 cheader: $(INCDIR)/$(PROJECT)_source.h $(INCDIR)/$(PROJECT)_version.h
