@@ -1,3 +1,4 @@
+%global debug_package %{nil}
 %bcond_without tests
 
 Name:           libxs
@@ -40,11 +41,10 @@ documentation for developing applications that use LIBXS.
     POUTDIR=%{_lib} PPKGDIR=%{_lib}/pkgconfig PCMKDIR=%{_lib}/cmake/%{name}
 
 %install
-%make_install PREFIX=%{_prefix} CLEAN=0 \
-    POUTDIR=%{_lib} PPKGDIR=%{_lib}/pkgconfig PCMKDIR=%{_lib}/cmake/%{name} \
-    LICFDIR=%{_licensedir}/%{name}
+%make_install PREFIX=%{_prefix} CLEAN=0 STATIC=0 \
+    POUTDIR=%{_lib} PPKGDIR=%{_lib}/pkgconfig PCMKDIR=%{_lib}/cmake/%{name}
 
-rm -f %{buildroot}%{_licensedir}/%{name}/LICENSE.md
+rm -f %{buildroot}%{_datadir}/%{name}/LICENSE.md
 
 %check
 %if %{with tests}
@@ -61,7 +61,7 @@ rm -f %{buildroot}%{_licensedir}/%{name}/LICENSE.md
 %doc %{_datadir}/%{name}
 %{_includedir}/%{name}/
 %{_libdir}/libxs.so
-%{_libdir}/pkgconfig/libxs.pc
+%{_libdir}/pkgconfig/libxs*.pc
 %{_libdir}/cmake/libxs/
 
 %changelog

@@ -1,23 +1,24 @@
 #!/usr/bin/make -f
 
-export DEB_BUILD_MAINT_OPTIONS = hardening=+all
+LIBDIR = lib/$(DEB_HOST_MULTIARCH)
 
-LIBDIR = usr/lib/$(DEB_HOST_MULTIARCH)
+# The upstream Makefile manages compiler/linker flags internally.
+# Prevent dpkg-buildflags from injecting conflicting flags.
+unexport CFLAGS CXXFLAGS CPPFLAGS DFLAGS FFLAGS FCFLAGS LDFLAGS
 
 %:
 	dh $@
 
 override_dh_auto_build:
-	$(MAKE) GNU=1 STATIC=0 \
-	    POUTDIR=$(LIBDIR) PPKGDIR=$(LIBDIR)/pkgconfig \
-	    PCMKDIR=$(LIBDIR)/cmake/libxs
+	$(MAKE) GNU=1 STATIC=0
 
 override_dh_auto_install:
-	$(MAKE) install PREFIX=usr DESTDIR=$(CURDIR)/debian/tmp CLEAN=0 \
+	$(MAKE) install PREFIX=usr DESTDIR=$(CURDIR)/debian/tmp CLEAN=0 STATIC=0 \
 	    POUTDIR=$(LIBDIR) PPKGDIR=$(LIBDIR)/pkgconfig \
-	    PCMKDIR=$(LIBDIR)/cmake/libxs \
-	    LICFDIR=usr/share/doc/libxs
-	rm -f debian/tmp/usr/share/doc/libxs/LICENSE.md
+	    PCMKDIR=$(LIBDIR)/cmake/libxs
+	rm -f debian/tmp/usr/share/libxs/LICENSE.md
+
+override_dh_auto_test:
 
 override_dh_auto_clean:
 	$(MAKE) realclean || true

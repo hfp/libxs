@@ -100,11 +100,12 @@ jobs:
     - name: Install dependencies
       run: |
         sudo apt update -y
-        sudo apt install -y debhelper devscripts fakeroot gfortran
+        sudo apt install -y build-essential debhelper devscripts fakeroot gfortran
 
     - name: Build Debian package
       run: |
         cp -a scripts/debian .
+        chmod +x debian/rules
         dpkg-buildpackage -us -uc -b
 
     - name: Verify Debian packages
@@ -112,11 +113,14 @@ jobs:
         dpkg-deb -c ../libxs0_*.deb
         dpkg-deb -c ../libxs-dev_*.deb
 
+    - name: Collect packages
+      run: cp ../*.deb .
+
     - name: Upload packages
       uses: actions/upload-artifact@v5
       with:
         name: libxs-deb
-        path: ../*.deb
+        path: "*.deb"
 
   RPM:
     runs-on: ubuntu-latest
@@ -134,7 +138,7 @@ jobs:
         VERSION=$(grep '^Version:' scripts/fedora/libxs.spec | awk '{print $2}')
         tar czf $HOME/rpmbuild/SOURCES/libxs-${VERSION}.tar.gz \
           --transform="s,^\.,libxs-${VERSION}," .
-        rpmbuild -bb --nocheck $HOME/rpmbuild/SPECS/libxs.spec
+        rpmbuild -bb --without tests $HOME/rpmbuild/SPECS/libxs.spec
 
     - name: Upload packages
       uses: actions/upload-artifact@v5
