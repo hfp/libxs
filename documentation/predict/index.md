@@ -25,7 +25,7 @@ Deployment sees new shapes between tuned points.
 
 ## Method in One Slide
 
-Distance-weighted kNN voting plus polynomial fingerprint diagnostics.
+Distance-weighted *k*NN voting plus polynomial fingerprint diagnostics.
 
 The model returns:
 
@@ -47,7 +47,8 @@ Inputs: `M`, `N`, `K`.
 Outputs: batch size, block sizes, workgroup shape, loop unroll, layout,
 and access selectors.
 
-Training data: tabulated tuned kernels across GPU architectures.
+Training data: tuned kernels across GPU architectures (Intel PVC
+shown here; method is device-agnostic).
 
 ---
 
@@ -78,7 +79,8 @@ Separate ownership from prediction.
 | structural safety | preference/access choices |
 | source rules stay authoritative | override near-unanimously |
 
-`AL` is the A-linear access-mode flag.
+SMM kernel parameters: BS batch-size, BM/BN/BK block extents,
+WS work-sharing, WG workgroup shape, LU unroll, AL/AA/AB access modes.
 
 ---
 
@@ -87,7 +89,7 @@ Separate ownership from prediction.
 | Signal | Time | Used for |
 | --- | --- | --- |
 | Fingerprint decay | Build | constant, smooth, categorical, erratic |
-| kNN vote fraction | Query | per-output deployment confidence |
+| *k*NN vote fraction | Query | per-output deployment confidence |
 
 Fingerprint behavior chooses the output mode.
 
@@ -106,75 +108,29 @@ else:
     use safe rule
 ```
 
-Abstention is part of LIBXS behavior.
+Abstention is part of LIBXS behavior.  Learned tuning becomes
+compatible with hard-won domain rules.
 
 ---
 
-## Current PVC Rerun
+## PVC Tuning Structure
 
-1339 PVC kernels, three reruns per mode.
+![PVC tuning impact by arithmetic-intensity bin](assets/pvc_ai_performance_slide.png)
 
-| Mode | Meaning | GM GF/s | vs. rules |
-| --- | --- | ---: | ---: |
-| `noparm` | handwritten source rules | 1464.7 | 1.000 |
-| `params` | measured tuned CSV | 1483.4 | 1.013 |
-| `predict` | 0.9-compressed predictor | 1480.8 | 1.011 |
-
-Prediction is leave-one-out in spirit: a kernel's tuned row is not used
-as its own answer.
-
----
-
-## PVC Kernel Coverage
-
-![PVC kernels covered by arithmetic-intensity bin](assets/pvc_ai_distribution.png)
-
-Most of the rerun lives in the middle AI bins; the high-AI tail is small.
-
----
-
-## PVC Tuning Impact
-
-![PVC tuning impact by arithmetic-intensity bin](assets/pvc_ai_performance.png)
-
-The aggregate gain is not uniform.  The visible movement is concentrated
-in the 2--4 bin, while many bins are near neutral.
-
----
-
-## PVC Parameter Coverage
-
-![Distinct tuned PVC parameter values by arithmetic-intensity bin](assets/pvc_parameter_coverage.png)
-
-The table is not equally rich everywhere: some parameters vary broadly,
-while others offer only a few alternatives in a bin.
+1339 PVC kernels, three reruns per mode.  Tuning gives +1.3% over
+handwritten rules; LOO prediction reaches +1.1%.  The gain
+concentrates in compute-heavy shapes (AI 2–4: +6.8%, 41 distinct BK
+values).  Other bins are near neutral — the rules are already strong.
 
 ---
 
 ## PVC Confidence Projection
 
-![Saved PVC predictor confidence over the MNK cube](assets/pvc_confidence_projection.png)
+![Saved PVC predictor confidence over the M×N×K cube](assets/pvc_confidence_projection.png)
 
-The saved 0.9-compressed model is sampled over the full min--max cube.
-Worst-K support is the conservative deployment view; mean-K support is
-the typical case.
-
----
-
-## Where the Rerun Moves
-
-Nominal arithmetic-intensity bins.
-
-| AI bin | Tuned/rules | Predict/rules | Predict/tuned |
-| --- | ---: | ---: | ---: |
-| < 0.5 | 1.017 | 0.997 | 0.980 |
-| 0.5–1 | 0.999 | 0.997 | 0.997 |
-| 1–2 | 1.006 | 1.008 | 1.002 |
-| 2–4 | 1.068 | 1.067 | 1.000 |
-| All | 1.013 | 1.011 | 0.998 |
-
-Mixed result: localized gains, median-neutral behavior, and a strong
-handwritten baseline.
+Over the M × N × K cube (739k queries), 39% fall below the 0.9
+threshold (defer to rules).  The distribution is bimodal: confident
+or clearly insufficient — the gate fires decisively.
 
 ---
 
@@ -204,76 +160,36 @@ The interface is still prediction plus confidence.
 
 ---
 
-## Reading Literature Comparisons
+## Crystal System Prediction
 
-External numbers are orientation, not a leaderboard.
+<!-- .slide: data-background-image="assets/crystal_system_wheel_slide.png" data-background-size="contain" data-background-position="right center" style="text-align: left" -->
 
-Studies often differ in:
+- 60 386 compositions
+- 37 features
+- 7 crystal systems
 
-- Feature sets and preprocessing.
-- Split, horizon, or region.
-- Temporal or spatial context.
-- Metric: MAE, RMSE, NSE, accuracy, speedup.
+The sample is a mixed classification problem  
+where confidence decides whether to act.
 
-Useful question: are we in range, and what does confidence say?
-
----
-
-## Forecasting Checks
-
-| Domain | Ours | Literature | ≈err/σ | Signal |
-| --- | ---: | ---: | ---: | --- |
-| Sunspots | MAE 17.6 | MAE 19.8–45.5 | 0.26 vs. 0.29–0.67 | cycles |
-| Discharge | ≈5% rel. | NSE 0.78–0.99 | 0.23 vs. 0.10–0.47 | season |
-| SOI | nRMSE 0.11 / 0.12 | 0.23–0.55 | 0.11–0.12 vs. 0.23–0.55 | spread |
-
-Common scale is approximate: held-out σ for ours; NSE converted as
-√(1−NSE); literature datasets still differ.
+Note: This is the key slide for computational chemistry audience.
+Structure initialization in CP2K/FHI-aims requires symmetry information;
+a confidence-gated predictor can provide it or abstain.
 
 ---
 
-## Ambiguity and Classification
+## Secondary Evidence
 
-| Task | Ours | Common readout | Confidence |
+| Domain | Ours | Literature | Confidence |
 | --- | ---: | ---: | --- |
-| Earthquakes | MAE 0.265 | ≈0.74σ | avg. 0.694 |
-| Crystals, all | 79.6% acc. | 20.4% error | full coverage |
-| Crystals, conf. ≥ 0.9 | 95.0% acc. | 5.0% error | 53.7% coverage |
+| Sunspots | MAE 17.6 | MAE 19.8–45.5 | 1.0 (dense cycles) |
+| Discharge | 0.23 err/σ | 0.10–0.47 | 1.0 (seasonal) |
+| SOI | nRMSE 0.11 | 0.23–0.55 | 1.0 (spread modes) |
+| Earthquakes | MAE 0.265 | 0.184–0.283 | 0.694 (ambiguous) |
+| Crystals | 79.6% → 95.0% (conf ≥ 0.9) | ≈75–80% | 54% gated coverage |
 
-Regression uses held-out σ; classification uses error rate.  Confidence
-separates ambiguity from high-reliability subsets.
-
----
-
-## Crystal Sample
-
-<!-- .slide: data-background-image="assets/crystal_system_wheel_background.png" data-background-size="contain" data-background-position="right center" -->
-
-60386 compositions.
-
-37 features.
-
-7 crystal systems.
-
-The sample is not a single smooth regression surface; it is a mixed
-classification problem where confidence decides whether to act.
-
-Note: This is a visual pause before the confidence-gating result.  The
-sample spans seven crystal systems; the predictor is asked for a useful
-deployment signal on top of that mixed classification task.
-
----
-
-## What the Context Says
-
-Across domains, errors usually land near specialized trained methods on
-the reported metric.
-
-The distinctive result is the deployment signal:
-
-- Dense recurring domains: confidence ≈1.
-- Ambiguous domains: lower confidence.
-- Classification: high-confidence subsets are much more reliable.
+Confidence separates dense-coverage domains from genuinely ambiguous
+ones.  Literature comparisons are orienting — different features, splits,
+metrics.
 
 ---
 
@@ -292,45 +208,16 @@ A confidence-gated predictor can say:
 
 ## Fortran-First Feedback Loop
 
-The same lifecycle is exposed to Fortran-heavy applications.
+No Python, no framework dependency — links into your Fortran binary.
 
 | Running application moment | LIBXS call | Effect |
 | --- | --- | --- |
-| New measured case | `libxs_predict_push` | append evidence O(1) |
+| New measured case | `libxs_predict_push` | append evidence 𝒪(1) |
 | Checkpoint or idle point | `libxs_predict_build` | rebuild model cheaply |
 | Next query | `libxs_predict_eval` | value + confidence |
 
-What this buys: start conservative, learn from completed work, and let
-later decisions use the stronger local evidence.
-
----
-
-## Comparison to Heavier Models
-
-Gaussian processes, neural networks, tree ensembles, and conformal
-methods can all expose uncertainty.
-
-The practical difference here is Fortran-first packaging:
-
-- No iterative gradient training.
-- O(1) append per entry before rebuild.
-- Deterministic construction from tables.
-- Per-output confidence in the application.
-- Batch/task variants for parallel callers.
-
----
-
-## Design Pattern
-
-Separate prediction from authority.
-
-```text
-prediction → value + confidence
-policy     → threshold + rule ownership
-action     → override or defer
-```
-
-Learned tuning becomes compatible with hard-won domain rules.
+Start conservative, learn from completed work, and let later decisions
+use the stronger local evidence.
 
 ---
 
@@ -340,7 +227,7 @@ Learned tuning becomes compatible with hard-won domain rules.
 - Confidence must be per output.
 - Running jobs can add evidence and rebuild at checkpoints.
 - Fingerprints diagnose mode choice.
-- kNN votes expose local evidence.
+- *k*NN votes expose local evidence.
 - Rule deferral turns uncertainty into safe behavior.
 
 ---
