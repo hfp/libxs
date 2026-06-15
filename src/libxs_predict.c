@@ -19,6 +19,9 @@
 #if !defined(LIBXS_PREDICT_MAGIC)
 #  define LIBXS_PREDICT_MAGIC 0x58535052U /* "XSPR" */
 #endif
+#if !defined(LIBXS_PREDICT_MAGIC_HKNN)
+#  define LIBXS_PREDICT_MAGIC_HKNN 0x58534B4EU /* "XSKN" */
+#endif
 #if !defined(LIBXS_PREDICT_VERSION)
 #  define LIBXS_PREDICT_VERSION 1
 #endif
@@ -88,6 +91,9 @@ LIBXS_EXTERN_C struct libxs_predict_t {
   internal_libxs_predict_cluster_t* clusters;
   int* assignments;
   int* hknn_assignments;
+  int** hknn_po_assignments;
+  int* hknn_po_nclusters;
+  internal_libxs_predict_cluster_t** hknn_po_clusters;
   double* eval_buf;
   double* input_min;
   double* input_rng;
@@ -379,10 +385,11 @@ LIBXS_API_INLINE void internal_libxs_predict_cluster_refit(
 }
 
 
-LIBXS_API_INLINE double internal_libxs_predict_classify(
+LIBXS_API_INLINE double internal_libxs_predict_classify2(
   const internal_libxs_predict_cluster_t* cl, const double* kd_pts,
   int nc, int m, const double* inputs, int output_j, int nouts,
   int ndistinct, int extrapolate, int skip_local,
+  const int* po_groups, int query_group,
   double* confidence, double* out_variance)
 {
   const int k = cl->k_eff;
@@ -396,7 +403,6 @@ LIBXS_API_INLINE double internal_libxs_predict_classify(
       if (cl->sorted_idx[i] > max_idx) max_idx = cl->sorted_idx[i];
     }
   }
-  /* linear scan: find k nearest by distance within cluster */
   for (i = 0; i < nc; ++i) {
     double d2;
     if (i == skip_local) continue;
@@ -404,6 +410,11 @@ LIBXS_API_INLINE double internal_libxs_predict_classify(
     if (0 != extrapolate && max_idx > 0) {
       const double age = 1.0 - (double)cl->sorted_idx[i] / (double)max_idx;
       d2 *= 1.0 + 0.5 * age;
+    }
+    if (NULL != po_groups && query_group >= 0
+      && po_groups[cl->sorted_idx[i]] != query_group)
+    {
+      continue;
     }
     if (nfound < k) {
       candidates[nfound] = cl->raw_outputs[(size_t)i * nouts + output_j];
@@ -492,6 +503,18 @@ LIBXS_API_INLINE double internal_libxs_predict_classify(
 }
 
 
+LIBXS_API_INLINE double internal_libxs_predict_classify(
+  const internal_libxs_predict_cluster_t* cl, const double* kd_pts,
+  int nc, int m, const double* inputs, int output_j, int nouts,
+  int ndistinct, int extrapolate, int skip_local,
+  double* confidence, double* out_variance)
+{
+  return internal_libxs_predict_classify2(cl, kd_pts, nc, m, inputs,
+    output_j, nouts, ndistinct, extrapolate, skip_local,
+    NULL, -1, confidence, out_variance);
+}
+
+
 LIBXS_API libxs_predict_t* libxs_predict_create(int ninputs, int noutputs)
 {
   libxs_predict_t* model = NULL;
@@ -527,6 +550,41 @@ LIBXS_API void libxs_predict_destroy(libxs_predict_t* model)
     free(model->ts_buf);
     free(model->decompose_mat);
     free(model->hknn_assignments);
+    if (NULL != model->hknn_po_assignments) {
+      int oi;
+      for (oi = 0; oi < model->noutputs; ++oi) {
+        free(model->hknn_po_assignments[oi]);
+      }
+      free(model->hknn_po_assignments);
+    }
+    if (NULL != model->hknn_po_clusters) {
+      int oi;
+      for (oi = 0; oi < model->noutputs; ++oi) {
+        if (NULL != model->hknn_po_clusters[oi]) {
+          const int nc = (NULL != model->hknn_po_nclusters)
+            ? model->hknn_po_nclusters[oi] : 0;
+          int ci;
+          for (ci = 0; ci < nc; ++ci) {
+            internal_libxs_predict_cluster_t* cl =
+              &model->hknn_po_clusters[oi][ci];
+            free(cl->centroid);
+            free(cl->kd_pts);
+            free(cl->raw_outputs);
+            free(cl->sorted_idx);
+            free(cl->sorted_dist);
+            free(cl->order);
+            free(cl->mode);
+            free(cl->ndistinct);
+            free(cl->interpolated);
+            free(cl->coeffs);
+            free(cl->errors);
+          }
+          free(model->hknn_po_clusters[oi]);
+        }
+      }
+      free(model->hknn_po_clusters);
+    }
+    free(model->hknn_po_nclusters);
     if (NULL != model->rf) {
       int ti;
       const int total_trees = model->rf->ntrees * model->rf->noutputs;
@@ -1474,6 +1532,11 @@ LIBXS_API int libxs_predict_build(libxs_predict_t* model,
     }
     if (EXIT_SUCCESS == result) {
       model->built = 1;
+      if (LIBXS_PREDICT_HKNN == model->decompose && n > 1
+        && NULL == model->hknn_po_clusters)
+      {
+        internal_libxs_predict_hknn_build_po(model);
+      }
       if (quality > 0 && NULL == model->rf
         && NULL != model->entries && NULL != model->assignments)
       {
@@ -1621,7 +1684,34 @@ LIBXS_API void libxs_predict_eval(libxs_lock_t* lock, const libxs_predict_t* mod
       for (j = 0; j < n; ++j) {
         { const int use_classify = (0 != force_classify)
             ? 1 : ((0 != force_interp) ? 0 : cl->mode[j]);
-          if (0 != use_classify) {
+          if (0 != use_classify && NULL != model->hknn_po_clusters
+            && NULL != model->hknn_po_clusters[j]
+            && NULL != model->hknn_po_assignments
+            && NULL != model->hknn_po_assignments[j])
+          {
+            const int nn_entry = cl->sorted_idx[
+              (nearest < cl->nentries) ? nearest : 0];
+            const int po_c = model->hknn_po_assignments[j][nn_entry];
+            const internal_libxs_predict_cluster_t* pcl =
+              &model->hknn_po_clusters[j][po_c];
+            double po_conf = 0, po_var = 0;
+            if (pcl->nentries > 0 && NULL != pcl->kd_pts) {
+              vals[j] = internal_libxs_predict_classify(
+                pcl, pcl->kd_pts, pcl->nentries, m, norm_inputs, 0, 1,
+                pcl->ndistinct[0], extrapolate, -1, &po_conf, &po_var);
+            }
+            else {
+              vals[j] = internal_libxs_predict_classify(
+                cl, cl->kd_pts, cl->nentries, m, norm_inputs, j, n,
+                cl->ndistinct[j], extrapolate, -1, &po_conf, &po_var);
+            }
+            internal_libxs_predict_classify(
+              cl, cl->kd_pts, cl->nentries, m, norm_inputs, j, n,
+              cl->ndistinct[j], extrapolate, -1, &conf[j], &var[j]);
+            errs[j] = 0;
+            rels[j] = 0;
+          }
+          else if (0 != use_classify) {
             vals[j] = internal_libxs_predict_classify(
               cl, cl->kd_pts, cl->nentries, m, norm_inputs, j, n,
               cl->ndistinct[j], extrapolate, -1, &conf[j], &var[j]);

@@ -41,7 +41,7 @@ int main(int argc, char* argv[])
     eval_fraction = atof(argv[argi]);
     ++argi;
   }
-  if (argi < argc && 'a' <= argv[argi][0]) {
+  while (argi < argc && 'a' <= argv[argi][0] && argv[argi][0] <= 'z') {
     if ('a' == argv[argi][0]) mode = LIBXS_PREDICT_AUTO;
     else if ('c' == argv[argi][0] && 'a' == argv[argi][1]) {
       mode = LIBXS_PREDICT_CLASSIFY;
@@ -54,6 +54,7 @@ int main(int argc, char* argv[])
     else if ('i' == argv[argi][0]) mode = LIBXS_PREDICT_INTERPOLATE;
     else if ('r' == argv[argi][0]) use_rf = 1;
     else if ('h' == argv[argi][0]) use_hknn = 1;
+    else break;
     ++argi;
   }
   if (argi < argc && '-' == argv[argi][0] && '\0' != argv[argi][1]) {
