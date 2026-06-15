@@ -1,3 +1,4 @@
+PROJECT ?= libxs
 PYTHON ?= python3
 HDF5_FILE ?=
 HDF5_DATASET ?= ECAL
