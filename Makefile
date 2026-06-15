@@ -610,6 +610,13 @@ ifneq ($(PREFIX),$(ABSDIR))
 ifneq ($(call qapath,$(PREFIX)/$(PDOCDIR)/LICENSE.md),$(call qapath,$(PREFIX)/$(LICFDIR)/$(LICFILE)))
 	@$(MV) $(PREFIX)/$(PDOCDIR)/LICENSE.md $(PREFIX)/$(LICFDIR)/$(LICFILE)
 endif
+	@echo
+	@echo "$(PROJUPP) installing build infrastructure..."
+	@$(MKDIR) -p $(PREFIX)/$(PSHRDIR)
+	@$(CP) -v $(ROOTDIR)/Makefile.inc $(PREFIX)/$(PSHRDIR) 2>/dev/null || true
+	@$(CP) -v $(ROOTDIR)/.mktmp.sh $(PREFIX)/$(PSHRDIR) 2>/dev/null || true
+	@$(CP) -v $(ROOTDIR)/.flock.sh $(PREFIX)/$(PSHRDIR) 2>/dev/null || true
+	@$(CP) -v $(ROOTDIR)/.state.sh $(PREFIX)/$(PSHRDIR) 2>/dev/null || true
 endif
 
 .PHONY: install-all
@@ -634,13 +641,6 @@ ifneq ($(PREFIX),$(ABSDIR))
 		echo "--------------------------------------------------------------------------------"; \
 		sleep $(WAIT); \
 	fi
-	@echo
-	@echo "$(PROJUPP) installing utilities..."
-	@$(MKDIR) -p $(PREFIX)
-	@$(CP) -v $(ROOTDIR)/Makefile.inc $(PREFIX) 2>/dev/null || true
-	@$(CP) -v $(ROOTDIR)/.mktmp.sh $(PREFIX) 2>/dev/null || true
-	@$(CP) -v $(ROOTDIR)/.flock.sh $(PREFIX) 2>/dev/null || true
-	@$(CP) -v $(ROOTDIR)/.state.sh $(PREFIX) 2>/dev/null || true
 	@echo
 	@echo "$(PROJUPP) tool scripts..."
 	@$(MKDIR) -p $(PREFIX)/$(SCRDIR)

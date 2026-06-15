@@ -60,7 +60,7 @@ rm -f %{buildroot}%{_datadir}/%{name}/LICENSE.md
 
 %files devel
 %license LICENSE.md
-%doc %{_datadir}/%{name}
+%{_datadir}/%{name}/
 %{_includedir}/%{name}/
 %{_libdir}/libxs.so
 %{_libdir}/pkgconfig/libxs*.pc

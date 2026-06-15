@@ -1,5 +1,5 @@
 ROOTDIR = $(abspath $(dir $(firstword $(MAKEFILE_LIST))))
-PROJECT ?= libxs
+PROJECT := libxs
 DEPDIR = ../..
 SRCDIR = .
 INCDIR = .
