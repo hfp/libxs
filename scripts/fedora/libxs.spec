@@ -15,8 +15,10 @@ BuildRequires:  gcc
 BuildRequires:  gcc-gfortran
 BuildRequires:  make
 %if %{with tests}
+BuildRequires:  gcc-c++
 BuildRequires:  flexiblas-devel
 BuildRequires:  gawk
+BuildRequires:  ocl-icd-devel
 %endif
 
 %description
@@ -48,7 +50,7 @@ rm -f %{buildroot}%{_datadir}/%{name}/LICENSE.md
 
 %check
 %if %{with tests}
-%make_build tests GNU=1 STATIC=0
+%make_build tests GNU=1 STATIC=0 PROJECT=libxs BLASLIB=flexiblas
 %endif
 
 %files
