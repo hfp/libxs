@@ -1,3 +1,20 @@
+LIBXS_EXTERN_C typedef struct internal_libxs_kdtree2d_ctx_t {
+  const double* pts;
+  const int* idx;
+  const unsigned char* used;
+  double qx, qy;
+} internal_libxs_kdtree2d_ctx_t;
+
+
+LIBXS_EXTERN_C typedef struct internal_libxs_kdtree_ctx_t {
+  const double* pts;
+  const int* idx;
+  const unsigned char* used;
+  const double* query;
+  int ndims, stride;
+} internal_libxs_kdtree_ctx_t;
+
+
 LIBXS_API_INLINE void internal_libxs_kdtree2d_build(
   const double* pts, int* idx, int lo, int hi, int depth)
 {
@@ -33,14 +50,6 @@ LIBXS_API_INTERN void internal_libxs_kdtree2d_build_entry(const double* pts, int
     internal_libxs_kdtree2d_build(pts, idx, 0, n, 0);
   }
 }
-
-
-LIBXS_EXTERN_C typedef struct internal_libxs_kdtree2d_ctx_t {
-  const double* pts;
-  const int* idx;
-  const unsigned char* used;
-  double qx, qy;
-} internal_libxs_kdtree2d_ctx_t;
 
 
 LIBXS_API_INLINE int internal_libxs_kdtree2d_find(
@@ -102,54 +111,137 @@ LIBXS_API_INTERN int internal_libxs_kdtree2d_nearest_entry(
 
 
 LIBXS_API_INLINE void internal_libxs_kdtree_build(
-  const double* pts, int* idx, int lo, int hi, int ndims, int stride, int depth)
+  const double* pts, int* idx, int lo, int hi,
+  int ndims, int stride, int min_leaf,
+  libxs_kdtree_split_t split_fn, void* split_ctx, int depth)
 {
-  if (hi - lo > 1) {
-    const int mid = lo + (hi - lo) / 2;
-    const int k = depth % ndims;
-    int l = lo, r = hi - 1;
-    while (l < r) {
-      const double pivot = pts[(size_t)idx[mid] * stride + k];
-      int ll = l, rr = r;
-      while (ll <= rr) {
-        while (pts[(size_t)idx[ll] * stride + k] < pivot) ++ll;
-        while (pts[(size_t)idx[rr] * stride + k] > pivot) --rr;
-        if (ll <= rr) {
-          { const int t = idx[ll]; idx[ll] = idx[rr]; idx[rr] = t; }
-          ++ll; --rr;
+  const int count = hi - lo;
+  if (count > 1 && count > min_leaf) {
+    int k = 0, pos = 0, do_split = 1;
+    if (NULL != split_fn) {
+      do_split = (0 == split_fn(
+        &k, &pos, pts, idx + lo, count, depth, 0, split_ctx));
+    }
+    else {
+      k = depth % ndims;
+      pos = count / 2;
+    }
+    if (0 != do_split && pos > 0 && pos < count) {
+      const int mid = lo + pos;
+      if (NULL == split_fn) {
+        int l = lo, r = hi - 1;
+        while (l < r) {
+          const double pivot = pts[(size_t)idx[mid] * stride + k];
+          int ll = l, rr = r;
+          while (ll <= rr) {
+            while (pts[(size_t)idx[ll] * stride + k] < pivot) ++ll;
+            while (pts[(size_t)idx[rr] * stride + k] > pivot) --rr;
+            if (ll <= rr) {
+              { const int t = idx[ll]; idx[ll] = idx[rr]; idx[rr] = t; }
+              ++ll; --rr;
+            }
+          }
+          if (mid <= rr) r = rr;
+          else if (mid >= ll) l = ll;
+          else break;
         }
       }
-      if (mid <= rr) r = rr;
-      else if (mid >= ll) l = ll;
-      else break;
+      internal_libxs_kdtree_build(pts, idx, lo, mid,
+        ndims, stride, min_leaf, split_fn, split_ctx, depth + 1);
+      internal_libxs_kdtree_build(pts, idx, mid, hi,
+        ndims, stride, min_leaf, split_fn, split_ctx, depth + 1);
     }
-    internal_libxs_kdtree_build(pts, idx, lo, mid, ndims, stride, depth + 1);
-    internal_libxs_kdtree_build(pts, idx, mid + 1, hi, ndims, stride, depth + 1);
   }
 }
 
 
 LIBXS_API void libxs_kdtree_build(
-  const double* pts, int* idx, int n, int ndims, int stride)
+  const double* pts, int* idx, int n, int ndims, int stride,
+  const libxs_kdtree_config_t* config)
 {
   if (NULL != pts && NULL != idx && n > 1 && ndims > 0) {
-    if (2 == ndims && 2 == stride) {
+    const int min_leaf = (NULL != config) ? config->min_leaf : 0;
+    libxs_kdtree_split_t split_fn = (NULL != config) ? config->split : NULL;
+    void* split_ctx = (NULL != config) ? config->ctx : NULL;
+    if (2 == ndims && 2 == stride && NULL == split_fn && 0 >= min_leaf) {
       internal_libxs_kdtree2d_build_entry(pts, idx, n);
     }
     else {
-      internal_libxs_kdtree_build(pts, idx, 0, n, ndims, stride, 0);
+      internal_libxs_kdtree_build(pts, idx, 0, n, ndims, stride,
+        min_leaf, split_fn, split_ctx, 0);
     }
   }
 }
 
 
-LIBXS_EXTERN_C typedef struct internal_libxs_kdtree_ctx_t {
-  const double* pts;
-  const int* idx;
-  const unsigned char* used;
-  const double* query;
-  int ndims, stride;
-} internal_libxs_kdtree_ctx_t;
+LIBXS_API int libxs_kdtree_partition(
+  const double* pts, int* idx, int n, int ndims, int stride,
+  int* assignments, const libxs_kdtree_config_t* config)
+{
+  int result = 0;
+  if (NULL != pts && NULL != idx && n > 0 && ndims > 0
+    && NULL != assignments)
+  {
+    const int min_leaf = (NULL != config) ? config->min_leaf : 0;
+    libxs_kdtree_split_t split_fn = (NULL != config) ? config->split : NULL;
+    void* split_ctx = (NULL != config) ? config->ctx : NULL;
+    int stack_lo[64], stack_hi[64], stack_depth[64], sp = 0;
+    stack_lo[0] = 0; stack_hi[0] = n; stack_depth[0] = 0; sp = 1;
+    while (sp > 0) {
+      const int lo = stack_lo[--sp];
+      const int hi = stack_hi[sp];
+      const int depth = stack_depth[sp];
+      const int count = hi - lo;
+      int k = 0, pos = 0, is_leaf = 0;
+      if (count <= 1 || count <= min_leaf) {
+        is_leaf = 1;
+      }
+      else if (NULL != split_fn) {
+        is_leaf = (0 != split_fn(&k, &pos, pts, idx + lo,
+          count, depth, result, split_ctx));
+      }
+      else {
+        k = depth % ndims;
+        pos = count / 2;
+      }
+      if (0 != is_leaf || pos < 1 || pos >= count) {
+        int i;
+        for (i = lo; i < hi; ++i) assignments[idx[i]] = result;
+        ++result;
+      }
+      else {
+        const int mid = lo + pos;
+        if (NULL == split_fn) {
+          int l = lo, r = hi - 1;
+          while (l < r) {
+            const double pivot = pts[(size_t)idx[mid] * stride + k];
+            int ll = l, rr = r;
+            while (ll <= rr) {
+              while (pts[(size_t)idx[ll] * stride + k] < pivot) ++ll;
+              while (pts[(size_t)idx[rr] * stride + k] > pivot) --rr;
+              if (ll <= rr) {
+                { const int t = idx[ll]; idx[ll] = idx[rr]; idx[rr] = t; }
+                ++ll; --rr;
+              }
+            }
+            if (mid <= rr) r = rr;
+            else if (mid >= ll) l = ll;
+            else break;
+          }
+        }
+        if (sp < 64) {
+          stack_lo[sp] = mid; stack_hi[sp] = hi;
+          stack_depth[sp] = depth + 1; ++sp;
+        }
+        if (sp < 64) {
+          stack_lo[sp] = lo; stack_hi[sp] = mid;
+          stack_depth[sp] = depth + 1; ++sp;
+        }
+      }
+    }
+  }
+  return result;
+}
 
 
 LIBXS_API_INLINE int internal_libxs_kdtree_find(

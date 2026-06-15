@@ -51,6 +51,29 @@ LIBXS_API int libxs_sort_smooth(libxs_sort_t method, int m, int n,
 LIBXS_EXTERN_C typedef int (*libxs_sort_cmp_t)(
   const void* a, const void* b, void* ctx);
 
+/**
+ * Split callback for custom k-d tree construction.
+ * Receives points, index array (node slice), node count, depth,
+ * and the current number of leaves already assigned.
+ * Writes chosen dimension into *dim and split position into *pos
+ * (number of elements going left, 1..count-1).
+ * The callback may reorder idx[0..count-1] so that idx[0..pos-1]
+ * are the left entries and idx[pos..count-1] are the right entries.
+ * If the callback reorders idx, the partition function skips its
+ * internal quickselect.
+ * Return 0 for a valid split, nonzero to force a leaf.
+ */
+LIBXS_EXTERN_C typedef int (*libxs_kdtree_split_t)(
+  int* dim, int* pos, const double* pts, int* idx,
+  int count, int depth, int nleaves, void* ctx);
+
+/** Configuration for k-d tree build and partition. */
+typedef struct libxs_kdtree_config_t {
+  int min_leaf;
+  libxs_kdtree_split_t split;
+  void* ctx;
+} libxs_kdtree_config_t;
+
 /** Built-in comparators (enable fast paths when recognized). */
 LIBXS_API int libxs_cmp_f64(const void* a, const void* b, void* ctx);
 LIBXS_API int libxs_cmp_f32(const void* a, const void* b, void* ctx);
@@ -166,28 +189,37 @@ LIBXS_API int libxs_stratify_hilbert_bits(
  * Build a k-d tree in-place for n points in ndims dimensions.
  * Points are stored row-major: pts[i*stride + k] is coordinate k of point i.
  * stride >= ndims (allows for padding or interleaved auxiliary data).
- * The index array idx[0..n-1] is rearranged to encode the implicit tree
- * (median splits cycling through dimensions). Initialize idx to identity
- * {0, 1, ..., n-1} before calling. pts is not modified.
- * When ndims == 2 and stride == 2, an optimized 2D path is used.
+ * The index array idx[0..n-1] is rearranged to encode the implicit tree.
+ * Initialize idx to identity {0, 1, ..., n-1} before calling.
+ * config may be NULL (round-robin median, leaf at 1 element).
  */
 LIBXS_API void libxs_kdtree_build(
-  const double* pts, int* idx, int n, int ndims, int stride);
+  const double* pts, int* idx, int n, int ndims, int stride,
+  const libxs_kdtree_config_t* config);
+
+/**
+ * Partition n points into leaves and write leaf IDs into assignments[0..n-1].
+ * Returns the number of leaves. Same tree logic as build, but produces
+ * cluster assignments instead of a query-tree index.
+ * config may be NULL (round-robin median, leaf at 1 element).
+ */
+LIBXS_API int libxs_kdtree_partition(
+  const double* pts, int* idx, int n, int ndims, int stride,
+  int* assignments, const libxs_kdtree_config_t* config);
 
 /**
  * Find the nearest point to query[0..ndims-1] within squared Euclidean
  * distance max_dist2. Returns the point index (into original pts layout)
  * or -1 if no point is within range. The used array (may be NULL) marks
  * points to skip (non-zero = skip).
- * When ndims == 2 and stride == 2, an optimized 2D path is used.
  */
 LIBXS_API int libxs_kdtree_nearest(
   const double* pts, const int* idx, const unsigned char* used,
   int n, int ndims, int stride, const double* query, double max_dist2);
 
-/** Convenience wrappers for 2D (interleaved x,y layout, dispatches to 2D fast path). */
+/** Convenience wrappers for 2D (interleaved x,y layout). */
 LIBXS_API_INLINE void libxs_kdtree2d_build(double* pts, int* idx, int n) {
-  libxs_kdtree_build(pts, idx, n, 2, 2);
+  libxs_kdtree_build(pts, idx, n, 2, 2, NULL);
 }
 LIBXS_API_INLINE int libxs_kdtree2d_nearest(const double* pts, const int* idx,
   const unsigned char* used, int n, double x, double y, double max_dist2)
