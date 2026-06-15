@@ -1354,6 +1354,37 @@ LIBXS_API int libxs_predict_build(libxs_predict_t* model,
       for (i = 0; i < p; ++i) {
         ++model->clusters[model->assignments[i]].nentries;
       }
+      { int dst = 0, has_empty = 0;
+        for (c = 0; c < nclusters; ++c) {
+          if (0 >= model->clusters[c].nentries) { has_empty = 1; break; }
+        }
+        if (0 != has_empty) {
+          for (i = 0; i < p; ++i) {
+            int gap = 0, a = model->assignments[i];
+            for (c = 0; c < a; ++c) {
+              if (0 >= model->clusters[c].nentries) ++gap;
+            }
+            model->assignments[i] = a - gap;
+          }
+          for (c = 0; c < nclusters; ++c) {
+            if (model->clusters[c].nentries > 0) {
+              if (dst != c) {
+                model->clusters[dst] = model->clusters[c];
+                memset(&model->clusters[c], 0,
+                  sizeof(internal_libxs_predict_cluster_t));
+              }
+              ++dst;
+            }
+            else {
+              free(model->clusters[c].centroid);
+              memset(&model->clusters[c], 0,
+                sizeof(internal_libxs_predict_cluster_t));
+            }
+          }
+          nclusters = dst;
+          model->nclusters = nclusters;
+        }
+      }
     }
     for (c = 0; c < nclusters && EXIT_SUCCESS == result; ++c) {
       internal_libxs_predict_cluster_t* cl = &model->clusters[c];
