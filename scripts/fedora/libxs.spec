@@ -50,7 +50,7 @@ rm -f %{buildroot}%{_datadir}/%{name}/LICENSE.md
 
 %check
 %if %{with tests}
-%make_build tests GNU=1 STATIC=0 PROJECT=libxs BLASLIB=flexiblas
+%make_build tests GNU=1 STATIC=0 BLASLIB=flexiblas
 %endif
 
 %files
