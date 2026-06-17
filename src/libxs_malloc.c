@@ -214,6 +214,30 @@ LIBXS_API_INLINE void internal_libxs_malloc_peak_update(libxs_malloc_pool_t *poo
     peak = LIBXS_ATOMIC(LIBXS_ATOMIC_LOAD, LIBXS_BITS)(&pool->pool_peak, LIBXS_ATOMIC_RELAXED);
   }
 }
+
+
+LIBXS_API_INLINE size_t internal_libxs_malloc_evict_native(libxs_malloc_pool_t *pool)
+{
+  size_t reclaimed = 0, i;
+  LIBXS_ASSERT(0 == pool->max_nthreads && NULL == pool->fn_malloc.std);
+  LIBXS_LOCK_ACQUIRE(LIBXS_LOCK, &pool->plock);
+  for (i = 0; i < pool->slots_num; ++i) {
+    internal_libxs_malloc_chunk_t *const chunk = pool->slots[i];
+    if (NULL != chunk->pointer) {
+      free(chunk->pointer);
+      reclaimed += chunk->used;
+      chunk->pointer = NULL;
+      chunk->used = 0;
+      chunk->size = 0;
+    }
+  }
+  LIBXS_LOCK_RELEASE(LIBXS_LOCK, &pool->plock);
+  if (0 != reclaimed) {
+    LIBXS_ATOMIC(LIBXS_ATOMIC_SUB_FETCH, LIBXS_BITS)(
+      &pool->pool_bytes, reclaimed, LIBXS_ATOMIC_LOCKORDER);
+  }
+  return reclaimed;
+}
 #endif
 
 
@@ -312,6 +336,11 @@ LIBXS_API void* libxs_malloc(libxs_malloc_pool_t* pool, size_t size, int alignme
           }
           else { /* default: realloc */
             pointer = realloc(chunk->pointer, alloc_size);
+#if defined(LIBXS_MALLOC_EVICT)
+            if (NULL == pointer && 0 != internal_libxs_malloc_evict_native(pool)) {
+              pointer = realloc(chunk->pointer, alloc_size);
+            }
+#endif
           }
           if (NULL != pointer) {
 #if defined(LIBXS_MALLOC_EVICT)
@@ -370,7 +399,14 @@ LIBXS_API void* libxs_malloc(libxs_malloc_pool_t* pool, size_t size, int alignme
           pointer = (char*)pool->fn_malloc.ext(alloc_size, pool->extra[libxs_tid() % pool->max_nthreads]);
         }
         else if (pool->fn_malloc.std) pointer = (char*)pool->fn_malloc.std(alloc_size);
-        else pointer = (char*)malloc(alloc_size);
+        else {
+          pointer = (char*)malloc(alloc_size);
+#if defined(LIBXS_MALLOC_EVICT)
+          if (NULL == pointer && 0 != internal_libxs_malloc_evict_native(pool)) {
+            pointer = (char*)malloc(alloc_size);
+          }
+#endif
+        }
         if (NULL != pointer) {
           LIBXS_ASSERT(0 == chunk->used);
           chunk->pointer = pointer;
