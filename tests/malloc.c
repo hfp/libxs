@@ -83,6 +83,7 @@ int main(void)
   else ++nerrors;
 
   if (0 == nerrors) {
+    static char evict_limit[] = "LIBXS_MALLOC_EVICT_LIMIT=1";
     const int max_nthreads = 1, max_nactive = 1;
     const int nrep_eviction = LIBXS_MALLOC_EVICTWARMUP + 4;
     const size_t nbytes = (size_t)LIBXS_MALLOC_EVICTSIZE + LIBXS_MALLOC_UPSIZE;
@@ -90,6 +91,7 @@ int main(void)
     int saw_eviction = 0;
     libxs_malloc_pool_t *mpool = libxs_malloc_pool(NULL, NULL);
 
+    nerrors += (EXIT_SUCCESS != LIBXS_PUTENV(evict_limit));
     nerrors += (NULL == mpool);
     for (i = 0; i < nrep_eviction && 0 == nerrors; ++i) {
       libxs_malloc_pool_info_t pinfo;
@@ -125,7 +127,7 @@ int main(void)
       }
     }
     nerrors += (0 == prev_nmallocs);
-    LIBXS_UNUSED(saw_eviction);
+    nerrors += (0 == saw_eviction);
     libxs_free_pool(mpool);
   }
 
