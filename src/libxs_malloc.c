@@ -205,6 +205,28 @@ LIBXS_API_INLINE int internal_libxs_malloc_hist_bucket(size_t size)
 }
 
 
+LIBXS_API_INLINE void* internal_libxs_malloc_allocate(
+  libxs_malloc_pool_t *pool, size_t size)
+{
+  if (0 < pool->max_nthreads) {
+    return pool->fn_malloc.ext(size, pool->extra[libxs_tid() % pool->max_nthreads]);
+  }
+  else if (NULL != pool->fn_malloc.std) return pool->fn_malloc.std(size);
+  else return malloc(size);
+}
+
+
+LIBXS_API_INLINE void internal_libxs_malloc_deallocate(
+  libxs_malloc_pool_t *pool, void *pointer)
+{
+  if (0 < pool->max_nthreads) {
+    pool->fn_free.ext(pointer, pool->extra[libxs_tid() % pool->max_nthreads]);
+  }
+  else if (NULL != pool->fn_free.std) pool->fn_free.std(pointer);
+  else free(pointer);
+}
+
+
 #if defined(LIBXS_MALLOC_EVICT)
 LIBXS_API_INLINE void internal_libxs_malloc_peak_update(libxs_malloc_pool_t *pool, size_t candidate)
 {
@@ -213,6 +235,41 @@ LIBXS_API_INLINE void internal_libxs_malloc_peak_update(libxs_malloc_pool_t *poo
     if (LIBXS_ATOMIC(LIBXS_ATOMIC_CMPSWP, LIBXS_BITS)(&pool->pool_peak, peak, candidate, LIBXS_ATOMIC_LOCKORDER)) break;
     peak = LIBXS_ATOMIC(LIBXS_ATOMIC_LOAD, LIBXS_BITS)(&pool->pool_peak, LIBXS_ATOMIC_RELAXED);
   }
+}
+
+
+LIBXS_API_INLINE size_t internal_libxs_malloc_evict_available(
+  libxs_malloc_pool_t *pool)
+{
+  size_t reclaimed = 0;
+  for (;;) {
+    void *pointer = NULL;
+    size_t used = 0, i;
+    LIBXS_LOCK_ACQUIRE(LIBXS_LOCK, &pool->plock);
+    for (i = 0; i < pool->slots_num; ++i) {
+      internal_libxs_malloc_chunk_t *const chunk = pool->slots[i];
+      if (NULL != chunk->pointer) {
+        const int hist_b = internal_libxs_malloc_hist_bucket(chunk->used);
+        pointer = chunk->pointer;
+        used = chunk->used;
+        chunk->pointer = NULL;
+        chunk->used = 0;
+        chunk->size = 0;
+        LIBXS_ATOMIC(LIBXS_ATOMIC_ADD_FETCH, LIBXS_BITS)(
+          &pool->hist[hist_b].nevicts_limit, 1, LIBXS_ATOMIC_RELAXED);
+        break;
+      }
+    }
+    LIBXS_LOCK_RELEASE(LIBXS_LOCK, &pool->plock);
+    if (NULL == pointer) break;
+    internal_libxs_malloc_deallocate(pool, pointer);
+    reclaimed += used;
+  }
+  if (0 != reclaimed) {
+    LIBXS_ATOMIC(LIBXS_ATOMIC_SUB_FETCH, LIBXS_BITS)(
+      &pool->pool_bytes, reclaimed, LIBXS_ATOMIC_LOCKORDER);
+  }
+  return reclaimed;
 }
 #endif
 
@@ -284,13 +341,9 @@ LIBXS_API void* libxs_malloc(libxs_malloc_pool_t* pool, size_t size, int alignme
       LIBXS_ATOMIC(LIBXS_ATOMIC_ADD_FETCH, LIBXS_BITS)(&pool->hist[hist_b].count, 1, LIBXS_ATOMIC_RELAXED);
 #if defined(LIBXS_MALLOC_EVICT)
       if (NULL != chunk->pointer && chunk->last_tick != 0 &&
-          (0 < pool->max_nthreads || NULL != pool->fn_malloc.std) &&
           LIBXS_MALLOC_EVICT_AGE < nmallocs / LIBXS_MALLOC_TICK_RATE - chunk->last_tick)
       {
-        if (0 < pool->max_nthreads) {
-          pool->fn_free.ext(chunk->pointer, pool->extra[libxs_tid() % pool->max_nthreads]);
-        }
-        else pool->fn_free.std(chunk->pointer);
+        internal_libxs_malloc_deallocate(pool, chunk->pointer);
         chunk->pointer = NULL;
         LIBXS_ATOMIC(LIBXS_ATOMIC_SUB_FETCH, LIBXS_BITS)(&pool->pool_bytes, chunk->used, LIBXS_ATOMIC_LOCKORDER);
         LIBXS_ATOMIC(LIBXS_ATOMIC_ADD_FETCH, LIBXS_BITS)(&pool->hist[hist_b].nevicts_age, 1, LIBXS_ATOMIC_RELAXED);
@@ -302,16 +355,30 @@ LIBXS_API void* libxs_malloc(libxs_malloc_pool_t* pool, size_t size, int alignme
         if (chunk->size < alloc_size) {
           char *pointer;
           if (0 < pool->max_nthreads) { /* extended pool */
-            const void *const xarg = pool->extra[libxs_tid() % pool->max_nthreads];
-            pointer = (char*)pool->fn_malloc.ext(alloc_size, xarg);
-            if (NULL != pointer) pool->fn_free.ext(chunk->pointer, xarg);
+            pointer = (char*)internal_libxs_malloc_allocate(pool, alloc_size);
+#if defined(LIBXS_MALLOC_EVICT)
+            if (NULL == pointer && 0 != internal_libxs_malloc_evict_available(pool)) {
+              pointer = (char*)internal_libxs_malloc_allocate(pool, alloc_size);
+            }
+#endif
+            if (NULL != pointer) internal_libxs_malloc_deallocate(pool, chunk->pointer);
           }
           else if (pool->fn_malloc.std) { /* standard custom pool */
-            pointer = (char*)pool->fn_malloc.std(alloc_size);
-            if (NULL != pointer) pool->fn_free.std(chunk->pointer);
+            pointer = (char*)internal_libxs_malloc_allocate(pool, alloc_size);
+#if defined(LIBXS_MALLOC_EVICT)
+            if (NULL == pointer && 0 != internal_libxs_malloc_evict_available(pool)) {
+              pointer = (char*)internal_libxs_malloc_allocate(pool, alloc_size);
+            }
+#endif
+            if (NULL != pointer) internal_libxs_malloc_deallocate(pool, chunk->pointer);
           }
           else { /* default: realloc */
             pointer = realloc(chunk->pointer, alloc_size);
+#if defined(LIBXS_MALLOC_EVICT)
+            if (NULL == pointer && 0 != internal_libxs_malloc_evict_available(pool)) {
+              pointer = realloc(chunk->pointer, alloc_size);
+            }
+#endif
           }
           if (NULL != pointer) {
 #if defined(LIBXS_MALLOC_EVICT)
@@ -366,11 +433,12 @@ LIBXS_API void* libxs_malloc(libxs_malloc_pool_t* pool, size_t size, int alignme
         }
       }
       else { char *pointer;
-        if (0 < pool->max_nthreads) {
-          pointer = (char*)pool->fn_malloc.ext(alloc_size, pool->extra[libxs_tid() % pool->max_nthreads]);
+        pointer = (char*)internal_libxs_malloc_allocate(pool, alloc_size);
+#if defined(LIBXS_MALLOC_EVICT)
+        if (NULL == pointer && 0 != internal_libxs_malloc_evict_available(pool)) {
+          pointer = (char*)internal_libxs_malloc_allocate(pool, alloc_size);
         }
-        else if (pool->fn_malloc.std) pointer = (char*)pool->fn_malloc.std(alloc_size);
-        else pointer = (char*)malloc(alloc_size);
+#endif
         if (NULL != pointer) {
           LIBXS_ASSERT(0 == chunk->used);
           chunk->pointer = pointer;
@@ -425,9 +493,7 @@ LIBXS_API void libxs_free(void* pointer)
     pool = chunk->pool;
     LIBXS_ASSERT(NULL != pool && NULL != pool->slots);
 #if defined(LIBXS_MALLOC_EVICT)
-    if (NULL != chunk->pointer && LIBXS_MALLOC_EVICT_SIZE <= chunk->used &&
-        (0 < pool->max_nthreads || NULL != pool->fn_malloc.std))
-    {
+    if (NULL != chunk->pointer && LIBXS_MALLOC_EVICT_SIZE <= chunk->used) {
       const size_t total_bytes = LIBXS_ATOMIC(LIBXS_ATOMIC_LOAD, LIBXS_BITS)(&pool->pool_bytes, LIBXS_ATOMIC_RELAXED);
       if (0 == internal_libxs_malloc_evict_limit) {
         const char *const env = getenv("LIBXS_MALLOC_EVICT_LIMIT");
@@ -437,10 +503,7 @@ LIBXS_API void libxs_free(void* pointer)
       if (internal_libxs_malloc_evict_limit < total_bytes) {
         const int evict_b = internal_libxs_malloc_hist_bucket(chunk->used);
         const size_t reclaimed = chunk->used;
-        if (0 < pool->max_nthreads) {
-          pool->fn_free.ext(chunk->pointer, pool->extra[libxs_tid() % pool->max_nthreads]);
-        }
-        else pool->fn_free.std(chunk->pointer);
+        internal_libxs_malloc_deallocate(pool, chunk->pointer);
         chunk->pointer = NULL;
         chunk->used = 0;
         chunk->size = 0;
@@ -562,11 +625,7 @@ LIBXS_API void libxs_free_pool(libxs_malloc_pool_t* pool)
             const void *const ptr = chunk->pointer;
             libxs_registry_remove(reg, &ptr, sizeof(void*), libxs_registry_lock(reg));
           }
-          if (0 < pool->max_nthreads) {
-            pool->fn_free.ext(chunk->pointer, pool->extra[libxs_tid() % pool->max_nthreads]);
-          }
-          else if (pool->fn_free.std) pool->fn_free.std(chunk->pointer);
-          else free(chunk->pointer);
+          internal_libxs_malloc_deallocate(pool, chunk->pointer);
         }
         free(chunk);
         chunk = next;
