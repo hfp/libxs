@@ -354,16 +354,7 @@ LIBXS_API void* libxs_malloc(libxs_malloc_pool_t* pool, size_t size, int alignme
       if (NULL != chunk->pointer) {
         if (chunk->size < alloc_size) {
           char *pointer;
-          if (0 < pool->max_nthreads) { /* extended pool */
-            pointer = (char*)internal_libxs_malloc_allocate(pool, alloc_size);
-#if defined(LIBXS_MALLOC_EVICT)
-            if (NULL == pointer && 0 != internal_libxs_malloc_evict_available(pool)) {
-              pointer = (char*)internal_libxs_malloc_allocate(pool, alloc_size);
-            }
-#endif
-            if (NULL != pointer) internal_libxs_malloc_deallocate(pool, chunk->pointer);
-          }
-          else if (pool->fn_malloc.std) { /* standard custom pool */
+          if (0 < pool->max_nthreads || NULL != pool->fn_malloc.std) {
             pointer = (char*)internal_libxs_malloc_allocate(pool, alloc_size);
 #if defined(LIBXS_MALLOC_EVICT)
             if (NULL == pointer && 0 != internal_libxs_malloc_evict_available(pool)) {
