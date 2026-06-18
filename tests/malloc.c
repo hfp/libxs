@@ -24,6 +24,25 @@
 # define FPRINTF(STREAM, ...) do {} while(0)
 #endif
 
+static char test_malloc_storage[4 * 65536];
+static size_t test_malloc_offset;
+
+
+static void* test_storage_malloc(size_t size)
+{
+  void *result = NULL;
+  if (test_malloc_offset + size <= sizeof(test_malloc_storage)) {
+    result = test_malloc_storage + test_malloc_offset;
+  }
+  return result;
+}
+
+
+static void test_storage_free(void* pointer)
+{
+  LIBXS_UNUSED(pointer);
+}
+
 
 static void* test_xmalloc(size_t size, const void* extra)
 {
@@ -182,6 +201,12 @@ int main(void)
     libxs_free_pool(cpool);
   }
 
+  /* Test: standard pool rejects partial custom function pointer pairs */
+  if (0 == nerrors) {
+    nerrors += (NULL != libxs_malloc_pool(malloc, NULL));
+    nerrors += (NULL != libxs_malloc_pool(NULL, free));
+  }
+
   /* Test: explicit alignment (flags > 1) */
   if (0 == nerrors) {
     libxs_malloc_pool_t *apool = libxs_malloc_pool(NULL, NULL);
@@ -207,6 +232,75 @@ int main(void)
       libxs_free(p);
     }
     libxs_free_pool(apool);
+  }
+
+  /* Test: inline allocation size overflow is rejected */
+  if (0 == nerrors) {
+    libxs_malloc_pool_t *opool = libxs_malloc_pool(NULL, NULL);
+    const size_t huge = (size_t)-1 - 1024;
+    void *p;
+
+    nerrors += (NULL == opool);
+    p = libxs_malloc(opool, huge, 4096);
+    nerrors += (NULL != p);
+    libxs_free(p);
+    libxs_free_pool(opool);
+  }
+
+  /* Test: reuse refreshes inline metadata when alignment changes */
+  if (0 == nerrors) {
+    libxs_malloc_pool_t *rpool;
+    const size_t big = (size_t)2 * 65536;
+    void *p, *q;
+    libxs_malloc_info_t mi;
+    uintptr_t base, start, aligned64, aligned64k;
+    size_t offset;
+
+    test_malloc_offset = 0;
+    base = (uintptr_t)test_malloc_storage;
+    for (offset = 1; offset < 128 && 0 == test_malloc_offset; ++offset) {
+      start = base + offset + sizeof(void*);
+      aligned64 = (start + 63) & ~(uintptr_t)63;
+      aligned64k = (start + 65535) & ~(uintptr_t)65535;
+      if (aligned64 != aligned64k) test_malloc_offset = offset;
+    }
+    nerrors += (0 == test_malloc_offset);
+    rpool = libxs_malloc_pool(test_storage_malloc, test_storage_free);
+    nerrors += (NULL == rpool);
+    p = libxs_malloc(rpool, big, 64);
+    nerrors += (NULL == p);
+    if (NULL != p) {
+      memset(p, 0, big);
+      libxs_free(p);
+    }
+    q = libxs_malloc(rpool, 1024, 65536);
+    nerrors += (NULL == q);
+    if (NULL != q) {
+      memset(q, 0xAB, 1024);
+      nerrors += (0 != ((uintptr_t)q & 65535));
+      nerrors += (EXIT_SUCCESS != libxs_malloc_info(q, &mi) || mi.size < 1024);
+      libxs_free(q);
+    }
+    libxs_free_pool(rpool);
+  }
+
+  /* Test: reuse updates eviction accounting for larger requested sizes */
+  if (0 == nerrors) {
+    libxs_malloc_pool_t *ppool = libxs_malloc_pool(NULL, NULL);
+    libxs_malloc_pool_info_t pi;
+    void *p;
+
+    nerrors += (NULL == ppool);
+    p = libxs_malloc(ppool, 1024, 65536);
+    nerrors += (NULL == p);
+    if (NULL != p) libxs_free(p);
+    p = libxs_malloc(ppool, 8192, 64);
+    nerrors += (NULL == p);
+    if (NULL != p) {
+      nerrors += (EXIT_SUCCESS != libxs_malloc_pool_info(ppool, &pi) || pi.peak < 8192);
+      libxs_free(p);
+    }
+    libxs_free_pool(ppool);
   }
 
   /* Test: LIBXS_MALLOC_NATIVE (registry-based, pointer preserved) */
@@ -321,6 +415,38 @@ int main(void)
       nerrors += (EXIT_SUCCESS != libxs_malloc_pool_info(NULL, &pinfo) || 1 > pinfo.nactive);
       libxs_free(p);
     }
+  }
+
+  /* Test: best-fit slot selection (smallest cached chunk that fits) */
+  if (0 == nerrors) {
+    libxs_malloc_pool_t *bpool = libxs_malloc_pool(malloc, free);
+    void *a, *b, *c, *x, *y;
+    libxs_malloc_info_t mi;
+
+    nerrors += (NULL == bpool);
+    a = libxs_malloc(bpool, 100 * 1024, LIBXS_MALLOC_NATIVE);
+    b = libxs_malloc(bpool, 200 * 1024, LIBXS_MALLOC_NATIVE);
+    c = libxs_malloc(bpool, 1000 * 1024, LIBXS_MALLOC_NATIVE);
+    nerrors += (NULL == a || NULL == b || NULL == c);
+    libxs_free(a);
+    libxs_free(b);
+    libxs_free(c);
+    x = libxs_malloc(bpool, 150 * 1024, LIBXS_MALLOC_NATIVE);
+    nerrors += (NULL == x);
+    if (NULL != x) {
+      nerrors += (EXIT_SUCCESS != libxs_malloc_info(x, &mi));
+      nerrors += (mi.size < 150 * 1024);
+      nerrors += (mi.size > 250 * 1024);
+    }
+    y = libxs_malloc(bpool, 900 * 1024, LIBXS_MALLOC_NATIVE);
+    nerrors += (NULL == y);
+    if (NULL != y) {
+      nerrors += (EXIT_SUCCESS != libxs_malloc_info(y, &mi));
+      nerrors += (mi.size < 900 * 1024);
+    }
+    if (NULL != x) libxs_free(x);
+    if (NULL != y) libxs_free(y);
+    libxs_free_pool(bpool);
   }
 
   /* Test: libxs_free(NULL) is safe */
