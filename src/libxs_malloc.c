@@ -299,10 +299,12 @@ LIBXS_API void* libxs_malloc(libxs_malloc_pool_t* pool, size_t size, int alignme
     if (0 < pool->slots_num) {
       do {
         internal_libxs_malloc_chunk_t *const c = pool->slots[i];
-        const size_t delta = LIBXS_DELTA(c->size, size);
-        if (delta < diff) {
-          diff = delta; hit = pool->slots + i;
-          if (size <= c->size && c->size < (size + LIBXS_MALLOC_UPSIZE)) break;
+        if (size <= c->size) {
+          const size_t delta = c->size - size;
+          if (delta < diff) {
+            diff = delta; hit = pool->slots + i;
+            if (c->size < (size + LIBXS_MALLOC_UPSIZE)) break;
+          }
         }
       } while (++i < pool->slots_num);
       { /* allocate slot and eventually reuse */
