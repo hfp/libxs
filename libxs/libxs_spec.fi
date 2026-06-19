@@ -274,6 +274,11 @@
           INTEGER(C_INT) :: iterations = 0
         END TYPE
 
+        INTERFACE libxs_gemm_call
+          MODULE PROCEDURE libxs_gemm_call_config
+          MODULE PROCEDURE libxs_gemm_call_direct
+        END INTERFACE
+
         INTERFACE libxs_syr2k
           MODULE PROCEDURE libxs_syr2k_config
           MODULE PROCEDURE libxs_syr2k_direct
