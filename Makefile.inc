@@ -2217,6 +2217,12 @@ DLIB := $(wildcard $(DEPDIR)/lib/$(PROJECT).$(DLIBEXT))
 XLIB := $(wildcard $(DEPDIR)/lib/$(PROJECT).$(LIBEXT))
 XLIB := $(if $(XLIB),$(XLIB),$(if $(SLIB),$(SLIB),$(DLIB)))
 
+ifeq (libxs,$(PROJECT))
+ifneq (,$(XLIB))
+  DFLAGS += -D__LIBXS
+endif
+endif
+
 # some stand-alone libomp versions can cause warnings
 ifneq (,$(filter 1 2,$(PEDANTIC)))
 ifeq (Darwin,$(UNAME))

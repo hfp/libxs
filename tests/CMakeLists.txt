@@ -190,6 +190,7 @@ foreach(name IN ITEMS gemm_strided gemm_batch gemm_groups gemm_index)
 endforeach()
 if(LIBXS_FORTRAN)
   add_library(libxs_sample_jit OBJECT "${PROJECT_SOURCE_DIR}/libxs/libxs_jit.F")
+  target_compile_definitions(libxs_sample_jit PRIVATE __LIBXS)
   target_include_directories(libxs_sample_jit PRIVATE
     ${LIBXS_TEST_COMMON_INCLUDES}
     "${LIBXS_Fortran_MODULE_DIR}")

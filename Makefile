@@ -278,8 +278,8 @@ $(BLDDIR)/intel64/$(PROJECT)_main.o: $(DIRSTATE)/.state
 ifneq (,$(strip $(FC)))
 module: $(INCDIR)/$(PROJECT).mod
 ifneq ($(ABSDIR),$(HEREDIR))
-$(INCDIR)/$(PROJECT).f: $(ROOTINC)/$(PROJECT).f $(ROOTINC)/$(PROJECT)_spec.fi $(ROOTINC)/$(PROJECT)_procs.fi $(INCDIR)/.make
-	@$(CP) $(ROOTINC)/$(PROJECT).f $(ROOTINC)/$(PROJECT)_spec.fi $(ROOTINC)/$(PROJECT)_procs.fi $(INCDIR)
+$(INCDIR)/$(PROJECT).f: $(wildcard $(ROOTINC)/$(PROJECT)*.f $(ROOTINC)/$(PROJECT)*.fi $(ROOTINC)/$(PROJECT)*.F) $(INCDIR)/.make
+	@$(CP) $(wildcard $(ROOTINC)/$(PROJECT)*.f $(ROOTINC)/$(PROJECT)*.fi $(ROOTINC)/$(PROJECT)*.F) $(INCDIR)
 endif
 $(BLDDIR)/intel64/$(PROJECT)-mod.o: $(BLDDIR)/intel64/.make $(INCDIR)/$(PROJECT).f
 	$(FC) $(DFLAGS) $(IFLAGS) $(FCMTFLAGS) $(filter-out $(FFORM_FLAG),$(FCFLAGS)) $(FTARGET) \
@@ -585,7 +585,7 @@ endif
 	@$(CP) -v  $(HEADERS_MAIN) $(PREFIX)/$(PINCDIR)
 	@$(CP) -v  $(INCDIR)/$(PROJECT)_version.h $(PREFIX)/$(PINCDIR)
 	@$(CP) -v  $(INCDIR)/$(PROJECT).h $(PREFIX)/$(PINCDIR)
-	@$(CP) -v  $(INCDIR)/$(PROJECT).f $(PREFIX)/$(PINCDIR)
+	@$(CP) -v  $(wildcard $(INCDIR)/$(PROJECT)*.f $(INCDIR)/$(PROJECT)*.fi $(INCDIR)/$(PROJECT)*.F) $(PREFIX)/$(PINCDIR)
 	@$(CP) -va $(INCDIR)/*.mod* $(PREFIX)/$(PINCDIR) 2>/dev/null || true
 	@echo
 	@echo "$(PROJUPP) installing header-only..."
