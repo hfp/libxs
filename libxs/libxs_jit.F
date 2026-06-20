@@ -12,6 +12,7 @@
       !> dispatch without explicit function-pointer arguments.
       !> Requires BLAS at link time (dgemm_, sgemm_).
       MODULE LIBXS_JIT
+#if defined(__LIBXS)
         INCLUDE 'libxs_spec.fi'
 
 #if defined(__MKL)
@@ -194,4 +195,120 @@
           libxs_syrk_dispatch = libxs_syr2k_dispatch(datatype,          &
      &      n, k, lda, lda, ldc, registry)
         END FUNCTION
+
+#else
+! Fallback: BLAS-only (no LIBXS library required)
+        USE, INTRINSIC :: ISO_C_BINDING, ONLY:                          &
+     &    C_DOUBLE, C_FLOAT, C_INT,                                     &
+     &    C_CHAR, C_NULL_CHAR, C_PTR, C_NULL_PTR,                       &
+     &    C_FUNPTR, C_NULL_FUNPTR,                                      &
+     &    C_F_POINTER, C_ASSOCIATED, C_LOC
+        IMPLICIT NONE
+        PRIVATE
+
+        INTEGER(C_INT), PARAMETER, PUBLIC ::                            &
+     &    LIBXS_DATATYPE_F64 = IOR(0, ISHFT(8, 4)),                     &
+     &    LIBXS_DATATYPE_F32 = IOR(1, ISHFT(4, 4))
+
+        TYPE, PUBLIC, BIND(C) :: libxs_gemm_shape_t
+          INTEGER(C_INT) :: datatype = 0
+          CHARACTER(C_CHAR) :: transa = C_NULL_CHAR
+          CHARACTER(C_CHAR) :: transb = C_NULL_CHAR
+          INTEGER(C_INT) :: m = 0, n = 0, k = 0
+          INTEGER(C_INT) :: lda = 0, ldb = 0, ldc = 0
+          REAL(C_DOUBLE) :: alpha = 0, beta = 0
+        END TYPE
+
+        TYPE, PUBLIC, BIND(C) :: libxs_gemm_config_t
+          TYPE(C_FUNPTR) :: dgemm_blas = C_NULL_FUNPTR
+          TYPE(C_FUNPTR) :: sgemm_blas = C_NULL_FUNPTR
+          TYPE(C_FUNPTR) :: dgemm_jit = C_NULL_FUNPTR
+          TYPE(C_FUNPTR) :: sgemm_jit = C_NULL_FUNPTR
+          TYPE(C_FUNPTR) :: xgemm = C_NULL_FUNPTR
+          TYPE(C_PTR) :: jitter = C_NULL_PTR
+          INTEGER(C_INT) :: flags = 0
+          TYPE(libxs_gemm_shape_t) :: shape
+        END TYPE
+
+        INTERFACE libxs_gemm_call
+          MODULE PROCEDURE libxs_gemm_call_config
+          MODULE PROCEDURE libxs_gemm_call_direct
+        END INTERFACE
+
+        PUBLIC :: libxs_init, libxs_finalize
+        PUBLIC :: libxs_gemm_call
+        PUBLIC :: libxs_syr2k, libxs_syrk
+        PUBLIC :: C_INT, C_DOUBLE, C_LOC
+
+      CONTAINS
+        SUBROUTINE libxs_init()
+        END SUBROUTINE
+
+        SUBROUTINE libxs_finalize()
+        END SUBROUTINE
+
+        SUBROUTINE libxs_gemm_call_config(config, a, b, c)
+          TYPE(libxs_gemm_config_t), INTENT(IN) :: config
+          TYPE(C_PTR), INTENT(IN), VALUE :: a, b
+          TYPE(C_PTR), VALUE :: c
+          REAL(C_DOUBLE), POINTER :: pa(:), pb(:), pc(:)
+          CALL C_F_POINTER(a, pa,                                       &
+     &      [config%shape%lda * config%shape%k])
+          CALL C_F_POINTER(b, pb,                                       &
+     &      [config%shape%ldb * config%shape%k])
+          CALL C_F_POINTER(c, pc,                                       &
+     &      [config%shape%ldc * config%shape%n])
+          CALL DGEMM(config%shape%transa, config%shape%transb,          &
+     &      config%shape%m, config%shape%n, config%shape%k,             &
+     &      config%shape%alpha, pa, config%shape%lda,                   &
+     &      pb, config%shape%ldb,                                       &
+     &      config%shape%beta, pc, config%shape%ldc)
+        END SUBROUTINE
+
+        SUBROUTINE libxs_gemm_call_direct(datatype,                     &
+     &  transa, transb, m, n, k, lda, ldb, ldc,                         &
+     &  alpha, beta, a, b, c)
+          INTEGER(C_INT), INTENT(IN) :: datatype
+          CHARACTER, INTENT(IN) :: transa, transb
+          INTEGER(C_INT), INTENT(IN) :: m, n, k, lda, ldb, ldc
+          REAL(C_DOUBLE), INTENT(IN) :: alpha, beta
+          TYPE(C_PTR), INTENT(IN), VALUE :: a, b
+          TYPE(C_PTR), VALUE :: c
+          REAL(C_DOUBLE), POINTER :: pa(:), pb(:), pc(:)
+          CALL C_F_POINTER(a, pa, [lda * k])
+          CALL C_F_POINTER(b, pb, [ldb * k])
+          CALL C_F_POINTER(c, pc, [ldc * n])
+          CALL DGEMM(transa, transb, m, n, k,                           &
+     &      alpha, pa, lda, pb, ldb, beta, pc, ldc)
+        END SUBROUTINE
+
+        SUBROUTINE libxs_syr2k(datatype, n, k, lda, ldb, ldc,           &
+     &  uplo, alpha, beta, a, b, c)
+          INTEGER(C_INT), INTENT(IN) :: datatype, n, k, lda, ldb, ldc
+          CHARACTER, INTENT(IN) :: uplo
+          REAL(C_DOUBLE), INTENT(IN) :: alpha, beta
+          TYPE(C_PTR), INTENT(IN), VALUE :: a, b
+          TYPE(C_PTR), VALUE :: c
+          REAL(C_DOUBLE), POINTER :: pa(:), pb(:), pc(:)
+          CALL C_F_POINTER(a, pa, [lda * k])
+          CALL C_F_POINTER(b, pb, [ldb * k])
+          CALL C_F_POINTER(c, pc, [ldc * n])
+          CALL DSYR2K(uplo, 'N', n, k,                                  &
+     &      alpha, pa, lda, pb, ldb, beta, pc, ldc)
+        END SUBROUTINE
+
+        SUBROUTINE libxs_syrk(datatype, n, k, lda, ldc,                 &
+     &  uplo, alpha, beta, a, c)
+          INTEGER(C_INT), INTENT(IN) :: datatype, n, k, lda, ldc
+          CHARACTER, INTENT(IN) :: uplo
+          REAL(C_DOUBLE), INTENT(IN) :: alpha, beta
+          TYPE(C_PTR), INTENT(IN), VALUE :: a
+          TYPE(C_PTR), VALUE :: c
+          REAL(C_DOUBLE), POINTER :: pa(:), pc(:)
+          CALL C_F_POINTER(a, pa, [lda * k])
+          CALL C_F_POINTER(c, pc, [ldc * n])
+          CALL DSYRK(uplo, 'N', n, k,                                   &
+     &      alpha, pa, lda, beta, pc, ldc)
+        END SUBROUTINE
+#endif
       END MODULE
