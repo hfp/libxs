@@ -266,7 +266,7 @@ LIBXS_API_INLINE double internal_libxs_predict_local_error(
         local[k] = model->entries[cl->sorted_idx[lo + k]].outputs[output_j];
       }
       if (EXIT_SUCCESS == libxs_fprint(&fp, LIBXS_DATATYPE_F64, local,
-        1, &shape, NULL, LIBXS_MIN(2, len - 1), -1))
+        1, &shape, NULL, LIBXS_MIN(2, len - 1), 0, 0, 0))
       {
         const double raw1 = libxs_fprint_raw(&fp, 1, fp.linf[1]);
         result = LIBXS_MIN(result, raw1);
@@ -321,7 +321,7 @@ LIBXS_API_INLINE void internal_libxs_predict_cluster_refit(
         libxs_fprint_t fp;
         int decay_order = 0;
         libxs_fprint(&fp, LIBXS_DATATYPE_F64, cl->raw_outputs + j,
-          1, &shape, &stride, LIBXS_FPRINT_MAXORDER, -1);
+          1, &shape, &stride, LIBXS_FPRINT_MAXORDER, 0, 0, 0);
         cl->order[j] = cl->maxorder;
         cl->interpolated[j] = 0;
         if (0 < fp.l2[0]) {
@@ -1091,7 +1091,7 @@ LIBXS_API_INLINE int internal_libxs_predict_ts_diff_order(
   int result = 0;
   if (n >= 4 && EXIT_SUCCESS == libxs_fprint(&fp, LIBXS_DATATYPE_F64,
     model->ts_buf + tgt, 1, &shape, &stride,
-    LIBXS_MIN(3, n - 1), -1))
+    LIBXS_MIN(3, n - 1), 0, 0, 0))
   {
     const double decay = libxs_fprint_decay(&fp);
     if (decay == decay && decay < 1.0) {

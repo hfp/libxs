@@ -173,6 +173,13 @@ LIBXS_EXTERN_C typedef struct libxs_fprint_t {
   libxs_data_t datatype;
 } libxs_fprint_t;
 
+typedef enum libxs_fprint_flags_t {
+  LIBXS_FPRINT_DEFAULT  = 0,
+  LIBXS_FPRINT_SORT     = 1,
+  LIBXS_FPRINT_AUTOCORR = 2,
+  LIBXS_FPRINT_PERAXIS  = 4
+} libxs_fprint_flags_t;
+
 /**
  * Foeppl polynomial fingerprint for n-dimensional data.
  * For 1-D data, builds per-derivative-order norms (L2, L1, Linf)
@@ -183,16 +190,16 @@ LIBXS_EXTERN_C typedef struct libxs_fprint_t {
  * Order is clamped to min(order, extent-1, LIBXS_FPRINT_MAXORDER).
  * Supported types: F64, F32 (integer types are promoted).
  *
- * axis >= 0: differentiate along that axis only and take the
- *            per-order maximum of each norm across all positions
- *            in the remaining dimensions.
- * axis <  0: hierarchical -- sweeps the innermost dimension first
- *            and collapses each level into the next outer dimension.
+ * axis:   dimension index, only used when LIBXS_FPRINT_PERAXIS is set.
+ * smooth: box-filter radius applied before differencing (0 = off).
+ * flags:  bitwise OR of LIBXS_FPRINT_SORT, LIBXS_FPRINT_AUTOCORR,
+ *         and LIBXS_FPRINT_PERAXIS.
+ * Default (axis=0, smooth=0, flags=0) gives hierarchical mode.
  */
 LIBXS_API int libxs_fprint(libxs_fprint_t* info,
   libxs_data_t datatype, const void* data,
   int ndims, const size_t shape[], const size_t stride[],
-  int order, int axis);
+  int order, int axis, int smooth, unsigned int flags);
 
 /**
  * Weighted Sobolev distance between two fingerprints:

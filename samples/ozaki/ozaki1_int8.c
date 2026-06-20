@@ -289,7 +289,7 @@ LIBXS_API_INLINE void gemm_oz1_diff(const char* transa, const char* transb, cons
         memset(&fp_n, 0, sizeof(fp_n));
         for (ss = 0; ss < nslices; ++ss) {
           libxs_fprint(&fp, LIBXS_DATATYPE_I8, b_slices + (long)ss * N * K_grp_pad,
-            2, bshp, bstr, forder, 1 /*axis=K*/);
+            2, bshp, bstr, forder, 1 /*axis=K*/, 0, LIBXS_FPRINT_PERAXIS);
           for (dd = 0; dd <= fp.order; ++dd) {
             if (fp.linf[dd] > fp_k.linf[dd]) fp_k.linf[dd] = fp.linf[dd];
           }
@@ -297,7 +297,7 @@ LIBXS_API_INLINE void gemm_oz1_diff(const char* transa, const char* transb, cons
           fp_k.n = LIBXS_MAX(fp_k.n, fp.n);
 
           libxs_fprint(&fp, LIBXS_DATATYPE_I8, a_slices + (long)ss * M * K_grp_pad,
-            2, ashp, astr, forder, 0 /*axis=M*/);
+            2, ashp, astr, forder, 0 /*axis=M*/, 0, LIBXS_FPRINT_PERAXIS);
           for (dd = 0; dd <= fp.order; ++dd) {
             if (fp.linf[dd] > fp_m.linf[dd]) fp_m.linf[dd] = fp.linf[dd];
           }
@@ -305,7 +305,7 @@ LIBXS_API_INLINE void gemm_oz1_diff(const char* transa, const char* transb, cons
           fp_m.n = LIBXS_MAX(fp_m.n, fp.n);
 
           libxs_fprint(&fp, LIBXS_DATATYPE_I8, b_slices + (long)ss * N * K_grp_pad,
-            2, bshp, bstr, forder, 0 /*axis=N*/);
+            2, bshp, bstr, forder, 0 /*axis=N*/, 0, LIBXS_FPRINT_PERAXIS);
           for (dd = 0; dd <= fp.order; ++dd) {
             if (fp.linf[dd] > fp_n.linf[dd]) fp_n.linf[dd] = fp.linf[dd];
           }

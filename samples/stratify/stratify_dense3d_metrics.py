@@ -82,7 +82,7 @@ def fingerprint(libxs, values, shape, order):
     data = (ctypes.c_double * count)(*values)
     dims = (ctypes.c_size_t * len(shape))(*shape)
     result = libxs.libxs_fprint(ctypes.byref(info), LIBXS_DATATYPE_F64,
-                                data, len(shape), dims, None, order, -1)
+                                data, len(shape), dims, None, order, 0, 0, 0)
     if result != 0:
         raise RuntimeError("libxs_fprint failed")
     return info

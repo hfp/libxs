@@ -201,10 +201,17 @@ indicates unstructured data (no exploitable smoothness). The L1
 norms provide a noise-robust middle ground between L2 and Linf.
 
 ```C
+typedef enum libxs_fprint_flags_t {
+  LIBXS_FPRINT_DEFAULT  = 0,
+  LIBXS_FPRINT_SORT     = 1,
+  LIBXS_FPRINT_AUTOCORR = 2,
+  LIBXS_FPRINT_PERAXIS  = 4
+} libxs_fprint_flags_t;
+
 int libxs_fprint(libxs_fprint_t* info,
   libxs_data_t datatype, const void* data,
   int ndims, const size_t shape[], const size_t stride[],
-  int order, int axis);
+  int order, int axis, int smooth, unsigned int flags);
 ```
 
 Build a fingerprint from data described by shape and stride arrays.
@@ -214,18 +221,29 @@ the outermost. When stride is NULL, contiguous storage is assumed
 (stride[0]=1, stride[k]=product of shape[0..k-1]). The requested
 order is clamped to min(order, extent-1, LIBXS_FPRINT_MAXORDER).
 
-The axis parameter controls how multi-dimensional data is handled:
+The flags parameter is a bitwise OR of preprocessing options:
 
-  axis < 0    Hierarchical mode (default). Sweeps the innermost
-              dimension first and collapses each level into the
-              next outer dimension via Sobolev self-norms.
+  LIBXS_FPRINT_SORT      Sort values before differencing
+                         (permutation-invariant fingerprint).
 
-  axis >= 0   Per-axis mode. Differentiates along dimension
-              'axis' only and takes the per-order maximum of
-              each norm (linf, l2, l1) across all positions in
-              the remaining dimensions.
+  LIBXS_FPRINT_AUTOCORR  Replace signal with its autocorrelation
+                         before differencing (shift-invariant).
 
-For 1-D data, axis is ignored (both modes are equivalent).
+  LIBXS_FPRINT_PERAXIS   Per-axis mode. Differentiates along
+                         dimension 'axis' only and takes the
+                         per-order maximum of each norm across
+                         all positions in the remaining dimensions.
+
+Without LIBXS_FPRINT_PERAXIS, hierarchical mode is used (sweeps
+the innermost dimension first, collapses via Sobolev self-norms).
+The axis parameter is only consulted when LIBXS_FPRINT_PERAXIS
+is set.
+
+The smooth parameter specifies a box-filter radius applied before
+differencing (0 = off). Each output sample becomes the average of
+the 2*smooth+1 nearest input samples (clamped at boundaries).
+
+For 1-D data without LIBXS_FPRINT_PERAXIS, axis is ignored.
 
 Supported types: F64, F32, and all integer libxs_data_t types
 (I64, I32, U32, I16, U16, I8, U8 -- promoted to double internally).

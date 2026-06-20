@@ -74,7 +74,7 @@ LIBXS_API_INTERN int internal_libxs_fprint_load(
 LIBXS_API int libxs_fprint(libxs_fprint_t* info,
   libxs_data_t datatype, const void* data,
   int ndims, const size_t shape[], const size_t stride[],
-  int order, int axis)
+  int order, int axis, int smooth, unsigned int flags)
 {
   int result = EXIT_SUCCESS;
   LIBXS_ASSERT(NULL != info && NULL != data && 0 < ndims);
@@ -98,7 +98,7 @@ LIBXS_API int libxs_fprint(libxs_fprint_t* info,
       if (0 != tw && 0 == nbytes % tw && nbytes / tw > 1) {
         libxs_fprint_t fp;
         const size_t ne = nbytes / tw;
-        int r = libxs_fprint(&fp, probes[p], data, 1, &ne, NULL, order, axis);
+        int r = libxs_fprint(&fp, probes[p], data, 1, &ne, NULL, order, axis, smooth, flags);
         if (EXIT_SUCCESS == r && fp.l2[0] == fp.l2[0] && 0 < fp.l2[0]
           && fp.linf[0] == fp.linf[0])
         {
@@ -124,7 +124,7 @@ LIBXS_API int libxs_fprint(libxs_fprint_t* info,
     }
     return EXIT_FAILURE;
   }
-  if (0 <= axis && axis < ndims && 1 < ndims) {
+  if (0 != (flags & LIBXS_FPRINT_PERAXIS) && 0 <= axis && axis < ndims && 1 < ndims) {
     /* Per-axis mode: fingerprint along 'axis', max-reduce over others. */
     const size_t typesize = LIBXS_TYPESIZE((int)datatype);
     const size_t n_axis = shape[axis];
@@ -160,7 +160,7 @@ LIBXS_API int libxs_fprint(libxs_fprint_t* info,
         { /* 1D fprint along axis at this grid position. */
           libxs_fprint_t fp1;
           result = libxs_fprint(&fp1, datatype, (const char*)data + offset,
-            1, &n_axis, &s_axis, order, -1);
+            1, &n_axis, &s_axis, order, 0, smooth, flags & ~LIBXS_FPRINT_PERAXIS);
           if (EXIT_SUCCESS == result) {
             int k;
             if (0 != first) { *info = fp1; first = 0; }
@@ -206,12 +206,42 @@ LIBXS_API int libxs_fprint(libxs_fprint_t* info,
       }
     }
     else {
+      if (0 != (flags & LIBXS_FPRINT_SORT)) {
+        libxs_sort(cur, n, sizeof(double), libxs_cmp_f64, NULL);
+      }
+      if (0 < smooth) {
+        double *dst = (cur == buf) ? buf + n : buf;
+        const int r = smooth < n ? smooth : n - 1;
+        int i;
+        for (i = 0; i < n; ++i) {
+          const int lo = i - r > 0 ? i - r : 0;
+          const int hi = i + r < n - 1 ? i + r : n - 1;
+          double acc = 0;
+          int j;
+          for (j = lo; j <= hi; ++j) acc += cur[j];
+          dst[i] = acc / (hi - lo + 1);
+        }
+        cur = dst;
+      }
+      if (0 != (flags & LIBXS_FPRINT_AUTOCORR)) {
+        double *const tmp = (cur == buf) ? buf + n : buf;
+        int lag;
+        for (lag = 0; lag < n; ++lag) {
+          double acc = 0, comp = 0;
+          int i;
+          for (i = 0; i < n - lag; ++i) {
+            libxs_kahan_sum(cur[i] * cur[i + lag], &acc, &comp);
+          }
+          tmp[lag] = acc / (n - lag);
+        }
+        cur = tmp;
+      }
       internal_libxs_fprint_core(info, buf, cur, n, kmax);
     }
     LIBXS_MATH_FREE(buf, pool);
   }
   else {
-    /* Hierarchical mode (axis < 0 or axis >= ndims). */
+    /* Hierarchical mode (flags without LIBXS_FPRINT_PERAXIS). */
     const size_t nouter = shape[ndims - 1];
     size_t souter;
     const size_t typesize = LIBXS_TYPESIZE((int)datatype);
@@ -236,7 +266,7 @@ LIBXS_API int libxs_fprint(libxs_fprint_t* info,
       double snorm = 0, scomp = 0, wk = 1.0;
       int k;
       result = libxs_fprint(&child, datatype, slice,
-        ndims - 1, shape, stride, order, axis);
+        ndims - 1, shape, stride, order, axis, smooth, flags);
       for (k = 0; k <= child.order; ++k) {
         if (0 < k) wk /= k;
         libxs_kahan_sum(wk * child.l2[k] * child.l2[k], &snorm, &scomp);

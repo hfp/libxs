@@ -169,7 +169,7 @@ static int fingerprint_sequence(libxs_fprint_t* info,
   int result = EXIT_FAILURE;
   if (NULL != info && NULL != values) {
     result = libxs_fprint(info, LIBXS_DATATYPE_F64, values,
-      1, &count, &stride, order, -1);
+      1, &count, &stride, order, 0, 0, 0);
   }
   return result;
 }
@@ -557,13 +557,14 @@ static int run_hierarchy(void)
         }
       }
       {
-        static const int axes[] = { -1, 0, 1 };
+        static const int axes[] = { 0, 0, 1 };
+        static const unsigned int fflags[] = { 0, LIBXS_FPRINT_PERAXIS, LIBXS_FPRINT_PERAXIS };
         static const char* const modes[] = { "hierarchical", "axis_x", "axis_y" };
         size_t mode;
         for (mode = 0; mode < sizeof(axes) / sizeof(*axes) && EXIT_SUCCESS == result; ++mode) {
           libxs_fprint_t fp;
           result = libxs_fprint(&fp, LIBXS_DATATYPE_F64, values, 2, shape, NULL,
-            FPRINT_ORDER, axes[mode]);
+            FPRINT_ORDER, axes[mode], 0, fflags[mode]);
           if (EXIT_SUCCESS == result) {
             fprintf(file, "%s,%s,%.17g", names[field_index], modes[mode],
               libxs_fprint_decay(&fp));

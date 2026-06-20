@@ -310,7 +310,7 @@ static libxs_data_t flat_probe(const void* blob, size_t nbytes)
   printf("Level 0: Flat 1-D probe (all bytes as one sequence)\n");
   printf("  Input: %i opaque bytes\n", (int)nbytes);
   r = libxs_fprint(&fp, LIBXS_DATATYPE_UNKNOWN, blob,
-    1, &nbytes, NULL, 6, -1);
+    1, &nbytes, NULL, 6, 0, 0, 0);
   if (EXIT_SUCCESS == r) decay = libxs_fprint_decay(&fp);
   if (NULL != artifact_file) {
     fprintf(artifact_file, "flat,,success,%i\n", EXIT_SUCCESS == r ? 1 : 0);
@@ -368,7 +368,7 @@ static int stride_sweep(const void* blob, size_t nbytes,
         const void* col = (const char*)blob + f * tw;
         libxs_fprint_t fp;
         if (EXIT_SUCCESS == libxs_fprint(&fp, types[ti], col,
-          1, &nrows, &stride_sz, 4, -1))
+          1, &nrows, &stride_sz, 4, 0, 0, 0))
         {
           const double d = libxs_fprint_decay(&fp);
           if (d < 1.0 && d == d) {
@@ -424,9 +424,9 @@ static void shuffle_test(const void* blob, size_t nbytes,
       const size_t stride_sz = (size_t)stride;
       libxs_fprint_t fp_o, fp_s;
       if (EXIT_SUCCESS == libxs_fprint(&fp_o, dtype,
-        (const char*)blob + f * tw, 1, &nrows, &stride_sz, 4, -1)
+        (const char*)blob + f * tw, 1, &nrows, &stride_sz, 4, 0, 0, 0)
         && EXIT_SUCCESS == libxs_fprint(&fp_s, dtype,
-        (const char*)shuffled + f * tw, 1, &nrows, &stride_sz, 4, -1))
+        (const char*)shuffled + f * tw, 1, &nrows, &stride_sz, 4, 0, 0, 0))
       {
         r_orig += libxs_fprint_decay(&fp_o);
         r_shuf += libxs_fprint_decay(&fp_s);
@@ -474,7 +474,7 @@ static void field_analysis(const void* blob, size_t nbytes,
     const void* col = (const char*)blob + f * tw;
     libxs_fprint_t fp;
     if (EXIT_SUCCESS == libxs_fprint(&fp, dtype, col,
-      1, &nrows, &stride_sz, 4, -1))
+      1, &nrows, &stride_sz, 4, 0, 0, 0))
     {
       const double decay = libxs_fprint_decay(&fp);
       printf("  [%i] %-10s  decay=%.6f", f, field_names[f], decay);
