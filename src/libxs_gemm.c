@@ -922,6 +922,18 @@ LIBXS_API void libxs_syr2k_task(
     else if (0 == tid && LIBXS_DATATYPE_F64 == config->shape.datatype
       && NULL != internal_libxs_dsyr2k_blas)
     {
+#if defined(LIBXS_GEMM_PRINT)
+      { static int interval = -1;
+        if (-1 == interval) {
+          const char *const env = getenv("LIBXS_SYRK_PRINT");
+          interval = (NULL != env ? atoi(env) : 0);
+        }
+        if (0 < interval) {
+          fprintf(stderr, "LIBXS INFO: dsyr2k uplo=%c n=%i k=%i lda=%i ldb=%i ldc=%i"
+            " alpha=%g beta=%g upper=%i\n", uplo, n, k, lda, ldb, ldc, alpha, beta, upper);
+        }
+      }
+#endif
       internal_libxs_dsyr2k_blas(&uplo, "N", &n, &k,
         (const double*)&alpha, (const double*)a, &lda,
         (const double*)b, &ldb,
@@ -1076,6 +1088,18 @@ LIBXS_API void libxs_syrk_task(
     else if (0 == tid && LIBXS_DATATYPE_F64 == config->shape.datatype
       && NULL != internal_libxs_dsyrk_blas)
     {
+#if defined(LIBXS_GEMM_PRINT)
+      { static int interval = -1;
+        if (-1 == interval) {
+          const char *const env = getenv("LIBXS_SYRK_PRINT");
+          interval = (NULL != env ? atoi(env) : 0);
+        }
+        if (0 < interval) {
+          fprintf(stderr, "LIBXS INFO: dsyrk uplo=%c n=%i k=%i lda=%i ldc=%i"
+            " alpha=%g beta=%g upper=%i\n", uplo, n, k, lda, ldc, alpha, beta, upper);
+        }
+      }
+#endif
       internal_libxs_dsyrk_blas(&uplo, "N", &n, &k,
         (const double*)&alpha, (const double*)a, &lda,
         (const double*)&beta, (double*)c, &ldc);
