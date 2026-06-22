@@ -149,6 +149,7 @@ LIBXS_APIVAR_DEFINE(libxs_registry_t* internal_libxs_gemm_registry);
 LIBXS_APIVAR_DEFINE(int internal_libxs_gemm_bm);
 LIBXS_APIVAR_DEFINE(int internal_libxs_gemm_bn);
 LIBXS_APIVAR_DEFINE(int internal_libxs_gemm_bk);
+LIBXS_APIVAR_DEFINE(int internal_libxs_gemm_jit_max);
 LIBXS_APIVAR_DEFINE(int internal_libxs_gemm_backend);
 
 LIBXS_APIVAR_DEFINE(LIBXS_TLS void* internal_libxs_syrk_buffer);
@@ -162,6 +163,12 @@ LIBXS_APIVAR_DEFINE(internal_libxs_ssyrk_t internal_libxs_ssyrk_blas);
 LIBXS_APIVAR_DEFINE(internal_libxs_dsyr2k_t internal_libxs_dsyr2k_blas);
 LIBXS_APIVAR_DEFINE(internal_libxs_ssyr2k_t internal_libxs_ssyr2k_blas);
 
+LIBXS_APIVAR_DEFINE(libxs_jit_create_dgemm_t internal_libxs_jit_create_dgemm);
+LIBXS_APIVAR_DEFINE(libxs_jit_get_dgemm_t internal_libxs_jit_get_dgemm);
+LIBXS_APIVAR_DEFINE(libxs_jit_create_sgemm_t internal_libxs_jit_create_sgemm);
+LIBXS_APIVAR_DEFINE(libxs_jit_get_sgemm_t internal_libxs_jit_get_sgemm);
+LIBXS_APIVAR_DEFINE(libxs_xgemm_dispatch_t internal_libxs_xgemm_dispatch);
+
 
 LIBXS_API_INTERN void internal_libxs_gemm_init(void)
 {
@@ -170,6 +177,7 @@ LIBXS_API_INTERN void internal_libxs_gemm_init(void)
     const char *const gemm_bm_env = getenv("LIBXS_GEMM_BM");
     const char *const gemm_bn_env = getenv("LIBXS_GEMM_BN");
     const char *const gemm_bk_env = getenv("LIBXS_GEMM_BK");
+    const char *const gemm_jit_max_env = getenv("LIBXS_GEMM_JIT_MAX");
     const char *const gemm_backend_env = getenv("LIBXS_GEMM_BACKEND");
 #if defined(LIBXS_INTERCEPT_DYNAMIC)
     const char *const env = getenv("LIBXS_SYRK_BLAS");
@@ -207,10 +215,37 @@ LIBXS_API_INTERN void internal_libxs_gemm_init(void)
         LIBXS_FPTR_FROM_VPTR(internal_libxs_ssyr2k_t, internal_libxs_ssyr2k_blas, dl);
       }
     }
+    dlerror();
+    dl = dlsym(LIBXS_RTLD_NEXT, "mkl_cblas_jit_create_dgemm");
+    if (NULL == dlerror() && NULL != dl) {
+      LIBXS_FPTR_FROM_VPTR(libxs_jit_create_dgemm_t, internal_libxs_jit_create_dgemm, dl);
+    }
+    dlerror();
+    dl = dlsym(LIBXS_RTLD_NEXT, "mkl_jit_get_dgemm_ptr");
+    if (NULL == dlerror() && NULL != dl) {
+      LIBXS_FPTR_FROM_VPTR(libxs_jit_get_dgemm_t, internal_libxs_jit_get_dgemm, dl);
+    }
+    dlerror();
+    dl = dlsym(LIBXS_RTLD_NEXT, "mkl_cblas_jit_create_sgemm");
+    if (NULL == dlerror() && NULL != dl) {
+      LIBXS_FPTR_FROM_VPTR(libxs_jit_create_sgemm_t, internal_libxs_jit_create_sgemm, dl);
+    }
+    dlerror();
+    dl = dlsym(LIBXS_RTLD_NEXT, "mkl_jit_get_sgemm_ptr");
+    if (NULL == dlerror() && NULL != dl) {
+      LIBXS_FPTR_FROM_VPTR(libxs_jit_get_sgemm_t, internal_libxs_jit_get_sgemm, dl);
+    }
+    dlerror();
+    dl = dlsym(LIBXS_RTLD_NEXT, "libxsmm_dispatch_gemm");
+    if (NULL == dlerror() && NULL != dl) {
+      LIBXS_FPTR_FROM_VPTR(libxs_xgemm_dispatch_t, internal_libxs_xgemm_dispatch, dl);
+    }
 #endif
     internal_libxs_gemm_bm = (NULL == gemm_bm_env ? LIBXS_GEMM_BM : atoi(gemm_bm_env));
     internal_libxs_gemm_bn = (NULL == gemm_bn_env ? LIBXS_GEMM_BN : atoi(gemm_bn_env));
     internal_libxs_gemm_bk = (NULL == gemm_bk_env ? LIBXS_GEMM_BK : atoi(gemm_bk_env));
+    internal_libxs_gemm_jit_max = (NULL == gemm_jit_max_env
+      ? 7 /*default: AI of ~80x80x80*/ : atoi(gemm_jit_max_env));
     internal_libxs_gemm_backend = (NULL == gemm_backend_env)
       ? INTERNAL_GEMM_BACKEND_AUTO : atoi(gemm_backend_env);
     if (INTERNAL_GEMM_BACKEND_AUTO > internal_libxs_gemm_backend
@@ -435,41 +470,61 @@ LIBXS_API libxs_gemm_config_t* libxs_gemm_dispatch_rt(
           || INTERNAL_GEMM_BACKEND_MKL_JIT == gemm_backend);
         const int use_xgemm = (INTERNAL_GEMM_BACKEND_LIBXSMM >= gemm_backend);
         const int use_blas = (INTERNAL_GEMM_BACKEND_BLAS >= gemm_backend);
-        if (0 != use_jit
-            && NULL != backend && NULL != backend->jit_create_dgemm
-            && NULL != backend->jit_get_dgemm
-            && LIBXS_DATATYPE_F64 == kernel_shape->datatype) {
+        const size_t elemsize = LIBXS_TYPESIZE(kernel_shape->datatype);
+        const size_t kflops = (size_t)km * kn * kk * 2;
+        const size_t kbytes = elemsize *
+          ((size_t)km * kk + (size_t)kk * kn + (size_t)km * kn);
+        const int use_kernel = (0 < internal_libxs_gemm_jit_max
+          && kflops < (size_t)internal_libxs_gemm_jit_max * kbytes);
+        const libxs_jit_create_dgemm_t jcd =
+          (NULL != backend && NULL != backend->jit_create_dgemm)
+          ? backend->jit_create_dgemm : internal_libxs_jit_create_dgemm;
+        const libxs_jit_get_dgemm_t jgd =
+          (NULL != backend && NULL != backend->jit_get_dgemm)
+          ? backend->jit_get_dgemm : internal_libxs_jit_get_dgemm;
+        const libxs_jit_create_sgemm_t jcs =
+          (NULL != backend && NULL != backend->jit_create_sgemm)
+          ? backend->jit_create_sgemm : internal_libxs_jit_create_sgemm;
+        const libxs_jit_get_sgemm_t jgs =
+          (NULL != backend && NULL != backend->jit_get_sgemm)
+          ? backend->jit_get_sgemm : internal_libxs_jit_get_sgemm;
+        const libxs_xgemm_dispatch_t xdisp =
+          (NULL != backend && NULL != backend->xgemm_dispatch)
+          ? backend->xgemm_dispatch : internal_libxs_xgemm_dispatch;
+        if (0 != use_jit && 0 != use_kernel
+          && NULL != jcd && NULL != jgd
+          && LIBXS_DATATYPE_F64 == kernel_shape->datatype)
+        {
           const int mkl_ta = (0 == ta) ? 111 : 112;
           const int mkl_tb = (0 == tb) ? 111 : 112;
           void* jitter = NULL;
-          if (2 != backend->jit_create_dgemm(&jitter, 102, mkl_ta, mkl_tb,
+          if (2 != jcd(&jitter, 102, mkl_ta, mkl_tb,
             km, kn, kk, kernel_shape->alpha, klda, kldb,
             kernel_shape->beta, kldc))
           {
-            void* fn = backend->jit_get_dgemm(jitter);
+            void* fn = jgd(jitter);
             if (NULL != fn) LIBXS_FPTR_FROM_VPTR(libxs_gemm_djit_t, config.dgemm_jit, fn);
             config.jitter = jitter;
           }
         }
-        else if (0 != use_jit
-          && NULL != backend && NULL != backend->jit_create_sgemm
-            && NULL != backend->jit_get_sgemm
-            && LIBXS_DATATYPE_F32 == kernel_shape->datatype) {
+        else if (0 != use_jit && 0 != use_kernel
+          && NULL != jcs && NULL != jgs
+          && LIBXS_DATATYPE_F32 == kernel_shape->datatype)
+        {
           const int mkl_ta = (0 == ta) ? 111 : 112;
           const int mkl_tb = (0 == tb) ? 111 : 112;
           void* jitter = NULL;
-          if (2 != backend->jit_create_sgemm(&jitter, 102, mkl_ta, mkl_tb,
+          if (2 != jcs(&jitter, 102, mkl_ta, mkl_tb,
             km, kn, kk, (float)kernel_shape->alpha, klda, kldb,
             (float)kernel_shape->beta, kldc))
           {
-            void* fn = backend->jit_get_sgemm(jitter);
+            void* fn = jgs(jitter);
             if (NULL != fn) LIBXS_FPTR_FROM_VPTR(libxs_gemm_sjit_t, config.sgemm_jit, fn);
             config.jitter = jitter;
           }
         }
         if (NULL == config.dgemm_jit && NULL == config.sgemm_jit
-          && 0 != use_xgemm
-          && NULL != backend && NULL != backend->xgemm_dispatch) {
+          && 0 != use_xgemm && 0 != use_kernel && NULL != xdisp) {
           unsigned int xflags = 0;
           int xsmm_ok = 0;
           if (0 != ta) xflags |= 1;
@@ -489,7 +544,7 @@ LIBXS_API libxs_gemm_config_t* libxs_gemm_dispatch_rt(
             xs.out_type = xtype;
             xs.comp_type = xtype;
             if (0 <= xtype) {
-              const libxs_gemm_xfn_t fn = backend->xgemm_dispatch(xs, xflags, 0);
+              const libxs_gemm_xfn_t fn = xdisp(xs, xflags, 0);
               if (NULL != fn) config.xgemm = fn;
             }
           }
@@ -534,8 +589,7 @@ LIBXS_API libxs_gemm_config_t* libxs_gemm_dispatch_rt(
         || NULL != result->sgemm_blas);
     }
 #if defined(LIBXS_GEMM_PRINT)
-    {
-      static int interval = -1;
+    { static int interval = -1;
       if (-1 == interval) {
         const char *const env = getenv("LIBXS_GEMM_PRINT");
         interval = (NULL != env ? atoi(env) : 0);
@@ -971,7 +1025,6 @@ LIBXS_API void libxs_syr2k_task(
             const int ib = (idx % nb_m) * bm;
             const int cn = LIBXS_MIN(bn, n - jb);
             const int cm = LIBXS_MIN(bm, n - ib);
-            int kb;
             const int skip = upper
               ? (ib > jb + cn - 1) : (ib + cm - 1 < jb);
             if (0 == skip) {
@@ -981,6 +1034,7 @@ LIBXS_API void libxs_syr2k_task(
               const size_t clear = sym
                 ? (size_t)bm * bn * elemsize
                 : need;
+              int kb;
               memset(scratch, 0, clear);
               for (kb = 0; kb < k; kb += bk) {
                 const int ck = LIBXS_MIN(bk, k - kb);
@@ -1134,12 +1188,12 @@ LIBXS_API void libxs_syrk_task(
             const int ib = (idx % nb_m) * bm;
             const int cn = LIBXS_MIN(bn, n - jb);
             const int cm = LIBXS_MIN(bm, n - ib);
-            int kb;
             const int skip = upper
               ? (ib > jb + cn - 1) : (ib + cm - 1 < jb);
             if (0 == skip) {
               const int diag = (ib < jb + cn && jb < ib + cm);
               const int full = (cm == bm && cn == bn);
+              int kb;
               memset(scratch, 0, need);
               for (kb = 0; kb < k; kb += bk) {
                 const int ck = LIBXS_MIN(bk, k - kb);
