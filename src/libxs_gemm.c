@@ -27,6 +27,9 @@
 # define INTERNAL_GEMM_NLOCKS 16
 #endif
 
+#define INTERNAL_GEMM_QUANTIZE(N, Q) \
+  ((Q) > 1 ? (int)(LIBXS_UPDIV(N, Q) * (Q)) : (N))
+
 #define INTERNAL_GEMM_BACKEND_AUTO 0
 #define INTERNAL_GEMM_BACKEND_MKL_JIT 1
 #define INTERNAL_GEMM_BACKEND_LIBXSMM 2
@@ -150,6 +153,7 @@ LIBXS_APIVAR_DEFINE(int internal_libxs_gemm_bm);
 LIBXS_APIVAR_DEFINE(int internal_libxs_gemm_bn);
 LIBXS_APIVAR_DEFINE(int internal_libxs_gemm_bk);
 LIBXS_APIVAR_DEFINE(int internal_libxs_gemm_jit_max);
+LIBXS_APIVAR_DEFINE(int internal_libxs_gemm_ldquant);
 LIBXS_APIVAR_DEFINE(int internal_libxs_gemm_backend);
 
 LIBXS_APIVAR_DEFINE(LIBXS_TLS void* internal_libxs_syrk_buffer);
@@ -178,6 +182,7 @@ LIBXS_API_INTERN void internal_libxs_gemm_init(void)
     const char *const gemm_bn_env = getenv("LIBXS_GEMM_BN");
     const char *const gemm_bk_env = getenv("LIBXS_GEMM_BK");
     const char *const gemm_jit_max_env = getenv("LIBXS_GEMM_JIT_MAX");
+    const char *const gemm_ldquant_env = getenv("LIBXS_GEMM_LDQUANT");
     const char *const gemm_backend_env = getenv("LIBXS_GEMM_BACKEND");
 #if defined(LIBXS_INTERCEPT_DYNAMIC)
     const char *const env = getenv("LIBXS_SYRK_BLAS");
@@ -246,6 +251,8 @@ LIBXS_API_INTERN void internal_libxs_gemm_init(void)
     internal_libxs_gemm_bk = (NULL == gemm_bk_env ? LIBXS_GEMM_BK : atoi(gemm_bk_env));
     internal_libxs_gemm_jit_max = (NULL == gemm_jit_max_env
       ? 7 /*default: AI of ~80x80x80*/ : atoi(gemm_jit_max_env));
+    internal_libxs_gemm_ldquant = (NULL == gemm_ldquant_env
+      ? 8 /*default*/ : atoi(gemm_ldquant_env));
     internal_libxs_gemm_backend = (NULL == gemm_backend_env)
       ? INTERNAL_GEMM_BACKEND_AUTO : atoi(gemm_backend_env);
     if (INTERNAL_GEMM_BACKEND_AUTO > internal_libxs_gemm_backend
@@ -421,8 +428,11 @@ LIBXS_API libxs_gemm_config_t* libxs_gemm_dispatch_rt(
     LIBXS_MEMZERO(&kkey);
     kkey.datatype = kernel_shape->datatype;
     kkey.transa = kernel_shape->transa; kkey.transb = kernel_shape->transb;
-    kkey.m = kernel_shape->m; kkey.n = kernel_shape->n; kkey.k = kernel_shape->k;
-    kkey.lda = kernel_shape->lda; kkey.ldb = kernel_shape->ldb; kkey.ldc = kernel_shape->ldc;
+    kkey.m = kernel_shape->m; kkey.n = kernel_shape->n;
+    kkey.k = kernel_shape->k;
+    kkey.lda = INTERNAL_GEMM_QUANTIZE(kernel_shape->lda, internal_libxs_gemm_ldquant);
+    kkey.ldb = INTERNAL_GEMM_QUANTIZE(kernel_shape->ldb, internal_libxs_gemm_ldquant);
+    kkey.ldc = kernel_shape->ldc;
     kkey.alpha = kernel_shape->alpha; kkey.beta = kernel_shape->beta;
     kernel_shape = &kkey;
   }
