@@ -158,6 +158,7 @@ typedef struct libxs_gemm_config_t {
   libxs_gemm_xfn_t xgemm;
   void* jitter;
   libxs_gemm_flags_t flags;
+  int warmup;
   libxs_gemm_shape_t shape;
 } libxs_gemm_config_t;
 

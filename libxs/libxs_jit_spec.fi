@@ -27,6 +27,7 @@
           TYPE(C_FUNPTR) :: xgemm = C_NULL_FUNPTR
           TYPE(C_PTR) :: jitter = C_NULL_PTR
           INTEGER(C_INT) :: flags = 0
+          INTEGER(C_INT) :: warmup = 0
           TYPE(libxs_gemm_shape_t) :: shape
         END TYPE
 

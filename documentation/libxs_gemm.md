@@ -326,13 +326,13 @@ kernel call (MKL JIT or LIBXSMM when available).
                            (flops/bytes) is below N (default: 7,
                            roughly the AI of an 80x80x80 kernel).
                            Set to 0 to disable JIT entirely.
-    LIBXS_GEMM_JIT_LIMIT=N  Maximum consecutive registry misses
-                           (new JIT compilations) before JIT is
-                           suspended. A registry hit resets the
-                           counter. Prevents unbounded compile
-                           cost for workloads with many unique
-                           shapes that are never reused. Set to 0
-                           to disable the limit (default: 64).
+    LIBXS_GEMM_JIT_WARMUP=N  Number of calls a shape must
+                           accumulate before JIT compilation is
+                           attempted. Shapes called fewer than N
+                           times use the BLAS fallback; only shapes
+                           with proven reuse pay the JIT compile
+                           cost. Set to 0 to compile immediately
+                           on first miss (default: 8).
     LIBXS_GEMM_PRINT=N    Print dispatch info every N-th call
                            to stderr (requires compile-time gate).
     LIBXS_SYRK_PRINT=N    Print DSYRK/DSYR2K BLAS fallback calls
