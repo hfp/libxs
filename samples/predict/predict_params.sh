@@ -13,11 +13,13 @@ if [ ! -x "${HERE}/predict_params.x" ]; then
   make -C "${HERE}" GNU=1 predict_params.x 2>&1 | tail -3
 fi
 
+ARGS="${@:-hknn compress}"
+
 for csv in "${PARAMS_DIR}"/tune_multiply_*.csv; do
   if [ -f "${csv}" ]; then
     base="$(basename "${csv}" .csv)"
     echo "=== ${base} ==="
-    "${HERE}/predict_params.x" "$@" "${csv}" "${PARAMS_DIR}/${base}.bin"
+    "${HERE}/predict_params.x" ${ARGS} "${csv}" "${PARAMS_DIR}/${base}.bin"
     echo
   fi
 done

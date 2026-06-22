@@ -63,6 +63,9 @@ LIBXS_API_INLINE void internal_libxs_predict_compress(
       }
       for (i = 0; i < p; ++i) nkeep += keep[i];
       if (nkeep > 0 && nkeep < p) {
+        int remap_pool = 0;
+        int* remap = (int*)LIBXS_PREDICT_MALLOC(
+          (size_t)p * sizeof(int), remap_pool);
         for (c = 0; c < model->nclusters; ++c) {
           internal_libxs_predict_cluster_t* cl = &model->clusters[c];
           const int nc = cl->nentries;
@@ -93,6 +96,7 @@ LIBXS_API_INLINE void internal_libxs_predict_compress(
           int dst = 0;
           for (i = 0; i < old_p; ++i) {
             if (0 != keep[i]) {
+              if (NULL != remap) remap[i] = dst;
               if (dst != i) {
                 old_entries[dst] = old_entries[i];
                 model->assignments[dst] = model->assignments[i];
@@ -100,12 +104,39 @@ LIBXS_API_INLINE void internal_libxs_predict_compress(
               ++dst;
             }
             else {
+              if (NULL != remap) remap[i] = -1;
               free(old_entries[i].inputs);
               free(old_entries[i].outputs);
             }
           }
           model->nentries = dst;
         }
+        if (NULL != remap) {
+          for (c = 0; c < model->nclusters; ++c) {
+            internal_libxs_predict_cluster_t* cl = &model->clusters[c];
+            int k;
+            for (k = 0; k < cl->nentries; ++k) {
+              cl->sorted_idx[k] = remap[cl->sorted_idx[k]];
+            }
+          }
+          if (NULL != model->hknn_po_assignments) {
+            int j2, new_p = model->nentries;
+            for (j2 = 0; j2 < n; ++j2) {
+              if (NULL != model->hknn_po_assignments[j2]) {
+                int* old_po = model->hknn_po_assignments[j2];
+                int* new_po = (int*)malloc((size_t)new_p * sizeof(int));
+                if (NULL != new_po) {
+                  for (i = 0; i < p; ++i) {
+                    if (remap[i] >= 0) new_po[remap[i]] = old_po[i];
+                  }
+                  free(old_po);
+                  model->hknn_po_assignments[j2] = new_po;
+                }
+              }
+            }
+          }
+        }
+        LIBXS_PREDICT_FREE(remap, remap_pool);
       }
       LIBXS_PREDICT_FREE(keep, keep_pool);
     }
