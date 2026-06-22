@@ -7,7 +7,7 @@ LIBXS_API_INLINE int internal_libxs_predict_save_hknn(
   size_t required = 0;
   int c, j;
   required += sizeof(uint32_t) + sizeof(uint16_t);
-  required += 4 * sizeof(uint16_t);
+  required += 4 * sizeof(uint16_t) + sizeof(double);
   required += (size_t)m * 2 * sizeof(double);
   if (NULL != model->weights) required += (size_t)m * sizeof(double);
   for (c = 0; c < model->nclusters; ++c) {
@@ -57,6 +57,7 @@ LIBXS_API_INLINE int internal_libxs_predict_save_hknn(
     WRITE_U16(n);
     WRITE_U16(model->nclusters);
     WRITE_U16(NULL != model->weights ? 1 : 0);
+    WRITE_F64(model->quality);
     WRITE_BLK(model->input_min, (size_t)m * sizeof(double));
     WRITE_BLK(model->input_rng, (size_t)m * sizeof(double));
     if (NULL != model->weights) {
@@ -138,7 +139,8 @@ LIBXS_API int libxs_predict_save(const libxs_predict_t* model, void* buffer, siz
     size_t required = 0;
     int c, j;
     required += sizeof(uint32_t) + 4 * sizeof(uint16_t) + 2 * sizeof(uint8_t);
-    required += 5 * sizeof(uint16_t) + 5 * sizeof(uint8_t) + sizeof(uint32_t);
+    required += 5 * sizeof(uint16_t) + 5 * sizeof(uint8_t) + sizeof(uint32_t)
+      + sizeof(double);
     required += (size_t)model->ninputs * 2 * sizeof(double);
     if (NULL != model->weights) required += (size_t)model->ninputs * sizeof(double);
     if (NULL != model->transforms) required += (size_t)model->noutputs * sizeof(uint8_t);
@@ -201,6 +203,7 @@ LIBXS_API int libxs_predict_save(const libxs_predict_t* model, void* buffer, siz
       WRITE_U16(model->order);
       WRITE_U8(model->iterations);
       WRITE_U32(model->nentries);
+      WRITE_F64(model->quality);
       WRITE_BLK(model->input_min, (size_t)model->ninputs * sizeof(double));
       WRITE_BLK(model->input_rng, (size_t)model->ninputs * sizeof(double));
       if (NULL != model->weights) {
@@ -305,6 +308,10 @@ LIBXS_API_INLINE libxs_predict_t* internal_libxs_predict_load_hknn(
     model->input_min = (double*)malloc((size_t)ninp * sizeof(double));
     model->input_rng = (double*)malloc((size_t)ninp * sizeof(double));
     if (NULL == model->input_min || NULL == model->input_rng) ok = EXIT_FAILURE;
+  }
+  { double quality = 0;
+    if (EXIT_SUCCESS == ok) ok = internal_libxs_predict_read(&src, end, &quality, 8);
+    if (EXIT_SUCCESS == ok) model->quality = quality;
   }
   if (EXIT_SUCCESS == ok) {
     ok = internal_libxs_predict_read(&src, end,
@@ -531,8 +538,11 @@ LIBXS_API libxs_predict_t* libxs_predict_load(const void* buffer, size_t size)
       if (EXIT_SUCCESS == ok) ok = internal_libxs_predict_read(&src, end, &order, 2);
       if (EXIT_SUCCESS == ok) ok = internal_libxs_predict_read(&src, end, &iterations, 1);
       { uint32_t nentries = 0;
+        double quality = 0;
         if (EXIT_SUCCESS == ok) ok = internal_libxs_predict_read(&src, end, &nentries, 4);
+        if (EXIT_SUCCESS == ok) ok = internal_libxs_predict_read(&src, end, &quality, 8);
         if (EXIT_SUCCESS == ok) model->nentries = (int)nentries;
+        if (EXIT_SUCCESS == ok) model->quality = quality;
       }
       if (EXIT_SUCCESS == ok) {
         model->nseries = (int)ts_nseries;

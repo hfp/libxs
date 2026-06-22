@@ -43,7 +43,6 @@ typedef struct internal_libxs_predict_cluster_t {
   double* coeffs;
   double* errors;
   double* kd_pts;
-  double* kd_rng;
   double* raw_outputs;
   int* order;
   int* interpolated;
@@ -132,7 +131,6 @@ LIBXS_API_INLINE void internal_libxs_predict_free_clusters(libxs_predict_t* mode
       free(cl->coeffs);
       free(cl->errors);
       free(cl->kd_pts);
-      free(cl->kd_rng);
       free(cl->raw_outputs);
       free(cl->order);
       free(cl->interpolated);
@@ -390,24 +388,11 @@ LIBXS_API_INLINE void internal_libxs_predict_cluster_refit(
 
 
 LIBXS_API_INLINE double internal_libxs_predict_coverage(
-  const double* kd_pts, const double* kd_rng,
-  int m, const int* nn_idx, int nfound)
+  int nentries, int total_entries, int nclusters)
 {
-  double result = 1.0;
-  int j;
-  for (j = 0; j < m; ++j) {
-    double cmin = kd_pts[(size_t)nn_idx[0] * m + j];
-    double cmax = cmin;
-    int i;
-    for (i = 1; i < nfound; ++i) {
-      const double v = kd_pts[(size_t)nn_idx[i] * m + j];
-      if (v < cmin) cmin = v;
-      if (v > cmax) cmax = v;
-    }
-    if (kd_rng[j] > 0) result *= (cmax - cmin) / kd_rng[j];
-  }
-  if (m > 1) result = pow(result, 1.0 / m);
-  return result;
+  const double expected = (double)total_entries / nclusters;
+  const double ratio = (expected > 0) ? (double)nentries / expected : 1.0;
+  return ratio < 1.0 ? ratio : 1.0;
 }
 
 
@@ -416,13 +401,12 @@ LIBXS_API_INLINE double internal_libxs_predict_classify2(
   int nc, int m, const double* inputs, int output_j, int nouts,
   int ndistinct, int extrapolate, int skip_local,
   const int* po_groups, int query_group,
-  double quality, double* confidence, double* out_variance)
+  double* confidence, double* out_variance)
 {
   const int k = cl->k_eff;
   const int ndistinct_thresh = (int)(sqrt((double)nc) + 0.5);
   double candidates[LIBXS_PREDICT_KNN];
   double dists[LIBXS_PREDICT_KNN];
-  int nn_idx[LIBXS_PREDICT_KNN];
   double best_val = cl->raw_outputs[output_j];
   int nfound = 0, exact = 0, i, max_idx = 0;
   if (0 != extrapolate) {
@@ -446,7 +430,6 @@ LIBXS_API_INLINE double internal_libxs_predict_classify2(
     if (nfound < k) {
       candidates[nfound] = cl->raw_outputs[(size_t)i * nouts + output_j];
       dists[nfound] = sqrt(d2);
-      nn_idx[nfound] = i;
       if (0 == nfound && 0.0 == d2) {
         best_val = candidates[0];
         exact = 1;
@@ -461,7 +444,6 @@ LIBXS_API_INLINE double internal_libxs_predict_classify2(
       if (sqrt(d2) < dists[worst]) {
         candidates[worst] = cl->raw_outputs[(size_t)i * nouts + output_j];
         dists[worst] = sqrt(d2);
-        nn_idx[worst] = i;
       }
     }
   }
@@ -528,13 +510,6 @@ LIBXS_API_INLINE double internal_libxs_predict_classify2(
   else if (NULL != confidence) {
     *confidence = 1.0;
   }
-  if (NULL != confidence && quality > 0 && nfound > 1 && 0 == exact
-    && NULL != cl->kd_rng)
-  {
-    const double cov = internal_libxs_predict_coverage(
-      kd_pts, cl->kd_rng, m, nn_idx, nfound);
-    *confidence = quality + cov * (*confidence - quality);
-  }
   return best_val;
 }
 
@@ -543,11 +518,11 @@ LIBXS_API_INLINE double internal_libxs_predict_classify(
   const internal_libxs_predict_cluster_t* cl, const double* kd_pts,
   int nc, int m, const double* inputs, int output_j, int nouts,
   int ndistinct, int extrapolate, int skip_local,
-  double quality, double* confidence, double* out_variance)
+  double* confidence, double* out_variance)
 {
   return internal_libxs_predict_classify2(cl, kd_pts, nc, m, inputs,
     output_j, nouts, ndistinct, extrapolate, skip_local,
-    NULL, -1, quality, confidence, out_variance);
+    NULL, -1, confidence, out_variance);
 }
 
 
@@ -1544,18 +1519,6 @@ LIBXS_API int libxs_predict_build(libxs_predict_t* model,
                 model->entries[cl->sorted_idx[k]].inputs,
                 cl->kd_pts + (size_t)k * m);
             }
-            cl->kd_rng = (double*)malloc((size_t)m * sizeof(double));
-            if (NULL != cl->kd_rng) {
-              for (j = 0; j < m; ++j) {
-                double lo = cl->kd_pts[j], hi = lo;
-                for (k = 1; k < nc; ++k) {
-                  const double v = cl->kd_pts[(size_t)k * m + j];
-                  if (v < lo) lo = v;
-                  if (v > hi) hi = v;
-                }
-                cl->kd_rng[j] = hi - lo;
-              }
-            }
           }
         }
         LIBXS_PREDICT_FREE(sort_perm, pool_perm);
@@ -1761,34 +1724,31 @@ LIBXS_API void libxs_predict_eval(libxs_lock_t* lock, const libxs_predict_t* mod
           {
             const int nn_entry = cl->sorted_idx[
               (nearest < cl->nentries) ? nearest : 0];
-            const int po_c = model->hknn_po_assignments[j][nn_entry];
+            const int po_c = (nn_entry >= 0 && nn_entry < model->nentries)
+              ? model->hknn_po_assignments[j][nn_entry] : 0;
             const internal_libxs_predict_cluster_t* pcl =
               &model->hknn_po_clusters[j][po_c];
             double po_conf = 0, po_var = 0;
             if (pcl->nentries > 0 && NULL != pcl->kd_pts) {
               vals[j] = internal_libxs_predict_classify(
                 pcl, pcl->kd_pts, pcl->nentries, m, norm_inputs, 0, 1,
-                pcl->ndistinct[0], extrapolate, -1,
-                model->quality, &po_conf, &po_var);
+                pcl->ndistinct[0], extrapolate, -1, &po_conf, &po_var);
             }
             else {
               vals[j] = internal_libxs_predict_classify(
                 cl, cl->kd_pts, cl->nentries, m, norm_inputs, j, n,
-                cl->ndistinct[j], extrapolate, -1,
-                model->quality, &po_conf, &po_var);
+                cl->ndistinct[j], extrapolate, -1, &po_conf, &po_var);
             }
             internal_libxs_predict_classify(
               cl, cl->kd_pts, cl->nentries, m, norm_inputs, j, n,
-              cl->ndistinct[j], extrapolate, -1,
-              model->quality, &conf[j], &var[j]);
+              cl->ndistinct[j], extrapolate, -1, &conf[j], &var[j]);
             errs[j] = 0;
             rels[j] = 0;
           }
           else if (0 != use_classify) {
             vals[j] = internal_libxs_predict_classify(
               cl, cl->kd_pts, cl->nentries, m, norm_inputs, j, n,
-              cl->ndistinct[j], extrapolate, -1,
-              model->quality, &conf[j], &var[j]);
+              cl->ndistinct[j], extrapolate, -1, &conf[j], &var[j]);
             errs[j] = 0;
             rels[j] = 0;
           }
@@ -1804,29 +1764,20 @@ LIBXS_API void libxs_predict_eval(libxs_lock_t* lock, const libxs_predict_t* mod
             errs[j] = (NULL != info)
               ? internal_libxs_predict_local_error(model, cl, nearest, j)
               : cl->errors[j];
-            if (model->quality > 0 && cl->nentries > 1) {
-              const int nc = cl->nentries;
-              const int kw = cl->k_eff;
-              const int lo = nearest - kw / 2 > 0 ? nearest - kw / 2 : 0;
-              const int hi = lo + kw < nc ? lo + kw : nc;
-              int nn_local[LIBXS_PREDICT_KNN];
-              int ni = 0;
-              for (k = lo; k < hi && ni < LIBXS_PREDICT_KNN; ++k) {
-                nn_local[ni++] = k;
-              }
-              { const double cov = (NULL != cl->kd_rng)
-                  ? internal_libxs_predict_coverage(
-                      cl->kd_pts, cl->kd_rng, m, nn_local, ni)
-                  : 1.0;
-                conf[j] = model->quality + cov * (1.0 - model->quality);
-              }
-            }
-            else {
-              conf[j] = 1.0;
-            }
+            conf[j] = 1.0;
             var[j] = 0;
             rels[j] = 1;
           }
+        }
+      }
+      if (model->quality > 0) {
+        const double cov_inter = internal_libxs_predict_coverage(
+          cl->nentries, model->nentries, model->nclusters);
+        const double d_rel = sqrt(best_dist) / cl->dmax;
+        const double cov_intra = 1.0 / (1.0 + d_rel);
+        const double cov = cov_inter * cov_intra;
+        for (j = 0; j < n; ++j) {
+          conf[j] = model->quality + cov * (conf[j] - model->quality);
         }
       }
       if (model->nclusters > 1) {
@@ -1895,8 +1846,7 @@ LIBXS_API void libxs_predict_eval(libxs_lock_t* lock, const libxs_predict_t* mod
               double cj_conf = 1.0, cj_var = 0;
               const double v = internal_libxs_predict_classify(
                 cl2, cl2->kd_pts, cl2->nentries, m, norm_inputs, j, n,
-                cl2->ndistinct[j], extrapolate, -1,
-                model->quality, &cj_conf, &cj_var);
+                cl2->ndistinct[j], extrapolate, -1, &cj_conf, &cj_var);
               blend_val += w * v;
               blend_conf += w * cj_conf;
               blend_var += w * cj_var;
@@ -2005,29 +1955,31 @@ LIBXS_API void libxs_predict_eval(libxs_lock_t* lock, const libxs_predict_t* mod
               internal_libxs_predict_normalize(model, eval_inp, rnorm);
               { const int rc = best_c;
                 const internal_libxs_predict_cluster_t* rcl = &model->clusters[rc];
-                for (j = 0; j < n; ++j) {
-                  if (conf[j] >= 0.9) continue;
-                  { const int use_classify = (0 != force_classify)
-                      ? 1 : ((0 != force_interp) ? 0 : rcl->mode[j]);
-                    if (0 != use_classify) {
-                      double rc_conf = 0;
-                      refined[j] = internal_libxs_predict_classify(
-                        rcl, rcl->kd_pts, rcl->nentries, m, rnorm, j, n,
-                        rcl->ndistinct[j], extrapolate, -1,
-                        model->quality, &rc_conf, NULL);
-                      rconf[j] = rc_conf;
-                    }
-                    else {
-                      refined[j] = vals[j];
-                      rconf[j] = conf[j];
+                const double rt_dist = sqrt(libxs_dist2(norm_inputs, rnorm, m));
+                if (rt_dist <= rcl->dmax) {
+                  for (j = 0; j < n; ++j) {
+                    if (conf[j] >= 0.9) continue;
+                    { const int use_classify = (0 != force_classify)
+                        ? 1 : ((0 != force_interp) ? 0 : rcl->mode[j]);
+                      if (0 != use_classify) {
+                        double rc_conf = 0;
+                        refined[j] = internal_libxs_predict_classify(
+                          rcl, rcl->kd_pts, rcl->nentries, m, rnorm, j, n,
+                          rcl->ndistinct[j], extrapolate, -1, &rc_conf, NULL);
+                        rconf[j] = rc_conf;
+                      }
+                      else {
+                        refined[j] = vals[j];
+                        rconf[j] = conf[j];
+                      }
                     }
                   }
-                }
-                for (j = 0; j < n; ++j) {
-                  if (conf[j] >= 0.9) continue;
-                  if (rconf[j] > conf[j]) {
-                    vals[j] = refined[j];
-                    conf[j] = rconf[j];
+                  for (j = 0; j < n; ++j) {
+                    if (conf[j] >= 0.9) continue;
+                    if (rconf[j] > conf[j]) {
+                      vals[j] = refined[j];
+                      conf[j] = rconf[j];
+                    }
                   }
                 }
               }

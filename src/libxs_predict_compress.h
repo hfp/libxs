@@ -37,7 +37,7 @@ LIBXS_API_INLINE void internal_libxs_predict_compress(
             const double predicted = internal_libxs_predict_classify(
               cl, cl->kd_pts, cl->nentries, m,
               cl->kd_pts + (size_t)li * m, j, n,
-              cl->ndistinct[j], 0, li, 0, &conf, &var);
+              cl->ndistinct[j], 0, li, &conf, &var);
             if (predicted != actual || var > 0) {
               mismatch = 1;
             }
