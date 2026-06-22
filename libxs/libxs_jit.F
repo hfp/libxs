@@ -102,7 +102,7 @@
      &  m, n, k, lda, ldb, ldc, alpha, beta, registry)
           TYPE(libxs_gemm_config_t), INTENT(INOUT) :: config
           INTEGER(C_INT), INTENT(IN) :: datatype
-          CHARACTER(C_CHAR), INTENT(IN) :: transa, transb
+          CHARACTER(C_CHAR), INTENT(IN), VALUE :: transa, transb
           INTEGER(C_INT), INTENT(IN) :: m, n, k, lda, ldb, ldc
           REAL(C_DOUBLE), INTENT(IN) :: alpha, beta
           TYPE(C_PTR), INTENT(IN), OPTIONAL :: registry
@@ -229,7 +229,7 @@
      &  transa, transb, m, n, k, lda, ldb, ldc,                         &
      &  alpha, beta, a, b, c)
           INTEGER(C_INT), INTENT(IN) :: datatype
-          CHARACTER, INTENT(IN) :: transa, transb
+          CHARACTER, INTENT(IN), VALUE :: transa, transb
           INTEGER(C_INT), INTENT(IN) :: m, n, k, lda, ldb, ldc
           REAL(C_DOUBLE), INTENT(IN) :: alpha, beta
           TYPE(C_PTR), INTENT(IN), VALUE :: a, b
@@ -245,7 +245,7 @@
         SUBROUTINE libxs_syr2k(datatype, n, k, lda, ldb, ldc,           &
      &  uplo, alpha, beta, a, b, c)
           INTEGER(C_INT), INTENT(IN) :: datatype, n, k, lda, ldb, ldc
-          CHARACTER, INTENT(IN) :: uplo
+          CHARACTER, INTENT(IN), VALUE :: uplo
           REAL(C_DOUBLE), INTENT(IN) :: alpha, beta
           TYPE(C_PTR), INTENT(IN), VALUE :: a, b
           TYPE(C_PTR), VALUE :: c
@@ -260,7 +260,7 @@
         SUBROUTINE libxs_syrk(datatype, n, k, lda, ldc,                 &
      &  uplo, alpha, beta, a, c)
           INTEGER(C_INT), INTENT(IN) :: datatype, n, k, lda, ldc
-          CHARACTER, INTENT(IN) :: uplo
+          CHARACTER, INTENT(IN), VALUE :: uplo
           REAL(C_DOUBLE), INTENT(IN) :: alpha, beta
           TYPE(C_PTR), INTENT(IN), VALUE :: a
           TYPE(C_PTR), VALUE :: c

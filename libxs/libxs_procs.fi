@@ -517,7 +517,7 @@
      &  jit_create_sgemm, jit_get_sgemm,                                &
      &  xgemm_dispatch, dgemm_blas, sgemm_blas, registry)
           INTEGER(C_INT), INTENT(IN) :: datatype
-          CHARACTER(C_CHAR), INTENT(IN) :: transa, transb
+          CHARACTER(C_CHAR), INTENT(IN), VALUE :: transa, transb
           INTEGER(C_INT), INTENT(IN) :: m, n, k, lda, ldb, ldc
           REAL(C_DOUBLE), INTENT(IN) :: alpha, beta
           TYPE(C_PTR), INTENT(IN), VALUE :: a, b
@@ -550,7 +550,7 @@
      &    registry)
           TYPE(libxs_gemm_config_t), INTENT(INOUT) :: config
           INTEGER(C_INT), INTENT(IN) :: datatype
-          CHARACTER(C_CHAR), INTENT(IN) :: transa, transb
+          CHARACTER(C_CHAR), INTENT(IN), VALUE :: transa, transb
           INTEGER(C_INT), INTENT(IN) :: m, n, k, lda, ldb, ldc
           REAL(C_DOUBLE), INTENT(IN) :: alpha, beta
           TYPE(C_FUNPTR), INTENT(IN), OPTIONAL ::                       &
@@ -697,7 +697,7 @@
      &  lda, ldb, ldc, uplo, alpha, beta, a, b, c, registry)
           INTEGER(C_INT), INTENT(IN) :: datatype, n, k
           INTEGER(C_INT), INTENT(IN) :: lda, ldb, ldc
-          CHARACTER(C_CHAR), INTENT(IN) :: uplo
+          CHARACTER(C_CHAR), INTENT(IN), VALUE :: uplo
           REAL(C_DOUBLE), INTENT(IN) :: alpha, beta
           TYPE(C_PTR), INTENT(IN) :: a, b
           TYPE(C_PTR) :: c
@@ -731,7 +731,7 @@
      &  lda, ldc, uplo, alpha, beta, a, c, registry)
           INTEGER(C_INT), INTENT(IN) :: datatype, n, k
           INTEGER(C_INT), INTENT(IN) :: lda, ldc
-          CHARACTER(C_CHAR), INTENT(IN) :: uplo
+          CHARACTER(C_CHAR), INTENT(IN), VALUE :: uplo
           REAL(C_DOUBLE), INTENT(IN) :: alpha, beta
           TYPE(C_PTR), INTENT(IN) :: a
           TYPE(C_PTR) :: c

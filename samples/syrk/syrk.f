@@ -44,7 +44,7 @@
         END INTERFACE
 
         INTEGER, PARAMETER :: T = KIND(0D0)
-        INTEGER :: n, k, argc, r, nrepeat
+        INTEGER :: n, k, argc, r, nrepeat, direct
         CHARACTER(32) :: argv
         REAL(T), ALLOCATABLE, TARGET :: a(:,:), b(:,:)
         REAL(T), ALLOCATABLE, TARGET :: c(:,:), cref(:,:)
@@ -75,11 +75,18 @@
         ELSE
           nrepeat = 100
         END IF
+        IF (4 <= argc) THEN
+          CALL GET_COMMAND_ARGUMENT(4, argv)
+          READ(argv, "(I32)") direct
+        ELSE
+          direct = 0
+        END IF
 
         alpha = 1D0; beta = 1D0
 
-        WRITE(*, "(A,I0,A,I0,A,I0)")                                    &
-     &    "SYRK: N=", n, " K=", k, " nrepeat=", nrepeat
+        WRITE(*, "(A,I0,A,I0,A,I0,A,I0)")                               &
+     &    "SYRK: N=", n, " K=", k, " nrepeat=", nrepeat,                &
+     &    " direct=", direct
 
         CALL libxs_init()
 
@@ -92,15 +99,23 @@
         WRITE(*, "(A)") ""
         WRITE(*, "(A)") "--- libxs_syrk (lower) ---"
 
-        ptr = libxs_syrk_dispatch(LIBXS_DATATYPE_F64, n, k, n, n)
-        IF (.NOT. C_ASSOCIATED(ptr)) THEN
-          WRITE(*, "(A)") "FAILED: libxs_syrk_dispatch returned NULL"
-          ERROR STOP 1
+        IF (0 .EQ. direct) THEN
+          ptr = libxs_syrk_dispatch(LIBXS_DATATYPE_F64, n, k, n, n)
+          IF (.NOT. C_ASSOCIATED(ptr)) THEN
+            WRITE(*, "(A)") "FAILED: libxs_syrk_dispatch returned NULL"
+            ERROR STOP 1
+          END IF
+          CALL C_F_POINTER(ptr, config)
         END IF
-        CALL C_F_POINTER(ptr, config)
 
         CALL DSYRK('L', 'N', n, k, alpha, a, n, beta, cref, n)
-        CALL libxs_syrk(config, 'L', alpha, beta, C_LOC(a), C_LOC(c))
+        IF (0 .EQ. direct) THEN
+          CALL libxs_syrk(config, 'L', alpha, beta,                     &
+     &      C_LOC(a), C_LOC(c))
+        ELSE
+          CALL libxs_syrk(LIBXS_DATATYPE_F64, n, k, n, n,               &
+     &      'L', alpha, beta, C_LOC(a), C_LOC(c))
+        END IF
 
         CALL libxs_matdiff_clear(diff)
         CALL libxs_matdiff(diff, LIBXS_DATATYPE_F64, n, n,              &
@@ -113,17 +128,25 @@
 
         c = 0D0; cref = 0D0
 
-        ptr = libxs_syr2k_dispatch(LIBXS_DATATYPE_F64,                  &
-     &    n, k, n, n, n)
-        IF (.NOT. C_ASSOCIATED(ptr)) THEN
-          WRITE(*, "(A)") "FAILED: libxs_syr2k_dispatch returned NULL"
-          ERROR STOP 1
+        IF (0 .EQ. direct) THEN
+          ptr = libxs_syr2k_dispatch(LIBXS_DATATYPE_F64,                &
+     &      n, k, n, n, n)
+          IF (.NOT. C_ASSOCIATED(ptr)) THEN
+            WRITE(*, "(A)")                                             &
+     &        "FAILED: libxs_syr2k_dispatch returned NULL"
+            ERROR STOP 1
+          END IF
+          CALL C_F_POINTER(ptr, config)
         END IF
-        CALL C_F_POINTER(ptr, config)
 
         CALL DSYR2K('U', 'N', n, k, alpha, a, n, b, n, beta, cref, n)
-        CALL libxs_syr2k(config, 'U', alpha, beta,                      &
-     &    C_LOC(a), C_LOC(b), C_LOC(c))
+        IF (0 .EQ. direct) THEN
+          CALL libxs_syr2k(config, 'U', alpha, beta,                    &
+     &      C_LOC(a), C_LOC(b), C_LOC(c))
+        ELSE
+          CALL libxs_syr2k(LIBXS_DATATYPE_F64, n, k, n, n, n,           &
+     &      'U', alpha, beta, C_LOC(a), C_LOC(b), C_LOC(c))
+        END IF
 
         CALL libxs_matdiff_clear(diff)
         CALL libxs_matdiff(diff, LIBXS_DATATYPE_F64, n, n,              &

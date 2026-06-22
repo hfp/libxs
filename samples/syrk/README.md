@@ -23,13 +23,16 @@ use JIT-compiled kernels when available.
 
 ## Run
 
-    ./syrkf.x [N [K [nrepeat]]]
+    ./syrk.x [N [K [nrepeat [direct]]]]
 
 Arguments (all optional, positional):
 
     N        Matrix dimension of C (N x N).  Default: 64
     K        Inner dimension (columns of A).  Default: N
     nrepeat  Number of timed repetitions.     Default: 100
+    direct   Interface selection.             Default: 0
+               0 = config (dispatch + call separately)
+               1 = direct (one-shot generic)
 
 ## Example Output
 
