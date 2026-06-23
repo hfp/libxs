@@ -1,9 +1,10 @@
 site_name: LIBXS
 site_author: Hans Pabst
 copyright: Copyright (c) Intel Corporation, LIBXS Contributors.
-site_description: Library for extra small auxiliary functions and specialized operations.
+site_description: Library of specialized algebra and optimizations.
 repo_url: https://github.com/hfp/libxs/
 edit_uri: edit/main/documentation
+site_url: https://libxs.readthedocs.io/
 docs_dir: documentation
 
 markdown_extensions:
@@ -19,10 +20,9 @@ markdown_extensions:
 - pymdownx.tabbed:
     alternate_style: true
 - pymdownx.details
-- attr_list
 - md_in_html
 - admonition
-
+- attr_list
 extra_css:
 - style.css
 
