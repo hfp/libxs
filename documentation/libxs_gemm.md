@@ -40,7 +40,7 @@ typedef struct libxs_gemm_config_t {
 Configuration holding dispatched GEMM kernels. Kernel priority:
 1. JIT kernel (dgemm_jit/sgemm_jit + jitter),
 2. XGEMM kernel (xgemm),
-3. BLAS kernel (dgemm_blas/sgemm_blas) -- always non-NULL after
+3. BLAS kernel (dgemm_blas/sgemm_blas) — always non-NULL after
    dispatch (falls back to built-in auto-vectorized C code).
 
 ```C

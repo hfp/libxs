@@ -30,6 +30,13 @@ theme:
     name: readthedocs
     custom_dir: .theme
 
+extra:
+  collapsed_nav:
+    - "Domains"
+    - "Samples"
+    - "Tests"
+    - "More"
+
 plugins:
   - search
 
@@ -38,10 +45,9 @@ hooks:
 
 nav:
 - Overview: index.md
-- Ozaki Getting Started:
-  - Howto: libxs_ozaki.md
-  - Details: samples/libxs_ozaki.md
-- LIBXS Domains:
+- Presentations: libxs_present.md
+- Fortran: libxs_fortran.md
+- Domains:
   - Permutation: libxs_perm.md
   - Histogram: libxs_hist.md
   - Registry: libxs_reg.md
@@ -58,10 +64,7 @@ nav:
   - Math: libxs_math.md
   - MHD: libxs_mhd.md
   - RNG: libxs_rng.md
-  - Fortran: libxs_fortran.md
-- LIBXSTREAM:
-  - Reference: libxs_opencl.md
-- Example Code:
+- Samples:
   - Registry: samples/libxs_registry.md
   - Stratify: samples/libxs_stratify.md
   - Rosetta: samples/libxs_rosetta.md
@@ -71,6 +74,7 @@ nav:
   - Scratch: samples/libxs_scratch.md
   - Memory: samples/libxs_memory.md
   - Fprint: samples/libxs_fprint.md
+  - Ozaki: samples/libxs_ozaki.md
   - GEMM: samples/libxs_gemm.md
   - SYRK: samples/libxs_syrk.md
   - Sync: samples/libxs_sync.md
@@ -90,7 +94,6 @@ nav:
   - Timer: tests/timer.md
   - Math: tests/math.md
   - MHD: tests/mhd.md
-- Development:
-  - Scripts: libxs_scripts.md
-- About:
-  - License: LICENSE.md
+- More:
+  - Development: libxs_scripts.md
+  - LIBXSTREAM: libxs_opencl.md

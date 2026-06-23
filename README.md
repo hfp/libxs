@@ -1,7 +1,7 @@
 # LIBXS
 
 LIBXS is a portable C library providing building blocks for memory
-operations, numerics, synchronization, and more -- with a focus on
+operations, numerics, synchronization, and more — with a focus on
 performance and minimal dependencies. Targets x86-64, AArch64, and
 RISC-V; requires only a C89 compiler. Originally developed as part
 of [LIBXSMM](https://github.com/libxsmm/libxsmm).
@@ -74,7 +74,7 @@ make -j $(nproc) -f /path/to/libxs/Makefile
 
 ## Usage
 
-**Library** -- link against `libxs.a` (or `.so`) and include the
+**Library** — link against `libxs.a` (or `.so`) and include the
 desired headers:
 
 ```c
@@ -82,7 +82,7 @@ desired headers:
 #include <libxs/libxs_timer.h>
 ```
 
-**Header-only** (explicit) -- include `libxs_source.h` (no
+**Header-only** (explicit) — include `libxs_source.h` (no
 separate library needed). Safe to include from multiple
 translation units:
 
@@ -90,14 +90,14 @@ translation units:
 #include <libxs/libxs_source.h>
 ```
 
-**Header-only** (implicit) -- compile with `-DLIBXS_SOURCE` and
+**Header-only** (implicit) — compile with `-DLIBXS_SOURCE` and
 any LIBXS public header automatically includes the implementation.
 No special include order is required. When used through
 [LIBXSTREAM](https://github.com/hfp/libxstream) without a
 pre-built library (`-DLIBXSTREAM_SOURCE`), `LIBXS_SOURCE` is
 implied automatically.
 
-**Fortran** -- use the provided module
+**Fortran** — use the provided module
 ([documentation](documentation/libxs_fortran.md)):
 
 ```fortran

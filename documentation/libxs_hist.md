@@ -73,10 +73,10 @@ void libxs_hist_update_min(double* dst, const double* src, int count);
 void libxs_hist_update_max(double* dst, const double* src, int count);
 ```
 
-- `avg` -- Welford online mean: `*dst += (*src - *dst) / count`
-- `add` -- sum: `*dst += *src`
-- `min` -- `*dst = min(*dst, *src)`
-- `max` -- `*dst = max(*dst, *src)`
+- `avg` — Welford online mean: `*dst += (*src - *dst) / count`
+- `add` — sum: `*dst += *src`
+- `min` — `*dst = min(*dst, *src)`
+- `max` — `*dst = max(*dst, *src)`
 
 Custom callbacks use the same signature; `count` enables online
 algorithms without external state.

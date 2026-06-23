@@ -105,7 +105,7 @@ tol set to zero).
 
 The distance as a function of tolerance is monotonically
 non-increasing (a step function with discrete drops), which makes
-it unimodal -- the prerequisite for Golden Section Search.
+it unimodal — the prerequisite for Golden Section Search.
 
 ## Foeppl Polynomial Fingerprint
 
