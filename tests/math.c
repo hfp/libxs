@@ -630,22 +630,39 @@ int main(int argc, char* argv[])
         exit(EXIT_FAILURE);
       }
     }
-    /* Test 6: Dekker-style split property — sum of slices reconstructs original.
-     *         Round-trip error must decrease with each additional slice. */
+    /* Test 6: libxs_dekker_bf16 — sum of digits reconstructs original. */
     { const double val = 3.14159265358979323846;
-      double residual = val;
+      libxs_bf16_t digits[7];
       double recon = 0.0;
       int ns;
+      libxs_dekker_bf16(val, 7, digits);
       for (ns = 0; ns < 7; ++ns) {
-        const libxs_bf16_t s = libxs_round_bf16(residual);
-        recon += libxs_bf16_to_f64(s);
-        residual -= libxs_bf16_to_f64(s);
+        recon += libxs_bf16_to_f64(digits[ns]);
       }
-      { /* 7 slices capture 56 bits > 52 mantissa bits of double */ const double err = val - recon;
+      { const double err = val - recon;
         if (err < 0 ? -err > 1e-15 : err > 1e-15) {
-          FPRINTF(stderr, "ERROR line #%i: BF16 Dekker split residual=%g\n",
+          FPRINTF(stderr, "ERROR line #%i: dekker_bf16 residual=%g\n",
             __LINE__, err);
           exit(EXIT_FAILURE);
+        }
+      }
+    }
+    /* Test 6b: libxs_dekker_bf16 with 2 digits — error within BF16^2 precision */
+    { const double test_vals[] = { 1.23456789, -42.5, 1e-5, 1e10 };
+      const int nv = sizeof(test_vals) / sizeof(*test_vals);
+      int tv;
+      for (tv = 0; tv < nv; ++tv) {
+        libxs_bf16_t d2[2];
+        double recon;
+        libxs_dekker_bf16(test_vals[tv], 2, d2);
+        recon = libxs_bf16_to_f64(d2[0]) + libxs_bf16_to_f64(d2[1]);
+        if (0.0 != test_vals[tv]) {
+          const double rel = (recon - test_vals[tv]) / test_vals[tv];
+          if (rel < 0 ? -rel > 1e-4 : rel > 1e-4) {
+            FPRINTF(stderr, "ERROR line #%i: dekker_bf16(2) relerr=%g val=%g\n",
+              __LINE__, rel, test_vals[tv]);
+            exit(EXIT_FAILURE);
+          }
         }
       }
     }

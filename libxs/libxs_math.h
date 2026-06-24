@@ -387,6 +387,22 @@ LIBXS_API_INLINE double libxs_bf16_to_f64(libxs_bf16_t v) {
 }
 
 /**
+ * Dekker split: decompose a value into ndigits BF16 residuals.
+ * dst[0] holds the dominant digit, dst[ndigits-1] the finest.
+ */
+LIBXS_API_INLINE void libxs_dekker_bf16(double val, int ndigits,
+  libxs_bf16_t* dst)
+{
+  double residual = val;
+  int s;
+  for (s = 0; s < ndigits; ++s) {
+    const libxs_bf16_t bf = libxs_round_bf16(residual);
+    dst[s] = bf;
+    residual -= libxs_bf16_to_f64(bf);
+  }
+}
+
+/**
  * Fast 32-bit modular reduction via Barrett's method.
  * Returns x mod p using a precomputed reciprocal rcp = floor(2^32/p).
  * Valid for x < 2^32.

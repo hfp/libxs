@@ -584,3 +584,17 @@ double libxs_bf16_to_f64(libxs_bf16_t v);  /* inline */
 ```
 
 Round to BF16 (round-to-nearest-even) and expand to double. Uses native `__bf16` when available (`LIBXS_BF16`), otherwise portable bit manipulation.
+
+```C
+void libxs_dekker_bf16(double val, int ndigits,
+  libxs_bf16_t* dst);                       /* inline */
+```
+
+Dekker split: decompose a value into `ndigits` BF16 residuals via
+iterative subtraction. `dst[0]` holds the dominant digit (the BF16
+rounding of the input); `dst[1]` holds the residual after subtracting
+the first digit's contribution, rounded to BF16; and so on. The sum
+`libxs_bf16_to_f64(dst[0]) + ... + libxs_bf16_to_f64(dst[ndigits-1])`
+reconstructs the original to approximately `7 * ndigits` bits of
+precision (each BF16 digit carries 7 fraction bits). Seven digits
+exceed the 52-bit mantissa of double.
