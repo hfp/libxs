@@ -1,7 +1,7 @@
 site_name: LIBXS
 site_author: Hans Pabst
 copyright: Copyright (c) Intel Corporation, LIBXS Contributors.
-site_description: Library of specialized algebra and optimizations.
+site_description: Library of specialized algebra and performance primitives.
 repo_url: https://github.com/hfp/libxs/
 edit_uri: edit/main/documentation
 site_url: https://libxs.readthedocs.io/
