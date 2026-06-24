@@ -53,7 +53,7 @@ CONTENT_WIDTH = SLIDE_WIDTH - 2 * MARGIN
 TABLE_ROW_HEIGHT = Inches(0.5)
 CODE_LINE_HEIGHT = Inches(0.35)
 TEXT_LINE_HEIGHT = Inches(0.4)
-BLOCK_SPACING = Inches(0.4)
+BLOCK_SPACING = Inches(0.15)
 MATH_SPACING = Inches(0.2)
 MATH_DPI = 300
 MATH_SCALE = 2.4
@@ -133,6 +133,7 @@ def render_math(latex):
 # Inline markdown
 # ---------------------------------------------------------------------------
 def _typographic(text):
+    text = re.sub(r"<[^>]+>", "", text)
     text = text.replace("---", "—")
     text = text.replace("--", "–")
     text = re.sub(r"\\([\\`*_{}[\]()#+\-.!|~])", r"\1", text)
@@ -452,6 +453,35 @@ def _parse_slide(text):
 
         if in_code:
             cur["lines"].append(line)
+            i += 1
+            continue
+
+        if line.strip().startswith("<!--"):
+            comment = line.strip()
+            while "-->" not in comment and i < len(lines) - 1:
+                i += 1
+                comment += " " + lines[i].strip()
+            m_bg = re.search(r'data-background-image="([^"]+)"', comment)
+            if m_bg:
+                if cur:
+                    slide["blocks"].append(cur)
+                    cur = None
+                slide["blocks"].append(
+                    {"type": "image", "alt": "", "path": m_bg.group(1)}
+                )
+            i += 1
+            continue
+
+        if re.match(r"^\s*<[^>]+>\s*$", line) and not line.strip().startswith("<br"):
+            stripped = line.strip()
+            inner = re.sub(r"<[^>]*>", "", stripped).strip()
+            if inner:
+                if cur and cur["type"] == "text":
+                    cur["lines"].append(inner)
+                else:
+                    if cur:
+                        slide["blocks"].append(cur)
+                    cur = {"type": "text", "lines": [inner]}
             i += 1
             continue
 
