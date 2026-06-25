@@ -2,7 +2,7 @@
 %bcond_without tests
 
 Name:           libxs
-Version:        0.0.0
+Version:        1.0.0
 Release:        %autorelease
 Summary:        Portable C library for numerics, memory operations, and utilities
 
