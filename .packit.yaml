@@ -10,7 +10,6 @@ files_to_sync:
   - .packit.yaml
 upstream_package_name: libxs
 downstream_package_name: libxs
-upstream_tag_template: v{version}
 
 targets:
   - fedora-development-x86_64
