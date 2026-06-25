@@ -1,7 +1,19 @@
 cmake_minimum_required(VERSION 3.13 FATAL_ERROR)
 
+set(LIBXS_VERSION_FILE "${CMAKE_CURRENT_SOURCE_DIR}/VERSION")
+if(NOT EXISTS "${LIBXS_VERSION_FILE}")
+  message(FATAL_ERROR "Missing ${LIBXS_VERSION_FILE}")
+endif()
+
+file(READ "${LIBXS_VERSION_FILE}" LIBXS_VERSION)
+string(STRIP "${LIBXS_VERSION}" LIBXS_VERSION)
+if(NOT LIBXS_VERSION MATCHES "^[0-9]+\\.[0-9]+\\.[0-9]+$")
+  message(FATAL_ERROR
+    "Invalid version '${LIBXS_VERSION}' in ${LIBXS_VERSION_FILE}; expected MAJOR.MINOR.PATCH")
+endif()
+
 project(libxs
-  VERSION 1.0.0
+  VERSION "${LIBXS_VERSION}"
   LANGUAGES C)
 
 include(GNUInstallDirs)
@@ -57,8 +69,9 @@ if(NOT LIBXS_VERSION_RC EQUAL 0)
   message(FATAL_ERROR "tool_version.sh failed with code ${LIBXS_VERSION_RC}")
 endif()
 
-# Re-run on reconfigure whenever the script changes
+# Re-run on reconfigure whenever version metadata changes.
 set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS
+  "${LIBXS_VERSION_FILE}"
   "${LIBXS_VERSION_SCRIPT}")
 
 set(THREADS_PREFER_PTHREAD_FLAG ON)
