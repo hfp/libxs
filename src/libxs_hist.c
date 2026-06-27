@@ -249,13 +249,17 @@ LIBXS_API void libxs_hist_query_percentile(libxs_lock_t* lock, const libxs_hist_
           const double t = (ia != ib
             ? (fraction < 0.5 ? 0.5 + fraction : fraction - 0.5) : 0);
           vals[0] = info.range[0] + (i + fraction) * w / info.nbuckets;
+#if defined(__GNUC__) && !defined(__clang__)
           LIBXS_PRAGMA_DIAG_PUSH()
           LIBXS_PRAGMA_DIAG_OFF("-Warray-bounds")
           LIBXS_PRAGMA_DIAG_OFF("-Warray-bounds=")
+#endif
           for (; k < info.nvals; ++k) {
             vals[k] = info.vals[ia + k] + t * (info.vals[ib + k] - info.vals[ia + k]);
           }
+#if defined(__GNUC__) && !defined(__clang__)
           LIBXS_PRAGMA_DIAG_POP()
+#endif
           break;
         }
       }
@@ -282,7 +286,14 @@ LIBXS_API void libxs_hist_print(FILE* ostream, const libxs_hist_t* hist, const i
     if (NULL != fmt) {
       va_list args;
       va_start(args, fmt);
+#if defined(__clang__)
+      LIBXS_PRAGMA_DIAG_PUSH()
+      LIBXS_PRAGMA_DIAG_OFF("-Wformat-nonliteral")
+#endif
       vfprintf(ostream, fmt, args);
+#if defined(__clang__)
+      LIBXS_PRAGMA_DIAG_POP()
+#endif
       va_end(args);
     }
     for (; i <= info.nbuckets; j = info.nvals * i++) {

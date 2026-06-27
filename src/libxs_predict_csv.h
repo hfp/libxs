@@ -112,6 +112,7 @@ LIBXS_API int libxs_predict_load_csv(libxs_predict_t* model,
     int idx[128];
     int i, resolved = 1;
     int ni = 0, no = 0;
+    LIBXS_UNUSED(ni); LIBXS_UNUSED(no);
     LIBXS_ASSERT(ninputs + noutputs <= 128);
     if (NULL != inputs) {
       ni = internal_libxs_predict_tokenize(inputs, tokbuf, input_tokens, 64);

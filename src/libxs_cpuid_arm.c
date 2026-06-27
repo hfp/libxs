@@ -71,16 +71,13 @@ LIBXS_API_INTERN int internal_libxs_cpuid_arm(libxs_cpuid_t* info)
   static int result = LIBXS_TARGET_ARCH_UNKNOWN;
 #if defined(LIBXS_PLATFORM_AARCH64)
   libxs_cpuid_t cpuid_info;
-  size_t model_size = 0;
 # if !defined(LIBXS_CPUID_ARM_MODEL_FALLBACK)
-  LIBXS_UNUSED(model_size);
   if (NULL != info)
 # endif
   {
-    size_t cpuinfo_model_size = sizeof(cpuid_info.model);
-    internal_libxs_cpuid_model(cpuid_info.model, &cpuinfo_model_size);
-    LIBXS_ASSERT(0 != cpuinfo_model_size || '\0' == *cpuid_info.model);
-    model_size = cpuinfo_model_size;
+    size_t model_size = sizeof(cpuid_info.model);
+    internal_libxs_cpuid_model(cpuid_info.model, &model_size);
+    LIBXS_ASSERT(0 != model_size || '\0' == *cpuid_info.model);
     cpuid_info.constant_tsc = 1;
   }
   if (LIBXS_TARGET_ARCH_UNKNOWN == result) { /* avoid re-detecting features */

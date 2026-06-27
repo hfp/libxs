@@ -704,7 +704,7 @@ PCSUBST_BASE = $(SED) $(PCTEMPLATE) \
   -e 's|@PREFIX@|$(ALIAS_PREFIX)|g' \
   -e 's|@INCLUDEDIR@|$(ALIAS_INCDIR)|g' \
   -e 's|@LIBDIR@|$(ALIAS_LIBDIR)|g' \
-  -e 's|@LIBS_PRIVATE@|$(if $(ALIAS_PRIVLIBS),Libs.private: $(ALIAS_PRIVLIBS),)|g'
+  $(if $(ALIAS_PRIVLIBS),-e 's|@LIBS_PRIVATE@|Libs.private: $(ALIAS_PRIVLIBS)|g')
 PCSUBST_STATIC = $(PCSUBST_BASE) -e 's|@LIBS@|$${libdir}/$(PROJECT).$(SLIBEXT)|g'
 PCSUBST_SHARED = $(PCSUBST_BASE) -e 's|@LIBS@|-L$${libdir} -l$(patsubst lib%,%,$(PROJECT))|g'
 
