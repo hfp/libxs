@@ -1,4 +1,3 @@
-%global debug_package %{nil}
 %bcond_without tests
 
 Name:           libxs
@@ -8,17 +7,17 @@ Summary:        Portable C library for numerics, memory operations, and utilitie
 
 License:        BSD-3-Clause
 URL:            https://github.com/hfp/libxs
-Source0:        %{name}-%{version}.tar.gz
+Source0:        https://github.com/hfp/libxs/releases/download/%{version}/%{name}-%{version}.tar.gz
 
 BuildRequires:  bash
 BuildRequires:  gcc
 BuildRequires:  gcc-gfortran
-BuildRequires:  make
+BuildRequires:  cmake
+BuildRequires:  cmake-rpm-macros
+BuildRequires:  ninja-build
 %if %{with tests}
-BuildRequires:  gcc-c++
 BuildRequires:  flexiblas-devel
 BuildRequires:  gawk
-BuildRequires:  ocl-icd-devel
 %endif
 
 %description
@@ -37,29 +36,31 @@ documentation for developing applications that use LIBXS.
 
 %prep
 %autosetup
-
 %build
-%make_build GNU=1 STATIC=0 \
-    POUTDIR=%{_lib} PPKGDIR=%{_lib}/pkgconfig PCMKDIR=%{_lib}/cmake/%{name}
+%cmake \
+    -DBUILD_SHARED_LIBS=ON \
+    -DBUILD_TESTING=%{libxs_build_testing} \
+    -DLIBXS_FORTRAN=ON
+%cmake_build
 
 %install
-%make_install PREFIX=%{_prefix} CLEAN=0 STATIC=0 \
-    POUTDIR=%{_lib} PPKGDIR=%{_lib}/pkgconfig PCMKDIR=%{_lib}/cmake/%{name}
+%cmake_install
 
+# The license is already installed via %%license below; avoid a duplicate copy
+# in the API documentation directory.
 rm -f %{buildroot}%{_datadir}/%{name}/LICENSE.md
 
 %check
 %if %{with tests}
-%make_build tests GNU=1 STATIC=0 BLASLIB=flexiblas
+%ctest --output-on-failure --parallel %{_smp_build_ncpus}
 %endif
 
 %files
 %license LICENSE.md
 %doc README.md
-%{_libdir}/libxs.so.*
+%{_libdir}/libxs.so.1{,.*}
 
 %files devel
-%license LICENSE.md
 %{_datadir}/%{name}/
 %{_includedir}/%{name}/
 %{_libdir}/libxs.so

@@ -129,7 +129,7 @@ jobs:
     - uses: actions/checkout@v5
 
     - name: Install dependencies
-      run: dnf install -y rpm-build make bash gcc g++ gcc-gfortran flexiblas-devel ocl-icd-devel
+      run: dnf install -y rpm-build cmake cmake-rpm-macros ninja-build bash gcc gcc-gfortran flexiblas-devel
 
     - name: Build RPM package
       run: |
@@ -138,7 +138,7 @@ jobs:
         VERSION=$(grep '^Version:' scripts/fedora/libxs.spec | awk '{print $2}')
         tar czf $HOME/rpmbuild/SOURCES/libxs-${VERSION}.tar.gz \
           --transform="s,^\.,libxs-${VERSION}," .
-        rpmbuild -bb $HOME/rpmbuild/SPECS/libxs.spec
+        rpmbuild -ba $HOME/rpmbuild/SPECS/libxs.spec
 
     - name: Upload packages
       uses: actions/upload-artifact@v5
