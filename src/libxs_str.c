@@ -251,6 +251,63 @@ LIBXS_API int libxs_strisimilar(const char a[], const char b[],
 }
 
 
+LIBXS_API int libxs_stridiff(const char a[], const char b[],
+  const char delims[], int tolerance, int* count)
+{
+  int result = 0;
+  if (NULL != a && NULL != b && '\0' != *a && '\0' != *b) {
+    const char* const sep = ((NULL == delims || '\0' == *delims) ? " \t;,:-" : delims);
+    const char* wa[64]; int la[64], na = 0;
+    const char* wb[64]; int lb[64], nb = 0;
+    int used[64];
+    char s[2] = {'\0'};
+    int i, j;
+    const char** ws; int* ls; int ns;
+    const char** wl; int* ll; int nl;
+    { const char* p = a;
+      for (;;) {
+        while (*s = *p, NULL != strpbrk(s, sep)) ++p;
+        if ('\0' == *p || 64 <= na) break;
+        wa[na] = p;
+        while ('\0' != *p && (*s = *p, NULL == strpbrk(s, sep))) ++p;
+        la[na] = (int)(p - wa[na]);
+        ++na;
+      }
+    }
+    { const char* p = b;
+      for (;;) {
+        while (*s = *p, NULL != strpbrk(s, sep)) ++p;
+        if ('\0' == *p || 64 <= nb) break;
+        wb[nb] = p;
+        while ('\0' != *p && (*s = *p, NULL == strpbrk(s, sep))) ++p;
+        lb[nb] = (int)(p - wb[nb]);
+        ++nb;
+      }
+    }
+    if (na <= nb) { ws = wa; ls = la; ns = na; wl = wb; ll = lb; nl = nb; }
+    else { ws = wb; ls = lb; ns = nb; wl = wa; ll = la; nl = na; }
+    for (j = 0; j < nl; ++j) used[j] = 0;
+    for (i = 0; i < ns; ++i) {
+      int best_j = -1, best_d = (1 << 30);
+      for (j = 0; j < nl; ++j) {
+        int d;
+        if (0 != used[j]) continue;
+        d = internal_libxs_levenshtein(ws[i], ls[i], wl[j], ll[j]);
+        if (d <= tolerance && d < best_d) { best_d = d; best_j = j; }
+      }
+      if (-1 != best_j) used[best_j] = 1;
+      else ++result;
+    }
+    if (NULL != count) *count = LIBXS_MAX(na, nb);
+  }
+  else {
+    result = -1;
+    if (NULL != count) *count = 0;
+  }
+  return result;
+}
+
+
 LIBXS_API size_t libxs_format_value(char buffer[],
   int buffer_size, size_t nbytes, const char scale[], const char* unit, int base)
 {

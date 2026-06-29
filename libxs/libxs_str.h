@@ -57,6 +57,16 @@ LIBXS_API const char* libxs_strtoken(const char str[],
   const char delims[], int index, int* length);
 
 /**
+ * Word-level set difference: count how many words in the smaller string cannot be
+ * matched (within edit distance tolerance) to any word in the larger string.
+ * Matching is greedy, case-insensitive, and each word can be matched at most once.
+ * Returns the number of unmatched words (0 = all words matched), or -1 on NULL input.
+ * Optional count receives the total word count of the larger string.
+ */
+LIBXS_API int libxs_stridiff(const char a[], const char b[],
+  const char delims[], int tolerance, int* count);
+
+/**
  * Format for instance an amount of Bytes like libxs_format_value(result, sizeof(result), nbytes, "KMGT", "B", 10).
  * The value returned is in requested/determined unit so that the user can decide about printing the buffer.
  */

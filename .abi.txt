@@ -196,6 +196,7 @@ libxs_stratify_hilbert
 libxs_stratify_hilbert_bits
 libxs_stratify_morton
 libxs_stratify_morton_bits
+libxs_stridiff
 libxs_stridist
 libxs_strimatch
 libxs_strisimilar
