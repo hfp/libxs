@@ -153,6 +153,7 @@ HEADERS_MAIN := \
           $(ROOTINC)/$(PROJECT)_str.h \
           $(ROOTINC)/$(PROJECT)_sync.h \
           $(ROOTINC)/$(PROJECT)_timer.h \
+          $(ROOTINC)/$(PROJECT)_token.h \
           $(ROOTINC)/$(PROJECT)_utils.h \
           $(NULL)
 HEADERS_SRC := $(wildcard $(ROOTSRC)/*.h)
@@ -162,7 +163,7 @@ SRCFILES := $(patsubst %,$(ROOTSRC)/%, \
           $(PROJECT)_hash.c $(PROJECT)_hist.c $(PROJECT)_main.c $(PROJECT)_malloc.c \
           $(PROJECT)_gemm.c $(PROJECT)_math.c $(PROJECT)_mem.c $(PROJECT)_mhd.c $(PROJECT)_perm.c \
           $(PROJECT)_predict.c $(PROJECT)_reg.c $(PROJECT)_rng.c $(PROJECT)_str.c \
-          $(PROJECT)_sync.c $(PROJECT)_timer.c $(PROJECT)_utils.c)
+          $(PROJECT)_sync.c $(PROJECT)_timer.c $(PROJECT)_token.c $(PROJECT)_utils.c)
 
 OBJFILES := $(patsubst %,$(BLDDIR)/intel64/%.o,$(basename $(notdir $(SRCFILES))))
 

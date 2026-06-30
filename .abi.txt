@@ -219,6 +219,12 @@ libxs_tid
 libxs_timer_duration
 libxs_timer_info
 libxs_timer_tick
+libxs_token_decode
+libxs_token_info
+libxs_token_stream_destroy
+libxs_token_stream_push
+libxs_token_stream_reserve
+libxs_tokenize
 libxs_typename
 libxs_typesize
 libxs_unshuffle

@@ -42,6 +42,7 @@
 #include "../src/libxs_str.c"
 #include "../src/libxs_sync.c"
 #include "../src/libxs_timer.c"
+#include "../src/libxs_token.c"
 #include "../src/libxs_utils.c"
 
 #endif /*LIBXS_SOURCE_H*/

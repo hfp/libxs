@@ -408,108 +408,113 @@ LIBXS_API_INLINE double internal_libxs_predict_classify2(
   const int ndistinct_thresh = (int)(sqrt((double)nc) + 0.5);
   double candidates[LIBXS_PREDICT_KNN];
   double dists[LIBXS_PREDICT_KNN];
-  double best_val = cl->raw_outputs[output_j];
+  double best_val = 0.0;
   int nfound = 0, exact = 0, i, max_idx = 0;
-  if (0 != extrapolate) {
+  if (NULL != confidence) *confidence = 0.0;
+  if (NULL != out_variance) *out_variance = 0.0;
+  if (nc > 0 && NULL != cl->raw_outputs) {
+    best_val = cl->raw_outputs[output_j];
+    if (0 != extrapolate) {
+      for (i = 0; i < nc; ++i) {
+        if (cl->sorted_idx[i] > max_idx) max_idx = cl->sorted_idx[i];
+      }
+    }
     for (i = 0; i < nc; ++i) {
-      if (cl->sorted_idx[i] > max_idx) max_idx = cl->sorted_idx[i];
-    }
-  }
-  for (i = 0; i < nc; ++i) {
-    double d2;
-    if (i == skip_local) continue;
-    d2 = libxs_dist2(inputs, kd_pts + (size_t)i * m, m);
-    if (0 != extrapolate && max_idx > 0) {
-      const double age = 1.0 - (double)cl->sorted_idx[i] / (double)max_idx;
-      d2 *= 1.0 + 0.5 * age;
-    }
-    if (NULL != po_groups && query_group >= 0
-      && po_groups[cl->sorted_idx[i]] != query_group)
-    {
-      continue;
-    }
-    if (nfound < k) {
-      candidates[nfound] = cl->raw_outputs[(size_t)i * nouts + output_j];
-      dists[nfound] = sqrt(d2);
-      if (0 == nfound && 0.0 == d2) {
-        best_val = candidates[0];
-        exact = 1;
+      double d2;
+      if (i == skip_local) continue;
+      d2 = libxs_dist2(inputs, kd_pts + (size_t)i * m, m);
+      if (0 != extrapolate && max_idx > 0) {
+        const double age = 1.0 - (double)cl->sorted_idx[i] / (double)max_idx;
+        d2 *= 1.0 + 0.5 * age;
       }
-      ++nfound;
-    }
-    else {
-      int worst = 0, wi;
-      for (wi = 1; wi < nfound; ++wi) {
-        if (dists[wi] > dists[worst]) worst = wi;
+      if (NULL != po_groups && query_group >= 0
+        && po_groups[cl->sorted_idx[i]] != query_group)
+      {
+        continue;
       }
-      if (sqrt(d2) < dists[worst]) {
-        candidates[worst] = cl->raw_outputs[(size_t)i * nouts + output_j];
-        dists[worst] = sqrt(d2);
-      }
-    }
-  }
-  if (NULL != out_variance) {
-    if (0 != exact || nfound <= 1) {
-      *out_variance = 0;
-    }
-    else {
-      double mean = 0, v = 0;
-      for (i = 0; i < nfound; ++i) mean += candidates[i];
-      mean /= nfound;
-      for (i = 0; i < nfound; ++i) {
-        const double d = candidates[i] - mean;
-        v += d * d;
-      }
-      *out_variance = v / nfound;
-    }
-  }
-  if (0 == exact && nfound > 0) {
-    if (ndistinct > ndistinct_thresh) {
-      double wsum = 0, wavg = 0;
-      for (i = 0; i < nfound; ++i) {
-        const double wi = (dists[i] > 0.0) ? (1.0 / dists[i]) : 1e30;
-        wavg += wi * candidates[i];
-        wsum += wi;
-      }
-      wavg = (wsum > 0.0) ? wavg / wsum : candidates[0];
-      if (0 != extrapolate) {
-        best_val = wavg;
+      if (nfound < k) {
+        candidates[nfound] = cl->raw_outputs[(size_t)i * nouts + output_j];
+        dists[nfound] = sqrt(d2);
+        if (0 == nfound && 0.0 == d2) {
+          best_val = candidates[0];
+          exact = 1;
+        }
+        ++nfound;
       }
       else {
-        double best_dist = DBL_MAX;
-        for (i = 0; i < nc; ++i) {
-          const double v = cl->raw_outputs[(size_t)i * nouts + output_j];
-          const double d = (v > wavg) ? (v - wavg) : (wavg - v);
-          if (d < best_dist) { best_dist = d; best_val = v; }
+        int worst = 0, wi;
+        for (wi = 1; wi < nfound; ++wi) {
+          if (dists[wi] > dists[worst]) worst = wi;
+        }
+        if (sqrt(d2) < dists[worst]) {
+          candidates[worst] = cl->raw_outputs[(size_t)i * nouts + output_j];
+          dists[worst] = sqrt(d2);
         }
       }
-      if (NULL != confidence) {
-        *confidence = 1.0;
+    }
+    if (NULL != out_variance) {
+      if (0 != exact || nfound <= 1) {
+        *out_variance = 0;
+      }
+      else {
+        double mean = 0, v = 0;
+        for (i = 0; i < nfound; ++i) mean += candidates[i];
+        mean /= nfound;
+        for (i = 0; i < nfound; ++i) {
+          const double d = candidates[i] - mean;
+          v += d * d;
+        }
+        *out_variance = v / nfound;
       }
     }
-    else {
-      double best_weight = 0;
-      for (i = 0; i < nfound; ++i) {
-        double ws = 0;
-        int ii;
-        for (ii = 0; ii < nfound; ++ii) {
-          if (candidates[ii] == candidates[i]) {
-            ws += (dists[ii] > 0.0) ? (1.0 / dists[ii]) : 1e30;
+    if (0 == exact && nfound > 0) {
+      if (ndistinct > ndistinct_thresh) {
+        double wsum = 0, wavg = 0;
+        for (i = 0; i < nfound; ++i) {
+          const double wi = (dists[i] > 0.0) ? (1.0 / dists[i]) : 1e30;
+          wavg += wi * candidates[i];
+          wsum += wi;
+        }
+        wavg = (wsum > 0.0) ? wavg / wsum : candidates[0];
+        if (0 != extrapolate) {
+          best_val = wavg;
+        }
+        else {
+          double best_dist = DBL_MAX;
+          for (i = 0; i < nc; ++i) {
+            const double v = cl->raw_outputs[(size_t)i * nouts + output_j];
+            const double d = (v > wavg) ? (v - wavg) : (wavg - v);
+            if (d < best_dist) { best_dist = d; best_val = v; }
           }
         }
-        if (ws > best_weight) { best_weight = ws; best_val = candidates[i]; }
-      }
-      if (NULL != confidence) {
-        double total_weight = 0;
-        for (i = 0; i < nfound; ++i) {
-          total_weight += (dists[i] > 0.0) ? (1.0 / dists[i]) : 1e30;
+        if (NULL != confidence) {
+          *confidence = 1.0;
         }
-        *confidence = (total_weight > 0.0) ? best_weight / total_weight : 1.0;
+      }
+      else {
+        double best_weight = 0;
+        for (i = 0; i < nfound; ++i) {
+          double ws = 0;
+          int ii;
+          for (ii = 0; ii < nfound; ++ii) {
+            if (candidates[ii] == candidates[i]) {
+              ws += (dists[ii] > 0.0) ? (1.0 / dists[ii]) : 1e30;
+            }
+          }
+          if (ws > best_weight) { best_weight = ws; best_val = candidates[i]; }
+        }
+        if (NULL != confidence) {
+          double total_weight = 0;
+          for (i = 0; i < nfound; ++i) {
+            total_weight += (dists[i] > 0.0) ? (1.0 / dists[i]) : 1e30;
+          }
+          *confidence = (total_weight > 0.0) ? best_weight / total_weight : 1.0;
+        }
       }
     }
-  }
-  else if (NULL != confidence) {
-    *confidence = 1.0;
+    else if (NULL != confidence) {
+      *confidence = 1.0;
+    }
   }
   return best_val;
 }
@@ -1701,9 +1706,19 @@ LIBXS_API void libxs_predict_eval(libxs_lock_t* lock, const libxs_predict_t* mod
     best_dist = libxs_dist2(norm_inputs, model->clusters[0].centroid, m);
     for (c = 1; c < model->nclusters; ++c) {
       const double d = libxs_dist2(norm_inputs, model->clusters[c].centroid, m);
-      if (d < best_dist) { best_dist = d; best_c = c; }
+      if (d < best_dist && model->clusters[c].nentries > 0) {
+        best_dist = d; best_c = c;
+      }
     }
-    if (NULL != model->rf) {
+    if (model->clusters[best_c].nentries <= 0) {
+      for (c = 0; c < model->nclusters; ++c) {
+        if (model->clusters[c].nentries > 0) { best_c = c; break; }
+      }
+    }
+    if (model->clusters[best_c].nentries <= 0) {
+      nblend = 0;
+    }
+    else if (NULL != model->rf) {
       for (j = 0; j < n; ++j) {
         double rf_conf = 0;
         const int rf_label = internal_libxs_predict_rf_eval_output(
