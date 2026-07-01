@@ -22,6 +22,7 @@
 
 #define PAIRCNT_NDIMS 3
 #define PAIRCNT_NBINS_MAX 128
+#define PAIRCNT_LEAF_MAX 256
 
 
 typedef struct paircnt_catalog_t {
@@ -30,13 +31,11 @@ typedef struct paircnt_catalog_t {
   double boxsize;
 } paircnt_catalog_t;
 
-
 typedef struct paircnt_bins_t {
   double edges[PAIRCNT_NBINS_MAX + 1];
   double edges2[PAIRCNT_NBINS_MAX + 1];
   int nbins;
 } paircnt_bins_t;
-
 
 typedef struct paircnt_node_t {
   double lo[PAIRCNT_NDIMS];
@@ -47,7 +46,6 @@ typedef struct paircnt_node_t {
   int right;
 } paircnt_node_t;
 
-
 typedef struct paircnt_tree_t {
   paircnt_node_t* nodes;
   int nnodes;
@@ -56,6 +54,135 @@ typedef struct paircnt_tree_t {
   const int* idx;
   int n;
 } paircnt_tree_t;
+
+
+static int read_catalog_text(const char* path, paircnt_catalog_t* cat);
+static int read_catalog_ff(const char* path, paircnt_catalog_t* cat);
+static int read_catalog(const char* path, paircnt_catalog_t* cat);
+static int make_bins_log(paircnt_bins_t* bins, double rmin,
+  double rmax, int nbins);
+static int tree_build(paircnt_tree_t* tree, const double* pts,
+  const int* idx, int n, int min_leaf);
+static double min_dist2_between_boxes(
+  const double* lo_a, const double* hi_a,
+  const double* lo_b, const double* hi_b);
+static double max_dist2_between_boxes(
+  const double* lo_a, const double* hi_a,
+  const double* lo_b, const double* hi_b);
+static void count_pairs_leaf(const double* pts, const int* idx,
+  int begin_a, int end_a, int begin_b, int end_b,
+  const paircnt_bins_t* bins, long long* counts);
+static void count_pairs_leaf_self(const double* pts,
+  const int* idx, int begin, int end,
+  const paircnt_bins_t* bins, long long* counts);
+static void count_pairs_dual(const paircnt_tree_t* tree,
+  int node_a, int node_b,
+  const paircnt_bins_t* bins, long long* counts);
+
+
+int main(int argc, char* argv[])
+{
+  int result = EXIT_FAILURE;
+  int argi = 1, nbins = 20, leaf = 64, i;
+  double rmin = 0.1, rmax = 25.0, boxsize = 0.0;
+  const char* catalog_path = NULL;
+  paircnt_catalog_t cat;
+  paircnt_bins_t bins;
+  paircnt_tree_t tree;
+  long long* counts = NULL;
+  int* idx = NULL;
+  libxs_timer_tick_t tick;
+  double t_build, t_count;
+
+  memset(&cat, 0, sizeof(cat));
+  memset(&bins, 0, sizeof(bins));
+  memset(&tree, 0, sizeof(tree));
+
+  while (argi < argc) {
+    if (0 == strcmp(argv[argi], "--rmin") && argi + 1 < argc) {
+      rmin = atof(argv[++argi]);
+    }
+    else if (0 == strcmp(argv[argi], "--rmax") && argi + 1 < argc) {
+      rmax = atof(argv[++argi]);
+    }
+    else if (0 == strcmp(argv[argi], "--nbins") && argi + 1 < argc) {
+      nbins = atoi(argv[++argi]);
+    }
+    else if (0 == strcmp(argv[argi], "--boxsize") && argi + 1 < argc) {
+      boxsize = atof(argv[++argi]);
+    }
+    else if (0 == strcmp(argv[argi], "--leaf") && argi + 1 < argc) {
+      leaf = atoi(argv[++argi]);
+    }
+    else if (NULL == catalog_path) {
+      catalog_path = argv[argi];
+    }
+    ++argi;
+  }
+
+  if (NULL == catalog_path) {
+    fprintf(stderr,
+      "usage: paircnt_dd <catalog> [--rmin R] [--rmax R] "
+      "[--nbins N] [--boxsize L]\n");
+    result = EXIT_FAILURE;
+  }
+  else {
+    result = EXIT_SUCCESS;
+  }
+  if (EXIT_SUCCESS == result) {
+    result = read_catalog(catalog_path, &cat);
+    if (EXIT_SUCCESS == result) {
+      cat.boxsize = boxsize;
+      fprintf(stderr, "catalog: %d points from %s\n", cat.n, catalog_path);
+    }
+  }
+  if (EXIT_SUCCESS == result) {
+    result = make_bins_log(&bins, rmin, rmax, nbins);
+  }
+  if (EXIT_SUCCESS == result) {
+    idx = (int*)malloc((size_t)cat.n * sizeof(int));
+    counts = (long long*)calloc((size_t)nbins, sizeof(long long));
+    if (NULL == idx || NULL == counts) result = EXIT_FAILURE;
+  }
+  if (EXIT_SUCCESS == result) {
+    libxs_kdtree_config_t cfg;
+    for (i = 0; i < cat.n; ++i) idx[i] = i;
+    cfg.min_leaf = leaf;
+    cfg.split = NULL;
+    cfg.ctx = NULL;
+    tick = libxs_timer_tick();
+    libxs_kdtree_build(cat.pts, idx, cat.n, PAIRCNT_NDIMS,
+      PAIRCNT_NDIMS, &cfg);
+    t_build = libxs_timer_duration(tick, libxs_timer_tick());
+    fprintf(stderr, "kdtree: %.3f ms (%d points, leaf=%d)\n",
+      t_build * 1e3, cat.n, cfg.min_leaf);
+  }
+  if (EXIT_SUCCESS == result) {
+    result = tree_build(&tree, cat.pts, idx, cat.n, leaf);
+  }
+  if (EXIT_SUCCESS == result) {
+    tick = libxs_timer_tick();
+    count_pairs_dual(&tree, 0, 0, &bins, counts);
+    t_count = libxs_timer_duration(tick, libxs_timer_tick());
+    fprintf(stderr, "paircnt: %.3f ms\n", t_count * 1e3);
+  }
+  if (EXIT_SUCCESS == result) {
+    long long total = 0;
+    printf("# rmin rmax npairs\n");
+    for (i = 0; i < nbins; ++i) {
+      long long npairs = 2 * counts[i];
+      printf("%.6e %.6e %lld\n", bins.edges[i], bins.edges[i + 1], npairs);
+      total += npairs;
+    }
+    fprintf(stderr, "total pairs: %lld\n", total);
+  }
+
+  free(tree.nodes);
+  free(counts);
+  free(idx);
+  free(cat.pts);
+  return result;
+}
 
 
 static int read_catalog_text(const char* path, paircnt_catalog_t* cat)
@@ -241,7 +368,7 @@ static int make_bins_log(paircnt_bins_t* bins, double rmin, double rmax,
 
 
 static int tree_build(paircnt_tree_t* tree, const double* pts,
-  const int* idx, int n)
+  const int* idx, int n, int min_leaf)
 {
   int result = EXIT_SUCCESS, stack[128], sp = 0;
   assert(NULL != tree && NULL != pts && NULL != idx);
@@ -304,7 +431,7 @@ static int tree_build(paircnt_tree_t* tree, const double* pts,
         }
       }
     }
-    if (count > 16) {
+    if (count > min_leaf) {
       node->left = -2;
       node->right = -2;
       if (sp + 6 > (int)(sizeof(stack) / sizeof(stack[0]))) {
@@ -359,28 +486,31 @@ static void count_pairs_leaf(const double* pts, const int* idx,
   int begin_a, int end_a, int begin_b, int end_b,
   const paircnt_bins_t* bins, long long* counts)
 {
-  int ia, ib;
-  double rmax2 = bins->edges2[bins->nbins];
-  double rmin2 = bins->edges2[0];
+  int ia, ib, nb = end_b - begin_b;
+  const int nbins = bins->nbins;
+  const double* edges2 = bins->edges2;
+  double rmax2 = edges2[nbins];
+  double rmin2 = edges2[0];
+  double r2buf[PAIRCNT_LEAF_MAX];
   for (ia = begin_a; ia < end_a; ++ia) {
     int pi = idx[ia];
     double xi = pts[pi * PAIRCNT_NDIMS + 0];
     double yi = pts[pi * PAIRCNT_NDIMS + 1];
     double zi = pts[pi * PAIRCNT_NDIMS + 2];
-    for (ib = begin_b; ib < end_b; ++ib) {
-      int pj = idx[ib];
+    LIBXS_PRAGMA_SIMD
+    for (ib = 0; ib < nb; ++ib) {
+      int pj = idx[begin_b + ib];
       double dx = xi - pts[pj * PAIRCNT_NDIMS + 0];
       double dy = yi - pts[pj * PAIRCNT_NDIMS + 1];
       double dz = zi - pts[pj * PAIRCNT_NDIMS + 2];
-      double r2 = dx * dx + dy * dy + dz * dz;
+      r2buf[ib] = dx * dx + dy * dy + dz * dz;
+    }
+    for (ib = 0; ib < nb; ++ib) {
+      double r2 = r2buf[ib];
       if (r2 >= rmin2 && r2 < rmax2) {
-        int lo = 0, hi = bins->nbins;
-        while (lo < hi) {
-          int mid = (lo + hi) / 2;
-          if (r2 >= bins->edges2[mid + 1]) lo = mid + 1;
-          else hi = mid;
-        }
-        if (r2 >= bins->edges2[lo]) ++counts[lo];
+        int k = nbins - 1;
+        while (k > 0 && r2 < edges2[k]) --k;
+        ++counts[k];
       }
     }
   }
@@ -391,28 +521,32 @@ static void count_pairs_leaf_self(const double* pts, const int* idx,
   int begin, int end,
   const paircnt_bins_t* bins, long long* counts)
 {
-  int ia, ib;
-  double rmax2 = bins->edges2[bins->nbins];
-  double rmin2 = bins->edges2[0];
+  int ia, ib, nb;
+  const int nbins = bins->nbins;
+  const double* edges2 = bins->edges2;
+  double rmax2 = edges2[nbins];
+  double rmin2 = edges2[0];
+  double r2buf[PAIRCNT_LEAF_MAX];
   for (ia = begin; ia < end; ++ia) {
     int pi = idx[ia];
     double xi = pts[pi * PAIRCNT_NDIMS + 0];
     double yi = pts[pi * PAIRCNT_NDIMS + 1];
     double zi = pts[pi * PAIRCNT_NDIMS + 2];
-    for (ib = ia + 1; ib < end; ++ib) {
-      int pj = idx[ib];
+    nb = end - (ia + 1);
+    LIBXS_PRAGMA_SIMD
+    for (ib = 0; ib < nb; ++ib) {
+      int pj = idx[ia + 1 + ib];
       double dx = xi - pts[pj * PAIRCNT_NDIMS + 0];
       double dy = yi - pts[pj * PAIRCNT_NDIMS + 1];
       double dz = zi - pts[pj * PAIRCNT_NDIMS + 2];
-      double r2 = dx * dx + dy * dy + dz * dz;
+      r2buf[ib] = dx * dx + dy * dy + dz * dz;
+    }
+    for (ib = 0; ib < nb; ++ib) {
+      double r2 = r2buf[ib];
       if (r2 >= rmin2 && r2 < rmax2) {
-        int lo = 0, hi = bins->nbins;
-        while (lo < hi) {
-          int mid = (lo + hi) / 2;
-          if (r2 >= bins->edges2[mid + 1]) lo = mid + 1;
-          else hi = mid;
-        }
-        if (r2 >= bins->edges2[lo]) ++counts[lo];
+        int k = nbins - 1;
+        while (k > 0 && r2 < edges2[k]) --k;
+        ++counts[k];
       }
     }
   }
@@ -456,104 +590,4 @@ static void count_pairs_dual(const paircnt_tree_t* tree,
     count_pairs_dual(tree, node_a, b->left, bins, counts);
     count_pairs_dual(tree, node_a, b->right, bins, counts);
   }
-}
-
-
-int main(int argc, char* argv[])
-{
-  int result = EXIT_FAILURE;
-  int argi = 1, nbins = 20, i;
-  double rmin = 0.1, rmax = 25.0, boxsize = 0.0;
-  const char* catalog_path = NULL;
-  paircnt_catalog_t cat;
-  paircnt_bins_t bins;
-  paircnt_tree_t tree;
-  long long* counts = NULL;
-  int* idx = NULL;
-  double t_build, t_count;
-
-  memset(&cat, 0, sizeof(cat));
-  memset(&bins, 0, sizeof(bins));
-  memset(&tree, 0, sizeof(tree));
-
-  while (argi < argc) {
-    if (0 == strcmp(argv[argi], "--rmin") && argi + 1 < argc) {
-      rmin = atof(argv[++argi]);
-    }
-    else if (0 == strcmp(argv[argi], "--rmax") && argi + 1 < argc) {
-      rmax = atof(argv[++argi]);
-    }
-    else if (0 == strcmp(argv[argi], "--nbins") && argi + 1 < argc) {
-      nbins = atoi(argv[++argi]);
-    }
-    else if (0 == strcmp(argv[argi], "--boxsize") && argi + 1 < argc) {
-      boxsize = atof(argv[++argi]);
-    }
-    else if (NULL == catalog_path) {
-      catalog_path = argv[argi];
-    }
-    ++argi;
-  }
-
-  if (NULL == catalog_path) {
-    fprintf(stderr,
-      "usage: paircnt_dd <catalog> [--rmin R] [--rmax R] "
-      "[--nbins N] [--boxsize L]\n");
-    result = EXIT_FAILURE;
-  }
-  else {
-    result = EXIT_SUCCESS;
-  }
-  if (EXIT_SUCCESS == result) {
-    result = read_catalog(catalog_path, &cat);
-    if (EXIT_SUCCESS == result) {
-      cat.boxsize = boxsize;
-      fprintf(stderr, "catalog: %d points from %s\n", cat.n, catalog_path);
-    }
-  }
-  if (EXIT_SUCCESS == result) {
-    result = make_bins_log(&bins, rmin, rmax, nbins);
-  }
-  if (EXIT_SUCCESS == result) {
-    idx = (int*)malloc((size_t)cat.n * sizeof(int));
-    counts = (long long*)calloc((size_t)nbins, sizeof(long long));
-    if (NULL == idx || NULL == counts) result = EXIT_FAILURE;
-  }
-  if (EXIT_SUCCESS == result) {
-    libxs_kdtree_config_t cfg;
-    for (i = 0; i < cat.n; ++i) idx[i] = i;
-    cfg.min_leaf = 16;
-    cfg.split = NULL;
-    cfg.ctx = NULL;
-    t_build = libxs_timer();
-    libxs_kdtree_build(cat.pts, idx, cat.n, PAIRCNT_NDIMS,
-      PAIRCNT_NDIMS, &cfg);
-    t_build = libxs_timer() - t_build;
-    fprintf(stderr, "kdtree: %.3f ms (%d points, leaf=%d)\n",
-      t_build * 1e3, cat.n, cfg.min_leaf);
-  }
-  if (EXIT_SUCCESS == result) {
-    result = tree_build(&tree, cat.pts, idx, cat.n);
-  }
-  if (EXIT_SUCCESS == result) {
-    t_count = libxs_timer();
-    count_pairs_dual(&tree, 0, 0, &bins, counts);
-    t_count = libxs_timer() - t_count;
-    fprintf(stderr, "paircnt: %.3f ms\n", t_count * 1e3);
-  }
-  if (EXIT_SUCCESS == result) {
-    long long total = 0;
-    printf("# rmin rmax npairs\n");
-    for (i = 0; i < nbins; ++i) {
-      printf("%.6e %.6e %lld\n", bins.edges[i], bins.edges[i + 1], counts[i]);
-      total += counts[i];
-    }
-    fprintf(stderr, "total pairs: %lld\n", total);
-  }
-
-  free(tree.nodes);
-  free(counts);
-  free(idx);
-  free(cat.pts);
-  return result;
 }

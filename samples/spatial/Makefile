@@ -1,9 +1,36 @@
+ROOTDIR = $(abspath $(dir $(firstword $(MAKEFILE_LIST))))
 PROJECT := libxs
-DEPDIR ?= ../..
+DEPDIR = ../..
+SRCDIR = .
+INCDIR = .
+BLDDIR = obj
+OUTDIR = .
+
+CXXFLAGS = $(NULL)
+CFLAGS = $(NULL)
+DFLAGS = $(NULL)
+
+BLAS = 0
+OMP = 1
+SYM = 1
+SSE = 0
+
+# include common Makefile artifacts
+include $(DEPDIR)/Makefile.inc
+
+# header-only when library is not (yet) built
+ifeq (,$(XLIB))
+ifneq (,$(wildcard $(DEPDIR)/libxs/libxs_source.h))
+  DFLAGS += -DLIBXS_SOURCE
+  HEADERONLY = 1
+endif
+endif
+
+IFLAGS += -I$(call quote,$(INCDIR))
+IFLAGS += -I$(call quote,$(DEPDIR))
+IFLAGS += -I$(call quote,$(DEPDIR)/libxs)
+
 PYTHON ?= python3
-CC ?= gcc
-CFLAGS ?= -O2 -Wall
-HAVE_SHLIB := $(wildcard $(DEPDIR)/lib/$(PROJECT).so $(DEPDIR)/lib/$(PROJECT).dylib $(DEPDIR)/lib/$(PROJECT).dll)
 HDF5_FILE ?=
 HDF5_DATASET ?= ECAL
 HDF5_LAYOUT ?= auto
@@ -26,23 +53,28 @@ PAIRCNT_NBINS ?= 20
 MEDMNIST3D_INPUT_ARG = $(if $(MEDMNIST3D_NPZ),--npz "$(MEDMNIST3D_NPZ)",--root "$(MEDMNIST3D_ROOT)" --flag "$(MEDMNIST3D_FLAG)" --size "$(MEDMNIST3D_SIZE)")
 MEDMNIST3D_METRICS_INPUT_ARG = $(if $(MEDMNIST3D_NPZ),--medmnist3d-npz "$(MEDMNIST3D_NPZ)",--medmnist3d --medmnist3d-root "$(MEDMNIST3D_ROOT)" --medmnist3d-flag "$(MEDMNIST3D_FLAG)" --medmnist3d-size "$(MEDMNIST3D_SIZE)")
 
-.PHONY: all run dense3d volume hdf5 medmnist3d metrics medmnist3d-metrics paircnt paircnt-validate clean realclean deepclean
+HEADERS := $(wildcard $(INCDIR)/*.h) \
+           $(wildcard $(SRCDIR)/*.h) \
+           $(DEPDIR)/libxs/libxs_source.h
+CSOURCS := $(wildcard $(SRCDIR)/paircnt_*.c)
+COBJCTS := $(patsubst %,$(BLDDIR)/%,$(notdir $(CSOURCS:.c=-c.o)))
+SOURCES := $(CSOURCS)
+OBJECTS := $(COBJCTS)
+XFILES := $(OUTDIR)/paircnt_dd.x
 
-all: run
+.PHONY: all
+all: $(XFILES)
 
-run: $(if $(HAVE_SHLIB),dense3d)
+.PHONY: compile
+compile: $(OBJECTS)
 
-paircnt_dd: paircnt_dd.c
-	$(CC) $(CFLAGS) -I$(DEPDIR)/include -L$(DEPDIR)/lib -o $@ $< -l$(PROJECT) -lm
+$(OUTDIR)/paircnt_dd.x: $(OUTDIR)/.make $(BLDDIR)/paircnt_dd-c.o $(XLIB)
+	$(LD) -o $@ $(BLDDIR)/paircnt_dd-c.o $(XLIB) $(SLDFLAGS) $(LDFLAGS) $(CLDFLAGS)
 
-paircnt_catalog.dat:
-	$(PYTHON) paircnt_gendata.py --npoints $(PAIRCNT_NPOINTS) --boxsize $(PAIRCNT_BOXSIZE) --out $@
+$(BLDDIR)/%-c.o: $(SRCDIR)/%.c .state $(BLDDIR)/.make $(HEADERS) Makefile $(DEPDIR)/Makefile.inc
+	$(CC) $(DFLAGS) $(IFLAGS) $(CFLAGS) $(CTARGET) -c $< -o $@
 
-paircnt: paircnt_dd paircnt_catalog.dat
-	./paircnt_dd paircnt_catalog.dat --rmin $(PAIRCNT_RMIN) --rmax $(PAIRCNT_RMAX) --nbins $(PAIRCNT_NBINS)
-
-paircnt-validate: paircnt_dd paircnt_catalog.dat
-	$(PYTHON) paircnt_validate.py paircnt_catalog.dat --rmin $(PAIRCNT_RMIN) --rmax $(PAIRCNT_RMAX) --nbins $(PAIRCNT_NBINS) --exe ./paircnt_dd
+.PHONY: dense3d volume hdf5 medmnist3d metrics medmnist3d-metrics
 
 dense3d:
 	$(PYTHON) stratify_dense3d.py --shape 8 16 16 --curve hilbert --frame "$(FRAME)" --out stratified_hilbert.pgm
@@ -63,12 +95,29 @@ metrics:
 medmnist3d-metrics:
 	$(PYTHON) stratify_dense3d_metrics.py $(MEDMNIST3D_METRICS_INPUT_ARG) --medmnist3d-split "$(MEDMNIST3D_SPLIT)" --medmnist3d-index "$(MEDMNIST3D_INDEX)" --curve hilbert --frame "$(FRAME)" --csv stratified_medmnist3d_metrics.csv
 
+.PHONY: clean
 clean:
-	@-rm -f stratified_*.pgm stratified_*.csv
-	@-rm -f stratified_*.h5
-	@-rm -f paircnt_dd paircnt_catalog.dat
+ifneq ($(call qapath,$(BLDDIR)),$(ROOTDIR))
+ifneq ($(call qapath,$(BLDDIR)),$(call qapath,.))
+	@-rm -rf $(BLDDIR)
+endif
+endif
+ifneq (,$(wildcard $(BLDDIR))) # still exists
+	@-rm -f $(OBJECTS)
+endif
+	@-rm -f stratified_*.pgm stratified_*.csv stratified_*.h5
 	@-rm -rf __pycache__
 
+.PHONY: realclean
 realclean: clean
+ifneq ($(call qapath,$(OUTDIR)),$(ROOTDIR))
+ifneq ($(call qapath,$(OUTDIR)),$(call qapath,.))
+	@-rm -rf $(OUTDIR)
+endif
+endif
+ifneq (,$(wildcard $(OUTDIR))) # still exists
+	@-rm -f $(XFILES)
+endif
 
+.PHONY: deepclean
 deepclean: realclean
