@@ -36,13 +36,21 @@ jobs:
     - name: Install GCC ${{ matrix.gcc }}
       run: |
         sudo apt update -y
-        sudo apt install -y gcc-${{ matrix.gcc }} g++-${{ matrix.gcc }} gfortran-${{ matrix.gcc }}
+        sudo apt install -y gcc-${{ matrix.gcc }} g++-${{ matrix.gcc }}
+
+    - name: Install GNU Fortran ${{ matrix.gcc }}
+      if: matrix.libxstream != 'header-only'
+      run: sudo apt install -y gfortran-${{ matrix.gcc }}
 
     - name: Install OpenBLAS
       run: sudo apt install -y libopenblas-openmp-dev
 
     - name: Install OpenCL
       run: sudo apt install -y opencl-c-headers ocl-icd-libopencl1 ocl-icd-opencl-dev
+
+    - name: Build LIBXS
+      if: matrix.libxstream != 'header-only'
+      run: make -j $(nproc) ${{ matrix.flags }}
 
     - name: Setup LIBXSTREAM
       run: |
@@ -53,16 +61,15 @@ jobs:
       if: matrix.libxstream == 'prebuilt'
       run: cd ${LIBXSTREAMROOT} && make -j $(nproc) ${{ matrix.flags }}
 
-    - name: Build LIBXS
-      run: make -j $(nproc) ${{ matrix.flags }}
-
     - name: Test
       run: make -j $(nproc) ${{ matrix.flags }} test
 
     - name: Install (PREFIX)
+      if: matrix.libxstream != 'header-only'
       run: make -j $(nproc) ${{ matrix.flags }} install PREFIX=$HOME/libxs-install
 
     - name: Verify install (PREFIX)
+      if: matrix.libxstream != 'header-only'
       run: |
         test -f $HOME/libxs-install/include/libxs/libxs.h
         test -f $HOME/libxs-install/include/libxs/libxs_version.h

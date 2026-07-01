@@ -141,7 +141,8 @@ int main(int argc, char* argv[])
 #endif
           dt_build = libxs_timer_duration(tick, libxs_timer_tick());
           if (EXIT_SUCCESS == build_ok) {
-            { libxs_predict_query_t qi = { 0 };
+            { libxs_predict_query_t qi;
+              memset(&qi, 0, sizeof(qi));
               libxs_predict_query(model, &qi);
               fprintf(stdout, "Built: %d clusters, %.1fx compression, order=%d"
                 " (%d entries, %.2f s)\n", qi.nclusters, qi.compression,

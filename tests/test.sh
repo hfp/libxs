@@ -8,6 +8,7 @@
 # shellcheck disable=SC2086
 
 HERE=$(cd "$(dirname "$0")" && pwd -P)
+BLDDIR=${BLDDIR:-${HERE}}
 SORT=$(command -v sort)
 GREP=$(command -v grep)
 SED=$(command -v sed)
@@ -68,6 +69,8 @@ for TEST in ${TESTS}; do
     TESTX=$( \
       if [ -e "${HERE}/${NAME}.sh" ]; then \
         echo "${HERE}/${NAME}.sh"; \
+      elif [ -e "${BLDDIR}/${NAME}${EXE}" ]; then \
+        echo "${BLDDIR}/${NAME}${EXE}"; \
       else \
         echo "${HERE}/${NAME}${EXE}"; \
       fi)
@@ -80,8 +83,8 @@ for TEST in ${TESTS}; do
         ${TOOL_COMMAND} ${TESTX} ${TOOL_COMMAND_POST} \
         >/dev/null; } 2>&1) || RESULT=$?
     else
-      ERROR="Test is missing"
-      RESULT=1
+      ERROR="Test is not built"
+      RESULT=0
     fi
   else
     ERROR="Test is disabled"

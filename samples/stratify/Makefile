@@ -1,5 +1,7 @@
 PROJECT := libxs
+DEPDIR ?= ../..
 PYTHON ?= python3
+HAVE_SHLIB := $(wildcard $(DEPDIR)/lib/$(PROJECT).so $(DEPDIR)/lib/$(PROJECT).dylib $(DEPDIR)/lib/$(PROJECT).dll)
 HDF5_FILE ?=
 HDF5_DATASET ?= ECAL
 HDF5_LAYOUT ?= auto
@@ -21,7 +23,7 @@ MEDMNIST3D_METRICS_INPUT_ARG = $(if $(MEDMNIST3D_NPZ),--medmnist3d-npz "$(MEDMNI
 
 all: run
 
-run: dense3d
+run: $(if $(HAVE_SHLIB),dense3d)
 
 dense3d:
 	$(PYTHON) stratify_dense3d.py --shape 8 16 16 --curve hilbert --frame "$(FRAME)" --out stratified_hilbert.pgm

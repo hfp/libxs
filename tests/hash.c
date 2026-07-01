@@ -144,7 +144,7 @@ int main(void)
   /* CRC-32 ISO 3309: byte-at-a-time must agree with bulk */
   h2 = 0xFFFFFFFF;
   for (i = 0; i < 9; ++i) {
-    h2 = libxs_hash_iso3309("123456789" + i, 1, h2);
+    h2 = libxs_hash_iso3309(&"123456789"[i], 1, h2);
   }
   a = h1;
   b = h2;

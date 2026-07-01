@@ -40,8 +40,11 @@ jobs:
           brew install gcc libomp
 
       - name: Build
-        run: |
-          make ${{ matrix.flags }}
+        if: matrix.libxstream != 'header-only'
+        run: make ${{ matrix.flags }}
+
+      - name: Test
+        run: make ${{ matrix.flags }} test
 
   CMake:
     runs-on: macos-latest

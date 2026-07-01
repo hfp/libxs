@@ -185,7 +185,7 @@ $(OUTDIR)/cgemm-wrap.x: $(BLDDIR)/gemm-cc.o $(OUTDIR)/libwrap.$(SLIBEXT) $(XSTRE
 
 .PHONY: $(OUTDIR)/dgemm-blas.x $(OUTDIR)/sgemm-blas.x
 .PHONY: $(OUTDIR)/zgemm-blas.x $(OUTDIR)/cgemm-blas.x
-else
+else ifneq (Darwin,$(UNAME))
 $(OUTDIR)/dgemm-blas.x: $(BLDDIR)/gemm-dc.o $(BLDDIR)/gemm-print-d.o $(OUTDIR)/libwrap.$(DLIBEXT) $(XSTREAM_LIB) $(XLIB) $(OUTDIR)/.make
 	$(LD) -o $@ $(BLDDIR)/gemm-dc.o $(BLDDIR)/gemm-print-d.o $(call abslib,$(XSTREAM_LIB)) $(call abslib,$(XLIB)) $(SLDFLAGS) $(LDFLAGS) $(CLDFLAGS)
 
@@ -198,6 +198,11 @@ $(OUTDIR)/zgemm-blas.x: $(BLDDIR)/gemm-zc.o $(BLDDIR)/gemm-print-d.o $(OUTDIR)/l
 $(OUTDIR)/cgemm-blas.x: $(BLDDIR)/gemm-cc.o $(BLDDIR)/gemm-print-s.o $(OUTDIR)/libwrap.$(DLIBEXT) $(XSTREAM_LIB) $(XLIB) $(OUTDIR)/.make
 	$(LD) -o $@ $(BLDDIR)/gemm-cc.o $(BLDDIR)/gemm-print-s.o $(call abslib,$(XSTREAM_LIB)) $(call abslib,$(XLIB)) $(SLDFLAGS) $(LDFLAGS) $(CLDFLAGS)
 
+.PHONY: $(OUTDIR)/dgemm-wrap.x $(OUTDIR)/sgemm-wrap.x
+.PHONY: $(OUTDIR)/zgemm-wrap.x $(OUTDIR)/cgemm-wrap.x
+else
+.PHONY: $(OUTDIR)/dgemm-blas.x $(OUTDIR)/sgemm-blas.x
+.PHONY: $(OUTDIR)/zgemm-blas.x $(OUTDIR)/cgemm-blas.x
 .PHONY: $(OUTDIR)/dgemm-wrap.x $(OUTDIR)/sgemm-wrap.x
 .PHONY: $(OUTDIR)/zgemm-wrap.x $(OUTDIR)/cgemm-wrap.x
 endif

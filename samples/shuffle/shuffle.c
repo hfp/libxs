@@ -444,7 +444,7 @@ size_t uint_reduce_op(const void* input, size_t elemsize, size_t count,
     }
     result = lo + hi;
     if (0 < split) {
-      unsigned long long n;
+      unsigned long long n = result;
       switch (redop) {
         case redop_imbalance: {
           n = LIBXS_UPDIV(LIBXS_DELTA(lo, hi) * count, result);
@@ -452,7 +452,7 @@ size_t uint_reduce_op(const void* input, size_t elemsize, size_t count,
         case redop_mdistance: {
           n = LIBXS_DELTA(result * 2, count * (count - 1)) / 2;
         } break;
-        default: n = result;
+        /*default: n = result;*/
       }
       /* normalize result relative to length of input */
       if (0 != result) result = LIBXS_UPDIV(n * count, result);

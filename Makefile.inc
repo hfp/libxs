@@ -23,6 +23,7 @@ GREP := $(call which,grep)
 CUT := $(call which,cut)
 CP := $(call which,cp)
 MV := $(call which,mv)
+AWK := $(call which,awk)
 MAKE ?= make
 
 SED := $(call which,gsed)
@@ -1117,7 +1118,7 @@ ifneq (Darwin,$(UNAME))
 else # macOS
   solink = -o $(call qbname,$1)$(call dot,$2).$(DLIBEXT) \
            -install_name $(call qbname,$(call qapath,$1))$(call dot,$2).$(DLIBEXT) \
-           -current_version $2$(call dot,$3,$3) -compatibility_version $5
+           $(if $2,-current_version $2$(call dot,$3,$3) -compatibility_version $5)
   ifneq (0,$(SONAMELNK))
     solink += $(shell cd $(call qdir,$1) 2>/dev/null $(if $2, && \
       ln -fs $(call qndir,$(call qbname,$1).$2.$(DLIBEXT)) $(call qndir,$(basename $1)).$(DLIBEXT) 2>/dev/null))
@@ -2505,7 +2506,8 @@ cleanup = $(foreach flag,$(subst //,/,$1),$(flag))
 cleanld = $(strip $(shell echo "$1 $2 $3 $4 $5 $6 $7 $8 $9 ${10} ${11} ${12}" | $(SED) \
   -e "s/[[:space:]]$(XLIB_BEGIN)[[:space:]]$(XLIB_END)/ /g" \
   -e "s/[[:space:]]$(XLIB_END)[[:space:]]$(XLIB_BEGIN)/ /g" \
-  -e "s/\/\//\//g"))
+  -e "s/\/\//\//g" $(if $(AWK),\
+  | $(AWK) '{for(i=NF;i>=1;i--){if($$i!~/^-l/||!s[$$i]++){r=$$i" "r}};print r}')))
 
 # common runtime libraries
 LDFLAGS := $(call uniqmov,LDFLAGS,LIBPTHREAD,$(XLIB_BEGIN) $(LIBPTHREAD) $(XLIB_END))

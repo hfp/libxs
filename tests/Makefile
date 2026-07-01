@@ -1,7 +1,7 @@
 ROOTDIR = $(abspath $(dir $(firstword $(MAKEFILE_LIST))))
 PROJECT := libxs
-DEPDIR = ..
-SRCDIR = .
+DEPDIR = $(ROOTDIR)/..
+SRCDIR = $(ROOTDIR)
 INCDIR = $(ROOTDIR)
 BLDDIR = obj
 OUTDIR = .
@@ -16,8 +16,18 @@ BLAS ?= 1
 OMP ?= 1
 SYM ?= 1
 
+EXCLUDE_STATE := DESTDIR PREFIX CURDIR OUTDIR TEST VERSION_STRING ALIAS_% LIBXS_BUILD_STATE %ROOT
+
 # include common Makefile artifacts
 include $(DEPDIR)/Makefile.inc
+
+# header-only when library is not (yet) built
+ifeq (,$(XLIB))
+ifneq (,$(wildcard $(DEPDIR)/libxs/libxs_source.h))
+  DFLAGS += -DLIBXS_SOURCE
+  HEADERONLY = 1
+endif
+endif
 
 # include directories
 IFLAGS += -I$(call quote,$(INCDIR))
@@ -45,6 +55,7 @@ CCXSRCS := $(shell grep -L '$(CMAIN)' $(SRCDIR)/*.cc  2>/dev/null | tr -s "\n" "
 CCXSRCX := $(shell grep -l '$(CMAIN)' $(SRCDIR)/*.cc  2>/dev/null | tr -s "\n" " ")
 CSOURCS := $(shell grep -L '$(CMAIN)' $(SRCDIR)/*.c   2>/dev/null | tr -s "\n" " ")
 CSOURCX := $(shell grep -l '$(CMAIN)' $(SRCDIR)/*.c   2>/dev/null | tr -s "\n" " ")
+ifneq (1,$(HEADERONLY))
 FXXSRCS := $(shell grep -L '$(FMAIN)' $(SRCDIR)/*.f   2>/dev/null | tr -s "\n" " ")
 FXXSRCX := $(shell grep -l '$(FMAIN)' $(SRCDIR)/*.f   2>/dev/null | tr -s "\n" " ")
 F77SRCS := $(shell grep -L '$(FMAIN)' $(SRCDIR)/*.F   2>/dev/null | tr -s "\n" " ")
@@ -53,6 +64,7 @@ F90SRCS := $(shell grep -L '$(FMAIN)' $(SRCDIR)/*.f90 2>/dev/null | tr -s "\n" "
            $(shell grep -L '$(FMAIN)' $(SRCDIR)/*.F90 2>/dev/null | tr -s "\n" " ")
 F90SRCX := $(shell grep -l '$(FMAIN)' $(SRCDIR)/*.f90 2>/dev/null | tr -s "\n" " ") \
            $(shell grep -l '$(FMAIN)' $(SRCDIR)/*.F90 2>/dev/null | tr -s "\n" " ")
+endif
 MODULES := $(addsuffix    .mod,$(basename $(FXXSRCS) $(F77SRCS) $(F90SRCS))) \
            $(addsuffix .modmic,$(basename $(FXXSRCS) $(F77SRCS) $(F90SRCS)))
 OBJECTS := $(call objname,$(CPPSRCS) $(CXXSRCS) $(CCXSRCS) $(CSOURCS))
@@ -62,19 +74,27 @@ FTNOBJX := $(call objname,$(FXXSRCX) $(F77SRCX) $(F90SRCX))
 XFILES  := $(addsuffix .x,$(addprefix $(OUTDIR)/,$(basename $(notdir \
            $(CPPSRCX) $(CXXSRCX) $(CCXSRCX) $(CSOURCX) \
            $(FXXSRCX) $(F77SRCX) $(F90SRCX)))))
+ifeq (1,$(HEADERONLY))
+  XFILES := $(filter-out $(OUTDIR)/headeronly.x,$(XFILES))
+endif
 TESTNAMES := $(basename $(notdir $(TEST)))
-TESTFILES := $(if $(strip $(TEST)),$(foreach NAME,$(TESTNAMES),$(if $(wildcard $(NAME).sh),$(NULL),$(OUTDIR)/$(NAME).x)),all)
+TESTFILES := $(if $(strip $(TEST)),$(foreach NAME,$(TESTNAMES),$(if $(wildcard $(SRCDIR)/$(NAME).sh),$(NULL),$(OUTDIR)/$(NAME).x)),all)
 
 REALTYPE_INDEX := $(shell bash -c 'echo "$$((RANDOM%2+1))"' 2>/dev/null)
 REALTYPE := $(word $(if $(REALTYPE_INDEX),$(REALTYPE_INDEX),1),double float)
 
 SAMPLES := $(dir $(shell $(if $(GIT),$(GIT) ls-files,ls -1) \
   $(DEPDIR)/samples/*/Makefile 2>/dev/null))
+ifeq (Darwin,$(UNAME))
+  SAMPLES := $(filter-out %/ozaki/,$(SAMPLES))
+endif
 
 .PHONY: all
 all: $(XFILES)
+ifneq (Darwin,$(UNAME))
 	@$(FLOCK) $(DEPDIR)/samples/ozaki "$(MAKE) --no-print-directory BLAS_STATIC=0"
 	@$(FLOCK) $(DEPDIR)/samples/ozaki "$(MAKE) --no-print-directory"
+endif
 	@for SAMPLE in $(SAMPLES); do \
 		$(FLOCK) $${SAMPLE} "$(MAKE) --no-print-directory"; \
 	done
@@ -86,11 +106,15 @@ compile: $(OBJECTS) $(FTNOBJS)
 tests: test
 
 .PHONY: test
-test: $(OUTDIR)/.make $(OUTDIR)/test.sh $(TESTFILES)
-	@$(OUTDIR)/test.sh $(TEST)
+test: $(OUTDIR)/.make $(SRCDIR)/test.sh $(TESTFILES)
+	@BLDDIR=$(abspath $(OUTDIR)) $(SRCDIR)/test.sh $(TEST)
 
 # determine header-only tests (to avoid linking against LIBXS library; see below)
-HEADER_ONLY = $(basename $(notdir $(shell grep -H libxs_source *.c | cut -d: -f1)))
+ifeq (1,$(HEADERONLY))
+  HEADER_ONLY = $(basename $(notdir $(CPPSRCX) $(CXXSRCX) $(CCXSRCX) $(CSOURCX)))
+else
+  HEADER_ONLY = $(basename $(notdir $(shell grep -H libxs_source $(SRCDIR)/*.c | cut -d: -f1)))
+endif
 
 define DEFINE_LINK_LD_RULE
 $(1).x: $(2) $(dir $(1))/.make Makefile $(DEPDIR)/Makefile.inc $(if $(filter $(1),$(HEADER_ONLY)),$(NULL),$(XLIB))
@@ -115,7 +139,9 @@ $(foreach SRC, $(filter-out $(SRCDIR)/headeronly.c,$(CPPSRCX) $(CXXSRCX) $(CCXSR
 $(foreach SRC, $(FXXSRCX) $(F77SRCX) $(F90SRCX), \
   $(eval $(call DEFINE_LINK_FC_RULE, $(basename $(notdir $(SRC))), $(call objname,$(SRC)))))
 
-ifeq (0,$(MIX))
+ifeq (1,$(HEADERONLY))
+# headeronly.x is redundant (multi-TU explicit test; all tests are header-only)
+else ifeq (0,$(MIX))
 $(OUTDIR)/headeronly.x: $(OUTDIR)/.make $(BLDDIR)/headeronly-c.o $(BLDDIR)/headeronly_aux-c.o Makefile $(DEPDIR)/Makefile.inc
 	$(LD) -o $@ $(BLDDIR)/headeronly-c.o $(BLDDIR)/headeronly_aux-c.o \
 		$(call cleanld,$(SLDFLAGS) $(LDFLAGS) $(CLDFLAGS) $(NOBLASLIB))
