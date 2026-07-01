@@ -48,52 +48,56 @@ nav:
 - Presentations: libxs_present.md
 - Fortran: libxs_fortran.md
 - Domains:
-  - Permutation: libxs_perm.md
-  - Histogram: libxs_hist.md
   - Registry: libxs_reg.md
-  - Hashing: libxs_hash.md
   - Predict: libxs_predict.md
   - Malloc: libxs_malloc.md
   - Memory: libxs_mem.md
   - String: libxs_str.md
+  - Token: libxs_token.md
   - Timer: libxs_timer.md
   - CPUID: libxs_cpuid.md
   - Utils: libxs_utils.md
   - Sync: libxs_sync.md
   - GEMM: libxs_gemm.md
   - Math: libxs_math.md
+  - Hash: libxs_hash.md
+  - Perm: libxs_perm.md
+  - Hist: libxs_hist.md
   - MHD: libxs_mhd.md
   - RNG: libxs_rng.md
 - Samples:
+  - Tokenizer: samples/libxs_tokenizer.md
+  - Converse: samples/libxs_converse.md
   - Registry: samples/libxs_registry.md
-  - Stratify: samples/libxs_stratify.md
-  - Rosetta: samples/libxs_rosetta.md
   - Predict: samples/libxs_predict.md
-  - Shuffle: samples/libxs_shuffle.md
+  - Rosetta: samples/libxs_rosetta.md
   - Setdiff: samples/libxs_setdiff.md
+  - Shuffle: samples/libxs_shuffle.md
   - Scratch: samples/libxs_scratch.md
-  - Memory: samples/libxs_memory.md
+  - Spatial: samples/libxs_spatial.md
   - Fprint: samples/libxs_fprint.md
+  - Memory: samples/libxs_memory.md
   - Ozaki: samples/libxs_ozaki.md
   - GEMM: samples/libxs_gemm.md
   - SYRK: samples/libxs_syrk.md
   - Sync: samples/libxs_sync.md
 - Tests:
-  - Header-Only: tests/headeronly.md
-  - Fingerprint: tests/fprint.md
-  - Intrinsics: tests/intrinsics.md
-  - Histogram: tests/hist.md
-  - Registry: tests/registry.md
-  - Hashing: tests/hash.md
-  - Permutation: tests/perm.md
-  - Matdiff: tests/matdiff.md
-  - Setdiff: tests/setdiff.md
   - Atomics: tests/atomics.md
+  - Fprint: tests/fprint.md
+  - Hash: tests/hash.md
+  - Headeronly: tests/headeronly.md
+  - Hist: tests/hist.md
+  - Intrinsics: tests/intrinsics.md
   - Malloc: tests/malloc.md
-  - Memory: tests/memory.md
-  - Timer: tests/timer.md
+  - Matdiff: tests/matdiff.md
   - Math: tests/math.md
+  - Memory: tests/memory.md
   - MHD: tests/mhd.md
+  - Perm: tests/perm.md
+  - Registry: tests/registry.md
+  - Setdiff: tests/setdiff.md
+  - Timer: tests/timer.md
+
 - More:
   - Development: libxs_scripts.md
   - LIBXSTREAM: libxs_opencl.md

@@ -8,24 +8,43 @@ of [LIBXSMM](https://github.com/libxsmm/libxsmm).
 
 ## Functionality
 
-| Domain                                            | Header              | Description                                                    |
-|---------------------------------------------------|---------------------|----------------------------------------------------------------|
-| [Permutation](libxs_perm.md)        | `libxs_perm.h`      | Co-prime shuffling, smooth row permutations, stratification    |
-| [Histogram](libxs_hist.md)          | `libxs_hist.h`      | Thread-safe histogram with running statistics                  |
-| [Registry](libxs_reg.md)            | `libxs_reg.h`       | Thread-safe key-value store with per-thread caching            |
-| [Hashing](libxs_hash.md)            | `libxs_hash.h`      | CRC32-based hashing, Adler-32, string hashing                  |
-| [Predict](libxs_predict.md)         | `libxs_predict.h`   | Fingerprint-guided parameter prediction with model persistence |
-| [Malloc](libxs_malloc.md)           | `libxs_malloc.h`    | Pool-based allocator (steady-state, no system calls)           |
-| [Memory](libxs_mem.md)              | `libxs_mem.h`       | Byte comparison, matrix copy/transpose, alignment queries      |
-| [String](libxs_str.md)              | `libxs_str.h`       | Edit distance, substring search, word similarity, formatting   |
-| [Timer](libxs_timer.md)             | `libxs_timer.h`     | High-resolution timing via calibrated TSC                      |
-| [CPUID](libxs_cpuid.md)             | `libxs_cpuid.h`     | CPU feature detection (SSE to AVX-512, AArch64, RISC-V)        |
-| [Utils](libxs_utils.md)             | `libxs_utils.h`     | ISA feature gates, bit-scan, SIMD helpers                      |
-| [Sync](libxs_sync.md)               | `libxs_sync.h`      | Portable atomics, locks, TLS, and file locking                 |
-| [GEMM](libxs_gemm.md)               | `libxs_gemm.h`      | Batched dense GEMM (strided, pointer-array, grouped)           |
-| [Math](libxs_math.md)               | `libxs_math.h`      | Matrix comparison, GCD/LCM, coprime, BF16 conversion           |
-| [MHD](libxs_mhd.md)                 | `libxs_mhd.h`       | Read/write MetaImage (MHD/MHA) files                           |
-| [RNG](libxs_rng.md)                 | `libxs_rng.h`       | Thread-safe pseudo-random number generation (SplitMix64)       |
+| Domain           | Header             | Description                                |
+|------------------|--------------------|--------------------------------------------|
+| [Registry][dreg] | `libxs_reg.h`      | Thread-safe key-value store                |
+| [Predict][dprd]  | `libxs_predict.h`  | Fingerprint-guided parameter prediction    |
+| [Malloc][dmal]   | `libxs_malloc.h`   | Pool allocator (no system calls at steady) |
+| [Memory][dmem]   | `libxs_mem.h`      | Byte compare, matrix copy/transpose        |
+| [String][dstr]   | `libxs_str.h`      | Edit distance, substring, similarity       |
+| [Token][dtok]    | `libxs_token.h`    | Fixed-width 8-byte tokenizer               |
+| [Timer][dtmr]    | `libxs_timer.h`    | High-resolution timing via calibrated TSC  |
+| [CPUID][dcpu]    | `libxs_cpuid.h`    | CPU feature detection (SSE..AVX-512, etc.) |
+| [Utils][dutil]   | `libxs_utils.h`    | ISA gates, bit-scan, SIMD helpers          |
+| [Sync][dsync]    | `libxs_sync.h`     | Portable atomics, locks, TLS, file locks   |
+| [GEMM][dgemm]    | `libxs_gemm.h`     | Batched dense GEMM (strided, grouped)      |
+| [Math][dmath]    | `libxs_math.h`     | Matrix compare, GCD/LCM, BF16 conversion   |
+| [Hash][dhash]    | `libxs_hash.h`     | CRC32, Adler-32, string hashing            |
+| [Perm][dperm]    | `libxs_perm.h`     | Shuffle, kd-tree, Hilbert/Morton curves    |
+| [Hist][dhist]    | `libxs_hist.h`     | Thread-safe histogram, running statistics  |
+| [MHD][dmhd]      | `libxs_mhd.h`      | Read/write MetaImage (MHD/MHA) files       |
+| [RNG][drng]      | `libxs_rng.h`      | Pseudo-random generation (SplitMix64)      |
+
+[dreg]:  documentation/libxs_reg.md
+[dprd]:  documentation/libxs_predict.md
+[dmal]:  documentation/libxs_malloc.md
+[dmem]:  documentation/libxs_mem.md
+[dstr]:  documentation/libxs_str.md
+[dtok]:  documentation/libxs_token.md
+[dtmr]:  documentation/libxs_timer.md
+[dcpu]:  documentation/libxs_cpuid.md
+[dutil]: documentation/libxs_utils.md
+[dsync]: documentation/libxs_sync.md
+[dgemm]: documentation/libxs_gemm.md
+[dmath]: documentation/libxs_math.md
+[dhash]: documentation/libxs_hash.md
+[dperm]: documentation/libxs_perm.md
+[dhist]: documentation/libxs_hist.md
+[dmhd]:  documentation/libxs_mhd.md
+[drng]:  documentation/libxs_rng.md
 
 See also: [Fortran Interface](libxs_fortran.md),
 [Scripts](libxs_scripts.md).
@@ -40,12 +59,12 @@ The library is compiled for SSE4.2 by default but dynamically
 dispatches to the best ISA available at runtime (up to AVX-512).
 Use `SSE=0` to compile natively for the build host.
 
-| Variable   | Default   | Description                                     |
-|------------|-----------|-------------------------------------------------|
-| GNU        | 0         | Use GNU GCC-compatible compiler                 |
-| DBG        | 0         | Debug build                                     |
-| SYM        | 0         | Include debug symbols (-g)                      |
-| SSE        | 1         | x86 baseline: 0=native, 1=SSE4.2 (portable)     |
+| Variable | Default | Description                                 |
+|----------|---------|---------------------------------------------|
+| GNU      | 0       | Use GNU GCC-compatible compiler             |
+| DBG      | 0       | Debug build                                 |
+| SYM      | 0       | Include debug symbols (-g)                  |
+| SSE      | 1       | x86 baseline: 0=native, 1=SSE4.2 (portable) |
 
 CMake is also supported (header-only or library):
 
@@ -106,21 +125,39 @@ USE :: libxs, ONLY: libxs_memcmp
 
 ## Samples
 
-| Sample                                                    | Description                                                  |
-|-----------------------------------------------------------|--------------------------------------------------------------|
-| [registry](samples/libxs_registry.md)       | Registry dispatch microbenchmark                             |
-| [stratify](samples/libxs_stratify.md)       | Space-filling 3D-to-2D stratification for dense volumes      |
-| [rosetta](samples/libxs_rosetta.md)         | Hierarchical type discovery on opaque binary data            |
-| [predict](samples/libxs_predict.md)         | Train a prediction model from CSV and save it                |
-| [shuffle](samples/libxs_shuffle.md)         | Shuffling strategies comparison                              |
-| [setdiff](samples/libxs_setdiff.md)         | Deterministic set-difference tolerance experiments           |
-| [scratch](samples/libxs_scratch.md)         | Pool allocator vs system malloc                              |
-| [memory](samples/libxs_memory.md)           | Benchmarks for comparison, matrix copy, and transpose        |
-| [fprint](samples/libxs_fprint.md)           | Foeppl fingerprint experiments for structure and geometry    |
-| [ozaki](samples/libxs_ozaki.md)             | Ozaki-scheme low-precision GEMM with intercepted BLAS        |
-| [gemm](samples/libxs_gemm.md)               | Batched DGEMM (strided, pointer-array, grouped) with OMP     |
-| [syrk](samples/libxs_syrk.md)               | Symmetric rank-k/2k update (SYRK/SYR2K) with validation      |
-| [sync](samples/libxs_sync.md)               | Lock implementation microbenchmarks                          |
+| Sample        | Description                                     |
+|---------------|-------------------------------------------------|
+| [tokenizer]   | Reversible byte-level tokenizer                 |
+| [converse]    | Extractive summarization via tokenized fprints  |
+| [registry]    | Registry dispatch microbenchmark                |
+| [predict]     | Fingerprint-guided parameter prediction         |
+| [rosetta]     | Hierarchical type discovery on opaque data      |
+| [setdiff]     | Deterministic set-difference tolerance          |
+| [shuffle]     | Shuffling strategies comparison                 |
+| [scratch]     | Pool allocator vs system malloc                 |
+| [spatial]     | Stratification, pair counting, kd-tree          |
+| [fprint]      | Foeppl fingerprint structure/geometry tests     |
+| [memory]      | Byte comparison, matrix copy, transpose         |
+| [ozaki]       | Ozaki-scheme low-precision GEMM                 |
+| [gemm]        | Batched DGEMM (strided, pointer, grouped)       |
+| [syrk]        | Symmetric rank-k/2k update with validation      |
+| [sync]        | Lock implementation microbenchmarks             |
+
+[tokenizer]: documentation/samples/libxs_tokenizer.md
+[converse]:  documentation/samples/libxs_converse.md
+[registry]:  documentation/samples/libxs_registry.md
+[predict]:   documentation/samples/libxs_predict.md
+[rosetta]:   documentation/samples/libxs_rosetta.md
+[setdiff]:   documentation/samples/libxs_setdiff.md
+[shuffle]:   documentation/samples/libxs_shuffle.md
+[scratch]:   documentation/samples/libxs_scratch.md
+[spatial]:   documentation/samples/libxs_spatial.md
+[fprint]:    documentation/samples/libxs_fprint.md
+[memory]:    documentation/samples/libxs_memory.md
+[ozaki]:     documentation/samples/libxs_ozaki.md
+[gemm]:      documentation/samples/libxs_gemm.md
+[syrk]:      documentation/samples/libxs_syrk.md
+[sync]:      documentation/samples/libxs_sync.md
 
 ## License
 
