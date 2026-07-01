@@ -1,29 +1,50 @@
-# Stratify
+# Spatial
 
-Samples for folding higher-dimensional data into lower-dimensional layouts
-using libxs space-filling-curve stratification. The folder is intended to
-hold related data-preparation and framework-adapter examples that share the
-same mapping primitive.
+Samples for spatial data structures and queries built on libxs primitives:
+space-filling curves (Hilbert, Morton), kd-tree partition and search, and
+spatial pair counting. Each topic uses a filename prefix to group related
+files in this flat directory.
 
-The current dense 3D sample folds a regular voxel grid into a 2D sheet. It is
-intentionally a data-preparation example: the mapping can be computed once
-for a fixed detector or simulation grid, then reused by a Python, PyTorch,
-TensorFlow, or file-based pipeline.
+| Prefix | Topic |
+| ------ | ----- |
+| `stratify_*` | 3D-to-2D layout via space-filling curves |
+| `paircnt_*` | Spatial pair counting / correlation functions (planned) |
 
-Sample names include the subject after the folder prefix, following the style
-used by other multi-sample folders such as `samples/predict`: regular dense
-3D-grid tools are named `stratify_dense3d.py` and
-`stratify_dense3d_metrics.py`. Future medical-imaging or detector-specific
-adapters can use the same pattern, for example `stratify_medmnist3d.py` or
-`stratify_mhd.c` if a dependency-light C reader is useful.
+Underlying libxs primitives (from `libxs_perm.h`):
 
-Python is the preferred language for dataset adapters because formats such as
-HDF5, NPZ, NIfTI, and framework dataloaders are easiest to keep optional there.
-C samples remain appropriate for small dependency-free demonstrations,
-performance checks, or formats already supported in C, such as MHD volume data.
+- Hilbert and Morton curve encode/decode (N-D stratification)
+- kd-tree build, partition, nearest-neighbor search
+- Sort by spatial locality (various methods)
 
-The transform is not a stack of slices. Each source voxel coordinate is
-encoded as a 3D Hilbert or Morton key and decoded as a 2D coordinate:
+## Building
+
+Build libxs first so that `lib/libxs.so` exists:
+
+```bash
+cd ../..
+make GNU=1 PEDANTIC=2
+cd samples/spatial
+make
+```
+
+Optional Python adapters need `numpy` and `h5py`:
+
+```bash
+python3 -m venv .venv
+. .venv/bin/activate
+python -m pip install -r requirements.txt
+```
+
+---
+
+## Stratification (stratify\_\*)
+
+Folding higher-dimensional data into lower-dimensional layouts using
+space-filling-curve stratification. The mapping can be computed once for a
+fixed detector or simulation grid and reused by any downstream pipeline.
+
+The transform encodes each source voxel coordinate as a 3D Hilbert or Morton
+key and decodes it as a 2D coordinate:
 
 ```text
 3D coordinate -> 3D curve rank -> inverse 2D curve coordinate
@@ -39,28 +60,9 @@ sheet, avoiding unused cells when an exact factor pair is available. The
 2D curve, preserving the canonical destination curve coordinate at the cost of
 possible empty cells.
 
-## Usage
+### Usage
 
-Build libxs first so that `lib/libxs.so` exists:
-
-```bash
-cd ../..
-make GNU=1 PEDANTIC=2
-cd samples/stratify
-make
-```
-
-Optional HDF5 and MedMNIST3D adapters need `numpy` and `h5py`. In an isolated
-environment:
-
-```bash
-python3 -m venv .venv
-. .venv/bin/activate
-python -m pip install -r requirements.txt
-```
-
-The default target runs the dense 3D sample. It can also be invoked
-explicitly:
+The default target runs the dense 3D sample:
 
 ```bash
 make dense3d
@@ -136,10 +138,7 @@ Arguments:
 | `--map-csv` | Write `src,z,y,x,dst,v,u` mapping rows. |
 | `--out-hdf5` | Write `sheet` and `map` datasets to an HDF5 file. |
 
-The script prints source shape, resulting sheet shape, density, mapping
-time, and deposition sums before and after stratification.
-
-## MedMNIST3D
+### MedMNIST3D
 
 The `stratify_medmnist3d.py` sample reads one standardized MedMNIST3D volume
 from an `.npz` file and applies the same 3D-to-2D stratification primitive. It
@@ -187,14 +186,10 @@ If `MEDMNIST3D_NPZ` is omitted, the script looks for a dataset under
 make medmnist3d MEDMNIST3D_ROOT=~/.medmnist MEDMNIST3D_FLAG=nodulemnist3d
 ```
 
-This gives us a lightweight benchmark bridge: native MedMNIST3D models can use
-the original `N,D,H,W` arrays, while 2D models can consume the generated
-stratified sheet and keep the label from `stratified_medmnist3d_label.csv`.
+### Metrics
 
-## Metrics
-
-The `stratify_dense3d_metrics.py` script reports invariants and locality distortion for
-the same synthetic and HDF5 inputs:
+The `stratify_dense3d_metrics.py` script reports invariants and locality
+distortion for the same synthetic and HDF5 inputs:
 
 ```bash
 make metrics
@@ -214,15 +209,9 @@ The script also reports LIBXS Foeppl fingerprint metrics. These are compact
 multi-order L2 descriptors of value and finite-difference structure. The
 `fprint.source_reconstructed.diff` value should be zero for a correct lossless
 round trip, while `fprint.source_sheet.diff` summarizes how different the
-stratified 2D sheet looks as a structured field. This is useful as an additional
-quality marker in a paper, but it should be interpreted as a representation
-roughness/shape descriptor, not as a detector-physics fidelity score.
+stratified 2D sheet looks as a structured field.
 
-These metrics do not prove physics fidelity. They expose the representation
-tradeoff: scalar voxel values are preserved exactly, but the neighborhood graph
-seen by a 2D convolution is different from the original 3D grid.
-
-## Geometry
+### Geometry
 
 The current sample treats the source as a regular `D,H,W` index grid. This is
 enough for dense 3DGAN-style arrays and for CaloChallenge datasets after their
@@ -239,38 +228,23 @@ following descriptions:
 | Optional adjacency edges between voxels | Used by metrics to measure physical-neighbor distortion independent of grid shape. |
 | Optional voxel weights or cell volumes | Used by downstream physics metrics when bins have unequal size. |
 
-With such a coordinate or adjacency table, the stratification primitive does not
-need hard-coded knowledge of a detector. The values remain losslessly permuted;
-the geometry file defines which neighborhoods and distances should be considered
-meaningful when judging whether the 2D layout is a good substitute for native 3D
-convolutions.
+---
 
-## Framework Use
+## Pair Counting (paircnt\_\*) -- planned
 
-For a fixed geometry, the CSV mapping or the in-memory index arrays can be
-cached and reused. A framework integration does not need a custom operator
-at first: use the mapping during dataset preparation, or use native gather
-and scatter operations in the data loader. The training and inference hot
-path can then use ordinary 2D convolution models.
+Spatial pair counting inspired by Corrfunc: given a point catalog, bin all
+pairs by separation distance to compute correlation functions. The approach
+uses libxs kd-tree partition for cell decomposition and cell-pair pruning
+(minimum-separation skip), with vectorized inner loops for the actual distance
+computation and bin assignment.
 
-The intended comparison is:
+Design goals:
 
-```text
-3D volume -> 3D convolution baseline
-3D volume -> naive 2D slicing or flattening -> 2D convolution control
-3D volume -> Hilbert/Morton stratified sheet -> 2D convolution candidate
-```
-
-This separates the amortized layout cost from the model throughput and
-quality measurements.
-
-## Related Samples
-
-Additional self-contained integrations can live in this folder when they reuse
-the same stratification primitive. Framework-specific adapters should first be
-kept as external patches or scripts until their data, dependency versions, and
-runtime setup are reproducible. For example, a 3DGAN adapter should only move
-into this directory once it can clone the reference model, prepare stratified
-2D calorimeter sheets from documented HDF5 showers, and compare them against
-the original 3D convolutional baseline without private paths or fragile legacy
-packages.
+- Leverage `libxs_kdtree_build` / `libxs_kdtree_partition` for spatial
+  decomposition rather than a separate grid structure.
+- Cell-pair pruning: skip cell pairs whose minimum separation exceeds the
+  largest bin edge.
+- Vectorized pair-counting kernel for the inner loop (SIMD where available).
+- Periodic and non-periodic boundary conditions.
+- Output: binned pair counts DD(r), optionally normalized to xi(r) via
+  Landy-Szalay with a random catalog.

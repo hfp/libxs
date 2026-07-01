@@ -1,6 +1,8 @@
 PROJECT := libxs
 DEPDIR ?= ../..
 PYTHON ?= python3
+CC ?= gcc
+CFLAGS ?= -O2 -Wall
 HAVE_SHLIB := $(wildcard $(DEPDIR)/lib/$(PROJECT).so $(DEPDIR)/lib/$(PROJECT).dylib $(DEPDIR)/lib/$(PROJECT).dll)
 HDF5_FILE ?=
 HDF5_DATASET ?= ECAL
@@ -16,14 +18,31 @@ MEDMNIST3D_SIZE ?= 28
 MEDMNIST3D_SPLIT ?= train
 MEDMNIST3D_INDEX ?= 0
 FRAME ?= compact
+PAIRCNT_NPOINTS ?= 10000
+PAIRCNT_BOXSIZE ?= 420.0
+PAIRCNT_RMIN ?= 0.1
+PAIRCNT_RMAX ?= 25.0
+PAIRCNT_NBINS ?= 20
 MEDMNIST3D_INPUT_ARG = $(if $(MEDMNIST3D_NPZ),--npz "$(MEDMNIST3D_NPZ)",--root "$(MEDMNIST3D_ROOT)" --flag "$(MEDMNIST3D_FLAG)" --size "$(MEDMNIST3D_SIZE)")
 MEDMNIST3D_METRICS_INPUT_ARG = $(if $(MEDMNIST3D_NPZ),--medmnist3d-npz "$(MEDMNIST3D_NPZ)",--medmnist3d --medmnist3d-root "$(MEDMNIST3D_ROOT)" --medmnist3d-flag "$(MEDMNIST3D_FLAG)" --medmnist3d-size "$(MEDMNIST3D_SIZE)")
 
-.PHONY: all run dense3d volume hdf5 medmnist3d metrics medmnist3d-metrics clean realclean deepclean
+.PHONY: all run dense3d volume hdf5 medmnist3d metrics medmnist3d-metrics paircnt paircnt-validate clean realclean deepclean
 
 all: run
 
 run: $(if $(HAVE_SHLIB),dense3d)
+
+paircnt_dd: paircnt_dd.c
+	$(CC) $(CFLAGS) -I$(DEPDIR)/include -L$(DEPDIR)/lib -o $@ $< -l$(PROJECT) -lm
+
+paircnt_catalog.dat:
+	$(PYTHON) paircnt_gendata.py --npoints $(PAIRCNT_NPOINTS) --boxsize $(PAIRCNT_BOXSIZE) --out $@
+
+paircnt: paircnt_dd paircnt_catalog.dat
+	./paircnt_dd paircnt_catalog.dat --rmin $(PAIRCNT_RMIN) --rmax $(PAIRCNT_RMAX) --nbins $(PAIRCNT_NBINS)
+
+paircnt-validate: paircnt_dd paircnt_catalog.dat
+	$(PYTHON) paircnt_validate.py paircnt_catalog.dat --rmin $(PAIRCNT_RMIN) --rmax $(PAIRCNT_RMAX) --nbins $(PAIRCNT_NBINS) --exe ./paircnt_dd
 
 dense3d:
 	$(PYTHON) stratify_dense3d.py --shape 8 16 16 --curve hilbert --frame "$(FRAME)" --out stratified_hilbert.pgm
@@ -47,6 +66,7 @@ medmnist3d-metrics:
 clean:
 	@-rm -f stratified_*.pgm stratified_*.csv
 	@-rm -f stratified_*.h5
+	@-rm -f paircnt_dd paircnt_catalog.dat
 	@-rm -rf __pycache__
 
 realclean: clean
