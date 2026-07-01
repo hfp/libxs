@@ -18,12 +18,13 @@ PROJUPP := $(shell echo "$(PROJECT)" | tr a-z A-Z)
 WHICH := $(shell which which >/dev/null 2>&1 && echo "which" || echo "command -v")
 which = $(shell $(WHICH) 2>/dev/null $(firstword $1))
 
+PANDOC := $(call which,pandoc)
 MKDIR := $(call which,mkdir)
 GREP := $(call which,grep)
+AWK := $(call which,awk)
 CUT := $(call which,cut)
 CP := $(call which,cp)
 MV := $(call which,mv)
-AWK := $(call which,awk)
 MAKE ?= make
 
 SED := $(call which,gsed)
@@ -2595,5 +2596,56 @@ $(DIRSTATE)/.state: $(firstword $(PRESTATE))
 
 .make:
 	@-touch $@
+
+DOCEXT ?= pdf
+
+PDF_TMPL_SED = \
+	-e 's/\(\\documentclass\[..*\]{..*}\)/\1\n\\pagenumbering{gobble}\n\\RedeclareSectionCommands[beforeskip=-1pt,afterskip=1pt]{subsection,subsubsection}/' \
+	-e 's/\\usepackage{listings}/\\usepackage{listings}\\lstset{basicstyle=\\footnotesize\\ttfamily,showstringspaces=false}/' \
+	-e 's/\(\\usepackage.*{hyperref}\)/\\usepackage[hyphens]{url}\n\1/'
+
+PDF_UTF8_SED = \
+	-e 's/\xe2\x88\x92/-/g' \
+	-e 's/\xe2\x89\xa4/<=/g' \
+	-e 's/\xe2\x89\xa5/>=/g' \
+	-e 's/\xe2\x89\xaa/<</g' \
+	-e 's/\xc2\xb7/*/g' \
+	-e 's/\xc3\x97/x/g' \
+	-e 's/\xe2\x80\x93/--/g' \
+	-e 's/\xe2\x80\x94/---/g' \
+	-e 's/\xe2\x80\xa6/.../g' \
+	-e 's/\xe2\x86\x92/->/g' \
+	-e 's/\xc2\xb9/1/g' \
+	-e 's/\xc2\xb2/2/g' \
+	-e 's/\xc2\xb3/3/g' \
+	-e 's/\xe2\x81\xb5/5/g' \
+	-e 's/\xe2\x81\xb9/9/g' \
+	-e 's/\xe2\x81\xbb/-/g' \
+	-e 's/\xe2\x81\xbd/(/g' \
+	-e 's/\xe2\x81\xbe/)/g' \
+	-e 's/\xca\xb7/w/g' \
+	-e 's/\xe1\xb5\x87/b/g' \
+	-e 's/\xc2\xa0/ /g' \
+	-e 's/\xe2\x80\xaf/ /g' \
+	-e 's/\xc2\xae/\\\\textregistered{}/g' \
+	-e 's/\xe2\x84\xa2/\\\\texttrademark{}/g' \
+	-e 's/{:[^}]*}//g' \
+	-e '/^----*$$/d'
+
+# md2pdf: pipe MD into this to produce a PDF
+# $(1): title-meta, $(2): author-meta (optional), $(3): output file
+md2pdf = { T=$$($(abspath $(MKTEMP)) /tmp/.pdf_XXXXXX.tex) && \
+	$(PANDOC) -D latex </dev/null | $(SED) $(PDF_TMPL_SED) >$${T} && \
+	$(SED) $(PDF_UTF8_SED) | $(PANDOC) \
+		--template=$${T} --listings \
+		-f gfm+subscript+superscript+smart \
+		-V documentclass=scrartcl \
+		-V title-meta="$(strip $1)" \
+		$(if $(strip $2),-V author-meta="$(strip $2)") \
+		-V classoption=DIV=45 \
+		-V linkcolor=black \
+		-V citecolor=black \
+		-V urlcolor=black \
+		-o $(strip $3); rm -f $${T}; }
 
 .DEFAULT_GOAL := $(NULL)
