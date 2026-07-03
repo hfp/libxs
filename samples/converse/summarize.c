@@ -1,7 +1,6 @@
 #include <libxs/libxs_predict.h>
 #include <libxs/libxs_token.h>
 #include <libxs/libxs_math.h>
-#include <libxs/libxs_perm.h>
 #include <libxs/libxs_reg.h>
 #include <libxs/libxs_str.h>
 #include <libxs/libxs_mem.h>
@@ -14,10 +13,7 @@
 #define MAX_SENTENCES 256
 #define MAX_PHRASES 8192
 #define FPRINT_ORDER 4
-#define FUSION_NINPUTS 7
-#define MODEL_FILE "summarize.bin"
 #define CORPUS_FILE "compose.dat"
-#define MODEL_QUALITY 0.8
 #define COMPOSE_NDIMS 10
 #define COMPOSE_BITS 6
 #define COMPOSE_MAXTEXT 512
@@ -65,8 +61,6 @@ static int extract_words(const unsigned char* text, int length,
   int* offsets, int* lengths, int max_words);
 static int word_in_sentence(const unsigned char* word, int wlen,
   const unsigned char* sent, int slen);
-static libxs_predict_t* model_load(void);
-static int model_save(const libxs_predict_t* model);
 static int build_byte_offsets(const document_t* doc, int** offsets);
 static int split_sentences(document_t* doc);
 static int split_phrases(document_t* doc);
@@ -81,7 +75,6 @@ static void corpus_key_from_fprint(const libxs_fprint_t* fp,
   unsigned char key[], size_t* key_size);
 static libxs_registry_t* corpus_load(void);
 static int corpus_save(const libxs_registry_t* corpus);
-static int corpus_ingest(libxs_registry_t* corpus, const document_t* doc);
 static int corpus_ingest_file(libxs_registry_t* corpus, const char* path);
 static int compose_document(const libxs_registry_t* corpus,
   const libxs_fprint_t* target, int budget);
@@ -208,15 +201,7 @@ int main(int argc, char* argv[])
       result = fingerprint_sentences(&doc);
     }
     if (EXIT_SUCCESS == result) {
-      libxs_registry_t* corpus = corpus_load();
-      if (NULL == corpus) corpus = libxs_registry_create();
-      if (NULL != corpus) {
-        corpus_ingest(corpus, &doc);
-        corpus_save(corpus);
-        result = summarize_document(&doc, target_n);
-        libxs_registry_destroy(corpus);
-      }
-      else result = EXIT_FAILURE;
+      result = summarize_document(&doc, target_n);
     }
   }
 
@@ -384,7 +369,9 @@ static int summarize_document(document_t* doc, int target_n)
             else slen = j;
             break;
           }
-          if ('.' == src[j] || ',' == src[j] || ';' == src[j]) {
+          if ('.' == src[j] || '!' == src[j] || '?' == src[j]
+            || ';' == src[j])
+          {
             last_punct = j;
           }
           prev_space = 0;
@@ -601,176 +588,34 @@ static double novelty_ratio(const document_t* doc, int a, int b)
 }
 
 
-static void pair_features(const document_t* doc, int a, int b, double feat[])
-{
-  const sentence_t* sa = doc->sentences + a;
-  const sentence_t* sb = doc->sentences + b;
-  const double red = sentence_redundancy(doc, a, b);
-  const double fp_dist = libxs_fprint_diff(&sa->fprint, &sb->fprint, NULL);
-  const double decay_a = libxs_fprint_decay(&sa->fprint);
-  const double decay_b = libxs_fprint_decay(&sb->fprint);
-  const int la = sa->byte_length > 0 ? sa->byte_length : 1;
-  const int lb = sb->byte_length > 0 ? sb->byte_length : 1;
-  feat[0] = red;
-  feat[1] = fp_dist;
-  feat[2] = decay_a;
-  feat[3] = decay_b;
-  feat[4] = (double)la / (double)lb;
-  feat[5] = (la + lb > 0) ? (double)(la < lb ? la : lb) / (double)(la + lb) : 0.5;
-  feat[6] = novelty_ratio(doc, a, b);
-}
-
-
-static double auto_label_fusion(const document_t* doc, int a, int b)
-{
-  double quality = 0.0;
-  const sentence_t* sa = doc->sentences + a;
-  const sentence_t* sb = doc->sentences + b;
-  int words_b_off[128], words_b_len[128], nwords_b;
-  int nmatched = 0, nnovel = 0, i;
-  nwords_b = extract_words(doc->text + sb->byte_offset, sb->byte_length,
-    words_b_off, words_b_len, 128);
-  for (i = 0; i < nwords_b; ++i) {
-    const unsigned char* w = doc->text + sb->byte_offset + words_b_off[i];
-    if (0 != word_in_sentence(w, words_b_len[i],
-      doc->text + sa->byte_offset, sa->byte_length))
-    {
-      ++nmatched;
-    }
-    else {
-      ++nnovel;
-    }
-  }
-  if (nwords_b > 0 && nmatched > 0 && nnovel > 0) {
-    const double overlap = (double)nmatched / (double)nwords_b;
-    const double novelty = (double)nnovel / (double)nwords_b;
-    quality = overlap * novelty;
-  }
-  return quality;
-}
-
-
-static libxs_predict_t* model_load(void)
-{
-  libxs_predict_t* model = NULL;
-  FILE* f = fopen(MODEL_FILE, "rb");
-  if (NULL != f) {
-    long len;
-    fseek(f, 0, SEEK_END);
-    len = ftell(f);
-    fseek(f, 0, SEEK_SET);
-    if (len > 0) {
-      void* buf = malloc((size_t)len);
-      if (NULL != buf && (long)fread(buf, 1, (size_t)len, f) == len) {
-        model = libxs_predict_load(buf, (size_t)len);
-      }
-      free(buf);
-    }
-    fclose(f);
-  }
-  return model;
-}
-
-
-static int model_save(const libxs_predict_t* model)
-{
-  int result = EXIT_FAILURE;
-  size_t size = 0;
-  if (EXIT_SUCCESS == libxs_predict_save(model, NULL, &size) && size > 0) {
-    void* buf = malloc(size);
-    if (NULL != buf) {
-      if (EXIT_SUCCESS == libxs_predict_save(model, buf, &size)) {
-        FILE* f = fopen(MODEL_FILE, "wb");
-        if (NULL != f) {
-          if (fwrite(buf, 1, size, f) == size) result = EXIT_SUCCESS;
-          fclose(f);
-        }
-      }
-      free(buf);
-    }
-  }
-  return result;
-}
-
-
 static int find_best_fusion_pair(const document_t* doc, int* out_a, int* out_b,
   int use_model_io)
 {
   int result = EXIT_FAILURE;
-  libxs_predict_t* prior;
-  libxs_predict_t* model;
-  int i, j, npairs = 0;
-  double best_score = -1.0;
+  int i, best_i = -1, best_j = -1;
+  double best_score = 1e30;
   if (NULL == doc || NULL == out_a || NULL == out_b) return EXIT_FAILURE;
   if (doc->nsentences < 2) return EXIT_FAILURE;
 
-  prior = (0 != use_model_io) ? model_load() : NULL;
-  if (NULL != prior) {
-    for (i = 0; i < doc->nsentences; ++i) {
-      const int wi = count_words(doc->text + doc->sentences[i].byte_offset,
-        doc->sentences[i].byte_length);
-      if (wi < 6) continue;
-      for (j = i + 1; j < doc->nsentences; ++j) {
-        double feat[FUSION_NINPUTS], predicted = 0.0;
-        const int wj = count_words(doc->text + doc->sentences[j].byte_offset,
-          doc->sentences[j].byte_length);
-        if (wj < 6) continue;
-        pair_features(doc, i, j, feat);
-        if (feat[6] < 0.1) continue;
-        libxs_predict_eval(NULL, prior, feat, &predicted, NULL, 0);
-        if (predicted > best_score && predicted > 0.01) {
-          best_score = predicted;
-          *out_a = i;
-          *out_b = j;
-          result = EXIT_SUCCESS;
-        }
-      }
+  for (i = 0; i < doc->nsentences - 1; ++i) {
+    const sentence_t* sa = doc->sentences + i;
+    const sentence_t* sb = doc->sentences + i + 1;
+    double dist = libxs_fprint_diff(&sa->fprint, &sb->fprint, NULL);
+    double nov = novelty_ratio(doc, i, i + 1);
+    double score = dist / (nov + 0.01);
+    if (score < best_score) {
+      best_score = score;
+      best_i = i;
+      best_j = i + 1;
     }
-    libxs_predict_destroy(prior);
   }
 
-  model = libxs_predict_create(FUSION_NINPUTS, 1);
-  if (NULL != model) {
-    for (i = 0; i < doc->nsentences; ++i) {
-      for (j = i + 1; j < doc->nsentences; ++j) {
-        double feat[FUSION_NINPUTS], quality;
-        pair_features(doc, i, j, feat);
-        quality = auto_label_fusion(doc, i, j);
-        libxs_predict_push(NULL, model, feat, &quality);
-        ++npairs;
-      }
-    }
-    if (npairs >= 3
-      && EXIT_SUCCESS == libxs_predict_build(model, 0, 0, MODEL_QUALITY))
-    {
-      if (EXIT_FAILURE == result) {
-        for (i = 0; i < doc->nsentences; ++i) {
-          const int wi = count_words(doc->text + doc->sentences[i].byte_offset,
-            doc->sentences[i].byte_length);
-          if (wi < 6) continue;
-          for (j = i + 1; j < doc->nsentences; ++j) {
-            double feat[FUSION_NINPUTS], predicted = 0.0;
-            const int wj = count_words(
-              doc->text + doc->sentences[j].byte_offset,
-              doc->sentences[j].byte_length);
-            if (wj < 6) continue;
-            pair_features(doc, i, j, feat);
-            if (feat[6] < 0.1) continue;
-            libxs_predict_eval(NULL, model, feat, &predicted, NULL, 0);
-            if (predicted > best_score && predicted > 0.01) {
-              best_score = predicted;
-              *out_a = i;
-              *out_b = j;
-              result = EXIT_SUCCESS;
-            }
-          }
-        }
-      }
-      if (0 != use_model_io) model_save(model);
-    }
-    libxs_predict_destroy(model);
+  if (best_i >= 0) {
+    *out_a = best_i;
+    *out_b = best_j;
+    result = EXIT_SUCCESS;
   }
-
+  LIBXS_UNUSED(use_model_io);
   return result;
 }
 
@@ -1072,56 +917,6 @@ static int corpus_save(const libxs_registry_t* corpus)
 }
 
 
-static unsigned char classify_connector(const unsigned char* text,
-  size_t text_size, int end_pos)
-{
-  unsigned char result = CONN_SPACE;
-  if ((size_t)end_pos < text_size) {
-    unsigned char ch = text[end_pos];
-    if ('\n' == ch || '\r' == ch) result = CONN_NEWLINE;
-    else if ('.' == ch || '!' == ch || '?' == ch) result = CONN_PERIOD;
-    else if (',' == ch || ';' == ch || ':' == ch) result = CONN_COMMA;
-  }
-  return result;
-}
-
-
-static int corpus_ingest(libxs_registry_t* corpus, const document_t* doc)
-{
-  int result = EXIT_SUCCESS;
-  int i;
-  if (NULL == corpus || NULL == doc) return EXIT_FAILURE;
-  for (i = 0; i < doc->nphrases && EXIT_SUCCESS == result; ++i) {
-    const phrase_t* p = doc->phrases + i;
-    corpus_entry_t entry;
-    unsigned char key[16];
-    size_t key_size = 0;
-    unsigned short seq;
-    int len = p->byte_length;
-    if (len <= 2 || len >= COMPOSE_MAXTEXT) continue;
-    memset(&entry, 0, sizeof(entry));
-    { const size_t shape = (size_t)len;
-      result = libxs_fprint(&entry.fprint, LIBXS_DATATYPE_U8,
-        doc->text + p->byte_offset, 1, &shape, NULL, FPRINT_ORDER, 0, 0, 0);
-    }
-    if (EXIT_SUCCESS != result) break;
-    entry.text_len = len;
-    memcpy(entry.text, doc->text + p->byte_offset, (size_t)len);
-    entry.connector = classify_connector(doc->text, doc->text_size,
-      (int)(p->byte_offset + p->byte_length));
-    corpus_key_from_fprint(&entry.fprint, key, &key_size);
-    for (seq = 0; seq < 256; ++seq) {
-      memcpy(key + 8, &seq, 2);
-      key_size = 10;
-      if (NULL == libxs_registry_get(corpus, key, key_size, NULL)) {
-        libxs_registry_set(corpus, key, key_size,
-          &entry, sizeof(entry), NULL);
-        break;
-      }
-    }
-  }
-  return result;
-}
 
 
 static int corpus_ingest_file(libxs_registry_t* corpus, const char* path)
@@ -1141,59 +936,61 @@ static int corpus_ingest_file(libxs_registry_t* corpus, const char* path)
     memset(&stream, 0, sizeof(stream));
     result = libxs_tokenize(text, text_size, &stream);
     if (EXIT_SUCCESS == result) {
-      size_t byte_pos = 0, phrase_start = 0;
+      size_t byte_pos = 0, sent_start = 0;
       int token_start = 0, nregistered = 0;
       size_t i;
       for (i = 0; i <= stream.size; ++i) {
-        int is_break = 0, tlen = 0;
+        int is_sent_end = 0, tlen = 0;
         if (i < stream.size) {
           const libxs_token_t* t = stream.data + i;
           tlen = (int)libxs_token_len(t);
-          is_break = libxs_token_has_break(t)
-            || libxs_token_is_sentence_end(t);
+          is_sent_end = libxs_token_is_sentence_end(t);
         }
         else {
-          is_break = 1;
+          is_sent_end = 1;
         }
-        if (0 != is_break && (int)i > token_start) {
-          size_t phrase_end = byte_pos + (size_t)tlen;
-          int len = (int)(phrase_end - phrase_start);
-          if (len > 2 && len < COMPOSE_MAXTEXT) {
-            corpus_entry_t entry;
-            unsigned char key[16];
-            size_t key_size = 0;
-            unsigned short seq;
-            const size_t shape = (size_t)len;
-            memset(&entry, 0, sizeof(entry));
-            if (EXIT_SUCCESS == libxs_fprint(&entry.fprint,
-              LIBXS_DATATYPE_U8, text + phrase_start, 1,
-              &shape, NULL, FPRINT_ORDER, 0, 0, 0))
-            {
-              entry.text_len = len;
-              memcpy(entry.text, text + phrase_start, (size_t)len);
-              entry.connector = classify_connector(text, text_size,
-                (int)phrase_end);
-              corpus_key_from_fprint(&entry.fprint, key, &key_size);
-              for (seq = 0; seq < 256; ++seq) {
-                memcpy(key + 8, &seq, 2);
-                key_size = 10;
-                if (NULL == libxs_registry_get(corpus, key,
-                  key_size, NULL))
-                {
-                  libxs_registry_set(corpus, key, key_size,
-                    &entry, sizeof(entry), NULL);
-                  ++nregistered;
-                  break;
+        if (0 != is_sent_end && (int)i > token_start) {
+          size_t sent_end = byte_pos + (size_t)tlen;
+          int len = (int)(sent_end - sent_start);
+          while (len > 0 && 0 != isspace(text[sent_start + len - 1])) --len;
+          if (len > 8 && len < COMPOSE_MAXTEXT) {
+            int nwords = count_words(text + sent_start, len);
+            if (nwords >= 3) {
+              corpus_entry_t entry;
+              unsigned char key[16];
+              size_t key_size = 0;
+              unsigned short seq;
+              const size_t shape = (size_t)len;
+              memset(&entry, 0, sizeof(entry));
+              if (EXIT_SUCCESS == libxs_fprint(&entry.fprint,
+                LIBXS_DATATYPE_U8, text + sent_start, 1,
+                &shape, NULL, FPRINT_ORDER, 0, 0, 0))
+              {
+                entry.text_len = len;
+                memcpy(entry.text, text + sent_start, (size_t)len);
+                entry.connector = CONN_NEWLINE;
+                corpus_key_from_fprint(&entry.fprint, key, &key_size);
+                for (seq = 0; seq < 256; ++seq) {
+                  memcpy(key + 8, &seq, 2);
+                  key_size = 10;
+                  if (NULL == libxs_registry_get(corpus, key,
+                    key_size, NULL))
+                  {
+                    libxs_registry_set(corpus, key, key_size,
+                      &entry, sizeof(entry), NULL);
+                    ++nregistered;
+                    break;
+                  }
                 }
               }
             }
           }
           token_start = (int)i + 1;
-          phrase_start = phrase_end;
+          sent_start = sent_end;
         }
         byte_pos += (size_t)tlen;
       }
-      fprintf(stderr, "  ingested %s: %d phrases\n", path, nregistered);
+      fprintf(stderr, "  ingested %s: %d sentences\n", path, nregistered);
     }
     libxs_token_stream_destroy(&stream);
   }
@@ -1276,12 +1073,15 @@ static int compose_document(const libxs_registry_t* corpus,
   fprintf(stderr, "compose: target decay=%.3f, corpus=%lu entries, budget=%d\n",
     libxs_fprint_decay(target), (unsigned long)rinfo.size, budget);
 
-  { unsigned char prev_conn = CONN_SPACE;
+  { unsigned char prev_conn = CONN_PERIOD;
     const corpus_entry_t* used[256];
     int nused = 0;
+    char prev_last_word[64];
+    int prev_last_len = 0;
     for (step = 0; step < budget; ++step) {
       const corpus_entry_t* best_entry = NULL;
-      double best_dist = 1e30;
+      const corpus_entry_t* flow_entry = NULL;
+      double best_dist = 1e30, flow_dist = 1e30;
       size_t cursor = 0;
       const void* iter_key = NULL;
       void* iter_val;
@@ -1309,20 +1109,41 @@ static int compose_document(const libxs_registry_t* corpus,
               best_dist = d;
               best_entry = e;
             }
+            if (prev_last_len > 0 && d < flow_dist) {
+              const char* t = e->text;
+              int k = 0;
+              while (k < e->text_len && 0 != isspace((unsigned char)t[k])) ++k;
+              if (k < e->text_len) {
+                int wend = k, ci, match = 1;
+                while (wend < e->text_len
+                  && 0 == isspace((unsigned char)t[wend])) ++wend;
+                if (wend - k != prev_last_len) match = 0;
+                for (ci = 0; ci < prev_last_len && 0 != match; ++ci) {
+                  if (tolower((unsigned char)t[k + ci])
+                    != tolower((unsigned char)prev_last_word[ci])) match = 0;
+                }
+                if (0 != match) {
+                  flow_dist = d;
+                  flow_entry = e;
+                }
+              }
+            }
           }
         }
         iter_val = libxs_registry_next(corpus, &iter_key, &cursor);
       }
 
       if (NULL == best_entry) break;
+      if (NULL != flow_entry && flow_dist <= best_dist * 1.05) {
+        best_entry = flow_entry;
+        best_dist = flow_dist;
+      }
       if (nused < 256) used[nused++] = best_entry;
       if (best_dist < prev_dist) prev_dist = best_dist;
 
       { const char* txt = best_entry->text;
         int tlen = best_entry->text_len;
-        while (tlen > 0 && (0 != isspace((unsigned char)*txt)
-          || 0 != ispunct((unsigned char)*txt)))
-        {
+        while (tlen > 0 && 0 != isspace((unsigned char)*txt)) {
           ++txt; --tlen;
         }
         while (tlen > 0 && 0 != isspace((unsigned char)txt[tlen - 1])) {
@@ -1336,6 +1157,24 @@ static int compose_document(const libxs_registry_t* corpus,
           memcpy(output + out_pos, txt, (size_t)tlen);
           out_pos += (size_t)tlen;
         }
+        { int wstart = tlen;
+          while (wstart > 0 && 0 != ispunct((unsigned char)txt[wstart - 1])) {
+            --wstart;
+          }
+          while (wstart > 0 && 0 == isspace((unsigned char)txt[wstart - 1])) {
+            --wstart;
+          }
+          prev_last_len = tlen - wstart;
+          while (prev_last_len > 0
+            && 0 != ispunct((unsigned char)txt[wstart + prev_last_len - 1]))
+          {
+            --prev_last_len;
+          }
+          if (prev_last_len > 2 && prev_last_len < (int)sizeof(prev_last_word)) {
+            memcpy(prev_last_word, txt + wstart, (size_t)prev_last_len);
+          }
+          else prev_last_len = 0;
+        }
       }
 
       libxs_fprint_partial(&running, LIBXS_DATATYPE_U8,
@@ -1343,13 +1182,13 @@ static int compose_document(const libxs_registry_t* corpus,
       prev_conn = best_entry->connector;
 
       fprintf(stderr, "  [%d] dist=%.4f \"%.*s\"\n", step + 1, best_dist,
-        (best_entry->text_len > 50) ? 50 : best_entry->text_len,
+        (best_entry->text_len > 60) ? 60 : best_entry->text_len,
         best_entry->text);
     }
   }
 
   if (out_pos > 0) {
-    fprintf(stderr, "\ncomposed (%d phrases):\n", step);
+    fprintf(stderr, "\ncomposed (%d sentences):\n", step);
     printf("%.*s\n", (int)out_pos, output);
   }
   return result;
