@@ -28,23 +28,23 @@ of [LIBXSMM](https://github.com/libxsmm/libxsmm).
 | [MHD][dmhd]      | `libxs_mhd.h`      | Read/write MetaImage (MHD/MHA) files       |
 | [RNG][drng]      | `libxs_rng.h`      | Pseudo-random generation (SplitMix64)      |
 
-[dreg]:  documentation/libxs_reg.md
-[dprd]:  documentation/libxs_predict.md
-[dmal]:  documentation/libxs_malloc.md
-[dmem]:  documentation/libxs_mem.md
-[dstr]:  documentation/libxs_str.md
-[dtok]:  documentation/libxs_token.md
-[dtmr]:  documentation/libxs_timer.md
-[dcpu]:  documentation/libxs_cpuid.md
-[dutil]: documentation/libxs_utils.md
-[dsync]: documentation/libxs_sync.md
-[dgemm]: documentation/libxs_gemm.md
-[dmath]: documentation/libxs_math.md
-[dhash]: documentation/libxs_hash.md
-[dperm]: documentation/libxs_perm.md
-[dhist]: documentation/libxs_hist.md
-[dmhd]:  documentation/libxs_mhd.md
-[drng]:  documentation/libxs_rng.md
+[dreg]: libxs_reg.md
+[dprd]: libxs_predict.md
+[dmal]: libxs_malloc.md
+[dmem]: libxs_mem.md
+[dstr]: libxs_str.md
+[dtok]: libxs_token.md
+[dtmr]: libxs_timer.md
+[dcpu]: libxs_cpuid.md
+[dutil]: libxs_utils.md
+[dsync]: libxs_sync.md
+[dgemm]: libxs_gemm.md
+[dmath]: libxs_math.md
+[dhash]: libxs_hash.md
+[dperm]: libxs_perm.md
+[dhist]: libxs_hist.md
+[dmhd]: libxs_mhd.md
+[drng]: libxs_rng.md
 
 See also: [Fortran Interface](libxs_fortran.md),
 [Scripts](libxs_scripts.md).
@@ -143,21 +143,21 @@ USE :: libxs, ONLY: libxs_memcmp
 | [syrk]        | Symmetric rank-k/2k update with validation      |
 | [sync]        | Lock implementation microbenchmarks             |
 
-[tokenizer]: documentation/samples/libxs_tokenizer.md
-[converse]:  documentation/samples/libxs_converse.md
-[registry]:  documentation/samples/libxs_registry.md
-[predict]:   documentation/samples/libxs_predict.md
-[rosetta]:   documentation/samples/libxs_rosetta.md
-[setdiff]:   documentation/samples/libxs_setdiff.md
-[shuffle]:   documentation/samples/libxs_shuffle.md
-[scratch]:   documentation/samples/libxs_scratch.md
-[spatial]:   documentation/samples/libxs_spatial.md
-[fprint]:    documentation/samples/libxs_fprint.md
-[memory]:    documentation/samples/libxs_memory.md
-[ozaki]:     documentation/samples/libxs_ozaki.md
-[gemm]:      documentation/samples/libxs_gemm.md
-[syrk]:      documentation/samples/libxs_syrk.md
-[sync]:      documentation/samples/libxs_sync.md
+[tokenizer]: samples/libxs_tokenizer.md
+[converse]: samples/libxs_converse.md
+[registry]: samples/libxs_registry.md
+[predict]: samples/libxs_predict.md
+[rosetta]: samples/libxs_rosetta.md
+[setdiff]: samples/libxs_setdiff.md
+[shuffle]: samples/libxs_shuffle.md
+[scratch]: samples/libxs_scratch.md
+[spatial]: samples/libxs_spatial.md
+[fprint]: samples/libxs_fprint.md
+[memory]: samples/libxs_memory.md
+[ozaki]: samples/libxs_ozaki.md
+[gemm]: samples/libxs_gemm.md
+[syrk]: samples/libxs_syrk.md
+[sync]: samples/libxs_sync.md
 
 ## License
 
