@@ -2599,6 +2599,17 @@ $(DIRSTATE)/.state: $(firstword $(PRESTATE))
 
 DOCEXT ?= pdf
 
+DOC_MD_SED = \
+	-e 's/\[!\[..*\](..*)\](..*)//g' \
+	-e 's/\[\[..*\](..*)\]//g' \
+	-e "s/](${DOCDIR}\//](/g" \
+	-e "s/]:[[:space:]]*${DOCDIR}\//]: /g" \
+	-e 'N;/^\n$$/d;P;D'
+
+DOC_HTML_SED = \
+	-e 's/<sub>/~/g' -e 's/<\/sub>/~/g' \
+	-e 's/<sup>/^/g' -e 's/<\/sup>/^/g'
+
 PDF_TMPL_SED = \
 	-e 's/\(\\documentclass\[..*\]{..*}\)/\1\n\\pagenumbering{gobble}\n\\RedeclareSectionCommands[beforeskip=-1pt,afterskip=1pt]{subsection,subsubsection}/' \
 	-e 's/\\usepackage{listings}/\\usepackage{listings}\\lstset{basicstyle=\\footnotesize\\ttfamily,showstringspaces=false}/' \
@@ -2647,5 +2658,26 @@ md2pdf = { T=$$($(abspath $(MKTEMP)) /tmp/.pdf_XXXXXX.tex) && \
 		-V citecolor=black \
 		-V urlcolor=black \
 		-o $(strip $3); rm -f $${T}; }
+
+# keep original prefix (:)
+ALIAS_PREFIX := $(PREFIX)
+
+# DESTDIR is used as prefix of PREFIX
+ifneq (,$(strip $(DESTDIR)))
+  override PREFIX := $(call qapath,$(DESTDIR)/$(PREFIX))
+endif
+# fall-back
+ifeq (,$(strip $(PREFIX)))
+  override PREFIX := $(HEREDIR)
+endif
+
+# setup maintainer-layout
+ifeq (,$(strip $(ALIAS_PREFIX)))
+  override ALIAS_PREFIX := $(PREFIX)
+endif
+ifneq ($(ALIAS_PREFIX),$(PREFIX))
+  PPKGDIR := libdata/pkgconfig
+  PMODDIR := $(PSHRDIR)
+endif
 
 .DEFAULT_GOAL := $(NULL)
