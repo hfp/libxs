@@ -9,6 +9,8 @@ LIBXS_EXTERN_C typedef struct internal_libxs_predict_hknn_split_ctx_t {
   int target_nc;
   int ntotal;
   int target_output;
+  int target_group;
+  const int* output_groups;
 } internal_libxs_predict_hknn_split_ctx_t;
 
 
@@ -109,8 +111,15 @@ LIBXS_API_INLINE int internal_libxs_predict_hknn_split(
       }
     }
     else {
-      const int oi_lo = (state->target_output >= 0) ? state->target_output : 0;
-      const int oi_hi = (state->target_output >= 0) ? state->target_output + 1 : n;
+      int oi_lo, oi_hi;
+      if (state->target_output >= 0) {
+        oi_lo = state->target_output;
+        oi_hi = state->target_output + 1;
+      }
+      else {
+        oi_lo = 0;
+        oi_hi = n;
+      }
       for (j = 0; j < m; ++j) {
         double sum_all[128], sum2_all[128];
         double sum_left[128], sum2_left[128];
@@ -125,9 +134,12 @@ LIBXS_API_INLINE int internal_libxs_predict_hknn_split(
         memset(sum2_all, 0, (size_t)n * sizeof(double));
         for (i = 0; i < count; ++i) {
           for (oi = oi_lo; oi < oi_hi; ++oi) {
-            const double v = model->entries[pairs[i].idx].outputs[oi];
-            sum_all[oi] += v;
-            sum2_all[oi] += v * v;
+            if (NULL != state->output_groups
+              && state->output_groups[oi] != state->target_group) continue;
+            { const double v = model->entries[pairs[i].idx].outputs[oi];
+              sum_all[oi] += v;
+              sum2_all[oi] += v * v;
+            }
           }
         }
         memset(sum_left, 0, (size_t)n * sizeof(double));
@@ -135,9 +147,12 @@ LIBXS_API_INLINE int internal_libxs_predict_hknn_split(
         for (i = 0; i < count - 1; ++i) {
           const int nleft = i + 1, nright = count - nleft;
           for (oi = oi_lo; oi < oi_hi; ++oi) {
-            const double v = model->entries[pairs[i].idx].outputs[oi];
-            sum_left[oi] += v;
-            sum2_left[oi] += v * v;
+            if (NULL != state->output_groups
+              && state->output_groups[oi] != state->target_group) continue;
+            { const double v = model->entries[pairs[i].idx].outputs[oi];
+              sum_left[oi] += v;
+              sum2_left[oi] += v * v;
+            }
           }
           if (pairs[i].val != pairs[i + 1].val
             && nleft >= band_lo && nleft <= band_hi)
@@ -146,15 +161,18 @@ LIBXS_API_INLINE int internal_libxs_predict_hknn_split(
             const double penalty =
               1.0 + 4.0 * LIBXS_FABS((double)nleft / count - 0.5);
             for (oi = oi_lo; oi < oi_hi; ++oi) {
-              const double ml = sum_left[oi] / nleft;
-              const double mr = (sum_all[oi] - sum_left[oi]) / nright;
-              const double vl = sum2_left[oi] / nleft - ml * ml;
-              const double vr = (sum2_all[oi] - sum2_left[oi]) / nright
-                - mr * mr;
-              const double within = vl * nleft + vr * nright;
-              const double between = (double)nleft * nright
-                * (ml - mr) * (ml - mr) / count;
-              if (within > 0) fisher += between / within;
+              if (NULL != state->output_groups
+                && state->output_groups[oi] != state->target_group) continue;
+              { const double ml = sum_left[oi] / nleft;
+                const double mr = (sum_all[oi] - sum_left[oi]) / nright;
+                const double vl = sum2_left[oi] / nleft - ml * ml;
+                const double vr = (sum2_all[oi] - sum2_left[oi]) / nright
+                  - mr * mr;
+                const double within = vl * nleft + vr * nright;
+                const double between = (double)nleft * nright
+                  * (ml - mr) * (ml - mr) / count;
+                if (within > 0) fisher += between / within;
+              }
             }
             { const double score = fisher / penalty;
               if (score > best_score) {
@@ -218,28 +236,128 @@ LIBXS_API_INLINE void internal_libxs_predict_hknn_partition(
     state.target_nc = target_nc;
     state.ntotal = p;
     state.target_output = -1;
+    state.target_group = -1;
+    state.output_groups = NULL;
     config.min_leaf = min_leaf;
     config.split = internal_libxs_predict_hknn_split;
     config.ctx = &state;
     if (n > 1) {
+      int* groups = (int*)calloc((size_t)n, sizeof(int));
+      int ngroups = n, g;
+      if (NULL != groups) {
+        int gi, gj;
+        for (gi = 0; gi < n; ++gi) groups[gi] = gi;
+        for (gi = 0; gi < n; ++gi) {
+          if (groups[gi] != gi) continue;
+          for (gj = gi + 1; gj < n; ++gj) {
+            double cramer_v = 0;
+            if (groups[gj] != gj) continue;
+            { double vals_a[64], vals_b[64];
+              int na = 0, nb = 0, ri, ci, ki;
+              for (i = 0; i < p && na < 64; ++i) {
+                const double a = model->entries[i].outputs[gi];
+                int found = 0;
+                for (ki = 0; ki < na; ++ki) {
+                  if (vals_a[ki] == a) { found = 1; break; }
+                }
+                if (0 == found) vals_a[na++] = a;
+              }
+              for (i = 0; i < p && nb < 64; ++i) {
+                const double b = model->entries[i].outputs[gj];
+                int found = 0;
+                for (ki = 0; ki < nb; ++ki) {
+                  if (vals_b[ki] == b) { found = 1; break; }
+                }
+                if (0 == found) vals_b[nb++] = b;
+              }
+              if (na > 1 && nb > 1 && na <= 64 && nb <= 64) {
+                int ct_pool = 0;
+                int* ct = (int*)LIBXS_PREDICT_MALLOC(
+                  (size_t)na * (size_t)nb * sizeof(int), ct_pool);
+                if (NULL != ct) {
+                  double chi2 = 0;
+                  int min_k;
+                  memset(ct, 0, (size_t)na * (size_t)nb * sizeof(int));
+                  for (i = 0; i < p; ++i) {
+                    const double a = model->entries[i].outputs[gi];
+                    const double b = model->entries[i].outputs[gj];
+                    int ai = 0, bi = 0;
+                    for (ki = 0; ki < na; ++ki) {
+                      if (vals_a[ki] == a) { ai = ki; break; }
+                    }
+                    for (ki = 0; ki < nb; ++ki) {
+                      if (vals_b[ki] == b) { bi = ki; break; }
+                    }
+                    ct[ai * nb + bi]++;
+                  }
+                  for (ri = 0; ri < na; ++ri) {
+                    int rs = 0;
+                    for (ci = 0; ci < nb; ++ci) rs += ct[ri * nb + ci];
+                    for (ci = 0; ci < nb; ++ci) {
+                      int cs = 0;
+                      double expected;
+                      for (ki = 0; ki < na; ++ki) cs += ct[ki * nb + ci];
+                      expected = (double)rs * cs / p;
+                      if (expected > 0) {
+                        const double diff = ct[ri * nb + ci] - expected;
+                        chi2 += diff * diff / expected;
+                      }
+                    }
+                  }
+                  min_k = (na < nb) ? na : nb;
+                  if (min_k > 1) {
+                    cramer_v = sqrt(chi2 / (p * (min_k - 1)));
+                  }
+                  LIBXS_PREDICT_FREE(ct, ct_pool);
+                }
+              }
+            }
+            if (cramer_v >= 0.5) {
+              const int root = groups[gi];
+              for (i = 0; i < n; ++i) {
+                if (groups[i] == gj) groups[i] = root;
+              }
+            }
+          }
+        }
+        ngroups = 0;
+        for (gi = 0; gi < n; ++gi) {
+          if (groups[gi] == gi) {
+            const int old_id = gi;
+            for (gj = gi; gj < n; ++gj) {
+              if (groups[gj] == old_id) groups[gj] = ngroups;
+            }
+            ++ngroups;
+          }
+        }
+        model->hknn_po_groups = groups;
+        model->hknn_ngroups = ngroups;
+      }
+      else {
+        ngroups = n;
+      }
       model->hknn_po_assignments = (int**)calloc(
-        (size_t)n, sizeof(int*));
+        (size_t)ngroups, sizeof(int*));
       model->hknn_po_nclusters = (int*)calloc(
-        (size_t)n, sizeof(int));
+        (size_t)ngroups, sizeof(int));
       if (NULL != model->hknn_po_assignments
         && NULL != model->hknn_po_nclusters)
       {
-        for (j = 0; j < n; ++j) {
-          model->hknn_po_assignments[j] = (int*)calloc(
+        state.output_groups = groups;
+        for (g = 0; g < ngroups; ++g) {
+          model->hknn_po_assignments[g] = (int*)calloc(
             (size_t)p, sizeof(int));
-          if (NULL != model->hknn_po_assignments[j]) {
-            state.target_output = j;
+          if (NULL != model->hknn_po_assignments[g]) {
+            state.target_output = -1;
+            state.target_group = g;
             for (i = 0; i < p; ++i) order[i] = i;
-            model->hknn_po_nclusters[j] = libxs_kdtree_partition(
+            model->hknn_po_nclusters[g] = libxs_kdtree_partition(
               pts, order, p, m, m,
-              model->hknn_po_assignments[j], &config);
+              model->hknn_po_assignments[g], &config);
           }
         }
+        state.output_groups = NULL;
+        state.target_group = -1;
       }
       state.target_output = -1;
     }
@@ -364,6 +482,7 @@ LIBXS_API_INLINE int internal_libxs_predict_hknn_build_po(
   const int p = model->nentries;
   const int m = model->ninputs;
   const int n = model->noutputs;
+  const int ngroups = (model->hknn_ngroups > 0) ? model->hknn_ngroups : n;
   int result = EXIT_SUCCESS;
   if (NULL == model->hknn_po_assignments
     || NULL == model->hknn_po_nclusters || n <= 1)
@@ -372,21 +491,33 @@ LIBXS_API_INLINE int internal_libxs_predict_hknn_build_po(
   }
   else {
     model->hknn_po_clusters = (internal_libxs_predict_cluster_t**)calloc(
-      (size_t)n, sizeof(internal_libxs_predict_cluster_t*));
+      (size_t)ngroups, sizeof(internal_libxs_predict_cluster_t*));
     if (NULL == model->hknn_po_clusters) result = EXIT_FAILURE;
   }
   if (EXIT_SUCCESS == result && NULL != model->hknn_po_clusters) {
-    int oi;
-    for (oi = 0; oi < n && EXIT_SUCCESS == result; ++oi) {
-      const int* assign = model->hknn_po_assignments[oi];
-      const int nc = model->hknn_po_nclusters[oi];
+    int gi;
+    for (gi = 0; gi < ngroups && EXIT_SUCCESS == result; ++gi) {
+      const int* assign = model->hknn_po_assignments[gi];
+      const int nc = model->hknn_po_nclusters[gi];
+      int gsz = 0, gfirst = -1, oi;
       internal_libxs_predict_cluster_t* cls;
       int c, i, k;
+      for (oi = 0; oi < n; ++oi) {
+        if (NULL != model->hknn_po_groups && model->hknn_po_groups[oi] == gi) {
+          if (gfirst < 0) gfirst = oi;
+          ++gsz;
+        }
+        else if (NULL == model->hknn_po_groups && oi == gi) {
+          gfirst = oi; gsz = 1;
+        }
+      }
+      if (gsz <= 0) gsz = 1;
+      if (gfirst < 0) gfirst = gi;
       if (NULL == assign || nc < 1) continue;
       cls = (internal_libxs_predict_cluster_t*)calloc(
         (size_t)nc, sizeof(internal_libxs_predict_cluster_t));
       if (NULL == cls) { result = EXIT_FAILURE; break; }
-      model->hknn_po_clusters[oi] = cls;
+      model->hknn_po_clusters[gi] = cls;
       for (c = 0; c < nc && EXIT_SUCCESS == result; ++c) {
         cls[c].centroid = (double*)calloc((size_t)m, sizeof(double));
         if (NULL == cls[c].centroid) result = EXIT_FAILURE;
@@ -416,15 +547,15 @@ LIBXS_API_INLINE int internal_libxs_predict_hknn_build_po(
       }
       for (c = 0; c < nc && EXIT_SUCCESS == result; ++c) {
         const int nce = cls[c].nentries;
-        int ki, nd;
-        double prev;
+        int ki;
         if (0 >= nce) continue;
         cls[c].sorted_idx = (int*)malloc((size_t)nce * sizeof(int));
         cls[c].kd_pts = (double*)malloc(
           (size_t)nce * (size_t)m * sizeof(double));
-        cls[c].raw_outputs = (double*)malloc((size_t)nce * sizeof(double));
-        cls[c].mode = (int*)malloc(sizeof(int));
-        cls[c].ndistinct = (int*)malloc(sizeof(int));
+        cls[c].raw_outputs = (double*)malloc(
+          (size_t)nce * (size_t)gsz * sizeof(double));
+        cls[c].mode = (int*)calloc((size_t)gsz, sizeof(int));
+        cls[c].ndistinct = (int*)calloc((size_t)gsz, sizeof(int));
         if (NULL == cls[c].sorted_idx || NULL == cls[c].kd_pts
           || NULL == cls[c].raw_outputs
           || NULL == cls[c].mode || NULL == cls[c].ndistinct)
@@ -435,12 +566,21 @@ LIBXS_API_INLINE int internal_libxs_predict_hknn_build_po(
           ki = 0;
           for (i = 0; i < p; ++i) {
             if (assign[i] == c) {
+              int li = 0;
               cls[c].sorted_idx[ki] = i;
               internal_libxs_predict_normalize(model,
                 model->entries[i].inputs,
                 cls[c].kd_pts + (size_t)ki * m);
-              cls[c].raw_outputs[ki] =
-                model->entries[i].outputs[oi];
+              for (oi = 0; oi < n; ++oi) {
+                if ((NULL != model->hknn_po_groups
+                  && model->hknn_po_groups[oi] == gi)
+                  || (NULL == model->hknn_po_groups && oi == gi))
+                {
+                  cls[c].raw_outputs[(size_t)ki * gsz + li] =
+                    model->entries[i].outputs[oi];
+                  ++li;
+                }
+              }
               ++ki;
             }
           }
@@ -452,20 +592,28 @@ LIBXS_API_INLINE int internal_libxs_predict_hknn_build_po(
             if (d > cls[c].dmax) cls[c].dmax = d;
           }
           if (cls[c].dmax <= 0.0) cls[c].dmax = 1.0;
-          nd = 0;
-          prev = cls[c].raw_outputs[0];
-          for (k = 1; k < nce; ++k) {
-            if (cls[c].raw_outputs[k] != prev) {
-              ++nd; prev = cls[c].raw_outputs[k];
+          { int li = 0;
+            for (oi = 0; oi < n; ++oi) {
+              if ((NULL != model->hknn_po_groups
+                && model->hknn_po_groups[oi] == gi)
+                || (NULL == model->hknn_po_groups && oi == gi))
+              {
+                int nd = 0;
+                double prev = cls[c].raw_outputs[li];
+                for (k = 1; k < nce; ++k) {
+                  if (cls[c].raw_outputs[(size_t)k * gsz + li] != prev) {
+                    ++nd;
+                    prev = cls[c].raw_outputs[(size_t)k * gsz + li];
+                  }
+                }
+                cls[c].ndistinct[li] = nd + 1;
+                cls[c].mode[li] = (cls[c].ndistinct[li] <= LIBXS_PREDICT_KNN)
+                  ? 1 : 0;
+                ++li;
+              }
             }
           }
-          cls[c].ndistinct[0] = nd + 1;
-          cls[c].mode[0] = (cls[c].ndistinct[0] <= LIBXS_PREDICT_KNN)
-            ? 1 : 0;
-          cls[c].k_eff = (0 != cls[c].mode[0])
-            ? LIBXS_MIN(LIBXS_MAX(5, nce / 3), LIBXS_PREDICT_KNN)
-            : LIBXS_MIN(LIBXS_MAX(3, (int)(sqrt((double)nce) + 0.5)),
-                LIBXS_PREDICT_KNN);
+          cls[c].k_eff = LIBXS_MIN(LIBXS_MAX(5, nce / 3), LIBXS_PREDICT_KNN);
         }
       }
     }

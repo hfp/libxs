@@ -120,8 +120,10 @@ LIBXS_API_INLINE void internal_libxs_predict_compress(
             }
           }
           if (NULL != model->hknn_po_assignments) {
+            const int ng = (model->hknn_ngroups > 0)
+              ? model->hknn_ngroups : n;
             int j2, new_p = model->nentries;
-            for (j2 = 0; j2 < n; ++j2) {
+            for (j2 = 0; j2 < ng; ++j2) {
               if (NULL != model->hknn_po_assignments[j2]) {
                 int* old_po = model->hknn_po_assignments[j2];
                 int* new_po = (int*)malloc((size_t)new_p * sizeof(int));

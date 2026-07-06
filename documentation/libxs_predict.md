@@ -203,6 +203,27 @@ This catches predictions where the model contradicts itself:
 the output maps back to a different input region than the
 query came from.
 
+```C
+void libxs_predict_set_quantile(libxs_predict_t* model,
+  double quantile);
+```
+
+Set quantile level for prediction intervals (0..0.5).
+When enabled, `info->lower` and `info->upper` are filled
+with the q-th and (1-q)-th distance-weighted quantiles of
+the k nearest neighbors.
+
+- quantile=0 (default): intervals not computed,
+  `info->lower` and `info->upper` are NULL.
+- quantile>0 (e.g. 0.1): 10th/90th percentile bounds,
+  scaled by `1/confidence` so sparse regions produce wider
+  intervals and dense regions stay close to the raw
+  neighbor spread.
+
+The interval captures "plausible range given the neighbors"
+while confidence captures "should I trust this at all."
+Narrow interval + high confidence = strong prediction.
+
 ## Timeseries Configuration
 
 ```C
@@ -402,6 +423,8 @@ typedef struct libxs_predict_info_t {
   const double* error;
   const double* confidence;
   const double* variance;
+  const double* lower;
+  const double* upper;
   const int* interpolated;
   int noutputs;
   int cluster;
@@ -415,9 +438,12 @@ per-output confidence (0..1), incorporating:
 - coverage: cluster population and query centrality (when
   quality>0, see libxs_predict_build),
 - consistency: round-trip penalty (when set_consistency>0).
-variance holds per-output neighbor disagreement. cluster
-gives the assigned cluster index (-1 if blended). distance
-gives normalized distance to nearest centroid.
+lower/upper hold per-output prediction intervals (NULL when
+set_quantile is 0, i.e. disabled). When enabled, bounds are
+the distance-weighted quantiles from k neighbors scaled by
+1/confidence. variance holds per-output neighbor disagreement.
+cluster gives the assigned cluster index (-1 if blended).
+distance gives normalized distance to nearest centroid.
 
 ```C
 typedef struct libxs_predict_query_t {

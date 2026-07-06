@@ -33,7 +33,7 @@ int main(int argc, char* argv[])
 {
   int argi = 1, mode = LIBXS_PREDICT_AUTO, use_rf = 0, use_hknn = 0;
   int order_arg = 0;
-  double quality = 0, smooth = 0, consistency = 0;
+  double quality = 0, smooth = 0, consistency = 0, quantile = 0;
   double eval_fraction = 0.8;
   const char *filename, *modelfile, *confidence_prefix;
   int result = EXIT_FAILURE;
@@ -61,6 +61,11 @@ int main(int argc, char* argv[])
     else if ('i' == argv[argi][0]) mode = LIBXS_PREDICT_INTERPOLATE;
     else if ('r' == argv[argi][0]) use_rf = 1;
     else if ('h' == argv[argi][0]) use_hknn = 1;
+    else if ('q' == argv[argi][0]) {
+      const char* p = argv[argi];
+      while ('\0' != *p && (*p < '0' || *p > '9') && '.' != *p) ++p;
+      quantile = ('\0' != *p) ? atof(p) : 0.1;
+    }
     else if ('s' == argv[argi][0]) {
       const char* p = argv[argi];
       while ('\0' != *p && (*p < '0' || *p > '9') && '.' != *p
@@ -91,7 +96,7 @@ int main(int argc, char* argv[])
   }
   if (NULL == filename) {
     fprintf(stdout,
-      "Usage: %s [fraction] [auto|cat|compress[Q]|consist[C]|interp|rf|hknn|smooth[A]]"
+      "Usage: %s [fraction] [auto|cat|compress[Q]|consist[C]|interp|quantile[Q]|rf|hknn|smooth[A]]"
       " [-N] <csvfile> [modelfile [confidence-prefix]]\n"
       "  fraction: validation split 0..1 for quality report (default: 0.8)\n"
       "  auto:     auto-detect mode per output (default)\n"
@@ -99,6 +104,7 @@ int main(int argc, char* argv[])
       "  compress: drop predictable entries (Q: threshold, default 0.9)\n"
       "  consist:  round-trip consistency penalty (C: 0..1, default 0.9)\n"
       "  interp:   force interpolation for all outputs\n"
+      "  quantile: prediction intervals (Q: level 0..0.5, default 0.1)\n"
       "  rf:       Random Forest classification\n"
       "  hknn:     hierarchical kNN (Fisher-guided partition)\n"
       "  smooth:   multi-cluster blending (A: radius or -1=auto, default: auto)\n"
@@ -124,6 +130,7 @@ int main(int argc, char* argv[])
           else if (0 != use_hknn) libxs_predict_set_decompose(model, LIBXS_PREDICT_HKNN);
           if (0.0 != smooth) libxs_predict_set_smooth(model, smooth);
           if (0.0 != consistency) libxs_predict_set_consistency(model, consistency);
+          if (0.0 != quantile) libxs_predict_set_quantile(model, quantile);
           for (i = 0; i < ntotal; ++i) {
             libxs_predict_get(source, i, inputs, outputs);
             libxs_predict_push(NULL, model, inputs, outputs);

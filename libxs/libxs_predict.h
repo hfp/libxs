@@ -53,6 +53,10 @@ LIBXS_EXTERN_C typedef struct libxs_predict_info_t {
   const double* confidence;
   /** Per-output variance among k nearest neighbors (noutputs elements). */
   const double* variance;
+  /** Per-output lower prediction interval (noutputs elements, NULL if disabled). */
+  const double* lower;
+  /** Per-output upper prediction interval (noutputs elements, NULL if disabled). */
+  const double* upper;
   /** Per-output mode used: non-zero if polynomial interpolation was applied. */
   const int* interpolated;
   /** Number of outputs. */
@@ -156,6 +160,16 @@ LIBXS_API void libxs_predict_set_smooth(libxs_predict_t* model,
  */
 LIBXS_API void libxs_predict_set_consistency(libxs_predict_t* model,
   double amount);
+
+/**
+ * Set quantile level for prediction intervals (0..0.5, default 0).
+ * When >0, info->lower and info->upper are filled with the q-th and
+ * (1-q)-th weighted quantiles of the k nearest neighbors, scaled by
+ * 1/confidence so sparse regions widen naturally.
+ * 0 (default): intervals not computed.
+ */
+LIBXS_API void libxs_predict_set_quantile(libxs_predict_t* model,
+  double quantile);
 
 /**
  * Declare timeseries structure: nseries co-observed series, each with
