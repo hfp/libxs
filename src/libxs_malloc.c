@@ -303,6 +303,55 @@ LIBXS_API_INLINE size_t internal_libxs_malloc_evict_available(
   }
   return reclaimed;
 }
+
+
+LIBXS_API_INLINE size_t internal_libxs_malloc_evict_limit_get(void)
+{
+  size_t limit = internal_libxs_malloc_evict_limit;
+  if (0 == limit) {
+    const char *const env = getenv("LIBXS_MALLOC_EVICT_LIMIT");
+    limit = (NULL != env && '\0' != *env)
+      ? (size_t)atol(env) << 20 : LIBXS_MALLOC_EVICT_LIMIT;
+    internal_libxs_malloc_evict_limit = limit;
+  }
+  return limit;
+}
+
+
+LIBXS_API_INLINE size_t internal_libxs_malloc_evict_bounded(
+  libxs_malloc_pool_t *pool, size_t target)
+{
+  size_t reclaimed = 0;
+  for (;;) {
+    void *pointer = NULL;
+    size_t used = 0, i;
+    const size_t pool_bytes = LIBXS_ATOMIC(LIBXS_ATOMIC_LOAD, LIBXS_BITS)(
+      &pool->pool_bytes, LIBXS_ATOMIC_RELAXED);
+    if (pool_bytes <= target) break;
+    LIBXS_LOCK_ACQUIRE(LIBXS_LOCK, &pool->plock);
+    for (i = 0; i < pool->slots_num; ++i) {
+      internal_libxs_malloc_chunk_t *const chunk = pool->slots[i];
+      if (NULL != chunk->pointer) {
+        const int hist_b = internal_libxs_malloc_hist_bucket(chunk->used);
+        pointer = chunk->pointer;
+        used = chunk->used;
+        chunk->pointer = NULL;
+        chunk->used = 0;
+        chunk->size = 0;
+        LIBXS_ATOMIC(LIBXS_ATOMIC_ADD_FETCH, LIBXS_BITS)(
+          &pool->hist[hist_b].nevicts_limit, 1, LIBXS_ATOMIC_RELAXED);
+        break;
+      }
+    }
+    LIBXS_LOCK_RELEASE(LIBXS_LOCK, &pool->plock);
+    if (NULL == pointer) break;
+    internal_libxs_malloc_deallocate(pool, pointer);
+    LIBXS_ATOMIC(LIBXS_ATOMIC_SUB_FETCH, LIBXS_BITS)(
+      &pool->pool_bytes, used, LIBXS_ATOMIC_LOCKORDER);
+    reclaimed += used;
+  }
+  return reclaimed;
+}
 #endif
 
 
@@ -397,6 +446,15 @@ LIBXS_API void* libxs_malloc(libxs_malloc_pool_t* pool, size_t size, int alignme
         if (NULL != chunk->pointer) {
           if (chunk->size < alloc_size) {
             char *pointer;
+#if defined(LIBXS_MALLOC_EVICT)
+            { const size_t limit = internal_libxs_malloc_evict_limit_get();
+              const size_t pool_bytes = LIBXS_ATOMIC(LIBXS_ATOMIC_LOAD, LIBXS_BITS)(
+                &pool->pool_bytes, LIBXS_ATOMIC_RELAXED);
+              if (limit < pool_bytes + alloc_size) {
+                internal_libxs_malloc_evict_bounded(pool, limit);
+              }
+            }
+#endif
             if (0 < pool->max_nthreads || NULL != pool->fn_malloc.std) {
               pointer = (char*)internal_libxs_malloc_allocate(pool, alloc_size);
 #if defined(LIBXS_MALLOC_EVICT)
@@ -476,6 +534,15 @@ LIBXS_API void* libxs_malloc(libxs_malloc_pool_t* pool, size_t size, int alignme
           }
         }
         else { char *pointer;
+#if defined(LIBXS_MALLOC_EVICT)
+          { const size_t limit = internal_libxs_malloc_evict_limit_get();
+            const size_t pool_bytes = LIBXS_ATOMIC(LIBXS_ATOMIC_LOAD, LIBXS_BITS)(
+              &pool->pool_bytes, LIBXS_ATOMIC_RELAXED);
+            if (limit < pool_bytes + alloc_size) {
+              internal_libxs_malloc_evict_bounded(pool, limit);
+            }
+          }
+#endif
           pointer = (char*)internal_libxs_malloc_allocate(pool, alloc_size);
 #if defined(LIBXS_MALLOC_EVICT)
           if (NULL == pointer && 0 != internal_libxs_malloc_evict_available(pool, chunk)) {
@@ -539,12 +606,7 @@ LIBXS_API void libxs_free(void* pointer)
 #if defined(LIBXS_MALLOC_EVICT)
     if (NULL != chunk->pointer && LIBXS_MALLOC_EVICT_SIZE <= chunk->used) {
       const size_t total_bytes = LIBXS_ATOMIC(LIBXS_ATOMIC_LOAD, LIBXS_BITS)(&pool->pool_bytes, LIBXS_ATOMIC_RELAXED);
-      if (0 == internal_libxs_malloc_evict_limit) {
-        const char *const env = getenv("LIBXS_MALLOC_EVICT_LIMIT");
-        internal_libxs_malloc_evict_limit = (NULL != env && '\0' != *env)
-          ? (size_t)atol(env) << 20 : LIBXS_MALLOC_EVICT_LIMIT;
-      }
-      if (internal_libxs_malloc_evict_limit < total_bytes) {
+      if (internal_libxs_malloc_evict_limit_get() < total_bytes) {
         const int evict_b = internal_libxs_malloc_hist_bucket(chunk->used);
         const size_t reclaimed = chunk->used;
         internal_libxs_malloc_deallocate(pool, chunk->pointer);
