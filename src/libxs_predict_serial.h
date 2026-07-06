@@ -18,6 +18,7 @@ LIBXS_API_INLINE int internal_libxs_predict_save_hknn(
     required += (size_t)n * sizeof(uint16_t);
     required += (size_t)cl->nentries * (size_t)m * sizeof(double);
     required += (size_t)cl->nentries * (size_t)n * sizeof(double);
+    required += (size_t)n * sizeof(double);
     required += (size_t)cl->nentries * sizeof(uint16_t);
   }
   required += 1;
@@ -76,6 +77,7 @@ LIBXS_API_INLINE int internal_libxs_predict_save_hknn(
         (size_t)cl->nentries * (size_t)m * sizeof(double));
       WRITE_BLK(cl->raw_outputs,
         (size_t)cl->nentries * (size_t)n * sizeof(double));
+      WRITE_BLK(cl->out_rms, (size_t)n * sizeof(double));
       for (k = 0; k < cl->nentries; ++k) WRITE_U16(cl->sorted_idx[k]);
     }
     if (NULL != model->hknn_po_assignments
@@ -155,6 +157,7 @@ LIBXS_API int libxs_predict_save(const libxs_predict_t* model, void* buffer, siz
       required += (size_t)model->noutputs * 3;
       required += (size_t)model->noutputs * sizeof(uint16_t);
       required += (size_t)model->noutputs * sizeof(double);
+      required += (size_t)model->noutputs * sizeof(double);
       required += (size_t)cl->nentries * (size_t)model->ninputs * sizeof(double);
       required += (size_t)cl->nentries * (size_t)model->noutputs * sizeof(double);
       for (j = 0; j < model->noutputs; ++j) {
@@ -228,6 +231,7 @@ LIBXS_API int libxs_predict_save(const libxs_predict_t* model, void* buffer, siz
         for (j = 0; j < model->noutputs; ++j) WRITE_U8(cl->mode[j]);
         for (j = 0; j < model->noutputs; ++j) WRITE_U16(cl->ndistinct[j]);
         WRITE_BLK(cl->errors, (size_t)model->noutputs * sizeof(double));
+        WRITE_BLK(cl->out_rms, (size_t)model->noutputs * sizeof(double));
         WRITE_BLK(cl->kd_pts, (size_t)cl->nentries * (size_t)model->ninputs * sizeof(double));
         WRITE_BLK(cl->raw_outputs, (size_t)cl->nentries * (size_t)model->noutputs * sizeof(double));
         for (j = 0; j < model->noutputs; ++j) {
@@ -334,7 +338,7 @@ LIBXS_API_INLINE libxs_predict_t* internal_libxs_predict_load_hknn(
     model->clusters = (internal_libxs_predict_cluster_t*)calloc(
       (size_t)nclust, sizeof(internal_libxs_predict_cluster_t));
     model->eval_buf = (double*)malloc(
-      (size_t)nout * 4 * sizeof(double) + (size_t)nout * sizeof(int));
+      (size_t)nout * 6 * sizeof(double) + (size_t)nout * sizeof(int));
     if (NULL == model->clusters || NULL == model->eval_buf) ok = EXIT_FAILURE;
   }
   for (c = 0; c < (int)nclust && EXIT_SUCCESS == ok; ++c) {
@@ -384,6 +388,12 @@ LIBXS_API_INLINE libxs_predict_t* internal_libxs_predict_load_hknn(
       if (NULL == cl->raw_outputs) ok = EXIT_FAILURE;
       else ok = internal_libxs_predict_read(&src, end,
         cl->raw_outputs, (size_t)ne * (size_t)nout * sizeof(double));
+    }
+    if (EXIT_SUCCESS == ok) {
+      cl->out_rms = (double*)malloc((size_t)nout * sizeof(double));
+      if (NULL == cl->out_rms) ok = EXIT_FAILURE;
+      else ok = internal_libxs_predict_read(&src, end,
+        cl->out_rms, (size_t)nout * sizeof(double));
     }
     if (EXIT_SUCCESS == ok) {
       cl->sorted_idx = (int*)malloc((size_t)ne * sizeof(int));
@@ -602,7 +612,7 @@ LIBXS_API libxs_predict_t* libxs_predict_load(const void* buffer, size_t size)
       model->clusters = (internal_libxs_predict_cluster_t*)calloc(
         (size_t)nclust, sizeof(internal_libxs_predict_cluster_t));
       model->eval_buf = (double*)malloc(
-        (size_t)nout * 4 * sizeof(double) + (size_t)nout * sizeof(int));
+        (size_t)nout * 6 * sizeof(double) + (size_t)nout * sizeof(int));
       if (NULL == model->clusters || NULL == model->eval_buf) ok = EXIT_FAILURE;
     }
     { int c;
@@ -660,6 +670,12 @@ LIBXS_API libxs_predict_t* libxs_predict_load(const void* buffer, size_t size)
         if (EXIT_SUCCESS == ok) {
           ok = internal_libxs_predict_read(&src, end,
             cl->errors, (size_t)nout * sizeof(double));
+        }
+        if (EXIT_SUCCESS == ok) {
+          cl->out_rms = (double*)malloc((size_t)nout * sizeof(double));
+          if (NULL == cl->out_rms) ok = EXIT_FAILURE;
+          else ok = internal_libxs_predict_read(&src, end,
+            cl->out_rms, (size_t)nout * sizeof(double));
         }
         if (EXIT_SUCCESS == ok) {
           cl->kd_pts = (double*)malloc(
