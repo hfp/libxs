@@ -380,13 +380,13 @@ LIBXS_API_INLINE void internal_libxs_predict_cluster_refit(
         }
         if (NULL != cl->out_rms && 0 == cl->mode[j]) {
           const double* cj = cl->coeffs + (size_t)j * (cl->maxorder + 1);
-          const int d = cl->order[j];
+          const int od = cl->order[j];
           double sse = 0;
           int ki;
           for (ki = 0; ki < nc; ++ki) {
             double pred = 0, actual, res;
             int di;
-            for (di = 0; di <= d; ++di) {
+            for (di = 0; di <= od; ++di) {
               pred += cj[di] * libxs_binom((double)ki, di);
             }
             actual = cl->raw_outputs[(size_t)ki * n + j];

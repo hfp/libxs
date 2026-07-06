@@ -40,8 +40,7 @@ OBJECTS := $(COBJCTS)
 XFILES := $(OUTDIR)/predict_params.x $(OUTDIR)/predict_sunspots.x \
           $(OUTDIR)/predict_earthquakes.x $(OUTDIR)/predict_discharge.x \
           $(OUTDIR)/predict_soi.x $(OUTDIR)/predict_stock.x \
-          $(OUTDIR)/predict_crystal.x $(OUTDIR)/predict_ett.x \
-          $(OUTDIR)/predict_ett_multi.x $(OUTDIR)/predict_ett_attend.x
+          $(OUTDIR)/predict_crystal.x $(OUTDIR)/predict_ett.x
 
 .PHONY: all
 all: $(XFILES)
@@ -73,11 +72,6 @@ $(OUTDIR)/predict_crystal.x: $(OUTDIR)/.make $(BLDDIR)/predict_crystal-c.o $(XLI
 $(OUTDIR)/predict_ett.x: $(OUTDIR)/.make $(BLDDIR)/predict_ett-c.o $(XLIB)
 	$(LD) -o $@ $(BLDDIR)/predict_ett-c.o $(XLIB) $(SLDFLAGS) $(LDFLAGS) $(CLDFLAGS)
 
-$(OUTDIR)/predict_ett_multi.x: $(OUTDIR)/.make $(BLDDIR)/predict_ett_multi-c.o $(XLIB)
-	$(LD) -o $@ $(BLDDIR)/predict_ett_multi-c.o $(XLIB) $(SLDFLAGS) $(LDFLAGS) $(CLDFLAGS)
-
-$(OUTDIR)/predict_ett_attend.x: $(OUTDIR)/.make $(BLDDIR)/predict_ett_attend-c.o $(XLIB)
-	$(LD) -o $@ $(BLDDIR)/predict_ett_attend-c.o $(XLIB) $(SLDFLAGS) $(LDFLAGS) $(CLDFLAGS)
 
 $(BLDDIR)/%-c.o: $(SRCDIR)/%.c .state $(BLDDIR)/.make $(HEADERS) Makefile $(DEPDIR)/Makefile.inc
 	$(CC) $(DFLAGS) $(IFLAGS) $(CFLAGS) $(CTARGET) -c $< -o $@
