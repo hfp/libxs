@@ -42,6 +42,7 @@ typedef struct internal_libxs_predict_cluster_t {
   double* centroid;
   double* coeffs;
   double* errors;
+  double* out_rms;
   double* kd_pts;
   double* raw_outputs;
   double* out_mean;
@@ -136,6 +137,7 @@ LIBXS_API_INLINE void internal_libxs_predict_free_clusters(libxs_predict_t* mode
       free(cl->centroid);
       free(cl->coeffs);
       free(cl->errors);
+      free(cl->out_rms);
       free(cl->kd_pts);
       free(cl->raw_outputs);
       free(cl->out_mean);
@@ -376,6 +378,23 @@ LIBXS_API_INLINE void internal_libxs_predict_cluster_refit(
         else {
           cl->errors[j] = 0;
         }
+        if (NULL != cl->out_rms && 0 == cl->mode[j]) {
+          const double* cj = cl->coeffs + (size_t)j * (cl->maxorder + 1);
+          const int d = cl->order[j];
+          double sse = 0;
+          int ki;
+          for (ki = 0; ki < nc; ++ki) {
+            double pred = 0, actual, res;
+            int di;
+            for (di = 0; di <= d; ++di) {
+              pred += cj[di] * libxs_binom((double)ki, di);
+            }
+            actual = cl->raw_outputs[(size_t)ki * n + j];
+            res = pred - actual;
+            sse += res * res;
+          }
+          cl->out_rms[j] = sqrt(sse / nc);
+        }
       }
     }
     LIBXS_PREDICT_FREE(buf, buf_pool);
@@ -392,6 +411,17 @@ LIBXS_API_INLINE void internal_libxs_predict_cluster_refit(
       : LIBXS_MIN(LIBXS_MAX(3, (int)(sqrt((double)nc) + 0.5)),
           LIBXS_PREDICT_KNN);
   }
+}
+
+
+LIBXS_API_INLINE double internal_libxs_predict_quantile_z(double q)
+{
+  const double p = 1.0 - q;
+  const double t = sqrt(-2.0 * log(1.0 - p));
+  const double c0 = 2.515517, c1 = 0.802853, c2 = 0.010328;
+  const double d1 = 1.432788, d2 = 0.189269, d3 = 0.001308;
+  return t - (c0 + c1 * t + c2 * t * t)
+    / (1.0 + d1 * t + d2 * t * t + d3 * t * t * t);
 }
 
 
@@ -1609,10 +1639,11 @@ LIBXS_API int libxs_predict_build(libxs_predict_t* model,
         cl->maxorder = maxorder;
         cl->coeffs = (double*)calloc((size_t)n * (size_t)(maxorder + 1), sizeof(double));
         cl->errors = (double*)calloc((size_t)n, sizeof(double));
+        cl->out_rms = (double*)calloc((size_t)n, sizeof(double));
         cl->raw_outputs = (double*)malloc((size_t)nc * (size_t)n * sizeof(double));
         cl->out_mean = (double*)calloc((size_t)n, sizeof(double));
         cl->out_var = (double*)calloc((size_t)n, sizeof(double));
-        if (NULL == cl->coeffs || NULL == cl->errors
+        if (NULL == cl->coeffs || NULL == cl->errors || NULL == cl->out_rms
           || NULL == cl->raw_outputs
           || NULL == cl->out_mean || NULL == cl->out_var)
         {
@@ -1638,6 +1669,21 @@ LIBXS_API int libxs_predict_build(libxs_predict_t* model,
       }
       if (EXIT_SUCCESS == result) {
         internal_libxs_predict_cluster_refit(cl, n, 1);
+      }
+      if (EXIT_SUCCESS == result && nc > 2 && NULL != cl->out_rms
+        && model->quantile > 0) {
+        for (j = 0; j < n; ++j) {
+          double sse = 0;
+          for (k = 0; k < nc; ++k) {
+            const double actual = cl->raw_outputs[(size_t)k * n + j];
+            const double pred = internal_libxs_predict_classify(
+              cl, cl->kd_pts, nc, m, cl->kd_pts + (size_t)k * m,
+              j, n, cl->ndistinct[j], 0, k, NULL, NULL);
+            const double res = pred - actual;
+            sse += res * res;
+          }
+          cl->out_rms[j] = sqrt(sse / nc);
+        }
       }
     }
     if (EXIT_SUCCESS == result) {
@@ -2200,12 +2246,31 @@ LIBXS_API void libxs_predict_eval(libxs_lock_t* lock, const libxs_predict_t* mod
     }
     if (NULL != info) {
       if (model->quantile > 0) {
+        const double z = internal_libxs_predict_quantile_z(model->quantile);
+        const internal_libxs_predict_cluster_t* icl = &model->clusters[best_c];
         for (j = 0; j < n; ++j) {
           if (lo[j] != 0 || hi[j] != 0) {
             const double c_inv = (conf[j] > 0) ? (1.0 / conf[j]) : 1.0;
             const double mid = vals[j];
-            lo[j] = mid - (mid - lo[j]) * c_inv;
-            hi[j] = mid + (hi[j] - mid) * c_inv;
+            double hw_lo = (mid - lo[j]) * c_inv;
+            double hw_hi = (hi[j] - mid) * c_inv;
+            if (NULL != icl->out_rms && icl->out_rms[j] > 0) {
+              const double cal_hw = icl->out_rms[j] * z * c_inv;
+              if (cal_hw > hw_lo) hw_lo = cal_hw;
+              if (cal_hw > hw_hi) hw_hi = cal_hw;
+            }
+            lo[j] = mid - hw_lo;
+            hi[j] = mid + hw_hi;
+          }
+          else if (0 != rels[j] && NULL != icl->out_rms
+            && icl->out_rms[j] > 0)
+          {
+            const double c_inv = (conf[j] > 0) ? (1.0 / conf[j]) : 1.0;
+            const double sigma = (NULL != icl->out_var && icl->out_var[j] > 0)
+              ? sqrt(icl->out_var[j]) : icl->out_rms[j];
+            const double hw = sigma * z * c_inv;
+            lo[j] = vals[j] - hw;
+            hi[j] = vals[j] + hw;
           }
           else if (0 != rels[j] && errs[j] > 0) {
             const double c_inv = (conf[j] > 0) ? (1.0 / conf[j]) : 1.0;
