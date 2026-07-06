@@ -21,76 +21,9 @@ static const char* col_names[MAXCOLS] = {
 };
 
 
-static double local_corr(const double* ch, const double* tgt, int w)
-{
-  double sa = 0, sb = 0, sa2 = 0, sb2 = 0, sab = 0;
-  double va, vb, cov, denom;
-  int i;
-  for (i = 0; i < w; ++i) {
-    sa += ch[i]; sb += tgt[i];
-    sa2 += ch[i] * ch[i]; sb2 += tgt[i] * tgt[i];
-    sab += ch[i] * tgt[i];
-  }
-  va = sa2 - sa * sa / w;
-  vb = sb2 - sb * sb / w;
-  cov = sab - sa * sb / w;
-  denom = sqrt(va * vb);
-  return (denom > 0) ? fabs(cov / denom) : 0;
-}
-
-
+static double local_corr(const double* ch, const double* tgt, int w);
 static int load_ett_all(const char* filename, double** values,
-  int* count, int* ncols_out)
-{
-  int result = 0;
-  FILE* file = fopen(filename, "r");
-  if (NULL != file) {
-    char line[1024];
-    int capacity = 20000, n = 0, ncols = MAXCOLS;
-    double* data = (double*)malloc(
-      (size_t)capacity * (size_t)ncols * sizeof(double));
-    if (NULL != data) {
-      while (NULL != fgets(line, (int)sizeof(line), file)) {
-        const char* p = line;
-        int col = 0;
-        double vals[MAXCOLS];
-        if (line[0] < '0' || line[0] > '9') {
-          if (0 == n) continue;
-        }
-        while ('\0' != *p && ',' != *p) ++p;
-        if (',' == *p) ++p;
-        for (col = 0; col < ncols && '\0' != *p; ++col) {
-          vals[col] = strtod(p, (char**)&p);
-          if (',' == *p || '\r' == *p || '\n' == *p) ++p;
-        }
-        if (col == ncols) {
-          int c;
-          if (n >= capacity) {
-            capacity *= 2;
-            data = (double*)realloc(data,
-              (size_t)capacity * (size_t)ncols * sizeof(double));
-            if (NULL == data) { n = 0; break; }
-          }
-          for (c = 0; c < ncols; ++c) {
-            data[(size_t)n * ncols + c] = vals[c];
-          }
-          ++n;
-        }
-      }
-      if (n > 0) {
-        *values = data;
-        *count = n;
-        *ncols_out = ncols;
-        result = n;
-      }
-      else {
-        free(data);
-      }
-    }
-    fclose(file);
-  }
-  return result;
-}
+  int* count, int* ncols_out);
 
 
 int main(int argc, char* argv[])
@@ -294,6 +227,78 @@ int main(int argc, char* argv[])
   }
   else {
     fprintf(stderr, "Failed to load data from %s\n", filename);
+  }
+  return result;
+}
+
+
+static double local_corr(const double* ch, const double* tgt, int w)
+{
+  double sa = 0, sb = 0, sa2 = 0, sb2 = 0, sab = 0;
+  double va, vb, cov, denom;
+  int i;
+  for (i = 0; i < w; ++i) {
+    sa += ch[i]; sb += tgt[i];
+    sa2 += ch[i] * ch[i]; sb2 += tgt[i] * tgt[i];
+    sab += ch[i] * tgt[i];
+  }
+  va = sa2 - sa * sa / w;
+  vb = sb2 - sb * sb / w;
+  cov = sab - sa * sb / w;
+  denom = sqrt(va * vb);
+  return (denom > 0) ? fabs(cov / denom) : 0;
+}
+
+
+static int load_ett_all(const char* filename, double** values,
+  int* count, int* ncols_out)
+{
+  int result = 0;
+  FILE* file = fopen(filename, "r");
+  if (NULL != file) {
+    char line[1024];
+    int capacity = 20000, n = 0, ncols = MAXCOLS;
+    double* data = (double*)malloc(
+      (size_t)capacity * (size_t)ncols * sizeof(double));
+    if (NULL != data) {
+      while (NULL != fgets(line, (int)sizeof(line), file)) {
+        char* p = line;
+        int col = 0;
+        double vals[MAXCOLS];
+        if (line[0] < '0' || line[0] > '9') {
+          if (0 == n) continue;
+        }
+        while ('\0' != *p && ',' != *p) ++p;
+        if (',' == *p) ++p;
+        for (col = 0; col < ncols && '\0' != *p; ++col) {
+          vals[col] = strtod(p, &p);
+          if (',' == *p || '\r' == *p || '\n' == *p) ++p;
+        }
+        if (col == ncols) {
+          int c;
+          if (n >= capacity) {
+            capacity *= 2;
+            data = (double*)realloc(data,
+              (size_t)capacity * (size_t)ncols * sizeof(double));
+            if (NULL == data) { n = 0; break; }
+          }
+          for (c = 0; c < ncols; ++c) {
+            data[(size_t)n * ncols + c] = vals[c];
+          }
+          ++n;
+        }
+      }
+      if (n > 0) {
+        *values = data;
+        *count = n;
+        *ncols_out = ncols;
+        result = n;
+      }
+      else {
+        free(data);
+      }
+    }
+    fclose(file);
   }
   return result;
 }
