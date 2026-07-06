@@ -23,18 +23,21 @@ LIBXS_API_INLINE int internal_libxs_predict_save_hknn(
   }
   required += 1;
   if (NULL != model->hknn_po_assignments && NULL != model->hknn_po_clusters) {
-    required += (size_t)p * (size_t)n * sizeof(uint16_t);
-    for (j = 0; j < n; ++j) {
+    const int ng = (model->hknn_ngroups > 0) ? model->hknn_ngroups : n;
+    required += (size_t)p * (size_t)ng * sizeof(uint16_t);
+    for (j = 0; j < ng; ++j) {
       const int po_nc = model->hknn_po_nclusters[j];
       required += sizeof(uint16_t);
-      for (c = 0; c < po_nc; ++c) {
-        const internal_libxs_predict_cluster_t* pcl =
-          &model->hknn_po_clusters[j][c];
-        required += sizeof(uint16_t) + 2 + sizeof(uint16_t) + sizeof(double);
-        required += (size_t)m * sizeof(double);
-        if (pcl->nentries > 0) {
-          required += (size_t)pcl->nentries * (size_t)m * sizeof(double);
-          required += (size_t)pcl->nentries * sizeof(double);
+      if (NULL != model->hknn_po_clusters[j]) {
+        for (c = 0; c < po_nc; ++c) {
+          const internal_libxs_predict_cluster_t* pcl =
+            &model->hknn_po_clusters[j][c];
+          required += sizeof(uint16_t) + 2 + sizeof(uint16_t) + sizeof(double);
+          required += (size_t)m * sizeof(double);
+          if (pcl->nentries > 0) {
+            required += (size_t)pcl->nentries * (size_t)m * sizeof(double);
+            required += (size_t)pcl->nentries * sizeof(double);
+          }
         }
       }
     }
@@ -83,31 +86,34 @@ LIBXS_API_INLINE int internal_libxs_predict_save_hknn(
     if (NULL != model->hknn_po_assignments
       && NULL != model->hknn_po_clusters)
     {
-      for (j = 0; j < n; ++j) {
+      const int ng = (model->hknn_ngroups > 0) ? model->hknn_ngroups : n;
+      for (j = 0; j < ng; ++j) {
         int i;
         for (i = 0; i < p; ++i) {
           WRITE_U16(model->hknn_po_assignments[j][i]);
         }
       }
       WRITE_U8(1);
-      for (j = 0; j < n; ++j) {
+      for (j = 0; j < ng; ++j) {
         const int po_nc = model->hknn_po_nclusters[j];
         int ci;
         WRITE_U16(po_nc);
-        for (ci = 0; ci < po_nc; ++ci) {
-          const internal_libxs_predict_cluster_t* pcl =
-            &model->hknn_po_clusters[j][ci];
-          WRITE_U16(pcl->nentries);
-          WRITE_U8(pcl->k_eff);
-          WRITE_U8(pcl->mode ? pcl->mode[0] : 0);
-          WRITE_U16(pcl->ndistinct ? pcl->ndistinct[0] : 0);
-          WRITE_F64(pcl->dmax);
-          WRITE_BLK(pcl->centroid, (size_t)m * sizeof(double));
-          if (pcl->nentries > 0) {
-            WRITE_BLK(pcl->kd_pts,
-              (size_t)pcl->nentries * (size_t)m * sizeof(double));
-            WRITE_BLK(pcl->raw_outputs,
-              (size_t)pcl->nentries * sizeof(double));
+        if (NULL != model->hknn_po_clusters[j]) {
+          for (ci = 0; ci < po_nc; ++ci) {
+            const internal_libxs_predict_cluster_t* pcl =
+              &model->hknn_po_clusters[j][ci];
+            WRITE_U16(pcl->nentries);
+            WRITE_U8(pcl->k_eff);
+            WRITE_U8(pcl->mode ? pcl->mode[0] : 0);
+            WRITE_U16(pcl->ndistinct ? pcl->ndistinct[0] : 0);
+            WRITE_F64(pcl->dmax);
+            WRITE_BLK(pcl->centroid, (size_t)m * sizeof(double));
+            if (pcl->nentries > 0) {
+              WRITE_BLK(pcl->kd_pts,
+                (size_t)pcl->nentries * (size_t)m * sizeof(double));
+              WRITE_BLK(pcl->raw_outputs,
+                (size_t)pcl->nentries * sizeof(double));
+            }
           }
         }
       }
