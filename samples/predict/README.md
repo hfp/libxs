@@ -1,6 +1,6 @@
 # Predict Samples
 
-Seven executables demonstrating fingerprint-guided prediction:
+Eight executables demonstrating fingerprint-guided prediction:
 
 - **predict_params** -- Parameter prediction from structured CSV
   (GPU kernel tuning, configuration databases).
@@ -17,6 +17,9 @@ Seven executables demonstrating fingerprint-guided prediction:
   using SPREAD decomposition on two correlated price series.
 - **predict_crystal** -- Crystal system classification from composition
   features (AFLOW ICSD, 7 classes, 60K entries).
+- **predict_ett** -- ETT (Electricity Transformer Temperature) hourly
+  forecasting with univariate, multivariate, PCA, and local-attention
+  modes (ETTh1, standard benchmark for timeseries LLMs).
 
 
 ## Build
@@ -173,3 +176,39 @@ AFLOW ICSD catalog (free for academic use).
 (37 features). Crystal systems: triclinic(1), monoclinic(2),
 orthorhombic(3), tetragonal(4), trigonal(5), hexagonal(6),
 cubic(7).
+
+
+## predict_ett
+
+ETT (Electricity Transformer Temperature) hourly forecasting.
+Supports univariate and multivariate modes with PCA decomposition
+and per-query local-correlation attention.  Standard benchmark
+for comparison against transformer-based timeseries models.
+
+### Usage
+
+    ./predict_ett.x <ett_csv> [nseries=1..7] [attend|spread|pca|hknn|rf|nocompress]
+
+    nseries    Number of input channels (1=OT only, 7=all).
+    attend     Per-query local-correlation channel weighting.
+    spread     Sum/diff decomposition across channels.
+    pca        PCA rotation of multi-channel input space.
+
+### Examples
+
+    ./predict_ett.x predict_ett.csv              # univariate OT
+    ./predict_ett.x predict_ett.csv 2 pca        # 2ch with PCA (best MSE)
+    ./predict_ett.x predict_ett.csv 7 attend     # 7ch with local-attention
+    ./predict_ett.x predict_ett.csv 7            # 7ch raw (baseline)
+
+### Data Source
+
+ETTh1 (Electricity Transformer Temperature, hourly) from
+Zhou et al. 2021 (Informer).  17,420 hourly readings of an
+oil-filled electrical transformer (July 2016 - June 2018).
+Seven channels: HUFL, HULL, MUFL, MULL, LUFL, LULL, OT.
+Target: OT (oil temperature).  Standard split: train months
+1-12, test months 17-24, horizon H=96 steps (4 days).
+
+Download: github.com/zhouhaoyi/ETDataset/blob/main/ETT-small/ETTh1.csv
+Rename to predict_ett.csv (CRLF line endings accepted).
