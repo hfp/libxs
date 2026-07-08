@@ -307,14 +307,17 @@ LIBXS_API_INLINE size_t internal_libxs_malloc_evict_available(
 
 LIBXS_API_INLINE size_t internal_libxs_malloc_evict_limit_get(void)
 {
-  size_t limit = internal_libxs_malloc_evict_limit;
-  if (0 == limit) {
-    const char *const env = getenv("LIBXS_MALLOC_EVICT_LIMIT");
-    limit = (NULL != env && '\0' != *env)
-      ? (size_t)atol(env) << 20 : LIBXS_MALLOC_EVICT_LIMIT;
-    internal_libxs_malloc_evict_limit = limit;
+  size_t stored = internal_libxs_malloc_evict_limit;
+  if (0 == stored) {
+    const char *const env = getenv("LIBXS_MALLOC_LIMIT");
+    if (NULL != env && '\0' != *env) {
+      const long value = atol(env);
+      stored = (0 > value) ? (size_t)-1 : ((size_t)value << 20) + 1;
+    }
+    else stored = LIBXS_MALLOC_EVICT_LIMIT + 1;
+    internal_libxs_malloc_evict_limit = stored;
   }
-  return limit;
+  return stored - 1;
 }
 
 
@@ -604,17 +607,19 @@ LIBXS_API void libxs_free(void* pointer)
     pool = chunk->pool;
     LIBXS_ASSERT(NULL != pool && NULL != pool->slots);
 #if defined(LIBXS_MALLOC_EVICT)
-    if (NULL != chunk->pointer && LIBXS_MALLOC_EVICT_SIZE <= chunk->used) {
-      const size_t total_bytes = LIBXS_ATOMIC(LIBXS_ATOMIC_LOAD, LIBXS_BITS)(&pool->pool_bytes, LIBXS_ATOMIC_RELAXED);
-      if (internal_libxs_malloc_evict_limit_get() < total_bytes) {
-        const int evict_b = internal_libxs_malloc_hist_bucket(chunk->used);
-        const size_t reclaimed = chunk->used;
-        internal_libxs_malloc_deallocate(pool, chunk->pointer);
-        chunk->pointer = NULL;
-        chunk->used = 0;
-        chunk->size = 0;
-        LIBXS_ATOMIC(LIBXS_ATOMIC_SUB_FETCH, LIBXS_BITS)(&pool->pool_bytes, reclaimed, LIBXS_ATOMIC_LOCKORDER);
-        LIBXS_ATOMIC(LIBXS_ATOMIC_ADD_FETCH, LIBXS_BITS)(&pool->hist[evict_b].nevicts_limit, 1, LIBXS_ATOMIC_RELAXED);
+    { const size_t limit = internal_libxs_malloc_evict_limit_get();
+      if (NULL != chunk->pointer && (0 == limit || LIBXS_MALLOC_EVICT_SIZE <= chunk->used)) {
+        const size_t total_bytes = LIBXS_ATOMIC(LIBXS_ATOMIC_LOAD, LIBXS_BITS)(&pool->pool_bytes, LIBXS_ATOMIC_RELAXED);
+        if (limit < total_bytes || 0 == limit) {
+          const int evict_b = internal_libxs_malloc_hist_bucket(chunk->used);
+          const size_t reclaimed = chunk->used;
+          internal_libxs_malloc_deallocate(pool, chunk->pointer);
+          chunk->pointer = NULL;
+          chunk->used = 0;
+          chunk->size = 0;
+          LIBXS_ATOMIC(LIBXS_ATOMIC_SUB_FETCH, LIBXS_BITS)(&pool->pool_bytes, reclaimed, LIBXS_ATOMIC_LOCKORDER);
+          LIBXS_ATOMIC(LIBXS_ATOMIC_ADD_FETCH, LIBXS_BITS)(&pool->hist[evict_b].nevicts_limit, 1, LIBXS_ATOMIC_RELAXED);
+        }
       }
     }
     chunk->last_tick = LIBXS_ATOMIC(LIBXS_ATOMIC_LOAD, LIBXS_BITS)(&pool->generation, LIBXS_ATOMIC_RELAXED)
@@ -811,7 +816,7 @@ LIBXS_API void libxs_malloc_pool_print(FILE* ostream, const char prefix[],
     if (0 != total_evict_limit || 0 != total_evict_age) {
       const size_t suggest_limit = info.peak + (info.peak >> 2);
       if (NULL != prefix) fprintf(ostream, "%s", prefix);
-      fprintf(ostream, "  suggest: LIBXS_MALLOC_EVICT_LIMIT=%llu",
+      fprintf(ostream, "  suggest: LIBXS_MALLOC_LIMIT=%llu",
         (unsigned long long)(suggest_limit >> 20));
       if (0 != total_evict_age) {
         fprintf(ostream, " LIBXS_MALLOC_EVICT_AGE=+");

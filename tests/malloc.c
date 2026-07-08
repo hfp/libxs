@@ -102,7 +102,7 @@ int main(void)
   else ++nerrors;
 
   if (0 == nerrors) {
-    static char evict_limit[] = "LIBXS_MALLOC_EVICT_LIMIT=1";
+    static char evict_limit[] = "LIBXS_MALLOC_LIMIT=1";
     const int max_nthreads = 1, max_nactive = 1;
     const int nrep_eviction = LIBXS_MALLOC_EVICTWARMUP + 4;
     const size_t nbytes = (size_t)LIBXS_MALLOC_EVICTSIZE + LIBXS_MALLOC_UPSIZE;
