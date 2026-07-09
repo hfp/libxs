@@ -346,13 +346,11 @@ static void evaluate_forecast(
   const libxs_predict_t* source, int total, int train_end,
   int nseries, int joint, const char (*names)[32])
 {
-  double sum_err[STOCK_MAXCOLS][HORIZON];
-  double max_err[STOCK_MAXCOLS][HORIZON];
+  double sum_err[STOCK_MAXCOLS][HORIZON] = {{ 0 }};
+  double max_err[STOCK_MAXCOLS][HORIZON] = {{ 0 }};
   double forecast[STOCK_MAXCOLS][HORIZON];
   double sum_conf = 0, fc_conf = 0;
   int neval = 0, h, s, t;
-  LIBXS_MEMZERO(sum_err);
-  LIBXS_MEMZERO(max_err);
   for (t = train_end; t <= total - HORIZON; ++t) {
     double inputs[STOCK_MAXCOLS * WINDOW], outputs[HORIZON];
     libxs_predict_info_t info;
