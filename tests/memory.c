@@ -650,7 +650,7 @@ int main(int argc, char* argv[])
     }
   }
 
-  /* check LIBXS_ASSIGN / LIBXS_VALUE_ASSIGN */
+  /* check LIBXS_ASSIGN / LIBXS_VALUE_ASSIGN / LIBXS_UNION_ASSIGN */
   if (EXIT_SUCCESS == result) {
     int src_val = 42, dst_val = 0;
     LIBXS_ASSIGN(&dst_val, &src_val);
@@ -664,6 +664,16 @@ int main(int argc, char* argv[])
       LIBXS_VALUE_ASSIGN(nv, cv);
       if (99 != nv) {
         FPRINTF(stderr, "ERROR line #%i: VALUE_ASSIGN\n", __LINE__);
+        result = EXIT_FAILURE;
+      }
+    }
+    if (EXIT_SUCCESS == result) {
+      const int cv = 123;
+      const int *cp = &cv;
+      int *np = NULL;
+      LIBXS_UNION_ASSIGN(int*, np, const int*, cp);
+      if (123 != *np) {
+        FPRINTF(stderr, "ERROR line #%i: UNION_ASSIGN\n", __LINE__);
         result = EXIT_FAILURE;
       }
     }

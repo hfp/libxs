@@ -617,7 +617,7 @@ LIBXS_API int libxs_registry_get_copy(const libxs_registry_t* registry,
       LIBXS_LOCK_ACQUIRE(LIBXS_LOCK, lock);
     }
     { libxs_registry_t* mutable_reg;
-      LIBXS_VALUE_ASSIGN(mutable_reg, registry);
+      LIBXS_UNION_ASSIGN(libxs_registry_t*, mutable_reg, const libxs_registry_t*, registry);
       result = internal_libxs_registry_fetch_impl(
         mutable_reg, key, key_size, value_out, value_size, 0/*keep*/);
     }
@@ -802,7 +802,7 @@ LIBXS_API libxs_registry_t* libxs_registry_load(const void* buffer, size_t size,
           }
           else {
             const void* vp = values_base + vo;
-            LIBXS_VALUE_ASSIGN(e->value, vp);
+            LIBXS_UNION_ASSIGN(void*, e->value, const void*, vp);
             e->ext = 1;
           }
           ++result->size;

@@ -48,6 +48,14 @@
 
 /** Assigns SRC to DST (must be L-values). Can be used to cast const-qualifiers. */
 #define LIBXS_VALUE_ASSIGN(DST, SRC) LIBXS_ASSIGN(&(DST), &(SRC))
+/** Assign SRC to DST via a union with explicit member types. */
+#define LIBXS_UNION_ASSIGN(DST_TYPE, DST, SRC_TYPE, SRC) do { \
+  union { DST_TYPE dst; SRC_TYPE src; } libxs_union_assign_u_; \
+  LIBXS_ASSERT(sizeof(DST) == sizeof(libxs_union_assign_u_.dst)); \
+  LIBXS_ASSERT(sizeof(libxs_union_assign_u_.dst) == sizeof(libxs_union_assign_u_.src)); \
+  libxs_union_assign_u_.src = (SRC); \
+  (DST) = libxs_union_assign_u_.dst; \
+} while(0)
 /** Assign function pointer via union (avoids object/function pointer cast). */
 #define LIBXS_FPTR_ASSIGN(DST_TYPE, DST, SRC) do { \
   union { DST_TYPE d; void (*s)(void); } libxs_fptr_u_; \
