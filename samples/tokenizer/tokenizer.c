@@ -1,8 +1,4 @@
-#include <ctype.h>
 #include <libxs/libxs_token.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
 
 #define DEFAULT_INPUT "token tokenization tokenizer token"
 
