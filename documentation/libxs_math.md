@@ -618,14 +618,18 @@ Fast modular reduction via Barrett. The 64-bit variant uses a radix-2^18 split.
 
 ```C
 typedef uint16_t libxs_bf16_t;
+libxs_bf16_t libxs_round_bf16_f32(float x); /* inline */
+float libxs_bf16_to_f32(libxs_bf16_t v);    /* inline */
 libxs_bf16_t libxs_round_bf16(double x);   /* inline */
 double libxs_bf16_to_f64(libxs_bf16_t v);  /* inline */
 ```
 
-Round to BF16 (round-to-nearest-even) and expand to double. Uses native `__bf16` when available (`LIBXS_BF16`), otherwise portable bit manipulation.
+Round to BF16 (round-to-nearest-even) and expand to float or double. Uses native `__bf16` when available (`LIBXS_BF16`), otherwise portable bit manipulation.
 
 ```C
 void libxs_dekker_bf16(double val, int ndigits,
+  libxs_bf16_t* dst);                       /* inline */
+void libxs_dekker_bf16_f32(float val, int ndigits,
   libxs_bf16_t* dst);                       /* inline */
 ```
 
@@ -636,4 +640,5 @@ the first digit's contribution, rounded to BF16; and so on. The sum
 `libxs_bf16_to_f64(dst[0]) + ... + libxs_bf16_to_f64(dst[ndigits-1])`
 reconstructs the original to approximately `7 * ndigits` bits of
 precision (each BF16 digit carries 7 fraction bits). Seven digits
-exceed the 52-bit mantissa of double.
+exceed the 52-bit mantissa of double. The `_f32` variant keeps the
+residual arithmetic in single precision for float storage/conversion paths.

@@ -666,6 +666,41 @@ int main(int argc, char* argv[])
         }
       }
     }
+    { /* Test 6c: float BF16 helpers match the double helpers for float input. */
+      float test_vals[4];
+      int tv;
+      test_vals[0] = 1.23456789f;
+      test_vals[1] = -42.5f;
+      test_vals[2] = 1e-5f;
+      test_vals[3] = 1e10f;
+      for (tv = 0; tv < 4; ++tv) {
+        libxs_bf16_t d2[2];
+        libxs_bf16_t f16;
+        libxs_bf16_t d16;
+        float recon;
+        float rel;
+        f16 = libxs_round_bf16_f32(test_vals[tv]);
+        d16 = libxs_round_bf16((double)test_vals[tv]);
+        if (f16 != d16) {
+          FPRINTF(stderr, "ERROR line #%i: round_bf16_f32 mismatch\n", __LINE__);
+          exit(EXIT_FAILURE);
+        }
+        if (libxs_bf16_to_f32(f16) != (float)libxs_bf16_to_f64(f16)) {
+          FPRINTF(stderr, "ERROR line #%i: bf16_to_f32 mismatch\n", __LINE__);
+          exit(EXIT_FAILURE);
+        }
+        libxs_dekker_bf16_f32(test_vals[tv], 2, d2);
+        recon = libxs_bf16_to_f32(d2[0]) + libxs_bf16_to_f32(d2[1]);
+        if (0.0f != test_vals[tv]) {
+          rel = (recon - test_vals[tv]) / test_vals[tv];
+          if (rel < 0 ? -rel > 1e-4f : rel > 1e-4f) {
+            FPRINTF(stderr, "ERROR line #%i: dekker_bf16_f32(2) relerr=%g val=%g\n",
+              __LINE__, (double)rel, (double)test_vals[tv]);
+            exit(EXIT_FAILURE);
+          }
+        }
+      }
+    }
     { /* Test 7: large and small magnitudes */ const double large = 1.0e30;
       const double small_v = 1.0e-30;
       const libxs_bf16_t bl = libxs_round_bf16(large);

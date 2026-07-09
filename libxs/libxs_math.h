@@ -392,12 +392,8 @@ LIBXS_API unsigned int libxs_barrett_pow18(unsigned int p);
 LIBXS_API unsigned int libxs_barrett_pow36(unsigned int p);
 
 
-/**
- * Round a double-precision value to BF16 (round-to-nearest-even).
- * When LIBXS_BF16 is defined, the compiler's native __bf16 cast is used;
- * otherwise a portable uint32 bit-manipulation path is taken.
- */
-LIBXS_API_INLINE libxs_bf16_t libxs_round_bf16(double x) {
+/** Round a single-precision value to BF16 (round-to-nearest-even). */
+LIBXS_API_INLINE libxs_bf16_t libxs_round_bf16_f32(float x) {
 #if defined(LIBXS_BF16)
   union { __bf16 h; uint16_t u; } cvt;
   cvt.h = (__bf16)x;
@@ -410,6 +406,34 @@ LIBXS_API_INLINE libxs_bf16_t libxs_round_bf16(double x) {
 #endif
 }
 
+/** Expand a BF16 encoding to single precision (exact). */
+LIBXS_API_INLINE float libxs_bf16_to_f32(libxs_bf16_t v) {
+#if defined(LIBXS_BF16)
+  union { uint16_t u; __bf16 h; } cvt;
+  cvt.u = v;
+  return (float)cvt.h;
+#else
+  union { uint32_t u; float f; } cvt;
+  cvt.u = (uint32_t)v << 16;
+  return cvt.f;
+#endif
+}
+
+/**
+ * Round a double-precision value to BF16 (round-to-nearest-even).
+ * When LIBXS_BF16 is defined, the compiler's native __bf16 cast is used;
+ * otherwise a portable uint32 bit-manipulation path is taken.
+ */
+LIBXS_API_INLINE libxs_bf16_t libxs_round_bf16(double x) {
+#if defined(LIBXS_BF16)
+  union { __bf16 h; uint16_t u; } cvt;
+  cvt.h = (__bf16)x;
+  return cvt.u;
+#else
+  return libxs_round_bf16_f32((float)x);
+#endif
+}
+
 /** Expand a BF16 encoding to double (exact). */
 LIBXS_API_INLINE double libxs_bf16_to_f64(libxs_bf16_t v) {
 #if defined(LIBXS_BF16)
@@ -417,9 +441,7 @@ LIBXS_API_INLINE double libxs_bf16_to_f64(libxs_bf16_t v) {
   cvt.u = v;
   return (double)cvt.h;
 #else
-  union { uint32_t u; float f; } cvt;
-  cvt.u = (uint32_t)v << 16;
-  return (double)cvt.f;
+  return (double)libxs_bf16_to_f32(v);
 #endif
 }
 
@@ -436,6 +458,20 @@ LIBXS_API_INLINE void libxs_dekker_bf16(double val, int ndigits,
     const libxs_bf16_t bf = libxs_round_bf16(residual);
     dst[s] = bf;
     residual -= libxs_bf16_to_f64(bf);
+  }
+}
+
+/** Float variant of libxs_dekker_bf16. */
+LIBXS_API_INLINE void libxs_dekker_bf16_f32(float val, int ndigits,
+  libxs_bf16_t* dst)
+{
+  float residual = val;
+  int s;
+  for (s = 0; s < ndigits; ++s) {
+    libxs_bf16_t bf;
+    bf = libxs_round_bf16_f32(residual);
+    dst[s] = bf;
+    residual -= libxs_bf16_to_f32(bf);
   }
 }
 
