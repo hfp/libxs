@@ -111,8 +111,6 @@ int main(int argc, char* argv[])
     libxs_mhd_element_handler_info_t mhdinfo;
     libxs_mhd_info_t mhd_write_info = { 2, 1, LIBXS_DATATYPE_UNKNOWN, 0 };
     libxs_mhd_write_info_t mhd_winfo;
-    LIBXS_MEMZERO(&mhdinfo);
-    LIBXS_MEMZERO(&mhd_winfo);
     const size_t nelemtypes = sizeof(elemtypes) / sizeof(*elemtypes);
     const size_t nchannels = 1, mhdsize = n / nchannels;
     size_t shape[2], y = 0, typesize = 0;
@@ -120,6 +118,8 @@ int main(int argc, char* argv[])
     int elemtype = -1, i;
 
     /* initialize the data */
+    LIBXS_MEMZERO(&mhd_winfo);
+    LIBXS_MEMZERO(&mhdinfo);
     if (sizeof(size_t) < elsize) memset(data1, 0, nbytes);
     for (j = 0; j < n; ++j) {
       LIBXS_MEMCPY((char*)data1 + elsize * j, &j,
