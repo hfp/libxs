@@ -6,8 +6,6 @@
 #include <libxs/libxs_str.h>
 #include <libxs/libxs_mem.h>
 
-#include <ctype.h>
-
 #define MAX_SENTENCES 256
 #define MAX_PHRASES 8192
 #define FPRINT_ORDER 4

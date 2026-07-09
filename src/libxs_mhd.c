@@ -10,8 +10,6 @@
 #include <libxs/libxs_mem.h>
 #include "libxs_crc32.h"
 
-#include <ctype.h>
-
 #if !defined(LIBXS_MHD_MAX_LINELENGTH)
 # define LIBXS_MHD_MAX_LINELENGTH 1024
 #endif

@@ -8,9 +8,6 @@
 ******************************************************************************/
 #include <libxs/libxs_token.h>
 
-#include <ctype.h>
-#include <string.h>
-
 
 LIBXS_API_INLINE
 size_t internal_libxs_token_codepoint_size(const unsigned char* text,

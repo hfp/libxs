@@ -1010,6 +1010,7 @@ LIBXS_PRAGMA_DIAG_POP()
 #include <limits.h>
 #include <float.h>
 #include <stdio.h>
+#include <ctype.h>
 
 #if !defined(__leaf__)
 # define __leaf__

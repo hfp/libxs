@@ -9,8 +9,6 @@
 #include <libxs/libxs_str.h>
 #include <libxs/libxs_utils.h>
 
-#include <ctype.h>
-
 
 LIBXS_API const char* libxs_stristrn(const char a[], const char b[], size_t maxlen)
 {

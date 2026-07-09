@@ -9,7 +9,6 @@
 #include <libxs/libxs_cpuid.h>
 #include "libxs_main.h"
 
-#include <ctype.h>
 #if !defined(_WIN32)
 # if !defined(__linux__)
 #   include <sys/sysctl.h>
