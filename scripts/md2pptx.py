@@ -20,6 +20,7 @@ receive Roman-numeral suffixes (II, III, ...).  This behaviour is
 suppressed in rule mode unless --breakup is given explicitly.
 """
 import argparse
+import html
 import os
 import re
 import shutil
@@ -29,7 +30,7 @@ from lxml import etree
 from pptx import Presentation
 from pptx.oxml.ns import qn
 from pptx.dml.color import RGBColor
-from pptx.util import Inches, Pt
+from pptx.util import Emu, Inches, Pt
 
 try:
     from PIL import Image as PILImage
@@ -50,7 +51,9 @@ TITLE_BOX = Inches(1.25)
 BODY_TOP = TITLE_TOP + TITLE_BOX + Inches(0.1)
 BODY_HEIGHT = SLIDE_HEIGHT - BODY_TOP - MARGIN
 CONTENT_WIDTH = SLIDE_WIDTH - 2 * MARGIN
-TABLE_ROW_HEIGHT = Inches(0.5)
+TABLE_LINE_SPACING = 1.2
+TABLE_CELL_INSET = Pt(3.6)
+TABLE_ROW_HEIGHT = Emu(int(TABLE_SIZE * TABLE_LINE_SPACING + 2 * TABLE_CELL_INSET))
 CODE_LINE_HEIGHT = Inches(0.35)
 TEXT_LINE_HEIGHT = Inches(0.4)
 BLOCK_SPACING = Inches(0.15)
@@ -134,6 +137,7 @@ def render_math(latex):
 # ---------------------------------------------------------------------------
 def _typographic(text):
     text = re.sub(r"<[^>]+>", "", text)
+    text = html.unescape(text)
     text = text.replace("---", "—")
     text = text.replace("--", "–")
     text = re.sub(r"\\([\\`*_{}[\]()#+\-.!|~])", r"\1", text)
