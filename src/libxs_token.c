@@ -256,19 +256,19 @@ int internal_libxs_token_detect_sentence(const unsigned char* text,
 }
 
 
-LIBXS_API void libxs_token_info(libxs_token_info_t* info,
-  const libxs_token_t* token)
+LIBXS_API void libxs_token_info(const libxs_token_t* token,
+  libxs_token_info_t* info)
 {
   if (NULL != info) {
     if (NULL != token) {
       const unsigned char ctrl = token->raw[0];
-      info->length = (int)(ctrl & LIBXS_TOKEN_LEN_MASK);
+      info->length = (size_t)(ctrl & LIBXS_TOKEN_LEN_MASK);
       info->is_copy = (0 != (ctrl & LIBXS_TOKEN_FLAG_COPY)) ? 1 : 0;
       info->has_break = (0 != (ctrl & LIBXS_TOKEN_FLAG_BREAK)) ? 1 : 0;
       info->is_sentence = (0 != (ctrl & LIBXS_TOKEN_FLAG_SENTENCE)) ? 1 : 0;
       info->is_markup = (0 != (ctrl & LIBXS_TOKEN_FLAG_MARKUP)) ? 1 : 0;
       info->distance = (0 != info->is_copy)
-        ? (int)((unsigned int)token->raw[1] | ((unsigned int)token->raw[2] << 8))
+        ? ((unsigned int)token->raw[1] | ((unsigned int)token->raw[2] << 8))
         : 0;
     }
     else {
@@ -279,6 +279,16 @@ LIBXS_API void libxs_token_info(libxs_token_info_t* info,
       info->is_sentence = 0;
       info->is_markup = 0;
     }
+  }
+}
+
+
+LIBXS_API void libxs_token_stream_init(libxs_token_stream_t* stream)
+{
+  if (NULL != stream) {
+    stream->data = NULL;
+    stream->size = 0;
+    stream->capacity = 0;
   }
 }
 
@@ -323,19 +333,17 @@ LIBXS_API int libxs_token_stream_push(libxs_token_stream_t* stream,
 }
 
 
-LIBXS_API void libxs_token_stream_destroy(libxs_token_stream_t* stream)
+LIBXS_API void libxs_token_stream_release(libxs_token_stream_t* stream)
 {
   if (NULL != stream) {
     free(stream->data);
-    stream->data = NULL;
-    stream->size = 0;
-    stream->capacity = 0;
+    libxs_token_stream_init(stream);
   }
 }
 
 
-LIBXS_API int libxs_tokenize(const unsigned char* text, size_t size,
-  libxs_token_stream_t* stream)
+LIBXS_API int libxs_token_stream_encode(libxs_token_stream_t* stream,
+  const unsigned char* text, size_t size)
 {
   int result = EXIT_SUCCESS;
   size_t pos = 0;
@@ -375,7 +383,7 @@ LIBXS_API int libxs_tokenize(const unsigned char* text, size_t size,
 }
 
 
-LIBXS_API int libxs_token_decode(const libxs_token_stream_t* stream,
+LIBXS_API int libxs_token_stream_decode(const libxs_token_stream_t* stream,
   unsigned char** text, size_t* size)
 {
   int result = EXIT_FAILURE;

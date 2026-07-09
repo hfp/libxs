@@ -1,9 +1,9 @@
 # Converse Sample
 
 This sample explores tokenized fingerprint summarization and composition. It
-uses `libxs_token` to split input text, `libxs_fprint` to compare sentence
-fingerprints, and the registry plus Hilbert keys for a small compose-mode
-corpus.
+uses the `libxs_token_stream_encode` API to split input text, `libxs_fprint`
+to compare sentence fingerprints, and the registry plus Hilbert keys for a
+small compose-mode corpus.
 
 ## Build
 

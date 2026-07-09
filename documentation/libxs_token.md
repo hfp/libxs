@@ -25,19 +25,20 @@ Copy tokens reference content that appeared earlier in the same
 stream. The backward distance gives the byte offset (1 = previous
 byte). Minimum copy length is 3 bytes, maximum is 7.
 
-## Tokenization
+## Stream Encoding
 
-```C
-int libxs_tokenize(const unsigned char* text, size_t size,
-  libxs_token_stream_t* stream);
-```
+    void libxs_token_stream_init(libxs_token_stream_t *stream);
 
-Tokenize a UTF-8 byte sequence into a stream of fixed-width
-tokens. The tokenizer is greedy: at each position it first
-attempts a copy match (3-7 bytes referencing earlier content
-within 64KB), and falls back to a literal token if no match
-is found. Literal length is determined by natural break points
-(whitespace, punctuation, case transitions, script changes).
+    int libxs_token_stream_encode(libxs_token_stream_t *stream,
+      const unsigned char *text, size_t size);
+
+Initialize a stream with `libxs_token_stream_init`, then encode a
+UTF-8 byte sequence into fixed-width tokens. The encoder is greedy:
+at each position it first attempts a copy match (3-7 bytes referencing
+earlier content within 64KB), and falls back to a literal token if no
+match is found. Literal length is determined by natural break points
+(whitespace, punctuation, case transitions, script changes). Existing
+stream contents are kept, so callers can append multiple inputs.
 
 Flags are set automatically during tokenization:
 
@@ -46,35 +47,30 @@ Flags are set automatically during tokenization:
 - **Sentence-end flag**: set when the token ends at a sentence
   terminator (`.` `?` `!`) followed by whitespace or end-of-input.
 
-The stream must be zero-initialized before the first call.
 Returns `EXIT_SUCCESS` or `EXIT_FAILURE`.
 
-## Decoding
+## Stream Decoding
 
-```C
-int libxs_token_decode(const libxs_token_stream_t* stream,
-  unsigned char** text, size_t* size);
-```
+    int libxs_token_stream_decode(const libxs_token_stream_t *stream,
+      unsigned char **text, size_t *size);
 
 Reconstruct the original byte sequence from a token stream.
 Allocates `*text` (caller must free). The roundtrip property
-holds: `decode(tokenize(input)) == input`.
+holds: decoding a stream produced by encoding recovers the input.
 
 ## Token Info
 
-```C
-typedef struct libxs_token_info_t {
-  int length;
-  int distance;
-  int is_copy;
-  int has_break;
-  int is_sentence;
-  int is_markup;
-} libxs_token_info_t;
+    typedef struct libxs_token_info_t {
+      size_t length;
+      unsigned int distance;
+      int is_copy;
+      int has_break;
+      int is_sentence;
+      int is_markup;
+    } libxs_token_info_t;
 
-void libxs_token_info(libxs_token_info_t* info,
-  const libxs_token_t* token);
-```
+    void libxs_token_info(const libxs_token_t *token,
+      libxs_token_info_t *info);
 
 Decode all token properties in one call. Fields:
 
@@ -85,19 +81,17 @@ Decode all token properties in one call. Fields:
 - `is_sentence`: non-zero if the token terminates a sentence.
 - `is_markup`: non-zero if the token is structural markup.
 
-This is the primary ABI-stable entry point, suitable for
-BIND(C)/Fortran interoperability. All fields are plain `int`.
+This is the primary property query for callers that need multiple
+fields from the same token.
 
 ## Inline Token Queries
 
-```C
-int          libxs_token_is_copy(const libxs_token_t* token);
-size_t       libxs_token_len(const libxs_token_t* token);
-int          libxs_token_has_break(const libxs_token_t* token);
-int          libxs_token_is_sentence_end(const libxs_token_t* token);
-int          libxs_token_is_markup(const libxs_token_t* token);
-unsigned int libxs_token_distance(const libxs_token_t* token);
-```
+    int          libxs_token_is_copy(const libxs_token_t *token);
+    size_t       libxs_token_len(const libxs_token_t *token);
+    int          libxs_token_has_break(const libxs_token_t *token);
+    int          libxs_token_is_sentence_end(const libxs_token_t *token);
+    int          libxs_token_is_markup(const libxs_token_t *token);
+    unsigned int libxs_token_distance(const libxs_token_t *token);
 
 Header-only convenience functions for C callers. NULL-safe
 (return 0/false for NULL input). These are equivalent to reading
@@ -106,15 +100,14 @@ overhead for single-property checks in conditionals.
 
 ## Stream Management
 
-```C
-int  libxs_token_stream_reserve(libxs_token_stream_t* stream, size_t cap);
-int  libxs_token_stream_push(libxs_token_stream_t* stream, const libxs_token_t* t);
-void libxs_token_stream_destroy(libxs_token_stream_t* stream);
-```
+    void libxs_token_stream_init(libxs_token_stream_t *stream);
+    int  libxs_token_stream_reserve(libxs_token_stream_t *stream, size_t cap);
+    int  libxs_token_stream_push(libxs_token_stream_t *stream, const libxs_token_t *t);
+    void libxs_token_stream_release(libxs_token_stream_t *stream);
 
 The stream grows geometrically (doubling). `reserve` pre-allocates
-capacity. `destroy` frees all memory but does not free the stream
-struct itself (it may be stack-allocated).
+capacity. `release` frees all memory but does not free the stream
+struct itself (it may be stack-allocated), then resets the fields.
 
 ## Properties
 
@@ -163,24 +156,24 @@ token stream and split at sentence-end flags.
 
 ## Example
 
-```C
-libxs_token_stream_t stream = {0};
-unsigned char* decoded = NULL;
-size_t decoded_size = 0;
+    libxs_token_stream_t stream;
+    unsigned char *decoded = NULL;
+    size_t decoded_size = 0;
+    size_t i;
 
-libxs_tokenize((const unsigned char*)"Hello world.", 12, &stream);
+    libxs_token_stream_init(&stream);
+    libxs_token_stream_encode(&stream, (const unsigned char*)"Hello world.", 12);
 
-/* iterate tokens */
-for (size_t i = 0; i < stream.size; ++i) {
-  const libxs_token_t* t = stream.data + i;
-  if (libxs_token_is_sentence_end(t)) { /* end of sentence */ }
-  if (libxs_token_has_break(t)) { /* word boundary follows */ }
-}
+    /* iterate tokens */
+    for (i = 0; i < stream.size; ++i) {
+      const libxs_token_t *t = stream.data + i;
+      if (libxs_token_is_sentence_end(t)) { /* end of sentence */ }
+      if (libxs_token_has_break(t)) { /* word boundary follows */ }
+    }
 
-/* roundtrip decode */
-libxs_token_decode(&stream, &decoded, &decoded_size);
-/* decoded == "Hello world." */
+    /* roundtrip decode */
+    libxs_token_stream_decode(&stream, &decoded, &decoded_size);
+    /* decoded == "Hello world." */
 
-free(decoded);
-libxs_token_stream_destroy(&stream);
-```
+    free(decoded);
+    libxs_token_stream_release(&stream);

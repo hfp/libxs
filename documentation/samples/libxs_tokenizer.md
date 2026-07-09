@@ -1,7 +1,7 @@
 # Tokenizer Sample
 
-This sample hosts a small reversible tokenizer prototype without changing the
-library API. It keeps the design close to the recent discussion:
+This sample demonstrates the reversible byte-level tokenizer API in
+`libxs_token.h`:
 
 - fixed-width 64-bit tokens stored as 8 bytes,
 - 1 control byte plus 7 payload bytes,
@@ -15,8 +15,8 @@ heuristics so the literal runs tend to stop at natural boundaries such as
 whitespace, punctuation, digit-to-letter transitions, and lower-to-upper case
 changes.
 
-This is intentionally a prototype rather than a `libxs` API decision. It gives
-us a place to answer three questions cheaply:
+The sample is intentionally small. It gives us a place to inspect three API
+properties cheaply:
 
 1. Is the fixed 1-byte control plus 7-byte payload layout expressive enough?
 2. Do the simple boundary rules produce useful chunks on mixed-language UTF-8?
@@ -43,10 +43,10 @@ make GNU=1 PEDANTIC=2 samples/tokenizer
 ## Usage
 
 ```bash
-./tokenizer64.x
-./tokenizer64.x "token tokenization tokenizer token"
-./tokenizer64.x "MixedCase42 token token MixedCase42"
-printf '%s\n' 'UTF-8 text here' | ./tokenizer64.x -
+./tokenizer.x
+./tokenizer.x "token tokenization tokenizer token"
+./tokenizer.x "MixedCase42 token token MixedCase42"
+printf '%s\n' 'UTF-8 text here' | ./tokenizer.x -
 ```
 
 If no argument is given, the sample runs on a built-in ASCII string. Pass `-`
@@ -68,8 +68,8 @@ bit 2..0  len      payload length in bytes, 1..7
 
 Literal tokens store the bytes directly in payload positions 1..7. Copy tokens
 store a 16-bit backward distance in payload bytes 1 and 2; the remaining bytes
-are reserved so the sample has room for future metadata experiments without
-changing the fixed token width.
+are reserved for future metadata experiments without changing the fixed token
+width.
 
 ## Next Step
 

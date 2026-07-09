@@ -37,8 +37,8 @@ LIBXS_EXTERN_C typedef struct libxs_token_stream_t {
 } libxs_token_stream_t;
 
 LIBXS_EXTERN_C typedef struct libxs_token_info_t {
-  int length;
-  int distance;
+  size_t length;
+  unsigned int distance;
   int is_copy;
   int has_break;
   int is_sentence;
@@ -46,8 +46,11 @@ LIBXS_EXTERN_C typedef struct libxs_token_info_t {
 } libxs_token_info_t;
 
 /** Decode all token properties into an info struct. */
-LIBXS_API void libxs_token_info(libxs_token_info_t* info,
-  const libxs_token_t* token);
+LIBXS_API void libxs_token_info(const libxs_token_t* token,
+  libxs_token_info_t* info);
+
+/** Initialize an empty token stream. */
+LIBXS_API void libxs_token_stream_init(libxs_token_stream_t* stream);
 
 /** Ensure the stream can hold at least capacity tokens without reallocation. */
 LIBXS_API int libxs_token_stream_reserve(libxs_token_stream_t* stream,
@@ -58,24 +61,24 @@ LIBXS_API int libxs_token_stream_push(libxs_token_stream_t* stream,
   const libxs_token_t* token);
 
 /** Release all memory held by the stream (the stream struct itself is not freed). */
-LIBXS_API void libxs_token_stream_destroy(libxs_token_stream_t* stream);
+LIBXS_API void libxs_token_stream_release(libxs_token_stream_t* stream);
 
 /**
- * Tokenize a UTF-8 byte sequence into a stream of fixed-width tokens.
+ * Encode a UTF-8 byte sequence into an initialized stream of fixed-width tokens.
  * Each token is 8 bytes: a control byte followed by 7 payload bytes.
  * Literal tokens store up to 7 bytes of content directly.
  * Copy tokens reference earlier content via a 16-bit backward distance.
  * Break and sentence-end flags are set automatically from punctuation
- * and whitespace boundaries in the input.
+ * and whitespace boundaries in the input. Existing stream contents are kept.
  */
-LIBXS_API int libxs_tokenize(const unsigned char* text, size_t size,
-  libxs_token_stream_t* stream);
+LIBXS_API int libxs_token_stream_encode(libxs_token_stream_t* stream,
+  const unsigned char* text, size_t size);
 
 /**
  * Decode a token stream back into a UTF-8 byte sequence.
- * Allocates *text (caller must free). Roundtrip: decode(tokenize(t)) == t.
+ * Allocates *text (caller must free). Roundtrip after encode preserves input.
  */
-LIBXS_API int libxs_token_decode(const libxs_token_stream_t* stream,
+LIBXS_API int libxs_token_stream_decode(const libxs_token_stream_t* stream,
   unsigned char** text, size_t* size);
 
 /** Return non-zero if the token is a copy (back-reference), zero if literal. */

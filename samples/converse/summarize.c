@@ -183,7 +183,7 @@ int main(int argc, char* argv[])
     while (input_size > 0 && 0 != isspace(input[input_size - 1])) --input_size;
     doc.text = input;
     doc.text_size = input_size;
-    result = libxs_tokenize(input, input_size, &doc.stream);
+    result = libxs_token_stream_encode(&doc.stream, input, input_size);
     if (EXIT_SUCCESS == result) {
       result = build_byte_offsets(&doc, &doc.byte_offsets);
     }
@@ -202,7 +202,7 @@ int main(int argc, char* argv[])
   }
 
   free(doc.byte_offsets);
-  libxs_token_stream_destroy(&doc.stream);
+  libxs_token_stream_release(&doc.stream);
   free(doc.text);
   return result;
 }
@@ -929,8 +929,8 @@ static int corpus_ingest_file(libxs_registry_t* corpus, const char* path)
   }
   if (EXIT_SUCCESS == result && NULL != text && text_size > 0) {
     libxs_token_stream_t stream;
-    memset(&stream, 0, sizeof(stream));
-    result = libxs_tokenize(text, text_size, &stream);
+    libxs_token_stream_init(&stream);
+    result = libxs_token_stream_encode(&stream, text, text_size);
     if (EXIT_SUCCESS == result) {
       size_t byte_pos = 0, sent_start = 0;
       int token_start = 0, nregistered = 0;
@@ -988,7 +988,7 @@ static int corpus_ingest_file(libxs_registry_t* corpus, const char* path)
       }
       fprintf(stderr, "  ingested %s: %d sentences\n", path, nregistered);
     }
-    libxs_token_stream_destroy(&stream);
+    libxs_token_stream_release(&stream);
   }
   free(text);
   return result;

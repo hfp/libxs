@@ -124,6 +124,7 @@ set(LIBXS_C_TESTS
   perm
   registry
   setdiff
+  token
   timer)
 
 foreach(test_name IN LISTS LIBXS_C_TESTS)
