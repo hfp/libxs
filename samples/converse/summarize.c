@@ -1,14 +1,12 @@
 #include <libxs/libxs_predict.h>
 #include <libxs/libxs_token.h>
 #include <libxs/libxs_math.h>
+#include <libxs/libxs_perm.h>
 #include <libxs/libxs_reg.h>
 #include <libxs/libxs_str.h>
 #include <libxs/libxs_mem.h>
 
 #include <ctype.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
 
 #define MAX_SENTENCES 256
 #define MAX_PHRASES 8192
