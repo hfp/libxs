@@ -142,8 +142,8 @@ LIBXS_API libxs_registry_t* libxs_registry_load(const void* buffer, size_t size,
 
 /* header-only: include implementation (deferred from libxs_macros.h) */
 #if defined(LIBXS_SOURCE) && !defined(LIBXS_SOURCE_H) \
- && !defined(LIBXS_GEMM_H) && !defined(LIBXS_PREDICT_H) \
- && !defined(LIBXS_TOKEN_H)
+ && !defined(LIBXS_GEMM_H) && !defined(LIBXS_PERM_H) \
+ && !defined(LIBXS_PREDICT_H) && !defined(LIBXS_TOKEN_H)
 # include "libxs_source.h"
 #endif
 
