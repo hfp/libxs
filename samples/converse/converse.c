@@ -19,11 +19,13 @@
 
 
 enum { CONN_SPACE = 0, CONN_NEWLINE = 3 };
+enum { SCALE_PHRASE = 0, SCALE_SENTENCE = 1, SCALE_PARAGRAPH = 2 };
 
 typedef struct corpus_entry_t {
   libxs_fprint_t fprint;
   int text_len;
   unsigned char connector;
+  unsigned char scale;
   char text[COMPOSE_MAXTEXT];
 } corpus_entry_t;
 
@@ -107,11 +109,13 @@ static int respond(const libxs_spatial_t* spatial, const libxs_fprint_t* query,
   int have_prev = 0;
   const corpus_entry_t* used[64];
   int nused = 0;
-  void* candidates[128];
+  void* candidates[256];
   int ncandidates;
   uint64_t qcode = query_hilbert_code(query);
+  unsigned char preferred_scale = (query->n > 60)
+    ? SCALE_PARAGRAPH : SCALE_SENTENCE;
 
-  ncandidates = libxs_spatial_nearest(spatial, qcode, 128, candidates);
+  ncandidates = libxs_spatial_nearest(spatial, qcode, 256, candidates);
 
   for (step = 0; step < budget; ++step) {
     const corpus_entry_t* best_entry = NULL;
@@ -120,7 +124,7 @@ static int respond(const libxs_spatial_t* spatial, const libxs_fprint_t* query,
 
     for (ci = 0; ci < ncandidates; ++ci) {
       const corpus_entry_t* e = (const corpus_entry_t*)candidates[ci];
-      if (e->text_len >= 40) {
+      if (e->text_len >= 40 && e->scale == preferred_scale) {
         int skip = 0, u;
         for (u = 0; u < nused && 0 == skip; ++u) {
           if (used[u]->text_len == e->text_len
@@ -140,6 +144,29 @@ static int respond(const libxs_spatial_t* spatial, const libxs_fprint_t* query,
       }
     }
 
+    if (NULL == best_entry) {
+      for (ci = 0; ci < ncandidates; ++ci) {
+        const corpus_entry_t* e = (const corpus_entry_t*)candidates[ci];
+        if (e->text_len >= 40) {
+          int skip = 0, u;
+          for (u = 0; u < nused && 0 == skip; ++u) {
+            if (used[u]->text_len == e->text_len
+              && 0 == memcmp(used[u]->text, e->text, (size_t)e->text_len))
+            {
+              skip = 1;
+            }
+          }
+          if (0 == skip) {
+            double score = converse_score(&e->fprint, query,
+              (0 != have_prev) ? &prev_fprint : NULL);
+            if (score < best_score) {
+              best_score = score;
+              best_entry = e;
+            }
+          }
+        }
+      }
+    }
     if (NULL == best_entry) break;
     if (nused < 64) used[nused++] = best_entry;
 
@@ -373,7 +400,7 @@ static int corpus_ingest_file(libxs_registry_t* corpus, const char* path)
     result = libxs_token_stream_encode(&stream, text, text_size);
     if (EXIT_SUCCESS == result) {
       size_t byte_pos = 0, sent_start = 0;
-      int nregistered = 0;
+      int nsentences = 0, nparagraphs = 0;
       size_t i;
       for (i = 0; i <= stream.size; ++i) {
         int is_sent_end = 0, tlen = 0;
@@ -411,6 +438,7 @@ static int corpus_ingest_file(libxs_registry_t* corpus, const char* path)
                 entry.text_len = len;
                 memcpy(entry.text, text + sent_start, (size_t)len);
                 entry.connector = CONN_NEWLINE;
+                entry.scale = SCALE_SENTENCE;
                 corpus_key_from_fprint(&entry.fprint, key, &key_size);
                 for (seq = 0; seq < 256; ++seq) {
                   memcpy(key + 8, &seq, 2);
@@ -420,7 +448,7 @@ static int corpus_ingest_file(libxs_registry_t* corpus, const char* path)
                   {
                     libxs_registry_set(corpus, key, key_size,
                       &entry, sizeof(entry), NULL);
-                    ++nregistered;
+                    ++nsentences;
                     break;
                   }
                 }
@@ -431,7 +459,52 @@ static int corpus_ingest_file(libxs_registry_t* corpus, const char* path)
         }
         byte_pos += (size_t)tlen;
       }
-      fprintf(stderr, "  ingested %s: %d sentences\n", path, nregistered);
+      { size_t para_start = 0, p;
+        for (p = 0; p < text_size; ++p) {
+          if ('\n' == text[p] && p + 1 < text_size && '\n' == text[p + 1]) {
+            int plen = (int)(p - para_start);
+            while (plen > 0 && 0 != isspace(text[para_start + plen - 1]))
+              --plen;
+            if (plen > 40 && plen < COMPOSE_MAXTEXT) {
+              int nwords = count_words(text + para_start, plen);
+              if (nwords >= 8) {
+                corpus_entry_t entry;
+                unsigned char key[16];
+                size_t key_size = 0;
+                unsigned short seq;
+                const size_t shape = (size_t)plen;
+                memset(&entry, 0, sizeof(entry));
+                if (EXIT_SUCCESS == libxs_fprint(&entry.fprint,
+                  LIBXS_DATATYPE_U8, text + para_start, 1,
+                  &shape, NULL, FPRINT_ORDER, 0, 0, 0))
+                {
+                  entry.text_len = plen;
+                  memcpy(entry.text, text + para_start, (size_t)plen);
+                  entry.connector = CONN_NEWLINE;
+                  entry.scale = SCALE_PARAGRAPH;
+                  corpus_key_from_fprint(&entry.fprint, key, &key_size);
+                  for (seq = 0; seq < 256; ++seq) {
+                    memcpy(key + 8, &seq, 2);
+                    key_size = 10;
+                    if (NULL == libxs_registry_get(corpus, key,
+                      key_size, NULL))
+                    {
+                      libxs_registry_set(corpus, key, key_size,
+                        &entry, sizeof(entry), NULL);
+                      ++nparagraphs;
+                      break;
+                    }
+                  }
+                }
+              }
+            }
+            while (p + 1 < text_size && '\n' == text[p + 1]) ++p;
+            para_start = p + 1;
+          }
+        }
+      }
+      fprintf(stderr, "  ingested %s: %d sentences, %d paragraphs\n",
+        path, nsentences, nparagraphs);
     }
     libxs_token_stream_release(&stream);
   }

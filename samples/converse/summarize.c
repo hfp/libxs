@@ -5,7 +5,7 @@
 #include <libxs/libxs_str.h>
 #include <libxs/libxs_mem.h>
 
-#define MAX_SENTENCES 256
+#define MAX_SENTENCES 4096
 #define FPRINT_ORDER 4
 #define CORPUS_FILE "compose.dat"
 #define COMPOSE_NDIMS 10
@@ -365,9 +365,7 @@ static int summarize_document(document_t* doc, int target_n)
             else slen = j;
             break;
           }
-          if ('.' == src[j] || '!' == src[j] || '?' == src[j]
-            || ';' == src[j])
-          {
+          if ('.' == src[j] || '!' == src[j] || '?' == src[j]) {
             last_punct = j;
           }
           prev_space = 0;
@@ -570,8 +568,14 @@ static int find_best_fusion_pair(const document_t* doc, int* out_a, int* out_b)
     const sentence_t* sa = doc->sentences + i;
     const sentence_t* sb = doc->sentences + i + 1;
     double dist = libxs_fprint_diff(&sa->fprint, &sb->fprint, NULL);
-    double nov = novelty_ratio(doc, i, i + 1);
-    double score = dist / (nov + 0.01);
+    double score;
+    if (doc->nsentences <= 256) {
+      double nov = novelty_ratio(doc, i, i + 1);
+      score = dist / (nov + 0.01);
+    }
+    else {
+      score = dist;
+    }
     if (score < best_score) {
       best_score = score;
       best_i = i;
@@ -894,13 +898,14 @@ static int corpus_ingest_file(libxs_registry_t* corpus, const char* path,
   FILE* f;
   unsigned char* text = NULL;
   size_t text_size = 0;
+  LIBXS_UNUSED(reflow);
   if (NULL == corpus || NULL == path) return EXIT_FAILURE;
   f = fopen(path, "rb");
   if (NULL != f) {
     result = read_input(&text, &text_size, f);
     fclose(f);
   }
-  if (EXIT_SUCCESS == result && 0 != reflow && NULL != text && text_size > 0) {
+  if (EXIT_SUCCESS == result && NULL != text && text_size > 0) {
     unsigned char* reflowed = NULL;
     size_t reflowed_size = 0;
     if (EXIT_SUCCESS == libxs_text_reflow(text, text_size,
