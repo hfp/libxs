@@ -41,6 +41,7 @@
 #include "../src/libxs_rng.c"
 #include "../src/libxs_str.c"
 #include "../src/libxs_sync.c"
+#include "../src/libxs_textrule.c"
 #include "../src/libxs_timer.c"
 #include "../src/libxs_token.c"
 #include "../src/libxs_utils.c"

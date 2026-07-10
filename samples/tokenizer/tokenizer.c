@@ -149,7 +149,7 @@ static void print_tokens(const libxs_token_stream_t* stream)
         printf("  %02lu literal len=%lu break=%d text=\"",
           (unsigned long)i, (unsigned long)info.length, info.has_break);
         for (j = 0; j < (size_t)info.length; ++j) {
-          const unsigned char ch = token->raw[1 + j];
+          const unsigned char ch = token->raw[2 + j];
           if (isprint(ch) && '"' != ch && '\\' != ch) putchar(ch);
           else printf("\\x%02X", (unsigned int)ch);
         }

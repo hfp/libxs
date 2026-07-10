@@ -201,11 +201,12 @@ void internal_libxs_token_init_literal(libxs_token_t* token,
 {
   if (NULL != token) {
     memset(token->raw, 0, sizeof(token->raw));
-    token->raw[0] = (unsigned char)(length & LIBXS_TOKEN_LEN_MASK);
+    token->raw[0] = 0;
     if (0 != break_flag) token->raw[0] |= LIBXS_TOKEN_FLAG_BREAK;
     if (0 != sentence_flag) token->raw[0] |= LIBXS_TOKEN_FLAG_SENTENCE;
     if (0 != markup_flag) token->raw[0] |= LIBXS_TOKEN_FLAG_MARKUP;
-    if (NULL != text && 0 != length) memcpy(token->raw + 1, text, length);
+    token->raw[1] = (unsigned char)(length & LIBXS_TOKEN_LEN_MASK);
+    if (NULL != text && 0 != length) memcpy(token->raw + 2, text, length);
   }
 }
 
@@ -217,13 +218,15 @@ void internal_libxs_token_init_copy(libxs_token_t* token,
 {
   if (NULL != token) {
     memset(token->raw, 0, sizeof(token->raw));
-    token->raw[0] = (unsigned char)(
-      LIBXS_TOKEN_FLAG_COPY | (length & LIBXS_TOKEN_LEN_MASK));
+    token->raw[0] = LIBXS_TOKEN_FLAG_COPY;
     if (0 != break_flag) token->raw[0] |= LIBXS_TOKEN_FLAG_BREAK;
     if (0 != sentence_flag) token->raw[0] |= LIBXS_TOKEN_FLAG_SENTENCE;
     if (0 != markup_flag) token->raw[0] |= LIBXS_TOKEN_FLAG_MARKUP;
-    token->raw[1] = (unsigned char)(distance & 0xFFu);
-    token->raw[2] = (unsigned char)((distance >> 8) & 0xFFu);
+    token->raw[1] = (unsigned char)(length & LIBXS_TOKEN_LEN_MASK);
+    token->raw[2] = (unsigned char)(distance & 0xFFu);
+    token->raw[3] = (unsigned char)((distance >> 8) & 0xFFu);
+    token->raw[4] = (unsigned char)((distance >> 16) & 0xFFu);
+    token->raw[5] = (unsigned char)((distance >> 24) & 0xFFu);
   }
 }
 
@@ -262,13 +265,16 @@ LIBXS_API void libxs_token_info(const libxs_token_t* token,
   if (NULL != info) {
     if (NULL != token) {
       const unsigned char ctrl = token->raw[0];
-      info->length = (size_t)(ctrl & LIBXS_TOKEN_LEN_MASK);
+      info->length = (size_t)(token->raw[1] & LIBXS_TOKEN_LEN_MASK);
       info->is_copy = (0 != (ctrl & LIBXS_TOKEN_FLAG_COPY)) ? 1 : 0;
       info->has_break = (0 != (ctrl & LIBXS_TOKEN_FLAG_BREAK)) ? 1 : 0;
       info->is_sentence = (0 != (ctrl & LIBXS_TOKEN_FLAG_SENTENCE)) ? 1 : 0;
       info->is_markup = (0 != (ctrl & LIBXS_TOKEN_FLAG_MARKUP)) ? 1 : 0;
       info->distance = (0 != info->is_copy)
-        ? ((unsigned int)token->raw[1] | ((unsigned int)token->raw[2] << 8))
+        ? ((unsigned int)token->raw[2]
+          | ((unsigned int)token->raw[3] << 8)
+          | ((unsigned int)token->raw[4] << 16)
+          | ((unsigned int)token->raw[5] << 24))
         : 0;
     }
     else {
@@ -401,8 +407,10 @@ LIBXS_API int libxs_token_stream_decode(const libxs_token_stream_t* stream,
         const libxs_token_t* t = stream->data + i;
         const size_t length = libxs_token_len(t);
         if (0 != libxs_token_is_copy(t)) {
-          const size_t distance = (size_t)t->raw[1]
-            | ((size_t)t->raw[2] << 8);
+          const size_t distance = (size_t)t->raw[2]
+            | ((size_t)t->raw[3] << 8)
+            | ((size_t)t->raw[4] << 16)
+            | ((size_t)t->raw[5] << 24);
           size_t j;
           if (0 == distance || distance > offset) {
             result = EXIT_FAILURE;
@@ -414,7 +422,7 @@ LIBXS_API int libxs_token_stream_decode(const libxs_token_stream_t* stream,
           }
         }
         else {
-          memcpy(buffer + offset, t->raw + 1, length);
+          memcpy(buffer + offset, t->raw + 2, length);
         }
         offset += length;
       }
