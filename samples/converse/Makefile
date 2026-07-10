@@ -34,7 +34,7 @@ CSOURCS := $(wildcard $(SRCDIR)/*.c)
 COBJCTS := $(patsubst %,$(BLDDIR)/%,$(notdir $(CSOURCS:.c=-c.o)))
 SOURCES := $(CSOURCS)
 OBJECTS := $(COBJCTS)
-XFILES := $(OUTDIR)/summarize.x
+XFILES := $(OUTDIR)/summarize.x $(OUTDIR)/converse.x
 
 .PHONY: all
 all: $(XFILES)
@@ -44,6 +44,9 @@ compile: $(OBJECTS)
 
 $(OUTDIR)/summarize.x: $(OUTDIR)/.make $(BLDDIR)/summarize-c.o $(XLIB)
 	$(LD) -o $@ $(BLDDIR)/summarize-c.o $(XLIB) $(SLDFLAGS) $(LDFLAGS) $(CLDFLAGS)
+
+$(OUTDIR)/converse.x: $(OUTDIR)/.make $(BLDDIR)/converse-c.o $(XLIB)
+	$(LD) -o $@ $(BLDDIR)/converse-c.o $(XLIB) $(SLDFLAGS) $(LDFLAGS) $(CLDFLAGS)
 
 $(BLDDIR)/%-c.o: $(SRCDIR)/%.c .state $(BLDDIR)/.make $(HEADERS) Makefile $(DEPDIR)/Makefile.inc
 	$(CC) $(DFLAGS) $(IFLAGS) $(CFLAGS) $(CTARGET) -c $< -o $@

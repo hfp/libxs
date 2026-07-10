@@ -344,6 +344,9 @@ LIBXS_API void libxs_sort(void* base, int n, size_t size,
 
 
 #include "libxs_perm_kdtree.h"
+
+
+#include "libxs_perm_spatial.h"
 #if defined(LIBXS_INTRINSICS_AVX2)
 LIBXS_API_INLINE LIBXS_INTRINSICS(LIBXS_X86_AVX2)
 void internal_libxs_shuffle2_u32_avx2(

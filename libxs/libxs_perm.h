@@ -9,7 +9,7 @@
 #ifndef LIBXS_PERM_H
 #define LIBXS_PERM_H
 
-#include "libxs.h"
+#include "libxs_reg.h"
 
 /** Forward index map: original position I -> shuffled position. */
 #define LIBXS_SHUFFLE_INDEX(I, N, C, B) \
@@ -256,6 +256,24 @@ LIBXS_API int libxs_unshuffle2(void* dst, const void* src, size_t elemsize, size
   const size_t* shuffle, size_t offset,
   /** If NULL, the default value is one. If zero, an ordinary copy is performed. */
   const size_t* nrepeat);
+
+/** Sorted Hilbert-code spatial index over registry entries. */
+LIBXS_EXTERN_C typedef struct libxs_spatial_t {
+  uint64_t* codes;
+  void** values;
+  int n;
+} libxs_spatial_t;
+
+/** Build spatial index from registry (extracts first 8 key bytes as Hilbert code). */
+LIBXS_API int libxs_spatial_build(libxs_spatial_t* sp,
+  const libxs_registry_t* registry);
+
+/** Find up to k entries nearest to query_code. Returns count found. */
+LIBXS_API int libxs_spatial_nearest(const libxs_spatial_t* sp,
+  uint64_t query_code, int k, void** out_values);
+
+/** Release spatial index memory. */
+LIBXS_API void libxs_spatial_destroy(libxs_spatial_t* sp);
 
 /* header-only: include implementation (deferred from libxs_macros.h) */
 #if defined(LIBXS_SOURCE) && !defined(LIBXS_SOURCE_H) \
