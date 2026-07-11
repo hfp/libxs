@@ -5,12 +5,9 @@
 #include <libxs/libxs_str.h>
 #include <libxs/libxs_mem.h>
 
+#include "converse.h"
+
 #define MAX_SENTENCES 4096
-#define FPRINT_ORDER 4
-#define CORPUS_FILE "compose.dat"
-#define COMPOSE_NDIMS 10
-#define COMPOSE_BITS 6
-#define COMPOSE_MAXTEXT 512
 
 
 typedef struct sentence_t {
@@ -25,16 +22,6 @@ typedef struct document_t {
   sentence_t sentences[MAX_SENTENCES];
   int nsentences;
 } document_t;
-
-enum { CONN_SPACE = 0, CONN_COMMA = 1, CONN_PERIOD = 2, CONN_NEWLINE = 3 };
-
-typedef struct corpus_entry_t {
-  libxs_fprint_t fprint;
-  int text_len;
-  unsigned char connector;
-  char text[COMPOSE_MAXTEXT];
-} corpus_entry_t;
-
 
 static int count_words(const unsigned char* text, int length);
 static int extract_words(const unsigned char* text, int length,
@@ -56,8 +43,6 @@ static int find_best_fusion_pair(const document_t* doc, int* out_a, int* out_b);
 static int fuse_sentences(const document_t* doc, int a, int b,
   char* output, size_t output_size, size_t* output_len);
 static int read_input(unsigned char** data, size_t* size, FILE* file);
-static void corpus_key_from_fprint(const libxs_fprint_t* fp,
-  unsigned char key[], size_t* key_size);
 static libxs_registry_t* corpus_load(void);
 static int corpus_save(const libxs_registry_t* corpus);
 static int corpus_ingest_file(libxs_registry_t* corpus, const char* path,
@@ -815,33 +800,6 @@ static int read_input(unsigned char** data, size_t* size, FILE* file)
 }
 
 
-static void corpus_key_from_fprint(const libxs_fprint_t* fp,
-  unsigned char key[], size_t* key_size)
-{
-  unsigned int coords[COMPOSE_NDIMS];
-  uint64_t hcode;
-  int k;
-  for (k = 0; k <= FPRINT_ORDER; ++k) {
-    double v = fp->l2[k] < 0 ? 0 : fp->l2[k];
-    unsigned int q = (unsigned int)(v * ((1 << COMPOSE_BITS) - 1));
-    if (q >= (unsigned int)(1 << COMPOSE_BITS)) q = (1 << COMPOSE_BITS) - 1;
-    coords[k] = q;
-  }
-  for (k = 0; k <= FPRINT_ORDER; ++k) {
-    double v = fp->mean[k];
-    double norm = (v + 1.0) * 0.5;
-    unsigned int q;
-    if (norm < 0) norm = 0;
-    if (norm > 1.0) norm = 1.0;
-    q = (unsigned int)(norm * ((1 << COMPOSE_BITS) - 1));
-    coords[FPRINT_ORDER + 1 + k] = q;
-  }
-  hcode = libxs_hilbert_bits(coords, COMPOSE_NDIMS, COMPOSE_BITS);
-  memcpy(key, &hcode, 8);
-  *key_size = 8;
-}
-
-
 static void corpus_fixup(void* value, const void* key,
   size_t key_size, size_t value_size, void* udata)
 {
@@ -938,7 +896,7 @@ static int corpus_ingest_file(libxs_registry_t* corpus, const char* path,
               corpus_entry_t entry;
               unsigned char key[16];
               size_t key_size = 0;
-              unsigned short seq;
+              unsigned int seq;
               const size_t shape = (size_t)len;
               memset(&entry, 0, sizeof(entry));
               if (EXIT_SUCCESS == libxs_fprint(&entry.fprint,
@@ -948,18 +906,24 @@ static int corpus_ingest_file(libxs_registry_t* corpus, const char* path,
                 entry.text_len = len;
                 memcpy(entry.text, text + sent_start, (size_t)len);
                 entry.connector = CONN_NEWLINE;
+                entry.scale = SCALE_SENTENCE;
                 corpus_key_from_fprint(&entry.fprint, key, &key_size);
-                for (seq = 0; seq < 256; ++seq) {
-                  memcpy(key + 8, &seq, 2);
+                for (seq = 0; seq < 65536; ++seq) {
+                  unsigned short seq_key = (unsigned short)seq;
+                  const corpus_entry_t* old_entry;
+                  memcpy(key + 8, &seq_key, 2);
                   key_size = 10;
-                  if (NULL == libxs_registry_get(corpus, key,
-                    key_size, NULL))
-                  {
+                  old_entry = (const corpus_entry_t*)libxs_registry_get(
+                    corpus, key, key_size, NULL);
+                  if (NULL == old_entry) {
                     libxs_registry_set(corpus, key, key_size,
                       &entry, sizeof(entry), NULL);
                     ++nregistered;
                     break;
                   }
+                  if (old_entry->text_len == entry.text_len
+                    && 0 == libxs_memcmp(old_entry->text, entry.text,
+                      (size_t)entry.text_len)) break;
                 }
               }
             }
@@ -1061,7 +1025,7 @@ static int compose_document(const libxs_registry_t* corpus,
   if (NULL == lexicon || nrules <= 0
     || NULL == target_text || 0 == target_size
     || EXIT_SUCCESS != libxs_token_stream_encode(lexicon, &target_tokens,
-      target_text, target_size, rules, nrules, 1))
+      target_text, target_size, rules, nrules, NULL, 0, 1))
   {
     libxs_lexicon_destroy(lexicon);
     libxs_token_stream_release(&target_tokens);
@@ -1112,7 +1076,7 @@ static int compose_document(const libxs_registry_t* corpus,
             score = d;
             if (EXIT_SUCCESS == libxs_token_stream_encode(lexicon,
               &candidate_tokens, (const unsigned char*)e->text,
-              (size_t)e->text_len, rules, nrules, 1))
+              (size_t)e->text_len, rules, nrules, NULL, 0, 1))
             {
               lex_score = compose_lexical_score(&target_tokens,
                 &candidate_tokens, &generated_tokens);
@@ -1158,7 +1122,7 @@ static int compose_document(const libxs_registry_t* corpus,
         best_entry->text, best_entry->text_len, FPRINT_ORDER);
       libxs_token_stream_encode(lexicon, &generated_tokens,
         (const unsigned char*)best_entry->text, (size_t)best_entry->text_len,
-        rules, nrules, 1);
+        rules, nrules, NULL, 0, 1);
       prev_fprint = best_entry->fprint;
       have_prev = 1;
       prev_conn = best_entry->connector;

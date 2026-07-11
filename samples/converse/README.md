@@ -34,7 +34,7 @@ printf '%s\n' 'First sentence. Second related sentence.' | ./summarize.x -
 
 The `-n` option sets the target sentence count in summarization mode.
 
-Compose mode ingests one or more files into `compose.dat`, fingerprints and
+Compose mode ingests one or more files into `converse.dat`, fingerprints and
 tokenizes the first input as the target, and emits a short text assembled from
 corpus entries:
 
@@ -45,7 +45,7 @@ corpus entries:
 The `-n` option sets the phrase budget in compose mode. The `-g` scorer still
 follows the fingerprint trajectory, but it now also rewards non-stopword target
 token ID coverage and penalizes repeated generated token IDs. Remove
-`compose.dat` to rebuild the local corpus from scratch.
+`converse.dat` to rebuild the local corpus from scratch.
 
 Run the interactive converse sample with one or more corpus files:
 
@@ -126,6 +126,10 @@ directly.
 
 The lexical layer uses compact 8-byte tokens whose first field is a stable
 vocabulary ID; the lexicon provides both text-to-ID and ID-to-text mapping.
+The tokenizer core only lowercases words; language-specific rewrites such as
+`brought -> bring` are passed as caller-owned normalization tables, so a sample
+can swap English toy rules for another language profile without changing token
+IDs or tokenizer code.
 Loadable lexical rules assign coordinated classes such as stopword, question,
 entity, number, sentence, and markup in one place instead of scattering text
 edge cases through samples.
@@ -140,8 +144,8 @@ following-sentence transitions.
 ## Notes
 
 The sample is intentionally experimental. It keeps all state in the sample
-directory, writes generated corpus data to `compose.dat` and `converse.dat`,
-and saves the converse vocabulary in `converse.lex` so persisted token IDs can
-be compared across runs. The answer reranker is saved in `converse.prd`. Reusing
+directory, writes generated corpus data to `converse.dat`, and saves the
+converse vocabulary in `converse.lex` so persisted token IDs can be compared
+across runs. The answer reranker is saved in `converse.prd`. Reusing
 the same corpus files refreshes existing entries instead of duplicating them. It
 does not add a stable public summarization API.

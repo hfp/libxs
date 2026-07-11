@@ -5,58 +5,21 @@
 #include <libxs/libxs_str.h>
 #include <libxs/libxs_mem.h>
 
-#include <ctype.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
+#include "converse.h"
 
-#define FPRINT_ORDER 4
-#define CORPUS_FILE "converse.dat"
-#define COMPOSE_NDIMS 10
-#define COMPOSE_BITS 6
-#define COMPOSE_MAXTEXT 512
 #define RESPONSE_BUDGET 5
 #define ANSWER_MAX 4
 #define ANSWER_MIN_SCORE 0.35
-#define ENTRY_TOKEN_MAX 48
 #define LEXICON_FILE "converse.lex"
 #define PREDICT_FILE "converse.prd"
 #define BRIDGE_FILE "converse.bridges"
 #define BRIDGE_LINE_MAX 2048
 #define ANSWER_PREDICT_INPUTS 10
 #define EVAL_TERM_MAX 4
-#define ENTRY_SECTION_MAX 64
 
 
-enum { CONN_SPACE = 0, CONN_NEWLINE = 3 };
-enum { SCALE_PHRASE = 0, SCALE_SENTENCE = 1, SCALE_PARAGRAPH = 2 };
 enum { QUERY_GENERIC = 0, QUERY_WHO, QUERY_WHAT, QUERY_WHERE,
   QUERY_WHEN, QUERY_WHY, QUERY_HOW, QUERY_YESNO };
-
-#define ENTRY_LEX_ENTITY 0x0001u
-#define ENTRY_LEX_NUMBER 0x0002u
-#define ENTRY_LEX_QUESTION 0x0004u
-#define ENTRY_LEX_PLACE 0x0008u
-#define ENTRY_LEX_CAUSE 0x0010u
-#define ENTRY_LEX_METHOD 0x0020u
-
-typedef struct corpus_entry_t {
-  libxs_fprint_t fprint;
-  int text_len;
-  unsigned char connector;
-  unsigned char scale;
-  char text[COMPOSE_MAXTEXT];
-  unsigned short ntokens;
-  unsigned short ncontent;
-  unsigned short nentities;
-  unsigned short nnumbers;
-  unsigned short lexical_flags;
-  unsigned short reserved;
-  unsigned int token_ids[ENTRY_TOKEN_MAX];
-  unsigned short token_flags[ENTRY_TOKEN_MAX];
-  unsigned short section_len;
-  char section[ENTRY_SECTION_MAX];
-} corpus_entry_t;
 
 typedef struct eval_case_t {
   const char* question;
@@ -107,12 +70,17 @@ static const answer_bridge_t answer_bridges[] = {
     "purpose", "The lighthouse was his purpose, and its light was his gift to sailors.", 0.90 }
 };
 
+static const libxs_lexnorm_t converse_lexnorms[] = {
+  { "brought", "bring" },
+  { "counted", "count" },
+  { "counting", "count" },
+  { "stretched", "stretch" }
+};
+
 static answer_bridge_t* answer_bridge_loaded = NULL;
 static size_t answer_bridge_loaded_size = 0;
 
 
-static void corpus_key_from_fprint(const libxs_fprint_t* fp,
-  unsigned char key[], size_t* key_size);
 static libxs_registry_t* corpus_load(void);
 static int corpus_save(const libxs_registry_t* corpus);
 static libxs_lexicon_t* converse_lexicon_load(void);
@@ -126,14 +94,19 @@ static const answer_predict_profile_t* answer_predict_profile_find(
   const char* name);
 static void answer_predict_profile_list(FILE* stream);
 static size_t answer_bridge_builtin_size(void);
+static size_t converse_lexnorm_size(void);
 static void answer_bridge_free_loaded(void);
 static size_t answer_bridge_load_file(const char* path);
 static void answer_bridge_report(FILE* stream);
 static int corpus_ingest_file(libxs_registry_t* corpus, const char* path,
   libxs_lexicon_t* lexicon, const libxs_lexrule_t* rules, int nrules);
 static int count_words(const unsigned char* text, int length);
+static size_t text_closer_size(const unsigned char* text, size_t size,
+  size_t pos);
 static int is_sentence_end_text(const unsigned char* text, size_t size,
   size_t pos);
+static int text_starts_sentence(const char* text, int text_len);
+static int text_ends_sentence(const char* text, int text_len);
 static int is_question_query(const char* text, size_t length,
   libxs_lexicon_t* lexicon, const libxs_lexrule_t* rules, int nrules);
 static int lexeme_stream_has_id(const libxs_lexeme_stream_t* stream,
@@ -365,35 +338,6 @@ int main(int argc, char* argv[])
 }
 
 
-static void corpus_key_from_fprint(const libxs_fprint_t* fp,
-  unsigned char key[], size_t* key_size)
-{
-  unsigned int coords[COMPOSE_NDIMS];
-  unsigned long long hcode;
-  int k;
-  for (k = 0; k <= 4 && k <= fp->order; ++k) {
-    double v = fp->l2[k];
-    double m = fp->mean[k];
-    unsigned int qv, qm;
-    if (v < 0) v = 0;
-    if (v > 1.0) v = 1.0;
-    if (m < -1.0) m = -1.0;
-    if (m > 1.0) m = 1.0;
-    qv = (unsigned int)(v * ((1 << COMPOSE_BITS) - 1));
-    qm = (unsigned int)((m + 1.0) * 0.5 * ((1 << COMPOSE_BITS) - 1));
-    coords[k] = qv;
-    coords[5 + k] = qm;
-  }
-  for (k = fp->order + 1; k <= 4; ++k) {
-    coords[k] = 0;
-    coords[5 + k] = 0;
-  }
-  hcode = libxs_hilbert_bits(coords, COMPOSE_NDIMS, COMPOSE_BITS);
-  memcpy(key, &hcode, 8);
-  *key_size = 8;
-}
-
-
 static void corpus_fixup(void* value, const void* key,
   size_t key_size, size_t value_size, void* udata)
 {
@@ -447,6 +391,12 @@ static void answer_predict_profile_list(FILE* stream)
 static size_t answer_bridge_builtin_size(void)
 {
   return sizeof(answer_bridges) / sizeof(answer_bridges[0]);
+}
+
+
+static size_t converse_lexnorm_size(void)
+{
+  return sizeof(converse_lexnorms) / sizeof(converse_lexnorms[0]);
 }
 
 
@@ -753,6 +703,24 @@ static int count_words(const unsigned char* text, int length)
 }
 
 
+static size_t text_closer_size(const unsigned char* text, size_t size,
+  size_t pos)
+{
+  size_t result = 0;
+  if (NULL != text && pos < size) {
+    unsigned char ch = text[pos];
+    if ('"' == ch || '\'' == ch || ')' == ch || ']' == ch) result = 1;
+    else if (pos + 2 < size && 0xe2 == text[pos]
+      && 0x80 == text[pos + 1]
+      && (0x99 == text[pos + 2] || 0x9d == text[pos + 2]))
+    {
+      result = 3;
+    }
+  }
+  return result;
+}
+
+
 static int is_sentence_end_text(const unsigned char* text, size_t size,
   size_t pos)
 {
@@ -761,9 +729,59 @@ static int is_sentence_end_text(const unsigned char* text, size_t size,
     && ('.' == text[pos] || '?' == text[pos] || '!' == text[pos]))
   {
     size_t next = pos + 1;
-    while (next < size && 0 == isspace(text[next])
-      && 0 == isalnum(text[next])) ++next;
+    size_t close_size = text_closer_size(text, size, next);
+    while (0 != close_size) {
+      next += close_size;
+      close_size = text_closer_size(text, size, next);
+    }
     if (next >= size || 0 != isspace(text[next])) result = 1;
+  }
+  return result;
+}
+
+
+static int text_starts_sentence(const char* text, int text_len)
+{
+  int result = 0;
+  int pos = 0;
+  if (NULL == text || text_len <= 0) return 0;
+  while (pos < text_len && 0 != isspace((unsigned char)text[pos])) ++pos;
+  if (pos < text_len) {
+    const unsigned char* utext = (const unsigned char*)text;
+    unsigned char ch = utext[pos];
+    if (',' != ch && ';' != ch && ':' != ch && ')' != ch && ']' != ch
+      && 0 == (pos + 2 < text_len && 0xe2 == utext[pos]
+        && 0x80 == utext[pos + 1]
+        && (0x99 == utext[pos + 2] || 0x9d == utext[pos + 2])))
+    {
+      result = 1;
+    }
+  }
+  return result;
+}
+
+
+static int text_ends_sentence(const char* text, int text_len)
+{
+  int result = 0;
+  int end = text_len;
+  if (NULL == text || text_len <= 0) return 0;
+  while (end > 0 && 0 != isspace((unsigned char)text[end - 1])) --end;
+  while (end > 0) {
+    const unsigned char* utext = (const unsigned char*)text;
+    unsigned char ch = utext[end - 1];
+    if ('"' == ch || '\'' == ch || ')' == ch || ']' == ch) --end;
+    else if (end >= 3 && 0xe2 == utext[end - 3]
+      && 0x80 == utext[end - 2]
+      && (0x99 == utext[end - 1] || 0x9d == utext[end - 1]))
+    {
+      end -= 3;
+    }
+    else break;
+  }
+  if (end > 0) {
+    unsigned char ch = (unsigned char)text[end - 1];
+    if ('.' == ch || '?' == ch || '!' == ch) result = 1;
   }
   return result;
 }
@@ -778,7 +796,8 @@ static int is_question_query(const char* text, size_t length,
   libxs_lexeme_stream_init(&stream);
   if (NULL != lexicon && nrules > 0
     && EXIT_SUCCESS == libxs_lexeme_stream_encode(lexicon, &stream,
-      (const unsigned char*)text, length, rules, nrules, 1))
+      (const unsigned char*)text, length, rules, nrules,
+      converse_lexnorms, (int)converse_lexnorm_size(), 1))
   {
     for (lexeme_pos = 0; lexeme_pos < stream.size && 0 == result;
       ++lexeme_pos)
@@ -928,7 +947,8 @@ static int corpus_entry_build(corpus_entry_t* entry,
   }
   if (EXIT_SUCCESS == result && NULL != lexicon && NULL != rules
     && nrules > 0 && EXIT_SUCCESS == libxs_lexeme_stream_encode(lexicon,
-      &stream, text, (size_t)len, rules, nrules, 1))
+      &stream, text, (size_t)len, rules, nrules,
+      converse_lexnorms, (int)converse_lexnorm_size(), 1))
   {
     for (lexeme_pos = 0; lexeme_pos < stream.size; ++lexeme_pos) {
       const libxs_lexeme_t* lexeme = stream.data + lexeme_pos;
@@ -1085,6 +1105,7 @@ static int corpus_store_entry(libxs_registry_t* corpus,
   unsigned char key[16];
   size_t key_size = 0;
   unsigned int seq;
+  int matched = 0;
   if (NULL == corpus || NULL == entry) return 0;
   corpus_key_from_fprint(&entry->fprint, key, &key_size);
   for (seq = 0; seq < 65536; ++seq) {
@@ -1094,9 +1115,11 @@ static int corpus_store_entry(libxs_registry_t* corpus,
     key_size = 10;
     existing = libxs_registry_get(corpus, key, key_size, NULL);
     if (NULL == existing) {
-      libxs_registry_set(corpus, key, key_size,
-        entry, sizeof(*entry), NULL);
-      result = 1;
+      if (0 == matched) {
+        libxs_registry_set(corpus, key, key_size,
+          entry, sizeof(*entry), NULL);
+        result = 1;
+      }
       break;
     }
     else {
@@ -1108,11 +1131,14 @@ static int corpus_store_entry(libxs_registry_t* corpus,
           (size_t)entry->text_len)
         && 0 != corpus_entry_same_section(old_entry, old_size, entry))
       {
-        if (old_size != sizeof(*entry)) {
+        matched = 1;
+        if (old_size != sizeof(*entry)
+          || (0 == old_entry->ntokens && entry->ntokens > 0))
+        {
           libxs_registry_set(corpus, key, key_size,
             entry, sizeof(*entry), NULL);
         }
-        break;
+        if (old_size == sizeof(*entry) && old_entry->ntokens > 0) break;
       }
     }
   }
@@ -1608,7 +1634,7 @@ static double lexical_score(const libxs_lexeme_stream_t* query,
   }
   else if (EXIT_SUCCESS != libxs_lexeme_stream_encode(lexicon, &entry_stream,
       (const unsigned char*)entry->text, (size_t)entry->text_len,
-      rules, nrules, 1))
+      rules, nrules, converse_lexnorms, (int)converse_lexnorm_size(), 1))
   {
     libxs_lexeme_stream_release(&entry_stream);
     return 0.0;
@@ -1744,7 +1770,8 @@ static int answer_select(const libxs_registry_t* corpus,
   }
   if (NULL != lexicon && nrules > 0
     && EXIT_SUCCESS == libxs_lexeme_stream_encode(lexicon, &query,
-      (const unsigned char*)rank_query_text, rank_query_len, rules, nrules, 1))
+      (const unsigned char*)rank_query_text, rank_query_len, rules, nrules,
+      converse_lexnorms, (int)converse_lexnorm_size(), 1))
   {
     query_type = query_type_of(&query, lexicon);
     if (NULL == predictor) {
@@ -1763,6 +1790,14 @@ static int answer_select(const libxs_registry_t* corpus,
       if (query_section_len > 0
         && 0 == corpus_entry_section_match(entry, entry_size,
           query_section, query_section_len))
+      {
+        value = libxs_registry_next(corpus, &key, &cursor);
+        continue;
+      }
+      if (0 != query_type_prefers_sentence(query_type)
+        && SCALE_SENTENCE == entry->scale
+        && (0 == text_starts_sentence(entry->text, entry->text_len)
+          || 0 == text_ends_sentence(entry->text, entry->text_len)))
       {
         value = libxs_registry_next(corpus, &key, &cursor);
         continue;
@@ -2017,7 +2052,7 @@ static int answer_frame_keywords_after(char* output, size_t output_size,
       && '?' != text[end]) ++end;
     if (end > start && EXIT_SUCCESS == libxs_lexeme_stream_encode(lexicon,
       &stream, (const unsigned char*)text + start, (size_t)(end - start),
-      rules, nrules, 1))
+      rules, nrules, converse_lexnorms, (int)converse_lexnorm_size(), 1))
     {
       for (lexeme_pos = 0; lexeme_pos < stream.size && used_size < 32;
         ++lexeme_pos)
@@ -2246,7 +2281,8 @@ static int answer_reply(const char* query_text, size_t query_len,
   answer_strip_heading_prefix(&text, &text_len);
   if (NULL != lexicon && NULL != rules && nrules > 0
     && EXIT_SUCCESS == libxs_lexeme_stream_encode(lexicon, &query,
-      (const unsigned char*)query_text, query_len, rules, nrules, 1))
+      (const unsigned char*)query_text, query_len, rules, nrules,
+      converse_lexnorms, (int)converse_lexnorm_size(), 1))
   {
     query_type = query_type_of(&query, lexicon);
     bridge = answer_bridge_match(&query, lexicon, entry);
@@ -2254,9 +2290,6 @@ static int answer_reply(const char* query_text, size_t query_len,
   if (NULL != bridge && NULL != bridge->reply) {
     result = answer_bridge_expand_reply(bridge, text, text_len, lexicon,
       rules, nrules, output, output_size);
-    if (EXIT_SUCCESS != result) {
-      result = answer_reply_set(output, output_size, bridge->reply, -1);
-    }
   }
   else if (QUERY_WHERE == query_type
     && 0 != text_contains_ci(text, text_len, "lighthouse"))
@@ -2372,16 +2405,26 @@ static int answer_evidence_sentence(const char* query_text, size_t query_len,
   }
   answer_strip_heading_prefix(&text, &text_len);
   if (EXIT_SUCCESS == libxs_lexeme_stream_encode(lexicon, &query,
-    (const unsigned char*)query_text, query_len, rules, nrules, 1))
+    (const unsigned char*)query_text, query_len, rules, nrules,
+    converse_lexnorms, (int)converse_lexnorm_size(), 1))
   {
     int pos;
     for (pos = 0; pos <= text_len; ++pos) {
-      if (pos == text_len || '.' == text[pos] || '!' == text[pos]
+      if ((pos == text_len
+          && 0 != text_ends_sentence(text + sent_start,
+            text_len - sent_start))
+        || '.' == text[pos] || '!' == text[pos]
         || '?' == text[pos])
       {
         int sent_end = (pos < text_len) ? pos + 1 : pos;
         int score = 0;
         size_t lexeme_pos;
+        while (sent_end < text_len) {
+          size_t close_size = text_closer_size((const unsigned char*)text,
+            (size_t)text_len, (size_t)sent_end);
+          if (0 == close_size) break;
+          sent_end += (int)close_size;
+        }
         for (lexeme_pos = 0; lexeme_pos < query.size; ++lexeme_pos) {
           const libxs_lexeme_t* lexeme = query.data + lexeme_pos;
           if (0 != (lexeme->flags & (LIBXS_LEXEME_WORD | LIBXS_LEXEME_NUMBER))
@@ -2457,7 +2500,10 @@ static int answer_query(const libxs_registry_t* corpus,
     while (text_len > 0
       && 0 != isspace((unsigned char)text[text_len - 1])) --text_len;
     answer_strip_heading_prefix(&text, &text_len);
-    if (text_len > 0) {
+    if (text_len > 0 && (SCALE_SENTENCE != entries[slot]->scale
+        || (0 != text_starts_sentence(text, text_len)
+          && 0 != text_ends_sentence(text, text_len))))
+    {
       if (slot > 0) printf("\n");
       printf("%.*s\n", text_len, text);
     }
@@ -2663,6 +2709,12 @@ static int corpus_ingest_file(libxs_registry_t* corpus, const char* path,
       if (0 != is_sent_end && i > sent_start) {
           size_t sent_end = (i < text_size) ? i + 1 : i;
           int len = (int)(sent_end - sent_start);
+          while (sent_end < text_size) {
+            size_t close_size = text_closer_size(text, text_size, sent_end);
+            if (0 == close_size) break;
+            sent_end += close_size;
+          }
+          len = (int)(sent_end - sent_start);
           while (len > 0 && 0 != isspace(text[sent_start + len - 1])) --len;
           if (len > 8) {
             char title[ENTRY_SECTION_MAX];
