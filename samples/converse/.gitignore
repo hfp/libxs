@@ -1,3 +1,5 @@
 /texts
 *.bin
 *.dat
+*.lex
+*.prd

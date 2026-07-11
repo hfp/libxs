@@ -53,10 +53,28 @@ Run the interactive converse sample with one or more corpus files:
 ./converse.x -n 3 texts/prejudice.txt texts/prose1.txt
 ```
 
+Run the built-in sample evaluation over the prose fixture:
+
+```bash
+./converse.x -e texts/prose1.txt
+```
+
+The evaluator uses the same ingest, lexicon, stored `libxs_predict` model, and
+answer-ranking path as interactive mode. It asks a small set of canned questions
+and checks that selected evidence contains expected terms, printing a pass/fail
+summary.
+
 Question-shaped prompts use a conservative extractive path. The sample encodes
-query and corpus chunks with the lexical token layer, scores non-stopword token
-ID overlap, and emits the best matching evidence. If the corpus does not cover
-enough of the question terms, it answers `I do not know from the corpus.`
+query and corpus chunks with the lexical token layer, stores compact lexical
+sketches in the corpus entries, scores non-stopword token ID overlap, and emits
+the best matching evidence. Question words select shallow answer types such as
+who, where, when, why, how, and yes/no; these types bias ranking toward entity,
+place, number, causal, or method markers from the stored sketches. The answer
+path also trains and saves a `libxs_predict` model in `converse.prd` from weak
+query-type labels derived from the corpus sketches. At chat time the saved model
+reranks candidate evidence over numeric sketch features; if no saved model is
+available, a per-query model is built as a fallback. If the corpus does not
+cover enough of the question terms, it answers `I do not know from the corpus.`
 Non-question prompts keep using the fingerprint/Hilbert composition path.
 
 The lexical layer uses compact 8-byte tokens whose first field is a stable
@@ -66,13 +84,17 @@ entity, number, sentence, and markup in one place instead of scattering text
 edge cases through samples.
 
 This is still not an LLM. The current question path adds lexical semantics and
-answer abstention, but it does not learn paraphrase or derive facts. The next
-`libxs_predict` step should train on these token IDs and class flags, for
-example previous-token windows to next-token ID, question-feature to
-answer-feature pairs, or sentence-feature to following-sentence transitions.
+answer abstention, but it does not learn paraphrase or derive facts. The current
+`libxs_predict` use is a weakly supervised reranker over token-sketch features.
+Later steps can train on token IDs and class flags more directly, for example
+previous-token windows to next-token ID or sentence-feature to
+following-sentence transitions.
 
 ## Notes
 
 The sample is intentionally experimental. It keeps all state in the sample
-directory, writes generated corpus data to `compose.dat`, and does not add a
-stable public summarization API.
+directory, writes generated corpus data to `compose.dat` and `converse.dat`,
+and saves the converse vocabulary in `converse.lex` so persisted token IDs can
+be compared across runs. The answer reranker is saved in `converse.prd`. Reusing
+the same corpus files refreshes existing entries instead of duplicating them. It
+does not add a stable public summarization API.
