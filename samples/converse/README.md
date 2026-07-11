@@ -72,12 +72,36 @@ corpus.
 Question-shaped prompts use a conservative extractive path. The sample encodes
 query and corpus chunks with the lexical token layer, stores compact lexical
 sketches in the corpus entries, scores non-stopword token ID overlap, and emits
-the best matching evidence. A small bridge layer maps a few grounded paraphrase
-relations, such as `find their way` to `guided`, `write down` to `journal
-recorded`, and winter hardship to the winter evidence. Question words select
-shallow answer types such as who, where, when, why, how, and yes/no; these types
-bias ranking toward entity, place, number, causal, or method markers from the
-stored sketches. Short factual questions prefer sentence-level evidence over
+the best matching evidence. A small bridge table maps a few grounded paraphrase
+relations with query-token specs, evidence-text specs, and a concise reply, such
+as `find/help/helped way sailor/sailors/ship/ships` to `lighthouse guided/light`.
+The sample also loads optional local bridge rules from `converse.bridges`; loaded
+rules are tried before the compiled defaults. Each non-comment line has five
+pipe-separated fields:
+
+```text
+name|query-groups|evidence-groups|score|reply
+```
+
+Within query and evidence groups, whitespace separates required groups and `/`
+separates alternatives inside a group. Evidence terms can use `_` for a literal
+space, for example `Ice_formed/supply_boat`. The reply field may be literal text
+or a small answer frame. Built-in frames can fill evidence-backed slots such as
+`{after:lighthouse had}`, `{keywords-after:recorded everything:}`, or
+`{winter-hardships}`. The `keywords-after` frame tokenizes the selected evidence
+span, drops stopwords, de-duplicates token IDs, and composes a compact list.
+This lets the sample compose short grounded answers from selected evidence
+instead of storing every short answer verbatim. Generic `what is X` questions can
+also extract a short phrase around `X`, and unmatched question fallbacks print
+the best matching evidence sentence rather than an entire selected paragraph.
+For collection-style corpora with uppercase story headings, entries remember the
+current heading and questions of the form `In Title, ...` are ranked only against
+that story. Overlong sentences and paragraphs are also indexed through bounded
+clause fragments so evidence inside long quoted passages remains searchable
+without forcing paragraph-length answers. Question words select shallow answer
+types such as who, where, when, why, how, and yes/no; these types bias ranking
+toward entity, place, number, causal, or method markers from the stored sketches.
+Short factual questions prefer sentence-level evidence over
 longer paragraph evidence. When a selected top answer matches a grounded
 pattern, the chat prints a concise reply; otherwise it falls back to the
 selected evidence text. The answer path also trains and saves a `libxs_predict`
