@@ -120,6 +120,10 @@ int internal_libxs_lexeme_normalize_word(char* out, int out_size,
       out[result++] = (char)tolower(text[text_pos]);
     }
     out[result] = 0;
+    if (7 == result && 0 == memcmp(out, "brought", 7)) {
+      memcpy(out, "bring", 6);
+      result = 5;
+    }
   }
   return result;
 }

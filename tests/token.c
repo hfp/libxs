@@ -26,6 +26,7 @@ int main(int argc, char* argv[])
   static const unsigned char input[] = "Who is Alice? Alice saw 123.";
   const size_t input_size = sizeof(input) - 1;
   libxs_token_stream_t stream;
+  libxs_token_stream_t inflect_stream;
   libxs_lexrule_t lexrules[96];
   libxs_lexicon_t* lexicon = NULL;
   libxs_lexicon_t* loaded_lexicon = NULL;
@@ -40,6 +41,7 @@ int main(int argc, char* argv[])
   LIBXS_UNUSED(argc); LIBXS_UNUSED(argv);
 
   libxs_token_stream_init(&stream);
+  libxs_token_stream_init(&inflect_stream);
   if (0 != stream.size || 0 != stream.capacity || NULL != stream.data) {
     FPRINTF(stderr, "ERROR line #%i: token stream init\n", __LINE__);
     result = EXIT_FAILURE;
@@ -118,6 +120,17 @@ int main(int argc, char* argv[])
     }
   }
   if (EXIT_SUCCESS == result) {
+    static const unsigned char inflect[] = "bring brought";
+    result = libxs_token_stream_encode(lexicon, &inflect_stream,
+      inflect, sizeof(inflect) - 1, lexrules, lexrule_count, 1);
+    if (EXIT_SUCCESS != result || 2 != inflect_stream.size
+      || inflect_stream.data[0].id != inflect_stream.data[1].id)
+    {
+      FPRINTF(stderr, "ERROR line #%i: inflection normalization\n", __LINE__);
+      result = EXIT_FAILURE;
+    }
+  }
+  if (EXIT_SUCCESS == result) {
     result = libxs_lexicon_save(lexicon, NULL, &lexicon_buffer_size);
     if (EXIT_SUCCESS == result && lexicon_buffer_size > 0) {
       lexicon_buffer = malloc(lexicon_buffer_size);
@@ -141,6 +154,7 @@ int main(int argc, char* argv[])
   free(lexicon_buffer);
   libxs_lexicon_destroy(loaded_lexicon);
   libxs_lexicon_destroy(lexicon);
+  libxs_token_stream_release(&inflect_stream);
   libxs_token_stream_release(&stream);
   if (EXIT_SUCCESS == result
     && (0 != stream.size || 0 != stream.capacity || NULL != stream.data))
