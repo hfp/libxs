@@ -14,8 +14,6 @@
 
 
 typedef struct sentence_t {
-  int token_start;
-  int token_count;
   int byte_offset;
   int byte_length;
   libxs_fprint_t fprint;
@@ -24,10 +22,8 @@ typedef struct sentence_t {
 typedef struct document_t {
   unsigned char* text;
   size_t text_size;
-  libxs_token_stream_t stream;
   sentence_t sentences[MAX_SENTENCES];
   int nsentences;
-  int* byte_offsets;
 } document_t;
 
 enum { CONN_SPACE = 0, CONN_COMMA = 1, CONN_PERIOD = 2, CONN_NEWLINE = 3 };
@@ -45,7 +41,14 @@ static int extract_words(const unsigned char* text, int length,
   int* offsets, int* lengths, int max_words);
 static int word_in_sentence(const unsigned char* word, int wlen,
   const unsigned char* sent, int slen);
-static int build_byte_offsets(const document_t* doc, int** offsets);
+static int is_sentence_end_text(const unsigned char* text, size_t size,
+  size_t pos);
+static int token_is_content(const libxs_token_t* token);
+static int token_stream_has_id(const libxs_token_stream_t* stream,
+  unsigned int id);
+static double compose_lexical_score(const libxs_token_stream_t* target,
+  const libxs_token_stream_t* candidate,
+  const libxs_token_stream_t* generated);
 static int split_sentences(document_t* doc);
 static int fingerprint_sentences(document_t* doc);
 static double sentence_redundancy(const document_t* doc, int a, int b);
@@ -60,7 +63,8 @@ static int corpus_save(const libxs_registry_t* corpus);
 static int corpus_ingest_file(libxs_registry_t* corpus, const char* path,
   int reflow);
 static int compose_document(const libxs_registry_t* corpus,
-  const libxs_fprint_t* target, int budget);
+  const libxs_fprint_t* target, const unsigned char* target_text,
+  size_t target_size, int budget);
 
 
 static int summarize_document(document_t* doc, int target_n);
@@ -178,7 +182,7 @@ int main(int argc, char* argv[])
       corpus_save(corpus);
       libxs_fprint(&target, LIBXS_DATATYPE_U8, input, 1,
         &shape, NULL, FPRINT_ORDER, 0, 0, 0);
-      result = compose_document(corpus, &target, budget);
+      result = compose_document(corpus, &target, input, input_size, budget);
       libxs_registry_destroy(corpus);
     }
     else result = EXIT_FAILURE;
@@ -187,13 +191,7 @@ int main(int argc, char* argv[])
     while (input_size > 0 && 0 != isspace(input[input_size - 1])) --input_size;
     doc.text = input;
     doc.text_size = input_size;
-    result = libxs_token_stream_encode(&doc.stream, input, input_size);
-    if (EXIT_SUCCESS == result) {
-      result = build_byte_offsets(&doc, &doc.byte_offsets);
-    }
-    if (EXIT_SUCCESS == result) {
-      result = split_sentences(&doc);
-    }
+    result = split_sentences(&doc);
     if (EXIT_SUCCESS == result) {
       result = fingerprint_sentences(&doc);
     }
@@ -202,8 +200,6 @@ int main(int argc, char* argv[])
     }
   }
 
-  free(doc.byte_offsets);
-  libxs_token_stream_release(&doc.stream);
   free(doc.text);
   return result;
 }
@@ -217,8 +213,7 @@ static int summarize_document(document_t* doc, int target_n)
   size_t fused_len = 0;
   int i, orig_words = 0, orig_sentences;
 
-  fprintf(stderr, "sentences: %d, tokens: %lu\n",
-    doc->nsentences, (unsigned long)doc->stream.size);
+  fprintf(stderr, "sentences: %d\n", doc->nsentences);
   for (i = 0; i < doc->nsentences; ++i) {
     const sentence_t* s = doc->sentences + i;
     orig_words += count_words(doc->text + s->byte_offset, s->byte_length);
@@ -309,8 +304,6 @@ static int summarize_document(document_t* doc, int target_n)
       for (i = 0; i < doc->nsentences; ++i) {
         if (i == fuse_a) {
           sentence_t* s = doc->sentences + new_nsentences;
-          s->token_start = 0;
-          s->token_count = 0;
           s->byte_offset = fused_offset;
           s->byte_length = fused_total;
           ++new_nsentences;
@@ -320,8 +313,6 @@ static int summarize_document(document_t* doc, int target_n)
           sentence_t* s = doc->sentences + new_nsentences;
           s->byte_offset = (int)pos;
           s->byte_length = doc->sentences[i].byte_length;
-          s->token_start = 0;
-          s->token_count = 0;
           s->fprint = doc->sentences[i].fprint;
           ++new_nsentences;
           pos += (size_t)doc->sentences[i].byte_length;
@@ -403,82 +394,114 @@ static int count_words(const unsigned char* text, int length)
 }
 
 
-static libxs_textrule_t s_rules[32];
-static int s_nrules = 0;
-static int s_rules_loaded = 0;
-
-static int is_sentence_boundary(const libxs_token_t* token,
-  const unsigned char* text, size_t text_size, int byte_pos,
-  const libxs_token_t* prev_token)
+static int is_sentence_end_text(const unsigned char* text, size_t size,
+  size_t pos)
 {
-  libxs_textrule_ctx_t ctx;
-  if (0 == s_rules_loaded) {
-    s_nrules = libxs_textrule_defaults(s_rules, 32);
-    s_rules_loaded = 1;
+  int result = 0;
+  if (NULL != text && pos < size
+    && ('.' == text[pos] || '?' == text[pos] || '!' == text[pos]))
+  {
+    size_t next = pos + 1;
+    while (next < size && ('"' == text[next] || '\'' == text[next]
+      || ')' == text[next] || ']' == text[next])) ++next;
+    if (next >= size || 0 != isspace(text[next])) result = 1;
   }
-  ctx.text = text;
-  ctx.text_size = text_size;
-  ctx.byte_pos = byte_pos;
-  ctx.token = token;
-  ctx.prev_token = prev_token;
-  return libxs_textrule_eval(&ctx, s_rules, s_nrules);
+  return result;
+}
+
+
+static int token_is_content(const libxs_token_t* token)
+{
+  int result = 0;
+  if (NULL != token
+    && 0 != (token->flags & (LIBXS_TOKEN_WORD | LIBXS_TOKEN_NUMBER))
+    && 0 == (token->flags & LIBXS_TOKEN_STOP))
+  {
+    result = 1;
+  }
+  return result;
+}
+
+
+static int token_stream_has_id(const libxs_token_stream_t* stream,
+  unsigned int id)
+{
+  int result = 0;
+  size_t token_pos;
+  if (NULL != stream && 0 != id) {
+    for (token_pos = 0; token_pos < stream->size && 0 == result;
+      ++token_pos)
+    {
+      if (stream->data[token_pos].id == id) result = 1;
+    }
+  }
+  return result;
+}
+
+
+static double compose_lexical_score(const libxs_token_stream_t* target,
+  const libxs_token_stream_t* candidate,
+  const libxs_token_stream_t* generated)
+{
+  double covered = 0.0, total = 0.0;
+  int repeated = 0, ncontent = 0;
+  size_t token_pos;
+  if (NULL == target || NULL == candidate) return 0.0;
+  for (token_pos = 0; token_pos < target->size; ++token_pos) {
+    const libxs_token_t* token = target->data + token_pos;
+    if (0 != token_is_content(token)) {
+      double weight = (token->length >= 6) ? 1.5 : 1.0;
+      total += weight;
+      if (0 != token_stream_has_id(candidate, token->id)) {
+        covered += weight;
+      }
+    }
+  }
+  for (token_pos = 0; token_pos < candidate->size; ++token_pos) {
+    const libxs_token_t* token = candidate->data + token_pos;
+    if (0 != token_is_content(token)) {
+      ++ncontent;
+      if (NULL != generated
+        && 0 != token_stream_has_id(generated, token->id))
+      {
+        ++repeated;
+      }
+    }
+  }
+  if (total > 0.0) covered /= total;
+  if (ncontent > 0) covered -= 0.15 * ((double)repeated / (double)ncontent);
+  return covered;
 }
 
 
 static int split_sentences(document_t* doc)
 {
   int result = EXIT_FAILURE;
-  int sent_start = 0, byte_start = 0;
+  size_t byte_start = 0;
   size_t i;
-  int byte_pos = 0;
-  if (NULL == doc || NULL == doc->byte_offsets) return EXIT_FAILURE;
+  if (NULL == doc || NULL == doc->text) return EXIT_FAILURE;
   doc->nsentences = 0;
-  for (i = 0; i < doc->stream.size; ++i) {
-    const libxs_token_t* token = doc->stream.data + i;
-    const int tlen = (int)libxs_token_len(token);
-    byte_pos = doc->byte_offsets[i];
-    if (0 != is_sentence_boundary(token, doc->text, doc->text_size,
-      byte_pos + tlen - 1, (i > 0) ? doc->stream.data + i - 1 : NULL)) {
-      int end_pos = byte_pos + tlen;
+  for (i = 0; i <= doc->text_size; ++i) {
+    int is_end = (i == doc->text_size)
+      ? 1 : is_sentence_end_text(doc->text, doc->text_size, i);
+    if (0 != is_end && i > byte_start) {
+      int end_pos = (int)((i < doc->text_size) ? i + 1 : i);
       int nwords;
-      while ((int)(i + 1) < (int)doc->stream.size) {
-        const libxs_token_t* next = doc->stream.data + i + 1;
-        const int nlen = (int)libxs_token_len(next);
-        const int noff = doc->byte_offsets[i + 1];
-        int k, all_space = 1;
-        if (0 != libxs_token_is_copy(next)) break;
-        for (k = 0; k < nlen && 0 != all_space; ++k) {
-          if (0 == isspace(next->raw[2 + k])) all_space = 0;
-        }
-        if (0 == all_space) break;
-        ++i;
-        end_pos = noff + nlen;
+      while (end_pos < (int)doc->text_size
+        && 0 != isspace(doc->text[end_pos]))
+      {
+        ++end_pos;
       }
-      nwords = count_words(doc->text + byte_start, end_pos - byte_start);
+      nwords = count_words(doc->text + byte_start, end_pos - (int)byte_start);
       if (nwords < 3) continue;
       if (doc->nsentences < MAX_SENTENCES) {
         sentence_t* s = doc->sentences + doc->nsentences;
-        s->token_start = sent_start;
-        s->token_count = (int)(i + 1) - sent_start;
-        s->byte_offset = byte_start;
-        s->byte_length = end_pos - byte_start;
+        s->byte_offset = (int)byte_start;
+        s->byte_length = end_pos - (int)byte_start;
         ++doc->nsentences;
       }
-      sent_start = (int)(i + 1);
       byte_start = end_pos;
-    }
-  }
-  if (sent_start < (int)doc->stream.size && doc->nsentences < MAX_SENTENCES) {
-    sentence_t* s = doc->sentences + doc->nsentences;
-    const int last_offset = doc->byte_offsets[doc->stream.size - 1];
-    const int last_len = (int)libxs_token_len(doc->stream.data + doc->stream.size - 1);
-    int total_len = (last_offset + last_len) - byte_start;
-    if (total_len > 0) {
-      s->token_start = sent_start;
-      s->token_count = (int)doc->stream.size - sent_start;
-      s->byte_offset = byte_start;
-      s->byte_length = total_len;
-      ++doc->nsentences;
+      i = (byte_start > 0) ? byte_start - 1 : 0;
     }
   }
   result = (doc->nsentences > 0) ? EXIT_SUCCESS : EXIT_FAILURE;
@@ -761,25 +784,6 @@ static int fuse_sentences(const document_t* doc, int a, int b,
 }
 
 
-static int build_byte_offsets(const document_t* doc, int** offsets)
-{
-  int result = EXIT_FAILURE;
-  if (NULL != doc && NULL != offsets && doc->stream.size > 0) {
-    int* table = (int*)malloc(doc->stream.size * sizeof(int));
-    if (NULL != table) {
-      size_t i, byte_pos = 0;
-      for (i = 0; i < doc->stream.size; ++i) {
-        table[i] = (int)byte_pos;
-        byte_pos += libxs_token_len(doc->stream.data + i);
-      }
-      *offsets = table;
-      result = EXIT_SUCCESS;
-    }
-  }
-  return result;
-}
-
-
 static int read_input(unsigned char** data, size_t* size, FILE* file)
 {
   int result = EXIT_FAILURE;
@@ -918,27 +922,14 @@ static int corpus_ingest_file(libxs_registry_t* corpus, const char* path,
     }
   }
   if (EXIT_SUCCESS == result && NULL != text && text_size > 0) {
-    libxs_token_stream_t stream;
-    libxs_token_stream_init(&stream);
-    result = libxs_token_stream_encode(&stream, text, text_size);
-    if (EXIT_SUCCESS == result) {
-      size_t byte_pos = 0, sent_start = 0;
-      int token_start = 0, nregistered = 0;
-      size_t i;
-      for (i = 0; i <= stream.size; ++i) {
-        int is_sent_end = 0, tlen = 0;
-        if (i < stream.size) {
-          const libxs_token_t* t = stream.data + i;
-          tlen = (int)libxs_token_len(t);
-          is_sent_end = is_sentence_boundary(t, text, text_size,
-            (int)byte_pos + tlen - 1,
-            (i > 0) ? stream.data + i - 1 : NULL);
-        }
-        else {
-          is_sent_end = 1;
-        }
-        if (0 != is_sent_end && (int)i > token_start) {
-          size_t sent_end = byte_pos + (size_t)tlen;
+    size_t sent_start = 0;
+    int nregistered = 0;
+    size_t i;
+    for (i = 0; i <= text_size; ++i) {
+      int is_sent_end = (i == text_size)
+        ? 1 : is_sentence_end_text(text, text_size, i);
+      if (0 != is_sent_end && i > sent_start) {
+          size_t sent_end = (i < text_size) ? i + 1 : i;
           int len = (int)(sent_end - sent_start);
           while (len > 0 && 0 != isspace(text[sent_start + len - 1])) --len;
           if (len > 8 && len < COMPOSE_MAXTEXT) {
@@ -973,14 +964,14 @@ static int corpus_ingest_file(libxs_registry_t* corpus, const char* path,
               }
             }
           }
-          token_start = (int)i + 1;
           sent_start = sent_end;
-        }
-        byte_pos += (size_t)tlen;
+          while (sent_start < text_size && 0 != isspace(text[sent_start])) {
+            ++sent_start;
+          }
+          i = (sent_start > 0) ? sent_start - 1 : 0;
       }
-      fprintf(stderr, "  ingested %s: %d sentences\n", path, nregistered);
     }
-    libxs_token_stream_release(&stream);
+    fprintf(stderr, "  ingested %s: %d sentences\n", path, nregistered);
   }
   free(text);
   return result;
@@ -1040,16 +1031,24 @@ static double compose_distance(const libxs_fprint_t* a,
 
 
 static int compose_document(const libxs_registry_t* corpus,
-  const libxs_fprint_t* target, int budget)
+  const libxs_fprint_t* target, const unsigned char* target_text,
+  size_t target_size, int budget)
 {
   int result = EXIT_SUCCESS;
   libxs_fprint_t running;
+  libxs_lexicon_t* lexicon = NULL;
+  libxs_token_stream_t target_tokens;
+  libxs_token_stream_t generated_tokens;
+  libxs_lexrule_t rules[96];
   char output[65536];
   size_t out_pos = 0;
   double prev_dist = 1e30;
+  int nrules = 0;
   int step;
   libxs_registry_info_t rinfo;
 
+  libxs_token_stream_init(&target_tokens);
+  libxs_token_stream_init(&generated_tokens);
   if (NULL == corpus || NULL == target) return EXIT_FAILURE;
   libxs_registry_info(corpus, &rinfo);
   if (0 == rinfo.size) {
@@ -1057,9 +1056,23 @@ static int compose_document(const libxs_registry_t* corpus,
     return EXIT_FAILURE;
   }
 
+  lexicon = libxs_lexicon_create();
+  nrules = libxs_lexrule_defaults(rules, 96);
+  if (NULL == lexicon || nrules <= 0
+    || NULL == target_text || 0 == target_size
+    || EXIT_SUCCESS != libxs_token_stream_encode(lexicon, &target_tokens,
+      target_text, target_size, rules, nrules, 1))
+  {
+    libxs_lexicon_destroy(lexicon);
+    libxs_token_stream_release(&target_tokens);
+    libxs_token_stream_release(&generated_tokens);
+    return EXIT_FAILURE;
+  }
+
   memset(&running, 0, sizeof(running));
-  fprintf(stderr, "compose: target decay=%.3f, corpus=%lu entries, budget=%d\n",
-    libxs_fprint_decay(target), (unsigned long)rinfo.size, budget);
+  fprintf(stderr, "compose: target decay=%.3f, corpus=%lu entries, budget=%d, tokens=%lu\n",
+    libxs_fprint_decay(target), (unsigned long)rinfo.size, budget,
+    (unsigned long)target_tokens.size);
 
   { unsigned char prev_conn = CONN_PERIOD;
     const corpus_entry_t* used[256];
@@ -1070,6 +1083,7 @@ static int compose_document(const libxs_registry_t* corpus,
     for (step = 0; step < budget; ++step) {
       const corpus_entry_t* best_entry = NULL;
       double best_score = 1e30;
+      double best_lex_score = 0.0;
       size_t cursor = 0;
       const void* iter_key = NULL;
       void* iter_val;
@@ -1088,19 +1102,31 @@ static int compose_document(const libxs_registry_t* corpus,
           }
           if (0 == skip) {
             libxs_fprint_t trial;
-            double d, score;
+            libxs_token_stream_t candidate_tokens;
+            double d, score, lex_score = 0.0;
             trial = running;
+            libxs_token_stream_init(&candidate_tokens);
             libxs_fprint_partial(&trial, LIBXS_DATATYPE_U8,
               e->text, e->text_len, FPRINT_ORDER);
             d = compose_distance(&trial, target);
             score = d;
+            if (EXIT_SUCCESS == libxs_token_stream_encode(lexicon,
+              &candidate_tokens, (const unsigned char*)e->text,
+              (size_t)e->text_len, rules, nrules, 1))
+            {
+              lex_score = compose_lexical_score(&target_tokens,
+                &candidate_tokens, &generated_tokens);
+              score *= (1.0 - 0.25 * lex_score);
+            }
             if (0 != have_prev) {
               score += alpha * compose_distance(&e->fprint, &prev_fprint);
             }
             if (score < best_score) {
               best_score = score;
+              best_lex_score = lex_score;
               best_entry = e;
             }
+            libxs_token_stream_release(&candidate_tokens);
           }
         }
         iter_val = libxs_registry_next(corpus, &iter_key, &cursor);
@@ -1130,11 +1156,15 @@ static int compose_document(const libxs_registry_t* corpus,
 
       libxs_fprint_partial(&running, LIBXS_DATATYPE_U8,
         best_entry->text, best_entry->text_len, FPRINT_ORDER);
+      libxs_token_stream_encode(lexicon, &generated_tokens,
+        (const unsigned char*)best_entry->text, (size_t)best_entry->text_len,
+        rules, nrules, 1);
       prev_fprint = best_entry->fprint;
       have_prev = 1;
       prev_conn = best_entry->connector;
 
-      fprintf(stderr, "  [%d] score=%.4f \"%.*s\"\n", step + 1, best_score,
+      fprintf(stderr, "  [%d] score=%.4f lex=%.3f \"%.*s\"\n",
+        step + 1, best_score, best_lex_score,
         (best_entry->text_len > 60) ? 60 : best_entry->text_len,
         best_entry->text);
     }
@@ -1144,5 +1174,8 @@ static int compose_document(const libxs_registry_t* corpus,
     fprintf(stderr, "\ncomposed (%d sentences):\n", step);
     printf("%.*s\n", (int)out_pos, output);
   }
+  libxs_token_stream_release(&generated_tokens);
+  libxs_token_stream_release(&target_tokens);
+  libxs_lexicon_destroy(lexicon);
   return result;
 }
