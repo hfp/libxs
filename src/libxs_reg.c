@@ -82,6 +82,20 @@ static LIBXS_TLS internal_libxs_regcache_entry_t
 #endif
 
 
+#if defined(INTERNAL_REG_CACHE)
+LIBXS_API_INLINE void internal_libxs_registry_cache_invalidate(
+  const libxs_registry_t* registry)
+{
+  unsigned int i;
+  for (i = 0; i < (unsigned int)LIBXS_UP2POT(LIBXS_REGCACHE_NENTRIES); ++i) {
+    if (internal_libxs_regcache[i].registry == registry) {
+      internal_libxs_regcache[i].registry = NULL;
+    }
+  }
+}
+#endif
+
+
 LIBXS_API_INLINE void* internal_value_ptr(internal_libxs_regentry_t* e) {
   return INTERNAL_REG_INLINE(e) ? (void*)&e->value : e->value;
 }
@@ -344,6 +358,9 @@ LIBXS_API libxs_lock_t* libxs_registry_lock(libxs_registry_t* registry)
 LIBXS_API void libxs_registry_destroy(libxs_registry_t* registry)
 {
   if (NULL != registry) {
+#if defined(INTERNAL_REG_CACHE)
+    internal_libxs_registry_cache_invalidate(registry);
+#endif
     if (NULL != registry->entries) {
       unsigned int i;
       for (i = 0; i < registry->capacity; ++i) {
