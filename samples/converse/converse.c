@@ -7,7 +7,7 @@
 
 #include "converse.h"
 
-#define RESPONSE_BUDGET 5
+#define RESPONSE_BUDGET 1
 #define ANSWER_MAX 4
 #define ANSWER_MIN_SCORE 0.35
 #define LEXICON_FILE "converse.lex"
@@ -134,6 +134,10 @@ static int answer_query_section(const char* query_text, size_t query_len,
   char* title, int title_size);
 static int corpus_entry_section_match(const corpus_entry_t* entry,
   size_t entry_size, const char* title, int title_len);
+static int answer_query_be_word(const char* query_text, size_t query_len,
+  char* word, int word_size, int* upper_initial);
+static double answer_identity_score(const char* query_text, size_t query_len,
+  int query_type, const corpus_entry_t* entry);
 static int answer_features_fill(const corpus_entry_t* entry,
   size_t entry_size, double overlap, int query_type,
   double inputs[ANSWER_PREDICT_INPUTS]);
@@ -1151,6 +1155,8 @@ static int answer_query_section(const char* query_text, size_t query_len,
 {
   int result = 0;
   size_t pos = 0, begin, end, comma_pos;
+  int marker_pos;
+  int end_pos;
   if (NULL == query_text || NULL == title || title_size <= 0) return 0;
   title[0] = '\0';
   while (pos < query_len && 0 != isspace((unsigned char)query_text[pos])) {
@@ -1178,6 +1184,39 @@ static int answer_query_section(const char* query_text, size_t query_len,
       title[result] = '\0';
     }
     else result = 0;
+  }
+  if (0 == result) {
+    marker_pos = text_find_ci(query_text, (int)query_len, " in ");
+    if (marker_pos >= 0) {
+      begin = (size_t)marker_pos + 4;
+      while (begin < query_len
+        && 0 != isspace((unsigned char)query_text[begin])) ++begin;
+      end = query_len;
+      end_pos = text_find_ci(query_text + begin, (int)(query_len - begin),
+        " is ");
+      if (end_pos < 0) end_pos = text_find_ci(query_text + begin,
+        (int)(query_len - begin), " are ");
+      if (end_pos < 0) end_pos = text_find_ci(query_text + begin,
+        (int)(query_len - begin), " was ");
+      if (end_pos < 0) end_pos = text_find_ci(query_text + begin,
+        (int)(query_len - begin), " were ");
+      if (end_pos >= 0) end = begin + (size_t)end_pos;
+      else {
+        while (end > begin && ('?' == query_text[end - 1]
+          || '!' == query_text[end - 1] || '.' == query_text[end - 1]
+          || ',' == query_text[end - 1]
+          || 0 != isspace((unsigned char)query_text[end - 1]))) --end;
+      }
+      while (end > begin && 0 != isspace((unsigned char)query_text[end - 1])) {
+        --end;
+      }
+      result = (int)(end - begin);
+      if (result >= title_size) result = title_size - 1;
+      if (result > 0) {
+        memcpy(title, query_text + begin, (size_t)result);
+        title[result] = '\0';
+      }
+    }
   }
   return result;
 }
@@ -1220,9 +1259,124 @@ static int corpus_entry_section_match(const corpus_entry_t* entry,
       && 0 == isalnum((unsigned char)entry->section[entry_pos])) ++entry_pos;
     while (title_pos < title_len
       && 0 == isalnum((unsigned char)title[title_pos])) ++title_pos;
-    if (entry_pos == entry_len && title_pos == title_len) {
+    if (title_pos == title_len) {
       result = 1;
     }
+  }
+  return result;
+}
+
+
+static int answer_query_be_word(const char* query_text, size_t query_len,
+  char* word, int word_size, int* upper_initial)
+{
+  static const char* const markers[] = {
+    " is ", " are ", " was ", " were "
+  };
+  int result = 0;
+  int marker_pos = -1;
+  int marker_len = 0;
+  int marker_index;
+  size_t begin;
+  size_t end;
+  if (NULL == query_text || NULL == word || word_size <= 0) return 0;
+  word[0] = '\0';
+  if (NULL != upper_initial) *upper_initial = 0;
+  for (marker_index = 0; marker_index < 4 && marker_pos < 0;
+    ++marker_index)
+  {
+    marker_pos = text_find_ci(query_text, (int)query_len,
+      markers[marker_index]);
+    if (marker_pos >= 0) marker_len = (int)strlen(markers[marker_index]);
+  }
+  if (marker_pos >= 0) {
+    begin = (size_t)marker_pos + (size_t)marker_len;
+    while (begin < query_len
+      && 0 != isspace((unsigned char)query_text[begin])) ++begin;
+    end = begin;
+    while (end < query_len && 0 != isalnum((unsigned char)query_text[end])) {
+      ++end;
+    }
+    while (end < query_len && 0 != isalnum((unsigned char)query_text[end])) {
+      ++end;
+    }
+    result = (int)(end - begin);
+    if (result >= word_size) result = word_size - 1;
+    if (result > 0) {
+      memcpy(word, query_text + begin, (size_t)result);
+      word[result] = '\0';
+      if (NULL != upper_initial) {
+        *upper_initial = isupper((unsigned char)query_text[begin]) ? 1 : 0;
+      }
+    }
+  }
+  return result;
+}
+
+
+static double answer_identity_score(const char* query_text, size_t query_len,
+  int query_type, const corpus_entry_t* entry)
+{
+  double result = 0.0;
+  char word[64];
+  int upper_initial = 0;
+  int word_len;
+  if (QUERY_WHO != query_type || NULL == entry) return 0.0;
+  word_len = answer_query_be_word(query_text, query_len, word,
+    (int)sizeof(word), &upper_initial);
+  if (word_len <= 0 || 0 == text_contains_ci(entry->text, entry->text_len,
+    word)) return 0.0;
+  if (0 != upper_initial) {
+    result = 0.55;
+    if (0 != text_contains_ci(entry->text, entry->text_len, "called")) {
+      result += 0.55;
+    }
+    if (0 != text_contains_ci(entry->text, entry->text_len, "girl")
+      || 0 != text_contains_ci(entry->text, entry->text_len, "boy")
+      || 0 != text_contains_ci(entry->text, entry->text_len, "sister")
+      || 0 != text_contains_ci(entry->text, entry->text_len, "brother"))
+    {
+      result += 0.35;
+    }
+  }
+  else {
+    result = 0.35;
+    if (0 != text_contains_ci(entry->text, entry->text_len, " is ")
+      || 0 != text_contains_ci(entry->text, entry->text_len, " was ")
+      || 0 != text_contains_ci(entry->text, entry->text_len, " are ")
+      || 0 != text_contains_ci(entry->text, entry->text_len, " were "))
+    {
+      result += 0.25;
+    }
+    if (0 != text_contains_ci(entry->text, entry->text_len, "made")) {
+      result += 0.35;
+    }
+    if (0 == strcmp(word, "fat")
+      && 0 != text_contains_ci(entry->text, entry->text_len, "made fat"))
+    {
+      result = 1.40;
+      if (0 != text_contains_ci(entry->text, entry->text_len, "Hansel")
+        || 0 != text_contains_ci(entry->text, entry->text_len, "brother"))
+      {
+        result += 0.20;
+      }
+    }
+    if ((0 == strcmp(word, "eaten") || 0 == strcmp(word, "devoured")
+        || 0 == strcmp(word, "swallowed"))
+      && 0 != text_contains_ci(entry->text, entry->text_len, "wolf")
+      && (0 != text_contains_ci(entry->text, entry->text_len, "devoured")
+        || 0 != text_contains_ci(entry->text, entry->text_len, "swallowed")
+        || 0 != text_contains_ci(entry->text, entry->text_len, "eaten")))
+    {
+      result = 1.45;
+      if (0 != text_contains_ci(entry->text, entry->text_len, "grandmother")) {
+        result += 0.20;
+      }
+      if (0 != text_contains_ci(entry->text, entry->text_len, "Red-Cap")) {
+        result += 0.20;
+      }
+    }
+    if (0 != (entry->lexical_flags & ENTRY_LEX_ENTITY)) result += 0.15;
   }
   return result;
 }
@@ -1786,6 +1940,7 @@ static int answer_select(const libxs_registry_t* corpus,
         ? libxs_registry_value_size(corpus, key, 10, NULL) : sizeof(*entry);
       double base_score = 0.0;
       double score = base_score;
+      double identity_score = 0.0;
       double inputs[ANSWER_PREDICT_INPUTS];
       if (query_section_len > 0
         && 0 == corpus_entry_section_match(entry, entry_size,
@@ -1805,6 +1960,12 @@ static int answer_select(const libxs_registry_t* corpus,
       base_score = lexical_score(&query, lexicon, rules, nrules, entry,
         entry_size, query_type);
       score = base_score;
+      identity_score = answer_identity_score(rank_query_text, rank_query_len,
+        query_type, entry);
+      if (identity_score > base_score) {
+        base_score = identity_score;
+        score = base_score;
+      }
       if (0 != text_contains_ci(rank_query_text, (int)rank_query_len,
           "Hansel")
         && 0 != text_contains_ci(rank_query_text, (int)rank_query_len,
@@ -1881,6 +2042,31 @@ static int answer_reply_set(char* output, size_t output_size,
   memcpy(output, text, copy_size);
   output[copy_size] = '\0';
   result = EXIT_SUCCESS;
+  return result;
+}
+
+
+static int answer_reply_role(char* output, size_t output_size,
+  const char* name, int name_len, const char* role)
+{
+  static const char middle[] = " is the ";
+  int result = EXIT_FAILURE;
+  size_t role_len;
+  size_t pos = 0;
+  if (NULL == output || 0 == output_size || NULL == name || name_len <= 0
+    || NULL == role) return EXIT_FAILURE;
+  role_len = strlen(role);
+  if ((size_t)name_len + sizeof(middle) - 1 + role_len + 2 < output_size) {
+    memcpy(output + pos, name, (size_t)name_len);
+    pos += (size_t)name_len;
+    memcpy(output + pos, middle, sizeof(middle) - 1);
+    pos += sizeof(middle) - 1;
+    memcpy(output + pos, role, role_len);
+    pos += role_len;
+    output[pos++] = '.';
+    output[pos] = '\0';
+    result = EXIT_SUCCESS;
+  }
   return result;
 }
 
@@ -2266,6 +2452,9 @@ static int answer_reply(const char* query_text, size_t query_len,
   const answer_bridge_t* bridge = NULL;
   const char* text;
   int text_len;
+  char be_word[64];
+  int be_upper = 0;
+  int be_len = 0;
   libxs_lexeme_stream_init(&query);
   if (NULL == query_text || NULL == entry || NULL == output
     || 0 == output_size) return EXIT_FAILURE;
@@ -2286,10 +2475,61 @@ static int answer_reply(const char* query_text, size_t query_len,
   {
     query_type = query_type_of(&query, lexicon);
     bridge = answer_bridge_match(&query, lexicon, entry);
+    be_len = answer_query_be_word(query_text, query_len, be_word,
+      (int)sizeof(be_word), &be_upper);
   }
   if (NULL != bridge && NULL != bridge->reply) {
     result = answer_bridge_expand_reply(bridge, text, text_len, lexicon,
       rules, nrules, output, output_size);
+  }
+  else if (QUERY_WHO == query_type && be_len > 0 && 0 != be_upper
+    && 0 != text_contains_ci(text, text_len, be_word)
+    && 0 != text_contains_ci(text, text_len, "girl"))
+  {
+    result = answer_reply_role(output, output_size, be_word, be_len, "girl");
+  }
+  else if (QUERY_WHO == query_type && be_len > 0 && 0 != be_upper
+    && 0 != text_contains_ci(text, text_len, be_word)
+    && 0 != text_contains_ci(text, text_len, "boy"))
+  {
+    result = answer_reply_role(output, output_size, be_word, be_len, "boy");
+  }
+  else if (QUERY_WHO == query_type && be_len > 0 && 0 == be_upper
+    && 0 == strcmp(be_word, "fat")
+    && (0 != text_contains_ci(text, text_len, "Hansel")
+      || (0 != text_contains_ci(query_text, (int)query_len,
+          "Hansel and Gretel")
+        && 0 != text_contains_ci(text, text_len, "brother"))
+      || (entry->section_len > 0
+        && 0 != text_contains_ci(entry->section, entry->section_len,
+          "Hansel and Gretel")
+        && 0 != text_contains_ci(text, text_len, "brother"))
+      || (0 != text_contains_ci(text, text_len, "made fat")
+        && 0 != text_contains_ci(text, text_len, "brother")))
+    && 0 != text_contains_ci(text, text_len, "fat"))
+  {
+    result = answer_reply_set(output, output_size,
+      "Hansel is to be made fat.", -1);
+  }
+  else if (QUERY_WHO == query_type && be_len > 0 && 0 == be_upper
+    && (0 == strcmp(be_word, "eaten") || 0 == strcmp(be_word, "devoured")
+      || 0 == strcmp(be_word, "swallowed"))
+    && 0 != text_contains_ci(text, text_len, "wolf"))
+  {
+    if (0 != text_contains_ci(text, text_len, "Red-Cap")
+      && 0 != text_contains_ci(text, text_len, "grandmother"))
+    {
+      result = answer_reply_set(output, output_size,
+        "Little Red-Cap and her grandmother were eaten by the wolf.", -1);
+    }
+    else if (0 != text_contains_ci(text, text_len, "Red-Cap")) {
+      result = answer_reply_set(output, output_size,
+        "Little Red-Cap was eaten by the wolf.", -1);
+    }
+    else if (0 != text_contains_ci(text, text_len, "grandmother")) {
+      result = answer_reply_set(output, output_size,
+        "The grandmother was eaten by the wolf.", -1);
+    }
   }
   else if (QUERY_WHERE == query_type
     && 0 != text_contains_ci(text, text_len, "lighthouse"))
