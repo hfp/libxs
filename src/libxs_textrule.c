@@ -183,6 +183,184 @@ LIBXS_API int libxs_textrule_defaults(libxs_textrule_t* rules, int max_rules)
 
 
 LIBXS_API_INLINE
+int internal_lexrule_match(const libxs_lexrule_t* rule,
+  const libxs_lexrule_ctx_t* ctx)
+{
+  int result = 0;
+  if (NULL != rule && NULL != ctx && NULL != ctx->text) {
+    switch ((int)rule->tmpl) {
+      case LIBXS_LRULE_WORD_HASH: {
+        if (0 != (ctx->flags & LIBXS_LEXEME_WORD)
+          && ctx->hash == rule->argument) result = 1;
+      } break;
+      case LIBXS_LRULE_WORD_INITIAL_UPPER: {
+        if (0 != (ctx->flags & LIBXS_LEXEME_WORD) && ctx->length > 0
+          && 0 != isupper(ctx->text[0])) result = 1;
+      } break;
+      case LIBXS_LRULE_PUNCT_CHAR: {
+        if (0 != (ctx->flags & LIBXS_LEXEME_PUNCT) && 1 == ctx->length
+          && ctx->text[0] == (unsigned char)(rule->argument & 0xFFu))
+        {
+          result = 1;
+        }
+      } break;
+      default: break;
+    }
+  }
+  return result;
+}
+
+
+LIBXS_API_INLINE
+int internal_lexrule_add(libxs_lexrule_t* rules, int max_rules, int count,
+  unsigned char tmpl, unsigned char action, unsigned short flags,
+  unsigned int argument)
+{
+  int result = count;
+  if (NULL != rules && count < max_rules) {
+    memset(rules + count, 0, sizeof(libxs_lexrule_t));
+    rules[count].tmpl = tmpl;
+    rules[count].action = action;
+    rules[count].flags = flags;
+    rules[count].argument = argument;
+    result = count + 1;
+  }
+  return result;
+}
+
+
+LIBXS_API_INLINE
+int internal_lexrule_add_word(libxs_lexrule_t* rules, int max_rules,
+  int count, const char* word, unsigned short flags)
+{
+  int result = count;
+  if (NULL != word) {
+    result = internal_lexrule_add(rules, max_rules, count,
+      LIBXS_LRULE_WORD_HASH, LIBXS_LRULE_SET, flags,
+      libxs_textrule_wordhash((const unsigned char*)word, (int)strlen(word)));
+  }
+  return result;
+}
+
+
+LIBXS_API unsigned int libxs_lexrule_eval(const libxs_lexrule_ctx_t* ctx,
+  const libxs_lexrule_t* rules, int nrules)
+{
+  unsigned int result = 0;
+  int rule_pos;
+  if (NULL != ctx) {
+    result = ctx->flags;
+    if (NULL != rules) {
+      for (rule_pos = 0; rule_pos < nrules; ++rule_pos) {
+        if (0 != internal_lexrule_match(rules + rule_pos, ctx)) {
+          if (LIBXS_LRULE_SET == (int)rules[rule_pos].action) {
+            result |= rules[rule_pos].flags;
+          }
+          else if (LIBXS_LRULE_CLEAR == (int)rules[rule_pos].action) {
+            result &= ~((unsigned int)rules[rule_pos].flags);
+          }
+        }
+      }
+    }
+  }
+  return result;
+}
+
+
+LIBXS_API int libxs_lexrule_load(const libxs_registry_t* registry,
+  libxs_lexrule_t* rules, int max_rules)
+{
+  int count = 0, seq;
+  unsigned char key[16];
+  if (NULL == registry || NULL == rules || max_rules <= 0) return 0;
+  memcpy(key, "LRULE:", 6);
+  for (seq = 0; seq < max_rules; ++seq) {
+    size_t key_size;
+    key[6] = (unsigned char)((seq >> 8) & 0xFF);
+    key[7] = (unsigned char)(seq & 0xFF);
+    key_size = 8;
+    if (0 != libxs_registry_get_copy(registry, key, key_size,
+      rules + count, sizeof(libxs_lexrule_t), NULL))
+    {
+      ++count;
+    }
+    else break;
+  }
+  return count;
+}
+
+
+LIBXS_API int libxs_lexrule_save(libxs_registry_t* registry,
+  const libxs_lexrule_t* rules, int nrules)
+{
+  int result = EXIT_SUCCESS;
+  int rule_pos;
+  unsigned char key[16];
+  if (NULL == registry || NULL == rules) return EXIT_FAILURE;
+  memcpy(key, "LRULE:", 6);
+  for (rule_pos = 0; rule_pos < nrules && EXIT_SUCCESS == result; ++rule_pos) {
+    size_t key_size;
+    key[6] = (unsigned char)((rule_pos >> 8) & 0xFF);
+    key[7] = (unsigned char)(rule_pos & 0xFF);
+    key_size = 8;
+    if (NULL == libxs_registry_set(registry, key, key_size,
+      rules + rule_pos, sizeof(libxs_lexrule_t), NULL))
+    {
+      result = EXIT_FAILURE;
+    }
+  }
+  return result;
+}
+
+
+LIBXS_API int libxs_lexrule_defaults(libxs_lexrule_t* rules, int max_rules)
+{
+  static const char* const stopwords[] = {
+    "a", "an", "and", "are", "as", "at", "be", "been", "but",
+    "by", "can", "could", "did", "do", "does", "for", "from",
+    "had", "has", "have", "he", "her", "him", "his", "i", "in",
+    "is", "it", "me", "of", "on", "or", "our", "she", "should",
+    "that", "the", "their", "them", "there", "they", "this", "to",
+    "was", "we", "were", "with", "would", "you", "your"
+  };
+  static const char* const question_words[] = {
+    "who", "what", "where", "when", "why", "how", "which", "whose",
+    "whom"
+  };
+  int count = 0;
+  int word_pos;
+  if (NULL == rules || max_rules <= 0) return 0;
+  count = internal_lexrule_add(rules, max_rules, count,
+    LIBXS_LRULE_WORD_INITIAL_UPPER, LIBXS_LRULE_SET,
+    LIBXS_LEXEME_ENTITY, 0);
+  count = internal_lexrule_add(rules, max_rules, count,
+    LIBXS_LRULE_PUNCT_CHAR, LIBXS_LRULE_SET,
+    LIBXS_LEXEME_SENTENCE, '.');
+  count = internal_lexrule_add(rules, max_rules, count,
+    LIBXS_LRULE_PUNCT_CHAR, LIBXS_LRULE_SET,
+    LIBXS_LEXEME_SENTENCE, '!');
+  count = internal_lexrule_add(rules, max_rules, count,
+    LIBXS_LRULE_PUNCT_CHAR, LIBXS_LRULE_SET,
+    LIBXS_LEXEME_SENTENCE | LIBXS_LEXEME_QUESTION, '?');
+  for (word_pos = 0;
+    word_pos < (int)(sizeof(question_words) / sizeof(*question_words));
+    ++word_pos)
+  {
+    count = internal_lexrule_add_word(rules, max_rules, count,
+      question_words[word_pos], LIBXS_LEXEME_QUESTION | LIBXS_LEXEME_STOP);
+  }
+  for (word_pos = 0;
+    word_pos < (int)(sizeof(stopwords) / sizeof(*stopwords));
+    ++word_pos)
+  {
+    count = internal_lexrule_add_word(rules, max_rules, count,
+      stopwords[word_pos], LIBXS_LEXEME_STOP);
+  }
+  return count;
+}
+
+
+LIBXS_API_INLINE
 int internal_reflow_line_start(const unsigned char* text, size_t size,
   size_t pos)
 {
