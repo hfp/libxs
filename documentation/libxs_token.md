@@ -2,74 +2,69 @@
 
 Header: `libxs_token.h`
 
-Fixed-width byte-level tokenizer with LZ77-style copy references,
-boundary detection, sentence segmentation, and loadable text rules.
-Produces a reversible token stream from arbitrary byte input.
+Fixed-width lexical tokenizer with stable vocabulary IDs, lightweight
+classification flags, optional caller-owned normalization tables, and loadable
+text/lexical rules.
 
 ## Token Format
 
-Every token is exactly 16 bytes (128 bits):
+Every token is exactly 8 bytes:
 
-    Byte 0: flags
-      Bit 7:   copy flag (1 = copy, 0 = literal)
-      Bit 5:   markup flag
-      Bit 4:   sentence-end flag
-      Bit 3:   break flag (word/punctuation boundary)
+    Bytes 0-3: vocabulary ID
+    Bytes 4-5: source token byte length
+    Bytes 6-7: class flags
 
-    Byte 1: payload length (1..14)
+The vocabulary ID indexes normalized token text in a `libxs_lexicon_t`.
+The original source bytes are not stored in the token; callers that need text
+use the lexicon for normalized ID-to-text mapping.
 
-    Bytes 2-15: payload
-      Literal: up to 14 bytes of content
-      Copy:    bytes 2-5 = 32-bit backward distance (little-endian)
-               bytes 6-15 = reserved
-
-Copy tokens reference content that appeared earlier in the same
-stream. The backward distance gives the byte offset (1 = previous
-byte). Minimum copy length is 3 bytes, maximum is 14.
+Flags mark word, number, punctuation, markup, sentence, question, stopword,
+entity, and break classes.
 
 ## Stream Encoding
 
     void libxs_token_stream_init(libxs_token_stream_t *stream);
 
-    int libxs_token_stream_encode(libxs_token_stream_t *stream,
-      const unsigned char *text, size_t size);
+    int libxs_token_stream_encode(libxs_lexicon_t *lexicon,
+      libxs_token_stream_t *stream, const unsigned char *text, size_t size,
+      const libxs_lexrule_t *rules, int nrules,
+      const libxs_lexnorm_t *norms, int nnorms, int create);
 
-Initialize a stream with `libxs_token_stream_init`, then encode a
-byte sequence into fixed-width tokens. The encoder is greedy: at each
-position it first attempts a copy match (3-14 bytes referencing
-earlier content within a 4GB window), and falls back to a literal
-token if no match is found. Literal length is determined by natural
-break points (whitespace, punctuation, case transitions). Existing
-stream contents are kept, so callers can append multiple inputs.
+Initialize a stream with `libxs_token_stream_init`, create or load a lexicon,
+then encode text into fixed-width lexical tokens. Words are lowercased first.
+If `norms` is non-NULL, each normalized word can be rewritten by the caller's
+normalization table before lexicon lookup. This keeps language-specific
+inflection, stemming, or spelling policy outside the tokenizer core. Pass
+`NULL, 0` for no language normalization.
+
+Lexical rules (`rules`, `nrules`) classify normalized tokens after optional
+normalization. The `create` flag controls whether missing normalized text is
+interned into the lexicon or yields ID 0.
 
 Flags are set automatically during tokenization:
 
-- **Break flag**: set when a word boundary, punctuation mark, or
-  character-class transition follows the token.
-- **Sentence-end flag**: set when the token ends at a sentence
-  terminator (`.` `?` `!`) followed by whitespace or end-of-input.
-- **Markup flag**: set when the token content is structural markup
-  (LaTeX commands, markdown decoration, bracket sequences).
+- **Word/number/punctuation flags**: set by basic token shape.
+- **Break flag**: set when whitespace preceded the token.
+- **Sentence/question flags**: set for `.`, `?`, and `!` punctuation tokens.
+- **Markup flag**: set when punctuation content is structural markup.
+- **Stop/entity and other semantic flags**: assigned by lexical rules.
 
 Returns `EXIT_SUCCESS` or `EXIT_FAILURE`.
-
-## Stream Decoding
-
-    int libxs_token_stream_decode(const libxs_token_stream_t *stream,
-      unsigned char **text, size_t *size);
-
-Reconstruct the original byte sequence from a token stream.
-Allocates `*text` (caller must free). The roundtrip property
-holds: decoding a stream produced by encoding recovers the input.
 
 ## Token Info
 
     typedef struct libxs_token_info_t {
+      unsigned int id;
       size_t length;
-      unsigned int distance;
-      int is_copy;
+      unsigned int flags;
+      int is_word;
+      int is_number;
+      int is_punct;
       int has_break;
       int is_sentence;
+      int is_question;
+      int is_stop;
+      int is_entity;
       int is_markup;
     } libxs_token_info_t;
 
@@ -78,30 +73,16 @@ holds: decoding a stream produced by encoding recovers the input.
 
 Decode all token properties in one call. Fields:
 
-- `length`: number of bytes this token represents (1..14).
-- `distance`: backward byte offset for copy tokens (0 if literal).
-- `is_copy`: non-zero if the token references earlier content.
-- `has_break`: non-zero if a preferred split point follows.
-- `is_sentence`: non-zero if the token terminates a sentence.
+- `id`: normalized vocabulary ID, or 0 for unknown.
+- `length`: source byte length of the token.
+- `flags`: raw class flag bitset.
+- `is_word`, `is_number`, `is_punct`: basic token class.
+- `has_break`: non-zero if whitespace preceded the token.
+- `is_sentence`: non-zero if the token is a sentence terminator.
+- `is_question`: non-zero if the token is `?`.
+- `is_stop`: non-zero if lexical rules classify it as a stopword.
+- `is_entity`: non-zero if lexical rules classify it as an entity marker.
 - `is_markup`: non-zero if the token is structural markup.
-
-## Inline Token Queries
-
-    int          libxs_token_is_copy(const libxs_token_t *token);
-    size_t       libxs_token_len(const libxs_token_t *token);
-    int          libxs_token_has_break(const libxs_token_t *token);
-    int          libxs_token_is_sentence_end(const libxs_token_t *token);
-    int          libxs_token_is_markup(const libxs_token_t *token);
-    unsigned int libxs_token_distance(const libxs_token_t *token);
-
-Header-only convenience functions. NULL-safe (return 0/false for
-NULL input). These are equivalent to reading individual fields from
-`libxs_token_info_t` but avoid the struct overhead for
-single-property checks.
-
-Note: `libxs_token_is_sentence_end` returns the raw token signal.
-Use `libxs_textrule_eval` for rule-refined sentence boundary
-detection (handles abbreviations, delimiters, etc).
 
 ## Stream Management
 
@@ -200,84 +181,70 @@ word rather than any short uppercase-initial word.
 
 ## Properties
 
-- **Reversible**: tokenization is lossless -- decoding recovers
-  the exact input byte-for-byte.
-- **Fixed-width**: every token is 16 bytes regardless of content,
-  enabling direct indexing and SIMD-friendly layout.
+- **Fixed-width**: every token is 8 bytes regardless of content,
+  enabling direct indexing and compact storage.
 - **UTF-8 safe**: multi-byte sequences are never split mid-codepoint.
-- **Deterministic**: identical input always produces identical output.
-- **No vocabulary**: the tokenizer operates on raw bytes without
-  learned parameters or lookup tables.
-- **Rule-extensible**: sentence boundary detection is refined by
-  loadable data rules, not hard-coded logic.
+- **Deterministic**: identical input, lexicon state, lexical rules, and
+  normalization table produce identical IDs.
+- **Vocabulary-backed**: normalized token text is stored once in a lexicon and
+  referenced by stable token IDs.
+- **Language-swappable**: caller-owned normalization tables decide whether and
+  how inflections or spelling variants collapse to a common vocabulary entry.
+- **Rule-extensible**: lexical classes and sentence boundary refinements are
+  data rules, not hard-coded language policy.
 
-## Break Detection Heuristics
+## Break Detection
 
-A break flag is set at boundaries between:
-
-- Whitespace and non-whitespace
-- Punctuation and non-punctuation
-- Alphabetic and numeric characters
-- Lowercase and uppercase (camelCase boundaries)
-
-These boundaries serve as natural edit points for downstream
-text processing (summarization, retrieval, composition).
+The break flag is set when whitespace preceded the token. Downstream code can
+combine this with punctuation and lexical class flags to recover token spacing
+or detect phrase boundaries.
 
 ## Sentence Detection
 
-The sentence-end flag fires when a token's content ends with a
-sentence terminator (`.` `?` `!`) and the next character is
-whitespace, a quote, or end-of-input. This is the raw signal;
-use `libxs_textrule_eval` with a ruleset to suppress false
-positives (abbreviations, initials, etc).
+The sentence flag fires on punctuation tokens for `.`, `?`, and `!`; the
+question flag is also set for `?`. This is the raw signal; use
+`libxs_textrule_eval` with a ruleset to suppress false positives
+(abbreviations, initials, delimiters, etc).
 
 ## Constants
 
 | Name                        | Value       | Meaning                       |
 |-----------------------------|-------------|-------------------------------|
-| `LIBXS_TOKEN_BYTES`         | 16          | Fixed token size in bytes     |
-| `LIBXS_TOKEN_PAYLOAD`       | 14          | Usable payload bytes          |
-| `LIBXS_TOKEN_MIN_COPY`      | 3           | Minimum copy match length     |
-| `LIBXS_TOKEN_MAX_COPY`      | 14          | Maximum copy match length     |
-| `LIBXS_TOKEN_MAX_DISTANCE`  | 4294967295  | Maximum backward distance     |
-| `LIBXS_TOKEN_FLAG_COPY`     | 0x80        | Copy token indicator          |
-| `LIBXS_TOKEN_FLAG_MARKUP`   | 0x20        | Markup indicator              |
-| `LIBXS_TOKEN_FLAG_SENTENCE` | 0x10        | Sentence-end indicator        |
-| `LIBXS_TOKEN_FLAG_BREAK`    | 0x08        | Word boundary indicator       |
-| `LIBXS_TOKEN_LEN_MASK`      | 0x0F        | Payload length field (byte 1) |
+| `LIBXS_TOKEN_BYTES`         | 8           | Fixed token size in bytes     |
+| `LIBXS_TOKEN_MAXBYTES`      | 63          | Maximum normalized text bytes |
+| `LIBXS_TOKEN_WORD`          | 0x0001      | Word token                    |
+| `LIBXS_TOKEN_NUMBER`        | 0x0002      | Number token                  |
+| `LIBXS_TOKEN_PUNCT`         | 0x0004      | Punctuation token             |
+| `LIBXS_TOKEN_MARKUP`        | 0x0008      | Markup-like punctuation       |
+| `LIBXS_TOKEN_SENTENCE`      | 0x0010      | Sentence terminator           |
+| `LIBXS_TOKEN_QUESTION`      | 0x0020      | Question mark                 |
+| `LIBXS_TOKEN_STOP`          | 0x0040      | Stopword class                |
+| `LIBXS_TOKEN_ENTITY`        | 0x0080      | Entity class                  |
+| `LIBXS_TOKEN_BREAK`         | 0x0100      | Whitespace before token       |
 
 ## Example
 
     libxs_token_stream_t stream;
-    libxs_textrule_t rules[32];
-    libxs_textrule_ctx_t ctx;
+    libxs_lexicon_t *lexicon;
+    libxs_lexrule_t rules[96];
+    libxs_lexnorm_t norms[1] = { { "arrived", "arrive" } };
     int nrules;
-    unsigned char *decoded = NULL;
-    size_t decoded_size = 0, i, byte_pos = 0;
+    size_t i;
 
     libxs_token_stream_init(&stream);
-    libxs_token_stream_encode(&stream,
-      (const unsigned char*)"Dr. Smith arrived.", 18);
-    nrules = libxs_textrule_defaults(rules, 32);
+    lexicon = libxs_lexicon_create();
+    nrules = libxs_lexrule_defaults(rules, 96);
+    libxs_token_stream_encode(lexicon, &stream,
+      (const unsigned char*)"Dr. Smith arrived.", 18,
+      rules, nrules, norms, 1, 1);
 
-    /* iterate tokens with rule-based sentence detection */
+    /* iterate normalized lexical tokens */
     for (i = 0; i < stream.size; ++i) {
-      const libxs_token_t *t = stream.data + i;
-      size_t tlen = libxs_token_len(t);
-      ctx.text = (const unsigned char*)"Dr. Smith arrived.";
-      ctx.text_size = 18;
-      ctx.byte_pos = (int)(byte_pos + tlen - 1);
-      ctx.token = t;
-      ctx.prev_token = (i > 0) ? stream.data + i - 1 : NULL;
-      if (libxs_textrule_eval(&ctx, rules, nrules)) {
-        /* true sentence boundary (fires at "arrived.", not "Dr.") */
-      }
-      byte_pos += tlen;
+      int len = 0;
+      const char *txt = libxs_lexicon_text(lexicon, stream.data[i].id,
+        &len, NULL);
+      /* "arrived" is stored as "arrive" because norms was supplied. */
     }
 
-    /* roundtrip decode */
-    libxs_token_stream_decode(&stream, &decoded, &decoded_size);
-    /* decoded == "Dr. Smith arrived." */
-
-    free(decoded);
     libxs_token_stream_release(&stream);
+    libxs_lexicon_destroy(lexicon);

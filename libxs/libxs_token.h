@@ -154,6 +154,12 @@ LIBXS_EXTERN_C typedef struct libxs_lexrule_ctx_t {
   unsigned int hash;
 } libxs_lexrule_ctx_t;
 
+/** Data-only lexical normalization: map normalized `from` text to `to`. */
+LIBXS_EXTERN_C typedef struct libxs_lexnorm_t {
+  char from[LIBXS_LEXEME_MAXBYTES + 1];
+  char to[LIBXS_LEXEME_MAXBYTES + 1];
+} libxs_lexnorm_t;
+
 
 /** Decode all token properties into an info struct. */
 LIBXS_API void libxs_token_info(const libxs_token_t* token,
@@ -212,18 +218,21 @@ LIBXS_API int libxs_lexeme_stream_push(libxs_lexeme_stream_t* stream,
 LIBXS_API void libxs_lexeme_stream_release(libxs_lexeme_stream_t* stream);
 
 /**
- * Encode text into stable lexical token ids. Words are normalized to lowercase,
- * numbers are mapped to <num>, punctuation is preserved, and class flags are
- * assigned by built-in detection followed by optional lexical rules.
+ * Encode text into stable lexical token ids. Words are lowercased and then can
+ * be rewritten by caller-supplied normalization rules. Numbers are mapped to
+ * <num>, punctuation is preserved, and class flags are assigned by built-in
+ * detection followed by optional lexical rules.
  */
 LIBXS_API int libxs_lexeme_stream_encode(libxs_lexicon_t* lexicon,
   libxs_lexeme_stream_t* stream, const unsigned char* text, size_t size,
-  const libxs_lexrule_t* rules, int nrules, int create);
+  const libxs_lexrule_t* rules, int nrules,
+  const libxs_lexnorm_t* norms, int nnorms, int create);
 
 /** Encode text into initialized stream of 8-byte token IDs. */
 LIBXS_API int libxs_token_stream_encode(libxs_lexicon_t* lexicon,
   libxs_token_stream_t* stream, const unsigned char* text, size_t size,
-  const libxs_lexrule_t* rules, int nrules, int create);
+  const libxs_lexrule_t* rules, int nrules,
+  const libxs_lexnorm_t* norms, int nnorms, int create);
 
 /**
  * Evaluate a ruleset against a context. Returns 1 (sentence boundary

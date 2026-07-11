@@ -27,7 +27,9 @@ int main(int argc, char* argv[])
   const size_t input_size = sizeof(input) - 1;
   libxs_token_stream_t stream;
   libxs_token_stream_t inflect_stream;
+  libxs_token_stream_t plain_stream;
   libxs_lexrule_t lexrules[96];
+  libxs_lexnorm_t lexnorms[4];
   libxs_lexicon_t* lexicon = NULL;
   libxs_lexicon_t* loaded_lexicon = NULL;
   void* lexicon_buffer = NULL;
@@ -42,6 +44,7 @@ int main(int argc, char* argv[])
 
   libxs_token_stream_init(&stream);
   libxs_token_stream_init(&inflect_stream);
+  libxs_token_stream_init(&plain_stream);
   if (0 != stream.size || 0 != stream.capacity || NULL != stream.data) {
     FPRINTF(stderr, "ERROR line #%i: token stream init\n", __LINE__);
     result = EXIT_FAILURE;
@@ -69,7 +72,7 @@ int main(int argc, char* argv[])
   }
   if (EXIT_SUCCESS == result) {
     result = libxs_token_stream_encode(lexicon, &stream,
-      input, input_size, lexrules, lexrule_count, 1);
+      input, input_size, lexrules, lexrule_count, NULL, 0, 1);
     if (EXIT_SUCCESS != result || stream.size < 7
       || libxs_lexicon_size(lexicon) < 6)
     {
@@ -120,13 +123,38 @@ int main(int argc, char* argv[])
     }
   }
   if (EXIT_SUCCESS == result) {
-    static const unsigned char inflect[] = "bring brought";
+    static const unsigned char inflect[] =
+      "bring brought count counted counting stretch stretched";
+    memset(lexnorms, 0, sizeof(lexnorms));
+    memcpy(lexnorms[0].from, "brought", 8);
+    memcpy(lexnorms[0].to, "bring", 6);
+    memcpy(lexnorms[1].from, "counted", 8);
+    memcpy(lexnorms[1].to, "count", 6);
+    memcpy(lexnorms[2].from, "counting", 9);
+    memcpy(lexnorms[2].to, "count", 6);
+    memcpy(lexnorms[3].from, "stretched", 10);
+    memcpy(lexnorms[3].to, "stretch", 8);
     result = libxs_token_stream_encode(lexicon, &inflect_stream,
-      inflect, sizeof(inflect) - 1, lexrules, lexrule_count, 1);
-    if (EXIT_SUCCESS != result || 2 != inflect_stream.size
-      || inflect_stream.data[0].id != inflect_stream.data[1].id)
+      inflect, sizeof(inflect) - 1, lexrules, lexrule_count,
+      lexnorms, 4, 1);
+    if (EXIT_SUCCESS != result || 7 != inflect_stream.size
+      || inflect_stream.data[0].id != inflect_stream.data[1].id
+      || inflect_stream.data[2].id != inflect_stream.data[3].id
+      || inflect_stream.data[2].id != inflect_stream.data[4].id
+      || inflect_stream.data[5].id != inflect_stream.data[6].id)
     {
       FPRINTF(stderr, "ERROR line #%i: inflection normalization\n", __LINE__);
+      result = EXIT_FAILURE;
+    }
+  }
+  if (EXIT_SUCCESS == result) {
+    static const unsigned char plain[] = "stretch stretched";
+    result = libxs_token_stream_encode(lexicon, &plain_stream,
+      plain, sizeof(plain) - 1, lexrules, lexrule_count, NULL, 0, 1);
+    if (EXIT_SUCCESS != result || 2 != plain_stream.size
+      || plain_stream.data[0].id == plain_stream.data[1].id)
+    {
+      FPRINTF(stderr, "ERROR line #%i: optional normalization\n", __LINE__);
       result = EXIT_FAILURE;
     }
   }
@@ -154,6 +182,7 @@ int main(int argc, char* argv[])
   free(lexicon_buffer);
   libxs_lexicon_destroy(loaded_lexicon);
   libxs_lexicon_destroy(lexicon);
+  libxs_token_stream_release(&plain_stream);
   libxs_token_stream_release(&inflect_stream);
   libxs_token_stream_release(&stream);
   if (EXIT_SUCCESS == result

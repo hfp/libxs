@@ -43,7 +43,7 @@ int main(int argc, char* argv[])
   }
   if (EXIT_SUCCESS == result) {
     result = libxs_token_stream_encode(lexicon, &stream,
-      input, input_size, lexrules, lexrule_count, 1);
+      input, input_size, lexrules, lexrule_count, NULL, 0, 1);
   }
   if (EXIT_SUCCESS == result) {
     printf("input-bytes: %lu\n", (unsigned long)input_size);

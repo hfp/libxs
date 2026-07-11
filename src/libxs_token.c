@@ -120,9 +120,31 @@ int internal_libxs_lexeme_normalize_word(char* out, int out_size,
       out[result++] = (char)tolower(text[text_pos]);
     }
     out[result] = 0;
-    if (7 == result && 0 == memcmp(out, "brought", 7)) {
-      memcpy(out, "bring", 6);
-      result = 5;
+  }
+  return result;
+}
+
+
+LIBXS_API_INLINE
+int internal_libxs_lexeme_apply_norm(char* text, int text_size, int length,
+  const libxs_lexnorm_t* norms, int nnorms)
+{
+  int result = length;
+  int norm_pos;
+  if (NULL != text && text_size > 0 && NULL != norms && nnorms > 0) {
+    for (norm_pos = 0; norm_pos < nnorms; ++norm_pos) {
+      const char* from = norms[norm_pos].from;
+      const char* to = norms[norm_pos].to;
+      int from_len = (int)strlen(from);
+      int to_len = (int)strlen(to);
+      if (from_len == result && to_len > 0 && to_len < text_size
+        && 0 == memcmp(text, from, (size_t)from_len))
+      {
+        memcpy(text, to, (size_t)to_len);
+        text[to_len] = '\0';
+        result = to_len;
+        break;
+      }
     }
   }
   return result;
@@ -483,7 +505,8 @@ LIBXS_API void libxs_lexeme_stream_release(libxs_lexeme_stream_t* stream)
 
 LIBXS_API int libxs_token_stream_encode(libxs_lexicon_t* lexicon,
   libxs_token_stream_t* stream, const unsigned char* text, size_t size,
-  const libxs_lexrule_t* rules, int nrules, int create)
+  const libxs_lexrule_t* rules, int nrules,
+  const libxs_lexnorm_t* norms, int nnorms, int create)
 {
   int result = EXIT_SUCCESS;
   size_t text_pos = 0;
@@ -509,6 +532,8 @@ LIBXS_API int libxs_token_stream_encode(libxs_lexicon_t* lexicon,
       token_len = text_pos - token_start;
       normalized_len = internal_libxs_lexeme_normalize_word(normalized,
         (int)sizeof(normalized), text + token_start, token_len);
+      normalized_len = internal_libxs_lexeme_apply_norm(normalized,
+        (int)sizeof(normalized), normalized_len, norms, nnorms);
       flags = LIBXS_LEXEME_WORD;
     }
     else if (0 != isdigit(text[text_pos])) {
@@ -567,9 +592,10 @@ LIBXS_API int libxs_token_stream_encode(libxs_lexicon_t* lexicon,
 
 LIBXS_API int libxs_lexeme_stream_encode(libxs_lexicon_t* lexicon,
   libxs_lexeme_stream_t* stream, const unsigned char* text, size_t size,
-  const libxs_lexrule_t* rules, int nrules, int create)
+  const libxs_lexrule_t* rules, int nrules,
+  const libxs_lexnorm_t* norms, int nnorms, int create)
 {
   int result = libxs_token_stream_encode(lexicon, stream, text, size,
-    rules, nrules, create);
+    rules, nrules, norms, nnorms, create);
   return result;
 }
