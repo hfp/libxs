@@ -1,4 +1,6 @@
 /texts
+*.bridges
+*.eval
 *.bin
 *.dat
 *.lex

@@ -53,7 +53,9 @@ Run the interactive converse sample with one or more corpus files:
 ./converse.x -n 3 texts/prejudice.txt texts/prose1.txt
 ```
 
-Run the built-in sample evaluation over the prose fixture:
+Run a data-driven evaluation over a local fixture corpus. The sample reads
+`converse.eval` from the current directory; keep that file next to the local
+fixture text it describes:
 
 ```bash
 ./converse.x -e texts/prose1.txt
@@ -61,23 +63,25 @@ Run the built-in sample evaluation over the prose fixture:
 ```
 
 The evaluator uses the same ingest, lexicon, stored `libxs_predict` model, and
-answer-ranking path as interactive mode. It asks a small set of canned questions
-and checks that selected evidence contains expected terms, printing a pass/fail
-summary for the top answer, for any selected answer, and for the concise reply.
-The cases include direct factual questions, paraphrases, simple grounded
-conclusions, and one abstention case. They are tied to `texts/prose1.txt`, so
-eval mode expects exactly one fixture corpus rather than a broad `texts/*.txt`
-corpus.
+answer-ranking path as interactive mode. Each non-comment `converse.eval` line
+has three pipe-separated fields:
+
+```text
+question|expected-evidence-terms|expected-reply-terms
+```
+
+Expected terms are comma-separated. An empty evidence field marks an abstention
+case, and an empty reply field skips concise-reply checking for that case. The
+evaluator still reports the top answer, any selected answer, and reply checks,
+but overall pass/fail is based on any selected evidence plus the optional reply
+terms so generic reranking experiments do not make the fixture overly brittle.
 
 Question-shaped prompts use a conservative extractive path. The sample encodes
 query and corpus chunks with the lexical token layer, stores compact lexical
 sketches in the corpus entries, scores non-stopword token ID overlap, and emits
-the best matching evidence. A small bridge table maps a few grounded paraphrase
-relations with query-token specs, evidence-text specs, and a concise reply, such
-as `find/help/helped way sailor/sailors/ship/ships` to `lighthouse guided/light`.
-The sample also loads optional local bridge rules from `converse.bridges`; loaded
-rules are tried before the compiled defaults. Each non-comment line has five
-pipe-separated fields:
+the best matching evidence. Optional local bridge rules can be loaded from
+`converse.bridges` in the current directory, alongside the local corpus/eval
+fixture. Each non-comment line has five pipe-separated fields:
 
 ```text
 name|query-groups|evidence-groups|score|reply
@@ -87,9 +91,9 @@ Within query and evidence groups, whitespace separates required groups and `/`
 separates alternatives inside a group. Evidence terms can use `_` for a literal
 space, for example `Ice_formed/supply_boat`. The reply field may be literal text
 or a small answer frame. Built-in frames can fill evidence-backed slots such as
-`{after:lighthouse had}`, `{keywords-after:recorded everything:}`, or
-`{winter-hardships}`. The `keywords-after` frame tokenizes the selected evidence
-span, drops stopwords, de-duplicates token IDs, and composes a compact list.
+`{after:lighthouse had}` or `{keywords-after:recorded everything:}`. The
+`keywords-after` frame tokenizes the selected evidence span, drops stopwords,
+de-duplicates token IDs, and composes a compact list.
 This lets the sample compose short grounded answers from selected evidence
 instead of storing every short answer verbatim. Generic `what is X` questions can
 also extract a short phrase around `X`, and unmatched question fallbacks print
@@ -126,10 +130,9 @@ directly.
 
 The lexical layer uses compact 8-byte tokens whose first field is a stable
 vocabulary ID; the lexicon provides both text-to-ID and ID-to-text mapping.
-The tokenizer core only lowercases words; language-specific rewrites such as
-`brought -> bring` are passed as caller-owned normalization tables, so a sample
-can swap English toy rules for another language profile without changing token
-IDs or tokenizer code.
+The tokenizer core only lowercases words. `converse.c` does not pass a
+sample-local normalization table; corpus- or language-specific rewrites should
+come from caller-owned data rather than compiled sample code.
 Loadable lexical rules assign coordinated classes such as stopword, question,
 entity, number, sentence, and markup in one place instead of scattering text
 edge cases through samples.
