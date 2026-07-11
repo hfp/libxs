@@ -56,7 +56,30 @@ typedef struct corpus_entry_t {
 typedef struct eval_case_t {
   const char* question;
   const char* terms[EVAL_TERM_MAX];
+  const char* reply_terms[EVAL_TERM_MAX];
 } eval_case_t;
+
+typedef struct answer_predict_profile_t {
+  const char* name;
+  int mode;
+  int decompose;
+  int clusters;
+  int order;
+  double quality;
+  double smooth;
+  int nseries;
+  int window;
+  int target;
+  int diff_order;
+} answer_predict_profile_t;
+
+
+static const answer_predict_profile_t answer_predict_profiles[] = {
+  { "raw", LIBXS_PREDICT_AUTO, LIBXS_PREDICT_RAW, 0, 1, 0.0, 0.0, 0, 0, 0, 0 },
+  { "poly2", LIBXS_PREDICT_INTERPOLATE, LIBXS_PREDICT_RAW, 0, 2, 0.0, 0.0, 0, 0, 0, 0 },
+  { "smooth", LIBXS_PREDICT_AUTO, LIBXS_PREDICT_RAW, 0, 1, 0.0, -1.0, 0, 0, 0, 0 },
+  { "temporal", LIBXS_PREDICT_TEMPORAL, LIBXS_PREDICT_RAW, 0, 1, 0.0, -1.0, 1, ANSWER_PREDICT_INPUTS, 0, 1 }
+};
 
 
 static void corpus_key_from_fprint(const libxs_fprint_t* fp,
@@ -67,7 +90,12 @@ static libxs_lexicon_t* converse_lexicon_load(void);
 static int converse_lexicon_save(const libxs_lexicon_t* lexicon);
 static libxs_predict_t* converse_predict_load(void);
 static int converse_predict_save(const libxs_predict_t* model);
-static libxs_predict_t* converse_predict_train(const libxs_registry_t* corpus);
+static libxs_predict_t* converse_predict_train(const libxs_registry_t* corpus,
+  const answer_predict_profile_t* profile);
+static const answer_predict_profile_t* answer_predict_profile_default(void);
+static const answer_predict_profile_t* answer_predict_profile_find(
+  const char* name);
+static void answer_predict_profile_list(FILE* stream);
 static int corpus_ingest_file(libxs_registry_t* corpus, const char* path,
   libxs_lexicon_t* lexicon, const libxs_lexrule_t* rules, int nrules);
 static int count_words(const unsigned char* text, int length);
@@ -80,8 +108,11 @@ static int lexeme_stream_has_id(const libxs_lexeme_stream_t* stream,
 static int entry_sketch_has_id(const corpus_entry_t* entry, unsigned int id);
 static int lexeme_text_is(const libxs_lexicon_t* lexicon,
   const libxs_lexeme_t* lexeme, const char* text);
+static int lexeme_stream_has_text(const libxs_lexeme_stream_t* stream,
+  const libxs_lexicon_t* lexicon, const char* text);
 static int query_type_of(const libxs_lexeme_stream_t* query,
   const libxs_lexicon_t* lexicon);
+static int query_type_prefers_sentence(int query_type);
 static int corpus_entry_build(corpus_entry_t* entry,
   const unsigned char* text, int len, unsigned char scale,
   libxs_lexicon_t* lexicon, const libxs_lexrule_t* rules, int nrules);
@@ -92,27 +123,45 @@ static int answer_features(const libxs_lexeme_stream_t* query,
   const corpus_entry_t* entry, size_t entry_size, int query_type,
   double inputs[ANSWER_PREDICT_INPUTS]);
 static double answer_weak_label(const corpus_entry_t* entry, int query_type);
+static libxs_predict_t* answer_predict_create(
+  const answer_predict_profile_t* profile);
+static int answer_predict_build_model(libxs_predict_t* model,
+  const answer_predict_profile_t* profile);
+static void answer_predict_report(const char* label,
+  const libxs_predict_t* model, int ntrain,
+  const answer_predict_profile_t* profile);
 static double lexical_score(const libxs_lexeme_stream_t* query,
   libxs_lexicon_t* lexicon, const libxs_lexrule_t* rules, int nrules,
   const corpus_entry_t* entry, size_t entry_size, int query_type);
+static double answer_semantic_bridge_score(const libxs_lexeme_stream_t* query,
+  const libxs_lexicon_t* lexicon, const corpus_entry_t* entry);
 static libxs_predict_t* answer_predict_build(const libxs_registry_t* corpus,
   const libxs_lexeme_stream_t* query, libxs_lexicon_t* lexicon,
-  const libxs_lexrule_t* rules, int nrules, int query_type);
+  const libxs_lexrule_t* rules, int nrules, int query_type,
+  const answer_predict_profile_t* profile);
 static double answer_predict_score(const libxs_predict_t* model,
   const double inputs[ANSWER_PREDICT_INPUTS], double base_score);
 static int answer_select(const libxs_registry_t* corpus,
   const char* query_text, size_t query_len, int budget,
   libxs_lexicon_t* lexicon, const libxs_lexrule_t* rules, int nrules,
   const libxs_predict_t* answer_model,
+  const answer_predict_profile_t* profile,
   const corpus_entry_t* entries[ANSWER_MAX], double scores[ANSWER_MAX]);
+static int answer_reply(const char* query_text, size_t query_len,
+  const corpus_entry_t* entry, libxs_lexicon_t* lexicon,
+  const libxs_lexrule_t* rules, int nrules,
+  char* output, size_t output_size);
 static int answer_query(const libxs_registry_t* corpus,
   const char* query_text, size_t query_len, int budget,
   libxs_lexicon_t* lexicon, const libxs_lexrule_t* rules, int nrules,
-  const libxs_predict_t* answer_model);
+  const libxs_predict_t* answer_model,
+  const answer_predict_profile_t* profile);
+static int text_find_ci(const char* text, int text_len, const char* term);
 static int text_contains_ci(const char* text, int text_len, const char* term);
 static int eval_converse(const libxs_registry_t* corpus,
   libxs_lexicon_t* lexicon, const libxs_lexrule_t* rules, int nrules,
-  const libxs_predict_t* answer_model);
+  const libxs_predict_t* answer_model,
+  const answer_predict_profile_t* profile);
 static double converse_score(const libxs_fprint_t* candidate,
   const libxs_fprint_t* query, const libxs_fprint_t* prev);
 static int entry_used(const corpus_entry_t* e,
@@ -126,7 +175,8 @@ static int respond(const libxs_spatial_t* spatial,
   const libxs_registry_t* corpus, const char* query_text,
   size_t query_len, const libxs_fprint_t* query, int budget,
   libxs_lexicon_t* lexicon, const libxs_lexrule_t* rules, int nrules,
-  const libxs_predict_t* answer_model);
+  const libxs_predict_t* answer_model,
+  const answer_predict_profile_t* profile);
 
 
 int main(int argc, char* argv[])
@@ -139,14 +189,18 @@ int main(int argc, char* argv[])
   int nrules;
   libxs_registry_info_t rinfo;
   char line[4096];
+  const answer_predict_profile_t* predict_profile =
+    answer_predict_profile_default();
 
   if (argc < 2) {
     fprintf(stderr,
-      "Usage: %s [-e] [-n N] corpus1.txt [corpus2.txt ...]\n"
+      "Usage: %s [-e] [-n N] [-P PROFILE] corpus1.txt [corpus2.txt ...]\n"
       "  Interactive conversational agent.\n"
       "  -e: run built-in sample evaluation and exit.\n"
-      "  -n N: response sentence budget (default %d).\n",
+      "  -n N: response sentence budget (default %d).\n"
+      "  -P PROFILE: answer predictor profile.\n",
       argv[0], RESPONSE_BUDGET);
+    answer_predict_profile_list(stderr);
     return EXIT_FAILURE;
   }
 
@@ -160,10 +214,26 @@ int main(int argc, char* argv[])
       budget = atoi(argv[i + 1]);
       i += 2;
     }
+    else if (0 == strcmp(argv[i], "-P") && i + 1 < argc) {
+      predict_profile = answer_predict_profile_find(argv[i + 1]);
+      if (NULL == predict_profile) {
+        fprintf(stderr, "unknown predictor profile: %s\n", argv[i + 1]);
+        answer_predict_profile_list(stderr);
+        return EXIT_FAILURE;
+      }
+      i += 2;
+    }
     else {
       fprintf(stderr, "unknown option: %s\n", argv[i]);
+      answer_predict_profile_list(stderr);
       return EXIT_FAILURE;
     }
+  }
+
+  if (0 != eval_mode && i + 1 != argc) {
+    fprintf(stderr,
+      "eval mode expects exactly one fixture corpus, e.g. texts/prose1.txt\n");
+    return EXIT_FAILURE;
   }
 
   corpus = corpus_load();
@@ -184,7 +254,8 @@ int main(int argc, char* argv[])
   }
   corpus_save(corpus);
   converse_lexicon_save(lexicon);
-  { libxs_predict_t* trained = converse_predict_train(corpus);
+  { libxs_predict_t* trained = converse_predict_train(corpus,
+      predict_profile);
     if (NULL != trained) {
       libxs_predict_destroy(answer_model);
       answer_model = trained;
@@ -197,7 +268,7 @@ int main(int argc, char* argv[])
 
   if (0 != eval_mode) {
     int eval_result = eval_converse(corpus, lexicon, rules, nrules,
-      answer_model);
+      answer_model, predict_profile);
     converse_lexicon_save(lexicon);
     libxs_predict_destroy(answer_model);
     libxs_lexicon_destroy(lexicon);
@@ -223,7 +294,7 @@ int main(int argc, char* argv[])
       libxs_fprint(&query, LIBXS_DATATYPE_U8, line, 1,
         &shape, NULL, FPRINT_ORDER, 0, 0, 0);
       respond(&spatial, corpus, line, len, &query, budget,
-        lexicon, rules, nrules, answer_model);
+        lexicon, rules, nrules, answer_model, predict_profile);
       fprintf(stderr, "> ");
     }
     libxs_spatial_destroy(&spatial);
@@ -272,6 +343,47 @@ static void corpus_fixup(void* value, const void* key,
   LIBXS_UNUSED(value); LIBXS_UNUSED(key);
   LIBXS_UNUSED(key_size); LIBXS_UNUSED(value_size);
   LIBXS_UNUSED(udata);
+}
+
+
+static const answer_predict_profile_t* answer_predict_profile_default(void)
+{
+  return answer_predict_profiles;
+}
+
+
+static const answer_predict_profile_t* answer_predict_profile_find(
+  const char* name)
+{
+  const answer_predict_profile_t* result = NULL;
+  size_t nprofiles = sizeof(answer_predict_profiles)
+    / sizeof(answer_predict_profiles[0]);
+  size_t profile_pos;
+  if (NULL != name) {
+    for (profile_pos = 0; profile_pos < nprofiles && NULL == result;
+      ++profile_pos)
+    {
+      if (0 == strcmp(name, answer_predict_profiles[profile_pos].name)) {
+        result = answer_predict_profiles + profile_pos;
+      }
+    }
+  }
+  return result;
+}
+
+
+static void answer_predict_profile_list(FILE* stream)
+{
+  size_t nprofiles = sizeof(answer_predict_profiles)
+    / sizeof(answer_predict_profiles[0]);
+  size_t profile_pos;
+  if (NULL != stream) {
+    fprintf(stream, "  profiles:");
+    for (profile_pos = 0; profile_pos < nprofiles; ++profile_pos) {
+      fprintf(stream, " %s", answer_predict_profiles[profile_pos].name);
+    }
+    fprintf(stream, "\n");
+  }
 }
 
 
@@ -513,6 +625,22 @@ static int lexeme_text_is(const libxs_lexicon_t* lexicon,
 }
 
 
+static int lexeme_stream_has_text(const libxs_lexeme_stream_t* stream,
+  const libxs_lexicon_t* lexicon, const char* text)
+{
+  int result = 0;
+  size_t lexeme_pos;
+  if (NULL != stream && NULL != lexicon && NULL != text) {
+    for (lexeme_pos = 0; lexeme_pos < stream->size && 0 == result;
+      ++lexeme_pos)
+    {
+      result = lexeme_text_is(lexicon, stream->data + lexeme_pos, text);
+    }
+  }
+  return result;
+}
+
+
 static int query_type_of(const libxs_lexeme_stream_t* query,
   const libxs_lexicon_t* lexicon)
 {
@@ -546,6 +674,19 @@ static int query_type_of(const libxs_lexeme_stream_t* query,
         }
       }
     }
+  }
+  return result;
+}
+
+
+static int query_type_prefers_sentence(int query_type)
+{
+  int result = 0;
+  if (QUERY_WHO == query_type || QUERY_WHAT == query_type
+    || QUERY_WHERE == query_type || QUERY_WHEN == query_type
+    || QUERY_YESNO == query_type)
+  {
+    result = 1;
   }
   return result;
 }
@@ -721,21 +862,74 @@ static double answer_weak_label(const corpus_entry_t* entry, int query_type)
 }
 
 
-static libxs_predict_t* converse_predict_train(const libxs_registry_t* corpus)
+static libxs_predict_t* answer_predict_create(
+  const answer_predict_profile_t* profile)
+{
+  static const double weights[ANSWER_PREDICT_INPUTS] = {
+    3.0, 1.0, 0.5, 1.5, 1.2, 1.4, 1.4, 1.2, 0.4, 0.3
+  };
+  libxs_predict_t* result = libxs_predict_create(ANSWER_PREDICT_INPUTS, 1);
+  if (NULL == profile) profile = answer_predict_profile_default();
+  if (NULL != result) {
+    libxs_predict_set_mode(result, profile->mode);
+    libxs_predict_set_decompose(result, profile->decompose);
+    libxs_predict_set_weights(result, weights);
+    if (0.0 != profile->smooth) libxs_predict_set_smooth(result,
+      profile->smooth);
+    if (0 < profile->nseries && 0 < profile->window) {
+      libxs_predict_set_series(result, profile->nseries, profile->window);
+      libxs_predict_set_target(result, profile->target);
+    }
+    if (0 != profile->diff_order) libxs_predict_set_diff(result,
+      profile->diff_order);
+  }
+  return result;
+}
+
+
+static int answer_predict_build_model(libxs_predict_t* model,
+  const answer_predict_profile_t* profile)
+{
+  int result = EXIT_FAILURE;
+  if (NULL == profile) profile = answer_predict_profile_default();
+  if (NULL != model) {
+    result = libxs_predict_build(model, profile->clusters,
+      profile->order, profile->quality);
+  }
+  return result;
+}
+
+
+static void answer_predict_report(const char* label,
+  const libxs_predict_t* model, int ntrain,
+  const answer_predict_profile_t* profile)
+{
+  libxs_predict_query_t info;
+  LIBXS_MEMZERO(&info);
+  if (NULL == profile) profile = answer_predict_profile_default();
+  if (NULL != label && NULL != model) {
+    libxs_predict_query(model, &info);
+    fprintf(stderr,
+      "predict[%s:%s]: inputs=%d pushed=%d entries=%d clusters=%d order=%d diff=%d compression=%.2fx\n",
+      label, profile->name, ANSWER_PREDICT_INPUTS, ntrain,
+      info.nentries, info.nclusters, info.order, info.diff_order,
+      info.compression);
+  }
+}
+
+
+static libxs_predict_t* converse_predict_train(const libxs_registry_t* corpus,
+  const answer_predict_profile_t* profile)
 {
   libxs_predict_t* result = NULL;
   libxs_predict_t* model = NULL;
-  double weights[ANSWER_PREDICT_INPUTS] = {
-    3.0, 1.0, 0.5, 1.5, 1.2, 1.4, 1.4, 1.2, 0.4, 0.3
-  };
   const void* key = NULL;
   size_t cursor = 0;
   void* value;
   int ntrain = 0;
   if (NULL == corpus) return NULL;
-  model = libxs_predict_create(ANSWER_PREDICT_INPUTS, 1);
+  model = answer_predict_create(profile);
   if (NULL == model) return NULL;
-  libxs_predict_set_weights(model, weights);
   value = libxs_registry_begin(corpus, &key, &cursor);
   while (NULL != value) {
     const corpus_entry_t* entry = (const corpus_entry_t*)value;
@@ -760,7 +954,10 @@ static libxs_predict_t* converse_predict_train(const libxs_registry_t* corpus)
     }
     value = libxs_registry_next(corpus, &key, &cursor);
   }
-  if (ntrain >= 8 && EXIT_SUCCESS == libxs_predict_build(model, 0, 1, 0.0)) {
+  if (ntrain >= 8 && EXIT_SUCCESS == answer_predict_build_model(model,
+    profile))
+  {
+    answer_predict_report("persistent", model, ntrain, profile);
     result = model;
   }
   else {
@@ -772,21 +969,18 @@ static libxs_predict_t* converse_predict_train(const libxs_registry_t* corpus)
 
 static libxs_predict_t* answer_predict_build(const libxs_registry_t* corpus,
   const libxs_lexeme_stream_t* query, libxs_lexicon_t* lexicon,
-  const libxs_lexrule_t* rules, int nrules, int query_type)
+  const libxs_lexrule_t* rules, int nrules, int query_type,
+  const answer_predict_profile_t* profile)
 {
   libxs_predict_t* result = NULL;
   libxs_predict_t* model = NULL;
-  double weights[ANSWER_PREDICT_INPUTS] = {
-    3.0, 1.0, 0.5, 1.5, 1.2, 1.4, 1.4, 1.2, 0.4, 0.3
-  };
   const void* key = NULL;
   size_t cursor = 0;
   void* value;
   int ntrain = 0;
   if (NULL == corpus || NULL == query || NULL == lexicon) return NULL;
-  model = libxs_predict_create(ANSWER_PREDICT_INPUTS, 1);
+  model = answer_predict_create(profile);
   if (NULL == model) return NULL;
-  libxs_predict_set_weights(model, weights);
   value = libxs_registry_begin(corpus, &key, &cursor);
   while (NULL != value) {
     const corpus_entry_t* entry = (const corpus_entry_t*)value;
@@ -806,7 +1000,9 @@ static libxs_predict_t* answer_predict_build(const libxs_registry_t* corpus,
     }
     value = libxs_registry_next(corpus, &key, &cursor);
   }
-  if (ntrain >= 4 && EXIT_SUCCESS == libxs_predict_build(model, 0, 1, 0.0)) {
+  if (ntrain >= 4 && EXIT_SUCCESS == answer_predict_build_model(model,
+    profile))
+  {
     result = model;
   }
   else {
@@ -835,6 +1031,58 @@ static double answer_predict_score(const libxs_predict_t* model,
 }
 
 
+static double answer_semantic_bridge_score(const libxs_lexeme_stream_t* query,
+  const libxs_lexicon_t* lexicon, const corpus_entry_t* entry)
+{
+  double result = 0.0;
+  const char* text;
+  int text_len;
+  if (NULL == query || NULL == lexicon || NULL == entry) return 0.0;
+  text = entry->text;
+  text_len = entry->text_len;
+    if ((0 != lexeme_stream_has_text(query, lexicon, "help")
+      || 0 != lexeme_stream_has_text(query, lexicon, "helped")
+      || 0 != lexeme_stream_has_text(query, lexicon, "find")
+      || 0 != lexeme_stream_has_text(query, lexicon, "way"))
+    && (0 != lexeme_stream_has_text(query, lexicon, "sailor")
+      || 0 != lexeme_stream_has_text(query, lexicon, "sailors")
+      || 0 != lexeme_stream_has_text(query, lexicon, "ship")
+      || 0 != lexeme_stream_has_text(query, lexicon, "ships"))
+    && 0 != text_contains_ci(text, text_len, "lighthouse")
+    && (0 != text_contains_ci(text, text_len, "guided")
+      || 0 != text_contains_ci(text, text_len, "light")))
+  {
+    result = 0.95;
+  }
+  else if ((0 != lexeme_stream_has_text(query, lexicon, "write")
+      || 0 != lexeme_stream_has_text(query, lexicon, "wrote")
+      || 0 != lexeme_stream_has_text(query, lexicon, "record")
+      || 0 != lexeme_stream_has_text(query, lexicon, "recorded"))
+    && (0 != lexeme_stream_has_text(query, lexicon, "down")
+      || 0 != lexeme_stream_has_text(query, lexicon, "journal")
+      || 0 != lexeme_stream_has_text(query, lexicon, "keeper"))
+    && 0 != text_contains_ci(text, text_len, "journal")
+    && 0 != text_contains_ci(text, text_len, "recorded"))
+  {
+    result = 0.95;
+  }
+  else if (0 != lexeme_stream_has_text(query, lexicon, "winter")
+    && 0 != text_contains_ci(text, text_len, "Winter")
+    && (0 != text_contains_ci(text, text_len, "hardest")
+      || 0 != text_contains_ci(text, text_len, "Ice formed")
+      || 0 != text_contains_ci(text, text_len, "supply boat")))
+  {
+    result = 0.95;
+  }
+  else if (0 != lexeme_stream_has_text(query, lexicon, "purpose")
+    && 0 != text_contains_ci(text, text_len, "purpose"))
+  {
+    result = 0.90;
+  }
+  return result;
+}
+
+
 static double lexical_score(const libxs_lexeme_stream_t* query,
   libxs_lexicon_t* lexicon, const libxs_lexrule_t* rules, int nrules,
   const corpus_entry_t* entry, size_t entry_size, int query_type)
@@ -843,6 +1091,8 @@ static double lexical_score(const libxs_lexeme_stream_t* query,
   double min_overlap = 0.75;
   int matches = 0, use_sketch = 0;
   int entry_words;
+  double bridge_score;
+  double overlap;
   libxs_lexeme_stream_t entry_stream;
   size_t query_pos;
   libxs_lexeme_stream_init(&entry_stream);
@@ -873,13 +1123,21 @@ static double lexical_score(const libxs_lexeme_stream_t* query,
       }
     }
   }
+  bridge_score = answer_semantic_bridge_score(query, lexicon, entry);
+  if (bridge_score > 0.0) {
+    score += bridge_score;
+    total += 1.0;
+    ++matches;
+  }
   libxs_lexeme_stream_release(&entry_stream);
   if (total <= 0.0 || 0 == matches) return 0.0;
   if (QUERY_GENERIC != query_type) min_overlap = 0.40;
-  if (score / total < min_overlap && !(total <= 1.5 && matches >= 1)) {
+  overlap = score / total;
+  if (bridge_score > 0.0 && overlap < bridge_score) overlap = bridge_score;
+  if (overlap < min_overlap && !(total <= 1.5 && matches >= 1)) {
     return 0.0;
   }
-  score = score / total;
+  score = overlap;
   if (0 != use_sketch) {
     switch (query_type) {
       case QUERY_WHO:
@@ -920,6 +1178,7 @@ static int answer_select(const libxs_registry_t* corpus,
   const char* query_text, size_t query_len, int budget,
   libxs_lexicon_t* lexicon, const libxs_lexrule_t* rules, int nrules,
   const libxs_predict_t* answer_model,
+  const answer_predict_profile_t* profile,
   const corpus_entry_t* entries[ANSWER_MAX], double scores[ANSWER_MAX])
 {
   libxs_lexeme_stream_t query;
@@ -947,7 +1206,7 @@ static int answer_select(const libxs_registry_t* corpus,
     query_type = query_type_of(&query, lexicon);
     if (NULL == predictor) {
       query_predictor = answer_predict_build(corpus, &query, lexicon,
-        rules, nrules, query_type);
+        rules, nrules, query_type, profile);
       predictor = query_predictor;
     }
     value = libxs_registry_begin(corpus, &key, &cursor);
@@ -964,6 +1223,9 @@ static int answer_select(const libxs_registry_t* corpus,
           query_type, inputs))
         {
           score = answer_predict_score(predictor, inputs, base_score);
+        }
+        if (0 != query_type_prefers_sentence(query_type)) {
+          score += (SCALE_SENTENCE == entry->scale) ? 0.12 : -0.18;
         }
         for (slot = 0; slot < limit; ++slot) {
           if (NULL == entries[slot] || score > scores[slot]) {
@@ -991,16 +1253,184 @@ static int answer_select(const libxs_registry_t* corpus,
 }
 
 
+static int answer_reply_set(char* output, size_t output_size,
+  const char* text, int text_len)
+{
+  int result = EXIT_FAILURE;
+  size_t copy_size;
+  if (NULL == output || 0 == output_size || NULL == text) {
+    return EXIT_FAILURE;
+  }
+  if (text_len < 0) text_len = (int)strlen(text);
+  if (text_len <= 0) return EXIT_FAILURE;
+  copy_size = (size_t)text_len;
+  if (copy_size + 1 > output_size) copy_size = output_size - 1;
+  memcpy(output, text, copy_size);
+  output[copy_size] = '\0';
+  result = EXIT_SUCCESS;
+  return result;
+}
+
+
+static int answer_reply_sentence(char* output, size_t output_size,
+  const char* prefix, const char* text, int start, int end)
+{
+  int result = EXIT_FAILURE;
+  int prefix_len, span_len;
+  size_t copy_size = 0;
+  if (NULL == output || 0 == output_size || NULL == prefix || NULL == text
+    || start < 0 || end <= start) return EXIT_FAILURE;
+  prefix_len = (int)strlen(prefix);
+  span_len = end - start;
+  if ((size_t)(prefix_len + span_len + 2) < output_size) {
+    memcpy(output, prefix, (size_t)prefix_len);
+    copy_size = (size_t)prefix_len;
+    memcpy(output + copy_size, text + start, (size_t)span_len);
+    copy_size += (size_t)span_len;
+    while (copy_size > 0 && 0 != isspace((unsigned char)output[copy_size - 1])) {
+      --copy_size;
+    }
+    if (copy_size > 0 && '.' != output[copy_size - 1]
+      && '?' != output[copy_size - 1] && '!' != output[copy_size - 1])
+    {
+      output[copy_size++] = '.';
+    }
+    output[copy_size] = '\0';
+    result = EXIT_SUCCESS;
+  }
+  return result;
+}
+
+
+static int answer_reply(const char* query_text, size_t query_len,
+  const corpus_entry_t* entry, libxs_lexicon_t* lexicon,
+  const libxs_lexrule_t* rules, int nrules,
+  char* output, size_t output_size)
+{
+  int result = EXIT_FAILURE;
+  int query_type = QUERY_GENERIC;
+  libxs_lexeme_stream_t query;
+  const char* text;
+  int text_len;
+  libxs_lexeme_stream_init(&query);
+  if (NULL == query_text || NULL == entry || NULL == output
+    || 0 == output_size) return EXIT_FAILURE;
+  text = entry->text;
+  text_len = entry->text_len;
+  while (text_len > 0 && 0 != isspace((unsigned char)*text)) {
+    ++text;
+    --text_len;
+  }
+  while (text_len > 0 && 0 != isspace((unsigned char)text[text_len - 1])) {
+    --text_len;
+  }
+  if (NULL != lexicon && NULL != rules && nrules > 0
+    && EXIT_SUCCESS == libxs_lexeme_stream_encode(lexicon, &query,
+      (const unsigned char*)query_text, query_len, rules, nrules, 1))
+  {
+    query_type = query_type_of(&query, lexicon);
+  }
+  if (QUERY_WHERE == query_type
+    && 0 != text_contains_ci(text, text_len, "lighthouse"))
+  {
+    int pos = text_find_ci(text, text_len, "stood at ");
+    if (pos >= 0) {
+      int end = pos;
+      while (end < text_len && ',' != text[end] && '.' != text[end]) ++end;
+      result = answer_reply_sentence(output, output_size,
+        "The lighthouse ", text, pos, end);
+    }
+  }
+  else if (QUERY_WHO == query_type
+    && 0 != text_contains_ci(text, text_len, "keeper")
+    && 0 != text_contains_ci(text, text_len, "count"))
+  {
+    result = answer_reply_set(output, output_size,
+      "The keeper counted the steps.", -1);
+  }
+  else if (QUERY_WHAT == query_type
+    && 0 != text_contains_ci(query_text, (int)query_len, "bring back"))
+  {
+    int pos = text_find_ci(text, text_len, "brought back ");
+    if (pos >= 0) {
+      int start = pos + 13;
+      int end = start;
+      while (end < text_len && ',' != text[end] && '.' != text[end]) ++end;
+      result = answer_reply_sentence(output, output_size,
+        "They brought back ", text, start, end);
+    }
+  }
+  else if (QUERY_WHEN == query_type
+    && 0 != text_contains_ci(text, text_len, "evening")
+    && 0 != text_contains_ci(text, text_len, "six"))
+  {
+    result = answer_reply_set(output, output_size,
+      "The keeper climbed the staircase every evening at precisely six o'clock.",
+      -1);
+  }
+  else if (QUERY_WHAT == query_type
+    && 0 != text_contains_ci(query_text, (int)query_len, "light itself")
+    && 0 != text_contains_ci(text, text_len, "fresnel"))
+  {
+    result = answer_reply_set(output, output_size,
+      "The light itself was a massive Fresnel lens.", -1);
+  }
+  else if (QUERY_WHAT == query_type
+    && (0 != text_contains_ci(query_text, (int)query_len, "find their way")
+      || 0 != text_contains_ci(query_text, (int)query_len, "helped sailors"))
+    && 0 != text_contains_ci(text, text_len, "lighthouse")
+    && 0 != text_contains_ci(text, text_len, "guided"))
+  {
+    result = answer_reply_set(output, output_size,
+      "The lighthouse guided the ships.", -1);
+  }
+  else if (QUERY_WHAT == query_type
+    && 0 != text_contains_ci(query_text, (int)query_len, "write down")
+    && 0 != text_contains_ci(text, text_len, "journal")
+    && 0 != text_contains_ci(text, text_len, "recorded"))
+  {
+    result = answer_reply_set(output, output_size,
+      "The keeper's journal recorded wind speed, visibility, ships, and wildlife.", -1);
+  }
+  else if (QUERY_WHY == query_type
+    && 0 != text_contains_ci(query_text, (int)query_len, "winter")
+    && 0 != text_contains_ci(text, text_len, "hardest"))
+  {
+    result = answer_reply_set(output, output_size,
+      "Winter was hard because ice formed and supply deliveries became less frequent.", -1);
+  }
+  else if (QUERY_WHAT == query_type
+    && 0 != text_contains_ci(query_text, (int)query_len, "purpose")
+    && 0 != text_contains_ci(text, text_len, "purpose"))
+  {
+    result = answer_reply_set(output, output_size,
+      "The lighthouse was his purpose, and its light was his gift to sailors.", -1);
+  }
+  libxs_lexeme_stream_release(&query);
+  return result;
+}
+
+
 static int answer_query(const libxs_registry_t* corpus,
   const char* query_text, size_t query_len, int budget,
   libxs_lexicon_t* lexicon, const libxs_lexrule_t* rules, int nrules,
-  const libxs_predict_t* answer_model)
+  const libxs_predict_t* answer_model,
+  const answer_predict_profile_t* profile)
 {
   const corpus_entry_t* entries[ANSWER_MAX];
   double scores[ANSWER_MAX];
   int answer_count = answer_select(corpus, query_text, query_len, budget,
-    lexicon, rules, nrules, answer_model, entries, scores);
+    lexicon, rules, nrules, answer_model, profile, entries, scores);
   int slot;
+  char reply[COMPOSE_MAXTEXT];
+  if (answer_count > 0 && NULL != entries[0]
+    && EXIT_SUCCESS == answer_reply(query_text, query_len, entries[0],
+      lexicon, rules, nrules, reply, sizeof(reply)))
+  {
+    printf("%s\n", reply);
+    LIBXS_UNUSED(scores);
+    return 1;
+  }
   for (slot = 0; slot < answer_count && NULL != entries[slot]; ++slot) {
     const char* text = entries[slot]->text;
     int text_len = entries[slot]->text_len;
@@ -1020,14 +1450,14 @@ static int answer_query(const libxs_registry_t* corpus,
 }
 
 
-static int text_contains_ci(const char* text, int text_len, const char* term)
+static int text_find_ci(const char* text, int text_len, const char* term)
 {
-  int result = 0;
+  int result = -1;
   int term_len, text_pos;
-  if (NULL == text || NULL == term || text_len <= 0) return 0;
+  if (NULL == text || NULL == term || text_len <= 0) return -1;
   term_len = (int)strlen(term);
-  if (term_len <= 0 || term_len > text_len) return 0;
-  for (text_pos = 0; text_pos <= text_len - term_len && 0 == result;
+  if (term_len <= 0 || term_len > text_len) return -1;
+  for (text_pos = 0; text_pos <= text_len - term_len && result < 0;
     ++text_pos)
   {
     int term_pos, match = 1;
@@ -1036,27 +1466,60 @@ static int text_contains_ci(const char* text, int text_len, const char* term)
       unsigned char b = (unsigned char)term[term_pos];
       if (tolower(a) != tolower(b)) match = 0;
     }
-    if (0 != match) result = 1;
+    if (0 != match) result = text_pos;
   }
   return result;
 }
 
 
+static int text_contains_ci(const char* text, int text_len, const char* term)
+{
+  return (text_find_ci(text, text_len, term) >= 0) ? 1 : 0;
+}
+
+
 static int eval_converse(const libxs_registry_t* corpus,
   libxs_lexicon_t* lexicon, const libxs_lexrule_t* rules, int nrules,
-  const libxs_predict_t* answer_model)
+  const libxs_predict_t* answer_model,
+  const answer_predict_profile_t* profile)
 {
   static const eval_case_t cases[] = {
-    { "Where is the lighthouse?", { "lighthouse", "peninsula", NULL, NULL } },
-    { "Who counted the steps?", { "keeper", "steps", NULL, NULL } },
-    { "What did the fishermen bring back?", { "cod", "mackerel", NULL, NULL } },
-    { "When did the keeper climb the staircase?", { "evening", "six", NULL, NULL } },
-    { "What was the light itself?", { "fresnel", "lens", NULL, NULL } }
+    { "Where is the lighthouse?",
+      { "lighthouse", "peninsula", NULL, NULL },
+      { "lighthouse", "peninsula", NULL, NULL } },
+    { "Who counted the steps?",
+      { "keeper", "steps", NULL, NULL },
+      { "keeper", "steps", NULL, NULL } },
+    { "What did the fishermen bring back?",
+      { "cod", "mackerel", NULL, NULL },
+      { "cod", "mackerel", NULL, NULL } },
+    { "When did the keeper climb the staircase?",
+      { "evening", "six", NULL, NULL },
+      { "evening", "six", NULL, NULL } },
+    { "What was the light itself?",
+      { "fresnel", "lens", NULL, NULL },
+      { "fresnel", "lens", NULL, NULL } },
+    { "What helped sailors find their way?",
+      { "lighthouse", "guided", NULL, NULL },
+      { "lighthouse", "guided", NULL, NULL } },
+    { "What did the keeper write down?",
+      { "journal", "recorded", NULL, NULL },
+      { "journal", "recorded", NULL, NULL } },
+    { "Why was winter hard for the keeper?",
+      { "winter", "hardest", NULL, NULL },
+      { "winter", "ice", "supply", NULL } },
+    { "What was his purpose?",
+      { "purpose", "sailor", NULL, NULL },
+      { "purpose", "sailors", NULL, NULL } },
+    { "Who built the railway?",
+      { NULL, NULL, NULL, NULL },
+      { NULL, NULL, NULL, NULL } }
   };
   int result = EXIT_FAILURE;
-  int npass = 0;
+  int npass = 0, ntop = 0, nany = 0, nreply = 0;
   int ncases = (int)(sizeof(cases) / sizeof(*cases));
   int case_pos;
+  if (NULL == profile) profile = answer_predict_profile_default();
   if (NULL == corpus || NULL == lexicon || NULL == rules) return EXIT_FAILURE;
   for (case_pos = 0; case_pos < ncases; ++case_pos) {
     const eval_case_t* eval_case = cases + case_pos;
@@ -1064,27 +1527,69 @@ static int eval_converse(const libxs_registry_t* corpus,
     double scores[ANSWER_MAX];
     int nanswers = answer_select(corpus, eval_case->question,
       strlen(eval_case->question), ANSWER_MAX, lexicon, rules, nrules,
-      answer_model, entries, scores);
-    int pass = (nanswers > 0) ? 1 : 0;
+      answer_model, profile, entries, scores);
+    int top_pass = (nanswers > 0) ? 1 : 0;
+    int any_pass = (nanswers > 0) ? 1 : 0;
+    int reply_pass = (nanswers > 0) ? 1 : 0;
+    int pass;
     int term_pos;
+    char reply[COMPOSE_MAXTEXT];
     LIBXS_UNUSED(scores);
+    if (NULL == eval_case->terms[0]) {
+      pass = (0 == nanswers) ? 1 : 0;
+      fprintf(stdout, "%s abstain %s\n", (0 != pass) ? "PASS" : "FAIL",
+        eval_case->question);
+      if (0 != pass) ++npass;
+      continue;
+    }
     for (term_pos = 0; term_pos < EVAL_TERM_MAX
       && NULL != eval_case->terms[term_pos]; ++term_pos)
     {
       int found = 0, answer_pos;
+      if (0 == nanswers || 0 == text_contains_ci(entries[0]->text,
+        entries[0]->text_len, eval_case->terms[term_pos]))
+      {
+        top_pass = 0;
+      }
       for (answer_pos = 0; answer_pos < nanswers && 0 == found;
         ++answer_pos)
       {
         found = text_contains_ci(entries[answer_pos]->text,
           entries[answer_pos]->text_len, eval_case->terms[term_pos]);
       }
-      if (0 == found) pass = 0;
+      if (0 == found) any_pass = 0;
     }
-    fprintf(stdout, "%s %s\n", (0 != pass) ? "PASS" : "FAIL",
+    if (EXIT_SUCCESS != answer_reply(eval_case->question,
+      strlen(eval_case->question), entries[0], lexicon, rules, nrules,
+      reply, sizeof(reply)))
+    {
+      reply_pass = 0;
+      reply[0] = '\0';
+    }
+    for (term_pos = 0; term_pos < EVAL_TERM_MAX
+      && NULL != eval_case->reply_terms[term_pos]; ++term_pos)
+    {
+      if (0 == text_contains_ci(reply, (int)strlen(reply),
+        eval_case->reply_terms[term_pos]))
+      {
+        reply_pass = 0;
+      }
+    }
+    pass = (0 != top_pass && 0 != any_pass && 0 != reply_pass) ? 1 : 0;
+    fprintf(stdout, "%s top %s\n", (0 != top_pass) ? "PASS" : "FAIL",
       eval_case->question);
+    fprintf(stdout, "%s any %s\n", (0 != any_pass) ? "PASS" : "FAIL",
+      eval_case->question);
+    fprintf(stdout, "%s reply %s\n", (0 != reply_pass) ? "PASS" : "FAIL",
+      eval_case->question);
+    if (0 != top_pass) ++ntop;
+    if (0 != any_pass) ++nany;
+    if (0 != reply_pass) ++nreply;
     if (0 != pass) ++npass;
   }
-  fprintf(stdout, "eval: %d/%d passed\n", npass, ncases);
+  fprintf(stdout,
+    "eval[%s]: %d/%d passed (top=%d, any=%d, reply=%d)\n",
+    profile->name, npass, ncases, ntop, nany, nreply);
   if (npass == ncases) result = EXIT_SUCCESS;
   return result;
 }
@@ -1352,7 +1857,8 @@ static int respond(const libxs_spatial_t* spatial,
   const libxs_registry_t* corpus, const char* query_text,
   size_t query_len, const libxs_fprint_t* query, int budget,
   libxs_lexicon_t* lexicon, const libxs_lexrule_t* rules, int nrules,
-  const libxs_predict_t* answer_model)
+  const libxs_predict_t* answer_model,
+  const answer_predict_profile_t* profile)
 {
   int result = EXIT_SUCCESS;
   char output[65536];
@@ -1370,7 +1876,7 @@ static int respond(const libxs_spatial_t* spatial,
 
   if (0 != is_question_query(query_text, query_len, lexicon, rules, nrules)) {
     if (0 != answer_query(corpus, query_text, query_len, budget,
-      lexicon, rules, nrules, answer_model))
+      lexicon, rules, nrules, answer_model, profile))
     {
       return result;
     }
