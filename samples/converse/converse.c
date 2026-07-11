@@ -36,167 +36,17 @@ static libxs_registry_t* corpus_load(void);
 static int corpus_save(const libxs_registry_t* corpus);
 static int corpus_ingest_file(libxs_registry_t* corpus, const char* path);
 static int count_words(const unsigned char* text, int length);
-
-
 static double converse_score(const libxs_fprint_t* candidate,
-  const libxs_fprint_t* query, const libxs_fprint_t* prev)
-{
-  double low = 0, high = 0, coherence = 0;
-  int kmax = candidate->order < query->order
-    ? candidate->order : query->order;
-  int k;
-  for (k = 0; k <= kmax; ++k) {
-    double va = (candidate->nk[k] > 0)
-      ? candidate->acc_sq[k] / candidate->nk[k] : 0;
-    double vb = (query->nk[k] > 0)
-      ? query->acc_sq[k] / query->nk[k] : 0;
-    double ma = (candidate->nk[k] > 0)
-      ? candidate->acc_sum[k] / candidate->nk[k] : 0;
-    double mb = (query->nk[k] > 0)
-      ? query->acc_sum[k] / query->nk[k] : 0;
-    double dv = va - vb, dm = ma - mb;
-    double d2 = dv * dv + dm * dm;
-    if (k <= 1) low += d2;
-    else high += d2;
-  }
-  if (NULL != prev) {
-    for (k = 0; k <= kmax; ++k) {
-      double va = (candidate->nk[k] > 0)
-        ? candidate->acc_sq[k] / candidate->nk[k] : 0;
-      double vb = (prev->nk[k] > 0)
-        ? prev->acc_sq[k] / prev->nk[k] : 0;
-      double ma = (candidate->nk[k] > 0)
-        ? candidate->acc_sum[k] / candidate->nk[k] : 0;
-      double mb = (prev->nk[k] > 0)
-        ? prev->acc_sum[k] / prev->nk[k] : 0;
-      double dv = va - vb, dm = ma - mb;
-      coherence += dv * dv + dm * dm;
-    }
-  }
-  return (low + 0.2 * coherence) / (1.0 + 0.1 * high);
-}
-
-
-static uint64_t query_hilbert_code(const libxs_fprint_t* fp)
-{
-  unsigned int coords[COMPOSE_NDIMS];
-  int k;
-  for (k = 0; k <= 4 && k <= fp->order; ++k) {
-    double v = fp->l2[k], m = fp->mean[k];
-    if (v < 0) v = 0;
-    if (v > 1.0) v = 1.0;
-    if (m < -1.0) m = -1.0;
-    if (m > 1.0) m = 1.0;
-    coords[k] = (unsigned int)(v * ((1 << COMPOSE_BITS) - 1));
-    coords[5 + k] = (unsigned int)((m + 1.0) * 0.5 * ((1 << COMPOSE_BITS) - 1));
-  }
-  for (k = fp->order + 1; k <= 4; ++k) {
-    coords[k] = 0;
-    coords[5 + k] = 0;
-  }
-  return libxs_hilbert_bits(coords, COMPOSE_NDIMS, COMPOSE_BITS);
-}
-
-
-static int respond(const libxs_spatial_t* spatial, const libxs_fprint_t* query,
-  int budget)
-{
-  int result = EXIT_SUCCESS;
-  char output[65536];
-  size_t out_pos = 0;
-  int step;
-  libxs_fprint_t prev_fprint;
-  int have_prev = 0;
-  const corpus_entry_t* used[64];
-  int nused = 0;
-  void* candidates[256];
-  int ncandidates;
-  uint64_t qcode = query_hilbert_code(query);
-  unsigned char preferred_scale = (query->n > 60)
-    ? SCALE_PARAGRAPH : SCALE_SENTENCE;
-
-  ncandidates = libxs_spatial_nearest(spatial, qcode, 256, candidates);
-
-  for (step = 0; step < budget; ++step) {
-    const corpus_entry_t* best_entry = NULL;
-    double best_score = 1e30;
-    int ci;
-
-    for (ci = 0; ci < ncandidates; ++ci) {
-      const corpus_entry_t* e = (const corpus_entry_t*)candidates[ci];
-      if (e->text_len >= 40 && e->scale == preferred_scale) {
-        int skip = 0, u;
-        for (u = 0; u < nused && 0 == skip; ++u) {
-          if (used[u]->text_len == e->text_len
-            && 0 == memcmp(used[u]->text, e->text, (size_t)e->text_len))
-          {
-            skip = 1;
-          }
-        }
-        if (0 == skip) {
-          double score = converse_score(&e->fprint, query,
-            (0 != have_prev) ? &prev_fprint : NULL);
-          if (score < best_score) {
-            best_score = score;
-            best_entry = e;
-          }
-        }
-      }
-    }
-
-    if (NULL == best_entry) {
-      for (ci = 0; ci < ncandidates; ++ci) {
-        const corpus_entry_t* e = (const corpus_entry_t*)candidates[ci];
-        if (e->text_len >= 40) {
-          int skip = 0, u;
-          for (u = 0; u < nused && 0 == skip; ++u) {
-            if (used[u]->text_len == e->text_len
-              && 0 == memcmp(used[u]->text, e->text, (size_t)e->text_len))
-            {
-              skip = 1;
-            }
-          }
-          if (0 == skip) {
-            double score = converse_score(&e->fprint, query,
-              (0 != have_prev) ? &prev_fprint : NULL);
-            if (score < best_score) {
-              best_score = score;
-              best_entry = e;
-            }
-          }
-        }
-      }
-    }
-    if (NULL == best_entry) break;
-    if (nused < 64) used[nused++] = best_entry;
-
-    { const char* txt = best_entry->text;
-      int tlen = best_entry->text_len;
-      while (tlen > 0 && 0 != isspace((unsigned char)*txt)) {
-        ++txt; --tlen;
-      }
-      while (tlen > 0 && 0 != isspace((unsigned char)txt[tlen - 1])) {
-        --tlen;
-      }
-      if (tlen <= 0) continue;
-      if (out_pos > 0 && out_pos + 1 < sizeof(output)) {
-        output[out_pos++] = '\n';
-      }
-      if (out_pos + (size_t)tlen < sizeof(output)) {
-        memcpy(output + out_pos, txt, (size_t)tlen);
-        out_pos += (size_t)tlen;
-      }
-    }
-
-    prev_fprint = best_entry->fprint;
-    have_prev = 1;
-  }
-
-  if (out_pos > 0) {
-    printf("%.*s\n", (int)out_pos, output);
-  }
-  return result;
-}
+  const libxs_fprint_t* query, const libxs_fprint_t* prev);
+static int entry_used(const corpus_entry_t* e,
+  const corpus_entry_t* const used[], int nused);
+static const corpus_entry_t* select_best(void* const candidates[],
+  int ncandidates, const corpus_entry_t* const used[], int nused,
+  const libxs_fprint_t* query, const libxs_fprint_t* prev,
+  int require_scale, unsigned char preferred_scale);
+static uint64_t query_hilbert_code(const libxs_fprint_t* fp);
+static int respond(const libxs_spatial_t* spatial,
+  const libxs_fprint_t* query, int budget);
 
 
 int main(int argc, char* argv[])
@@ -509,5 +359,165 @@ static int corpus_ingest_file(libxs_registry_t* corpus, const char* path)
     libxs_token_stream_release(&stream);
   }
   free(text);
+  return result;
+}
+
+
+static double converse_score(const libxs_fprint_t* candidate,
+  const libxs_fprint_t* query, const libxs_fprint_t* prev)
+{
+  double low = 0, high = 0, coherence = 0;
+  int kmax = candidate->order < query->order
+    ? candidate->order : query->order;
+  int k;
+  for (k = 0; k <= kmax; ++k) {
+    double va = (candidate->nk[k] > 0)
+      ? candidate->acc_sq[k] / candidate->nk[k] : 0;
+    double vb = (query->nk[k] > 0)
+      ? query->acc_sq[k] / query->nk[k] : 0;
+    double ma = (candidate->nk[k] > 0)
+      ? candidate->acc_sum[k] / candidate->nk[k] : 0;
+    double mb = (query->nk[k] > 0)
+      ? query->acc_sum[k] / query->nk[k] : 0;
+    double dv = va - vb, dm = ma - mb;
+    double d2 = dv * dv + dm * dm;
+    if (k <= 1) low += d2;
+    else high += d2;
+  }
+  if (NULL != prev) {
+    for (k = 0; k <= kmax; ++k) {
+      double va = (candidate->nk[k] > 0)
+        ? candidate->acc_sq[k] / candidate->nk[k] : 0;
+      double vb = (prev->nk[k] > 0)
+        ? prev->acc_sq[k] / prev->nk[k] : 0;
+      double ma = (candidate->nk[k] > 0)
+        ? candidate->acc_sum[k] / candidate->nk[k] : 0;
+      double mb = (prev->nk[k] > 0)
+        ? prev->acc_sum[k] / prev->nk[k] : 0;
+      double dv = va - vb, dm = ma - mb;
+      coherence += dv * dv + dm * dm;
+    }
+  }
+  return (low + 0.2 * coherence) / (1.0 + 0.1 * high);
+}
+
+
+static int entry_used(const corpus_entry_t* e,
+  const corpus_entry_t* const used[], int nused)
+{
+  int result = 0, u;
+  for (u = 0; u < nused && 0 == result; ++u) {
+    if (used[u]->text_len == e->text_len
+      && 0 == libxs_memcmp(used[u]->text, e->text, (size_t)e->text_len))
+    {
+      result = 1;
+    }
+  }
+  return result;
+}
+
+
+static const corpus_entry_t* select_best(void* const candidates[],
+  int ncandidates, const corpus_entry_t* const used[], int nused,
+  const libxs_fprint_t* query, const libxs_fprint_t* prev,
+  int require_scale, unsigned char preferred_scale)
+{
+  const corpus_entry_t* result = NULL;
+  double best_score = 1e30;
+  int ci;
+  for (ci = 0; ci < ncandidates; ++ci) {
+    const corpus_entry_t* e = (const corpus_entry_t*)candidates[ci];
+    if (e->text_len >= 40
+      && (0 == require_scale || e->scale == preferred_scale)
+      && 0 == entry_used(e, used, nused))
+    {
+      double score = converse_score(&e->fprint, query, prev);
+      if (score < best_score) {
+        best_score = score;
+        result = e;
+      }
+    }
+  }
+  return result;
+}
+
+
+static uint64_t query_hilbert_code(const libxs_fprint_t* fp)
+{
+  unsigned int coords[COMPOSE_NDIMS];
+  int k;
+  for (k = 0; k <= 4 && k <= fp->order; ++k) {
+    double v = fp->l2[k], m = fp->mean[k];
+    if (v < 0) v = 0;
+    if (v > 1.0) v = 1.0;
+    if (m < -1.0) m = -1.0;
+    if (m > 1.0) m = 1.0;
+    coords[k] = (unsigned int)(v * ((1 << COMPOSE_BITS) - 1));
+    coords[5 + k] = (unsigned int)((m + 1.0) * 0.5 * ((1 << COMPOSE_BITS) - 1));
+  }
+  for (k = fp->order + 1; k <= 4; ++k) {
+    coords[k] = 0;
+    coords[5 + k] = 0;
+  }
+  return libxs_hilbert_bits(coords, COMPOSE_NDIMS, COMPOSE_BITS);
+}
+
+
+static int respond(const libxs_spatial_t* spatial, const libxs_fprint_t* query,
+  int budget)
+{
+  int result = EXIT_SUCCESS;
+  char output[65536];
+  size_t out_pos = 0;
+  int step;
+  libxs_fprint_t prev_fprint;
+  int have_prev = 0;
+  const corpus_entry_t* used[64];
+  int nused = 0;
+  void* candidates[256];
+  int ncandidates;
+  uint64_t qcode = query_hilbert_code(query);
+  unsigned char preferred_scale = (query->n > 60)
+    ? SCALE_PARAGRAPH : SCALE_SENTENCE;
+
+  ncandidates = libxs_spatial_nearest(spatial, qcode, 256, candidates);
+
+  for (step = 0; step < budget; ++step) {
+    const libxs_fprint_t* prev = (0 != have_prev) ? &prev_fprint : NULL;
+    const corpus_entry_t* best_entry = select_best(candidates, ncandidates,
+      used, nused, query, prev, 1, preferred_scale);
+
+    if (NULL == best_entry) {
+      best_entry = select_best(candidates, ncandidates,
+        used, nused, query, prev, 0, preferred_scale);
+    }
+    if (NULL == best_entry) break;
+    if (nused < 64) used[nused++] = best_entry;
+
+    { const char* txt = best_entry->text;
+      int tlen = best_entry->text_len;
+      while (tlen > 0 && 0 != isspace((unsigned char)*txt)) {
+        ++txt; --tlen;
+      }
+      while (tlen > 0 && 0 != isspace((unsigned char)txt[tlen - 1])) {
+        --tlen;
+      }
+      if (tlen <= 0) continue;
+      if (out_pos > 0 && out_pos + 1 < sizeof(output)) {
+        output[out_pos++] = '\n';
+      }
+      if (out_pos + (size_t)tlen < sizeof(output)) {
+        memcpy(output + out_pos, txt, (size_t)tlen);
+        out_pos += (size_t)tlen;
+      }
+    }
+
+    prev_fprint = best_entry->fprint;
+    have_prev = 1;
+  }
+
+  if (out_pos > 0) {
+    printf("%.*s\n", (int)out_pos, output);
+  }
   return result;
 }

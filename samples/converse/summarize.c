@@ -841,8 +841,9 @@ static void corpus_key_from_fprint(const libxs_fprint_t* fp,
 static void corpus_fixup(void* value, const void* key,
   size_t key_size, size_t value_size, void* udata)
 {
-  (void)value; (void)key; (void)key_size;
-  (void)value_size; (void)udata;
+  LIBXS_UNUSED(value); LIBXS_UNUSED(key);
+  LIBXS_UNUSED(key_size); LIBXS_UNUSED(value_size);
+  LIBXS_UNUSED(udata);
 }
 
 
@@ -1080,7 +1081,7 @@ static int compose_document(const libxs_registry_t* corpus,
           int skip = 0, u;
           for (u = 0; u < nused && 0 == skip; ++u) {
             if (used[u]->text_len == e->text_len
-              && 0 == memcmp(used[u]->text, e->text, (size_t)e->text_len))
+              && 0 == libxs_memcmp(used[u]->text, e->text, (size_t)e->text_len))
             {
               skip = 1;
             }
