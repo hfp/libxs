@@ -183,8 +183,12 @@ LIBXS_API_INTERN int internal_libxs_cpuid_x86(libxs_cpuid_t* info)
                   int has_vnni_int8 = 0;
                   LIBXS_CPUID_X86(7, 1/*ecx*/, eax2, ebx2, ecx3, edx2);
                   if (LIBXS_CPUID_CHECK(eax2, 0x00000010)) { /* AVX_VNNI_INT8 */
-                    feature_cpu = LIBXS_MAX(feature_cpu, LIBXS_X86_AVX512_INT8);
                     has_vnni_int8 = 1;
+                    /* keep the level monotone: INT8 (1110) sits above AMX (1105),
+                       so only elevate when AMX is present (fold requirement upward) */
+                    if (LIBXS_X86_AVX512_AMX <= feature_cpu) {
+                      feature_cpu = LIBXS_X86_AVX512_INT8;
+                    }
                   }
                   if (LIBXS_CPUID_CHECK(edx2, 0x00080000)) { /* AVX10 */
                     unsigned int eax_10, ebx_10, ecx_10, edx_10;
