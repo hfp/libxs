@@ -1,7 +1,11 @@
 /texts
+todo*
 *.bridges
 *.eval
+*.relations
 *.bin
 *.dat
 *.lex
 *.prd
+*.predict
+*.ngram

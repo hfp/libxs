@@ -1,9 +1,18 @@
 # Converse Sample
 
-This sample explores token-ID fingerprint summarization and composition. It
-uses the 8-byte `libxs_token_stream_encode` API for lexical IDs and classes,
-`libxs_fprint` to compare sentence fingerprints, and the registry plus Hilbert
-keys for a small compose-mode corpus.
+Converse is a small, self-contained language sample built on the libxs
+primitives: the 8-byte `libxs_token_stream_encode` lexical layer (stable
+vocabulary IDs and class flags), `libxs_fprint` sentence fingerprints, the
+registry, and the `libxs_predict` predictor. It climbs a deliberately
+conservative ladder -- grounded extractive question answering, learned relation
+and identity facts, and an experimental next-token predictor -- with every step
+exercised by a small evaluation harness.
+
+The purpose is a fully inspectable place to build and measure a language
+capability from the ground up, keeping all corpus knowledge in caller-owned data
+rather than in source. It is not an LLM. For the design rationale and the
+measured comparisons behind the different modes, see the companion paper under
+`~/papers/converse` (`paper.tex`).
 
 ## Build
 
@@ -22,9 +31,10 @@ Or from the `libxs` root:
 make GNU=1 PEDANTIC=2 samples/converse
 ```
 
-## Usage
+## Summarize and compose
 
-Summarize a file by repeatedly fusing adjacent sentences:
+Summarize a file by repeatedly fusing adjacent sentences (`-n` sets the target
+sentence count):
 
 ```bash
 ./summarize.x texts/prose1.txt
@@ -32,123 +42,135 @@ Summarize a file by repeatedly fusing adjacent sentences:
 printf '%s\n' 'First sentence. Second related sentence.' | ./summarize.x -
 ```
 
-The `-n` option sets the target sentence count in summarization mode.
-
-Compose mode ingests one or more files into `converse.dat`, fingerprints and
-tokenizes the first input as the target, and emits a short text assembled from
-corpus entries:
+Compose mode (`-g`) ingests one or more files into `converse.dat`, fingerprints
+and tokenizes the first input as the target, and emits a short assembled text
+(`-n` sets the phrase budget). Remove `converse.dat` to rebuild from scratch:
 
 ```bash
 ./summarize.x -g -n 8 texts/prose1.txt texts/prose2.txt
 ```
 
-The `-n` option sets the phrase budget in compose mode. The `-g` scorer still
-follows the fingerprint trajectory, but it now also rewards non-stopword target
-token ID coverage and penalizes repeated generated token IDs. Remove
-`converse.dat` to rebuild the local corpus from scratch.
+## Interactive question answering
 
-Run the interactive converse sample with one or more corpus files:
+Run the interactive sample with one or more corpus files:
 
 ```bash
 ./converse.x -n 3 texts/prejudice.txt texts/prose1.txt
+./converse.x -b texts/grimm
 ```
 
-Run a data-driven evaluation over a local fixture corpus. The sample reads
-`converse.eval` from the current directory; keep that file next to the local
-fixture text it describes:
+The `-b` option treats its argument as a file prefix and probes known filenames
+without scanning the directory: `name`, `name.txt`, and numbered `.txt` parts
+using `name-N.txt`, `name_N.txt`, or `name.N.txt`. Missing siblings are fine as
+long as at least one candidate file is usable.
+
+Question-shaped prompts are answered extractively and abstain
+(`I do not know from the corpus.`) when coverage is too low. Questions of the
+form `In Title, ...` are ranked only against a matching uppercase story heading.
+Non-question prompts use the fingerprint/Hilbert composition path.
+
+## Answer evaluation
+
+Run a data-driven evaluation over a local fixture. The sample reads
+`converse.eval` from the current directory; keep it next to the fixture text it
+describes:
 
 ```bash
-./converse.x -e texts/prose1.txt
+./converse.x -e -b texts/grimm
 ./converse.x -P temporal -e texts/prose1.txt
 ```
 
-The evaluator uses the same ingest, lexicon, stored `libxs_predict` model, and
-answer-ranking path as interactive mode. Each non-comment `converse.eval` line
-has three pipe-separated fields:
+Each non-comment `converse.eval` line has three required pipe-separated fields
+and an optional fourth:
 
 ```text
-question|expected-evidence-terms|expected-reply-terms
+question|expected-evidence-terms|expected-reply-terms|expected-fact-terms
 ```
 
 Expected terms are comma-separated. An empty evidence field marks an abstention
-case, and an empty reply field skips concise-reply checking for that case. The
-evaluator still reports the top answer, any selected answer, and reply checks,
-but overall pass/fail is based on any selected evidence plus the optional reply
-terms so generic reranking experiments do not make the fixture overly brittle.
+case; an empty reply field skips the concise-reply check. The optional fourth
+field checks the learned-fact reply path and is evaluated only when relation
+facts were learned this run (that is, when a `converse.relations` file is
+present), so the same fixture passes with or without rules. Three-field lines
+behave exactly as before.
 
-Question-shaped prompts use a conservative extractive path. The sample encodes
-query and corpus chunks with the lexical token layer, stores compact lexical
-sketches in the corpus entries, scores non-stopword token ID overlap, and emits
-the best matching evidence. Optional local bridge rules can be loaded from
-`converse.bridges` in the current directory, alongside the local corpus/eval
-fixture. Each non-comment line has five pipe-separated fields:
+## Local rule files
+
+All corpus-specific vocabulary stays in local, ignored rule files rather than in
+`converse.c`.
+
+Relation rules (`converse.relations`) keep aliases, person-like terms, and
+filler words out of source. Each non-comment line is one of:
+
+```text
+alias|query-relation|evidence-verb
+person|term
+skip|term
+```
+
+For example `alias|eaten|devoured`, `person|grandmother`, `skip|the`. After
+ingestion the sample rebuilds an in-memory fact index and reports
+`relation facts: N learned` and `identity facts: N learned`. Relation questions
+consult this index before falling back to raw evidence. Identity facts of the
+form `name is the role` draw their role words from the `person|term` rules and
+bind a role to a name only within a single sentence; a `Who is X?` question then
+answers from the highest-scoring identity fact for X, or abstains.
+
+Bridge rules (`converse.bridges`) provide optional evidence-backed answer frames.
+Each non-comment line has five pipe-separated fields:
 
 ```text
 name|query-groups|evidence-groups|score|reply
 ```
 
 Within query and evidence groups, whitespace separates required groups and `/`
-separates alternatives inside a group. Evidence terms can use `_` for a literal
-space, for example `Ice_formed/supply_boat`. The reply field may be literal text
-or a small answer frame. Built-in frames can fill evidence-backed slots such as
-`{after:lighthouse had}` or `{keywords-after:recorded everything:}`. The
-`keywords-after` frame tokenizes the selected evidence span, drops stopwords,
-de-duplicates token IDs, and composes a compact list.
-This lets the sample compose short grounded answers from selected evidence
-instead of storing every short answer verbatim. Generic `what is X` questions can
-also extract a short phrase around `X`, and unmatched question fallbacks print
-the best matching evidence sentence rather than an entire selected paragraph.
-For collection-style corpora with uppercase story headings, entries remember the
-current heading and questions of the form `In Title, ...` are ranked only against
-that story. Overlong sentences and paragraphs are also indexed through bounded
-clause fragments so evidence inside long quoted passages remains searchable
-without forcing paragraph-length answers. Question words select shallow answer
-types such as who, where, when, why, how, and yes/no; these types bias ranking
-toward entity, place, number, causal, or method markers from the stored sketches.
-Short factual questions prefer sentence-level evidence over
-longer paragraph evidence. When a selected top answer matches a grounded
-pattern, the chat prints a concise reply; otherwise it falls back to the
-selected evidence text. The answer path also trains and saves a `libxs_predict`
-model in `converse.prd` from weak query-type labels derived from the corpus
-sketches. At chat time the saved model reranks candidate evidence over numeric
-sketch features; if no saved model is available, a per-query model is built as a
-fallback. If the corpus does not cover enough of the question terms, it answers
-`I do not know from the corpus.` Non-question prompts keep using the
-fingerprint/Hilbert composition path.
+separates alternatives; evidence terms can use `_` for a literal space. The
+reply may be literal text or a small frame such as `{after:lighthouse had}` or
+`{keywords-after:recorded everything:}`.
 
-The answer reranker can be run with `-P PROFILE` to compare predictor setups
-against the same eval harness. The default `raw` profile uses weighted
-`LIBXS_PREDICT_RAW` inputs with `LIBXS_PREDICT_AUTO` output handling,
-polynomial order 1, automatic cluster count, and quality 0.0. The `poly2`
-profile forces interpolation with order 2, `smooth` enables automatic
-multi-cluster smoothing, and `temporal` exercises the standalone timeseries
-configuration with `libxs_predict_set_series`, `libxs_predict_set_target`,
-`libxs_predict_set_smooth`, and `libxs_predict_set_diff`. Training prints a
-compact model summary, for example `predict[persistent:raw]: ...`, and eval
-prints `eval[PROFILE]: ...`, so future profile experiments can be compared
-directly.
+## Next-token prediction
 
-The lexical layer uses compact 8-byte tokens whose first field is a stable
-vocabulary ID; the lexicon provides both text-to-ID and ID-to-text mapping.
-The tokenizer core only lowercases words. `converse.c` does not pass a
-sample-local normalization table; corpus- or language-specific rewrites should
-come from caller-owned data rather than compiled sample code.
-Loadable lexical rules assign coordinated classes such as stopword, question,
-entity, number, sentence, and markup in one place instead of scattering text
-edge cases through samples.
+A separate, experimental next-token predictor is trained from the ordered token
+stream of the ingested corpus and kept out of the grounded QA path. It is
+exercised through its own flags:
 
-This is still not an LLM. The current question path adds lexical semantics and
-answer abstention, but it does not learn paraphrase or derive facts. The current
-`libxs_predict` use is a weakly supervised reranker over token-sketch features.
-Later steps can train on token IDs and class flags more directly, for example
-previous-token windows to next-token ID or sentence-feature to
-following-sentence transitions.
+```bash
+./converse.x -E -b texts/grimm            # next-token accuracy (default trigram)
+./converse.x -E -K bigram -b texts/grimm  # choose the model
+printf 'the little\n' | ./converse.x -c -b texts/grimm   # suggestions + greedy
+```
 
-## Notes
+`-E` reports next-token accuracy; `-c` reads prompts and prints the top few
+next-token suggestions plus a short greedy continuation. `-H N` evaluates on a
+held-out split (train on the other sentences, test on 1-in-N) for an honest,
+non-memorized accuracy. The model is chosen with `-K`:
 
-The sample is intentionally experimental. It keeps all state in the sample
-directory, writes generated corpus data to `converse.dat`, and saves the
-converse vocabulary in `converse.lex` so persisted token IDs can be compared
-across runs. The answer reranker is saved in `converse.prd`. Reusing
-the same corpus files refreshes existing entries instead of duplicating them. It
-does not add a stable public summarization API.
+- `bigram` -- previous token to next token.
+- `trigram` (default) -- previous two tokens, backing off to bigram then to a
+  global unigram distribution.
+- `predict` -- `libxs_predict` over the previous token IDs, `-P PROFILE`.
+- `embed` -- `predict` over distributional token embeddings instead of raw IDs.
+- `rerank` -- `libxs_predict` reranks the trigram's candidate successors,
+  `-P PROFILE`.
+
+An optional `converse.predict` fixture of `context|expected-next` lines adds a
+curated check to `-E`. The predictor profiles for `-K predict|embed|rerank` are
+selected with `-P` (`raw`, `poly2`, `smooth`, `temporal`, `rf`, `fisher`,
+`hknn`); see the paper for which profiles suit prediction and why.
+
+## Local state files
+
+The sample keeps all state in the sample directory and reuses corpus files by
+refreshing existing entries instead of duplicating them. The following are local
+and ignored by version control:
+
+- `texts/` -- corpus files.
+- `converse.dat` -- persisted corpus registry.
+- `converse.lex` -- persisted lexicon and token IDs.
+- `converse.prd` -- persisted answer reranker.
+- `converse.eval` -- evaluation fixture.
+- `converse.relations`, `converse.bridges`, `converse.predict` -- optional rule
+  and fixture files.
+
+The sample is intentionally experimental and does not add a stable public
+summarization API.
