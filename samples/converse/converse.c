@@ -24,7 +24,14 @@
 #define PREDICT_EVAL_FILE "converse.predict"
 #define TOKEN_PREDICT_TRAIN_MAX 40000
 #define TOKEN_PREDICT_EVAL_STRIDE 40
-#define TOKEN_EMB_DIM 6
+#define TOKEN_EMB_DIM 16
+#define TOKEN_EMB_CTX 256
+#define TOKEN_EMB_WINDOW 2
+#define TOKEN_EMB_ITER 24
+#define TOKEN_EMB_BACKFILL_MIN 3
+#define TOKEN_EMB_BACKFILL_REF 5
+#define KNNLM_K 24
+#define KNNLM_VOTE_MAX 4
 #define RERANK_INPUTS 9
 #define RERANK_RELIABILITY 32.0
 #define RERANK_LIFT_MAX 8.0
@@ -101,6 +108,16 @@ typedef struct answer_identity_fact_t {
   double score;
 } answer_identity_fact_t;
 
+typedef struct answer_describe_fact_t {
+  char role[64];
+  char text[192];
+  char section[ENTRY_SECTION_MAX];
+  int role_len;
+  int text_len;
+  int section_len;
+  double score;
+} answer_describe_fact_t;
+
 typedef struct ngram_key_t {
   unsigned int a;
   unsigned int b;
@@ -136,6 +153,8 @@ static answer_relation_fact_t* answer_relation_facts = NULL;
 static size_t answer_relation_facts_size = 0;
 static answer_identity_fact_t* answer_identity_facts = NULL;
 static size_t answer_identity_facts_size = 0;
+static answer_describe_fact_t* answer_describe_facts = NULL;
+static size_t answer_describe_facts_size = 0;
 
 
 static libxs_registry_t* corpus_load(void);
@@ -225,6 +244,11 @@ static int answer_relation_fact_reply(const char* query_text,
 static void answer_identity_facts_free(void);
 static size_t answer_identity_facts_build(const libxs_registry_t* corpus);
 static void answer_identity_facts_report(FILE* stream);
+static void answer_describe_facts_free(void);
+static size_t answer_describe_facts_build(const libxs_registry_t* corpus);
+static void answer_describe_facts_report(FILE* stream);
+static int answer_describe_fact_reply(const char* query_text,
+  size_t query_len, char* output, size_t output_size);
 static int answer_identity_fact_reply(const char* query_text,
   size_t query_len, char* output, size_t output_size);
 static int answer_reply_role(char* output, size_t output_size,
@@ -307,9 +331,22 @@ static void ngram_complete(libxs_registry_t* model, libxs_lexicon_t* lexicon,
 static int ngram_eval(libxs_registry_t* model, const libxs_registry_t* corpus,
   libxs_lexicon_t* lexicon, const libxs_lexrule_t* rules, int nrules,
   int order, int holdout, const char* kind);
-static void token_emb_build(libxs_registry_t* ngram,
-  libxs_lexicon_t* lexicon);
+static void token_emb_build(const libxs_registry_t* corpus,
+  libxs_lexicon_t* lexicon, const libxs_lexrule_t* rules, int nrules,
+  int holdout);
 static void token_emb_free(void);
+static int knnlm_topk(libxs_registry_t* ngram, const libxs_predict_t* store,
+  unsigned int prev2, unsigned int prev1, int order, unsigned int out_ids[],
+  int k);
+static void knnlm_cache_free(void);
+static int knnlm_eval(libxs_registry_t* ngram, const libxs_predict_t* store,
+  const libxs_registry_t* corpus, libxs_lexicon_t* lexicon,
+  const libxs_lexrule_t* rules, int nrules, int order, int holdout,
+  const char* kind);
+static void knnlm_complete(libxs_registry_t* ngram,
+  const libxs_predict_t* store, libxs_lexicon_t* lexicon,
+  const libxs_lexrule_t* rules, int nrules, int order, const char* text,
+  int text_len);
 static libxs_predict_t* token_predict_build(const libxs_registry_t* corpus,
   libxs_lexicon_t* lexicon, const libxs_lexrule_t* rules, int nrules,
   const answer_predict_profile_t* profile, int use_emb, int holdout);
@@ -356,7 +393,7 @@ int main(int argc, char* argv[])
   libxs_predict_t* answer_model;
   libxs_lexrule_t rules[96];
   int i, budget = RESPONSE_BUDGET, eval_mode = 0;
-  int complete_mode = 0, predict_eval_mode = 0;
+  int complete_mode = 0, predict_eval_mode = 0, learn_mode = 0;
   int ngram_order = 2;
   int ngram_holdout = 0;
   const char* ngram_kind = "trigram";
@@ -375,9 +412,10 @@ int main(int argc, char* argv[])
       "  Interactive conversational agent.\n"
       "  -e: run converse.eval evaluation and exit.\n"
       "  -E: run next-token prediction evaluation and exit.\n"
+      "  -L: learn from the corpus, save state, and exit.\n"
       "  -c: read prompts and print next-token continuations.\n"
       "  -K KIND: next-token model "
-      "(bigram|trigram|predict|embed|rerank).\n"
+      "(bigram|trigram|predict|embed|rerank|knnlm).\n"
       "  -H N: held-out split; train on non-test, eval 1-in-N test.\n"
       "  -n N: response sentence budget (default %d).\n"
       "  -P PROFILE: answer predictor profile.\n"
@@ -398,6 +436,10 @@ int main(int argc, char* argv[])
     }
     else if (0 == strcmp(argv[i], "-E")) {
       predict_eval_mode = 1;
+      ++i;
+    }
+    else if (0 == strcmp(argv[i], "-L")) {
+      learn_mode = 1;
       ++i;
     }
     else if (0 == strcmp(argv[i], "-c")) {
@@ -430,10 +472,14 @@ int main(int argc, char* argv[])
         ngram_kind = "rerank";
         ngram_order = 2;
       }
+      else if (0 == strcmp(argv[i + 1], "knnlm")) {
+        ngram_kind = "knnlm";
+        ngram_order = 2;
+      }
       else {
         fprintf(stderr,
           "unknown prediction kind: %s "
-          "(use bigram|trigram|predict|embed|rerank)\n",
+          "(use bigram|trigram|predict|embed|rerank|knnlm)\n",
           argv[i + 1]);
         free(basenames);
         return EXIT_FAILURE;
@@ -511,6 +557,7 @@ int main(int argc, char* argv[])
         answer_relation_rules_free();
         answer_relation_facts_free();
         answer_identity_facts_free();
+        answer_describe_facts_free();
         free(basenames);
         return EXIT_FAILURE;
       }
@@ -534,15 +581,32 @@ int main(int argc, char* argv[])
   answer_relation_facts_report(stderr);
   answer_identity_facts_build(corpus);
   answer_identity_facts_report(stderr);
+  answer_describe_facts_build(corpus);
+  answer_describe_facts_report(stderr);
 
   libxs_registry_info(corpus, &rinfo);
   fprintf(stderr, "corpus: %lu sentences\n", (unsigned long)rinfo.size);
+
+  if (0 != learn_mode) {
+    fprintf(stderr, "learned: %s, %s, %s\n", CORPUS_FILE, LEXICON_FILE,
+      PREDICT_FILE);
+    libxs_predict_destroy(answer_model);
+    libxs_lexicon_destroy(lexicon);
+    libxs_registry_destroy(corpus);
+    answer_bridge_free_loaded();
+    answer_relation_rules_free();
+    answer_relation_facts_free();
+    answer_identity_facts_free();
+    answer_describe_facts_free();
+    return EXIT_SUCCESS;
+  }
 
   if (0 != predict_eval_mode || 0 != complete_mode) {
     int mode_result = EXIT_FAILURE;
     int use_predict = (0 == strcmp(ngram_kind, "predict")) ? 1 : 0;
     int use_embed = (0 == strcmp(ngram_kind, "embed")) ? 1 : 0;
     int use_rerank = (0 == strcmp(ngram_kind, "rerank")) ? 1 : 0;
+    int use_knnlm = (0 == strcmp(ngram_kind, "knnlm")) ? 1 : 0;
     libxs_predict_t* token_model = NULL;
     if (0 != use_predict) {
       token_model = token_predict_build(corpus, lexicon, rules, nrules,
@@ -551,8 +615,8 @@ int main(int argc, char* argv[])
     else {
       ngram_model = ngram_build(corpus, lexicon, rules, nrules, ngram_holdout);
       ngram_backoff_build(ngram_model, lexicon);
-      if (0 != use_embed) {
-        token_emb_build(ngram_model, lexicon);
+      if (0 != use_embed || 0 != use_knnlm) {
+        token_emb_build(corpus, lexicon, rules, nrules, ngram_holdout);
         token_model = token_predict_build(corpus, lexicon, rules, nrules,
           predict_profile, 1, ngram_holdout);
       }
@@ -576,6 +640,12 @@ int main(int argc, char* argv[])
         mode_result = rerank_eval(ngram_model, token_model, corpus, lexicon,
           rules, nrules, ngram_order, ngram_holdout, label);
       }
+      else if (0 != use_knnlm) {
+        char label[64];
+        sprintf(label, "knnlm:%s", predict_profile->name);
+        mode_result = knnlm_eval(ngram_model, token_model, corpus, lexicon,
+          rules, nrules, ngram_order, ngram_holdout, label);
+      }
       else {
         mode_result = ngram_eval(ngram_model, corpus, lexicon, rules, nrules,
           ngram_order, ngram_holdout, ngram_kind);
@@ -594,12 +664,17 @@ int main(int argc, char* argv[])
           rerank_complete(ngram_model, token_model, lexicon, rules, nrules,
             ngram_order, line, (int)len);
         }
+        else if (0 != use_knnlm) {
+          knnlm_complete(ngram_model, token_model, lexicon, rules, nrules,
+            ngram_order, line, (int)len);
+        }
         else ngram_complete(ngram_model, lexicon, rules, nrules,
           ngram_order, line, (int)len);
       }
       mode_result = EXIT_SUCCESS;
     }
     libxs_predict_destroy(token_model);
+    knnlm_cache_free();
     token_emb_free();
     ngram_backoff_free();
     libxs_registry_destroy(ngram_model);
@@ -611,6 +686,7 @@ int main(int argc, char* argv[])
     answer_relation_rules_free();
     answer_relation_facts_free();
     answer_identity_facts_free();
+    answer_describe_facts_free();
     return mode_result;
   }
 
@@ -625,6 +701,7 @@ int main(int argc, char* argv[])
     answer_relation_rules_free();
     answer_relation_facts_free();
     answer_identity_facts_free();
+    answer_describe_facts_free();
     return eval_result;
   }
 
@@ -637,6 +714,7 @@ int main(int argc, char* argv[])
       answer_relation_rules_free();
       answer_relation_facts_free();
       answer_identity_facts_free();
+      answer_describe_facts_free();
       return EXIT_FAILURE;
     }
     fprintf(stderr, "> ");
@@ -664,6 +742,7 @@ int main(int argc, char* argv[])
   answer_relation_rules_free();
   answer_relation_facts_free();
   answer_identity_facts_free();
+  answer_describe_facts_free();
   return EXIT_SUCCESS;
 }
 
@@ -1828,16 +1907,21 @@ static int answer_query_be_word(const char* query_text, size_t query_len,
   }
   if (marker_pos >= 0) {
     begin = (size_t)marker_pos + (size_t)marker_len;
-    while (begin < query_len
-      && 0 != isspace((unsigned char)query_text[begin])) ++begin;
-    end = begin;
-    while (end < query_len && 0 != isalnum((unsigned char)query_text[end])) {
-      ++end;
-    }
-    while (end < query_len && 0 != isalnum((unsigned char)query_text[end])) {
-      ++end;
-    }
-    result = (int)(end - begin);
+    do {
+      while (begin < query_len
+        && 0 != isspace((unsigned char)query_text[begin])) ++begin;
+      end = begin;
+      while (end < query_len && 0 != isalnum((unsigned char)query_text[end])) {
+        ++end;
+      }
+      result = (int)(end - begin);
+      if (result > 0 && 0 != answer_relation_rule_has_term(RELATION_RULE_SKIP,
+        query_text + begin, result))
+      {
+        begin = end;
+        result = 0;
+      }
+    } while (0 == result && end < query_len);
     if (result >= word_size) result = word_size - 1;
     if (result > 0) {
       memcpy(word, query_text + begin, (size_t)result);
@@ -2807,6 +2891,209 @@ static int answer_identity_fact_reply(const char* query_text,
   if (NULL != best) {
     result = answer_reply_role(output, output_size, best->name,
       best->name_len, best->role);
+  }
+  return result;
+}
+
+
+static void answer_describe_facts_free(void)
+{
+  free(answer_describe_facts);
+  answer_describe_facts = NULL;
+  answer_describe_facts_size = 0;
+}
+
+
+static int answer_describe_fact_append(const char* role, int role_len,
+  const char* text, int text_len, const corpus_entry_t* entry, double score)
+{
+  int result = EXIT_FAILURE;
+  answer_describe_fact_t fact;
+  answer_describe_fact_t* facts;
+  size_t fact_pos;
+  if (NULL == role || role_len <= 0 || role_len >= (int)sizeof(fact.role)
+    || NULL == text || text_len <= 0 || NULL == entry) return EXIT_FAILURE;
+  LIBXS_MEMZERO(&fact);
+  if (text_len >= (int)sizeof(fact.text)) text_len = (int)sizeof(fact.text) - 1;
+  memcpy(fact.role, role, (size_t)role_len);
+  fact.role[role_len] = '\0';
+  fact.role_len = role_len;
+  memcpy(fact.text, text, (size_t)text_len);
+  fact.text[text_len] = '\0';
+  fact.text_len = text_len;
+  fact.section_len = entry->section_len;
+  if (fact.section_len > 0) {
+    memcpy(fact.section, entry->section, (size_t)fact.section_len);
+    fact.section[fact.section_len] = '\0';
+  }
+  fact.score = score;
+  for (fact_pos = 0; fact_pos < answer_describe_facts_size; ++fact_pos) {
+    answer_describe_fact_t* old_fact = answer_describe_facts + fact_pos;
+    if (old_fact->role_len == fact.role_len
+      && 0 != text_contains_word_ci(old_fact->role, old_fact->role_len,
+        fact.role)
+      && old_fact->section_len == fact.section_len
+      && (0 == fact.section_len
+        || 0 != text_contains_ci(old_fact->section, old_fact->section_len,
+          fact.section)))
+    {
+      if (fact.score > old_fact->score) *old_fact = fact;
+      result = EXIT_SUCCESS;
+      break;
+    }
+  }
+  if (EXIT_SUCCESS != result) {
+    facts = (answer_describe_fact_t*)realloc(answer_describe_facts,
+      (answer_describe_facts_size + 1) * sizeof(*facts));
+    if (NULL != facts) {
+      answer_describe_facts = facts;
+      answer_describe_facts[answer_describe_facts_size] = fact;
+      ++answer_describe_facts_size;
+      result = EXIT_SUCCESS;
+    }
+  }
+  return result;
+}
+
+
+static int answer_describe_word_is_article(const char* word, int word_len)
+{
+  int result = 0;
+  if (NULL != word) {
+    if (1 == word_len && ('a' == (word[0] | 32))) result = 1;
+    else if (2 == word_len && ('a' == (word[0] | 32))
+      && ('n' == (word[1] | 32)))
+    {
+      result = 1;
+    }
+  }
+  return result;
+}
+
+
+static size_t answer_describe_facts_build(const libxs_registry_t* corpus)
+{
+  static const char delims[] = " \t\r\n.,;:!?()[]{}\"";
+  enum { DESCRIBE_GAP_MAX = 3 };
+  const void* key = NULL;
+  size_t cursor = 0;
+  void* value;
+  size_t result = 0;
+  answer_describe_facts_free();
+  if (NULL == corpus || 0 == answer_relation_rules_size) return 0;
+  value = libxs_registry_begin(corpus, &key, &cursor);
+  while (NULL != value) {
+    const corpus_entry_t* entry = (const corpus_entry_t*)value;
+    if (SCALE_SENTENCE == entry->scale) {
+      const char* article = NULL;
+      int gap = 0;
+      int token_index = 0;
+      const char* token;
+      const char* prev_end = entry->text;
+      int token_len = 0;
+      while (NULL != (token = libxs_strtoken(entry->text, delims,
+        token_index, &token_len)))
+      {
+        const char* scan;
+        for (scan = prev_end; scan < token; ++scan) {
+          if (0 == isspace((unsigned char)*scan)) article = NULL;
+        }
+        prev_end = token + token_len;
+        if (token_len > 0) {
+          int is_role = (token_len < 64
+            && 0 != answer_relation_rule_has_term(RELATION_RULE_PERSON,
+              token, token_len)) ? 1 : 0;
+          if (0 != is_role && NULL != article) {
+            const char* text_end = entry->text + entry->text_len;
+            const char* clause = token + token_len;
+            const char* end = clause;
+            double score = 1.0;
+            while (clause < text_end
+              && 0 != isspace((unsigned char)*clause)) ++clause;
+            if (clause < text_end && ',' == *clause) {
+              int rel_len = 0;
+              const char* rel = clause + 1;
+              while (rel < text_end
+                && 0 != isspace((unsigned char)*rel)) ++rel;
+              while (rel + rel_len < text_end
+                && 0 != isalnum((unsigned char)rel[rel_len])) ++rel_len;
+              if ((3 == rel_len && 0 == strncmp(rel, "who", 3))
+                || (5 == rel_len && 0 == strncmp(rel, "which", 5)))
+              {
+                end = rel + rel_len;
+                while (end < text_end && ',' != *end && '.' != *end
+                  && ';' != *end && '!' != *end && '?' != *end) ++end;
+                score = 2.0;
+              }
+            }
+            if (EXIT_SUCCESS == answer_describe_fact_append(token, token_len,
+              article, (int)(end - article), entry, score))
+            {
+              ++result;
+            }
+            article = NULL;
+          }
+          else if (0 != answer_describe_word_is_article(token, token_len)) {
+            article = token;
+            gap = 0;
+          }
+          else if (NULL != article && gap + 1 < DESCRIBE_GAP_MAX) ++gap;
+          else article = NULL;
+        }
+        ++token_index;
+      }
+    }
+    value = libxs_registry_next(corpus, &key, &cursor);
+  }
+  return result;
+}
+
+
+static void answer_describe_facts_report(FILE* stream)
+{
+  if (NULL != stream) {
+    fprintf(stream, "describe facts: %lu learned\n",
+      (unsigned long)answer_describe_facts_size);
+  }
+}
+
+
+static int answer_describe_fact_reply(const char* query_text,
+  size_t query_len, char* output, size_t output_size)
+{
+  int result = EXIT_FAILURE;
+  char role[64];
+  char query_section[ENTRY_SECTION_MAX];
+  int role_len;
+  int query_section_len;
+  const answer_describe_fact_t* best = NULL;
+  size_t fact_pos;
+  if (NULL == query_text || NULL == output || 0 == output_size
+    || 0 == answer_describe_facts_size) return EXIT_FAILURE;
+  role_len = answer_query_be_word(query_text, query_len, role,
+    (int)sizeof(role), NULL);
+  if (role_len <= 0 || 0 == answer_relation_rule_has_term(
+    RELATION_RULE_PERSON, role, role_len)) return EXIT_FAILURE;
+  query_section_len = answer_query_section(query_text, query_len,
+    query_section, (int)sizeof(query_section));
+  for (fact_pos = 0; fact_pos < answer_describe_facts_size; ++fact_pos) {
+    const answer_describe_fact_t* fact = answer_describe_facts + fact_pos;
+    if (fact->role_len == role_len
+      && 0 != text_contains_word_ci(fact->role, fact->role_len, role)
+      && (query_section_len <= 0 || fact->section_len <= 0
+        || 0 != text_contains_ci(fact->section, fact->section_len,
+          query_section))
+      && (NULL == best || fact->score > best->score))
+    {
+      best = fact;
+    }
+  }
+  if (NULL != best && (size_t)best->text_len + 2 <= output_size) {
+    memcpy(output, best->text, (size_t)best->text_len);
+    output[0] = (char)toupper((unsigned char)output[0]);
+    output[best->text_len] = '.';
+    output[best->text_len + 1] = '\0';
+    result = EXIT_SUCCESS;
   }
   return result;
 }
@@ -4313,6 +4600,8 @@ static int answer_fact_reply(const libxs_registry_t* corpus,
     || EXIT_SUCCESS == answer_relation_aggregate_reply(corpus, query_text,
       query_len, output, output_size)
     || EXIT_SUCCESS == answer_identity_fact_reply(query_text, query_len,
+      output, output_size)
+    || EXIT_SUCCESS == answer_describe_fact_reply(query_text, query_len,
       output, output_size))
   {
     result = EXIT_SUCCESS;
@@ -4639,6 +4928,11 @@ static int eval_converse(const libxs_registry_t* corpus,
           fields[0]);
         if (0 != fact_pass) ++nfact;
       }
+      else if (NULL != fields[3] && 0 == eval_terms_empty(fields[3])) {
+        fprintf(stdout, "SKIP fact %s\n", fields[0]);
+        --ncases;
+        continue;
+      }
       else {
         pass = (0 == nanswers) ? 1 : 0;
         fprintf(stdout, "%s abstain %s\n", (0 != pass) ? "PASS" : "FAIL",
@@ -4950,49 +5244,308 @@ static const double* token_emb_get(unsigned int id)
 }
 
 
-static void token_emb_build(libxs_registry_t* ngram, libxs_lexicon_t* lexicon)
+static unsigned int token_emb_hash(unsigned int id)
 {
-  unsigned int vocab = (NULL != lexicon) ? libxs_lexicon_size(lexicon) : 0;
-  token_emb_free();
-  if (NULL != ngram && vocab > 0) {
-    token_emb = (double*)calloc((size_t)(vocab + 1) * TOKEN_EMB_DIM,
-      sizeof(double));
-    if (NULL != token_emb) {
-      unsigned int id;
-      token_emb_size = vocab;
-      for (id = 1; id <= vocab; ++id) {
-        double* emb = token_emb + (size_t)id * TOKEN_EMB_DIM;
-        const ngram_entry_t* entry = ngram_lookup(ngram, 0, id);
-        unsigned int flags = 0;
-        int len = 0;
-        double prior = ngram_unigram_prior(id) * 50.0;
-        libxs_lexicon_text(lexicon, id, &len, &flags);
-        if (prior > 1.0) prior = 1.0;
-        emb[0] = (0 != (flags & LIBXS_LEXEME_STOP)) ? 1.0 : 0.0;
-        emb[1] = (0 != (flags & LIBXS_LEXEME_ENTITY)) ? 1.0 : 0.0;
-        emb[2] = prior;
-        if (NULL != entry && entry->total > 0) {
-          double total = (double)entry->total;
-          double top = 0.0, psucc_stop = 0.0, psucc_common = 0.0;
-          unsigned int slot;
-          for (slot = 0; slot < entry->nsucc; ++slot) {
-            double weight = (double)entry->succ[slot].count / total;
-            unsigned int succ_flags = 0;
-            int succ_len = 0;
-            libxs_lexicon_text(lexicon, entry->succ[slot].id, &succ_len,
-              &succ_flags);
-            if (weight > top) top = weight;
-            if (0 != (succ_flags & LIBXS_LEXEME_STOP)) psucc_stop += weight;
-            psucc_common += weight
-              * (ngram_unigram_prior(entry->succ[slot].id) * 50.0);
-          }
-          if (psucc_common > 1.0) psucc_common = 1.0;
-          emb[3] = 1.0 - top;
-          emb[4] = psucc_stop;
-          emb[5] = psucc_common;
+  return (id * 2654435761u) % TOKEN_EMB_CTX;
+}
+
+
+static void token_emb_cooc_text(double* cooc, double* rowcnt,
+  libxs_lexicon_t* lexicon, const libxs_lexrule_t* rules, int nrules,
+  const char* text, int text_len)
+{
+  libxs_lexeme_stream_t stream;
+  libxs_lexeme_stream_init(&stream);
+  if (NULL != cooc && NULL != lexicon && NULL != rules && nrules > 0
+    && text_len > 0 && EXIT_SUCCESS == libxs_lexeme_stream_encode(lexicon,
+      &stream, (const unsigned char*)text, (size_t)text_len, rules, nrules,
+      NULL, 0, 0))
+  {
+    unsigned int window[2 * TOKEN_EMB_WINDOW + 1];
+    int fill = 0;
+    size_t pos;
+    for (pos = 0; pos <= stream.size; ++pos) {
+      const libxs_lexeme_t* lex = (pos < stream.size)
+        ? (stream.data + pos) : NULL;
+      int boundary = (NULL == lex
+        || 0 != (lex->flags & LIBXS_LEXEME_SENTENCE)) ? 1 : 0;
+      if (NULL != lex && 0 == boundary
+        && 0 != (lex->flags & (LIBXS_LEXEME_WORD | LIBXS_LEXEME_NUMBER))
+        && 0 != lex->id)
+      {
+        int i;
+        for (i = 0; i < fill; ++i) {
+          unsigned int other = window[i];
+          cooc[(size_t)lex->id * TOKEN_EMB_CTX + token_emb_hash(other)] += 1.0;
+          cooc[(size_t)other * TOKEN_EMB_CTX + token_emb_hash(lex->id)] += 1.0;
+        }
+        if (fill < 2 * TOKEN_EMB_WINDOW) {
+          window[fill] = lex->id;
+          ++fill;
+        }
+        else {
+          for (i = 1; i < fill; ++i) window[i - 1] = window[i];
+          window[fill - 1] = lex->id;
+        }
+        if (NULL != rowcnt) rowcnt[lex->id] += 1.0;
+      }
+      if (0 != boundary) fill = 0;
+    }
+  }
+  libxs_lexeme_stream_release(&stream);
+}
+
+
+static void token_emb_reduce(double* cooc, unsigned int vocab)
+{
+  static double gram[TOKEN_EMB_CTX * TOKEN_EMB_CTX];
+  static double basis[TOKEN_EMB_CTX * TOKEN_EMB_DIM];
+  static double next[TOKEN_EMB_CTX * TOKEN_EMB_DIM];
+  unsigned int id, i, j, d, e, iter;
+  for (i = 0; i < TOKEN_EMB_CTX * TOKEN_EMB_CTX; ++i) gram[i] = 0.0;
+  for (id = 1; id <= vocab; ++id) {
+    const double* row = cooc + (size_t)id * TOKEN_EMB_CTX;
+    for (i = 0; i < TOKEN_EMB_CTX; ++i) {
+      if (0.0 != row[i]) {
+        for (j = 0; j < TOKEN_EMB_CTX; ++j) {
+          gram[i * TOKEN_EMB_CTX + j] += row[i] * row[j];
         }
       }
     }
+  }
+  for (i = 0; i < TOKEN_EMB_CTX; ++i) {
+    for (d = 0; d < TOKEN_EMB_DIM; ++d) {
+      unsigned int state = (i + 1) * 2654435761u + (d + 1) * 40503u;
+      state ^= state >> 13; state *= 1274126177u; state ^= state >> 16;
+      basis[i * TOKEN_EMB_DIM + d] = ((double)(state % 2000003u)
+        / 1000001.5) - 1.0;
+    }
+  }
+  for (iter = 0; iter < TOKEN_EMB_ITER; ++iter) {
+    for (i = 0; i < TOKEN_EMB_CTX; ++i) {
+      for (d = 0; d < TOKEN_EMB_DIM; ++d) {
+        double acc = 0.0;
+        for (j = 0; j < TOKEN_EMB_CTX; ++j) {
+          acc += gram[i * TOKEN_EMB_CTX + j] * basis[j * TOKEN_EMB_DIM + d];
+        }
+        next[i * TOKEN_EMB_DIM + d] = acc;
+      }
+    }
+    for (d = 0; d < TOKEN_EMB_DIM; ++d) {
+      double norm = 0.0;
+      for (e = 0; e < d; ++e) {
+        double dot = 0.0;
+        for (i = 0; i < TOKEN_EMB_CTX; ++i) {
+          dot += next[i * TOKEN_EMB_DIM + d] * next[i * TOKEN_EMB_DIM + e];
+        }
+        for (i = 0; i < TOKEN_EMB_CTX; ++i) {
+          next[i * TOKEN_EMB_DIM + d] -= dot * next[i * TOKEN_EMB_DIM + e];
+        }
+      }
+      for (i = 0; i < TOKEN_EMB_CTX; ++i) {
+        norm += next[i * TOKEN_EMB_DIM + d] * next[i * TOKEN_EMB_DIM + d];
+      }
+      norm = (norm > 0.0) ? (1.0 / sqrt(norm)) : 0.0;
+      for (i = 0; i < TOKEN_EMB_CTX; ++i) {
+        next[i * TOKEN_EMB_DIM + d] *= norm;
+      }
+    }
+    for (i = 0; i < TOKEN_EMB_CTX * TOKEN_EMB_DIM; ++i) basis[i] = next[i];
+  }
+  for (id = 1; id <= vocab; ++id) {
+    const double* row = cooc + (size_t)id * TOKEN_EMB_CTX;
+    double* emb = token_emb + (size_t)id * TOKEN_EMB_DIM;
+    double norm = 0.0;
+    for (d = 0; d < TOKEN_EMB_DIM; ++d) {
+      double acc = 0.0;
+      for (i = 0; i < TOKEN_EMB_CTX; ++i) {
+        if (0.0 != row[i]) acc += row[i] * basis[i * TOKEN_EMB_DIM + d];
+      }
+      emb[d] = acc;
+      norm += acc * acc;
+    }
+    norm = (norm > 0.0) ? (1.0 / sqrt(norm)) : 0.0;
+    for (d = 0; d < TOKEN_EMB_DIM; ++d) emb[d] *= norm;
+  }
+}
+
+
+static void token_emb_backfill(libxs_lexicon_t* lexicon,
+  const double* rowcnt, unsigned int vocab)
+{
+  unsigned int id;
+  for (id = 1; id <= vocab; ++id) {
+    unsigned int flags = 0;
+    int len = 0;
+    const char* text = libxs_lexicon_text(lexicon, id, &len, &flags);
+    if (NULL != text && len > 0 && len <= LIBXS_LEXEME_MAXBYTES
+      && 0 != (flags & LIBXS_LEXEME_WORD)
+      && rowcnt[id] < (double)TOKEN_EMB_BACKFILL_MIN)
+    {
+      char word[LIBXS_LEXEME_MAXBYTES + 1];
+      char cand[LIBXS_LEXEME_MAXBYTES + 1];
+      unsigned int other, best_id = 0;
+      int best_dist = 1 + len / 4;
+      memcpy(word, text, (size_t)len);
+      word[len] = '\0';
+      for (other = 1; other <= vocab; ++other) {
+        unsigned int cand_flags = 0;
+        int cand_len = 0;
+        const char* cand_text = libxs_lexicon_text(lexicon, other, &cand_len,
+          &cand_flags);
+        if (other != id && NULL != cand_text && cand_len > 0
+          && cand_len <= LIBXS_LEXEME_MAXBYTES
+          && 0 != (cand_flags & LIBXS_LEXEME_WORD)
+          && rowcnt[other] >= (double)TOKEN_EMB_BACKFILL_REF
+          && (word[0] | 32) == (cand_text[0] | 32)
+          && cand_len > len - best_dist && cand_len < len + best_dist)
+        {
+          int dist;
+          memcpy(cand, cand_text, (size_t)cand_len);
+          cand[cand_len] = '\0';
+          dist = libxs_stridist(word, cand);
+          if (dist >= 0 && dist < best_dist) {
+            best_dist = dist;
+            best_id = other;
+          }
+        }
+      }
+      if (0 != best_id) {
+        double* emb = token_emb + (size_t)id * TOKEN_EMB_DIM;
+        const double* ref = token_emb + (size_t)best_id * TOKEN_EMB_DIM;
+        double w = rowcnt[id] / (rowcnt[id] + 2.0);
+        double norm = 0.0;
+        int d;
+        for (d = 0; d < TOKEN_EMB_DIM; ++d) {
+          emb[d] = w * emb[d] + (1.0 - w) * ref[d];
+          norm += emb[d] * emb[d];
+        }
+        norm = (norm > 0.0) ? (1.0 / sqrt(norm)) : 0.0;
+        for (d = 0; d < TOKEN_EMB_DIM; ++d) emb[d] *= norm;
+      }
+    }
+  }
+}
+
+
+static void token_emb_probe(libxs_lexicon_t* lexicon, unsigned int vocab)
+{
+  const char* probe = getenv("CONVERSE_EMB_PROBE");
+  char word[LIBXS_LEXEME_MAXBYTES + 1];
+  int len;
+  while (NULL != probe && '\0' != *probe) {
+    const char* end = strchr(probe, ',');
+    unsigned int id;
+    len = (NULL != end) ? (int)(end - probe) : (int)strlen(probe);
+    if (len > 0 && len <= LIBXS_LEXEME_MAXBYTES) {
+      memcpy(word, probe, (size_t)len);
+      word[len] = '\0';
+      id = libxs_lexicon_id(lexicon, word, len, 0, 0);
+      if (0 != id && id <= vocab) {
+        const double* emb = token_emb + (size_t)id * TOKEN_EMB_DIM;
+        unsigned int best[5] = { 0 }, other, slot, nbest = 0;
+        double best_sim[5] = { 0 };
+        fprintf(stderr, "emb[%s]:", word);
+        for (other = 1; other <= vocab; ++other) {
+          if (other != id) {
+            const double* cand = token_emb + (size_t)other * TOKEN_EMB_DIM;
+            double sim = 0.0;
+            int d;
+            for (d = 0; d < TOKEN_EMB_DIM; ++d) sim += emb[d] * cand[d];
+            for (slot = 0; slot < nbest; ++slot) {
+              if (sim > best_sim[slot]) break;
+            }
+            if (slot < 5) {
+              unsigned int move;
+              if (nbest < 5) ++nbest;
+              for (move = nbest - 1; move > slot; --move) {
+                best[move] = best[move - 1];
+                best_sim[move] = best_sim[move - 1];
+              }
+              best[slot] = other;
+              best_sim[slot] = sim;
+            }
+          }
+        }
+        for (slot = 0; slot < nbest; ++slot) {
+          int blen = 0;
+          const char* btext = libxs_lexicon_text(lexicon, best[slot], &blen,
+            NULL);
+          if (NULL != btext && blen > 0) {
+            fprintf(stderr, " %.*s(%.2f)", blen, btext, best_sim[slot]);
+          }
+        }
+        fprintf(stderr, "\n");
+      }
+      else fprintf(stderr, "emb[%s]: not in lexicon\n", word);
+    }
+    probe = (NULL != end) ? (end + 1) : (probe + len);
+  }
+}
+
+
+static void token_emb_build(const libxs_registry_t* corpus,
+  libxs_lexicon_t* lexicon, const libxs_lexrule_t* rules, int nrules,
+  int holdout)
+{
+  unsigned int vocab = (NULL != lexicon) ? libxs_lexicon_size(lexicon) : 0;
+  token_emb_free();
+  if (NULL != corpus && vocab > 0) {
+    double* cooc = (double*)calloc((size_t)(vocab + 1) * TOKEN_EMB_CTX,
+      sizeof(double));
+    double* rowcnt = (double*)calloc((size_t)(vocab + 1), sizeof(double));
+    token_emb = (double*)calloc((size_t)(vocab + 1) * TOKEN_EMB_DIM,
+      sizeof(double));
+    if (NULL != cooc && NULL != rowcnt && NULL != token_emb) {
+      double colsum[TOKEN_EMB_CTX];
+      double total = 0.0;
+      const void* key = NULL;
+      size_t cursor = 0;
+      long index = 0;
+      unsigned int id, i;
+      const char* env;
+      void* value = libxs_registry_begin(corpus, &key, &cursor);
+      token_emb_size = vocab;
+      while (NULL != value) {
+        const corpus_entry_t* entry = (const corpus_entry_t*)value;
+        if (0 == predict_is_test(index, holdout)) {
+          token_emb_cooc_text(cooc, rowcnt, lexicon, rules, nrules,
+            entry->text, entry->text_len);
+        }
+        ++index;
+        value = libxs_registry_next(corpus, &key, &cursor);
+      }
+      for (i = 0; i < TOKEN_EMB_CTX; ++i) colsum[i] = 0.0;
+      for (id = 1; id <= vocab; ++id) {
+        const double* row = cooc + (size_t)id * TOKEN_EMB_CTX;
+        for (i = 0; i < TOKEN_EMB_CTX; ++i) {
+          colsum[i] += row[i];
+          total += row[i];
+        }
+      }
+      if (total > 0.0) {
+        for (id = 1; id <= vocab; ++id) {
+          double* row = cooc + (size_t)id * TOKEN_EMB_CTX;
+          double rowsum = 0.0;
+          for (i = 0; i < TOKEN_EMB_CTX; ++i) rowsum += row[i];
+          for (i = 0; i < TOKEN_EMB_CTX; ++i) {
+            if (row[i] > 0.0 && rowsum > 0.0 && colsum[i] > 0.0) {
+              double pmi = log((row[i] * total) / (rowsum * colsum[i]));
+              row[i] = (pmi > 0.0) ? pmi : 0.0;
+            }
+            else row[i] = 0.0;
+          }
+        }
+        token_emb_reduce(cooc, vocab);
+        env = getenv("CONVERSE_EMB_BACKFILL");
+        if (NULL == env || '0' != *env) {
+          token_emb_backfill(lexicon, rowcnt, vocab);
+        }
+        token_emb_probe(lexicon, vocab);
+      }
+    }
+    free(cooc);
+    free(rowcnt);
   }
 }
 
@@ -5252,6 +5805,15 @@ static libxs_predict_t* token_predict_build(const libxs_registry_t* corpus,
     void* value;
     libxs_predict_set_mode(model, profile->mode);
     libxs_predict_set_decompose(model, profile->decompose);
+    if (0 != use_emb) {
+      double weights[2 * TOKEN_EMB_DIM];
+      int dim;
+      for (dim = 0; dim < TOKEN_EMB_DIM; ++dim) {
+        weights[dim] = 1.0;
+        weights[TOKEN_EMB_DIM + dim] = 2.0;
+      }
+      libxs_predict_set_weights(model, weights);
+    }
     value = libxs_registry_begin(corpus, &key, &cursor);
     while (NULL != value && pushed < TOKEN_PREDICT_TRAIN_MAX) {
       const corpus_entry_t* entry = (const corpus_entry_t*)value;
@@ -5739,6 +6301,302 @@ static void rerank_complete(libxs_registry_t* ngram,
       const char* word;
       if (0 == rerank_topk(ngram, reranker, lexicon, step2, step1, order,
         step_ids, 1)) break;
+      word = libxs_lexicon_text(lexicon, step_ids[0], &len, NULL);
+      if (NULL == word || len <= 0) break;
+      printf(" %.*s", len, word);
+      step2 = step1;
+      step1 = step_ids[0];
+    }
+    printf("\n");
+  }
+}
+
+
+static const libxs_predict_t* knnlm_cache_model = NULL;
+static double* knnlm_cache_in = NULL;
+static unsigned int* knnlm_cache_next = NULL;
+static int knnlm_cache_size = 0;
+
+
+static void knnlm_cache_free(void)
+{
+  free(knnlm_cache_in);
+  free(knnlm_cache_next);
+  knnlm_cache_in = NULL;
+  knnlm_cache_next = NULL;
+  knnlm_cache_size = 0;
+  knnlm_cache_model = NULL;
+}
+
+
+static void knnlm_cache_build(const libxs_predict_t* store)
+{
+  libxs_predict_query_t stats;
+  knnlm_cache_free();
+  libxs_predict_query(store, &stats);
+  if (stats.nentries > 0) {
+    knnlm_cache_in = (double*)malloc((size_t)stats.nentries
+      * 2 * TOKEN_EMB_DIM * sizeof(double));
+    knnlm_cache_next = (unsigned int*)malloc((size_t)stats.nentries
+      * sizeof(unsigned int));
+    if (NULL != knnlm_cache_in && NULL != knnlm_cache_next) {
+      int i;
+      for (i = 0; i < stats.nentries; ++i) {
+        double out[1] = { 0 };
+        libxs_predict_get(store, i,
+          knnlm_cache_in + (size_t)i * 2 * TOKEN_EMB_DIM, out);
+        knnlm_cache_next[i] = (out[0] > 0.0)
+          ? (unsigned int)(out[0] + 0.5) : 0;
+      }
+      knnlm_cache_size = stats.nentries;
+      knnlm_cache_model = store;
+    }
+    else knnlm_cache_free();
+  }
+}
+
+
+static int knnlm_vote(const libxs_predict_t* store, unsigned int prev2,
+  unsigned int prev1, unsigned int vote_ids[], double vote_p[], int maxvote)
+{
+  int result = 0;
+  if (NULL != store && 0 != prev1) {
+    double in[2 * TOKEN_EMB_DIM];
+    int near_idx[KNNLM_K];
+    double near_dist[KNNLM_K];
+    unsigned int uniq_id[KNNLM_K];
+    double uniq_w[KNNLM_K];
+    int nnear = 0, nuniq = 0, i, j, dim;
+    double wtotal = 0.0;
+    if (knnlm_cache_model != store) knnlm_cache_build(store);
+    token_input_vector(prev2, prev1, 1, in);
+    for (i = 0; i < knnlm_cache_size; ++i) {
+      const double* entry = knnlm_cache_in + (size_t)i * 2 * TOKEN_EMB_DIM;
+      double dist = 0.0;
+      int slot;
+      for (dim = 0; dim < TOKEN_EMB_DIM; ++dim) {
+        double d2 = in[dim] - entry[dim];
+        double d1 = in[TOKEN_EMB_DIM + dim] - entry[TOKEN_EMB_DIM + dim];
+        dist += d2 * d2 + 4.0 * d1 * d1;
+      }
+      for (slot = nnear; slot > 0; --slot) {
+        if (dist >= near_dist[slot - 1]) break;
+      }
+      if (slot < KNNLM_K) {
+        int move = (nnear < KNNLM_K) ? nnear : (KNNLM_K - 1);
+        for (; move > slot; --move) {
+          near_idx[move] = near_idx[move - 1];
+          near_dist[move] = near_dist[move - 1];
+        }
+        near_idx[slot] = i;
+        near_dist[slot] = dist;
+        if (nnear < KNNLM_K) ++nnear;
+      }
+    }
+    for (i = 0; i < nnear; ++i) {
+      unsigned int next = knnlm_cache_next[near_idx[i]];
+      double w = 1.0 / (0.05 + near_dist[i]);
+      if (0 != next) {
+        for (j = 0; j < nuniq; ++j) {
+          if (uniq_id[j] == next) break;
+        }
+        if (j == nuniq) {
+          uniq_id[j] = next;
+          uniq_w[j] = 0.0;
+          ++nuniq;
+        }
+        uniq_w[j] += w;
+        wtotal += w;
+      }
+    }
+    while (result < maxvote && result < nuniq) {
+      int best = -1;
+      for (j = 0; j < nuniq; ++j) {
+        if (0.0 <= uniq_w[j] && (best < 0 || uniq_w[j] > uniq_w[best])) {
+          best = j;
+        }
+      }
+      if (best < 0 || uniq_w[best] <= 0.0) break;
+      vote_ids[result] = uniq_id[best];
+      vote_p[result] = uniq_w[best] / wtotal;
+      uniq_w[best] = -1.0;
+      ++result;
+    }
+  }
+  return result;
+}
+
+
+static int knnlm_topk(libxs_registry_t* ngram, const libxs_predict_t* store,
+  unsigned int prev2, unsigned int prev1, int order, unsigned int out_ids[],
+  int k)
+{
+  unsigned int ids[NGRAM_SUCC_MAX + KNNLM_VOTE_MAX];
+  double relfreq[NGRAM_SUCC_MAX];
+  double score[NGRAM_SUCC_MAX + KNNLM_VOTE_MAX];
+  int prov[NGRAM_SUCC_MAX];
+  int taken[NGRAM_SUCC_MAX + KNNLM_VOTE_MAX];
+  unsigned int vote_ids[KNNLM_VOTE_MAX];
+  double vote_p[KNNLM_VOTE_MAX];
+  int ctx_total = 0;
+  int n = ngram_candidates(ngram, prev2, prev1, order, ids, relfreq, prov,
+    &ctx_total, NGRAM_SUCC_MAX);
+  int nvote = knnlm_vote(store, prev2, prev1, vote_ids, vote_p,
+    KNNLM_VOTE_MAX);
+  double lambda;
+  int result = 0, rank, v;
+  const char* env = getenv("CONVERSE_KNNLM_LAMBDA");
+  if (NULL != env && '\0' != *env) {
+    lambda = atof(env);
+  }
+  else {
+    double t = (double)ctx_total;
+    int prov0 = (n > 0) ? prov[0] : 0;
+    if (2 == prov0) lambda = t / (t + 1.0);
+    else if (1 == prov0) lambda = 0.5;
+    else lambda = 0.1;
+  }
+  if (lambda < 0.0) lambda = 0.0;
+  if (lambda > 1.0) lambda = 1.0;
+  for (rank = 0; rank < n; ++rank) {
+    score[rank] = lambda * relfreq[rank];
+    taken[rank] = 0;
+  }
+  for (v = 0; v < nvote; ++v) {
+    for (rank = 0; rank < n; ++rank) {
+      if (ids[rank] == vote_ids[v]) break;
+    }
+    if (rank < n) {
+      score[rank] += (1.0 - lambda) * vote_p[v];
+    }
+    else if (n < NGRAM_SUCC_MAX + KNNLM_VOTE_MAX) {
+      ids[n] = vote_ids[v];
+      score[n] = (1.0 - lambda) * vote_p[v];
+      taken[n] = 0;
+      ++n;
+    }
+  }
+  while (result < k && result < n) {
+    int best = -1;
+    for (rank = 0; rank < n; ++rank) {
+      if (0 == taken[rank] && (best < 0 || score[rank] > score[best])) {
+        best = rank;
+      }
+    }
+    if (best < 0) break;
+    taken[best] = 1;
+    out_ids[result] = ids[best];
+    ++result;
+  }
+  return result;
+}
+
+
+static int knnlm_eval(libxs_registry_t* ngram, const libxs_predict_t* store,
+  const libxs_registry_t* corpus, libxs_lexicon_t* lexicon,
+  const libxs_lexrule_t* rules, int nrules, int order, int holdout,
+  const char* kind)
+{
+  int result = EXIT_FAILURE;
+  long npairs = 0, ntop1 = 0, ntopk = 0, seen = 0, index = 0;
+  const void* key = NULL;
+  size_t cursor = 0;
+  void* value;
+  if (NULL == ngram || NULL == store || NULL == corpus || NULL == lexicon) {
+    return EXIT_FAILURE;
+  }
+  value = libxs_registry_begin(corpus, &key, &cursor);
+  while (NULL != value) {
+    const corpus_entry_t* entry = (const corpus_entry_t*)value;
+    libxs_lexeme_stream_t stream;
+    int is_test = (0 == holdout || 0 != predict_is_test(index, holdout));
+    libxs_lexeme_stream_init(&stream);
+    if (0 != is_test && entry->text_len > 0
+      && EXIT_SUCCESS == libxs_lexeme_stream_encode(
+      lexicon, &stream, (const unsigned char*)entry->text,
+      (size_t)entry->text_len, rules, nrules, NULL, 0, 0))
+    {
+      size_t pos;
+      unsigned int prev1 = 0, prev2 = 0;
+      for (pos = 0; pos < stream.size; ++pos) {
+        const libxs_lexeme_t* lex = stream.data + pos;
+        if (0 != (lex->flags & (LIBXS_LEXEME_WORD | LIBXS_LEXEME_NUMBER))
+          && 0 != lex->id)
+        {
+          if (0 != prev1) {
+            if (0 == (seen % TOKEN_PREDICT_EVAL_STRIDE)) {
+              unsigned int ids[NGRAM_TOPK];
+              int n = knnlm_topk(ngram, store, prev2, prev1, order, ids,
+                NGRAM_TOPK);
+              int rank;
+              ++npairs;
+              for (rank = 0; rank < n; ++rank) {
+                if (ids[rank] == lex->id) {
+                  if (0 == rank) ++ntop1;
+                  ++ntopk;
+                  break;
+                }
+              }
+            }
+            ++seen;
+          }
+          prev2 = prev1;
+          prev1 = lex->id;
+        }
+        if (0 != (lex->flags & LIBXS_LEXEME_SENTENCE)) {
+          prev1 = 0;
+          prev2 = 0;
+        }
+      }
+    }
+    libxs_lexeme_stream_release(&stream);
+    ++index;
+    value = libxs_registry_next(corpus, &key, &cursor);
+  }
+  if (npairs > 0) {
+    fprintf(stdout,
+      "predict-%s%s: top1=%.1f%% top%d=%.1f%% n=%ld (stride=%d)\n",
+      kind, (holdout > 0) ? ":heldout" : "",
+      100.0 * (double)ntop1 / (double)npairs, NGRAM_TOPK,
+      100.0 * (double)ntopk / (double)npairs, npairs,
+      TOKEN_PREDICT_EVAL_STRIDE);
+    result = EXIT_SUCCESS;
+  }
+  return result;
+}
+
+
+static void knnlm_complete(libxs_registry_t* ngram,
+  const libxs_predict_t* store, libxs_lexicon_t* lexicon,
+  const libxs_lexrule_t* rules, int nrules, int order, const char* text,
+  int text_len)
+{
+  unsigned int prev2 = 0, prev1 = 0;
+  unsigned int ids[NGRAM_TOPK];
+  int n, i;
+  ngram_last_context(lexicon, rules, nrules, text, text_len, &prev2, &prev1);
+  n = knnlm_topk(ngram, store, prev2, prev1, order, ids, NGRAM_TOPK);
+  if (n <= 0) {
+    printf("(no continuation)\n");
+    return;
+  }
+  printf("next:");
+  for (i = 0; i < n; ++i) {
+    int len = 0;
+    const char* word = libxs_lexicon_text(lexicon, ids[i], &len, NULL);
+    if (NULL != word && len > 0) printf(" %.*s", len, word);
+  }
+  printf("\n");
+  { unsigned int step2 = prev2, step1 = prev1;
+    int step;
+    printf("greedy:");
+    for (step = 0; step < 12; ++step) {
+      unsigned int step_ids[1];
+      int len = 0;
+      const char* word;
+      if (0 == knnlm_topk(ngram, store, step2, step1, order, step_ids, 1)) {
+        break;
+      }
       word = libxs_lexicon_text(lexicon, step_ids[0], &len, NULL);
       if (NULL == word || len <= 0) break;
       printf(" %.*s", len, word);

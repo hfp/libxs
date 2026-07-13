@@ -1014,6 +1014,7 @@ static int compose_document(const libxs_registry_t* corpus,
   libxs_token_stream_init(&target_tokens);
   libxs_token_stream_init(&generated_tokens);
   if (NULL == corpus || NULL == target) return EXIT_FAILURE;
+  memset(&rinfo, 0, sizeof(rinfo));
   libxs_registry_info(corpus, &rinfo);
   if (0 == rinfo.size) {
     fprintf(stderr, "corpus is empty (run without -g first to ingest)\n");
