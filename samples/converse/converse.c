@@ -155,6 +155,7 @@ static answer_identity_fact_t* answer_identity_facts = NULL;
 static size_t answer_identity_facts_size = 0;
 static answer_describe_fact_t* answer_describe_facts = NULL;
 static size_t answer_describe_facts_size = 0;
+static long predict_ntotal = 0;
 
 
 static libxs_registry_t* corpus_load(void);
@@ -586,6 +587,7 @@ int main(int argc, char* argv[])
 
   libxs_registry_info(corpus, &rinfo);
   fprintf(stderr, "corpus: %lu sentences\n", (unsigned long)rinfo.size);
+  predict_ntotal = (long)rinfo.size;
 
   if (0 != learn_mode) {
     fprintf(stderr, "learned: %s, %s, %s\n", CORPUS_FILE, LEXICON_FILE,
@@ -5064,7 +5066,26 @@ static void ngram_train_text(libxs_registry_t* model,
 
 static int predict_is_test(long index, int holdout)
 {
-  return (holdout > 0 && 0 == (index % (long)holdout)) ? 1 : 0;
+  const char* tail;
+  if (holdout <= 0) return 0;
+  tail = getenv("CONVERSE_HOLDOUT_TAIL");
+  if (NULL != tail && '0' != tail[0] && predict_ntotal > 0) {
+    long split = predict_ntotal - predict_ntotal / (long)holdout;
+    return (index >= split) ? 1 : 0;
+  }
+  return (0 == (index % (long)holdout)) ? 1 : 0;
+}
+
+
+static int predict_eval_stride(void)
+{
+  int result = TOKEN_PREDICT_EVAL_STRIDE;
+  const char* env = getenv("CONVERSE_EVAL_STRIDE");
+  if (NULL != env && '\0' != *env) {
+    int value = atoi(env);
+    if (value > 0) result = value;
+  }
+  return result;
 }
 
 
@@ -5890,6 +5911,7 @@ static int token_predict_eval(const libxs_predict_t* model,
 {
   int result = EXIT_FAILURE;
   long npairs = 0, ntop1 = 0, seen = 0, index = 0;
+  int stride = predict_eval_stride();
   const void* key = NULL;
   size_t cursor = 0;
   void* value;
@@ -5913,7 +5935,7 @@ static int token_predict_eval(const libxs_predict_t* model,
           && 0 != lex->id)
         {
           if (0 != prev1) {
-            if (0 == (seen % TOKEN_PREDICT_EVAL_STRIDE)) {
+            if (0 == (seen % stride)) {
               unsigned int pred = token_predict_next(model, prev2, prev1,
                 use_emb);
               ++npairs;
@@ -5938,7 +5960,7 @@ static int token_predict_eval(const libxs_predict_t* model,
     fprintf(stdout, "predict-%s%s: top1=%.1f%% n=%ld (stride=%d)\n",
       kind, (holdout > 0) ? ":heldout" : "",
       100.0 * (double)ntop1 / (double)npairs, npairs,
-      TOKEN_PREDICT_EVAL_STRIDE);
+      stride);
     result = EXIT_SUCCESS;
   }
   return result;
@@ -6203,6 +6225,7 @@ static int rerank_eval(libxs_registry_t* ngram,
 {
   int result = EXIT_FAILURE;
   long npairs = 0, ntop1 = 0, ntopk = 0, seen = 0, index = 0;
+  int stride = predict_eval_stride();
   const void* key = NULL;
   size_t cursor = 0;
   void* value;
@@ -6228,7 +6251,7 @@ static int rerank_eval(libxs_registry_t* ngram,
           && 0 != lex->id)
         {
           if (0 != prev1) {
-            if (0 == (seen % TOKEN_PREDICT_EVAL_STRIDE)) {
+            if (0 == (seen % stride)) {
               unsigned int ids[NGRAM_TOPK];
               int n = rerank_topk(ngram, reranker, lexicon, prev2, prev1,
                 order, ids, NGRAM_TOPK);
@@ -6263,7 +6286,7 @@ static int rerank_eval(libxs_registry_t* ngram,
       kind, (holdout > 0) ? ":heldout" : "",
       100.0 * (double)ntop1 / (double)npairs, NGRAM_TOPK,
       100.0 * (double)ntopk / (double)npairs, npairs,
-      TOKEN_PREDICT_EVAL_STRIDE);
+      stride);
     result = EXIT_SUCCESS;
   }
   return result;
@@ -6316,16 +6339,90 @@ static const libxs_predict_t* knnlm_cache_model = NULL;
 static double* knnlm_cache_in = NULL;
 static unsigned int* knnlm_cache_next = NULL;
 static int knnlm_cache_size = 0;
+static double* knnlm_dyn_in = NULL;
+static unsigned int* knnlm_dyn_next = NULL;
+static int knnlm_dyn_size = 0;
+static int knnlm_dyn_cap = 0;
 
 
 static void knnlm_cache_free(void)
 {
   free(knnlm_cache_in);
   free(knnlm_cache_next);
+  free(knnlm_dyn_in);
+  free(knnlm_dyn_next);
   knnlm_cache_in = NULL;
   knnlm_cache_next = NULL;
+  knnlm_dyn_in = NULL;
+  knnlm_dyn_next = NULL;
   knnlm_cache_size = 0;
+  knnlm_dyn_size = 0;
+  knnlm_dyn_cap = 0;
   knnlm_cache_model = NULL;
+}
+
+
+static void knnlm_dyn_reset(void)
+{
+  knnlm_dyn_size = 0;
+}
+
+
+static void knnlm_dyn_insert(unsigned int prev2, unsigned int prev1,
+  unsigned int next)
+{
+  if (0 != prev1 && 0 != next) {
+    if (knnlm_dyn_size >= knnlm_dyn_cap) {
+      int cap = (knnlm_dyn_cap > 0) ? (2 * knnlm_dyn_cap) : 4096;
+      double* nin = (double*)realloc(knnlm_dyn_in,
+        (size_t)cap * 2 * TOKEN_EMB_DIM * sizeof(double));
+      unsigned int* nnext = (unsigned int*)realloc(knnlm_dyn_next,
+        (size_t)cap * sizeof(unsigned int));
+      if (NULL == nin || NULL == nnext) {
+        free(nin); free(nnext);
+        return;
+      }
+      knnlm_dyn_in = nin;
+      knnlm_dyn_next = nnext;
+      knnlm_dyn_cap = cap;
+    }
+    token_input_vector(prev2, prev1, 1,
+      knnlm_dyn_in + (size_t)knnlm_dyn_size * 2 * TOKEN_EMB_DIM);
+    knnlm_dyn_next[knnlm_dyn_size] = next;
+    ++knnlm_dyn_size;
+  }
+}
+
+
+static void knnlm_scan(const double* in, const double* cin,
+  const unsigned int* cnext, int count, unsigned int near_next[],
+  double near_dist[], int* nnear)
+{
+  int i, dim;
+  for (i = 0; i < count; ++i) {
+    const double* entry = cin + (size_t)i * 2 * TOKEN_EMB_DIM;
+    double dist = 0.0;
+    int slot;
+    if (0 == cnext[i]) continue;
+    for (dim = 0; dim < TOKEN_EMB_DIM; ++dim) {
+      double d2 = in[dim] - entry[dim];
+      double d1 = in[TOKEN_EMB_DIM + dim] - entry[TOKEN_EMB_DIM + dim];
+      dist += d2 * d2 + 4.0 * d1 * d1;
+    }
+    for (slot = *nnear; slot > 0; --slot) {
+      if (dist >= near_dist[slot - 1]) break;
+    }
+    if (slot < KNNLM_K) {
+      int move = (*nnear < KNNLM_K) ? *nnear : (KNNLM_K - 1);
+      for (; move > slot; --move) {
+        near_next[move] = near_next[move - 1];
+        near_dist[move] = near_dist[move - 1];
+      }
+      near_next[slot] = cnext[i];
+      near_dist[slot] = dist;
+      if (*nnear < KNNLM_K) ++*nnear;
+    }
+  }
 }
 
 
@@ -6362,52 +6459,31 @@ static int knnlm_vote(const libxs_predict_t* store, unsigned int prev2,
   int result = 0;
   if (NULL != store && 0 != prev1) {
     double in[2 * TOKEN_EMB_DIM];
-    int near_idx[KNNLM_K];
+    unsigned int near_next[KNNLM_K];
     double near_dist[KNNLM_K];
     unsigned int uniq_id[KNNLM_K];
     double uniq_w[KNNLM_K];
-    int nnear = 0, nuniq = 0, i, j, dim;
+    int nnear = 0, nuniq = 0, i, j;
     double wtotal = 0.0;
     if (knnlm_cache_model != store) knnlm_cache_build(store);
     token_input_vector(prev2, prev1, 1, in);
-    for (i = 0; i < knnlm_cache_size; ++i) {
-      const double* entry = knnlm_cache_in + (size_t)i * 2 * TOKEN_EMB_DIM;
-      double dist = 0.0;
-      int slot;
-      for (dim = 0; dim < TOKEN_EMB_DIM; ++dim) {
-        double d2 = in[dim] - entry[dim];
-        double d1 = in[TOKEN_EMB_DIM + dim] - entry[TOKEN_EMB_DIM + dim];
-        dist += d2 * d2 + 4.0 * d1 * d1;
-      }
-      for (slot = nnear; slot > 0; --slot) {
-        if (dist >= near_dist[slot - 1]) break;
-      }
-      if (slot < KNNLM_K) {
-        int move = (nnear < KNNLM_K) ? nnear : (KNNLM_K - 1);
-        for (; move > slot; --move) {
-          near_idx[move] = near_idx[move - 1];
-          near_dist[move] = near_dist[move - 1];
-        }
-        near_idx[slot] = i;
-        near_dist[slot] = dist;
-        if (nnear < KNNLM_K) ++nnear;
-      }
-    }
+    knnlm_scan(in, knnlm_cache_in, knnlm_cache_next, knnlm_cache_size,
+      near_next, near_dist, &nnear);
+    knnlm_scan(in, knnlm_dyn_in, knnlm_dyn_next, knnlm_dyn_size,
+      near_next, near_dist, &nnear);
     for (i = 0; i < nnear; ++i) {
-      unsigned int next = knnlm_cache_next[near_idx[i]];
+      unsigned int next = near_next[i];
       double w = 1.0 / (0.05 + near_dist[i]);
-      if (0 != next) {
-        for (j = 0; j < nuniq; ++j) {
-          if (uniq_id[j] == next) break;
-        }
-        if (j == nuniq) {
-          uniq_id[j] = next;
-          uniq_w[j] = 0.0;
-          ++nuniq;
-        }
-        uniq_w[j] += w;
-        wtotal += w;
+      for (j = 0; j < nuniq; ++j) {
+        if (uniq_id[j] == next) break;
       }
+      if (j == nuniq) {
+        uniq_id[j] = next;
+        uniq_w[j] = 0.0;
+        ++nuniq;
+      }
+      uniq_w[j] += w;
+      wtotal += w;
     }
     while (result < maxvote && result < nuniq) {
       int best = -1;
@@ -6499,12 +6575,16 @@ static int knnlm_eval(libxs_registry_t* ngram, const libxs_predict_t* store,
 {
   int result = EXIT_FAILURE;
   long npairs = 0, ntop1 = 0, ntopk = 0, seen = 0, index = 0;
+  int stride = predict_eval_stride();
+  const char* dyn_env = getenv("CONVERSE_KNNLM_DYN");
+  int dynamic = (NULL != dyn_env && '0' != dyn_env[0]) ? 1 : 0;
   const void* key = NULL;
   size_t cursor = 0;
   void* value;
   if (NULL == ngram || NULL == store || NULL == corpus || NULL == lexicon) {
     return EXIT_FAILURE;
   }
+  if (0 != dynamic) knnlm_dyn_reset();
   value = libxs_registry_begin(corpus, &key, &cursor);
   while (NULL != value) {
     const corpus_entry_t* entry = (const corpus_entry_t*)value;
@@ -6524,7 +6604,7 @@ static int knnlm_eval(libxs_registry_t* ngram, const libxs_predict_t* store,
           && 0 != lex->id)
         {
           if (0 != prev1) {
-            if (0 == (seen % TOKEN_PREDICT_EVAL_STRIDE)) {
+            if (0 == (seen % stride)) {
               unsigned int ids[NGRAM_TOPK];
               int n = knnlm_topk(ngram, store, prev2, prev1, order, ids,
                 NGRAM_TOPK);
@@ -6539,6 +6619,7 @@ static int knnlm_eval(libxs_registry_t* ngram, const libxs_predict_t* store,
               }
             }
             ++seen;
+            if (0 != dynamic) knnlm_dyn_insert(prev2, prev1, lex->id);
           }
           prev2 = prev1;
           prev1 = lex->id;
@@ -6555,11 +6636,11 @@ static int knnlm_eval(libxs_registry_t* ngram, const libxs_predict_t* store,
   }
   if (npairs > 0) {
     fprintf(stdout,
-      "predict-%s%s: top1=%.1f%% top%d=%.1f%% n=%ld (stride=%d)\n",
-      kind, (holdout > 0) ? ":heldout" : "",
+      "predict-%s%s%s: top1=%.1f%% top%d=%.1f%% n=%ld (stride=%d)\n",
+      kind, (0 != dynamic) ? ":dyn" : "", (holdout > 0) ? ":heldout" : "",
       100.0 * (double)ntop1 / (double)npairs, NGRAM_TOPK,
       100.0 * (double)ntopk / (double)npairs, npairs,
-      TOKEN_PREDICT_EVAL_STRIDE);
+      stride);
     result = EXIT_SUCCESS;
   }
   return result;
