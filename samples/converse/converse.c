@@ -21,6 +21,8 @@
 #define NGRAM_FILE "converse.ngram"
 #define NGRAM_SUCC_MAX 8
 #define NGRAM_TOPK 3
+#define NGRAM_NATIVE_WIDTH 4
+#define NGRAM_ORDER_MAX 6
 #define PREDICT_EVAL_FILE "converse.predict"
 #define TOKEN_PREDICT_TRAIN_MAX 40000
 #define TOKEN_PREDICT_EVAL_STRIDE 40
@@ -122,6 +124,11 @@ typedef struct ngram_key_t {
   unsigned int a;
   unsigned int b;
 } ngram_key_t;
+
+typedef struct ngram_keyk_t {
+  int n;
+  unsigned int ctx[NGRAM_ORDER_MAX];
+} ngram_keyk_t;
 
 typedef struct ngram_succ_t {
   unsigned int id;
@@ -326,12 +333,19 @@ static void ngram_backoff_build(libxs_registry_t* model,
 static void ngram_backoff_free(void);
 static const ngram_entry_t* ngram_lookup(libxs_registry_t* model,
   unsigned int ctx_a, unsigned int ctx_b);
+static int ngram_topk(const ngram_entry_t* entry, unsigned int out_ids[],
+  int k);
+static double ngram_unigram_prior(unsigned int id);
+static unsigned int ngram_backoff_ids[NGRAM_TOPK];
+static int ngram_backoff_count;
+static unsigned int ngram_unifreq_size;
 static void ngram_complete(libxs_registry_t* model, libxs_lexicon_t* lexicon,
   const libxs_lexrule_t* rules, int nrules, int order, const char* text,
   int text_len);
 static int ngram_eval(libxs_registry_t* model, const libxs_registry_t* corpus,
   libxs_lexicon_t* lexicon, const libxs_lexrule_t* rules, int nrules,
   int order, int holdout, const char* kind);
+static void ngram_stats(const libxs_registry_t* model);
 static void token_emb_build(const libxs_registry_t* corpus,
   libxs_lexicon_t* lexicon, const libxs_lexrule_t* rules, int nrules,
   int holdout);
@@ -652,6 +666,7 @@ int main(int argc, char* argv[])
         mode_result = ngram_eval(ngram_model, corpus, lexicon, rules, nrules,
           ngram_order, ngram_holdout, ngram_kind);
       }
+      ngram_stats(ngram_model);
     }
     else {
       while (NULL != fgets(line, (int)sizeof(line), stdin)) {
@@ -4982,51 +4997,342 @@ static int eval_converse(const libxs_registry_t* corpus,
 }
 
 
-static void ngram_observe(libxs_registry_t* model, unsigned int ctx_a,
-  unsigned int ctx_b, unsigned int succ_id)
+static void ngram_entry_add(ngram_entry_t* entry, unsigned int succ_id)
 {
-  ngram_entry_t* entry;
-  ngram_key_t key;
-  if (NULL == model || 0 == ctx_b || 0 == succ_id) return;
-  LIBXS_MEMZERO(&key);
-  key.a = ctx_a;
-  key.b = ctx_b;
-  entry = (ngram_entry_t*)libxs_registry_get(model, &key, sizeof(key), NULL);
-  if (NULL == entry) {
-    ngram_entry_t fresh;
-    LIBXS_MEMZERO(&fresh);
-    fresh.total = 1;
-    fresh.nsucc = 1;
-    fresh.succ[0].id = succ_id;
-    fresh.succ[0].count = 1;
-    libxs_registry_set(model, &key, sizeof(key), &fresh, sizeof(fresh), NULL);
+  unsigned int slot;
+  int found = 0;
+  entry->total += 1;
+  for (slot = 0; slot < entry->nsucc && 0 == found; ++slot) {
+    if (entry->succ[slot].id == succ_id) {
+      entry->succ[slot].count += 1;
+      found = 1;
+    }
   }
-  else {
+  if (0 == found) {
+    if (entry->nsucc < NGRAM_SUCC_MAX) {
+      entry->succ[entry->nsucc].id = succ_id;
+      entry->succ[entry->nsucc].count = 1;
+      entry->nsucc += 1;
+    }
+    else {
+      unsigned int min_slot = 0;
+      for (slot = 1; slot < entry->nsucc; ++slot) {
+        if (entry->succ[slot].count < entry->succ[min_slot].count) {
+          min_slot = slot;
+        }
+      }
+      entry->succ[min_slot].id = succ_id;
+      entry->succ[min_slot].count += 1;
+    }
+  }
+}
+
+
+static void ngramk_make_key(ngram_keyk_t* key, const unsigned int hist[],
+  int hlen, int n)
+{
+  int i;
+  LIBXS_MEMZERO(key);
+  key->n = n;
+  for (i = 0; i < n; ++i) key->ctx[i] = hist[hlen - n + i];
+}
+
+
+/* Observe every context length 1..maxorder ending at hist[hlen-1] -> succ. */
+static void ngramk_observe(libxs_registry_t* model, const unsigned int hist[],
+  int hlen, unsigned int succ_id, int maxorder)
+{
+  int n;
+  if (NULL == model || 0 == succ_id) return;
+  for (n = 1; n <= maxorder && n <= hlen; ++n) {
+    ngram_keyk_t key;
+    ngram_entry_t* entry;
+    int ok = 1, i;
+    for (i = 0; i < n; ++i) {
+      if (0 == hist[hlen - n + i]) ok = 0;
+    }
+    if (0 == ok) continue;
+    ngramk_make_key(&key, hist, hlen, n);
+    entry = (ngram_entry_t*)libxs_registry_get(model, &key, sizeof(key), NULL);
+    if (NULL == entry) {
+      ngram_entry_t fresh;
+      LIBXS_MEMZERO(&fresh);
+      fresh.total = 1;
+      fresh.nsucc = 1;
+      fresh.succ[0].id = succ_id;
+      fresh.succ[0].count = 1;
+      libxs_registry_set(model, &key, sizeof(key), &fresh, sizeof(fresh),
+        NULL);
+    }
+    else ngram_entry_add(entry, succ_id);
+  }
+}
+
+
+static const ngram_entry_t* ngramk_lookup(libxs_registry_t* model,
+  const unsigned int hist[], int hlen, int n)
+{
+  ngram_keyk_t key;
+  if (NULL == model || n <= 0 || n > hlen) return NULL;
+  ngramk_make_key(&key, hist, hlen, n);
+  return (const ngram_entry_t*)libxs_registry_get(model, &key, sizeof(key),
+    NULL);
+}
+
+
+static double ngramk_relfreq(const ngram_entry_t* entry, unsigned int succ_id)
+{
+  double result = 0.0;
+  if (NULL != entry && entry->total > 0) {
     unsigned int slot;
-    int found = 0;
-    entry->total += 1;
-    for (slot = 0; slot < entry->nsucc && 0 == found; ++slot) {
+    for (slot = 0; slot < entry->nsucc; ++slot) {
       if (entry->succ[slot].id == succ_id) {
-        entry->succ[slot].count += 1;
-        found = 1;
+        result = (double)entry->succ[slot].count / (double)entry->total;
+        break;
       }
     }
-    if (0 == found) {
-      if (entry->nsucc < NGRAM_SUCC_MAX) {
-        entry->succ[entry->nsucc].id = succ_id;
-        entry->succ[entry->nsucc].count = 1;
-        entry->nsucc += 1;
+  }
+  return result;
+}
+
+
+/* Interpolated backoff over orders 1..maxorder (longest context wins most). */
+static double ngramk_prob(libxs_registry_t* model, const unsigned int hist[],
+  int hlen, int maxorder, unsigned int next)
+{
+  double vocab = (ngram_unifreq_size > 0) ? (double)ngram_unifreq_size : 1.0;
+  double uni_floor = 1.0 / (vocab + 1.0);
+  double p_uni = ngram_unigram_prior(next);
+  double p = (p_uni > 0.0) ? p_uni : uni_floor;
+  int n;
+  for (n = 1; n <= maxorder && n <= hlen; ++n) {
+    const ngram_entry_t* entry = ngramk_lookup(model, hist, hlen, n);
+    if (NULL != entry && entry->total > 0) {
+      double t = (double)entry->total;
+      double lambda = t / (t + 1.0);
+      p = lambda * ngramk_relfreq(entry, next) + (1.0 - lambda) * p;
+    }
+  }
+  if (p < uni_floor) p = uni_floor;
+  if (p > 1.0) p = 1.0;
+  return p;
+}
+
+
+/* Top-k successors from the longest context that has an entry (hard backoff). */
+static int ngramk_predict(libxs_registry_t* model, const unsigned int hist[],
+  int hlen, int maxorder, unsigned int out_ids[], int k)
+{
+  const ngram_entry_t* entry = NULL;
+  int n;
+  for (n = (maxorder < hlen) ? maxorder : hlen; n >= 1 && NULL == entry; --n) {
+    entry = ngramk_lookup(model, hist, hlen, n);
+  }
+  if (NULL != entry) return ngram_topk(entry, out_ids, k);
+  { int slot, result = 0;
+    for (slot = 0; slot < k && slot < ngram_backoff_count; ++slot) {
+      out_ids[slot] = ngram_backoff_ids[slot];
+      ++result;
+    }
+    return result;
+  }
+}
+
+
+enum { GRAN_WORD = 0, GRAN_NATIVE = 1, GRAN_SYLLABLE = 2 };
+
+
+static int ngram_gran_mode(void)
+{
+  const char* env = getenv("CONVERSE_GRAN");
+  if (NULL != env) {
+    if (0 == strcmp(env, "native")) return GRAN_NATIVE;
+    if (0 == strcmp(env, "syllable")) return GRAN_SYLLABLE;
+  }
+  return GRAN_WORD;
+}
+
+
+static int ngram_native_mode(void)
+{
+  return (GRAN_WORD != ngram_gran_mode()) ? 1 : 0;
+}
+
+
+static int ngram_is_vowel(unsigned char c)
+{
+  c = (unsigned char)tolower(c);
+  return ('a' == c || 'e' == c || 'i' == c || 'o' == c || 'u' == c
+    || 'y' == c) ? 1 : 0;
+}
+
+
+static int ngram_is_wordchar(unsigned char c)
+{
+  return (0 != isalnum(c)) ? 1 : 0;
+}
+
+
+/* Split a word [text,wlen) into syllable pieces by a simple VC|CV heuristic:
+   cut before a consonant that is followed by a vowel, once the current piece
+   already contains a vowel. Caps piece length; always ends at word end. */
+static int ngram_syllable_split(const char* text, int wlen, int piece_begin[],
+  int piece_len[], int max)
+{
+  int result = 0;
+  int start = 0, i = 0, seen_vowel = 0;
+  while (i < wlen && result < max) {
+    int cut = 0;
+    if (i > start) {
+      unsigned char c = (unsigned char)text[i];
+      if (0 != seen_vowel && 0 == ngram_is_vowel(c)
+        && i + 1 < wlen && 0 != ngram_is_vowel((unsigned char)text[i + 1]))
+      {
+        cut = 1;
       }
-      else {
-        unsigned int min_slot = 0;
-        for (slot = 1; slot < entry->nsucc; ++slot) {
-          if (entry->succ[slot].count < entry->succ[min_slot].count) {
-            min_slot = slot;
-          }
-        }
-        entry->succ[min_slot].id = succ_id;
-        entry->succ[min_slot].count += 1;
+      else if (i - start >= NGRAM_NATIVE_WIDTH && 0 != seen_vowel) cut = 1;
+    }
+    if (0 != cut) {
+      piece_begin[result] = start;
+      piece_len[result] = i - start;
+      ++result;
+      start = i;
+      seen_vowel = 0;
+    }
+    if (0 != ngram_is_vowel((unsigned char)text[i])) seen_vowel = 1;
+    ++i;
+  }
+  if (start < wlen && result < max) {
+    piece_begin[result] = start;
+    piece_len[result] = wlen - start;
+    ++result;
+  }
+  return result;
+}
+
+
+static int ngram_native_tokens(libxs_lexicon_t* lexicon, const char* text,
+  int text_len, unsigned int ids[], unsigned short bytelens[], int max,
+  int create)
+{
+  int result = 0;
+  int pos = 0;
+  int mode = ngram_gran_mode();
+  if (GRAN_SYLLABLE != mode) {
+    while (pos < text_len && result < max) {
+      int len = text_len - pos;
+      unsigned int id;
+      if (len > NGRAM_NATIVE_WIDTH) len = NGRAM_NATIVE_WIDTH;
+      id = libxs_lexicon_id(lexicon, text + pos, len,
+        LIBXS_LEXEME_WORD, create);
+      if (0 == id) break;
+      ids[result] = id;
+      bytelens[result] = (unsigned short)len;
+      ++result;
+      pos += len;
+    }
+    return result;
+  }
+  while (pos < text_len && result < max) {
+    unsigned char c = (unsigned char)text[pos];
+    if (0 == ngram_is_wordchar(c)) {
+      unsigned int id = libxs_lexicon_id(lexicon, text + pos, 1,
+        LIBXS_LEXEME_PUNCT, create);
+      if (0 == id) break;
+      ids[result] = id;
+      bytelens[result] = 1;
+      ++result;
+      ++pos;
+    }
+    else {
+      int wlen = 0;
+      int piece_begin[COMPOSE_MAXTEXT / 2];
+      int piece_len[COMPOSE_MAXTEXT / 2];
+      int np, pi;
+      while (pos + wlen < text_len
+        && 0 != ngram_is_wordchar((unsigned char)text[pos + wlen])) ++wlen;
+      np = ngram_syllable_split(text + pos, wlen, piece_begin, piece_len,
+        (int)(sizeof(piece_len) / sizeof(*piece_len)));
+      for (pi = 0; pi < np && result < max; ++pi) {
+        char buf[LIBXS_LEXEME_MAXBYTES + 1];
+        int plen = piece_len[pi];
+        int off = 0;
+        unsigned int id;
+        if (0 == pi) buf[off++] = ' ';
+        if (plen > (int)sizeof(buf) - 1 - off) plen = (int)sizeof(buf) - 1 - off;
+        memcpy(buf + off, text + pos + piece_begin[pi], (size_t)plen);
+        id = libxs_lexicon_id(lexicon, buf, off + plen,
+          LIBXS_LEXEME_WORD, create);
+        if (0 == id) break;
+        ids[result] = id;
+        bytelens[result] = (unsigned short)piece_len[pi];
+        ++result;
       }
+      pos += wlen;
+    }
+  }
+  return result;
+}
+
+
+static int ngram_order(void)
+{
+  int result = 2;
+  const char* env = getenv("CONVERSE_NGRAM_ORDER");
+  if (NULL != env && '\0' != *env) {
+    int v = atoi(env);
+    if (v >= 1 && v <= NGRAM_ORDER_MAX) result = v;
+  }
+  return result;
+}
+
+
+/* Per-order footprint of the n-gram store (gated by CONVERSE_NGRAM_STATS). */
+static void ngram_stats(const libxs_registry_t* model)
+{
+  const char* env = getenv("CONVERSE_NGRAM_STATS");
+  if (NULL != model && NULL != env && '\0' != *env && '0' != *env) {
+    long keys[NGRAM_ORDER_MAX + 1];
+    double obs[NGRAM_ORDER_MAX + 1];
+    long full[NGRAM_ORDER_MAX + 1];
+    libxs_registry_info_t info;
+    const void* key = NULL;
+    size_t cursor = 0;
+    void* value;
+    int n;
+    for (n = 0; n <= NGRAM_ORDER_MAX; ++n) {
+      keys[n] = 0;
+      obs[n] = 0.0;
+      full[n] = 0;
+    }
+    value = libxs_registry_begin(model, &key, &cursor);
+    while (NULL != value) {
+      const ngram_entry_t* entry = (const ngram_entry_t*)value;
+      const ngram_keyk_t* entry_key = (const ngram_keyk_t*)key;
+      if (NULL != entry_key && entry_key->n >= 1
+        && entry_key->n <= NGRAM_ORDER_MAX)
+      {
+        n = entry_key->n;
+        keys[n] += 1;
+        obs[n] += (double)entry->total;
+        if (NGRAM_SUCC_MAX <= entry->nsucc) full[n] += 1;
+      }
+      value = libxs_registry_next(model, &key, &cursor);
+    }
+    for (n = 1; n <= NGRAM_ORDER_MAX; ++n) {
+      if (keys[n] > 0) {
+        fprintf(stdout,
+          "ngram-stats[n=%d]: keys=%ld obs=%.0f obs/key=%.2f full=%.1f%%\n",
+          n, keys[n], obs[n], obs[n] / (double)keys[n],
+          100.0 * (double)full[n] / (double)keys[n]);
+      }
+    }
+    if (EXIT_SUCCESS == libxs_registry_info(model, &info) && info.size > 0) {
+      fprintf(stdout,
+        "ngram-stats[all]: entries=%lu bytes=%lu cap=%lu bytes/entry=%.1f\n",
+        (unsigned long)info.size, (unsigned long)info.nbytes,
+        (unsigned long)info.capacity,
+        (double)info.nbytes / (double)info.size);
     }
   }
 }
@@ -5036,31 +5342,54 @@ static void ngram_train_text(libxs_registry_t* model,
   libxs_lexicon_t* lexicon, const libxs_lexrule_t* rules, int nrules,
   const char* text, int text_len)
 {
-  libxs_lexeme_stream_t stream;
-  libxs_lexeme_stream_init(&stream);
-  if (NULL != model && NULL != lexicon && NULL != rules && nrules > 0
-    && text_len > 0 && EXIT_SUCCESS == libxs_lexeme_stream_encode(lexicon,
-      &stream, (const unsigned char*)text, (size_t)text_len, rules, nrules,
-      NULL, 0, 1))
-  {
-    size_t pos;
-    unsigned int prev1 = 0, prev2 = 0;
-    for (pos = 0; pos < stream.size; ++pos) {
-      const libxs_lexeme_t* lex = stream.data + pos;
-      if (0 != (lex->flags & (LIBXS_LEXEME_WORD | LIBXS_LEXEME_NUMBER))
-        && 0 != lex->id)
-      {
-        if (0 != prev1) ngram_observe(model, 0, prev1, lex->id);
-        if (0 != prev1 && 0 != prev2) {
-          ngram_observe(model, prev2, prev1, lex->id);
-        }
-        prev2 = prev1;
-        prev1 = lex->id;
+  int maxorder = ngram_order();
+  if (0 != ngram_native_mode()) {
+    unsigned int ids[COMPOSE_MAXTEXT];
+    unsigned short bytelens[COMPOSE_MAXTEXT];
+    int ntok = ngram_native_tokens(lexicon, text, text_len, ids, bytelens,
+      COMPOSE_MAXTEXT, 1);
+    unsigned int hist[NGRAM_ORDER_MAX];
+    int hlen = 0, i;
+    if (NULL == model) return;
+    for (i = 0; i < ntok; ++i) {
+      if (hlen > 0) ngramk_observe(model, hist, hlen, ids[i], maxorder);
+      if (hlen < NGRAM_ORDER_MAX) hist[hlen++] = ids[i];
+      else {
+        int s;
+        for (s = 1; s < NGRAM_ORDER_MAX; ++s) hist[s - 1] = hist[s];
+        hist[NGRAM_ORDER_MAX - 1] = ids[i];
       }
-      if (0 != (lex->flags & LIBXS_LEXEME_SENTENCE)) { prev1 = 0; prev2 = 0; }
     }
+    return;
   }
-  libxs_lexeme_stream_release(&stream);
+  { libxs_lexeme_stream_t stream;
+    libxs_lexeme_stream_init(&stream);
+    if (NULL != model && NULL != lexicon && NULL != rules && nrules > 0
+      && text_len > 0 && EXIT_SUCCESS == libxs_lexeme_stream_encode(lexicon,
+        &stream, (const unsigned char*)text, (size_t)text_len, rules, nrules,
+        NULL, 0, 1))
+    {
+      size_t pos;
+      unsigned int hist[NGRAM_ORDER_MAX];
+      int hlen = 0;
+      for (pos = 0; pos < stream.size; ++pos) {
+        const libxs_lexeme_t* lex = stream.data + pos;
+        if (0 != (lex->flags & (LIBXS_LEXEME_WORD | LIBXS_LEXEME_NUMBER))
+          && 0 != lex->id)
+        {
+          if (hlen > 0) ngramk_observe(model, hist, hlen, lex->id, maxorder);
+          if (hlen < NGRAM_ORDER_MAX) hist[hlen++] = lex->id;
+          else {
+            int s;
+            for (s = 1; s < NGRAM_ORDER_MAX; ++s) hist[s - 1] = hist[s];
+            hist[NGRAM_ORDER_MAX - 1] = lex->id;
+          }
+        }
+        if (0 != (lex->flags & LIBXS_LEXEME_SENTENCE)) hlen = 0;
+      }
+    }
+    libxs_lexeme_stream_release(&stream);
+  }
 }
 
 
@@ -5175,8 +5504,8 @@ static void ngram_backoff_build(libxs_registry_t* model,
       int slot;
       while (NULL != value) {
         const ngram_entry_t* entry = (const ngram_entry_t*)value;
-        const ngram_key_t* entry_key = (const ngram_key_t*)key;
-        if (NULL != entry_key && 0 == entry_key->a) {
+        const ngram_keyk_t* entry_key = (const ngram_keyk_t*)key;
+        if (NULL != entry_key && 1 == entry_key->n) {
           unsigned int s;
           for (s = 0; s < entry->nsucc; ++s) {
             if (entry->succ[s].id <= vocab) {
@@ -5599,12 +5928,16 @@ static const ngram_entry_t* ngram_lookup(libxs_registry_t* model,
 {
   const ngram_entry_t* result = NULL;
   if (NULL != model && 0 != ctx_b) {
-    ngram_key_t key;
-    LIBXS_MEMZERO(&key);
-    key.a = ctx_a;
-    key.b = ctx_b;
-    result = (const ngram_entry_t*)libxs_registry_get(model, &key,
-      sizeof(key), NULL);
+    unsigned int hist[2];
+    if (0 == ctx_a) {
+      hist[0] = ctx_b;
+      result = ngramk_lookup(model, hist, 1, 1);
+    }
+    else {
+      hist[0] = ctx_a;
+      hist[1] = ctx_b;
+      result = ngramk_lookup(model, hist, 2, 2);
+    }
   }
   return result;
 }
@@ -5705,6 +6038,8 @@ static int ngram_eval(libxs_registry_t* model, const libxs_registry_t* corpus,
 {
   int result = EXIT_FAILURE;
   long npairs = 0, ntop1 = 0, ntopk = 0, index = 0;
+  double sum_bits = 0.0, sum_bytes = 0.0;
+  const double inv_log2 = 1.0 / log(2.0);
   const void* key = NULL;
   size_t cursor = 0;
   void* value;
@@ -5715,37 +6050,68 @@ static int ngram_eval(libxs_registry_t* model, const libxs_registry_t* corpus,
     const corpus_entry_t* entry = (const corpus_entry_t*)value;
     libxs_lexeme_stream_t stream;
     int is_test = (0 == holdout || 0 != predict_is_test(index, holdout));
+    int native = ngram_native_mode();
     libxs_lexeme_stream_init(&stream);
     if (0 != is_test && entry->text_len > 0
-      && EXIT_SUCCESS == libxs_lexeme_stream_encode(
+      && (0 != native || EXIT_SUCCESS == libxs_lexeme_stream_encode(
       lexicon, &stream, (const unsigned char*)entry->text,
-      (size_t)entry->text_len, rules, nrules, NULL, 0, 0))
+      (size_t)entry->text_len, rules, nrules, NULL, 0, 0)))
     {
-      size_t pos;
-      unsigned int prev1 = 0, prev2 = 0;
-      for (pos = 0; pos < stream.size; ++pos) {
-        const libxs_lexeme_t* lex = stream.data + pos;
-        if (0 != (lex->flags & (LIBXS_LEXEME_WORD | LIBXS_LEXEME_NUMBER))
-          && 0 != lex->id)
-        {
-          if (0 != prev1) {
+      unsigned int nat_ids[COMPOSE_MAXTEXT];
+      unsigned short nat_lens[COMPOSE_MAXTEXT];
+      int ntok = (0 != native)
+        ? ngram_native_tokens(lexicon, entry->text, entry->text_len,
+          nat_ids, nat_lens, COMPOSE_MAXTEXT, 0)
+        : (int)stream.size;
+      int ti;
+      unsigned int hist[NGRAM_ORDER_MAX];
+      int hlen = 0;
+      int maxorder = ngram_order();
+      for (ti = 0; ti < ntok; ++ti) {
+        unsigned int cur;
+        unsigned short curlen;
+        int is_content;
+        if (0 != native) {
+          cur = nat_ids[ti];
+          curlen = nat_lens[ti];
+          is_content = (0 != cur) ? 1 : 0;
+        }
+        else {
+          const libxs_lexeme_t* lex = stream.data + ti;
+          cur = lex->id;
+          curlen = lex->length;
+          is_content = (0 != (lex->flags
+            & (LIBXS_LEXEME_WORD | LIBXS_LEXEME_NUMBER)) && 0 != cur) ? 1 : 0;
+        }
+        if (0 != is_content) {
+          if (hlen > 0) {
             unsigned int ids[NGRAM_TOPK];
-            int n = ngram_predict(model, prev2, prev1, order, ids,
+            int n = ngramk_predict(model, hist, hlen, maxorder, ids,
               NGRAM_TOPK);
+            double p = ngramk_prob(model, hist, hlen, maxorder, cur);
             int rank;
             ++npairs;
+            sum_bits += -log(p) * inv_log2;
+            sum_bytes += (curlen > 0) ? (double)curlen : 1.0;
             for (rank = 0; rank < n; ++rank) {
-              if (ids[rank] == lex->id) {
+              if (ids[rank] == cur) {
                 if (0 == rank) ++ntop1;
                 ++ntopk;
                 break;
               }
             }
           }
-          prev2 = prev1;
-          prev1 = lex->id;
+          if (hlen < NGRAM_ORDER_MAX) hist[hlen++] = cur;
+          else {
+            int s;
+            for (s = 1; s < NGRAM_ORDER_MAX; ++s) hist[s - 1] = hist[s];
+            hist[NGRAM_ORDER_MAX - 1] = cur;
+          }
         }
-        if (0 != (lex->flags & LIBXS_LEXEME_SENTENCE)) { prev1 = 0; prev2 = 0; }
+        if (0 == native) {
+          const libxs_lexeme_t* lex = stream.data + ti;
+          if (0 != (lex->flags & LIBXS_LEXEME_SENTENCE)) hlen = 0;
+        }
       }
     }
     libxs_lexeme_stream_release(&stream);
@@ -5754,10 +6120,11 @@ static int ngram_eval(libxs_registry_t* model, const libxs_registry_t* corpus,
   }
   if (npairs > 0) {
     fprintf(stdout,
-      "predict-ngram[%s%s]: top1=%.1f%% top%d=%.1f%% n=%ld\n",
+      "predict-ngram[%s%s]: top1=%.1f%% top%d=%.1f%% n=%ld bpc=%.3f\n",
       kind, (holdout > 0) ? ":heldout" : "",
       100.0 * (double)ntop1 / (double)npairs, NGRAM_TOPK,
-      100.0 * (double)ntopk / (double)npairs, npairs);
+      100.0 * (double)ntopk / (double)npairs, npairs,
+      (sum_bytes > 0.0) ? sum_bits / sum_bytes : 0.0);
     result = EXIT_SUCCESS;
   }
   file = fopen(PREDICT_EVAL_FILE, "r");
