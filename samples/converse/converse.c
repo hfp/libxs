@@ -23,6 +23,10 @@
 #define NGRAM_TOPK 3
 #define NGRAM_NATIVE_WIDTH 4
 #define NGRAM_ORDER_MAX 6
+#define BPE_SYMBOL_MAX 32
+#define BPE_WORD_MAX 128
+#define BPE_MERGES_DEFAULT 750
+#define BPE_WORD_CAP 80000
 #define PREDICT_EVAL_FILE "converse.predict"
 #define TOKEN_PREDICT_TRAIN_MAX 40000
 #define TOKEN_PREDICT_EVAL_STRIDE 40
@@ -40,6 +44,10 @@
 #define ANSWER_PREDICT_INPUTS 10
 #define CORPUS_BASENAME_PART_MAX 999
 
+
+enum { PROFILE_PROSE = 0, PROFILE_MARKDOWN = 1 };
+
+enum { GRAN_WORD = 0, GRAN_NATIVE = 1, GRAN_SYLLABLE = 2, GRAN_BPE = 3 };
 
 enum { QUERY_GENERIC = 0, QUERY_WHO, QUERY_WHAT, QUERY_WHERE,
   QUERY_WHEN, QUERY_WHY, QUERY_HOW, QUERY_YESNO };
@@ -141,6 +149,27 @@ typedef struct ngram_entry_t {
   ngram_succ_t succ[NGRAM_SUCC_MAX];
 } ngram_entry_t;
 
+typedef struct bpe_symbol_t {
+  int len;
+  char bytes[BPE_SYMBOL_MAX];
+} bpe_symbol_t;
+
+typedef struct bpe_pair_t {
+  int a;
+  int b;
+} bpe_pair_t;
+
+typedef struct bpe_rank_t {
+  int rank;
+  int merged;
+} bpe_rank_t;
+
+typedef struct bpe_word_t {
+  long count;
+  int nsyms;
+  int syms[BPE_WORD_MAX];
+} bpe_word_t;
+
 
 static const answer_predict_profile_t answer_predict_profiles[] = {
   { "raw", LIBXS_PREDICT_AUTO, LIBXS_PREDICT_RAW, 0, 1, 0.0, 0.0, 0, 0, 0, 0 },
@@ -192,6 +221,18 @@ static int corpus_ingest_file(libxs_registry_t* corpus, const char* path,
 static int corpus_ingest_basename(libxs_registry_t* corpus,
   const char* basename, libxs_lexicon_t* lexicon,
   const libxs_lexrule_t* rules, int nrules);
+static int corpus_profile_for_path(const char* path);
+static int corpus_md_store(libxs_registry_t* corpus,
+  const unsigned char* text, int len, const char* section, int section_len,
+  libxs_lexicon_t* lexicon, const libxs_lexrule_t* rules, int nrules,
+  int code_like);
+static int corpus_md_emit_block(libxs_registry_t* corpus,
+  const unsigned char* text, int len, const char* section, int section_len,
+  libxs_lexicon_t* lexicon, const libxs_lexrule_t* rules, int nrules,
+  int code_like);
+static int corpus_ingest_markdown(libxs_registry_t* corpus,
+  const unsigned char* text, size_t text_size, const char* path,
+  libxs_lexicon_t* lexicon, const libxs_lexrule_t* rules, int nrules);
 static int count_words(const unsigned char* text, int length);
 static size_t text_closer_size(const unsigned char* text, size_t size,
   size_t pos);
@@ -339,6 +380,11 @@ static double ngram_unigram_prior(unsigned int id);
 static unsigned int ngram_backoff_ids[NGRAM_TOPK];
 static int ngram_backoff_count;
 static unsigned int ngram_unifreq_size;
+static int converse_profile_override = -1;
+static bpe_symbol_t* bpe_symbols = NULL;
+static int bpe_nsymbols = 0;
+static int bpe_cap_symbols = 0;
+static libxs_registry_t* bpe_merges = NULL;
 static void ngram_complete(libxs_registry_t* model, libxs_lexicon_t* lexicon,
   const libxs_lexrule_t* rules, int nrules, int order, const char* text,
   int text_len);
@@ -346,6 +392,20 @@ static int ngram_eval(libxs_registry_t* model, const libxs_registry_t* corpus,
   libxs_lexicon_t* lexicon, const libxs_lexrule_t* rules, int nrules,
   int order, int holdout, const char* kind);
 static void ngram_stats(const libxs_registry_t* model);
+static int ngram_gran_mode(void);
+static int predict_is_test(long index, int holdout);
+static int bpe_add_symbol(const char* bytes, int len);
+static void bpe_free(void);
+static void bpe_build(const libxs_registry_t* corpus, int holdout);
+static int bpe_encode_run(const char* text, int len, unsigned int ids[],
+  unsigned short bytelens[], int max, int start, libxs_lexicon_t* lexicon,
+  int create);
+static int bpe_add_symbol(const char* bytes, int len);
+static void bpe_free(void);
+static void bpe_build(const libxs_registry_t* corpus, int holdout);
+static int bpe_encode_run(const char* text, int len, unsigned int ids[],
+  unsigned short bytelens[], int max, int start, libxs_lexicon_t* lexicon,
+  int create);
 static void token_emb_build(const libxs_registry_t* corpus,
   libxs_lexicon_t* lexicon, const libxs_lexrule_t* rules, int nrules,
   int holdout);
@@ -434,6 +494,7 @@ int main(int argc, char* argv[])
       "  -H N: held-out split; train on non-test, eval 1-in-N test.\n"
       "  -n N: response sentence budget (default %d).\n"
       "  -P PROFILE: answer predictor profile.\n"
+      "  -p STRUCTURE: corpus structure (prose|markdown; default by ext).\n"
       "  -b PREFIX: ingest matching files next to PREFIX.\n",
       argv[0], RESPONSE_BUDGET);
     answer_predict_profile_list(stderr);
@@ -510,6 +571,21 @@ int main(int argc, char* argv[])
       if (NULL == predict_profile) {
         fprintf(stderr, "unknown predictor profile: %s\n", argv[i + 1]);
         answer_predict_profile_list(stderr);
+        return EXIT_FAILURE;
+      }
+      i += 2;
+    }
+    else if (0 == strcmp(argv[i], "-p") && i + 1 < argc) {
+      if (0 == strcmp(argv[i + 1], "prose")) {
+        converse_profile_override = PROFILE_PROSE;
+      }
+      else if (0 == strcmp(argv[i + 1], "markdown")) {
+        converse_profile_override = PROFILE_MARKDOWN;
+      }
+      else {
+        fprintf(stderr, "unknown structure profile: %s (use prose|markdown)\n",
+          argv[i + 1]);
+        free(basenames);
         return EXIT_FAILURE;
       }
       i += 2;
@@ -629,6 +705,9 @@ int main(int argc, char* argv[])
         predict_profile, 0, ngram_holdout);
     }
     else {
+      if (GRAN_BPE == ngram_gran_mode()) {
+        bpe_build(corpus, ngram_holdout);
+      }
       ngram_model = ngram_build(corpus, lexicon, rules, nrules, ngram_holdout);
       ngram_backoff_build(ngram_model, lexicon);
       if (0 != use_embed || 0 != use_knnlm) {
@@ -694,6 +773,7 @@ int main(int argc, char* argv[])
     knnlm_cache_free();
     token_emb_free();
     ngram_backoff_free();
+    bpe_free();
     libxs_registry_destroy(ngram_model);
     converse_lexicon_save(lexicon);
     libxs_predict_destroy(answer_model);
@@ -5139,15 +5219,13 @@ static int ngramk_predict(libxs_registry_t* model, const unsigned int hist[],
 }
 
 
-enum { GRAN_WORD = 0, GRAN_NATIVE = 1, GRAN_SYLLABLE = 2 };
-
-
 static int ngram_gran_mode(void)
 {
   const char* env = getenv("CONVERSE_GRAN");
   if (NULL != env) {
     if (0 == strcmp(env, "native")) return GRAN_NATIVE;
     if (0 == strcmp(env, "syllable")) return GRAN_SYLLABLE;
+    if (0 == strcmp(env, "bpe")) return GRAN_BPE;
   }
   return GRAN_WORD;
 }
@@ -5170,6 +5248,224 @@ static int ngram_is_vowel(unsigned char c)
 static int ngram_is_wordchar(unsigned char c)
 {
   return (0 != isalnum(c)) ? 1 : 0;
+}
+
+
+static int bpe_add_symbol(const char* bytes, int len)
+{
+  int result = -1;
+  if (len > 0 && len <= BPE_SYMBOL_MAX) {
+    if (bpe_nsymbols >= bpe_cap_symbols) {
+      int grown = (bpe_cap_symbols > 0) ? bpe_cap_symbols * 2 : 512;
+      bpe_symbol_t* next = (bpe_symbol_t*)realloc(bpe_symbols,
+        (size_t)grown * sizeof(*next));
+      if (NULL != next) {
+        bpe_symbols = next;
+        bpe_cap_symbols = grown;
+      }
+    }
+    if (bpe_nsymbols < bpe_cap_symbols) {
+      bpe_symbols[bpe_nsymbols].len = len;
+      memcpy(bpe_symbols[bpe_nsymbols].bytes, bytes, (size_t)len);
+      result = bpe_nsymbols;
+      ++bpe_nsymbols;
+    }
+  }
+  return result;
+}
+
+
+static void bpe_free(void)
+{
+  free(bpe_symbols);
+  bpe_symbols = NULL;
+  bpe_nsymbols = 0;
+  bpe_cap_symbols = 0;
+  libxs_registry_destroy(bpe_merges);
+  bpe_merges = NULL;
+}
+
+
+/* Learn byte-pair merges from the training split only. Words are byte runs
+   split on whitespace (a leading-space marker keeps word starts distinct);
+   each iteration adds the most frequent adjacent symbol pair as a new symbol
+   and records its rank so encoding can replay the merges. */
+static void bpe_build(const libxs_registry_t* corpus, int holdout)
+{
+  int nmerges = BPE_MERGES_DEFAULT;
+  const char* env = getenv("CONVERSE_BPE_MERGES");
+  bpe_word_t* words = NULL;
+  long nwords = 0, cap_words = 0;
+  int merge;
+  bpe_free();
+  if (NULL != env && '\0' != *env) {
+    int v = atoi(env);
+    if (v >= 0) nmerges = v;
+  }
+  bpe_merges = libxs_registry_create();
+  if (NULL == corpus || NULL == bpe_merges) return;
+  { int b;
+    char one[1];
+    for (b = 0; b < 256; ++b) {
+      one[0] = (char)(unsigned char)b;
+      bpe_add_symbol(one, 1);
+    }
+  }
+  { const void* key = NULL;
+    size_t cursor = 0;
+    long index = 0;
+    void* value = libxs_registry_begin(corpus, &key, &cursor);
+    while (NULL != value && nwords < BPE_WORD_CAP) {
+      const corpus_entry_t* entry = (const corpus_entry_t*)value;
+      if (0 == predict_is_test(index, holdout)) {
+        int pos = 0;
+        while (pos < entry->text_len && nwords < BPE_WORD_CAP) {
+          int wlen = 0, marker;
+          bpe_word_t w;
+          while (pos + wlen < entry->text_len
+            && 0 == isspace((unsigned char)entry->text[pos + wlen])) ++wlen;
+          if (wlen > 0) {
+            int i;
+            w.count = 1;
+            w.nsyms = 0;
+            marker = (pos > 0) ? 1 : 0;
+            if (0 != marker && w.nsyms < BPE_WORD_MAX) {
+              w.syms[w.nsyms++] = (int)(unsigned char)' ';
+            }
+            for (i = 0; i < wlen && w.nsyms < BPE_WORD_MAX; ++i) {
+              w.syms[w.nsyms++] =
+                (int)(unsigned char)entry->text[pos + i];
+            }
+            if (nwords >= cap_words) {
+              long grown = (cap_words > 0) ? cap_words * 2 : 4096;
+              bpe_word_t* next = (bpe_word_t*)realloc(words,
+                (size_t)grown * sizeof(*next));
+              if (NULL == next) break;
+              words = next;
+              cap_words = grown;
+            }
+            words[nwords++] = w;
+            pos += wlen;
+          }
+          while (pos < entry->text_len
+            && 0 != isspace((unsigned char)entry->text[pos])) ++pos;
+        }
+      }
+      ++index;
+      value = libxs_registry_next(corpus, &key, &cursor);
+    }
+  }
+  for (merge = 0; merge < nmerges; ++merge) {
+    libxs_registry_t* counts = libxs_registry_create();
+    bpe_pair_t best;
+    long best_count = 0;
+    long w;
+    int new_sym;
+    char merged[BPE_SYMBOL_MAX];
+    int merged_len;
+    if (NULL == counts) break;
+    best.a = best.b = -1;
+    for (w = 0; w < nwords; ++w) {
+      int i;
+      for (i = 0; i + 1 < words[w].nsyms; ++i) {
+        bpe_pair_t pair;
+        long* slot;
+        long acc;
+        pair.a = words[w].syms[i];
+        pair.b = words[w].syms[i + 1];
+        slot = (long*)libxs_registry_get(counts, &pair, sizeof(pair), NULL);
+        acc = (NULL != slot) ? *slot + words[w].count : words[w].count;
+        if (NULL != slot) *slot = acc;
+        else libxs_registry_set(counts, &pair, sizeof(pair), &acc,
+          sizeof(acc), NULL);
+        if (acc > best_count) {
+          best_count = acc;
+          best = pair;
+        }
+      }
+    }
+    libxs_registry_destroy(counts);
+    if (best.a < 0 || best_count < 2) break;
+    merged_len = bpe_symbols[best.a].len + bpe_symbols[best.b].len;
+    if (merged_len > BPE_SYMBOL_MAX) break;
+    memcpy(merged, bpe_symbols[best.a].bytes, (size_t)bpe_symbols[best.a].len);
+    memcpy(merged + bpe_symbols[best.a].len, bpe_symbols[best.b].bytes,
+      (size_t)bpe_symbols[best.b].len);
+    new_sym = bpe_add_symbol(merged, merged_len);
+    if (new_sym < 0) break;
+    { bpe_rank_t rec;
+      rec.rank = merge;
+      rec.merged = new_sym;
+      libxs_registry_set(bpe_merges, &best, sizeof(best), &rec, sizeof(rec),
+        NULL);
+    }
+    for (w = 0; w < nwords; ++w) {
+      int i = 0, out = 0;
+      while (i < words[w].nsyms) {
+        if (i + 1 < words[w].nsyms && words[w].syms[i] == best.a
+          && words[w].syms[i + 1] == best.b)
+        {
+          words[w].syms[out++] = new_sym;
+          i += 2;
+        }
+        else words[w].syms[out++] = words[w].syms[i++];
+      }
+      words[w].nsyms = out;
+    }
+  }
+  free(words);
+  fprintf(stderr, "  bpe: %d symbols (%d merges) from %ld words\n",
+    bpe_nsymbols, bpe_nsymbols - 256, nwords);
+}
+
+
+/* Encode one whitespace-delimited byte run [text,len) into BPE pieces by
+   greedily applying the lowest-rank applicable merge, then intern each piece.
+   Falls back to single bytes for anything the merges do not cover, so the
+   encoder never fails on unseen input. */
+static int bpe_encode_run(const char* text, int len, unsigned int ids[],
+  unsigned short bytelens[], int max, int start, libxs_lexicon_t* lexicon,
+  int create)
+{
+  int result = start;
+  int marker = (len > 0 && ' ' == text[0]) ? 1 : 0;
+  int syms[BPE_WORD_MAX];
+  int nsyms = 0, i;
+  for (i = 0; i < len && nsyms < BPE_WORD_MAX; ++i) {
+    syms[nsyms++] = (int)(unsigned char)text[i];
+  }
+  for (;;) {
+    int best_rank = -1, best_pos = -1, best_sym = -1;
+    for (i = 0; i + 1 < nsyms; ++i) {
+      bpe_pair_t pair;
+      const bpe_rank_t* rec;
+      pair.a = syms[i];
+      pair.b = syms[i + 1];
+      rec = (const bpe_rank_t*)libxs_registry_get(bpe_merges, &pair,
+        sizeof(pair), NULL);
+      if (NULL != rec && (best_rank < 0 || rec->rank < best_rank)) {
+        best_rank = rec->rank;
+        best_pos = i;
+        best_sym = rec->merged;
+      }
+    }
+    if (best_pos < 0) break;
+    syms[best_pos] = best_sym;
+    for (i = best_pos + 1; i + 1 < nsyms; ++i) syms[i] = syms[i + 1];
+    --nsyms;
+  }
+  for (i = 0; i < nsyms && result < max; ++i) {
+    const bpe_symbol_t* sym = bpe_symbols + syms[i];
+    int nbytes = sym->len;
+    unsigned int id = libxs_lexicon_id(lexicon, sym->bytes, sym->len,
+      LIBXS_LEXEME_WORD, create);
+    if (0 == id) break;
+    if (0 == i && 0 != marker && nbytes > 0) --nbytes;
+    ids[result] = id;
+    bytelens[result] = (unsigned short)nbytes;
+    ++result;
+  }
+  return result;
 }
 
 
@@ -5218,6 +5514,33 @@ static int ngram_native_tokens(libxs_lexicon_t* lexicon, const char* text,
   int result = 0;
   int pos = 0;
   int mode = ngram_gran_mode();
+  if (GRAN_BPE == mode) {
+    while (pos < text_len && result < max) {
+      int wlen = 0;
+      int run_start = pos;
+      int marker = (pos > 0) ? 1 : 0;
+      char run[BPE_WORD_MAX + 1];
+      int run_len = 0;
+      while (pos + wlen < text_len
+        && 0 == isspace((unsigned char)text[pos + wlen])) ++wlen;
+      if (0 == wlen) {
+        while (pos < text_len
+          && 0 != isspace((unsigned char)text[pos])) ++pos;
+        continue;
+      }
+      if (0 != marker && run_len < BPE_WORD_MAX) run[run_len++] = ' ';
+      { int i;
+        for (i = 0; i < wlen && run_len < BPE_WORD_MAX; ++i) {
+          run[run_len++] = text[run_start + i];
+        }
+      }
+      result = bpe_encode_run(run, run_len, ids, bytelens, max, result,
+        lexicon, create);
+      pos = run_start + wlen;
+      while (pos < text_len && 0 != isspace((unsigned char)text[pos])) ++pos;
+    }
+    return result;
+  }
   if (GRAN_SYLLABLE != mode) {
     while (pos < text_len && result < max) {
       int len = text_len - pos;
@@ -7056,14 +7379,173 @@ static void knnlm_complete(libxs_registry_t* ngram,
 }
 
 
+static int corpus_profile_for_path(const char* path)
+{
+  int result = PROFILE_PROSE;
+  if (0 <= converse_profile_override) result = converse_profile_override;
+  else if (NULL != path) {
+    size_t len = strlen(path);
+    if (len >= 3 && '.' == path[len - 3]
+      && ('m' == path[len - 2] || 'M' == path[len - 2])
+      && ('d' == path[len - 1] || 'D' == path[len - 1]))
+    {
+      result = PROFILE_MARKDOWN;
+    }
+  }
+  return result;
+}
+
+
+static int corpus_md_store(libxs_registry_t* corpus,
+  const unsigned char* text, int len, const char* section, int section_len,
+  libxs_lexicon_t* lexicon, const libxs_lexrule_t* rules, int nrules,
+  int code_like)
+{
+  int result = 0;
+  int min_bytes = (0 != code_like) ? 2 : 8;
+  int min_words = (0 != code_like) ? 0 : 3;
+  while (len > 0 && 0 != isspace((unsigned char)text[len - 1])) --len;
+  if (len >= min_bytes && len < COMPOSE_MAXTEXT
+    && count_words(text, len) >= min_words)
+  {
+    corpus_entry_t entry;
+    if (EXIT_SUCCESS == corpus_entry_build(&entry, text, len,
+      SCALE_PARAGRAPH, lexicon, rules, nrules))
+    {
+      corpus_entry_set_section(&entry, section, section_len);
+      if (0 != corpus_store_entry(corpus, &entry)) result = 1;
+    }
+  }
+  return result;
+}
+
+
+static int corpus_md_emit_block(libxs_registry_t* corpus,
+  const unsigned char* text, int len, const char* section, int section_len,
+  libxs_lexicon_t* lexicon, const libxs_lexrule_t* rules, int nrules,
+  int code_like)
+{
+  int result = 0;
+  if (len < COMPOSE_MAXTEXT) {
+    result = corpus_md_store(corpus, text, len, section, section_len,
+      lexicon, rules, nrules, code_like);
+  }
+  else {
+    int line_start = 0, i;
+    for (i = 0; i <= len; ++i) {
+      if (i == len || '\n' == text[i]) {
+        if (i > line_start) {
+          result += corpus_md_store(corpus, text + line_start,
+            i - line_start, section, section_len, lexicon, rules, nrules,
+            code_like);
+        }
+        line_start = i + 1;
+      }
+    }
+  }
+  return result;
+}
+
+
+static int corpus_ingest_markdown(libxs_registry_t* corpus,
+  const unsigned char* text, size_t text_size, const char* path,
+  libxs_lexicon_t* lexicon, const libxs_lexrule_t* rules, int nrules)
+{
+  int nblocks = 0;
+  char section[ENTRY_SECTION_MAX];
+  int section_len = 0;
+  size_t line_start = 0, block_start = 0;
+  int in_fence = 0, block_code = 0, block_has = 0;
+  size_t i;
+  section[0] = '\0';
+  for (i = 0; i <= text_size; ++i) {
+    if (i == text_size || '\n' == text[i]) {
+      size_t ls = line_start;
+      int line_len = (int)(i - line_start);
+      int fence = 0;
+      while (ls < i && 0 != isspace((unsigned char)text[ls])) ++ls;
+      fence = (i - ls >= 3 && '`' == text[ls] && '`' == text[ls + 1]
+        && '`' == text[ls + 2]) ? 1 : 0;
+      if (0 != in_fence) {
+        block_has = 1;
+        if (0 != fence) {
+          nblocks += corpus_md_emit_block(corpus, text + block_start,
+            (int)(i - block_start), section, section_len, lexicon, rules,
+            nrules, 1);
+          in_fence = 0;
+          block_start = i + 1;
+          block_has = 0;
+        }
+      }
+      else if (0 != fence) {
+        if (0 != block_has) {
+          nblocks += corpus_md_emit_block(corpus, text + block_start,
+            (int)(line_start - block_start), section, section_len, lexicon,
+            rules, nrules, block_code);
+        }
+        in_fence = 1;
+        block_start = line_start;
+        block_code = 1;
+        block_has = 0;
+      }
+      else if ('#' == (ls < i ? text[ls] : 0)) {
+        size_t h = ls;
+        if (0 != block_has) {
+          nblocks += corpus_md_emit_block(corpus, text + block_start,
+            (int)(line_start - block_start), section, section_len, lexicon,
+            rules, nrules, block_code);
+          block_has = 0;
+        }
+        while (h < i && '#' == text[h]) ++h;
+        while (h < i && 0 != isspace((unsigned char)text[h])) ++h;
+        section_len = (int)(i - h);
+        if (section_len >= ENTRY_SECTION_MAX) section_len = ENTRY_SECTION_MAX - 1;
+        if (section_len > 0) {
+          memcpy(section, text + h, (size_t)section_len);
+          section[section_len] = '\0';
+        }
+        else section[0] = '\0';
+        block_start = i + 1;
+        block_code = 0;
+      }
+      else if (0 == line_len) {
+        if (0 != block_has) {
+          nblocks += corpus_md_emit_block(corpus, text + block_start,
+            (int)(line_start - block_start), section, section_len, lexicon,
+            rules, nrules, block_code);
+          block_has = 0;
+        }
+        block_start = i + 1;
+        block_code = 0;
+      }
+      else {
+        int table = ('|' == text[ls]) ? 1 : 0;
+        if (0 == block_has) block_code = table;
+        block_has = 1;
+      }
+      line_start = i + 1;
+    }
+  }
+  if (0 != block_has) {
+    nblocks += corpus_md_emit_block(corpus, text + block_start,
+      (int)(text_size - block_start), section, section_len, lexicon, rules,
+      nrules, block_code);
+  }
+  fprintf(stderr, "  ingested %s: %d markdown blocks\n", path, nblocks);
+  return (nblocks > 0) ? EXIT_SUCCESS : EXIT_FAILURE;
+}
+
+
 static int corpus_ingest_file(libxs_registry_t* corpus, const char* path,
   libxs_lexicon_t* lexicon, const libxs_lexrule_t* rules, int nrules)
 {
   int result = EXIT_FAILURE;
+  int profile;
   FILE* f;
   unsigned char* text = NULL;
   size_t text_size = 0;
   if (NULL == corpus || NULL == path) return EXIT_FAILURE;
+  profile = corpus_profile_for_path(path);
   f = fopen(path, "rb");
   if (NULL != f) {
     fseek(f, 0, SEEK_END);
@@ -7080,7 +7562,9 @@ static int corpus_ingest_file(libxs_registry_t* corpus, const char* path,
     }
     fclose(f);
   }
-  if (EXIT_SUCCESS == result && NULL != text && text_size > 0) {
+  if (EXIT_SUCCESS == result && NULL != text && text_size > 0
+    && PROFILE_MARKDOWN != profile)
+  {
     unsigned char* reflowed = NULL;
     size_t reflowed_size = 0;
     if (EXIT_SUCCESS == libxs_text_reflow(text, text_size,
@@ -7091,7 +7575,13 @@ static int corpus_ingest_file(libxs_registry_t* corpus, const char* path,
       text_size = reflowed_size;
     }
   }
-  if (EXIT_SUCCESS == result && NULL != text && text_size > 0) {
+  if (EXIT_SUCCESS == result && NULL != text && text_size > 0
+    && PROFILE_MARKDOWN == profile)
+  {
+    result = corpus_ingest_markdown(corpus, text, text_size, path,
+      lexicon, rules, nrules);
+  }
+  else if (EXIT_SUCCESS == result && NULL != text && text_size > 0) {
     size_t sent_start = 0;
     int nsentences = 0, nparagraphs = 0;
     char current_section[ENTRY_SECTION_MAX];
