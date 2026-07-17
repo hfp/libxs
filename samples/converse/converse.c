@@ -425,6 +425,9 @@ static void ngram_complete(libxs_registry_t* model, libxs_lexicon_t* lexicon,
 static int ngram_eval(libxs_registry_t* model, const libxs_registry_t* corpus,
   libxs_lexicon_t* lexicon, const libxs_lexrule_t* rules, int nrules,
   int order, int holdout, const char* kind);
+static int ngram_gen_eval(libxs_registry_t* model,
+  const libxs_registry_t* corpus, libxs_lexicon_t* lexicon,
+  const libxs_lexrule_t* rules, int nrules, int holdout, const char* kind);
 static void ngram_stats(const libxs_registry_t* model);
 static int ngram_gran_mode(void);
 static int predict_is_test(long index, int holdout);
@@ -776,6 +779,10 @@ int main(int argc, char* argv[])
         sprintf(label, "knnlm:%s", predict_profile->name);
         mode_result = knnlm_eval(ngram_model, token_model, corpus, lexicon,
           rules, nrules, ngram_order, ngram_holdout, label);
+      }
+      else if (NULL != getenv("CONVERSE_GEN_EVAL")) {
+        mode_result = ngram_gen_eval(ngram_model, corpus, lexicon, rules,
+          nrules, ngram_holdout, ngram_kind);
       }
       else {
         mode_result = ngram_eval(ngram_model, corpus, lexicon, rules, nrules,
@@ -5623,15 +5630,21 @@ static double ngramk_prob(libxs_registry_t* model, const unsigned int hist[],
 }
 
 
-/* Top-k successors from the longest context that has an entry (hard backoff). */
-static int ngramk_predict(libxs_registry_t* model, const unsigned int hist[],
-  int hlen, int maxorder, unsigned int out_ids[], int k)
+/* Top-k successors from the longest context that has an entry (hard backoff).
+   When order is non-NULL it receives the context length that matched (0 when
+   the prediction falls back to the global unigram list), so a caller can gauge
+   how well grounded each step is. */
+static int ngramk_predict_order(libxs_registry_t* model,
+  const unsigned int hist[], int hlen, int maxorder, unsigned int out_ids[],
+  int k, int* order)
 {
   const ngram_entry_t* entry = NULL;
-  int n;
+  int n, matched = 0;
   for (n = (maxorder < hlen) ? maxorder : hlen; n >= 1 && NULL == entry; --n) {
     entry = ngramk_lookup(model, hist, hlen, n);
+    if (NULL != entry) matched = n;
   }
+  if (NULL != order) *order = matched;
   if (NULL != entry) return ngram_topk(entry, out_ids, k);
   { int slot, result = 0;
     for (slot = 0; slot < k && slot < ngram_backoff_count; ++slot) {
@@ -5640,6 +5653,13 @@ static int ngramk_predict(libxs_registry_t* model, const unsigned int hist[],
     }
     return result;
   }
+}
+
+
+static int ngramk_predict(libxs_registry_t* model, const unsigned int hist[],
+  int hlen, int maxorder, unsigned int out_ids[], int k)
+{
+  return ngramk_predict_order(model, hist, hlen, maxorder, out_ids, k, NULL);
 }
 
 
@@ -6740,42 +6760,188 @@ static void ngram_last_context(libxs_lexicon_t* lexicon,
 }
 
 
+/* Fill hist[] with the trailing content-token ids of the prompt (at most
+   NGRAM_ORDER_MAX), returning the count. Mirrors ngram_last_context but keeps
+   the whole window the deep store can use, not just the final two ids. */
+static int ngram_history(libxs_lexicon_t* lexicon, const libxs_lexrule_t* rules,
+  int nrules, const char* text, int text_len, unsigned int hist[])
+{
+  libxs_lexeme_stream_t stream;
+  int hlen = 0;
+  libxs_lexeme_stream_init(&stream);
+  if (NULL != lexicon && NULL != rules && nrules > 0 && text_len > 0
+    && EXIT_SUCCESS == libxs_lexeme_stream_encode(lexicon, &stream,
+      (const unsigned char*)text, (size_t)text_len, rules, nrules,
+      NULL, 0, 0))
+  {
+    size_t pos;
+    for (pos = 0; pos < stream.size; ++pos) {
+      const libxs_lexeme_t* lex = stream.data + pos;
+      if (0 != (lex->flags & (LIBXS_LEXEME_WORD | LIBXS_LEXEME_NUMBER))
+        && 0 != lex->id)
+      {
+        if (hlen < NGRAM_ORDER_MAX) hist[hlen++] = lex->id;
+        else {
+          int s;
+          for (s = 1; s < NGRAM_ORDER_MAX; ++s) hist[s - 1] = hist[s];
+          hist[NGRAM_ORDER_MAX - 1] = lex->id;
+        }
+      }
+    }
+  }
+  libxs_lexeme_stream_release(&stream);
+  return hlen;
+}
+
+
+static int ngram_gen_minorder(void)
+{
+  int result = 2;
+  const char* env = getenv("CONVERSE_GEN_MINORDER");
+  if (NULL != env && '\0' != *env) {
+    int v = atoi(env);
+    if (v >= 1 && v <= NGRAM_ORDER_MAX) result = v;
+  }
+  return result;
+}
+
+
+/* Grounded greedy generation over the deep k-context store. Each step takes
+   the top successor from the longest attested context and reports that
+   context order; generation stops when the order falls below the grounding
+   floor (the generative form of "abstain rather than invent"), at a repeat,
+   or at the length budget. Prints the continuation plus the mean/min order
+   that quantifies how well grounded it was. */
 static void ngram_complete(libxs_registry_t* model, libxs_lexicon_t* lexicon,
   const libxs_lexrule_t* rules, int nrules, int order, const char* text,
   int text_len)
 {
-  unsigned int prev2 = 0, prev1 = 0;
-  unsigned int ids[NGRAM_TOPK];
-  int n, i;
-  ngram_last_context(lexicon, rules, nrules, text, text_len, &prev2, &prev1);
-  n = ngram_predict(model, prev2, prev1, order, ids, NGRAM_TOPK);
-  if (n <= 0) {
+  enum { GEN_MAX = 40 };
+  unsigned int hist[NGRAM_ORDER_MAX];
+  unsigned int recent[GEN_MAX];
+  int hlen, maxorder = ngram_order();
+  int minorder = ngram_gen_minorder();
+  int step, nrecent = 0;
+  long order_sum = 0;
+  int order_min = NGRAM_ORDER_MAX + 1;
+  LIBXS_UNUSED(order);
+  hlen = ngram_history(lexicon, rules, nrules, text, text_len, hist);
+  if (hlen <= 0) {
     printf("(no continuation)\n");
     return;
   }
-  printf("next:");
-  for (i = 0; i < n; ++i) {
-    int len = 0;
-    const char* word = libxs_lexicon_text(lexicon, ids[i], &len, NULL);
-    if (NULL != word && len > 0) printf(" %.*s", len, word);
+  printf("generate:");
+  for (step = 0; step < GEN_MAX; ++step) {
+    unsigned int ids[1];
+    int got_order = 0, len = 0, i, repeat = 0;
+    const char* word;
+    int n = ngramk_predict_order(model, hist, hlen, maxorder, ids, 1,
+      &got_order);
+    if (n <= 0 || got_order < minorder) break;
+    for (i = 0; i < nrecent; ++i) if (recent[i] == ids[0]) ++repeat;
+    if (repeat >= 3) break;
+    word = libxs_lexicon_text(lexicon, ids[0], &len, NULL);
+    if (NULL == word || len <= 0) break;
+    printf(" %.*s", len, word);
+    order_sum += got_order;
+    if (got_order < order_min) order_min = got_order;
+    if (nrecent < GEN_MAX) recent[nrecent++] = ids[0];
+    if (hlen < NGRAM_ORDER_MAX) hist[hlen++] = ids[0];
+    else {
+      int s;
+      for (s = 1; s < NGRAM_ORDER_MAX; ++s) hist[s - 1] = hist[s];
+      hist[NGRAM_ORDER_MAX - 1] = ids[0];
+    }
   }
   printf("\n");
-  { unsigned int step2 = prev2, step1 = prev1;
-    int step;
-    printf("greedy:");
-    for (step = 0; step < 12; ++step) {
-      unsigned int step_ids[1];
-      int len = 0;
-      const char* word;
-      if (0 == ngram_predict(model, step2, step1, order, step_ids, 1)) break;
-      word = libxs_lexicon_text(lexicon, step_ids[0], &len, NULL);
-      if (NULL == word || len <= 0) break;
-      printf(" %.*s", len, word);
-      step2 = step1;
-      step1 = step_ids[0];
-    }
-    printf("\n");
+  if (step > 0) {
+    printf("grounding: %d tokens, mean order %.1f, min order %d\n",
+      step, (double)order_sum / (double)step, order_min);
   }
+  else printf("(no grounded continuation at min order %d)\n", minorder);
+}
+
+
+/* Held-out generation quality: seed each test sentence with its first GEN_SEED
+   content tokens, greedily extend, and count how many of the sentence's actual
+   remaining tokens the generator reproduces before diverging. A gradient-free,
+   generation-native counterpart to BPC (which only scores one-step prediction).
+   Also reports the mean grounding order over generated tokens. */
+static int ngram_gen_eval(libxs_registry_t* model,
+  const libxs_registry_t* corpus, libxs_lexicon_t* lexicon,
+  const libxs_lexrule_t* rules, int nrules, int holdout, const char* kind)
+{
+  enum { GEN_SEED = 3, GEN_LOOK = 20 };
+  int result = EXIT_FAILURE;
+  long nsent = 0, sum_repro = 0, gen_tokens = 0, order_sum = 0, index = 0;
+  int maxorder = ngram_order();
+  int minorder = ngram_gen_minorder();
+  const void* key = NULL;
+  size_t cursor = 0;
+  void* value;
+  if (NULL == model || NULL == corpus || NULL == lexicon) return EXIT_FAILURE;
+  value = libxs_registry_begin(corpus, &key, &cursor);
+  while (NULL != value) {
+    const corpus_entry_t* entry = (const corpus_entry_t*)value;
+    int is_test = (0 == holdout || 0 != predict_is_test(index, holdout));
+    libxs_lexeme_stream_t stream;
+    libxs_lexeme_stream_init(&stream);
+    if (0 != is_test && entry->text_len > 0
+      && EXIT_SUCCESS == libxs_lexeme_stream_encode(lexicon, &stream,
+        (const unsigned char*)entry->text, (size_t)entry->text_len,
+        rules, nrules, NULL, 0, 0))
+    {
+      unsigned int truth[GEN_SEED + GEN_LOOK];
+      int ntruth = 0;
+      size_t pos;
+      for (pos = 0; pos < stream.size && ntruth < GEN_SEED + GEN_LOOK; ++pos) {
+        const libxs_lexeme_t* lex = stream.data + pos;
+        if (0 != (lex->flags & (LIBXS_LEXEME_WORD | LIBXS_LEXEME_NUMBER))
+          && 0 != lex->id)
+        {
+          truth[ntruth++] = lex->id;
+        }
+      }
+      if (ntruth > GEN_SEED) {
+        unsigned int hist[NGRAM_ORDER_MAX];
+        int hlen = 0, t, repro = 0, diverged = 0;
+        for (t = 0; t < GEN_SEED; ++t) hist[hlen++] = truth[t];
+        for (t = GEN_SEED; t < ntruth && 0 == diverged; ++t) {
+          unsigned int ids[1];
+          int got_order = 0;
+          int n = ngramk_predict_order(model, hist, hlen, maxorder, ids, 1,
+            &got_order);
+          if (n <= 0 || got_order < minorder) break;
+          ++gen_tokens;
+          order_sum += got_order;
+          if (ids[0] == truth[t]) ++repro;
+          else diverged = 1;
+          if (hlen < NGRAM_ORDER_MAX) hist[hlen++] = truth[t];
+          else {
+            int s;
+            for (s = 1; s < NGRAM_ORDER_MAX; ++s) hist[s - 1] = hist[s];
+            hist[NGRAM_ORDER_MAX - 1] = truth[t];
+          }
+        }
+        sum_repro += repro;
+        ++nsent;
+      }
+    }
+    libxs_lexeme_stream_release(&stream);
+    ++index;
+    value = libxs_registry_next(corpus, &key, &cursor);
+  }
+  if (nsent > 0) {
+    fprintf(stdout,
+      "gen-eval[%s%s]: sentences=%ld mean-reproduced=%.2f "
+      "mean-order=%.2f minorder=%d\n",
+      kind, (holdout > 0) ? ":heldout" : "", nsent,
+      (double)sum_repro / (double)nsent,
+      (gen_tokens > 0) ? (double)order_sum / (double)gen_tokens : 0.0,
+      minorder);
+    result = EXIT_SUCCESS;
+  }
+  return result;
 }
 
 
