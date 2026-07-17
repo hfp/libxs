@@ -31,6 +31,7 @@
 #define BPE_WORD_CAP 80000
 #define PREDICT_EVAL_FILE "converse.predict"
 #define CONVERSE_PATH_MAX 512
+#define CONV_TOPIC_MAX 64
 #define TOKEN_PREDICT_TRAIN_MAX 40000
 #define TOKEN_PREDICT_EVAL_STRIDE 40
 #define TOKEN_EMB_DIM 16
@@ -212,6 +213,8 @@ static answer_describe_fact_t* answer_describe_facts = NULL;
 static size_t answer_describe_facts_size = 0;
 static answer_docdef_fact_t* answer_docdef_facts = NULL;
 static size_t answer_docdef_facts_size = 0;
+static char conv_topic[CONV_TOPIC_MAX] = "";
+static int conv_topic_len = 0;
 static long predict_ntotal = 0;
 
 
@@ -325,6 +328,10 @@ static size_t answer_docdef_facts_build(const libxs_registry_t* corpus);
 static void answer_docdef_facts_report(FILE* stream);
 static int answer_docdef_fact_reply(const char* query_text,
   size_t query_len, char* output, size_t output_size);
+static void conv_reset(void);
+static void conv_remember(const char* query_text, size_t query_len);
+static int conv_rewrite(const char* query_text, size_t query_len,
+  char* out, size_t out_size);
 static int answer_identity_fact_reply(const char* query_text,
   size_t query_len, char* output, size_t output_size);
 static int answer_reply_role(char* output, size_t output_size,
@@ -846,6 +853,7 @@ int main(int argc, char* argv[])
       answer_docdef_facts_free();
       return EXIT_FAILURE;
     }
+    conv_reset();
     fprintf(stderr, "> ");
     while (NULL != fgets(line, (int)sizeof(line), stdin)) {
       size_t len = strlen(line);
@@ -3484,6 +3492,113 @@ static int answer_docdef_fact_reply(const char* query_text,
 }
 
 
+static void conv_reset(void)
+{
+  conv_topic[0] = '\0';
+  conv_topic_len = 0;
+}
+
+
+/* Remember the subject of a successfully answered question so that a later
+   follow-up can refer back to it. Uses the same subject extraction as the
+   definition path; only a real subject term updates the topic. */
+static void conv_remember(const char* query_text, size_t query_len)
+{
+  char term[CONV_TOPIC_MAX];
+  int term_len = answer_docdef_term(query_text, query_len, term,
+    (int)sizeof(term));
+  if (term_len > 0) {
+    memcpy(conv_topic, term, (size_t)term_len);
+    conv_topic[term_len] = '\0';
+    conv_topic_len = term_len;
+  }
+}
+
+
+static int conv_word_is_pronoun(const char* word, int len)
+{
+  static const char* const pronouns[] = { "it", "its", "it's", "that",
+    "this", "they", "them", "their" };
+  int result = 0;
+  int p;
+  for (p = 0; p < (int)(sizeof(pronouns) / sizeof(*pronouns)) && 0 == result;
+    ++p)
+  {
+    if ((int)strlen(pronouns[p]) == len) {
+      int i, same = 1;
+      for (i = 0; i < len && 0 != same; ++i) {
+        if ((word[i] | 32) != pronouns[p][i]) same = 0;
+      }
+      result = same;
+    }
+  }
+  return result;
+}
+
+
+/* Rewrite a follow-up against the remembered topic. Two grounded moves:
+   substitute a back-reference pronoun (it/its/that/...) with the topic, and,
+   when a question carries no subject of its own, append the topic so the
+   answer path is scoped to it. Returns EXIT_SUCCESS only when a rewrite was
+   made, leaving the original query untouched otherwise. */
+static int conv_rewrite(const char* query_text, size_t query_len,
+  char* out, size_t out_size)
+{
+  int result = EXIT_FAILURE;
+  char own[CONV_TOPIC_MAX];
+  int own_len;
+  size_t pos = 0, w = 0;
+  int replaced = 0;
+  if (NULL == query_text || NULL == out || 0 == out_size
+    || 0 == conv_topic_len) return EXIT_FAILURE;
+  while (w < query_len && w + 1 < out_size) {
+    size_t begin = w;
+    while (w < query_len && 0 != isalpha((unsigned char)query_text[w])) ++w;
+    if (w > begin && 0 != conv_word_is_pronoun(query_text + begin,
+      (int)(w - begin)))
+    {
+      if (pos + (size_t)conv_topic_len < out_size) {
+        memcpy(out + pos, conv_topic, (size_t)conv_topic_len);
+        pos += (size_t)conv_topic_len;
+        replaced = 1;
+      }
+    }
+    else if (w > begin) {
+      if (pos + (w - begin) < out_size) {
+        memcpy(out + pos, query_text + begin, w - begin);
+        pos += w - begin;
+      }
+    }
+    if (w < query_len && 0 == isalpha((unsigned char)query_text[w])
+      && pos + 1 < out_size)
+    {
+      out[pos++] = query_text[w++];
+    }
+  }
+  out[pos] = '\0';
+  if (0 != replaced) {
+    result = EXIT_SUCCESS;
+  }
+  else {
+    own_len = answer_docdef_term(query_text, query_len, own,
+      (int)sizeof(own));
+    if (own_len <= 0 && pos > 0) {
+      static const char suffix[] = " of the ";
+      size_t suffix_len = sizeof(suffix) - 1;
+      if (pos + suffix_len + (size_t)conv_topic_len < out_size) {
+        memcpy(out + pos, suffix, suffix_len);
+        pos += suffix_len;
+        memcpy(out + pos, conv_topic, (size_t)conv_topic_len);
+        pos += (size_t)conv_topic_len;
+        out[pos] = '\0';
+        result = EXIT_SUCCESS;
+      }
+    }
+  }
+  return result;
+}
+
+
 static int answer_relation_fact_relation_match(const char* query_relation,
   const answer_relation_fact_t* fact)
 {
@@ -5287,22 +5402,40 @@ static int eval_converse(const libxs_registry_t* corpus,
     int fact_checked;
     int pass;
     char reply[COMPOSE_MAXTEXT];
+    char rewritten[COMPOSE_MAXTEXT];
+    const char* qtext;
+    size_t qlen;
     if (NULL == fgets(line, (int)sizeof(line), file)) break;
     if (EXIT_SUCCESS != eval_parse_line(line, fields)) continue;
     ++ncases;
+    if ('>' == fields[0][0]) {
+      char* cont = eval_trim(fields[0] + 1);
+      if (EXIT_SUCCESS == conv_rewrite(cont, strlen(cont), rewritten,
+        sizeof(rewritten)))
+      {
+        qtext = rewritten;
+      }
+      else qtext = cont;
+    }
+    else {
+      conv_reset();
+      qtext = fields[0];
+    }
+    qlen = strlen(qtext);
     fact_pass = 1;
     fact_checked = (have_facts && NULL != fields[3]
       && 0 == eval_terms_empty(fields[3])) ? 1 : 0;
     if (0 != fact_checked) {
-      if (EXIT_SUCCESS == answer_fact_reply(corpus, fields[0],
-        strlen(fields[0]), reply, sizeof(reply)))
+      if (EXIT_SUCCESS == answer_fact_reply(corpus, qtext, qlen,
+        reply, sizeof(reply)))
       {
         fact_pass = eval_terms_match_text(reply, (int)strlen(reply),
           fields[3]);
       }
       else fact_pass = 0;
     }
-    nanswers = answer_select(corpus, fields[0], strlen(fields[0]),
+    conv_remember(qtext, qlen);
+    nanswers = answer_select(corpus, qtext, qlen,
       ANSWER_MAX, lexicon, rules, nrules,
       answer_model, profile, entries, scores);
     top_pass = eval_terms_match_answers(entries, nanswers, fields[1], 1);
@@ -5330,8 +5463,8 @@ static int eval_converse(const libxs_registry_t* corpus,
       continue;
     }
     if (0 == eval_terms_empty(fields[2])) {
-      if (nanswers <= 0 || EXIT_SUCCESS != answer_reply(fields[0],
-        strlen(fields[0]), entries[0], lexicon, rules, nrules, reply,
+      if (nanswers <= 0 || EXIT_SUCCESS != answer_reply(qtext,
+        qlen, entries[0], lexicon, rules, nrules, reply,
         sizeof(reply)))
       {
         reply_pass = 0;
@@ -8249,9 +8382,19 @@ static int respond(const libxs_spatial_t* spatial,
     ? SCALE_PARAGRAPH : SCALE_SENTENCE;
 
   if (0 != is_question_query(query_text, query_len, lexicon, rules, nrules)) {
-    if (0 != answer_query(corpus, query_text, query_len, budget,
+    char rewritten[COMPOSE_MAXTEXT];
+    const char* q = query_text;
+    size_t qlen = query_len;
+    if (EXIT_SUCCESS == conv_rewrite(query_text, query_len, rewritten,
+      sizeof(rewritten)))
+    {
+      q = rewritten;
+      qlen = strlen(rewritten);
+    }
+    if (0 != answer_query(corpus, q, qlen, budget,
       lexicon, rules, nrules, answer_model, profile))
     {
+      conv_remember(q, qlen);
       return result;
     }
     printf("I do not know from the corpus.\n");
