@@ -7,6 +7,8 @@
 
 #include "converse.h"
 
+#include <unistd.h>
+
 #define RESPONSE_BUDGET 1
 #define ANSWER_MAX 4
 #define ANSWER_MIN_SCORE 0.35
@@ -28,6 +30,7 @@
 #define BPE_MERGES_DEFAULT 750
 #define BPE_WORD_CAP 80000
 #define PREDICT_EVAL_FILE "converse.predict"
+#define CONVERSE_PATH_MAX 512
 #define TOKEN_PREDICT_TRAIN_MAX 40000
 #define TOKEN_PREDICT_EVAL_STRIDE 40
 #define TOKEN_EMB_DIM 16
@@ -128,6 +131,15 @@ typedef struct answer_describe_fact_t {
   double score;
 } answer_describe_fact_t;
 
+typedef struct answer_docdef_fact_t {
+  char title[ENTRY_SECTION_MAX];
+  char header[64];
+  char text[COMPOSE_MAXTEXT];
+  int title_len;
+  int header_len;
+  int text_len;
+} answer_docdef_fact_t;
+
 typedef struct ngram_key_t {
   unsigned int a;
   unsigned int b;
@@ -181,6 +193,13 @@ static const answer_predict_profile_t answer_predict_profiles[] = {
   { "hknn", LIBXS_PREDICT_CLASSIFY, LIBXS_PREDICT_HKNN, 0, 1, 0.0, 0.0, 0, 0, 0, 0 }
 };
 
+static char converse_path_corpus[CONVERSE_PATH_MAX] = CORPUS_FILE;
+static char converse_path_lexicon[CONVERSE_PATH_MAX] = LEXICON_FILE;
+static char converse_path_predict[CONVERSE_PATH_MAX] = PREDICT_FILE;
+static char converse_path_bridge[CONVERSE_PATH_MAX] = BRIDGE_FILE;
+static char converse_path_relation[CONVERSE_PATH_MAX] = RELATION_FILE;
+static char converse_path_eval[CONVERSE_PATH_MAX] = EVAL_FILE;
+static char converse_path_predict_eval[CONVERSE_PATH_MAX] = PREDICT_EVAL_FILE;
 static answer_bridge_t* answer_bridge_loaded = NULL;
 static size_t answer_bridge_loaded_size = 0;
 static answer_relation_rule_t* answer_relation_rules = NULL;
@@ -191,9 +210,12 @@ static answer_identity_fact_t* answer_identity_facts = NULL;
 static size_t answer_identity_facts_size = 0;
 static answer_describe_fact_t* answer_describe_facts = NULL;
 static size_t answer_describe_facts_size = 0;
+static answer_docdef_fact_t* answer_docdef_facts = NULL;
+static size_t answer_docdef_facts_size = 0;
 static long predict_ntotal = 0;
 
 
+static void converse_namespace_init(const char* prefix);
 static libxs_registry_t* corpus_load(void);
 static int corpus_save(const libxs_registry_t* corpus);
 static libxs_lexicon_t* converse_lexicon_load(void);
@@ -298,6 +320,11 @@ static size_t answer_describe_facts_build(const libxs_registry_t* corpus);
 static void answer_describe_facts_report(FILE* stream);
 static int answer_describe_fact_reply(const char* query_text,
   size_t query_len, char* output, size_t output_size);
+static void answer_docdef_facts_free(void);
+static size_t answer_docdef_facts_build(const libxs_registry_t* corpus);
+static void answer_docdef_facts_report(FILE* stream);
+static int answer_docdef_fact_reply(const char* query_text,
+  size_t query_len, char* output, size_t output_size);
 static int answer_identity_fact_reply(const char* query_text,
   size_t query_len, char* output, size_t output_size);
 static int answer_reply_role(char* output, size_t output_size,
@@ -394,12 +421,6 @@ static int ngram_eval(libxs_registry_t* model, const libxs_registry_t* corpus,
 static void ngram_stats(const libxs_registry_t* model);
 static int ngram_gran_mode(void);
 static int predict_is_test(long index, int holdout);
-static int bpe_add_symbol(const char* bytes, int len);
-static void bpe_free(void);
-static void bpe_build(const libxs_registry_t* corpus, int holdout);
-static int bpe_encode_run(const char* text, int len, unsigned int ids[],
-  unsigned short bytelens[], int max, int start, libxs_lexicon_t* lexicon,
-  int create);
 static int bpe_add_symbol(const char* bytes, int len);
 static void bpe_free(void);
 static void bpe_build(const libxs_registry_t* corpus, int holdout);
@@ -609,10 +630,12 @@ int main(int argc, char* argv[])
     return EXIT_FAILURE;
   }
 
-  if (0 != eval_mode && 1 != nbasenames + argc - i) {
+  converse_namespace_init((nbasenames > 0) ? basenames[0] : NULL);
+
+  if (0 != eval_mode && nbasenames + argc - i < 1) {
     fprintf(stderr,
-      "eval mode expects exactly one corpus source and reads %s\n",
-      EVAL_FILE);
+      "eval mode expects at least one corpus source and reads %s\n",
+      converse_path_eval);
     free(basenames);
     return EXIT_FAILURE;
   }
@@ -631,15 +654,17 @@ int main(int argc, char* argv[])
     return EXIT_FAILURE;
   }
 
-  answer_bridge_load_file(BRIDGE_FILE);
+  answer_bridge_load_file(converse_path_bridge);
   answer_bridge_report(stderr);
-  answer_relation_rules_load_file(RELATION_FILE);
+  answer_relation_rules_load_file(converse_path_relation);
   answer_relation_rules_report(stderr);
 
   { int basename_index;
+    int have_positional = (i < argc) ? 1 : 0;
     for (basename_index = 0; basename_index < nbasenames; ++basename_index) {
       if (EXIT_SUCCESS != corpus_ingest_basename(corpus,
-        basenames[basename_index], lexicon, rules, nrules))
+        basenames[basename_index], lexicon, rules, nrules)
+        && 0 == have_positional)
       {
         libxs_registry_destroy(corpus);
         libxs_lexicon_destroy(lexicon);
@@ -649,6 +674,7 @@ int main(int argc, char* argv[])
         answer_relation_facts_free();
         answer_identity_facts_free();
         answer_describe_facts_free();
+        answer_docdef_facts_free();
         free(basenames);
         return EXIT_FAILURE;
       }
@@ -674,14 +700,16 @@ int main(int argc, char* argv[])
   answer_identity_facts_report(stderr);
   answer_describe_facts_build(corpus);
   answer_describe_facts_report(stderr);
+  answer_docdef_facts_build(corpus);
+  answer_docdef_facts_report(stderr);
 
   libxs_registry_info(corpus, &rinfo);
   fprintf(stderr, "corpus: %lu sentences\n", (unsigned long)rinfo.size);
   predict_ntotal = (long)rinfo.size;
 
   if (0 != learn_mode) {
-    fprintf(stderr, "learned: %s, %s, %s\n", CORPUS_FILE, LEXICON_FILE,
-      PREDICT_FILE);
+    fprintf(stderr, "learned: %s, %s, %s\n", converse_path_corpus,
+      converse_path_lexicon, converse_path_predict);
     libxs_predict_destroy(answer_model);
     libxs_lexicon_destroy(lexicon);
     libxs_registry_destroy(corpus);
@@ -690,6 +718,7 @@ int main(int argc, char* argv[])
     answer_relation_facts_free();
     answer_identity_facts_free();
     answer_describe_facts_free();
+    answer_docdef_facts_free();
     return EXIT_SUCCESS;
   }
 
@@ -784,6 +813,7 @@ int main(int argc, char* argv[])
     answer_relation_facts_free();
     answer_identity_facts_free();
     answer_describe_facts_free();
+    answer_docdef_facts_free();
     return mode_result;
   }
 
@@ -799,6 +829,7 @@ int main(int argc, char* argv[])
     answer_relation_facts_free();
     answer_identity_facts_free();
     answer_describe_facts_free();
+    answer_docdef_facts_free();
     return eval_result;
   }
 
@@ -812,6 +843,7 @@ int main(int argc, char* argv[])
       answer_relation_facts_free();
       answer_identity_facts_free();
       answer_describe_facts_free();
+      answer_docdef_facts_free();
       return EXIT_FAILURE;
     }
     fprintf(stderr, "> ");
@@ -840,6 +872,7 @@ int main(int argc, char* argv[])
   answer_relation_facts_free();
   answer_identity_facts_free();
   answer_describe_facts_free();
+  answer_docdef_facts_free();
   return EXIT_SUCCESS;
 }
 
@@ -1225,10 +1258,49 @@ static int answer_relation_rule_alias_pos(const char* relation,
 }
 
 
+/* Resolve the per-corpus namespace from the prefix: state and companion files
+   live in the current directory keyed by the prefix basename, so each corpus
+   owns its own converse.dat/eval/relations/... A prefix of "." (the default)
+   takes the working directory's own name, which reproduces the plain
+   "converse.*" layout when run from the sample directory. */
+static void converse_namespace_init(const char* prefix)
+{
+  char base[CONVERSE_PATH_MAX - 16];
+  char cwd[CONVERSE_PATH_MAX];
+  const char* name = NULL;
+  int base_len = 0;
+  if (NULL == prefix || '\0' == prefix[0] || 0 == strcmp(prefix, ".")) {
+    if (NULL != getcwd(cwd, sizeof(cwd))) {
+      const char* slash = strrchr(cwd, '/');
+      name = (NULL != slash && '\0' != slash[1]) ? slash + 1 : cwd;
+    }
+  }
+  else {
+    const char* slash = strrchr(prefix, '/');
+    name = (NULL != slash) ? slash + 1 : prefix;
+  }
+  if (NULL != name && '\0' != name[0]) {
+    base_len = (int)strlen(name);
+    if (base_len >= (int)sizeof(base)) base_len = (int)sizeof(base) - 1;
+    memcpy(base, name, (size_t)base_len);
+    base[base_len] = '\0';
+  }
+  if (base_len > 0 && 0 != strcmp(base, "converse")) {
+    sprintf(converse_path_corpus, "%s.dat", base);
+    sprintf(converse_path_lexicon, "%s.lex", base);
+    sprintf(converse_path_predict, "%s.prd", base);
+    sprintf(converse_path_bridge, "%s.bridges", base);
+    sprintf(converse_path_relation, "%s.relations", base);
+    sprintf(converse_path_eval, "%s.eval", base);
+    sprintf(converse_path_predict_eval, "%s.predict", base);
+  }
+}
+
+
 static libxs_registry_t* corpus_load(void)
 {
   libxs_registry_t* result = NULL;
-  FILE* f = fopen(CORPUS_FILE, "rb");
+  FILE* f = fopen(converse_path_corpus, "rb");
   if (NULL != f) {
     long len;
     fseek(f, 0, SEEK_END);
@@ -1258,7 +1330,7 @@ static int corpus_save(const libxs_registry_t* corpus)
     void* buf = malloc(size);
     if (NULL != buf) {
       if (EXIT_SUCCESS == libxs_registry_save(corpus, buf, &size)) {
-        FILE* f = fopen(CORPUS_FILE, "wb");
+        FILE* f = fopen(converse_path_corpus, "wb");
         if (NULL != f) {
           if (fwrite(buf, 1, size, f) == size) result = EXIT_SUCCESS;
           fclose(f);
@@ -1274,7 +1346,7 @@ static int corpus_save(const libxs_registry_t* corpus)
 static libxs_lexicon_t* converse_lexicon_load(void)
 {
   libxs_lexicon_t* result = NULL;
-  FILE* file = fopen(LEXICON_FILE, "rb");
+  FILE* file = fopen(converse_path_lexicon, "rb");
   if (NULL != file) {
     long len;
     fseek(file, 0, SEEK_END);
@@ -1304,7 +1376,7 @@ static int converse_lexicon_save(const libxs_lexicon_t* lexicon)
     void* buf = malloc(size);
     if (NULL != buf) {
       if (EXIT_SUCCESS == libxs_lexicon_save(lexicon, buf, &size)) {
-        FILE* file = fopen(LEXICON_FILE, "wb");
+        FILE* file = fopen(converse_path_lexicon, "wb");
         if (NULL != file) {
           if (fwrite(buf, 1, size, file) == size) result = EXIT_SUCCESS;
           fclose(file);
@@ -1320,7 +1392,7 @@ static int converse_lexicon_save(const libxs_lexicon_t* lexicon)
 static libxs_predict_t* converse_predict_load(void)
 {
   libxs_predict_t* result = NULL;
-  FILE* file = fopen(PREDICT_FILE, "rb");
+  FILE* file = fopen(converse_path_predict, "rb");
   if (NULL != file) {
     long len;
     fseek(file, 0, SEEK_END);
@@ -1350,7 +1422,7 @@ static int converse_predict_save(const libxs_predict_t* model)
     void* buf = malloc(size);
     if (NULL != buf) {
       if (EXIT_SUCCESS == libxs_predict_save(model, buf, &size)) {
-        FILE* file = fopen(PREDICT_FILE, "wb");
+        FILE* file = fopen(converse_path_predict, "wb");
         if (NULL != file) {
           if (fwrite(buf, 1, size, file) == size) result = EXIT_SUCCESS;
           fclose(file);
@@ -3196,6 +3268,222 @@ static int answer_describe_fact_reply(const char* query_text,
 }
 
 
+static void answer_docdef_facts_free(void)
+{
+  free(answer_docdef_facts);
+  answer_docdef_facts = NULL;
+  answer_docdef_facts_size = 0;
+}
+
+
+/* Parse an optional leading "Header: `name`" line and return the byte offset
+   of the definition prose that follows it (0 when absent). Fills header with
+   the base module name (backticks and trailing extension stripped). */
+static int answer_docdef_header(const char* text, int text_len,
+  char* header, int header_size, int* header_len)
+{
+  int result = 0;
+  *header_len = 0;
+  if (text_len > 7 && 0 == strncmp(text, "Header:", 7)) {
+    int i = 7;
+    int begin, end;
+    while (i < text_len && (0 != isspace((unsigned char)text[i])
+      || '`' == text[i])) ++i;
+    begin = i;
+    while (i < text_len && '`' != text[i]
+      && 0 == isspace((unsigned char)text[i])) ++i;
+    end = i;
+    while (end > begin && '.' != text[end - 1]) {
+      if ('.' == text[end - 1]) break;
+      --end;
+    }
+    if (end <= begin) end = i;
+    else --end;
+    if (end - begin > 0 && end - begin < header_size) {
+      memcpy(header, text + begin, (size_t)(end - begin));
+      header[end - begin] = '\0';
+      *header_len = end - begin;
+    }
+    while (i < text_len && '\n' != text[i]) ++i;
+    while (i < text_len && 0 != isspace((unsigned char)text[i])) ++i;
+    result = i;
+    for (;;) {
+      int j = result;
+      while (j < text_len && (0 != isalpha((unsigned char)text[j])
+        || '-' == text[j] || '_' == text[j])) ++j;
+      if (j > result && j < text_len && ':' == text[j]) {
+        while (j < text_len && '\n' != text[j]) ++j;
+        while (j < text_len && 0 != isspace((unsigned char)text[j])) ++j;
+        result = j;
+      }
+      else break;
+    }
+  }
+  return result;
+}
+
+
+/* Learn module definitions from Markdown ingest: the first paragraph under a
+   heading becomes that title's definition, with the "Header:" filename kept as
+   an alias. Structural only (no corpus vocabulary), so prose corpora without
+   headings contribute nothing. */
+static size_t answer_docdef_facts_build(const libxs_registry_t* corpus)
+{
+  const void* key = NULL;
+  size_t cursor = 0;
+  void* value;
+  size_t result = 0;
+  answer_docdef_facts_free();
+  if (NULL == corpus) return 0;
+  value = libxs_registry_begin(corpus, &key, &cursor);
+  while (NULL != value) {
+    const corpus_entry_t* entry = (const corpus_entry_t*)value;
+    if (SCALE_PARAGRAPH == entry->scale && entry->section_len > 0) {
+      size_t fact_pos;
+      int seen = 0;
+      for (fact_pos = 0; fact_pos < answer_docdef_facts_size; ++fact_pos) {
+        const answer_docdef_fact_t* old = answer_docdef_facts + fact_pos;
+        if (old->title_len == entry->section_len
+          && 0 == libxs_memcmp(old->title, entry->section,
+            (size_t)entry->section_len))
+        {
+          seen = 1;
+          break;
+        }
+      }
+      if (0 == seen) {
+        char header[64];
+        int header_len = 0;
+        int offset = answer_docdef_header(entry->text, entry->text_len,
+          header, (int)sizeof(header), &header_len);
+        int text_len = entry->text_len - offset;
+        if (text_len > 0 && header_len > 0) {
+          answer_docdef_fact_t* facts = (answer_docdef_fact_t*)realloc(
+            answer_docdef_facts,
+            (answer_docdef_facts_size + 1) * sizeof(*facts));
+          if (NULL != facts) {
+            answer_docdef_fact_t* fact = facts + answer_docdef_facts_size;
+            answer_docdef_facts = facts;
+            LIBXS_MEMZERO(fact);
+            if (text_len >= (int)sizeof(fact->text)) {
+              text_len = (int)sizeof(fact->text) - 1;
+            }
+            memcpy(fact->title, entry->section, (size_t)entry->section_len);
+            fact->title[entry->section_len] = '\0';
+            fact->title_len = entry->section_len;
+            fact->header_len = header_len;
+            if (header_len > 0) memcpy(fact->header, header,
+              (size_t)header_len + 1);
+            memcpy(fact->text, entry->text + offset, (size_t)text_len);
+            fact->text[text_len] = '\0';
+            fact->text_len = text_len;
+            ++answer_docdef_facts_size;
+            ++result;
+          }
+        }
+      }
+    }
+    value = libxs_registry_next(corpus, &key, &cursor);
+  }
+  return result;
+}
+
+
+static void answer_docdef_facts_report(FILE* stream)
+{
+  if (NULL != stream && answer_docdef_facts_size > 0) {
+    fprintf(stream, "docdef facts: %lu learned\n",
+      (unsigned long)answer_docdef_facts_size);
+  }
+}
+
+
+/* Extract the subject term from "what is [the] X" or "what does X do",
+   skipping a leading article. Language-generic, no corpus vocabulary. */
+static int answer_docdef_term(const char* query_text, size_t query_len,
+  char* term, int term_size)
+{
+  static const char* const markers[] = { " is ", " does ", " are " };
+  int result = 0;
+  int marker_pos = -1;
+  int marker_len = 0;
+  int m;
+  size_t begin, end;
+  if (NULL == query_text || NULL == term || term_size <= 0) return 0;
+  term[0] = '\0';
+  for (m = 0; m < 3 && marker_pos < 0; ++m) {
+    marker_pos = text_find_ci(query_text, (int)query_len, markers[m]);
+    if (marker_pos >= 0) marker_len = (int)strlen(markers[m]);
+  }
+  if (marker_pos < 0) return 0;
+  begin = (size_t)marker_pos + (size_t)marker_len;
+  while (begin < query_len && 0 != isspace((unsigned char)query_text[begin])) {
+    ++begin;
+  }
+  end = begin;
+  while (end < query_len && '?' != query_text[end] && '.' != query_text[end]
+    && '!' != query_text[end]) ++end;
+  while (end > begin && 0 != isspace((unsigned char)query_text[end - 1])) --end;
+  if (end - begin >= 3 && 0 != isspace((unsigned char)query_text[end - 3])
+    && ('d' == (query_text[end - 2] | 32)) && ('o' == (query_text[end - 1] | 32)))
+  {
+    end -= 3;
+  }
+  while (end > begin && 0 != isspace((unsigned char)query_text[end - 1])) --end;
+  if (end - begin >= 2 && 0 == strncmp(query_text + begin, "a ", 2)) begin += 2;
+  else if (end - begin >= 3
+    && 0 == strncmp(query_text + begin, "an ", 3)) begin += 3;
+  else if (end - begin >= 4
+    && 0 == strncmp(query_text + begin, "the ", 4)) begin += 4;
+  while (begin < end && 0 != isspace((unsigned char)query_text[begin])) {
+    ++begin;
+  }
+  result = (int)(end - begin);
+  if (result >= term_size) result = term_size - 1;
+  if (result > 0) {
+    memcpy(term, query_text + begin, (size_t)result);
+    term[result] = '\0';
+  }
+  return result;
+}
+
+
+/* Answer "What is X?" / "What does X do?" from a learned module definition,
+   matching X against either the heading text or the Header: filename alias. */
+static int answer_docdef_fact_reply(const char* query_text,
+  size_t query_len, char* output, size_t output_size)
+{
+  int result = EXIT_FAILURE;
+  char term[ENTRY_SECTION_MAX];
+  int term_len;
+  const answer_docdef_fact_t* best = NULL;
+  size_t fact_pos;
+  if (NULL == query_text || NULL == output || 0 == output_size
+    || 0 == answer_docdef_facts_size) return EXIT_FAILURE;
+  term_len = answer_docdef_term(query_text, query_len, term,
+    (int)sizeof(term));
+  if (term_len <= 0) return EXIT_FAILURE;
+  for (fact_pos = 0; fact_pos < answer_docdef_facts_size && NULL == best;
+    ++fact_pos)
+  {
+    const answer_docdef_fact_t* fact = answer_docdef_facts + fact_pos;
+    if ((fact->title_len == term_len
+        && 0 != text_contains_word_ci(fact->title, fact->title_len, term))
+      || (fact->header_len == term_len
+        && 0 != text_contains_word_ci(fact->header, fact->header_len, term)))
+    {
+      best = fact;
+    }
+  }
+  if (NULL != best && (size_t)best->text_len + 1 <= output_size) {
+    memcpy(output, best->text, (size_t)best->text_len);
+    output[best->text_len] = '\0';
+    result = EXIT_SUCCESS;
+  }
+  return result;
+}
+
+
 static int answer_relation_fact_relation_match(const char* query_relation,
   const answer_relation_fact_t* fact)
 {
@@ -4699,6 +4987,8 @@ static int answer_fact_reply(const libxs_registry_t* corpus,
     || EXIT_SUCCESS == answer_identity_fact_reply(query_text, query_len,
       output, output_size)
     || EXIT_SUCCESS == answer_describe_fact_reply(query_text, query_len,
+      output, output_size)
+    || EXIT_SUCCESS == answer_docdef_fact_reply(query_text, query_len,
       output, output_size))
   {
     result = EXIT_SUCCESS;
@@ -4975,13 +5265,14 @@ static int eval_converse(const libxs_registry_t* corpus,
   int result = EXIT_FAILURE;
   int npass = 0, ntop = 0, nany = 0, nreply = 0, nfact = 0;
   int ncases = 0;
-  int have_facts = (0 != answer_relation_facts_size) ? 1 : 0;
+  int have_facts = (0 != answer_relation_facts_size
+    || 0 != answer_docdef_facts_size) ? 1 : 0;
   FILE* file;
   if (NULL == profile) profile = answer_predict_profile_default();
   if (NULL == corpus || NULL == lexicon || NULL == rules) return EXIT_FAILURE;
-  file = fopen(EVAL_FILE, "r");
+  file = fopen(converse_path_eval, "r");
   if (NULL == file) {
-    fprintf(stderr, "eval: no %s file found\n", EVAL_FILE);
+    fprintf(stderr, "eval: no %s file found\n", converse_path_eval);
   }
   while (NULL != file) {
     char line[EVAL_LINE_MAX];
@@ -6450,7 +6741,7 @@ static int ngram_eval(libxs_registry_t* model, const libxs_registry_t* corpus,
       (sum_bytes > 0.0) ? sum_bits / sum_bytes : 0.0);
     result = EXIT_SUCCESS;
   }
-  file = fopen(PREDICT_EVAL_FILE, "r");
+  file = fopen(converse_path_predict_eval, "r");
   if (NULL != file) {
     long hnpairs = 0, htop1 = 0, htopk = 0;
     char line[EVAL_LINE_MAX];
@@ -7509,14 +7800,24 @@ static int corpus_ingest_markdown(libxs_registry_t* corpus,
         block_code = 0;
       }
       else if (0 == line_len) {
-        if (0 != block_has) {
+        size_t bs = block_start;
+        int header_only = 0;
+        while (bs < line_start && 0 != isspace((unsigned char)text[bs])) ++bs;
+        if (0 != block_has && line_start - bs > 7
+          && 0 == strncmp((const char*)text + bs, "Header:", 7))
+        {
+          header_only = 1;
+        }
+        if (0 != block_has && 0 == header_only) {
           nblocks += corpus_md_emit_block(corpus, text + block_start,
             (int)(line_start - block_start), section, section_len, lexicon,
             rules, nrules, block_code);
           block_has = 0;
         }
-        block_start = i + 1;
-        block_code = 0;
+        if (0 == header_only) {
+          block_start = i + 1;
+          block_code = 0;
+        }
       }
       else {
         int table = ('|' == text[ls]) ? 1 : 0;
@@ -7814,7 +8115,8 @@ static int corpus_ingest_basename(libxs_registry_t* corpus,
     }
   }
   if (0 == ningested && EXIT_SUCCESS == result) {
-    fprintf(stderr, "basename %s: no known files matched\n", basename);
+    fprintf(stderr, "basename %s: no companion text files (name only)\n",
+      basename);
     result = EXIT_FAILURE;
   }
   else if (EXIT_SUCCESS == result) {
