@@ -1,5 +1,6 @@
 #include <libxs/libxs_predict.h>
 #include <libxs/libxs_token.h>
+#include <libxs/libxs_ngram.h>
 #include <libxs/libxs_math.h>
 #include <libxs/libxs_perm.h>
 #include <libxs/libxs_str.h>
@@ -21,10 +22,10 @@
 #define EVAL_FILE "converse.eval"
 #define EVAL_LINE_MAX 2048
 #define NGRAM_FILE "converse.ngram"
-#define NGRAM_SUCC_MAX 8
+#define NGRAM_SUCC_MAX LIBXS_NGRAM_SUCC_MAX
 #define NGRAM_TOPK 3
 #define NGRAM_NATIVE_WIDTH 4
-#define NGRAM_ORDER_MAX 6
+#define NGRAM_ORDER_MAX LIBXS_NGRAM_ORDER_MAX
 #define BPE_SYMBOL_MAX 32
 #define BPE_WORD_MAX 128
 #define BPE_MERGES_DEFAULT 750
@@ -146,21 +147,8 @@ typedef struct ngram_key_t {
   unsigned int b;
 } ngram_key_t;
 
-typedef struct ngram_keyk_t {
-  int n;
-  unsigned int ctx[NGRAM_ORDER_MAX];
-} ngram_keyk_t;
-
-typedef struct ngram_succ_t {
-  unsigned int id;
-  unsigned int count;
-} ngram_succ_t;
-
-typedef struct ngram_entry_t {
-  unsigned int total;
-  unsigned int nsucc;
-  ngram_succ_t succ[NGRAM_SUCC_MAX];
-} ngram_entry_t;
+typedef libxs_ngram_succ_t ngram_succ_t;
+typedef libxs_ngram_entry_t ngram_entry_t;
 
 typedef struct bpe_symbol_t {
   int len;
@@ -405,15 +393,14 @@ static libxs_registry_t* ngram_build(const libxs_registry_t* corpus,
   int holdout);
 static void ngram_backoff_build(libxs_registry_t* model,
   const libxs_lexicon_t* lexicon);
-static void ngram_backoff_free(void);
 static const ngram_entry_t* ngram_lookup(libxs_registry_t* model,
   unsigned int ctx_a, unsigned int ctx_b);
-static int ngram_topk(const ngram_entry_t* entry, unsigned int out_ids[],
-  int k);
 static double ngram_unigram_prior(unsigned int id);
-static unsigned int ngram_backoff_ids[NGRAM_TOPK];
-static int ngram_backoff_count;
-static unsigned int ngram_unifreq_size;
+static int ngram_order(void);
+static void ngram_train_text(libxs_registry_t* model,
+  libxs_lexicon_t* lexicon, const libxs_lexrule_t* rules, int nrules,
+  const char* text, int text_len);
+static libxs_ngram_t converse_ngram;
 static int converse_profile_override = -1;
 static bpe_symbol_t* bpe_symbols = NULL;
 static int bpe_nsymbols = 0;
@@ -815,9 +802,9 @@ int main(int argc, char* argv[])
     libxs_predict_destroy(token_model);
     knnlm_cache_free();
     token_emb_free();
-    ngram_backoff_free();
     bpe_free();
-    libxs_registry_destroy(ngram_model);
+    libxs_ngram_destroy(&converse_ngram);
+    ngram_model = NULL;
     converse_lexicon_save(lexicon);
     libxs_predict_destroy(answer_model);
     libxs_lexicon_destroy(lexicon);
@@ -5508,151 +5495,40 @@ static int eval_converse(const libxs_registry_t* corpus,
 }
 
 
-static void ngram_entry_add(ngram_entry_t* entry, unsigned int succ_id)
-{
-  unsigned int slot;
-  int found = 0;
-  entry->total += 1;
-  for (slot = 0; slot < entry->nsucc && 0 == found; ++slot) {
-    if (entry->succ[slot].id == succ_id) {
-      entry->succ[slot].count += 1;
-      found = 1;
-    }
-  }
-  if (0 == found) {
-    if (entry->nsucc < NGRAM_SUCC_MAX) {
-      entry->succ[entry->nsucc].id = succ_id;
-      entry->succ[entry->nsucc].count = 1;
-      entry->nsucc += 1;
-    }
-    else {
-      unsigned int min_slot = 0;
-      for (slot = 1; slot < entry->nsucc; ++slot) {
-        if (entry->succ[slot].count < entry->succ[min_slot].count) {
-          min_slot = slot;
-        }
-      }
-      entry->succ[min_slot].id = succ_id;
-      entry->succ[min_slot].count += 1;
-    }
-  }
-}
-
-
-static void ngramk_make_key(ngram_keyk_t* key, const unsigned int hist[],
-  int hlen, int n)
-{
-  int i;
-  LIBXS_MEMZERO(key);
-  key->n = n;
-  for (i = 0; i < n; ++i) key->ctx[i] = hist[hlen - n + i];
-}
-
-
-/* Observe every context length 1..maxorder ending at hist[hlen-1] -> succ. */
+/* The variable-order n-gram engine now lives in libxs_ngram; the wrappers
+   below adapt converse's call sites (which thread the model's registry and an
+   explicit maxorder) to the single shared model. model == converse_ngram.store
+   and maxorder == converse_ngram.maxorder by construction. */
 static void ngramk_observe(libxs_registry_t* model, const unsigned int hist[],
   int hlen, unsigned int succ_id, int maxorder)
 {
-  int n;
-  if (NULL == model || 0 == succ_id) return;
-  for (n = 1; n <= maxorder && n <= hlen; ++n) {
-    ngram_keyk_t key;
-    ngram_entry_t* entry;
-    int ok = 1, i;
-    for (i = 0; i < n; ++i) {
-      if (0 == hist[hlen - n + i]) ok = 0;
-    }
-    if (0 == ok) continue;
-    ngramk_make_key(&key, hist, hlen, n);
-    entry = (ngram_entry_t*)libxs_registry_get(model, &key, sizeof(key), NULL);
-    if (NULL == entry) {
-      ngram_entry_t fresh;
-      LIBXS_MEMZERO(&fresh);
-      fresh.total = 1;
-      fresh.nsucc = 1;
-      fresh.succ[0].id = succ_id;
-      fresh.succ[0].count = 1;
-      libxs_registry_set(model, &key, sizeof(key), &fresh, sizeof(fresh),
-        NULL);
-    }
-    else ngram_entry_add(entry, succ_id);
-  }
+  LIBXS_UNUSED(model); LIBXS_UNUSED(maxorder);
+  libxs_ngram_observe(&converse_ngram, hist, hlen, succ_id);
 }
 
 
 static const ngram_entry_t* ngramk_lookup(libxs_registry_t* model,
   const unsigned int hist[], int hlen, int n)
 {
-  ngram_keyk_t key;
-  if (NULL == model || n <= 0 || n > hlen) return NULL;
-  ngramk_make_key(&key, hist, hlen, n);
-  return (const ngram_entry_t*)libxs_registry_get(model, &key, sizeof(key),
-    NULL);
+  LIBXS_UNUSED(model);
+  return libxs_ngram_lookup(&converse_ngram, hist, hlen, n);
 }
 
 
-static double ngramk_relfreq(const ngram_entry_t* entry, unsigned int succ_id)
-{
-  double result = 0.0;
-  if (NULL != entry && entry->total > 0) {
-    unsigned int slot;
-    for (slot = 0; slot < entry->nsucc; ++slot) {
-      if (entry->succ[slot].id == succ_id) {
-        result = (double)entry->succ[slot].count / (double)entry->total;
-        break;
-      }
-    }
-  }
-  return result;
-}
-
-
-/* Interpolated backoff over orders 1..maxorder (longest context wins most). */
 static double ngramk_prob(libxs_registry_t* model, const unsigned int hist[],
   int hlen, int maxorder, unsigned int next)
 {
-  double vocab = (ngram_unifreq_size > 0) ? (double)ngram_unifreq_size : 1.0;
-  double uni_floor = 1.0 / (vocab + 1.0);
-  double p_uni = ngram_unigram_prior(next);
-  double p = (p_uni > 0.0) ? p_uni : uni_floor;
-  int n;
-  for (n = 1; n <= maxorder && n <= hlen; ++n) {
-    const ngram_entry_t* entry = ngramk_lookup(model, hist, hlen, n);
-    if (NULL != entry && entry->total > 0) {
-      double t = (double)entry->total;
-      double lambda = t / (t + 1.0);
-      p = lambda * ngramk_relfreq(entry, next) + (1.0 - lambda) * p;
-    }
-  }
-  if (p < uni_floor) p = uni_floor;
-  if (p > 1.0) p = 1.0;
-  return p;
+  LIBXS_UNUSED(model); LIBXS_UNUSED(maxorder);
+  return libxs_ngram_prob(&converse_ngram, hist, hlen, next);
 }
 
 
-/* Top-k successors from the longest context that has an entry (hard backoff).
-   When order is non-NULL it receives the context length that matched (0 when
-   the prediction falls back to the global unigram list), so a caller can gauge
-   how well grounded each step is. */
 static int ngramk_predict_order(libxs_registry_t* model,
   const unsigned int hist[], int hlen, int maxorder, unsigned int out_ids[],
   int k, int* order)
 {
-  const ngram_entry_t* entry = NULL;
-  int n, matched = 0;
-  for (n = (maxorder < hlen) ? maxorder : hlen; n >= 1 && NULL == entry; --n) {
-    entry = ngramk_lookup(model, hist, hlen, n);
-    if (NULL != entry) matched = n;
-  }
-  if (NULL != order) *order = matched;
-  if (NULL != entry) return ngram_topk(entry, out_ids, k);
-  { int slot, result = 0;
-    for (slot = 0; slot < k && slot < ngram_backoff_count; ++slot) {
-      out_ids[slot] = ngram_backoff_ids[slot];
-      ++result;
-    }
-    return result;
-  }
+  LIBXS_UNUSED(model); LIBXS_UNUSED(maxorder);
+  return libxs_ngram_predict(&converse_ngram, hist, hlen, out_ids, k, order);
 }
 
 
@@ -6058,48 +5934,25 @@ static int ngram_order(void)
 static void ngram_stats(const libxs_registry_t* model)
 {
   const char* env = getenv("CONVERSE_NGRAM_STATS");
-  if (NULL != model && NULL != env && '\0' != *env && '0' != *env) {
-    long keys[NGRAM_ORDER_MAX + 1];
-    double obs[NGRAM_ORDER_MAX + 1];
-    long full[NGRAM_ORDER_MAX + 1];
-    libxs_registry_info_t info;
-    const void* key = NULL;
-    size_t cursor = 0;
-    void* value;
+  libxs_ngram_stats_t st;
+  LIBXS_UNUSED(model);
+  if (NULL != env && '\0' != *env && '0' != *env
+    && EXIT_SUCCESS == libxs_ngram_stats(&converse_ngram, &st))
+  {
     int n;
-    for (n = 0; n <= NGRAM_ORDER_MAX; ++n) {
-      keys[n] = 0;
-      obs[n] = 0.0;
-      full[n] = 0;
-    }
-    value = libxs_registry_begin(model, &key, &cursor);
-    while (NULL != value) {
-      const ngram_entry_t* entry = (const ngram_entry_t*)value;
-      const ngram_keyk_t* entry_key = (const ngram_keyk_t*)key;
-      if (NULL != entry_key && entry_key->n >= 1
-        && entry_key->n <= NGRAM_ORDER_MAX)
-      {
-        n = entry_key->n;
-        keys[n] += 1;
-        obs[n] += (double)entry->total;
-        if (NGRAM_SUCC_MAX <= entry->nsucc) full[n] += 1;
-      }
-      value = libxs_registry_next(model, &key, &cursor);
-    }
-    for (n = 1; n <= NGRAM_ORDER_MAX; ++n) {
-      if (keys[n] > 0) {
+    for (n = 1; n <= LIBXS_NGRAM_ORDER_MAX; ++n) {
+      if (st.keys[n] > 0) {
         fprintf(stdout,
           "ngram-stats[n=%d]: keys=%ld obs=%.0f obs/key=%.2f full=%.1f%%\n",
-          n, keys[n], obs[n], obs[n] / (double)keys[n],
-          100.0 * (double)full[n] / (double)keys[n]);
+          n, st.keys[n], st.obs[n], st.obs[n] / (double)st.keys[n],
+          100.0 * (double)st.saturated[n] / (double)st.keys[n]);
       }
     }
-    if (EXIT_SUCCESS == libxs_registry_info(model, &info) && info.size > 0) {
+    if (st.entries > 0) {
       fprintf(stdout,
-        "ngram-stats[all]: entries=%lu bytes=%lu cap=%lu bytes/entry=%.1f\n",
-        (unsigned long)info.size, (unsigned long)info.nbytes,
-        (unsigned long)info.capacity,
-        (double)info.nbytes / (double)info.size);
+        "ngram-stats[all]: entries=%lu bytes=%lu bytes/entry=%.1f\n",
+        (unsigned long)st.entries, (unsigned long)st.nbytes,
+        (double)st.nbytes / (double)st.entries);
     }
   }
 }
@@ -6189,8 +6042,11 @@ static libxs_registry_t* ngram_build(const libxs_registry_t* corpus,
   libxs_lexicon_t* lexicon, const libxs_lexrule_t* rules, int nrules,
   int holdout)
 {
-  libxs_registry_t* model = libxs_registry_create();
-  if (NULL != model && NULL != corpus) {
+  libxs_ngram_destroy(&converse_ngram);
+  if (EXIT_SUCCESS != libxs_ngram_create(&converse_ngram, ngram_order())) {
+    return NULL;
+  }
+  if (NULL != corpus) {
     const void* key = NULL;
     size_t cursor = 0;
     long index = 0;
@@ -6198,17 +6054,19 @@ static libxs_registry_t* ngram_build(const libxs_registry_t* corpus,
     while (NULL != value) {
       const corpus_entry_t* entry = (const corpus_entry_t*)value;
       if (0 == predict_is_test(index, holdout)) {
-        ngram_train_text(model, lexicon, rules, nrules, entry->text,
-          entry->text_len);
+        ngram_train_text(converse_ngram.store, lexicon, rules, nrules,
+          entry->text, entry->text_len);
       }
       ++index;
       value = libxs_registry_next(corpus, &key, &cursor);
     }
   }
-  return model;
+  return converse_ngram.store;
 }
 
 
+/* Rank the successors of a single record by count (converse's legacy order-2
+   adapters expose a bare entry; the library ranks internally via predict). */
 static int ngram_topk(const ngram_entry_t* entry, unsigned int out_ids[],
   int k)
 {
@@ -6237,85 +6095,22 @@ static int ngram_topk(const ngram_entry_t* entry, unsigned int out_ids[],
 }
 
 
-static unsigned int ngram_backoff_ids[NGRAM_TOPK];
-static int ngram_backoff_count = 0;
-static unsigned int* ngram_unifreq = NULL;
-static unsigned int ngram_unifreq_size = 0;
-static double ngram_unifreq_total = 1.0;
-
-
-static void ngram_backoff_free(void)
-{
-  free(ngram_unifreq);
-  ngram_unifreq = NULL;
-  ngram_unifreq_size = 0;
-  ngram_unifreq_total = 1.0;
-  ngram_backoff_count = 0;
-}
-
-
 static void ngram_backoff_build(libxs_registry_t* model,
   const libxs_lexicon_t* lexicon)
 {
   unsigned int vocab = (NULL != lexicon) ? libxs_lexicon_size(lexicon) : 0;
-  ngram_backoff_free();
-  if (NULL != model && vocab > 0) {
-    unsigned int* freq = (unsigned int*)calloc((size_t)vocab + 1,
-      sizeof(*freq));
-    if (NULL != freq) {
-      const void* key = NULL;
-      size_t cursor = 0;
-      void* value = libxs_registry_begin(model, &key, &cursor);
-      double total = 0.0;
-      unsigned int picked[NGRAM_TOPK];
-      int slot;
-      while (NULL != value) {
-        const ngram_entry_t* entry = (const ngram_entry_t*)value;
-        const ngram_keyk_t* entry_key = (const ngram_keyk_t*)key;
-        if (NULL != entry_key && 1 == entry_key->n) {
-          unsigned int s;
-          for (s = 0; s < entry->nsucc; ++s) {
-            if (entry->succ[s].id <= vocab) {
-              freq[entry->succ[s].id] += entry->succ[s].count;
-              total += (double)entry->succ[s].count;
-            }
-          }
-        }
-        value = libxs_registry_next(model, &key, &cursor);
-      }
-      for (slot = 0; slot < NGRAM_TOPK; ++slot) {
-        unsigned int id;
-        unsigned int best = 0;
-        unsigned int best_freq = 0;
-        int prior;
-        for (id = 1; id <= vocab; ++id) {
-          int skip = 0;
-          for (prior = 0; prior < slot; ++prior) {
-            if (picked[prior] == id) skip = 1;
-          }
-          if (0 == skip && freq[id] > best_freq) {
-            best_freq = freq[id];
-            best = id;
-          }
-        }
-        if (0 == best) break;
-        ngram_backoff_ids[slot] = best;
-        picked[slot] = best;
-        ++ngram_backoff_count;
-      }
-      ngram_unifreq = freq;
-      ngram_unifreq_size = vocab;
-      ngram_unifreq_total = (total > 0.0) ? total : 1.0;
-    }
-  }
+  LIBXS_UNUSED(model);
+  libxs_ngram_finalize(&converse_ngram, vocab);
 }
 
 
 static double ngram_unigram_prior(unsigned int id)
 {
   double result = 0.0;
-  if (NULL != ngram_unifreq && 0 != id && id <= ngram_unifreq_size) {
-    result = (double)ngram_unifreq[id] / ngram_unifreq_total;
+  if (NULL != converse_ngram.unifreq && 0 != id
+    && id <= converse_ngram.unifreq_size)
+  {
+    result = (double)converse_ngram.unifreq[id] / converse_ngram.unifreq_total;
   }
   return result;
 }
@@ -6721,8 +6516,8 @@ static int ngram_predict(libxs_registry_t* model, unsigned int prev2,
     if (NULL != entry) result = ngram_topk(entry, out_ids, k);
     if (0 == result) {
       int slot;
-      for (slot = 0; slot < k && slot < ngram_backoff_count; ++slot) {
-        out_ids[slot] = ngram_backoff_ids[slot];
+      for (slot = 0; slot < k && slot < converse_ngram.backoff_count; ++slot) {
+        out_ids[slot] = converse_ngram.backoff_ids[slot];
         ++result;
       }
     }
@@ -7326,8 +7121,8 @@ static int ngram_candidates(libxs_registry_t* model, unsigned int prev2,
   }
   else {
     int slot;
-    for (slot = 0; slot < k && slot < ngram_backoff_count; ++slot) {
-      ids[slot] = ngram_backoff_ids[slot];
+    for (slot = 0; slot < k && slot < converse_ngram.backoff_count; ++slot) {
+      ids[slot] = converse_ngram.backoff_ids[slot];
       relfreq[slot] = 0.0;
       provenance[slot] = 0;
       ++result;
