@@ -42,7 +42,7 @@ message(STATUS "  LIBXS_FORTRAN         : ${LIBXS_FORTRAN}")
 set(LIBXS_ROOT_DIR "${PROJECT_SOURCE_DIR}")
 set(LIBXS_INCLUDE_DIR "${LIBXS_ROOT_DIR}/libxs")
 if(NOT CMAKE_INSTALL_Fortran_MODULES)
-    set(CMAKE_INSTALL_Fortran_MODULES "${LIBXS_INCLUDE_DIR}")
+  set(CMAKE_INSTALL_Fortran_MODULES "${CMAKE_INSTALL_INCLUDEDIR}/libxs")
 endif()
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
@@ -188,14 +188,7 @@ install(DIRECTORY "${LIBXS_INCLUDE_DIR}/"
     PATTERN "*.h"
     PATTERN "*.f"
     PATTERN "*.fi"
-    PATTERN "*.F"
-    PATTERN "*.mod")
-
-# Install Fortran module file
-install(DIRECTORY "${LIBXS_INCLUDE_DIR}/"
-  DESTINATION "${CMAKE_INSTALL_Fortran_MODULES}"
-  FILES_MATCHING
-    PATTERN "*.mod")
+    PATTERN "*.F")
 
 # Install header-only source files (always available)
 file(READ "${LIBXS_INCLUDE_DIR}/libxs_source.h" LIBXS_SOURCE_HEADER)
@@ -212,7 +205,7 @@ install(DIRECTORY "${LIBXS_ROOT_DIR}/src/"
 
 if(LIBXS_FORTRAN)
   install(DIRECTORY "${LIBXS_Fortran_MODULE_DIR}/"
-    DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/libxs"
+    DESTINATION "${CMAKE_INSTALL_Fortran_MODULES}"
     FILES_MATCHING PATTERN "*.mod")
 endif()
 

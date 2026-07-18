@@ -38,6 +38,7 @@ documentation for developing applications that use LIBXS.
 %autosetup
 %build
 %cmake \
+    -DCMAKE_INSTALL_Fortran_MODULES:PATH=%{_fmoddir}/libxs \
     -DBUILD_SHARED_LIBS=ON \
     -DBUILD_TESTING=%{libxs_build_testing} \
     -DLIBXS_FORTRAN=ON
@@ -66,6 +67,7 @@ rm -f %{buildroot}%{_datadir}/%{name}/LICENSE.md
 %{_libdir}/libxs.so
 %{_libdir}/pkgconfig/libxs*.pc
 %{_libdir}/cmake/libxs/
+%{_fmoddir}/libxs/
 
 %changelog
 %autochangelog
