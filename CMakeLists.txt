@@ -39,8 +39,8 @@ message(STATUS "  CMake version         : ${CMAKE_VERSION}")
 message(STATUS "  System                : ${CMAKE_SYSTEM_NAME}")
 message(STATUS "  LIBXS_FORTRAN         : ${LIBXS_FORTRAN}")
 
-set(LIBXS_ROOT_DIR ${PROJECT_SOURCE_DIR})
-set(LIBXS_INCLUDE_DIR ${LIBXS_ROOT_DIR}/libxs)
+set(LIBXS_ROOT_DIR "${PROJECT_SOURCE_DIR}")
+set(LIBXS_INCLUDE_DIR "${LIBXS_ROOT_DIR}/libxs")
 if(NOT CMAKE_INSTALL_Fortran_MODULES)
     set(CMAKE_INSTALL_Fortran_MODULES "${LIBXS_INCLUDE_DIR}")
 endif()
@@ -98,10 +98,10 @@ set(LIBXS_PUBLIC_INCLUDE_DIRS
   $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}/libxs>)
 
 file(GLOB LIBXS_SRCS LIST_DIRECTORIES false CONFIGURE_DEPENDS
-  ${LIBXS_ROOT_DIR}/src/*.c)
+  "${LIBXS_ROOT_DIR}/src/*.c")
 
 if(LIBXS_FORTRAN)
-  list(APPEND LIBXS_SRCS ${LIBXS_INCLUDE_DIR}/libxs.f)
+  list(APPEND LIBXS_SRCS "${LIBXS_INCLUDE_DIR}/libxs.f")
 endif()
 
 add_library(libxs ${LIBXS_SRCS})
@@ -116,15 +116,15 @@ target_compile_definitions(libxs PRIVATE LIBXS_BUILD=1)
 
 target_include_directories(libxs
   PUBLIC
-    ${LIBXS_PUBLIC_INCLUDE_DIRS}
+    "${LIBXS_PUBLIC_INCLUDE_DIRS}"
   PRIVATE
-    ${LIBXS_ROOT_DIR}/src)
+    "${LIBXS_ROOT_DIR}/src")
 
 target_link_libraries(libxs PUBLIC ${LIBXS_PUBLIC_LIBRARIES})
 
 if(LIBXS_FORTRAN)
-  set(LIBXS_Fortran_MODULE_DIR ${CMAKE_CURRENT_BINARY_DIR}/mod)
-  set_target_properties(libxs PROPERTIES Fortran_MODULE_DIRECTORY ${LIBXS_Fortran_MODULE_DIR})
+  set(LIBXS_Fortran_MODULE_DIR "${CMAKE_CURRENT_BINARY_DIR}/mod")
+  set_target_properties(libxs PROPERTIES Fortran_MODULE_DIRECTORY "${LIBXS_Fortran_MODULE_DIR}")
   target_include_directories(libxs PUBLIC
     $<BUILD_INTERFACE:${LIBXS_Fortran_MODULE_DIR}>
     $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}/libxs>)
@@ -166,7 +166,7 @@ configure_file(
 configure_package_config_file(
   "${CMAKE_CURRENT_SOURCE_DIR}/scripts/libxsConfig.cmake.in"
   "${CMAKE_CURRENT_BINARY_DIR}/libxsConfig.cmake"
-  INSTALL_DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/libxs
+  INSTALL_DESTINATION "${CMAKE_INSTALL_LIBDIR}/cmake/libxs"
   PATH_VARS CMAKE_INSTALL_INCLUDEDIR CMAKE_INSTALL_LIBDIR)
 
 write_basic_package_version_file(
@@ -177,13 +177,13 @@ write_basic_package_version_file(
 # Installation rules
 install(TARGETS libxs
   EXPORT libxsTargets
-  ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
-  LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
-  RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
+  ARCHIVE DESTINATION "${CMAKE_INSTALL_LIBDIR}"
+  LIBRARY DESTINATION "${CMAKE_INSTALL_LIBDIR}"
+  RUNTIME DESTINATION "${CMAKE_INSTALL_BINDIR}")
 
 # Install public headers (picks up the freshly generated libxs_version.h)
-install(DIRECTORY ${LIBXS_INCLUDE_DIR}/
-  DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/libxs
+install(DIRECTORY "${LIBXS_INCLUDE_DIR}/"
+  DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/libxs"
   FILES_MATCHING
     PATTERN "*.h"
     PATTERN "*.f"
@@ -192,7 +192,7 @@ install(DIRECTORY ${LIBXS_INCLUDE_DIR}/
     PATTERN "*.mod")
 
 # Install Fortran module file
-install(DIRECTORY ${LIBXS_INCLUDE_DIR}/
+install(DIRECTORY "${LIBXS_INCLUDE_DIR}/"
   DESTINATION "${CMAKE_INSTALL_Fortran_MODULES}"
   FILES_MATCHING
     PATTERN "*.mod")
@@ -203,38 +203,38 @@ string(REPLACE "../src/" "src/" LIBXS_SOURCE_HEADER "${LIBXS_SOURCE_HEADER}")
 file(WRITE "${CMAKE_CURRENT_BINARY_DIR}/libxs_source.h" "${LIBXS_SOURCE_HEADER}")
 
 install(FILES "${CMAKE_CURRENT_BINARY_DIR}/libxs_source.h"
-  DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/libxs)
-install(DIRECTORY ${LIBXS_ROOT_DIR}/src/
-  DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/libxs/src
+  DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/libxs")
+install(DIRECTORY "${LIBXS_ROOT_DIR}/src/"
+  DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/libxs/src"
   FILES_MATCHING
     PATTERN "*.c"
     PATTERN "*.h")
 
 if(LIBXS_FORTRAN)
-  install(DIRECTORY ${LIBXS_Fortran_MODULE_DIR}/
-    DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/libxs
+  install(DIRECTORY "${LIBXS_Fortran_MODULE_DIR}/"
+    DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/libxs"
     FILES_MATCHING PATTERN "*.mod")
 endif()
 
 # Install pkg-config files
 install(FILES
   "${CMAKE_CURRENT_BINARY_DIR}/libxs.pc"
-  DESTINATION ${CMAKE_INSTALL_LIBDIR}/pkgconfig
+  DESTINATION "${CMAKE_INSTALL_LIBDIR}/pkgconfig"
 )
 
 # CMake package config export
 install(EXPORT libxsTargets
   FILE libxsTargets.cmake
   NAMESPACE libxs::
-  DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/libxs)
+  DESTINATION "${CMAKE_INSTALL_LIBDIR}/cmake/libxs")
 
 install(FILES
   "${CMAKE_CURRENT_BINARY_DIR}/libxsConfig.cmake"
   "${CMAKE_CURRENT_BINARY_DIR}/libxsConfigVersion.cmake"
-  DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/libxs)
+  DESTINATION "${CMAKE_INSTALL_LIBDIR}/cmake/libxs")
 
 # Install documentation into share/libxs
-set(LIBXS_SHARE_DIR ${CMAKE_INSTALL_DATADIR}/libxs)
+set(LIBXS_SHARE_DIR "${CMAKE_INSTALL_DATADIR}/libxs")
 
 file(GLOB LIBXS_DOC_MDS LIST_DIRECTORIES false
   "${CMAKE_CURRENT_SOURCE_DIR}/documentation/libxs_*.md")
