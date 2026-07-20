@@ -43,6 +43,9 @@
 #define TOKEN_EMB_BACKFILL_REF 5
 #define KNNLM_K 24
 #define KNNLM_VOTE_MAX 4
+#define KNNLM_ANN_DIMS 8
+#define KNNLM_ANN_BITS 8
+#define KNNLM_ANN_WINDOW 512
 #define RERANK_INPUTS 9
 #define RERANK_RELIABILITY 32.0
 #define RERANK_LIFT_MAX 8.0
@@ -530,6 +533,7 @@ int main(int argc, char* argv[])
       "  CONVERSE_NGRAM_STATS=1   print per-order n-gram footprint.\n"
       "  CONVERSE_KNNLM_LAMBDA=F  fixed kNN-LM interpolation weight.\n"
       "  CONVERSE_KNNLM_DYN=1     dynamic (test-time) kNN-LM datastore.\n"
+      "  CONVERSE_KNNLM_ANN=1     Hilbert-indexed kNN-LM retrieval (faster).\n"
       "  CONVERSE_EMB_PROBE=w1,w2 print nearest embedding neighbors.\n"
       "  CONVERSE_EMB_BACKFILL=0  disable rare-token vector backfill.\n",
       argv[0], RESPONSE_BUDGET, NGRAM_ORDER_MAX, NGRAM_ORDER_MAX);
@@ -5604,6 +5608,25 @@ static int ngram_native_mode(void)
 }
 
 
+/* Number of prior whole words to carry as sub-word prediction context, or 0
+   (off, byte-identical to piece-only context). Ignored at word/native mode. */
+static int ngram_wordctx(void)
+{
+  int result = 0;
+  const char* env = getenv("CONVERSE_WORDCTX");
+  int mode = ngram_gran_mode();
+  if (NULL != env && '\0' != *env
+    && (GRAN_SYLLABLE == mode || GRAN_BPE == mode))
+  {
+    int v = atoi(env);
+    if (v < 0) v = 0;
+    if (v > NGRAM_ORDER_MAX) v = NGRAM_ORDER_MAX;
+    result = v;
+  }
+  return result;
+}
+
+
 static int ngram_is_vowel(unsigned char c)
 {
   c = (unsigned char)tolower(c);
@@ -5877,9 +5900,13 @@ static int ngram_syllable_split(const char* text, int wlen, int piece_begin[],
 
 /* Emits LIBXS_TOKEN_BREAK on a token preceded by whitespace in the source, so
    libxs_token_word_next groups the pieces of one word. Native granularity cuts
-   fixed-width chunks across word boundaries and hence marks none. */
+   fixed-width chunks across word boundaries and hence marks none. When word_ids
+   is non-NULL, each piece receives the whole-word lexicon id of the word it
+   belongs to (its own id for native chunks and standalone punctuation), which
+   lets a caller build word-span context over sub-word emission. */
 static int ngram_native_tokens(libxs_lexicon_t* lexicon, const char* text,
-  int text_len, libxs_token_t tokens[], int max, int create)
+  int text_len, libxs_token_t tokens[], unsigned int word_ids[], int max,
+  int create)
 {
   int result = 0;
   int pos = 0;
@@ -5892,6 +5919,7 @@ static int ngram_native_tokens(libxs_lexicon_t* lexicon, const char* text,
       int marker = (pos > 0) ? 1 : 0;
       char run[BPE_WORD_MAX + 1];
       int run_len = 0;
+      int prev = result;
       while (pos + wlen < text_len
         && 0 == isspace((unsigned char)text[pos + wlen])) ++wlen;
       if (0 == wlen) {
@@ -5907,6 +5935,12 @@ static int ngram_native_tokens(libxs_lexicon_t* lexicon, const char* text,
       }
       result = bpe_encode_run(run, run_len, tokens, max, result,
         lexicon, create);
+      if (NULL != word_ids && result > prev) {
+        unsigned int wid = libxs_lexicon_id(lexicon, text + run_start,
+          wlen, LIBXS_LEXEME_WORD, create);
+        int j;
+        for (j = prev; j < result; ++j) word_ids[j] = wid;
+      }
       pos = run_start + wlen;
       while (pos < text_len && 0 != isspace((unsigned char)text[pos])) ++pos;
     }
@@ -5923,6 +5957,7 @@ static int ngram_native_tokens(libxs_lexicon_t* lexicon, const char* text,
       tokens[result].id = id;
       tokens[result].length = (unsigned short)len;
       tokens[result].flags = LIBXS_TOKEN_WORD;
+      if (NULL != word_ids) word_ids[result] = id;
       ++result;
       pos += len;
     }
@@ -5938,6 +5973,7 @@ static int ngram_native_tokens(libxs_lexicon_t* lexicon, const char* text,
       tokens[result].length = 1;
       tokens[result].flags = (unsigned short)(LIBXS_TOKEN_PUNCT
         | ((0 != have_break) ? LIBXS_TOKEN_BREAK : 0));
+      if (NULL != word_ids) word_ids[result] = id;
       ++result;
       have_break = (0 != isspace(c)) ? 1 : 0;
       ++pos;
@@ -5947,8 +5983,13 @@ static int ngram_native_tokens(libxs_lexicon_t* lexicon, const char* text,
       int piece_begin[COMPOSE_MAXTEXT / 2];
       int piece_len[COMPOSE_MAXTEXT / 2];
       int np, pi;
+      unsigned int wid = 0;
       while (pos + wlen < text_len
         && 0 != ngram_is_wordchar((unsigned char)text[pos + wlen])) ++wlen;
+      if (NULL != word_ids) {
+        wid = libxs_lexicon_id(lexicon, text + pos, wlen,
+          LIBXS_LEXEME_WORD, create);
+      }
       np = ngram_syllable_split(text + pos, wlen, piece_begin, piece_len,
         (int)(sizeof(piece_len) / sizeof(*piece_len)));
       for (pi = 0; pi < np && result < max; ++pi) {
@@ -5966,6 +6007,7 @@ static int ngram_native_tokens(libxs_lexicon_t* lexicon, const char* text,
         tokens[result].length = (unsigned short)piece_len[pi];
         tokens[result].flags = (unsigned short)(LIBXS_TOKEN_WORD
           | ((0 == pi && 0 != have_break) ? LIBXS_TOKEN_BREAK : 0));
+        if (NULL != word_ids) word_ids[result] = wid;
         ++result;
       }
       have_break = 0;
@@ -5985,6 +6027,43 @@ static int ngram_order(void)
     if (v >= 1 && v <= NGRAM_ORDER_MAX) result = v;
   }
   return result;
+}
+
+
+static void ngram_hist_push(unsigned int hist[], int* hlen, int cap,
+  unsigned int id)
+{
+  if (*hlen < cap) hist[(*hlen)++] = id;
+  else {
+    int s;
+    for (s = 1; s < cap; ++s) hist[s - 1] = hist[s];
+    hist[cap - 1] = id;
+  }
+}
+
+
+/* Word-span context for predicting sub-word token i: the whole-word ids of the
+   preceding wctx words followed by the pieces of the current word emitted so
+   far, kept as the most-recent cap entries. Rebuilt per position so that train
+   and eval derive identical keys; groups are delimited by LIBXS_TOKEN_BREAK. */
+static int ngram_wordctx_hist(const libxs_token_t nat[],
+  const unsigned int word_ids[], int i, int wctx, unsigned int hist[], int cap)
+{
+  int hlen = 0;
+  int wstart = i;
+  unsigned int words[NGRAM_ORDER_MAX];
+  int nw = 0, p, k;
+  while (wstart > 0 && 0 == (nat[wstart].flags & LIBXS_TOKEN_BREAK)) --wstart;
+  p = wstart;
+  while (p > 0 && nw < wctx && nw < (int)(sizeof(words) / sizeof(*words))) {
+    int ws = p - 1;
+    while (ws > 0 && 0 == (nat[ws].flags & LIBXS_TOKEN_BREAK)) --ws;
+    words[nw++] = word_ids[ws];
+    p = ws;
+  }
+  for (k = nw - 1; k >= 0; --k) ngram_hist_push(hist, &hlen, cap, words[k]);
+  for (k = wstart; k < i; ++k) ngram_hist_push(hist, &hlen, cap, nat[k].id);
+  return hlen;
 }
 
 
@@ -6024,19 +6103,23 @@ static void ngram_train_text(libxs_registry_t* model,
 {
   int maxorder = ngram_order();
   if (0 != ngram_native_mode()) {
+    int wctx = ngram_wordctx();
     libxs_token_t nat[COMPOSE_MAXTEXT];
+    unsigned int word_ids[COMPOSE_MAXTEXT];
     int ntok = ngram_native_tokens(lexicon, text, text_len, nat,
-      COMPOSE_MAXTEXT, 1);
+      (0 != wctx) ? word_ids : NULL, COMPOSE_MAXTEXT, 1);
     unsigned int hist[NGRAM_ORDER_MAX];
     int hlen = 0, i;
     if (NULL == model) return;
     for (i = 0; i < ntok; ++i) {
-      if (hlen > 0) ngramk_observe(model, hist, hlen, nat[i].id, maxorder);
-      if (hlen < NGRAM_ORDER_MAX) hist[hlen++] = nat[i].id;
+      if (0 != wctx) {
+        hlen = ngram_wordctx_hist(nat, word_ids, i, wctx, hist,
+          NGRAM_ORDER_MAX);
+        if (hlen > 0) ngramk_observe(model, hist, hlen, nat[i].id, maxorder);
+      }
       else {
-        int s;
-        for (s = 1; s < NGRAM_ORDER_MAX; ++s) hist[s - 1] = hist[s];
-        hist[NGRAM_ORDER_MAX - 1] = nat[i].id;
+        if (hlen > 0) ngramk_observe(model, hist, hlen, nat[i].id, maxorder);
+        ngram_hist_push(hist, &hlen, NGRAM_ORDER_MAX, nat[i].id);
       }
     }
     return;
@@ -6847,10 +6930,12 @@ static int ngram_eval(libxs_registry_t* model, const libxs_registry_t* corpus,
       lexicon, &stream, (const unsigned char*)entry->text,
       (size_t)entry->text_len, rules, nrules, NULL, 0, 0)))
     {
+      int wctx = ngram_wordctx();
       libxs_token_t nat[COMPOSE_MAXTEXT];
+      unsigned int word_ids[COMPOSE_MAXTEXT];
       int ntok = (0 != native)
         ? ngram_native_tokens(lexicon, entry->text, entry->text_len,
-          nat, COMPOSE_MAXTEXT, 0)
+          nat, (0 != wctx) ? word_ids : NULL, COMPOSE_MAXTEXT, 0)
         : (int)stream.size;
       int ti;
       unsigned int hist[NGRAM_ORDER_MAX];
@@ -6860,6 +6945,10 @@ static int ngram_eval(libxs_registry_t* model, const libxs_registry_t* corpus,
         unsigned int cur;
         unsigned short curlen;
         int is_content;
+        if (0 != wctx) {
+          hlen = ngram_wordctx_hist(nat, word_ids, ti, wctx, hist,
+            NGRAM_ORDER_MAX);
+        }
         if (0 != native) {
           cur = nat[ti].id;
           curlen = nat[ti].length;
@@ -6890,14 +6979,9 @@ static int ngram_eval(libxs_registry_t* model, const libxs_registry_t* corpus,
               }
             }
           }
-          if (hlen < NGRAM_ORDER_MAX) hist[hlen++] = cur;
-          else {
-            int s;
-            for (s = 1; s < NGRAM_ORDER_MAX; ++s) hist[s - 1] = hist[s];
-            hist[NGRAM_ORDER_MAX - 1] = cur;
-          }
+          if (0 == wctx) ngram_hist_push(hist, &hlen, NGRAM_ORDER_MAX, cur);
         }
-        if (0 == native) {
+        if (0 == native && 0 == wctx) {
           const libxs_lexeme_t* lex = stream.data + ti;
           if (0 != (lex->flags & LIBXS_LEXEME_SENTENCE)) hlen = 0;
         }
@@ -7499,6 +7583,9 @@ static double* knnlm_dyn_in = NULL;
 static unsigned int* knnlm_dyn_next = NULL;
 static int knnlm_dyn_size = 0;
 static int knnlm_dyn_cap = 0;
+static uint64_t* knnlm_ann_code = NULL;
+static int* knnlm_ann_order = NULL;
+static int knnlm_ann_size = 0;
 
 
 static void knnlm_cache_free(void)
@@ -7507,14 +7594,168 @@ static void knnlm_cache_free(void)
   free(knnlm_cache_next);
   free(knnlm_dyn_in);
   free(knnlm_dyn_next);
+  free(knnlm_ann_code);
+  free(knnlm_ann_order);
   knnlm_cache_in = NULL;
   knnlm_cache_next = NULL;
   knnlm_dyn_in = NULL;
   knnlm_dyn_next = NULL;
+  knnlm_ann_code = NULL;
+  knnlm_ann_order = NULL;
   knnlm_cache_size = 0;
   knnlm_dyn_size = 0;
   knnlm_dyn_cap = 0;
+  knnlm_ann_size = 0;
   knnlm_cache_model = NULL;
+}
+
+
+/* Approximate NN over the static datastore is enabled by CONVERSE_KNNLM_ANN;
+   default off keeps the exact brute-force scan (bit-identical results). */
+static int knnlm_ann_mode(void)
+{
+  const char* env = getenv("CONVERSE_KNNLM_ANN");
+  return (NULL != env && '0' != env[0] && '\0' != env[0]) ? 1 : 0;
+}
+
+
+/* Quantize a context vector's leading dims to a Hilbert code: locality in the
+   embedding space becomes locality along the 1-D code so a window around the
+   query code holds its near neighbors. Values are the prev1 half of the input
+   (the more predictive token, per the 4x weighting in knnlm_scan). */
+static uint64_t knnlm_ann_encode(const double* in)
+{
+  unsigned int coords[KNNLM_ANN_DIMS];
+  const double* v = in + TOKEN_EMB_DIM;
+  int d;
+  double scale = (double)((1 << KNNLM_ANN_BITS) - 1);
+  for (d = 0; d < KNNLM_ANN_DIMS; ++d) {
+    double x = (d < TOKEN_EMB_DIM) ? v[d] : 0.0;
+    double u = 0.5 * (x + 1.0);
+    if (u < 0.0) u = 0.0;
+    if (u > 1.0) u = 1.0;
+    coords[d] = (unsigned int)(u * scale + 0.5);
+  }
+  return libxs_hilbert_bits(coords, KNNLM_ANN_DIMS, KNNLM_ANN_BITS);
+}
+
+
+static int knnlm_ann_cmp(const void* a, const void* b)
+{
+  int ia = *(const int*)a, ib = *(const int*)b;
+  uint64_t ca = knnlm_ann_code[ia], cb = knnlm_ann_code[ib];
+  if (ca < cb) return -1;
+  if (ca > cb) return 1;
+  return 0;
+}
+
+
+/* Build the sorted Hilbert index over the current static cache. */
+static void knnlm_ann_build(void)
+{
+  free(knnlm_ann_code);
+  free(knnlm_ann_order);
+  knnlm_ann_code = NULL;
+  knnlm_ann_order = NULL;
+  knnlm_ann_size = 0;
+  if (knnlm_cache_size > 0) {
+    knnlm_ann_code = (uint64_t*)malloc((size_t)knnlm_cache_size
+      * sizeof(*knnlm_ann_code));
+    knnlm_ann_order = (int*)malloc((size_t)knnlm_cache_size
+      * sizeof(*knnlm_ann_order));
+    if (NULL != knnlm_ann_code && NULL != knnlm_ann_order) {
+      int i;
+      for (i = 0; i < knnlm_cache_size; ++i) {
+        knnlm_ann_code[i] = knnlm_ann_encode(knnlm_cache_in
+          + (size_t)i * 2 * TOKEN_EMB_DIM);
+        knnlm_ann_order[i] = i;
+      }
+      qsort(knnlm_ann_order, (size_t)knnlm_cache_size,
+        sizeof(*knnlm_ann_order), knnlm_ann_cmp);
+      knnlm_ann_size = knnlm_cache_size;
+    }
+    else {
+      free(knnlm_ann_code);
+      free(knnlm_ann_order);
+      knnlm_ann_code = NULL;
+      knnlm_ann_order = NULL;
+    }
+  }
+}
+
+
+/* Exact-distance rerank of one candidate against the query into the running
+   top-K (same metric and heap discipline as knnlm_scan). */
+static void knnlm_ann_consider(const double* in, int idx,
+  unsigned int near_next[], double near_dist[], int* nnear)
+{
+  const double* entry = knnlm_cache_in + (size_t)idx * 2 * TOKEN_EMB_DIM;
+  unsigned int cand = knnlm_cache_next[idx];
+  double dist = 0.0;
+  int dim, slot;
+  if (0 == cand) return;
+  for (dim = 0; dim < TOKEN_EMB_DIM; ++dim) {
+    double d2 = in[dim] - entry[dim];
+    double d1 = in[TOKEN_EMB_DIM + dim] - entry[TOKEN_EMB_DIM + dim];
+    dist += d2 * d2 + 4.0 * d1 * d1;
+  }
+  for (slot = *nnear; slot > 0; --slot) {
+    if (dist >= near_dist[slot - 1]) break;
+  }
+  if (slot < KNNLM_K) {
+    int move = (*nnear < KNNLM_K) ? *nnear : (KNNLM_K - 1);
+    for (; move > slot; --move) {
+      near_next[move] = near_next[move - 1];
+      near_dist[move] = near_dist[move - 1];
+    }
+    near_next[slot] = cand;
+    near_dist[slot] = dist;
+    if (*nnear < KNNLM_K) ++*nnear;
+  }
+}
+
+
+/* Retrieve the static-cache neighbors of the query from a window around its
+   Hilbert code, then exact-rerank them. Replaces the O(N) scan of the static
+   cache; the dynamic store is still scanned brute-force by the caller. */
+static void knnlm_ann_scan(const double* in, unsigned int near_next[],
+  double near_dist[], int* nnear)
+{
+  if (knnlm_ann_size > 0) {
+    uint64_t q = knnlm_ann_encode(in);
+    int lo = 0, hi = knnlm_ann_size - 1, mid, left, right, taken;
+    while (lo <= hi) {
+      mid = (lo + hi) / 2;
+      if (knnlm_ann_code[knnlm_ann_order[mid]] < q) lo = mid + 1;
+      else hi = mid - 1;
+    }
+    if (lo > knnlm_ann_size - 1) lo = knnlm_ann_size - 1;
+    left = lo - 1;
+    right = lo;
+    taken = 0;
+    while (taken < KNNLM_ANN_WINDOW && (left >= 0 || right < knnlm_ann_size)) {
+      int pick_left = 0;
+      if (left >= 0 && right < knnlm_ann_size) {
+        uint64_t cl = knnlm_ann_code[knnlm_ann_order[left]];
+        uint64_t cr = knnlm_ann_code[knnlm_ann_order[right]];
+        uint64_t dl = (q > cl) ? (q - cl) : (cl - q);
+        uint64_t dr = (cr > q) ? (cr - q) : (q - cr);
+        pick_left = (dl <= dr) ? 1 : 0;
+      }
+      else if (left >= 0) pick_left = 1;
+      if (0 != pick_left) {
+        knnlm_ann_consider(in, knnlm_ann_order[left], near_next, near_dist,
+          nnear);
+        --left;
+      }
+      else {
+        knnlm_ann_consider(in, knnlm_ann_order[right], near_next, near_dist,
+          nnear);
+        ++right;
+      }
+      ++taken;
+    }
+  }
 }
 
 
@@ -7621,10 +7862,19 @@ static int knnlm_vote(const libxs_predict_t* store, unsigned int prev2,
     double uniq_w[KNNLM_K];
     int nnear = 0, nuniq = 0, i, j;
     double wtotal = 0.0;
-    if (knnlm_cache_model != store) knnlm_cache_build(store);
+    int ann = knnlm_ann_mode();
+    if (knnlm_cache_model != store) {
+      knnlm_cache_build(store);
+      if (0 != ann) knnlm_ann_build();
+    }
     token_input_vector(prev2, prev1, 1, in);
-    knnlm_scan(in, knnlm_cache_in, knnlm_cache_next, knnlm_cache_size,
-      near_next, near_dist, &nnear);
+    if (0 != ann) {
+      knnlm_ann_scan(in, near_next, near_dist, &nnear);
+    }
+    else {
+      knnlm_scan(in, knnlm_cache_in, knnlm_cache_next, knnlm_cache_size,
+        near_next, near_dist, &nnear);
+    }
     knnlm_scan(in, knnlm_dyn_in, knnlm_dyn_next, knnlm_dyn_size,
       near_next, near_dist, &nnear);
     for (i = 0; i < nnear; ++i) {
