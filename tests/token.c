@@ -159,6 +159,43 @@ int main(int argc, char* argv[])
     }
   }
   if (EXIT_SUCCESS == result) {
+    size_t pos = 0, ngroups = 0, ncovered = 0, n;
+    libxs_token_t pieces[4];
+    while (0 != (n = libxs_token_word_next(stream.data, stream.size, pos))) {
+      size_t k;
+      for (k = pos + 1; k < pos + n; ++k) {
+        if (0 != (stream.data[k].flags & LIBXS_TOKEN_BREAK)) {
+          FPRINTF(stderr, "ERROR line #%i: word group break\n", __LINE__);
+          result = EXIT_FAILURE;
+        }
+      }
+      ncovered += n;
+      ++ngroups;
+      pos += n;
+    }
+    if (ncovered != stream.size || ngroups < 2 || ngroups >= stream.size
+      || 0 != libxs_token_word_next(stream.data, stream.size, stream.size)
+      || 0 != libxs_token_word_next(NULL, 4, 0))
+    {
+      FPRINTF(stderr, "ERROR line #%i: word iteration\n", __LINE__);
+      result = EXIT_FAILURE;
+    }
+    memset(pieces, 0, sizeof(pieces));
+    pieces[0].flags = LIBXS_TOKEN_WORD | LIBXS_TOKEN_BREAK;
+    pieces[1].flags = LIBXS_TOKEN_WORD;
+    pieces[2].flags = LIBXS_TOKEN_WORD | LIBXS_TOKEN_BREAK;
+    pieces[3].flags = LIBXS_TOKEN_WORD;
+    if (EXIT_SUCCESS == result
+      && (2 != libxs_token_word_next(pieces, 4, 0)
+        || 1 != libxs_token_word_next(pieces, 4, 1)
+        || 2 != libxs_token_word_next(pieces, 4, 2)
+        || 1 != libxs_token_word_next(pieces, 1, 0)))
+    {
+      FPRINTF(stderr, "ERROR line #%i: sub-word grouping\n", __LINE__);
+      result = EXIT_FAILURE;
+    }
+  }
+  if (EXIT_SUCCESS == result) {
     result = libxs_lexicon_save(lexicon, NULL, &lexicon_buffer_size);
     if (EXIT_SUCCESS == result && lexicon_buffer_size > 0) {
       lexicon_buffer = malloc(lexicon_buffer_size);

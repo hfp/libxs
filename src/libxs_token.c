@@ -282,6 +282,20 @@ LIBXS_API void libxs_token_info(const libxs_token_t* token,
 }
 
 
+LIBXS_API size_t libxs_token_word_next(const libxs_token_t* tokens,
+  size_t ntokens, size_t pos)
+{
+  size_t result = 0;
+  if (NULL != tokens && pos < ntokens) {
+    size_t end = pos + 1;
+    while (end < ntokens
+      && 0 == (tokens[end].flags & LIBXS_TOKEN_BREAK)) ++end;
+    result = end - pos;
+  }
+  return result;
+}
+
+
 LIBXS_API void libxs_token_stream_init(libxs_token_stream_t* stream)
 {
   if (NULL != stream) {

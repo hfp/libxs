@@ -425,9 +425,8 @@ static int predict_is_test(long index, int holdout);
 static int bpe_add_symbol(const char* bytes, int len);
 static void bpe_free(void);
 static void bpe_build(const libxs_registry_t* corpus, int holdout);
-static int bpe_encode_run(const char* text, int len, unsigned int ids[],
-  unsigned short bytelens[], int max, int start, libxs_lexicon_t* lexicon,
-  int create);
+static int bpe_encode_run(const char* text, int len, libxs_token_t tokens[],
+  int max, int start, libxs_lexicon_t* lexicon, int create);
 static void token_emb_build(const libxs_registry_t* corpus,
   libxs_lexicon_t* lexicon, const libxs_lexrule_t* rules, int nrules,
   int holdout);
@@ -5791,9 +5790,8 @@ static void bpe_build(const libxs_registry_t* corpus, int holdout)
    greedily applying the lowest-rank applicable merge, then intern each piece.
    Falls back to single bytes for anything the merges do not cover, so the
    encoder never fails on unseen input. */
-static int bpe_encode_run(const char* text, int len, unsigned int ids[],
-  unsigned short bytelens[], int max, int start, libxs_lexicon_t* lexicon,
-  int create)
+static int bpe_encode_run(const char* text, int len, libxs_token_t tokens[],
+  int max, int start, libxs_lexicon_t* lexicon, int create)
 {
   int result = start;
   int marker = (len > 0 && ' ' == text[0]) ? 1 : 0;
@@ -5829,8 +5827,10 @@ static int bpe_encode_run(const char* text, int len, unsigned int ids[],
       LIBXS_LEXEME_WORD, create);
     if (0 == id) break;
     if (0 == i && 0 != marker && nbytes > 0) --nbytes;
-    ids[result] = id;
-    bytelens[result] = (unsigned short)nbytes;
+    tokens[result].id = id;
+    tokens[result].length = (unsigned short)nbytes;
+    tokens[result].flags = (unsigned short)(LIBXS_TOKEN_WORD
+      | ((0 == i && 0 != marker) ? LIBXS_TOKEN_BREAK : 0));
     ++result;
   }
   return result;
@@ -5875,12 +5875,15 @@ static int ngram_syllable_split(const char* text, int wlen, int piece_begin[],
 }
 
 
+/* Emits LIBXS_TOKEN_BREAK on a token preceded by whitespace in the source, so
+   libxs_token_word_next groups the pieces of one word. Native granularity cuts
+   fixed-width chunks across word boundaries and hence marks none. */
 static int ngram_native_tokens(libxs_lexicon_t* lexicon, const char* text,
-  int text_len, unsigned int ids[], unsigned short bytelens[], int max,
-  int create)
+  int text_len, libxs_token_t tokens[], int max, int create)
 {
   int result = 0;
   int pos = 0;
+  int have_break = 0;
   int mode = ngram_gran_mode();
   if (GRAN_BPE == mode) {
     while (pos < text_len && result < max) {
@@ -5902,7 +5905,7 @@ static int ngram_native_tokens(libxs_lexicon_t* lexicon, const char* text,
           run[run_len++] = text[run_start + i];
         }
       }
-      result = bpe_encode_run(run, run_len, ids, bytelens, max, result,
+      result = bpe_encode_run(run, run_len, tokens, max, result,
         lexicon, create);
       pos = run_start + wlen;
       while (pos < text_len && 0 != isspace((unsigned char)text[pos])) ++pos;
@@ -5917,8 +5920,9 @@ static int ngram_native_tokens(libxs_lexicon_t* lexicon, const char* text,
       id = libxs_lexicon_id(lexicon, text + pos, len,
         LIBXS_LEXEME_WORD, create);
       if (0 == id) break;
-      ids[result] = id;
-      bytelens[result] = (unsigned short)len;
+      tokens[result].id = id;
+      tokens[result].length = (unsigned short)len;
+      tokens[result].flags = LIBXS_TOKEN_WORD;
       ++result;
       pos += len;
     }
@@ -5930,9 +5934,12 @@ static int ngram_native_tokens(libxs_lexicon_t* lexicon, const char* text,
       unsigned int id = libxs_lexicon_id(lexicon, text + pos, 1,
         LIBXS_LEXEME_PUNCT, create);
       if (0 == id) break;
-      ids[result] = id;
-      bytelens[result] = 1;
+      tokens[result].id = id;
+      tokens[result].length = 1;
+      tokens[result].flags = (unsigned short)(LIBXS_TOKEN_PUNCT
+        | ((0 != have_break) ? LIBXS_TOKEN_BREAK : 0));
       ++result;
+      have_break = (0 != isspace(c)) ? 1 : 0;
       ++pos;
     }
     else {
@@ -5955,10 +5962,13 @@ static int ngram_native_tokens(libxs_lexicon_t* lexicon, const char* text,
         id = libxs_lexicon_id(lexicon, buf, off + plen,
           LIBXS_LEXEME_WORD, create);
         if (0 == id) break;
-        ids[result] = id;
-        bytelens[result] = (unsigned short)piece_len[pi];
+        tokens[result].id = id;
+        tokens[result].length = (unsigned short)piece_len[pi];
+        tokens[result].flags = (unsigned short)(LIBXS_TOKEN_WORD
+          | ((0 == pi && 0 != have_break) ? LIBXS_TOKEN_BREAK : 0));
         ++result;
       }
+      have_break = 0;
       pos += wlen;
     }
   }
@@ -6014,20 +6024,19 @@ static void ngram_train_text(libxs_registry_t* model,
 {
   int maxorder = ngram_order();
   if (0 != ngram_native_mode()) {
-    unsigned int ids[COMPOSE_MAXTEXT];
-    unsigned short bytelens[COMPOSE_MAXTEXT];
-    int ntok = ngram_native_tokens(lexicon, text, text_len, ids, bytelens,
+    libxs_token_t nat[COMPOSE_MAXTEXT];
+    int ntok = ngram_native_tokens(lexicon, text, text_len, nat,
       COMPOSE_MAXTEXT, 1);
     unsigned int hist[NGRAM_ORDER_MAX];
     int hlen = 0, i;
     if (NULL == model) return;
     for (i = 0; i < ntok; ++i) {
-      if (hlen > 0) ngramk_observe(model, hist, hlen, ids[i], maxorder);
-      if (hlen < NGRAM_ORDER_MAX) hist[hlen++] = ids[i];
+      if (hlen > 0) ngramk_observe(model, hist, hlen, nat[i].id, maxorder);
+      if (hlen < NGRAM_ORDER_MAX) hist[hlen++] = nat[i].id;
       else {
         int s;
         for (s = 1; s < NGRAM_ORDER_MAX; ++s) hist[s - 1] = hist[s];
-        hist[NGRAM_ORDER_MAX - 1] = ids[i];
+        hist[NGRAM_ORDER_MAX - 1] = nat[i].id;
       }
     }
     return;
@@ -6838,11 +6847,10 @@ static int ngram_eval(libxs_registry_t* model, const libxs_registry_t* corpus,
       lexicon, &stream, (const unsigned char*)entry->text,
       (size_t)entry->text_len, rules, nrules, NULL, 0, 0)))
     {
-      unsigned int nat_ids[COMPOSE_MAXTEXT];
-      unsigned short nat_lens[COMPOSE_MAXTEXT];
+      libxs_token_t nat[COMPOSE_MAXTEXT];
       int ntok = (0 != native)
         ? ngram_native_tokens(lexicon, entry->text, entry->text_len,
-          nat_ids, nat_lens, COMPOSE_MAXTEXT, 0)
+          nat, COMPOSE_MAXTEXT, 0)
         : (int)stream.size;
       int ti;
       unsigned int hist[NGRAM_ORDER_MAX];
@@ -6853,8 +6861,8 @@ static int ngram_eval(libxs_registry_t* model, const libxs_registry_t* corpus,
         unsigned short curlen;
         int is_content;
         if (0 != native) {
-          cur = nat_ids[ti];
-          curlen = nat_lens[ti];
+          cur = nat[ti].id;
+          curlen = nat[ti].length;
           is_content = (0 != cur) ? 1 : 0;
         }
         else {

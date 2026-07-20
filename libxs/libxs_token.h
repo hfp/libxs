@@ -165,6 +165,16 @@ LIBXS_EXTERN_C typedef struct libxs_lexnorm_t {
 LIBXS_API void libxs_token_info(const libxs_token_t* token,
   libxs_token_info_t* info);
 
+/**
+ * Number of tokens forming the word that starts at pos, i.e. the run reaching
+ * up to (excluding) the next token flagged LIBXS_TOKEN_BREAK. Returns zero
+ * once pos is beyond the stream, which iterates words spanning several
+ * sub-word tokens: for (p = 0; 0 != (n = word_next(t, nt, p)); p += n).
+ * Granularities that do not mark boundaries yield a single run.
+ */
+LIBXS_API size_t libxs_token_word_next(const libxs_token_t* tokens,
+  size_t ntokens, size_t pos);
+
 /** Initialize an empty token stream. */
 LIBXS_API void libxs_token_stream_init(libxs_token_stream_t* stream);
 
