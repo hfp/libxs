@@ -35,7 +35,9 @@
 #define CONV_TOPIC_MAX 64
 #define TOKEN_PREDICT_TRAIN_MAX 40000
 #define TOKEN_PREDICT_EVAL_STRIDE 40
-#define TOKEN_EMB_DIM 16
+#if !defined(TOKEN_EMB_DIM)
+# define TOKEN_EMB_DIM 16
+#endif
 #define TOKEN_EMB_CTX 256
 #define TOKEN_EMB_WINDOW 2
 #define TOKEN_EMB_ITER 24
@@ -46,6 +48,7 @@
 #define KNNLM_ANN_DIMS 8
 #define KNNLM_ANN_BITS 8
 #define KNNLM_ANN_WINDOW 512
+#define TOKEN_CTX_MAX 8
 #define RERANK_INPUTS 9
 #define RERANK_RELIABILITY 32.0
 #define RERANK_LIFT_MAX 8.0
@@ -400,10 +403,15 @@ static const ngram_entry_t* ngram_lookup(libxs_registry_t* model,
   unsigned int ctx_a, unsigned int ctx_b);
 static double ngram_unigram_prior(unsigned int id);
 static int ngram_order(void);
+static double ngram_skip_prob(const unsigned int hist[], int hlen,
+  unsigned int succ_id);
+static double ngram_skip_mu(void);
 static void ngram_train_text(libxs_registry_t* model,
   libxs_lexicon_t* lexicon, const libxs_lexrule_t* rules, int nrules,
   const char* text, int text_len);
 static libxs_ngram_t converse_ngram;
+static libxs_ngram_t converse_skip;
+static int converse_skip_on = 0;
 static int converse_profile_override = -1;
 static int converse_order_max = 0;
 static bpe_symbol_t* bpe_symbols = NULL;
@@ -435,8 +443,9 @@ static void token_emb_build(const libxs_registry_t* corpus,
   int holdout);
 static void token_emb_free(void);
 static int knnlm_topk(libxs_registry_t* ngram, const libxs_predict_t* store,
-  unsigned int prev2, unsigned int prev1, int order, unsigned int out_ids[],
-  int k);
+  const unsigned int hist[], int hlen, int ctxlen, int order,
+  unsigned int out_ids[], int k);
+static int knnlm_ctxlen(void);
 static void knnlm_cache_free(void);
 static int knnlm_eval(libxs_registry_t* ngram, const libxs_predict_t* store,
   const libxs_registry_t* corpus, libxs_lexicon_t* lexicon,
@@ -448,7 +457,8 @@ static void knnlm_complete(libxs_registry_t* ngram,
   int text_len);
 static libxs_predict_t* token_predict_build(const libxs_registry_t* corpus,
   libxs_lexicon_t* lexicon, const libxs_lexrule_t* rules, int nrules,
-  const answer_predict_profile_t* profile, int use_emb, int holdout);
+  const answer_predict_profile_t* profile, int use_emb, int holdout,
+  int ctxlen);
 static int token_predict_eval(const libxs_predict_t* model,
   const libxs_registry_t* corpus, libxs_lexicon_t* lexicon,
   const libxs_lexrule_t* rules, int nrules, int use_emb, int holdout,
@@ -500,6 +510,7 @@ int main(int argc, char* argv[])
   libxs_registry_t* ngram_model = NULL;
   const char** basenames;
   int nbasenames = 0;
+  const char* test_prefix = NULL;
   int nrules;
   libxs_registry_info_t rinfo;
   char line[4096];
@@ -517,6 +528,7 @@ int main(int argc, char* argv[])
       "  -K KIND: next-token model "
       "(bigram|trigram|predict|embed|rerank|knnlm).\n"
       "  -H N: held-out split; train on non-test, eval 1-in-N test.\n"
+      "  -T PREFIX: fixed held-out corpus for -E (train all of -b, eval on -T).\n"
       "  -n N: response sentence budget (default %d).\n"
       "  -P PROFILE: answer predictor profile.\n"
       "  -p STRUCTURE: corpus structure (prose|markdown; default by ext).\n"
@@ -534,6 +546,10 @@ int main(int argc, char* argv[])
       "  CONVERSE_KNNLM_LAMBDA=F  fixed kNN-LM interpolation weight.\n"
       "  CONVERSE_KNNLM_DYN=1     dynamic (test-time) kNN-LM datastore.\n"
       "  CONVERSE_KNNLM_ANN=1     Hilbert-indexed kNN-LM retrieval (faster).\n"
+      "  CONVERSE_KNNLM_CTX=N     kNN-LM context tokens 2..8 (default 2).\n"
+      "  CONVERSE_KNNLM_DECAY=F   kNN-LM context decay 0..1 (default 0.5).\n"
+      "  CONVERSE_SKIP=1          add skip-gram (w _ w) generalization tier.\n"
+      "  CONVERSE_SKIP_MU=F       skip-gram interpolation weight (default 0.3).\n"
       "  CONVERSE_EMB_PROBE=w1,w2 print nearest embedding neighbors.\n"
       "  CONVERSE_EMB_BACKFILL=0  disable rare-token vector backfill.\n",
       argv[0], RESPONSE_BUDGET, NGRAM_ORDER_MAX, NGRAM_ORDER_MAX);
@@ -637,6 +653,10 @@ int main(int argc, char* argv[])
     else if (0 == strcmp(argv[i], "-b") && i + 1 < argc) {
       basenames[nbasenames] = argv[i + 1];
       ++nbasenames;
+      i += 2;
+    }
+    else if (0 == strcmp(argv[i], "-T") && i + 1 < argc) {
+      test_prefix = argv[i + 1];
       i += 2;
     }
     else {
@@ -767,9 +787,33 @@ int main(int argc, char* argv[])
     int use_rerank = (0 == strcmp(ngram_kind, "rerank")) ? 1 : 0;
     int use_knnlm = (0 == strcmp(ngram_kind, "knnlm")) ? 1 : 0;
     libxs_predict_t* token_model = NULL;
+    libxs_registry_t* test_corpus = NULL;
+    const libxs_registry_t* eval_corpus = corpus;
+    /* A -T prefix supplies a fixed held-out corpus: train on all of the main
+       corpus (holdout forced 0) and evaluate on the separate test set. This
+       keeps the test set identical across training-corpus sizes, so BPC is
+       comparable along a scaling curve. */
+    if (NULL != test_prefix) {
+      test_corpus = libxs_registry_create();
+      if (NULL != test_corpus && EXIT_SUCCESS == corpus_ingest_basename(
+        test_corpus, test_prefix, lexicon, rules, nrules))
+      {
+        libxs_registry_info_t tinfo;
+        libxs_registry_info(test_corpus, &tinfo);
+        fprintf(stderr, "test corpus: %lu sentences (%s)\n",
+          (unsigned long)tinfo.size, test_prefix);
+        eval_corpus = test_corpus;
+        ngram_holdout = 0;
+      }
+      else {
+        fprintf(stderr, "failed to load test corpus: %s\n", test_prefix);
+        libxs_registry_destroy(test_corpus);
+        test_corpus = NULL;
+      }
+    }
     if (0 != use_predict) {
       token_model = token_predict_build(corpus, lexicon, rules, nrules,
-        predict_profile, 0, ngram_holdout);
+        predict_profile, 0, ngram_holdout, 2);
     }
     else {
       if (GRAN_BPE == ngram_gran_mode()) {
@@ -780,7 +824,8 @@ int main(int argc, char* argv[])
       if (0 != use_embed || 0 != use_knnlm) {
         token_emb_build(corpus, lexicon, rules, nrules, ngram_holdout);
         token_model = token_predict_build(corpus, lexicon, rules, nrules,
-          predict_profile, 1, ngram_holdout);
+          predict_profile, 1, ngram_holdout,
+          (0 != use_knnlm) ? knnlm_ctxlen() : 2);
       }
       else if (0 != use_rerank) {
         token_model = rerank_build(corpus, ngram_model, lexicon, rules,
@@ -792,29 +837,29 @@ int main(int argc, char* argv[])
         char label[64];
         sprintf(label, "%s:%s", use_embed ? "embed" : predict_profile->name,
           predict_profile->name);
-        mode_result = token_predict_eval(token_model, corpus, lexicon, rules,
-          nrules, use_embed, ngram_holdout,
+        mode_result = token_predict_eval(token_model, eval_corpus, lexicon,
+          rules, nrules, use_embed, ngram_holdout,
           use_embed ? label : predict_profile->name);
       }
       else if (0 != use_rerank) {
         char label[64];
         sprintf(label, "rerank:%s", predict_profile->name);
-        mode_result = rerank_eval(ngram_model, token_model, corpus, lexicon,
-          rules, nrules, ngram_order, ngram_holdout, label);
+        mode_result = rerank_eval(ngram_model, token_model, eval_corpus,
+          lexicon, rules, nrules, ngram_order, ngram_holdout, label);
       }
       else if (0 != use_knnlm) {
         char label[64];
         sprintf(label, "knnlm:%s", predict_profile->name);
-        mode_result = knnlm_eval(ngram_model, token_model, corpus, lexicon,
-          rules, nrules, ngram_order, ngram_holdout, label);
+        mode_result = knnlm_eval(ngram_model, token_model, eval_corpus,
+          lexicon, rules, nrules, ngram_order, ngram_holdout, label);
       }
       else if (NULL != getenv("CONVERSE_GEN_EVAL")) {
-        mode_result = ngram_gen_eval(ngram_model, corpus, lexicon, rules,
+        mode_result = ngram_gen_eval(ngram_model, eval_corpus, lexicon, rules,
           nrules, ngram_holdout, ngram_kind);
       }
       else {
-        mode_result = ngram_eval(ngram_model, corpus, lexicon, rules, nrules,
-          ngram_order, ngram_holdout, ngram_kind);
+        mode_result = ngram_eval(ngram_model, eval_corpus, lexicon, rules,
+          nrules, ngram_order, ngram_holdout, ngram_kind);
       }
       ngram_stats(ngram_model);
     }
@@ -845,10 +890,13 @@ int main(int argc, char* argv[])
       mode_result = EXIT_SUCCESS;
     }
     libxs_predict_destroy(token_model);
+    libxs_registry_destroy(test_corpus);
     knnlm_cache_free();
     token_emb_free();
     bpe_free();
     libxs_ngram_destroy(&converse_ngram);
+    if (0 != converse_skip_on) libxs_ngram_destroy(&converse_skip);
+    converse_skip_on = 0;
     ngram_model = NULL;
     converse_lexicon_save(lexicon);
     libxs_predict_destroy(answer_model);
@@ -915,6 +963,8 @@ int main(int argc, char* argv[])
   }
 
   libxs_ngram_destroy(&converse_ngram);
+  if (0 != converse_skip_on) libxs_ngram_destroy(&converse_skip);
+  converse_skip_on = 0;
   ngram_model = NULL;
   converse_lexicon_save(lexicon);
   libxs_predict_destroy(answer_model);
@@ -5569,8 +5619,16 @@ static const ngram_entry_t* ngramk_lookup(libxs_registry_t* model,
 static double ngramk_prob(libxs_registry_t* model, const unsigned int hist[],
   int hlen, int maxorder, unsigned int next)
 {
+  double p = libxs_ngram_prob(&converse_ngram, hist, hlen, next);
   LIBXS_UNUSED(model); LIBXS_UNUSED(maxorder);
-  return libxs_ngram_prob(&converse_ngram, hist, hlen, next);
+  if (0 != converse_skip_on) {
+    double p_skip = ngram_skip_prob(hist, hlen, next);
+    if (p_skip > 0.0) {
+      double mu = ngram_skip_mu();
+      p = (1.0 - mu) * p + mu * p_skip;
+    }
+  }
+  return p;
 }
 
 
@@ -6030,6 +6088,74 @@ static int ngram_order(void)
 }
 
 
+/* Skip-gram tier: an auxiliary store keyed by the pair (w[-3], w[-1]) that
+   abstracts over the varying middle slot, so an unseen exact context can still
+   match a seen "w ___ w" pattern (analogic generalization, no parameters).
+   Off by default -> bit-exact to the exact-only model. */
+static int ngram_skip(void)
+{
+  const char* env = getenv("CONVERSE_SKIP");
+  return (NULL != env && '0' != env[0] && '\0' != env[0]) ? 1 : 0;
+}
+
+
+/* Interpolation weight for the skip tier (0..1). */
+static double ngram_skip_mu(void)
+{
+  double result = 0.3;
+  const char* env = getenv("CONVERSE_SKIP_MU");
+  if (NULL != env && '\0' != *env) {
+    double v = atof(env);
+    if (v >= 0.0 && v <= 1.0) result = v;
+  }
+  return result;
+}
+
+
+/* Record a skip-gram observation from a rolling history: keys the pair
+   (hist[hlen-3], hist[hlen-1]) to the successor, requiring hlen >= 3. */
+static void ngram_skip_observe(const unsigned int hist[], int hlen,
+  unsigned int succ_id)
+{
+  if (0 != converse_skip_on && hlen >= 3) {
+    unsigned int pair[2];
+    pair[0] = hist[hlen - 3];
+    pair[1] = hist[hlen - 1];
+    if (0 != pair[0] && 0 != pair[1]) {
+      libxs_ngram_observe(&converse_skip, pair, 2, succ_id);
+    }
+  }
+}
+
+
+/* Skip-tier probability of succ given the rolling history, or 0 when the tier
+   is off, the context is too short, or the pattern was never seen. */
+static double ngram_skip_prob(const unsigned int hist[], int hlen,
+  unsigned int succ_id)
+{
+  double result = 0.0;
+  if (0 != converse_skip_on && hlen >= 3) {
+    unsigned int pair[2];
+    pair[0] = hist[hlen - 3];
+    pair[1] = hist[hlen - 1];
+    if (0 != pair[0] && 0 != pair[1]) {
+      const libxs_ngram_entry_t* entry =
+        libxs_ngram_lookup(&converse_skip, pair, 2, 2);
+      if (NULL != entry && entry->total > 0) {
+        unsigned int slot;
+        for (slot = 0; slot < entry->nsucc; ++slot) {
+          if (entry->succ[slot].id == succ_id) {
+            result = (double)entry->succ[slot].count / (double)entry->total;
+            break;
+          }
+        }
+      }
+    }
+  }
+  return result;
+}
+
+
 static void ngram_hist_push(unsigned int hist[], int* hlen, int cap,
   unsigned int id)
 {
@@ -6140,6 +6266,7 @@ static void ngram_train_text(libxs_registry_t* model,
           && 0 != lex->id)
         {
           if (hlen > 0) ngramk_observe(model, hist, hlen, lex->id, maxorder);
+          ngram_skip_observe(hist, hlen, lex->id);
           if (hlen < NGRAM_ORDER_MAX) hist[hlen++] = lex->id;
           else {
             int s;
@@ -6185,8 +6312,15 @@ static libxs_registry_t* ngram_build(const libxs_registry_t* corpus,
   int holdout)
 {
   libxs_ngram_destroy(&converse_ngram);
+  if (0 != converse_skip_on) libxs_ngram_destroy(&converse_skip);
+  converse_skip_on = ngram_skip();
   if (EXIT_SUCCESS != libxs_ngram_create(&converse_ngram, ngram_order())) {
     return NULL;
+  }
+  if (0 != converse_skip_on
+    && EXIT_SUCCESS != libxs_ngram_create(&converse_skip, 2))
+  {
+    converse_skip_on = 0;
   }
   if (NULL != corpus) {
     const void* key = NULL;
@@ -6243,6 +6377,7 @@ static void ngram_backoff_build(libxs_registry_t* model,
   unsigned int vocab = (NULL != lexicon) ? libxs_lexicon_size(lexicon) : 0;
   LIBXS_UNUSED(model);
   libxs_ngram_finalize(&converse_ngram, vocab);
+  if (0 != converse_skip_on) libxs_ngram_finalize(&converse_skip, vocab);
 }
 
 
@@ -6624,6 +6759,64 @@ static int token_input_vector(unsigned int prev2, unsigned int prev1,
     result = 2;
   }
   return result;
+}
+
+
+/* Number of context tokens summarized into a kNN-LM query vector (>=2; 2 is
+   the historical prev2/prev1 pair, bit-exact). Wider context = longer reach. */
+static int knnlm_ctxlen(void)
+{
+  int result = 2;
+  const char* env = getenv("CONVERSE_KNNLM_CTX");
+  if (NULL != env && '\0' != *env) {
+    int v = atoi(env);
+    if (v >= 2 && v <= TOKEN_CTX_MAX) result = v;
+  }
+  return result;
+}
+
+
+/* Geometric decay applied to older context tokens in the summarized half. */
+static double knnlm_decay(void)
+{
+  double result = 0.5;
+  const char* env = getenv("CONVERSE_KNNLM_DECAY");
+  if (NULL != env && '\0' != *env) {
+    double v = atof(env);
+    if (v >= 0.0 && v <= 1.0) result = v;
+  }
+  return result;
+}
+
+
+/* Build a kNN-LM query vector from a rolling history (most-recent last). The
+   prev1 half is the embedding of the most recent token; the prev2 half is a
+   decayed, L2-normalized sum of the preceding ctxlen-1 tokens. With ctxlen==2
+   this reproduces token_input_vector(prev2, prev1, 1, .) exactly, so the
+   default path is byte-identical to the two-token model. */
+static void knnlm_ctx_vector(const unsigned int hist[], int hlen, int ctxlen,
+  double decay, double inputs[])
+{
+  const double* emb1 = token_emb_get((hlen > 0) ? hist[hlen - 1] : 0);
+  int dim, back;
+  double weight = 1.0, norm = 0.0;
+  for (dim = 0; dim < TOKEN_EMB_DIM; ++dim) {
+    inputs[TOKEN_EMB_DIM + dim] = emb1[dim];
+    inputs[dim] = 0.0;
+  }
+  for (back = 2; back <= ctxlen; ++back) {
+    int idx = hlen - back;
+    if (idx >= 0) {
+      const double* emb = token_emb_get(hist[idx]);
+      for (dim = 0; dim < TOKEN_EMB_DIM; ++dim) inputs[dim] += weight * emb[dim];
+    }
+    weight *= decay;
+  }
+  for (dim = 0; dim < TOKEN_EMB_DIM; ++dim) norm += inputs[dim] * inputs[dim];
+  if (norm > 0.0) {
+    double inv = 1.0 / sqrt(norm);
+    for (dim = 0; dim < TOKEN_EMB_DIM; ++dim) inputs[dim] *= inv;
+  }
 }
 
 
@@ -7054,11 +7247,14 @@ static int ngram_eval(libxs_registry_t* model, const libxs_registry_t* corpus,
 
 static libxs_predict_t* token_predict_build(const libxs_registry_t* corpus,
   libxs_lexicon_t* lexicon, const libxs_lexrule_t* rules, int nrules,
-  const answer_predict_profile_t* profile, int use_emb, int holdout)
+  const answer_predict_profile_t* profile, int use_emb, int holdout,
+  int ctxlen)
 {
   int ninputs = (0 != use_emb) ? 2 * TOKEN_EMB_DIM : 2;
   libxs_predict_t* model = libxs_predict_create(ninputs, 1);
+  double decay = knnlm_decay();
   long pushed = 0;
+  if (ctxlen < 2) ctxlen = 2;
   if (NULL != model && NULL != corpus && NULL != profile) {
     const void* key = NULL;
     size_t cursor = 0;
@@ -7088,6 +7284,8 @@ static libxs_predict_t* token_predict_build(const libxs_registry_t* corpus,
       {
         size_t pos;
         unsigned int prev1 = 0, prev2 = 0;
+        unsigned int hist[TOKEN_CTX_MAX];
+        int hlen = 0;
         for (pos = 0; pos < stream.size && pushed < TOKEN_PREDICT_TRAIN_MAX;
           ++pos)
         {
@@ -7098,7 +7296,10 @@ static libxs_predict_t* token_predict_build(const libxs_registry_t* corpus,
             if (0 != prev1) {
               double in[2 * TOKEN_EMB_DIM];
               double out[1];
-              token_input_vector(prev2, prev1, use_emb, in);
+              if (ctxlen > 2 && 0 != use_emb) {
+                knnlm_ctx_vector(hist, hlen, ctxlen, decay, in);
+              }
+              else token_input_vector(prev2, prev1, use_emb, in);
               out[0] = (double)lex->id;
               if (EXIT_SUCCESS == libxs_predict_push(NULL, model, in, out)) {
                 ++pushed;
@@ -7106,10 +7307,12 @@ static libxs_predict_t* token_predict_build(const libxs_registry_t* corpus,
             }
             prev2 = prev1;
             prev1 = lex->id;
+            ngram_hist_push(hist, &hlen, TOKEN_CTX_MAX, lex->id);
           }
           if (0 != (lex->flags & LIBXS_LEXEME_SENTENCE)) {
             prev1 = 0;
             prev2 = 0;
+            hlen = 0;
           }
         }
       }
@@ -7765,9 +7968,11 @@ static void knnlm_dyn_reset(void)
 }
 
 
-static void knnlm_dyn_insert(unsigned int prev2, unsigned int prev1,
+static void knnlm_dyn_insert(const unsigned int hist[], int hlen, int ctxlen,
   unsigned int next)
 {
+  unsigned int prev1 = (hlen > 0) ? hist[hlen - 1] : 0;
+  unsigned int prev2 = (hlen > 1) ? hist[hlen - 2] : 0;
   if (0 != prev1 && 0 != next) {
     if (knnlm_dyn_size >= knnlm_dyn_cap) {
       int cap = (knnlm_dyn_cap > 0) ? (2 * knnlm_dyn_cap) : 4096;
@@ -7783,7 +7988,11 @@ static void knnlm_dyn_insert(unsigned int prev2, unsigned int prev1,
       knnlm_dyn_next = nnext;
       knnlm_dyn_cap = cap;
     }
-    token_input_vector(prev2, prev1, 1,
+    if (ctxlen > 2) {
+      knnlm_ctx_vector(hist, hlen, ctxlen, knnlm_decay(),
+        knnlm_dyn_in + (size_t)knnlm_dyn_size * 2 * TOKEN_EMB_DIM);
+    }
+    else token_input_vector(prev2, prev1, 1,
       knnlm_dyn_in + (size_t)knnlm_dyn_size * 2 * TOKEN_EMB_DIM);
     knnlm_dyn_next[knnlm_dyn_size] = next;
     ++knnlm_dyn_size;
@@ -7850,9 +8059,11 @@ static void knnlm_cache_build(const libxs_predict_t* store)
 }
 
 
-static int knnlm_vote(const libxs_predict_t* store, unsigned int prev2,
-  unsigned int prev1, unsigned int vote_ids[], double vote_p[], int maxvote)
+static int knnlm_vote(const libxs_predict_t* store, const unsigned int hist[],
+  int hlen, int ctxlen, unsigned int vote_ids[], double vote_p[], int maxvote)
 {
+  unsigned int prev1 = (hlen > 0) ? hist[hlen - 1] : 0;
+  unsigned int prev2 = (hlen > 1) ? hist[hlen - 2] : 0;
   int result = 0;
   if (NULL != store && 0 != prev1) {
     double in[2 * TOKEN_EMB_DIM];
@@ -7867,7 +8078,8 @@ static int knnlm_vote(const libxs_predict_t* store, unsigned int prev2,
       knnlm_cache_build(store);
       if (0 != ann) knnlm_ann_build();
     }
-    token_input_vector(prev2, prev1, 1, in);
+    if (ctxlen > 2) knnlm_ctx_vector(hist, hlen, ctxlen, knnlm_decay(), in);
+    else token_input_vector(prev2, prev1, 1, in);
     if (0 != ann) {
       knnlm_ann_scan(in, near_next, near_dist, &nnear);
     }
@@ -7910,9 +8122,11 @@ static int knnlm_vote(const libxs_predict_t* store, unsigned int prev2,
 
 
 static int knnlm_topk(libxs_registry_t* ngram, const libxs_predict_t* store,
-  unsigned int prev2, unsigned int prev1, int order, unsigned int out_ids[],
-  int k)
+  const unsigned int hist[], int hlen, int ctxlen, int order,
+  unsigned int out_ids[], int k)
 {
+  unsigned int prev1 = (hlen > 0) ? hist[hlen - 1] : 0;
+  unsigned int prev2 = (hlen > 1) ? hist[hlen - 2] : 0;
   unsigned int ids[NGRAM_SUCC_MAX + KNNLM_VOTE_MAX];
   double relfreq[NGRAM_SUCC_MAX];
   double score[NGRAM_SUCC_MAX + KNNLM_VOTE_MAX];
@@ -7923,7 +8137,7 @@ static int knnlm_topk(libxs_registry_t* ngram, const libxs_predict_t* store,
   int ctx_total = 0;
   int n = ngram_candidates(ngram, prev2, prev1, order, ids, relfreq, prov,
     &ctx_total, NGRAM_SUCC_MAX);
-  int nvote = knnlm_vote(store, prev2, prev1, vote_ids, vote_p,
+  int nvote = knnlm_vote(store, hist, hlen, ctxlen, vote_ids, vote_p,
     KNNLM_VOTE_MAX);
   double lambda;
   int result = 0, rank, v;
@@ -7982,6 +8196,7 @@ static int knnlm_eval(libxs_registry_t* ngram, const libxs_predict_t* store,
   int result = EXIT_FAILURE;
   long npairs = 0, ntop1 = 0, ntopk = 0, seen = 0, index = 0;
   int stride = predict_eval_stride();
+  int ctxlen = knnlm_ctxlen();
   const char* dyn_env = getenv("CONVERSE_KNNLM_DYN");
   int dynamic = (NULL != dyn_env && '0' != dyn_env[0]) ? 1 : 0;
   const void* key = NULL;
@@ -8003,16 +8218,17 @@ static int knnlm_eval(libxs_registry_t* ngram, const libxs_predict_t* store,
       (size_t)entry->text_len, rules, nrules, NULL, 0, 0))
     {
       size_t pos;
-      unsigned int prev1 = 0, prev2 = 0;
+      unsigned int hist[TOKEN_CTX_MAX];
+      int hlen = 0;
       for (pos = 0; pos < stream.size; ++pos) {
         const libxs_lexeme_t* lex = stream.data + pos;
         if (0 != (lex->flags & (LIBXS_LEXEME_WORD | LIBXS_LEXEME_NUMBER))
           && 0 != lex->id)
         {
-          if (0 != prev1) {
+          if (hlen > 0) {
             if (0 == (seen % stride)) {
               unsigned int ids[NGRAM_TOPK];
-              int n = knnlm_topk(ngram, store, prev2, prev1, order, ids,
+              int n = knnlm_topk(ngram, store, hist, hlen, ctxlen, order, ids,
                 NGRAM_TOPK);
               int rank;
               ++npairs;
@@ -8025,15 +8241,11 @@ static int knnlm_eval(libxs_registry_t* ngram, const libxs_predict_t* store,
               }
             }
             ++seen;
-            if (0 != dynamic) knnlm_dyn_insert(prev2, prev1, lex->id);
+            if (0 != dynamic) knnlm_dyn_insert(hist, hlen, ctxlen, lex->id);
           }
-          prev2 = prev1;
-          prev1 = lex->id;
+          ngram_hist_push(hist, &hlen, TOKEN_CTX_MAX, lex->id);
         }
-        if (0 != (lex->flags & LIBXS_LEXEME_SENTENCE)) {
-          prev1 = 0;
-          prev2 = 0;
-        }
+        if (0 != (lex->flags & LIBXS_LEXEME_SENTENCE)) hlen = 0;
       }
     }
     libxs_lexeme_stream_release(&stream);
@@ -8059,10 +8271,13 @@ static void knnlm_complete(libxs_registry_t* ngram,
   int text_len)
 {
   unsigned int prev2 = 0, prev1 = 0;
+  unsigned int hist[2];
   unsigned int ids[NGRAM_TOPK];
   int n, i;
   ngram_last_context(lexicon, rules, nrules, text, text_len, &prev2, &prev1);
-  n = knnlm_topk(ngram, store, prev2, prev1, order, ids, NGRAM_TOPK);
+  hist[0] = prev2;
+  hist[1] = prev1;
+  n = knnlm_topk(ngram, store, hist, 2, 2, order, ids, NGRAM_TOPK);
   if (n <= 0) {
     printf("(no continuation)\n");
     return;
@@ -8074,21 +8289,23 @@ static void knnlm_complete(libxs_registry_t* ngram,
     if (NULL != word && len > 0) printf(" %.*s", len, word);
   }
   printf("\n");
-  { unsigned int step2 = prev2, step1 = prev1;
-    int step;
+  { unsigned int step[2];
+    int s;
+    step[0] = prev2;
+    step[1] = prev1;
     printf("greedy:");
-    for (step = 0; step < 12; ++step) {
+    for (s = 0; s < 12; ++s) {
       unsigned int step_ids[1];
       int len = 0;
       const char* word;
-      if (0 == knnlm_topk(ngram, store, step2, step1, order, step_ids, 1)) {
+      if (0 == knnlm_topk(ngram, store, step, 2, 2, order, step_ids, 1)) {
         break;
       }
       word = libxs_lexicon_text(lexicon, step_ids[0], &len, NULL);
       if (NULL == word || len <= 0) break;
       printf(" %.*s", len, word);
-      step2 = step1;
-      step1 = step_ids[0];
+      step[0] = step[1];
+      step[1] = step_ids[0];
     }
     printf("\n");
   }
