@@ -402,6 +402,7 @@ static void ngram_train_text(libxs_registry_t* model,
   const char* text, int text_len);
 static libxs_ngram_t converse_ngram;
 static int converse_profile_override = -1;
+static int converse_order_max = 0;
 static bpe_symbol_t* bpe_symbols = NULL;
 static int bpe_nsymbols = 0;
 static int bpe_cap_symbols = 0;
@@ -409,6 +410,9 @@ static libxs_registry_t* bpe_merges = NULL;
 static void ngram_complete(libxs_registry_t* model, libxs_lexicon_t* lexicon,
   const libxs_lexrule_t* rules, int nrules, int order, const char* text,
   int text_len);
+static int ngram_generate(libxs_registry_t* model, libxs_lexicon_t* lexicon,
+  const libxs_lexrule_t* rules, int nrules, const char* text, int text_len,
+  char* out, size_t out_size, double* order_mean, int* order_min_out);
 static int ngram_eval(libxs_registry_t* model, const libxs_registry_t* corpus,
   libxs_lexicon_t* lexicon, const libxs_lexrule_t* rules, int nrules,
   int order, int holdout, const char* kind);
@@ -487,6 +491,7 @@ int main(int argc, char* argv[])
   libxs_lexrule_t rules[96];
   int i, budget = RESPONSE_BUDGET, eval_mode = 0;
   int complete_mode = 0, predict_eval_mode = 0, learn_mode = 0;
+  int warm_start = 0;
   int ngram_order = 2;
   int ngram_holdout = 0;
   const char* ngram_kind = "trigram";
@@ -513,8 +518,22 @@ int main(int argc, char* argv[])
       "  -n N: response sentence budget (default %d).\n"
       "  -P PROFILE: answer predictor profile.\n"
       "  -p STRUCTURE: corpus structure (prose|markdown; default by ext).\n"
-      "  -b PREFIX: ingest matching files next to PREFIX.\n",
-      argv[0], RESPONSE_BUDGET);
+      "  -x: extreme mode; deepest n-gram context (affects -c and -E).\n"
+      "  -b PREFIX: ingest matching files next to PREFIX.\n"
+      "Environment variables (override defaults):\n"
+      "  CONVERSE_NGRAM_ORDER=N   n-gram context order 1..%d (default 2; -x=%d).\n"
+      "  CONVERSE_GRAN=UNIT       token unit: word|native|syllable|bpe.\n"
+      "  CONVERSE_GEN_MINORDER=N  generation grounding floor (default 2).\n"
+      "  CONVERSE_BPE_MERGES=N    BPE merge budget (default 750).\n"
+      "  CONVERSE_HOLDOUT_TAIL=1  held-out split is a contiguous tail.\n"
+      "  CONVERSE_EVAL_STRIDE=N   evaluate 1-in-N test items (default 40).\n"
+      "  CONVERSE_GEN_EVAL=1      -E reports generation reproduction.\n"
+      "  CONVERSE_NGRAM_STATS=1   print per-order n-gram footprint.\n"
+      "  CONVERSE_KNNLM_LAMBDA=F  fixed kNN-LM interpolation weight.\n"
+      "  CONVERSE_KNNLM_DYN=1     dynamic (test-time) kNN-LM datastore.\n"
+      "  CONVERSE_EMB_PROBE=w1,w2 print nearest embedding neighbors.\n"
+      "  CONVERSE_EMB_BACKFILL=0  disable rare-token vector backfill.\n",
+      argv[0], RESPONSE_BUDGET, NGRAM_ORDER_MAX, NGRAM_ORDER_MAX);
     answer_predict_profile_list(stderr);
     return EXIT_FAILURE;
   }
@@ -538,6 +557,10 @@ int main(int argc, char* argv[])
     }
     else if (0 == strcmp(argv[i], "-c")) {
       complete_mode = 1;
+      ++i;
+    }
+    else if (0 == strcmp(argv[i], "-x")) {
+      converse_order_max = 1;
       ++i;
     }
     else if (0 == strcmp(argv[i], "-H") && i + 1 < argc) {
@@ -656,7 +679,21 @@ int main(int argc, char* argv[])
   answer_relation_rules_load_file(converse_path_relation);
   answer_relation_rules_report(stderr);
 
-  { int basename_index;
+  /* A warm start reuses the persisted corpus, lexicon, and predictor instead
+     of re-ingesting and re-training: the state is complete when the corpus
+     loaded non-empty, the lexicon is populated, and the predictor loaded.
+     Learn mode (-L) always rebuilds. Only the cheap fact index is rebuilt each
+     run below. */
+  { libxs_registry_info_t warm;
+    warm.size = 0;
+    warm_start = (0 == learn_mode && NULL != answer_model
+      && libxs_lexicon_size(lexicon) > 0
+      && EXIT_SUCCESS == libxs_registry_info(corpus, &warm)
+      && warm.size > 0) ? 1 : 0;
+  }
+
+  if (0 == warm_start) {
+    int basename_index;
     int have_positional = (i < argc) ? 1 : 0;
     for (basename_index = 0; basename_index < nbasenames; ++basename_index) {
       if (EXIT_SUCCESS != corpus_ingest_basename(corpus,
@@ -676,21 +713,22 @@ int main(int argc, char* argv[])
         return EXIT_FAILURE;
       }
     }
-  }
-  for (; i < argc; ++i) {
-    corpus_ingest_file(corpus, argv[i], lexicon, rules, nrules);
-  }
-  free(basenames);
-  corpus_save(corpus);
-  converse_lexicon_save(lexicon);
-  { libxs_predict_t* trained = converse_predict_train(corpus,
-      predict_profile);
-    if (NULL != trained) {
-      libxs_predict_destroy(answer_model);
-      answer_model = trained;
-      converse_predict_save(answer_model);
+    for (; i < argc; ++i) {
+      corpus_ingest_file(corpus, argv[i], lexicon, rules, nrules);
+    }
+    corpus_save(corpus);
+    converse_lexicon_save(lexicon);
+    { libxs_predict_t* trained = converse_predict_train(corpus,
+        predict_profile);
+      if (NULL != trained) {
+        libxs_predict_destroy(answer_model);
+        answer_model = trained;
+        converse_predict_save(answer_model);
+      }
     }
   }
+  else fprintf(stderr, "warm start: reusing %s\n", converse_path_corpus);
+  free(basenames);
   answer_relation_facts_build(corpus);
   answer_relation_facts_report(stderr);
   answer_identity_facts_build(corpus);
@@ -778,10 +816,12 @@ int main(int argc, char* argv[])
       ngram_stats(ngram_model);
     }
     else {
+      printf("> ");
+      fflush(stdout);
       while (NULL != fgets(line, (int)sizeof(line), stdin)) {
         size_t len = strlen(line);
         while (len > 0 && 0 != isspace((unsigned char)line[len - 1])) --len;
-        if (0 == len) continue;
+        if (0 == len) { printf("> "); fflush(stdout); continue; }
         if (0 != use_predict || 0 != use_embed) {
           token_complete(token_model, lexicon, rules, nrules, use_embed, line,
             (int)len);
@@ -796,6 +836,8 @@ int main(int argc, char* argv[])
         }
         else ngram_complete(ngram_model, lexicon, rules, nrules,
           ngram_order, line, (int)len);
+        printf("> ");
+        fflush(stdout);
       }
       mode_result = EXIT_SUCCESS;
     }
@@ -847,24 +889,30 @@ int main(int argc, char* argv[])
       answer_docdef_facts_free();
       return EXIT_FAILURE;
     }
+    ngram_model = ngram_build(corpus, lexicon, rules, nrules, 0);
+    ngram_backoff_build(ngram_model, lexicon);
     conv_reset();
-    fprintf(stderr, "> ");
+    printf("> ");
+    fflush(stdout);
     while (NULL != fgets(line, (int)sizeof(line), stdin)) {
       size_t len = strlen(line);
       libxs_fprint_t query;
       size_t shape;
       while (len > 0 && 0 != isspace((unsigned char)line[len - 1])) --len;
-      if (0 == len) { fprintf(stderr, "> "); continue; }
+      if (0 == len) { printf("> "); fflush(stdout); continue; }
       shape = len;
       libxs_fprint(&query, LIBXS_DATATYPE_U8, line, 1,
         &shape, NULL, FPRINT_ORDER, 0, 0, 0);
       respond(&spatial, corpus, line, len, &query, budget,
         lexicon, rules, nrules, answer_model, predict_profile);
-      fprintf(stderr, "> ");
+      printf("> ");
+      fflush(stdout);
     }
     libxs_spatial_destroy(&spatial);
   }
 
+  libxs_ngram_destroy(&converse_ngram);
+  ngram_model = NULL;
   converse_lexicon_save(lexicon);
   libxs_predict_destroy(answer_model);
   libxs_lexicon_destroy(lexicon);
@@ -5920,7 +5968,7 @@ static int ngram_native_tokens(libxs_lexicon_t* lexicon, const char* text,
 
 static int ngram_order(void)
 {
-  int result = 2;
+  int result = (0 != converse_order_max) ? NGRAM_ORDER_MAX : 2;
   const char* env = getenv("CONVERSE_NGRAM_ORDER");
   if (NULL != env && '\0' != *env) {
     int v = atoi(env);
@@ -5935,6 +5983,8 @@ static void ngram_stats(const libxs_registry_t* model)
 {
   const char* env = getenv("CONVERSE_NGRAM_STATS");
   libxs_ngram_stats_t st;
+  st.entries = 0;
+  st.nbytes = 0;
   LIBXS_UNUSED(model);
   if (NULL != env && '\0' != *env && '0' != *env
     && EXIT_SUCCESS == libxs_ngram_stats(&converse_ngram, &st))
@@ -6607,9 +6657,12 @@ static int ngram_gen_minorder(void)
    floor (the generative form of "abstain rather than invent"), at a repeat,
    or at the length budget. Prints the continuation plus the mean/min order
    that quantifies how well grounded it was. */
-static void ngram_complete(libxs_registry_t* model, libxs_lexicon_t* lexicon,
-  const libxs_lexrule_t* rules, int nrules, int order, const char* text,
-  int text_len)
+/* Greedy grounded continuation of the prompt into out[] (space-joined words).
+   Returns the number of generated tokens (0 = nothing cleared the grounding
+   floor). Optional order_mean/order_min report how attested the run was. */
+static int ngram_generate(libxs_registry_t* model, libxs_lexicon_t* lexicon,
+  const libxs_lexrule_t* rules, int nrules, const char* text, int text_len,
+  char* out, size_t out_size, double* order_mean, int* order_min_out)
 {
   enum { GEN_MAX = 40 };
   unsigned int hist[NGRAM_ORDER_MAX];
@@ -6619,14 +6672,10 @@ static void ngram_complete(libxs_registry_t* model, libxs_lexicon_t* lexicon,
   int step, nrecent = 0;
   long order_sum = 0;
   int order_min = NGRAM_ORDER_MAX + 1;
-  LIBXS_UNUSED(order);
+  size_t pos = 0;
+  if (NULL != out && out_size > 0) out[0] = '\0';
   hlen = ngram_history(lexicon, rules, nrules, text, text_len, hist);
-  if (hlen <= 0) {
-    printf("(no continuation)\n");
-    return;
-  }
-  printf("generate:");
-  for (step = 0; step < GEN_MAX; ++step) {
+  for (step = 0; hlen > 0 && step < GEN_MAX; ++step) {
     unsigned int ids[1];
     int got_order = 0, len = 0, i, repeat = 0;
     const char* word;
@@ -6637,7 +6686,12 @@ static void ngram_complete(libxs_registry_t* model, libxs_lexicon_t* lexicon,
     if (repeat >= 3) break;
     word = libxs_lexicon_text(lexicon, ids[0], &len, NULL);
     if (NULL == word || len <= 0) break;
-    printf(" %.*s", len, word);
+    if (NULL != out && pos + (size_t)len + 1 < out_size) {
+      if (pos > 0) out[pos++] = ' ';
+      memcpy(out + pos, word, (size_t)len);
+      pos += (size_t)len;
+      out[pos] = '\0';
+    }
     order_sum += got_order;
     if (got_order < order_min) order_min = got_order;
     if (nrecent < GEN_MAX) recent[nrecent++] = ids[0];
@@ -6648,10 +6702,29 @@ static void ngram_complete(libxs_registry_t* model, libxs_lexicon_t* lexicon,
       hist[NGRAM_ORDER_MAX - 1] = ids[0];
     }
   }
-  printf("\n");
-  if (step > 0) {
+  if (NULL != order_mean) {
+    *order_mean = (step > 0) ? (double)order_sum / (double)step : 0.0;
+  }
+  if (NULL != order_min_out) *order_min_out = (step > 0) ? order_min : 0;
+  return step;
+}
+
+
+static void ngram_complete(libxs_registry_t* model, libxs_lexicon_t* lexicon,
+  const libxs_lexrule_t* rules, int nrules, int order, const char* text,
+  int text_len)
+{
+  char out[COMPOSE_MAXTEXT];
+  double order_mean = 0.0;
+  int order_min = 0;
+  int ntok = ngram_generate(model, lexicon, rules, nrules, text, text_len,
+    out, sizeof(out), &order_mean, &order_min);
+  int minorder = ngram_gen_minorder();
+  LIBXS_UNUSED(order);
+  if (ntok > 0) {
+    printf("generate: %s\n", out);
     printf("grounding: %d tokens, mean order %.1f, min order %d\n",
-      step, (double)order_sum / (double)step, order_min);
+      ntok, order_mean, order_min);
   }
   else printf("(no grounded continuation at min order %d)\n", minorder);
 }
@@ -8357,6 +8430,14 @@ static int respond(const libxs_spatial_t* spatial,
     {
       conv_remember(q, qlen);
       return result;
+    }
+    { char gen[COMPOSE_MAXTEXT];
+      int ntok = ngram_generate(converse_ngram.store, lexicon, rules, nrules,
+        q, qlen, gen, sizeof(gen), NULL, NULL);
+      if (ntok > 0) {
+        printf("%s\n", gen);
+        return result;
+      }
     }
     printf("I do not know from the corpus.\n");
     return result;
