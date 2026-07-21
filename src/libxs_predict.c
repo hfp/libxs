@@ -28,6 +28,12 @@
 #if !defined(LIBXS_PREDICT_KNN)
 #  define LIBXS_PREDICT_KNN 32
 #endif
+#if !defined(LIBXS_PREDICT_LSQ_NOISE)
+#  define LIBXS_PREDICT_LSQ_NOISE 0.05
+#endif
+#if !defined(LIBXS_PREDICT_LSQ_MINRATIO)
+#  define LIBXS_PREDICT_LSQ_MINRATIO 2
+#endif
 
 #define LIBXS_PREDICT_MALLOC(SIZE, POOL) internal_libxs_scratch_malloc(SIZE, &(POOL))
 #define LIBXS_PREDICT_FREE(PTR, POOL) internal_libxs_scratch_free(PTR, POOL)
@@ -306,6 +312,67 @@ LIBXS_API_INLINE double internal_libxs_predict_position(
 }
 
 
+LIBXS_API_INLINE void internal_libxs_predict_lsq_fit(
+  const double* y, int nc, int order, double* coeffs, double* error)
+{
+  const int m = order + 1;
+  double a[(LIBXS_FPRINT_MAXORDER + 1) * (LIBXS_FPRINT_MAXORDER + 1)];
+  double g[LIBXS_FPRINT_MAXORDER + 1];
+  int i, p, q;
+  for (p = 0; p < m; ++p) {
+    g[p] = 0;
+    for (q = 0; q < m; ++q) a[p * m + q] = 0;
+  }
+  for (i = 0; i < nc; ++i) {
+    double phi[LIBXS_FPRINT_MAXORDER + 1];
+    for (p = 0; p < m; ++p) phi[p] = libxs_binom((double)i, p);
+    for (p = 0; p < m; ++p) {
+      g[p] += phi[p] * y[i];
+      for (q = 0; q < m; ++q) a[p * m + q] += phi[p] * phi[q];
+    }
+  }
+  for (p = 0; p < m; ++p) {
+    int piv = p;
+    for (q = p + 1; q < m; ++q) {
+      if (LIBXS_FABS(a[q * m + p]) > LIBXS_FABS(a[piv * m + p])) piv = q;
+    }
+    if (piv != p) {
+      for (q = 0; q < m; ++q) {
+        const double t = a[p * m + q];
+        a[p * m + q] = a[piv * m + q];
+        a[piv * m + q] = t;
+      }
+      { const double t = g[p]; g[p] = g[piv]; g[piv] = t; }
+    }
+    { const double d = a[p * m + p];
+      if (LIBXS_FABS(d) > 1e-300) {
+        for (q = p + 1; q < m; ++q) {
+          const double f = a[q * m + p] / d;
+          for (i = p; i < m; ++i) a[q * m + i] -= f * a[p * m + i];
+          g[q] -= f * g[p];
+        }
+      }
+    }
+  }
+  for (p = m - 1; p >= 0; --p) {
+    double s = g[p];
+    for (q = p + 1; q < m; ++q) s -= a[p * m + q] * coeffs[q];
+    coeffs[p] = (LIBXS_FABS(a[p * m + p]) > 1e-300) ? s / a[p * m + p] : 0;
+  }
+  { double emax = 0;
+    for (i = 0; i < nc; ++i) {
+      double pred = 0, r;
+      int k;
+      for (k = 0; k < m; ++k) pred += coeffs[k] * libxs_binom((double)i, k);
+      r = pred - y[i];
+      if (r < 0) r = -r;
+      if (r > emax) emax = r;
+    }
+    *error = emax;
+  }
+}
+
+
 LIBXS_API_INLINE void internal_libxs_predict_cluster_refit(
   internal_libxs_predict_cluster_t* cl, int n, int use_fprint)
 {
@@ -318,7 +385,7 @@ LIBXS_API_INLINE void internal_libxs_predict_cluster_refit(
   if (NULL != buf) {
     for (j = 0; j < n; ++j) {
       int ndistinct = 0, d;
-      double prev;
+      double prev, fnoise = 0;
       for (k = 0; k < nc; ++k) buf[k] = cl->raw_outputs[(size_t)k * n + j];
       libxs_sort(buf, nc, sizeof(double), libxs_cmp_f64, NULL);
       prev = buf[0]; ndistinct = 1;
@@ -341,6 +408,7 @@ LIBXS_API_INLINE void internal_libxs_predict_cluster_refit(
             if (fp.l2[d] < fp.l2[d - 1]) ++decay_order;
             else d = fp.order + 1;
           }
+          fnoise = fp.l2[decay_order] / fp.l2[0];
         }
         if (ndistinct <= ndistinct_thresh || decay_order < 2) {
           cl->mode[j] = 1;
@@ -358,28 +426,37 @@ LIBXS_API_INLINE void internal_libxs_predict_cluster_refit(
         }
       }
       { const int trunc_order = LIBXS_MIN(cl->order[j], cl->maxorder);
+        double* cj = cl->coeffs + (size_t)j * (cl->maxorder + 1);
+        const int use_lsq = (0 == cl->mode[j])
+          && (fnoise > LIBXS_PREDICT_LSQ_NOISE)
+          && (nc >= LIBXS_PREDICT_LSQ_MINRATIO * (trunc_order + 1));
         cl->order[j] = LIBXS_MIN(trunc_order, nc - 1);
-        cl->coeffs[(size_t)j * (cl->maxorder + 1)] = buf[0];
-        for (d = 1; d <= cl->order[j] && d < nc; ++d) {
-          for (k = 0; k < nc - d; ++k) buf[k] = buf[k + 1] - buf[k];
-          cl->coeffs[(size_t)j * (cl->maxorder + 1) + d] = buf[0];
-        }
-        if (cl->order[j] < nc - 1) {
-          double emax = 0;
-          for (k = 0; k < nc - cl->order[j] - 1; ++k) {
-            buf[k] = buf[k + 1] - buf[k];
-          }
-          for (k = 0; k < nc - cl->order[j] - 1; ++k) {
-            const double a = buf[k] < 0 ? -buf[k] : buf[k];
-            if (a > emax) emax = a;
-          }
-          cl->errors[j] = emax;
+        if (0 != use_lsq) {
+          internal_libxs_predict_lsq_fit(buf, nc, cl->order[j], cj,
+            &cl->errors[j]);
         }
         else {
-          cl->errors[j] = 0;
+          cj[0] = buf[0];
+          for (d = 1; d <= cl->order[j] && d < nc; ++d) {
+            for (k = 0; k < nc - d; ++k) buf[k] = buf[k + 1] - buf[k];
+            cj[d] = buf[0];
+          }
+          if (cl->order[j] < nc - 1) {
+            double emax = 0;
+            for (k = 0; k < nc - cl->order[j] - 1; ++k) {
+              buf[k] = buf[k + 1] - buf[k];
+            }
+            for (k = 0; k < nc - cl->order[j] - 1; ++k) {
+              const double a = buf[k] < 0 ? -buf[k] : buf[k];
+              if (a > emax) emax = a;
+            }
+            cl->errors[j] = emax;
+          }
+          else {
+            cl->errors[j] = 0;
+          }
         }
         if (NULL != cl->out_rms && 0 == cl->mode[j]) {
-          const double* cj = cl->coeffs + (size_t)j * (cl->maxorder + 1);
           const int od = cl->order[j];
           double sse = 0;
           int ki;
