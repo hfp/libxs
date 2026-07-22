@@ -332,6 +332,43 @@ LIBXS_API unsigned int libxs_product_limit(unsigned int product, unsigned int li
 LIBXS_API double libxs_kahan_sum(double value, double* accumulator, double* compensation);
 
 /**
+ * Like libxs_kahan_sum but uses the exact libxs_two_sum transform, so the
+ * compensation is recovered regardless of the magnitude of accumulator and
+ * value (Kahan-Babuska/Neumaier). More robust than libxs_kahan_sum for
+ * summands that are not ordered by decreasing magnitude, at about twice the
+ * flops. The accumulator holds the compensated result after every call.
+ */
+LIBXS_API double libxs_neumaier_sum(double value, double* accumulator, double* compensation);
+
+/**
+ * Compensated summation of x[n] as if computed in twice the working
+ * precision (Ogita, Rump, Oishi 2005: Sum2). Returns fl(sum(x)) with
+ * relative error eps + O(gamma_n^2 * cond). No branches, no sorting.
+ */
+LIBXS_API double libxs_sum2(const double* x, int n);
+
+/**
+ * Like libxs_sum2 but also returns a rigorous error bound (may be NULL)
+ * such that sum(x) is in [res - *err, res + *err] (Ogita et al.: Cor. 4.7).
+ * The bound is computed in working precision and holds under underflow.
+ */
+LIBXS_API double libxs_sum2_err(const double* x, int n, double* err);
+
+/**
+ * Dot product x^T y as if computed in twice the working precision
+ * (Ogita, Rump, Oishi 2005: Dot2). Returns fl(x^T y) with relative
+ * error eps + 1/2 * gamma_n^2 * cond(x^T y). No branches, no sorting.
+ */
+LIBXS_API double libxs_dot2(const double* x, const double* y, int n);
+
+/**
+ * Like libxs_dot2 but also returns a rigorous error bound (may be NULL)
+ * such that x^T y is in [res - *err, res + *err] (Ogita et al.: Dot2Err).
+ * The bound is computed in working precision and holds under underflow.
+ */
+LIBXS_API double libxs_dot2_err(const double* x, const double* y, int n, double* err);
+
+/**
  * Golden Section Search for the minimum of a unimodal function f on [x0, x1].
  * The function f is evaluated via a callback; context is forwarded opaquely.
  * Returns f(x*) where x* is the minimizer; *xmin optionally receives x*
@@ -390,6 +427,50 @@ LIBXS_API unsigned int libxs_barrett_pow18(unsigned int p);
  * Used by libxs_mod_u64 for 64-bit reduction via radix-2^18 split.
  */
 LIBXS_API unsigned int libxs_barrett_pow36(unsigned int p);
+
+
+/**
+ * Error-free transformation of a sum (Knuth's TwoSum). Returns x = fl(a+b)
+ * and, via err, the exact rounding error such that a + b == x + *err for
+ * all a, b (also under underflow). Branch-free, six flops.
+ */
+LIBXS_API_INLINE double libxs_two_sum(double a, double b, double* err) {
+  const double x = a + b;
+  const double z = x - a;
+  *err = (a - (x - z)) + (b - z);
+  return x;
+}
+
+/**
+ * Error-free transformation of a sum (Dekker's FastTwoSum). Returns
+ * x = fl(a+b) and, via err, the rounding error such that a + b == x + *err.
+ * Exact only when |a| >= |b| (three flops); use libxs_two_sum otherwise.
+ */
+LIBXS_API_INLINE double libxs_fast_two_sum(double a, double b, double* err) {
+  const double x = a + b;
+  *err = (a - x) + b;
+  return x;
+}
+
+/**
+ * Error-free transformation of a product (Dekker/Veltkamp TwoProduct).
+ * Returns x = fl(a*b) and, via err, the rounding error such that
+ * a * b == x + *err (exact when no underflow occurs). Uses fma() when
+ * LIBXS_FMA is defined (two flops), otherwise Dekker's split (17 flops).
+ */
+LIBXS_API_INLINE double libxs_two_product(double a, double b, double* err) {
+  const double x = a * b;
+#if defined(LIBXS_FMA)
+  *err = fma(a, b, -x);
+#else
+  const double factor = 134217729.0; /* 2^27 + 1 */
+  const double ca = factor * a, cb = factor * b;
+  const double a1 = ca - (ca - a), a2 = a - a1;
+  const double b1 = cb - (cb - b), b2 = b - b1;
+  *err = a2 * b2 - (((x - a1 * b1) - a2 * b1) - a1 * b2);
+#endif
+  return x;
+}
 
 
 /** Round a single-precision value to BF16 (round-to-nearest-even). */

@@ -12,9 +12,9 @@ LIBXS_API_INTERN void internal_libxs_fprint_core(
     double macc = 0, mcomp = 0, amax = 0;
     for (i = 0; i < n; ++i) {
       const double a = cur[i] < 0 ? -cur[i] : cur[i];
-      libxs_kahan_sum(cur[i] * cur[i], &l2acc, &l2comp);
-      libxs_kahan_sum(cur[i], &macc, &mcomp);
-      libxs_kahan_sum(a, &l1acc, &l1comp);
+      libxs_neumaier_sum(cur[i] * cur[i], &l2acc, &l2comp);
+      libxs_neumaier_sum(cur[i], &macc, &mcomp);
+      libxs_neumaier_sum(a, &l1acc, &l1comp);
       if (a > amax) amax = a;
     }
     info->l2[0] = sqrt(l2acc * h);
@@ -36,9 +36,9 @@ LIBXS_API_INTERN void internal_libxs_fprint_core(
     for (i = 0; i < nk; ++i) cur[i] = prv[i + 1] - prv[i];
     for (i = 0; i < nk; ++i) {
       const double a = cur[i] < 0 ? -cur[i] : cur[i];
-      libxs_kahan_sum(cur[i] * cur[i], &l2acc, &l2comp);
-      libxs_kahan_sum(cur[i], &macc, &mcomp);
-      libxs_kahan_sum(a, &l1acc, &l1comp);
+      libxs_neumaier_sum(cur[i] * cur[i], &l2acc, &l2comp);
+      libxs_neumaier_sum(cur[i], &macc, &mcomp);
+      libxs_neumaier_sum(a, &l1acc, &l1comp);
       if (a > amax) amax = a;
     }
     info->acc_sq[k] = l2acc;
@@ -243,7 +243,7 @@ LIBXS_API int libxs_fprint(libxs_fprint_t* info,
           double acc = 0, comp = 0;
           int i;
           for (i = 0; i < n - lag; ++i) {
-            libxs_kahan_sum(cur[i] * cur[i + lag], &acc, &comp);
+            libxs_neumaier_sum(cur[i] * cur[i + lag], &acc, &comp);
           }
           tmp[lag] = acc / (n - lag);
         }
@@ -282,7 +282,7 @@ LIBXS_API int libxs_fprint(libxs_fprint_t* info,
         ndims - 1, shape, stride, order, axis, smooth, flags);
       for (k = 0; k <= child.order; ++k) {
         if (0 < k) wk /= k;
-        libxs_kahan_sum(wk * child.l2[k] * child.l2[k], &snorm, &scomp);
+        libxs_neumaier_sum(wk * child.l2[k] * child.l2[k], &snorm, &scomp);
       }
       scalars[j] = sqrt(snorm);
     }
@@ -319,7 +319,7 @@ LIBXS_API double libxs_fprint_diff(
     const double dm = a->mean[k] - b->mean[k];
     if (NULL != weights) wk = weights[k];
     else if (0 < k) wk /= k; /* 1/k! */
-    libxs_kahan_sum(wk * (dl2 * dl2 + dm * dm), &acc, &comp);
+    libxs_neumaier_sum(wk * (dl2 * dl2 + dm * dm), &acc, &comp);
   }
   return sqrt(acc);
 }

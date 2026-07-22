@@ -434,12 +434,108 @@ LIBXS_API unsigned int libxs_isqrt2_u32(unsigned int x)
 
 LIBXS_API double libxs_kahan_sum(double value, double* accumulator, double* compensation)
 {
-  double r, c;
+  double r, e;
   LIBXS_ASSERT(NULL != accumulator && NULL != compensation);
-  c = value - *compensation; r = *accumulator + c;
-  *compensation = (r - *accumulator) - c;
+  r = libxs_fast_two_sum(*accumulator, value - *compensation, &e);
+  *compensation = -e;
   *accumulator = r;
   return r;
+}
+
+
+LIBXS_API double libxs_neumaier_sum(double value, double* accumulator, double* compensation)
+{
+  double r, e;
+  LIBXS_ASSERT(NULL != accumulator && NULL != compensation);
+  r = libxs_two_sum(*accumulator, value - *compensation, &e);
+  *compensation = -e;
+  *accumulator = r;
+  return r;
+}
+
+
+LIBXS_API double libxs_sum2(const double* x, int n)
+{
+  double p = (0 < n ? x[0] : 0), s = 0;
+  int i;
+  for (i = 1; i < n; ++i) {
+    double q;
+    p = libxs_two_sum(p, x[i], &q);
+    s += q;
+  }
+  return p + s;
+}
+
+
+LIBXS_API double libxs_sum2_err(const double* x, int n, double* err)
+{
+  const double eps = libxs_pow2(-53);
+  const double eta = libxs_pow2(-1022) * libxs_pow2(-52);
+  double p = (0 < n ? x[0] : 0), s = 0, sq = 0, res;
+  int i;
+  for (i = 1; i < n; ++i) {
+    double q;
+    p = libxs_two_sum(p, x[i], &q);
+    s += q;
+    sq += LIBXS_ABS(q);
+  }
+  res = p + s;
+  if (NULL != err) {
+    const double ne2 = 2.0 * n * eps, ares = LIBXS_ABS(res);
+    if (ne2 < 1.0) {
+      const double beta = (ne2 / (1.0 - ne2)) * sq;
+      *err = eps * ares + (beta + (2.0 * eps * eps * ares + 3.0 * eta));
+    }
+    else *err = HUGE_VAL;
+  }
+  return res;
+}
+
+
+LIBXS_API double libxs_dot2(const double* x, const double* y, int n)
+{
+  double p = 0, s = 0;
+  int i;
+  if (0 < n) p = libxs_two_product(x[0], y[0], &s);
+  for (i = 1; i < n; ++i) {
+    double h, r, q;
+    h = libxs_two_product(x[i], y[i], &r);
+    p = libxs_two_sum(p, h, &q);
+    s += q + r;
+  }
+  return p + s;
+}
+
+
+LIBXS_API double libxs_dot2_err(const double* x, const double* y, int n, double* err)
+{
+  const double eps = libxs_pow2(-53);
+  const double eta = libxs_pow2(-1022) * libxs_pow2(-52);
+  double p = 0, s = 0, e = 0, res;
+  int i;
+  if (0 < n) {
+    p = libxs_two_product(x[0], y[0], &s);
+    e = LIBXS_ABS(s);
+  }
+  for (i = 1; i < n; ++i) {
+    double h, r, q, t;
+    h = libxs_two_product(x[i], y[i], &r);
+    p = libxs_two_sum(p, h, &q);
+    t = q + r;
+    s += t;
+    e += LIBXS_ABS(t);
+  }
+  res = p + s;
+  if (NULL != err) {
+    const double ne2 = 2.0 * n * eps;
+    if (ne2 < 1.0) {
+      const double delta = (n * eps) / (1.0 - ne2);
+      const double alpha = eps * LIBXS_ABS(res) + (delta * e + 3.0 * eta / eps);
+      *err = alpha / (1.0 - 2.0 * eps);
+    }
+    else *err = HUGE_VAL;
+  }
+  return res;
 }
 
 

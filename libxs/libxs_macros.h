@@ -235,16 +235,29 @@
 
 /** Native BF16 type.
  * GCC 13+/Clang 15+ provide __bf16 as a scalar storage+conversion type.
- * LIBXS_BF16 is defined when the __bf16 type is available. */
+ * LIBXS_BF16 is defined when the __bf16 type is available.
+ */
 #if !defined(LIBXS_BF16)
 # if defined(__BFLT16_MANT_DIG__)
 #   define LIBXS_BF16
 # endif
 #endif
 
+/** Fused multiply-add.
+ * LIBXS_FMA is defined when the compiler targets FMA (x86 __FMA__), so that
+ * fma() maps to a hardware instruction. FMA rides along with AVX2 in the
+ * target attributes (see libxs_utils.h).
+ */
+#if !defined(LIBXS_FMA)
+# if defined(__FMA__)
+#   define LIBXS_FMA
+# endif
+#endif
+
 /** 128-bit unsigned integer type.
  * GCC/Clang provide unsigned __int128 on 64-bit targets.
- * LIBXS_INT128 is defined when libxs_uint128_t is available. */
+ * LIBXS_INT128 is defined when libxs_uint128_t is available.
+ */
 #if !defined(LIBXS_INT128)
 # if defined(__SIZEOF_INT128__) || \
     ((defined(__GNUC__) || defined(__clang__)) && (64 <= LIBXS_BITS))

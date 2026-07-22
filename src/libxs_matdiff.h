@@ -79,31 +79,31 @@ for (ii = 0; ii < nn; ++ii) {
 
       /* sum of relative differences */
       LIBXS_PRAGMA_FORCEINLINE
-      libxs_kahan_sum(dri * dri, &info->l2_rel, &compd);
+      libxs_neumaier_sum(dri * dri, &info->l2_rel, &compd);
 
       /* row-wise sum of reference values with Kahan compensation */
       LIBXS_PRAGMA_FORCEINLINE
-      libxs_kahan_sum(ra, &normrj, &comprj);
+      libxs_neumaier_sum(ra, &normrj, &comprj);
 
       /* row-wise sum of test values with Kahan compensation */
       LIBXS_PRAGMA_FORCEINLINE
-      libxs_kahan_sum(ta, &normtj, &comptj);
+      libxs_neumaier_sum(ta, &normtj, &comptj);
 
       /* row-wise sum of differences with Kahan compensation */
       LIBXS_PRAGMA_FORCEINLINE
-      libxs_kahan_sum(di, &normij, &compij);
+      libxs_neumaier_sum(di, &normij, &compij);
 
       /* Froebenius-norm of reference matrix with Kahan compensation */
       LIBXS_PRAGMA_FORCEINLINE
-      libxs_kahan_sum(ri * ri, &normfr, &compfr);
+      libxs_neumaier_sum(ri * ri, &normfr, &compfr);
 
       /* Froebenius-norm of test matrix with Kahan compensation */
       LIBXS_PRAGMA_FORCEINLINE
-      libxs_kahan_sum(ti * ti, &normft, &compft);
+      libxs_neumaier_sum(ti * ti, &normft, &compft);
 
       /* Froebenius-norm of differences with Kahan compensation */
       LIBXS_PRAGMA_FORCEINLINE
-      libxs_kahan_sum(di * di, &info->l2_abs, &compf);
+      libxs_neumaier_sum(di * di, &info->l2_abs, &compf);
     }
     else { /* NaN */
       result_nan = ((LIBXS_NOTNAN(ri) && pos_inf > ra) ? 1 : 2);
@@ -117,11 +117,11 @@ for (ii = 0; ii < nn; ++ii) {
   if (0 == result_nan) {
     /* summarize reference values */
     LIBXS_PRAGMA_FORCEINLINE
-    libxs_kahan_sum(normrj, &info->l1_ref, &compr);
+    libxs_neumaier_sum(normrj, &info->l1_ref, &compr);
 
     /* summarize test values */
     LIBXS_PRAGMA_FORCEINLINE
-    libxs_kahan_sum(normtj, &info->l1_tst, &compt);
+    libxs_neumaier_sum(normtj, &info->l1_tst, &compt);
 
     /* calculate Infinity-norm of differences */
     if (info->normi_abs < normij) info->normi_abs = normij;
@@ -184,23 +184,23 @@ if (0 == result_nan) {
 
       /* variance of reference set with Kahan compensation */
       LIBXS_PRAGMA_FORCEINLINE
-      libxs_kahan_sum(rd * rd, &info->var_ref, &compr_var);
+      libxs_neumaier_sum(rd * rd, &info->var_ref, &compr_var);
 
       /* variance of test set with Kahan compensation */
       LIBXS_PRAGMA_FORCEINLINE
-      libxs_kahan_sum(td * td, &info->var_tst, &compt_var);
+      libxs_neumaier_sum(td * td, &info->var_tst, &compt_var);
 
       /* column-wise sum of reference values with Kahan compensation */
       LIBXS_PRAGMA_FORCEINLINE
-      libxs_kahan_sum(ra, &normri, &compri);
+      libxs_neumaier_sum(ra, &normri, &compri);
 
       /* column-wise sum of test values with Kahan compensation */
       LIBXS_PRAGMA_FORCEINLINE
-      libxs_kahan_sum(ta, &normti, &compti);
+      libxs_neumaier_sum(ta, &normti, &compti);
 
       /* column-wise sum of differences with Kahan compensation */
       LIBXS_PRAGMA_FORCEINLINE
-      libxs_kahan_sum(di, &norm1, &comp1);
+      libxs_neumaier_sum(di, &norm1, &comp1);
     }
 
     /* calculate One-norm of differences */
