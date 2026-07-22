@@ -175,7 +175,10 @@ int main(int argc, char* argv[])
                 " order=%d, diff=%d\n",
                 qi.nclusters, qi.compression, qi.order, qi.diff_order);
               fprintf(stdout, "\n--- %s decomposition ---\n",
-                (nseries >= 2) ? "PCA" : "RAW");
+                (LIBXS_PREDICT_SPREAD == decompose) ? "SPREAD"
+                : ((LIBXS_PREDICT_PCA == decompose) ? "PCA"
+                : ((LIBXS_PREDICT_HKNN == decompose) ? "hKNN"
+                : ((LIBXS_PREDICT_RF == decompose) ? "RF" : "RAW"))));
               evaluate_forecast(
                 (const libxs_predict_t* const*)split_m,
                 (const libxs_predict_t* const*)full_m,
