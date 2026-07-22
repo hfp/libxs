@@ -27,6 +27,8 @@ libxs_diff_i64
 libxs_diff_i8
 libxs_diff_n
 libxs_dist2
+libxs_dot2
+libxs_dot2_err
 libxs_dvalue
 libxs_finalize
 libxs_format_value
@@ -147,6 +149,15 @@ libxs_morton
 libxs_morton_bits
 libxs_morton_decode
 libxs_morton_decode_bits
+libxs_neumaier_sum
+libxs_ngram_create
+libxs_ngram_destroy
+libxs_ngram_finalize
+libxs_ngram_lookup
+libxs_ngram_observe
+libxs_ngram_predict
+libxs_ngram_prob
+libxs_ngram_stats
 libxs_nrank
 libxs_nranks
 libxs_offset
@@ -231,6 +242,8 @@ libxs_strisimilar
 libxs_stristr
 libxs_stristrn
 libxs_strtoken
+libxs_sum2
+libxs_sum2_err
 libxs_syr2k
 libxs_syr2k_config
 libxs_syr2k_direct
@@ -259,6 +272,7 @@ libxs_token_stream_init
 libxs_token_stream_push
 libxs_token_stream_release
 libxs_token_stream_reserve
+libxs_token_word_next
 libxs_typename
 libxs_typesize
 libxs_unshuffle
