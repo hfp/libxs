@@ -383,7 +383,8 @@ static int answer_query(const libxs_registry_t* corpus,
   const char* query_text, size_t query_len, int budget,
   libxs_lexicon_t* lexicon, const libxs_lexrule_t* rules, int nrules,
   const libxs_predict_t* answer_model,
-  const answer_predict_profile_t* profile);
+  const answer_predict_profile_t* profile,
+  char* out_reply, size_t out_size);
 static int text_find_ci(const char* text, int text_len, const char* term);
 static int text_find_word_ci(const char* text, int text_len,
   const char* term);
@@ -421,6 +422,11 @@ static libxs_registry_t* bpe_merges = NULL;
 static void ngram_complete(libxs_registry_t* model, libxs_lexicon_t* lexicon,
   const libxs_lexrule_t* rules, int nrules, int order, const char* text,
   int text_len);
+static void complete_respond(const libxs_registry_t* corpus,
+  libxs_lexicon_t* lexicon, const libxs_lexrule_t* rules, int nrules,
+  const libxs_predict_t* answer_model,
+  const answer_predict_profile_t* profile, int budget,
+  const char* text, int text_len);
 static int ngram_generate(libxs_registry_t* model, libxs_lexicon_t* lexicon,
   const libxs_lexrule_t* rules, int nrules, const char* text, int text_len,
   char* out, size_t out_size, double* order_mean, int* order_min_out);
@@ -538,6 +544,7 @@ int main(int argc, char* argv[])
       "  CONVERSE_NGRAM_ORDER=N   n-gram context order 1..%d (default 2; -x=%d).\n"
       "  CONVERSE_GRAN=UNIT       token unit: word|native|syllable|bpe.\n"
       "  CONVERSE_GEN_MINORDER=N  generation grounding floor (default 2).\n"
+      "  CONVERSE_GEN_CONTORDER=F -c continuation mean-order floor (default 3).\n"
       "  CONVERSE_BPE_MERGES=N    BPE merge budget (default 750).\n"
       "  CONVERSE_HOLDOUT_TAIL=1  held-out split is a contiguous tail.\n"
       "  CONVERSE_EVAL_STRIDE=N   evaluate 1-in-N test items (default 40).\n"
@@ -868,9 +875,19 @@ int main(int argc, char* argv[])
       fflush(stdout);
       while (NULL != fgets(line, (int)sizeof(line), stdin)) {
         size_t len = strlen(line);
+        int is_q;
         while (len > 0 && 0 != isspace((unsigned char)line[len - 1])) --len;
         if (0 == len) { printf("> "); fflush(stdout); continue; }
-        if (0 != use_predict || 0 != use_embed) {
+        is_q = is_question_query(line, len, lexicon, rules, nrules);
+        /* Questions answer from the corpus first (with a continuation on top),
+           independent of the -K generator; only non-questions use the per-kind
+           token generators. The predict/embed kinds lack an n-gram model, so
+           they keep their own completion path. */
+        if (0 != is_q && 0 == use_predict && 0 == use_embed) {
+          complete_respond(corpus, lexicon, rules, nrules, answer_model,
+            predict_profile, budget, line, (int)len);
+        }
+        else if (0 != use_predict || 0 != use_embed) {
           token_complete(token_model, lexicon, rules, nrules, use_embed, line,
             (int)len);
         }
@@ -5211,17 +5228,25 @@ static int answer_query(const libxs_registry_t* corpus,
   const char* query_text, size_t query_len, int budget,
   libxs_lexicon_t* lexicon, const libxs_lexrule_t* rules, int nrules,
   const libxs_predict_t* answer_model,
-  const answer_predict_profile_t* profile)
+  const answer_predict_profile_t* profile,
+  char* out_reply, size_t out_size)
 {
   const corpus_entry_t* entries[ANSWER_MAX];
   double scores[ANSWER_MAX];
   int answer_count;
   int slot;
   char reply[COMPOSE_MAXTEXT];
+  if (NULL != out_reply && out_size > 0) out_reply[0] = '\0';
   if (EXIT_SUCCESS == answer_fact_reply(corpus, query_text, query_len,
     reply, sizeof(reply)))
   {
     printf("%s\n", reply);
+    if (NULL != out_reply && out_size > 0) {
+      size_t rn = strlen(reply);
+      if (rn >= out_size) rn = out_size - 1;
+      memcpy(out_reply, reply, rn);
+      out_reply[rn] = '\0';
+    }
     return 1;
   }
   answer_count = answer_select(corpus, query_text, query_len, budget,
@@ -5231,6 +5256,12 @@ static int answer_query(const libxs_registry_t* corpus,
       lexicon, rules, nrules, reply, sizeof(reply)))
   {
     printf("%s\n", reply);
+    if (NULL != out_reply && out_size > 0) {
+      size_t rn = strlen(reply);
+      if (rn >= out_size) rn = out_size - 1;
+      memcpy(out_reply, reply, rn);
+      out_reply[rn] = '\0';
+    }
     LIBXS_UNUSED(scores);
     return 1;
   }
@@ -6936,6 +6967,23 @@ static int ngram_gen_minorder(void)
 }
 
 
+/* Mean-order floor a continuation must clear to be shown as attested. The
+   per-step gate (ngram_gen_minorder) is dominated by the low-order seeding
+   transient, so a whole continuation is judged by its MEAN grounding order:
+   at maxorder 2 every run averages 2.0 (pure bigram drift, suppressed); with
+   deeper context (-x) genuinely attested passages average much higher. */
+static double ngram_gen_contfloor(void)
+{
+  double result = 3.0;
+  const char* env = getenv("CONVERSE_GEN_CONTORDER");
+  if (NULL != env && '\0' != *env) {
+    double v = atof(env);
+    if (v >= 1.0 && v <= (double)NGRAM_ORDER_MAX) result = v;
+  }
+  return result;
+}
+
+
 /* Grounded greedy generation over the deep k-context store. Each step takes
    the top successor from the longest attested context and reports that
    context order; generation stops when the order falls below the grounding
@@ -7012,6 +7060,46 @@ static void ngram_complete(libxs_registry_t* model, libxs_lexicon_t* lexicon,
       ntok, order_mean, order_min);
   }
   else printf("(no grounded continuation at min order %d)\n", minorder);
+}
+
+
+/* Completion-mode response: for a question, answer from the corpus (facts +
+   retrieval) first, then add a grounded continuation generated over the whole
+   corpus n-gram model and seeded from the ANSWER, so -c is never empty and the
+   continuation extends what was said. Non-questions keep the pure generation
+   probe. Continuation is labeled and its grounding reported. */
+static void complete_respond(const libxs_registry_t* corpus,
+  libxs_lexicon_t* lexicon, const libxs_lexrule_t* rules, int nrules,
+  const libxs_predict_t* answer_model,
+  const answer_predict_profile_t* profile, int budget,
+  const char* text, int text_len)
+{
+  if (0 != is_question_query(text, (size_t)text_len, lexicon, rules, nrules)) {
+    char answer[COMPOSE_MAXTEXT];
+    char gen[COMPOSE_MAXTEXT];
+    double order_mean = 0.0;
+    int order_min = 0;
+    int answered = answer_query(corpus, text, (size_t)text_len, budget,
+      lexicon, rules, nrules, answer_model, profile, answer, sizeof(answer));
+    const char* seed = (0 != answered && '\0' != answer[0]) ? answer : text;
+    int seed_len = (0 != answered && '\0' != answer[0])
+      ? (int)strlen(answer) : text_len;
+    int ntok = ngram_generate(converse_ngram.store, lexicon, rules, nrules,
+      seed, seed_len, gen, sizeof(gen), &order_mean, &order_min);
+    int grounded = (ntok > 0 && order_mean >= ngram_gen_contfloor()) ? 1 : 0;
+    if (0 != grounded) {
+      printf("continuation: %s\n", gen);
+      printf("grounding: %d tokens, mean order %.1f, min order %d\n",
+        ntok, order_mean, order_min);
+    }
+    if (0 == answered && 0 == grounded) {
+      printf("I do not know from the corpus.\n");
+    }
+  }
+  else {
+    ngram_complete(converse_ngram.store, lexicon, rules, nrules, 0,
+      text, text_len);
+  }
 }
 
 
@@ -8901,15 +8989,16 @@ static int respond(const libxs_spatial_t* spatial,
       qlen = strlen(rewritten);
     }
     if (0 != answer_query(corpus, q, qlen, budget,
-      lexicon, rules, nrules, answer_model, profile))
+      lexicon, rules, nrules, answer_model, profile, NULL, 0))
     {
       conv_remember(q, qlen);
       return result;
     }
     { char gen[COMPOSE_MAXTEXT];
+      double order_mean = 0.0;
       int ntok = ngram_generate(converse_ngram.store, lexicon, rules, nrules,
-        q, qlen, gen, sizeof(gen), NULL, NULL);
-      if (ntok > 0) {
+        q, qlen, gen, sizeof(gen), &order_mean, NULL);
+      if (ntok > 0 && order_mean >= ngram_gen_contfloor()) {
         printf("%s\n", gen);
         return result;
       }
