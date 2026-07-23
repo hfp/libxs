@@ -173,13 +173,39 @@ LIBXS_API void libxs_predict_set_quantile(libxs_predict_t* model,
 
 /**
  * Declare timeseries structure: nseries co-observed series, each with
- * the given window size. ninputs must equal nseries * window, noutputs
- * is the forecast horizon. When set, push(lock, model, values, NULL)
- * accumulates one timestep (nseries values); build constructs sliding
- * windows internally. Must be called before push.
+ * the given window size. noutputs is the forecast horizon. ninputs must
+ * equal nseries * window + nderiv + naux (see set_series_deriv and
+ * set_series_aux); with neither, ninputs == nseries * window.
+ * When set, push(lock, model, values, NULL) accumulates one timestep
+ * (nseries + naux values: the series first, then the auxiliary features);
+ * build constructs sliding windows internally. Must be called before push.
+ * At eval time the caller supplies the raw window followed by the naux
+ * auxiliary values (nseries * window + naux values); the framework applies
+ * the target transform to the windowed lags, appends the derivatives, and
+ * carries the auxiliary features through unchanged.
  */
 LIBXS_API void libxs_predict_set_series(libxs_predict_t* model,
   int nseries, int window);
+
+/**
+ * Append nderiv terminal first-differences of the (transformed) target
+ * window as additional inputs. The k-th derivative is
+ * lag[w-1-k] - lag[w-2-k] in transformed space, emphasizing recent
+ * slope. Default 0. Must be called before push.
+ */
+LIBXS_API void libxs_predict_set_series_deriv(libxs_predict_t* model,
+  int nderiv);
+
+/**
+ * Declare naux exogenous per-timestep features carried alongside the
+ * series. They are not windowed and not transformed: each training
+ * window uses the naux values sampled at its prediction origin, and
+ * push accepts nseries + naux values per timestep. Useful for calendar
+ * or other covariates (e.g. day-of-year). Default 0. Must be called
+ * before push.
+ */
+LIBXS_API void libxs_predict_set_series_aux(libxs_predict_t* model,
+  int naux);
 
 /**
  * Set which series index to predict (0-based, default: 0).

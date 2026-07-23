@@ -10,10 +10,23 @@
 #include <libxs/libxs_math.h>
 #include <libxs/libxs_mem.h>
 
+/* Two equivalent constructions of the same engineered model:
+ * default (DISCHARGE_USE_API undefined): hand-built feature vector
+ *   (window + diffs + day-of-year), transforms and windowing performed
+ *   in the sample (fill_inputs).
+ * DISCHARGE_USE_API defined: the same features expressed through the
+ *   timeseries API (set_series + set_series_deriv + set_series_aux);
+ *   the framework transforms the lags, appends the derivatives, and
+ *   carries the auxiliary day-of-year feature. Both produce identical
+ *   inputs.
+ */
+
 enum { WINDOW = 14, HORIZON = 7, NDIFFS = 3, NINPUTS = WINDOW + NDIFFS + 1 };
 
 static int load_discharge(const char* filename, double** values, int* count);
+#if !defined(DISCHARGE_USE_API)
 static void fill_inputs(const double* series, int t, double* inputs);
+#endif
 static void evaluate_forecast(const libxs_predict_t* model,
   const double* series, int total, int train_end);
 
@@ -59,18 +72,30 @@ int main(int argc, char* argv[])
     fprintf(stdout, "Window=%d (+%d diffs +day-of-year), Horizon=%d, Train=%d, Test=%d\n",
       WINDOW, NDIFFS, HORIZON, train_end - WINDOW, total - train_end);
     if (NULL != model) {
-      double inputs[NINPUTS], outputs[HORIZON];
       int t;
       libxs_predict_set_mode(model, LIBXS_PREDICT_TEMPORAL);
       libxs_predict_set_decompose(model, decompose);
       if (0.0 != consistency) libxs_predict_set_consistency(model, consistency);
       libxs_predict_set_transform(model, -1, LIBXS_PREDICT_LOG);
+#if defined(DISCHARGE_USE_API)
+      libxs_predict_set_series(model, 1, WINDOW);
+      libxs_predict_set_series_deriv(model, NDIFFS);
+      libxs_predict_set_series_aux(model, 1);
+      for (t = 0; t < train_end; ++t) {
+        double step[2];
+        step[0] = series[t];
+        step[1] = (double)(t % 365);
+        libxs_predict_push(NULL, model, step, NULL);
+      }
+#else
+      double inputs[NINPUTS], outputs[HORIZON];
       for (t = WINDOW; t <= train_end - HORIZON; ++t) {
         int i;
         fill_inputs(series, t, inputs);
         for (i = 0; i < HORIZON; ++i) outputs[i] = series[t + i];
         libxs_predict_push(NULL, model, inputs, outputs);
       }
+#endif
       if (EXIT_SUCCESS == libxs_predict_build(model, 0, 2, quality)) {
         libxs_predict_query_t qi;
         LIBXS_MEMZERO(&qi);
@@ -91,6 +116,7 @@ int main(int argc, char* argv[])
 }
 
 
+#if !defined(DISCHARGE_USE_API)
 static void fill_inputs(const double* series, int t, double* inputs)
 {
   int i;
@@ -102,6 +128,7 @@ static void fill_inputs(const double* series, int t, double* inputs)
   }
   inputs[WINDOW + NDIFFS] = (double)(t % 365);
 }
+#endif
 
 
 static int load_discharge(const char* filename, double** values, int* count)
@@ -154,7 +181,13 @@ static void evaluate_forecast(const libxs_predict_t* model,
   for (t = train_end; t <= total - HORIZON; ++t) {
     double inputs[NINPUTS], outputs[HORIZON];
     libxs_predict_info_t info;
+#if defined(DISCHARGE_USE_API)
+    int i;
+    for (i = 0; i < WINDOW; ++i) inputs[i] = series[t - WINDOW + i];
+    inputs[WINDOW] = (double)(t % 365);
+#else
     fill_inputs(series, t, inputs);
+#endif
     libxs_predict_eval(NULL, model, inputs, outputs, &info, 1);
     for (h = 0; h < HORIZON; ++h) {
       const double err = LIBXS_FABS(outputs[h] - series[t + h]);

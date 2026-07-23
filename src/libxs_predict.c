@@ -111,6 +111,7 @@ LIBXS_EXTERN_C struct libxs_predict_t {
   double* weights;
   int* transforms;
   double* ts_buf;
+  double* aux_buf;
   double* decompose_mat;
   internal_libxs_predict_rf_t* rf;
   libxs_lock_t lock;
@@ -123,6 +124,7 @@ LIBXS_EXTERN_C struct libxs_predict_t {
   int eval_mode;
   int iterations;
   int nseries, window, target, decompose;
+  int naux, nderiv;
   int nts, ts_capacity;
   int diff_mode, diff_order;
   int refine;
@@ -722,6 +724,7 @@ LIBXS_API void libxs_predict_destroy(libxs_predict_t* model)
     free(model->weights);
     free(model->transforms);
     free(model->ts_buf);
+    free(model->aux_buf);
     free(model->decompose_mat);
     free(model->hknn_assignments);
     if (NULL != model->hknn_po_assignments) {
@@ -885,10 +888,28 @@ LIBXS_API void libxs_predict_set_series(libxs_predict_t* model, int nseries, int
 {
   LIBXS_ASSERT(NULL != model);
   if (NULL != model && 0 < nseries && 0 < window
-    && model->ninputs == nseries * window)
+    && nseries * window <= model->ninputs)
   {
     model->nseries = nseries;
     model->window = window;
+  }
+}
+
+
+LIBXS_API void libxs_predict_set_series_aux(libxs_predict_t* model, int naux)
+{
+  LIBXS_ASSERT(NULL != model);
+  if (NULL != model && 0 <= naux) {
+    model->naux = naux;
+  }
+}
+
+
+LIBXS_API void libxs_predict_set_series_deriv(libxs_predict_t* model, int nderiv)
+{
+  LIBXS_ASSERT(NULL != model);
+  if (NULL != model && 0 <= nderiv) {
+    model->nderiv = nderiv;
   }
 }
 
@@ -1318,6 +1339,31 @@ LIBXS_API_INLINE void internal_libxs_predict_ts_diff_apply(
 }
 
 
+LIBXS_API_INLINE void internal_libxs_predict_ts_assemble(
+  const libxs_predict_t* model, int w, const double* lags,
+  const double* aux, double* out)
+{
+  const int s = model->nseries;
+  const int tgt = model->target;
+  const int tf = (NULL != model->transforms) ? model->transforms[tgt] : 0;
+  int si, i, k;
+  for (si = 0; si < s; ++si) {
+    const int t = (si == tgt) ? tf : 0;
+    for (i = 0; i < w; ++i) {
+      out[si * w + i] = internal_libxs_predict_fwd(t, lags[si * w + i]);
+    }
+  }
+  for (k = 0; k < model->nderiv; ++k) {
+    const double* tl = out + (size_t)tgt * w;
+    out[s * w + k] = (w - 2 - k >= 0)
+      ? (tl[w - 1 - k] - tl[w - 2 - k]) : 0;
+  }
+  for (i = 0; i < model->naux; ++i) {
+    out[s * w + model->nderiv + i] = (NULL != aux) ? aux[i] : 0;
+  }
+}
+
+
 LIBXS_API_INLINE void internal_libxs_predict_ts_expand(libxs_predict_t* model)
 {
   const int s = model->nseries;
@@ -1339,12 +1385,12 @@ LIBXS_API_INLINE void internal_libxs_predict_ts_expand(libxs_predict_t* model)
     model->nts = nts;
   }
   w = model->window - diff_d;
-  m = s * w;
-  if (diff_d > 0) {
+  m = s * w + model->nderiv + model->naux;
+  if (diff_d > 0 || model->nderiv > 0 || model->naux > 0) {
     model->ninputs = m;
   }
   nwindows = nts - w - h + 1;
-  raw = (double*)LIBXS_PREDICT_MALLOC((size_t)m * sizeof(double), raw_pool);
+  raw = (double*)LIBXS_PREDICT_MALLOC((size_t)s * w * sizeof(double), raw_pool);
   if (NULL != raw && nwindows > 0) {
   for (t = 0; t < nwindows; ++t) {
     double* inputs = (double*)malloc((size_t)m * sizeof(double));
@@ -1356,7 +1402,12 @@ LIBXS_API_INLINE void internal_libxs_predict_ts_expand(libxs_predict_t* model)
           raw[si * w + i] = model->ts_buf[(t + i) * s + si];
         }
       }
-      if (LIBXS_PREDICT_RAW != model->decompose && s >= 2) {
+      if (model->naux > 0 || model->nderiv > 0) {
+        const double* aux = (NULL != model->aux_buf)
+          ? model->aux_buf + (size_t)(t + w) * model->naux : NULL;
+        internal_libxs_predict_ts_assemble(model, w, raw, aux, inputs);
+      }
+      else if (LIBXS_PREDICT_RAW != model->decompose && s >= 2) {
         internal_libxs_predict_decompose_apply(model, raw, inputs);
       }
       else {
@@ -1401,18 +1452,27 @@ LIBXS_API int libxs_predict_push(
   }
   else if (NULL == outputs && 0 < model->nseries) {
     const int s = model->nseries;
+    const int a = model->naux;
     if (NULL != lock) LIBXS_LOCK_ACQUIRE(LIBXS_LOCK, lock);
     if (model->nts >= model->ts_capacity) {
       const int newcap = (0 < model->ts_capacity) ? (model->ts_capacity * 2) : 256;
       double* nb = (double*)realloc(model->ts_buf, (size_t)newcap * (size_t)s * sizeof(double));
-      if (NULL != nb) {
+      double* na = (a > 0)
+        ? (double*)realloc(model->aux_buf, (size_t)newcap * (size_t)a * sizeof(double))
+        : model->aux_buf;
+      if (NULL != nb && (a <= 0 || NULL != na)) {
         model->ts_buf = nb;
+        model->aux_buf = na;
         model->ts_capacity = newcap;
       }
       else result = EXIT_FAILURE;
     }
     if (EXIT_SUCCESS == result) {
       memcpy(model->ts_buf + (size_t)model->nts * s, inputs, (size_t)s * sizeof(double));
+      if (a > 0) {
+        memcpy(model->aux_buf + (size_t)model->nts * a, inputs + s,
+          (size_t)a * sizeof(double));
+      }
       ++model->nts;
     }
     if (NULL != lock) LIBXS_LOCK_RELEASE(LIBXS_LOCK, lock);
@@ -1841,7 +1901,17 @@ LIBXS_API void libxs_predict_eval(libxs_lock_t* lock, const libxs_predict_t* mod
     double local_buf[256];
     double *vals, *errs, *conf, *var, *lo, *hi, best_dist;
     int *rels, c, j, best_c = 0;
-    if (diff_d > 0 && model->nseries > 0) {
+    if ((model->naux > 0 || model->nderiv > 0) && model->nseries > 0) {
+      const int w = model->window;
+      const double* aux = (model->naux > 0)
+        ? inputs + (size_t)model->nseries * w : NULL;
+      diff_inputs = (double*)LIBXS_PREDICT_MALLOC((size_t)m * sizeof(double), diff_pool);
+      if (NULL != diff_inputs) {
+        internal_libxs_predict_ts_assemble(model, w, inputs, aux, diff_inputs);
+        inputs = diff_inputs;
+      }
+    }
+    else if (diff_d > 0 && model->nseries > 0) {
       const int raw_w = model->window;
       const int s = model->nseries;
       const int raw_m = s * raw_w;
@@ -1874,7 +1944,7 @@ LIBXS_API void libxs_predict_eval(libxs_lock_t* lock, const libxs_predict_t* mod
       internal_libxs_predict_decompose_apply(model, inputs, decomp_inputs);
       inputs = decomp_inputs;
     }
-    if (0 != extrapolate_mode && model->nseries > 0) {
+    if (0 != extrapolate_mode) {
       extrapolate = 1;
     }
     else if (model->nseries > 0

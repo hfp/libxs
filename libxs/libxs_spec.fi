@@ -90,6 +90,8 @@
         PUBLIC :: libxs_predict_set_refine
         PUBLIC :: libxs_predict_set_smooth
         PUBLIC :: libxs_predict_set_series
+        PUBLIC :: libxs_predict_set_series_deriv
+        PUBLIC :: libxs_predict_set_series_aux
         PUBLIC :: libxs_predict_set_target
         PUBLIC :: libxs_predict_set_decompose
         PUBLIC :: libxs_predict_set_diff
@@ -884,6 +886,20 @@
             IMPORT :: C_PTR, C_INT
             TYPE(C_PTR), INTENT(IN), VALUE :: model
             INTEGER(C_INT), INTENT(IN), VALUE :: nseries, window
+          END SUBROUTINE
+
+          SUBROUTINE libxs_predict_set_series_deriv(model, nderiv)      &
+     &    BIND(C)
+            IMPORT :: C_PTR, C_INT
+            TYPE(C_PTR), INTENT(IN), VALUE :: model
+            INTEGER(C_INT), INTENT(IN), VALUE :: nderiv
+          END SUBROUTINE
+
+          SUBROUTINE libxs_predict_set_series_aux(model, naux)          &
+     &    BIND(C)
+            IMPORT :: C_PTR, C_INT
+            TYPE(C_PTR), INTENT(IN), VALUE :: model
+            INTEGER(C_INT), INTENT(IN), VALUE :: naux
           END SUBROUTINE
 
           SUBROUTINE libxs_predict_set_target(model, target)            &

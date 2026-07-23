@@ -147,7 +147,7 @@ LIBXS_API int libxs_predict_save(const libxs_predict_t* model, void* buffer, siz
     size_t required = 0;
     int c, j;
     required += sizeof(uint32_t) + 4 * sizeof(uint16_t) + 2 * sizeof(uint8_t);
-    required += 5 * sizeof(uint16_t) + 5 * sizeof(uint8_t) + sizeof(uint32_t)
+    required += 7 * sizeof(uint16_t) + 5 * sizeof(uint8_t) + sizeof(uint32_t)
       + sizeof(double);
     required += (size_t)model->ninputs * 2 * sizeof(double);
     if (NULL != model->weights) required += (size_t)model->ninputs * sizeof(double);
@@ -205,6 +205,8 @@ LIBXS_API int libxs_predict_save(const libxs_predict_t* model, void* buffer, siz
       WRITE_U16(model->window);
       WRITE_U16(model->target);
       WRITE_U16(model->decompose);
+      WRITE_U16(model->naux);
+      WRITE_U16(model->nderiv);
       WRITE_U8(model->eval_mode);
       WRITE_U8(model->diff_order);
       WRITE_U8(model->refine);
@@ -540,6 +542,7 @@ LIBXS_API libxs_predict_t* libxs_predict_load(const void* buffer, size_t size)
       uint8_t has_weights = 0, has_transforms = 0, has_dmat = 0;
       uint8_t eval_mode = 0, diff_order = 0, refine = 0, iterations = 0;
       uint16_t ts_nseries = 0, ts_window = 0, ts_target = 0, ts_decompose = 0;
+      uint16_t ts_naux = 0, ts_nderiv = 0;
       uint16_t order = 0;
       ok = internal_libxs_predict_read(&src, end, &has_weights, 1);
       if (EXIT_SUCCESS == ok) ok = internal_libxs_predict_read(&src, end, &has_transforms, 1);
@@ -547,6 +550,8 @@ LIBXS_API libxs_predict_t* libxs_predict_load(const void* buffer, size_t size)
       if (EXIT_SUCCESS == ok) ok = internal_libxs_predict_read(&src, end, &ts_window, 2);
       if (EXIT_SUCCESS == ok) ok = internal_libxs_predict_read(&src, end, &ts_target, 2);
       if (EXIT_SUCCESS == ok) ok = internal_libxs_predict_read(&src, end, &ts_decompose, 2);
+      if (EXIT_SUCCESS == ok) ok = internal_libxs_predict_read(&src, end, &ts_naux, 2);
+      if (EXIT_SUCCESS == ok) ok = internal_libxs_predict_read(&src, end, &ts_nderiv, 2);
       if (EXIT_SUCCESS == ok) ok = internal_libxs_predict_read(&src, end, &eval_mode, 1);
       if (EXIT_SUCCESS == ok) ok = internal_libxs_predict_read(&src, end, &diff_order, 1);
       if (EXIT_SUCCESS == ok) ok = internal_libxs_predict_read(&src, end, &refine, 1);
@@ -565,6 +570,8 @@ LIBXS_API libxs_predict_t* libxs_predict_load(const void* buffer, size_t size)
         model->window = (int)ts_window;
         model->target = (int)ts_target;
         model->decompose = (int)ts_decompose;
+        model->naux = (int)ts_naux;
+        model->nderiv = (int)ts_nderiv;
         model->eval_mode = (int)eval_mode;
         model->diff_order = (int)diff_order;
         model->refine = (int)refine;
