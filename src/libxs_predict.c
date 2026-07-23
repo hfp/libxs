@@ -1340,39 +1340,40 @@ LIBXS_API_INLINE int internal_libxs_predict_ts_window(
   int maxlag;
   if (wcap <= 0) wcap = wlim;
   else if (wcap > wlim) wcap = wlim;
-  if (wcap < 4) return 0;
-  maxlag = wcap + 1;
-  acf = (double*)LIBXS_PREDICT_MALLOC((size_t)(maxlag + n) * sizeof(double), acf_pool);
-  if (NULL != acf) {
-    double* cx = acf + maxlag;
-    double mean = 0;
-    int i;
-    for (i = 0; i < n; ++i) mean += model->ts_buf[i * s + tgt];
-    mean /= n;
-    for (i = 0; i < n; ++i) cx[i] = model->ts_buf[i * s + tgt] - mean;
-    internal_libxs_autocorr(cx, n, 1, acf, maxlag);
-    if (0 < acf[0]) {
-      const double thresh = 1.0 / 2.71828182845904523536;
-      int lag;
-      for (lag = 1; lag < maxlag; ++lag) {
-        const double r = acf[lag] / acf[0];
-        if (r < thresh) { best_w = lag; break; }
-      }
-      if (0 == best_w) {
-        double prev = acf[1] / acf[0];
-        for (lag = 2; lag < maxlag; ++lag) {
-          const double r = acf[lag] / acf[0];
-          if (r > prev) { best_w = lag - 1; break; }
-          prev = r;
+  if (4 <= wcap) {
+    maxlag = wcap + 1;
+    acf = (double*)LIBXS_PREDICT_MALLOC(
+      (size_t)(maxlag + n) * sizeof(double), acf_pool);
+    if (NULL != acf) {
+      double* cx = acf + maxlag;
+      double mean = 0;
+      int i;
+      for (i = 0; i < n; ++i) mean += model->ts_buf[i * s + tgt];
+      mean /= n;
+      for (i = 0; i < n; ++i) cx[i] = model->ts_buf[i * s + tgt] - mean;
+      internal_libxs_autocorr(cx, n, 1, acf, maxlag);
+      if (0 < acf[0]) {
+        const double thresh = 1.0 / 2.71828182845904523536;
+        int lag, found = 0;
+        for (lag = 1; 0 == found && lag < maxlag; ++lag) {
+          if (acf[lag] / acf[0] < thresh) { best_w = lag; found = 1; }
         }
+        if (0 == found) {
+          double prev = acf[1] / acf[0];
+          for (lag = 2; 0 == found && lag < maxlag; ++lag) {
+            const double r = acf[lag] / acf[0];
+            if (r > prev) { best_w = lag - 1; found = 1; }
+            prev = r;
+          }
+        }
+        if (0 == best_w) best_w = wcap;
       }
-      if (0 == best_w) best_w = wcap;
+      LIBXS_PREDICT_FREE(acf, acf_pool);
     }
-    LIBXS_PREDICT_FREE(acf, acf_pool);
+    if (best_w < 4) best_w = (wcap >= 4) ? 4 : wcap;
+    else if (best_w > wcap) best_w = wcap;
+    result = best_w;
   }
-  if (best_w < 4) best_w = (wcap >= 4) ? 4 : wcap;
-  else if (best_w > wcap) best_w = wcap;
-  result = best_w;
   return result;
 }
 
@@ -1442,7 +1443,7 @@ LIBXS_API_INLINE void internal_libxs_predict_ts_expand(libxs_predict_t* model)
   }
   w = model->window - diff_d;
   m = s * w + model->nderiv + model->naux;
-  if (diff_d > 0 || model->nderiv > 0 || model->naux > 0) {
+  if (m != model->ninputs) {
     model->ninputs = m;
   }
   nwindows = nts - w - h + 1;
