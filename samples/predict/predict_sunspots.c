@@ -15,7 +15,7 @@
 # include <omp.h>
 #endif
 
-enum { WINDOW = 12, HORIZON = 6, NINPUTS = WINDOW };
+enum { WINDOW_DEF = 12, HORIZON = 6, WMAX = 160 };
 
 static int load_sunspots(const char* filename, double** values, int* count);
 
@@ -24,6 +24,10 @@ int main(int argc, char* argv[])
 {
   const char* filename = (argc > 1) ? argv[1] : NULL;
   const double split = (argc > 2) ? atof(argv[2]) : 0.8;
+  const char* wenv = getenv("WINDOW");
+  const int window_req = (NULL != wenv) ? atoi(wenv) : WINDOW_DEF;
+  const int ninputs = (0 < window_req) ? window_req : WMAX;
+  int window = window_req;
   int decompose = LIBXS_PREDICT_RAW;
   double quality = 0, consistency = 0;
   int argi, result = EXIT_FAILURE;
@@ -53,8 +57,8 @@ int main(int argc, char* argv[])
       "  Default train_fraction: 0.8\n", argv[0]);
   }
   else if (0 < load_sunspots(filename, &series, &total)) {
-    const int train_end = LIBXS_MAX((int)(total * split + 0.5), WINDOW + 1);
-    libxs_predict_t* model = libxs_predict_create(NINPUTS, HORIZON);
+    const int train_end = LIBXS_MAX((int)(total * split + 0.5), WMAX + 1);
+    libxs_predict_t* model = libxs_predict_create(ninputs, HORIZON);
     fprintf(stdout, "Loaded %d monthly sunspot values from %s\n", total, filename);
     if (NULL != model) {
       libxs_timer_tick_t tick;
@@ -62,7 +66,7 @@ int main(int argc, char* argv[])
       int t, build_ok = EXIT_FAILURE;
       libxs_predict_set_mode(model, LIBXS_PREDICT_TEMPORAL);
       libxs_predict_set_decompose(model, decompose);
-      libxs_predict_set_series(model, 1, WINDOW);
+      libxs_predict_set_series(model, 1, window_req);
       if (0.0 != consistency) libxs_predict_set_consistency(model, consistency);
       for (t = 0; t < train_end; ++t) {
         libxs_predict_push(NULL, model, &series[t], NULL);
@@ -84,16 +88,17 @@ int main(int argc, char* argv[])
         int neval = 0, h;
         LIBXS_MEMZERO(&qi);
         libxs_predict_query(model, &qi);
+        window = qi.window;
         fprintf(stdout, "Window=%d, Horizon=%d, Train=%d, Test=%d\n",
-          WINDOW, HORIZON, qi.nentries, total - train_end);
+          window, HORIZON, qi.nentries, total - train_end);
         fprintf(stdout, "Built: %d clusters, %.1fx compression, order=%d"
           " (%.2f s)\n", qi.nclusters, qi.compression, qi.order, dt_build);
         tick = libxs_timer_tick();
         for (t = train_end; t <= total - HORIZON; ++t) {
-          double inputs[NINPUTS], outputs[HORIZON];
+          double inputs[WMAX], outputs[HORIZON];
           libxs_predict_info_t info;
           int i;
-          for (i = 0; i < WINDOW; ++i) inputs[i] = series[t - WINDOW + i];
+          for (i = 0; i < window; ++i) inputs[i] = series[t - window + i];
           libxs_predict_eval(NULL, model, inputs, outputs, &info, 1);
           for (h = 0; h < HORIZON; ++h) {
             const double err = LIBXS_FABS(outputs[h] - series[t + h]);

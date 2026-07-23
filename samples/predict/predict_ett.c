@@ -15,7 +15,7 @@
 # include <omp.h>
 #endif
 
-enum { WINDOW = 96, HORIZON = 96, MAXCOLS = 7 };
+enum { WINDOW_DEF = 96, HORIZON = 96, MAXCOLS = 7, WMAX = 512 };
 static const char* col_names[MAXCOLS] = {
   "HUFL", "HULL", "MUFL", "MULL", "LUFL", "LULL", "OT"
 };
@@ -31,6 +31,9 @@ int main(int argc, char* argv[])
   const char* filename = (argc > 1) ? argv[1] : NULL;
   int nseries = (argc > 2) ? atoi(argv[2]) : 1;
   const double split = 0.661;
+  const char* wenv = getenv("WINDOW");
+  const int window_req = (NULL != wenv) ? atoi(wenv) : WINDOW_DEF;
+  int window = (0 < window_req) ? window_req : WINDOW_DEF;
   int decompose = LIBXS_PREDICT_RAW;
   int attend = 0;
   double quality = 0.9;
@@ -57,12 +60,12 @@ int main(int argc, char* argv[])
       "  nseries=1: univariate (OT only).\n"
       "  nseries=7: all channels as co-inputs to predict OT.\n"
       "  Window=%d, Horizon=%d, split=0.661 (standard ETTh1).\n",
-      argv[0], WINDOW, HORIZON);
+      argv[0], WINDOW_DEF, HORIZON);
   }
   else if (0 < load_ett_all(filename, &data, &total, &ncols)) {
-    const int train_end = LIBXS_MAX((int)(total * split + 0.5), WINDOW + 1);
+    const int train_end = LIBXS_MAX((int)(total * split + 0.5), WMAX + 1);
     const int target = nseries - 1;
-    const int ninputs = nseries * WINDOW;
+    const int ninputs = nseries * ((0 < window_req) ? window_req : WMAX);
     libxs_predict_t* model = libxs_predict_create(ninputs, HORIZON);
     double train_mean = 0, train_std = 1;
     int ti;
@@ -95,24 +98,24 @@ int main(int argc, char* argv[])
       int s;
       libxs_predict_set_mode(model, LIBXS_PREDICT_TEMPORAL);
       libxs_predict_set_decompose(model, decompose);
-      libxs_predict_set_series(model, nseries, WINDOW);
+      libxs_predict_set_series(model, nseries, window_req);
       libxs_predict_set_target(model, target);
       for (s = 0; s < nseries; ++s) avg_corr[s] = 1.0;
       if (0 != attend && nseries > 1) {
         int nw = 0;
         for (s = 0; s < nseries; ++s) avg_corr[s] = 0;
-        for (ti = WINDOW; ti < train_end; ti += WINDOW) {
-          double tgt_buf[WINDOW], ch_buf[WINDOW];
+        for (ti = window; ti < train_end; ti += window) {
+          double tgt_buf[WMAX], ch_buf[WMAX];
           int i;
-          for (i = 0; i < WINDOW; ++i) {
-            tgt_buf[i] = data[(size_t)(ti - WINDOW + i) * ncols + (ncols - 1)];
+          for (i = 0; i < window; ++i) {
+            tgt_buf[i] = data[(size_t)(ti - window + i) * ncols + (ncols - 1)];
           }
           for (s = 0; s < nseries; ++s) {
-            for (i = 0; i < WINDOW; ++i) {
-              ch_buf[i] = data[(size_t)(ti - WINDOW + i) * ncols
+            for (i = 0; i < window; ++i) {
+              ch_buf[i] = data[(size_t)(ti - window + i) * ncols
                 + (ncols - nseries + s)];
             }
-            avg_corr[s] += local_corr(ch_buf, tgt_buf, WINDOW);
+            avg_corr[s] += local_corr(ch_buf, tgt_buf, window);
           }
           ++nw;
         }
@@ -124,7 +127,7 @@ int main(int argc, char* argv[])
             int i;
             for (s = 0; s < nseries; ++s) {
               const double w = (avg_corr[s] > 0.01) ? avg_corr[s] : 0.01;
-              for (i = 0; i < WINDOW; ++i) wfull[s * WINDOW + i] = w;
+              for (i = 0; i < window; ++i) wfull[s * window + i] = w;
             }
             libxs_predict_set_weights(model, wfull);
             free(wfull);
@@ -159,9 +162,10 @@ int main(int argc, char* argv[])
         int neval = 0, h;
         LIBXS_MEMZERO(&qi);
         libxs_predict_query(model, &qi);
+        window = qi.window;
         fprintf(stdout, "Window=%d, Horizon=%d, Stride=%d,"
           " nseries=%d, Train=%d, Test=%d\n",
-          WINDOW, HORIZON, HORIZON, nseries, qi.nentries,
+          window, HORIZON, HORIZON, nseries, qi.nentries,
           total - train_end);
         fprintf(stdout, "Built: %d clusters, %.1fx compression, order=%d"
           " (%.2f s)\n", qi.nclusters, qi.compression, qi.order, dt_build);
@@ -169,29 +173,29 @@ int main(int argc, char* argv[])
         for (t = train_end; t <= total - HORIZON; t += HORIZON) {
           double outputs[HORIZON];
           int i;
-          double inputs[MAXCOLS * WINDOW];
-          for (i = 0; i < WINDOW; ++i) {
+          double inputs[MAXCOLS * WMAX];
+          for (i = 0; i < window; ++i) {
             for (s = 0; s < nseries; ++s) {
-              inputs[s * WINDOW + i] =
-                data[(size_t)(t - WINDOW + i) * ncols + (ncols - nseries + s)];
+              inputs[s * window + i] =
+                data[(size_t)(t - window + i) * ncols + (ncols - nseries + s)];
             }
           }
           if (0 != attend && nseries > 1) {
-            double tgt_buf[WINDOW], ch_buf[WINDOW];
-            for (i = 0; i < WINDOW; ++i) {
-              tgt_buf[i] = data[(size_t)(t - WINDOW + i) * ncols + (ncols - 1)];
+            double tgt_buf[WMAX], ch_buf[WMAX];
+            for (i = 0; i < window; ++i) {
+              tgt_buf[i] = data[(size_t)(t - window + i) * ncols + (ncols - 1)];
             }
             for (s = 0; s < nseries; ++s) {
               double w;
-              for (i = 0; i < WINDOW; ++i) {
-                ch_buf[i] = inputs[s * WINDOW + i];
+              for (i = 0; i < window; ++i) {
+                ch_buf[i] = inputs[s * window + i];
               }
-              w = local_corr(ch_buf, tgt_buf, WINDOW);
+              w = local_corr(ch_buf, tgt_buf, window);
               if (w < 0.01) w = 0.01;
               if (avg_corr[s] > 0.01) {
                 const double scale = w / avg_corr[s];
-                for (i = 0; i < WINDOW; ++i) {
-                  inputs[s * WINDOW + i] *= scale;
+                for (i = 0; i < window; ++i) {
+                  inputs[s * window + i] *= scale;
                 }
               }
             }
