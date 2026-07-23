@@ -887,8 +887,8 @@ LIBXS_API_INLINE double internal_libxs_predict_inv(int transform, double v)
 LIBXS_API void libxs_predict_set_series(libxs_predict_t* model, int nseries, int window)
 {
   LIBXS_ASSERT(NULL != model);
-  if (NULL != model && 0 < nseries && 0 < window
-    && nseries * window <= model->ninputs)
+  if (NULL != model && 0 < nseries && 0 <= window
+    && (0 == window || nseries * window <= model->ninputs))
   {
     model->nseries = nseries;
     model->window = window;
@@ -1325,6 +1325,58 @@ LIBXS_API_INLINE int internal_libxs_predict_ts_diff_order(
 }
 
 
+LIBXS_API_INLINE int internal_libxs_predict_ts_window(
+  const libxs_predict_t* model, int wmax)
+{
+  const int s = model->nseries;
+  const int n = model->nts;
+  const int tgt = model->target;
+  const int aux_deriv = model->naux + model->nderiv;
+  int wcap = (wmax > 0) ? (wmax - aux_deriv) / (s > 0 ? s : 1) : 0;
+  int wlim = n / 4;
+  int best_w = 0, result = 0;
+  int acf_pool = 0;
+  double* acf;
+  int maxlag;
+  if (wcap <= 0) wcap = wlim;
+  else if (wcap > wlim) wcap = wlim;
+  if (wcap < 4) return 0;
+  maxlag = wcap + 1;
+  acf = (double*)LIBXS_PREDICT_MALLOC((size_t)(maxlag + n) * sizeof(double), acf_pool);
+  if (NULL != acf) {
+    double* cx = acf + maxlag;
+    double mean = 0;
+    int i;
+    for (i = 0; i < n; ++i) mean += model->ts_buf[i * s + tgt];
+    mean /= n;
+    for (i = 0; i < n; ++i) cx[i] = model->ts_buf[i * s + tgt] - mean;
+    internal_libxs_autocorr(cx, n, 1, acf, maxlag);
+    if (0 < acf[0]) {
+      const double thresh = 1.0 / 2.71828182845904523536;
+      int lag;
+      for (lag = 1; lag < maxlag; ++lag) {
+        const double r = acf[lag] / acf[0];
+        if (r < thresh) { best_w = lag; break; }
+      }
+      if (0 == best_w) {
+        double prev = acf[1] / acf[0];
+        for (lag = 2; lag < maxlag; ++lag) {
+          const double r = acf[lag] / acf[0];
+          if (r > prev) { best_w = lag - 1; break; }
+          prev = r;
+        }
+      }
+      if (0 == best_w) best_w = wcap;
+    }
+    LIBXS_PREDICT_FREE(acf, acf_pool);
+  }
+  if (best_w < 4) best_w = (wcap >= 4) ? 4 : wcap;
+  else if (best_w > wcap) best_w = wcap;
+  result = best_w;
+  return result;
+}
+
+
 LIBXS_API_INLINE void internal_libxs_predict_ts_diff_apply(
   double* buf, int n, int s, int d)
 {
@@ -1372,6 +1424,10 @@ LIBXS_API_INLINE void internal_libxs_predict_ts_expand(libxs_predict_t* model)
   int raw_pool = 0;
   double* raw;
   int t;
+  if (0 == model->window) {
+    model->window = internal_libxs_predict_ts_window(model, model->ninputs);
+    if (0 >= model->window) return;
+  }
   if (model->diff_mode > 0) {
     model->diff_order = model->diff_mode;
   }
@@ -2597,6 +2653,7 @@ LIBXS_API void libxs_predict_query(
   info->nentries = model->nentries;
   info->iterations = model->iterations;
   info->diff_order = model->diff_order;
+  info->window = (model->nseries > 0) ? model->window : 0;
 }
 
 

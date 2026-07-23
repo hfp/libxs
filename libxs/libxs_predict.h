@@ -81,6 +81,13 @@ LIBXS_EXTERN_C typedef struct libxs_predict_query_t {
   int iterations;
   /** Auto-detected differencing order (0 if DIFF not enabled or not needed). */
   int diff_order;
+  /** Effective sliding-window size used at build (0 if series mode off).
+   *  Equals the caller-provided window when set_series was called with a
+   *  positive value; equals the auto-selected window when the sentinel
+   *  LIBXS_PREDICT_AUTO_WINDOW (0) was passed. Read this to size the raw
+   *  window buffer supplied to libxs_predict_eval.
+   */
+  int window;
 } libxs_predict_query_t;
 
 
@@ -172,10 +179,21 @@ LIBXS_API void libxs_predict_set_quantile(libxs_predict_t* model,
   double quantile);
 
 /**
+ * Sentinel: pass as window to libxs_predict_set_series to request
+ * fingerprint-guided auto-detection at build time.
+ */
+#define LIBXS_PREDICT_AUTO_WINDOW 0
+
+/**
  * Declare timeseries structure: nseries co-observed series, each with
- * the given window size. noutputs is the forecast horizon. ninputs must
- * equal nseries * window + nderiv + naux (see set_series_deriv and
- * set_series_aux); with neither, ninputs == nseries * window.
+ * the given window size. noutputs is the forecast horizon. When window
+ * is positive, ninputs must equal nseries * window + nderiv + naux (see
+ * set_series_deriv and set_series_aux); with neither, ninputs == nseries
+ * * window. When window is LIBXS_PREDICT_AUTO_WINDOW (0), the framework
+ * selects the window at build time via a fingerprint-plateau search
+ * bounded above by the ninputs provided at create; the effective window
+ * is reported via query.window and must be used by the caller to size
+ * the raw window at eval.
  * When set, push(lock, model, values, NULL) accumulates one timestep
  * (nseries + naux values: the series first, then the auxiliary features);
  * build constructs sliding windows internally. Must be called before push.

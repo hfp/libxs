@@ -238,15 +238,7 @@ LIBXS_API int libxs_fprint(libxs_fprint_t* info,
       }
       if (0 != (flags & LIBXS_FPRINT_AUTOCORR)) {
         double *const tmp = (cur == buf) ? buf + n : buf;
-        int lag;
-        for (lag = 0; lag < n; ++lag) {
-          double acc = 0, comp = 0;
-          int i;
-          for (i = 0; i < n - lag; ++i) {
-            libxs_neumaier_sum(cur[i] * cur[i + lag], &acc, &comp);
-          }
-          tmp[lag] = acc / (n - lag);
-        }
+        internal_libxs_autocorr(cur, n, 1, tmp, n);
         cur = tmp;
       }
       internal_libxs_fprint_core(info, buf, cur, n, kmax);

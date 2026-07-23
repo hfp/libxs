@@ -758,6 +758,21 @@ LIBXS_API double libxs_gss_min(
 }
 
 
+LIBXS_API_INTERN void internal_libxs_autocorr(const double* x, int n,
+  int stride, double* out, int maxlag)
+{
+  int lag;
+  for (lag = 0; lag < maxlag; ++lag) {
+    double acc = 0, comp = 0;
+    int i;
+    for (i = 0; i < n - lag; ++i) {
+      libxs_neumaier_sum(x[i * stride] * x[(i + lag) * stride], &acc, &comp);
+    }
+    out[lag] = acc / (n - lag);
+  }
+}
+
+
 #include "libxs_math_setdiff.h"
 
 #include "libxs_math_fprint.h"
