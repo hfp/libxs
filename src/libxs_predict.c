@@ -1325,21 +1325,55 @@ LIBXS_API_INLINE int internal_libxs_predict_ts_diff_order(
 }
 
 
-LIBXS_API_INLINE int internal_libxs_predict_ts_window(
+LIBXS_API_INLINE void internal_libxs_predict_ts_assemble(
+  const libxs_predict_t* model, int w, const double* lags,
+  const double* aux, double* out)
+{
+  const int s = model->nseries;
+  const int tgt = model->target;
+  const int tf = (NULL != model->transforms) ? model->transforms[tgt] : 0;
+  int si, i, k;
+  for (si = 0; si < s; ++si) {
+    const int t = (si == tgt) ? tf : 0;
+    for (i = 0; i < w; ++i) {
+      out[si * w + i] = internal_libxs_predict_fwd(t, lags[si * w + i]);
+    }
+  }
+  for (k = 0; k < model->nderiv; ++k) {
+    const double* tl = out + (size_t)tgt * w;
+    out[s * w + k] = (w - 2 - k >= 0)
+      ? (tl[w - 1 - k] - tl[w - 2 - k]) : 0;
+  }
+  for (i = 0; i < model->naux; ++i) {
+    out[s * w + model->nderiv + i] = (NULL != aux) ? aux[i] : 0;
+  }
+}
+
+
+LIBXS_API_INLINE int internal_libxs_predict_ts_window_cap(
   const libxs_predict_t* model, int wmax)
 {
   const int s = model->nseries;
   const int n = model->nts;
-  const int tgt = model->target;
   const int aux_deriv = model->naux + model->nderiv;
   int wcap = (wmax > 0) ? (wmax - aux_deriv) / (s > 0 ? s : 1) : 0;
-  int wlim = n / 4;
+  const int wlim = n / 4;
+  if (wcap <= 0) wcap = wlim;
+  else if (wcap > wlim) wcap = wlim;
+  return wcap;
+}
+
+
+LIBXS_API_INLINE int internal_libxs_predict_ts_window_acf(
+  const libxs_predict_t* model, int wcap)
+{
+  const int s = model->nseries;
+  const int n = model->nts;
+  const int tgt = model->target;
   int best_w = 0, result = 0;
   int acf_pool = 0;
   double* acf;
   int maxlag;
-  if (wcap <= 0) wcap = wlim;
-  else if (wcap > wlim) wcap = wlim;
   if (4 <= wcap) {
     maxlag = wcap + 1;
     acf = (double*)LIBXS_PREDICT_MALLOC(
@@ -1378,6 +1412,173 @@ LIBXS_API_INLINE int internal_libxs_predict_ts_window(
 }
 
 
+LIBXS_API_INLINE void internal_libxs_predict_ts_window_feat(
+  const libxs_predict_t* model, int w, int t, double* raw, double* feat)
+{
+  const int s = model->nseries;
+  int si, i;
+  for (si = 0; si < s; ++si) {
+    for (i = 0; i < w; ++i) {
+      raw[si * w + i] = model->ts_buf[(t + i) * s + si];
+    }
+  }
+  if (model->naux > 0 || model->nderiv > 0) {
+    const double* aux = (NULL != model->aux_buf)
+      ? model->aux_buf + (size_t)(t + w) * model->naux : NULL;
+    internal_libxs_predict_ts_assemble(model, w, raw, aux, feat);
+  }
+  else {
+    memcpy(feat, raw, (size_t)s * w * sizeof(double));
+  }
+}
+
+
+LIBXS_API_INLINE double internal_libxs_predict_ts_window_score(
+  const libxs_predict_t* model, int w, int objective)
+{
+  const int s = model->nseries;
+  const int h = model->noutputs;
+  const int tgt = model->target;
+  const int nts = model->nts;
+  const int m = s * w + model->nderiv + model->naux;
+  const int nwin = nts - w - h + 1;
+  double result = 1e30;
+  const int nsteps = (0 != objective) ? h : 1;
+  const int nval = (nwin / 5 > 256) ? 256 : (nwin / 5 > 0 ? nwin / 5 : 1);
+  const int ntrain = nwin - nval;
+  if (nwin >= 8 && 0 < m && ntrain >= 4) {
+    int f_pool = 0, o_pool = 0, mn_pool = 0, rg_pool = 0, rw_pool = 0;
+    double* feat = (double*)LIBXS_PREDICT_MALLOC((size_t)nwin * m * sizeof(double), f_pool);
+    double* outs = (double*)LIBXS_PREDICT_MALLOC((size_t)nwin * h * sizeof(double), o_pool);
+    double* mn = (double*)LIBXS_PREDICT_MALLOC((size_t)m * sizeof(double), mn_pool);
+    double* rg = (double*)LIBXS_PREDICT_MALLOC((size_t)m * sizeof(double), rg_pool);
+    double* raw = (double*)LIBXS_PREDICT_MALLOC((size_t)s * w * sizeof(double), rw_pool);
+    if (NULL != feat && NULL != outs && NULL != mn && NULL != rg && NULL != raw) {
+      const int kk = (LIBXS_PREDICT_KNN < ntrain) ? LIBXS_PREDICT_KNN : ntrain;
+      double err_sum = 0;
+      int t, i, j, vi;
+      for (t = 0; t < nwin; ++t) {
+        internal_libxs_predict_ts_window_feat(model, w, t, raw, feat + (size_t)t * m);
+        for (j = 0; j < h; ++j) {
+          const double o = model->ts_buf[(t + w + j) * s + tgt];
+          outs[(size_t)t * h + j] = (NULL != model->transforms)
+            ? internal_libxs_predict_fwd(model->transforms[j], o) : o;
+        }
+      }
+      for (j = 0; j < m; ++j) { mn[j] = feat[j]; rg[j] = feat[j]; }
+      for (i = 1; i < ntrain; ++i) {
+        for (j = 0; j < m; ++j) {
+          const double v = feat[(size_t)i * m + j];
+          if (v < mn[j]) mn[j] = v;
+          if (v > rg[j]) rg[j] = v;
+        }
+      }
+      for (j = 0; j < m; ++j) rg[j] -= mn[j];
+      for (t = 0; t < nwin; ++t) {
+        double* f = feat + (size_t)t * m;
+        for (j = 0; j < m; ++j) {
+          f[j] = (rg[j] > 0) ? (f[j] - mn[j]) / rg[j] : f[j];
+          if (NULL != model->weights) f[j] *= model->weights[j];
+        }
+      }
+      for (vi = ntrain; vi < nwin; ++vi) {
+        const double* q = feat + (size_t)vi * m;
+        double dist[LIBXS_PREDICT_KNN];
+        int idx[LIBXS_PREDICT_KNN];
+        int nfound = 0, worst = 0, step;
+        for (i = 0; i < ntrain; ++i) {
+          const double d = libxs_dist2(q, feat + (size_t)i * m, m);
+          if (nfound < kk) {
+            dist[nfound] = d; idx[nfound] = i;
+            if (d > dist[worst]) worst = nfound;
+            ++nfound;
+          }
+          else if (d < dist[worst]) {
+            int wi;
+            dist[worst] = d; idx[worst] = i;
+            worst = 0;
+            for (wi = 1; wi < kk; ++wi) {
+              if (dist[wi] > dist[worst]) worst = wi;
+            }
+          }
+        }
+        for (step = 0; step < nsteps; ++step) {
+          double wsum = 0, vsum = 0, pred = 0;
+          int exact = 0;
+          for (i = 0; i < nfound; ++i) {
+            const double ov = outs[(size_t)idx[i] * h + step];
+            if (dist[i] <= 0) { pred = ov; exact = 1; break; }
+            { const double wgt = 1.0 / sqrt(dist[i]);
+              wsum += wgt; vsum += wgt * ov;
+            }
+          }
+          if (0 == exact) pred = (wsum > 0) ? (vsum / wsum) : 0;
+          err_sum += LIBXS_FABS(pred - outs[(size_t)vi * h + step]);
+        }
+      }
+      result = err_sum / ((double)nval * nsteps);
+    }
+    LIBXS_PREDICT_FREE(raw, rw_pool);
+    LIBXS_PREDICT_FREE(rg, rg_pool);
+    LIBXS_PREDICT_FREE(mn, mn_pool);
+    LIBXS_PREDICT_FREE(outs, o_pool);
+    LIBXS_PREDICT_FREE(feat, f_pool);
+  }
+  return result;
+}
+
+
+LIBXS_API_INLINE int internal_libxs_predict_ts_window(
+  const libxs_predict_t* model, int wmax)
+{
+  const int wcap = internal_libxs_predict_ts_window_cap(model, wmax);
+  int result = 0;
+  if (4 <= wcap) {
+    /* The held-out kNN proxy is faithful only for low-dimensional
+     * (single-series) feature spaces.  For multi-series inputs the proxy
+     * is floor-biased and the real pipeline (decomposition, per-channel
+     * structure) typically needs a longer window; the library abstains
+     * and returns the caller's budgeted upper bound (wcap) rather than
+     * risk shrinking below the forecast-optimal window.
+     */
+    const int can_score = (model->nseries <= 1);
+    if (0 != can_score) {
+      const char* oenv = getenv("LIBXS_PREDICT_WINDOW_OBJECTIVE");
+      const int objective = (NULL != oenv) ? atoi(oenv) : 0;
+      const double eps = 0.12;
+      int grid[32];
+      double score[32];
+      double wf = 4.0;
+      int ngrid = 0, best_i = 0, i;
+      while ((int)(wf + 0.5) <= wcap && ngrid < 31) {
+        const int cw = (int)(wf + 0.5);
+        if (0 == ngrid || cw != grid[ngrid - 1]) grid[ngrid++] = cw;
+        wf *= 1.5;
+      }
+      if (0 == ngrid || grid[ngrid - 1] != wcap) grid[ngrid++] = wcap;
+      for (i = 0; i < ngrid; ++i) {
+        score[i] = internal_libxs_predict_ts_window_score(model, grid[i], objective);
+        if (score[i] < score[best_i]) best_i = i;
+      }
+      if (score[best_i] < 1e29) {
+        if (0 == best_i) {
+          const double tol = score[0] * (1.0 + eps);
+          int j = 0;
+          while (j + 1 < ngrid && score[j + 1] <= tol) ++j;
+          best_i = j;
+        }
+        if (4 <= grid[best_i]) result = grid[best_i];
+      }
+    }
+    else {
+      result = wcap;
+    }
+    if (result < 4) result = internal_libxs_predict_ts_window_acf(model, wcap);
+  }
+  return result;
+}
+
+
 LIBXS_API_INLINE void internal_libxs_predict_ts_diff_apply(
   double* buf, int n, int s, int d)
 {
@@ -1388,31 +1589,6 @@ LIBXS_API_INLINE void internal_libxs_predict_ts_diff_apply(
         buf[i * s + si] = buf[(i + 1) * s + si] - buf[i * s + si];
       }
     }
-  }
-}
-
-
-LIBXS_API_INLINE void internal_libxs_predict_ts_assemble(
-  const libxs_predict_t* model, int w, const double* lags,
-  const double* aux, double* out)
-{
-  const int s = model->nseries;
-  const int tgt = model->target;
-  const int tf = (NULL != model->transforms) ? model->transforms[tgt] : 0;
-  int si, i, k;
-  for (si = 0; si < s; ++si) {
-    const int t = (si == tgt) ? tf : 0;
-    for (i = 0; i < w; ++i) {
-      out[si * w + i] = internal_libxs_predict_fwd(t, lags[si * w + i]);
-    }
-  }
-  for (k = 0; k < model->nderiv; ++k) {
-    const double* tl = out + (size_t)tgt * w;
-    out[s * w + k] = (w - 2 - k >= 0)
-      ? (tl[w - 1 - k] - tl[w - 2 - k]) : 0;
-  }
-  for (i = 0; i < model->naux; ++i) {
-    out[s * w + model->nderiv + i] = (NULL != aux) ? aux[i] : 0;
   }
 }
 

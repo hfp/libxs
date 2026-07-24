@@ -25,7 +25,7 @@ int main(int argc, char* argv[])
   const char* filename = (argc > 1) ? argv[1] : NULL;
   const double split = (argc > 2) ? atof(argv[2]) : 0.8;
   const char* wenv = getenv("WINDOW");
-  const int window_req = (NULL != wenv) ? atoi(wenv) : WINDOW_DEF;
+  const int window_req = (NULL != wenv) ? atoi(wenv) : LIBXS_PREDICT_AUTO_WINDOW;
   const int ninputs = (0 < window_req) ? window_req : WMAX;
   int window = window_req;
   int decompose = LIBXS_PREDICT_RAW;

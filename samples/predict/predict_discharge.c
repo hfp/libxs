@@ -11,15 +11,19 @@
 #include <libxs/libxs_mem.h>
 
 /* Two equivalent constructions of the same engineered model:
- * default (DISCHARGE_USE_API undefined): hand-built feature vector
- *   (window + diffs + day-of-year), transforms and windowing performed
- *   in the sample (fill_inputs).
- * DISCHARGE_USE_API defined: the same features expressed through the
- *   timeseries API (set_series + set_series_deriv + set_series_aux);
+ * default (DISCHARGE_USE_API): the engineered features expressed through
+ *   the timeseries API (set_series + set_series_deriv + set_series_aux);
  *   the framework transforms the lags, appends the derivatives, and
- *   carries the auxiliary day-of-year feature. Both produce identical
- *   inputs.
+ *   carries the auxiliary day-of-year feature. This path supports the
+ *   auto-sized window (WINDOW=0 sentinel), the sample default.
+ * DISCHARGE_MANUAL: hand-built feature vector (window + diffs +
+ *   day-of-year), transforms and windowing performed in the sample
+ *   (fill_inputs). Fixed window only. Both produce identical inputs
+ *   at a given window.
  */
+#if !defined(DISCHARGE_MANUAL) && !defined(DISCHARGE_USE_API)
+# define DISCHARGE_USE_API
+#endif
 
 enum { WINDOW_DEF = 14, HORIZON = 7, NDIFFS = 3, WMAX = 120 };
 
@@ -128,7 +132,11 @@ int main(int argc, char* argv[])
 static int window_size(void)
 {
   const char* wenv = getenv("WINDOW");
+#if defined(DISCHARGE_USE_API)
+  return (NULL != wenv) ? atoi(wenv) : LIBXS_PREDICT_AUTO_WINDOW;
+#else
   return (NULL != wenv) ? atoi(wenv) : WINDOW_DEF;
+#endif
 }
 
 

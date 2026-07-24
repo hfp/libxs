@@ -32,7 +32,7 @@ int main(int argc, char* argv[])
   int nseries = (argc > 2) ? atoi(argv[2]) : 1;
   const double split = 0.661;
   const char* wenv = getenv("WINDOW");
-  const int window_req = (NULL != wenv) ? atoi(wenv) : WINDOW_DEF;
+  const int window_req = (NULL != wenv) ? atoi(wenv) : LIBXS_PREDICT_AUTO_WINDOW;
   int window = (0 < window_req) ? window_req : WINDOW_DEF;
   int decompose = LIBXS_PREDICT_RAW;
   int attend = 0;
@@ -65,7 +65,12 @@ int main(int argc, char* argv[])
   else if (0 < load_ett_all(filename, &data, &total, &ncols)) {
     const int train_end = LIBXS_MAX((int)(total * split + 0.5), WMAX + 1);
     const int target = nseries - 1;
-    const int ninputs = nseries * ((0 < window_req) ? window_req : WMAX);
+    /* Window budget (upper bound for the auto sizer). Single-series gets
+     * a wide cap so the grid can explore; multi-series caps at the tuned
+     * WINDOW_DEF so the library's multi-series abstention returns it. */
+    const int wcap_req = (0 < window_req) ? window_req
+      : ((nseries <= 1) ? WMAX : WINDOW_DEF);
+    const int ninputs = nseries * wcap_req;
     libxs_predict_t* model = libxs_predict_create(ninputs, HORIZON);
     double train_mean = 0, train_std = 1;
     int ti;
