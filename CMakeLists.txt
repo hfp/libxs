@@ -231,29 +231,26 @@ install(FILES
   "${CMAKE_CURRENT_BINARY_DIR}/libxsConfigVersion.cmake"
   DESTINATION "${CMAKE_INSTALL_LIBDIR}/cmake/libxs")
 
-# Install documentation into share/libxs
+# Install documentation.
+install(
+  DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/documentation/"
+  DESTINATION "${CMAKE_INSTALL_DOCDIR}"
+  FILES_MATCHING
+    PATTERN "*.md"
+    PATTERN "*.pdf"
+    PATTERN "*.css"
+    PATTERN "*.png"
+    PATTERN "tests" EXCLUDE
+)
+
+# Install Makefile build support files.
 set(LIBXS_SHARE_DIR "${CMAKE_INSTALL_DATADIR}/libxs")
 
-file(GLOB LIBXS_DOC_MDS LIST_DIRECTORIES false
-  "${CMAKE_CURRENT_SOURCE_DIR}/documentation/libxs_*.md")
-list(REMOVE_ITEM LIBXS_DOC_MDS
-  "${CMAKE_CURRENT_SOURCE_DIR}/documentation/libxs_samples.md"
-  "${CMAKE_CURRENT_SOURCE_DIR}/documentation/libxs_scripts.md"
-  "${CMAKE_CURRENT_SOURCE_DIR}/documentation/libxs_fortran.md")
-
-set(LIBXS_DOC_EXTRA
-  "${CMAKE_CURRENT_SOURCE_DIR}/documentation/index.md"
-  "${CMAKE_CURRENT_SOURCE_DIR}/documentation/LICENSE.md")
-
-file(GLOB LIBXS_DOC_PDFS LIST_DIRECTORIES false
-  "${CMAKE_CURRENT_SOURCE_DIR}/documentation/*.pdf")
-
-install(FILES ${LIBXS_DOC_MDS} ${LIBXS_DOC_EXTRA} ${LIBXS_DOC_PDFS}
-  DESTINATION ${LIBXS_SHARE_DIR})
-
-install(FILES
-  "${CMAKE_CURRENT_SOURCE_DIR}/Makefile.inc"
-  "${CMAKE_CURRENT_SOURCE_DIR}/.state.sh"
-  "${CMAKE_CURRENT_SOURCE_DIR}/.mktmp.sh"
-  "${CMAKE_CURRENT_SOURCE_DIR}/.flock.sh"
-  DESTINATION ${LIBXS_SHARE_DIR})
+install(
+  FILES
+    "${CMAKE_CURRENT_SOURCE_DIR}/Makefile.inc"
+    "${CMAKE_CURRENT_SOURCE_DIR}/.state.sh"
+    "${CMAKE_CURRENT_SOURCE_DIR}/.mktmp.sh"
+    "${CMAKE_CURRENT_SOURCE_DIR}/.flock.sh"
+  DESTINATION "${LIBXS_SHARE_DIR}"
+)
