@@ -180,6 +180,7 @@ jobs:
         cmake -B build \
           -DCMAKE_BUILD_TYPE=Debug \
           -DCMAKE_INSTALL_PREFIX=$HOME/libxs-install \
+          -DLIBXS_INSTALL_HEADER_ONLY=ON \
           -DBUILD_TESTING=ON \
           -DBUILD_SHARED_LIBS=${{ matrix.shared == 'shared' && 'ON' || 'OFF' }}
 
