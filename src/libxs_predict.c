@@ -1661,6 +1661,7 @@ LIBXS_API_INLINE int internal_libxs_predict_ts_window(
       double score[32];
       double wf = 4.0;
       int ngrid = 0, best_i = 0, i;
+      score[0] = 1e30;
       while ((int)(wf + 0.5) <= wcap && ngrid < 31) {
         const int cw = (int)(wf + 0.5);
         if (0 == ngrid || cw != grid[ngrid - 1]) grid[ngrid++] = cw;
