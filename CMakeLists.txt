@@ -21,6 +21,8 @@ include(CMakePackageConfigHelpers)
 include(CheckLanguage)
 
 option(LIBXS_FORTRAN "Build Fortran module interface (auto-detected if not set)" OFF)
+option(LIBXS_INSTALL_HEADER_ONLY "Install the header-only implementation sources" OFF)
+
 option(BUILD_TESTING "Build unit tests; requires BLAS" OFF)
 
 check_language(Fortran)
@@ -127,7 +129,7 @@ if(LIBXS_FORTRAN)
   set_target_properties(libxs PROPERTIES Fortran_MODULE_DIRECTORY "${LIBXS_Fortran_MODULE_DIR}")
   target_include_directories(libxs PUBLIC
     $<BUILD_INTERFACE:${LIBXS_Fortran_MODULE_DIR}>
-    $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}/libxs>)
+    $<INSTALL_INTERFACE:${CMAKE_INSTALL_Fortran_MODULES}>)
 endif()
 
 if(BUILD_TESTING)
@@ -188,20 +190,23 @@ install(DIRECTORY "${LIBXS_INCLUDE_DIR}/"
     PATTERN "*.h"
     PATTERN "*.f"
     PATTERN "*.fi"
-    PATTERN "*.F")
+    PATTERN "*.F"
+    PATTERN "libxs_source.h" EXCLUDE)
 
-# Install header-only source files (always available)
-file(READ "${LIBXS_INCLUDE_DIR}/libxs_source.h" LIBXS_SOURCE_HEADER)
-string(REPLACE "../src/" "src/" LIBXS_SOURCE_HEADER "${LIBXS_SOURCE_HEADER}")
-file(WRITE "${CMAKE_CURRENT_BINARY_DIR}/libxs_source.h" "${LIBXS_SOURCE_HEADER}")
+# Install the optional header-only implementation.
+if(LIBXS_INSTALL_HEADER_ONLY)
+  file(READ "${LIBXS_INCLUDE_DIR}/libxs_source.h" LIBXS_SOURCE_HEADER)
+  string(REPLACE "../src/" "src/" LIBXS_SOURCE_HEADER "${LIBXS_SOURCE_HEADER}")
+  file(WRITE "${CMAKE_CURRENT_BINARY_DIR}/libxs_source.h" "${LIBXS_SOURCE_HEADER}")
 
-install(FILES "${CMAKE_CURRENT_BINARY_DIR}/libxs_source.h"
-  DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/libxs")
-install(DIRECTORY "${LIBXS_ROOT_DIR}/src/"
-  DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/libxs/src"
-  FILES_MATCHING
-    PATTERN "*.c"
-    PATTERN "*.h")
+  install(FILES "${CMAKE_CURRENT_BINARY_DIR}/libxs_source.h"
+    DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/libxs")
+  install(DIRECTORY "${LIBXS_ROOT_DIR}/src/"
+    DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/libxs/src"
+    FILES_MATCHING
+      PATTERN "*.c"
+      PATTERN "*.h")
+endif()
 
 if(LIBXS_FORTRAN)
   install(DIRECTORY "${LIBXS_Fortran_MODULE_DIR}/"
