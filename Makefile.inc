@@ -2597,6 +2597,16 @@ $(DIRSTATE)/.state: $(firstword $(PRESTATE))
 .make:
 	@-touch $@
 
+# refresh the header-only amalgamation's timestamp when any (git-tracked) source changes;
+# collect sources under source control and fall back to a plain filesystem glob otherwise
+ifneq ($(DEPDIR),$(ROOTDIR))
+ifneq (,$(wildcard $(DEPDIR)/$(PROJECT)/$(PROJECT)_source.h))
+$(DEPDIR)/$(PROJECT)/$(PROJECT)_source.h: $(shell $(if $(GIT),$(GIT) ls-files,ls -1) \
+    $(DEPDIR)/src/*.c $(DEPDIR)/src/*.h 2>/dev/null)
+	@-touch $@
+endif
+endif
+
 DOCEXT ?= pdf
 
 DOC_MD_SED = \
