@@ -59,11 +59,14 @@ typedef struct internal_libxs_predict_cluster_t {
   int* ndistinct;
   int* sorted_idx;
   double* sorted_dist;
+  double* tangent;
+  double* kd_tan;
   double dmax;
   double fprint_sig;
   int nentries;
   int maxorder;
   int k_eff;
+  int tdim;
 } internal_libxs_predict_cluster_t;
 
 typedef struct internal_libxs_predict_order_ctx_t {
@@ -128,6 +131,7 @@ LIBXS_EXTERN_C struct libxs_predict_t {
   int nts, ts_capacity;
   int diff_mode, diff_order;
   int refine;
+  int tangent;
   double smooth;
   double quality;
   double consistency;
@@ -156,6 +160,8 @@ LIBXS_API_INLINE void internal_libxs_predict_free_clusters(libxs_predict_t* mode
       free(cl->ndistinct);
       free(cl->sorted_idx);
       free(cl->sorted_dist);
+      free(cl->tangent);
+      free(cl->kd_tan);
     }
     free(model->clusters);
     model->clusters = NULL;
@@ -525,12 +531,29 @@ LIBXS_API_INLINE double internal_libxs_predict_classify2(
   const int ndistinct_thresh = (int)(sqrt((double)nc) + 0.5);
   double candidates[LIBXS_PREDICT_KNN];
   double dists[LIBXS_PREDICT_KNN];
+  double qtan[512];
+  const double* qpts = inputs;
+  const double* dpts = kd_pts;
+  int dm = m;
   double best_val = 0.0;
   int nfound = 0, exact = 0, i, max_idx = 0;
   if (NULL != confidence) *confidence = 0.0;
   if (NULL != out_variance) *out_variance = 0.0;
   if (NULL != out_lower) *out_lower = 0.0;
   if (NULL != out_upper) *out_upper = 0.0;
+  if (NULL != cl->tangent && NULL != cl->kd_tan
+    && cl->tdim > 0 && cl->tdim <= 512)
+  {
+    int tj, tk;
+    for (tj = 0; tj < cl->tdim; ++tj) {
+      double acc = 0;
+      for (tk = 0; tk < m; ++tk) acc += cl->tangent[tj * m + tk] * inputs[tk];
+      qtan[tj] = acc;
+    }
+    qpts = qtan;
+    dpts = cl->kd_tan;
+    dm = cl->tdim;
+  }
   if (nc > 0 && NULL != cl->raw_outputs) {
     best_val = cl->raw_outputs[output_j];
     if (0 != extrapolate) {
@@ -541,7 +564,7 @@ LIBXS_API_INLINE double internal_libxs_predict_classify2(
     for (i = 0; i < nc; ++i) {
       double d2;
       if (i == skip_local) continue;
-      d2 = libxs_dist2(inputs, kd_pts + (size_t)i * m, m);
+      d2 = libxs_dist2(qpts, dpts + (size_t)i * dm, dm);
       if (0 != extrapolate && max_idx > 0) {
         const double age = 1.0 - (double)cl->sorted_idx[i] / (double)max_idx;
         d2 *= 1.0 + 0.5 * age;
@@ -759,6 +782,8 @@ LIBXS_API void libxs_predict_destroy(libxs_predict_t* model)
             free(cl->interpolated);
             free(cl->coeffs);
             free(cl->errors);
+            free(cl->tangent);
+            free(cl->kd_tan);
           }
           free(model->hknn_po_clusters[gi]);
         }
@@ -978,6 +1003,168 @@ LIBXS_API_INLINE void internal_libxs_predict_decompose_inverse(
 }
 
 
+LIBXS_API_INLINE void internal_libxs_predict_jacobi(
+  double* a, int m, double* evec, double* eval)
+{
+  int j, k;
+  for (j = 0; j < m; ++j) {
+    for (k = 0; k < m; ++k) evec[j * m + k] = (j == k) ? 1.0 : 0.0;
+  }
+  { int iter;
+    for (iter = 0; iter < 100 * m; ++iter) {
+      int pi = 0, qi = 1;
+      double maxoff = 0;
+      for (j = 0; j < m; ++j) {
+        for (k = j + 1; k < m; ++k) {
+          const double v = a[j * m + k] < 0 ? -a[j * m + k] : a[j * m + k];
+          if (v > maxoff) { maxoff = v; pi = j; qi = k; }
+        }
+      }
+      if (maxoff < 1e-12) break;
+      { const double app = a[pi * m + pi], aqq = a[qi * m + qi];
+        const double apq = a[pi * m + qi];
+        const double tau = (aqq - app) / (2.0 * apq);
+        const double t = (tau >= 0 ? 1.0 : -1.0)
+          / (LIBXS_FABS(tau) + sqrt(1.0 + tau * tau));
+        const double c = 1.0 / sqrt(1.0 + t * t);
+        const double s = t * c;
+        for (k = 0; k < m; ++k) {
+          const double ik = a[k * m + pi], jk = a[k * m + qi];
+          a[k * m + pi] = c * ik - s * jk;
+          a[k * m + qi] = s * ik + c * jk;
+          a[pi * m + k] = a[k * m + pi];
+          a[qi * m + k] = a[k * m + qi];
+        }
+        a[pi * m + pi] = c * c * app - 2.0 * s * c * apq + s * s * aqq;
+        a[qi * m + qi] = s * s * app + 2.0 * s * c * apq + c * c * aqq;
+        a[pi * m + qi] = 0;
+        a[qi * m + pi] = 0;
+        for (k = 0; k < m; ++k) {
+          const double ek = evec[k * m + pi], fk = evec[k * m + qi];
+          evec[k * m + pi] = c * ek - s * fk;
+          evec[k * m + qi] = s * ek + c * fk;
+        }
+      }
+    }
+  }
+  for (j = 0; j < m; ++j) eval[j] = a[j * m + j];
+  for (j = 0; j < m - 1; ++j) {
+    int best = j;
+    for (k = j + 1; k < m; ++k) {
+      if (eval[k] > eval[best]) best = k;
+    }
+    if (best != j) {
+      { double tmp = eval[j]; eval[j] = eval[best]; eval[best] = tmp; }
+      for (k = 0; k < m; ++k) {
+        double tmp = evec[k * m + j];
+        evec[k * m + j] = evec[k * m + best];
+        evec[k * m + best] = tmp;
+      }
+    }
+  }
+}
+
+
+LIBXS_API_INLINE void internal_libxs_predict_symeig(
+  const internal_libxs_predict_entry_t* entries, const double* pts,
+  int npts, int m, double* mean, double* cov, double* evec, double* eval)
+{
+  const size_t msz = (size_t)m * (size_t)m;
+  int i, j, k;
+  memset(mean, 0, (size_t)m * sizeof(double));
+  memset(cov, 0, msz * sizeof(double));
+  for (i = 0; i < npts; ++i) {
+    const double* inp = (NULL != entries) ? entries[i].inputs : (pts + (size_t)i * m);
+    for (j = 0; j < m; ++j) mean[j] += inp[j];
+  }
+  for (j = 0; j < m; ++j) mean[j] /= npts;
+  for (i = 0; i < npts; ++i) {
+    const double* inp = (NULL != entries) ? entries[i].inputs : (pts + (size_t)i * m);
+    for (j = 0; j < m; ++j) {
+      const double dj = inp[j] - mean[j];
+      for (k = j; k < m; ++k) {
+        cov[j * m + k] += dj * (inp[k] - mean[k]);
+      }
+    }
+  }
+  for (j = 0; j < m; ++j) {
+    for (k = j; k < m; ++k) {
+      cov[j * m + k] /= npts;
+      cov[k * m + j] = cov[j * m + k];
+    }
+  }
+  internal_libxs_predict_jacobi(cov, m, evec, eval);
+}
+
+
+LIBXS_API_INLINE void internal_libxs_predict_cluster_tangent(
+  internal_libxs_predict_cluster_t* cl, int m, int weight_mode)
+{
+  const int nc = cl->nentries;
+  const int margin = 2;
+  int pool_mean = 0, pool_cov = 0, pool_evec = 0, pool_eval = 0;
+  double* mean = (double*)LIBXS_PREDICT_MALLOC((size_t)m * sizeof(double), pool_mean);
+  double* cov = (double*)LIBXS_PREDICT_MALLOC((size_t)m * (size_t)m * sizeof(double), pool_cov);
+  double* evec = (double*)LIBXS_PREDICT_MALLOC((size_t)m * (size_t)m * sizeof(double), pool_evec);
+  double* eval = (double*)LIBXS_PREDICT_MALLOC((size_t)m * sizeof(double), pool_eval);
+  cl->tangent = NULL;
+  cl->kd_tan = NULL;
+  cl->tdim = 0;
+  if (NULL != mean && NULL != cov && NULL != evec && NULL != eval
+    && nc >= 4 && NULL != cl->kd_pts)
+  {
+    double total = 0, cum = 0;
+    int t = m, j, k;
+    internal_libxs_predict_symeig(NULL, cl->kd_pts, nc, m, mean, cov, evec, eval);
+    for (j = 0; j < m; ++j) total += (eval[j] > 0 ? eval[j] : 0);
+    if (total > 0) {
+      t = m;
+      for (j = 0; j < m; ++j) {
+        cum += (eval[j] > 0 ? eval[j] : 0);
+        if (cum >= 0.99 * total && t == m) t = j + 1;
+      }
+    }
+    if (t < 1) t = 1;
+    if (nc >= t + margin && t <= m) {
+      double* tan = (double*)malloc((size_t)t * (size_t)m * sizeof(double));
+      double* kdt = (double*)malloc((size_t)nc * (size_t)t * sizeof(double));
+      if (NULL != tan && NULL != kdt) {
+        const double eps = 1e-12;
+        int i;
+        for (j = 0; j < t; ++j) {
+          const double lam = (eval[j] > 0 ? eval[j] : 0);
+          double scale;
+          if (2 == weight_mode) scale = 1.0 / sqrt(lam + eps);      /* whiten */
+          else if (3 == weight_mode) scale = sqrt(lam);             /* emphasize */
+          else scale = 1.0;                                         /* project */
+          for (k = 0; k < m; ++k) tan[j * m + k] = evec[k * m + j] * scale;
+        }
+        for (i = 0; i < nc; ++i) {
+          const double* src = cl->kd_pts + (size_t)i * m;
+          double* dst = kdt + (size_t)i * t;
+          for (j = 0; j < t; ++j) {
+            double acc = 0;
+            for (k = 0; k < m; ++k) acc += tan[j * m + k] * src[k];
+            dst[j] = acc;
+          }
+        }
+        cl->tangent = tan;
+        cl->kd_tan = kdt;
+        cl->tdim = t;
+      }
+      else {
+        free(tan);
+        free(kdt);
+      }
+    }
+  }
+  LIBXS_PREDICT_FREE(eval, pool_eval);
+  LIBXS_PREDICT_FREE(evec, pool_evec);
+  LIBXS_PREDICT_FREE(cov, pool_cov);
+  LIBXS_PREDICT_FREE(mean, pool_mean);
+}
+
+
 LIBXS_API_INLINE void internal_libxs_predict_pca_build(libxs_predict_t* model)
 {
   const int p = model->nentries;
@@ -989,84 +1176,8 @@ LIBXS_API_INLINE void internal_libxs_predict_pca_build(libxs_predict_t* model)
   double* evec = (double*)LIBXS_PREDICT_MALLOC(msz * sizeof(double), pool_evec);
   double* eval = (double*)LIBXS_PREDICT_MALLOC((size_t)m * sizeof(double), pool_eval);
   if (NULL != mean && NULL != cov && NULL != evec && NULL != eval) {
-  memset(mean, 0, (size_t)m * sizeof(double));
-  memset(cov, 0, msz * sizeof(double));
+  internal_libxs_predict_symeig(model->entries, NULL, p, m, mean, cov, evec, eval);
   { int i, j, k;
-    for (i = 0; i < p; ++i) {
-      const double* inp = model->entries[i].inputs;
-      for (j = 0; j < m; ++j) mean[j] += inp[j];
-    }
-    for (j = 0; j < m; ++j) mean[j] /= p;
-    for (i = 0; i < p; ++i) {
-      const double* inp = model->entries[i].inputs;
-      for (j = 0; j < m; ++j) {
-        const double dj = inp[j] - mean[j];
-        for (k = j; k < m; ++k) {
-          cov[j * m + k] += dj * (inp[k] - mean[k]);
-        }
-      }
-    }
-    for (j = 0; j < m; ++j) {
-      for (k = j; k < m; ++k) {
-        cov[j * m + k] /= p;
-        cov[k * m + j] = cov[j * m + k];
-      }
-    }
-    for (j = 0; j < m; ++j) {
-      for (k = 0; k < m; ++k) evec[j * m + k] = (j == k) ? 1.0 : 0.0;
-    }
-    { int iter;
-      for (iter = 0; iter < 100 * m; ++iter) {
-        int pi = 0, qi = 1;
-        double maxoff = 0;
-        for (j = 0; j < m; ++j) {
-          for (k = j + 1; k < m; ++k) {
-            const double a = cov[j * m + k] < 0 ? -cov[j * m + k] : cov[j * m + k];
-            if (a > maxoff) { maxoff = a; pi = j; qi = k; }
-          }
-        }
-        if (maxoff < 1e-12) break;
-        { const double app = cov[pi * m + pi], aqq = cov[qi * m + qi];
-          const double apq = cov[pi * m + qi];
-          const double tau = (aqq - app) / (2.0 * apq);
-          const double t = (tau >= 0 ? 1.0 : -1.0)
-            / (LIBXS_FABS(tau) + sqrt(1.0 + tau * tau));
-          const double c = 1.0 / sqrt(1.0 + t * t);
-          const double s = t * c;
-          for (k = 0; k < m; ++k) {
-            const double ik = cov[k * m + pi], jk = cov[k * m + qi];
-            cov[k * m + pi] = c * ik - s * jk;
-            cov[k * m + qi] = s * ik + c * jk;
-            cov[pi * m + k] = cov[k * m + pi];
-            cov[qi * m + k] = cov[k * m + qi];
-          }
-          cov[pi * m + pi] = c * c * app - 2.0 * s * c * apq + s * s * aqq;
-          cov[qi * m + qi] = s * s * app + 2.0 * s * c * apq + c * c * aqq;
-          cov[pi * m + qi] = 0;
-          cov[qi * m + pi] = 0;
-          for (k = 0; k < m; ++k) {
-            const double ek = evec[k * m + pi], fk = evec[k * m + qi];
-            evec[k * m + pi] = c * ek - s * fk;
-            evec[k * m + qi] = s * ek + c * fk;
-          }
-        }
-      }
-    }
-    for (j = 0; j < m; ++j) eval[j] = cov[j * m + j];
-    for (j = 0; j < m - 1; ++j) {
-      int best = j;
-      for (k = j + 1; k < m; ++k) {
-        if (eval[k] > eval[best]) best = k;
-      }
-      if (best != j) {
-        { double tmp = eval[j]; eval[j] = eval[best]; eval[best] = tmp; }
-        for (k = 0; k < m; ++k) {
-          double tmp = evec[k * m + j];
-          evec[k * m + j] = evec[k * m + best];
-          evec[k * m + best] = tmp;
-        }
-      }
-    }
     free(model->decompose_mat);
     model->decompose_mat = (double*)malloc(msz * sizeof(double));
     if (NULL != model->decompose_mat) {
@@ -1783,6 +1894,10 @@ LIBXS_API int libxs_predict_build(libxs_predict_t* model,
   int nclusters, int order, double quality)
 {
   int result = EXIT_SUCCESS;
+  if (NULL != model) {
+    const char* tenv = getenv("LIBXS_PREDICT_TANGENT");
+    if (NULL != tenv) model->tangent = atoi(tenv);
+  }
   if (NULL != model && 0 < model->nts && 0 == model->nentries) {
     internal_libxs_predict_ts_expand(model);
   }
@@ -1995,6 +2110,9 @@ LIBXS_API int libxs_predict_build(libxs_predict_t* model,
               internal_libxs_predict_normalize(model,
                 model->entries[cl->sorted_idx[k]].inputs,
                 cl->kd_pts + (size_t)k * m);
+            }
+            if (0 != model->tangent) {
+              internal_libxs_predict_cluster_tangent(cl, m, model->tangent);
             }
           }
         }
