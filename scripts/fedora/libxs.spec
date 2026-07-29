@@ -11,9 +11,7 @@ License:        BSD-3-Clause
 URL:            https://github.com/hfp/libxs
 Source0:        https://github.com/hfp/libxs/releases/download/%{version}/%{name}-%{version}.tar.gz
 
-BuildRequires:  bash
 BuildRequires:  cmake
-BuildRequires:  cmake-rpm-macros
 BuildRequires:  gcc
 BuildRequires:  gcc-gfortran
 %if %{with tests}
@@ -37,6 +35,7 @@ metadata, and CMake package files for developing applications that use LIBXS.
 
 %package doc
 Summary:        Documentation for %{name}
+Requires:       %{name}%{?_isa} = %{version}-%{release}
 BuildArch:      noarch
 
 %description doc
@@ -79,13 +78,7 @@ This package contains the API and usage documentation for LIBXS.
 %files doc
 %dir %{_docdir}/%{name}
 %license %{_docdir}/%{name}/LICENSE.md
-%doc %{_docdir}/%{name}/README.md
-%doc %{_docdir}/%{name}/index.md
-%doc %{_docdir}/%{name}/libxs_*.md
-%doc %{_docdir}/%{name}/*.pdf
-%doc %{_docdir}/%{name}/ozaki/
-%doc %{_docdir}/%{name}/predict/
-%doc %{_docdir}/%{name}/samples/
+%doc %{_docdir}/%{name}/
 
 %changelog
 %autochangelog
