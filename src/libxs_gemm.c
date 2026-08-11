@@ -521,7 +521,7 @@ LIBXS_API libxs_gemm_config_t* libxs_gemm_dispatch_rt(
           void* jitter = NULL;
           if (2 != jcd(&jitter, 102, mkl_ta, mkl_tb,
             km, kn, kk, kernel_shape->alpha, klda, kldb,
-            kernel_shape->beta, kldc))
+            kernel_shape->beta, kldc) && NULL != jitter)
           {
             void* fn = jgd(jitter);
             if (NULL != fn) LIBXS_FPTR_FROM_VPTR(libxs_gemm_djit_t, config.dgemm_jit, fn);
@@ -537,7 +537,7 @@ LIBXS_API libxs_gemm_config_t* libxs_gemm_dispatch_rt(
           void* jitter = NULL;
           if (2 != jcs(&jitter, 102, mkl_ta, mkl_tb,
             km, kn, kk, (float)kernel_shape->alpha, klda, kldb,
-            (float)kernel_shape->beta, kldc))
+            (float)kernel_shape->beta, kldc) && NULL != jitter)
           {
             void* fn = jgs(jitter);
             if (NULL != fn) LIBXS_FPTR_FROM_VPTR(libxs_gemm_sjit_t, config.sgemm_jit, fn);

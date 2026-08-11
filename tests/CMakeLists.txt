@@ -113,6 +113,7 @@ set(LIBXS_HEADER_ONLY_TESTS atomics hash headeronly matdiff memory)
 set(LIBXS_C_TESTS
   atomics
   fprint
+  gemm_dispatch
   hash
   hist
   intrinsics
@@ -341,6 +342,7 @@ endif()
 set(LIBXS_TEST_ENTRIES
   atomics.c
   fprint.c
+  gemm_dispatch.c
   hash.c
   headeronly.c
   hist.c
