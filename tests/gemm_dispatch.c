@@ -24,6 +24,8 @@ static int jit_create_dgemm_calls;
 static int jit_get_dgemm_calls;
 static int jit_create_sgemm_calls;
 static int jit_get_sgemm_calls;
+static int jit_call_calls;
+static int xgemm_call_calls;
 
 
 static int test_jit_create_dgemm(void** jitter,
@@ -67,6 +69,31 @@ static void* test_jit_get_sgemm(void* jitter)
   LIBXS_UNUSED(jitter);
   ++jit_get_sgemm_calls;
   return NULL;
+}
+
+
+static void test_dgemm_jit(void* jitter,
+  const double* a, const double* b, double* c)
+{
+  LIBXS_UNUSED(jitter); LIBXS_UNUSED(a);
+  LIBXS_UNUSED(b); LIBXS_UNUSED(c);
+  ++jit_call_calls;
+}
+
+
+static void test_sgemm_jit(void* jitter,
+  const float* a, const float* b, float* c)
+{
+  LIBXS_UNUSED(jitter); LIBXS_UNUSED(a);
+  LIBXS_UNUSED(b); LIBXS_UNUSED(c);
+  ++jit_call_calls;
+}
+
+
+static void test_xgemm_call(const void* param)
+{
+  LIBXS_UNUSED(param);
+  ++xgemm_call_calls;
 }
 
 
@@ -118,7 +145,31 @@ static int test_missing_jit_handle(void)
 }
 
 
+static int test_incomplete_jit_config(void)
+{
+  libxs_gemm_config_t config;
+
+  LIBXS_MEMZERO(&config);
+  config.dgemm_jit = test_dgemm_jit;
+  config.xgemm = test_xgemm_call;
+  libxs_gemm_call(&config, NULL, NULL, NULL);
+  TEST_CHECK(0 == jit_call_calls);
+  TEST_CHECK(1 == xgemm_call_calls);
+
+  LIBXS_MEMZERO(&config);
+  config.sgemm_jit = test_sgemm_jit;
+  config.xgemm = test_xgemm_call;
+  libxs_gemm_call(&config, NULL, NULL, NULL);
+  TEST_CHECK(0 == jit_call_calls);
+  TEST_CHECK(2 == xgemm_call_calls);
+
+  return EXIT_SUCCESS;
+}
+
+
 int main(void)
 {
-  return test_missing_jit_handle();
+  int result = test_missing_jit_handle();
+  if (EXIT_SUCCESS == result) result = test_incomplete_jit_config();
+  return result;
 }

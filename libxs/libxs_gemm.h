@@ -304,12 +304,10 @@ LIBXS_API_INLINE void libxs_gemm_call(
   const void* a, const void* b, void* c)
 {
   LIBXS_ASSERT(NULL != config);
-  if (NULL != config->dgemm_jit) {
-    LIBXS_ASSERT(NULL != config->jitter);
+  if (NULL != config->dgemm_jit && NULL != config->jitter) {
     config->dgemm_jit(config->jitter, (const double*)a, (const double*)b, (double*)c);
   }
-  else if (NULL != config->sgemm_jit) {
-    LIBXS_ASSERT(NULL != config->jitter);
+  else if (NULL != config->sgemm_jit && NULL != config->jitter) {
     config->sgemm_jit(config->jitter, (const float*)a, (const float*)b, (float*)c);
   }
   else if (NULL != config->xgemm) {
