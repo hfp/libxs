@@ -167,19 +167,22 @@ jobs:
     steps:
     - uses: actions/checkout@v5
 
-    - name: Install GCC ${{ matrix.gcc }}
+    - name: Install GCC ${{ matrix.gcc }} and other tools
       run: |
         sudo apt update -y
-        sudo apt install -y gcc-${{ matrix.gcc }} g++-${{ matrix.gcc }} gfortran-${{ matrix.gcc }}
-
-    - name: Install OpenBLAS
-      run: sudo apt install -y libopenblas-openmp-dev
+        sudo apt install -y \
+          gcc-${{ matrix.gcc }} \
+          g++-${{ matrix.gcc }} \
+          gfortran-${{ matrix.gcc }} \
+          libopenblas-openmp-dev \
+          ninja-build
 
     - name: Configure
       run: |
-        cmake -B build \
-          -DCMAKE_BUILD_TYPE=Debug \
+        cmake -B build -G Ninja \
+          -DCMAKE_BUILD_TYPE=RelWithDebInfo \
           -DCMAKE_INSTALL_PREFIX=$HOME/libxs-install \
+          -DCMAKE_VERBOSE_MAKEFILE=ON \
           -DLIBXS_INSTALL_HEADER_ONLY=ON \
           -DBUILD_TESTING=ON \
           -DBUILD_SHARED_LIBS=${{ matrix.shared == 'shared' && 'ON' || 'OFF' }}
@@ -188,7 +191,7 @@ jobs:
       run: cmake --build build -j $(nproc)
 
     - name: Test
-      run: cmake --build build --target libxs-check -j $(nproc)
+      run: ctest --test-dir build -j $(nproc)
 
     - name: Install
       run: cmake --install build
