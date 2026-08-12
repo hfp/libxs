@@ -7,7 +7,7 @@
 
 find_program(LIBXS_TEST_SHELL NAMES bash sh REQUIRED)
 
-find_package(OpenMP REQUIRED)
+find_package(OpenMP)
 find_package(BLAS REQUIRED)
 
 set(LIBXS_STATIC_BLAS_LIBRARIES)
@@ -38,6 +38,7 @@ set(LIBXS_SAMPLE_DIR "${LIBXS_TEST_BINARY_ROOT}/samples")
 set(LIBXS_TEST_COMMON_INCLUDES
   "${PROJECT_SOURCE_DIR}"
   "${PROJECT_SOURCE_DIR}/libxs"
+  "${PROJECT_BINARY_DIR}"
   "${PROJECT_SOURCE_DIR}/src")
 set(LIBXS_SAMPLE_Fortran_MODULE_DIR "${CMAKE_CURRENT_BINARY_DIR}/mod")
 set(LIBXS_CTEST_PREREQUISITES)
@@ -122,9 +123,13 @@ set(LIBXS_C_TESTS
   math
   memory
   mhd
+  mix
+  ngram
   perm
+  prob
   registry
   setdiff
+  str
   token
   timer)
 
@@ -154,6 +159,13 @@ list(APPEND LIBXS_CTEST_PREREQUISITES libxs_test_headeronly)
 # Sample programs which are built by the GNU Make tests/Makefile before running
 # tests/test.sh.  They are either used by shell tests or built as part of the
 # existing sample coverage.
+libxs_add_c_program(libxs_sample_converse samples/converse converse
+  "${PROJECT_SOURCE_DIR}/samples/converse/converse.c"
+  "${PROJECT_SOURCE_DIR}/samples/converse/converse_hier.c"
+  "${PROJECT_SOURCE_DIR}/samples/converse/converse_recomb.c")
+libxs_add_c_program(libxs_sample_summarize samples/converse summarize
+  "${PROJECT_SOURCE_DIR}/samples/converse/summarize.c")
+
 libxs_add_c_program(libxs_sample_fprint samples/fprint fprint
   "${PROJECT_SOURCE_DIR}/samples/fprint/fprint.c")
 
@@ -181,7 +193,11 @@ foreach(name IN ITEMS
     predict_discharge
     predict_soi
     predict_stock
-    predict_crystal)
+    predict_crystal
+    predict_ett
+    predict_prob
+    predict_dist
+    predict_bits)
   libxs_add_c_program("libxs_sample_${name}" samples/predict "${name}"
     "${PROJECT_SOURCE_DIR}/samples/predict/${name}.c")
 endforeach()
@@ -217,6 +233,12 @@ libxs_add_c_program(libxs_sample_scratch samples/scratch scratch
   "${PROJECT_SOURCE_DIR}/samples/scratch/scratch.c")
 libxs_add_fortran_program(libxs_sample_scratchf samples/scratch scratchf
   "${PROJECT_SOURCE_DIR}/samples/scratch/scratch.f")
+
+libxs_add_c_program(libxs_sample_paircnt_dd samples/spatial paircnt_dd
+  "${PROJECT_SOURCE_DIR}/samples/spatial/paircnt_dd.c")
+
+libxs_add_c_program(libxs_sample_tokenizer samples/tokenizer tokenizer
+  "${PROJECT_SOURCE_DIR}/samples/tokenizer/tokenizer.c")
 
 if(LIBXS_FORTRAN)
   libxs_add_fortran_program(libxs_sample_syrk samples/syrk syrk
@@ -352,9 +374,14 @@ set(LIBXS_TEST_ENTRIES
   math.c
   memory.c
   mhd.c
+  mix.c
+  ngram.c
   perm.c
+  prob.c
   registry.c
   setdiff.c
+  str.c
+  token.c
   timer.c
   gemm.sh
   matcpy.sh

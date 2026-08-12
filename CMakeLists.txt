@@ -52,8 +52,8 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 set(CMAKE_SKIP_TEST_ALL_DEPENDENCY FALSE)
 include(CTest)
 
-# Generate include/libxs_version.h
-set(LIBXS_VERSION_HEADER "${LIBXS_INCLUDE_DIR}/libxs_version.h")
+# Generate libxs_version.h in the build tree.
+set(LIBXS_VERSION_HEADER "${PROJECT_BINARY_DIR}/libxs_version.h")
 set(LIBXS_VERSION_SCRIPT "${CMAKE_CURRENT_SOURCE_DIR}/scripts/tool_version.sh")
 
 if(NOT EXISTS "${LIBXS_VERSION_SCRIPT}")
@@ -96,6 +96,7 @@ endif()
 set(LIBXS_PUBLIC_INCLUDE_DIRS
   $<BUILD_INTERFACE:${LIBXS_ROOT_DIR}>
   $<BUILD_INTERFACE:${LIBXS_INCLUDE_DIR}>
+  $<BUILD_INTERFACE:${PROJECT_BINARY_DIR}>
   $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
   $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}/libxs>)
 
@@ -149,7 +150,19 @@ if(BUILD_SHARED_LIBS)
   set(LIBS_PRIVATE "")
 else()
   set(LIBS "\${libdir}/libxs.a")
-  set(LIBS_PRIVATE "Libs.private: -lpthread -ldl")
+  set(LIBS_PRIVATE "Libs.private:")
+  # pkg-config cannot represent CMake targets such as Threads::Threads, so use
+  # the linker flags determined by FindThreads and CMake's platform dl library.
+  if(CMAKE_THREAD_LIBS_INIT)
+    string(APPEND LIBS_PRIVATE " ${CMAKE_THREAD_LIBS_INIT}")
+  endif()
+  foreach(lib IN LISTS CMAKE_DL_LIBS)
+    if(IS_ABSOLUTE "${lib}" OR lib MATCHES "^-")
+      string(APPEND LIBS_PRIVATE " ${lib}")
+    else()
+      string(APPEND LIBS_PRIVATE " -l${lib}")
+    endif()
+  endforeach()
   if(LIBXS_HAS_LIBM)
     string(APPEND LIBS_PRIVATE " -lm")
   endif()
@@ -183,7 +196,7 @@ install(TARGETS libxs
   LIBRARY DESTINATION "${CMAKE_INSTALL_LIBDIR}"
   RUNTIME DESTINATION "${CMAKE_INSTALL_BINDIR}")
 
-# Install public headers (picks up the freshly generated libxs_version.h)
+# Install public headers.
 install(DIRECTORY "${LIBXS_INCLUDE_DIR}/"
   DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/libxs"
   FILES_MATCHING
@@ -192,6 +205,8 @@ install(DIRECTORY "${LIBXS_INCLUDE_DIR}/"
     PATTERN "*.fi"
     PATTERN "*.F"
     PATTERN "libxs_source.h" EXCLUDE)
+install(FILES "${LIBXS_VERSION_HEADER}"
+  DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/libxs")
 
 # Install the optional header-only implementation.
 if(LIBXS_INSTALL_HEADER_ONLY)

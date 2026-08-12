@@ -70,12 +70,15 @@ Use `SSE=0` to compile natively for the build host.
 | SYM      | 0       | Include debug symbols (-g)                  |
 | SSE      | 1       | x86 baseline: 0=native, 1=SSE4.2 (portable) |
 
-CMake is also supported (header-only or library):
+CMake is also supported:
 
 ```bash
-cmake -S . -B build -DLIBXS_HEADER_ONLY=ON
+cmake -S . -B build
 cmake --build build
 ```
+
+To also install the header-only implementation sources, configure with
+`-DLIBXS_INSTALL_HEADER_ONLY=ON`.
 
 ## Installation
 
