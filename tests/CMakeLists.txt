@@ -41,7 +41,6 @@ set(LIBXS_TEST_COMMON_INCLUDES
   "${PROJECT_BINARY_DIR}"
   "${PROJECT_SOURCE_DIR}/src")
 set(LIBXS_SAMPLE_Fortran_MODULE_DIR "${CMAKE_CURRENT_BINARY_DIR}/mod")
-set(LIBXS_CTEST_PREREQUISITES)
 
 file(MAKE_DIRECTORY
   "${LIBXS_TEST_DIR}"
@@ -87,7 +86,6 @@ function(libxs_add_c_program target rel_dir output_name)
   libxs_common_target_setup(${target})
   target_link_libraries(${target} PRIVATE libxs)
   libxs_set_runtime_output(${target} "${rel_dir}" "${output_name}")
-  set(LIBXS_CTEST_PREREQUISITES ${LIBXS_CTEST_PREREQUISITES} ${target} PARENT_SCOPE)
 endfunction()
 
 function(libxs_add_fortran_program target rel_dir output_name)
@@ -105,7 +103,6 @@ function(libxs_add_fortran_program target rel_dir output_name)
       target_link_libraries(${target} PRIVATE OpenMP::OpenMP_Fortran)
     endif()
     libxs_set_runtime_output(${target} "${rel_dir}" "${output_name}")
-    set(LIBXS_CTEST_PREREQUISITES ${LIBXS_CTEST_PREREQUISITES} ${target} PARENT_SCOPE)
   endif()
 endfunction()
 
@@ -144,7 +141,6 @@ foreach(test_name IN LISTS LIBXS_C_TESTS)
     target_link_libraries(${test_target} PRIVATE libxs)
   endif()
   libxs_set_runtime_output(${test_target} "tests" "${test_name}")
-  list(APPEND LIBXS_CTEST_PREREQUISITES ${test_target})
 endforeach()
 
 add_executable(libxs_test_headeronly
@@ -154,7 +150,6 @@ libxs_common_target_setup(libxs_test_headeronly)
 target_compile_definitions(libxs_test_headeronly PRIVATE LIBXS_BLAS_CONST)
 target_link_libraries(libxs_test_headeronly PRIVATE ${LIBXS_PUBLIC_LIBRARIES})
 libxs_set_runtime_output(libxs_test_headeronly "tests" "headeronly")
-list(APPEND LIBXS_CTEST_PREREQUISITES libxs_test_headeronly)
 
 # Sample programs which are built by the GNU Make tests/Makefile before running
 # tests/test.sh.  They are either used by shell tests or built as part of the
@@ -214,7 +209,6 @@ if(LIBXS_FORTRAN)
     "${LIBXS_Fortran_MODULE_DIR}")
   set_target_properties(libxs_sample_jit PROPERTIES
     Fortran_MODULE_DIRECTORY "${LIBXS_SAMPLE_Fortran_MODULE_DIR}")
-  list(APPEND LIBXS_CTEST_PREREQUISITES libxs_sample_jit)
   libxs_add_fortran_program(libxs_sample_gemm_indexf samples/gemm gemm_indexf
     "${PROJECT_SOURCE_DIR}/samples/gemm/gemm_index.f"
     $<TARGET_OBJECTS:libxs_sample_jit>)
@@ -295,7 +289,6 @@ if(BLAS_FOUND AND NOT APPLE)
     ARCHIVE_OUTPUT_DIRECTORY "${LIBXS_OZAKI_DIR}"
     OUTPUT_NAME wrap)
   target_link_libraries(libxs_ozaki_wrap_static PRIVATE libxs ${BLAS_LIBRARIES})
-  list(APPEND LIBXS_CTEST_PREREQUISITES libxs_ozaki_wrap_static)
 
   add_library(libxs_ozaki_wrap_shared SHARED
     $<TARGET_OBJECTS:libxs_ozaki_impl_d>
@@ -307,7 +300,6 @@ if(BLAS_FOUND AND NOT APPLE)
     RUNTIME_OUTPUT_DIRECTORY "${LIBXS_OZAKI_DIR}"
     OUTPUT_NAME wrap)
   target_link_libraries(libxs_ozaki_wrap_shared PRIVATE libxs ${BLAS_LIBRARIES} ${CMAKE_DL_LIBS})
-  list(APPEND LIBXS_CTEST_PREREQUISITES libxs_ozaki_wrap_shared)
 
   function(libxs_add_ozaki_driver target output_name)
     add_executable(${target} "${PROJECT_SOURCE_DIR}/samples/ozaki/gemm.c")
@@ -345,7 +337,6 @@ if(BLAS_FOUND AND NOT APPLE)
       "-Wl,--wrap=zgemm_"
       "-Wl,--wrap=cgemm_")
     libxs_set_runtime_output(${target} "samples/ozaki" "${output_name}")
-    set(LIBXS_CTEST_PREREQUISITES ${LIBXS_CTEST_PREREQUISITES} ${target} PARENT_SCOPE)
   endfunction()
 
   if(LIBXS_HAVE_STATIC_BLAS)
@@ -401,9 +392,3 @@ foreach(test_entry IN LISTS LIBXS_TEST_ENTRIES)
     LABELS libxs)
 endforeach()
 
-add_custom_target(libxs_ctest_prerequisites
-  DEPENDS ${LIBXS_CTEST_PREREQUISITES})
-add_custom_target(libxs-check
-  COMMAND ${CMAKE_CTEST_COMMAND} --output-on-failure
-  DEPENDS libxs_ctest_prerequisites
-  USES_TERMINAL)
