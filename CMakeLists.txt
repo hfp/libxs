@@ -36,6 +36,14 @@ if(LIBXS_FORTRAN)
   enable_language(Fortran)
 endif()
 
+# Set default build type
+if(NOT CMAKE_BUILD_TYPE)
+  set(CMAKE_BUILD_TYPE "RelWithDebInfo")
+  # Set the possible values of build type for cmake-gui
+  set_property(CACHE CMAKE_BUILD_TYPE
+               PROPERTY STRINGS "Debug" "Release" "RelWithDebInfo")
+endif()
+
 message(STATUS "******** Build Summary ********")
 message(STATUS "  CMake version         : ${CMAKE_VERSION}")
 message(STATUS "  System                : ${CMAKE_SYSTEM_NAME}")
