@@ -154,10 +154,38 @@ libxs_set_runtime_output(libxs_test_headeronly "tests" "headeronly")
 # Sample programs which are built by the GNU Make tests/Makefile before running
 # tests/test.sh.  They are either used by shell tests or built as part of the
 # existing sample coverage.
+set(LIBXS_CONVERSE_DIR "${PROJECT_SOURCE_DIR}/samples/converse")
+
+add_library(libxs_sample_converse_core OBJECT
+  "${LIBXS_CONVERSE_DIR}/converse.c")
+add_library(libxs_sample_converse_qa OBJECT
+  "${LIBXS_CONVERSE_DIR}/converse_qa.c"
+  "${LIBXS_CONVERSE_DIR}/converse_recomb.c")
+add_library(libxs_sample_converse_lm OBJECT
+  "${LIBXS_CONVERSE_DIR}/converse_lm.c"
+  "${LIBXS_CONVERSE_DIR}/converse_hier.c")
+
+foreach(target IN ITEMS
+    libxs_sample_converse_core
+    libxs_sample_converse_qa
+    libxs_sample_converse_lm)
+  libxs_common_target_setup(${target})
+endforeach()
+
 libxs_add_c_program(libxs_sample_converse samples/converse converse
-  "${PROJECT_SOURCE_DIR}/samples/converse/converse.c"
-  "${PROJECT_SOURCE_DIR}/samples/converse/converse_hier.c"
-  "${PROJECT_SOURCE_DIR}/samples/converse/converse_recomb.c")
+  "${LIBXS_CONVERSE_DIR}/main_all.c"
+  $<TARGET_OBJECTS:libxs_sample_converse_core>
+  $<TARGET_OBJECTS:libxs_sample_converse_qa>
+  $<TARGET_OBJECTS:libxs_sample_converse_lm>)
+libxs_add_c_program(libxs_sample_converse_qa_exe samples/converse converse-qa
+  "${LIBXS_CONVERSE_DIR}/main_qa.c"
+  $<TARGET_OBJECTS:libxs_sample_converse_core>
+  $<TARGET_OBJECTS:libxs_sample_converse_qa>)
+libxs_add_c_program(libxs_sample_converse_lm_exe samples/converse converse-lm
+  "${LIBXS_CONVERSE_DIR}/main_lm.c"
+  $<TARGET_OBJECTS:libxs_sample_converse_core>
+  $<TARGET_OBJECTS:libxs_sample_converse_lm>)
+
 libxs_add_c_program(libxs_sample_summarize samples/converse summarize
   "${PROJECT_SOURCE_DIR}/samples/converse/summarize.c")
 
