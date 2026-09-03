@@ -979,12 +979,19 @@ LIBXS_INLINE LIBXS_INTRINSICS(LIBXS_X86_AVX512_AMX) void ozaki_panel_i8_amx_fuse
 # define OZAKI_DISPATCH_U8(BUUD_CALL, VNNI_CALL) { VNNI_CALL; }
 #endif
 
+/* Non-zero if the 512-bit VNNI panels may execute (compile-time true if implied by the baseline). */
+#if (LIBXS_X86_AVX512 <= LIBXS_STATIC_TARGET_ARCH)
+# define OZAKI_VNNI512 1
+#else
+# define OZAKI_VNNI512 (LIBXS_X86_AVX512 <= ozaki_target_arch)
+#endif
+
 /* u8*u8 -> s32 GEMM. */
 LIBXS_INLINE void ozaki_gemm_u8u8s32(char transa, char transb, GEMM_INT_TYPE M, GEMM_INT_TYPE N, GEMM_INT_TYPE K,
   const uint8_t* a, GEMM_INT_TYPE lda, const uint8_t* b, GEMM_INT_TYPE ldb, int beta, int32_t* c, GEMM_INT_TYPE ldc)
 {
 #if defined(LIBXS_INTRINSICS_AVX512) && 16 == BLOCK_N && (16 == BLOCK_K || 32 == BLOCK_K || 64 == BLOCK_K)
-  if (N == BLOCK_N && 0 == (K % BLOCK_K)) {
+  if (OZAKI_VNNI512 && N == BLOCK_N && 0 == (K % BLOCK_K)) {
     const __m512i rf_vidx = OZAKI_GATHER_VIDX(ldb);
     GEMM_INT_TYPE kb;
     for (kb = 0; kb < K; kb += BLOCK_K) {
@@ -1012,7 +1019,7 @@ LIBXS_INLINE void ozaki_gemm_s8s8s32(char transa, char transb, GEMM_INT_TYPE M, 
     (dnnl_dim_t)ldb, 0, 0 != beta ? 1.0f : 0.0f, c, (dnnl_dim_t)ldc, &zero);
 #else
 # if defined(LIBXS_INTRINSICS_AVX512) && 16 == BLOCK_N && (16 == BLOCK_K || 32 == BLOCK_K || 64 == BLOCK_K)
-  if (N == BLOCK_N && 0 == (K % BLOCK_K)) {
+  if (OZAKI_VNNI512 && N == BLOCK_N && 0 == (K % BLOCK_K)) {
     const __m512i rf_vidx = OZAKI_GATHER_VIDX(ldb);
     GEMM_INT_TYPE kb;
     for (kb = 0; kb < K; kb += BLOCK_K) {
@@ -1037,7 +1044,7 @@ LIBXS_INLINE void ozaki_gemm_u8u8s32_fused(GEMM_INT_TYPE M, GEMM_INT_TYPE N, GEM
   int beta, int32_t* c, GEMM_INT_TYPE ldc)
 {
 #if defined(LIBXS_INTRINSICS_AVX512) && 16 == BLOCK_N && (16 == BLOCK_K || 32 == BLOCK_K || 64 == BLOCK_K)
-  if (N == BLOCK_N && 0 == (K % BLOCK_K)) {
+  if (OZAKI_VNNI512 && N == BLOCK_N && 0 == (K % BLOCK_K)) {
     const __m512i rf_vidx1 = OZAKI_GATHER_VIDX(ldb1);
     const __m512i rf_vidx2 = OZAKI_GATHER_VIDX(ldb2);
     GEMM_INT_TYPE kb;
@@ -1070,7 +1077,7 @@ LIBXS_INLINE void ozaki_gemm_s8s8s32_fused(GEMM_INT_TYPE M, GEMM_INT_TYPE N, GEM
 {
 #if !defined(__DNNL)
 # if defined(LIBXS_INTRINSICS_AVX512) && 16 == BLOCK_N && (16 == BLOCK_K || 32 == BLOCK_K || 64 == BLOCK_K)
-  if (N == BLOCK_N && 0 == (K % BLOCK_K)) {
+  if (OZAKI_VNNI512 && N == BLOCK_N && 0 == (K % BLOCK_K)) {
     const __m512i rf_vidx1 = OZAKI_GATHER_VIDX(ldb1);
     const __m512i rf_vidx2 = OZAKI_GATHER_VIDX(ldb2);
     GEMM_INT_TYPE kb;

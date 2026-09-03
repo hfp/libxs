@@ -95,7 +95,8 @@ LIBXS_INLINE void gemm_oz1_diff(const char* transa, const char* transb, const GE
     k_perm = (int*)libxs_malloc(gemm_pool, (size_t)K_grp_max * sizeof(int), 0);
   }
 #if defined(LIBXS_INTRINSICS_AVX512) && 16 == BLOCK_N && (16 == BLOCK_K || 32 == BLOCK_K || 64 == BLOCK_K)
-  {
+  /* The packed-B path has no scalar counterpart: b_packed stays NULL without 512-bit VNNI. */
+  if (OZAKI_VNNI512) {
     const GEMM_INT_TYPE N_blocks = LIBXS_UPDIV(N, BLOCK_N);
     b_packed = (int32_t*)libxs_malloc(gemm_pool, (size_t)nslices * N_blocks * (K_grp_pad / 4) * BLOCK_N * sizeof(int32_t), 0);
   }
