@@ -226,16 +226,6 @@
       } \
     } while (0)
 
-# define OZAKI_REFORMAT_B_BSUM_IMPL(VIDX, B, KB, N, BUF, KCHUNK, ONES, BSUM) \
-    do { \
-      int rf_kk_; \
-      for (rf_kk_ = 0; rf_kk_ < (KCHUNK); rf_kk_ += 4) { \
-        const __m512i rf_vb_ = _mm512_i32gather_epi32(VIDX, (const char*)(B) + (KB) + rf_kk_, 1); \
-        _mm512_store_si512((__m512i*)((BUF) + (rf_kk_ >> 2) * (N)), rf_vb_); \
-        (BSUM) = _mm512_dpbusd_epi32(BSUM, ONES, rf_vb_); \
-      } \
-    } while (0)
-
 # define OZAKI_PANEL_REFORMAT_B(B, LDB, KB, N, BUF) \
     OZAKI_REFORMAT_B_IMPL(OZAKI_GATHER_VIDX(LDB), B, KB, N, BUF, BLOCK_K)
 # define OZAKI_PANEL_REFORMAT_B_XOR(B, LDB, KB, N, BUF) \
