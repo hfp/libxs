@@ -241,6 +241,16 @@ LIBXS_EXTERN_C struct libxs_predict_t {
   int hknn_ngroups;
   internal_libxs_predict_cluster_t** hknn_po_clusters;
   double* eval_buf;
+  /**
+   * One block holding every entry's inputs and outputs, ninputs+noutputs
+   * apart. The entry pointers address it rather than owning separate
+   * allocations: a corpus of millions of rows would otherwise pay two
+   * allocations per row, and a single output rounds up to the allocator's
+   * minimum chunk, which costs four times what it stores. Scattered pages
+   * also leave no way to place them, so first touch cannot be controlled.
+   */
+  double* arena;
+  int arena_capacity;
   double* input_min;
   double* input_rng;
   double* input_knot;
@@ -660,7 +670,9 @@ LIBXS_API_INLINE int internal_libxs_predict_fit_knots(libxs_predict_t* model)
 {
   const int m = model->ninputs, p = model->nentries;
   const int last = LIBXS_PREDICT_KNOTS - 1;
-  double* scratch = (double*)malloc((size_t)p * sizeof(double));
+  int scratch_pool = 0;
+  double* scratch = (double*)LIBXS_PREDICT_MALLOC(
+    (size_t)p * sizeof(double), scratch_pool);
   int result = EXIT_SUCCESS;
   free(model->input_knot);
   model->input_knot = (double*)malloc(
@@ -696,7 +708,7 @@ LIBXS_API_INLINE int internal_libxs_predict_fit_knots(libxs_predict_t* model)
     model->input_knot = NULL;
     result = EXIT_FAILURE;
   }
-  free(scratch);
+  LIBXS_PREDICT_FREE(scratch, scratch_pool);
   return result;
 }
 
@@ -1485,15 +1497,10 @@ LIBXS_API void libxs_predict_destroy(libxs_predict_t* model)
     model->escape_w = NULL;
   }
   if (NULL != model) {
-    int i;
     internal_libxs_predict_free_clusters(model);
-    if (NULL != model->entries) {
-      for (i = 0; i < model->nentries; ++i) {
-        free(model->entries[i].inputs);
-        free(model->entries[i].outputs);
-      }
-      free(model->entries);
-    }
+    /* the entries address the arena and own nothing of their own */
+    free(model->entries);
+    free(model->arena);
     free(model->input_min);
     free(model->input_rng);
     free(model->input_knot);
@@ -2312,6 +2319,40 @@ LIBXS_API_INLINE int internal_libxs_predict_grow(libxs_predict_t* model)
 }
 
 
+/**
+ * Address of entry i in the arena, growing it first. Every pointer into the
+ * arena is re-seated afterwards, because realloc is free to move the block and
+ * the entries hold addresses into it rather than offsets.
+ */
+LIBXS_API_INLINE double* internal_libxs_predict_slot(
+  libxs_predict_t* model, int index)
+{
+  const size_t stride = (size_t)model->ninputs + model->noutputs;
+  double* result = NULL;
+  if (0 <= index && index >= model->arena_capacity) {
+    const int grown = (0 < model->arena_capacity)
+      ? (model->arena_capacity * 2) : 64;
+    /* doubling alone does not reach an index that was jumped to */
+    const int newcap = (grown > index) ? grown : (index + 1);
+    double* na = (double*)realloc(model->arena,
+      (size_t)newcap * stride * sizeof(double));
+    if (NULL != na) {
+      int i;
+      model->arena = na;
+      model->arena_capacity = newcap;
+      for (i = 0; i < model->nentries; ++i) {
+        model->entries[i].inputs = na + (size_t)i * stride;
+        model->entries[i].outputs = na + (size_t)i * stride + model->ninputs;
+      }
+    }
+  }
+  if (NULL != model->arena && index < model->arena_capacity) {
+    result = model->arena + (size_t)index * stride;
+  }
+  return result;
+}
+
+
 LIBXS_API_INLINE int internal_libxs_predict_ts_diff_order(
   const libxs_predict_t* model)
 {
@@ -2801,8 +2842,10 @@ LIBXS_API_INLINE void internal_libxs_predict_ts_expand(libxs_predict_t* model)
   const int s = model->nseries;
   const int h = model->noutputs;
   int nts = model->nts, diff_d, w, m, nwindows;
-  int raw_pool = 0;
+  int raw_pool = 0, in_pool = 0, out_pool = 0;
   double* raw;
+  double* inputs;
+  double* outputs;
   int t;
   if (0 >= model->window) {
     const int guess = -model->window;
@@ -2831,11 +2874,15 @@ LIBXS_API_INLINE void internal_libxs_predict_ts_expand(libxs_predict_t* model)
   }
   nwindows = nts - w - h + 1;
   raw = (double*)LIBXS_PREDICT_MALLOC((size_t)s * w * sizeof(double), raw_pool);
-  if (NULL != raw && nwindows > 0) {
-  for (t = 0; t < nwindows; ++t) {
-    double* inputs = (double*)malloc((size_t)m * sizeof(double));
-    double* outputs = (double*)malloc((size_t)h * sizeof(double));
-    if (NULL != inputs && NULL != outputs) {
+  /**
+   * One pair of window buffers for the whole scan rather than a pair per
+   * window: the values are copied into the entry arena, so nothing outlives an
+   * iteration, and a long series would otherwise allocate twice per timestep.
+   */
+  inputs = (double*)LIBXS_PREDICT_MALLOC((size_t)m * sizeof(double), in_pool);
+  outputs = (double*)LIBXS_PREDICT_MALLOC((size_t)h * sizeof(double), out_pool);
+  if (NULL != raw && NULL != inputs && NULL != outputs && nwindows > 0) {
+    for (t = 0; t < nwindows; ++t) {
       int si, i;
       for (si = 0; si < s; ++si) {
         for (i = 0; i < w; ++i) {
@@ -2857,28 +2904,26 @@ LIBXS_API_INLINE void internal_libxs_predict_ts_expand(libxs_predict_t* model)
         outputs[i] = model->ts_buf[(t + w + i) * s + model->target];
       }
       if (EXIT_SUCCESS == internal_libxs_predict_grow(model)) {
+        double* slot = internal_libxs_predict_slot(model, model->nentries);
         internal_libxs_predict_entry_t* e = &model->entries[model->nentries];
-        e->inputs = inputs;
         if (NULL != model->transforms) {
           int j;
           for (j = 0; j < h; ++j) {
             outputs[j] = internal_libxs_predict_fwd(model->transforms[j], outputs[j]);
           }
         }
-        e->outputs = outputs;
-        ++model->nentries;
-      }
-      else {
-        free(inputs);
-        free(outputs);
+        if (NULL != slot) {
+          e->inputs = slot;
+          e->outputs = slot + m;
+          memcpy(e->inputs, inputs, (size_t)m * sizeof(double));
+          memcpy(e->outputs, outputs, (size_t)h * sizeof(double));
+          ++model->nentries;
+        }
       }
     }
-    else {
-      free(inputs);
-      free(outputs);
-    }
   }
-  }
+  LIBXS_PREDICT_FREE(outputs, out_pool);
+  LIBXS_PREDICT_FREE(inputs, in_pool);
   LIBXS_PREDICT_FREE(raw, raw_pool);
 }
 
@@ -2931,9 +2976,10 @@ LIBXS_API_INLINE int internal_libxs_predict_push_impl(
     if (NULL != lock) LIBXS_LOCK_ACQUIRE(LIBXS_LOCK, lock);
     result = internal_libxs_predict_grow(model);
     if (EXIT_SUCCESS == result) {
+      double* slot = internal_libxs_predict_slot(model, model->nentries);
       internal_libxs_predict_entry_t* e = &model->entries[model->nentries];
-      e->inputs = (double*)malloc((size_t)m * sizeof(double));
-      e->outputs = (double*)malloc((size_t)n * sizeof(double));
+      e->inputs = slot;
+      e->outputs = (NULL != slot) ? (slot + m) : NULL;
       if (NULL != e->inputs && NULL != e->outputs) {
         e->weight = weight;
         if (1.0 != weight) model->has_eweight = 1;
@@ -2950,8 +2996,6 @@ LIBXS_API_INLINE int internal_libxs_predict_push_impl(
         ++model->nentries;
       }
       else {
-        free(e->inputs);
-        free(e->outputs);
         e->inputs = NULL;
         e->outputs = NULL;
         result = EXIT_FAILURE;
@@ -5709,20 +5753,41 @@ LIBXS_API void libxs_predict_get(const libxs_predict_t* model, int index,
     }
   }
   else {
-    int c, offset = 0;
-    for (c = 0; c < model->nclusters; ++c) {
+    /**
+     * The index is the position the entry was pushed at, and the partition
+     * does not preserve that order: sorted_idx carries it, so the entry is
+     * looked up through it rather than by counting cluster sizes. Counting
+     * returned whichever entry sat at that position in cluster order, which is
+     * a different entry on any model whose clusters reordered the corpus.
+     * Where sorted_idx is absent the position cannot be recovered at all, and
+     * cluster order is the only thing left to answer with.
+     */
+    int c, offset = 0, found = 0;
+    for (c = 0; c < model->nclusters && 0 == found; ++c) {
       const internal_libxs_predict_cluster_t* cl = &model->clusters[c];
-      if (index < offset + cl->nentries) {
-        const int local = index - offset;
+      int local = -1;
+      if (NULL != cl->sorted_idx) {
+        int k;
+        for (k = 0; k < cl->nentries; ++k) {
+          if (cl->sorted_idx[k] == index) { local = k; break; }
+        }
+      }
+      else if (index < offset + cl->nentries) {
+        local = index - offset;
+      }
+      if (0 <= local) {
+        found = 1;
         if (NULL != inputs) {
           const double* pt = cl->kd_pts + (size_t)local * model->ninputs;
           internal_libxs_predict_denormalize(model, pt, inputs);
           if (NULL != model->decompose_mat) {
-            double* tmp = (double*)malloc((size_t)model->ninputs * sizeof(double));
+            int tmp_pool = 0;
+            double* tmp = (double*)LIBXS_PREDICT_MALLOC(
+              (size_t)model->ninputs * sizeof(double), tmp_pool);
             if (NULL != tmp) {
               memcpy(tmp, inputs, (size_t)model->ninputs * sizeof(double));
               internal_libxs_predict_decompose_inverse(model, tmp, inputs);
-              free(tmp);
+              LIBXS_PREDICT_FREE(tmp, tmp_pool);
             }
           }
         }
@@ -5730,7 +5795,6 @@ LIBXS_API void libxs_predict_get(const libxs_predict_t* model, int index,
           memcpy(outputs, cl->raw_outputs + (size_t)local * model->noutputs,
             (size_t)model->noutputs * sizeof(double));
         }
-        break;
       }
       offset += cl->nentries;
     }

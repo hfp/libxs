@@ -92,6 +92,11 @@ LIBXS_API_INLINE int internal_libxs_predict_load_entries(libxs_predict_t* model)
     else {
       int c, k;
       model->capacity = p;
+      /* sized once: the entries are filled in cluster order, and every growth
+         would otherwise re-seat all of them again */
+      if (NULL == internal_libxs_predict_slot(model, p - 1)) {
+        result = EXIT_FAILURE;
+      }
       for (c = 0; c < model->nclusters && EXIT_SUCCESS == result; ++c) {
         const internal_libxs_predict_cluster_t* cl = &model->clusters[c];
         if (NULL == cl->sorted_idx || NULL == cl->kd_pts
@@ -106,10 +111,9 @@ LIBXS_API_INLINE int internal_libxs_predict_load_entries(libxs_predict_t* model)
           }
           else {
             internal_libxs_predict_entry_t* e = &model->entries[gi];
-            free(e->inputs);
-            free(e->outputs);
-            e->inputs = (double*)malloc((size_t)m * sizeof(double));
-            e->outputs = (double*)malloc((size_t)n * sizeof(double));
+            double* slot = internal_libxs_predict_slot(model, gi);
+            e->inputs = slot;
+            e->outputs = (NULL != slot) ? (slot + m) : NULL;
             if (NULL == e->inputs || NULL == e->outputs) {
               result = EXIT_FAILURE;
             }

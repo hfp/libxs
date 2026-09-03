@@ -144,20 +144,28 @@ LIBXS_API_INLINE void internal_libxs_predict_compress(
         { internal_libxs_predict_entry_t* old_entries = model->entries;
           const int old_p = model->nentries;
           int dst = 0;
+          /**
+           * The values move with the entry rather than the entry keeping a
+           * pointer to where it used to be: the entries address one arena, so
+           * leaving slot i occupied by entry dst would let the next push write
+           * over a slot that is still read.
+           */
+          const size_t stride = (size_t)m + n;
           for (i = 0; i < old_p; ++i) {
             if (0 != keep[i]) {
               if (NULL != remap) remap[i] = dst;
               if (dst != i) {
-                old_entries[dst] = old_entries[i];
+                double* to = model->arena + (size_t)dst * stride;
+                memmove(to, model->arena + (size_t)i * stride,
+                  stride * sizeof(double));
+                old_entries[dst].weight = old_entries[i].weight;
+                old_entries[dst].inputs = to;
+                old_entries[dst].outputs = to + m;
                 model->assignments[dst] = model->assignments[i];
               }
               ++dst;
             }
-            else {
-              if (NULL != remap) remap[i] = -1;
-              free(old_entries[i].inputs);
-              free(old_entries[i].outputs);
-            }
+            else if (NULL != remap) remap[i] = -1;
           }
           model->nentries = dst;
         }
