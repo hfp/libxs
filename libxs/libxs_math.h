@@ -541,7 +541,7 @@ LIBXS_API_INLINE libxs_f16_t libxs_round_f16_f32(float x) {
 #if defined(LIBXS_F16)
   libxs_f16_t out;
   LIBXS_PRAGMA_LOSSY
-  LIBXS_UNION_ASSIGN(libxs_f16_t, out, _Float16, (_Float16)x);
+  LIBXS_UNION_ASSIGN(libxs_f16_t, out, _Float16, (LIBXS_EXTENSION (_Float16)x));
   LIBXS_PRAGMA_LOSSY_END
   return out;
 #else
@@ -593,7 +593,7 @@ LIBXS_API_INLINE libxs_f16_t libxs_round_f16_f32(float x) {
 /** Expand an IEEE FP16 encoding to single precision (exact). */
 LIBXS_API_INLINE float libxs_f16_to_f32(libxs_f16_t v) {
 #if defined(LIBXS_F16)
-  _Float16 h;
+  LIBXS_EXTENSION _Float16 h;
   float out;
   LIBXS_UNION_ASSIGN(_Float16, h, libxs_f16_t, v);
   out = (float)h;
@@ -605,16 +605,15 @@ LIBXS_API_INLINE float libxs_f16_to_f32(libxs_f16_t v) {
   uint32_t bits;
   float out;
   if (0 == exp16) {
-    if (0 == mant16) {
-      bits = sign;
-    }
-    else {
-      int e = -1;
-      uint32_t m = mant16;
-      do { m <<= 1; ++e; } while (0 == (m & 0x400U));
-      bits = sign | ((uint32_t)(127 - 15 - e) << 23)
-        | ((m & 0x3FFU) << 13);
-    }
+    /**
+     * Zero or subnormal, whose value is mant16 * 2^-24 exactly, so the multiply
+     * normalizes it. Loop-free on purpose: a normalization loop here prevents a
+     * caller's SIMD loop from vectorizing, which is the whole point of FP16
+     * storage.
+     */
+    LIBXS_UNION_ASSIGN(uint32_t, bits, float,
+      (float)mant16 * 5.9604644775390625e-08f);
+    bits |= sign;
   }
   else if (0x1FU == exp16) {
     bits = sign | 0x7F800000U | (mant16 << 13);
@@ -633,7 +632,7 @@ LIBXS_API_INLINE libxs_f16_t libxs_round_f16(double x) {
 #if defined(LIBXS_F16)
   libxs_f16_t out;
   LIBXS_PRAGMA_LOSSY
-  LIBXS_UNION_ASSIGN(libxs_f16_t, out, _Float16, (_Float16)x);
+  LIBXS_UNION_ASSIGN(libxs_f16_t, out, _Float16, (LIBXS_EXTENSION (_Float16)x));
   LIBXS_PRAGMA_LOSSY_END
   return out;
 #else
@@ -645,12 +644,52 @@ LIBXS_API_INLINE libxs_f16_t libxs_round_f16(double x) {
 /** Expand an IEEE FP16 encoding to double (exact). */
 LIBXS_API_INLINE double libxs_f16_to_f64(libxs_f16_t v) {
 #if defined(LIBXS_F16)
-  _Float16 h;
+  LIBXS_EXTENSION _Float16 h;
   LIBXS_UNION_ASSIGN(_Float16, h, libxs_f16_t, v);
   return (double)h;
 #else
   return (double)libxs_f16_to_f32(v);
 #endif
+}
+
+/**
+ * Block conversions between a 16-bit storage format and FP32.
+ *
+ * A caller whose compute loop mixes the two widths does not vectorize: one
+ * vector length has to serve both, and a strided 16-bit access is taken for a
+ * gather. Converting a contiguous run into scratch first splits the loop into
+ * one that widens and one that computes, and both then vectorize.
+ */
+LIBXS_API_INLINE void libxs_bf16_to_f32_block(float* dst,
+  const libxs_bf16_t* src, size_t n)
+{
+  size_t i;
+  LIBXS_PRAGMA_SIMD
+  for (i = 0; i < n; ++i) dst[i] = libxs_bf16_to_f32(src[i]);
+}
+
+LIBXS_API_INLINE void libxs_round_bf16_f32_block(libxs_bf16_t* dst,
+  const float* src, size_t n)
+{
+  size_t i;
+  LIBXS_PRAGMA_SIMD
+  for (i = 0; i < n; ++i) dst[i] = libxs_round_bf16_f32(src[i]);
+}
+
+LIBXS_API_INLINE void libxs_f16_to_f32_block(float* dst,
+  const libxs_f16_t* src, size_t n)
+{
+  size_t i;
+  LIBXS_PRAGMA_SIMD
+  for (i = 0; i < n; ++i) dst[i] = libxs_f16_to_f32(src[i]);
+}
+
+LIBXS_API_INLINE void libxs_round_f16_f32_block(libxs_f16_t* dst,
+  const float* src, size_t n)
+{
+  size_t i;
+  LIBXS_PRAGMA_SIMD
+  for (i = 0; i < n; ++i) dst[i] = libxs_round_f16_f32(src[i]);
 }
 
 /**

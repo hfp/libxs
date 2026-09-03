@@ -252,24 +252,27 @@
 /**
  * Native BF16 type.
  * GCC 13+/Clang 15+ provide __bf16 as a scalar storage+conversion type.
- * LIBXS_BF16 is defined when the __bf16 type is available.
+ * LIBXS_BF16 is defined when that type is available AND the hardware converts:
+ * without the instruction, (float)__bf16 goes through libgcc, which measured
+ * 9.3x slower than the portable shift and keeps a caller's loop from
+ * vectorizing. The two agree bit-for-bit, hence the choice is performance only.
  */
 #if !defined(LIBXS_BF16)
-# if defined(__BFLT16_MANT_DIG__)
+# if defined(__BFLT16_MANT_DIG__) && (defined(__AVX512BF16__) \
+   || defined(__ARM_FEATURE_BF16) || defined(__ARM_FEATURE_BF16_VECTOR_ARITHMETIC))
 #   define LIBXS_BF16
 # endif
 #endif
 
 /**
  * Native IEEE half type.
- * GCC 12+/Clang provide _Float16 as a scalar storage+conversion type.
- * LIBXS_F16 is defined when _Float16 is available AND usable without a
- * pedantic diagnostic: _Float16 is a C23 type (unlike the __bf16 extension
- * spelling), so strict-ANSI modes below C23 fall back to the portable path.
+ * GCC 12+/Clang provide _Float16 as a scalar storage+conversion type. It is a
+ * C23 type, hence every use carries LIBXS_EXTENSION so that a strict-ANSI mode
+ * below C23 keeps the hardware conversion rather than falling back: the
+ * portable path measured 2.4x slower and does not vectorize.
  */
 #if !defined(LIBXS_F16)
-# if defined(__FLT16_MANT_DIG__) && (!defined(__STRICT_ANSI__) || \
-     (defined(__STDC_VERSION__) && 202311L <= __STDC_VERSION__))
+# if defined(__FLT16_MANT_DIG__)
 #   define LIBXS_F16
 # endif
 #endif
@@ -1052,7 +1055,7 @@
 /** Assign SRC to DST via a union with explicit member types. */
 #if !defined(LIBXS_UNION_ASSIGN)
 # define LIBXS_UNION_ASSIGN(DST_TYPE, DST, SRC_TYPE, SRC) do { \
-    union { DST_TYPE dst; SRC_TYPE src; } libxs_union_assign_u_; \
+    LIBXS_EXTENSION union { DST_TYPE dst; SRC_TYPE src; } libxs_union_assign_u_; \
     LIBXS_ASSERT(sizeof(DST) == sizeof(libxs_union_assign_u_.dst)); \
     LIBXS_ASSERT(sizeof(libxs_union_assign_u_.dst) == sizeof(libxs_union_assign_u_.src)); \
     libxs_union_assign_u_.src = (SRC); \
