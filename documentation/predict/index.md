@@ -217,22 +217,25 @@ so that split holds out the largest shapes. The others use `mix`.
 
 | Same split, same metric             | Ours      | XGBoost   |
 | ----------------------------------- | --------: | --------: |
-| Crystals, precision at 58% coverage | 94.3%     | 94.3%     |
-| Earthquakes, MAE                    | 0.241     | 0.237     |
-| ETTh1, MSE at window 6              | 0.245     | **0.225** |
-| ETTh1, MSE at window 96             | **0.320** | 0.436     |
+| Crystals, accuracy (all queries)    | **82.3%** | 78.3%     |
+| Crystals, precision at ~47% coverage| **96.8%** | 96.5%     |
+| Earthquakes, MAE                    | 0.237     | 0.237     |
+| ETTh1, MSE at window 6 †            | 0.245     | **0.225** |
+| ETTh1, MSE at window 96 †           | **0.320** | 0.436     |
 
 Window choice moves more than the model choice does —  
 and our sizer picks 6 over the conventional 96.
 
 Note: crystal rows come from a gate sweep (`GATE=...`), not one threshold - at
-the single 0.9 gate it reads 95.2%/53.4% against 98.5%/20.3%, which looks like a
-calibration gap and is two points on one curve. Above 0.95 ours saturates: 38% of
-queries sit at conf >= 0.99 with no precision left to buy. Earthquakes: 0.254 if
-the boosted objective is left unaligned to the MAE metric, which alone inverts
-the result. ETT: boosting doubles its error going 6 to 96 lags where we lose 31%,
-so it is the more sensitive to irrelevant lags; a fingerprint-chosen window has
-no counterpart on that side short of an external grid search.
+the single 0.9 gate it reads 96.4%/52.3% against 98.6%/19.9%, which looks like a
+calibration gap and is two points on one curve. Boosting is the sharper signal
+and much the more conservative: it leads on precision at every gate but always at
+a fraction of the coverage, and the ordering reverses wherever the coverage is
+useful (at ~70% coverage 93.8% against 90.2%). It overtakes only below ~35%
+coverage, reaching 100% at 1.8%. Earthquakes: 0.254 if the boosted objective is
+left unaligned to the MAE metric, which alone inverts the result. † ETT rows were
+not re-measured in the latest campaign: that run produced no output at all, so
+the boosted side of those two rows is older than the rest of the table.
 
 ---
 
@@ -241,11 +244,13 @@ no counterpart on that side short of an external grid search.
 `set_decompose(LIBXS_PREDICT_AUTO_DECOMPOSE)` builds each applicable mode on part
 of the corpus and keeps the one that wins on a part held back.
 
-| Corpus                          | Default (RAW) | Selected  | Selected mode |
-| ------------------------------- | ------------: | --------: | ------------- |
-| Crystals, held-out accuracy     |         67.8% | **79.6%** |          RF   |
-| River discharge, MAE            |           868 |   **791** |          hkNN |
-| Tuned GPU parameters, miss rate |         0.306 | **0.253** |          RF   |
+| Corpus                            | Default (RAW) | Selected  | Selected mode |
+| --------------------------------- | ------------: | --------: | ------------- |
+| Crystals, held-out accuracy       |         73.3% | **82.3%** |          RF   |
+| River discharge, MAE ‡            |           868 |   **791** |          hkNN |
+| Tuned GPU parameters, miss rate ‡ |         0.306 | **0.253** |          RF   |
+
+‡ not re-measured in the latest campaign; the crystal row is current.
 
 A fixed default costs 22% on average, and the worst candidate on discharge is
 2.8x worse than the best - the right mode moves with the corpus.
@@ -267,11 +272,15 @@ that averaging is what makes the estimate stable.
 `set_neighbors(-1)` resolves the count per output at build, on entries held back
 from a probe build.
 
-| Corpus                          | Derived count | Selected   | Change |
-| ------------------------------- | ------------: | ---------: | -----: |
-| Crystals, held-out accuracy     |         67.8% |  **74.8%** | +10.4% |
-| Crystals, miss rate             |        0.3223 | **0.2520** | -21.8% |
-| Tuned GPU parameters, miss rate |        0.3062 | **0.2826** |  -7.7% |
+| Corpus                            | Derived count | Selected   | Change |
+| --------------------------------- | ------------: | ---------: | -----: |
+| Crystals, held-out accuracy ‡     |         67.8% |  **74.8%** | +10.4% |
+| Crystals, miss rate ‡             |        0.3223 | **0.2520** | -21.8% |
+| Tuned GPU parameters, miss rate ‡ |        0.3062 | **0.2826** |  -7.7% |
+
+‡ not re-measured. The count is now also refused where its confidence cannot
+vary: one neighbour votes unanimously whatever it holds, which pins the
+confidence at 1.0 and leaves a gate nothing to select on.
 
 The derived `max(5, cluster/3)` is too large everywhere, and the right count is
 not a function of cluster size: hold the cluster at 56 entries and vary only the
@@ -295,10 +304,10 @@ serves the whole grid.
 | -------------- | -------------------------: | --------------: | ------------------------ |
 | ETT\*\* (H=96) | MSE 0.244                  | 0.370–0.449     | 0 parameters, 1 CPU core |
 | Sunspots       | MAE 16.8 (20.3 at t+6)     | MAE 19.8–45.5   | 1.0 (dense cycles)       |
-| Discharge      | 0.22 err/σ                 | 0.10–0.47 err/σ | 1.0 (seasonal)           |
+| Discharge      | 0.18 err/σ                 | 0.10–0.47 err/σ | 1.0 (seasonal)           |
 | SOI\*          | nRMSE 0.11 (0.07 hKNN)     | 0.23–0.55       | 1.0 (spread modes)       |
-| Earthquakes    | MAE 0.249 (0.241 hKNN)     | 0.184–0.283     | 0.702 (ambiguous)        |
-| Crystals       | 79.6% → 95.2% (conf ≥ 0.9) | ≈75–80%         | 53% gated coverage       |
+| Earthquakes    | MAE 0.237 (0.244 flat kNN) | 0.184–0.283     | 0.955 (ambiguous)        |
+| Crystals       | 82.3% → 96.4% (conf ≥ 0.9) | ≈75–80%         | 52% gated coverage       |
 
 Confidence separates dense-coverage domains from genuinely ambiguous
 ones.  Literature comparisons are orienting — different features, splits,
