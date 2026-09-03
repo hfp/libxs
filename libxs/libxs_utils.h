@@ -48,7 +48,7 @@
 #   define LIBXS_INTRINSICS_INCLUDE
   /* AVX-512 + AVX-VNNI-INT8: compiler defines __AVXVNNIINT8__ (GCC >= 12, Clang >= 16) */
 # elif defined(__AVX512F__) && defined(__AVX512CD__) \
-   &&   defined(__AVX512DQ__) && defined(__AVX512BW__) && defined(__AVX512VL__) \
+   &&   defined(__AVX512DQ__) && defined(__AVX512BW__) && defined(__AVX512VL__) && defined(__AVX512VNNI__) \
    &&   defined(__AVX2__) && defined(__FMA__) && defined(__AVX__) && defined(__SSE4_2__) && defined(__SSE4_1__) && defined(__SSE3__) \
    &&   defined(__AVXVNNIINT8__) \
    && (!defined(__GNUC__)  || defined(__clang__) || defined(LIBXS_INTEL_COMPILER) || defined(_CRAYC) \
@@ -58,9 +58,9 @@
 #     define LIBXS_STATIC_TARGET_ARCH LIBXS_X86_AVX512_INT8
 #   endif
 #   define LIBXS_INTRINSICS_INCLUDE
-  /* AVX-512 baseline: avx512f+cd+dq+bw+vl+vnni */
+  /* AVX-512 baseline: avx512f+cd+dq+bw+vl+vnni (Skylake-SP lacks VNNI and falls through to AVX2) */
 # elif defined(__AVX512F__)  && defined(__AVX512CD__) \
-   &&   defined(__AVX512DQ__) && defined(__AVX512BW__) && defined(__AVX512VL__) \
+   &&   defined(__AVX512DQ__) && defined(__AVX512BW__) && defined(__AVX512VL__) && defined(__AVX512VNNI__) \
    &&   defined(__AVX2__) && defined(__FMA__) && defined(__AVX__) && defined(__SSE4_2__) && defined(__SSE4_1__) && defined(__SSE3__) \
    && (!defined(__GNUC__)  || defined(__clang__) || defined(LIBXS_INTEL_COMPILER) || defined(_CRAYC) \
                            || (LIBXS_VERSION2(8, 0) <= LIBXS_VERSION2(__GNUC__, __GNUC_MINOR__))) \
