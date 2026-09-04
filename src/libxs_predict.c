@@ -3209,61 +3209,76 @@ LIBXS_API_INLINE int internal_libxs_predict_build_impl(libxs_predict_t* model,
     if (NULL != tenv) model->tangent = atoi(tenv);
     if (NULL != renv) model->refine = atoi(renv);
   }
-  if (NULL != model && 0 < model->nts && 0 == model->nentries) {
-    internal_libxs_predict_ts_expand(model);
-  }
-  if (NULL != model && 0 < model->nentries) {
-    internal_libxs_predict_missing_all(model);
-    /**
-     * Absent inputs are known by now and the window, if it was requested by
-     * sentinel, is resolved, so a mode that cannot apply can be ruled out
-     * before any of them is built.
-     */
-    if (0 > model->decompose) {
-      const char* fenv = getenv("LIBXS_PREDICT_DECOMPOSE_FOLDS");
-      model->decompose = internal_libxs_predict_decompose_select(model,
-        (NULL != fenv) ? atoi(fenv) : 0);
-    }
-    /**
-     * A tree reads one coordinate per node and has nowhere to record which way
-     * an absent one should go, so it would sort NaN into an arbitrary side and
-     * build a tree on it. Imputing instead would work at build and not survive
-     * a round trip, because the medians are not recoverable from what is
-     * serialized. A rotation is refused for a different reason, given at
-     * internal_libxs_predict_gaps_ok. Refusing is the only option here that
-     * cannot mislead: the alternative is a model that silently answers from a
-     * coordinate it never had.
-     */
-    if (0 != model->has_missing
-      && 0 == internal_libxs_predict_gaps_ok(model->decompose))
-    {
-      result = EXIT_FAILURE;
-    }
-  }
-  if (EXIT_SUCCESS == result
-    && NULL != model && 0 < model->nentries && NULL == model->decompose_mat
-    && (LIBXS_PREDICT_PCA == model->decompose
-      || (LIBXS_PREDICT_SPREAD == model->decompose && model->nseries >= 2)))
-  {
-    internal_libxs_predict_pca_build(model);
-  }
   /**
-   * The scan above ran before the decomposition rewrote the entries, so it
-   * cannot speak for what they hold now. A mode that reached this point is one
-   * that carries gaps, and a gap it was given survives as a gap; a NaN that
-   * appears here instead was manufactured, and the distance must be told either
-   * way rather than treating it as a coordinate.
+   * Everything from here to the partition is the builder's. It rewrites the
+   * corpus - an expanded series, a rotation - and resolves what every later
+   * stage reads: the mode, the absences, the feature weights. Each test below
+   * also reads exactly what its own stage writes, so none of them may carry a
+   * rendezvous; the single one after the region can, and the verdict is
+   * published because a task that ran none of this cannot form its own.
    */
-  if (EXIT_SUCCESS == result && NULL != model && 0 < model->nentries) {
-    internal_libxs_predict_missing_all(model);
-  }
-  if (NULL != model && 0 < model->nentries && NULL == model->weights) {
-    if (LIBXS_PREDICT_SETDIFF == model->decompose) {
-      internal_libxs_predict_setdiff_build(model);
+  if (0 == tid) {
+    if (NULL != model && 0 < model->nts && 0 == model->nentries) {
+      internal_libxs_predict_ts_expand(model);
     }
-    else if (LIBXS_PREDICT_FISHER == model->decompose) {
-      internal_libxs_predict_fisher_build(model);
+    if (NULL != model && 0 < model->nentries) {
+      internal_libxs_predict_missing_all(model);
+      /**
+       * Absent inputs are known by now and the window, if it was requested by
+       * sentinel, is resolved, so a mode that cannot apply can be ruled out
+       * before any of them is built.
+       */
+      if (0 > model->decompose) {
+        const char* fenv = getenv("LIBXS_PREDICT_DECOMPOSE_FOLDS");
+        model->decompose = internal_libxs_predict_decompose_select(model,
+          (NULL != fenv) ? atoi(fenv) : 0);
+      }
+      /**
+       * A tree reads one coordinate per node and has nowhere to record which way
+       * an absent one should go, so it would sort NaN into an arbitrary side and
+       * build a tree on it. Imputing instead would work at build and not survive
+       * a round trip, because the medians are not recoverable from what is
+       * serialized. A rotation is refused for a different reason, given at
+       * internal_libxs_predict_gaps_ok. Refusing is the only option here that
+       * cannot mislead: the alternative is a model that silently answers from a
+       * coordinate it never had.
+       */
+      if (0 != model->has_missing
+        && 0 == internal_libxs_predict_gaps_ok(model->decompose))
+      {
+        result = EXIT_FAILURE;
+      }
     }
+    if (EXIT_SUCCESS == result
+      && NULL != model && 0 < model->nentries && NULL == model->decompose_mat
+      && (LIBXS_PREDICT_PCA == model->decompose
+        || (LIBXS_PREDICT_SPREAD == model->decompose && model->nseries >= 2)))
+    {
+      internal_libxs_predict_pca_build(model);
+    }
+    /**
+     * The scan above ran before the decomposition rewrote the entries, so it
+     * cannot speak for what they hold now. A mode that reached this point is one
+     * that carries gaps, and a gap it was given survives as a gap; a NaN that
+     * appears here instead was manufactured, and the distance must be told either
+     * way rather than treating it as a coordinate.
+     */
+    if (EXIT_SUCCESS == result && NULL != model && 0 < model->nentries) {
+      internal_libxs_predict_missing_all(model);
+    }
+    if (NULL != model && 0 < model->nentries && NULL == model->weights) {
+      if (LIBXS_PREDICT_SETDIFF == model->decompose) {
+        internal_libxs_predict_setdiff_build(model);
+      }
+      else if (LIBXS_PREDICT_FISHER == model->decompose) {
+        internal_libxs_predict_fisher_build(model);
+      }
+    }
+    if (NULL != model) model->sync_result = result;
+  } /* end of the builder's preparation of the corpus */
+  if (NULL != model) {
+    internal_libxs_predict_sync(model, ntasks);
+    result = (int)model->sync_result;
   }
   if (EXIT_SUCCESS == result && NULL != model && 0 < model->nentries
     && LIBXS_PREDICT_HKNN == model->decompose
