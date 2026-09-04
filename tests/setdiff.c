@@ -70,8 +70,8 @@ int main(void)
       exit(EXIT_FAILURE);
     }
   }
-  /* empty vectors */
-  { double a[] = {1.0};
+  /* empty vectors (the buffer still holds the claimed count) */
+  { double a[] = {1.0, 2.0};
     if (0 != libxs_setdiff(LIBXS_DATATYPE_F64, a, 0, a, 0, 0.0)) {
       FPRINTF(stderr, "ERROR line #%i: F64 empty-empty\n", __LINE__);
       exit(EXIT_FAILURE);
