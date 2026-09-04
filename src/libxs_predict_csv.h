@@ -102,10 +102,34 @@ LIBXS_API int libxs_predict_load_csv(libxs_predict_t* model,
   const char inputs[], const char outputs[],
   char header[], int header_size, char* delim_out)
 {
+  libxs_predict_csv_t opts;
+  memset(&opts, 0, sizeof(opts));
+  opts.delims = delims;
+  opts.inputs = inputs;
+  opts.outputs = outputs;
+  opts.header = header;
+  opts.header_size = header_size;
+  opts.delim_out = delim_out;
+  return libxs_predict_load_csv_opts(model, filename, &opts);
+}
+
+
+LIBXS_API int libxs_predict_load_csv_opts(libxs_predict_t* model,
+  const char filename[], const libxs_predict_csv_t* opts)
+{
   int result = -1;
   FILE* file;
   const int ninputs = model->ninputs;
   const int noutputs = model->noutputs;
+  const char* delims = (NULL != opts) ? opts->delims : NULL;
+  const char* inputs = (NULL != opts) ? opts->inputs : NULL;
+  const char* outputs = (NULL != opts) ? opts->outputs : NULL;
+  char* header = (NULL != opts) ? opts->header : NULL;
+  const int header_size = (NULL != opts) ? opts->header_size : 0;
+  char* delim_out = (NULL != opts) ? opts->delim_out : NULL;
+  const int nrows = (NULL != opts) ? opts->nrows : 0;
+  const int nskip = (NULL != opts && 0 < opts->offset) ? opts->offset : 0;
+  const int stride = (NULL != opts && 1 < opts->stride) ? opts->stride : 1;
   LIBXS_ASSERT(NULL != model && NULL != filename);
   file = fopen(filename, "r");
   if (NULL != file) {
@@ -216,18 +240,27 @@ LIBXS_API int libxs_predict_load_csv(libxs_predict_t* model,
     if (NULL != delim_out) {
       *delim_out = sep[0];
     }
-    while (NULL != fgets(line, (int)sizeof(line), file)) {
-      size_t len;
-      if ('#' == line[0]) continue;
-      len = strlen(line);
-      while (0 < len && ('\n' == line[len - 1] || '\r' == line[len - 1])) line[--len] = '\0';
-      if (0 != internal_libxs_predict_parse_row(line, sep, idx, ninputs, inp,
-          model->missing_mode)
-        && 0 != internal_libxs_predict_parse_row(line, sep, idx + ninputs,
-          noutputs, outp, 0))
+    { int nadmit = 0; /* admissible rows seen, which stride/offset count */
+      while ((0 >= nrows || result < nrows)
+        && NULL != fgets(line, (int)sizeof(line), file))
       {
-        if (EXIT_SUCCESS == libxs_predict_push(NULL, model, inp, outp)) {
-          ++result;
+        size_t len;
+        if ('#' == line[0]) continue;
+        len = strlen(line);
+        while (0 < len && ('\n' == line[len - 1] || '\r' == line[len - 1])) line[--len] = '\0';
+        if (0 != internal_libxs_predict_parse_row(line, sep, idx, ninputs, inp,
+            model->missing_mode)
+          && 0 != internal_libxs_predict_parse_row(line, sep, idx + ninputs,
+            noutputs, outp, 0))
+        {
+          const int taken = (nadmit >= nskip)
+            && (0 == ((nadmit - nskip) % stride));
+          ++nadmit;
+          if (0 != taken
+            && EXIT_SUCCESS == libxs_predict_push(NULL, model, inp, outp))
+          {
+            ++result;
+          }
         }
       }
     }

@@ -465,7 +465,13 @@ LIBXS_API int libxs_predict_save(const libxs_predict_t* model, void* buffer, siz
       WRITE_U16(model->nderiv);
       WRITE_U8(model->eval_mode);
       WRITE_U8(model->diff_order);
-      WRITE_U8(model->refine);
+      /**
+       * Biased by one so the unsigned field can carry the confidence-gated
+       * default (-1). It also makes a file written before 0 meant "off" decode
+       * to that default rather than to off: every such file stored 0, because
+       * the setting had no other value and the default was 0 at the time.
+       */
+      WRITE_U8(LIBXS_CLMP(model->refine + 1, 0, 255));
       WRITE_U8(NULL != model->decompose_mat ? 1 : 0);
       WRITE_U8(has_sidx);
       /* introduced with version 2; an older file simply has no weights */
@@ -1157,7 +1163,7 @@ LIBXS_API libxs_predict_t* libxs_predict_load(const void* buffer, size_t size)
         model->nderiv = (int)ts_nderiv;
         model->eval_mode = (int)eval_mode;
         model->diff_order = (int)diff_order;
-        model->refine = (int)refine;
+        model->refine = (int)refine - 1; /* biased on write, see the writer */
         model->order = (int)order;
         model->iterations = (int)iterations;
         if (0 != diff_order) model->diff_mode = (int)diff_order;

@@ -1467,6 +1467,8 @@ LIBXS_API libxs_predict_t* libxs_predict_create(int ninputs, int noutputs)
       model->eval_mode = LIBXS_PREDICT_AUTO;
       model->diff_mode = -1;
       model->nbank = 1;
+      /* refinement is confidence-gated by default; 0 means off */
+      model->refine = -1;
     }
   }
   return model;
@@ -3035,6 +3037,24 @@ LIBXS_API int libxs_predict_push_weighted(
 }
 
 
+/* whether any cluster fits any output with a polynomial */
+LIBXS_API_INLINE int internal_libxs_predict_interpolates(
+  const libxs_predict_t* model)
+{
+  int result = 0, c;
+  for (c = 0; c < model->nclusters && 0 == result; ++c) {
+    const internal_libxs_predict_cluster_t* cl = &model->clusters[c];
+    if (NULL != cl->interpolated) {
+      int j;
+      for (j = 0; j < model->noutputs && 0 == result; ++j) {
+        if (0 != cl->interpolated[j]) result = 1;
+      }
+    }
+  }
+  return result;
+}
+
+
 LIBXS_API_INLINE double internal_libxs_predict_order_fn(
   double x, const void* data)
 {
@@ -3170,11 +3190,25 @@ LIBXS_API_INLINE int internal_libxs_predict_build_impl(libxs_predict_t* model,
     ctx.model = model;
     ctx.nclusters = nclusters;
     ctx.collective = collective;
-    for (ord = 1; ord <= max_ord; ++ord) {
-      const double err = internal_libxs_predict_order_fn((double)ord, &ctx);
-      if (err < best_err) { best_err = err; best_ord = ord; }
+    ord = 1;
+    best_err = internal_libxs_predict_order_fn((double)ord, &ctx);
+    /**
+     * The order is the degree of the polynomial an interpolate-mode output is
+     * fitted with, so a corpus where every output classifies cannot be told
+     * apart by it: the remaining candidates would rebuild the model and score
+     * an identical answer. Trying order 1 first makes that decidable after one
+     * build rather than eight, which is the difference between one build and
+     * nine on any corpus carrying a discrete label - and the search selected
+     * order 1 there anyway, so nothing is given up.
+     */
+    if (0 != internal_libxs_predict_interpolates(model)) {
+      for (ord = 2; ord <= max_ord; ++ord) {
+        const double err = internal_libxs_predict_order_fn((double)ord, &ctx);
+        if (err < best_err) { best_err = err; best_ord = ord; }
+      }
+      ord = max_ord;
     }
-    model->iterations = max_ord;
+    model->iterations = ord;
     result = internal_libxs_predict_build_impl(model, nclusters, best_ord,
       quality, collective);
   }
@@ -3183,6 +3217,12 @@ LIBXS_API_INLINE int internal_libxs_predict_build_impl(libxs_predict_t* model,
     const int m = model->ninputs;
     const int n = model->noutputs;
     int c, i;
+    /* entries bucketed by cluster, so collecting a cluster's members is a
+       lookup rather than a scan over all entries (that scan made build
+       O(p*nclusters), hence superlinear at the default nclusters = sqrt(p)) */
+    int pool_bucket = 0, pool_cbegin = 0;
+    int* bucket = NULL;
+    int* cbegin = NULL;
     if (order > LIBXS_FPRINT_MAXORDER) order = LIBXS_FPRINT_MAXORDER;
     model->order = order;
     model->quality = quality;
@@ -3278,12 +3318,21 @@ LIBXS_API_INLINE int internal_libxs_predict_build_impl(libxs_predict_t* model,
           if (0 >= model->clusters[c].nentries) { has_empty = 1; break; }
         }
         if (0 != has_empty) {
-          for (i = 0; i < p; ++i) {
-            int gap = 0, a = model->assignments[i];
-            for (c = 0; c < a; ++c) {
+          /* gaps preceding each cluster, so renumbering stays linear in p */
+          int pool_gap = 0;
+          int* gaps = (int*)LIBXS_PREDICT_MALLOC(
+            (size_t)nclusters * sizeof(int), pool_gap);
+          if (NULL == gaps) result = EXIT_FAILURE;
+          else {
+            int gap = 0;
+            for (c = 0; c < nclusters; ++c) {
+              gaps[c] = gap;
               if (0 >= model->clusters[c].nentries) ++gap;
             }
-            model->assignments[i] = a - gap;
+            for (i = 0; i < p; ++i) {
+              model->assignments[i] -= gaps[model->assignments[i]];
+            }
+            LIBXS_PREDICT_FREE(gaps, pool_gap);
           }
           for (c = 0; c < nclusters; ++c) {
             if (model->clusters[c].nentries > 0) {
@@ -3305,6 +3354,28 @@ LIBXS_API_INLINE int internal_libxs_predict_build_impl(libxs_predict_t* model,
         }
       }
     }
+    if (EXIT_SUCCESS == result) {
+      bucket = (int*)LIBXS_PREDICT_MALLOC(
+        (size_t)p * sizeof(int), pool_bucket);
+      cbegin = (int*)LIBXS_PREDICT_MALLOC(
+        (size_t)(nclusters + 1) * sizeof(int), pool_cbegin);
+      if (NULL == bucket || NULL == cbegin) result = EXIT_FAILURE;
+      else { /* counting sort keeps each cluster in ascending entry order */
+        int at = 0;
+        for (c = 0; c < nclusters; ++c) {
+          cbegin[c] = at;
+          at += model->clusters[c].nentries;
+        }
+        cbegin[nclusters] = at;
+        /* cbegin doubles as the fill cursor, then the starts are restored */
+        for (i = 0; i < p; ++i) {
+          bucket[cbegin[model->assignments[i]]++] = i;
+        }
+        for (c = 0; c < nclusters; ++c) {
+          cbegin[c] -= model->clusters[c].nentries;
+        }
+      }
+    }
     for (c = 0; c < nclusters && EXIT_SUCCESS == result; ++c) {
       internal_libxs_predict_cluster_t* cl = &model->clusters[c];
       const int nc = cl->nentries;
@@ -3323,22 +3394,19 @@ LIBXS_API_INLINE int internal_libxs_predict_build_impl(libxs_predict_t* model,
         result = EXIT_FAILURE;
       }
       if (EXIT_SUCCESS == result) {
-        int pool_inmat = 0, pool_perm = 0, pool_map = 0;
+        int pool_inmat = 0, pool_perm = 0;
         double *const inmat = (double*)LIBXS_PREDICT_MALLOC((size_t)nc * (size_t)m * sizeof(double), pool_inmat);
         int *const sort_perm = (int*)LIBXS_PREDICT_MALLOC((size_t)nc * sizeof(int), pool_perm);
-        int *const entry_map = (int*)LIBXS_PREDICT_MALLOC((size_t)nc * sizeof(int), pool_map);
-        if (NULL == entry_map || NULL == inmat || NULL == sort_perm) {
+        const int *const entry_map = bucket + cbegin[c];
+        if (NULL == inmat || NULL == sort_perm) {
           result = EXIT_FAILURE;
         }
         else {
-          int ki = 0;
-          for (i = 0; i < p; ++i) {
-            if (model->assignments[i] == c) {
-              entry_map[ki] = i;
-              for (k = 0; k < m; ++k) {
-                inmat[(size_t)k * nc + ki] = model->entries[i].inputs[k];
-              }
-              ++ki;
+          int ki;
+          for (ki = 0; ki < nc; ++ki) {
+            const double *const src = model->entries[entry_map[ki]].inputs;
+            for (k = 0; k < m; ++k) {
+              inmat[(size_t)k * nc + ki] = src[k];
             }
           }
           libxs_sort_smooth(LIBXS_SORT_HILBERT, nc, m, inmat, nc,
@@ -3373,7 +3441,6 @@ LIBXS_API_INLINE int internal_libxs_predict_build_impl(libxs_predict_t* model,
           }
         }
         LIBXS_PREDICT_FREE(sort_perm, pool_perm);
-        LIBXS_PREDICT_FREE(entry_map, pool_map);
         LIBXS_PREDICT_FREE(inmat, pool_inmat);
       }
       if (EXIT_SUCCESS == result) {
@@ -3431,6 +3498,8 @@ LIBXS_API_INLINE int internal_libxs_predict_build_impl(libxs_predict_t* model,
         }
       }
     }
+    LIBXS_PREDICT_FREE(cbegin, pool_cbegin);
+    LIBXS_PREDICT_FREE(bucket, pool_bucket);
     if (EXIT_SUCCESS == result) {
       model->built = 1;
       ++model->nbuild;
@@ -4046,11 +4115,12 @@ LIBXS_API_INLINE void internal_libxs_predict_eval_ex(libxs_lock_t* lock,
       }
     }
     { double min_conf = 1.0;
-      int iter_count = 0, max_iter = (model->refine > 0) ? model->refine : 1;
+      int iter_count = 0, max_iter = (0 < model->refine) ? model->refine
+        : ((0 == model->refine) ? 0 : 1);
       for (j = 0; j < n; ++j) {
         if (conf[j] < min_conf) min_conf = conf[j];
       }
-      if (0 >= model->refine && min_conf >= 0.9) max_iter = 0;
+      if (0 > model->refine && min_conf >= 0.9) max_iter = 0;
       /**
        * A forest answers from the raw inputs, and this pass would replace that
        * answer with a cluster's on a comparison between a vote over ntrees and

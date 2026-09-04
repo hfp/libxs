@@ -219,10 +219,21 @@ LIBXS_API void libxs_predict_set_transform(libxs_predict_t* model,
 
 /**
  * Set the number of forward-inverse-forward refinement iterations.
- * 0 (default): iterate only when confidence is below threshold.
+ * 0: off, never iterate.
+ * <0 (default): iterate only when confidence is below threshold.
  * >0: always perform this many refinement iterations per eval.
  * Refinement finds the canonical historical pattern matching the
  * prediction, then re-predicts from it to improve self-consistency.
+ *
+ * The inverse it goes through scans every entry, so refinement makes eval
+ * cost grow with the corpus rather than with the cluster a query lands in
+ * (libxs_predict_query_t::nscan reports the latter and cannot see this).
+ * That is affordable at the scale the refinement was measured on and is the
+ * dominant per-query cost well before a corpus reaches millions of entries,
+ * which is what 0 is for. It also cannot discriminate where no output is
+ * interpolated: with only classify-mode outputs every entry matching the
+ * predicted label scores equally, so the pattern recovered is the first such
+ * entry in push order rather than the nearest.
  */
 LIBXS_API void libxs_predict_set_refine(libxs_predict_t* model,
   int iterations);
@@ -926,6 +937,48 @@ LIBXS_API int libxs_predict_load_csv(libxs_predict_t* model,
   const char filename[], const char delims[],
   const char inputs[], const char outputs[],
   char header[], int header_size, char* delim_out);
+
+/**
+ * Options for libxs_predict_load_csv_opts. A zero-initialized struct requests
+ * the same load as libxs_predict_load_csv with every argument NULL or zero.
+ */
+LIBXS_EXTERN_C typedef struct libxs_predict_csv_t {
+  /** As libxs_predict_load_csv: delimiters, column specs, header capture. */
+  const char* delims;
+  const char* inputs;
+  const char* outputs;
+  char* header;
+  int header_size;
+  char* delim_out;
+  /** Stop after this many entries were pushed (0: read to end of file). */
+  int nrows;
+  /**
+   * Push every stride-th admissible row (0 or 1: every row).
+   *
+   * A prefix of a file is not a sample of it - a corpus sorted or grouped by
+   * anything puts a different distribution in its first rows than in the file
+   * as a whole - so a subset taken for a scaling study or a held-back split is
+   * strided rather than truncated. Together with offset this splits one file
+   * into disjoint interleaved parts, each spanning the whole of it: stride 5
+   * with offset 0 and stride 5 with offset 1 share no row.
+   *
+   * Rows that cannot be parsed, and comment rows, are not admissible and do
+   * not advance the count, so neither a header nor a damaged row shifts which
+   * rows a given (stride, offset) selects.
+   */
+  int stride;
+  /** Admissible rows to skip before the first one taken (0: none). */
+  int offset;
+} libxs_predict_csv_t;
+
+/**
+ * Load delimited text as libxs_predict_load_csv, taking its arguments as a
+ * struct so a subset of a large file can be requested (see nrows/stride).
+ * opts may be NULL, which requests every row and sequential columns.
+ * Returns the number of entries pushed, or -1 on I/O error.
+ */
+LIBXS_API int libxs_predict_load_csv_opts(libxs_predict_t* model,
+  const char filename[], const libxs_predict_csv_t* opts);
 
 /* header-only: include implementation (deferred from libxs_macros.h) */
 #if defined(LIBXS_SOURCE) && !defined(LIBXS_SOURCE_H)
