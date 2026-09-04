@@ -219,21 +219,30 @@ LIBXS_API void libxs_predict_set_transform(libxs_predict_t* model,
 
 /**
  * Set the number of forward-inverse-forward refinement iterations.
- * 0: off, never iterate.
- * <0 (default): iterate only when confidence is below threshold.
+ * 0 (default): off, never iterate.
+ * <0: iterate only when confidence is below the 0.9 threshold.
  * >0: always perform this many refinement iterations per eval.
  * Refinement finds the canonical historical pattern matching the
  * prediction, then re-predicts from it to improve self-consistency.
  *
- * The inverse it goes through scans every entry, so refinement makes eval
- * cost grow with the corpus rather than with the cluster a query lands in
- * (libxs_predict_query_t::nscan reports the latter and cannot see this).
- * That is affordable at the scale the refinement was measured on and is the
- * dominant per-query cost well before a corpus reaches millions of entries,
- * which is what 0 is for. It also cannot discriminate where no output is
+ * It is off by default because it has not been measured to help and has been
+ * measured to hurt: a forest lost 2.7 points on the crystal corpus (which is
+ * why a forest ignores this setting), a GPU-tuning output lost 1.5 points of
+ * gated precision to the output coupling described below, and a corpus with a
+ * discrete label lost 1.2 points of accuracy and 7.5 of gated precision. On a
+ * corpus whose confidence sits above the threshold it does nothing at all,
+ * because the default only ever fired below it.
+ *
+ * Two reasons it can cost rather than pay. The inverse it goes through scans
+ * every entry, so it makes eval cost grow with the corpus rather than with the
+ * cluster a query lands in (libxs_predict_query_t::nscan reports the latter and
+ * cannot see this). And it cannot discriminate at all where no output is
  * interpolated: with only classify-mode outputs every entry matching the
  * predicted label scores equally, so the pattern recovered is the first such
- * entry in push order rather than the nearest.
+ * entry in push order rather than the nearest one.
+ *
+ * A model that asked for libxs_predict_set_consistency still makes the round
+ * trip, since that is what the penalty is computed from.
  */
 LIBXS_API void libxs_predict_set_refine(libxs_predict_t* model,
   int iterations);

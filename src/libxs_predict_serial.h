@@ -466,10 +466,10 @@ LIBXS_API int libxs_predict_save(const libxs_predict_t* model, void* buffer, siz
       WRITE_U8(model->eval_mode);
       WRITE_U8(model->diff_order);
       /**
-       * Biased by one so the unsigned field can carry the confidence-gated
-       * default (-1). It also makes a file written before 0 meant "off" decode
-       * to that default rather than to off: every such file stored 0, because
-       * the setting had no other value and the default was 0 at the time.
+       * Biased by one so the unsigned field can carry -1 (confidence-gated).
+       * That also keeps a model saved before 0 meant "off" behaving as it did:
+       * every such file stored 0, which was the confidence-gated default at
+       * the time, and decodes to -1 rather than to the off that 0 means now.
        */
       WRITE_U8(LIBXS_CLMP(model->refine + 1, 0, 255));
       WRITE_U8(NULL != model->decompose_mat ? 1 : 0);

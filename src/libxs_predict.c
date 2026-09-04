@@ -1467,8 +1467,6 @@ LIBXS_API libxs_predict_t* libxs_predict_create(int ninputs, int noutputs)
       model->eval_mode = LIBXS_PREDICT_AUTO;
       model->diff_mode = -1;
       model->nbank = 1;
-      /* refinement is confidence-gated by default; 0 means off */
-      model->refine = -1;
     }
   }
   return model;
@@ -3101,7 +3099,9 @@ LIBXS_API_INLINE int internal_libxs_predict_build_impl(libxs_predict_t* model,
   int result = EXIT_SUCCESS;
   if (NULL != model) {
     const char* tenv = getenv("LIBXS_PREDICT_TANGENT");
+    const char* renv = getenv("LIBXS_PREDICT_REFINE");
     if (NULL != tenv) model->tangent = atoi(tenv);
+    if (NULL != renv) model->refine = atoi(renv);
   }
   if (NULL != model && 0 < model->nts && 0 == model->nentries) {
     internal_libxs_predict_ts_expand(model);
@@ -4115,12 +4115,20 @@ LIBXS_API_INLINE void internal_libxs_predict_eval_ex(libxs_lock_t* lock,
       }
     }
     { double min_conf = 1.0;
-      int iter_count = 0, max_iter = (0 < model->refine) ? model->refine
-        : ((0 == model->refine) ? 0 : 1);
+      /**
+       * The consistency penalty is computed from the round trip this pass
+       * makes, so a caller that asked for one still gets the pass even though
+       * refinement itself is off by default: the alternative silently turns
+       * set_consistency into dead code.
+       */
+      const int gated = (0 > model->refine)
+        || (0 == model->refine && 0 < model->consistency);
+      int iter_count = 0, max_iter = (0 < model->refine)
+        ? model->refine : ((0 != gated) ? 1 : 0);
       for (j = 0; j < n; ++j) {
         if (conf[j] < min_conf) min_conf = conf[j];
       }
-      if (0 > model->refine && min_conf >= 0.9) max_iter = 0;
+      if (0 != gated && min_conf >= 0.9) max_iter = 0;
       /**
        * A forest answers from the raw inputs, and this pass would replace that
        * answer with a cluster's on a comparison between a vote over ntrees and
