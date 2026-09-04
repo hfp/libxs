@@ -55,7 +55,6 @@ typedef struct bench_serial_t {
 static const size_t bench_keysizes[] = { 8, 12, 16, 28, 32, 48, 64 };
 
 
-static void print_duration(const char* label, double total_ns, int count, libxs_timer_tick_t total_cycles);
 static void print_perop(const char* label, double per_op_ns, int count, uintptr_t cycles_per_op);
 static int bench_serial(size_t key_size, int size_total, int nrepeat, bench_serial_t* timing);
 static int bench_threaded(size_t key_size, int size_total, int nrepeat, int nthreads);
@@ -161,14 +160,6 @@ static void print_perop(const char* label, double per_op_ns, int count,
     printf("\t%-28s %8.1f ns/op  (%d ops, %" PRIuPTR " cycles/op)\n",
       label, per_op_ns, count, cycles_per_op);
   }
-}
-
-
-static void print_duration(const char* label, double total_ns, int count,
-  libxs_timer_tick_t total_cycles)
-{
-  print_perop(label, total_ns / count, count,
-    (uintptr_t)(total_cycles / (libxs_timer_tick_t)count));
 }
 
 
@@ -300,6 +291,18 @@ static int bench_serial(size_t key_size, int size_total, int nrepeat,
   free(vals);
   return result;
 }
+
+
+#if defined(_OPENMP)
+static void print_duration(const char* label, double total_ns, int count,
+  libxs_timer_tick_t total_cycles);
+static void print_duration(const char* label, double total_ns, int count,
+  libxs_timer_tick_t total_cycles)
+{
+  print_perop(label, total_ns / count, count,
+    (uintptr_t)(total_cycles / (libxs_timer_tick_t)count));
+}
+#endif
 
 
 /**
