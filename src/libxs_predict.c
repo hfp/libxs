@@ -261,6 +261,16 @@ LIBXS_EXTERN_C struct libxs_predict_t {
    */
   double* norm_cen;
   /**
+   * Hamerly bounds for the assignment step, laid out as upper bounds per entry,
+   * lower bounds per entry, per-centroid drift with the largest appended, half
+   * the distance from each centroid to its nearest other, and the centroids as
+   * they stood before the last move. A pass can then prove an entry's
+   * assignment unchanged without measuring it, which is what takes the
+   * assignment off O(nentries*nclusters) in the common case. The partition is
+   * the same one a full scan produces.
+   */
+  double* norm_bnd;
+  /**
    * One block holding every entry's inputs and outputs, ninputs+noutputs
    * apart. The entry pointers address it rather than owning separate
    * allocations: a corpus of millions of rows would otherwise pay two
@@ -483,6 +493,8 @@ LIBXS_API_INLINE void internal_libxs_predict_free_clusters(libxs_predict_t* mode
   model->eval_buf = NULL;
   free(model->norm_pts);
   model->norm_pts = NULL;
+  free(model->norm_bnd);
+  model->norm_bnd = NULL;
   /* the support cache is derived from raw_outputs and must not outlive it */
   if (NULL != model->sup_vals) {
     int j;
@@ -806,9 +818,14 @@ LIBXS_API_INLINE void internal_libxs_predict_kmeans(libxs_predict_t* model,
     /* per-dimension counts: a centroid averages only the values actually present */
     dcounts = (0 == missing) ? NULL : (int*)LIBXS_PREDICT_MALLOC(
       (size_t)nclusters * (size_t)m * sizeof(int), pool_dcnt);
+    free(model->norm_bnd);
+    model->norm_bnd = (double*)malloc(((size_t)p * 2
+      + (size_t)nclusters * 2 + 1 + (size_t)nclusters * (size_t)m)
+      * sizeof(double));
     model->sync_moved = 0;
     if (NULL == model->norm_cen || NULL == comp || NULL == counts
-      || NULL == dists || (0 != missing && NULL == dcounts))
+      || NULL == dists || NULL == model->norm_bnd
+      || (0 != missing && NULL == dcounts))
     { /* every task tests norm_cen below, so releasing it declines the step */
       free(model->norm_cen); model->norm_cen = NULL;
     }
@@ -819,116 +836,182 @@ LIBXS_API_INLINE void internal_libxs_predict_kmeans(libxs_predict_t* model,
   if (NULL != pts && NULL != centroids) {
     int c, i, j, iter;
     if (0 == tid) {
-    { const size_t seed = (0 == (model->eval_mode & LIBXS_PREDICT_TEMPORAL))
+      const size_t seed = (0 == (model->eval_mode & LIBXS_PREDICT_TEMPORAL))
         ? LIBXS_SHUFFLE_INDEX(0, (size_t)p, libxs_coprime2((size_t)p), 0)
         : 0;
       memcpy(centroids, pts + seed * m, (size_t)m * sizeof(double));
-    }
-    for (i = 0; i < p; ++i) dists[i] = DBL_MAX;
-    for (c = 1; c < nclusters; ++c) {
-      int farthest = 0;
-      double maxd = 0;
-      for (i = 0; i < p; ++i) {
-        const double d = internal_libxs_predict_dist2(
-          pts + (size_t)i * m, centroids + (size_t)(c - 1) * m, m, missing);
-        /**
-         * A NaN distance compares false against everything, so a point that
-         * produces one keeps the initial DBL_MAX and is then the farthest point
-         * from every centroid there will ever be. Seeding copies it into all of
-         * them, Lloyd finds one distinct centroid, and every entry lands in the
-         * same cluster: the partition collapses to one and the model still
-         * reports success. Such a point is excluded from seeding instead, which
-         * costs one candidate centroid and cannot cost the partition.
-         */
-        if (LIBXS_NOTNAN(d)) {
-          if (d < dists[i]) dists[i] = d;
-          if (dists[i] > maxd && dists[i] < DBL_MAX) {
-            maxd = dists[i];
-            farthest = i;
+      for (i = 0; i < p; ++i) dists[i] = DBL_MAX;
+      for (c = 1; c < nclusters; ++c) {
+        int farthest = 0;
+        double maxd = 0;
+        for (i = 0; i < p; ++i) {
+          const double d = internal_libxs_predict_dist2(
+            pts + (size_t)i * m, centroids + (size_t)(c - 1) * m, m, missing);
+          /**
+           * A NaN distance compares false against everything, so a point that
+           * produces one keeps the initial DBL_MAX and is then the farthest point
+           * from every centroid there will ever be. Seeding copies it into all of
+           * them, Lloyd finds one distinct centroid, and every entry lands in the
+           * same cluster: the partition collapses to one and the model still
+           * reports success. Such a point is excluded from seeding instead, which
+           * costs one candidate centroid and cannot cost the partition.
+           */
+          if (LIBXS_NOTNAN(d)) {
+            if (d < dists[i]) dists[i] = d;
+            if (dists[i] > maxd && dists[i] < DBL_MAX) {
+              maxd = dists[i];
+              farthest = i;
+            }
           }
+          else dists[i] = 0;
         }
-        else dists[i] = 0;
+        memcpy(centroids + (size_t)c * m, pts + (size_t)farthest * m,
+          (size_t)m * sizeof(double));
       }
-      memcpy(centroids + (size_t)c * m, pts + (size_t)farthest * m,
-        (size_t)m * sizeof(double));
-    }
     } /* seeding is the builder's: it walks the centroids in order */
     internal_libxs_predict_sync(model, ntasks);
     /* Lloyd iterations with Kahan-compensated centroid accumulation */
-    for (iter = 0; iter < LIBXS_PREDICT_MAXITER; ++iter) {
-      int changed = 0;
-      /**
-       * Cleared here rather than after the verdict is read. Clearing it there
-       * races with a task that has not read it yet: that task then reads zero,
-       * concludes the partition converged, leaves the loop, and the two run
-       * different stages against the same rendezvous counter.
-       */
-      if (0 == tid) model->sync_moved = 0;
-      internal_libxs_predict_sync(model, ntasks);
-      for (i = tid; i < p; i += ntasks) {
-        double best = internal_libxs_predict_dist2(
-          pts + (size_t)i * m, centroids, m, missing);
-        int bestc = 0;
-        for (c = 1; c < nclusters; ++c) {
-          const double d = internal_libxs_predict_dist2(
-            pts + (size_t)i * m, centroids + (size_t)c * m, m, missing);
-          if (d < best) { best = d; bestc = c; }
-        }
-        if (model->assignments[i] != bestc) {
-          model->assignments[i] = bestc;
-          changed = 1;
-        }
-      }
-      if (0 != changed) {
-        LIBXS_ATOMIC_STORE(&model->sync_moved, 1, LIBXS_ATOMIC_SEQ_CST);
-      }
-      internal_libxs_predict_sync(model, ntasks);
-      /* one verdict, read by every task after the same rendezvous */
-      changed = (int)LIBXS_ATOMIC_LOAD(&model->sync_moved, LIBXS_ATOMIC_SEQ_CST);
-      if (0 == changed) iter = LIBXS_PREDICT_MAXITER;
-      else {
+    /**
+     * An absent coordinate is skipped by the distance, so a centroid carrying
+     * one moves by an amount the same distance cannot measure, and a bound
+     * derived from it would not hold. Such a corpus takes the full scan.
+     */
+    { const int bounded = (0 == missing);
+      double* const ub = model->norm_bnd;
+      double* const lb = ub + p;
+      double* const drift = lb + p;
+      double* const sep = drift + nclusters + 1;
+      double* const oldcen = sep + nclusters;
+      for (iter = 0; iter < LIBXS_PREDICT_MAXITER; ++iter) {
+        int changed = 0;
+        /**
+         * Cleared here rather than after the verdict is read. Clearing it there
+         * races with a task that has not read it yet: that task then reads zero,
+         * concludes the partition converged, leaves the loop, and the two run
+         * different stages against the same rendezvous counter.
+         */
         if (0 == tid) {
-        memset(centroids, 0, (size_t)nclusters * (size_t)m * sizeof(double));
-        memset(comp, 0, (size_t)nclusters * (size_t)m * sizeof(double));
-        memset(counts, 0, (size_t)nclusters * sizeof(int));
-        if (0 != missing) {
-          memset(dcounts, 0, (size_t)nclusters * (size_t)m * sizeof(int));
-        }
-        for (i = 0; i < p; ++i) {
-          const int ci = model->assignments[i];
-          double* cen = centroids + (size_t)ci * m;
-          double* cmp = comp + (size_t)ci * m;
-          for (j = 0; j < m; ++j) {
-            const double v = pts[(size_t)i * m + j];
-            if (0 == missing) {
-              libxs_kahan_sum(v, &cen[j], &cmp[j]);
+          model->sync_moved = 0;
+          /* half the way to the nearest other centroid: an entry closer to its
+             own than this cannot have another nearer, whatever the others did */
+          if (0 != bounded) for (c = 0; c < nclusters; ++c) {
+            double near = DBL_MAX;
+            int c2;
+            for (c2 = 0; c2 < nclusters; ++c2) {
+              if (c2 != c) {
+                const double d = internal_libxs_predict_dist2(
+                  centroids + (size_t)c * m, centroids + (size_t)c2 * m,
+                  m, missing);
+                if (d < near) near = d;
+              }
             }
-            else if (LIBXS_NOTNAN(v)) {
-              libxs_kahan_sum(v, &cen[j], &cmp[j]);
-              ++dcounts[(size_t)ci * m + j];
-            }
-          }
-          ++counts[ci];
-        }
-        for (c = 0; c < nclusters; ++c) {
-          if (0 < counts[c]) {
-            double* cen = centroids + (size_t)c * m;
-            if (0 == missing) {
-              for (j = 0; j < m; ++j) cen[j] /= counts[c];
-            }
-            else for (j = 0; j < m; ++j) {
-              const int n = dcounts[(size_t)c * m + j];
-              /* absent throughout the cluster: the centroid has no value here,
-                 and saying so lets the distance omit it rather than read a 0 */
-              cen[j] = (0 < n) ? (cen[j] / n)
-                : internal_libxs_predict_absent();
-            }
+            sep[c] = (DBL_MAX != near) ? (0.5 * sqrt(near)) : 0.0;
           }
         }
-        } /* moving the centroids is the builder's */
         internal_libxs_predict_sync(model, ntasks);
+        for (i = tid; i < p; i += ntasks) {
+          const int ai = model->assignments[i];
+          int rescan = 1;
+          if (0 != bounded && 0 < iter) {
+            /* absorb the movement of the previous pass into the bounds */
+            double bound = sep[ai];
+            ub[i] += drift[ai];
+            lb[i] -= drift[nclusters];
+            if (lb[i] < 0) lb[i] = 0;
+            if (lb[i] > bound) bound = lb[i];
+            if (ub[i] <= bound) rescan = 0;
+            else { /* tighten before paying for the scan: often enough alone */
+              ub[i] = sqrt(internal_libxs_predict_dist2(
+                pts + (size_t)i * m, centroids + (size_t)ai * m, m, missing));
+              if (ub[i] <= bound) rescan = 0;
+            }
+          }
+          if (0 != rescan) {
+            double best = internal_libxs_predict_dist2(
+              pts + (size_t)i * m, centroids, m, missing);
+            double second = DBL_MAX;
+            int bestc = 0;
+            for (c = 1; c < nclusters; ++c) {
+              const double d = internal_libxs_predict_dist2(
+                pts + (size_t)i * m, centroids + (size_t)c * m, m, missing);
+              if (d < best) { second = best; best = d; bestc = c; }
+              else if (d < second) second = d;
+            }
+            if (0 != bounded) {
+              ub[i] = sqrt(best);
+              lb[i] = (DBL_MAX != second) ? sqrt(second) : 0.0;
+            }
+            if (model->assignments[i] != bestc) {
+              model->assignments[i] = bestc;
+              changed = 1;
+            }
+          }
+        }
+        if (0 != changed) {
+          LIBXS_ATOMIC_STORE(&model->sync_moved, 1, LIBXS_ATOMIC_SEQ_CST);
+        }
+        internal_libxs_predict_sync(model, ntasks);
+        /* one verdict, read by every task after the same rendezvous */
+        changed = (int)LIBXS_ATOMIC_LOAD(&model->sync_moved, LIBXS_ATOMIC_SEQ_CST);
+        if (0 == changed) iter = LIBXS_PREDICT_MAXITER;
+        else {
+          if (0 == tid) {
+            if (0 != bounded) {
+              memcpy(oldcen, centroids,
+                (size_t)nclusters * (size_t)m * sizeof(double));
+            }
+            memset(centroids, 0, (size_t)nclusters * (size_t)m * sizeof(double));
+            memset(comp, 0, (size_t)nclusters * (size_t)m * sizeof(double));
+            memset(counts, 0, (size_t)nclusters * sizeof(int));
+            if (0 != missing) {
+              memset(dcounts, 0, (size_t)nclusters * (size_t)m * sizeof(int));
+            }
+            for (i = 0; i < p; ++i) {
+              const int ci = model->assignments[i];
+              double* cen = centroids + (size_t)ci * m;
+              double* cmp = comp + (size_t)ci * m;
+              for (j = 0; j < m; ++j) {
+                const double v = pts[(size_t)i * m + j];
+                if (0 == missing) {
+                  libxs_kahan_sum(v, &cen[j], &cmp[j]);
+                }
+                else if (LIBXS_NOTNAN(v)) {
+                  libxs_kahan_sum(v, &cen[j], &cmp[j]);
+                  ++dcounts[(size_t)ci * m + j];
+                }
+              }
+              ++counts[ci];
+            }
+            for (c = 0; c < nclusters; ++c) {
+              if (0 < counts[c]) {
+                double* cen = centroids + (size_t)c * m;
+                if (0 == missing) {
+                  for (j = 0; j < m; ++j) cen[j] /= counts[c];
+                }
+                else for (j = 0; j < m; ++j) {
+                  const int n = dcounts[(size_t)c * m + j];
+                  /* absent throughout the cluster: the centroid has no value here,
+                     and saying so lets the distance omit it rather than read a 0 */
+                  cen[j] = (0 < n) ? (cen[j] / n)
+                    : internal_libxs_predict_absent();
+                }
+              }
+            }
+            if (0 != bounded) {
+              double maxd = 0;
+              for (c = 0; c < nclusters; ++c) {
+                const double d = sqrt(internal_libxs_predict_dist2(
+                  centroids + (size_t)c * m, oldcen + (size_t)c * m, m, missing));
+                drift[c] = d;
+                if (d > maxd) maxd = d;
+              }
+              drift[nclusters] = maxd;
+            }
+          } /* moving the centroids is the builder's */
+          internal_libxs_predict_sync(model, ntasks);
+        }
       }
-    }
+    } /* end of the bounded assignment */
     if (0 == tid) for (c = 0; c < nclusters; ++c) {
       memcpy(model->clusters[c].centroid, centroids + (size_t)c * m, (size_t)m * sizeof(double));
     }
