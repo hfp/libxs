@@ -418,7 +418,9 @@ LIBXS_API void libxs_registry_destroy(libxs_registry_t* registry)
 LIBXS_API unsigned int libxs_registry_hash(const libxs_registry_t* registry,
   const void* key, size_t key_size)
 {
-  return (NULL != registry && NULL != key && 0 < key_size)
+  /* the bound belongs here too: libxs_registry_set hashes before it validates */
+  return (NULL != registry && NULL != key && 0 < key_size
+    && key_size <= LIBXS_REGKEY_MAXSIZE)
     ? internal_libxs_regkey_hash(key, key_size, registry->seed) : 0;
 }
 

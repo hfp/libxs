@@ -105,6 +105,10 @@ LIBXS_API void* libxs_registry_get(const libxs_registry_t* registry, const void*
  * result is only valid for the given registry. Pass it to the _hashed flavors
  * to hash a key once and reuse the value across several operations (and to
  * index caller-side tables keyed by the same shape).
+ *
+ * Zero for arguments the registry itself would reject, i.e. a key_size outside
+ * 1 to LIBXS_REGKEY_MAXSIZE: only a storable key is hashed, so the function
+ * never reads a byte the caller did not promise.
  */
 LIBXS_API unsigned int libxs_registry_hash(const libxs_registry_t* registry,
   const void* key, size_t key_size);

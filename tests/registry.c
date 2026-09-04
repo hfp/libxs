@@ -57,6 +57,12 @@ static int test_null_args(void)
   /* get: key_size exceeds maximum */
   TEST_CHECK(NULL == libxs_registry_get(registry, &key, LIBXS_REGKEY_MAXSIZE + 1, NULL));
 
+  /* hash: rejected arguments yield zero rather than reading the key */
+  TEST_CHECK(0 == libxs_registry_hash(NULL, &key, sizeof(key)));
+  TEST_CHECK(0 == libxs_registry_hash(registry, NULL, sizeof(key)));
+  TEST_CHECK(0 == libxs_registry_hash(registry, &key, 0));
+  TEST_CHECK(0 == libxs_registry_hash(registry, &key, LIBXS_REGKEY_MAXSIZE + 1));
+
   /* free: NULL registry / NULL key (must not crash) */
   libxs_registry_remove(NULL, &key, sizeof(key), NULL);
   libxs_registry_remove(registry, NULL, sizeof(key), NULL);
