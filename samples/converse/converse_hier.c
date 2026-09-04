@@ -6,8 +6,6 @@
 #include "converse.h"
 #include "converse_hier.h"
 
-#include <math.h>
-
 #define HIER_KEY_MAX (COMPOSE_MAXTEXT + 1)
 #define HIER_ESCAPE_TEXT 1u
 #define HIER_ESCAPE_NATIVE 2u

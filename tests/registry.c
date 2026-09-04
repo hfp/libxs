@@ -9,10 +9,6 @@
 ******************************************************************************/
 #include <libxs/libxs_reg.h>
 
-#include <stdio.h>
-#include <string.h>
-
-
 #define TEST_CHECK(EXPR) do { \
   if (!(EXPR)) { \
     fprintf(stderr, "FAIL: %s:%i (%s)\n", __FILE__, __LINE__, #EXPR); \

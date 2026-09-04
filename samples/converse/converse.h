@@ -8,9 +8,6 @@
 #include <libxs/libxs_perm.h>
 #include <libxs/libxs_reg.h>
 
-#include <string.h>
-#include <stddef.h>
-
 #define FPRINT_ORDER 4
 #define CORPUS_FILE "converse.dat"
 #define COMPOSE_NDIMS 10
@@ -52,6 +49,27 @@
  */
 #define ENTRY_LEX_FRAGMENT 0x0040u
 
+#define GEN_CAND_MAX 8
+#define EVAL_LINE_MAX 2048
+#define NGRAM_ORDER_MAX LIBXS_NGRAM_ORDER_MAX
+#if !defined(TOKEN_EMB_DIM)
+# define TOKEN_EMB_DIM 16
+#endif
+#define TOKEN_CTX_MAX 8
+#define ANSWER_PREDICT_INPUTS 10
+
+/**
+ * Bytes an entry occupies through its section field, i.e. every fixed-offset
+ * field. A stored value at least this large carries complete metadata; the old
+ * test was "entry_size >= sizeof(*entry)", which variable-length text makes
+ * false for every entry.
+ */
+#define CORPUS_ENTRY_META_SIZE \
+  (sizeof(corpus_entry_t) - COMPOSE_MAXTEXT)
+
+#define CORPUS_BLOB_META_SIZE offsetof(corpus_blob_t, text)
+
+
 /**
  * Which half of the system a binary exposes.
  *
@@ -68,15 +86,6 @@ enum {
   CONVERSE_ROLE_QA = 1,
   CONVERSE_ROLE_LM = 2
 };
-
-#define GEN_CAND_MAX 8
-#define EVAL_LINE_MAX 2048
-#define NGRAM_ORDER_MAX LIBXS_NGRAM_ORDER_MAX
-#if !defined(TOKEN_EMB_DIM)
-# define TOKEN_EMB_DIM 16
-#endif
-#define TOKEN_CTX_MAX 8
-#define ANSWER_PREDICT_INPUTS 10
 
 enum { CONN_SPACE = 0, CONN_COMMA = 1, CONN_PERIOD = 2, CONN_NEWLINE = 3 };
 enum { SCALE_PHRASE = 0, SCALE_SENTENCE = 1, SCALE_PARAGRAPH = 2 };
@@ -106,40 +115,6 @@ typedef struct corpus_fprint_t {
   int nk[FPRINT_ORDER + 1];
   int order;
 } corpus_fprint_t;
-
-
-LIBXS_INLINE void corpus_fprint_pack(corpus_fprint_t* dst,
-  const libxs_fprint_t* src)
-{
-  int k;
-  for (k = 0; k <= FPRINT_ORDER; ++k) {
-    const int use = (k <= src->order) ? 1 : 0;
-    dst->l2[k] = (0 != use) ? src->l2[k] : 0.0;
-    dst->mean[k] = (0 != use) ? src->mean[k] : 0.0;
-    dst->acc_sq[k] = (0 != use) ? src->acc_sq[k] : 0.0;
-    dst->acc_sum[k] = (0 != use) ? src->acc_sum[k] : 0.0;
-    dst->nk[k] = (0 != use) ? src->nk[k] : 0;
-  }
-  dst->order = (src->order < FPRINT_ORDER) ? src->order : FPRINT_ORDER;
-}
-
-
-/** Widen the stored projection back to the library form. */
-LIBXS_INLINE void corpus_fprint_unpack(libxs_fprint_t* dst,
-  const corpus_fprint_t* src)
-{
-  int k;
-  memset(dst, 0, sizeof(*dst));
-  for (k = 0; k <= FPRINT_ORDER; ++k) {
-    dst->l2[k] = src->l2[k];
-    dst->mean[k] = src->mean[k];
-    dst->acc_sq[k] = src->acc_sq[k];
-    dst->acc_sum[k] = src->acc_sum[k];
-    dst->nk[k] = src->nk[k];
-  }
-  dst->order = src->order;
-}
-
 
 /**
  * What a stored corpus value IS. The tag is FIRST in every record kind and at the
@@ -183,24 +158,6 @@ typedef struct corpus_entry_t {
   char text[COMPOSE_MAXTEXT];
 } corpus_entry_t;
 
-
-/**
- * Bytes an entry occupies through its section field, i.e. every fixed-offset
- * field. A stored value at least this large carries complete metadata; the old
- * test was "entry_size >= sizeof(*entry)", which variable-length text makes
- * false for every entry.
- */
-#define CORPUS_ENTRY_META_SIZE \
-  (sizeof(corpus_entry_t) - COMPOSE_MAXTEXT)
-
-/** Bytes actually occupied by an entry: everything up to its text length. */
-LIBXS_INLINE size_t corpus_entry_size(const corpus_entry_t* entry)
-{
-  const size_t used = (0 < entry->text_len) ? (size_t)entry->text_len : 0;
-  return sizeof(*entry) - COMPOSE_MAXTEXT + used + 1;
-}
-
-
 /**
  * The common prefix of every record kind: enough to classify a value and, for the
  * kinds that carry text, to know how long that text is. Nothing beyond these eight
@@ -212,20 +169,6 @@ typedef struct corpus_head_t {
   unsigned char scale;
   int text_len;
 } corpus_head_t;
-
-/** The kind of a stored value, or zero if it carries no valid tag. */
-LIBXS_INLINE unsigned int corpus_value_kind(const void* value)
-{
-  return (NULL != value) ? ((const corpus_head_t*)value)->kind : 0u;
-}
-
-
-/** The scale of a stored value; readable for every record kind. */
-LIBXS_INLINE unsigned int corpus_value_scale(const void* value)
-{
-  return (NULL != value) ? ((const corpus_head_t*)value)->scale : 0u;
-}
-
 
 /**
  * A clause window that is LOCATED rather than stored: which parent text it was cut
@@ -275,7 +218,178 @@ typedef struct corpus_blob_t {
   char text[1];
 } corpus_blob_t;
 
-#define CORPUS_BLOB_META_SIZE offsetof(corpus_blob_t, text)
+enum { QUERY_GENERIC = 0, QUERY_WHO, QUERY_WHAT, QUERY_WHERE,
+  QUERY_WHEN, QUERY_WHY, QUERY_HOW, QUERY_YESNO };
+
+typedef struct answer_predict_profile_t {
+  const char* name;
+  int mode;
+  int decompose;
+  int clusters;
+  int order;
+  double quality;
+  double smooth;
+  int nseries;
+  int window;
+  int target;
+  int diff_order;
+} answer_predict_profile_t;
+
+enum { RELATION_RULE_ALIAS = 1, RELATION_RULE_PERSON, RELATION_RULE_SKIP,
+  RELATION_RULE_NEGATE, RELATION_RULE_NORM, RELATION_RULE_CAPS,
+  RELATION_RULE_WHERE, RELATION_RULE_WHY, RELATION_RULE_HOW,
+  RELATION_RULE_PLACE, RELATION_RULE_TOPIC, RELATION_RULE_COPULA,
+  RELATION_RULE_ARTICLE, RELATION_RULE_PREP, RELATION_RULE_OWN,
+  RELATION_RULE_POSS, RELATION_RULE_AUX, RELATION_RULE_AGENT,
+  RELATION_RULE_LINK, RELATION_RULE_GENITIVE, RELATION_RULE_JOIN,
+  RELATION_RULE_ASK, RELATION_RULE_PRON, RELATION_RULE_RESULT };
+
+/**
+ * Where a rule came from. ASSERTED means someone wrote it in the rule file.
+ * The other two come from rule learning, above and below its acceptance bar.
+ *
+ * Both learned levels are labelled in replies, not just the margin. The margin
+ * cannot be promoted by moving the threshold - wrong terms score between right
+ * ones - and the ACCEPTED band is not trustworthy either: at the default bar
+ * adjectives and interjections enter the person class, and one adjective is
+ * enough to turn a correct reply into a confident false assertion. Labelling
+ * only the margin would say the accepted band is safe, which it is not.
+ */
+enum { RELATION_RULE_ASSERTED = 0, RELATION_RULE_LEARNED,
+  RELATION_RULE_PROPOSED };
+
+typedef struct answer_relation_rule_t {
+  int kind;
+  int provenance;
+  char relation[64];
+  char term[64];
+} answer_relation_rule_t;
+
+typedef struct answer_relation_match_t {
+  char answer[128];
+  char relation[64];
+  char actor[64];
+  int answer_len;
+  int relation_len;
+  int actor_len;
+  int plural;
+  int made;
+  /** Render in the voice the corpus used; see answer_relation_reply. */
+  int active;
+  double score;
+} answer_relation_match_t;
+
+
+/**
+ * What one invocation has to work with once the shared state is loaded: the
+ * corpus, the lexicon and the rules every model is built from, plus the modes
+ * parsed from the command line. Passed to whichever half serves the invocation,
+ * so the setup that both halves need exists once and neither half parses
+ * arguments.
+ */
+typedef struct converse_run_t {
+  libxs_registry_t* corpus;
+  libxs_lexicon_t* lexicon;
+  libxs_predict_t* answer_model;
+  libxs_lexrule_t* rules;
+  const answer_predict_profile_t* profile;
+  const char* ngram_kind;
+  const char* test_prefix;
+  long nsentences;
+  int nrules;
+  int budget;
+  int ngram_order;
+  int ngram_holdout;
+  int eval_mode;
+  int predict_eval_mode;
+  int complete_mode;
+  int learn_mode;
+  int role;
+  /** A half must run: 0 after -L, which is complete once setup returns. */
+  int pending;
+} converse_run_t;
+
+
+/**
+ * The byte model as an INSTRUMENT the entry point installs, not a dependency the
+ * halves name.
+ *
+ * Every judge in this system is a callback for the same reason converse_recomb's
+ * word_prob and seam_bits are: a seam or candidate score has never separated a
+ * true continuation from a fluent false one, so all of them are diagnostics.
+ * Making them a hook is what lets the grounded half compile and link without the
+ * byte model, while the binary that measures with it installs one. Every entry
+ * point below degrades to "no instrument" rather than failing: rescore and choose
+ * leave the caller's order untouched, seam_bits reports no bits.
+ */
+typedef struct converse_judge_t {
+  void* (*open)(const libxs_registry_t* corpus, int maxorder);
+  void (*close)(void* model);
+  int (*rescore)(const void* model, const char* query, int query_length,
+    const char* const candidates[], const int candidate_lengths[],
+    int ncandidates, double bits[]);
+  int (*choose)(const void* model, const char* context, int context_length,
+    const char* const candidates[], const int candidate_lengths[],
+    int ncandidates);
+  int (*seam_bits)(const void* model, const char* prefix, int prefix_length,
+    const char* suffix, int suffix_length, int score_length, double* bits);
+} converse_judge_t;
+
+
+LIBXS_INLINE void corpus_fprint_pack(corpus_fprint_t* dst,
+  const libxs_fprint_t* src)
+{
+  int k;
+  for (k = 0; k <= FPRINT_ORDER; ++k) {
+    const int use = (k <= src->order) ? 1 : 0;
+    dst->l2[k] = (0 != use) ? src->l2[k] : 0.0;
+    dst->mean[k] = (0 != use) ? src->mean[k] : 0.0;
+    dst->acc_sq[k] = (0 != use) ? src->acc_sq[k] : 0.0;
+    dst->acc_sum[k] = (0 != use) ? src->acc_sum[k] : 0.0;
+    dst->nk[k] = (0 != use) ? src->nk[k] : 0;
+  }
+  dst->order = (src->order < FPRINT_ORDER) ? src->order : FPRINT_ORDER;
+}
+
+
+/** Widen the stored projection back to the library form. */
+LIBXS_INLINE void corpus_fprint_unpack(libxs_fprint_t* dst,
+  const corpus_fprint_t* src)
+{
+  int k;
+  memset(dst, 0, sizeof(*dst));
+  for (k = 0; k <= FPRINT_ORDER; ++k) {
+    dst->l2[k] = src->l2[k];
+    dst->mean[k] = src->mean[k];
+    dst->acc_sq[k] = src->acc_sq[k];
+    dst->acc_sum[k] = src->acc_sum[k];
+    dst->nk[k] = src->nk[k];
+  }
+  dst->order = src->order;
+}
+
+
+/** Bytes actually occupied by an entry: everything up to its text length. */
+LIBXS_INLINE size_t corpus_entry_size(const corpus_entry_t* entry)
+{
+  const size_t used = (0 < entry->text_len) ? (size_t)entry->text_len : 0;
+  return sizeof(*entry) - COMPOSE_MAXTEXT + used + 1;
+}
+
+
+/** The kind of a stored value, or zero if it carries no valid tag. */
+LIBXS_INLINE unsigned int corpus_value_kind(const void* value)
+{
+  return (NULL != value) ? ((const corpus_head_t*)value)->kind : 0u;
+}
+
+
+/** The scale of a stored value; readable for every record kind. */
+LIBXS_INLINE unsigned int corpus_value_scale(const void* value)
+{
+  return (NULL != value) ? ((const corpus_head_t*)value)->scale : 0u;
+}
+
 
 /**
  * Blob keys are twelve bytes, distinct from the sixteen and eighteen of a content
@@ -442,123 +556,6 @@ LIBXS_INLINE void corpus_key_from_fprint(const corpus_fprint_t* fp,
   *key_size = 8;
 }
 
-
-enum { QUERY_GENERIC = 0, QUERY_WHO, QUERY_WHAT, QUERY_WHERE,
-  QUERY_WHEN, QUERY_WHY, QUERY_HOW, QUERY_YESNO };
-
-typedef struct answer_predict_profile_t {
-  const char* name;
-  int mode;
-  int decompose;
-  int clusters;
-  int order;
-  double quality;
-  double smooth;
-  int nseries;
-  int window;
-  int target;
-  int diff_order;
-} answer_predict_profile_t;
-
-enum { RELATION_RULE_ALIAS = 1, RELATION_RULE_PERSON, RELATION_RULE_SKIP,
-  RELATION_RULE_NEGATE, RELATION_RULE_NORM, RELATION_RULE_CAPS,
-  RELATION_RULE_WHERE, RELATION_RULE_WHY, RELATION_RULE_HOW,
-  RELATION_RULE_PLACE, RELATION_RULE_TOPIC, RELATION_RULE_COPULA,
-  RELATION_RULE_ARTICLE, RELATION_RULE_PREP, RELATION_RULE_OWN,
-  RELATION_RULE_POSS, RELATION_RULE_AUX, RELATION_RULE_AGENT,
-  RELATION_RULE_LINK, RELATION_RULE_GENITIVE, RELATION_RULE_JOIN,
-  RELATION_RULE_ASK, RELATION_RULE_PRON, RELATION_RULE_RESULT };
-
-/**
- * Where a rule came from. ASSERTED means someone wrote it in the rule file.
- * The other two come from rule learning, above and below its acceptance bar.
- *
- * Both learned levels are labelled in replies, not just the margin. The margin
- * cannot be promoted by moving the threshold - wrong terms score between right
- * ones - and the ACCEPTED band is not trustworthy either: at the default bar
- * adjectives and interjections enter the person class, and one adjective is
- * enough to turn a correct reply into a confident false assertion. Labelling
- * only the margin would say the accepted band is safe, which it is not.
- */
-enum { RELATION_RULE_ASSERTED = 0, RELATION_RULE_LEARNED,
-  RELATION_RULE_PROPOSED };
-
-typedef struct answer_relation_rule_t {
-  int kind;
-  int provenance;
-  char relation[64];
-  char term[64];
-} answer_relation_rule_t;
-
-typedef struct answer_relation_match_t {
-  char answer[128];
-  char relation[64];
-  char actor[64];
-  int answer_len;
-  int relation_len;
-  int actor_len;
-  int plural;
-  int made;
-  /** Render in the voice the corpus used; see answer_relation_reply. */
-  int active;
-  double score;
-} answer_relation_match_t;
-
-
-/**
- * What one invocation has to work with once the shared state is loaded: the
- * corpus, the lexicon and the rules every model is built from, plus the modes
- * parsed from the command line. Passed to whichever half serves the invocation,
- * so the setup that both halves need exists once and neither half parses
- * arguments.
- */
-typedef struct converse_run_t {
-  libxs_registry_t* corpus;
-  libxs_lexicon_t* lexicon;
-  libxs_predict_t* answer_model;
-  libxs_lexrule_t* rules;
-  const answer_predict_profile_t* profile;
-  const char* ngram_kind;
-  const char* test_prefix;
-  long nsentences;
-  int nrules;
-  int budget;
-  int ngram_order;
-  int ngram_holdout;
-  int eval_mode;
-  int predict_eval_mode;
-  int complete_mode;
-  int learn_mode;
-  int role;
-  /** A half must run: 0 after -L, which is complete once setup returns. */
-  int pending;
-} converse_run_t;
-
-
-/**
- * The byte model as an INSTRUMENT the entry point installs, not a dependency the
- * halves name.
- *
- * Every judge in this system is a callback for the same reason converse_recomb's
- * word_prob and seam_bits are: a seam or candidate score has never separated a
- * true continuation from a fluent false one, so all of them are diagnostics.
- * Making them a hook is what lets the grounded half compile and link without the
- * byte model, while the binary that measures with it installs one. Every entry
- * point below degrades to "no instrument" rather than failing: rescore and choose
- * leave the caller's order untouched, seam_bits reports no bits.
- */
-typedef struct converse_judge_t {
-  void* (*open)(const libxs_registry_t* corpus, int maxorder);
-  void (*close)(void* model);
-  int (*rescore)(const void* model, const char* query, int query_length,
-    const char* const candidates[], const int candidate_lengths[],
-    int ncandidates, double bits[]);
-  int (*choose)(const void* model, const char* context, int context_length,
-    const char* const candidates[], const int candidate_lengths[],
-    int ncandidates);
-  int (*seam_bits)(const void* model, const char* prefix, int prefix_length,
-    const char* suffix, int suffix_length, int score_length, double* bits);
-} converse_judge_t;
 
 void converse_judge_install(const converse_judge_t* judge);
 /** Open the installed judge when CONVERSE_HIER_RESCORE asks for one. */

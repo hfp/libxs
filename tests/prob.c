@@ -9,9 +9,6 @@
 ******************************************************************************/
 #include <libxs/libxs_predict.h>
 
-#include <math.h>
-#include <stdio.h>
-
 #define NCLASS 8
 #define NCTX 6
 #define NREP 40

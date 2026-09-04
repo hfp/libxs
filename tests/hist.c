@@ -10,7 +10,6 @@
 #include <libxs/libxs_hist.h>
 #include <libxs/libxs_perm.h>
 #include <libxs/libxs_rng.h>
-#include <math.h>
 
 #if defined(_DEBUG)
 # define FPRINTF(STREAM, ...) do { fprintf(STREAM, __VA_ARGS__); } while(0)

@@ -7,8 +7,6 @@
 #include "converse.h"
 #include "converse_recomb.h"
 
-#include <math.h>
-
 
 /**
  * The seam judge and the host callbacks for the current probe run.

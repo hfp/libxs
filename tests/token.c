@@ -9,9 +9,6 @@
 ******************************************************************************/
 #include <libxs/libxs_token.h>
 
-#include <stdio.h>
-#include <string.h>
-
 #if !defined(PRINT) && (defined(_DEBUG) || 0)
 # define PRINT
 #endif

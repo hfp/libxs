@@ -9,9 +9,6 @@
 ******************************************************************************/
 #include <libxs/libxs_source.h>
 
-#include <math.h>
-#include <stdio.h>
-
 #define NSLOT 4
 
 

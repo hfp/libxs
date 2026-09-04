@@ -9,9 +9,6 @@
 ******************************************************************************/
 #include <libxs/libxs_ngram.h>
 
-#include <math.h>
-#include <stdio.h>
-
 
 static int check_mass(const libxs_ngram_t* model,
   const unsigned int hist[], int hlen, unsigned int vocab)

@@ -10,7 +10,6 @@
 #include <libxs/libxs_predict.h>
 #include <libxs/libxs_timer.h>
 #include <libxs/libxs_mem.h>
-#include <math.h>
 
 #if defined(_OPENMP)
 # include <omp.h>

@@ -9,8 +9,6 @@
 ******************************************************************************/
 #include <libxs/libxs_predict.h>
 
-#include <stdio.h>
-
 #define NENTRY 64
 #define CSVFILE "missing_test.csv"
 

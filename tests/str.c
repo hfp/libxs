@@ -9,9 +9,6 @@
 ******************************************************************************/
 #include <libxs/libxs_source.h>
 
-#include <stdio.h>
-#include <string.h>
-
 
 static int check_decode(const char* what, const unsigned char* text,
   size_t size, unsigned long expect_cp, int expect_width)

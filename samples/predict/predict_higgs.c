@@ -9,9 +9,7 @@
 ******************************************************************************/
 #include <libxs/libxs_predict.h>
 #include <libxs/libxs_timer.h>
-#include <stdlib.h>
-#include <stdio.h>
-#include <string.h>
+
 #if defined(_OPENMP)
 # include <omp.h>
 #endif

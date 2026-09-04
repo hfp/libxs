@@ -9,9 +9,6 @@
 ******************************************************************************/
 #include <libxs/libxs_predict.h>
 
-#include <stdio.h>
-#include <string.h>
-
 #define NENTRY 900
 #define NINPUT 4
 #define NOUTPUT 3

@@ -1,13 +1,12 @@
 #include <libxs/libxs_math.h>
 #include <libxs/libxs_timer.h>
 
-#include <stdio.h>
-
 #define FPRINT_PATH_MAX 1024
 #define FPRINT_MAX_TERMS 8
 #define FPRINT_MAX_DEGREE 8
 #define FPRINT_ORDER 4
 #define FPRINT_NREF 1024
+
 
 typedef enum sample_kind_t {
   SAMPLE_SIN = 0,
@@ -30,6 +29,7 @@ typedef struct shape_t {
   bracket_term_t terms[FPRINT_MAX_TERMS];
   int nterms;
 } shape_t;
+
 
 static char output_dir[FPRINT_PATH_MAX] = { 0 };
 
