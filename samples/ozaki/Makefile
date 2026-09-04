@@ -87,6 +87,13 @@ IFLAGS += -I$(call quote,$(DEPDIR))
 IFLAGS += -I$(call quote,$(DEPDIR)/libxs)
 IFLAGS += -I$(call quote,$(INCDIR))
 
+# An interposer exports the calls it interposes, not what it happens to link:
+# LIBXS and LIBXSTREAM come in as static archives, so their public symbols stay
+# internal to libwrap. Otherwise an application carrying its own copy ends up
+# with two definitions of the same global, either of which can bind the other's
+# references (and a sanitizer rightly calls the pair an ODR violation).
+WRAP_HIDE := $(call ctest,$(CC),$(NULL),$(call linkopt,--exclude-libs,ALL))
+
 # Wrap all four BLAS GEMM symbols (dgemm, sgemm, zgemm, cgemm)
 ifneq (Darwin,$(UNAME))
   ifneq (0,$(BLAS_STATIC))
@@ -168,7 +175,8 @@ $(OUTDIR)/libwrap.$(SLIBEXT): $(OUTDIR)/.make $(IMPLOBJS) $(OCLOBJS)
 
 $(OUTDIR)/libwrap.$(DLIBEXT): $(IMPLOBJS) $(ENTRYOBJS) $(OCLOBJS) $(XSTREAM_LIB) $(XLIB) $(OUTDIR)/.make
 	$(LIB_SOLD) $(call solink,$@) $(IMPLOBJS) $(ENTRYOBJS) $(OCLOBJS) \
-		$(call abslib,$(XSTREAM_LIB)) $(call abslib,$(XLIB)) $(call cleanld,$(BASE_LDFLAGS) $(CLDFLAGS))
+		$(call abslib,$(XSTREAM_LIB)) $(call abslib,$(XLIB)) $(WRAP_HIDE) \
+		$(call cleanld,$(BASE_LDFLAGS) $(CLDFLAGS))
 
 # Executables depend on BLAS linkage mode
 ifneq (,$(WRAP_GEMM))
