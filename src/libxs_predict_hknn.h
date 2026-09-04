@@ -378,19 +378,14 @@ LIBXS_API_INLINE void internal_libxs_predict_hknn_refine(
   const int p = model->nentries;
   const int m = model->ninputs;
   const int max_iter = LIBXS_MIN(LIBXS_PREDICT_MAXITER, 10);
-  int pts_pool = 0, comp_pool = 0, cnt_pool = 0;
-  double* pts = (double*)LIBXS_PREDICT_MALLOC(
-    (size_t)p * (size_t)m * sizeof(double), pts_pool);
+  int comp_pool = 0, cnt_pool = 0;
+  const double* pts = internal_libxs_predict_normpts(model);
   double* comp = (double*)LIBXS_PREDICT_MALLOC(
     (size_t)nclusters * (size_t)m * sizeof(double), comp_pool);
   int* counts = (int*)LIBXS_PREDICT_MALLOC(
     (size_t)nclusters * sizeof(int), cnt_pool);
   if (NULL != pts && NULL != comp && NULL != counts) {
     int i, c, j, iter;
-    for (i = 0; i < p; ++i) {
-      internal_libxs_predict_normalize(model,
-        model->entries[i].inputs, pts + (size_t)i * m);
-    }
     for (iter = 0; iter < max_iter; ++iter) {
       int changed = 0;
       for (i = 0; i < p; ++i) {
@@ -435,7 +430,6 @@ LIBXS_API_INLINE void internal_libxs_predict_hknn_refine(
   }
   LIBXS_PREDICT_FREE(counts, cnt_pool);
   LIBXS_PREDICT_FREE(comp, comp_pool);
-  LIBXS_PREDICT_FREE(pts, pts_pool);
 }
 
 

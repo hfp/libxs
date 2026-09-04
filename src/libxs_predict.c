@@ -242,6 +242,22 @@ LIBXS_EXTERN_C struct libxs_predict_t {
   internal_libxs_predict_cluster_t** hknn_po_clusters;
   double* eval_buf;
   /**
+   * Every entry's inputs normalized, nentries*ninputs, built once per build.
+   * The partition steps each used to normalize into a buffer of their own, so
+   * a build held three copies of it at once and paid for the normalization
+   * three times. It is also what lets the partition be split across tasks:
+   * a task cannot own a copy of something this size (at millions of entries
+   * it is gigabytes) and the assignment step only reads it.
+   */
+  double* norm_pts;
+  /**
+   * Working centroids of the partition in progress, nclusters*ninputs. Shared
+   * because the assignment step reads every centroid while the step that moves
+   * them runs on the builder alone: a task holding its own copy would assign
+   * against centroids that stopped moving.
+   */
+  double* norm_cen;
+  /**
    * One block holding every entry's inputs and outputs, ninputs+noutputs
    * apart. The entry pointers address it rather than owning separate
    * allocations: a corpus of millions of rows would otherwise pay two
@@ -336,6 +352,12 @@ LIBXS_EXTERN_C struct libxs_predict_t {
    * stale the way the field did after the call it described had returned.
    */
   volatile int sync_count, sync_epoch;
+  /**
+   * Set by any task whose slice of the assignment step moved an entry, so the
+   * tasks reach the same verdict on convergence and leave the loop together.
+   * Read after a rendezvous and cleared by the builder before the next one.
+   */
+  volatile int sync_moved;
   /** Per-candidate scores of a collective trial, indexed by candidate. */
   double sync_score[8];
 };
@@ -450,6 +472,8 @@ LIBXS_API_INLINE void internal_libxs_predict_free_clusters(libxs_predict_t* mode
   model->assignments = NULL;
   free(model->eval_buf);
   model->eval_buf = NULL;
+  free(model->norm_pts);
+  model->norm_pts = NULL;
   /* the support cache is derived from raw_outputs and must not outlive it */
   if (NULL != model->sup_vals) {
     int j;
@@ -713,29 +737,73 @@ LIBXS_API_INLINE int internal_libxs_predict_fit_knots(libxs_predict_t* model)
 }
 
 
-LIBXS_API_INLINE void internal_libxs_predict_kmeans(libxs_predict_t* model, int nclusters)
+/**
+ * Normalized inputs for every entry, allocated on first use per build and
+ * released with the model. Returns NULL if it cannot be had, which every
+ * caller must treat as "do not partition" rather than falling back to an
+ * un-normalized coordinate.
+ */
+LIBXS_API_INLINE double* internal_libxs_predict_normpts(libxs_predict_t* model)
+{
+  const int m = model->ninputs;
+  const int p = model->nentries;
+  if (NULL == model->norm_pts && 0 < p && 0 < m) {
+    model->norm_pts = (double*)malloc((size_t)p * (size_t)m * sizeof(double));
+    if (NULL != model->norm_pts) {
+      int i;
+      for (i = 0; i < p; ++i) {
+        internal_libxs_predict_normalize(model,
+          model->entries[i].inputs, model->norm_pts + (size_t)i * m);
+      }
+    }
+  }
+  return model->norm_pts;
+}
+
+
+/**
+ * tid/ntasks: the assignment step is split across the tasks and the step that
+ * moves the centroids is the builder's, because assignment is O(p*k*m) against
+ * the O(p*m) of moving them - the serial remainder is a k-th of an iteration.
+ * The scratch it needs is the builder's alone for the same reason; only the
+ * centroids are shared, since every task reads all of them.
+ */
+LIBXS_API_INLINE void internal_libxs_predict_kmeans(libxs_predict_t* model,
+  int nclusters, int tid, int ntasks)
 {
   const int m = model->ninputs;
   const int p = model->nentries;
   const int missing = model->has_missing;
-  int pool_pts = 0, pool_cen = 0, pool_comp = 0, pool_cnt = 0, pool_dist = 0;
+  int pool_comp = 0, pool_cnt = 0, pool_dist = 0;
   int pool_dcnt = 0;
-  double* pts = (double*)LIBXS_PREDICT_MALLOC((size_t)p * (size_t)m * sizeof(double), pool_pts);
-  double* centroids = (double*)LIBXS_PREDICT_MALLOC((size_t)nclusters * (size_t)m * sizeof(double), pool_cen);
-  double* comp = (double*)LIBXS_PREDICT_MALLOC((size_t)nclusters * (size_t)m * sizeof(double), pool_comp);
-  int* counts = (int*)LIBXS_PREDICT_MALLOC((size_t)nclusters * sizeof(int), pool_cnt);
-  double* dists = (double*)LIBXS_PREDICT_MALLOC((size_t)p * sizeof(double), pool_dist);
-  /* per-dimension counts: a centroid averages only the values actually present */
-  int* dcounts = (0 == missing) ? NULL : (int*)LIBXS_PREDICT_MALLOC(
-    (size_t)nclusters * (size_t)m * sizeof(int), pool_dcnt);
-  if (NULL != pts && NULL != centroids && NULL != counts && NULL != comp
-    && NULL != dists && (0 == missing || NULL != dcounts))
-  {
-    int c, i, j, iter;
-    for (i = 0; i < p; ++i) {
-      internal_libxs_predict_normalize(model,
-        model->entries[i].inputs, pts + (size_t)i * m);
+  const double* pts = internal_libxs_predict_normpts(model);
+  double* centroids;
+  double* comp = NULL;
+  int* counts = NULL;
+  double* dists = NULL;
+  int* dcounts = NULL;
+  if (0 == tid) {
+    free(model->norm_cen);
+    model->norm_cen = (double*)malloc(
+      (size_t)nclusters * (size_t)m * sizeof(double));
+    comp = (double*)LIBXS_PREDICT_MALLOC((size_t)nclusters * (size_t)m * sizeof(double), pool_comp);
+    counts = (int*)LIBXS_PREDICT_MALLOC((size_t)nclusters * sizeof(int), pool_cnt);
+    dists = (double*)LIBXS_PREDICT_MALLOC((size_t)p * sizeof(double), pool_dist);
+    /* per-dimension counts: a centroid averages only the values actually present */
+    dcounts = (0 == missing) ? NULL : (int*)LIBXS_PREDICT_MALLOC(
+      (size_t)nclusters * (size_t)m * sizeof(int), pool_dcnt);
+    model->sync_moved = 0;
+    if (NULL == model->norm_cen || NULL == comp || NULL == counts
+      || NULL == dists || (0 != missing && NULL == dcounts))
+    { /* every task tests norm_cen below, so releasing it declines the step */
+      free(model->norm_cen); model->norm_cen = NULL;
     }
+  }
+  internal_libxs_predict_sync(model, ntasks);
+  centroids = model->norm_cen;
+  if (NULL != pts && NULL != centroids) {
+    int c, i, j, iter;
+    if (0 == tid) {
     { const size_t seed = (0 == (model->eval_mode & LIBXS_PREDICT_TEMPORAL))
         ? LIBXS_SHUFFLE_INDEX(0, (size_t)p, libxs_coprime2((size_t)p), 0)
         : 0;
@@ -769,10 +837,12 @@ LIBXS_API_INLINE void internal_libxs_predict_kmeans(libxs_predict_t* model, int 
       memcpy(centroids + (size_t)c * m, pts + (size_t)farthest * m,
         (size_t)m * sizeof(double));
     }
+    } /* seeding is the builder's: it walks the centroids in order */
+    internal_libxs_predict_sync(model, ntasks);
     /* Lloyd iterations with Kahan-compensated centroid accumulation */
     for (iter = 0; iter < LIBXS_PREDICT_MAXITER; ++iter) {
       int changed = 0;
-      for (i = 0; i < p; ++i) {
+      for (i = tid; i < p; i += ntasks) {
         double best = internal_libxs_predict_dist2(
           pts + (size_t)i * m, centroids, m, missing);
         int bestc = 0;
@@ -786,8 +856,18 @@ LIBXS_API_INLINE void internal_libxs_predict_kmeans(libxs_predict_t* model, int 
           changed = 1;
         }
       }
+      if (0 != changed) {
+        LIBXS_ATOMIC_STORE(&model->sync_moved, 1, LIBXS_ATOMIC_SEQ_CST);
+      }
+      internal_libxs_predict_sync(model, ntasks);
+      /* one verdict, read by every task after the same rendezvous */
+      changed = (int)LIBXS_ATOMIC_LOAD(&model->sync_moved, LIBXS_ATOMIC_SEQ_CST);
       if (0 == changed) iter = LIBXS_PREDICT_MAXITER;
+      else if (0 != tid) {
+        internal_libxs_predict_sync(model, ntasks);
+      }
       else {
+        model->sync_moved = 0;
         memset(centroids, 0, (size_t)nclusters * (size_t)m * sizeof(double));
         memset(comp, 0, (size_t)nclusters * (size_t)m * sizeof(double));
         memset(counts, 0, (size_t)nclusters * sizeof(int));
@@ -825,18 +905,23 @@ LIBXS_API_INLINE void internal_libxs_predict_kmeans(libxs_predict_t* model, int 
             }
           }
         }
+        internal_libxs_predict_sync(model, ntasks);
       }
     }
-    for (c = 0; c < nclusters; ++c) {
+    if (0 == tid) for (c = 0; c < nclusters; ++c) {
       memcpy(model->clusters[c].centroid, centroids + (size_t)c * m, (size_t)m * sizeof(double));
     }
   }
-  LIBXS_PREDICT_FREE(dcounts, pool_dcnt);
-  LIBXS_PREDICT_FREE(dists, pool_dist);
-  LIBXS_PREDICT_FREE(comp, pool_comp);
-  LIBXS_PREDICT_FREE(centroids, pool_cen);
-  LIBXS_PREDICT_FREE(counts, pool_cnt);
-  LIBXS_PREDICT_FREE(pts, pool_pts);
+  if (0 == tid) {
+    LIBXS_PREDICT_FREE(dcounts, pool_dcnt);
+    LIBXS_PREDICT_FREE(dists, pool_dist);
+    LIBXS_PREDICT_FREE(comp, pool_comp);
+    LIBXS_PREDICT_FREE(counts, pool_cnt);
+    free(model->norm_cen);
+    model->norm_cen = NULL;
+  }
+  /* the partition is complete for every task, not just the one that closed it */
+  internal_libxs_predict_sync(model, ntasks);
 }
 
 
@@ -3229,6 +3314,9 @@ LIBXS_API_INLINE int internal_libxs_predict_build_impl(libxs_predict_t* model,
     internal_libxs_predict_free_clusters(model);
     free(model->input_min); free(model->input_rng);
     free(model->input_knot); model->input_knot = NULL;
+    /* the normalization these define is about to change, so what was
+       normalized under the previous one cannot be carried over */
+    free(model->norm_pts); model->norm_pts = NULL;
     model->input_min = (double*)malloc((size_t)m * sizeof(double));
     model->input_rng = (double*)malloc((size_t)m * sizeof(double));
     if (NULL != model->input_min && NULL != model->input_rng) {
@@ -3308,7 +3396,7 @@ LIBXS_API_INLINE int internal_libxs_predict_build_impl(libxs_predict_t* model,
         internal_libxs_predict_hknn_refine(model, nclusters);
       }
       else {
-        internal_libxs_predict_kmeans(model, nclusters);
+        internal_libxs_predict_kmeans(model, nclusters, 0, 1);
       }
       for (i = 0; i < p; ++i) {
         ++model->clusters[model->assignments[i]].nentries;
