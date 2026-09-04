@@ -2572,6 +2572,15 @@ cleanld = $(strip $(shell echo "$1 $2 $3 $4 $5 $6 $7 $8 $9 ${10} ${11} ${12}" | 
 # common runtime libraries
 LDFLAGS := $(call uniqmov,LDFLAGS,LIBPTHREAD,$(XLIB_BEGIN) $(LIBPTHREAD) $(XLIB_END))
 LDFLAGS := $(call uniqmov,LDFLAGS,LIBCPP,$(XLIB_BEGIN) $(LIBCPP) $(XLIB_END))
+# A sanitizer resolves __cxa_throw against the initial image, so a C-only link
+# (no C++ runtime) aborts inside the interceptor as soon as a dlopen'ed C++
+# plugin throws, e.g. an OpenCL ICD during its constructors. Forced rather than
+# as-needed because no C object references the C++ runtime, and preloading is
+# no substitute (a preloaded library precedes the sanitizer's RTLD_NEXT scan).
+ifneq (,$(SANITIZE))
+  LDFLAGS := $(call uniqadd,LDFLAGS,LIBCPP,$(XLIB_END_FORCE) \
+    $(if $(LIBCPP),$(LIBCPP),$(call ldclib,$(LD),$(SLDFLAGS),c++abi)) $(XLIB_BEGIN_FORCE))
+endif
 ifeq (0,$(INTEL))
   LDFLAGS := $(call uniqadd,LDFLAGS,LIBM,$(XLIB_BEGIN) $(LIBM) $(XLIB_END))
 endif
