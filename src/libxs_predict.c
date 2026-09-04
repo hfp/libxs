@@ -173,7 +173,7 @@ typedef struct internal_libxs_predict_view_t {
 typedef struct internal_libxs_predict_order_ctx_t {
   libxs_predict_t* model;
   int nclusters;
-  int collective;
+  int tid, ntasks;
 } internal_libxs_predict_order_ctx_t;
 
 typedef struct internal_libxs_predict_rf_node_t {
@@ -251,10 +251,13 @@ LIBXS_EXTERN_C struct libxs_predict_t {
    */
   double* norm_pts;
   /**
-   * Working centroids of the partition in progress, nclusters*ninputs. Shared
-   * because the assignment step reads every centroid while the step that moves
-   * them runs on the builder alone: a task holding its own copy would assign
-   * against centroids that stopped moving.
+   * Scratch for the partition in progress, nclusters*ninputs: k-means keeps its
+   * working centroids here, the hierarchical refinement its compensation terms.
+   * The builder allocates it and every task tests it, which is what makes the
+   * step's precondition a shared one - a task that decided on its own whether
+   * to take part would leave the others waiting at a rendezvous it never
+   * reaches. k-means also needs it shared on its own account, since the
+   * assignment step reads centroids that only the builder moves.
    */
   double* norm_cen;
   /**
@@ -358,6 +361,12 @@ LIBXS_EXTERN_C struct libxs_predict_t {
    * Read after a rendezvous and cleared by the builder before the next one.
    */
   volatile int sync_moved;
+  /**
+   * The builder's verdict on a stage it ran alone. A task's own result cannot
+   * serve: it never ran the allocation that may have failed, so it would judge
+   * the next stage differently and enter a rendezvous the others have left.
+   */
+  volatile int sync_result;
   /** Per-candidate scores of a collective trial, indexed by candidate. */
   double sync_score[8];
 };
@@ -436,7 +445,7 @@ LIBXS_API_INLINE void internal_libxs_predict_central_all(libxs_predict_t* model)
 LIBXS_API_INLINE void internal_libxs_predict_keff_all(libxs_predict_t* model);
 LIBXS_API_INLINE void internal_libxs_predict_kapply(libxs_predict_t* model);
 LIBXS_API_INLINE int internal_libxs_predict_build_impl(libxs_predict_t* model,
-  int nclusters, int order, double quality, int collective);
+  int nclusters, int order, double quality, int tid, int ntasks);
 LIBXS_API_INLINE void internal_libxs_predict_bank_all(libxs_predict_t* model);
 
 
@@ -776,13 +785,18 @@ LIBXS_API_INLINE void internal_libxs_predict_kmeans(libxs_predict_t* model,
   const int missing = model->has_missing;
   int pool_comp = 0, pool_cnt = 0, pool_dist = 0;
   int pool_dcnt = 0;
-  const double* pts = internal_libxs_predict_normpts(model);
+  const double* pts;
   double* centroids;
   double* comp = NULL;
   int* counts = NULL;
   double* dists = NULL;
   int* dcounts = NULL;
   if (0 == tid) {
+    /**
+     * Built here, not per task: it is one buffer on the model, and tasks
+     * racing to create it would each fill a copy the others then read
+     */
+    internal_libxs_predict_normpts(model);
     free(model->norm_cen);
     model->norm_cen = (double*)malloc(
       (size_t)nclusters * (size_t)m * sizeof(double));
@@ -800,6 +814,7 @@ LIBXS_API_INLINE void internal_libxs_predict_kmeans(libxs_predict_t* model,
     }
   }
   internal_libxs_predict_sync(model, ntasks);
+  pts = model->norm_pts;
   centroids = model->norm_cen;
   if (NULL != pts && NULL != centroids) {
     int c, i, j, iter;
@@ -842,6 +857,14 @@ LIBXS_API_INLINE void internal_libxs_predict_kmeans(libxs_predict_t* model,
     /* Lloyd iterations with Kahan-compensated centroid accumulation */
     for (iter = 0; iter < LIBXS_PREDICT_MAXITER; ++iter) {
       int changed = 0;
+      /**
+       * Cleared here rather than after the verdict is read. Clearing it there
+       * races with a task that has not read it yet: that task then reads zero,
+       * concludes the partition converged, leaves the loop, and the two run
+       * different stages against the same rendezvous counter.
+       */
+      if (0 == tid) model->sync_moved = 0;
+      internal_libxs_predict_sync(model, ntasks);
       for (i = tid; i < p; i += ntasks) {
         double best = internal_libxs_predict_dist2(
           pts + (size_t)i * m, centroids, m, missing);
@@ -863,11 +886,8 @@ LIBXS_API_INLINE void internal_libxs_predict_kmeans(libxs_predict_t* model,
       /* one verdict, read by every task after the same rendezvous */
       changed = (int)LIBXS_ATOMIC_LOAD(&model->sync_moved, LIBXS_ATOMIC_SEQ_CST);
       if (0 == changed) iter = LIBXS_PREDICT_MAXITER;
-      else if (0 != tid) {
-        internal_libxs_predict_sync(model, ntasks);
-      }
       else {
-        model->sync_moved = 0;
+        if (0 == tid) {
         memset(centroids, 0, (size_t)nclusters * (size_t)m * sizeof(double));
         memset(comp, 0, (size_t)nclusters * (size_t)m * sizeof(double));
         memset(counts, 0, (size_t)nclusters * sizeof(int));
@@ -905,6 +925,7 @@ LIBXS_API_INLINE void internal_libxs_predict_kmeans(libxs_predict_t* model,
             }
           }
         }
+        } /* moving the centroids is the builder's */
         internal_libxs_predict_sync(model, ntasks);
       }
     }
@@ -3146,7 +3167,7 @@ LIBXS_API_INLINE double internal_libxs_predict_order_fn(
   const int ord = LIBXS_MAX(LIBXS_ROUNDX(int, x), 1);
   double total_err = 1e30;
   if (EXIT_SUCCESS == internal_libxs_predict_build_impl(ctx->model,
-    ctx->nclusters, ord, 0, ctx->collective))
+    ctx->nclusters, ord, 0, ctx->tid, ctx->ntasks))
   {
     const int p = ctx->model->nentries;
     const int n = ctx->model->noutputs;
@@ -3179,7 +3200,7 @@ LIBXS_API_INLINE double internal_libxs_predict_order_fn(
  * part of the build has to consult state left behind by an earlier one.
  */
 LIBXS_API_INLINE int internal_libxs_predict_build_impl(libxs_predict_t* model,
-  int nclusters, int order, double quality, int collective)
+  int nclusters, int order, double quality, int tid, int ntasks)
 {
   int result = EXIT_SUCCESS;
   if (NULL != model) {
@@ -3248,22 +3269,39 @@ LIBXS_API_INLINE int internal_libxs_predict_build_impl(libxs_predict_t* model,
     && LIBXS_PREDICT_HKNN == model->decompose
     && NULL == model->hknn_assignments)
   {
-    model->hknn_assignments = (int*)calloc((size_t)model->nentries, sizeof(int));
-    if (NULL != model->hknn_assignments) {
-      model->hknn_nclusters = 0;
-      internal_libxs_predict_hknn_partition(model, &model->hknn_nclusters);
-      if (model->hknn_nclusters < 1) model->hknn_nclusters = 1;
+    /**
+     * Deriving the hierarchy is the builder's: every task would otherwise
+     * derive its own over the same corpus and race on the result
+     */
+    if (0 == tid) {
+      model->hknn_assignments = (int*)calloc((size_t)model->nentries, sizeof(int));
+      if (NULL != model->hknn_assignments) {
+        model->hknn_nclusters = 0;
+        internal_libxs_predict_hknn_partition(model, &model->hknn_nclusters);
+        if (model->hknn_nclusters < 1) model->hknn_nclusters = 1;
+      }
     }
   }
+  /**
+   * Outside the test, not inside: the test reads hknn_assignments and the
+   * builder fills it, so a task arriving late reads it as done, skips the
+   * stage, and leaves the builder waiting for an arrival that never comes.
+   * A rendezvous may only be conditional on state no stage of it writes.
+   */
+  internal_libxs_predict_sync(model, ntasks);
   if (EXIT_SUCCESS == result && NULL != model && 0 < model->nentries
     && LIBXS_PREDICT_RF == model->decompose && NULL == model->rf)
   {
-    internal_libxs_predict_rf_build(model);
-    if (0 == collective) {
-      internal_libxs_predict_rf_build_tasks(model, 0, 1);
-      internal_libxs_predict_rf_boost(model);
+    if (0 == tid) {
+      internal_libxs_predict_rf_build(model);
+      if (1 >= ntasks) {
+        internal_libxs_predict_rf_build_tasks(model, 0, 1);
+        internal_libxs_predict_rf_boost(model);
+      }
     }
   }
+  /* as above: the test reads model->rf, which the stage itself sets */
+  internal_libxs_predict_sync(model, ntasks);
   if (EXIT_SUCCESS != result || NULL == model || 0 >= model->nentries) {
     result = EXIT_FAILURE;
   }
@@ -3272,9 +3310,22 @@ LIBXS_API_INLINE int internal_libxs_predict_build_impl(libxs_predict_t* model,
     const int max_ord = (order < 0) ? -order : LIBXS_FPRINT_MAXORDER;
     int best_ord = 1, ord;
     double best_err = 1e30;
+    /**
+     * The search is the builder's, and each candidate it scores is a serial
+     * build: a collective one here would nest rendezvous inside the rendezvous
+     * this stage already is. The order it settles on is published, so the build
+     * that keeps it is the collective one and the tasks are idle only for the
+     * search itself.
+     */
     ctx.model = model;
     ctx.nclusters = nclusters;
-    ctx.collective = collective;
+    ctx.tid = 0;
+    ctx.ntasks = 1;
+    if (0 != tid) {
+      internal_libxs_predict_sync(model, ntasks);
+      best_ord = (int)model->sync_result;
+    }
+    else {
     ord = 1;
     best_err = internal_libxs_predict_order_fn((double)ord, &ctx);
     /**
@@ -3294,8 +3345,11 @@ LIBXS_API_INLINE int internal_libxs_predict_build_impl(libxs_predict_t* model,
       ord = max_ord;
     }
     model->iterations = ord;
+    model->sync_result = best_ord;
+    internal_libxs_predict_sync(model, ntasks);
+    }
     result = internal_libxs_predict_build_impl(model, nclusters, best_ord,
-      quality, collective);
+      quality, tid, ntasks);
   }
   else {
     const int p = model->nentries;
@@ -3308,96 +3362,115 @@ LIBXS_API_INLINE int internal_libxs_predict_build_impl(libxs_predict_t* model,
     int pool_bucket = 0, pool_cbegin = 0;
     int* bucket = NULL;
     int* cbegin = NULL;
-    if (order > LIBXS_FPRINT_MAXORDER) order = LIBXS_FPRINT_MAXORDER;
-    model->order = order;
-    model->quality = quality;
-    internal_libxs_predict_free_clusters(model);
-    free(model->input_min); free(model->input_rng);
-    free(model->input_knot); model->input_knot = NULL;
-    /* the normalization these define is about to change, so what was
-       normalized under the previous one cannot be carried over */
-    free(model->norm_pts); model->norm_pts = NULL;
-    model->input_min = (double*)malloc((size_t)m * sizeof(double));
-    model->input_rng = (double*)malloc((size_t)m * sizeof(double));
-    if (NULL != model->input_min && NULL != model->input_rng) {
-      int j;
-      /**
-       * An absent value must not seed the extent: it compares false against
-       * everything, so a NaN in the first entry would leave the whole dimension
-       * NaN and silently un-normalize every later comparison on it. A
-       * dimension that is absent throughout keeps a zero range, which
-       * internal_libxs_predict_normalize already treats as "do not scale".
-       */
-      for (j = 0; j < m; ++j) {
-        model->input_min[j] = 0;
-        model->input_rng[j] = 0;
-      }
-      for (j = 0; j < m; ++j) {
-        int seeded = 0;
-        for (i = 0; i < p; ++i) {
-          const double v = model->entries[i].inputs[j];
-          if (LIBXS_NOTNAN(v)) {
-            if (0 == seeded) {
-              model->input_min[j] = v;
-              model->input_rng[j] = v;
-              seeded = 1;
-            }
-            else {
-              if (v < model->input_min[j]) model->input_min[j] = v;
-              if (v > model->input_rng[j]) model->input_rng[j] = v;
+    /**
+     * Laying out the corpus is the builder's: it allocates what the other
+     * tasks then read. They wait at the rendezvous below and take its verdict
+     * rather than their own, which is why it is published rather than returned.
+     */
+    if (0 == tid) {
+      if (order > LIBXS_FPRINT_MAXORDER) order = LIBXS_FPRINT_MAXORDER;
+      model->order = order;
+      model->quality = quality;
+      internal_libxs_predict_free_clusters(model);
+      free(model->input_min); free(model->input_rng);
+      free(model->input_knot); model->input_knot = NULL;
+      /* the normalization these define is about to change, so what was
+         normalized under the previous one cannot be carried over */
+      free(model->norm_pts); model->norm_pts = NULL;
+      model->input_min = (double*)malloc((size_t)m * sizeof(double));
+      model->input_rng = (double*)malloc((size_t)m * sizeof(double));
+      if (NULL != model->input_min && NULL != model->input_rng) {
+        int j;
+        /**
+         * An absent value must not seed the extent: it compares false against
+         * everything, so a NaN in the first entry would leave the whole dimension
+         * NaN and silently un-normalize every later comparison on it. A
+         * dimension that is absent throughout keeps a zero range, which
+         * internal_libxs_predict_normalize already treats as "do not scale".
+         */
+        for (j = 0; j < m; ++j) {
+          model->input_min[j] = 0;
+          model->input_rng[j] = 0;
+        }
+        for (j = 0; j < m; ++j) {
+          int seeded = 0;
+          for (i = 0; i < p; ++i) {
+            const double v = model->entries[i].inputs[j];
+            if (LIBXS_NOTNAN(v)) {
+              if (0 == seeded) {
+                model->input_min[j] = v;
+                model->input_rng[j] = v;
+                seeded = 1;
+              }
+              else {
+                if (v < model->input_min[j]) model->input_min[j] = v;
+                if (v > model->input_rng[j]) model->input_rng[j] = v;
+              }
             }
           }
         }
+        for (j = 0; j < m; ++j) {
+          model->input_rng[j] -= model->input_min[j];
+        }
+        /**
+         * The rank coordinate is for axes that measure different quantities. A
+         * window feeds lags of one series, which share a scale by construction,
+         * and ranking each lag on its own distribution discards exactly the level
+         * relationship that makes two windows comparable.
+         */
+        if (0 >= model->nseries) internal_libxs_predict_fit_knots(model);
+        else {
+          free(model->input_knot);
+          model->input_knot = NULL;
+        }
       }
-      for (j = 0; j < m; ++j) {
-        model->input_rng[j] -= model->input_min[j];
+      if (0 >= nclusters) {
+        nclusters = (int)(sqrt((double)p) + 0.5);
+        if (nclusters < 1) nclusters = 1;
       }
-      /**
-       * The rank coordinate is for axes that measure different quantities. A
-       * window feeds lags of one series, which share a scale by construction,
-       * and ranking each lag on its own distribution discards exactly the level
-       * relationship that makes two windows comparable.
-       */
-      if (0 >= model->nseries) internal_libxs_predict_fit_knots(model);
-      else { free(model->input_knot); model->input_knot = NULL; }
-    }
-    if (0 >= nclusters) {
-      nclusters = (int)(sqrt((double)p) + 0.5);
-      if (nclusters < 1) nclusters = 1;
-    }
-    if (nclusters > p) nclusters = p;
-    model->assignments = (int*)calloc((size_t)p, sizeof(int));
-    model->eval_buf = (double*)malloc((size_t)n * 6 * sizeof(double) + (size_t)n * sizeof(int));
-    if (NULL == model->assignments || NULL == model->eval_buf) {
-      result = EXIT_FAILURE;
-    }
-    if (EXIT_SUCCESS == result && LIBXS_PREDICT_HKNN == model->decompose
-      && NULL != model->hknn_assignments && model->hknn_nclusters > 0)
-    {
-      memcpy(model->assignments, model->hknn_assignments,
-        (size_t)p * sizeof(int));
-      nclusters = model->hknn_nclusters;
-    }
-    model->clusters = (internal_libxs_predict_cluster_t*)calloc(
-      (size_t)nclusters, sizeof(internal_libxs_predict_cluster_t));
-    if (NULL == model->clusters) {
-      result = EXIT_FAILURE;
-    }
+      if (nclusters > p) nclusters = p;
+      model->assignments = (int*)calloc((size_t)p, sizeof(int));
+      model->eval_buf = (double*)malloc((size_t)n * 6 * sizeof(double) + (size_t)n * sizeof(int));
+      if (NULL == model->assignments || NULL == model->eval_buf) {
+        result = EXIT_FAILURE;
+      }
+      if (EXIT_SUCCESS == result && LIBXS_PREDICT_HKNN == model->decompose
+        && NULL != model->hknn_assignments && model->hknn_nclusters > 0)
+      {
+        memcpy(model->assignments, model->hknn_assignments,
+          (size_t)p * sizeof(int));
+        nclusters = model->hknn_nclusters;
+      }
+      model->clusters = (internal_libxs_predict_cluster_t*)calloc(
+        (size_t)nclusters, sizeof(internal_libxs_predict_cluster_t));
+      if (NULL == model->clusters) {
+        result = EXIT_FAILURE;
+      }
+      if (EXIT_SUCCESS == result) {
+        model->nclusters = nclusters;
+        for (c = 0; c < nclusters && EXIT_SUCCESS == result; ++c) {
+          model->clusters[c].centroid = (double*)malloc((size_t)m * sizeof(double));
+          if (NULL == model->clusters[c].centroid) result = EXIT_FAILURE;
+        }
+      }
+      model->sync_result = result;
+    } /* end of the builder's layout */
+    internal_libxs_predict_sync(model, ntasks);
+    result = (int)model->sync_result;
     if (EXIT_SUCCESS == result) {
-      model->nclusters = nclusters;
-      for (c = 0; c < nclusters && EXIT_SUCCESS == result; ++c) {
-        model->clusters[c].centroid = (double*)malloc((size_t)m * sizeof(double));
-        if (NULL == model->clusters[c].centroid) result = EXIT_FAILURE;
-      }
-    }
-    if (EXIT_SUCCESS == result) {
+      /* the count the builder settled on, which the local one need not match */
+      const int pnc = model->nclusters;
       if (LIBXS_PREDICT_HKNN == model->decompose) {
-        internal_libxs_predict_hknn_centroids(model, nclusters);
-        internal_libxs_predict_hknn_refine(model, nclusters);
+        if (0 == tid) internal_libxs_predict_hknn_centroids(model, pnc);
+        internal_libxs_predict_sync(model, ntasks);
+        internal_libxs_predict_hknn_refine(model, pnc, tid, ntasks);
       }
       else {
-        internal_libxs_predict_kmeans(model, nclusters, 0, 1);
+        internal_libxs_predict_kmeans(model, pnc, tid, ntasks);
       }
+    }
+    internal_libxs_predict_sync(model, ntasks);
+    if (0 == tid && EXIT_SUCCESS == result) {
       for (i = 0; i < p; ++i) {
         ++model->clusters[model->assignments[i]].nentries;
       }
@@ -3441,216 +3514,216 @@ LIBXS_API_INLINE int internal_libxs_predict_build_impl(libxs_predict_t* model,
           model->nclusters = nclusters;
         }
       }
-    }
-    if (EXIT_SUCCESS == result) {
-      bucket = (int*)LIBXS_PREDICT_MALLOC(
-        (size_t)p * sizeof(int), pool_bucket);
-      cbegin = (int*)LIBXS_PREDICT_MALLOC(
-        (size_t)(nclusters + 1) * sizeof(int), pool_cbegin);
-      if (NULL == bucket || NULL == cbegin) result = EXIT_FAILURE;
-      else { /* counting sort keeps each cluster in ascending entry order */
-        int at = 0;
-        for (c = 0; c < nclusters; ++c) {
-          cbegin[c] = at;
-          at += model->clusters[c].nentries;
-        }
-        cbegin[nclusters] = at;
-        /* cbegin doubles as the fill cursor, then the starts are restored */
-        for (i = 0; i < p; ++i) {
-          bucket[cbegin[model->assignments[i]]++] = i;
-        }
-        for (c = 0; c < nclusters; ++c) {
-          cbegin[c] -= model->clusters[c].nentries;
-        }
-      }
-    }
-    for (c = 0; c < nclusters && EXIT_SUCCESS == result; ++c) {
-      internal_libxs_predict_cluster_t* cl = &model->clusters[c];
-      const int nc = cl->nentries;
-      int j, k, maxorder;
-      if (0 >= nc) continue;
-      cl->sorted_idx = (int*)malloc((size_t)nc * sizeof(int));
-      cl->sorted_dist = (double*)malloc((size_t)nc * sizeof(double));
-      cl->order = (int*)malloc((size_t)n * sizeof(int));
-      cl->interpolated = (int*)malloc((size_t)n * sizeof(int));
-      cl->mode = (int*)malloc((size_t)n * sizeof(int));
-      cl->ndistinct = (int*)malloc((size_t)n * sizeof(int));
-      if (NULL == cl->sorted_idx || NULL == cl->sorted_dist
-        || NULL == cl->order || NULL == cl->interpolated
-        || NULL == cl->mode || NULL == cl->ndistinct)
-      {
-        result = EXIT_FAILURE;
-      }
       if (EXIT_SUCCESS == result) {
-        int pool_inmat = 0, pool_perm = 0;
-        double *const inmat = (double*)LIBXS_PREDICT_MALLOC((size_t)nc * (size_t)m * sizeof(double), pool_inmat);
-        int *const sort_perm = (int*)LIBXS_PREDICT_MALLOC((size_t)nc * sizeof(int), pool_perm);
-        const int *const entry_map = bucket + cbegin[c];
-        if (NULL == inmat || NULL == sort_perm) {
-          result = EXIT_FAILURE;
-        }
-        else {
-          int ki;
-          for (ki = 0; ki < nc; ++ki) {
-            const double *const src = model->entries[entry_map[ki]].inputs;
-            for (k = 0; k < m; ++k) {
-              inmat[(size_t)k * nc + ki] = src[k];
-            }
+        bucket = (int*)LIBXS_PREDICT_MALLOC(
+          (size_t)p * sizeof(int), pool_bucket);
+        cbegin = (int*)LIBXS_PREDICT_MALLOC(
+          (size_t)(nclusters + 1) * sizeof(int), pool_cbegin);
+        if (NULL == bucket || NULL == cbegin) result = EXIT_FAILURE;
+        else { /* counting sort keeps each cluster in ascending entry order */
+          int at = 0;
+          for (c = 0; c < nclusters; ++c) {
+            cbegin[c] = at;
+            at += model->clusters[c].nentries;
           }
-          libxs_sort_smooth(LIBXS_SORT_HILBERT, nc, m, inmat, nc,
-            LIBXS_DATATYPE_F64, sort_perm);
-          for (k = 0; k < nc; ++k) {
-            cl->sorted_idx[k] = entry_map[sort_perm[k]];
-            cl->sorted_dist[k] = sqrt(internal_libxs_predict_dist2(
-              model->entries[cl->sorted_idx[k]].inputs,
-              cl->centroid, m, model->has_missing));
+          cbegin[nclusters] = at;
+          /* cbegin doubles as the fill cursor, then the starts are restored */
+          for (i = 0; i < p; ++i) {
+            bucket[cbegin[model->assignments[i]]++] = i;
           }
-          cl->dmax = 0;
-          for (k = 0; k < nc; ++k) {
-            if (cl->sorted_dist[k] > cl->dmax) cl->dmax = cl->sorted_dist[k];
-          }
-          if (cl->dmax <= 0.0) cl->dmax = 1.0;
-          cl->kd_pts = (double*)malloc((size_t)nc * (size_t)m * sizeof(double));
-          if (0 != model->has_eweight && NULL == cl->eweight) {
-            cl->eweight = (double*)malloc((size_t)nc * sizeof(double));
-          }
-          if (NULL != cl->kd_pts) {
-            for (k = 0; k < nc; ++k) {
-              internal_libxs_predict_normalize(model,
-                model->entries[cl->sorted_idx[k]].inputs,
-                cl->kd_pts + (size_t)k * m);
-              if (NULL != cl->eweight) {
-                cl->eweight[k] = model->entries[cl->sorted_idx[k]].weight;
-              }
-            }
-            if (0 != model->tangent) {
-              internal_libxs_predict_cluster_tangent(cl, m, model->tangent);
-            }
+          for (c = 0; c < nclusters; ++c) {
+            cbegin[c] -= model->clusters[c].nentries;
           }
         }
-        LIBXS_PREDICT_FREE(sort_perm, pool_perm);
-        LIBXS_PREDICT_FREE(inmat, pool_inmat);
       }
-      if (EXIT_SUCCESS == result) {
-        maxorder = LIBXS_MIN(nc - 1, order);
-        maxorder = LIBXS_MIN(maxorder, LIBXS_FPRINT_MAXORDER);
-        if (maxorder < 1) maxorder = 1;
-        cl->maxorder = maxorder;
-        cl->coeffs = (double*)calloc((size_t)n * (size_t)(maxorder + 1), sizeof(double));
-        cl->errors = (double*)calloc((size_t)n, sizeof(double));
-        cl->out_rms = (double*)calloc((size_t)n, sizeof(double));
-        cl->raw_outputs = (double*)malloc((size_t)nc * (size_t)n * sizeof(double));
-        cl->out_mean = (double*)calloc((size_t)n, sizeof(double));
-        cl->out_var = (double*)calloc((size_t)n, sizeof(double));
-        if (NULL == cl->coeffs || NULL == cl->errors || NULL == cl->out_rms
-          || NULL == cl->raw_outputs
-          || NULL == cl->out_mean || NULL == cl->out_var)
+      for (c = 0; c < nclusters && EXIT_SUCCESS == result; ++c) {
+        internal_libxs_predict_cluster_t* cl = &model->clusters[c];
+        const int nc = cl->nentries;
+        int j, k, maxorder;
+        if (0 >= nc) continue;
+        cl->sorted_idx = (int*)malloc((size_t)nc * sizeof(int));
+        cl->sorted_dist = (double*)malloc((size_t)nc * sizeof(double));
+        cl->order = (int*)malloc((size_t)n * sizeof(int));
+        cl->interpolated = (int*)malloc((size_t)n * sizeof(int));
+        cl->mode = (int*)malloc((size_t)n * sizeof(int));
+        cl->ndistinct = (int*)malloc((size_t)n * sizeof(int));
+        if (NULL == cl->sorted_idx || NULL == cl->sorted_dist
+          || NULL == cl->order || NULL == cl->interpolated
+          || NULL == cl->mode || NULL == cl->ndistinct)
         {
           result = EXIT_FAILURE;
         }
-        else {
-          for (k = 0; k < nc; ++k) {
-            for (j = 0; j < n; ++j) {
-              cl->raw_outputs[(size_t)k * n + j] =
-                model->entries[cl->sorted_idx[k]].outputs[j];
-              cl->out_mean[j] += model->entries[cl->sorted_idx[k]].outputs[j];
+        if (EXIT_SUCCESS == result) {
+          int pool_inmat = 0, pool_perm = 0;
+          double *const inmat = (double*)LIBXS_PREDICT_MALLOC((size_t)nc * (size_t)m * sizeof(double), pool_inmat);
+          int *const sort_perm = (int*)LIBXS_PREDICT_MALLOC((size_t)nc * sizeof(int), pool_perm);
+          const int *const entry_map = bucket + cbegin[c];
+          if (NULL == inmat || NULL == sort_perm) {
+            result = EXIT_FAILURE;
+          }
+          else {
+            int ki;
+            for (ki = 0; ki < nc; ++ki) {
+              const double *const src = model->entries[entry_map[ki]].inputs;
+              for (k = 0; k < m; ++k) {
+                inmat[(size_t)k * nc + ki] = src[k];
+              }
+            }
+            libxs_sort_smooth(LIBXS_SORT_HILBERT, nc, m, inmat, nc,
+              LIBXS_DATATYPE_F64, sort_perm);
+            for (k = 0; k < nc; ++k) {
+              cl->sorted_idx[k] = entry_map[sort_perm[k]];
+              cl->sorted_dist[k] = sqrt(internal_libxs_predict_dist2(
+                model->entries[cl->sorted_idx[k]].inputs,
+                cl->centroid, m, model->has_missing));
+            }
+            cl->dmax = 0;
+            for (k = 0; k < nc; ++k) {
+              if (cl->sorted_dist[k] > cl->dmax) cl->dmax = cl->sorted_dist[k];
+            }
+            if (cl->dmax <= 0.0) cl->dmax = 1.0;
+            cl->kd_pts = (double*)malloc((size_t)nc * (size_t)m * sizeof(double));
+            if (0 != model->has_eweight && NULL == cl->eweight) {
+              cl->eweight = (double*)malloc((size_t)nc * sizeof(double));
+            }
+            if (NULL != cl->kd_pts) {
+              for (k = 0; k < nc; ++k) {
+                internal_libxs_predict_normalize(model,
+                  model->entries[cl->sorted_idx[k]].inputs,
+                  cl->kd_pts + (size_t)k * m);
+                if (NULL != cl->eweight) {
+                  cl->eweight[k] = model->entries[cl->sorted_idx[k]].weight;
+                }
+              }
+              if (0 != model->tangent) {
+                internal_libxs_predict_cluster_tangent(cl, m, model->tangent);
+              }
             }
           }
-          for (j = 0; j < n; ++j) cl->out_mean[j] /= nc;
-          for (k = 0; k < nc; ++k) {
-            for (j = 0; j < n; ++j) {
-              const double d = cl->raw_outputs[(size_t)k * n + j] - cl->out_mean[j];
-              cl->out_var[j] += d * d;
-            }
+          LIBXS_PREDICT_FREE(sort_perm, pool_perm);
+          LIBXS_PREDICT_FREE(inmat, pool_inmat);
+        }
+        if (EXIT_SUCCESS == result) {
+          maxorder = LIBXS_MIN(nc - 1, order);
+          maxorder = LIBXS_MIN(maxorder, LIBXS_FPRINT_MAXORDER);
+          if (maxorder < 1) maxorder = 1;
+          cl->maxorder = maxorder;
+          cl->coeffs = (double*)calloc((size_t)n * (size_t)(maxorder + 1), sizeof(double));
+          cl->errors = (double*)calloc((size_t)n, sizeof(double));
+          cl->out_rms = (double*)calloc((size_t)n, sizeof(double));
+          cl->raw_outputs = (double*)malloc((size_t)nc * (size_t)n * sizeof(double));
+          cl->out_mean = (double*)calloc((size_t)n, sizeof(double));
+          cl->out_var = (double*)calloc((size_t)n, sizeof(double));
+          if (NULL == cl->coeffs || NULL == cl->errors || NULL == cl->out_rms
+            || NULL == cl->raw_outputs
+            || NULL == cl->out_mean || NULL == cl->out_var)
+          {
+            result = EXIT_FAILURE;
           }
-          for (j = 0; j < n; ++j) cl->out_var[j] /= nc;
+          else {
+            for (k = 0; k < nc; ++k) {
+              for (j = 0; j < n; ++j) {
+                cl->raw_outputs[(size_t)k * n + j] =
+                  model->entries[cl->sorted_idx[k]].outputs[j];
+                cl->out_mean[j] += model->entries[cl->sorted_idx[k]].outputs[j];
+              }
+            }
+            for (j = 0; j < n; ++j) cl->out_mean[j] /= nc;
+            for (k = 0; k < nc; ++k) {
+              for (j = 0; j < n; ++j) {
+                const double d = cl->raw_outputs[(size_t)k * n + j] - cl->out_mean[j];
+                cl->out_var[j] += d * d;
+              }
+            }
+            for (j = 0; j < n; ++j) cl->out_var[j] /= nc;
+          }
+        }
+        if (EXIT_SUCCESS == result) {
+          internal_libxs_predict_cluster_refit(cl, n, 1);
+        }
+        if (EXIT_SUCCESS == result && nc > 2 && NULL != cl->out_rms
+          && model->quantile > 0) {
+          for (j = 0; j < n; ++j) {
+            double sse = 0;
+            for (k = 0; k < nc; ++k) {
+              const double actual = cl->raw_outputs[(size_t)k * n + j];
+              const double pred = internal_libxs_predict_classify(
+                cl, m, cl->kd_pts + (size_t)k * m,
+                j, n, cl->ndistinct[j], 0, k, NULL, NULL, 0, NULL,
+                model->has_missing);
+              const double res = pred - actual;
+              sse += res * res;
+            }
+            cl->out_rms[j] = sqrt(sse / nc);
+          }
         }
       }
+      LIBXS_PREDICT_FREE(cbegin, pool_cbegin);
+      LIBXS_PREDICT_FREE(bucket, pool_bucket);
       if (EXIT_SUCCESS == result) {
-        internal_libxs_predict_cluster_refit(cl, n, 1);
-      }
-      if (EXIT_SUCCESS == result && nc > 2 && NULL != cl->out_rms
-        && model->quantile > 0) {
-        for (j = 0; j < n; ++j) {
-          double sse = 0;
-          for (k = 0; k < nc; ++k) {
-            const double actual = cl->raw_outputs[(size_t)k * n + j];
-            const double pred = internal_libxs_predict_classify(
-              cl, m, cl->kd_pts + (size_t)k * m,
-              j, n, cl->ndistinct[j], 0, k, NULL, NULL, 0, NULL,
-              model->has_missing);
-            const double res = pred - actual;
-            sse += res * res;
+        model->built = 1;
+        ++model->nbuild;
+        /**
+         * The probability support is built here rather than on first use: a lazy
+         * cache would make the first scoring call in every stream a write to
+         * shared state, which is exactly what the context exists to avoid.
+         */
+        internal_libxs_predict_support_all(model);
+        internal_libxs_predict_keff_all(model);
+        /**
+         * The trial runs once and its result is kept: an order search rebuilds
+         * this model many times, and re-resolving the count on every pass would
+         * pay for it again without asking a different question.
+         */
+        if (0 != model->kreq && NULL == model->k_sel) {
+          if (0 > model->kreq) {
+            internal_libxs_predict_neighbors_select(model);
           }
-          cl->out_rms[j] = sqrt(sse / nc);
-        }
-      }
-    }
-    LIBXS_PREDICT_FREE(cbegin, pool_cbegin);
-    LIBXS_PREDICT_FREE(bucket, pool_bucket);
-    if (EXIT_SUCCESS == result) {
-      model->built = 1;
-      ++model->nbuild;
-      /**
-       * The probability support is built here rather than on first use: a lazy
-       * cache would make the first scoring call in every stream a write to
-       * shared state, which is exactly what the context exists to avoid.
-       */
-      internal_libxs_predict_support_all(model);
-      internal_libxs_predict_keff_all(model);
-      /**
-       * The trial runs once and its result is kept: an order search rebuilds
-       * this model many times, and re-resolving the count on every pass would
-       * pay for it again without asking a different question.
-       */
-      if (0 != model->kreq && NULL == model->k_sel) {
-        if (0 > model->kreq) {
-          internal_libxs_predict_neighbors_select(model);
-        }
-        else {
-          /**
-           * A pinned count is resolved here too, rather than applied on the
-           * way past, so that it reaches the file: a loaded model derives its
-           * own counts and would otherwise quietly discard the caller's.
-           */
-          model->k_sel = (int*)malloc((size_t)n * sizeof(int));
-          if (NULL != model->k_sel) {
-            int kj;
-            for (kj = 0; kj < n; ++kj) model->k_sel[kj] = model->kreq;
-          }
-        }
-      }
-      internal_libxs_predict_kapply(model);
-      if (0 >= model->central) internal_libxs_predict_central_all(model);
-      internal_libxs_predict_bank_all(model);
-      if (model->smooth < 0) {
-        int nsmooth = 0, ntotal_modes = 0, j;
-        for (c = 0; c < nclusters; ++c) {
-          const internal_libxs_predict_cluster_t* cl = &model->clusters[c];
-          if (NULL != cl->mode) {
-            for (j = 0; j < n; ++j) {
-              if (0 == cl->mode[j]) ++nsmooth;
-              ++ntotal_modes;
+          else {
+            /**
+             * A pinned count is resolved here too, rather than applied on the
+             * way past, so that it reaches the file: a loaded model derives its
+             * own counts and would otherwise quietly discard the caller's.
+             */
+            model->k_sel = (int*)malloc((size_t)n * sizeof(int));
+            if (NULL != model->k_sel) {
+              int kj;
+              for (kj = 0; kj < n; ++kj) model->k_sel[kj] = model->kreq;
             }
           }
         }
-        model->smooth = (ntotal_modes > 0)
-          ? 0.5 * (double)nsmooth / ntotal_modes : 0.0;
+        internal_libxs_predict_kapply(model);
+        if (0 >= model->central) internal_libxs_predict_central_all(model);
+        internal_libxs_predict_bank_all(model);
+        if (model->smooth < 0) {
+          int nsmooth = 0, ntotal_modes = 0, j;
+          for (c = 0; c < nclusters; ++c) {
+            const internal_libxs_predict_cluster_t* cl = &model->clusters[c];
+            if (NULL != cl->mode) {
+              for (j = 0; j < n; ++j) {
+                if (0 == cl->mode[j]) ++nsmooth;
+                ++ntotal_modes;
+              }
+            }
+          }
+          model->smooth = (ntotal_modes > 0)
+            ? 0.5 * (double)nsmooth / ntotal_modes : 0.0;
+        }
+        if (LIBXS_PREDICT_HKNN == model->decompose && n > 1
+          && NULL == model->hknn_po_clusters)
+        {
+          internal_libxs_predict_hknn_build_po(model);
+        }
+        if (quality > 0 && NULL == model->rf
+          && NULL != model->entries && NULL != model->assignments)
+        {
+          internal_libxs_predict_compress(model, order, quality);
+        }
       }
-      if (LIBXS_PREDICT_HKNN == model->decompose && n > 1
-        && NULL == model->hknn_po_clusters)
-      {
-        internal_libxs_predict_hknn_build_po(model);
+      else {
+        internal_libxs_predict_free_clusters(model);
       }
-      if (quality > 0 && NULL == model->rf
-        && NULL != model->entries && NULL != model->assignments)
-      {
-        internal_libxs_predict_compress(model, order, quality);
-      }
-    }
-    else {
-      internal_libxs_predict_free_clusters(model);
-    }
+    } /* end of the builder's assembly: only the partition above is shared */
   }
   return result;
 }
@@ -3659,7 +3732,7 @@ LIBXS_API_INLINE int internal_libxs_predict_build_impl(libxs_predict_t* model,
 LIBXS_API int libxs_predict_build(libxs_predict_t* model,
   int nclusters, int order, double quality)
 {
-  return internal_libxs_predict_build_impl(model, nclusters, order, quality, 0);
+  return internal_libxs_predict_build_impl(model, nclusters, order, quality, 0, 1);
 }
 
 
@@ -3693,10 +3766,14 @@ LIBXS_API int libxs_predict_build_task(libxs_lock_t* lock,
     }
     internal_libxs_predict_sync(model, ntasks);
   }
-  if (0 == tid) {
-    result = internal_libxs_predict_build_impl(model, nclusters, order,
-      quality, 1);
-  }
+  /**
+   * Every task enters, because the partition inside is split across them. The
+   * stages that are the builder's are guarded there rather than here, and each
+   * branch is taken on shared state - the corpus, the mode, the order - so the
+   * tasks cannot part company at a rendezvous. Only tid varies.
+   */
+  result = internal_libxs_predict_build_impl(model, nclusters, order,
+    quality, tid, ntasks);
   internal_libxs_predict_sync(model, ntasks);
   if (0 != tid) result = (0 != model->built) ? EXIT_SUCCESS : EXIT_FAILURE;
   if (EXIT_SUCCESS == result && NULL != model->rf) {

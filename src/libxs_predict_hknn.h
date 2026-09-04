@@ -372,23 +372,47 @@ LIBXS_API_INLINE void internal_libxs_predict_hknn_partition(
 }
 
 
+/* tid/ntasks as internal_libxs_predict_kmeans: the assignment step is split
+   across the tasks, moving the centroids is the builder's */
 LIBXS_API_INLINE void internal_libxs_predict_hknn_refine(
-  libxs_predict_t* model, int nclusters)
+  libxs_predict_t* model, int nclusters, int tid, int ntasks)
 {
   const int p = model->nentries;
   const int m = model->ninputs;
   const int max_iter = LIBXS_MIN(LIBXS_PREDICT_MAXITER, 10);
-  int comp_pool = 0, cnt_pool = 0;
-  const double* pts = internal_libxs_predict_normpts(model);
-  double* comp = (double*)LIBXS_PREDICT_MALLOC(
-    (size_t)nclusters * (size_t)m * sizeof(double), comp_pool);
-  int* counts = (int*)LIBXS_PREDICT_MALLOC(
-    (size_t)nclusters * sizeof(int), cnt_pool);
-  if (NULL != pts && NULL != comp && NULL != counts) {
+  int cnt_pool = 0;
+  const double* pts;
+  double* comp;
+  int* counts = NULL;
+  if (0 == tid) {
+    /* see internal_libxs_predict_kmeans: one buffer, built by the builder */
+    internal_libxs_predict_normpts(model);
+    free(model->norm_cen);
+    model->norm_cen = (double*)malloc(
+      (size_t)nclusters * (size_t)m * sizeof(double));
+    counts = (int*)LIBXS_PREDICT_MALLOC(
+      (size_t)nclusters * sizeof(int), cnt_pool);
+    model->sync_moved = 0;
+    if (NULL == counts) { free(model->norm_cen); model->norm_cen = NULL; }
+  }
+  internal_libxs_predict_sync(model, ntasks);
+  /**
+   * The builder's scratch also tells every task whether the step can run:
+   * the condition has to be shared, or the tasks part company at a barrier
+   */
+  pts = model->norm_pts;
+  comp = model->norm_cen;
+  if (NULL != pts && NULL != comp) {
     int i, c, j, iter;
     for (iter = 0; iter < max_iter; ++iter) {
       int changed = 0;
-      for (i = 0; i < p; ++i) {
+      /**
+       * See internal_libxs_predict_kmeans: cleared before the pass, not after
+       * the verdict, or a task that has yet to read it leaves the loop early
+       */
+      if (0 == tid) model->sync_moved = 0;
+      internal_libxs_predict_sync(model, ntasks);
+      for (i = tid; i < p; i += ntasks) {
         double best = libxs_dist2(
           pts + (size_t)i * m, model->clusters[0].centroid, m);
         int bestc = 0;
@@ -402,34 +426,47 @@ LIBXS_API_INLINE void internal_libxs_predict_hknn_refine(
           changed = 1;
         }
       }
+      if (0 != changed) {
+        LIBXS_ATOMIC_STORE(&model->sync_moved, 1, LIBXS_ATOMIC_SEQ_CST);
+      }
+      internal_libxs_predict_sync(model, ntasks);
+      changed = (int)LIBXS_ATOMIC_LOAD(&model->sync_moved, LIBXS_ATOMIC_SEQ_CST);
       if (0 == changed) iter = max_iter;
       else {
-        memset(comp, 0, (size_t)nclusters * (size_t)m * sizeof(double));
-        memset(counts, 0, (size_t)nclusters * sizeof(int));
-        for (c = 0; c < nclusters; ++c) {
-          memset(model->clusters[c].centroid, 0, (size_t)m * sizeof(double));
-        }
-        for (i = 0; i < p; ++i) {
-          const int ci = model->assignments[i];
-          double* cen = model->clusters[ci].centroid;
-          double* cmp = comp + (size_t)ci * m;
-          for (j = 0; j < m; ++j) {
-            libxs_kahan_sum(pts[(size_t)i * m + j], &cen[j], &cmp[j]);
+        if (0 == tid) {
+          memset(comp, 0, (size_t)nclusters * (size_t)m * sizeof(double));
+          memset(counts, 0, (size_t)nclusters * sizeof(int));
+          for (c = 0; c < nclusters; ++c) {
+            memset(model->clusters[c].centroid, 0, (size_t)m * sizeof(double));
           }
-          ++counts[ci];
-        }
-        for (c = 0; c < nclusters; ++c) {
-          if (counts[c] > 0) {
+          for (i = 0; i < p; ++i) {
+            const int ci = model->assignments[i];
+            double* cen = model->clusters[ci].centroid;
+            double* cmp = comp + (size_t)ci * m;
             for (j = 0; j < m; ++j) {
-              model->clusters[c].centroid[j] /= counts[c];
+              libxs_kahan_sum(pts[(size_t)i * m + j], &cen[j], &cmp[j]);
+            }
+            ++counts[ci];
+          }
+          for (c = 0; c < nclusters; ++c) {
+            if (counts[c] > 0) {
+              for (j = 0; j < m; ++j) {
+                model->clusters[c].centroid[j] /= counts[c];
+              }
             }
           }
-        }
+        } /* moving the centroids is the builder's */
+        internal_libxs_predict_sync(model, ntasks);
       }
     }
   }
-  LIBXS_PREDICT_FREE(counts, cnt_pool);
-  LIBXS_PREDICT_FREE(comp, comp_pool);
+  if (0 == tid) {
+    LIBXS_PREDICT_FREE(counts, cnt_pool);
+    free(model->norm_cen);
+    model->norm_cen = NULL;
+  }
+  /* the partition is complete for every task, not just the one that closed it */
+  internal_libxs_predict_sync(model, ntasks);
 }
 
 
