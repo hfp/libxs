@@ -359,8 +359,9 @@ static void* gemm_host_malloc(size_t nbytes, int hostmem)
     result = malloc(nbytes);
     /* Declare the operand: the library cannot discover a caller's pointer on
      * its own, so pinning is the caller's contract (LIBXSTREAM_PIN decides
-     * what happens with the range; doing nothing is a valid answer). */
-    if (NULL != result && EXIT_SUCCESS == libxstream_init()) {
+     * what happens with the range; doing nothing is a valid answer). No
+     * libxstream_init here: a CPU-only run must not bring up a device. */
+    if (NULL != result) {
       LIBXS_EXPECT(EXIT_SUCCESS == libxstream_mem_host_pin(result, nbytes));
     }
   }

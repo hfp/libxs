@@ -107,12 +107,24 @@ LIBXSTREAM Ozaki README.
 
 ### Benchmark
 
-| Variable   | Default   | Description                                                        |
-|------------|-----------|--------------------------------------------------------------------|
-| CHECK      | 0         | Validate vs BLAS: 0=off, negative=auto-threshold, positive=custom  |
-| NREPEAT    | 3         | Number of GEMM calls (first call is warmup when >1)                |
-| EVIL       | 0         | Adversarial exponent-span test (see below)                         |
-| OZAKI_DECAY| 0         | Decay diagnostic + K-permutation (0-4, see below)                  |
+| Variable     | Default   | Description                                                        |
+|--------------|-----------|--------------------------------------------------------------------|
+| CHECK        | 0         | Validate vs BLAS: 0=off, negative=auto-threshold, positive=custom  |
+| NREPEAT      | 3         | Number of GEMM calls (first call is warmup when >1)                |
+| EVIL         | 0         | Adversarial exponent-span test (see below)                         |
+| OZAKI_DECAY  | 0         | Decay diagnostic + K-permutation (0-4, see below)                  |
+| GEMM_HOSTMEM | 0         | Operands from LIBXSTREAM (page-locked) instead of `malloc`         |
+
+`GEMM_HOSTMEM` selects how the operands are allocated, which is what an
+application would do differently rather than a property of the scheme:
+the default is plain `malloc`, declared to LIBXSTREAM so that transfers
+can still take the faster route, whereas a non-zero value allocates
+page-locked memory through LIBXSTREAM. On a PCIe part the difference is
+worth several times the transfer time, so a comparison against another
+library has to state which of the two it used. The default keeps a
+CPU-only run off the GPU entirely: no device is opened unless the GPU
+path is enabled (`OZAKI_OCL=1`), while `GEMM_HOSTMEM` needs a device to
+allocate from and therefore brings one up.
 
 ### Adversarial Input (EVIL)
 
