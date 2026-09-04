@@ -23,14 +23,17 @@ jobs:
         flags: [DBG=0, DBG=1 PEDANTIC=2 UPLOAD=0]
         libxstream: [prebuilt]
         include:
-          # UndefinedBehaviorSanitizer on one combination rather than a job of
-          # its own. It rides the optimized one because -O0 hides what the
-          # optimizer does with undefined behaviour: a strict-aliasing bug in
-          # libxs_crc32_u64 failed only from -O2 up. SANITIZE implies SYM=1, so
-          # the reports carry file and line without DBG=1.
+          # Sanitizers on one combination rather than a job of their own. They
+          # ride the optimized one because -O0 hides what the optimizer does
+          # with undefined behaviour: a strict-aliasing bug in libxs_crc32_u64
+          # failed only from -O2 up. SANITIZE implies SYM=1, so the reports
+          # carry file and line without DBG=1. AddressSanitizer joins UBSan
+          # because a local run could not be made to produce a finding: the
+          # only failure seen there was the sanitizer's own __cxa_throw
+          # interceptor against a dlopen'ed C++ OpenCL ICD, i.e. an artefact.
           - gcc: 14
             flags: DBG=0
-            sanitize: undefined
+            sanitize: address,undefined
           - gcc: 14
             flags: DBG=1 PEDANTIC=2 FORCE_CXX=1 FORTRAN=0
             libxstream: header-only
@@ -44,6 +47,11 @@ jobs:
       # a finding prints and continues by default, which would keep the job
       # green; stop at the first one so it is the job that reports it
       UBSAN_OPTIONS: halt_on_error=1:print_stacktrace=1
+      # LeakSanitizer rides along with AddressSanitizer and is off for now: the
+      # OpenCL loader the ozaki sample links holds allocations to exit, as do
+      # the BLAS and OpenMP runtimes, whereas libxs releases its own state
+      # through atexit. Turn it on (detect_leaks=1) to see what a run reports.
+      ASAN_OPTIONS: detect_leaks=0
     steps:
     - uses: actions/checkout@v5
 
