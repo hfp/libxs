@@ -15,7 +15,10 @@ DEPDIR=${HERE}/../../..
 UNAME=$(command -v uname)
 GREP=$(command -v grep)
 CAT=$(command -v cat)
+SED=$(command -v sed)
 TR=$(command -v tr)
+# only to locate a sanitizer runtime below; absent on Darwin, which needs none
+LDD=$(command -v ldd)
 
 if [ "Darwin" != "$(${UNAME})" ]; then
   LIBEXT=so
@@ -120,9 +123,32 @@ for TEST in ${TESTS}; do
     echo "-----------------------------------"
     echo "${NAME} (LD_PRELOAD)"
     if [ "$*" ]; then echo "args    $*"; fi
+    # AddressSanitizer refuses to run with a library preloaded ahead of its own
+    # runtime, which is precisely what this test does.  Its runtime therefore goes
+    # first, which is what a sanitized drop-in replacement asks of its user too.
+    # A build without a sanitizer finds nothing here and preloads the wrapper alone.
+    PRELOAD=${HERE}/libwrap.${LIBEXT}
+    ASANOPT=${ASAN_OPTIONS}
+    if [ "${LDD}" ]; then
+      for LIB in "${HERE}/libwrap.${LIBEXT}" "${HERE}/${TEST}-blas.x"; do
+        ASANLIB=$({ ${LDD} "${LIB}" 2>/dev/null || true; } \
+          | ${SED} -n 's/.*=>[[:space:]]*\(\/[^ ]*libasan[^ ]*\).*/\1/p')
+        if [ "${ASANLIB}" ]; then
+          PRELOAD=${ASANLIB}:${PRELOAD}
+          # Driver and wrapper each carry their own copy of a statically linked
+          # LIBXS/LIBXSTREAM, so the same global is defined twice in one process.
+          # Level 1 accepts that as long as the definitions agree in size, i.e. an
+          # actual ABI difference still reports.  Appended, so an ASAN_OPTIONS from
+          # the environment keeps its say (the last assignment of a flag wins).
+          ASANOPT=${ASANOPT:+${ASANOPT}:}detect_odr_violation=1
+          break
+        fi
+      done
+    fi
     RESULT=0
     { time eval " \
-      LD_LIBRARY_PATH=${DEPDIR}/lib:${LD_LIBRARY_PATH} LD_PRELOAD=${HERE}/libwrap.${LIBEXT} \
+      ${ASANOPT:+ASAN_OPTIONS=${ASANOPT}} \
+      LD_LIBRARY_PATH=${DEPDIR}/lib:${LD_LIBRARY_PATH} LD_PRELOAD=${PRELOAD} \
       DYLD_LIBRARY_PATH=${DEPDIR}/lib:${DYLD_LIBRARY_PATH} DYLD_INSERT_LIBRARIES=${DEPDIR}/lib/libxs.${LIBEXT} \
       ${HERE}/${TEST}-blas.x $* >${TMPF} 2>&1"; } 2>&1 | ${GREP} real || RESULT=$?
     if [ "0" != "${RESULT}" ]; then
