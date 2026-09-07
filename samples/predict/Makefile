@@ -13,6 +13,7 @@ DFLAGS = $(NULL)
 BLAS = 0
 OMP = 1
 SYM = 1
+SSE = 0
 
 # setup XGBoost as an optional dependency
 XGB ?= 1
@@ -66,6 +67,15 @@ ifneq (0,$(XGB))
         XGBPY_DEPS := $(shell $(PYTHON) -c "import os,glob,xgboost; \
           print(' '.join(glob.glob(os.path.dirname(xgboost.__file__)+'.libs/*')))" \
           2>/dev/null)
+        # The wheel vendors its own OpenMP under a mangled name. Loading it
+        # beside the one this library links gives two runtimes, each with a
+        # thread pool spinning against the other: measured at 9x the build time
+        # (65 s against 7 s over 80k rows) on a run that never calls XGBoost.
+        # Linking that name to the runtime already in the process leaves one.
+        XGBSYSOMP := $(shell $(CC) -print-file-name=libgomp.$(ILIBEXT) 2>/dev/null)
+        ifeq (,$(wildcard $(XGBSYSOMP)))
+          XGBSYSOMP := $(NULL)
+        endif
         # The links are made while this file is read, not by a rule: the link
         # flags are built here too, and the helper that builds them skips a
         # directory that does not exist yet. A rule runs too late, which left
@@ -76,7 +86,11 @@ ifneq (0,$(XGB))
         XGBOK := $(shell $(MKDIR) -p $(XGBFARM) \
           && ln -sf $(XGBPY_LIB) $(XGBFARM)/libxgboost.$(ILIBEXT) \
           && ln -sf $(XGBPY_LIB) $(XGBFARM)/libxgboost.$(ILIBEXT).$(XGBPY_SOV) \
-          && for DEP in $(XGBPY_DEPS); do ln -sf $$DEP $(XGBFARM)/; done \
+          && for DEP in $(XGBPY_DEPS); do \
+            B=`basename $$DEP`; \
+            if test -z "$${B%%libgomp*}"; then \
+              ln -sf $(if $(XGBSYSOMP),$(XGBSYSOMP),$$DEP) $(XGBFARM)/$$B; \
+            else ln -sf $$DEP $(XGBFARM)/; fi; done \
           && echo ok)
         ifeq (ok,$(XGBOK))
           XGBOOST_LIBDIR := $(XGBFARM)

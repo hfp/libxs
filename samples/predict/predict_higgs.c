@@ -52,6 +52,13 @@ int main(int argc, char* argv[])
     else if (0 == strncmp("split", a, 5)) split = atof(a + 5);
     else filename = a;
   }
+#if !defined(__XGBOOST)
+  if (0 != use_xgb) {
+    fprintf(stderr, "Requested xgb but this binary was built without XGBoost:"
+      " set XGBOOST_ROOT and rebuild.\n");
+    use_xgb = 0;
+  }
+#endif
   if (0 != help) {
     fprintf(stdout, "Usage: %s [file] [rows<N>] [stride<N>] [raw|hknn|rf|auto]\n"
       "         [clusters<N>] [order<N>] [split<F>] [refine]\n"
@@ -131,12 +138,7 @@ int main(int argc, char* argv[])
                   ? info.confidence[0] : 0;
                 if (0 != ok) ++correct;
                 sum_conf += conf;
-                /**
-                 * The gate is what a caller acts on: a prediction it accepts
-                 * unchecked. Accuracy over every query and precision over the
-                 * accepted ones answer different questions, and only the
-                 * second says whether the confidence can be trusted.
-                 */
+                /* precision over accepted predictions, not over all */
                 if (0.9 <= conf) {
                   ++gated;
                   if (0 != ok) ++gated_correct;
