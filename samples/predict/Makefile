@@ -158,7 +158,7 @@ $(OUTDIR)/predict_bits.x: $(OUTDIR)/.make $(BLDDIR)/predict_bits-c.o $(XLIB)
 	$(LD) -o $@ $(BLDDIR)/predict_bits-c.o $(XLIB) $(SLDFLAGS) $(LDFLAGS) $(CLDFLAGS)
 
 $(OUTDIR)/predict_higgs.x: $(OUTDIR)/.make $(BLDDIR)/predict_higgs-c.o $(XLIB)
-	$(LD) -o $@ $(BLDDIR)/predict_higgs-c.o $(XLIB) $(SLDFLAGS) $(LDFLAGS) $(CLDFLAGS)
+	$(LD) -o $@ $(BLDDIR)/predict_higgs-c.o $(XLIB) $(SLDFLAGS) $(LDFLAGS) $(XGBLDFLAGS) $(CLDFLAGS)
 
 $(OUTDIR)/predict_dist.x: $(OUTDIR)/.make $(BLDDIR)/predict_dist-c.o $(XLIB)
 	$(LD) -o $@ $(BLDDIR)/predict_dist-c.o $(XLIB) $(SLDFLAGS) $(LDFLAGS) $(CLDFLAGS)

@@ -10,6 +10,9 @@
 #include <libxs/libxs_predict.h>
 #include <libxs/libxs_timer.h>
 
+#if defined(__XGBOOST)
+# include "predict_xgb.h"
+#endif
 #if defined(_OPENMP)
 # include <omp.h>
 #endif
@@ -28,6 +31,7 @@ int main(int argc, char* argv[])
   const char* filename = CSVFILE;
   int nrows = 200000, stride = 0, mode = LIBXS_PREDICT_HKNN, refine = 0;
   int nclusters = 0, order = 1, help = 0, i;
+  int depth = 0, ntrees = 0, use_xgb = 0;
   double split = 0.8;
   int result = EXIT_FAILURE;
   for (i = 1; i < argc; ++i) {
@@ -38,9 +42,12 @@ int main(int argc, char* argv[])
     else if (0 == strcmp("rf", a)) mode = LIBXS_PREDICT_RF;
     else if (0 == strcmp("auto", a)) mode = LIBXS_PREDICT_AUTO_DECOMPOSE;
     else if (0 == strcmp("refine", a)) refine = -1;
+    else if (0 == strcmp("xgb", a)) use_xgb = 1;
     else if (0 == strncmp("rows", a, 4)) nrows = atoi(a + 4);
     else if (0 == strncmp("stride", a, 6)) stride = atoi(a + 6);
     else if (0 == strncmp("clusters", a, 8)) nclusters = atoi(a + 8);
+    else if (0 == strncmp("depth", a, 5)) depth = atoi(a + 5);
+    else if (0 == strncmp("trees", a, 5)) ntrees = atoi(a + 5);
     else if (0 == strncmp("order", a, 5)) order = atoi(a + 5);
     else if (0 == strncmp("split", a, 5)) split = atof(a + 5);
     else filename = a;
@@ -53,6 +60,8 @@ int main(int argc, char* argv[])
       "  rows<N>: entries to load (0: the whole file). Default 200000.\n"
       "  stride<N>: take every N-th row, so a subset spans the whole file\n"
       "    instead of being its first rows. 0 or 1 reads consecutively.\n"
+      "  xgb: also train XGBoost on the same split, for comparison.\n"
+      "  depth<N>/trees<N>: forest depth and tree count (0: derived).\n"
       "  order<N>: polynomial order. The label is discrete, so nothing is\n"
       "    interpolated and the order is immaterial - it is pinned to 1 to\n"
       "    skip the search over it, which would rebuild the model per order.\n"
@@ -91,6 +100,9 @@ int main(int argc, char* argv[])
           int gated = 0, gated_correct = 0;
           libxs_predict_set_decompose(model, mode);
           libxs_predict_set_refine(model, refine);
+          if (0 != depth || 0 != ntrees) {
+            libxs_predict_set_forest(model, ntrees, depth);
+          }
           for (t = 0; t < train_end; ++t) {
             libxs_predict_get(source, t, in, out);
             libxs_predict_push(NULL, model, in, out);
@@ -148,6 +160,48 @@ int main(int argc, char* argv[])
                 " of queries\n", 100.0 * gated_correct / gated,
                 100.0 * gated / ntest);
             }
+#if defined(__XGBOOST)
+            if (0 != use_xgb) {
+              double* xp = (double*)malloc((size_t)total * sizeof(double));
+              double* xc = (double*)malloc((size_t)total * sizeof(double));
+              char* mask = (char*)calloc((size_t)total, 1);
+              int classify = 1, task = 0;
+              if (NULL != xp && NULL != xc && NULL != mask) {
+                libxs_timer_tick_t xt = libxs_timer_tick();
+                for (t = 0; t < train_end; ++t) mask[t] = 1;
+                if (EXIT_SUCCESS == predict_xgb(source, total, NFEAT, 1,
+                  mask, &classify, xp, xc, &task, NULL))
+                {
+                  const double dt_xgb =
+                    libxs_timer_duration(xt, libxs_timer_tick());
+                  int xok = 0, xg = 0, xgok = 0;
+                  for (t = train_end; t < total; ++t) {
+                    double expected;
+                    int ok;
+                    libxs_predict_get(source, t, NULL, &expected);
+                    ok = (LIBXS_ROUNDX(int, xp[t])
+                      == LIBXS_ROUNDX(int, expected));
+                    if (0 != ok) ++xok;
+                    if (0.9 <= xc[t]) { ++xg; if (0 != ok) ++xgok; }
+                  }
+                  fprintf(stdout, "XGBoost: rounds=%i depth=%i eta=%g,"
+                    " train+predict %.2f s\n",
+                    predict_xgb_geti("XGB_ROUNDS", 200),
+                    predict_xgb_geti("XGB_DEPTH", 6),
+                    predict_xgb_getd("XGB_ETA", 0.1), dt_xgb);
+                  fprintf(stdout, "XGBoost accuracy: %.2f%% of %d\n",
+                    (0 < ntest) ? (100.0 * xok / ntest) : 0.0, ntest);
+                  if (0 < xg) {
+                    fprintf(stdout, "XGBoost gated (conf>=0.9): %.2f%%"
+                      " precision over %.1f%% of queries\n",
+                      100.0 * xgok / xg, 100.0 * xg / ntest);
+                  }
+                }
+                else fprintf(stderr, "XGBoost failed\n");
+              }
+              free(xp); free(xc); free(mask);
+            }
+#endif
             result = EXIT_SUCCESS;
           }
           else {
