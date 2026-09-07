@@ -15,6 +15,10 @@
 #include <libxs/libxs_hash.h>
 #include "libxs_main.h"
 
+/* Lloyd passes a forest's partition gets; it only has to exist, see kmeans */
+#if !defined(LIBXS_PREDICT_RF_PARTITER)
+#  define LIBXS_PREDICT_RF_PARTITER 1
+#endif
 #if !defined(LIBXS_PREDICT_MAXITER)
 #  define LIBXS_PREDICT_MAXITER 100
 #endif
@@ -207,15 +211,6 @@ typedef struct internal_libxs_predict_rf_t {
    * over a node's subset instead of sorting the subset per candidate feature,
    * which is what a sorted search costs at every node of every tree.
    */
-  unsigned char* bins;
-  /**
-   * Bin edges per input, nbins+1 apart, at quantiles of the input rather than
-   * at equal width. An input whose mass sits in a few equal-width buckets
-   * offers almost no distinct split to choose from, which cost the crystal
-   * corpus two points of accuracy before the edges followed the distribution.
-   */
-  double* bin_edge;
-  int nbins;
   int* label_offset;
   /**
    * Per-output read-out: non-zero where the output is real-valued and the
@@ -850,7 +845,15 @@ LIBXS_API_INLINE void internal_libxs_predict_kmeans(libxs_predict_t* model,
       double* const drift = lb + p;
       double* const sep = drift + nclusters + 1;
       double* const oldcen = sep + nclusters;
-      for (iter = 0; iter < LIBXS_PREDICT_MAXITER; ++iter) {
+      /**
+       * A forest answers from the raw inputs and consults its cluster only to
+       * find it non-empty, so the partition has to exist and not to be good:
+       * refining it is the largest single cost of a forest build and buys the
+       * forest nothing. Every other mode reads the partition and refines it.
+       */
+      const int maxiter = (LIBXS_PREDICT_RF == model->decompose)
+        ? LIBXS_PREDICT_RF_PARTITER : LIBXS_PREDICT_MAXITER;
+      for (iter = 0; iter < maxiter; ++iter) {
         int changed = 0;
         /**
          * Cleared before the pass, not after the verdict: a task that has yet
@@ -919,7 +922,7 @@ LIBXS_API_INLINE void internal_libxs_predict_kmeans(libxs_predict_t* model,
         internal_libxs_predict_sync(model, ntasks);
         /* one verdict, read by every task after the same rendezvous */
         changed = (int)LIBXS_ATOMIC_LOAD(&model->sync_moved, LIBXS_ATOMIC_SEQ_CST);
-        if (0 == changed) iter = LIBXS_PREDICT_MAXITER;
+        if (0 == changed) iter = maxiter;
         else {
           if (0 == tid) {
             if (0 != bounded) {
@@ -1719,8 +1722,6 @@ LIBXS_API void libxs_predict_destroy(libxs_predict_t* model)
         free(model->rf->trees[ti].incr);
       }
       free(model->rf->trees);
-      free(model->rf->bins);
-      free(model->rf->bin_edge);
       free(model->rf->label_offset);
       free(model->rf->regress);
       free(model->rf->nclass);
