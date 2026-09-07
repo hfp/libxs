@@ -201,6 +201,21 @@ typedef struct internal_libxs_predict_rf_tree_t {
 
 typedef struct internal_libxs_predict_rf_t {
   internal_libxs_predict_rf_tree_t* trees;
+  /**
+   * Each input binned to one byte, nentries*ninputs, with the bin edges implied
+   * by base and step per input. Split finding then accumulates counts per bin
+   * over a node's subset instead of sorting the subset per candidate feature,
+   * which is what a sorted search costs at every node of every tree.
+   */
+  unsigned char* bins;
+  /**
+   * Bin edges per input, nbins+1 apart, at quantiles of the input rather than
+   * at equal width. An input whose mass sits in a few equal-width buckets
+   * offers almost no distinct split to choose from, which cost the crystal
+   * corpus two points of accuracy before the edges followed the distribution.
+   */
+  double* bin_edge;
+  int nbins;
   int* label_offset;
   /**
    * Per-output read-out: non-zero where the output is real-valued and the
@@ -1704,6 +1719,8 @@ LIBXS_API void libxs_predict_destroy(libxs_predict_t* model)
         free(model->rf->trees[ti].incr);
       }
       free(model->rf->trees);
+      free(model->rf->bins);
+      free(model->rf->bin_edge);
       free(model->rf->label_offset);
       free(model->rf->regress);
       free(model->rf->nclass);
