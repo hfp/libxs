@@ -12,8 +12,13 @@ LIBXS_API_INLINE int internal_libxs_predict_rf_split(
   const internal_libxs_predict_entry_t* entries,
   const int* subset, int nsub, int nfeat, int nfeatsub,
   internal_libxs_predict_rf_node_t* node, size_t seed,
-  int output_idx, int label_off, int regress, int min_leaf)
+  int output_idx, int label_off, int regress, int min_leaf, int nclass)
 {
+  /**
+   * The fold is as wide as the corpus has classes, not as wide as it can be:
+   * sweeping all 128 at every candidate was most of the split's own cost
+   */
+  const int ncls = (0 < nclass && 128 >= nclass) ? nclass : 128;
   int result = 0;
   /** Negative until a candidate is seen: unlike impurity, a sum of squares has
    *  no upper bound that could serve as the initial best. */
@@ -88,20 +93,23 @@ LIBXS_API_INLINE int internal_libxs_predict_rf_split(
     else {
       int left_counts[128], right_counts[128];
       int k;
-      memset(right_counts, 0, sizeof(right_counts));
+      memset(right_counts, 0, (size_t)ncls * sizeof(int));
       nright = nsub; nleft = 0;
       for (i = 0; i < nsub; ++i) {
-        ++right_counts[(LIBXS_ROUNDX(int, entries[subset[ord[i]]].outputs[output_idx]) + label_off) & 127];
+        int lab = (LIBXS_ROUNDX(int, entries[subset[ord[i]]].outputs[output_idx]) + label_off) & 127;
+        if (lab >= ncls) lab = ncls - 1;
+        ++right_counts[lab];
       }
-      memset(left_counts, 0, sizeof(left_counts));
+      memset(left_counts, 0, (size_t)ncls * sizeof(int));
       for (i = 0; i < nsub - 1; ++i) {
-        const int label = (LIBXS_ROUNDX(int, entries[subset[ord[i]]].outputs[output_idx]) + label_off) & 127;
+        int label = (LIBXS_ROUNDX(int, entries[subset[ord[i]]].outputs[output_idx]) + label_off) & 127;
+        if (label >= ncls) label = ncls - 1;
         ++left_counts[label]; ++nleft;
         --right_counts[label]; --nright;
         if (keys[ord[i]] == keys[ord[i + 1]]) continue;
         if (nleft < min_leaf || nright < min_leaf) continue;
         { double gini_l = 1.0, gini_r = 1.0, gini;
-          for (k = 0; k < 128; ++k) {
+          for (k = 0; k < ncls; ++k) {
             if (left_counts[k] > 0) {
               double p = (double)left_counts[k] / nleft;
               gini_l -= p * p;
@@ -188,7 +196,7 @@ LIBXS_API_INLINE int internal_libxs_predict_rf_build_tree(
     if (depth >= max_depth || nc <= min_leaf || 0 != pure
       || 0 == internal_libxs_predict_rf_split(entries, subset + si, nc,
         nfeat, nfeatsub, &split, (size_t)ni, output_idx, label_off, regress,
-        leaf_floor))
+        leaf_floor, nclass))
     {
       nodes[ni].feature = -1;
       continue;
@@ -448,7 +456,7 @@ LIBXS_API_INLINE void internal_libxs_predict_rf_build(libxs_predict_t* model)
         int spool = 0;
         double* sv = (double*)LIBXS_PREDICT_MALLOC(
           (size_t)nsamp * sizeof(double), spool);
-        int j, i, k;
+        int j, k;
         for (j = 0; j < m && NULL != sv; ++j) {
           double* const edge = rf->bin_edge + (size_t)j * (nb + 1);
           int ns = 0;
