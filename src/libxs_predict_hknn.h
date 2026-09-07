@@ -406,16 +406,7 @@ LIBXS_API_INLINE void internal_libxs_predict_hknn_refine(
     int i, c, j, iter;
     for (iter = 0; iter < max_iter; ++iter) {
       int changed = 0;
-      /**
-       * See internal_libxs_predict_kmeans: cleared before the pass, not after
-       * the verdict, or a task that has yet to read it leaves the loop early
-       *
-       * No distance bounds here, unlike internal_libxs_predict_kmeans. This
-       * refinement starts from the hierarchical partition, which is already
-       * close, so it converges in one or two passes - too few to amortize the
-       * O(nclusters^2) separation a bound needs, which measured as no gain and
-       * sometimes a loss.
-       */
+      /* no bounds here: this starts near converged, too few passes to amortize */
       if (0 == tid) model->sync_moved = 0;
       internal_libxs_predict_sync(model, ntasks);
       for (i = tid; i < p; i += ntasks) {

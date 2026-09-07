@@ -413,7 +413,7 @@ LIBXS_API int libxs_predict_save(const libxs_predict_t* model, void* buffer, siz
       required += (size_t)n * (sizeof(uint8_t) + sizeof(uint8_t));
       for (c = 0; c < total_trees; ++c) {
         required += sizeof(uint16_t) + sizeof(uint8_t);
-        required += (size_t)model->rf->trees[c].nnodes * (2 + 8 + 8 + 2 + 2 + 1);
+        required += (size_t)model->rf->trees[c].nnodes * (2 + 8 + 8 + 4 + 4 + 1);
         if (NULL != model->rf->trees[c].incr) {
           required += (size_t)model->rf->trees[c].nnodes
             * (size_t)model->rf->nclass[c / model->rf->ntrees]
@@ -562,10 +562,11 @@ LIBXS_API int libxs_predict_save(const libxs_predict_t* model, void* buffer, siz
             }
             WRITE_F64(nd->threshold);
             WRITE_F64(nd->value);
-            { const int16_t l = (int16_t)nd->left;
-              const int16_t r = (int16_t)nd->right;
-              memcpy(dst, &l, 2); dst += 2;
-              memcpy(dst, &r, 2); dst += 2;
+            /* four bytes: a node index outgrows int16 well before a corpus is large */
+            { const int32_t l = (int32_t)nd->left;
+              const int32_t r = (int32_t)nd->right;
+              memcpy(dst, &l, 4); dst += 4;
+              memcpy(dst, &r, 4); dst += 4;
             }
             WRITE_U8(nd->label);
           }
@@ -1445,7 +1446,7 @@ LIBXS_API libxs_predict_t* libxs_predict_load(const void* buffer, size_t size)
               }
               if (EXIT_SUCCESS == ok && nn > 0) {
                 ok = internal_libxs_predict_avail(src, end, (size_t)nn,
-                  (1 < version) ? (2 + 8 + 8 + 2 + 2 + 1) : (2 + 8 + 2 + 2 + 1));
+                  (1 < version) ? (2 + 8 + 8 + 4 + 4 + 1) : (2 + 8 + 2 + 2 + 1));
                 if (EXIT_SUCCESS == ok) {
                   rf->trees[ti].nodes = (internal_libxs_predict_rf_node_t*)malloc(
                     (size_t)nn * sizeof(internal_libxs_predict_rf_node_t));
@@ -1453,7 +1454,8 @@ LIBXS_API libxs_predict_t* libxs_predict_load(const void* buffer, size_t size)
                   if (NULL == rf->trees[ti].nodes) ok = EXIT_FAILURE;
                 }
                 for (k = 0; k < (int)nn && EXIT_SUCCESS == ok; ++k) {
-                  int16_t f = 0, l = 0, r = 0;
+                  int16_t f = 0;
+                  int32_t l = 0, r = 0;
                   uint8_t lab = 0;
                   ok = internal_libxs_predict_read(&src, end, &f, 2);
                   if (EXIT_SUCCESS == ok) {
@@ -1464,14 +1466,30 @@ LIBXS_API libxs_predict_t* libxs_predict_load(const void* buffer, size_t size)
                     ok = internal_libxs_predict_read(&src, end,
                       &rf->trees[ti].nodes[k].value, 8);
                   }
-                  if (EXIT_SUCCESS == ok) ok = internal_libxs_predict_read(&src, end, &l, 2);
-                  if (EXIT_SUCCESS == ok) ok = internal_libxs_predict_read(&src, end, &r, 2);
+                  /* narrow in v1, and a v1 index cannot have overflowed
+                     because the trees that fit in it are the only ones it held */
+                  if (EXIT_SUCCESS == ok) {
+                    if (1 < version) {
+                      ok = internal_libxs_predict_read(&src, end, &l, 4);
+                      if (EXIT_SUCCESS == ok) {
+                        ok = internal_libxs_predict_read(&src, end, &r, 4);
+                      }
+                    }
+                    else {
+                      int16_t l16 = 0, r16 = 0;
+                      ok = internal_libxs_predict_read(&src, end, &l16, 2);
+                      if (EXIT_SUCCESS == ok) {
+                        ok = internal_libxs_predict_read(&src, end, &r16, 2);
+                      }
+                      l = l16; r = r16;
+                    }
+                  }
                   if (EXIT_SUCCESS == ok) ok = internal_libxs_predict_read(&src, end, &lab, 1);
                   /* traversal dereferences inputs[feature] and descends into
                      left/right, hence both must stay in range (-1 is a leaf) */
                   if (EXIT_SUCCESS == ok && (f >= (int16_t)ninp || f < -1
-                    || l >= (int16_t)nn || l < -1
-                    || r >= (int16_t)nn || r < -1)) ok = EXIT_FAILURE;
+                    || l >= (int32_t)nn || l < -1
+                    || r >= (int32_t)nn || r < -1)) ok = EXIT_FAILURE;
                   if (EXIT_SUCCESS == ok) {
                     rf->trees[ti].nodes[k].feature = (int)f;
                     rf->trees[ti].nodes[k].left = (int)l;

@@ -219,30 +219,16 @@ LIBXS_API void libxs_predict_set_transform(libxs_predict_t* model,
 
 /**
  * Set the number of forward-inverse-forward refinement iterations.
- * 0 (default): off, never iterate.
- * <0: iterate only when confidence is below the 0.9 threshold.
- * >0: always perform this many refinement iterations per eval.
- * Refinement finds the canonical historical pattern matching the
- * prediction, then re-predicts from it to improve self-consistency.
+ * 0 (default): off. <0: iterate only below the 0.9 confidence threshold.
+ * >0: always perform this many per eval. Refinement finds the canonical
+ * historical pattern matching the prediction and re-predicts from it.
  *
- * It is off by default because it has not been measured to help and has been
- * measured to hurt: a forest lost 2.7 points on the crystal corpus (which is
- * why a forest ignores this setting), a GPU-tuning output lost 1.5 points of
- * gated precision to the output coupling described below, and a corpus with a
- * discrete label lost 1.2 points of accuracy and 7.5 of gated precision. On a
- * corpus whose confidence sits above the threshold it does nothing at all,
- * because the default only ever fired below it.
- *
- * Two reasons it can cost rather than pay. The inverse it goes through scans
- * every entry, so it makes eval cost grow with the corpus rather than with the
- * cluster a query lands in (libxs_predict_query_t::nscan reports the latter and
- * cannot see this). And it cannot discriminate at all where no output is
- * interpolated: with only classify-mode outputs every entry matching the
- * predicted label scores equally, so the pattern recovered is the first such
- * entry in push order rather than the nearest one.
- *
- * A model that asked for libxs_predict_set_consistency still makes the round
- * trip, since that is what the penalty is computed from.
+ * Off by default because it has not been measured to help and has been measured
+ * to hurt: the inverse it goes through scans every entry, so eval cost grows
+ * with the corpus rather than with the cluster, and with only classify-mode
+ * outputs every entry matching the predicted label scores equally, so the
+ * pattern recovered is the first in insertion order rather than the nearest.
+ * A model that asked for libxs_predict_set_consistency still makes the trip.
  */
 LIBXS_API void libxs_predict_set_refine(libxs_predict_t* model,
   int iterations);
@@ -962,18 +948,12 @@ LIBXS_EXTERN_C typedef struct libxs_predict_csv_t {
   /** Stop after this many entries were pushed (0: read to end of file). */
   int nrows;
   /**
-   * Push every stride-th admissible row (0 or 1: every row).
-   *
-   * A prefix of a file is not a sample of it - a corpus sorted or grouped by
-   * anything puts a different distribution in its first rows than in the file
-   * as a whole - so a subset taken for a scaling study or a held-back split is
-   * strided rather than truncated. Together with offset this splits one file
-   * into disjoint interleaved parts, each spanning the whole of it: stride 5
-   * with offset 0 and stride 5 with offset 1 share no row.
-   *
-   * Rows that cannot be parsed, and comment rows, are not admissible and do
-   * not advance the count, so neither a header nor a damaged row shifts which
-   * rows a given (stride, offset) selects.
+   * Push every stride-th admissible row (0 or 1: every row). A prefix of a file
+   * is not a sample of it, so a subset for a scaling study or a held-back split
+   * is strided rather than truncated; with offset this splits one file into
+   * disjoint parts each spanning the whole of it. Unparsable and comment rows
+   * are not admissible and do not advance the count, so neither a header nor a
+   * damaged row shifts which rows a given (stride, offset) selects.
    */
   int stride;
   /** Admissible rows to skip before the first one taken (0: none). */

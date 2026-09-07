@@ -19,7 +19,7 @@ LIBXS_API_INLINE int internal_libxs_predict_rf_split(
   const internal_libxs_predict_entry_t* entries,
   const int* subset, int nsub, int nfeat, int nfeatsub,
   internal_libxs_predict_rf_node_t* node, size_t seed,
-  int output_idx, int label_off, int regress)
+  int output_idx, int label_off, int regress, int min_leaf)
 {
   int result = 0;
   /** Negative until a candidate is seen: unlike impurity, a sum of squares has
@@ -69,6 +69,13 @@ LIBXS_API_INLINE int internal_libxs_predict_rf_split(
         sum_l += d; sqr_l += d * d; ++nleft;
         --nright;
         if (pairs[i].val == pairs[i + 1].val) continue;
+        /** A leaf below the floor is what makes the node count unbounded: the
+         *  floor is otherwise only a reason not to split a parent, so a parent
+         *  just above it splits off a single entry and the tree grows a leaf per
+         *  entry. Honouring it on both sides is what makes 2*nsub/min_leaf the
+         *  bound the caller sizes the node budget from.
+         */
+        if (nleft < min_leaf || nright < min_leaf) continue;
         /** The right side is the total less the left rather than a second
          *  running sum: subtracting each element in turn would accumulate the
          *  cancellation of every step, and the right side ends near zero. */
@@ -98,6 +105,7 @@ LIBXS_API_INLINE int internal_libxs_predict_rf_split(
         ++left_counts[label]; ++nleft;
         --right_counts[label]; --nright;
         if (pairs[i].val == pairs[i + 1].val) continue;
+        if (nleft < min_leaf || nright < min_leaf) continue;
         { double gini_l = 1.0, gini_r = 1.0, gini;
           for (k = 0; k < 128; ++k) {
             if (left_counts[k] > 0) {
@@ -183,7 +191,8 @@ LIBXS_API_INLINE int internal_libxs_predict_rf_build_tree(
     nodes[ni].value = mean;
     if (depth >= max_depth || nc <= min_leaf || 0 != pure
       || 0 == internal_libxs_predict_rf_split(entries, subset + si, nc,
-        nfeat, nfeatsub, &split, (size_t)ni, output_idx, label_off, regress))
+        nfeat, nfeatsub, &split, (size_t)ni, output_idx, label_off, regress,
+        min_leaf))
     {
       nodes[ni].feature = -1;
       continue;
@@ -257,6 +266,14 @@ LIBXS_API_INLINE int internal_libxs_predict_rf_build_tree(
 }
 
 
+/**
+ * Nodes one tree may hold. It raises the leaf floor rather than truncating
+ * growth: growth is depth-first, so hitting the ceiling leaves the first
+ * subtree grown and every later one a stub, worth 9 points on a million rows.
+ */
+#if !defined(LIBXS_PREDICT_RF_MAXNODES)
+#  define LIBXS_PREDICT_RF_MAXNODES 32767
+#endif
 #if !defined(LIBXS_PREDICT_RF_NTREES)
 #  define LIBXS_PREDICT_RF_NTREES 100
 #endif
@@ -474,8 +491,11 @@ LIBXS_API_INLINE void internal_libxs_predict_rf_build_tasks(
     const int n = rf->noutputs;
     const int ntrees = rf->ntrees;
     const int total_trees = ntrees * n;
-    const int min_leaf = 5;
-    const int max_nodes = LIBXS_MIN(p / min_leaf * 2 + 1, 65536);
+    /* the leaf floor is raised so the natural tree fits the node budget */
+    const int min_leaf = LIBXS_MAX(5,
+      (p * 2 + LIBXS_PREDICT_RF_MAXNODES - 2) / (LIBXS_PREDICT_RF_MAXNODES - 1));
+    const int max_nodes = LIBXS_MIN(p / min_leaf * 2 + 1,
+      LIBXS_PREDICT_RF_MAXNODES);
     int begin, end, bootstrap_pool = 0;
     int* bootstrap = (int*)LIBXS_PREDICT_MALLOC(
       (size_t)p * sizeof(int), bootstrap_pool);

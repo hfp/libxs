@@ -241,34 +241,11 @@ LIBXS_EXTERN_C struct libxs_predict_t {
   int hknn_ngroups;
   internal_libxs_predict_cluster_t** hknn_po_clusters;
   double* eval_buf;
-  /**
-   * Every entry's inputs normalized, nentries*ninputs, built once per build.
-   * The partition steps each used to normalize into a buffer of their own, so
-   * a build held three copies of it at once and paid for the normalization
-   * three times. It is also what lets the partition be split across tasks:
-   * a task cannot own a copy of something this size (at millions of entries
-   * it is gigabytes) and the assignment step only reads it.
-   */
+  /* normalized inputs for every entry, built once per build and shared */
   double* norm_pts;
-  /**
-   * Scratch for the partition in progress, nclusters*ninputs: k-means keeps its
-   * working centroids here, the hierarchical refinement its compensation terms.
-   * The builder allocates it and every task tests it, which is what makes the
-   * step's precondition a shared one - a task that decided on its own whether
-   * to take part would leave the others waiting at a rendezvous it never
-   * reaches. k-means also needs it shared on its own account, since the
-   * assignment step reads centroids that only the builder moves.
-   */
+  /* partition scratch, and the shared token that gates taking part */
   double* norm_cen;
-  /**
-   * Hamerly bounds for the assignment step, laid out as upper bounds per entry,
-   * lower bounds per entry, per-centroid drift with the largest appended, half
-   * the distance from each centroid to its nearest other, and the centroids as
-   * they stood before the last move. A pass can then prove an entry's
-   * assignment unchanged without measuring it, which is what takes the
-   * assignment off O(nentries*nclusters) in the common case. The partition is
-   * the same one a full scan produces.
-   */
+  /* Hamerly bounds: upper/lower per entry, then drift, separation, old centroids */
   double* norm_bnd;
   /**
    * One block holding every entry's inputs and outputs, ninputs+noutputs
@@ -365,17 +342,9 @@ LIBXS_EXTERN_C struct libxs_predict_t {
    * stale the way the field did after the call it described had returned.
    */
   volatile int sync_count, sync_epoch;
-  /**
-   * Set by any task whose slice of the assignment step moved an entry, so the
-   * tasks reach the same verdict on convergence and leave the loop together.
-   * Read after a rendezvous and cleared by the builder before the next one.
-   */
+  /* set by any task whose slice moved, so the tasks agree on convergence */
   volatile int sync_moved;
-  /**
-   * The builder's verdict on a stage it ran alone. A task's own result cannot
-   * serve: it never ran the allocation that may have failed, so it would judge
-   * the next stage differently and enter a rendezvous the others have left.
-   */
+  /* the builder's verdict on a stage it ran alone, which a task cannot form */
   volatile int sync_result;
   /** Per-candidate scores of a collective trial, indexed by candidate. */
   double sync_score[8];
@@ -758,12 +727,7 @@ LIBXS_API_INLINE int internal_libxs_predict_fit_knots(libxs_predict_t* model)
 }
 
 
-/**
- * Normalized inputs for every entry, allocated on first use per build and
- * released with the model. Returns NULL if it cannot be had, which every
- * caller must treat as "do not partition" rather than falling back to an
- * un-normalized coordinate.
- */
+/* normalized inputs for every entry; NULL means the partition cannot run */
 LIBXS_API_INLINE double* internal_libxs_predict_normpts(libxs_predict_t* model)
 {
   const int m = model->ninputs;
@@ -782,13 +746,7 @@ LIBXS_API_INLINE double* internal_libxs_predict_normpts(libxs_predict_t* model)
 }
 
 
-/**
- * tid/ntasks: the assignment step is split across the tasks and the step that
- * moves the centroids is the builder's, because assignment is O(p*k*m) against
- * the O(p*m) of moving them - the serial remainder is a k-th of an iteration.
- * The scratch it needs is the builder's alone for the same reason; only the
- * centroids are shared, since every task reads all of them.
- */
+/* assignment is split across tasks, moving the centroids is the builder's */
 LIBXS_API_INLINE void internal_libxs_predict_kmeans(libxs_predict_t* model,
   int nclusters, int tid, int ntasks)
 {
@@ -805,8 +763,8 @@ LIBXS_API_INLINE void internal_libxs_predict_kmeans(libxs_predict_t* model,
   int* dcounts = NULL;
   if (0 == tid) {
     /**
-     * Built here, not per task: it is one buffer on the model, and tasks
-     * racing to create it would each fill a copy the others then read
+     * Built by the builder, not per task: it is one buffer on the model, and
+     * tasks racing to create it each fill a copy the others then read.
      */
     internal_libxs_predict_normpts(model);
     free(model->norm_cen);
@@ -871,12 +829,7 @@ LIBXS_API_INLINE void internal_libxs_predict_kmeans(libxs_predict_t* model,
     } /* seeding is the builder's: it walks the centroids in order */
     internal_libxs_predict_sync(model, ntasks);
     /* Lloyd iterations with Kahan-compensated centroid accumulation */
-    /**
-     * An absent coordinate is skipped by the distance, so a centroid carrying
-     * one moves by an amount the same distance cannot measure, and a bound
-     * derived from it would not hold. Such a corpus takes the full scan.
-     */
-    { const int bounded = (0 == missing);
+    { const int bounded = (0 == missing); /* an absent value has no drift */
       double* const ub = model->norm_bnd;
       double* const lb = ub + p;
       double* const drift = lb + p;
@@ -885,15 +838,13 @@ LIBXS_API_INLINE void internal_libxs_predict_kmeans(libxs_predict_t* model,
       for (iter = 0; iter < LIBXS_PREDICT_MAXITER; ++iter) {
         int changed = 0;
         /**
-         * Cleared here rather than after the verdict is read. Clearing it there
-         * races with a task that has not read it yet: that task then reads zero,
-         * concludes the partition converged, leaves the loop, and the two run
-         * different stages against the same rendezvous counter.
+         * Cleared before the pass, not after the verdict: a task that has yet
+         * to read the flag sees zero, judges the partition converged, and
+         * leaves the loop while the others continue against the rendezvous.
          */
         if (0 == tid) {
           model->sync_moved = 0;
-          /* half the way to the nearest other centroid: an entry closer to its
-             own than this cannot have another nearer, whatever the others did */
+          /* half the way to the nearest other centroid */
           if (0 != bounded) for (c = 0; c < nclusters; ++c) {
             double near = DBL_MAX;
             int c2;
@@ -3292,14 +3243,7 @@ LIBXS_API_INLINE int internal_libxs_predict_build_impl(libxs_predict_t* model,
     if (NULL != tenv) model->tangent = atoi(tenv);
     if (NULL != renv) model->refine = atoi(renv);
   }
-  /**
-   * Everything from here to the partition is the builder's. It rewrites the
-   * corpus - an expanded series, a rotation - and resolves what every later
-   * stage reads: the mode, the absences, the feature weights. Each test below
-   * also reads exactly what its own stage writes, so none of them may carry a
-   * rendezvous; the single one after the region can, and the verdict is
-   * published because a task that ran none of this cannot form its own.
-   */
+  /* the builder's alone: it rewrites the corpus and resolves what follows */
   if (0 == tid) {
     if (NULL != model && 0 < model->nts && 0 == model->nentries) {
       internal_libxs_predict_ts_expand(model);
@@ -3381,10 +3325,8 @@ LIBXS_API_INLINE int internal_libxs_predict_build_impl(libxs_predict_t* model,
     }
   }
   /**
-   * Outside the test, not inside: the test reads hknn_assignments and the
-   * builder fills it, so a task arriving late reads it as done, skips the
-   * stage, and leaves the builder waiting for an arrival that never comes.
-   * A rendezvous may only be conditional on state no stage of it writes.
+   * Outside the test, not inside: the test reads what the stage itself fills,
+   * so a task arriving late skips the stage and never reaches the rendezvous.
    */
   internal_libxs_predict_sync(model, ntasks);
   if (EXIT_SUCCESS == result && NULL != model && 0 < model->nentries
@@ -3408,13 +3350,7 @@ LIBXS_API_INLINE int internal_libxs_predict_build_impl(libxs_predict_t* model,
     const int max_ord = (order < 0) ? -order : LIBXS_FPRINT_MAXORDER;
     int best_ord = 1, ord;
     double best_err = 1e30;
-    /**
-     * The search is the builder's, and each candidate it scores is a serial
-     * build: a collective one here would nest rendezvous inside the rendezvous
-     * this stage already is. The order it settles on is published, so the build
-     * that keeps it is the collective one and the tasks are idle only for the
-     * search itself.
-     */
+    /* the search is the builder's; the order it settles on is published */
     ctx.model = model;
     ctx.nclusters = nclusters;
     ctx.tid = 0;
@@ -3426,15 +3362,7 @@ LIBXS_API_INLINE int internal_libxs_predict_build_impl(libxs_predict_t* model,
     else {
     ord = 1;
     best_err = internal_libxs_predict_order_fn((double)ord, &ctx);
-    /**
-     * The order is the degree of the polynomial an interpolate-mode output is
-     * fitted with, so a corpus where every output classifies cannot be told
-     * apart by it: the remaining candidates would rebuild the model and score
-     * an identical answer. Trying order 1 first makes that decidable after one
-     * build rather than eight, which is the difference between one build and
-     * nine on any corpus carrying a discrete label - and the search selected
-     * order 1 there anyway, so nothing is given up.
-     */
+    /* order 1 first: where nothing interpolates the rest score identically */
     if (0 != internal_libxs_predict_interpolates(model)) {
       for (ord = 2; ord <= max_ord; ++ord) {
         const double err = internal_libxs_predict_order_fn((double)ord, &ctx);
@@ -3460,11 +3388,7 @@ LIBXS_API_INLINE int internal_libxs_predict_build_impl(libxs_predict_t* model,
     int pool_bucket = 0, pool_cbegin = 0;
     int* bucket = NULL;
     int* cbegin = NULL;
-    /**
-     * Laying out the corpus is the builder's: it allocates what the other
-     * tasks then read. They wait at the rendezvous below and take its verdict
-     * rather than their own, which is why it is published rather than returned.
-     */
+    /* laying out the corpus is the builder's; its verdict is published below */
     if (0 == tid) {
       if (order > LIBXS_FPRINT_MAXORDER) order = LIBXS_FPRINT_MAXORDER;
       model->order = order;
@@ -3864,12 +3788,7 @@ LIBXS_API int libxs_predict_build_task(libxs_lock_t* lock,
     }
     internal_libxs_predict_sync(model, ntasks);
   }
-  /**
-   * Every task enters, because the partition inside is split across them. The
-   * stages that are the builder's are guarded there rather than here, and each
-   * branch is taken on shared state - the corpus, the mode, the order - so the
-   * tasks cannot part company at a rendezvous. Only tid varies.
-   */
+  /* every task enters: the partition inside is split across them */
   result = internal_libxs_predict_build_impl(model, nclusters, order,
     quality, tid, ntasks);
   internal_libxs_predict_sync(model, ntasks);
@@ -4378,12 +4297,7 @@ LIBXS_API_INLINE void internal_libxs_predict_eval_ex(libxs_lock_t* lock,
       }
     }
     { double min_conf = 1.0;
-      /**
-       * The consistency penalty is computed from the round trip this pass
-       * makes, so a caller that asked for one still gets the pass even though
-       * refinement itself is off by default: the alternative silently turns
-       * set_consistency into dead code.
-       */
+      /* consistency needs this pass, so asking for it still runs the round trip */
       const int gated = (0 > model->refine)
         || (0 == model->refine && 0 < model->consistency);
       int iter_count = 0, max_iter = (0 < model->refine)
