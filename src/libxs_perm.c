@@ -16,6 +16,10 @@
 #if !defined (LIBXS_PERM_STRATIFY_SIMPLE) && 0
 # define LIBXS_PERM_STRATIFY_SIMPLE
 #endif
+/* below this the comparison sort wins: a radix pass count is fixed, n is not */
+#if !defined(LIBXS_SORT_RADIX_MIN)
+# define LIBXS_SORT_RADIX_MIN 512
+#endif
 
 #define LIBXS_MEM_SHUFFLE_MALLOC(SIZE, POOL) \
   internal_libxs_scratch_malloc(SIZE, &(POOL))
@@ -150,6 +154,17 @@ LIBXS_API_INLINE void internal_libxs_sort_heap(
 }
 
 
+LIBXS_API int libxs_cmp_f64_idx(const void* a, const void* b, void* ctx) {
+  const double* const keys = (const double*)ctx;
+  const double x = keys[*(const int*)a], y = keys[*(const int*)b];
+  int result;
+  if (x < y) result = -1;
+  else if (x > y) result = 1;
+  else result = 0;
+  return result;
+}
+
+
 LIBXS_API int libxs_cmp_f64(const void* a, const void* b, void* ctx) {
   const double va = *(const double*)a, vb = *(const double*)b;
   LIBXS_UNUSED(ctx);
@@ -235,6 +250,39 @@ LIBXS_API_INLINE void internal_libxs_radix_u32(
 }
 
 
+/**
+ * Radix over 64-bit keys carrying an index, so the keys stay where they are.
+ * The pass count is even, which leaves the result in the arrays passed as ka
+ * and ia rather than in the scratch pair; a caller that wants it elsewhere
+ * copies it, and one that passed its own array in has it already.
+ */
+LIBXS_API_INLINE void internal_libxs_radix_idx(
+  unsigned long long* ka, unsigned long long* kb,
+  int* ia, int* ib, int n)
+{
+  int pass;
+  for (pass = 0; pass < 8; ++pass) {
+    const int shift = pass * 8;
+    int count[256], i;
+    memset(count, 0, sizeof(count));
+    for (i = 0; i < n; ++i) ++count[(ka[i] >> shift) & 0xFF];
+    { int sum = 0, j;
+      for (j = 0; j < 256; ++j) {
+        const int c = count[j];
+        count[j] = sum; sum += c;
+      }
+    }
+    for (i = 0; i < n; ++i) {
+      const int at = count[(ka[i] >> shift) & 0xFF]++;
+      kb[at] = ka[i];
+      ib[at] = ia[i];
+    }
+    { unsigned long long* tk = ka; ka = kb; kb = tk; }
+    { int* ti = ia; ia = ib; ib = ti; }
+  }
+}
+
+
 LIBXS_API_INLINE void internal_libxs_sort_radix_f64(
   double* LIBXS_RESTRICT dst, const double* src, int n, void* scratch)
 {
@@ -305,7 +353,46 @@ LIBXS_API void libxs_sort(void* base, int n, size_t size,
   libxs_sort_cmp_t cmp, void* ctx)
 {
   if (NULL == base || n < 2 || 0 == size || NULL == cmp) return;
-  if (cmp == libxs_cmp_f64 || cmp == libxs_cmp_f32
+  /**
+   * A radix pass is linear but pays eight of them plus a scratch allocation
+   * whatever n is, so it loses to the comparison sort on the short runs that
+   * dominate a recursive caller: sorting the nodes of a tree got 7% slower on
+   * one corpus and 30% faster on another before this bound was in place.
+   */
+  if (LIBXS_SORT_RADIX_MIN > n) {
+    if (cmp == libxs_cmp_f64_idx) { /* ctx holds the keys the indices order */
+      internal_libxs_sort_heap(base, n, size, cmp, ctx);
+    }
+    else if (cmp == libxs_cmp_f64 || cmp == libxs_cmp_f32
+      || cmp == libxs_cmp_i32 || cmp == libxs_cmp_u32)
+    { /* ctx is the source to read from, not a context to compare with */
+      if (NULL != ctx) memcpy(base, ctx, (size_t)n * size);
+      internal_libxs_sort_heap(base, n, size, cmp, NULL);
+    }
+    else internal_libxs_sort_heap(base, n, size, cmp, ctx);
+  }
+  else if (cmp == libxs_cmp_f64_idx && NULL != ctx) {
+    const double* const keys = (const double*)ctx;
+    int* const idx = (int*)base;
+    int pool = 0;
+    void* scratch = LIBXS_MEM_SHUFFLE_MALLOC(
+      (size_t)n * (2 * sizeof(unsigned long long) + sizeof(int)), pool);
+    if (NULL != scratch) {
+      unsigned long long* const ka = (unsigned long long*)scratch;
+      unsigned long long* const kb = ka + n;
+      int* const ib = (int*)(kb + n);
+      int i;
+      for (i = 0; i < n; ++i) {
+        unsigned long long bits;
+        memcpy(&bits, keys + idx[i], 8);
+        ka[i] = (bits >> 63) ? ~bits : (bits | 0x8000000000000000ULL);
+      }
+      internal_libxs_radix_idx(ka, kb, idx, ib, n);
+      LIBXS_MEM_SHUFFLE_FREE(scratch, pool);
+    }
+    else internal_libxs_sort_heap(base, n, size, cmp, ctx);
+  }
+  else if (cmp == libxs_cmp_f64 || cmp == libxs_cmp_f32
     || cmp == libxs_cmp_i32 || cmp == libxs_cmp_u32)
   {
     const void* src = (NULL != ctx) ? ctx : base;

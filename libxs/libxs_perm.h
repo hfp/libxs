@@ -75,6 +75,14 @@ typedef struct libxs_kdtree_config_t {
   void* ctx;
 } libxs_kdtree_config_t;
 
+/**
+ * Indirect comparator: base is an array of indices and ctx the double keys they
+ * index. libxs_sort then orders the indices and leaves the keys untouched,
+ * which is what a caller sorting a payload alongside a value needs; passing it
+ * to libxs_sort takes the same radix path the value comparators take.
+ */
+LIBXS_API int libxs_cmp_f64_idx(const void* a, const void* b, void* ctx);
+
 /** Built-in comparators (enable fast paths when recognized). */
 LIBXS_API int libxs_cmp_f64(const void* a, const void* b, void* ctx);
 LIBXS_API int libxs_cmp_f32(const void* a, const void* b, void* ctx);
