@@ -289,14 +289,20 @@ install(
     PATTERN "libxs_fortran.md" EXCLUDE
 )
 
-# Install Makefile build support files.
+# Install Makefile build support files. The three helpers are PROGRAMS rather
+# than FILES: Makefile.inc runs them by path (MKTEMP, FLOCK, and .state.sh in
+# a shell function), so a 644 copy breaks a consumer of the installed tree.
 set(LIBXS_SHARE_DIR "${CMAKE_INSTALL_DATADIR}/libxs")
 
 install(
-  FILES
-    "${CMAKE_CURRENT_SOURCE_DIR}/Makefile.inc"
+  PROGRAMS
     "${CMAKE_CURRENT_SOURCE_DIR}/.state.sh"
     "${CMAKE_CURRENT_SOURCE_DIR}/.mktmp.sh"
     "${CMAKE_CURRENT_SOURCE_DIR}/.flock.sh"
+  DESTINATION "${LIBXS_SHARE_DIR}"
+)
+
+install(
+  FILES "${CMAKE_CURRENT_SOURCE_DIR}/Makefile.inc"
   DESTINATION "${LIBXS_SHARE_DIR}"
 )

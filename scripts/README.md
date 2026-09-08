@@ -26,7 +26,7 @@
 
 **tool_cpuinfo.sh** — Print CPU topology (sockets, cores, threads).
 
-**tool_getenvars.sh** — List environment variables used in the source tree.
+**tool_checkenvars.sh** — List environment variables used in the source tree (`--list`), or check that the prefixed ones are documented.
 
 **tool_pexec.sh** — Parallel command execution with CPU affinity (`-h` for options).
 

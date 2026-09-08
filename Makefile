@@ -565,7 +565,7 @@ ifneq ($(PREFIX),$(ABSDIR))
 	@echo
 	@echo "$(PROJUPP) tool scripts..."
 	@$(MKDIR) -p $(PREFIX)/$(SCRDIR)
-	@$(CP) -v $(ROOTSCR)/tool_getenvars.sh $(PREFIX)/$(SCRDIR) 2>/dev/null || true
+	@$(CP) -v $(ROOTSCR)/tool_checkenvars.sh $(PREFIX)/$(SCRDIR) 2>/dev/null || true
 	@$(CP) -v $(ROOTSCR)/tool_pexec.sh $(PREFIX)/$(SCRDIR) 2>/dev/null || true
 endif
 
