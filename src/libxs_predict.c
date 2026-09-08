@@ -15,10 +15,6 @@
 #include <libxs/libxs_hash.h>
 #include "libxs_main.h"
 
-/* Lloyd passes a forest's partition gets; it only has to exist, see kmeans */
-#if !defined(LIBXS_PREDICT_RF_PARTITER)
-#  define LIBXS_PREDICT_RF_PARTITER 1
-#endif
 #if !defined(LIBXS_PREDICT_MAXITER)
 #  define LIBXS_PREDICT_MAXITER 100
 #endif
@@ -286,6 +282,12 @@ LIBXS_EXTERN_C struct libxs_predict_t {
   int eval_mode;
   int iterations;
   int nseries, window, target, decompose;
+  /**
+   * Non-zero when the caller named the decomposition rather than leaving it to
+   * the selector. The build then owes nothing to the methods that were not
+   * asked for, see libxs_predict_set_decompose.
+   */
+  int decompose_fixed;
   int naux, nderiv;
   int nts, ts_capacity;
   /** Window views: nbank requested, bank_w[] lags each view reads. */
@@ -404,11 +406,16 @@ static const double internal_libxs_predict_escape_rate[
  * arrival is the only one that advances it, and no task can advance past a
  * stage that another has not yet entered, so a task that reads the epoch late
  * still waits for the advance that follows its own arrival.
+ *
+ * A rendezvous sits outside the test its stage is guarded by, so the call is
+ * reached whether or not the stage ran, and a caller that passed no model at
+ * all reaches it too. Tolerating that here keeps every call site free of a
+ * check that has nothing to do with the barrier.
  */
 LIBXS_API_INLINE void internal_libxs_predict_sync(
   libxs_predict_t* model, int ntasks)
 {
-  if (1 < ntasks) {
+  if (1 < ntasks && NULL != model) {
     const int epoch = (int)LIBXS_ATOMIC_LOAD(
       &model->sync_epoch, LIBXS_ATOMIC_SEQ_CST);
     if (ntasks == (int)LIBXS_ATOMIC_ADD_FETCH(
@@ -737,6 +744,57 @@ LIBXS_API_INLINE int internal_libxs_predict_fit_knots(libxs_predict_t* model)
 }
 
 
+/**
+ * Per-dimension extent, which is what internal_libxs_predict_normalize scales
+ * by. Releases the rank coordinate and the normalized corpus with it: both are
+ * expressed in the normalization this replaces and cannot be carried over.
+ */
+LIBXS_API_INLINE void internal_libxs_predict_extent(libxs_predict_t* model)
+{
+  const int m = model->ninputs;
+  const int p = model->nentries;
+  free(model->input_min); free(model->input_rng);
+  free(model->input_knot); model->input_knot = NULL;
+  free(model->norm_pts); model->norm_pts = NULL;
+  model->input_min = (double*)malloc((size_t)m * sizeof(double));
+  model->input_rng = (double*)malloc((size_t)m * sizeof(double));
+  if (NULL != model->input_min && NULL != model->input_rng) {
+    int i, j;
+    /**
+     * An absent value must not seed the extent: it compares false against
+     * everything, so a NaN in the first entry would leave the whole dimension
+     * NaN and silently un-normalize every later comparison on it. A dimension
+     * that is absent throughout keeps a zero range, which
+     * internal_libxs_predict_normalize already treats as "do not scale".
+     */
+    for (j = 0; j < m; ++j) {
+      model->input_min[j] = 0;
+      model->input_rng[j] = 0;
+    }
+    for (j = 0; j < m; ++j) {
+      int seeded = 0;
+      for (i = 0; i < p; ++i) {
+        const double v = model->entries[i].inputs[j];
+        if (LIBXS_NOTNAN(v)) {
+          if (0 == seeded) {
+            model->input_min[j] = v;
+            model->input_rng[j] = v;
+            seeded = 1;
+          }
+          else {
+            if (v < model->input_min[j]) model->input_min[j] = v;
+            if (v > model->input_rng[j]) model->input_rng[j] = v;
+          }
+        }
+      }
+    }
+    for (j = 0; j < m; ++j) {
+      model->input_rng[j] -= model->input_min[j];
+    }
+  }
+}
+
+
 /* normalized inputs for every entry; NULL means the partition cannot run */
 LIBXS_API_INLINE double* internal_libxs_predict_normpts(libxs_predict_t* model)
 {
@@ -753,6 +811,90 @@ LIBXS_API_INLINE double* internal_libxs_predict_normpts(libxs_predict_t* model)
     }
   }
   return model->norm_pts;
+}
+
+
+/**
+ * A partition by recursive median, filling model->assignments and returning the
+ * number of clusters it found (zero if it could not run).
+ *
+ * Every alternative here is quadratic in a way this is not. Seeding by farthest
+ * point walks the corpus once per centroid and a Lloyd pass compares every entry
+ * against every centroid, so both are nentries * nclusters * ninputs, which at
+ * the default nclusters = sqrt(nentries) is the nentries^1.5 term that dominated
+ * a large build. A median split costs one pass over the node, and the tree is
+ * log(nclusters) levels deep, so the whole partition is nentries * log(nclusters).
+ * The kd-tree split that LIBXS_PREDICT_HKNN uses sits between the two: it is not
+ * quadratic either, but it sorts every dimension at every node to make the leaves
+ * pure in the outputs, which is precision a forest does not read.
+ */
+LIBXS_API_INLINE int internal_libxs_predict_kdpart(libxs_predict_t* model,
+  int nclusters)
+{
+  const int m = model->ninputs;
+  const int p = model->nentries;
+  const double* pts = internal_libxs_predict_normpts(model);
+  int pool_idx = 0, result = 0;
+  int* idx = (int*)LIBXS_PREDICT_MALLOC((size_t)p * sizeof(int), pool_idx);
+  if (NULL != pts && NULL != idx && 0 < nclusters) {
+    libxs_kdtree_config_t config;
+    int i;
+    for (i = 0; i < p; ++i) idx[i] = i;
+    /**
+     * Every leaf sits at the same depth, so the count is a power of two and the
+     * request is met by rounding up rather than down: asking for the occupancy
+     * keeps a cluster at or below the mean the caller asked for. Rounding down
+     * instead lets the occupancy grow linearly with the corpus between two
+     * powers of two, and the steps that are quadratic in a cluster then grow as
+     * the square of the corpus rather than as its 1.5 power.
+     */
+    config.min_leaf = LIBXS_MAX(p / nclusters, 1);
+    config.split = NULL;
+    config.ctx = NULL;
+    result = libxs_kdtree_partition(pts, idx, p, m, m,
+      model->assignments, &config);
+  }
+  LIBXS_PREDICT_FREE(idx, pool_idx);
+  return result;
+}
+
+
+/* the mean of a cluster's members, for a partition that assigned before it knew
+   where the clusters sit (the kd-tree ones; Lloyd carries its centroids along) */
+LIBXS_API_INLINE void internal_libxs_predict_centroids(
+  libxs_predict_t* model, int nclusters)
+{
+  const int p = model->nentries;
+  const int m = model->ninputs;
+  int counts_pool = 0, norm_pool = 0, i, c, j;
+  int* counts = (int*)LIBXS_PREDICT_MALLOC(
+    (size_t)nclusters * sizeof(int), counts_pool);
+  double* norm = (double*)LIBXS_PREDICT_MALLOC(
+    (size_t)m * sizeof(double), norm_pool);
+  if (NULL != counts && NULL != norm) {
+    memset(counts, 0, (size_t)nclusters * sizeof(int));
+    for (c = 0; c < nclusters; ++c) {
+      memset(model->clusters[c].centroid, 0, (size_t)m * sizeof(double));
+    }
+    for (i = 0; i < p; ++i) {
+      const int ci = model->assignments[i];
+      internal_libxs_predict_normalize(model,
+        model->entries[i].inputs, norm);
+      for (j = 0; j < m; ++j) {
+        model->clusters[ci].centroid[j] += norm[j];
+      }
+      ++counts[ci];
+    }
+    for (c = 0; c < nclusters; ++c) {
+      if (counts[c] > 0) {
+        for (j = 0; j < m; ++j) {
+          model->clusters[c].centroid[j] /= counts[c];
+        }
+      }
+    }
+  }
+  LIBXS_PREDICT_FREE(norm, norm_pool);
+  LIBXS_PREDICT_FREE(counts, counts_pool);
 }
 
 
@@ -808,6 +950,15 @@ LIBXS_API_INLINE void internal_libxs_predict_kmeans(libxs_predict_t* model,
         ? LIBXS_SHUFFLE_INDEX(0, (size_t)p, libxs_coprime2((size_t)p), 0)
         : 0;
       memcpy(centroids, pts + seed * m, (size_t)m * sizeof(double));
+      /**
+       * Seeding by farthest point walks the corpus once per centroid, which at
+       * sqrt(nentries) clusters is a nentries^1.5 term. Seeding cheaply instead
+       * is not the saving it looks like: on 800k entries it measured 52% slower
+       * to build and twice as slow to evaluate, because the balance the walk
+       * produces is what keeps the per-cluster assembly and the neighbour scan
+       * cheap. A mode that does not read the partition takes the median tree,
+       * see internal_libxs_predict_kdpart.
+       */
       for (i = 0; i < p; ++i) dists[i] = DBL_MAX;
       for (c = 1; c < nclusters; ++c) {
         int farthest = 0;
@@ -845,14 +996,7 @@ LIBXS_API_INLINE void internal_libxs_predict_kmeans(libxs_predict_t* model,
       double* const drift = lb + p;
       double* const sep = drift + nclusters + 1;
       double* const oldcen = sep + nclusters;
-      /**
-       * A forest answers from the raw inputs and consults its cluster only to
-       * find it non-empty, so the partition has to exist and not to be good:
-       * refining it is the largest single cost of a forest build and buys the
-       * forest nothing. Every other mode reads the partition and refines it.
-       */
-      const int maxiter = (LIBXS_PREDICT_RF == model->decompose)
-        ? LIBXS_PREDICT_RF_PARTITER : LIBXS_PREDICT_MAXITER;
+      const int maxiter = LIBXS_PREDICT_MAXITER;
       for (iter = 0; iter < maxiter; ++iter) {
         int changed = 0;
         /**
@@ -1895,6 +2039,11 @@ LIBXS_API void libxs_predict_set_decompose(libxs_predict_t* model, int decompose
   LIBXS_ASSERT(NULL != model);
   if (NULL != model) {
     model->decompose = decompose;
+    /**
+     * Recorded here rather than derived at build, where the selector has already
+     * written its choice into decompose and the two are no longer distinguishable.
+     */
+    model->decompose_fixed = (0 <= decompose) ? 1 : 0;
   }
 }
 
@@ -3255,14 +3404,30 @@ LIBXS_API_INLINE int internal_libxs_predict_build_impl(libxs_predict_t* model,
   int nclusters, int order, double quality, int tid, int ntasks)
 {
   int result = EXIT_SUCCESS;
-  if (NULL != model) {
+  /**
+   * A count without a corpus is refused rather than built on. A loaded model
+   * carries nentries from the file but recovers the entries themselves only
+   * from the per-cluster storage, so a file written without a partition - or a
+   * version-1 flat file, or one whose feature selection zeroed a coordinate -
+   * arrives here with the count set and nothing behind it. Building then reads
+   * entry inputs through a NULL, which is how "evaluate a stored model by
+   * another method" crashed instead of declining.
+   */
+  if (NULL != model && 0 < model->nentries && NULL == model->entries
+    && 0 >= model->nts)
+  {
+    result = EXIT_FAILURE;
+    model->sync_result = result;
+  }
+  if (EXIT_SUCCESS == result && NULL != model) {
     const char* tenv = getenv("LIBXS_PREDICT_TANGENT");
     const char* renv = getenv("LIBXS_PREDICT_REFINE");
     if (NULL != tenv) model->tangent = atoi(tenv);
     if (NULL != renv) model->refine = atoi(renv);
   }
-  /* the builder's alone: it rewrites the corpus and resolves what follows */
-  if (0 == tid) {
+  /* the builder's alone: it rewrites the corpus and resolves what follows.
+     Every task tested the same state above, so the verdict is already shared */
+  if (0 == tid && EXIT_SUCCESS == result) {
     if (NULL != model && 0 < model->nts && 0 == model->nentries) {
       internal_libxs_predict_ts_expand(model);
     }
@@ -3395,6 +3560,54 @@ LIBXS_API_INLINE int internal_libxs_predict_build_impl(libxs_predict_t* model,
     result = internal_libxs_predict_build_impl(model, nclusters, best_ord,
       quality, tid, ntasks);
   }
+  else if (LIBXS_PREDICT_RF == model->decompose
+    && 0 != model->decompose_fixed)
+  {
+    /**
+     * A forest answers from the trees and reads no part of what follows. The
+     * partition, the per-cluster assembly and the normalization that feeds them
+     * are built so that a stored model can be evaluated by a method other than
+     * the one it was built with, and a caller who named the method has given
+     * that up: what is skipped here is about a quarter of the build and most of
+     * the resident memory at a large corpus.
+     *
+     * The model that results carries no clusters, so libxs_predict_prob has no
+     * support to score against and yields nothing, libxs_predict_query reports
+     * no partition, libxs_predict_set_floor and libxs_predict_set_quantile have
+     * no nearest cluster to read, and a regressing output gives up the shrink
+     * toward that cluster's mean. libxs_predict_inverse still answers while the
+     * model is in memory; saved and loaded again it abstains, a loaded corpus
+     * being reconstructed from exactly the storage this model does not carry.
+     * Under LIBXS_PREDICT_AUTO_DECOMPOSE none of this applies.
+     */
+    if (0 == tid) {
+      const int n = model->noutputs;
+      internal_libxs_predict_free_clusters(model);
+      /**
+       * The extent stays: it is one pass, it is what the stored model carries as
+       * its normalization, and the serialized form has a place for nothing else.
+       * The rank coordinate does not, being m sorts of the whole corpus for a
+       * distance this model never takes.
+       */
+      internal_libxs_predict_extent(model);
+      model->order = (order > LIBXS_FPRINT_MAXORDER)
+        ? LIBXS_FPRINT_MAXORDER : order;
+      model->quality = quality;
+      model->eval_buf = (double*)malloc((size_t)n * 6 * sizeof(double)
+        + (size_t)n * sizeof(int));
+      if (NULL == model->eval_buf) result = EXIT_FAILURE;
+      else {
+        /* resolves a requested window bank to the one view a forest can use;
+           skipping it left the request standing and eval took the bank path */
+        internal_libxs_predict_bank_all(model);
+        model->built = 1;
+        ++model->nbuild;
+      }
+      model->sync_result = result;
+    }
+    internal_libxs_predict_sync(model, ntasks);
+    result = (int)model->sync_result;
+  }
   else {
     const int p = model->nentries;
     const int m = model->ninputs;
@@ -3412,46 +3625,8 @@ LIBXS_API_INLINE int internal_libxs_predict_build_impl(libxs_predict_t* model,
       model->order = order;
       model->quality = quality;
       internal_libxs_predict_free_clusters(model);
-      free(model->input_min); free(model->input_rng);
-      free(model->input_knot); model->input_knot = NULL;
-      /* the normalization these define is about to change, so what was
-         normalized under the previous one cannot be carried over */
-      free(model->norm_pts); model->norm_pts = NULL;
-      model->input_min = (double*)malloc((size_t)m * sizeof(double));
-      model->input_rng = (double*)malloc((size_t)m * sizeof(double));
+      internal_libxs_predict_extent(model);
       if (NULL != model->input_min && NULL != model->input_rng) {
-        int j;
-        /**
-         * An absent value must not seed the extent: it compares false against
-         * everything, so a NaN in the first entry would leave the whole dimension
-         * NaN and silently un-normalize every later comparison on it. A
-         * dimension that is absent throughout keeps a zero range, which
-         * internal_libxs_predict_normalize already treats as "do not scale".
-         */
-        for (j = 0; j < m; ++j) {
-          model->input_min[j] = 0;
-          model->input_rng[j] = 0;
-        }
-        for (j = 0; j < m; ++j) {
-          int seeded = 0;
-          for (i = 0; i < p; ++i) {
-            const double v = model->entries[i].inputs[j];
-            if (LIBXS_NOTNAN(v)) {
-              if (0 == seeded) {
-                model->input_min[j] = v;
-                model->input_rng[j] = v;
-                seeded = 1;
-              }
-              else {
-                if (v < model->input_min[j]) model->input_min[j] = v;
-                if (v > model->input_rng[j]) model->input_rng[j] = v;
-              }
-            }
-          }
-        }
-        for (j = 0; j < m; ++j) {
-          model->input_rng[j] -= model->input_min[j];
-        }
         /**
          * The rank coordinate is for axes that measure different quantities. A
          * window feeds lags of one series, which share a scale by construction,
@@ -3459,10 +3634,6 @@ LIBXS_API_INLINE int internal_libxs_predict_build_impl(libxs_predict_t* model,
          * relationship that makes two windows comparable.
          */
         if (0 >= model->nseries) internal_libxs_predict_fit_knots(model);
-        else {
-          free(model->input_knot);
-          model->input_knot = NULL;
-        }
       }
       if (0 >= nclusters) {
         nclusters = (int)(sqrt((double)p) + 0.5);
@@ -3480,6 +3651,12 @@ LIBXS_API_INLINE int internal_libxs_predict_build_impl(libxs_predict_t* model,
         memcpy(model->assignments, model->hknn_assignments,
           (size_t)p * sizeof(int));
         nclusters = model->hknn_nclusters;
+      }
+      else if (EXIT_SUCCESS == result && LIBXS_PREDICT_RF == model->decompose) {
+        /* the count the median tree settles on, which cannot exceed the request */
+        const int nleaves = internal_libxs_predict_kdpart(model, nclusters);
+        if (0 < nleaves) nclusters = nleaves;
+        else result = EXIT_FAILURE;
       }
       model->clusters = (internal_libxs_predict_cluster_t*)calloc(
         (size_t)nclusters, sizeof(internal_libxs_predict_cluster_t));
@@ -3501,9 +3678,14 @@ LIBXS_API_INLINE int internal_libxs_predict_build_impl(libxs_predict_t* model,
       /* the count the builder settled on, which the local one need not match */
       const int pnc = model->nclusters;
       if (LIBXS_PREDICT_HKNN == model->decompose) {
-        if (0 == tid) internal_libxs_predict_hknn_centroids(model, pnc);
+        if (0 == tid) internal_libxs_predict_centroids(model, pnc);
         internal_libxs_predict_sync(model, ntasks);
         internal_libxs_predict_hknn_refine(model, pnc, tid, ntasks);
+      }
+      else if (LIBXS_PREDICT_RF == model->decompose) {
+        /* the tree assigned above; what remains is where the clusters sit */
+        if (0 == tid) internal_libxs_predict_centroids(model, pnc);
+        internal_libxs_predict_sync(model, ntasks);
       }
       else {
         internal_libxs_predict_kmeans(model, pnc, tid, ntasks);
@@ -3733,7 +3915,18 @@ LIBXS_API_INLINE int internal_libxs_predict_build_impl(libxs_predict_t* model,
           }
         }
         internal_libxs_predict_kapply(model);
-        if (0 >= model->central) internal_libxs_predict_central_all(model);
+        /**
+         * Choosing between the mean and the median scores both over every member
+         * of every cluster, and each score scans the member's whole cluster, so
+         * the step is nentries * nentries / nclusters: the nentries^1.5 term that
+         * dominated a large build. A forest answers from the trees and asks the
+         * cluster only whether it is non-empty, so it never reads the choice,
+         * exactly as it never reads the compression below. A model saved here
+         * and loaded to be evaluated by another method makes the choice on load.
+         */
+        if (0 >= model->central && NULL == model->rf) {
+          internal_libxs_predict_central_all(model);
+        }
         internal_libxs_predict_bank_all(model);
         if (model->smooth < 0) {
           int nsmooth = 0, ntotal_modes = 0, j;
@@ -3871,7 +4064,7 @@ LIBXS_API_INLINE void internal_libxs_predict_eval_ex(libxs_lock_t* lock,
     double* diff_inputs = NULL;
     double* norm_inputs = (double*)LIBXS_PREDICT_MALLOC((size_t)m * sizeof(double), norm_pool);
     double local_buf[256];
-    double *vals, *errs, *conf, *var, *lo, *hi, best_dist;
+    double *vals, *errs, *conf, *var, *lo, *hi, best_dist = 0;
     int *rels, c, j, best_c = 0;
     if (NULL != src || NULL != src_mode || NULL != src_out
       || NULL != src_nout)
@@ -3966,24 +4159,33 @@ LIBXS_API_INLINE void internal_libxs_predict_eval_ex(libxs_lock_t* lock,
      * 20.2). internal_libxs_predict_viewdist2 removes the older lags from the
      * distance exactly as the neighbor scan does.
      */
-    best_dist = internal_libxs_predict_viewdist2(norm_inputs,
-      model->clusters[0].centroid, m, view, model->has_missing);
-    for (c = 1; c < model->nclusters; ++c) {
-      const double d = internal_libxs_predict_viewdist2(norm_inputs,
-        model->clusters[c].centroid, m, view, model->has_missing);
-      if (d < best_dist && model->clusters[c].nentries > 0) {
-        best_dist = d; best_c = c;
+    /**
+     * The forest below discards the cluster this chooses, and choosing it costs
+     * one distance per cluster against a traversal of ntrees nodes: at a corpus
+     * where nclusters is in the thousands it is the larger half of an evaluation
+     * that never reads it. The confidence floor and the quantile calibration are
+     * the two readers that still want the nearest cluster, so asking for either
+     * keeps the scan.
+     */
+    if (NULL != model->clusters && (NULL == model->rf
+      || model->floor > 0 || model->quantile > 0))
+    {
+      best_dist = internal_libxs_predict_viewdist2(norm_inputs,
+        model->clusters[0].centroid, m, view, model->has_missing);
+      for (c = 1; c < model->nclusters; ++c) {
+        const double d = internal_libxs_predict_viewdist2(norm_inputs,
+          model->clusters[c].centroid, m, view, model->has_missing);
+        if (d < best_dist && model->clusters[c].nentries > 0) {
+          best_dist = d; best_c = c;
+        }
+      }
+      if (model->clusters[best_c].nentries <= 0) {
+        for (c = 0; c < model->nclusters; ++c) {
+          if (model->clusters[c].nentries > 0) { best_c = c; break; }
+        }
       }
     }
-    if (model->clusters[best_c].nentries <= 0) {
-      for (c = 0; c < model->nclusters; ++c) {
-        if (model->clusters[c].nentries > 0) { best_c = c; break; }
-      }
-    }
-    if (model->clusters[best_c].nentries <= 0) {
-      nblend = 0;
-    }
-    else if (NULL != model->rf) {
+    if (NULL != model->rf) {
       for (j = 0; j < n; ++j) {
         double rf_conf = 0, rf_var = 0;
         vals[j] = internal_libxs_predict_rf_eval_output(
@@ -3999,6 +4201,11 @@ LIBXS_API_INLINE void internal_libxs_predict_eval_ex(libxs_lock_t* lock,
         info->cluster = -1;
         info->distance = 0;
       }
+      nblend = 0;
+    }
+    else if (NULL == model->clusters
+      || model->clusters[best_c].nentries <= 0)
+    {
       nblend = 0;
     }
     else if (nblend <= 1) {
@@ -4289,7 +4496,7 @@ LIBXS_API_INLINE void internal_libxs_predict_eval_ex(libxs_lock_t* lock,
         vals[k] = 0.75 * vals[k] + 0.25 * avg;
       }
     }
-    if (0 == extrapolate) {
+    if (0 == extrapolate && NULL != model->clusters) {
       const internal_libxs_predict_cluster_t* cl = &model->clusters[best_c];
       for (j = 0; j < n; ++j) {
         if (var[j] > 0 && 0 != cl->mode[j]) {
@@ -4431,7 +4638,7 @@ LIBXS_API_INLINE void internal_libxs_predict_eval_ex(libxs_lock_t* lock,
         }
       }
     }
-    if (model->floor > 0 && 0 == extrapolate) {
+    if (model->floor > 0 && 0 == extrapolate && NULL != model->clusters) {
       const internal_libxs_predict_cluster_t* mcl = &model->clusters[best_c];
       if (NULL != mcl->out_var && mcl->nentries > 1) {
         double maha = 0;
@@ -4490,7 +4697,7 @@ LIBXS_API_INLINE void internal_libxs_predict_eval_ex(libxs_lock_t* lock,
       memcpy(outputs, vals, (size_t)n * sizeof(double));
     }
     if (NULL != info) {
-      if (model->quantile > 0) {
+      if (model->quantile > 0 && NULL != model->clusters) {
         const double z = internal_libxs_predict_quantile_z(model->quantile);
         const internal_libxs_predict_cluster_t* icl = &model->clusters[best_c];
         for (j = 0; j < n; ++j) {

@@ -41,6 +41,51 @@ static const char* mode_name(int decompose)
 }
 
 
+/**
+ * Save the model, load it back, and ask the loaded one for a different method.
+ * The switch is what the per-cluster storage in the file pays for, so a model
+ * built under a named method declines it: what comes back carries the forest
+ * and no corpus. Reported rather than judged - the caller decides which of the
+ * two outcomes it expected.
+ */
+static void switch_method(const libxs_predict_t* model, int decompose)
+{
+  size_t size = 0;
+  if (EXIT_SUCCESS == libxs_predict_save(model, NULL, &size) && 0 < size) {
+    void* buffer = malloc(size);
+    if (NULL != buffer
+      && EXIT_SUCCESS == libxs_predict_save(model, buffer, &size))
+    {
+      libxs_predict_t* loaded = libxs_predict_load(buffer, size);
+      if (NULL != loaded) {
+        /* any method other than the one it was built with will do */
+        const int other = (LIBXS_PREDICT_HKNN == decompose)
+          ? LIBXS_PREDICT_RF : LIBXS_PREDICT_HKNN;
+        libxs_predict_query_t ql;
+        LIBXS_MEMZERO(&ql);
+        libxs_predict_query(loaded, &ql);
+        fprintf(stdout, "Reloaded: %d clusters, %d entries\n",
+          ql.nclusters, ql.nentries);
+        libxs_predict_set_decompose(loaded, other);
+        if (EXIT_SUCCESS == libxs_predict_build(loaded, 0, 1, 0.0)) {
+          libxs_predict_query(loaded, &ql);
+          fprintf(stdout, "Method switch: %s to %s over %d entries\n",
+            mode_name(decompose), mode_name(other), ql.nentries);
+        }
+        else {
+          fprintf(stdout, "Method switch: declined by a model built as %s\n",
+            mode_name(decompose));
+        }
+        libxs_predict_destroy(loaded);
+      }
+      else fprintf(stdout, "Method switch: the model did not load\n");
+    }
+    free(buffer);
+  }
+  else fprintf(stdout, "Method switch: the model did not save\n");
+}
+
+
 static void blank_inputs(double inputs[], int n, double fraction, unsigned int s)
 {
   const volatile double zero = 0;
@@ -265,6 +310,17 @@ int main(int argc, char* argv[])
               if (1 < ngates && 0 == swept) {
                 gate_sweep(gates, ngates, ntest, lconf, lok, NULL, NULL);
               }
+            }
+            /**
+             * A stored model can be evaluated by a method other than the one it
+             * was built with, but only where the selector chose that method: a
+             * caller who names it is served a model carrying the forest alone,
+             * with no corpus to rebuild anything else from. Behind TEST because
+             * it is a property of the format rather than something a user of
+             * this sample asks it to do, and tests/predict.sh reads the verdict.
+             */
+            if (NULL != getenv("TEST")) {
+              switch_method(model, qi.decompose);
             }
             result = EXIT_SUCCESS;
           }

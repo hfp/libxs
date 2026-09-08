@@ -20,8 +20,21 @@ set -eo pipefail
 HERE=$(cd "$(dirname "$0")" && pwd -P)
 SAMPLES="${HERE}/../samples/predict"
 
-cd "${SAMPLES}" 2>/dev/null || exit 1
-if [ ! -e ./predict_crystal.x ] || [ ! -e ./predict_crystal.csv ]; then exit 0; fi
+# What is missing is reported and the script yields rather than failing: the
+# corpus is an 11 MB file that only the source tree carries, so a build tree
+# that did not copy it has nothing to test rather than something broken. The
+# reason goes to stderr because tests/test.sh discards stdout and prints
+# stderr beside the verdict, which is what makes a skip visible as a skip.
+skip() {
+  >&2 echo "$1"
+  exit 0
+}
+
+cd "${SAMPLES}" 2>/dev/null || skip "no ${SAMPLES} to test"
+if [ ! -e ./predict_crystal.x ]; then skip "predict_crystal.x is not built"; fi
+if [ ! -e ./predict_crystal.csv ]; then
+  skip "predict_crystal.csv is not available"
+fi
 
 # a small training split and a capped corpus keep the run short; the contract
 # does not depend on either. Scoring costs one pass over the test split per
@@ -96,6 +109,34 @@ if [ -z "${AUTO}" ] || [ -z "${PCA}" ]; then
 fi
 if [ "$(echo "${AUTO} ${PCA}" | awk '{print ($1 >= $2)}')" != "1" ]; then
   echo "the selected mode (${AUTO}%) lost to a fixed one (${PCA}%)"
+  exit 1
+fi
+
+# What a stored model can still be asked for. Where the mode was selected, the
+# file carries the corpus and a loaded model rebuilds under another mode; where
+# the caller named it, the file carries that mode alone and the switch is
+# declined. Both are checked, because a switch that silently answers from a
+# corpus that is not there is the failure this pair exists to catch - it
+# segfaulted once, in exactly the second case.
+OUT=$(TEST=1 ${RUN} 2>&1) || true
+if ! echo "${OUT}" | grep -q "^Method switch: .* to .* over [0-9]* entries$"; then
+  echo "a selected mode did not survive a round trip as another mode"
+  echo "${OUT}" | grep -E "^Reloaded|^Method switch" || echo "${OUT}" | tail -3
+  exit 1
+fi
+if echo "${OUT}" | grep -q "^Reloaded: 0 clusters"; then
+  echo "a selected mode was stored without the corpus the switch needs"
+  exit 1
+fi
+
+OUT=$(TEST=1 ${RUN} rf 2>&1) || true
+if ! echo "${OUT}" | grep -q "^Method switch: declined"; then
+  echo "a named mode was switched after storing, which its file cannot support"
+  echo "${OUT}" | grep -E "^Reloaded|^Method switch" || echo "${OUT}" | tail -3
+  exit 1
+fi
+if ! echo "${OUT}" | grep -q "^Reloaded: 0 clusters"; then
+  echo "a named mode stored a partition it never reads"
   exit 1
 fi
 

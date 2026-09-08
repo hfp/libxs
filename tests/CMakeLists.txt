@@ -52,6 +52,7 @@ file(COPY
   "${CMAKE_CURRENT_SOURCE_DIR}/matcpy.sh"
   "${CMAKE_CURRENT_SOURCE_DIR}/memcmp.sh"
   "${CMAKE_CURRENT_SOURCE_DIR}/ozaki.sh"
+  "${CMAKE_CURRENT_SOURCE_DIR}/predict.sh"
   "${CMAKE_CURRENT_SOURCE_DIR}/scratch.sh"
   "${CMAKE_CURRENT_SOURCE_DIR}/syrk.sh"
   "${CMAKE_CURRENT_SOURCE_DIR}/transpose.sh"
@@ -123,12 +124,16 @@ set(LIBXS_C_TESTS
   mix
   ngram
   perm
-  prob
+  perm_sort
+  predict_missing
+  predict_neighbors
+  predict_prob
+  predict_weights
   registry
   setdiff
   str
-  token
-  timer)
+  timer
+  token)
 
 foreach(test_name IN LISTS LIBXS_C_TESTS)
   set(test_target "libxs_test_${test_name}")
@@ -396,16 +401,21 @@ set(LIBXS_TEST_ENTRIES
   mix.c
   ngram.c
   perm.c
-  prob.c
+  perm_sort.c
+  predict_missing.c
+  predict_neighbors.c
+  predict_prob.c
+  predict_weights.c
   registry.c
   setdiff.c
   str.c
-  token.c
   timer.c
+  token.c
   gemm.sh
   matcpy.sh
   memcmp.sh
   ozaki.sh
+  predict.sh
   scratch.sh
   syrk.sh
   transpose.sh

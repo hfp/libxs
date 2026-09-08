@@ -55,7 +55,15 @@ LIBXS_API_INLINE int internal_libxs_predict_load_entries(libxs_predict_t* model)
   const int m = model->ninputs, n = model->noutputs;
   const int p = model->nentries;
   int result = EXIT_SUCCESS;
-  int recoverable = (0 < p && NULL != model->clusters && NULL != model->input_rng);
+  /**
+   * The cluster count is tested, not just the pointer: calloc of zero elements
+   * returns a non-NULL block, so a model saved without a partition passed here
+   * and had its whole entry set and arena allocated from nothing to fill them
+   * with. Every entry then carried NULL inputs, which libxs_predict_inverse
+   * dereferences instead of abstaining.
+   */
+  int recoverable = (0 < p && 0 < model->nclusters
+    && NULL != model->clusters && NULL != model->input_rng);
   if (0 != recoverable) {
     /**
      * sorted_idx supplies the global position of each cluster-local entry, so

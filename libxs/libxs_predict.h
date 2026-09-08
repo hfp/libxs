@@ -398,6 +398,27 @@ LIBXS_API void libxs_predict_set_target(libxs_predict_t* model, int target);
  * costs the product of the two and was not worth it.
  *
  * Read the resolved mode from libxs_predict_query_t::decompose.
+ *
+ * Naming a mode also fixes it: the build then keeps only what that mode reads,
+ * and a model saved from it cannot be evaluated by another mode. Under
+ * LIBXS_PREDICT_AUTO_DECOMPOSE the build keeps everything and a saved model
+ * remains open to any of them.
+ *
+ * Today this is visible on LIBXS_PREDICT_RF alone, which answers from its trees
+ * and reads no partition: naming it drops the partition and the per-cluster
+ * storage, which is roughly a quarter of the build and most of the resident
+ * memory at a large corpus. Such a model reports no partition through
+ * libxs_predict_query, has no support for libxs_predict_prob to score against,
+ * and gives libxs_predict_set_floor and libxs_predict_set_quantile no nearest
+ * cluster to read. libxs_predict_inverse still answers from such a model while
+ * it is in memory, the corpus being there; a model saved and loaded again has
+ * none, because a loaded corpus is reconstructed from the per-cluster storage
+ * this model does not carry, and it abstains as any corpus-less model does.
+ *
+ * A regressing output also gives up the shrink toward the nearest cluster's mean
+ * that a high-variance query receives, which is worth about half a percent of
+ * the average error (earthquake magnitude: 0.268 against 0.269). A classifying
+ * output is unaffected, the shrink never applying to it.
  */
 LIBXS_API void libxs_predict_set_decompose(libxs_predict_t* model,
   int decompose);

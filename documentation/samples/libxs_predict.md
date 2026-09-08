@@ -119,6 +119,11 @@ Reports validation quality on a held-out subset.
     modelfile  Output path for the binary model.
     confidence-prefix  Optional prefix for confidence map MHD files.
 
+Naming a mode fixes it: the saved model keeps only what that mode reads and
+cannot be evaluated by another one. Under `auto` the model stays open to all of
+them. The difference shows on `rf`, which answers from its trees and therefore
+stores no partition.
+
 ### Example
 
     ./predict_params.x ../../samples/smm/params/tune_multiply_PVC.csv

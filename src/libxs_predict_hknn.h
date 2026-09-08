@@ -467,43 +467,6 @@ LIBXS_API_INLINE void internal_libxs_predict_hknn_refine(
 }
 
 
-LIBXS_API_INLINE void internal_libxs_predict_hknn_centroids(
-  libxs_predict_t* model, int nclusters)
-{
-  const int p = model->nentries;
-  const int m = model->ninputs;
-  int counts_pool = 0, norm_pool = 0, i, c, j;
-  int* counts = (int*)LIBXS_PREDICT_MALLOC(
-    (size_t)nclusters * sizeof(int), counts_pool);
-  double* norm = (double*)LIBXS_PREDICT_MALLOC(
-    (size_t)m * sizeof(double), norm_pool);
-  if (NULL != counts && NULL != norm) {
-    memset(counts, 0, (size_t)nclusters * sizeof(int));
-    for (c = 0; c < nclusters; ++c) {
-      memset(model->clusters[c].centroid, 0, (size_t)m * sizeof(double));
-    }
-    for (i = 0; i < p; ++i) {
-      const int ci = model->assignments[i];
-      internal_libxs_predict_normalize(model,
-        model->entries[i].inputs, norm);
-      for (j = 0; j < m; ++j) {
-        model->clusters[ci].centroid[j] += norm[j];
-      }
-      ++counts[ci];
-    }
-    for (c = 0; c < nclusters; ++c) {
-      if (counts[c] > 0) {
-        for (j = 0; j < m; ++j) {
-          model->clusters[c].centroid[j] /= counts[c];
-        }
-      }
-    }
-  }
-  LIBXS_PREDICT_FREE(norm, norm_pool);
-  LIBXS_PREDICT_FREE(counts, counts_pool);
-}
-
-
 LIBXS_API_INLINE int internal_libxs_predict_hknn_build_po(
   libxs_predict_t* model)
 {
