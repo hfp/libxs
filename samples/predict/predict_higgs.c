@@ -16,7 +16,9 @@
 #if defined(_OPENMP)
 # include <omp.h>
 #endif
+#include "predict_gate.h"
 
+#define NGATE 16
 #define NFEAT 28
 #define CSVFILE "HIGGS.csv"
 
@@ -104,7 +106,13 @@ int main(int argc, char* argv[])
           libxs_predict_query_t q;
           double dt_build, dt_eval, sum_conf = 0;
           int t, correct = 0, ntest = 0, build_ok = EXIT_FAILURE;
-          int gated = 0, gated_correct = 0;
+          int gated = 0, gated_correct = 0, swept = 0;
+          double gates[NGATE];
+          const int ngates = gate_list(gates, NGATE);
+          /* per query, so precision can be read against coverage rather than at
+             one threshold whose meaning moves with how confidence is formed */
+          double* lconf = (double*)malloc((size_t)total * sizeof(double));
+          char* lok = (char*)calloc((size_t)total, 1);
           libxs_predict_set_decompose(model, mode);
           libxs_predict_set_refine(model, refine);
           if (0 != depth || 0 != ntrees) {
@@ -139,9 +147,13 @@ int main(int argc, char* argv[])
                 if (0 != ok) ++correct;
                 sum_conf += conf;
                 /* precision over accepted predictions, not over all */
-                if (0.9 <= conf) {
+                if (gates[0] <= conf) {
                   ++gated;
                   if (0 != ok) ++gated_correct;
+                }
+                if (NULL != lconf && NULL != lok) {
+                  lconf[ntest] = conf;
+                  lok[ntest] = (char)(0 != ok);
                 }
                 ++ntest;
               }
@@ -158,8 +170,8 @@ int main(int argc, char* argv[])
               (0 < ntest) ? (100.0 * correct / ntest) : 0.0, ntest,
               (0 < ntest) ? (sum_conf / ntest) : 0.0);
             if (0 < gated) {
-              fprintf(stdout, "Gated (conf>=0.9): %.2f%% precision over %.1f%%"
-                " of queries\n", 100.0 * gated_correct / gated,
+              fprintf(stdout, "Gated (conf>=%.2f): %.2f%% precision over %.1f%%"
+                " of queries\n", gates[0], 100.0 * gated_correct / gated,
                 100.0 * gated / ntest);
             }
 #if defined(__XGBOOST)
@@ -177,6 +189,7 @@ int main(int argc, char* argv[])
                   const double dt_xgb =
                     libxs_timer_duration(xt, libxs_timer_tick());
                   int xok = 0, xg = 0, xgok = 0;
+                  char* xokv = (char*)calloc((size_t)total, 1);
                   for (t = train_end; t < total; ++t) {
                     double expected;
                     int ok;
@@ -184,7 +197,8 @@ int main(int argc, char* argv[])
                     ok = (LIBXS_ROUNDX(int, xp[t])
                       == LIBXS_ROUNDX(int, expected));
                     if (0 != ok) ++xok;
-                    if (0.9 <= xc[t]) { ++xg; if (0 != ok) ++xgok; }
+                    if (gates[0] <= xc[t]) { ++xg; if (0 != ok) ++xgok; }
+                    if (NULL != xokv) xokv[t - train_end] = (char)(0 != ok);
                   }
                   fprintf(stdout, "XGBoost: rounds=%i depth=%i eta=%g,"
                     " train+predict %.2f s\n",
@@ -194,21 +208,34 @@ int main(int argc, char* argv[])
                   fprintf(stdout, "XGBoost accuracy: %.2f%% of %d\n",
                     (0 < ntest) ? (100.0 * xok / ntest) : 0.0, ntest);
                   if (0 < xg) {
-                    fprintf(stdout, "XGBoost gated (conf>=0.9): %.2f%%"
-                      " precision over %.1f%% of queries\n",
+                    fprintf(stdout, "XGBoost gated (conf>=%.2f): %.2f%%"
+                      " precision over %.1f%% of queries\n", gates[0],
                       100.0 * xgok / xg, 100.0 * xg / ntest);
                   }
+                  if (1 < ngates && NULL != lconf && NULL != lok
+                    && NULL != xokv)
+                  {
+                    gate_sweep(gates, ngates, ntest, lconf, lok,
+                      xc + train_end, xokv);
+                    swept = 1;
+                  }
+                  free(xokv);
                 }
                 else fprintf(stderr, "XGBoost failed\n");
               }
               free(xp); free(xc); free(mask);
             }
 #endif
+            if (1 < ngates && 0 == swept && NULL != lconf && NULL != lok) {
+              gate_sweep(gates, ngates, ntest, lconf, lok, NULL, NULL);
+            }
             result = EXIT_SUCCESS;
           }
           else {
             fprintf(stderr, "Build failed (decomposition %d)\n", mode);
           }
+          free(lok);
+          free(lconf);
           libxs_predict_destroy(model);
         }
       }

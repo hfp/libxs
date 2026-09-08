@@ -61,7 +61,23 @@ LIBXS_EXTERN_C typedef struct libxs_predict_info_t {
   const double* values;
   /** Per-output error bound from truncation (noutputs elements). */
   const double* error;
-  /** Per-output confidence from kNN vote (noutputs elements, 0..1). */
+  /**
+   * Per-output confidence (noutputs elements, 0..1).
+   *
+   * A RANKING rather than a probability. It orders the queries a model is surer
+   * about ahead of those it is not, which is what taking the most confident
+   * fraction of a workload needs, and its scale is its own: for a forest it is
+   * the share of the trees that agreed, so it moves with how many trees there
+   * are and how finely they were grown. Reading it as "nine in ten of these are
+   * right" is what it does not support - on HIGGS a gate of 0.9 admitted 43% of
+   * the queries and returned 86.6%.
+   *
+   * LIBXS_PREDICT_RF_CALIB_ROWS asks a forest to measure what its shares are
+   * worth on rows withheld from it, and the confidence is then a probability
+   * that a threshold can be read against. It costs accuracy, because the rows
+   * are withheld, and it changes no ranking: the mapping is monotone, so what
+   * improves is what the number means and not what the model can tell apart.
+   */
   const double* confidence;
   /** Per-output variance among k nearest neighbors (noutputs elements). */
   const double* variance;

@@ -18,13 +18,9 @@
 # include "predict_xgb.h"
 #endif
 #include "predict_args.h"
+#include "predict_gate.h"
 
 enum { NFEAT = 37, NGATE = 16 };
-
-static int gate_list(double gates[], int capacity);
-static void gate_sweep(const double gates[], int ngates, int n,
-  const double lconf[], const char lok[],
-  const double xconf[], const char xok[]);
 
 
 /**
@@ -336,65 +332,4 @@ int main(int argc, char* argv[])
     }
   }
   return result;
-}
-
-
-/**
- * Gate thresholds from GATE (comma-separated, ascending or not).  The first
- * entry drives the single-threshold report, so a one-element list keeps the
- * historical output; more than one additionally traces precision against
- * coverage, which is what separates a better-calibrated signal from a
- * differently-scaled one.
- */
-static int gate_list(double gates[], int capacity)
-{
-  const char* const env = getenv("GATE");
-  int result = 0;
-  if (NULL != env && '\0' != *env) {
-    int len = 0;
-    const char* token = libxs_strtoken(env, ",", result, &len);
-    while (NULL != token && result < capacity) {
-      gates[result++] = atof(token);
-      token = libxs_strtoken(env, ",", result, &len);
-    }
-  }
-  if (0 == result) {
-    gates[0] = 0.9;
-    result = 1;
-  }
-  return result;
-}
-
-
-static void gate_sweep(const double gates[], int ngates, int n,
-  const double lconf[], const char lok[],
-  const double xconf[], const char xok[])
-{
-  int g;
-  fprintf(stdout, "Gate sweep (%d queries):\n", n);
-  fprintf(stdout, (NULL != xconf)
-    ? "  gate  libxs-prec  libxs-cov    xgb-prec    xgb-cov\n"
-    : "  gate  libxs-prec  libxs-cov\n");
-  for (g = 0; g < ngates; ++g) {
-    int lacted = 0, lcorrect = 0, xacted = 0, xcorrect = 0, i;
-    for (i = 0; i < n; ++i) {
-      if (lconf[i] >= gates[g]) {
-        ++lacted;
-        if (0 != lok[i]) ++lcorrect;
-      }
-      if (NULL != xconf && xconf[i] >= gates[g]) {
-        ++xacted;
-        if (0 != xok[i]) ++xcorrect;
-      }
-    }
-    fprintf(stdout, "  %.2f     %6.1f%%     %6.1f%%", gates[g],
-      (0 < lacted) ? 100.0 * lcorrect / lacted : 0.0,
-      (0 < n) ? 100.0 * lacted / n : 0.0);
-    if (NULL != xconf) {
-      fprintf(stdout, "      %6.1f%%     %6.1f%%",
-        (0 < xacted) ? 100.0 * xcorrect / xacted : 0.0,
-        (0 < n) ? 100.0 * xacted / n : 0.0);
-    }
-    fprintf(stdout, "\n");
-  }
 }
