@@ -1,3 +1,53 @@
+/* bins per input for split finding; one byte holds the index */
+#if !defined(LIBXS_PREDICT_RF_NBINS)
+#  define LIBXS_PREDICT_RF_NBINS 256
+#endif
+/**
+ * Rows a node must hold before its split is found over the bins instead of over
+ * the sorted column. It is a crossover and not a preference: the histogram costs
+ * one gather over the subset plus a scan of NBINS candidates, and the sorted
+ * search costs a sort plus a scan of as many candidates as the subset has
+ * distinct values, so below a few rows per bin the fixed scan is the larger of
+ * the two and the bins are mostly empty besides.
+ */
+#if !defined(LIBXS_PREDICT_RF_BINMIN)
+#  define LIBXS_PREDICT_RF_BINMIN 1024
+#endif
+/**
+ * Rows a corpus must hold before it is binned at all. The node crossover above is
+ * about which search is cheaper; this is about whether to approximate a search at
+ * all, and below this size the answer is no: the sorted search over a corpus this
+ * small is seconds of the build, so there is nothing to buy, and an approximation
+ * that buys nothing can still cost.
+ *
+ * It cost two points once. Binning EVERY node was measured before and withdrawn:
+ * it was 3.6x on HIGGS at unchanged accuracy, and 5.6x on the crystal corpus at
+ * 82.5% -> 80.3%. The cause was found then and is what the node crossover above
+ * answers - the bins are global, so a DEEP node spanning three of them has three
+ * candidate thresholds where the sorted search over its own rows had twenty-nine.
+ * Edge placement was not the cause (quantile against equal-width moved 0.2, which
+ * is noise) and neither was bin count (32 against 256 moved 0.7).
+ *
+ * So this is the size regime the histogram is FOR rather than a measured crossover:
+ * a build of a million rows was the complaint. Every corpus tuned before the bins
+ * existed is under it and is split exactly at every node, which is what keeps them
+ * answering as they did.
+ */
+#if !defined(LIBXS_PREDICT_RF_BINROWS)
+#  define LIBXS_PREDICT_RF_BINROWS 262144
+#endif
+/** Rows the bin edges are placed from. Hundreds per bin is ample for a quantile,
+ *  and a bound rather than a share keeps the sort off the corpus size. */
+#if !defined(LIBXS_PREDICT_RF_SKETCH)
+#  define LIBXS_PREDICT_RF_SKETCH 65536
+#endif
+/** Bytes of histogram one split may hold. It buys the width of the accumulating
+ *  pass, so it wants to be a cache the pass stays inside of. */
+#if !defined(LIBXS_PREDICT_RF_HISTMAX)
+#  define LIBXS_PREDICT_RF_HISTMAX 65536
+#endif
+
+
 LIBXS_API_INLINE int internal_libxs_predict_rf_pair_cmp(
   const void* a, const void* b, void* ctx)
 {
@@ -8,7 +58,11 @@ LIBXS_API_INLINE int internal_libxs_predict_rf_pair_cmp(
 }
 
 
-LIBXS_API_INLINE int internal_libxs_predict_rf_split(
+/**
+ * Split of a node found over the sorted column: every distinct value the subset
+ *  holds is a candidate, and the subset is sorted once per candidate feature.
+ */
+LIBXS_API_INLINE int internal_libxs_predict_rf_split_sort(
   const internal_libxs_predict_entry_t* entries,
   const int* subset, int nsub, int nfeat, int nfeatsub,
   internal_libxs_predict_rf_node_t* node, size_t seed,
@@ -137,8 +191,212 @@ LIBXS_API_INLINE int internal_libxs_predict_rf_split(
 }
 
 
+/**
+ * Split of a node found over the binned inputs: one pass over the subset
+ * accumulates a histogram per candidate feature, and the candidates are then the
+ * bin edges rather than every distinct value the subset holds. No sort, and a
+ * scan whose length is the number of bins instead of the size of the subset.
+ *
+ * The partition it scores is exactly the one the caller re-forms from the raw
+ * column, because a row is binned into the first bin whose upper edge holds it:
+ * "bin at most b" and "value at most edge[b+1]" are then the same set, and
+ * edge[b+1] is what the threshold is set to. Nothing here may loosen that.
+ *
+ * The features of a group are accumulated in one pass rather than one at a time.
+ * The subset is scattered over the corpus, so the pass is a gather and its cost
+ * is the walk, not the arithmetic: one walk feeding every histogram of the group
+ * costs what one walk feeding a single histogram costs. The group is as wide as
+ * the histogram budget allows - every candidate feature of a corpus that folds to
+ * few classes, one feature of a corpus that folds to many.
+ */
+LIBXS_API_INLINE int internal_libxs_predict_rf_split_hist(
+  const internal_libxs_predict_entry_t* entries,
+  const unsigned char* bins, const double* bin_edge, int nbins,
+  const int* subset, int nsub, int nfeat, int nfeatsub,
+  internal_libxs_predict_rf_node_t* node, size_t seed,
+  int output_idx, int label_off, int regress, int min_leaf, int nclass)
+{
+  /** As in the sorted search, the fold is as wide as the corpus has classes. */
+  const int ncls = (0 != regress) ? 1
+    : ((0 < nclass && 128 >= nclass) ? nclass : 128);
+  /** Count, sum and sum of squares per bin for a quantity, a count per class for
+   *  a label: one array serves both read-outs at two widths. */
+  const int width = (0 != regress) ? 3 : ncls;
+  const size_t per = (size_t)nbins * width;
+  const size_t feat_coprime = libxs_coprime2((size_t)nfeat);
+  double best_score = -1.0, mu = 0;
+  int nfused = (int)(LIBXS_PREDICT_RF_HISTMAX / (per * sizeof(double)));
+  int acc_pool = 0, fsel_pool = 0;
+  double* acc;
+  int* fsel;
+  int base, i, j, k, b, result;
+  if (1 > nfused) nfused = 1;
+  if (nfeatsub < nfused) nfused = nfeatsub;
+  acc = (double*)LIBXS_PREDICT_MALLOC(
+    (size_t)nfused * per * sizeof(double), acc_pool);
+  fsel = (int*)LIBXS_PREDICT_MALLOC((size_t)nfeatsub * sizeof(int), fsel_pool);
+  node->feature = -1;
+  node->label = -1;
+  if (NULL != acc && NULL != fsel) {
+    /* the same draw the sorted search makes, so the two paths differ in the
+       resolution of the candidates and in nothing else */
+    for (i = 0; i < nfeatsub; ++i) {
+      fsel[i] = (int)(LIBXS_SHUFFLE_INDEX((size_t)i, (size_t)nfeat,
+        feat_coprime, seed) % (size_t)nfeat);
+    }
+    if (0 != regress) {
+      for (i = 0; i < nsub; ++i) mu += entries[subset[i]].outputs[output_idx];
+      if (0 < nsub) mu /= nsub;
+    }
+    for (base = 0; base < nfeatsub; base += nfused) {
+      const int nf = LIBXS_MIN(nfused, nfeatsub - base);
+      memset(acc, 0, (size_t)nf * per * sizeof(double));
+      for (i = 0; i < nsub; ++i) {
+        const int row = subset[i];
+        const unsigned char* const bin = bins + (size_t)row * nfeat;
+        if (0 != regress) {
+          const double d = entries[row].outputs[output_idx] - mu;
+          for (j = 0; j < nf; ++j) {
+            double* const h = acc
+              + ((size_t)j * nbins + bin[fsel[base + j]]) * width;
+            h[0] += 1.0;
+            h[1] += d;
+            h[2] += d * d;
+          }
+        }
+        else {
+          int lab = (LIBXS_ROUNDX(int,
+            entries[row].outputs[output_idx]) + label_off) & 127;
+          if (lab >= ncls) lab = ncls - 1;
+          for (j = 0; j < nf; ++j) {
+            acc[((size_t)j * nbins + bin[fsel[base + j]]) * width + lab] += 1.0;
+          }
+        }
+      }
+      for (j = 0; j < nf; ++j) {
+        const double* const hist = acc + (size_t)j * per;
+        const double* const edge = bin_edge
+          + (size_t)fsel[base + j] * (nbins + 1);
+        if (0 != regress) {
+          double tot_n = 0, tot_s = 0, tot_q = 0, nl = 0, sl = 0, ql = 0;
+          for (b = 0; b < nbins; ++b) {
+            const double* const h = hist + (size_t)b * width;
+            tot_n += h[0];
+            tot_s += h[1];
+            tot_q += h[2];
+          }
+          for (b = 0; b < nbins - 1; ++b) {
+            const double* const h = hist + (size_t)b * width;
+            /* an empty bin would score the partition its predecessor scored */
+            if (0 >= h[0]) continue;
+            nl += h[0];
+            sl += h[1];
+            ql += h[2];
+            { const double nr = tot_n - nl;
+              if (nl < min_leaf || nr < min_leaf) continue;
+              /** The right side is the total less the left, as in the sorted
+               *  search: a second running sum ends near zero and collects the
+               *  cancellation of every step it took to get there. */
+              { const double sr = tot_s - sl, qr = tot_q - ql;
+                const double sse = (ql - sl * sl / nl) + (qr - sr * sr / nr);
+                if (0 > best_score || sse < best_score) {
+                  best_score = sse;
+                  node->feature = fsel[base + j];
+                  node->threshold = edge[b + 1];
+                }
+              }
+            }
+          }
+        }
+        else {
+          double tot[128], cl[128];
+          double tot_n = 0, nl = 0;
+          for (k = 0; k < ncls; ++k) {
+            tot[k] = 0;
+            cl[k] = 0;
+          }
+          for (b = 0; b < nbins; ++b) {
+            const double* const h = hist + (size_t)b * width;
+            for (k = 0; k < ncls; ++k) tot[k] += h[k];
+          }
+          for (k = 0; k < ncls; ++k) tot_n += tot[k];
+          for (b = 0; b < nbins - 1; ++b) {
+            const double* const h = hist + (size_t)b * width;
+            double nb = 0;
+            for (k = 0; k < ncls; ++k) {
+              cl[k] += h[k];
+              nb += h[k];
+            }
+            if (0 >= nb) continue;
+            nl += nb;
+            { const double nr = tot_n - nl;
+              if (nl < min_leaf || nr < min_leaf) continue;
+              { double gini_l = 1.0, gini_r = 1.0, gini;
+                for (k = 0; k < ncls; ++k) {
+                  const double cr = tot[k] - cl[k];
+                  if (0 < cl[k]) {
+                    const double q = cl[k] / nl;
+                    gini_l -= q * q;
+                  }
+                  if (0 < cr) {
+                    const double q = cr / nr;
+                    gini_r -= q * q;
+                  }
+                }
+                gini = (nl * gini_l + nr * gini_r) / nsub;
+                if (0 > best_score || gini < best_score) {
+                  best_score = gini;
+                  node->feature = fsel[base + j];
+                  node->threshold = edge[b + 1];
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+  LIBXS_PREDICT_FREE(fsel, fsel_pool);
+  LIBXS_PREDICT_FREE(acc, acc_pool);
+  result = (node->feature >= 0) ? 1 : 0;
+  return result;
+}
+
+
+/**
+ * A wide node is split over the bins and a narrow one over the sorted column,
+ * because each is the cheaper of the two where it is used. The crossover is what
+ * confines the approximation to the top of a tree: the coarse splits, where 256
+ * quantiles resolve more than the split needs, and where the sort the histogram
+ * replaces was costing the whole subset. Deeper down nothing changes, and a
+ * corpus under BINROWS rows is never binned, so it is split exactly throughout.
+ */
+LIBXS_API_INLINE int internal_libxs_predict_rf_split(
+  const internal_libxs_predict_entry_t* entries,
+  const unsigned char* bins, const double* bin_edge, int nbins,
+  const int* subset, int nsub, int nfeat, int nfeatsub,
+  internal_libxs_predict_rf_node_t* node, size_t seed,
+  int output_idx, int label_off, int regress, int min_leaf, int nclass)
+{
+  int result;
+  if (NULL != bins && NULL != bin_edge && 0 < nbins
+    && LIBXS_PREDICT_RF_BINMIN <= nsub)
+  {
+    result = internal_libxs_predict_rf_split_hist(entries, bins, bin_edge,
+      nbins, subset, nsub, nfeat, nfeatsub, node, seed, output_idx, label_off,
+      regress, min_leaf, nclass);
+  }
+  else {
+    result = internal_libxs_predict_rf_split_sort(entries, subset, nsub, nfeat,
+      nfeatsub, node, seed, output_idx, label_off, regress, min_leaf, nclass);
+  }
+  return result;
+}
+
+
 LIBXS_API_INLINE int internal_libxs_predict_rf_build_tree(
   const internal_libxs_predict_entry_t* entries,
+  const unsigned char* bins, const double* bin_edge, int nbins,
   int* subset, int nsub, int nfeat, int max_depth, int min_leaf,
   internal_libxs_predict_rf_node_t* nodes, int max_nodes,
   int output_idx, int label_off, int regress, int nclass, int leaf_floor)
@@ -193,9 +451,9 @@ LIBXS_API_INLINE int internal_libxs_predict_rf_build_tree(
     nodes[ni].label = best_label;
     nodes[ni].value = mean;
     if (depth >= max_depth || nc <= min_leaf || 0 != pure
-      || 0 == internal_libxs_predict_rf_split(entries, subset + si, nc,
-        nfeat, nfeatsub, &split, (size_t)ni, output_idx, label_off, regress,
-        leaf_floor, nclass))
+      || 0 == internal_libxs_predict_rf_split(entries, bins, bin_edge, nbins,
+        subset + si, nc, nfeat, nfeatsub, &split, (size_t)ni, output_idx,
+        label_off, regress, leaf_floor, nclass))
     {
       nodes[ni].feature = -1;
       continue;
@@ -396,8 +654,6 @@ LIBXS_API_INLINE int internal_libxs_predict_rf_draw(size_t i, size_t boot_n,
 }
 
 
-
-
 /**
  * Error of a small forest grown to max_depth over the first ntrain entries,
  * measured on the rest: the misclassification rate of a folded output, the mean
@@ -438,7 +694,10 @@ LIBXS_API_INLINE double internal_libxs_predict_rf_score(
         bootstrap[i] = (int)(LIBXS_SHUFFLE_INDEX(i, boot_n, boot_coprime,
           (size_t)t * 7 + 13) % (size_t)ntrain);
       }
-      nn[t] = internal_libxs_predict_rf_build_tree(entries, bootstrap, ntrain,
+      /* the probe splits exactly: it runs before the bins are filled, and it
+         ranks depths against each other rather than reporting an error */
+      nn[t] = internal_libxs_predict_rf_build_tree(entries, NULL, NULL, 0,
+        bootstrap, ntrain,
         m, max_depth, min_leaf, nodes + (size_t)t * max_nodes, max_nodes,
         output_idx, label_off, regress, nclass, min_leaf);
     }
@@ -484,6 +743,117 @@ LIBXS_API_INLINE double internal_libxs_predict_rf_score(
   LIBXS_PREDICT_FREE(nodes, nodes_pool);
   return result;
 }
+
+/**
+ * Places the bin edges at quantiles of each input and allocates the bins the
+ * inputs are about to be sorted into. The quantiles are taken from a strided
+ * sample rather than from the whole corpus: 65536 rows put hundreds in each of
+ * 256 bins, which is what a quantile needs, and it keeps the sort off a size that
+ * grows. Nothing is binned here - that is one binary search per value and the
+ * corpus holds nentries*ninputs of them, so it is a task stage of its own.
+ *
+ * Declines where no node can reach the width that reads the bins, so a corpus
+ * split exactly at every node does not allocate a byte per value to prove it.
+ */
+LIBXS_API_INLINE void internal_libxs_predict_rf_edges(libxs_predict_t* model)
+{
+  internal_libxs_predict_rf_t* const rf = model->rf;
+  const int p = model->nentries;
+  const int m = model->ninputs;
+  if (NULL != rf && LIBXS_PREDICT_RF_BINROWS <= p && 0 < m) {
+    const int nb = LIBXS_PREDICT_RF_NBINS;
+    unsigned char* const bins = (unsigned char*)malloc((size_t)p * (size_t)m);
+    double* const edge = (double*)malloc(
+      (size_t)m * (size_t)(nb + 1) * sizeof(double));
+    if (NULL != bins && NULL != edge) {
+      const int nsamp = LIBXS_MIN(p, LIBXS_PREDICT_RF_SKETCH);
+      const int step = LIBXS_MAX(p / nsamp, 1);
+      int spool = 0;
+      double* sv = (double*)LIBXS_PREDICT_MALLOC(
+        (size_t)nsamp * sizeof(double), spool);
+      int i, j, k;
+      for (j = 0; j < m && NULL != sv; ++j) {
+        double* const ej = edge + (size_t)j * (nb + 1);
+        int ns = 0;
+        for (i = 0; i < p && ns < nsamp; i += step) {
+          const double v = model->entries[i].inputs[j];
+          if (0 != LIBXS_NOTNAN(v)) sv[ns++] = v;
+        }
+        if (0 == ns) { /* an input with no value to sort has one bin */
+          for (k = 0; k <= nb; ++k) ej[k] = 0;
+          continue;
+        }
+        libxs_sort(sv, ns, sizeof(*sv), libxs_cmp_f64, NULL);
+        for (k = 0; k <= nb; ++k) {
+          int at = (int)((size_t)k * ns / nb);
+          if (at >= ns) at = ns - 1;
+          ej[k] = sv[at];
+        }
+      }
+      if (NULL != sv) { /* nothing was placed if the sample could not be held */
+        rf->bins = bins;
+        rf->bin_edge = edge;
+        rf->nbins = nb;
+      }
+      LIBXS_PREDICT_FREE(sv, spool);
+    }
+    if (0 >= rf->nbins) { /* the sorted search needs none of it */
+      free(bins);
+      free(edge);
+    }
+  }
+}
+
+
+/**
+ * Sorts every input of every entry into its bin. Split across the tasks because
+ * it is one search per value, and read by every task afterwards, so it has to be
+ * complete before the first tree rather than filled as the trees need it.
+ */
+LIBXS_API_INLINE void internal_libxs_predict_rf_bins_tasks(
+  libxs_predict_t* model, int tid, int ntasks)
+{
+  const internal_libxs_predict_rf_t* const rf = model->rf;
+  if (NULL != rf && NULL != rf->bins && NULL != rf->bin_edge && 0 < rf->nbins) {
+    const int m = model->ninputs;
+    const int nb = rf->nbins;
+    int begin, end, i, j;
+    internal_libxs_predict_split(model->nentries, tid, ntasks, &begin, &end);
+    for (i = begin; i < end; ++i) {
+      const double* const inputs = model->entries[i].inputs;
+      unsigned char* const bin = rf->bins + (size_t)i * m;
+      for (j = 0; j < m; ++j) {
+        const double* const edge = rf->bin_edge + (size_t)j * (nb + 1);
+        const double v = inputs[j];
+        int lo = 0, hi = nb - 1;
+        /** A value that is not a number is not ordered against the edges, and
+         *  the raw comparison the tree re-forms the partition with sends it
+         *  right. The last bin is where the histogram says the same thing. */
+        if (0 == LIBXS_NOTNAN(v)) lo = nb - 1;
+        else while (lo < hi) { /* first bin whose upper edge holds v */
+          const int mid = (lo + hi) / 2;
+          if (v <= edge[mid + 1]) hi = mid; else lo = mid + 1;
+        }
+        bin[j] = (unsigned char)lo;
+      }
+    }
+  }
+}
+
+
+/** Releases the bins once the forest is grown: split finding is what read them,
+ *  and boosting and the calibration descend the raw inputs. */
+LIBXS_API_INLINE void internal_libxs_predict_rf_bins_free(libxs_predict_t* model)
+{
+  if (NULL != model->rf) {
+    free(model->rf->bins);
+    free(model->rf->bin_edge);
+    model->rf->bins = NULL;
+    model->rf->bin_edge = NULL;
+    model->rf->nbins = 0;
+  }
+}
+
 
 LIBXS_API_INLINE void internal_libxs_predict_rf_build(libxs_predict_t* model)
 {
@@ -586,6 +956,9 @@ LIBXS_API_INLINE void internal_libxs_predict_rf_build(libxs_predict_t* model)
         rf->depth[oi] = best;
       }
       model->rf = rf;
+      /* last, and after the depth probe rather than before it: the probe splits
+         exactly, and the bins are read by the trees the tasks grow */
+      internal_libxs_predict_rf_edges(model);
     }
     else {
       free(rf->trees);
@@ -649,7 +1022,8 @@ LIBXS_API_INLINE void internal_libxs_predict_rf_build_tasks(
         }
         if (NULL != nodes) {
           nn = internal_libxs_predict_rf_build_tree(
-            model->entries, bootstrap, p, m, max_depth, min_leaf,
+            model->entries, rf->bins, rf->bin_edge, rf->nbins,
+            bootstrap, p, m, max_depth, min_leaf,
             nodes, max_nodes, oi, rf->label_offset[oi], rf->regress[oi],
             rf->nclass[oi], leaf_floor);
           rf->trees[ti].nodes = (internal_libxs_predict_rf_node_t*)malloc(
@@ -709,8 +1083,6 @@ LIBXS_API_INLINE int internal_libxs_predict_rf_leafof(
 #if !defined(LIBXS_PREDICT_RF_SEED)
 #  define LIBXS_PREDICT_RF_SEED 1013
 #endif
-
-
 
 
 /**

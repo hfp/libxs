@@ -258,7 +258,7 @@ int main(int argc, char* argv[])
                 {
                   for (t = 0; t < train_end; ++t) mask[t] = 1;
                   if (EXIT_SUCCESS == predict_xgb(source, total, NFEAT, 1,
-                    mask, &classify, xgb_pred, xgb_conf, &task, NULL))
+                    mask, &classify, xgb_pred, xgb_conf, &task, NULL, NULL))
                   {
                     int xcorrect = 0, xgated = 0, xgated_correct = 0;
                     double xsum_conf = 0;

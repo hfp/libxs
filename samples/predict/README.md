@@ -65,13 +65,24 @@ both models get for free).
 
 Hyperparameters are fixed so the numbers are reproducible, and overridable:
 
-| Variable      | Default        | Meaning                       |
-| ------------- | -------------- | ----------------------------- |
-| `XGB_ROUNDS`  | 200            | Boosting rounds               |
-| `XGB_DEPTH`   | 6              | `max_depth`                   |
-| `XGB_ETA`     | 0.1            | Learning rate                 |
-| `XGB_NTHREAD` | 0              | Threads (0 = XGBoost default) |
-| `XGB_REGOBJ`  | *(per sample)* | Regression objective          |
+| Variable      | Default        | Meaning                                   |
+| ------------- | -------------- | ----------------------------------------- |
+| `XGB_ROUNDS`  | 200            | Boosting rounds                           |
+| `XGB_DEPTH`   | 6              | `max_depth`                               |
+| `XGB_ETA`     | 0.1            | Learning rate                             |
+| `XGB_NTHREAD` | 0              | Threads (0 = XGBoost default)             |
+| `XGB_REGOBJ`  | *(per sample)* | Regression objective                      |
+| `XGB_LATENCY` | 4096           | Rows the per-query timing uses (0 = skip) |
+
+Where a sample reports timings it reports XGBoost's phases apart - marshalling
+the corpus into XGBoost's layout, the boosting rounds, and the batched prediction
+- because only the rounds are the counterpart of a LIBXS build, and a single
+figure covering all three had been read as if it were.  The per-query line is the
+same distinction for inference, and it is reported on both sides: one query at a
+time (`libxs_predict_eval`, and `XGB_LATENCY` rows through XGBoost's inplace
+prediction) and a whole matrix at once (`libxs_predict_eval_batch_task` across the
+threads, and XGBoost's batched call).  Comparing one library's batch against the
+other's per-query loop measures the two interfaces, not the two models.
 
 `XGB_REGOBJ` matters where the reported metric is mean absolute error:
 `predict_earthquakes` therefore proposes `reg:absoluteerror`, and forcing

@@ -335,7 +335,7 @@ int main(int argc, char* argv[])
               }
               tick = libxs_timer_tick();
               if (EXIT_SUCCESS == predict_xgb(xsrc, k, nin, HORIZON, mask,
-                classify, xpred, NULL, NULL, "reg:squarederror"))
+                classify, xpred, NULL, NULL, "reg:squarederror", NULL))
               {
                 const double dt_xgb =
                   libxs_timer_duration(tick, libxs_timer_tick());
