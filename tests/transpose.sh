@@ -9,7 +9,14 @@
 set -eo pipefail
 
 HERE=$(cd "$(dirname "$0")" && pwd -P)
+# a prerequisite this build tree need not carry, see tests/test.sh
+skip() {
+  >&2 echo "$1"
+  exit 0
+}
+
 MEMDIR="${HERE}/../samples/memory"
+if [ ! -d "${MEMDIR}" ]; then skip "no samples/memory to test"; fi
 
 # out-of-place transpose via Fortran binary (square only)
 NMB=1
@@ -37,14 +44,13 @@ if [ -x "${MATCPY}" ]; then
   run_otrans 100 128 1
   run_otrans 256 256 1
 else
-  echo "NOTE: ${MATCPY} not found (no Fortran compiler?) - skipping otrans"
+  >&2 echo "./matcpyf.x is not built (no Fortran compiler?), otrans not tested"
 fi
 
 # in-place transpose via C binary
 ITRANS="${MEMDIR}/itrans.x"
 if [ ! -x "${ITRANS}" ]; then
-  echo "SKIPPED: ${ITRANS} not found"
-  exit 0
+  skip "./itrans.x is not built"
 fi
 
 run_itrans() {

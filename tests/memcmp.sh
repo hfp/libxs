@@ -14,7 +14,17 @@ SIZE=1000
 
 export CHECK=1
 
-cd "${HERE}/../samples/memory"
+# a prerequisite this build tree need not carry, see tests/test.sh
+skip() {
+  >&2 echo "$1"
+  exit 0
+}
+
+if [ ! -x "${EXEC}" ]; then skip "${EXEC##*/} is absent"; fi
+cd "${HERE}/../samples/memory" 2>/dev/null \
+  || skip "no samples/memory to test"
+if [ ! -x ./memcmp.x ]; then skip "./memcmp.x is not built"; fi
+
 cat <<EOM | ${EXEC} -o /dev/null 2>/dev/null "$@"
 ./memcmp.x 0 0 $((SIZE*1)) 0
 ./memcmp.x 0 0 $((SIZE*2)) 0

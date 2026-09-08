@@ -10,7 +10,15 @@ set -eo pipefail
 
 HERE=$(cd "$(dirname "$0")" && pwd -P)
 
-cd "${HERE}/../samples/ozaki"
+# a prerequisite this build tree need not carry, see tests/test.sh
+skip() {
+  >&2 echo "$1"
+  exit 0
+}
+
+cd "${HERE}/../samples/ozaki" 2>/dev/null \
+  || skip "no samples/ozaki to test"
+if [ ! -x ./test-wrap.sh ]; then skip "./test-wrap.sh is absent"; fi
 ./test-wrap.sh dgemm
 ./test-wrap.sh dgemm  16  20 350 1 0  1 0.0 350 350 1000
 ./test-wrap.sh dgemm  23  21  32 0 1 -1 0.5  32  32 1000

@@ -60,6 +60,12 @@ file(COPY
   "${CMAKE_CURRENT_SOURCE_DIR}/mhd_image.mhd"
   "${CMAKE_CURRENT_SOURCE_DIR}/mhd_image.raw"
   DESTINATION "${LIBXS_TEST_DIR}")
+
+# tests/predict.sh reads the crystal corpus beside the sample that consumes it,
+# and only the source tree carries that file. Copied rather than left to the
+# script's skip, so the CTest path runs the checks the Make path runs.
+file(COPY "${PROJECT_SOURCE_DIR}/samples/predict/predict_crystal.csv"
+  DESTINATION "${LIBXS_SAMPLE_DIR}/predict")
 file(COPY "${PROJECT_SOURCE_DIR}/scripts/tool_pexec.sh"
   DESTINATION "${LIBXS_TEST_BINARY_ROOT}/scripts")
 

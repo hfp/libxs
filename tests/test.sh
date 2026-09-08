@@ -92,6 +92,13 @@ for TEST in ${TESTS}; do
     ERROR="Test is disabled"
     RESULT=0
   fi
+  # A test's stdout is discarded and its stderr is reported beside the verdict,
+  # which is the channel a test uses to say something about a run that passed.
+  # It is what makes a SKIP visible: a script whose prerequisite this build tree
+  # does not carry - a sample that was not built, a data file only the source
+  # tree has - writes the reason there and exits 0, and the suite reads
+  # "OK <reason>" rather than a bare OK indistinguishable from a real run. See
+  # the skip() helper the shell tests share.
   if [ 0 != ${RESULT} ]; then
     echo "FAILED(${RESULT}) ${ERROR}"
     exit ${RESULT}

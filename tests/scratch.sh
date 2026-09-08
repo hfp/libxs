@@ -10,7 +10,15 @@ set -eo pipefail
 
 HERE=$(cd "$(dirname "$0")" && pwd -P)
 
-cd "${HERE}/../samples/scratch"    2>/dev/null || exit 1
+# a prerequisite this build tree need not carry, see tests/test.sh
+skip() {
+  >&2 echo "$1"
+  exit 0
+}
+
+cd "${HERE}/../samples/scratch" 2>/dev/null \
+  || skip "no samples/scratch to test"
+if [ ! -x ./scratch.x ]; then skip "./scratch.x is not built"; fi
 CHECK=0 ./scratch.x                 >/dev/null
 CHECK=1 ./scratch.x                 >/dev/null
 NPROC=$(nproc 2>/dev/null || sysctl -n hw.ncpu 2>/dev/null || echo 1)

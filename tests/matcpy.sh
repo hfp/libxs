@@ -9,12 +9,18 @@
 set -eo pipefail
 
 HERE=$(cd "$(dirname "$0")" && pwd -P)
-cd "${HERE}/../samples/memory" 2>/dev/null || exit 1
+# a prerequisite this build tree need not carry, see tests/test.sh
+skip() {
+  >&2 echo "$1"
+  exit 0
+}
+
+cd "${HERE}/../samples/memory" 2>/dev/null \
+  || skip "no samples/memory to test"
 
 PROG=./matcpyf.x
 if [ ! -x "${PROG}" ]; then
-  echo "SKIPPED: ${PROG} not found (no Fortran compiler?)"
-  exit 0
+  skip "${PROG} is not built (no Fortran compiler?)"
 fi
 
 NMB=1

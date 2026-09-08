@@ -9,7 +9,17 @@
 set -eo pipefail
 
 HERE=$(cd "$(dirname "$0")" && pwd -P)
-cd "${HERE}/../samples/gemm" 2>/dev/null || exit 1
+# a prerequisite this build tree need not carry, see tests/test.sh
+skip() {
+  >&2 echo "$1"
+  exit 0
+}
+
+cd "${HERE}/../samples/gemm" 2>/dev/null \
+  || skip "no samples/gemm to test"
+for PROG in gemm_strided gemm_batch gemm_groups gemm_index; do
+  if [ ! -x "./${PROG}.x" ]; then skip "./${PROG}.x is not built"; fi
+done
 
 export CHECK=1
 

@@ -20,17 +20,13 @@ set -eo pipefail
 HERE=$(cd "$(dirname "$0")" && pwd -P)
 SAMPLES="${HERE}/../samples/predict"
 
-# What is missing is reported and the script yields rather than failing: the
-# corpus is an 11 MB file that only the source tree carries, so a build tree
-# that did not copy it has nothing to test rather than something broken. The
-# reason goes to stderr because tests/test.sh discards stdout and prints
-# stderr beside the verdict, which is what makes a skip visible as a skip.
+# a prerequisite this build tree need not carry, see tests/test.sh
 skip() {
   >&2 echo "$1"
   exit 0
 }
 
-cd "${SAMPLES}" 2>/dev/null || skip "no ${SAMPLES} to test"
+cd "${SAMPLES}" 2>/dev/null || skip "no samples/predict to test"
 if [ ! -e ./predict_crystal.x ]; then skip "predict_crystal.x is not built"; fi
 if [ ! -e ./predict_crystal.csv ]; then
   skip "predict_crystal.csv is not available"
