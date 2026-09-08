@@ -278,8 +278,25 @@ LIBXS_API_INLINE int internal_libxs_predict_rf_build_tree(
 #if !defined(LIBXS_PREDICT_RF_MINLEAF)
 #  define LIBXS_PREDICT_RF_MINLEAF 3
 #endif
+/**
+ * Nodes a tree may hold. This is a memory bound and nothing else: a task builds
+ * one tree at a time into a scratch of this many nodes at 40 bytes each, so the
+ * peak is ntasks * MAXNODES * 40 - 21 MB per task here, which is 8 GB across 384
+ * of them and 168 MB across eight. It is fixed rather than derived from the
+ * machine so that a corpus yields the same forest whatever the thread count.
+ *
+ * It used to be 32767 because a saved node index was a signed 16-bit number, and
+ * it kept that value after the index was widened. That mattered more than a
+ * stale constant usually does, because the budget is what sets leaf_floor
+ * (2*nentries/MAXNODES): a fixed budget forces coarser trees as the corpus
+ * grows, which is why accuracy stopped improving with data. On HIGGS at 4.4M
+ * rows the leaf floor was 269 and the forest underfitted; at this value it is 17
+ * and accuracy rises 73.14% to 74.40%, past XGBoost on the same split. Finer
+ * still (floor 5) buys 0.22 more points for 3.3x the build, which is where the
+ * returns stop being worth the memory.
+ */
 #if !defined(LIBXS_PREDICT_RF_MAXNODES)
-#  define LIBXS_PREDICT_RF_MAXNODES 32767
+#  define LIBXS_PREDICT_RF_MAXNODES 524287
 #endif
 #if !defined(LIBXS_PREDICT_RF_NTREES)
 #  define LIBXS_PREDICT_RF_NTREES 100
@@ -308,7 +325,10 @@ LIBXS_API_INLINE double internal_libxs_predict_rf_score(
   int regress, int nclass)
 {
   const int nt = LIBXS_PREDICT_RF_PROBE;
-  const int max_nodes = LIBXS_MIN(ntrain / min_leaf * 2 + 1, 65536);
+  /* the probe holds every one of its trees at once, so it is bounded by the
+     same budget divided among them rather than by one of its own */
+  const int max_nodes = LIBXS_MIN(ntrain / min_leaf * 2 + 1,
+    LIBXS_MAX(LIBXS_PREDICT_RF_MAXNODES / LIBXS_PREDICT_RF_PROBE, 1));
   int nodes_pool = 0, boot_pool = 0, nn_pool = 0;
   internal_libxs_predict_rf_node_t* nodes =
     (internal_libxs_predict_rf_node_t*)LIBXS_PREDICT_MALLOC(

@@ -420,7 +420,7 @@ LIBXS_API int libxs_predict_save(const libxs_predict_t* model, void* buffer, siz
        *  node, and a correction per node and class where a stage was kept. */
       required += (size_t)n * (sizeof(uint8_t) + sizeof(uint8_t));
       for (c = 0; c < total_trees; ++c) {
-        required += sizeof(uint16_t) + sizeof(uint8_t);
+        required += sizeof(uint32_t) + sizeof(uint8_t);
         required += (size_t)model->rf->trees[c].nnodes * (2 + 8 + 8 + 4 + 4 + 1);
         if (NULL != model->rf->trees[c].incr) {
           required += (size_t)model->rf->trees[c].nnodes
@@ -561,7 +561,7 @@ LIBXS_API int libxs_predict_save(const libxs_predict_t* model, void* buffer, siz
         for (c = 0; c < total_trees; ++c) {
           const internal_libxs_predict_rf_tree_t* tree = &model->rf->trees[c];
           int k;
-          WRITE_U16(tree->nnodes);
+          WRITE_U32(tree->nnodes);
           WRITE_U8(NULL != tree->incr ? 1 : 0);
           for (k = 0; k < tree->nnodes; ++k) {
             const internal_libxs_predict_rf_node_t* nd = &tree->nodes[k];
@@ -1445,10 +1445,24 @@ LIBXS_API libxs_predict_t* libxs_predict_load(const void* buffer, size_t size)
               else rf->nclass[j] = (int)ncl;
             }
             for (ti = 0; ti < total_trees && EXIT_SUCCESS == ok; ++ti) {
-              uint16_t nn = 0;
+              uint32_t nn = 0;
               uint8_t hasincr = 0;
               int k;
-              ok = internal_libxs_predict_read(&src, end, &nn, 2);
+              /**
+               * A version-1 file counts a tree's nodes in two bytes, which is
+               * what bounded the node budget to what fits them. Version 2 counts
+               * in four: the budget follows the corpus now, and a tree over
+               * 65535 nodes would otherwise have been written back truncated
+               * without saying so, exactly as the two-byte child indices did.
+               */
+              if (1 < version) {
+                ok = internal_libxs_predict_read(&src, end, &nn, 4);
+              }
+              else {
+                uint16_t nn16 = 0;
+                ok = internal_libxs_predict_read(&src, end, &nn16, 2);
+                nn = nn16;
+              }
               if (EXIT_SUCCESS == ok && 1 < version) {
                 ok = internal_libxs_predict_read(&src, end, &hasincr, 1);
               }
