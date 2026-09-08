@@ -107,7 +107,8 @@ endif
 
 OUTNAME := $(shell basename "$(ROOTDIR)")
 HEADERS := $(wildcard $(INCDIR)/*.h) $(wildcard $(SRCDIR)/*.h) \
-           $(wildcard $(DEPDIR)/libxs/*.h)
+           $(wildcard $(DEPDIR)/libxs/*.h) \
+           $(wildcard $(DEPDIR)/../libxstream/samples/ozaki/*.h)
 # Driver source (compiled for each precision)
 CSOURCS := $(SRCDIR)/gemm.c
 # Implementation sources: _WRAP + support (compiled for each precision)
