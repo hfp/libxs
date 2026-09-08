@@ -419,6 +419,11 @@ LIBXS_API int libxs_predict_save(const libxs_predict_t* model, void* buffer, siz
       /** One read-out kind and one score width per output, one leaf value per
        *  node, and a correction per node and class where a stage was kept. */
       required += (size_t)n * (sizeof(uint8_t) + sizeof(uint8_t));
+      required += sizeof(uint8_t);
+      if (NULL != model->rf->calib) {
+        required += (size_t)model->rf->noutputs
+          * LIBXS_PREDICT_RF_CALIB * sizeof(double);
+      }
       for (c = 0; c < total_trees; ++c) {
         required += sizeof(uint32_t) + sizeof(uint8_t);
         required += (size_t)model->rf->trees[c].nnodes * (2 + 8 + 8 + 4 + 4 + 1);
@@ -557,6 +562,18 @@ LIBXS_API int libxs_predict_save(const libxs_predict_t* model, void* buffer, siz
         }
         for (j = 0; j < model->rf->noutputs; ++j) {
           WRITE_U8(model->rf->nclass[j]);
+        }
+        /**
+         * The bin count leads the curve rather than being implied by the build
+         * that reads it: a model outlives the value the library was compiled
+         * with, and a curve read at the wrong width is a confidence that is
+         * wrong rather than absent. Zero says the measurement was not made, and
+         * the share is then reported unchanged.
+         */
+        WRITE_U8(NULL != model->rf->calib ? LIBXS_PREDICT_RF_CALIB : 0);
+        if (NULL != model->rf->calib) {
+          const int ncal = model->rf->noutputs * LIBXS_PREDICT_RF_CALIB;
+          for (j = 0; j < ncal; ++j) WRITE_F64(model->rf->calib[j]);
         }
         for (c = 0; c < total_trees; ++c) {
           const internal_libxs_predict_rf_tree_t* tree = &model->rf->trees[c];
@@ -1443,6 +1460,34 @@ LIBXS_API libxs_predict_t* libxs_predict_load(const void* buffer, size_t size)
                 ok = EXIT_FAILURE;
               }
               else rf->nclass[j] = (int)ncl;
+            }
+            /**
+             * The curve is read at the width the file states, and kept only at
+             * the width this build indexes it by: a model written by a library
+             * binned differently carries a curve this one cannot address, and
+             * reporting the share unchanged is the honest reading of that.
+             * Version 1 has no curve at all and takes the same path.
+             */
+            if (EXIT_SUCCESS == ok && 1 < version) {
+              uint8_t ncal = 0;
+              ok = internal_libxs_predict_read(&src, end, &ncal, 1);
+              if (EXIT_SUCCESS == ok && 0 != ncal) {
+                const int ncurve = (int)rf_nouts * (int)ncal;
+                ok = internal_libxs_predict_avail(src, end,
+                  (size_t)ncurve, sizeof(double));
+                if (EXIT_SUCCESS == ok
+                  && LIBXS_PREDICT_RF_CALIB == (int)ncal)
+                {
+                  rf->calib = (double*)malloc(
+                    (size_t)ncurve * sizeof(double));
+                  if (NULL == rf->calib) ok = EXIT_FAILURE;
+                }
+                for (j = 0; j < ncurve && EXIT_SUCCESS == ok; ++j) {
+                  double v = 0;
+                  ok = internal_libxs_predict_read(&src, end, &v, 8);
+                  if (NULL != rf->calib) rf->calib[j] = v;
+                }
+              }
             }
             for (ti = 0; ti < total_trees && EXIT_SUCCESS == ok; ++ti) {
               uint32_t nn = 0;

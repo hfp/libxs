@@ -227,6 +227,16 @@ typedef struct internal_libxs_predict_rf_t {
   /** Per-output tree depth, chosen at build. Not serialized: the stored nodes
    *  already encode the depth they were grown to, and nothing reads it again. */
   int* depth;
+  /**
+   * What a share of the trees agreeing is worth, as a probability that the
+   * answer is right: noutputs * LIBXS_PREDICT_RF_CALIB bins over that share,
+   * measured at build. Without it the reported confidence is the share itself,
+   * which is an ensemble statistic and not a probability - it falls as the trees
+   * are grown finer even though the answer gets more often right, so a caller
+   * gating at 0.9 loses coverage to a better model. NULL where the measurement
+   * could not be made, and the share is then reported unchanged.
+   */
+  double* calib;
   int ntrees;
   int noutputs;
 } internal_libxs_predict_rf_t;
@@ -1870,6 +1880,7 @@ LIBXS_API void libxs_predict_destroy(libxs_predict_t* model)
       free(model->rf->regress);
       free(model->rf->nclass);
       free(model->rf->depth);
+      free(model->rf->calib);
       free(model->rf);
     }
     free(model);
@@ -3520,6 +3531,7 @@ LIBXS_API_INLINE int internal_libxs_predict_build_impl(libxs_predict_t* model,
       if (1 >= ntasks) {
         internal_libxs_predict_rf_build_tasks(model, 0, 1);
         internal_libxs_predict_rf_boost(model);
+        internal_libxs_predict_rf_calibrate(model);
       }
     }
   }
@@ -4012,7 +4024,12 @@ LIBXS_API int libxs_predict_build_task(libxs_lock_t* lock,
      * exist before the first residual can be taken.
      */
     internal_libxs_predict_sync(model, ntasks);
-    if (0 == tid) internal_libxs_predict_rf_boost(model);
+    if (0 == tid) {
+      internal_libxs_predict_rf_boost(model);
+      /* after the stages: they change what the trees answer, and the curve
+         says what the answer the forest actually gives is worth */
+      internal_libxs_predict_rf_calibrate(model);
+    }
     internal_libxs_predict_sync(model, ntasks);
   }
   LIBXS_UNUSED(lock);
