@@ -691,25 +691,40 @@ typedef LIBXS_LOCK_TYPE(LIBXS_LOCK) libxs_lock_t;
  * between stages of work. A team meeting inside a tight loop wants a tree over
  * the cores instead, and that needs storage per task rather than per team.
  *
- * Give it a cache line of its own where the rendezvous is frequent: every task
- * writes the arrival counter, so whatever shares the line is written too.
+ * The counter and the release flag are given a cache line each. A waiting task
+ * reads the flag in a tight loop while every arrival has to own the counter for
+ * writing, so sharing one line would make each arrival invalidate the line every
+ * waiter is reading, and the traffic would grow with the square of the team.
  */
+LIBXS_EXTERN_C typedef union libxs_barrier_word_t {
+  volatile int i;
+  char pad[LIBXS_CACHELINE];
+} libxs_barrier_word_t;
+
 LIBXS_EXTERN_C typedef struct libxs_barrier_t {
   /** Tasks arrived at the current epoch, taken back to zero by the last one. */
-  volatile int arrived;
+  libxs_barrier_word_t arrived;
   /**
    * Advanced by the last arrival, and that advance is what releases the others.
    * The release is on the epoch rather than on the counter because the counter is
    * already serving the next rendezvous while a task released by this one may not
    * have looked yet.
+   *
+   * A line of its own, and it needs no alignment of the barrier to get one: a
+   * member of a whole line in size sits a whole line away from the one before it,
+   * and two addresses that far apart cannot fall in the same line.
    */
-  volatile int epoch;
+  libxs_barrier_word_t epoch;
   /**
    * Broadcast value, indexed by the parity of the epoch it belongs to, so that
    * the next broadcast writes the other slot. One slot would do only if every
    * reader were finished before the next publication, which is precisely what
    * being released does not promise: a task can be held between the release and
    * its own read for as long as the scheduler likes.
+   *
+   * These share a line with the task count, and may: the count is read-only once
+   * the team is counted, and a slot is written once per rendezvous by one task
+   * rather than spun on by all of them.
    */
   volatile int value[2];
   /** Tasks the rendezvous waits for. One makes every call return at once. */
@@ -723,8 +738,8 @@ LIBXS_EXTERN_C typedef struct libxs_barrier_t {
  */
 LIBXS_API_INLINE void libxs_barrier_init(libxs_barrier_t* barrier, int ntasks) {
   if (NULL != barrier) {
-    barrier->arrived = 0;
-    barrier->epoch = 0;
+    barrier->arrived.i = 0;
+    barrier->epoch.i = 0;
     barrier->value[0] = 0;
     barrier->value[1] = 0;
 #if (0 == LIBXS_SYNC)
@@ -744,16 +759,16 @@ LIBXS_API_INLINE void libxs_barrier_wait(libxs_barrier_t* barrier) {
     /* read before arriving: the last task may release the team before this one
        looks at the epoch, and it must not then wait for the next release */
     const int epoch = (int)LIBXS_ATOMIC_LOAD(
-      &barrier->epoch, LIBXS_ATOMIC_SEQ_CST);
+      &barrier->epoch.i, LIBXS_ATOMIC_SEQ_CST);
     if (barrier->ntasks == (int)LIBXS_ATOMIC_ADD_FETCH(
-      &barrier->arrived, 1, LIBXS_ATOMIC_SEQ_CST))
+      &barrier->arrived.i, 1, LIBXS_ATOMIC_SEQ_CST))
     {
-      LIBXS_ATOMIC_STORE(&barrier->arrived, 0, LIBXS_ATOMIC_SEQ_CST);
-      LIBXS_ATOMIC_ADD_FETCH(&barrier->epoch, 1, LIBXS_ATOMIC_SEQ_CST);
+      LIBXS_ATOMIC_STORE(&barrier->arrived.i, 0, LIBXS_ATOMIC_SEQ_CST);
+      LIBXS_ATOMIC_ADD_FETCH(&barrier->epoch.i, 1, LIBXS_ATOMIC_SEQ_CST);
     }
     else {
       while (epoch == (int)LIBXS_ATOMIC_LOAD(
-        &barrier->epoch, LIBXS_ATOMIC_SEQ_CST))
+        &barrier->epoch.i, LIBXS_ATOMIC_SEQ_CST))
       {
         LIBXS_SYNC_PAUSE;
       }
@@ -780,7 +795,7 @@ LIBXS_API_INLINE int libxs_barrier_bcast(libxs_barrier_t* barrier,
     /* the epoch does not move between two rendezvous, so every task of this one
        picks the same slot without a further rendezvous to agree on it */
     const int slot = (int)LIBXS_ATOMIC_LOAD(
-      &barrier->epoch, LIBXS_ATOMIC_SEQ_CST) & 1;
+      &barrier->epoch.i, LIBXS_ATOMIC_SEQ_CST) & 1;
     if (tid == root) {
       LIBXS_ATOMIC_STORE(&barrier->value[slot], value, LIBXS_ATOMIC_SEQ_CST);
     }
