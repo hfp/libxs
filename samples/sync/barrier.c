@@ -41,6 +41,9 @@ int main(int argc, char* argv[])
 #if defined(_OPENMP)
 #   pragma omp parallel num_threads(request)
     { if (0 == omp_get_thread_num()) nthreads = omp_get_num_threads(); }
+#else
+    /* a build without OpenMP has a team of one whatever was asked for */
+    LIBXS_UNUSED(request);
 #endif
     stamp = (int*)malloc((size_t)nthreads * sizeof(int));
     if (NULL == stamp) {

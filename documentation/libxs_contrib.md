@@ -90,8 +90,14 @@ than in a file-level exclusion. Three properties follow, and each is the point:
   naming a file that no longer exists is reported too. An exclusion that
   outlives its cause is how a list starts lying.
 
-Regenerate either with `tool_checkstruct.py --counts` or
-`tool_checkenvars.sh --all`.
+The list maintains itself in the one direction that is safe. A fix followed by
+`tool_normalize.sh` lowers the count, and drops the entry when nothing is left;
+an entry whose file is gone drops too. The run still fails and says what it
+changed, exactly as the whitespace hooks do, so the smaller list is reviewed and
+committed rather than applied silently. Upwards never happens: a count that
+grew, or a new undocumented variable, is a regression and stays an error.
+`tool_checkstruct.py --counts` prints the table from scratch if a list needs
+rebuilding wholesale.
 
 ## C Source File Structure
 
@@ -166,6 +172,12 @@ number of its own.
 
 - **A function has a single exit.** No early `return`, no multiple return
   paths, no `goto`.
+- **No trailing underscore on a parameter or a local**, in a definition or a
+  declaration. That mark is reserved for a variable a *macro* declares, so that
+  such a name cannot collide with one the caller already has in scope; a
+  function wearing it anywhere takes the mark away from the one thing it is
+  for. Passing an underscored name *to* a function is a different matter and
+  fine: inside a macro body that is exactly what the macro's own local is for.
 - Use a `result` variable, gate subsequent work on `EXIT_SUCCESS == result`, and
   return `result` at the single exit point.
 - Constants go on the left-hand side of a comparison (`EXIT_SUCCESS == result`,
@@ -193,7 +205,9 @@ int example(const void* input, void** output) {
 ALIGNMENT)`, not `LIBXS_ALIGN(pointer, alignment)`. The parameters are the part
 that is easy to forget, and they are the part that matters at the point of use:
 a capitalized argument is what tells the reader that the expression may be
-evaluated more than once.
+evaluated more than once. **A parameter carries no trailing underscore**: that
+marks a variable the macro declares itself, and the two must stay apart, since
+the whole point of the underscore is to say "this name is mine, not yours".
 
 **A variable a macro declares is the other way round**: lowercase, with a
 trailing underscore, and ideally prefixed by the macro's own name.
@@ -227,10 +241,12 @@ Two kinds of macro name are lowercase on purpose, and both are exempt:
   obviously does — the code already says that. Document what it cannot say: why
   this way, what breaks otherwise, which assumption is being relied on.
 - Prefer no comment at all. Then prefer one line.
-- **Never stack consecutive single-line comments** as a substitute for a block.
-  Two or more `/* ... */` lines in a row are either one comment — make it one
-  line, or a block if it earns the size — or they describe different subjects,
-  and then the code each one describes belongs between them.
+- **Never stack comments.** Two comments with no code between them are either
+  one comment — make it one line, or a block if it earns the size — or they
+  describe different subjects, and then the code each one describes belongs
+  between them. **A blank line between them does not separate them**: it is
+  still two comments and no code. This covers blocks as much as single lines;
+  the license header, being the file's leading comment, is exempt.
 - **Single-line comments by default.** A multi-line comment has to earn its
   size: it is reserved for what is absolutely necessary, i.e., a risk or a trap
   worth spelling out — typically something that has already been gotten wrong
@@ -261,7 +277,12 @@ Two kinds of macro name are lowercase on purpose, and both are exempt:
 ## Blank Lines
 
 - Never three or more consecutive blank lines, anywhere.
-- Exactly two blank lines separate function definitions.
+- Exactly two blank lines separate function definitions in a `.c` or `.cl`
+  file. **A header may use one**, and the files that carry small
+  `LIBXS_API_INLINE` definitions are uniform about it: `libxs_gemm.h` and
+  `libxs_token.h` use one throughout, `libxs_math.h` for sixteen of its
+  twenty-one. One or two, but not a mixture within a file, which is the
+  surrounding code a change there has to match.
 - At most one blank line separates logical blocks inside a function.
 
 ## Formatting
@@ -278,6 +299,37 @@ it; the formatter is a maintenance tool, run deliberately and committed on its
 own.
 
 Do not mix reformatting, renaming, and behavioural change in one commit.
+
+**Where the opening brace goes.** It stays on the line of the construct it
+belongs to — `if (0 < n) {`, `for (...) {`, `} else {` — with two exceptions,
+and both are checked:
+
+- **A function body opens on its own line.** This holds wherever the definition
+  is, a `.c` file or an inline one in a header; 1971 definitions do it and 78 do
+  not.
+- **A brace whose parentheses were broken across lines opens on its own line**,
+  because the brace is then what tells the reader the condition has ended:
+
+```c
+if (0 == first &&
+    0 != second)
+{
+  ...
+}
+```
+
+A bare block has no construct line to sit on, so nothing is required of it:
+`{ int scope_ = n;` and a brace alone on the line are both in use and both fine.
+A struct, a union and an initializer are left alone as well.
+
+Indentation is not reformatted by a hook, but one thing about it is checked:
+**two closing braces in a row must step left.** Sharing a column means they
+close blocks that are nested, so a level is missing from the indentation even
+though the braces balance and the compiler is content. The check is local and
+makes no assumption about the indent unit, and a preprocessor directive between
+the two resets it, because which brace belongs to which block then depends on
+the configuration. `} else {` is not a closer for this purpose: it reopens, so
+the next closer legitimately shares its column.
 
 ## Library Code
 

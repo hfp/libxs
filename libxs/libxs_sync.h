@@ -716,12 +716,12 @@ LIBXS_EXTERN_C typedef struct libxs_barrier_t {
   int ntasks;
 } libxs_barrier_t;
 
+
 /**
  * Initialize for a team of ntasks. Called once, before any task waits, and by
  * one task rather than by all of them: there is no per-task state to place.
  */
-LIBXS_API_INLINE void libxs_barrier_init(libxs_barrier_t* barrier, int ntasks)
-{
+LIBXS_API_INLINE void libxs_barrier_init(libxs_barrier_t* barrier, int ntasks) {
   if (NULL != barrier) {
     barrier->arrived = 0;
     barrier->epoch = 0;
@@ -739,8 +739,7 @@ LIBXS_API_INLINE void libxs_barrier_init(libxs_barrier_t* barrier, int ntasks)
 }
 
 /** Wait until every task of the team has arrived. */
-LIBXS_API_INLINE void libxs_barrier_wait(libxs_barrier_t* barrier)
-{
+LIBXS_API_INLINE void libxs_barrier_wait(libxs_barrier_t* barrier) {
   if (NULL != barrier && 1 < barrier->ntasks) {
     /* read before arriving: the last task may release the team before this one
        looks at the epoch, and it must not then wait for the next release */

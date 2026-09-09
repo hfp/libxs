@@ -61,6 +61,10 @@ LOCAL = re.compile(
 # The members of an aggregate are not locals: in "union { float v; float a[8];
 # } u_ " the name that has to carry the underscore is u_, not v or a.
 MEMBERS = re.compile(r"\b(?:struct|union|enum)\b[^{;]*\{[^{}]*\}")
+# An identifier wearing the trailing underscore that belongs to a macro local.
+TRAILING = re.compile(r"\b(\w*[A-Za-z0-9]_)\b")
+# A block with a controlling construct, which is what the brace may trail.
+CONTROL = re.compile(r"\b(if|for|while|switch|else|do)\s*$")
 KEYWORDS = (
     "long",
     "short",
@@ -105,6 +109,10 @@ CHECKS = (
     "macro-name",
     "macro-parameter",
     "macro-local",
+    "closer-nesting",
+    "function-parameter",
+    "function-local",
+    "brace-placement",
 )
 
 
@@ -271,23 +279,49 @@ def check(path: str, enabled: Sequence[str]) -> List[Finding]:
                 gap += 1
                 at += 1
             if at < len(lines) and not lines[at].lstrip().startswith("#"):
-                if 2 != gap:
+                # A header carries small inline definitions and the files that
+                # hold them are uniform about one blank line, which is the
+                # surrounding code a change there has to match.
+                want = (1, 2) if path.endswith(".h") else (2,)
+                if gap not in want:
                     report.append(
                         (
                             "function-gap",
                             last,
-                            "%i blank lines, expected 2" % gap,
+                            "%i blank lines, expected %s"
+                            % (gap, " or ".join(str(w) for w in want)),
                         )
                     )
     if "stacked-comments" in enabled:
-        previous = ""
-        for number, line in enumerate(lines, 1):
-            match = COMMENT.match(line)
-            if match and previous == match.group(1):
-                report.append(
-                    ("stacked-comments", number, "merge or separate them")
-                )
-            previous = match.group(1) if match else "\n"
+        report += stacked(text, lines)
+    if "closer-nesting" in enabled:
+        report += nesting(text, masked)
+    if "function-parameter" in enabled:
+        report += parameters(masked)
+    if "brace-placement" in enabled:
+        report += braces(text, masked)
+    if "function-local" in enabled:
+        for opened, closed, isfunc in regions:
+            if not isfunc:
+                continue
+            # Blanked rather than removed, to keep the offsets and with
+            # them the line the declaration is actually on.
+            inside = MEMBERS.sub(
+                lambda m: " " * len(m.group(0)), masked[opened:closed]
+            )
+            for match in LOCAL.finditer(inside):
+                # The mask removed the directives, so a macro body cannot
+                # reach here: this is the function's own declaration.
+                local = match.group(1)
+                if local.endswith("_") and local not in KEYWORDS:
+                    report.append(
+                        (
+                            "function-local",
+                            masked.count("\n", 0, opened + match.start()) + 1,
+                            "%s carries the underscore of a macro local"
+                            % local,
+                        )
+                    )
     if "constant-left" in enabled:
         visible, _ = mask(text, True)
         for number, line in enumerate(visible.split("\n"), 1):
@@ -297,6 +331,204 @@ def check(path: str, enabled: Sequence[str]) -> List[Finding]:
                 )
     if [name for name in enabled if name.startswith("macro-")]:
         report += macros(lines, enabled)
+    return report
+
+
+def stacked(text: str, lines: Sequence[str]) -> List[Finding]:
+    """Report comments that follow one another with no code between them.
+
+    Blank lines do not separate them: two comments with only whitespace in
+    between are one comment split in two, or they describe different things
+    and the code each describes belongs between them. The license header is
+    the file's leading comment and is exempt by construction.
+    """
+    report: List[Finding] = []
+    visible, _ = mask(text, True)
+    first = 1
+    for number, line in enumerate(visible.split("\n"), 1):
+        if line.strip():
+            first = number
+            break
+    previous = None
+    at, size = 0, len(text)
+    while at < size:
+        opened = text.find("/*", at)
+        if 0 > opened:
+            break
+        closed = text.find("*/", opened + 2)
+        if 0 > closed:
+            break
+        start = text.count("\n", 0, opened) + 1
+        end = text.count("\n", 0, closed) + 1
+        head = text.rfind("\n", 0, opened) + 1
+        tail = text.find("\n", closed)
+        tail = size if 0 > tail else tail
+        alone = (
+            not text[head:opened].strip()
+            and not text[closed + 2 : tail].strip()
+        )
+        if alone and previous is not None and start > first:
+            between = lines[previous : start - 1]
+            if not [line for line in between if line.strip()]:
+                report.append(
+                    (
+                        "stacked-comments",
+                        start,
+                        "follows the comment at line %i" % previous,
+                    )
+                )
+        previous = end if alone else None
+        at = closed + 2
+    return report
+
+
+def nesting(text: str, masked: str) -> List[Finding]:
+    """Report a closing brace that does not step left from the one above it.
+
+    Two closers on the same column close blocks that are nested, so one of
+    the two levels is missing from the indentation. The line shape is taken
+    from the source and the braces from the masked text, or a line whose
+    only code is the "};" of an initializer looks like a closer. A directive
+    resets the comparison: which brace belongs to which block then depends
+    on the configuration.
+    """
+    report: List[Finding] = []
+    previous = None
+    for number, line in enumerate(text.split("\n"), 1):
+        if line.lstrip().startswith("#"):
+            previous = None
+            continue
+        strip = line.strip()
+        if not strip:
+            continue
+        indent = len(line) - len(line.lstrip())
+        if strip.startswith("}") and previous is not None:
+            if indent >= previous[1]:
+                report.append(
+                    (
+                        "closer-nesting",
+                        number,
+                        "shares column %i with the closer at line %i"
+                        % (indent, previous[0]),
+                    )
+                )
+        alone = strip.startswith("}") and "{" not in strip
+        previous = (number, indent) if alone else None
+    return report
+
+
+def braces(text: str, masked: str) -> List[Finding]:
+    """Report an opening brace that is not where its kind of block wants it.
+
+    A function body opens on its own line, and so does a block whose
+    parentheses were broken across lines, because the brace is what tells the
+    reader the condition has ended. Everything else keeps the brace on the
+    line of the construct it belongs to. A bare block has no such line and is
+    left alone, as are a struct, a union and an initializer.
+    """
+    report: List[Finding] = []
+    # Comments blanked but the code kept: a comment after the brace does not
+    # make the line occupied, and a string cannot reach the cases checked.
+    visible, _ = mask(text, True)
+    raw = visible.split("\n")
+    depth = 0
+    for at, char in enumerate(masked):
+        if "}" == char:
+            depth -= 1
+            continue
+        if "{" != char:
+            continue
+        line = masked.count("\n", 0, at) + 1
+        column = at - (masked.rfind("\n", 0, at) + 1)
+        source = raw[line - 1]
+        alone = (
+            not source[:column].strip() and not source[column + 1 :].strip()
+        )
+        before = masked[:at].rstrip()
+        paren = before.endswith(")")
+        split = False
+        if paren:
+            nest, back = 0, len(before) - 1
+            while 0 <= back:
+                if ")" == before[back]:
+                    nest += 1
+                elif "(" == before[back]:
+                    nest -= 1
+                    if 0 == nest:
+                        break
+                back -= 1
+            split = 0 <= back and "\n" in before[back:]
+        if 0 == depth and paren:
+            if not alone:
+                report.append(
+                    (
+                        "brace-placement",
+                        line,
+                        "a function body opens on its own line",
+                    )
+                )
+        elif split:
+            if not alone:
+                report.append(
+                    (
+                        "brace-placement",
+                        line,
+                        "the parentheses span lines, so the brace opens on its own",
+                    )
+                )
+        elif (paren or CONTROL.search(before)) and alone:
+            report.append(
+                (
+                    "brace-placement",
+                    line,
+                    "the brace belongs on the line above",
+                )
+            )
+        depth += 1
+    return report
+
+
+def parameters(masked: str) -> List[Finding]:
+    """Report a function parameter that carries a macro local's underscore.
+
+    A parameter list at brace depth zero is followed by "{" for a definition
+    and ";" for a declaration, which is what tells it apart from a call. A
+    macro body cannot appear here: the mask has removed the directives.
+    """
+    report: List[Finding] = []
+    depth = 0
+    at, size = 0, len(masked)
+    while at < size:
+        c = masked[at]
+        if "{" == c:
+            depth += 1
+        elif "}" == c:
+            depth = max(0, depth - 1)
+        elif "(" == c and 0 == depth:
+            nest, close = 0, at
+            while close < size:
+                if "(" == masked[close]:
+                    nest += 1
+                elif ")" == masked[close]:
+                    nest -= 1
+                    if 0 == nest:
+                        break
+                close += 1
+            after = close + 1
+            while after < size and masked[after] in " \t\n":
+                after += 1
+            if after < size and masked[after] in "{;":
+                for name in TRAILING.findall(masked[at + 1 : close]):
+                    report.append(
+                        (
+                            "function-parameter",
+                            masked.count("\n", 0, at) + 1,
+                            "%s carries the underscore of a macro local"
+                            % name,
+                        )
+                    )
+            at = close
+        at += 1
     return report
 
 
@@ -348,12 +580,24 @@ def macros(lines: Sequence[str], enabled: Sequence[str]) -> List[Finding]:
             )
         if "macro-parameter" in enabled and params is not None:
             for param in [p.strip() for p in params.split(",") if p.strip()]:
-                if "..." != param and re.search(r"[a-z]", param):
+                if "..." == param:
+                    continue
+                if re.search(r"[a-z]", param):
                     report.append(
                         (
                             "macro-parameter",
                             where,
                             "%s is not capitalized" % param,
+                        )
+                    )
+                elif param.endswith("_"):
+                    # The trailing underscore marks a local the macro
+                    # declares; a parameter wearing it hides the difference.
+                    report.append(
+                        (
+                            "macro-parameter",
+                            where,
+                            "%s carries the underscore of a local" % param,
                         )
                     )
     return report
@@ -376,15 +620,6 @@ def backlog() -> Dict[Tuple[str, str], int]:
     except OSError:
         pass
     return listed
-
-
-def stale(listed: Dict[Tuple[str, str], int]) -> List[str]:
-    """Report backlog entries whose file is gone: renamed, or deleted."""
-    return [
-        "%s: %s: %s names no such file, drop the entry" % (path, rule, TODO)
-        for rule, path in sorted(listed)
-        if not os.path.exists(os.path.join(ROOT, path))
-    ]
 
 
 def suppress(
@@ -423,15 +658,61 @@ def suppress(
                 "%s: %s: %i findings, the list allows %i"
                 % (path, rule, len(found), allowed)
             )
-    for (rule, where), allowed in sorted(listed.items()):
-        if where != path or rule not in enabled:
-            continue
-        if len(seen.get(rule, [])) < allowed:
-            complaints.append(
-                "%s: %s: down to %i, lower the count in %s (was %i)"
-                % (path, rule, len(seen.get(rule, [])), TODO, allowed)
-            )
     return violations, complaints
+
+
+def lower(
+    listed: Dict[Tuple[str, str], int],
+    observed: Dict[Tuple[str, str], int],
+    examined: Sequence[str],
+    enabled: Sequence[str],
+) -> List[str]:
+    """Bring the to-do file down to what is left, and say what changed.
+
+    Only downwards: a count that shrank is rewritten and an entry that ran
+    out is deleted, because lowering the list is always correct. A count
+    that grew is never touched here, or a regression would legalize itself.
+    An entry whose file is gone goes too.
+    """
+    said: List[str] = []
+    change: Dict[Tuple[str, str], int] = {}
+    for (rule, path), allowed in sorted(listed.items()):
+        if not os.path.exists(os.path.join(ROOT, path)):
+            change[(rule, path)] = 0
+            said.append(
+                "%s: %s: file is gone, dropped from %s" % (path, rule, TODO)
+            )
+        elif path in examined and rule in enabled:
+            count = observed.get((rule, path), 0)
+            if count < allowed:
+                change[(rule, path)] = count
+                said.append(
+                    "%s: %s: down to %i, %s in %s"
+                    % (
+                        path,
+                        rule,
+                        count,
+                        "dropped" if 0 == count else "lowered",
+                        TODO,
+                    )
+                )
+    if change:
+        name = os.path.join(ROOT, "scripts", TODO)
+        with open(name, encoding="utf-8") as handle:
+            lines = handle.readlines()
+        out = []
+        for line in lines:
+            field = line.split("#", 1)[0].split()
+            if 3 == len(field) and field[1].isdigit():
+                left = change.get((field[0], field[2]))
+                if left is not None:
+                    if 0 == left:
+                        continue
+                    line = "%-17s %3i  %s\n" % (field[0], left, field[2])
+            out.append(line)
+        with open(name, "w", encoding="utf-8") as handle:
+            handle.writelines(out)
+    return said
 
 
 def main(argv: Sequence[str]) -> int:
@@ -460,18 +741,19 @@ def main(argv: Sequence[str]) -> int:
         observed: Dict[Tuple[str, str], int] = {}
         for path in names:
             report = check(path, enabled)
+            for rule, _, _ in report:
+                key = (rule, path)
+                observed[key] = observed.get(key, 0) + 1
             if counts:
-                for rule, _, _ in report:
-                    key = (rule, path)
-                    observed[key] = observed.get(key, 0) + 1
                 continue
             violations, complaints = suppress(path, enabled, report, listed)
             if violations or complaints:
                 print("\n".join(violations + complaints))
                 result = 1
-        for complaint in stale(listed):
-            print(complaint)
-            result = 1
+        if not counts:
+            for said in lower(listed, observed, names, enabled):
+                print(said)
+                result = 1
         if counts:
             # Ready for tool_checkstruct.todo, minus what EXEMPT covers.
             for (rule, path), count in sorted(observed.items()):
