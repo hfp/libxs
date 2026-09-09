@@ -1,5 +1,10 @@
 # Synchronization Primitives
 
+Two binaries over `libxs_sync.h`: `sync.x` for the lock kinds and
+`barrier.x` for `libxs_barrier_t`.
+
+## sync.x
+
 Micro-benchmark for the lock implementations provided by LIBXS
 (`libxs_sync.h`). Measures single-thread latency (uncontended
 acquire/release) and multi-thread throughput (mixed read/write
@@ -63,3 +68,33 @@ Latency and throughput of "atomic" (default) for nthreads=4 wratio=5% ...
 - Throughput: all threads run a mixed read/write workload governed by
   wratio%. Simulated work inside the critical section is subtracted
   so only synchronization overhead is reported.
+
+## barrier.x
+
+Cost of a rendezvous over `libxs_barrier_t`, and of the broadcast that
+hands one task's value to the rest.
+
+```bash
+./barrier.x [nthreads] [nrepeat]
+```
+
+| Argument | Default       | Description                          |
+|----------|---------------|--------------------------------------|
+| nthreads | all available | Tasks in the team                    |
+| nrepeat  | 100000        | Rendezvous per measurement           |
+
+The team is asked how large it actually is rather than told: a barrier
+initialized for more tasks than the runtime grants waits for one that
+never arrives.
+
+Both measurements check themselves and the binary fails if either is
+wrong, because a rendezvous that releases a task early is fast and
+worthless. `wait` has every task stamp a slot of its own and read all
+of them afterwards; `bcast` publishes a value that changes each round.
+Nothing is reported unless every task saw the current round.
+
+Expect a flat barrier to cost more once the team reaches the number of
+cores: every waiting task spins, so a team that over-subscribes the
+machine spends its time taking cycles away from the task it is waiting
+for. That is a property of the primitive, not of the measurement, and
+it is the reason to keep a rendezvous out of a tight loop.

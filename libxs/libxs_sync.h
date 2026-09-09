@@ -679,6 +679,119 @@ LIBXS_EXTERN void funlockfile(FILE*) LIBXS_NOTHROW;
 /** General-purpose lock type for application use. */
 typedef LIBXS_LOCK_TYPE(LIBXS_LOCK) libxs_lock_t;
 
+/**
+ * Rendezvous over a fixed number of tasks, and the value one task hands to the
+ * others as they are released.
+ *
+ * The caller owns the storage: one instance is shared by the team and nothing is
+ * allocated inside, so a barrier can live in whatever structure already describes
+ * the team. A task is only a number here, so the team need not be a thread team.
+ *
+ * It is flat, one counter for the whole team, which suits a team that meets
+ * between stages of work. A team meeting inside a tight loop wants a tree over
+ * the cores instead, and that needs storage per task rather than per team.
+ *
+ * Give it a cache line of its own where the rendezvous is frequent: every task
+ * writes the arrival counter, so whatever shares the line is written too.
+ */
+LIBXS_EXTERN_C typedef struct libxs_barrier_t {
+  /** Tasks arrived at the current epoch, taken back to zero by the last one. */
+  volatile int arrived;
+  /**
+   * Advanced by the last arrival, and that advance is what releases the others.
+   * The release is on the epoch rather than on the counter because the counter is
+   * already serving the next rendezvous while a task released by this one may not
+   * have looked yet.
+   */
+  volatile int epoch;
+  /**
+   * Broadcast value, indexed by the parity of the epoch it belongs to, so that
+   * the next broadcast writes the other slot. One slot would do only if every
+   * reader were finished before the next publication, which is precisely what
+   * being released does not promise: a task can be held between the release and
+   * its own read for as long as the scheduler likes.
+   */
+  volatile int value[2];
+  /** Tasks the rendezvous waits for. One makes every call return at once. */
+  int ntasks;
+} libxs_barrier_t;
+
+/**
+ * Initialize for a team of ntasks. Called once, before any task waits, and by
+ * one task rather than by all of them: there is no per-task state to place.
+ */
+LIBXS_API_INLINE void libxs_barrier_init(libxs_barrier_t* barrier, int ntasks)
+{
+  if (NULL != barrier) {
+    barrier->arrived = 0;
+    barrier->epoch = 0;
+    barrier->value[0] = 0;
+    barrier->value[1] = 0;
+#if (0 == LIBXS_SYNC)
+    /* without synchronization there is no team to wait for, and a wait for one
+       that cannot arrive does not end */
+    LIBXS_UNUSED(ntasks);
+    barrier->ntasks = 1;
+#else
+    barrier->ntasks = (0 < ntasks) ? ntasks : 1;
+#endif
+  }
+}
+
+/** Wait until every task of the team has arrived. */
+LIBXS_API_INLINE void libxs_barrier_wait(libxs_barrier_t* barrier)
+{
+  if (NULL != barrier && 1 < barrier->ntasks) {
+    /* read before arriving: the last task may release the team before this one
+       looks at the epoch, and it must not then wait for the next release */
+    const int epoch = (int)LIBXS_ATOMIC_LOAD(
+      &barrier->epoch, LIBXS_ATOMIC_SEQ_CST);
+    if (barrier->ntasks == (int)LIBXS_ATOMIC_ADD_FETCH(
+      &barrier->arrived, 1, LIBXS_ATOMIC_SEQ_CST))
+    {
+      LIBXS_ATOMIC_STORE(&barrier->arrived, 0, LIBXS_ATOMIC_SEQ_CST);
+      LIBXS_ATOMIC_ADD_FETCH(&barrier->epoch, 1, LIBXS_ATOMIC_SEQ_CST);
+    }
+    else {
+      while (epoch == (int)LIBXS_ATOMIC_LOAD(
+        &barrier->epoch, LIBXS_ATOMIC_SEQ_CST))
+      {
+        LIBXS_SYNC_PAUSE;
+      }
+    }
+  }
+}
+
+/**
+ * Wait, and return the value the root task carried into the call. Every task
+ * receives it, and what a task other than the root passes is ignored.
+ *
+ * This is how one task hands a decision to the rest. Writing it into a word of
+ * one's own and reading that word after a plain wait is not the same thing and
+ * is not safe: nothing stops the publisher from writing the word again, and a
+ * reader still sitting between the release and its own load then reads the newer
+ * value. Whether it does is a matter of scheduling, so the fault appears as a
+ * hang or a wrong answer under load and not at all otherwise.
+ */
+LIBXS_API_INLINE int libxs_barrier_bcast(libxs_barrier_t* barrier,
+  int tid, int root, int value)
+{
+  int result = value;
+  if (NULL != barrier && 1 < barrier->ntasks) {
+    /* the epoch does not move between two rendezvous, so every task of this one
+       picks the same slot without a further rendezvous to agree on it */
+    const int slot = (int)LIBXS_ATOMIC_LOAD(
+      &barrier->epoch, LIBXS_ATOMIC_SEQ_CST) & 1;
+    if (tid == root) {
+      LIBXS_ATOMIC_STORE(&barrier->value[slot], value, LIBXS_ATOMIC_SEQ_CST);
+    }
+    libxs_barrier_wait(barrier);
+    result = (int)LIBXS_ATOMIC_LOAD(
+      &barrier->value[slot], LIBXS_ATOMIC_SEQ_CST);
+  }
+  return result;
+}
+
 /** Utility function to receive the number of MPI-ranks. */
 LIBXS_API unsigned int libxs_nranks(void);
 

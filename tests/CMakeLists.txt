@@ -54,6 +54,7 @@ file(COPY
   "${CMAKE_CURRENT_SOURCE_DIR}/ozaki.sh"
   "${CMAKE_CURRENT_SOURCE_DIR}/predict.sh"
   "${CMAKE_CURRENT_SOURCE_DIR}/scratch.sh"
+  "${CMAKE_CURRENT_SOURCE_DIR}/sync.sh"
   "${CMAKE_CURRENT_SOURCE_DIR}/syrk.sh"
   "${CMAKE_CURRENT_SOURCE_DIR}/transpose.sh"
   "${CMAKE_CURRENT_SOURCE_DIR}/wrap.sh"
@@ -114,9 +115,9 @@ function(libxs_add_fortran_program target rel_dir output_name)
 endfunction()
 
 # C tests discovered by tests/test.sh.
-set(LIBXS_HEADER_ONLY_TESTS atomics hash headeronly matdiff memory)
+set(LIBXS_HEADER_ONLY_TESTS hash headeronly matdiff memory sync_atomics
+    sync_barrier)
 set(LIBXS_C_TESTS
-  atomics
   fprint
   gemm_dispatch
   hash
@@ -138,6 +139,8 @@ set(LIBXS_C_TESTS
   registry
   setdiff
   str
+  sync_atomics
+  sync_barrier
   timer
   token)
 
@@ -392,7 +395,6 @@ if(BLAS_FOUND AND NOT APPLE)
 endif()
 
 set(LIBXS_TEST_ENTRIES
-  atomics.c
   fprint.c
   gemm_dispatch.c
   hash.c
@@ -415,6 +417,8 @@ set(LIBXS_TEST_ENTRIES
   registry.c
   setdiff.c
   str.c
+  sync_atomics.c
+  sync_barrier.c
   timer.c
   token.c
   gemm.sh
@@ -423,6 +427,7 @@ set(LIBXS_TEST_ENTRIES
   ozaki.sh
   predict.sh
   scratch.sh
+  sync.sh
   syrk.sh
   transpose.sh
   wrap.sh)

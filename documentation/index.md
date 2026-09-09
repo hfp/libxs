@@ -20,7 +20,7 @@ of [LIBXSMM](https://github.com/libxsmm/libxsmm).
 | [Timer][dtmr]    | `libxs_timer.h`    | High-resolution timing via calibrated TSC  |
 | [CPUID][dcpu]    | `libxs_cpuid.h`    | CPU feature detection (SSE..AVX-512, etc.) |
 | [Utils][dutil]   | `libxs_utils.h`    | ISA gates, bit-scan, SIMD helpers          |
-| [Sync][dsync]    | `libxs_sync.h`     | Portable atomics, locks, TLS, file locks   |
+| [Sync][dsync]    | `libxs_sync.h`     | Atomics, locks, barrier, TLS, file locks  |
 | [GEMM][dgemm]    | `libxs_gemm.h`     | Batched dense GEMM (strided, grouped)      |
 | [Math][dmath]    | `libxs_math.h`     | Matrix compare, GCD/LCM, BF16 conversion   |
 | [Hash][dhash]    | `libxs_hash.h`     | CRC32, Adler-32, string hashing            |

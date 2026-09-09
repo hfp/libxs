@@ -84,7 +84,6 @@ nav:
   - SYRK: samples/libxs_syrk.md
   - Sync: samples/libxs_sync.md
 - Tests:
-  - Atomics: tests/atomics.md
   - Fprint: tests/fprint.md
   - Hash: tests/hash.md
   - Headeronly: tests/headeronly.md
@@ -98,6 +97,8 @@ nav:
   - Perm: tests/perm.md
   - Registry: tests/registry.md
   - Setdiff: tests/setdiff.md
+  - Sync Atomics: tests/sync_atomics.md
+  - Sync Barrier: tests/sync_barrier.md
   - Timer: tests/timer.md
 
 - More:

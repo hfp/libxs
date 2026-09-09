@@ -70,6 +70,23 @@ LIBXS_LOCK_RELREAD(KIND, LOCK)
 LIBXS_LOCK_TRYREAD(KIND, LOCK)
 ```
 
+## Barrier
+
+```C
+libxs_barrier_t barrier;
+libxs_barrier_init(&barrier, ntasks);
+libxs_barrier_wait(&barrier);
+value = libxs_barrier_bcast(&barrier, tid, root, value);
+```
+
+Rendezvous over a fixed number of tasks. The caller owns the storage and nothing is allocated inside, so the barrier can live in whatever structure already describes the team; `libxs_barrier_init` is called once, before any task waits, rather than by every task. A task is only a number here, so the team need not be a thread team.
+
+It is flat, one counter for the whole team, which suits a team that meets between stages of work rather than inside a tight loop. Every waiting task spins, so a team that over-subscribes the machine takes cycles away from the task it is waiting for.
+
+`libxs_barrier_bcast` waits and returns the value the `root` task carried into the call, which is how one task hands a decision to the rest. Writing that decision into a word of one's own and reading it after a plain `libxs_barrier_wait` is not equivalent and is not safe: nothing stops the publisher from writing the word again, and a reader still between the release and its own load then reads the newer value. The broadcast alternates between two slots by the parity of the rendezvous, so a late reader still finds what was published to it.
+
+Note that a lock is not a barrier and cannot stand in for one. A task holding a lock while waiting for tasks that need that lock to arrive does not proceed, so the two serve opposite purposes: a lock admits one task and needs to know nothing about the team, a barrier requires the whole team.
+
 ## File Locking
 
 ```C
