@@ -367,34 +367,27 @@ LIBXS_EXTERN_C struct libxs_predict_t {
    *  model it was sized for is no longer the model in front of it. */
   int nbuild;
   /**
-   * Rendezvous for a collective build: arrivals at the stage in progress, and
-   * the number of stages completed. The epoch is what a waiting task watches,
-   * rather than a flag it must reset, so the same pair serves every stage and
-   * every build without a thread carrying state between them.
+   * The rendezvous a collective build falls back on when the caller supplies
+   * none. It is PER MODEL and not per translation unit, because two teams
+   * building two models would otherwise arrive at one counter: with teams of the
+   * same size nothing detects it, and each team is released when the other is
+   * half way there. Per model that cannot happen, since a build already has the
+   * model to itself.
    *
-   * This replaces a single field that meant two things at once - whether the
-   * builder had finished, and whether the build was collective at all. The
-   * second is a property of the call and is now a parameter, which cannot go
-   * stale the way the field did after the call it described had returned.
+   * It needs no lock and no lazy initialization. The model is calloc'd, and a
+   * zeroed barrier is an initialized barrier in every field but the task count,
+   * so publishing the count is the whole of it - and every task publishes the
+   * same count before its own first wait, which makes the write idempotent
+   * rather than racing.
    */
-  volatile int sync_count, sync_epoch;
-  /* set by any task whose slice moved, so the tasks agree on convergence */
-  volatile int sync_moved;
-  /* the builder's verdict on a stage it ran alone, which a task cannot form */
-  volatile int sync_result;
+  libxs_barrier_t sync;
   /**
-   * The order the search settled on, published here rather than through
-   * sync_result BECAUSE ITS READER IS NOT DONE WHEN THE RENDEZVOUS RELEASES.
-   * Every other publication is read while the next writer is still behind an
-   * unconditional rendezvous, so one word can serve them all. This one is not:
-   * the builder leaves the rendezvous and recurses straight into build_impl,
-   * whose first stage writes the verdict word before any barrier a lagging
-   * reader would have to attend. That reader then took an order of zero, re-
-   * entered the search, and waited at a rendezvous the tasks that read in time
-   * had already left - a HANG, and only once the task count reached the core
-   * count, since below that no task was descheduled in the window.
+   * Set by any task whose slice moved, so the tasks agree on convergence. This
+   * is a reduction rather than a publication: every task may write it and every
+   * task reads it, which is why it stays a field of its own where the builder's
+   * verdicts became broadcasts through the barrier.
    */
-  volatile int sync_order;
+  volatile int sync_moved;
   /** Per-candidate scores of a collective trial, indexed by candidate. */
   double sync_score[8];
 };
@@ -436,49 +429,14 @@ static const double internal_libxs_predict_escape_rate[
 };
 
 
-/**
- * Wait until every task has arrived.
- *
- * Reading the epoch before arriving is what makes this safe to reuse: the last
- * arrival is the only one that advances it, and no task can advance past a
- * stage that another has not yet entered, so a task that reads the epoch late
- * still waits for the advance that follows its own arrival.
- *
- * A rendezvous sits outside the test its stage is guarded by, so the call is
- * reached whether or not the stage ran, and a caller that passed no model at
- * all reaches it too. Tolerating that here keeps every call site free of a
- * check that has nothing to do with the barrier.
- */
-LIBXS_API_INLINE void internal_libxs_predict_sync(
-  libxs_predict_t* model, int ntasks)
-{
-  if (1 < ntasks && NULL != model) {
-    const int epoch = (int)LIBXS_ATOMIC_LOAD(
-      &model->sync_epoch, LIBXS_ATOMIC_SEQ_CST);
-    if (ntasks == (int)LIBXS_ATOMIC_ADD_FETCH(
-      &model->sync_count, 1, LIBXS_ATOMIC_SEQ_CST))
-    {
-      LIBXS_ATOMIC_STORE(&model->sync_count, 0, LIBXS_ATOMIC_SEQ_CST);
-      LIBXS_ATOMIC_ADD_FETCH(&model->sync_epoch, 1, LIBXS_ATOMIC_SEQ_CST);
-    }
-    else {
-      while (epoch == (int)LIBXS_ATOMIC_LOAD(
-        &model->sync_epoch, LIBXS_ATOMIC_SEQ_CST))
-      {
-        LIBXS_SYNC_PAUSE;
-      }
-    }
-  }
-}
-
-
 LIBXS_API_INLINE int internal_libxs_predict_support_all(libxs_predict_t* model);
 LIBXS_API_INLINE void internal_libxs_predict_missing_all(libxs_predict_t* model);
 LIBXS_API_INLINE void internal_libxs_predict_central_all(libxs_predict_t* model);
 LIBXS_API_INLINE void internal_libxs_predict_keff_all(libxs_predict_t* model);
 LIBXS_API_INLINE void internal_libxs_predict_kapply(libxs_predict_t* model);
-LIBXS_API_INLINE int internal_libxs_predict_build_impl(libxs_predict_t* model,
-  int nclusters, int order, double quality, int tid, int ntasks);
+LIBXS_API_INLINE int internal_libxs_predict_build_impl(libxs_barrier_t* barrier,
+  libxs_predict_t* model, int nclusters, int order, double quality,
+  int tid, int ntasks);
 LIBXS_API_INLINE void internal_libxs_predict_bank_all(libxs_predict_t* model);
 
 
@@ -936,8 +894,8 @@ LIBXS_API_INLINE void internal_libxs_predict_centroids(
 
 
 /* assignment is split across tasks, moving the centroids is the builder's */
-LIBXS_API_INLINE void internal_libxs_predict_kmeans(libxs_predict_t* model,
-  int nclusters, int tid, int ntasks)
+LIBXS_API_INLINE void internal_libxs_predict_kmeans(libxs_barrier_t* barrier,
+  libxs_predict_t* model, int nclusters, int tid, int ntasks)
 {
   const int m = model->ninputs;
   const int p = model->nentries;
@@ -977,7 +935,7 @@ LIBXS_API_INLINE void internal_libxs_predict_kmeans(libxs_predict_t* model,
       free(model->norm_cen); model->norm_cen = NULL;
     }
   }
-  internal_libxs_predict_sync(model, ntasks);
+  libxs_barrier_wait(barrier);
   pts = model->norm_pts;
   centroids = model->norm_cen;
   if (NULL != pts && NULL != centroids) {
@@ -1025,7 +983,7 @@ LIBXS_API_INLINE void internal_libxs_predict_kmeans(libxs_predict_t* model,
           (size_t)m * sizeof(double));
       }
     } /* seeding is the builder's: it walks the centroids in order */
-    internal_libxs_predict_sync(model, ntasks);
+    libxs_barrier_wait(barrier);
     /* Lloyd iterations with Kahan-compensated centroid accumulation */
     { const int bounded = (0 == missing); /* an absent value has no drift */
       double* const ub = model->norm_bnd;
@@ -1058,7 +1016,7 @@ LIBXS_API_INLINE void internal_libxs_predict_kmeans(libxs_predict_t* model,
             sep[c] = (DBL_MAX != near) ? (0.5 * sqrt(near)) : 0.0;
           }
         }
-        internal_libxs_predict_sync(model, ntasks);
+        libxs_barrier_wait(barrier);
         for (i = tid; i < p; i += ntasks) {
           const int ai = model->assignments[i];
           int rescan = 1;
@@ -1100,7 +1058,7 @@ LIBXS_API_INLINE void internal_libxs_predict_kmeans(libxs_predict_t* model,
         if (0 != changed) {
           LIBXS_ATOMIC_STORE(&model->sync_moved, 1, LIBXS_ATOMIC_SEQ_CST);
         }
-        internal_libxs_predict_sync(model, ntasks);
+        libxs_barrier_wait(barrier);
         /* one verdict, read by every task after the same rendezvous */
         changed = (int)LIBXS_ATOMIC_LOAD(&model->sync_moved, LIBXS_ATOMIC_SEQ_CST);
         if (0 == changed) iter = maxiter;
@@ -1158,7 +1116,7 @@ LIBXS_API_INLINE void internal_libxs_predict_kmeans(libxs_predict_t* model,
               drift[nclusters] = maxd;
             }
           } /* moving the centroids is the builder's */
-          internal_libxs_predict_sync(model, ntasks);
+          libxs_barrier_wait(barrier);
         }
       }
     } /* end of the bounded assignment */
@@ -1175,7 +1133,7 @@ LIBXS_API_INLINE void internal_libxs_predict_kmeans(libxs_predict_t* model,
     model->norm_cen = NULL;
   }
   /* the partition is complete for every task, not just the one that closed it */
-  internal_libxs_predict_sync(model, ntasks);
+  libxs_barrier_wait(barrier);
 }
 
 
@@ -1428,15 +1386,6 @@ LIBXS_API_INLINE double internal_libxs_predict_coverage(
 
 
 /**
- * The local evidence a query draws on for one output: the k nearest neighbors
- * within the cluster, their output values and distances, plus whether the query
- * coincides with a stored point. Every scoring rule in this file reads this
- * same object - the kNN vote reduces it to a winner, a probability reads it at
- * an arbitrary value - so the scan lives here once rather than being repeated
- * per rule, where the tangent projection, per-output group filter and recency
- * weighting would have to be kept in step by hand.
- */
-/**
  * Squared distance restricted to a window view: the full distance less the
  * coordinates the view does not read. Subtracting the terms is what a zero
  * weight would have done, and it needs no second copy of the points.
@@ -1461,6 +1410,15 @@ LIBXS_API_INLINE double internal_libxs_predict_viewdist2(const double* a,
 }
 
 
+/**
+ * The local evidence a query draws on for one output: the k nearest neighbors
+ * within the cluster, their output values and distances, plus whether the query
+ * coincides with a stored point. Every scoring rule in this file reads this
+ * same object - the kNN vote reduces it to a winner, a probability reads it at
+ * an arbitrary value - so the scan lives here once rather than being repeated
+ * per rule, where the tangent projection, per-output group filter and recency
+ * weighting would have to be kept in step by hand.
+ */
 LIBXS_API_INLINE void internal_libxs_predict_evidence(
   const internal_libxs_predict_cluster_t* cl,
   int m, const double* inputs, int output_j, int nouts,
@@ -2382,57 +2340,57 @@ LIBXS_API_INLINE void internal_libxs_predict_pca_build(libxs_predict_t* model)
   double* evec = (double*)LIBXS_PREDICT_MALLOC(msz * sizeof(double), pool_evec);
   double* eval = (double*)LIBXS_PREDICT_MALLOC((size_t)m * sizeof(double), pool_eval);
   if (NULL != mean && NULL != cov && NULL != evec && NULL != eval) {
-  internal_libxs_predict_symeig(model->entries, NULL, p, m, mean, cov, evec, eval);
-  { int i, j, k;
-    free(model->decompose_mat);
-    model->decompose_mat = (double*)malloc(msz * sizeof(double));
-    if (NULL != model->decompose_mat) {
-      double total_var = 0, cum_var = 0;
-      int npc = m;
-      for (j = 0; j < m; ++j) total_var += (eval[j] > 0 ? eval[j] : 0);
-      for (j = 0; j < m; ++j) {
-        for (k = 0; k < m; ++k) {
-          model->decompose_mat[j * m + k] = evec[k * m + j];
+    internal_libxs_predict_symeig(model->entries, NULL, p, m, mean, cov, evec, eval);
+    { int i, j, k;
+      free(model->decompose_mat);
+      model->decompose_mat = (double*)malloc(msz * sizeof(double));
+      if (NULL != model->decompose_mat) {
+        double total_var = 0, cum_var = 0;
+        int npc = m;
+        for (j = 0; j < m; ++j) total_var += (eval[j] > 0 ? eval[j] : 0);
+        for (j = 0; j < m; ++j) {
+          for (k = 0; k < m; ++k) {
+            model->decompose_mat[j * m + k] = evec[k * m + j];
+          }
         }
-      }
-      for (j = 0; j < m; ++j) {
-        cum_var += (eval[j] > 0 ? eval[j] : 0);
-        if (cum_var >= 0.95 * total_var && npc == m) npc = j + 1;
-      }
-      if (npc < m && LIBXS_PREDICT_PCA == model->decompose) {
-        if (NULL == model->weights) {
-          model->weights = (double*)malloc((size_t)m * sizeof(double));
+        for (j = 0; j < m; ++j) {
+          cum_var += (eval[j] > 0 ? eval[j] : 0);
+          if (cum_var >= 0.95 * total_var && npc == m) npc = j + 1;
         }
-        if (NULL != model->weights) {
-          for (j = 0; j < m; ++j) model->weights[j] = (j < npc) ? 1.0 : 0.0;
+        if (npc < m && LIBXS_PREDICT_PCA == model->decompose) {
+          if (NULL == model->weights) {
+            model->weights = (double*)malloc((size_t)m * sizeof(double));
+          }
+          if (NULL != model->weights) {
+            for (j = 0; j < m; ++j) model->weights[j] = (j < npc) ? 1.0 : 0.0;
+          }
         }
-      }
-      { int xmat_pool = 0, ymat_pool = 0;
-        double* xmat = (double*)LIBXS_PREDICT_MALLOC(
-          (size_t)p * (size_t)m * sizeof(double), xmat_pool);
-        double* ymat = (double*)LIBXS_PREDICT_MALLOC(
-          (size_t)p * (size_t)m * sizeof(double), ymat_pool);
-        if (NULL != xmat && NULL != ymat) {
-          { const double alpha = 1.0, beta = 0.0;
-            const libxs_gemm_config_t *const gemm = libxs_gemm_dispatch(
-              LIBXS_DATATYPE_F64, 'N', 'N', m, p, m, m, m, m,
-              &alpha, &beta, NULL);
+        { int xmat_pool = 0, ymat_pool = 0;
+          double* xmat = (double*)LIBXS_PREDICT_MALLOC(
+            (size_t)p * (size_t)m * sizeof(double), xmat_pool);
+          double* ymat = (double*)LIBXS_PREDICT_MALLOC(
+            (size_t)p * (size_t)m * sizeof(double), ymat_pool);
+          if (NULL != xmat && NULL != ymat) {
+            { const double alpha = 1.0, beta = 0.0;
+              const libxs_gemm_config_t *const gemm = libxs_gemm_dispatch(
+                LIBXS_DATATYPE_F64, 'N', 'N', m, p, m, m, m, m,
+                &alpha, &beta, NULL);
+              for (i = 0; i < p; ++i) {
+                memcpy(xmat + (size_t)i * m, model->entries[i].inputs,
+                  (size_t)m * sizeof(double));
+              }
+              libxs_gemm_call(gemm, model->decompose_mat, xmat, ymat);
+            }
             for (i = 0; i < p; ++i) {
-              memcpy(xmat + (size_t)i * m, model->entries[i].inputs,
+              memcpy(model->entries[i].inputs, ymat + (size_t)i * m,
                 (size_t)m * sizeof(double));
             }
-            libxs_gemm_call(gemm, model->decompose_mat, xmat, ymat);
           }
-          for (i = 0; i < p; ++i) {
-            memcpy(model->entries[i].inputs, ymat + (size_t)i * m,
-              (size_t)m * sizeof(double));
-          }
+          LIBXS_PREDICT_FREE(ymat, ymat_pool);
+          LIBXS_PREDICT_FREE(xmat, xmat_pool);
         }
-        LIBXS_PREDICT_FREE(ymat, ymat_pool);
-        LIBXS_PREDICT_FREE(xmat, xmat_pool);
       }
     }
-  }
   }
   LIBXS_PREDICT_FREE(mean, pool_mean);
   LIBXS_PREDICT_FREE(cov, pool_cov);
@@ -3408,7 +3366,10 @@ LIBXS_API_INLINE double internal_libxs_predict_order_fn(
     (const internal_libxs_predict_order_ctx_t*)data;
   const int ord = LIBXS_MAX(LIBXS_ROUNDX(int, x), 1);
   double total_err = 1e30;
-  if (EXIT_SUCCESS == internal_libxs_predict_build_impl(ctx->model,
+  /* NULL barrier: a candidate is built by the searching task alone (ntasks is
+     one), so there is no rendezvous to hold and none of the outer build's to
+     interfere with - which is what a barrier per call buys over one per model */
+  if (EXIT_SUCCESS == internal_libxs_predict_build_impl(NULL, ctx->model,
     ctx->nclusters, ord, 0, ctx->tid, ctx->ntasks))
   {
     const int p = ctx->model->nentries;
@@ -3436,13 +3397,19 @@ LIBXS_API_INLINE double internal_libxs_predict_order_fn(
 
 
 /**
- * collective: non-zero when the caller entered through libxs_predict_build_task
- * and the forest is therefore built by the tasks afterwards rather than here.
- * It travels with the call, including into the order search's rebuilds, so no
- * part of the build has to consult state left behind by an earlier one.
+ * barrier: the rendezvous every stage of this call ends at, and NULL where the
+ * call is a single task's. It travels WITH the call rather than living on the
+ * model, which is what lets the order search's candidate builds be their own
+ * builds: each is one task, takes no barrier, and therefore cannot arrive at a
+ * rendezvous the outer build's tasks are waiting at. A barrier on the model
+ * could not express that, and the collision it allowed was a hang.
+ *
+ * ntasks is still separate from the barrier's own count, because it also divides
+ * the work of a stage; libxs_predict_build_task refuses a pair that disagrees.
  */
-LIBXS_API_INLINE int internal_libxs_predict_build_impl(libxs_predict_t* model,
-  int nclusters, int order, double quality, int tid, int ntasks)
+LIBXS_API_INLINE int internal_libxs_predict_build_impl(libxs_barrier_t* barrier,
+  libxs_predict_t* model, int nclusters, int order, double quality,
+  int tid, int ntasks)
 {
   int result = EXIT_SUCCESS;
   /**
@@ -3457,8 +3424,8 @@ LIBXS_API_INLINE int internal_libxs_predict_build_impl(libxs_predict_t* model,
   if (NULL != model && 0 < model->nentries && NULL == model->entries
     && 0 >= model->nts)
   {
+    /* every task evaluates this for itself, so there is nothing to hand over */
     result = EXIT_FAILURE;
-    model->sync_result = result;
   }
   if (EXIT_SUCCESS == result && NULL != model) {
     const char* tenv = getenv("LIBXS_PREDICT_TANGENT");
@@ -3525,12 +3492,10 @@ LIBXS_API_INLINE int internal_libxs_predict_build_impl(libxs_predict_t* model,
         internal_libxs_predict_fisher_build(model);
       }
     }
-    if (NULL != model) model->sync_result = result;
   } /* end of the builder's preparation of the corpus */
-  if (NULL != model) {
-    internal_libxs_predict_sync(model, ntasks);
-    result = (int)model->sync_result;
-  }
+  /* the builder's verdict on a stage no task could form for itself, handed over
+     as the rendezvous releases */
+  result = libxs_barrier_bcast(barrier, tid, 0, result);
   if (EXIT_SUCCESS == result && NULL != model && 0 < model->nentries
     && LIBXS_PREDICT_HKNN == model->decompose
     && NULL == model->hknn_assignments)
@@ -3552,7 +3517,7 @@ LIBXS_API_INLINE int internal_libxs_predict_build_impl(libxs_predict_t* model,
    * Outside the test, not inside: the test reads what the stage itself fills,
    * so a task arriving late skips the stage and never reaches the rendezvous.
    */
-  internal_libxs_predict_sync(model, ntasks);
+  libxs_barrier_wait(barrier);
   if (EXIT_SUCCESS == result && NULL != model && 0 < model->nentries
     && LIBXS_PREDICT_RF == model->decompose && NULL == model->rf)
   {
@@ -3568,7 +3533,7 @@ LIBXS_API_INLINE int internal_libxs_predict_build_impl(libxs_predict_t* model,
     }
   }
   /* as above: the test reads model->rf, which the stage itself sets */
-  internal_libxs_predict_sync(model, ntasks);
+  libxs_barrier_wait(barrier);
   if (EXIT_SUCCESS != result || NULL == model || 0 >= model->nentries) {
     result = EXIT_FAILURE;
   }
@@ -3577,36 +3542,41 @@ LIBXS_API_INLINE int internal_libxs_predict_build_impl(libxs_predict_t* model,
     const int max_ord = (order < 0) ? -order : LIBXS_FPRINT_MAXORDER;
     int best_ord = 1, ord;
     double best_err = 1e30;
-    /* the search is the builder's; the order it settles on is published */
+    /* the search is the builder's; the order it settles on is broadcast */
     ctx.model = model;
     ctx.nclusters = nclusters;
     ctx.tid = 0;
     ctx.ntasks = 1;
-    if (0 != tid) {
-      internal_libxs_predict_sync(model, ntasks);
-      best_ord = (int)model->sync_order;
-      /** A non-positive order re-enters this branch, so a value that did not
-       *  arrive would recurse rather than answer wrongly. The slot above makes
-       *  that unreachable; this keeps the failure a wrong order and not a hang. */
-      if (1 > best_ord) best_ord = 1;
-    }
-    else {
-    ord = 1;
-    best_err = internal_libxs_predict_order_fn((double)ord, &ctx);
-    /* order 1 first: where nothing interpolates the rest score identically */
-    if (0 != internal_libxs_predict_interpolates(model)) {
-      for (ord = 2; ord <= max_ord; ++ord) {
-        const double err = internal_libxs_predict_order_fn((double)ord, &ctx);
-        if (err < best_err) { best_err = err; best_ord = ord; }
+    if (0 == tid) {
+      ord = 1;
+      best_err = internal_libxs_predict_order_fn((double)ord, &ctx);
+      /* order 1 first: where nothing interpolates the rest score identically */
+      if (0 != internal_libxs_predict_interpolates(model)) {
+        for (ord = 2; ord <= max_ord; ++ord) {
+          const double err = internal_libxs_predict_order_fn((double)ord, &ctx);
+          if (err < best_err) { best_err = err; best_ord = ord; }
+        }
+        ord = max_ord;
       }
-      ord = max_ord;
+      model->iterations = ord;
     }
-    model->iterations = ord;
-    model->sync_order = best_ord;
-    internal_libxs_predict_sync(model, ntasks);
-    }
-    result = internal_libxs_predict_build_impl(model, nclusters, best_ord,
-      quality, tid, ntasks);
+    /**
+     * Handed to the team by the rendezvous itself rather than through a word of
+     * the model's, which is what this cost before: the builder left the
+     * rendezvous and recursed straight into build_impl, whose first stage wrote
+     * that word before any barrier a task still short of its own read would have
+     * to attend. Such a task took an order of zero, re-entered this branch, and
+     * waited where the tasks that read in time had already left. The broadcast
+     * alternates its slot, so the publication a task was released on is still
+     * the one it reads.
+     */
+    best_ord = libxs_barrier_bcast(barrier, tid, 0, best_ord);
+    /** A non-positive order re-enters this branch, so an order that did not
+     *  arrive would recurse rather than answer wrongly. The broadcast makes that
+     *  unreachable; this keeps the failure a wrong order and not a hang. */
+    if (1 > best_ord) best_ord = 1;
+    result = internal_libxs_predict_build_impl(barrier, model, nclusters,
+      best_ord, quality, tid, ntasks);
   }
   else if (LIBXS_PREDICT_RF == model->decompose
     && 0 != model->decompose_fixed)
@@ -3651,10 +3621,8 @@ LIBXS_API_INLINE int internal_libxs_predict_build_impl(libxs_predict_t* model,
         model->built = 1;
         ++model->nbuild;
       }
-      model->sync_result = result;
     }
-    internal_libxs_predict_sync(model, ntasks);
-    result = (int)model->sync_result;
+    result = libxs_barrier_bcast(barrier, tid, 0, result);
   }
   else {
     const int p = model->nentries;
@@ -3718,28 +3686,26 @@ LIBXS_API_INLINE int internal_libxs_predict_build_impl(libxs_predict_t* model,
           if (NULL == model->clusters[c].centroid) result = EXIT_FAILURE;
         }
       }
-      model->sync_result = result;
     } /* end of the builder's layout */
-    internal_libxs_predict_sync(model, ntasks);
-    result = (int)model->sync_result;
+    result = libxs_barrier_bcast(barrier, tid, 0, result);
     if (EXIT_SUCCESS == result) {
       /* the count the builder settled on, which the local one need not match */
       const int pnc = model->nclusters;
       if (LIBXS_PREDICT_HKNN == model->decompose) {
         if (0 == tid) internal_libxs_predict_centroids(model, pnc);
-        internal_libxs_predict_sync(model, ntasks);
-        internal_libxs_predict_hknn_refine(model, pnc, tid, ntasks);
+        libxs_barrier_wait(barrier);
+        internal_libxs_predict_hknn_refine(barrier, model, pnc, tid, ntasks);
       }
       else if (LIBXS_PREDICT_RF == model->decompose) {
         /* the tree assigned above; what remains is where the clusters sit */
         if (0 == tid) internal_libxs_predict_centroids(model, pnc);
-        internal_libxs_predict_sync(model, ntasks);
+        libxs_barrier_wait(barrier);
       }
       else {
-        internal_libxs_predict_kmeans(model, pnc, tid, ntasks);
+        internal_libxs_predict_kmeans(barrier, model, pnc, tid, ntasks);
       }
     }
-    internal_libxs_predict_sync(model, ntasks);
+    libxs_barrier_wait(barrier);
     if (0 == tid && EXIT_SUCCESS == result) {
       for (i = 0; i < p; ++i) {
         ++model->clusters[model->assignments[i]].nentries;
@@ -3912,7 +3878,8 @@ LIBXS_API_INLINE int internal_libxs_predict_build_impl(libxs_predict_t* model,
           internal_libxs_predict_cluster_refit(cl, n, 1);
         }
         if (EXIT_SUCCESS == result && nc > 2 && NULL != cl->out_rms
-          && model->quantile > 0) {
+          && model->quantile > 0)
+        {
           for (j = 0; j < n; ++j) {
             double sse = 0;
             for (k = 0; k < nc; ++k) {
@@ -4013,57 +3980,76 @@ LIBXS_API_INLINE int internal_libxs_predict_build_impl(libxs_predict_t* model,
 LIBXS_API int libxs_predict_build(libxs_predict_t* model,
   int nclusters, int order, double quality)
 {
-  return internal_libxs_predict_build_impl(model, nclusters, order, quality, 0, 1);
+  /* one task, so no rendezvous is needed and none is required of the caller */
+  return internal_libxs_predict_build_impl(NULL, model, nclusters, order,
+    quality, 0, 1);
 }
 
 
-LIBXS_API int libxs_predict_build_task(libxs_lock_t* lock,
-  libxs_predict_t* model, int nclusters, int order,
-  double quality, int tid, int ntasks)
+LIBXS_API int libxs_predict_build_task(libxs_predict_t* model,
+  int nclusters, int order, double quality, int tid, int ntasks)
 {
+  /**
+   * The rendezvous is the model's, and a team needs nothing from the caller to
+   * use it: the count is the only field a zeroed barrier lacks, and every task
+   * writes the same count before its own first wait, which makes that write
+   * idempotent rather than racing. A single task rendezvouses with no one and
+   * takes none, so nothing is written at all.
+   *
+   * Per model and not per translation unit, because two teams building two
+   * models would otherwise arrive at one counter, and with teams of the same
+   * size nothing would detect it: each would be released when the other was half
+   * way there. Per model that cannot happen, a build already having the model to
+   * itself.
+   */
+  libxs_barrier_t* team = NULL;
   int result = EXIT_SUCCESS;
   LIBXS_ASSERT(NULL != model);
+  if (1 < ntasks) {
+    LIBXS_ATOMIC_STORE(&model->sync.ntasks, ntasks, LIBXS_ATOMIC_SEQ_CST);
+    team = &model->sync;
+  }
   /**
    * The build is a sequence of collective stages rather than one serial block
-   * with a parallel tail. A stage is either the builder's alone or split
-   * across the tasks, and every stage ends at the same rendezvous, so adding
-   * one costs a barrier rather than another meaning for a shared word.
+   * with a parallel tail. A stage is either the builder's alone or split across
+   * the tasks, and every stage ends at the same rendezvous, so adding one costs a
+   * barrier rather than another meaning for a shared word.
    */
-  if (0 == tid) { /* the corpus has to exist before a candidate can be scored */
+  if (0 == tid) { /* the corpus exists before a candidate can be scored */
     if (0 < model->nts && 0 == model->nentries) {
       internal_libxs_predict_ts_expand(model);
     }
     if (0 < model->nentries) internal_libxs_predict_missing_all(model);
   }
-  internal_libxs_predict_sync(model, ntasks);
+  libxs_barrier_wait(team);
   if (0 > model->decompose && 0 < model->nentries) {
     const char* fenv = getenv("LIBXS_PREDICT_DECOMPOSE_FOLDS");
     internal_libxs_predict_decompose_score(model,
       (NULL != fenv) ? atoi(fenv) : 0, tid, ntasks, model->sync_score);
-    internal_libxs_predict_sync(model, ntasks);
+    libxs_barrier_wait(team);
     if (0 == tid) {
       model->decompose =
         internal_libxs_predict_decompose_reduce(model, model->sync_score);
     }
-    internal_libxs_predict_sync(model, ntasks);
+    libxs_barrier_wait(team);
   }
   /* every task enters: the partition inside is split across them */
-  result = internal_libxs_predict_build_impl(model, nclusters, order,
+  result = internal_libxs_predict_build_impl(team, model, nclusters, order,
     quality, tid, ntasks);
-  internal_libxs_predict_sync(model, ntasks);
+  libxs_barrier_wait(team);
   if (0 != tid) result = (0 != model->built) ? EXIT_SUCCESS : EXIT_FAILURE;
   if (EXIT_SUCCESS == result && NULL != model->rf) {
     internal_libxs_predict_rf_bins_tasks(model, tid, ntasks);
     /* every task reads every row of the bins, so the fill is a stage of its own
        rather than something a task does to the rows it happens to need */
-    internal_libxs_predict_sync(model, ntasks);
+    libxs_barrier_wait(team);
     internal_libxs_predict_rf_build_tasks(model, tid, ntasks);
     /**
      * The stages are sequential by construction - each fits what the previous
      * one left - so this is the builder's alone, and it needs every tree to
      * exist before the first residual can be taken.
      */
-    internal_libxs_predict_sync(model, ntasks);
+    libxs_barrier_wait(team);
     if (0 == tid) {
       internal_libxs_predict_rf_bins_free(model);
       internal_libxs_predict_rf_boost(model);
@@ -4071,9 +4057,8 @@ LIBXS_API int libxs_predict_build_task(libxs_lock_t* lock,
          says what the answer the forest actually gives is worth */
       internal_libxs_predict_rf_calibrate(model);
     }
-    internal_libxs_predict_sync(model, ntasks);
+    libxs_barrier_wait(team);
   }
-  LIBXS_UNUSED(lock);
   return result;
 }
 
@@ -4172,7 +4157,8 @@ LIBXS_API_INLINE void internal_libxs_predict_eval_ex(libxs_lock_t* lock,
       }
     }
     if (LIBXS_PREDICT_RAW != model->decompose
-      && (model->nseries >= 2 || NULL != model->decompose_mat)) {
+      && (model->nseries >= 2 || NULL != model->decompose_mat))
+    {
       decomp_inputs = (double*)LIBXS_PREDICT_MALLOC((size_t)m * sizeof(double), decomp_pool);
       internal_libxs_predict_decompose_apply(model, inputs, decomp_inputs);
       inputs = decomp_inputs;
@@ -4216,8 +4202,7 @@ LIBXS_API_INLINE void internal_libxs_predict_eval_ex(libxs_lock_t* lock,
      * up most of the bank's gain (sunspots, six months ahead: 21.2 against
      * 20.2). internal_libxs_predict_viewdist2 removes the older lags from the
      * distance exactly as the neighbor scan does.
-     */
-    /**
+     *
      * The forest below discards the cluster this chooses, and choosing it costs
      * one distance per cluster against a traversal of ntrees nodes: at a corpus
      * where nclusters is in the thousands it is the larger half of an evaluation
@@ -4483,8 +4468,9 @@ LIBXS_API_INLINE void internal_libxs_predict_eval_ex(libxs_lock_t* lock,
             double blend_val = 0, blend_conf = 0, blend_var = 0, blend_err = 0;
             double blend_lo = 0, blend_hi = 0, wsum = 0;
             int blend_rel = 0;
-            if (conf[j] >= conf_thr && (0.0 >= model->smooth
-              || 0 != use_classify)) continue;
+            if (conf[j] >= conf_thr && (0.0 >= model->smooth || 0 != use_classify)) {
+              continue;
+            }
             for (b = 0; b < nblend; ++b) {
               const int ci = dists[b].idx;
               const internal_libxs_predict_cluster_t* cl2 = &model->clusters[ci];
@@ -4952,7 +4938,8 @@ LIBXS_API void libxs_predict_inverse(libxs_lock_t* lock,
       }
     }
     if (LIBXS_PREDICT_RAW != model->decompose
-      && (model->nseries >= 2 || NULL != model->decompose_mat)) {
+      && (model->nseries >= 2 || NULL != model->decompose_mat))
+    {
       int inv_pool = 0;
       double* raw = (double*)LIBXS_PREDICT_MALLOC((size_t)m * sizeof(double), inv_pool);
       internal_libxs_predict_decompose_inverse(model, model->entries[best_i].inputs, raw);
@@ -5365,12 +5352,6 @@ LIBXS_API_INLINE int internal_libxs_predict_point(
 
 
 /**
- * Score the observed value under every expert and advance the bank. Kept apart
- * from the distribution so the reported probability is fully committed before
- * any weight moves: the update is causal, and a caller that scores the same
- * query twice must get the same answer the first time.
- */
-/**
  * The bank update given the local evidence AT THE TRUTH only. The dense form
  * below reads local[truth] and nothing else, so this is the same update with the
  * array replaced by the one value it uses - which is what lets the sparse
@@ -5406,6 +5387,12 @@ LIBXS_API_INLINE void internal_libxs_predict_dist_learn_at(
 }
 
 
+/**
+ * Score the observed value under every expert and advance the bank. Kept apart
+ * from the distribution so the reported probability is fully committed before
+ * any weight moves: the update is causal, and a caller that scores the same
+ * query twice must get the same answer the first time.
+ */
 LIBXS_API_INLINE void internal_libxs_predict_dist_learn(
   const libxs_predict_t* model, double* weight, int j, const double* local,
   int truth, int vocabulary)
@@ -5509,14 +5496,6 @@ LIBXS_API_INLINE void internal_libxs_predict_bank_all(libxs_predict_t* model)
 }
 
 
-/**
- * Decide per output whether the vote reports the mean or the median, by
- * scoring both against the entries the model was built from. Each entry is
- * predicted with itself excluded (skip_local), so the comparison is not the
- * fit but the error the aggregation would have made on data it did not see.
- * Absolute error is the criterion because that is what the median optimizes;
- * a tie keeps the mean, which is the historical behavior.
- */
 /** The two formulas the single k_eff chose between, now applied per output. */
 LIBXS_API_INLINE int internal_libxs_predict_keff_mode(int nc, int classify)
 {
@@ -5582,6 +5561,14 @@ LIBXS_API_INLINE void internal_libxs_predict_kapply(libxs_predict_t* model)
 }
 
 
+/**
+ * Decide per output whether the vote reports the mean or the median, by
+ * scoring both against the entries the model was built from. Each entry is
+ * predicted with itself excluded (skip_local), so the comparison is not the
+ * fit but the error the aggregation would have made on data it did not see.
+ * Absolute error is the criterion because that is what the median optimizes;
+ * a tie keeps the mean, which is the historical behavior.
+ */
 LIBXS_API_INLINE void internal_libxs_predict_central_all(libxs_predict_t* model)
 {
   const int n = model->noutputs;

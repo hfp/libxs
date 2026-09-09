@@ -135,7 +135,10 @@ LIBXS_API_INLINE int internal_libxs_predict_hknn_split(
         for (i = 0; i < count; ++i) {
           for (oi = oi_lo; oi < oi_hi; ++oi) {
             if (NULL != state->output_groups
-              && state->output_groups[oi] != state->target_group) continue;
+              && state->output_groups[oi] != state->target_group)
+            {
+              continue;
+            }
             { const double v = model->entries[pairs[i].idx].outputs[oi];
               sum_all[oi] += v;
               sum2_all[oi] += v * v;
@@ -148,7 +151,10 @@ LIBXS_API_INLINE int internal_libxs_predict_hknn_split(
           const int nleft = i + 1, nright = count - nleft;
           for (oi = oi_lo; oi < oi_hi; ++oi) {
             if (NULL != state->output_groups
-              && state->output_groups[oi] != state->target_group) continue;
+              && state->output_groups[oi] != state->target_group)
+            {
+              continue;
+            }
             { const double v = model->entries[pairs[i].idx].outputs[oi];
               sum_left[oi] += v;
               sum2_left[oi] += v * v;
@@ -162,7 +168,10 @@ LIBXS_API_INLINE int internal_libxs_predict_hknn_split(
               1.0 + 4.0 * LIBXS_FABS((double)nleft / count - 0.5);
             for (oi = oi_lo; oi < oi_hi; ++oi) {
               if (NULL != state->output_groups
-                && state->output_groups[oi] != state->target_group) continue;
+                && state->output_groups[oi] != state->target_group)
+              {
+                continue;
+              }
               { const double ml = sum_left[oi] / nleft;
                 const double mr = (sum_all[oi] - sum_left[oi]) / nright;
                 const double vl = sum2_left[oi] / nleft - ml * ml;
@@ -374,7 +383,7 @@ LIBXS_API_INLINE void internal_libxs_predict_hknn_partition(
 
 /* tid/ntasks as internal_libxs_predict_kmeans: the assignment step is split
    across the tasks, moving the centroids is the builder's */
-LIBXS_API_INLINE void internal_libxs_predict_hknn_refine(
+LIBXS_API_INLINE void internal_libxs_predict_hknn_refine(libxs_barrier_t* barrier,
   libxs_predict_t* model, int nclusters, int tid, int ntasks)
 {
   const int p = model->nentries;
@@ -395,7 +404,7 @@ LIBXS_API_INLINE void internal_libxs_predict_hknn_refine(
     model->sync_moved = 0;
     if (NULL == counts) { free(model->norm_cen); model->norm_cen = NULL; }
   }
-  internal_libxs_predict_sync(model, ntasks);
+  libxs_barrier_wait(barrier);
   /**
    * The builder's scratch also tells every task whether the step can run:
    * the condition has to be shared, or the tasks part company at a barrier
@@ -408,7 +417,7 @@ LIBXS_API_INLINE void internal_libxs_predict_hknn_refine(
       int changed = 0;
       /* no bounds here: this starts near converged, too few passes to amortize */
       if (0 == tid) model->sync_moved = 0;
-      internal_libxs_predict_sync(model, ntasks);
+      libxs_barrier_wait(barrier);
       for (i = tid; i < p; i += ntasks) {
         double best = libxs_dist2(
           pts + (size_t)i * m, model->clusters[0].centroid, m);
@@ -426,7 +435,7 @@ LIBXS_API_INLINE void internal_libxs_predict_hknn_refine(
       if (0 != changed) {
         LIBXS_ATOMIC_STORE(&model->sync_moved, 1, LIBXS_ATOMIC_SEQ_CST);
       }
-      internal_libxs_predict_sync(model, ntasks);
+      libxs_barrier_wait(barrier);
       changed = (int)LIBXS_ATOMIC_LOAD(&model->sync_moved, LIBXS_ATOMIC_SEQ_CST);
       if (0 == changed) iter = max_iter;
       else {
@@ -453,7 +462,7 @@ LIBXS_API_INLINE void internal_libxs_predict_hknn_refine(
             }
           }
         } /* moving the centroids is the builder's */
-        internal_libxs_predict_sync(model, ntasks);
+        libxs_barrier_wait(barrier);
       }
     }
   }
@@ -463,7 +472,7 @@ LIBXS_API_INLINE void internal_libxs_predict_hknn_refine(
     model->norm_cen = NULL;
   }
   /* the partition is complete for every task, not just the one that closed it */
-  internal_libxs_predict_sync(model, ntasks);
+  libxs_barrier_wait(barrier);
 }
 
 

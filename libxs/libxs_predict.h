@@ -686,16 +686,26 @@ LIBXS_API int libxs_predict_build(libxs_predict_t* model,
  * wait. Some stages are the builder's alone (tid 0) and some are divided across
  * the tasks; which is which is not part of the contract.
  *
- * PASS NULL FOR THE LOCK. It is not honoured, and a collective call cannot
- * honour one: whichever task held it would hold it while waiting at a rendezvous
- * for tasks that need it to enter. Nor would it buy anything - a model is not
- * evaluable part-built, so a build is a phase the caller keeps to itself rather
- * than an operation that interleaves. The parameter is retained only so the
- * signature does not change under existing callers.
+ * The rendezvous belongs to the model and takes no argument. It used to take a
+ * lock, which a collective call cannot honour: whichever task held it would hold
+ * it while waiting for tasks that need it to enter. Nor would a lock buy
+ * anything, a model not being evaluable part-built - a build is a phase the
+ * caller keeps to itself rather than an operation that interleaves with others.
+ *
+ * A barrier of the caller's was the obvious replacement and is not needed either.
+ * It would have to be initialized before the team enters, since a task arriving
+ * early cannot wait on a barrier another task is still initializing - but the
+ * model's own needs no initializing: the count is the only field a zeroed barrier
+ * lacks, and every task writes the same count before its own first wait. So the
+ * caller would pass what the model already has, which is how the lock came to be
+ * dead in the first place.
+ *
+ * Two models may therefore be built by two teams at the same time, each on its
+ * own rendezvous. The same model may not: a build is not concurrent with itself,
+ * with or without a barrier to say so.
  */
-LIBXS_API int libxs_predict_build_task(libxs_lock_t* lock,
-  libxs_predict_t* model, int nclusters, int order,
-  double quality, int tid, int ntasks);
+LIBXS_API int libxs_predict_build_task(libxs_predict_t* model,
+  int nclusters, int order, double quality, int tid, int ntasks);
 
 /**
  * Predict output parameters for a given input.

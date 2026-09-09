@@ -187,7 +187,7 @@ int main(int argc, char* argv[])
           tick = libxs_timer_tick();
 #if defined(_OPENMP)
 #         pragma omp parallel
-          { const int br = libxs_predict_build_task(NULL, model, nclusters, order,
+          { const int br = libxs_predict_build_task(model, nclusters, order,
               quality, omp_get_thread_num(), omp_get_num_threads());
             if (0 == omp_get_thread_num()) build_ok = br;
           }

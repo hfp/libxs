@@ -331,13 +331,30 @@ confidence scaling:
   The quality is persisted in save/load.
 
 ```C
-int libxs_predict_build_task(libxs_lock_t* lock,
-  libxs_predict_t* model, int nclusters, int order,
-  double quality, int tid, int ntasks);
+int libxs_predict_build_task(libxs_predict_t* model,
+  int nclusters, int order, double quality, int tid, int ntasks);
 ```
 
-Per-thread collective form. All threads call with same
-parameters. tid=0 performs the build, others spin-wait.
+Per-thread collective form. All threads call with the same parameters and all of
+them must be inside the call at once: the build is a sequence of stages separated
+by a rendezvous, some the builder's alone and some divided across the tasks, so a
+task that does not enter stops the build.
+
+The rendezvous belongs to the model (`libxs_barrier_t`) and takes no argument. It
+used to take a lock, which a collective call cannot honour: whichever task held it
+would hold it while waiting for tasks that need it to enter. A lock would buy
+nothing either, a model not being evaluable part-built — a build is a phase the
+caller keeps to itself rather than an operation that interleaves.
+
+A barrier of the caller's was the obvious replacement and is not needed: it would
+have to be initialized before the team enters, since a task arriving early cannot
+wait on a barrier another task is still initializing, but the model's own needs no
+initializing — the task count is the only field a zeroed barrier lacks, and every
+task writes the same count before its own first wait. The caller would be passing
+what the model already has, which is how the lock came to be dead.
+
+Two models may therefore be built by two teams at once, each on its own
+rendezvous. The same model may not: a build is not concurrent with itself.
 
 ## Evaluation
 
