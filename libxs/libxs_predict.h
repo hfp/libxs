@@ -69,8 +69,9 @@ LIBXS_EXTERN_C typedef struct libxs_predict_info_t {
    * fraction of a workload needs, and its scale is its own: for a forest it is
    * the share of the trees that agreed, so it moves with how many trees there
    * are and how finely they were grown. Reading it as "nine in ten of these are
-   * right" is what it does not support - on HIGGS a gate of 0.9 admitted 43% of
-   * the queries and returned 86.6%.
+   * right" is what it does not support: a gate of 0.9 keeps a share of the
+   * queries that has nothing to do with 0.9, and returns a rate it never
+   * promised.
    *
    * LIBXS_PREDICT_RF_CALIB_ROWS asks a forest to measure what its shares are
    * worth on rows withheld from it, and the confidence is then a probability

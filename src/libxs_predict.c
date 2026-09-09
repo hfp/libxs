@@ -211,8 +211,8 @@ typedef struct internal_libxs_predict_rf_t {
    * The edges are quantiles of the input rather than an equal division of its
    * range, so that a bin holds a comparable number of rows whatever the shape of
    * the input. Measured, the two placements answer alike (0.2 of a point apart on
-   * the crystal corpus, which is noise); quantiles are kept because bounding the
-   * occupancy of a bin is what the candidate thresholds are chosen from.
+   * alike; quantiles are kept because bounding the occupancy of a bin is what
+   * the candidate thresholds are chosen from.
    */
   unsigned char* bins;
   double* bin_edge;
@@ -948,7 +948,7 @@ LIBXS_API_INLINE void internal_libxs_predict_kmeans(libxs_barrier_t* barrier,
       /**
        * Seeding by farthest point walks the corpus once per centroid, which at
        * sqrt(nentries) clusters is a nentries^1.5 term. Seeding cheaply instead
-       * is not the saving it looks like: on 800k entries it measured 52% slower
+       * is not the saving it looks like: it measured slower
        * to build and twice as slow to evaluate, because the balance the walk
        * produces is what keeps the per-cluster assembly and the neighbour scan
        * cheap. A mode that does not read the partition takes the median tree,
@@ -4580,8 +4580,8 @@ LIBXS_API_INLINE void internal_libxs_predict_eval_ex(libxs_lock_t* lock,
        * answer with a cluster's on a comparison between a vote over ntrees and
        * a vote over k neighbours. The second reaches 1.0 whenever the neighbors
        * agree, which a hundred trees over seven classes rarely does, so the
-       * substitution is close to unconditional: it cost the crystal corpus 2.7
-       * points (82.3% against 79.6%) and made the gated precision worse too.
+       * substitution is close to unconditional: it cost a classifying corpus
+       * accuracy, and made the gated precision worse too.
        * It also made a forest depend on the input coordinate, which it reads
        * none of, because the point inverted here is re-normalized to find it.
        */

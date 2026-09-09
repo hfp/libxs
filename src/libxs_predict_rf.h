@@ -20,18 +20,15 @@
  * small is seconds of the build, so there is nothing to buy, and an approximation
  * that buys nothing can still cost.
  *
- * It cost two points once. Binning EVERY node was measured before and withdrawn:
- * it was 3.6x on HIGGS at unchanged accuracy, and 5.6x on the crystal corpus at
- * 82.5% -> 80.3%. The cause was found then and is what the node crossover above
- * answers - the bins are global, so a DEEP node spanning three of them has three
- * candidate thresholds where the sorted search over its own rows had twenty-nine.
- * Edge placement was not the cause (quantile against equal-width moved 0.2, which
- * is noise) and neither was bin count (32 against 256 moved 0.7).
+ * Binning EVERY node was tried before and withdrawn for costing accuracy, and the
+ * node crossover above is what answers the cause: the bins are global, so a DEEP
+ * node spanning a few of them has a few candidate thresholds where the sorted
+ * search over its own rows had one per distinct value it holds. Neither edge
+ * placement nor bin count accounted for the loss.
  *
- * So this is the size regime the histogram is FOR rather than a measured crossover:
- * a build of a million rows was the complaint. Every corpus tuned before the bins
- * existed is under it and is split exactly at every node, which is what keeps them
- * answering as they did.
+ * So this is the size regime the histogram is FOR rather than a measured
+ * crossover. Every corpus tuned before the bins existed is under it and is split
+ * exactly at every node, which is what keeps them answering as they did.
  */
 #if !defined(LIBXS_PREDICT_RF_BINROWS)
 #  define LIBXS_PREDICT_RF_BINROWS 262144
@@ -533,20 +530,16 @@ LIBXS_API_INLINE int internal_libxs_predict_rf_build_tree(
 #endif
 /**
  * Nodes a tree may hold. This is a memory bound and nothing else: a task builds
- * one tree at a time into a scratch of this many nodes at 40 bytes each, so the
- * peak is ntasks * MAXNODES * 40 - 21 MB per task here, which is 8 GB across 384
- * of them and 168 MB across eight. It is fixed rather than derived from the
- * machine so that a corpus yields the same forest whatever the thread count.
+ * one tree at a time into a scratch of this many nodes, so the peak is one such
+ * scratch per task. It is fixed rather than derived from the machine, so that a
+ * corpus yields the same forest whatever the thread count.
  *
  * It used to be 32767 because a saved node index was a signed 16-bit number, and
- * it kept that value after the index was widened. That mattered more than a
- * stale constant usually does, because the budget is what sets leaf_floor
- * (2*nentries/MAXNODES): a fixed budget forces coarser trees as the corpus
- * grows, which is why accuracy stopped improving with data. On HIGGS at 4.4M
- * rows the leaf floor was 269 and the forest underfitted; at this value it is 17
- * and accuracy rises 73.14% to 74.40%, past XGBoost on the same split. Finer
- * still (floor 5) buys 0.22 more points for 3.3x the build, which is where the
- * returns stop being worth the memory.
+ * it kept that value after the index was widened. That mattered more than a stale
+ * constant usually does, because the budget is what sets leaf_floor
+ * (2*nentries/MAXNODES): a fixed budget forces coarser trees as the corpus grows,
+ * which is why accuracy stopped improving with data. A finer budget than this one
+ * still buys a little accuracy, and stops being worth the memory.
  *
  * The budget raises the leaf floor rather than truncating growth: growth is
  * depth-first, so hitting the ceiling leaves the first subtree grown and every
@@ -576,17 +569,16 @@ LIBXS_API_INLINE int internal_libxs_predict_rf_build_tree(
  * confident fraction of its queries needs, and it costs nothing.
  *
  * A caller reading the confidence as a PROBABILITY - gating at 0.9 and expecting
- * nine in ten to be right - needs the curve, and pays for it: the rows are
- * withheld from every tree, which measured 0.2 to 0.4 points of accuracy on the
- * crystal corpus and 0.17 on HIGGS at 800k rows. Set this to the number of rows
- * to measure on (65536 is ample; the curve wants hundreds per bin) either here
- * or in the environment under the same name.
+ * nine in ten to be right - needs the curve, and pays for it in accuracy: the
+ * rows it measures on are withheld from every tree. Set this to the number of
+ * rows to measure on (the curve wants hundreds per bin) either here or in the
+ * environment under the same name.
  *
  * What it buys is comparability and nothing else. The mapping is monotone, so it
  * reorders nothing: accuracy is unchanged and precision at matched coverage is
  * identical. What changes is that a threshold means the same thing across
- * corpora, across tree granularities, and against another library - where the
- * bare share admitted 43% of HIGGS queries at a gate of 0.9 and returned 86.6%.
+ * corpora, across tree granularities, and against another library, where the bare
+ * share promises a rate it does not keep.
  */
 #if !defined(LIBXS_PREDICT_RF_CALIB_ROWS)
 #  define LIBXS_PREDICT_RF_CALIB_ROWS 0
@@ -614,7 +606,7 @@ LIBXS_API_INLINE int internal_libxs_predict_rf_build_tree(
  * Moving the query off the row instead - far enough to leave the leaf that
  * memorized it - costs no rows and was measured to fail differently: accuracy
  * against the borrowed label FALLS as the trees agree more (0.930 at a share of
- * 0.7, 0.797 at 0.9 on the crystal corpus), because a query that has crossed a
+ * 0.7, and lower still at 0.9), because a query that has crossed a
  * boundary is confidently right about where it now is while the label still
  * belongs to the row it came from. The artifact sits exactly where a gate reads.
  */
@@ -921,8 +913,7 @@ LIBXS_API_INLINE void internal_libxs_predict_rf_build(libxs_predict_t* model)
        * Scoring is opt-in (a negative request), not the default, because it was
        * measured not to pay: on the shipped tuning corpus it moved exact match
        * over sixteen outputs by half a point and made the absolute error of the
-       * widest three outputs worse, while costing the crystal corpus 2.6x its
-       * build. It is kept because it is the only way to find out for a corpus
+       * widest three outputs worse, while costing several times the build. It is kept because it is the only way to find out for a corpus
        * where the derived depth is wrong, and because there was previously no
        * way to ask at all.
        */
@@ -986,8 +977,8 @@ LIBXS_API_INLINE void internal_libxs_predict_rf_build_tasks(
      * Two floors, because they answer different questions. min_leaf is the
      * parent too small to be worth splitting. leaf_floor is what the node
      * budget requires of a child, and only where the budget binds: constraining
-     * a child where it does not cost the crystal corpus 1.9 points, and leaving
-     * it unconstrained where it does cost a million rows 9.5.
+     * a child where it does not costs a small corpus accuracy, and leaving it
+     * unconstrained where it does costs a large one much more.
      */
     const int leaf_floor = (LIBXS_PREDICT_RF_MAXNODES < p * 2 / min_leaf)
       ? LIBXS_MAX(1, (p * 2 + LIBXS_PREDICT_RF_MAXNODES - 2)
