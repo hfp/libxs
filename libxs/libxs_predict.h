@@ -677,10 +677,21 @@ LIBXS_API int libxs_predict_build(libxs_predict_t* model,
   int nclusters, int order, double quality);
 
 /**
- * Per-thread form of libxs_predict_build. All threads must call
- * this collectively with the same model/nclusters/order/quality.
- * tid==0 performs the build; other threads spin-wait.
- * The lock is optional (NULL is accepted).
+ * Per-thread form of libxs_predict_build. All threads must call this
+ * collectively with the same model/nclusters/order/quality, and all of them must
+ * be inside the call at the same time: the stages are separated by a rendezvous
+ * that waits for every task, so a task that does not enter stops the build.
+ *
+ * The work is split stage by stage rather than done by one task while the rest
+ * wait. Some stages are the builder's alone (tid 0) and some are divided across
+ * the tasks; which is which is not part of the contract.
+ *
+ * PASS NULL FOR THE LOCK. It is not honoured, and a collective call cannot
+ * honour one: whichever task held it would hold it while waiting at a rendezvous
+ * for tasks that need it to enter. Nor would it buy anything - a model is not
+ * evaluable part-built, so a build is a phase the caller keeps to itself rather
+ * than an operation that interleaves. The parameter is retained only so the
+ * signature does not change under existing callers.
  */
 LIBXS_API int libxs_predict_build_task(libxs_lock_t* lock,
   libxs_predict_t* model, int nclusters, int order,

@@ -382,6 +382,19 @@ LIBXS_EXTERN_C struct libxs_predict_t {
   volatile int sync_moved;
   /* the builder's verdict on a stage it ran alone, which a task cannot form */
   volatile int sync_result;
+  /**
+   * The order the search settled on, published here rather than through
+   * sync_result BECAUSE ITS READER IS NOT DONE WHEN THE RENDEZVOUS RELEASES.
+   * Every other publication is read while the next writer is still behind an
+   * unconditional rendezvous, so one word can serve them all. This one is not:
+   * the builder leaves the rendezvous and recurses straight into build_impl,
+   * whose first stage writes the verdict word before any barrier a lagging
+   * reader would have to attend. That reader then took an order of zero, re-
+   * entered the search, and waited at a rendezvous the tasks that read in time
+   * had already left - a HANG, and only once the task count reached the core
+   * count, since below that no task was descheduled in the window.
+   */
+  volatile int sync_order;
   /** Per-candidate scores of a collective trial, indexed by candidate. */
   double sync_score[8];
 };
@@ -3571,7 +3584,11 @@ LIBXS_API_INLINE int internal_libxs_predict_build_impl(libxs_predict_t* model,
     ctx.ntasks = 1;
     if (0 != tid) {
       internal_libxs_predict_sync(model, ntasks);
-      best_ord = (int)model->sync_result;
+      best_ord = (int)model->sync_order;
+      /** A non-positive order re-enters this branch, so a value that did not
+       *  arrive would recurse rather than answer wrongly. The slot above makes
+       *  that unreachable; this keeps the failure a wrong order and not a hang. */
+      if (1 > best_ord) best_ord = 1;
     }
     else {
     ord = 1;
@@ -3585,7 +3602,7 @@ LIBXS_API_INLINE int internal_libxs_predict_build_impl(libxs_predict_t* model,
       ord = max_ord;
     }
     model->iterations = ord;
-    model->sync_result = best_ord;
+    model->sync_order = best_ord;
     internal_libxs_predict_sync(model, ntasks);
     }
     result = internal_libxs_predict_build_impl(model, nclusters, best_ord,
