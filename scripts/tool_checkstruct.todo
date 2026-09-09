@@ -1,0 +1,44 @@
+# Open findings, one line per rule and file: <rule> <count> <path>.
+#
+# This is a to-do list, not a permission: the count is a ratchet, so one
+# finding more than listed fails the hook, and one less fails too, asking for
+# the number to come down. Delete the line once the file is clean.
+#
+# Per project, and deliberately not a policy file: "make documentation" copies
+# tool_checkstruct.py from LIBXS and would revert a count lowered here.
+# Regenerate with: scripts/tool_checkstruct.py --counts $(git ls-files)
+function-gap       10  libxs/libxs_gemm.h
+function-gap       16  libxs/libxs_math.h
+function-gap        2  libxs/libxs_perm.h
+function-gap        1  libxs/libxs_timer.h
+function-gap        7  libxs/libxs_token.h
+function-gap        1  libxs/libxs_utils.h
+function-gap        2  src/libxs_cpuid_arm.c
+function-gap        2  src/libxs_main.c
+function-gap        1  src/libxs_matdiff.h
+function-gap        3  src/libxs_math.c
+function-gap        1  src/libxs_perm_kdtree.h
+function-gap        1  src/libxs_predict_rf.h
+function-gap        1  src/libxs_rng.c
+function-gap        1  src/libxs_token.c
+macro-local        13  src/libxs_math.c
+macro-local         2  src/libxs_math_fprint.h
+macro-local         6  src/libxs_mhd.c
+macro-local         7  src/libxs_perm.c
+single-exit         1  src/libxs_cpuid_x86.c
+single-exit         1  src/libxs_main.c
+single-exit         2  src/libxs_malloc.c
+single-exit         4  src/libxs_math.c
+single-exit         3  src/libxs_math_fprint.h
+single-exit         2  src/libxs_math_setdiff.h
+single-exit         8  src/libxs_mem.c
+single-exit         2  src/libxs_mhd.c
+single-exit         3  src/libxs_ngram.c
+single-exit         1  src/libxs_perm.c
+single-exit         4  src/libxs_perm_spatial.h
+single-exit         1  src/libxs_reg.c
+single-exit         1  src/libxs_rng.c
+single-exit         2  src/libxs_str.c
+single-exit        12  src/libxs_textrule.c
+stacked-comments    1  src/libxs_cpuid_x86.c
+stacked-comments    1  src/libxs_predict_rf.h

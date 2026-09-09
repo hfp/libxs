@@ -1,0 +1,17 @@
+# Environment variables the source reads that no Markdown file documents.
+#
+# A to-do list, not a permission: a name that is documented by now fails the
+# check too, asking to be dropped from here.
+#
+# Per project, and deliberately not a policy file: "make documentation" copies
+# tool_checkenvars.sh from LIBXS and would revert a name removed here.
+# Regenerate with: scripts/tool_checkenvars.sh --all
+LIBXS_DUMP_BUILD
+LIBXS_DUMP_FILE
+LIBXS_DUMP_FILES
+LIBXS_MALLOC_LIMIT
+LIBXS_PREDICT_DECOMPOSE_FOLDS
+LIBXS_PREDICT_REFINE
+LIBXS_PREDICT_TANGENT
+LIBXS_PREDICT_WINDOW_FOLDS
+LIBXS_SIGNAL

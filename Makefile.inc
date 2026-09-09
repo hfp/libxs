@@ -2801,7 +2801,7 @@ endif
 
 # Policies are maintained in LIBXS and copied into dependent projects, i.e.,
 # the same way this Makefile.inc is shared (MAKEINC locates the origin).
-POLICIES := CLAUDE.md .editorconfig .pre-commit-config.yaml \
+POLICIES := .editorconfig .pre-commit-config.yaml \
   .github/workflows/lint.yml scripts/tool_normalize.sh \
   scripts/tool_checkstruct.py scripts/tool_checkenvars.sh
 POLICYMDS := $(NULL)
