@@ -584,8 +584,7 @@ LIBXS_INLINE void gemm_oz2_diff(const char* transa, const char* transb, const GE
             }
           }
         }
-      }
-      /* implicit barrier: preprocessing done */
+      } /* implicit barrier: preprocessing done */
 
       /* Phase 2b: compute FP exponent scale factors */
 #if defined(_OPENMP)

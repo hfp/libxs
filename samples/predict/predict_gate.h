@@ -10,9 +10,6 @@
 #ifndef PREDICT_GATE_H
 #define PREDICT_GATE_H
 
-#include <libxs/libxs_predict.h>
-#include <libxs/libxs_str.h>
-
 /**
  * Precision against coverage over a range of gates, shared by the prediction
  * samples because one gate is not a comparison.
@@ -27,6 +24,10 @@
  * answer is that likely to be right. What survives both is precision at matched
  * coverage, which is what a sweep lets a reader take off.
  */
+
+#include <libxs/libxs_predict.h>
+#include <libxs/libxs_str.h>
+
 
 /**
  * Gate thresholds from GATE (comma-separated, ascending or not). The first

@@ -186,8 +186,10 @@ int main(void)
   }
   if (EXIT_SUCCESS == result) {
     const double epsilon = libxs_matdiff_epsilon(di + 4);
-    /* intentionally not considered: libxs_matdiff_reduce(&diff, di + 4) */
-    /* Epsilon (combined) */
+    /**
+     * Epsilon (combined); libxs_matdiff_reduce(&diff, di + 4) is
+     * intentionally not considered here
+     */
     if (0.0000001 < LIBXS_ABS(epsilon - 0.0244949)) result = EXIT_FAILURE;
     /* One-norm */
     if (0.0000001 < LIBXS_ABS(di[4].norm1_abs - 0.0400000)) result = EXIT_FAILURE;

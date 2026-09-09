@@ -10,8 +10,6 @@
 #ifndef PREDICT_ARGS_H
 #define PREDICT_ARGS_H
 
-#include <libxs/libxs_predict.h>
-
 /**
  * Command line convention shared by the prediction samples.  A token is either
  * a bare number, which fills the next positional slot, or a keyword, which may
@@ -23,6 +21,9 @@
  * Refusing the token is the point of this file, and letting keywords float is
  * what makes refusing it safe rather than merely stricter.
  */
+
+#include <libxs/libxs_predict.h>
+
 
 /** Non-zero if the whole token is a number, and therefore a positional. */
 LIBXS_INLINE int predict_isnum(const char* arg)

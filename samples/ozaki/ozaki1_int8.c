@@ -225,15 +225,14 @@ LIBXS_INLINE void gemm_oz1_diff(const char* transa, const char* transb, const GE
             }
           }
         }
-      }
-      /* implicit barrier: preprocessing done */
+      } /* implicit barrier: preprocessing done */
 
       /**
        * Adaptive cutoff: find highest occupied slice per side.
        * Slices beyond the maximum non-zero index contribute nothing;
-       * skipping them reduces the GEMM pair count quadratically.
+       * skipping them reduces the GEMM pair count quadratically. The bounds
+       * are reset first, single ensuring visibility and the barrier.
        */
-      /* Reset adaptive slice bounds (single ensures visibility + barrier) */
 #if defined(_OPENMP)
 #     pragma omp single
 #endif
@@ -409,7 +408,6 @@ LIBXS_INLINE void gemm_oz1_diff(const char* transa, const char* transb, const GE
             for (slice_b = sb_start; slice_b < sb_end; ++slice_b) {
               const double pair_scale = (*alpha) * pow2_low[slice_a] * pow2_low[slice_b];
               const int do_mirror = (0 != (oz1_flags & OZ1_SYMMETRIZE)) && (slice_a != slice_b);
-
 
 #if defined(LIBXS_INTRINSICS_AVX512) && 16 == BLOCK_N && (16 == BLOCK_K || 32 == BLOCK_K || 64 == BLOCK_K)
               if (NULL != b_packed && BLOCK_N == jblk) {
