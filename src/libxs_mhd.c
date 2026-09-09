@@ -49,55 +49,61 @@
  * IS_FLOAT=0: integer source - no NaN, rounds intermediate scaled value.
  */
 #define LIBXS_MHD_ELEMENT_CONVERSION_IMPL(SRC_TYPE, IS_FLOAT, DST_TYPE, DST_INFO, DST_MIN, DST_MAX, PDST, SRC_ENUM, PSRC, PSRC_MIN, PSRC_MAX, RESULT) do { \
-  const libxs_data_t dst_enum = (NULL == (DST_INFO) ? (SRC_ENUM) : (DST_INFO)->type); \
-  /* h = 0.5 for integer DST_TYPE (nearest-integer rounding), 0.0 for float DST_TYPE */ \
-  const double h = (0.5 - (DST_TYPE)0.5); \
-  SRC_TYPE s = *((const SRC_TYPE*)PSRC); \
-  double s0 = 0, s1 = 0; \
-  if (NULL != (PSRC_MIN) && (!(IS_FLOAT) || LIBXS_NOTNAN(s))) { \
+  const libxs_data_t mhd_dst_ = (NULL == (DST_INFO) ? (SRC_ENUM) : (DST_INFO)->type); \
+  /* mhd_h_ = 0.5 for integer DST_TYPE (nearest-integer rounding), 0.0 for float DST_TYPE */ \
+  const double mhd_h_ = (0.5 - (DST_TYPE)0.5); \
+  SRC_TYPE mhd_s_ = *((const SRC_TYPE*)PSRC); \
+  double mhd_s0_ = 0, mhd_s1_ = 0; \
+  if (NULL != (PSRC_MIN) && (!(IS_FLOAT) || LIBXS_NOTNAN(mhd_s_))) { \
     assert(NULL != (PSRC_MAX)); \
-    s0 = (double)*((const SRC_TYPE*)PSRC_MIN); s1 = (double)*((const SRC_TYPE*)PSRC_MAX); \
-    assert(s0 <= s1); \
+    mhd_s0_ = (double)*((const SRC_TYPE*)PSRC_MIN); mhd_s1_ = (double)*((const SRC_TYPE*)PSRC_MAX); \
+    assert(mhd_s0_ <= mhd_s1_); \
   } \
-  if (LIBXS_TYPEORDER(LIBXS_DATATYPE_I64) <= LIBXS_TYPEORDER(dst_enum) && s0 < s1) { /* scale (integer-type) */ \
-    if (LIBXS_ENUM_IS_UINT(dst_enum)) { \
-      const double s0pos = LIBXS_MAX(0, s0), s1pos = LIBXS_MAX(0, s1), scale = (s0pos < s1pos ? ((s1 - s0) / (s1pos - s0pos)) : 1); \
+  if (LIBXS_TYPEORDER(LIBXS_DATATYPE_I64) <= LIBXS_TYPEORDER(mhd_dst_) && mhd_s0_ < mhd_s1_) { /* scale (integer-type) */ \
+    if (LIBXS_ENUM_IS_UINT(mhd_dst_)) { \
+      const double mhd_s0pos_ = LIBXS_MAX(0, mhd_s0_); \
+      const double mhd_s1pos_ = LIBXS_MAX(0, mhd_s1_); \
+      const double mhd_scale_ = (mhd_s0pos_ < mhd_s1pos_ \
+        ? ((mhd_s1_ - mhd_s0_) / (mhd_s1pos_ - mhd_s0pos_)) : 1); \
       if (IS_FLOAT) { /* float source: fractional part preserved in SRC_TYPE */ \
-        s = (SRC_TYPE)(scale * (double)LIBXS_MAX(0, s)); \
+        mhd_s_ = (SRC_TYPE)(mhd_scale_ * (double)LIBXS_MAX(0, mhd_s_)); \
       } \
       else { /* integer source: round before cast-back to avoid truncation */ \
-        const double libxs_mhd_ss_ = scale * (double)LIBXS_MAX(0, s); \
-        s = (SRC_TYPE)(0 <= libxs_mhd_ss_ ? (libxs_mhd_ss_ + h) : (libxs_mhd_ss_ - h)); \
+        const double mhd_ss_ = mhd_scale_ * (double)LIBXS_MAX(0, mhd_s_); \
+        mhd_s_ = (SRC_TYPE)(0 <= mhd_ss_ ? (mhd_ss_ + mhd_h_) : (mhd_ss_ - mhd_h_)); \
       } \
-      s0 = s0pos; s1 = s1pos; \
+      mhd_s0_ = mhd_s0pos_; mhd_s1_ = mhd_s1pos_; \
     } \
-    else if (0 == LIBXS_ENUM_PROMOTE(dst_enum, SRC_ENUM) && 0 > s0 && 0 < s1) { \
-      s1 = LIBXS_MAX(-s0, s1); s0 = -s1; \
+    else if (0 == LIBXS_ENUM_PROMOTE(mhd_dst_, SRC_ENUM) && 0 > mhd_s0_ && 0 < mhd_s1_) { \
+      mhd_s1_ = LIBXS_MAX(-mhd_s0_, mhd_s1_); mhd_s0_ = -mhd_s1_; \
     } \
-    { const double d0 = (0 <= s0 ? 0 : (DST_MIN)), d1 = (0 <= s1 ? (DST_MAX) : 0), d = ((double)s - s0) * (d1 - d0) / (s1 - s0) + d0; \
-      *((DST_TYPE*)PDST) = (DST_TYPE)LIBXS_CLMP(0 <= d ? (d + h) : (d - h), d0, d1); \
+    { const double mhd_d0_ = (0 <= mhd_s0_ ? 0 : (DST_MIN)); \
+      const double mhd_d1_ = (0 <= mhd_s1_ ? (DST_MAX) : 0); \
+      const double mhd_d_ = ((double)mhd_s_ - mhd_s0_) \
+        * (mhd_d1_ - mhd_d0_) / (mhd_s1_ - mhd_s0_) + mhd_d0_; \
+      *((DST_TYPE*)PDST) = (DST_TYPE)LIBXS_CLMP(0 <= mhd_d_ ? (mhd_d_ + mhd_h_) : (mhd_d_ - mhd_h_), mhd_d0_, mhd_d1_); \
     } \
   } \
-  else if (LIBXS_ENUM_IS_UINT(dst_enum) && NULL != (DST_INFO) \
+  else if (LIBXS_ENUM_IS_UINT(mhd_dst_) && NULL != (DST_INFO) \
     && LIBXS_MHD_ELEMENT_CONVERSION_MODULUS == (DST_INFO)->hint) \
   { /* hint */ \
-    const double d = (DST_MAX) - (DST_MIN) + 1, q = s / d; \
-    *((DST_TYPE*)PDST) = (DST_TYPE)(s - d * (DST_TYPE)q); \
+    const double mhd_d_ = (DST_MAX) - (DST_MIN) + 1, mhd_q_ = mhd_s_ / mhd_d_; \
+    *((DST_TYPE*)PDST) = (DST_TYPE)(mhd_s_ - mhd_d_ * (DST_TYPE)mhd_q_); \
   } \
-  else if (0 == LIBXS_ENUM_PROMOTE(dst_enum, SRC_ENUM)) { /* clamp */ \
+  else if (0 == LIBXS_ENUM_PROMOTE(mhd_dst_, SRC_ENUM)) { /* clamp */ \
     if (IS_FLOAT) { /* float source: round towards zero before clamping */ \
-      *((DST_TYPE*)PDST) = (DST_TYPE)(0 <= (double)(s) ? LIBXS_CLMP(s + h, DST_MIN, DST_MAX) : LIBXS_CLMP(s - h, DST_MIN, DST_MAX)); \
+      *((DST_TYPE*)PDST) = (DST_TYPE)(0 <= (double)(mhd_s_) ? LIBXS_CLMP(mhd_s_ + mhd_h_, DST_MIN, DST_MAX) : LIBXS_CLMP(mhd_s_ - mhd_h_, DST_MIN, DST_MAX)); \
     } \
     else { \
-      *((DST_TYPE*)PDST) = (DST_TYPE)LIBXS_CLMP(s, DST_MIN, DST_MAX); \
+      *((DST_TYPE*)PDST) = (DST_TYPE)LIBXS_CLMP(mhd_s_, DST_MIN, DST_MAX); \
     } \
   } \
   else { /* promote */ \
     if (IS_FLOAT) { \
-      *((DST_TYPE*)PDST) = (DST_TYPE)(0 <= (double)(s) ? (s + h) : (s - h)); \
+      *((DST_TYPE*)PDST) = (DST_TYPE)(0 <= (double)(mhd_s_) ? (mhd_s_ + mhd_h_) : (mhd_s_ - mhd_h_)); \
     } \
     else { \
-      *((DST_TYPE*)PDST) = (DST_TYPE)s; \
+      *((DST_TYPE*)PDST) = (DST_TYPE)mhd_s_; \
     } \
   } \
   RESULT = EXIT_SUCCESS; \
@@ -787,20 +793,22 @@ LIBXS_API_INLINE int internal_libxs_mhd_png_chunk(FILE* file,
   const char type[4], const void* payload, size_t length)
 {
   unsigned char head[8];
-  uint32_t crc;
+  int result = EXIT_FAILURE;
   internal_libxs_mhd_png_u32be(head, (uint32_t)length);
   head[4] = (unsigned char)type[0]; head[5] = (unsigned char)type[1];
   head[6] = (unsigned char)type[2]; head[7] = (unsigned char)type[3];
-  if (8 != fwrite(head, 1, 8, file)) return EXIT_FAILURE;
-  crc = libxs_crc32_iso3309(~(uint32_t)0, head + 4, 4);
-  if (0 < length) {
-    if (length != fwrite(payload, 1, length, file)) return EXIT_FAILURE;
-    crc = libxs_crc32_iso3309(crc, payload, length);
+  if (8 == fwrite(head, 1, 8, file)) {
+    uint32_t crc = libxs_crc32_iso3309(~(uint32_t)0, head + 4, 4);
+    int written = 1;
+    if (0 < length) {
+      written = (length == fwrite(payload, 1, length, file));
+      crc = libxs_crc32_iso3309(crc, payload, length);
+    }
+    crc = ~crc;
+    internal_libxs_mhd_png_u32be(head, crc);
+    if (0 != written && 4 == fwrite(head, 1, 4, file)) result = EXIT_SUCCESS;
   }
-  crc = ~crc;
-  internal_libxs_mhd_png_u32be(head, crc);
-  if (4 != fwrite(head, 1, 4, file)) return EXIT_FAILURE;
-  return EXIT_SUCCESS;
+  return result;
 }
 
 
@@ -818,7 +826,7 @@ LIBXS_API_INTERN int internal_libxs_mhd_write_png(const char filename[],
   const libxs_data_t elemtype =
     (NULL != handler_info ? handler_info->type : type_data);
   unsigned char color_type;
-  FILE* file;
+  FILE* file = NULL;
   int result = EXIT_SUCCESS;
   const size_t typesize_data = LIBXS_TYPESIZE(type_data);
   const size_t raw_row = ncomponents * width;
@@ -840,32 +848,32 @@ LIBXS_API_INTERN int internal_libxs_mhd_write_png(const char filename[],
     case 1: color_type = 0; break; /* grayscale */
     case 3: color_type = 2; break; /* RGB */
     case 4: color_type = 6; break; /* RGBA */
-    default: return EXIT_FAILURE;
+    default: color_type = 0; result = EXIT_FAILURE; break;
   }
 
-  file = fopen(filename, "wb");
-  if (NULL == file) return EXIT_FAILURE;
-
-  { /* PNG signature */
+  if (EXIT_SUCCESS == result) {
+    file = fopen(filename, "wb");
+    if (NULL == file) result = EXIT_FAILURE;
+  }
+  if (EXIT_SUCCESS == result) { /* PNG signature */
     static const unsigned char sig[8] = {137,80,78,71,13,10,26,10};
-    if (8 != fwrite(sig, 1, 8, file)) { fclose(file); return EXIT_FAILURE; }
+    if (8 != fwrite(sig, 1, 8, file)) result = EXIT_FAILURE;
   }
-
-  /* IHDR */
-  internal_libxs_mhd_png_u32be(buf + 0, (uint32_t)width);
-  internal_libxs_mhd_png_u32be(buf + 4, (uint32_t)height);
-  buf[8] = 8; /* bit depth */
-  buf[9] = color_type;
-  buf[10] = 0; /* compression */
-  buf[11] = 0; /* filter */
-  buf[12] = 0; /* interlace */
-  result = internal_libxs_mhd_png_chunk(file, "IHDR", buf, 13);
-  if (EXIT_SUCCESS != result) { fclose(file); return result; }
+  if (EXIT_SUCCESS == result) { /* IHDR */
+    internal_libxs_mhd_png_u32be(buf + 0, (uint32_t)width);
+    internal_libxs_mhd_png_u32be(buf + 4, (uint32_t)height);
+    buf[8] = 8; /* bit depth */
+    buf[9] = color_type;
+    buf[10] = 0; /* compression */
+    buf[11] = 0; /* filter */
+    buf[12] = 0; /* interlace */
+    result = internal_libxs_mhd_png_chunk(file, "IHDR", buf, 13);
+  }
 
   /* scan min/max for element conversion to U8 */
   png_info.type = LIBXS_DATATYPE_U8;
   png_info.hint = LIBXS_MHD_ELEMENT_CONVERSION_DEFAULT;
-  if (LIBXS_DATATYPE_U8 != elemtype) {
+  if (EXIT_SUCCESS == result && LIBXS_DATATYPE_U8 != elemtype) {
     const size_t typesize_elem = LIBXS_TYPESIZE(elemtype);
     if (NULL == handler && NULL != src_minmax) {
       LIBXS_MEMCPY(minmax, src_minmax, typesize_data);
@@ -1005,7 +1013,9 @@ LIBXS_API_INTERN int internal_libxs_mhd_write_png(const char filename[],
     result = internal_libxs_mhd_png_chunk(file, "IEND", NULL, 0);
   }
 
-  if (0 != fclose(file) && EXIT_SUCCESS == result) result = EXIT_FAILURE;
+  if (NULL != file && 0 != fclose(file) && EXIT_SUCCESS == result) {
+    result = EXIT_FAILURE;
+  }
   return result;
 }
 

@@ -28,51 +28,51 @@
 
 #define LIBXS_MEM_SHUFFLE_COPRIME(N) libxs_coprime2(N)
 #define LIBXS_MEM_SHUFFLE(INOUT, ELEMSIZE, COUNT, SHUFFLE, OFFSET, NREPEAT) do { \
-  unsigned char *const LIBXS_RESTRICT shfl_data = (unsigned char*)(INOUT); \
-  const size_t shfl_count = (COUNT), shfl_stride = (SHUFFLE); \
-  const size_t shfl_off = (OFFSET) % shfl_count; \
-  const size_t shfl_nrep = (NREPEAT); \
-  const size_t shfl_nbitmask = (shfl_count + 7) / 8; \
-  int shfl_pool_v = 0, shfl_pool_t = 0; \
-  unsigned char *const shfl_visited = (unsigned char*) \
-    LIBXS_MEM_SHUFFLE_MALLOC(shfl_nbitmask, shfl_pool_v); \
-  if (NULL != shfl_visited && 0 != shfl_nrep) { \
-    void *const shfl_tmp = LIBXS_MEM_SHUFFLE_MALLOC(ELEMSIZE, shfl_pool_t); \
-    memset(shfl_visited, 0, shfl_nbitmask); \
-    if (NULL != shfl_tmp) { \
-      size_t shfl_i; \
-      for (shfl_i = 0; shfl_i < shfl_count; ++shfl_i) { \
-        size_t shfl_src, shfl_dst, shfl_k; \
-        if (0 != (shfl_visited[shfl_i / 8] & (1u << (shfl_i % 8)))) continue; \
-        shfl_src = shfl_i; \
-        for (shfl_k = 0; shfl_k < shfl_nrep; ++shfl_k) { \
-          shfl_src = LIBXS_SHUFFLE_INDEX(shfl_src, shfl_count, shfl_stride, shfl_off); \
+  unsigned char *const LIBXS_RESTRICT shfl_data_ = (unsigned char*)(INOUT); \
+  const size_t shfl_count_ = (COUNT), shfl_stride_ = (SHUFFLE); \
+  const size_t shfl_off_ = (OFFSET) % shfl_count_; \
+  const size_t shfl_nrep_ = (NREPEAT); \
+  const size_t shfl_nbitmask_ = (shfl_count_ + 7) / 8; \
+  int shfl_pool_v_ = 0, shfl_pool_t_ = 0; \
+  unsigned char *const shfl_visited_ = (unsigned char*) \
+    LIBXS_MEM_SHUFFLE_MALLOC(shfl_nbitmask_, shfl_pool_v_); \
+  if (NULL != shfl_visited_ && 0 != shfl_nrep_) { \
+    void *const shfl_tmp_ = LIBXS_MEM_SHUFFLE_MALLOC(ELEMSIZE, shfl_pool_t_); \
+    memset(shfl_visited_, 0, shfl_nbitmask_); \
+    if (NULL != shfl_tmp_) { \
+      size_t shfl_i_; \
+      for (shfl_i_ = 0; shfl_i_ < shfl_count_; ++shfl_i_) { \
+        size_t shfl_src_, shfl_dst_, shfl_k_; \
+        if (0 != (shfl_visited_[shfl_i_ / 8] & (1u << (shfl_i_ % 8)))) continue; \
+        shfl_src_ = shfl_i_; \
+        for (shfl_k_ = 0; shfl_k_ < shfl_nrep_; ++shfl_k_) { \
+          shfl_src_ = LIBXS_SHUFFLE_INDEX(shfl_src_, shfl_count_, shfl_stride_, shfl_off_); \
         } \
-        if (shfl_src == shfl_i) { \
-          shfl_visited[shfl_i / 8] |= (unsigned char)(1u << (shfl_i % 8)); \
+        if (shfl_src_ == shfl_i_) { \
+          shfl_visited_[shfl_i_ / 8] |= (unsigned char)(1u << (shfl_i_ % 8)); \
           continue; \
         } \
-        LIBXS_MEMCPY(shfl_tmp, shfl_data + (ELEMSIZE) * shfl_i, ELEMSIZE); \
-        shfl_dst = shfl_i; \
+        LIBXS_MEMCPY(shfl_tmp_, shfl_data_ + (ELEMSIZE) * shfl_i_, ELEMSIZE); \
+        shfl_dst_ = shfl_i_; \
         do { \
-          shfl_src = shfl_dst; \
-          for (shfl_k = 0; shfl_k < shfl_nrep; ++shfl_k) { \
-            shfl_src = LIBXS_SHUFFLE_INDEX(shfl_src, shfl_count, shfl_stride, shfl_off); \
+          shfl_src_ = shfl_dst_; \
+          for (shfl_k_ = 0; shfl_k_ < shfl_nrep_; ++shfl_k_) { \
+            shfl_src_ = LIBXS_SHUFFLE_INDEX(shfl_src_, shfl_count_, shfl_stride_, shfl_off_); \
           } \
-          shfl_visited[shfl_dst / 8] |= (unsigned char)(1u << (shfl_dst % 8)); \
-          if (shfl_src != shfl_i) { \
-            LIBXS_MEMCPY(shfl_data + (ELEMSIZE) * shfl_dst, \
-              shfl_data + (ELEMSIZE) * shfl_src, ELEMSIZE); \
+          shfl_visited_[shfl_dst_ / 8] |= (unsigned char)(1u << (shfl_dst_ % 8)); \
+          if (shfl_src_ != shfl_i_) { \
+            LIBXS_MEMCPY(shfl_data_ + (ELEMSIZE) * shfl_dst_, \
+              shfl_data_ + (ELEMSIZE) * shfl_src_, ELEMSIZE); \
           } \
           else { \
-            LIBXS_MEMCPY(shfl_data + (ELEMSIZE) * shfl_dst, shfl_tmp, ELEMSIZE); \
+            LIBXS_MEMCPY(shfl_data_ + (ELEMSIZE) * shfl_dst_, shfl_tmp_, ELEMSIZE); \
           } \
-          shfl_dst = shfl_src; \
-        } while (shfl_src != shfl_i); \
+          shfl_dst_ = shfl_src_; \
+        } while (shfl_src_ != shfl_i_); \
       } \
-      LIBXS_MEM_SHUFFLE_FREE(shfl_tmp, shfl_pool_t); \
+      LIBXS_MEM_SHUFFLE_FREE(shfl_tmp_, shfl_pool_t_); \
     } \
-    LIBXS_MEM_SHUFFLE_FREE(shfl_visited, shfl_pool_v); \
+    LIBXS_MEM_SHUFFLE_FREE(shfl_visited_, shfl_pool_v_); \
   } \
 } while(0)
 
@@ -154,7 +154,8 @@ LIBXS_API_INLINE void internal_libxs_sort_heap(
 }
 
 
-LIBXS_API int libxs_cmp_f64_idx(const void* a, const void* b, void* ctx) {
+LIBXS_API int libxs_cmp_f64_idx(const void* a, const void* b, void* ctx)
+{
   const double* const keys = (const double*)ctx;
   const double x = keys[*(const int*)a], y = keys[*(const int*)b];
   int result;
@@ -165,28 +166,32 @@ LIBXS_API int libxs_cmp_f64_idx(const void* a, const void* b, void* ctx) {
 }
 
 
-LIBXS_API int libxs_cmp_f64(const void* a, const void* b, void* ctx) {
+LIBXS_API int libxs_cmp_f64(const void* a, const void* b, void* ctx)
+{
   const double va = *(const double*)a, vb = *(const double*)b;
   LIBXS_UNUSED(ctx);
   return (va > vb) - (va < vb);
 }
 
 
-LIBXS_API int libxs_cmp_f32(const void* a, const void* b, void* ctx) {
+LIBXS_API int libxs_cmp_f32(const void* a, const void* b, void* ctx)
+{
   const float va = *(const float*)a, vb = *(const float*)b;
   LIBXS_UNUSED(ctx);
   return (va > vb) - (va < vb);
 }
 
 
-LIBXS_API int libxs_cmp_i32(const void* a, const void* b, void* ctx) {
+LIBXS_API int libxs_cmp_i32(const void* a, const void* b, void* ctx)
+{
   const int va = *(const int*)a, vb = *(const int*)b;
   LIBXS_UNUSED(ctx);
   return (va > vb) - (va < vb);
 }
 
 
-LIBXS_API int libxs_cmp_u32(const void* a, const void* b, void* ctx) {
+LIBXS_API int libxs_cmp_u32(const void* a, const void* b, void* ctx)
+{
   const unsigned int va = *(const unsigned int*)a;
   const unsigned int vb = *(const unsigned int*)b;
   LIBXS_UNUSED(ctx);
@@ -566,12 +571,9 @@ LIBXS_API int libxs_sort_smooth(libxs_sort_t method, int m, int n,
 {
   int result = EXIT_SUCCESS;
   if (NULL == perm || NULL == mat || m < 0 || n < 0 || ld < m) {
-    return EXIT_FAILURE;
+    result = EXIT_FAILURE;
   }
-  if (0 == m || LIBXS_SORT_NONE == method) {
-    return EXIT_SUCCESS;
-  }
-  {
+  else if (0 != m && LIBXS_SORT_NONE != method) {
     int pool = 0;
     const size_t scores_size = (size_t)m * sizeof(double);
     const size_t visited_size = (LIBXS_SORT_GREEDY == method) ? (size_t)m : 0;
@@ -581,77 +583,79 @@ LIBXS_API int libxs_sort_smooth(libxs_sort_t method, int m, int n,
     if (LIBXS_SORT_IDENTITY != method) {
       scores = (double*)LIBXS_MEM_SHUFFLE_MALLOC(
         scores_size + visited_size, pool);
-      if (NULL == scores) return EXIT_FAILURE;
-      if (0 != visited_size) visited = (char*)(scores + m);
+      if (NULL == scores) result = EXIT_FAILURE;
+      else if (0 != visited_size) visited = (char*)(scores + m);
     }
 
-    switch ((int)datatype) {
-      case LIBXS_DATATYPE_F64: {
+    if (EXIT_SUCCESS == result) {
+      switch ((int)datatype) {
+        case LIBXS_DATATYPE_F64: {
 #       define LIBXS_SORT_TEMPLATE_TYPE2FP64(VALUE) (VALUE)
 #       define LIBXS_SORT_TEMPLATE_ELEM_TYPE double
 #       include "libxs_sort.h"
 #       undef LIBXS_SORT_TEMPLATE_ELEM_TYPE
 #       undef LIBXS_SORT_TEMPLATE_TYPE2FP64
-      } break;
-      case LIBXS_DATATYPE_F32: {
+        } break;
+        case LIBXS_DATATYPE_F32: {
 #       define LIBXS_SORT_TEMPLATE_TYPE2FP64(VALUE) ((double)(VALUE))
 #       define LIBXS_SORT_TEMPLATE_ELEM_TYPE float
 #       include "libxs_sort.h"
 #       undef LIBXS_SORT_TEMPLATE_ELEM_TYPE
 #       undef LIBXS_SORT_TEMPLATE_TYPE2FP64
-      } break;
-      case LIBXS_DATATYPE_I32: {
+        } break;
+        case LIBXS_DATATYPE_I32: {
 #       define LIBXS_SORT_TEMPLATE_TYPE2FP64(VALUE) ((double)(VALUE))
 #       define LIBXS_SORT_TEMPLATE_ELEM_TYPE int
 #       include "libxs_sort.h"
 #       undef LIBXS_SORT_TEMPLATE_ELEM_TYPE
 #       undef LIBXS_SORT_TEMPLATE_TYPE2FP64
-      } break;
-      case LIBXS_DATATYPE_U32: {
+        } break;
+        case LIBXS_DATATYPE_U32: {
 #       define LIBXS_SORT_TEMPLATE_TYPE2FP64(VALUE) ((double)(VALUE))
 #       define LIBXS_SORT_TEMPLATE_ELEM_TYPE unsigned int
 #       include "libxs_sort.h"
 #       undef LIBXS_SORT_TEMPLATE_ELEM_TYPE
 #       undef LIBXS_SORT_TEMPLATE_TYPE2FP64
-      } break;
-      case LIBXS_DATATYPE_I16: {
+        } break;
+        case LIBXS_DATATYPE_I16: {
 #       define LIBXS_SORT_TEMPLATE_TYPE2FP64(VALUE) ((double)(VALUE))
 #       define LIBXS_SORT_TEMPLATE_ELEM_TYPE short
 #       include "libxs_sort.h"
 #       undef LIBXS_SORT_TEMPLATE_ELEM_TYPE
 #       undef LIBXS_SORT_TEMPLATE_TYPE2FP64
-      } break;
-      case LIBXS_DATATYPE_U16: {
+        } break;
+        case LIBXS_DATATYPE_U16: {
 #       define LIBXS_SORT_TEMPLATE_TYPE2FP64(VALUE) ((double)(VALUE))
 #       define LIBXS_SORT_TEMPLATE_ELEM_TYPE unsigned short
 #       include "libxs_sort.h"
 #       undef LIBXS_SORT_TEMPLATE_ELEM_TYPE
 #       undef LIBXS_SORT_TEMPLATE_TYPE2FP64
-      } break;
-      case LIBXS_DATATYPE_I8: {
+        } break;
+        case LIBXS_DATATYPE_I8: {
 #       define LIBXS_SORT_TEMPLATE_TYPE2FP64(VALUE) ((double)(VALUE))
 #       define LIBXS_SORT_TEMPLATE_ELEM_TYPE signed char
 #       include "libxs_sort.h"
 #       undef LIBXS_SORT_TEMPLATE_ELEM_TYPE
 #       undef LIBXS_SORT_TEMPLATE_TYPE2FP64
-      } break;
-      case LIBXS_DATATYPE_U8: {
+        } break;
+        case LIBXS_DATATYPE_U8: {
 #       define LIBXS_SORT_TEMPLATE_TYPE2FP64(VALUE) ((double)(VALUE))
 #       define LIBXS_SORT_TEMPLATE_ELEM_TYPE unsigned char
 #       include "libxs_sort.h"
 #       undef LIBXS_SORT_TEMPLATE_ELEM_TYPE
 #       undef LIBXS_SORT_TEMPLATE_TYPE2FP64
-      } break;
-      default: {
-        static int error_once = 0;
-        if (0 != libxs_verbosity
-          && 1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1,
-                    LIBXS_ATOMIC_RELAXED))
-        {
-          fprintf(stderr,
-            "LIBXS ERROR: unsupported data-type for sort!\n");
+        } break;
+        default: {
+          static int error_once = 0;
+          if (0 != libxs_verbosity
+            && 1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1,
+                      LIBXS_ATOMIC_RELAXED))
+          {
+            fprintf(stderr,
+              "LIBXS ERROR: unsupported data-type for sort!\n");
+          }
+          result = EXIT_FAILURE;
         }
-        result = EXIT_FAILURE;
       }
     }
 

@@ -329,8 +329,6 @@ LIBXS_API int libxs_kdtree_nearest(
 }
 
 
-
-
 LIBXS_EXTERN_C typedef struct internal_libxs_kdtree_knn_ctx_t {
   const double* pts;
   const int* idx;

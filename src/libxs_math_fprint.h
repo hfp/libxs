@@ -59,15 +59,19 @@ LIBXS_API_INTERN void internal_libxs_fprint_core(
 
 /** Convert typed data with stride to double array dst[0..n-1]. */
 #define LIBXS_FPRINT_LOAD(TYPE, SRC, STRIDE, N, DST) { \
-  const TYPE *const p = (const TYPE*)(SRC); \
-  const size_t s = (STRIDE); int ii; \
-  for (ii = 0; ii < (N); ++ii) (DST)[ii] = (double)p[ii * s]; \
+  const TYPE *const fprint_load_p_ = (const TYPE*)(SRC); \
+  const size_t fprint_load_s_ = (STRIDE); int fprint_load_i_; \
+  for (fprint_load_i_ = 0; fprint_load_i_ < (N); ++fprint_load_i_) { \
+    (DST)[fprint_load_i_] = \
+      (double)fprint_load_p_[fprint_load_i_ * fprint_load_s_]; \
+  } \
 }
 
 LIBXS_API_INTERN int internal_libxs_fprint_load(
   double* dst, libxs_data_t datatype,
   const void* data, size_t stride, int n)
 {
+  int result = EXIT_SUCCESS;
   switch ((int)datatype) {
     case LIBXS_DATATYPE_F64: LIBXS_FPRINT_LOAD(double, data, stride, n, dst) break;
     case LIBXS_DATATYPE_F32: LIBXS_FPRINT_LOAD(float, data, stride, n, dst) break;
@@ -78,9 +82,9 @@ LIBXS_API_INTERN int internal_libxs_fprint_load(
     case LIBXS_DATATYPE_U16: LIBXS_FPRINT_LOAD(unsigned short, data, stride, n, dst) break;
     case LIBXS_DATATYPE_I8:  LIBXS_FPRINT_LOAD(signed char, data, stride, n, dst) break;
     case LIBXS_DATATYPE_U8:  LIBXS_FPRINT_LOAD(unsigned char, data, stride, n, dst) break;
-    default: return EXIT_FAILURE;
+    default: result = EXIT_FAILURE; break;
   }
-  return EXIT_SUCCESS;
+  return result;
 }
 
 #undef LIBXS_FPRINT_LOAD
@@ -133,13 +137,10 @@ LIBXS_API int libxs_fprint(libxs_fprint_t* info,
         }
       }
     }
-    if (0 != found && best_decay == best_decay) {
-      info->datatype = best_type;
-      return EXIT_SUCCESS;
-    }
-    return EXIT_FAILURE;
+    if (0 != found && best_decay == best_decay) info->datatype = best_type;
+    else result = EXIT_FAILURE;
   }
-  if (0 != (flags & LIBXS_FPRINT_PERAXIS) && 0 <= axis && axis < ndims && 1 < ndims) {
+  else if (0 != (flags & LIBXS_FPRINT_PERAXIS) && 0 <= axis && axis < ndims && 1 < ndims) {
     /* Per-axis mode: fingerprint along 'axis', max-reduce over others. */
     const size_t typesize = LIBXS_TYPESIZE((int)datatype);
     const size_t n_axis = shape[axis];
@@ -153,48 +154,49 @@ LIBXS_API int libxs_fprint(libxs_fprint_t* info,
       s_axis = 1;
       for (d = 0; d < axis; ++d) s_axis *= shape[d];
     }
-    if (1 > (int)n_axis) return EXIT_SUCCESS;
-    for (d = 0; d < ndims; ++d) {
-      if (d != axis) ngrid *= shape[d];
-    }
-    { /* Iterate over all positions in the non-axis grid. */
-      size_t gi;
-      int first = 1;
-      for (gi = 0; gi < ngrid && EXIT_SUCCESS == result; ++gi) {
-        /* Compute byte offset for grid position gi (mixed-radix). */
-        size_t offset = 0, rem = gi;
-        for (d = ndims - 1; d >= 0; --d) {
-          size_t sd, coord;
-          if (d == axis) continue;
-          coord = rem % shape[d];
-          rem /= shape[d];
-          if (NULL != stride) sd = stride[d];
-          else { int dd; sd = 1; for (dd = 0; dd < d; ++dd) sd *= shape[dd]; }
-          offset += coord * sd * typesize;
-        }
-        { /* 1D fprint along axis at this grid position. */
-          libxs_fprint_t fp1;
-          result = libxs_fprint(&fp1, datatype, (const char*)data + offset,
-            1, &n_axis, &s_axis, order, 0, smooth, flags & ~LIBXS_FPRINT_PERAXIS);
-          if (EXIT_SUCCESS == result) {
-            int k;
-            if (0 != first) { *info = fp1; first = 0; }
-            else {
-              for (k = 0; k <= fp1.order; ++k) {
-                if (fp1.linf[k] > info->linf[k]) info->linf[k] = fp1.linf[k];
-                if (fp1.l2[k] > info->l2[k]) info->l2[k] = fp1.l2[k];
-                if (fp1.l1[k] > info->l1[k]) info->l1[k] = fp1.l1[k];
-                info->mean[k] += fp1.mean[k];
+    if (0 < (int)n_axis) {
+      for (d = 0; d < ndims; ++d) {
+        if (d != axis) ngrid *= shape[d];
+      }
+      { /* Iterate over all positions in the non-axis grid. */
+        size_t gi;
+        int first = 1;
+        for (gi = 0; gi < ngrid && EXIT_SUCCESS == result; ++gi) {
+          /* Compute byte offset for grid position gi (mixed-radix). */
+          size_t offset = 0, rem = gi;
+          for (d = ndims - 1; d >= 0; --d) {
+            size_t sd, coord;
+            if (d == axis) continue;
+            coord = rem % shape[d];
+            rem /= shape[d];
+            if (NULL != stride) sd = stride[d];
+            else { int dd; sd = 1; for (dd = 0; dd < d; ++dd) sd *= shape[dd]; }
+            offset += coord * sd * typesize;
+          }
+          { /* 1D fprint along axis at this grid position. */
+            libxs_fprint_t fp1;
+            result = libxs_fprint(&fp1, datatype, (const char*)data + offset,
+              1, &n_axis, &s_axis, order, 0, smooth, flags & ~LIBXS_FPRINT_PERAXIS);
+            if (EXIT_SUCCESS == result) {
+              int k;
+              if (0 != first) { *info = fp1; first = 0; }
+              else {
+                for (k = 0; k <= fp1.order; ++k) {
+                  if (fp1.linf[k] > info->linf[k]) info->linf[k] = fp1.linf[k];
+                  if (fp1.l2[k] > info->l2[k]) info->l2[k] = fp1.l2[k];
+                  if (fp1.l1[k] > info->l1[k]) info->l1[k] = fp1.l1[k];
+                  info->mean[k] += fp1.mean[k];
+                }
+                if (fp1.order > info->order) info->order = fp1.order;
+                if (fp1.n > info->n) info->n = fp1.n;
               }
-              if (fp1.order > info->order) info->order = fp1.order;
-              if (fp1.n > info->n) info->n = fp1.n;
             }
           }
         }
-      }
-      if (EXIT_SUCCESS == result && 1 < ngrid) {
-        int k;
-        for (k = 0; k <= info->order; ++k) info->mean[k] /= (double)ngrid;
+        if (EXIT_SUCCESS == result && 1 < ngrid) {
+          int k;
+          for (k = 0; k <= info->order; ++k) info->mean[k] /= (double)ngrid;
+        }
       }
     }
   }
@@ -203,49 +205,52 @@ LIBXS_API int libxs_fprint(libxs_fprint_t* info,
     const int n = (int)shape[0];
     int kmax, pool = 0;
     double *buf, *cur;
-    if (1 > n) return EXIT_SUCCESS;
-    kmax = LIBXS_MIN(order, n - 1);
-    kmax = LIBXS_MIN(kmax, LIBXS_FPRINT_MAXORDER);
-    if (0 > kmax) kmax = 0;
-    info->order = kmax; info->n = n;
-    buf = (double*)LIBXS_MATH_MALLOC(2 * (size_t)n * sizeof(double), pool);
-    if (NULL == buf) return EXIT_FAILURE;
-    cur = buf;
-    result = internal_libxs_fprint_load(cur, datatype, data, s, n);
-    if (EXIT_SUCCESS != result) {
-      static int error_once = 0;
-      if (0 != libxs_verbosity
-        && 1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED))
-      {
-        fprintf(stderr, "LIBXS ERROR: libxs_fprint unsupported data-type!\n");
-      }
-    }
-    else {
-      if (0 != (flags & LIBXS_FPRINT_SORT)) {
-        libxs_sort(cur, n, sizeof(double), libxs_cmp_f64, NULL);
-      }
-      if (0 < smooth) {
-        double *dst = (cur == buf) ? buf + n : buf;
-        const int r = smooth < n ? smooth : n - 1;
-        int i;
-        for (i = 0; i < n; ++i) {
-          const int lo = i - r > 0 ? i - r : 0;
-          const int hi = i + r < n - 1 ? i + r : n - 1;
-          double acc = 0;
-          int j;
-          for (j = lo; j <= hi; ++j) acc += cur[j];
-          dst[i] = acc / (hi - lo + 1);
+    if (0 < n) {
+      kmax = LIBXS_MIN(order, n - 1);
+      kmax = LIBXS_MIN(kmax, LIBXS_FPRINT_MAXORDER);
+      if (0 > kmax) kmax = 0;
+      info->order = kmax; info->n = n;
+      buf = (double*)LIBXS_MATH_MALLOC(2 * (size_t)n * sizeof(double), pool);
+      if (NULL == buf) result = EXIT_FAILURE;
+      else {
+        cur = buf;
+        result = internal_libxs_fprint_load(cur, datatype, data, s, n);
+        if (EXIT_SUCCESS != result) {
+          static int error_once = 0;
+          if (0 != libxs_verbosity
+            && 1 == LIBXS_ATOMIC_ADD_FETCH(&error_once, 1, LIBXS_ATOMIC_RELAXED))
+          {
+            fprintf(stderr, "LIBXS ERROR: libxs_fprint unsupported data-type!\n");
+          }
         }
-        cur = dst;
+        else {
+          if (0 != (flags & LIBXS_FPRINT_SORT)) {
+            libxs_sort(cur, n, sizeof(double), libxs_cmp_f64, NULL);
+          }
+          if (0 < smooth) {
+            double *dst = (cur == buf) ? buf + n : buf;
+            const int r = smooth < n ? smooth : n - 1;
+            int i;
+            for (i = 0; i < n; ++i) {
+              const int lo = i - r > 0 ? i - r : 0;
+              const int hi = i + r < n - 1 ? i + r : n - 1;
+              double acc = 0;
+              int j;
+              for (j = lo; j <= hi; ++j) acc += cur[j];
+              dst[i] = acc / (hi - lo + 1);
+            }
+            cur = dst;
+          }
+          if (0 != (flags & LIBXS_FPRINT_AUTOCORR)) {
+            double *const tmp = (cur == buf) ? buf + n : buf;
+            internal_libxs_autocorr(cur, n, 1, tmp, n);
+            cur = tmp;
+          }
+          internal_libxs_fprint_core(info, buf, cur, n, kmax);
+        }
       }
-      if (0 != (flags & LIBXS_FPRINT_AUTOCORR)) {
-        double *const tmp = (cur == buf) ? buf + n : buf;
-        internal_libxs_autocorr(cur, n, 1, tmp, n);
-        cur = tmp;
-      }
-      internal_libxs_fprint_core(info, buf, cur, n, kmax);
+      LIBXS_MATH_FREE(buf, pool);
     }
-    LIBXS_MATH_FREE(buf, pool);
   }
   else {
     /* Hierarchical mode (flags without LIBXS_FPRINT_PERAXIS). */
@@ -265,36 +270,37 @@ LIBXS_API int libxs_fprint(libxs_fprint_t* info,
       for (dd = 0; dd + 1 < ndims; ++dd) p *= shape[dd];
       souter = p;
     }
-    if (1 > (int)nouter) return EXIT_SUCCESS;
-    scalars = (double*)LIBXS_MATH_MALLOC(nouter * sizeof(double), pool_s);
-    if (NULL == scalars) return EXIT_FAILURE;
-    for (j = 0; j < nouter && EXIT_SUCCESS == result; ++j) {
-      const void* slice = (const char*)data + j * souter * typesize;
-      double snorm = 0, scomp = 0, wk = 1.0;
-      int k;
-      result = libxs_fprint(&child, datatype, slice,
-        ndims - 1, shape, stride, order, axis, smooth, flags);
-      for (k = 0; k <= child.order; ++k) {
-        if (0 < k) wk /= k;
-        libxs_neumaier_sum(wk * child.l2[k] * child.l2[k], &snorm, &scomp);
+    if (0 < (int)nouter) {
+      scalars = (double*)LIBXS_MATH_MALLOC(nouter * sizeof(double), pool_s);
+      if (NULL == scalars) result = EXIT_FAILURE;
+      for (j = 0; j < nouter && EXIT_SUCCESS == result; ++j) {
+        const void* slice = (const char*)data + j * souter * typesize;
+        double snorm = 0, scomp = 0, wk = 1.0;
+        int k;
+        result = libxs_fprint(&child, datatype, slice,
+          ndims - 1, shape, stride, order, axis, smooth, flags);
+        for (k = 0; k <= child.order; ++k) {
+          if (0 < k) wk /= k;
+          libxs_neumaier_sum(wk * child.l2[k] * child.l2[k], &snorm, &scomp);
+        }
+        scalars[j] = sqrt(snorm);
       }
-      scalars[j] = sqrt(snorm);
-    }
-    if (EXIT_SUCCESS == result) {
-      kmax = LIBXS_MIN(order, (int)nouter - 1);
-      kmax = LIBXS_MIN(kmax, LIBXS_FPRINT_MAXORDER);
-      if (0 > kmax) kmax = 0;
-      info->order = kmax; info->n = (int)nouter;
-      buf = (double*)LIBXS_MATH_MALLOC(2 * nouter * sizeof(double), pool_b);
-      if (NULL != buf) {
-        cur = buf;
-        for (j = 0; j < nouter; ++j) cur[j] = scalars[j];
-        internal_libxs_fprint_core(info, buf, cur, (int)nouter, kmax);
-        LIBXS_MATH_FREE(buf, pool_b);
+      if (EXIT_SUCCESS == result) {
+        kmax = LIBXS_MIN(order, (int)nouter - 1);
+        kmax = LIBXS_MIN(kmax, LIBXS_FPRINT_MAXORDER);
+        if (0 > kmax) kmax = 0;
+        info->order = kmax; info->n = (int)nouter;
+        buf = (double*)LIBXS_MATH_MALLOC(2 * nouter * sizeof(double), pool_b);
+        if (NULL != buf) {
+          cur = buf;
+          for (j = 0; j < nouter; ++j) cur[j] = scalars[j];
+          internal_libxs_fprint_core(info, buf, cur, (int)nouter, kmax);
+          LIBXS_MATH_FREE(buf, pool_b);
+        }
+        else result = EXIT_FAILURE;
       }
-      else result = EXIT_FAILURE;
+      LIBXS_MATH_FREE(scalars, pool_s);
     }
-    LIBXS_MATH_FREE(scalars, pool_s);
   }
   return result;
 }
@@ -333,12 +339,13 @@ LIBXS_API double libxs_fprint_raw(
 
 LIBXS_API double libxs_fprint_decay(const libxs_fprint_t* info)
 {
+  double result = 1e30;
   LIBXS_ASSERT(NULL != info);
   if (0 < info->order && 0 < info->l2[0] && 1 < info->n) {
     const int k = LIBXS_MIN(info->order, LIBXS_FPRINT_MAXORDER);
-    return pow(info->l2[k] / info->l2[0], 1.0 / k) / (info->n - 1);
+    result = pow(info->l2[k] / info->l2[0], 1.0 / k) / (info->n - 1);
   }
-  return 1e30;
+  return result;
 }
 
 

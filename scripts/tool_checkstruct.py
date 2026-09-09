@@ -65,6 +65,10 @@ MEMBERS = re.compile(r"\b(?:struct|union|enum)\b[^{;]*\{[^{}]*\}")
 TRAILING = re.compile(r"\b(\w*[A-Za-z0-9]_)\b")
 # A block with a controlling construct, which is what the brace may trail.
 CONTROL = re.compile(r"\b(if|for|while|switch|else|do)\s*$")
+DIRECTIVE = re.compile(r"[ \t]*#")
+# The same keywords where they start a statement, to find what they control.
+CONTROLLED = re.compile(r"\b(if|for|while|switch|else|do)\b")
+ELSEIF = re.compile(r"if\b")
 KEYWORDS = (
     "long",
     "short",
@@ -113,7 +117,13 @@ CHECKS = (
     "function-parameter",
     "function-local",
     "brace-placement",
+    "multiline-block",
 )
+
+
+def header(path: str) -> bool:
+    """True for a header, which is any ".h*" file: .h, .hpp, .hxx, .h.in."""
+    return ".h" in os.path.basename(path)
 
 
 def mask(
@@ -239,13 +249,14 @@ def scopes(masked: str) -> List[Tuple[int, int, bool]]:
     return found
 
 
-def runs(lines: Sequence[str]) -> int:
-    """Return the longest run of blank lines."""
-    longest = run = 0
-    for line in lines:
+def runs(lines: Sequence[str], allowed: int = 1) -> int:
+    """Return the offset of the first blank line beyond a run of "allowed"."""
+    result, run = -1, 0
+    for at, line in enumerate(lines):
         run = run + 1 if not line.strip() else 0
-        longest = max(longest, run)
-    return longest
+        if allowed < run and 0 > result:
+            result = at
+    return result
 
 
 def check(path: str, enabled: Sequence[str]) -> List[Finding]:
@@ -269,9 +280,16 @@ def check(path: str, enabled: Sequence[str]) -> List[Finding]:
             if 1 < count:
                 report.append(("single-exit", first, "%i exits" % count))
         if "blank-in-function" in enabled:
-            if 1 < runs(lines[first:last]):
+            # One blank line separates the blocks of a body; two are what
+            # separate the functions themselves, so they cannot be inside one.
+            blank = runs(lines[first:last])
+            if 0 <= blank:
                 report.append(
-                    ("blank-in-function", first, "more than one blank line")
+                    (
+                        "blank-in-function",
+                        first + blank + 1,
+                        "a second blank line inside a function body",
+                    )
                 )
         if "function-gap" in enabled:
             gap, at = 0, last
@@ -282,7 +300,7 @@ def check(path: str, enabled: Sequence[str]) -> List[Finding]:
                 # A header carries small inline definitions and the files that
                 # hold them are uniform about one blank line, which is the
                 # surrounding code a change there has to match.
-                want = (1, 2) if path.endswith(".h") else (2,)
+                want = (1, 2) if header(path) else (2,)
                 if gap not in want:
                     report.append(
                         (
@@ -299,7 +317,9 @@ def check(path: str, enabled: Sequence[str]) -> List[Finding]:
     if "function-parameter" in enabled:
         report += parameters(masked)
     if "brace-placement" in enabled:
-        report += braces(text, masked)
+        report += braces(path, text, masked)
+    if "multiline-block" in enabled:
+        report += blocks(text, masked)
     if "function-local" in enabled:
         for opened, closed, isfunc in regions:
             if not isfunc:
@@ -417,7 +437,7 @@ def nesting(text: str, masked: str) -> List[Finding]:
     return report
 
 
-def braces(text: str, masked: str) -> List[Finding]:
+def braces(path: str, text: str, masked: str) -> List[Finding]:
     """Report an opening brace that is not where its kind of block wants it.
 
     A function body opens on its own line, and so does a block whose
@@ -425,6 +445,10 @@ def braces(text: str, masked: str) -> List[Finding]:
     reader the condition has ended. Everything else keeps the brace on the
     line of the construct it belongs to. A bare block has no such line and is
     left alone, as are a struct, a union and an initializer.
+
+    A header holds inline definitions, and there the brace may trail the
+    signature: the definition is part of a declaration list, so keeping it on
+    one line is what the surrounding declarations do.
     """
     report: List[Finding] = []
     # Comments blanked but the code kept: a comment after the brace does not
@@ -446,7 +470,11 @@ def braces(text: str, masked: str) -> List[Finding]:
         )
         before = masked[:at].rstrip()
         paren = before.endswith(")")
-        split = False
+        # A directive between the construct and the brace: the line above is
+        # "#endif", and moving the brace up would take it into the branch.
+        above = masked.count("\n", 0, max(len(before) - 1, 0)) + 1
+        gap = any(DIRECTIVE.match(entry) for entry in raw[above : line - 1])
+        split, head = False, ""
         if paren:
             nest, back = 0, len(before) - 1
             while 0 <= back:
@@ -457,14 +485,33 @@ def braces(text: str, masked: str) -> List[Finding]:
                     if 0 == nest:
                         break
                 back -= 1
-            split = 0 <= back and "\n" in before[back:]
-        if 0 == depth and paren:
-            if not alone:
+            if 0 <= back:
+                split = "\n" in before[back:]
+                head = before[:back].rstrip()
+            else:
+                # No opener for this parenthesis, so the construct is composed
+                # across preprocessor branches: an OpenCL kernel whose
+                # parameter list ends, and whose body opens, once per
+                # configuration. Neither the paren nor the brace count says
+                # anything there, so the brace is not judged.
+                paren = False
+        # An included body fragment carries its control flow at depth zero, so
+        # a control keyword ahead of the parentheses rules out a definition.
+        if 0 == depth and paren and not CONTROL.search(head):
+            if not alone and not header(path):
                 report.append(
                     (
                         "brace-placement",
                         line,
                         "a function body opens on its own line",
+                    )
+                )
+            elif not alone and split:
+                report.append(
+                    (
+                        "brace-placement",
+                        line,
+                        "the parentheses span lines, so the brace opens on its own",
                     )
                 )
         elif split:
@@ -476,7 +523,7 @@ def braces(text: str, masked: str) -> List[Finding]:
                         "the parentheses span lines, so the brace opens on its own",
                     )
                 )
-        elif (paren or CONTROL.search(before)) and alone:
+        elif (paren or CONTROL.search(before)) and alone and not gap:
             report.append(
                 (
                     "brace-placement",
@@ -485,6 +532,77 @@ def braces(text: str, masked: str) -> List[Finding]:
                 )
             )
         depth += 1
+    return report
+
+
+def blocks(text: str, masked: str) -> List[Finding]:
+    """Report a control statement that spans lines without being a block.
+
+    Whatever belongs to an "if", an "else" or a loop stays on the keyword's
+    line, or it is braced: once the construct occupies a second line, the
+    braces are what say where it ends. Each keyword is judged on its own, so
+    an "if" with a braced body and a one-line "else" is two decisions, not
+    one. An "else if" chain is the inner "if" and is judged there.
+    """
+    report: List[Finding] = []
+    visible, _ = mask(text, True)
+    raw = visible.split("\n")
+    for match in CONTROLLED.finditer(masked):
+        keyword = match.group(1)
+        at = match.end()
+        if keyword in ("if", "for", "while", "switch"):
+            while at < len(masked) and masked[at].isspace():
+                at += 1
+            if at >= len(masked) or "(" != masked[at]:
+                continue
+            nest = 0
+            while at < len(masked):
+                if "(" == masked[at]:
+                    nest += 1
+                elif ")" == masked[at]:
+                    nest -= 1
+                    if 0 == nest:
+                        at += 1
+                        break
+                at += 1
+        while at < len(masked) and masked[at].isspace():
+            at += 1
+        if at >= len(masked) or masked[at] in "{;":
+            # A block says where it ends, and an empty statement is the tail
+            # of a do-while or a wait loop, which has nothing to brace.
+            continue
+        if "else" == keyword and ELSEIF.match(masked, at):
+            continue
+        nest, end = 0, at
+        while end < len(masked):
+            if "(" == masked[end]:
+                nest += 1
+            elif ")" == masked[end]:
+                nest -= 1
+            elif 0 == nest and masked[end] in "{}":
+                end = -1
+                break
+            elif 0 == nest and ";" == masked[end]:
+                break
+            end += 1
+        if end < 0 or end >= len(masked):
+            continue
+        line = masked.count("\n", 0, match.start()) + 1
+        # A directive between the keyword and what it controls: the statement
+        # belongs to one configuration, and braces cannot span the two.
+        if any(
+            DIRECTIVE.match(entry)
+            for entry in raw[line : masked.count("\n", 0, at)]
+        ):
+            continue
+        if line != masked.count("\n", 0, end) + 1:
+            report.append(
+                (
+                    "multiline-block",
+                    line,
+                    '"%s" spans lines, so it wants braces' % keyword,
+                )
+            )
     return report
 
 

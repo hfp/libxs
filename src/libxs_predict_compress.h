@@ -34,81 +34,80 @@ LIBXS_API_INLINE void internal_libxs_predict_compress(
         int nsurv = cl->nentries, li;
         for (li = 0; li < cl->nentries; ++li) dropped[li] = 0;
         for (li = 0; li < cl->nentries; ++li) {
-        const int gi = cl->sorted_idx[li];
-        double min_conf = 1.0;
-        int j, mismatch = 0, nchecked = 0;
-        for (j = 0; j < n && 0 == mismatch; ++j) {
-          const int use_classify =
-            (0 != (model->eval_mode & LIBXS_PREDICT_CLASSIFY))
-              ? 1 : ((0 != (model->eval_mode & LIBXS_PREDICT_INTERPOLATE))
-                ? 0 : cl->mode[j]);
-          if (0 != use_classify) {
-            double conf = 0, var = 0;
-            const double actual = cl->raw_outputs[(size_t)li * n + j];
-            const double predicted = internal_libxs_predict_classify2(
-              cl, m, cl->kd_pts + (size_t)li * m, j, n,
-              cl->ndistinct[j], 0, li, dropped, NULL, -1, &conf, &var,
-              0, NULL, NULL,
-              internal_libxs_predict_central(model, j), NULL,
-              model->has_missing);
-            /**
-             * Unanimity is required, not merely a confident majority, and that
-             * is load-bearing rather than redundant: it also pins the vote
-             * fraction at 1.0, so `quality` cannot select among classify
-             * outputs and the drop set is the same whatever is asked for.
-             * Letting the threshold decide instead was measured and is far
-             * worse - on the crystal corpus it drops 57 to 72% of the entries
-             * and takes held-out accuracy from 0.67 to 0.25, because a corpus
-             * with near-duplicate inputs has many entries that a *disagreeing*
-             * neighbourhood still recovers exactly.  The threshold's documented
-             * meaning is the wrong rule; this is the right one.
-             */
-            /**
-             * The test needs a neighbourhood that can disagree. One neighbour
-             * cannot: it has no variance to report and no vote to be short of,
-             * so var and conf read 0 and 1 whatever it holds, and every entry
-             * whose nearest neighbour shares its label looks redundant. That
-             * measured as 80% of the entries dropped and held-out accuracy from
-             * 0.68 to 0.30. The trial no longer selects such a count, so this
-             * guards a count a caller pinned; declining to drop is the safe
-             * answer, leaving compression a no-op rather than destructive.
-             */
-            const int keff = (NULL != cl->k_out) ? cl->k_out[j] : cl->k_eff;
-            if (2 > keff || predicted != actual || var > 0) {
-              mismatch = 1;
+          const int gi = cl->sorted_idx[li];
+          double min_conf = 1.0;
+          int j, mismatch = 0, nchecked = 0;
+          for (j = 0; j < n && 0 == mismatch; ++j) {
+            const int use_classify =
+              (0 != (model->eval_mode & LIBXS_PREDICT_CLASSIFY))
+                ? 1 : ((0 != (model->eval_mode & LIBXS_PREDICT_INTERPOLATE))
+                  ? 0 : cl->mode[j]);
+            if (0 != use_classify) {
+              double conf = 0, var = 0;
+              const double actual = cl->raw_outputs[(size_t)li * n + j];
+              const double predicted = internal_libxs_predict_classify2(
+                cl, m, cl->kd_pts + (size_t)li * m, j, n,
+                cl->ndistinct[j], 0, li, dropped, NULL, -1, &conf, &var,
+                0, NULL, NULL,
+                internal_libxs_predict_central(model, j), NULL,
+                model->has_missing);
+              /**
+               * Unanimity is required, not merely a confident majority, and that
+               * is load-bearing rather than redundant: it also pins the vote
+               * fraction at 1.0, so `quality` cannot select among classify
+               * outputs and the drop set is the same whatever is asked for.
+               * Letting the threshold decide instead was measured and is far
+               * worse - on the crystal corpus it drops 57 to 72% of the entries
+               * and takes held-out accuracy from 0.67 to 0.25, because a corpus
+               * with near-duplicate inputs has many entries that a *disagreeing*
+               * neighbourhood still recovers exactly.  The threshold's documented
+               * meaning is the wrong rule; this is the right one.
+               *
+               * The test needs a neighbourhood that can disagree. One neighbour
+               * cannot: it has no variance to report and no vote to be short of,
+               * so var and conf read 0 and 1 whatever it holds, and every entry
+               * whose nearest neighbour shares its label looks redundant. That
+               * measured as 80% of the entries dropped and held-out accuracy from
+               * 0.68 to 0.30. The trial no longer selects such a count, so this
+               * guards a count a caller pinned; declining to drop is the safe
+               * answer, leaving compression a no-op rather than destructive.
+               */
+              const int keff = (NULL != cl->k_out) ? cl->k_out[j] : cl->k_eff;
+              if (2 > keff || predicted != actual || var > 0) {
+                mismatch = 1;
+              }
+              else if (conf < min_conf) {
+                min_conf = conf;
+              }
             }
-            else if (conf < min_conf) {
-              min_conf = conf;
+            else {
+              const double actual = cl->raw_outputs[(size_t)li * n + j];
+              const int d = cl->order[j];
+              const double* cj = cl->coeffs + (size_t)j * (cl->maxorder + 1);
+              const double t = (double)li;
+              double val = 0, residual;
+              int k;
+              for (k = 0; k <= d; ++k) val += cj[k] * libxs_binom(t, k);
+              residual = (val > actual) ? (val - actual) : (actual - val);
+              if (residual > cl->errors[j] * (1.0 - quality)) mismatch = 1;
             }
+            ++nchecked;
+          }
+          /**
+           * A cluster keeps enough entries to answer with: below the vote floor
+           * the neighbourhood degenerates exactly as a one-neighbour vote does,
+           * and the test that decides the next drop stops meaning anything.
+           */
+          if (0 == nchecked || 0 != mismatch || min_conf < quality
+            || LIBXS_PREDICT_KMIN >= nsurv)
+          {
+            keep[gi] = 1;
           }
           else {
-            const double actual = cl->raw_outputs[(size_t)li * n + j];
-            const int d = cl->order[j];
-            const double* cj = cl->coeffs + (size_t)j * (cl->maxorder + 1);
-            const double t = (double)li;
-            double val = 0, residual;
-            int k;
-            for (k = 0; k <= d; ++k) val += cj[k] * libxs_binom(t, k);
-            residual = (val > actual) ? (val - actual) : (actual - val);
-            if (residual > cl->errors[j] * (1.0 - quality)) mismatch = 1;
+            keep[gi] = 0;
+            dropped[li] = 1;
+            --nsurv;
           }
-          ++nchecked;
-        }
-        /**
-         * A cluster keeps enough entries to answer with: below the vote floor
-         * the neighbourhood degenerates exactly as a one-neighbour vote does,
-         * and the test that decides the next drop stops meaning anything.
-         */
-        if (0 == nchecked || 0 != mismatch || min_conf < quality
-          || LIBXS_PREDICT_KMIN >= nsurv)
-        {
-          keep[gi] = 1;
-        }
-        else {
-          keep[gi] = 0;
-          dropped[li] = 1;
-          --nsurv;
-        }
         }
       }
       for (i = 0; i < p; ++i) nkeep += keep[i];

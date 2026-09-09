@@ -209,11 +209,14 @@ LIBXS_API_INLINE int internal_libxs_malloc_hist_bucket(size_t size)
 LIBXS_API_INLINE void* internal_libxs_malloc_allocate(
   libxs_malloc_pool_t *pool, size_t size)
 {
+  void* result;
   if (0 < pool->max_nthreads) {
-    return pool->fn_malloc.ext(size, pool->extra[libxs_tid() % pool->max_nthreads]);
+    result = pool->fn_malloc.ext(size,
+      pool->extra[libxs_tid() % pool->max_nthreads]);
   }
-  else if (NULL != pool->fn_malloc.std) return pool->fn_malloc.std(size);
-  else return malloc(size);
+  else if (NULL != pool->fn_malloc.std) result = pool->fn_malloc.std(size);
+  else result = malloc(size);
+  return result;
 }
 
 
@@ -687,10 +690,11 @@ LIBXS_API libxs_malloc_pool_t* libxs_malloc_pool(libxs_malloc_fn malloc_fn, libx
 LIBXS_API libxs_malloc_pool_t* libxs_malloc_xpool(libxs_malloc_xfn malloc_fn, libxs_free_xfn free_fn,
   int max_nthreads)
 {
-  libxs_malloc_pool_t *pool;
-  if (NULL == malloc_fn || NULL == free_fn || 1 > max_nthreads) return NULL;
-  internal_libxs_hash_init(libxs_cpuid(NULL));
-  pool = (libxs_malloc_pool_t*)calloc(1, sizeof(libxs_malloc_pool_t));
+  libxs_malloc_pool_t *pool = NULL;
+  if (NULL != malloc_fn && NULL != free_fn && 0 < max_nthreads) {
+    internal_libxs_hash_init(libxs_cpuid(NULL));
+    pool = (libxs_malloc_pool_t*)calloc(1, sizeof(libxs_malloc_pool_t));
+  }
   if (NULL != pool) {
     pool->extra = (const void**)calloc(max_nthreads, sizeof(void*));
     pool->slots = (internal_libxs_malloc_chunk_t**)malloc(

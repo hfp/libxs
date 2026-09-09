@@ -234,20 +234,6 @@ LIBXS_API_INLINE double internal_libxs_predict_decompose_probe(
 
 
 /**
- * Choose the mode, and fall back to the default rather than to a mode no
- * measurement supported: an empty or unscoreable corpus has to leave the caller
- * where a caller who never asked would have been.
- *
- * A timeseries is scored on rolling cuts and a table on one split. The cut
- * walks forward for the same reason the window trial's does, and there is more
- * than one of them because a single held-out tail was measured to reverse the
- * sign of a distance-scaling result on the discharge corpus. A table has no
- * such direction, and one shuffled split of it costs one build per candidate
- * instead of three.
- *
- * folds: number of folds to score, or zero to take the default for the kind.
- */
-/**
  * Score the candidates this task owns, accumulating into total[].
  *
  * A candidate is one build and shares nothing with the others, which makes the
@@ -338,7 +324,22 @@ LIBXS_API_INLINE int internal_libxs_predict_decompose_reduce(
 }
 
 
-/** Serial form: one task scores everything, then reduces. */
+/**
+ * Choose the mode, and fall back to the default rather than to a mode no
+ * measurement supported: an empty or unscoreable corpus has to leave the caller
+ * where a caller who never asked would have been.
+ *
+ * A timeseries is scored on rolling cuts and a table on one split. The cut
+ * walks forward for the same reason the window trial's does, and there is more
+ * than one of them because a single held-out tail was measured to reverse the
+ * sign of a distance-scaling result on the discharge corpus. A table has no
+ * such direction, and one shuffled split of it costs one build per candidate
+ * instead of three.
+ *
+ * Serial form: one task scores everything, then reduces.
+ *
+ * folds: number of folds to score, or zero to take the default for the kind.
+ */
 LIBXS_API_INLINE int internal_libxs_predict_decompose_select(
   const libxs_predict_t* model, int folds)
 {

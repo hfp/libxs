@@ -36,16 +36,20 @@ LIBXS_API_INTERN double internal_libxs_setdiff_fn(double tol, const void* data)
   const internal_libxs_setdiff_ctx_t *const ctx =
     (const internal_libxs_setdiff_ctx_t*)data;
   const int nmax = LIBXS_MAX(ctx->na, ctx->nb);
+  double result;
   if (NULL != ctx->sa) {
-    return (double)(nmax - internal_libxs_setdiff_merge(
+    result = (double)(nmax - internal_libxs_setdiff_merge(
       ctx->sa, ctx->na, ctx->sb, ctx->nb, tol));
   }
   else if (NULL != ctx->pts) {
-    return (double)(nmax - internal_libxs_setdiff_kd_match(
+    result = (double)(nmax - internal_libxs_setdiff_kd_match(
       ctx->pts, ctx->idx, ctx->nb, ctx->qa, ctx->na, tol));
   }
-  return (double)libxs_setdiff(ctx->datatype,
-    ctx->a, ctx->na, ctx->b, ctx->nb, tol);
+  else {
+    result = (double)libxs_setdiff(ctx->datatype,
+      ctx->a, ctx->na, ctx->b, ctx->nb, tol);
+  }
+  return result;
 }
 
 
@@ -53,12 +57,15 @@ LIBXS_API_INLINE double internal_libxs_setdiff_range(
   libxs_data_t datatype, const void* a, int na,
   const void* b, int nb)
 {
-  double mina, maxa, minb, maxb;
+  double mina = 0, maxa = 0, minb = 0, maxb = 0, result = 0;
+  int ranged = 0; /* the real types answer from the min/max pair below */
   switch ((int)datatype) {
     case LIBXS_DATATYPE_F64: LIBXS_SETDIFF_RANGE(double, LIBXS_SETDIFF_NOP, a, na, mina, maxa)
-                              LIBXS_SETDIFF_RANGE(double, LIBXS_SETDIFF_NOP, b, nb, minb, maxb) break;
+                              LIBXS_SETDIFF_RANGE(double, LIBXS_SETDIFF_NOP, b, nb, minb, maxb)
+                              ranged = 1; break;
     case LIBXS_DATATYPE_F32: LIBXS_SETDIFF_RANGE(float, LIBXS_SETDIFF_CVT, a, na, mina, maxa)
-                              LIBXS_SETDIFF_RANGE(float, LIBXS_SETDIFF_CVT, b, nb, minb, maxb) break;
+                              LIBXS_SETDIFF_RANGE(float, LIBXS_SETDIFF_CVT, b, nb, minb, maxb)
+                              ranged = 1; break;
     case LIBXS_DATATYPE_C64: case LIBXS_DATATYPE_C32: {
       double a_rlo, a_rhi, a_ilo, a_ihi, b_rlo, b_rhi, b_ilo, b_ihi, dre, dim;
       if (LIBXS_DATATYPE_C64 == (int)datatype) {
@@ -71,13 +78,15 @@ LIBXS_API_INLINE double internal_libxs_setdiff_range(
       }
       dre = LIBXS_MAX(LIBXS_DELTA(a_rlo, b_rhi), LIBXS_DELTA(b_rlo, a_rhi));
       dim = LIBXS_MAX(LIBXS_DELTA(a_ilo, b_ihi), LIBXS_DELTA(b_ilo, a_ihi));
-      return sqrt(dre * dre + dim * dim);
-    }
-    default: return 0;
+      result = sqrt(dre * dre + dim * dim);
+    } break;
+    default: break;
   }
-  { const double d0 = LIBXS_DELTA(mina, maxb), d1 = LIBXS_DELTA(minb, maxa);
-    return LIBXS_MAX(d0, d1);
+  if (0 != ranged) {
+    const double d0 = LIBXS_DELTA(mina, maxb), d1 = LIBXS_DELTA(minb, maxa);
+    result = LIBXS_MAX(d0, d1);
   }
+  return result;
 }
 
 

@@ -32,8 +32,10 @@ LIBXS_EXTERN long syscall(long, ...) LIBXS_NOTHROW;
 #endif
 
 #if defined(LIBXS_PLATFORM_X86)
-/* XGETBV: receive results (EAX, EDX) for eXtended Control Register (XCR). */
-/* CPUID, receive results (EAX, EBX, ECX, EDX) for requested FUNCTION/SUBFN. */
+/**
+ * XGETBV receives (EAX, EDX) for the eXtended Control Register (XCR), and
+ * CPUID receives (EAX, EBX, ECX, EDX) for the requested FUNCTION/SUBFN.
+ */
 #if defined(_MSC_VER) /*defined(_WIN32) && !defined(__GNUC__)*/
 #   define LIBXS_XGETBV(XCR, EAX, EDX) do { \
       unsigned long long libxs_xgetbv_ = _xgetbv(XCR); \
@@ -78,17 +80,23 @@ LIBXS_API int libxs_cpuid_amx_enable(void)
 {
 #if defined(LIBXS_PLATFORM_X86) && defined(__linux__) && defined(SYS_arch_prctl)
   unsigned long bitmask = 0;
-  int status = (int)syscall(SYS_arch_prctl, 0x1022/*ARCH_GET_XCOMP_PERM*/, &bitmask);
-  if (EXIT_SUCCESS != status) return status;
-  if (0 != (bitmask & (1UL << 18))) return EXIT_SUCCESS;
-  status = (int)syscall(SYS_arch_prctl, 0x1023/*ARCH_REQ_XCOMP_PERM*/, 18);
-  if (EXIT_SUCCESS != status) return status;
-  status = (int)syscall(SYS_arch_prctl, 0x1022/*ARCH_GET_XCOMP_PERM*/, &bitmask);
-  if (EXIT_SUCCESS != status) return status;
-  return (0 != (bitmask & (1UL << 18))) ? EXIT_SUCCESS : EXIT_FAILURE;
+  /* the permission is requested only if the kernel does not grant it already */
+  int result = (int)syscall(SYS_arch_prctl, 0x1022/*ARCH_GET_XCOMP_PERM*/,
+    &bitmask);
+  if (EXIT_SUCCESS == result && 0 == (bitmask & (1UL << 18))) {
+    result = (int)syscall(SYS_arch_prctl, 0x1023/*ARCH_REQ_XCOMP_PERM*/, 18);
+    if (EXIT_SUCCESS == result) {
+      result = (int)syscall(SYS_arch_prctl, 0x1022/*ARCH_GET_XCOMP_PERM*/,
+        &bitmask);
+    }
+    if (EXIT_SUCCESS == result && 0 == (bitmask & (1UL << 18))) {
+      result = EXIT_FAILURE;
+    }
+  }
 #else
-  return EXIT_FAILURE;
+  const int result = EXIT_FAILURE;
 #endif
+  return result;
 }
 
 
@@ -500,12 +508,10 @@ LIBXS_API int libxs_cpuid_id(const char* arch)
 LIBXS_API int libxs_cpuid_vlen(int id)
 {
   int result;
-  if (LIBXS_RV64_MVL128 == id || LIBXS_RV64_MVL128_LMUL == id)
-  {
+  if (LIBXS_RV64_MVL128 == id || LIBXS_RV64_MVL128_LMUL == id) {
     result = 16;
   }
-  else if (LIBXS_RV64_MVL256 == id || LIBXS_RV64_MVL256_LMUL == id)
-  {
+  else if (LIBXS_RV64_MVL256 == id || LIBXS_RV64_MVL256_LMUL == id) {
     result = 32;
   }
   else if (LIBXS_AARCH64 == id || LIBXS_AARCH64_SVE128  == id) {

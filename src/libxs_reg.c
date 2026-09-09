@@ -109,7 +109,8 @@ LIBXS_API_INLINE void internal_libxs_registry_cache_invalidate(
 #endif
 
 
-LIBXS_API_INLINE void* internal_value_ptr(internal_libxs_regentry_t* e) {
+LIBXS_API_INLINE void* internal_value_ptr(internal_libxs_regentry_t* e)
+{
   return INTERNAL_REG_INLINE(e) ? (void*)&e->value : e->value;
 }
 
@@ -251,18 +252,20 @@ LIBXS_API_INLINE void* internal_libxs_registry_set_impl(
     }
   }
   else { /* new entry */
+    int grown = EXIT_SUCCESS;
     /* grow if load factor exceeded */
     if (registry->size * INTERNAL_REG_LOAD_DEN
       >= registry->capacity * INTERNAL_REG_LOAD_NUM)
     {
-      if (EXIT_SUCCESS != internal_libxs_registry_grow(registry)) {
-        return result; /* NULL */
+      grown = internal_libxs_registry_grow(registry);
+      if (EXIT_SUCCESS == grown) {
+        idx = internal_libxs_registry_probe(
+          registry->entries, registry->capacity, key, key_size, hash, &found);
+        LIBXS_ASSERT(0 == found);
       }
-      idx = internal_libxs_registry_probe(
-        registry->entries, registry->capacity, key, key_size, hash, &found);
-      LIBXS_ASSERT(0 == found);
     }
-    { internal_libxs_regentry_t* e = registry->entries + idx;
+    if (EXIT_SUCCESS == grown) {
+      internal_libxs_regentry_t* e = registry->entries + idx;
       void* value_buf;
       e->value_size = value_size;
       if (value_size <= sizeof(e->value)) { /* inline */
@@ -271,22 +274,21 @@ LIBXS_API_INLINE void* internal_libxs_registry_set_impl(
       }
       else { /* heap */
         value_buf = malloc(value_size);
-        if (NULL == value_buf) {
-          return result; /* NULL */
+        if (NULL != value_buf) e->value = value_buf;
+      }
+      if (NULL != value_buf) {
+        if (NULL != value_init) {
+          memcpy(value_buf, value_init, value_size);
         }
-        e->value = value_buf;
+        else {
+          memset(value_buf, 0, value_size);
+        }
+        memcpy(e->key.c, key, key_size);
+        e->key_size = key_size;
+        e->state = INTERNAL_REG_USED;
+        ++registry->size;
+        result = value_buf;
       }
-      if (NULL != value_init) {
-        memcpy(value_buf, value_init, value_size);
-      }
-      else {
-        memset(value_buf, 0, value_size);
-      }
-      memcpy(e->key.c, key, key_size);
-      e->key_size = key_size;
-      e->state = INTERNAL_REG_USED;
-      ++registry->size;
-      result = value_buf;
     }
   }
   return result;

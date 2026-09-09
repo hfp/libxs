@@ -16,7 +16,8 @@
 #if defined(LIBXS_PLATFORM_RV64)
 LIBXS_APIVAR_DEFINE(jmp_buf internal_libxs_cpuid_rv64_jmp_buf);
 LIBXS_API_INTERN void internal_libxs_cpuid_rv64_sigill(int /*signum*/);
-LIBXS_API_INTERN void internal_libxs_cpuid_rv64_sigill(int signum) {
+LIBXS_API_INTERN void internal_libxs_cpuid_rv64_sigill(int signum)
+{
   void (*const handler)(int) = signal(signum, internal_libxs_cpuid_rv64_sigill);
   LIBXS_ASSERT(SIGILL == signum);
   if (SIG_ERR != handler) longjmp(internal_libxs_cpuid_rv64_jmp_buf, 1);

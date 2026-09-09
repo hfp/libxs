@@ -257,6 +257,7 @@ LIBXS_API int libxs_kdtree_knearest(
 LIBXS_API_INLINE void libxs_kdtree2d_build(double* pts, int* idx, int n) {
   libxs_kdtree_build(pts, idx, n, 2, 2, NULL);
 }
+
 LIBXS_API_INLINE int libxs_kdtree2d_nearest(const double* pts, const int* idx,
   const unsigned char* used, int n, double x, double y, double max_dist2)
 {

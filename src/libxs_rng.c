@@ -25,6 +25,7 @@ LIBXS_API_INLINE unsigned long long internal_libxs_rng_splitmix64(
   return z ^ (z >> 31);
 }
 
+
 /** Per-thread PRNG state (TLS when available, otherwise single global). */
 static LIBXS_TLS unsigned long long internal_libxs_rng_state = 1;
 
@@ -37,6 +38,7 @@ LIBXS_API void libxs_rng_set_seed(unsigned int/*uint32_t*/ seed)
 
 LIBXS_API unsigned int libxs_rng_u32(unsigned int n)
 {
+  unsigned int result = 0;
   if (1 < n) {
     /* 64-bit output covers any 32-bit range; use Lemire's fast method */
     const unsigned long long r = internal_libxs_rng_splitmix64(&internal_libxs_rng_state);
@@ -50,9 +52,9 @@ LIBXS_API unsigned int libxs_rng_u32(unsigned int n)
         leftover = (unsigned int)m;
       }
     }
-    return (unsigned int)(m >> 32);
+    result = (unsigned int)(m >> 32);
   }
-  return 0;
+  return result;
 }
 
 

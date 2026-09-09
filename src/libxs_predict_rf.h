@@ -89,100 +89,100 @@ LIBXS_API_INLINE int internal_libxs_predict_rf_split_sort(
   node->feature = -1;
   node->label = -1;
   if (NULL != keys && NULL != ord) {
-  /**
-   * Deviations are taken about the subset mean rather than about zero: the
-   * sums of squares of an output that is large and narrow differ in their
-   * trailing digits only, and a split's improvement is lost in the
-   * cancellation. Subtracting the mean first puts that improvement in the
-   * leading digits.
-   */
-  if (0 != regress && 0 < nsub) {
-    for (i = 0; i < nsub; ++i) mu += entries[subset[i]].outputs[output_idx];
-    mu /= nsub;
-  }
-  for (trial = 0; trial < nfeatsub; ++trial) {
-    const int f = (int)(LIBXS_SHUFFLE_INDEX(
-      (size_t)trial, (size_t)nfeat, feat_coprime, seed) % (size_t)nfeat);
-    int nleft, nright;
-    for (i = 0; i < nsub; ++i) {
-      keys[i] = entries[subset[i]].inputs[f];
-      ord[i] = i;
+    /**
+     * Deviations are taken about the subset mean rather than about zero: the
+     * sums of squares of an output that is large and narrow differ in their
+     * trailing digits only, and a split's improvement is lost in the
+     * cancellation. Subtracting the mean first puts that improvement in the
+     * leading digits.
+     */
+    if (0 != regress && 0 < nsub) {
+      for (i = 0; i < nsub; ++i) mu += entries[subset[i]].outputs[output_idx];
+      mu /= nsub;
     }
-    libxs_sort(ord, nsub, sizeof(*ord), libxs_cmp_f64_idx, keys);
-    if (0 != regress) {
-      double sum_l = 0, sqr_l = 0, sum_t = 0, sqr_t = 0;
+    for (trial = 0; trial < nfeatsub; ++trial) {
+      const int f = (int)(LIBXS_SHUFFLE_INDEX(
+        (size_t)trial, (size_t)nfeat, feat_coprime, seed) % (size_t)nfeat);
+      int nleft, nright;
       for (i = 0; i < nsub; ++i) {
-        const double d = entries[subset[ord[i]]].outputs[output_idx] - mu;
-        sum_t += d;
-        sqr_t += d * d;
+        keys[i] = entries[subset[i]].inputs[f];
+        ord[i] = i;
       }
-      nright = nsub; nleft = 0;
-      for (i = 0; i < nsub - 1; ++i) {
-        const double d = entries[subset[ord[i]]].outputs[output_idx] - mu;
-        sum_l += d; sqr_l += d * d; ++nleft;
-        --nright;
-        if (keys[ord[i]] == keys[ord[i + 1]]) continue;
-        /** A leaf below the floor is what makes the node count unbounded: the
-         *  floor is otherwise only a reason not to split a parent, so a parent
-         *  just above it splits off a single entry and the tree grows a leaf per
-         *  entry. Honouring it on both sides is what makes 2*nsub/min_leaf the
-         *  bound the caller sizes the node budget from.
-         */
-        if (nleft < min_leaf || nright < min_leaf) continue;
-        /** The right side is the total less the left rather than a second
-         *  running sum: subtracting each element in turn would accumulate the
-         *  cancellation of every step, and the right side ends near zero. */
-        { const double sum_r = sum_t - sum_l;
-          const double sqr_r = sqr_t - sqr_l;
-          const double sse = (sqr_l - sum_l * sum_l / nleft)
-            + (sqr_r - sum_r * sum_r / nright);
-          if (0 > best_score || sse < best_score) {
-            best_score = sse;
-            node->feature = f;
-            node->threshold = 0.5 * (keys[ord[i]] + keys[ord[i + 1]]);
+      libxs_sort(ord, nsub, sizeof(*ord), libxs_cmp_f64_idx, keys);
+      if (0 != regress) {
+        double sum_l = 0, sqr_l = 0, sum_t = 0, sqr_t = 0;
+        for (i = 0; i < nsub; ++i) {
+          const double d = entries[subset[ord[i]]].outputs[output_idx] - mu;
+          sum_t += d;
+          sqr_t += d * d;
+        }
+        nright = nsub; nleft = 0;
+        for (i = 0; i < nsub - 1; ++i) {
+          const double d = entries[subset[ord[i]]].outputs[output_idx] - mu;
+          sum_l += d; sqr_l += d * d; ++nleft;
+          --nright;
+          if (keys[ord[i]] == keys[ord[i + 1]]) continue;
+          /** A leaf below the floor is what makes the node count unbounded: the
+           *  floor is otherwise only a reason not to split a parent, so a parent
+           *  just above it splits off a single entry and the tree grows a leaf per
+           *  entry. Honouring it on both sides is what makes 2*nsub/min_leaf the
+           *  bound the caller sizes the node budget from.
+           */
+          if (nleft < min_leaf || nright < min_leaf) continue;
+          /** The right side is the total less the left rather than a second
+           *  running sum: subtracting each element in turn would accumulate the
+           *  cancellation of every step, and the right side ends near zero. */
+          { const double sum_r = sum_t - sum_l;
+            const double sqr_r = sqr_t - sqr_l;
+            const double sse = (sqr_l - sum_l * sum_l / nleft)
+              + (sqr_r - sum_r * sum_r / nright);
+            if (0 > best_score || sse < best_score) {
+              best_score = sse;
+              node->feature = f;
+              node->threshold = 0.5 * (keys[ord[i]] + keys[ord[i + 1]]);
+            }
+          }
+        }
+      }
+      else {
+        int left_counts[128], right_counts[128];
+        int k;
+        memset(right_counts, 0, (size_t)ncls * sizeof(int));
+        nright = nsub; nleft = 0;
+        for (i = 0; i < nsub; ++i) {
+          int lab = (LIBXS_ROUNDX(int, entries[subset[ord[i]]].outputs[output_idx]) + label_off) & 127;
+          if (lab >= ncls) lab = ncls - 1;
+          ++right_counts[lab];
+        }
+        memset(left_counts, 0, (size_t)ncls * sizeof(int));
+        for (i = 0; i < nsub - 1; ++i) {
+          int label = (LIBXS_ROUNDX(int, entries[subset[ord[i]]].outputs[output_idx]) + label_off) & 127;
+          if (label >= ncls) label = ncls - 1;
+          ++left_counts[label]; ++nleft;
+          --right_counts[label]; --nright;
+          if (keys[ord[i]] == keys[ord[i + 1]]) continue;
+          if (nleft < min_leaf || nright < min_leaf) continue;
+          { double gini_l = 1.0, gini_r = 1.0, gini;
+            for (k = 0; k < ncls; ++k) {
+              if (left_counts[k] > 0) {
+                double p = (double)left_counts[k] / nleft;
+                gini_l -= p * p;
+              }
+              if (right_counts[k] > 0) {
+                double p = (double)right_counts[k] / nright;
+                gini_r -= p * p;
+              }
+            }
+            gini = ((double)nleft * gini_l + (double)nright * gini_r) / nsub;
+            if (0 > best_score || gini < best_score) {
+              best_score = gini;
+              node->feature = f;
+              node->threshold = 0.5 * (keys[ord[i]] + keys[ord[i + 1]]);
+            }
           }
         }
       }
     }
-    else {
-      int left_counts[128], right_counts[128];
-      int k;
-      memset(right_counts, 0, (size_t)ncls * sizeof(int));
-      nright = nsub; nleft = 0;
-      for (i = 0; i < nsub; ++i) {
-        int lab = (LIBXS_ROUNDX(int, entries[subset[ord[i]]].outputs[output_idx]) + label_off) & 127;
-        if (lab >= ncls) lab = ncls - 1;
-        ++right_counts[lab];
-      }
-      memset(left_counts, 0, (size_t)ncls * sizeof(int));
-      for (i = 0; i < nsub - 1; ++i) {
-        int label = (LIBXS_ROUNDX(int, entries[subset[ord[i]]].outputs[output_idx]) + label_off) & 127;
-        if (label >= ncls) label = ncls - 1;
-        ++left_counts[label]; ++nleft;
-        --right_counts[label]; --nright;
-        if (keys[ord[i]] == keys[ord[i + 1]]) continue;
-        if (nleft < min_leaf || nright < min_leaf) continue;
-        { double gini_l = 1.0, gini_r = 1.0, gini;
-          for (k = 0; k < ncls; ++k) {
-            if (left_counts[k] > 0) {
-              double p = (double)left_counts[k] / nleft;
-              gini_l -= p * p;
-            }
-            if (right_counts[k] > 0) {
-              double p = (double)right_counts[k] / nright;
-              gini_r -= p * p;
-            }
-          }
-          gini = ((double)nleft * gini_l + (double)nright * gini_r) / nsub;
-          if (0 > best_score || gini < best_score) {
-            best_score = gini;
-            node->feature = f;
-            node->threshold = 0.5 * (keys[ord[i]] + keys[ord[i + 1]]);
-          }
-        }
-      }
-    }
-  }
   }
   LIBXS_PREDICT_FREE(ord, ord_pool);
   LIBXS_PREDICT_FREE(keys, keys_pool);
@@ -527,11 +527,6 @@ LIBXS_API_INLINE int internal_libxs_predict_rf_build_tree(
 }
 
 
-/**
- * Nodes one tree may hold. It raises the leaf floor rather than truncating
- * growth: growth is depth-first, so hitting the ceiling leaves the first
- * subtree grown and every later one a stub, worth 9 points on a million rows.
- */
 /* smallest parent worth splitting; a finer one buys capacity, and costs it */
 #if !defined(LIBXS_PREDICT_RF_MINLEAF)
 #  define LIBXS_PREDICT_RF_MINLEAF 3
@@ -552,6 +547,10 @@ LIBXS_API_INLINE int internal_libxs_predict_rf_build_tree(
  * and accuracy rises 73.14% to 74.40%, past XGBoost on the same split. Finer
  * still (floor 5) buys 0.22 more points for 3.3x the build, which is where the
  * returns stop being worth the memory.
+ *
+ * The budget raises the leaf floor rather than truncating growth: growth is
+ * depth-first, so hitting the ceiling leaves the first subtree grown and every
+ * later one a stub, worth 9 points on a million rows.
  */
 #if !defined(LIBXS_PREDICT_RF_MAXNODES)
 #  define LIBXS_PREDICT_RF_MAXNODES 524287
@@ -1086,31 +1085,6 @@ LIBXS_API_INLINE int internal_libxs_predict_rf_leafof(
 
 
 /**
- * Fits the additive read-out over the partitions the forest already grew.
- *
- * The two read-outs combine rather than compete: eval answers with the bagged
- * mean plus the sum of the corrections, so the stages correct a
- * variance-reduced base instead of rebuilding it. Nothing here grows a tree,
- * and eval pays one array lookup per descent it was making anyway.
- *
- * One choice carries the honesty of the whole fit: what the residual is taken
- * against. It has to be the out-of-bag forest mean, averaging each row over
- * only the trees whose bootstrap left that row out. The tempting alternative
- * is the full forest mean, on the grounds that it is exactly what eval starts
- * from and the corrections ought to be fitted against the base they will be
- * added to. That is wrong, and measurably so: on a training row the forest is
- * nearly unbiased because most of its trees memorized that row, so the leaf
- * means come out as noise rather than as bias, and summing a hundred stages of
- * noise is a random walk that degrades the read-out in proportion to the
- * learning rate. The out-of-bag mean is a few trees' worth noisier than the
- * one eval uses but carries the same bias, and bias is the only thing the
- * stages can correct.
- *
- * Applies to real-valued outputs alone. A folded output answers with a class,
- * and a class plus a real correction is not a class; boosting one needs a
- * correction per class per leaf, which is a different structure.
- */
-/**
  * Held-back score of the read-out as it currently stands: how many rows it gets
  * wrong, and how far its scores sit from the truth. The count is what the
  * read-out promises, so it decides; the distance breaks its ties, so a stage
@@ -1152,35 +1126,6 @@ LIBXS_API_INLINE void internal_libxs_predict_rf_hold_score(
 }
 
 
-/**
- * Fits the additive read-out over the partitions the forest already grew.
- *
- * The two read-outs combine rather than compete: eval answers with the bagged
- * read-out plus the sum of the corrections, so the stages correct a
- * variance-reduced base instead of rebuilding it. Nothing here grows a tree,
- * and eval pays one array lookup per descent it was making anyway.
- *
- * Real-valued and folded outputs are the same procedure at two widths. A
- * real-valued output carries one score, the leaf mean, and its correction is
- * the mean residual. A folded one carries a score per class, the share of the
- * trees voting for it, and its correction is the mean residual of each class
- * indicator. Setting nclass to one for the former makes the second case the
- * general one and the first its degenerate width, so there is a single fit, a
- * single stopping rule, and a single stored correction.
- *
- * One choice carries the honesty of the whole fit: what the residual is taken
- * against. It has to be the out-of-bag forest read-out, averaging each row
- * over only the trees whose bootstrap left that row out. The tempting
- * alternative is the full forest read-out, on the grounds that it is exactly
- * what eval starts from and the corrections ought to be fitted against the base
- * they will be added to. That is wrong, and measurably so: on a training row
- * the forest is nearly unbiased because most of its trees memorized that row,
- * so the leaf means come out as noise rather than as bias, and summing a
- * hundred stages of noise is a random walk that degrades the read-out in
- * proportion to the learning rate. The out-of-bag read-out is a few trees'
- * worth noisier than the one eval uses but carries the same bias, and bias is
- * the only thing the stages can correct.
- */
 /**
  * Measure what a share of the trees agreeing is worth, so that the reported
  * confidence is a probability rather than an ensemble statistic.
@@ -1311,6 +1256,35 @@ LIBXS_API_INLINE void internal_libxs_predict_rf_calibrate(libxs_predict_t* model
 }
 
 
+/**
+ * Fits the additive read-out over the partitions the forest already grew.
+ *
+ * The two read-outs combine rather than compete: eval answers with the bagged
+ * read-out plus the sum of the corrections, so the stages correct a
+ * variance-reduced base instead of rebuilding it. Nothing here grows a tree,
+ * and eval pays one array lookup per descent it was making anyway.
+ *
+ * Real-valued and folded outputs are the same procedure at two widths. A
+ * real-valued output carries one score, the leaf mean, and its correction is
+ * the mean residual. A folded one carries a score per class, the share of the
+ * trees voting for it, and its correction is the mean residual of each class
+ * indicator. Setting nclass to one for the former makes the second case the
+ * general one and the first its degenerate width, so there is a single fit, a
+ * single stopping rule, and a single stored correction.
+ *
+ * One choice carries the honesty of the whole fit: what the residual is taken
+ * against. It has to be the out-of-bag forest read-out, averaging each row
+ * over only the trees whose bootstrap left that row out. The tempting
+ * alternative is the full forest read-out, on the grounds that it is exactly
+ * what eval starts from and the corrections ought to be fitted against the base
+ * they will be added to. That is wrong, and measurably so: on a training row
+ * the forest is nearly unbiased because most of its trees memorized that row,
+ * so the leaf means come out as noise rather than as bias, and summing a
+ * hundred stages of noise is a random walk that degrades the read-out in
+ * proportion to the learning rate. The out-of-bag read-out is a few trees'
+ * worth noisier than the one eval uses but carries the same bias, and bias is
+ * the only thing the stages can correct.
+ */
 LIBXS_API_INLINE void internal_libxs_predict_rf_boost(libxs_predict_t* model)
 {
   internal_libxs_predict_rf_t* rf = model->rf;

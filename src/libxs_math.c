@@ -50,83 +50,83 @@
 
 /** Sort-based multiset matching for real (scalar) element types. */
 #define LIBXS_SETDIFF_REAL(TYPE, CVT) { \
-  const TYPE *const ra = (const TYPE*)a, *const rb = (const TYPE*)b; \
-  const size_t bufsz = ((size_t)na + (size_t)nb) * sizeof(double); \
-  int pool_sd = 0; \
-  double* const sa = (double*)LIBXS_MATH_MALLOC(bufsz, pool_sd); \
-  if (NULL != sa) { \
-    double* const sb = sa + na; \
-    int m = 0; \
-    for (i = 0; i < na; ++i) sa[i] = CVT(ra[i]); \
-    for (j = 0; j < nb; ++j) sb[j] = CVT(rb[j]); \
-    libxs_sort(sa, na, sizeof(double), libxs_cmp_f64, NULL); \
-    libxs_sort(sb, nb, sizeof(double), libxs_cmp_f64, NULL); \
+  const TYPE *const setdiff_ra_ = (const TYPE*)a, *const setdiff_rb_ = (const TYPE*)b; \
+  const size_t setdiff_bufsz_ = ((size_t)na + (size_t)nb) * sizeof(double); \
+  int setdiff_pool_ = 0; \
+  double* const setdiff_sa_ = (double*)LIBXS_MATH_MALLOC(setdiff_bufsz_, setdiff_pool_); \
+  if (NULL != setdiff_sa_) { \
+    double* const setdiff_sb_ = setdiff_sa_ + na; \
+    int setdiff_m_ = 0; \
+    for (i = 0; i < na; ++i) setdiff_sa_[i] = CVT(setdiff_ra_[i]); \
+    for (j = 0; j < nb; ++j) setdiff_sb_[j] = CVT(setdiff_rb_[j]); \
+    libxs_sort(setdiff_sa_, na, sizeof(double), libxs_cmp_f64, NULL); \
+    libxs_sort(setdiff_sb_, nb, sizeof(double), libxs_cmp_f64, NULL); \
     i = 0; j = 0; \
     while (i < na && j < nb) { \
-      if (LIBXS_DELTA(sa[i], sb[j]) <= tol) { ++m; ++i; ++j; } \
-      else if (sa[i] < sb[j]) ++i; \
+      if (LIBXS_DELTA(setdiff_sa_[i], setdiff_sb_[j]) <= tol) { ++setdiff_m_; ++i; ++j; } \
+      else if (setdiff_sa_[i] < setdiff_sb_[j]) ++i; \
       else ++j; \
     } \
-    result = nmax - m; \
-    LIBXS_MATH_FREE(sa, pool_sd); \
+    result = nmax - setdiff_m_; \
+    LIBXS_MATH_FREE(setdiff_sa_, setdiff_pool_); \
   } \
   else { result = nmax; } \
 }
 
 /** k-d tree nearest-neighbor matching for complex types. */
 #define LIBXS_SETDIFF_CMPLX(TYPE, CVT) { \
-  const TYPE *const ra = (const TYPE*)a, *const rb = (const TYPE*)b; \
-  const size_t bufsz = (size_t)nb * 2 * sizeof(double) \
+  const TYPE *const setdiff_ra_ = (const TYPE*)a, *const setdiff_rb_ = (const TYPE*)b; \
+  const size_t setdiff_bufsz_ = (size_t)nb * 2 * sizeof(double) \
     + (size_t)nb * sizeof(int) + (size_t)nb; \
-  int pool_sd = 0; \
-  double* const pts = (double*)LIBXS_MATH_MALLOC(bufsz, pool_sd); \
-  if (NULL != pts) { \
-    int* const idx = (int*)(pts + 2 * nb); \
-    unsigned char* const used = (unsigned char*)(idx + nb); \
-    int m = 0; \
+  int setdiff_pool_ = 0; \
+  double* const setdiff_pts_ = (double*)LIBXS_MATH_MALLOC(setdiff_bufsz_, setdiff_pool_); \
+  if (NULL != setdiff_pts_) { \
+    int* const setdiff_idx_ = (int*)(setdiff_pts_ + 2 * nb); \
+    unsigned char* const setdiff_used_ = (unsigned char*)(setdiff_idx_ + nb); \
+    int setdiff_m_ = 0; \
     for (j = 0; j < nb; ++j) { \
-      pts[2*j] = CVT(rb[2*j]); pts[2*j+1] = CVT(rb[2*j+1]); \
-      idx[j] = j; \
+      setdiff_pts_[2*j] = CVT(setdiff_rb_[2*j]); setdiff_pts_[2*j+1] = CVT(setdiff_rb_[2*j+1]); \
+      setdiff_idx_[j] = j; \
     } \
-    libxs_kdtree2d_build(pts, idx, nb); \
-    memset(used, 0, (size_t)nb); \
+    libxs_kdtree2d_build(setdiff_pts_, setdiff_idx_, nb); \
+    memset(setdiff_used_, 0, (size_t)nb); \
     for (i = 0; i < na; ++i) { \
-      const double qre = CVT(ra[2*i]), qim = CVT(ra[2*i+1]); \
-      const double r2 = tol * tol; \
-      const int hit = libxs_kdtree2d_nearest( \
-        pts, idx, used, nb, qre, qim, r2); \
-      if (0 <= hit) { used[hit] = 1; ++m; } \
+      const double setdiff_qre_ = CVT(setdiff_ra_[2*i]), setdiff_qim_ = CVT(setdiff_ra_[2*i+1]); \
+      const double setdiff_r2_ = tol * tol; \
+      const int setdiff_hit_ = libxs_kdtree2d_nearest( \
+        setdiff_pts_, setdiff_idx_, setdiff_used_, nb, setdiff_qre_, setdiff_qim_, setdiff_r2_); \
+      if (0 <= setdiff_hit_) { setdiff_used_[setdiff_hit_] = 1; ++setdiff_m_; } \
     } \
-    result = nmax - m; \
-    LIBXS_MATH_FREE(pts, pool_sd); \
+    result = nmax - setdiff_m_; \
+    LIBXS_MATH_FREE(setdiff_pts_, setdiff_pool_); \
   } \
   else { result = nmax; } \
 }
 
 /** Min/max scan over a real array. */
 #define LIBXS_SETDIFF_RANGE(TYPE, CVT, SRC, N, LO, HI) { \
-  const TYPE *const p = (const TYPE*)(SRC); \
-  int ii; \
-  (LO) = (HI) = CVT(p[0]); \
-  for (ii = 1; ii < (N); ++ii) { \
-    const double vi = CVT(p[ii]); \
-    if (vi < (LO)) (LO) = vi; \
-    if (vi > (HI)) (HI) = vi; \
+  const TYPE *const range_p_ = (const TYPE*)(SRC); \
+  int range_i_; \
+  (LO) = (HI) = CVT(range_p_[0]); \
+  for (range_i_ = 1; range_i_ < (N); ++range_i_) { \
+    const double range_v_ = CVT(range_p_[range_i_]); \
+    if (range_v_ < (LO)) (LO) = range_v_; \
+    if (range_v_ > (HI)) (HI) = range_v_; \
   } \
 }
 
 /** Min/max scan over a complex array (component-wise bounding box). */
 #define LIBXS_SETDIFF_RANGE_CMPLX(TYPE, CVT, SRC, N, LO_RE, HI_RE, LO_IM, HI_IM) { \
-  const TYPE *const p = (const TYPE*)(SRC); \
-  int ii; \
-  (LO_RE) = (HI_RE) = CVT(p[0]); \
-  (LO_IM) = (HI_IM) = CVT(p[1]); \
-  for (ii = 1; ii < (N); ++ii) { \
-    const double re = CVT(p[2*ii]), im = CVT(p[2*ii+1]); \
-    if (re < (LO_RE)) (LO_RE) = re; \
-    if (re > (HI_RE)) (HI_RE) = re; \
-    if (im < (LO_IM)) (LO_IM) = im; \
-    if (im > (HI_IM)) (HI_IM) = im; \
+  const TYPE *const range_p_ = (const TYPE*)(SRC); \
+  int range_i_; \
+  (LO_RE) = (HI_RE) = CVT(range_p_[0]); \
+  (LO_IM) = (HI_IM) = CVT(range_p_[1]); \
+  for (range_i_ = 1; range_i_ < (N); ++range_i_) { \
+    const double range_re_ = CVT(range_p_[2*range_i_]), range_im_ = CVT(range_p_[2*range_i_+1]); \
+    if (range_re_ < (LO_RE)) (LO_RE) = range_re_; \
+    if (range_re_ > (HI_RE)) (HI_RE) = range_re_; \
+    if (range_im_ < (LO_IM)) (LO_IM) = range_im_; \
+    if (range_im_ > (HI_IM)) (HI_IM) = range_im_; \
   } \
 }
 
@@ -147,6 +147,7 @@ LIBXS_API_INLINE int internal_libxs_setdiff_merge(
   return m;
 }
 
+
 /** k-d tree query-only: count matches on pre-built tree. */
 LIBXS_API_INLINE int internal_libxs_setdiff_kd_match(
   const double* pts, const int* idx, int nb,
@@ -156,21 +157,21 @@ LIBXS_API_INLINE int internal_libxs_setdiff_kd_match(
   unsigned char ubuf[256];
   unsigned char* used = (usz <= sizeof(ubuf)) ? ubuf : NULL;
   int pool_u = 0, i, m = 0;
-  if (NULL == used) {
-    used = (unsigned char*)LIBXS_MATH_MALLOC(usz, pool_u);
-    if (NULL == used) return 0;
-  }
-  memset(used, 0, usz);
-  { const double r2 = tol * tol;
-    for (i = 0; i < na; ++i) {
-      const int hit = libxs_kdtree2d_nearest(
-        pts, idx, used, nb, qa[2*i], qa[2*i+1], r2);
-      if (0 <= hit) { used[hit] = 1; ++m; }
+  if (NULL == used) used = (unsigned char*)LIBXS_MATH_MALLOC(usz, pool_u);
+  if (NULL != used) {
+    memset(used, 0, usz);
+    { const double r2 = tol * tol;
+      for (i = 0; i < na; ++i) {
+        const int hit = libxs_kdtree2d_nearest(
+          pts, idx, used, nb, qa[2*i], qa[2*i+1], r2);
+        if (0 <= hit) { used[hit] = 1; ++m; }
+      }
     }
+    if (used != ubuf) LIBXS_MATH_FREE(used, pool_u);
   }
-  if (used != ubuf) LIBXS_MATH_FREE(used, pool_u);
   return m;
 }
+
 
 /** Context for the GSS callback used by libxs_setdiff_min. */
 LIBXS_EXTERN_C typedef struct internal_libxs_setdiff_ctx_t {
@@ -207,20 +208,23 @@ LIBXS_API unsigned int libxs_remainder(unsigned int a, unsigned int b,
   const unsigned int* limit, const unsigned int* remainder)
 {
   /* normalize such that a <= b */
-  unsigned int ci, c;
-  if (0 == b) return 0; /* guard against division by zero and infinite loop */
-  ci = (b < a ? LIBXS_UP(a, b) : b); c = a * ci;
-  /* sanitize limit argument */
-  if (NULL != limit && (0 == b || ((*limit / b) * b) < a)) limit = NULL;
-  if (1 <= a) {
-    unsigned int r = a - 1;
-    for (; ((NULL != remainder ? *remainder : 0) < r)
-        &&  (NULL == limit || ci <= *limit); ci += b)
-    {
-      const unsigned int ri = ci % a;
-      if (ri < r) {
-        c = ci;
-        r = ri;
+  unsigned int c = 0;
+  /* zero would divide by zero and loop forever */
+  if (0 != b) {
+    unsigned int ci = (b < a ? LIBXS_UP(a, b) : b);
+    c = a * ci;
+    /* sanitize limit argument */
+    if (NULL != limit && ((*limit / b) * b) < a) limit = NULL;
+    if (1 <= a) {
+      unsigned int r = a - 1;
+      for (; ((NULL != remainder ? *remainder : 0) < r)
+          &&  (NULL == limit || ci <= *limit); ci += b)
+      {
+        const unsigned int ri = ci % a;
+        if (ri < r) {
+          c = ci;
+          r = ri;
+        }
       }
     }
   }
@@ -379,23 +383,23 @@ LIBXS_API size_t libxs_coprime_bias(size_t n, double bias)
 {
   const size_t sqrtn = libxs_isqrt_u64(n);
   const size_t half = n / 2;
-  size_t target, d;
-  if (n <= 4) return libxs_coprime(n, sqrtn);
-  bias = LIBXS_CLMP(bias, -1.0, 1.0);
-  if (bias < 0.0) target = (size_t)(pow((double)sqrtn, 1.0 + bias) + 0.5);
-  else if (bias <= 0.0) target = sqrtn;
-  else target = (size_t)(pow((double)n, 0.5 * (1.0 + bias)) + 0.5);
-  target = LIBXS_CLMP(target, 2, half);
-  for (d = target; d >= 2; --d) {
-    if (1 == libxs_gcd(d, n)) return d;
+  size_t result = 0, target, d;
+  if (4 < n) {
+    bias = LIBXS_CLMP(bias, -1.0, 1.0);
+    if (bias < 0.0) target = (size_t)(pow((double)sqrtn, 1.0 + bias) + 0.5);
+    else if (bias <= 0.0) target = sqrtn;
+    else target = (size_t)(pow((double)n, 0.5 * (1.0 + bias)) + 0.5);
+    target = LIBXS_CLMP(target, 2, half);
+    for (d = target; d >= 2 && 0 == result; --d) {
+      if (1 == libxs_gcd(d, n)) result = d;
+    }
+    for (d = target + 1; d <= half && 0 == result; ++d) {
+      if (1 == libxs_gcd(d, n)) result = d;
+    }
   }
-  for (d = target + 1; d <= half; ++d) {
-    if (1 == libxs_gcd(d, n)) return d;
-  }
-  return libxs_coprime(n, sqrtn);
+  if (0 == result) result = libxs_coprime(n, sqrtn);
+  return result;
 }
-
-
 
 
 LIBXS_API unsigned int libxs_isqrt_u64(unsigned long long x)
@@ -535,12 +539,9 @@ LIBXS_API double libxs_dot2_err(const double* x, const double* y, int n, double*
 LIBXS_API double libxs_pow2(int n)
 {
   union { uint64_t u; double d; } cvt;
-  if (n < -1022) return 0.0;
-  if (n > 1023) {
-    cvt.u = LIBXS_CONCATENATE(0x7FF0000000000000, ULL); /* +Inf */
-    return cvt.d;
-  }
-  cvt.u = (uint64_t)(n + 1023) << 52;
+  if (n < -1022) cvt.d = 0.0;
+  else if (n > 1023) cvt.u = LIBXS_CONCATENATE(0x7FF0000000000000, ULL); /* +Inf */
+  else cvt.u = (uint64_t)(n + 1023) << 52;
   return cvt.d;
 }
 
@@ -734,7 +735,10 @@ LIBXS_API double libxs_gss_min(
       }
     }
     if (0 != internal_libxs_gss_close(best_x, x0, 0.0)
-      || 0 != internal_libxs_gss_close(best_x, x1, 0.0)) status |= LIBXS_GSS_STATUS_ENDPOINT_MIN;
+      || 0 != internal_libxs_gss_close(best_x, x1, 0.0))
+    {
+      status |= LIBXS_GSS_STATUS_ENDPOINT_MIN;
+    }
   }
   else {
     unimodality = 1.0;

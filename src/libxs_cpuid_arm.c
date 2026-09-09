@@ -35,13 +35,17 @@
 # endif
 LIBXS_APIVAR_DEFINE(jmp_buf internal_libxs_cpuid_arm_jmp_buf);
 LIBXS_API_INTERN void internal_libxs_cpuid_arm_sigill(int /*signum*/);
-LIBXS_API_INTERN void internal_libxs_cpuid_arm_sigill(int signum) {
+LIBXS_API_INTERN void internal_libxs_cpuid_arm_sigill(int signum)
+{
   void (*const handler)(int) = signal(signum, internal_libxs_cpuid_arm_sigill);
   LIBXS_ASSERT(SIGILL == signum);
   if (SIG_ERR != handler) longjmp(internal_libxs_cpuid_arm_jmp_buf, 1);
 }
+
+
 LIBXS_API_INTERN int internal_libxs_cpuid_arm_svcntb(void);
-LIBXS_API_INTERN int internal_libxs_cpuid_arm_svcntb(void) {
+LIBXS_API_INTERN int internal_libxs_cpuid_arm_svcntb(void)
+{
   int result = 0;
   if (0 == setjmp(internal_libxs_cpuid_arm_jmp_buf)) {
 # if (defined(__has_builtin) && __has_builtin(__builtin_sve_svcntb)) && 0
@@ -55,9 +59,12 @@ LIBXS_API_INTERN int internal_libxs_cpuid_arm_svcntb(void) {
   }
   return result;
 }
+
+
 /* Call late (not upfront) since MIDR_EL1 failure cannot always be trapped. */
 LIBXS_API_INTERN char internal_libxs_cpuid_arm_vendor(void);
-LIBXS_API_INTERN char internal_libxs_cpuid_arm_vendor(void) {
+LIBXS_API_INTERN char internal_libxs_cpuid_arm_vendor(void)
+{
   uint64_t result = 0;
   if (0 == setjmp(internal_libxs_cpuid_arm_jmp_buf)) {
     LIBXS_ARM_MRS(result, MIDR_EL1);

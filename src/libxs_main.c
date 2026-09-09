@@ -308,7 +308,8 @@ LIBXS_API_INTERN void internal_libxs_finalize(void)
 
 
 LIBXS_API_INTERN void internal_libxs_signal(int /*signum*/);
-LIBXS_API_INTERN void internal_libxs_signal(int signum) {
+LIBXS_API_INTERN void internal_libxs_signal(int signum)
+{
   int n = (int)(sizeof(internal_libxs_sigentries) / sizeof(*internal_libxs_sigentries)), i = 0;
   for (; i < n; ++i) {
     if (signum == internal_libxs_sigentries[i].signum) {
@@ -349,6 +350,7 @@ LIBXS_API LIBXS_ATTRIBUTE_WEAK void _gfortran_stop_string(const char* message, i
   }
 }
 
+
 LIBXS_API LIBXS_ATTRIBUTE_WEAK void for_stop_core(const char* /*message*/, int /*len*/);
 LIBXS_API LIBXS_ATTRIBUTE_WEAK void for_stop_core(const char* message, int len)
 { /* STOP termination handler for Intel Fortran runtime */
@@ -363,6 +365,7 @@ LIBXS_API LIBXS_ATTRIBUTE_WEAK void for_stop_core(const char* message, int len)
     else LIBXS_EXIT_SUCCESS(); /* statically linked runtime */
   }
 }
+
 
 LIBXS_API LIBXS_ATTRIBUTE_WEAK void for_stop_core_quiet(void);
 LIBXS_API LIBXS_ATTRIBUTE_WEAK void for_stop_core_quiet(void)
@@ -629,21 +632,23 @@ LIBXS_API void libxs_set_verbosity(int level)
 
 LIBXS_API const char* libxs_typename(libxs_data_t datatype)
 {
+  const char* result;
   switch (datatype) {
-    case LIBXS_DATATYPE_F64:  return "f64";
-    case LIBXS_DATATYPE_F32:  return "f32";
-    case LIBXS_DATATYPE_I64:  return "i64";
-    case LIBXS_DATATYPE_U64:  return "u64";
-    case LIBXS_DATATYPE_I32:  return "i32";
-    case LIBXS_DATATYPE_U32:  return "u32";
-    case LIBXS_DATATYPE_I16:  return "i16";
-    case LIBXS_DATATYPE_U16:  return "u16";
-    case LIBXS_DATATYPE_I8:   return "i8";
-    case LIBXS_DATATYPE_U8:   return "u8";
-    case LIBXS_DATATYPE_C64:  return "c64";
-    case LIBXS_DATATYPE_C32:  return "c32";
-    default: return "void";
+    case LIBXS_DATATYPE_F64:  result = "f64"; break;
+    case LIBXS_DATATYPE_F32:  result = "f32"; break;
+    case LIBXS_DATATYPE_I64:  result = "i64"; break;
+    case LIBXS_DATATYPE_U64:  result = "u64"; break;
+    case LIBXS_DATATYPE_I32:  result = "i32"; break;
+    case LIBXS_DATATYPE_U32:  result = "u32"; break;
+    case LIBXS_DATATYPE_I16:  result = "i16"; break;
+    case LIBXS_DATATYPE_U16:  result = "u16"; break;
+    case LIBXS_DATATYPE_I8:   result = "i8"; break;
+    case LIBXS_DATATYPE_U8:   result = "u8"; break;
+    case LIBXS_DATATYPE_C64:  result = "c64"; break;
+    case LIBXS_DATATYPE_C32:  result = "c32"; break;
+    default: result = "void";
   }
+  return result;
 }
 
 

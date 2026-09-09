@@ -245,45 +245,49 @@ LIBXS_API void libxs_ngram_finalize(libxs_ngram_t* model, unsigned int vocab)
 LIBXS_API const libxs_ngram_entry_t* libxs_ngram_lookup(
   const libxs_ngram_t* model, const unsigned int hist[], int hlen, int n)
 {
-  internal_libxs_ngram_key_t key;
-  if (NULL == model || NULL == model->store || n <= 0 || n > hlen) return NULL;
-  internal_libxs_ngram_key(&key, hist, hlen, n);
-  return (const libxs_ngram_entry_t*)libxs_registry_get(model->store, &key,
-    sizeof(key), NULL);
+  const libxs_ngram_entry_t* result = NULL;
+  if (NULL != model && NULL != model->store && 0 < n && n <= hlen) {
+    internal_libxs_ngram_key_t key;
+    internal_libxs_ngram_key(&key, hist, hlen, n);
+    result = (const libxs_ngram_entry_t*)libxs_registry_get(model->store, &key,
+      sizeof(key), NULL);
+  }
+  return result;
 }
 
 
 LIBXS_API double libxs_ngram_prob(const libxs_ngram_t* model,
   const unsigned int hist[], int hlen, unsigned int next)
 {
-  double p;
+  double p = 0.0;
   int n;
-  if (NULL == model) return 0.0;
-  p = internal_libxs_ngram_prior(model, next);
-  for (n = 1; n <= model->maxorder && n <= hlen; ++n) {
-    const libxs_ngram_entry_t* entry = libxs_ngram_lookup(model, hist, hlen, n);
-    if (NULL != entry && entry->total > 0) {
-      double t = (double)entry->total;
-      if (LIBXS_NGRAM_SUCC_MAX == entry->nsucc) {
-        unsigned int slot;
-        unsigned int minimum = entry->succ[0].count;
-        double retained = 0.0, count = 0.0;
-        for (slot = 1; slot < entry->nsucc; ++slot) {
-          if (entry->succ[slot].count < minimum) {
-            minimum = entry->succ[slot].count;
+  if (NULL != model) {
+    p = internal_libxs_ngram_prior(model, next);
+    for (n = 1; n <= model->maxorder && n <= hlen; ++n) {
+      const libxs_ngram_entry_t* entry = libxs_ngram_lookup(model, hist, hlen, n);
+      if (NULL != entry && entry->total > 0) {
+        double t = (double)entry->total;
+        if (LIBXS_NGRAM_SUCC_MAX == entry->nsucc) {
+          unsigned int slot;
+          unsigned int minimum = entry->succ[0].count;
+          double retained = 0.0, count = 0.0;
+          for (slot = 1; slot < entry->nsucc; ++slot) {
+            if (entry->succ[slot].count < minimum) {
+              minimum = entry->succ[slot].count;
+            }
           }
+          for (slot = 0; slot < entry->nsucc; ++slot) {
+            const double adjusted = (double)(entry->succ[slot].count - minimum);
+            retained += adjusted;
+            if (entry->succ[slot].id == next) count = adjusted;
+          }
+          p = count / t + (1.0 - retained / t) * p;
         }
-        for (slot = 0; slot < entry->nsucc; ++slot) {
-          const double adjusted = (double)(entry->succ[slot].count - minimum);
-          retained += adjusted;
-          if (entry->succ[slot].id == next) count = adjusted;
+        else {
+          const double lambda = t / (t + 1.0);
+          p = lambda * internal_libxs_ngram_relfreq(entry, next)
+            + (1.0 - lambda) * p;
         }
-        p = count / t + (1.0 - retained / t) * p;
-      }
-      else {
-        const double lambda = t / (t + 1.0);
-        p = lambda * internal_libxs_ngram_relfreq(entry, next)
-          + (1.0 - lambda) * p;
       }
     }
   }
@@ -297,26 +301,27 @@ LIBXS_API int libxs_ngram_predict(const libxs_ngram_t* model,
   int* order)
 {
   const libxs_ngram_entry_t* entry = NULL;
-  int n, matched = 0;
-  if (NULL == model) {
-    if (NULL != order) *order = 0;
-    return 0;
-  }
-  for (n = (model->maxorder < hlen) ? model->maxorder : hlen;
-    n >= 1 && NULL == entry; --n)
-  {
-    entry = libxs_ngram_lookup(model, hist, hlen, n);
-    if (NULL != entry) matched = n;
+  int result = 0, n, matched = 0;
+  if (NULL != model) {
+    for (n = (model->maxorder < hlen) ? model->maxorder : hlen;
+      n >= 1 && NULL == entry; --n)
+    {
+      entry = libxs_ngram_lookup(model, hist, hlen, n);
+      if (NULL != entry) matched = n;
+    }
+    if (NULL != entry) {
+      result = internal_libxs_ngram_topk(entry, out_ids, k);
+    }
+    else { /* back off to the most frequent successors of the corpus */
+      int slot;
+      for (slot = 0; slot < k && slot < model->backoff_count; ++slot) {
+        out_ids[slot] = model->backoff_ids[slot];
+        ++result;
+      }
+    }
   }
   if (NULL != order) *order = matched;
-  if (NULL != entry) return internal_libxs_ngram_topk(entry, out_ids, k);
-  { int slot, result = 0;
-    for (slot = 0; slot < k && slot < model->backoff_count; ++slot) {
-      out_ids[slot] = model->backoff_ids[slot];
-      ++result;
-    }
-    return result;
-  }
+  return result;
 }
 
 

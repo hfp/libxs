@@ -461,7 +461,10 @@ LIBXS_API_INLINE void internal_libxs_gemm_print_registry(const libxs_registry_t*
           if (NULL != config->dgemm_jit || NULL != config->sgemm_jit) ++njit;
           else if (NULL != config->xgemm) ++nxgemm;
           else if ((LIBXS_DATATYPE_F64 == shape->datatype && internal_libxs_dgemm_default != config->dgemm_blas)
-            || (LIBXS_DATATYPE_F32 == shape->datatype && internal_libxs_sgemm_default != config->sgemm_blas)) ++nblas;
+            || (LIBXS_DATATYPE_F32 == shape->datatype && internal_libxs_sgemm_default != config->sgemm_blas))
+          {
+            ++nblas;
+          }
           else ++nfallback;
           config = (const libxs_gemm_config_t*)
             libxs_registry_next(registry, &key, &cursor);
@@ -710,7 +713,8 @@ LIBXS_API_INTERN libxs_gemm_config_t* internal_libxs_gemm_dispatch(
           }
         }
         if (NULL == config.dgemm_jit && NULL == config.sgemm_jit
-          && 0 != use_xgemm && 0 != use_kernel && NULL != xdisp) {
+          && 0 != use_xgemm && 0 != use_kernel && NULL != xdisp)
+        {
           unsigned int xflags = 0;
           int xsmm_ok = 0;
           if (0 != ta) xflags |= 1;

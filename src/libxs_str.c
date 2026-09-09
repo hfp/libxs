@@ -50,7 +50,10 @@ LIBXS_API const char* libxs_strimem(const char a[], size_t asize,
     while (at <= last && NULL == result) {
       size_t i = 0;
       while (i < bsize && internal_libxs_strilower(a[at + i])
-        == internal_libxs_strilower(b[i])) ++i;
+        == internal_libxs_strilower(b[i]))
+      {
+        ++i;
+      }
       if (i == bsize) result = a + at;
       ++at;
     }
@@ -144,37 +147,40 @@ LIBXS_API int libxs_strimatch(const char a[], const char b[], const char delims[
 LIBXS_API_INLINE
 int internal_libxs_levenshtein(const char* a, int na, const char* b, int nb)
 {
-  int row[64], i, j;
-  if (0 == na) return nb;
-  if (0 == nb) return na;
-  if (na < nb) { /* ensure nb <= na for O(min) space */
-    const char* t = a; a = b; b = t;
-    i = na; na = nb; nb = i;
-  }
-  LIBXS_ASSERT(nb <= 64);
-  for (j = 0; j < nb; ++j) row[j] = j + 1;
-  for (i = 0; i < na; ++i) {
-    const int ca = internal_libxs_strilower(a[i]);
-    int prev = i;
-    for (j = 0; j < nb; ++j) {
-      const int cost = (ca != internal_libxs_strilower(b[j]));
-      int val = prev + cost; /* substitution */
-      if (row[j] + 1 < val) val = row[j] + 1; /* deletion */
-      if ((j > 0 ? row[j - 1] : i + 1) + 1 < val) val = (j > 0 ? row[j - 1] : i + 1) + 1; /* insertion */
-      prev = row[j];
-      row[j] = val;
+  int row[64], result, i, j;
+  if (0 == na || 0 == nb) result = (0 == na) ? nb : na;
+  else {
+    if (na < nb) { /* ensure nb <= na for O(min) space */
+      const char* t = a; a = b; b = t;
+      i = na; na = nb; nb = i;
     }
+    LIBXS_ASSERT(nb <= 64);
+    for (j = 0; j < nb; ++j) row[j] = j + 1;
+    for (i = 0; i < na; ++i) {
+      const int ca = internal_libxs_strilower(a[i]);
+      int prev = i;
+      for (j = 0; j < nb; ++j) {
+        const int cost = (ca != internal_libxs_strilower(b[j]));
+        int val = prev + cost; /* substitution */
+        if (row[j] + 1 < val) val = row[j] + 1; /* deletion */
+        if ((j > 0 ? row[j - 1] : i + 1) + 1 < val) val = (j > 0 ? row[j - 1] : i + 1) + 1; /* insertion */
+        prev = row[j];
+        row[j] = val;
+      }
+    }
+    result = row[nb - 1];
   }
-  return row[nb - 1];
+  return result;
 }
 
 
 LIBXS_API int libxs_stridist(const char a[], const char b[])
 {
+  int result = -1;
   if (NULL != a && NULL != b) {
-    return internal_libxs_levenshtein(a, (int)strlen(a), b, (int)strlen(b));
+    result = internal_libxs_levenshtein(a, (int)strlen(a), b, (int)strlen(b));
   }
-  return -1;
+  return result;
 }
 
 

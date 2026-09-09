@@ -280,19 +280,21 @@ LIBXS_API_INLINE
 unsigned char internal_libxs_diff_sw(const void* a, const void* b, unsigned char size)
 {
 #if defined(LIBXS_MEM_STDLIB) && defined(LIBXS_MEM_SW)
-  return (unsigned char)memcmp(a, b, size);
+  const unsigned char result = (unsigned char)memcmp(a, b, size);
 #else
   const uint8_t *const a8 = (const uint8_t*)a, *const b8 = (const uint8_t*)b;
-  unsigned char i;
+  unsigned char result = 0, i;
   LIBXS_PRAGMA_UNROLL/*_N(2)*/
   for (i = 0; i < (unsigned char)(size & (unsigned char)0xF0); i += 16) {
     LIBXS_DIFF_16_DECL(aa);
     LIBXS_DIFF_16_LOAD(aa, a8 + i);
-    if (LIBXS_DIFF_16(aa, b8 + i, 0/*dummy*/)) return 1;
+    if (LIBXS_DIFF_16(aa, b8 + i, 0/*dummy*/)) { result = 1; break; }
   }
-  for (; i < size; ++i) if (a8[i] ^ b8[i]) return 1;
-  return 0;
+  if (0 == result) {
+    for (; i < size; ++i) if (a8[i] ^ b8[i]) { result = 1; break; }
+  }
 #endif
+  return result;
 }
 
 
@@ -301,18 +303,20 @@ unsigned char internal_libxs_diff_sse(const void* a, const void* b, unsigned cha
 {
 #if defined(LIBXS_INTRINSICS_X86) && !defined(LIBXS_MEM_SW)
   const uint8_t *const a8 = (const uint8_t*)a, *const b8 = (const uint8_t*)b;
-  unsigned char i;
+  unsigned char result = 0, i;
   LIBXS_PRAGMA_UNROLL/*_N(2)*/
   for (i = 0; i < (unsigned char)(size & (unsigned char)0xF0); i += 16) {
     LIBXS_DIFF_SSE_DECL(aa);
     LIBXS_DIFF_SSE_LOAD(aa, a8 + i);
-    if (LIBXS_DIFF_SSE(aa, b8 + i, 0/*dummy*/)) return 1;
+    if (LIBXS_DIFF_SSE(aa, b8 + i, 0/*dummy*/)) { result = 1; break; }
   }
-  for (; i < size; ++i) if (a8[i] ^ b8[i]) return 1;
-  return 0;
+  if (0 == result) {
+    for (; i < size; ++i) if (a8[i] ^ b8[i]) { result = 1; break; }
+  }
 #else
-  return internal_libxs_diff_sw(a, b, size);
+  const unsigned char result = internal_libxs_diff_sw(a, b, size);
 #endif
+  return result;
 }
 
 
@@ -321,18 +325,20 @@ unsigned char internal_libxs_diff_avx2(const void* a, const void* b, unsigned ch
 {
 #if defined(LIBXS_INTRINSICS_AVX2) && !defined(LIBXS_MEM_SW)
   const uint8_t *const a8 = (const uint8_t*)a, *const b8 = (const uint8_t*)b;
-  unsigned char i;
+  unsigned char result = 0, i;
   LIBXS_PRAGMA_UNROLL/*_N(2)*/
   for (i = 0; i < (unsigned char)(size & (unsigned char)0xE0); i += 32) {
     LIBXS_DIFF_AVX2_DECL(aa);
     LIBXS_DIFF_AVX2_LOAD(aa, a8 + i);
-    if (LIBXS_DIFF_AVX2(aa, b8 + i, 0/*dummy*/)) return 1;
+    if (LIBXS_DIFF_AVX2(aa, b8 + i, 0/*dummy*/)) { result = 1; break; }
   }
-  for (; i < size; ++i) if (a8[i] ^ b8[i]) return 1;
-  return 0;
+  if (0 == result) {
+    for (; i < size; ++i) if (a8[i] ^ b8[i]) { result = 1; break; }
+  }
 #else
-  return internal_libxs_diff_sw(a, b, size);
+  const unsigned char result = internal_libxs_diff_sw(a, b, size);
 #endif
+  return result;
 }
 
 
@@ -342,18 +348,20 @@ unsigned char internal_libxs_diff_avx512(const void* a, const void* b, unsigned 
 {
 #if defined(LIBXS_INTRINSICS_AVX512) && !defined(LIBXS_MEM_SW)
   const uint8_t *const a8 = (const uint8_t*)a, *const b8 = (const uint8_t*)b;
-  unsigned char i;
+  unsigned char result = 0, i;
   LIBXS_PRAGMA_UNROLL/*_N(2)*/
   for (i = 0; i < (unsigned char)(size & (unsigned char)0xC0); i += 64) {
     LIBXS_DIFF_AVX512_DECL(aa);
     LIBXS_DIFF_AVX512_LOAD(aa, a8 + i);
-    if (LIBXS_DIFF_AVX512(aa, b8 + i, 0/*dummy*/)) return 1;
+    if (LIBXS_DIFF_AVX512(aa, b8 + i, 0/*dummy*/)) { result = 1; break; }
   }
-  for (; i < size; ++i) if (a8[i] ^ b8[i]) return 1;
-  return 0;
+  if (0 == result) {
+    for (; i < size; ++i) if (a8[i] ^ b8[i]) { result = 1; break; }
+  }
 #else
-  return internal_libxs_diff_sw(a, b, size);
+  const unsigned char result = internal_libxs_diff_sw(a, b, size);
 #endif
+  return result;
 }
 #endif
 
@@ -362,19 +370,22 @@ LIBXS_API_INLINE
 int internal_libxs_memcmp_sw(const void* a, const void* b, size_t size)
 {
 #if defined(LIBXS_MEM_STDLIB)
-  return memcmp(a, b, size);
+  const int result = memcmp(a, b, size);
 #else
   const uint8_t *const a8 = (const uint8_t*)a, *const b8 = (const uint8_t*)b;
+  int result = 0;
   size_t i;
   LIBXS_DIFF_16_DECL(aa);
   LIBXS_PRAGMA_UNROLL/*_N(2)*/
   for (i = 0; i < (size & ~(size_t)0xF); i += 16) {
     LIBXS_DIFF_16_LOAD(aa, a8 + i);
-    if (LIBXS_DIFF_16(aa, b8 + i, 0/*dummy*/)) return 1;
+    if (LIBXS_DIFF_16(aa, b8 + i, 0/*dummy*/)) { result = 1; break; }
   }
-  for (; i < size; ++i) if (a8[i] ^ b8[i]) return 1;
-  return 0;
+  if (0 == result) {
+    for (; i < size; ++i) if (a8[i] ^ b8[i]) { result = 1; break; }
+  }
 #endif
+  return result;
 }
 
 
@@ -383,18 +394,21 @@ int internal_libxs_memcmp_sse(const void* a, const void* b, size_t size)
 {
 #if defined(LIBXS_INTRINSICS_X86) && !defined(LIBXS_MEM_SW)
   const uint8_t *const a8 = (const uint8_t*)a, *const b8 = (const uint8_t*)b;
+  int result = 0;
   size_t i;
   LIBXS_DIFF_SSE_DECL(aa);
   LIBXS_PRAGMA_UNROLL/*_N(2)*/
   for (i = 0; i < (size & ~(size_t)0xF); i += 16) {
     LIBXS_DIFF_SSE_LOAD(aa, a8 + i);
-    if (LIBXS_DIFF_SSE(aa, b8 + i, 0/*dummy*/)) return 1;
+    if (LIBXS_DIFF_SSE(aa, b8 + i, 0/*dummy*/)) { result = 1; break; }
   }
-  for (; i < size; ++i) if (a8[i] ^ b8[i]) return 1;
-  return 0;
+  if (0 == result) {
+    for (; i < size; ++i) if (a8[i] ^ b8[i]) { result = 1; break; }
+  }
 #else
-  return internal_libxs_memcmp_sw(a, b, size);
+  const int result = internal_libxs_memcmp_sw(a, b, size);
 #endif
+  return result;
 }
 
 
@@ -403,18 +417,21 @@ int internal_libxs_memcmp_avx2(const void* a, const void* b, size_t size)
 {
 #if defined(LIBXS_INTRINSICS_AVX2) && !defined(LIBXS_MEM_SW)
   const uint8_t *const a8 = (const uint8_t*)a, *const b8 = (const uint8_t*)b;
+  int result = 0;
   size_t i;
   LIBXS_DIFF_AVX2_DECL(aa);
   LIBXS_PRAGMA_UNROLL/*_N(2)*/
   for (i = 0; i < (size & ~(size_t)0x1F); i += 32) {
     LIBXS_DIFF_AVX2_LOAD(aa, a8 + i);
-    if (LIBXS_DIFF_AVX2(aa, b8 + i, 0/*dummy*/)) return 1;
+    if (LIBXS_DIFF_AVX2(aa, b8 + i, 0/*dummy*/)) { result = 1; break; }
   }
-  for (; i < size; ++i) if (a8[i] ^ b8[i]) return 1;
-  return 0;
+  if (0 == result) {
+    for (; i < size; ++i) if (a8[i] ^ b8[i]) { result = 1; break; }
+  }
 #else
-  return internal_libxs_memcmp_sw(a, b, size);
+  const int result = internal_libxs_memcmp_sw(a, b, size);
 #endif
+  return result;
 }
 
 
@@ -424,18 +441,21 @@ int internal_libxs_memcmp_avx512(const void* a, const void* b, size_t size)
 {
 #if defined(LIBXS_INTRINSICS_AVX512) && !defined(LIBXS_MEM_SW)
   const uint8_t *const a8 = (const uint8_t*)a, *const b8 = (const uint8_t*)b;
+  int result = 0;
   size_t i;
   LIBXS_DIFF_AVX512_DECL(aa);
   LIBXS_PRAGMA_UNROLL/*_N(2)*/
   for (i = 0; i < (size & ~(size_t)0x3F); i += 64) {
     LIBXS_DIFF_AVX512_LOAD(aa, a8 + i);
-    if (LIBXS_DIFF_AVX512(aa, b8 + i, 0/*dummy*/)) return 1;
+    if (LIBXS_DIFF_AVX512(aa, b8 + i, 0/*dummy*/)) { result = 1; break; }
   }
-  for (; i < size; ++i) if (a8[i] ^ b8[i]) return 1;
-  return 0;
+  if (0 == result) {
+    for (; i < size; ++i) if (a8[i] ^ b8[i]) { result = 1; break; }
+  }
 #else
-  return internal_libxs_memcmp_sw(a, b, size);
+  const int result = internal_libxs_memcmp_sw(a, b, size);
 #endif
+  return result;
 }
 #endif
 

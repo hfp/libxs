@@ -244,6 +244,7 @@ int internal_libxs_lexeme_normalize_punct(char* out, int out_size,
   return result;
 }
 
+
 LIBXS_API_INLINE
 size_t internal_libxs_token_codepoint_size(const unsigned char* text,
   size_t size, size_t pos)
@@ -690,7 +691,10 @@ LIBXS_API int libxs_token_stream_encode(const libxs_tokenizer_t* tokenizer,
         {
           size_t next = end;
           while (next < size && ('"' == text[next] || '\'' == text[next]
-            || ')' == text[next] || ']' == text[next])) ++next;
+            || ')' == text[next] || ']' == text[next]))
+          {
+            ++next;
+          }
           if (next == size || 0 != isspace(text[next])) sentence = 1;
         }
       }
@@ -765,8 +769,9 @@ LIBXS_API size_t libxs_lexeme_word_next(const libxs_lexeme_t* lexemes,
   size_t result = 0;
   if (NULL != lexemes && pos < nlexemes) {
     size_t end = pos + 1;
-    while (end < nlexemes
-      && 0 == (lexemes[end].flags & LIBXS_LEXEME_BREAK)) ++end;
+    while (end < nlexemes && 0 == (lexemes[end].flags & LIBXS_LEXEME_BREAK)) {
+      ++end;
+    }
     result = end - pos;
   }
   return result;
@@ -1016,8 +1021,9 @@ LIBXS_API int libxs_lexeme_stream_encode(libxs_lexicon_t* lexicon,
       normalized_len = internal_libxs_lexeme_normalize_punct(normalized,
         (int)sizeof(normalized), text + token_start, token_len);
       flags = LIBXS_LEXEME_PUNCT;
-      if (0 != internal_libxs_token_detect_markup(text, size,
-        token_start, token_len)) flags |= LIBXS_LEXEME_MARKUP;
+      if (0 != internal_libxs_token_detect_markup(text, size, token_start, token_len)) {
+        flags |= LIBXS_LEXEME_MARKUP;
+      }
       if (1 == token_len
         && 0 != internal_libxs_token_is_sentence_char(text[token_start]))
       {
