@@ -79,41 +79,52 @@ int main(int argc, char* argv[])
   const char *filename, *modelfile, *confidence_prefix;
   int result = EXIT_FAILURE;
   /**
-   * Keywords lead and the file names follow, because a file name and a keyword
-   * cannot be told apart by shape.  What can be told apart is whether a token
-   * is a keyword at all, so matching the whole word rather than its first
-   * letter is what keeps `results.csv` from being read as `rf` and shifting
-   * every file name one place along.
+   * A keyword is recognized wherever it appears and the remaining tokens keep
+   * their order as file names. Position used to carry the distinction - all
+   * keywords first, then the files - which reads a keyword written after a file
+   * name as another file name: `... corpus.csv xgb` silently SAVED A MODEL to a
+   * file called `xgb` and ran without the comparison it was asked for. Nothing
+   * needed position to be told apart, because `predict_iskey` matches a whole
+   * word and never reads `results.csv` as `rf`.
+   *
+   * A file genuinely named after a keyword is the case this gives up, and it is
+   * the rarer accident of the two; `./file` names it unambiguously.
    */
-  while (argi < argc) {
-    const char* arg = argv[argi];
-    if (0 != predict_isnum(arg)) eval_fraction = atof(arg);
-    else if (0 != predict_iskey(arg, "auto")) mode = LIBXS_PREDICT_AUTO;
-    else if (0 != predict_iskey(arg, "cat")) mode = LIBXS_PREDICT_CLASSIFY;
-    else if (0 != predict_iskey(arg, "interp")) {
-      mode = LIBXS_PREDICT_INTERPOLATE;
+  { const char* positional[3];
+    int npos = 0;
+    for (; argi < argc; ++argi) {
+      const char* arg = argv[argi];
+      if (0 != predict_isnum(arg)) eval_fraction = atof(arg);
+      else if (0 != predict_iskey(arg, "auto")) mode = LIBXS_PREDICT_AUTO;
+      else if (0 != predict_iskey(arg, "cat")) mode = LIBXS_PREDICT_CLASSIFY;
+      else if (0 != predict_iskey(arg, "interp")) {
+        mode = LIBXS_PREDICT_INTERPOLATE;
+      }
+      else if (0 != predict_iskey(arg, "mix")) shuffle_split = 1;
+      else if (0 != predict_iskey(arg, "rf")) use_rf = 1;
+      else if (0 != predict_iskey(arg, "hknn")) use_hknn = 1;
+      else if (0 != predict_iskey(arg, "xgb")) use_xgb = 1;
+      else if (0 != predict_keyval(arg, "compress", 0.9, &quality)
+        || 0 != predict_keyval(arg, "consist", 0.9, &consistency)
+        || 0 != predict_keyval(arg, "quantile", 0.1, &quantile)
+        || 0 != predict_keyval(arg, "smooth", -1.0, &smooth))
+      {
+        /* the keyword that matched has already assigned its own value */
+      }
+      else if ('-' == arg[0] && '\0' != arg[1] && 0 == order_arg) {
+        order_arg = atoi(arg);
+      }
+      else if (npos < (int)(sizeof(positional) / sizeof(*positional))) {
+        positional[npos++] = arg;
+      }
+      else {
+        fprintf(stderr, "Ignored extra argument \"%s\"\n", arg);
+      }
     }
-    else if (0 != predict_iskey(arg, "mix")) shuffle_split = 1;
-    else if (0 != predict_iskey(arg, "rf")) use_rf = 1;
-    else if (0 != predict_iskey(arg, "hknn")) use_hknn = 1;
-    else if (0 != predict_iskey(arg, "xgb")) use_xgb = 1;
-    else if (0 != predict_keyval(arg, "compress", 0.9, &quality)
-      || 0 != predict_keyval(arg, "consist", 0.9, &consistency)
-      || 0 != predict_keyval(arg, "quantile", 0.1, &quantile)
-      || 0 != predict_keyval(arg, "smooth", -1.0, &smooth))
-    {
-      /* the keyword that matched has already assigned its own value */
-    }
-    else break;
-    ++argi;
+    filename = (0 < npos) ? positional[0] : NULL;
+    modelfile = (1 < npos) ? positional[1] : NULL;
+    confidence_prefix = (2 < npos) ? positional[2] : NULL;
   }
-  if (argi < argc && '-' == argv[argi][0] && '\0' != argv[argi][1]) {
-    order_arg = atoi(argv[argi]);
-    ++argi;
-  }
-  filename = (argi < argc) ? argv[argi] : NULL;
-  modelfile = (argi + 1 < argc) ? argv[argi + 1] : NULL;
-  confidence_prefix = (argi + 2 < argc) ? argv[argi + 2] : NULL;
   { static char modelpath[512];
     if (NULL == modelfile && NULL != filename) {
       const char* sep = strrchr(filename, '/');
@@ -284,6 +295,7 @@ static void evaluate(const libxs_predict_t* model,
   const libxs_predict_t* reference, int ntotal, const char trained[],
   int use_xgb)
 {
+  double novel_cov[5];
   double* all_inputs = (double*)malloc((size_t)ntotal * NINPUTS * sizeof(double));
   double* all_predicted = (double*)malloc((size_t)ntotal * NOUTPUTS * sizeof(double));
   LIBXS_UNUSED(use_xgb);
@@ -328,6 +340,11 @@ static void evaluate(const libxs_predict_t* model,
         (0 < ntotal) ? (sumerr[j] / ntotal) : 0.0, maxerr[j]);
     }
     fprintf(stdout, "Eval: %d queries (%.2f s)\n", ntotal, dt_eval);
+    /**
+     * carried out of the gate block so the XGBoost comparison below can be read
+     * at the coverage this model actually reached, not at the same gate value
+     */
+    for (j = 0; j < 5; ++j) novel_cov[j] = -1.0;
     { const int nconf = (int)(sizeof(confidence_outputs)
         / sizeof(confidence_outputs[0]));
       double gates[8];
@@ -443,19 +460,24 @@ static void evaluate(const libxs_predict_t* model,
           (0 < split_acted[ci][1])
             ? 100.0 * split_correct[ci][1] / split_acted[ci][1] : 100.0,
           (0 < split_n[1]) ? 100.0 * split_acted[ci][1] / split_n[1] : 0.0);
+        novel_cov[ci] = (0 < split_n[1])
+          ? ((double)split_acted[ci][1] / split_n[1]) : 0.0;
       }
     }
 #if defined(__XGBOOST)
     if (0 != use_xgb) {
       double* xgb_predicted = (double*)malloc(
         (size_t)ntotal * NOUTPUTS * sizeof(double));
+      double* xgb_conf = (double*)malloc(
+        (size_t)ntotal * NOUTPUTS * sizeof(double));
       int classify[NOUTPUTS], task[NOUTPUTS];
       for (j = 0; j < NOUTPUTS; ++j) {
         classify[j] = (2 * interp[j] < ntotal) ? 1 : 0;
       }
-      if (NULL != xgb_predicted && EXIT_SUCCESS == predict_xgb(reference,
-        ntotal, NINPUTS, NOUTPUTS, trained, classify, xgb_predicted,
-        NULL, task, NULL, NULL))
+      if (NULL != xgb_predicted && NULL != xgb_conf
+        && EXIT_SUCCESS == predict_xgb(reference,
+          ntotal, NINPUTS, NOUTPUTS, trained, classify, xgb_predicted,
+          xgb_conf, task, NULL, NULL))
       {
         double lsum[NOUTPUTS], xsum[NOUTPUTS];
         int lhit[NOUTPUTS], xhit[NOUTPUTS], nnovel = 0;
@@ -507,7 +529,109 @@ static void evaluate(const libxs_predict_t* model,
         fprintf(stdout, "  Exact match is a proxy: this CSV carries no GFLOPS,"
           " so a differing\n  parameter that performs identically counts as a"
           " miss for both models.\n");
+        /**
+         * The same split, the same gate and the same accounting applied to
+         * XGBoost's own confidence. Without it the attested/novel collapse is
+         * a fact about one model rather than about the corpus: a gate that
+         * only recognizes what it was built from would be a property either
+         * of the vote fraction or of a held-out set that is genuinely harder,
+         * and one column cannot tell those apart.
+         */
+        { const int xnconf = (int)(sizeof(confidence_outputs)
+            / sizeof(confidence_outputs[0]));
+          double xgates[8];
+          const double threshold = (0 < gate_list(xgates,
+            (int)(sizeof(xgates) / sizeof(*xgates)))) ? xgates[0] : 0.9;
+          int xacted[5][2], xcorrect[5][2], ci;
+          memset(xacted, 0, sizeof(xacted));
+          memset(xcorrect, 0, sizeof(xcorrect));
+          for (i = 0; i < ntotal; ++i) {
+            const int novel = (0 == trained[i]) ? 1 : 0;
+            double expected[NOUTPUTS];
+            libxs_predict_get(reference, i, NULL, expected);
+            for (ci = 0; ci < xnconf; ++ci) {
+              const int oi = confidence_outputs[ci];
+              if (xgb_conf[(size_t)i * NOUTPUTS + oi] >= threshold) {
+                const double xval = xgb_predicted[(size_t)i * NOUTPUTS + oi];
+                ++xacted[ci][novel];
+                if (LIBXS_ROUNDX(int, xval) == LIBXS_ROUNDX(int, expected[oi])) {
+                  ++xcorrect[ci][novel];
+                }
+              }
+            }
+          }
+          fprintf(stdout, "XGBoost under the same gate (>=%.2f) and split:\n",
+            threshold);
+          fprintf(stdout,
+            "  param  attested-prec  novel-prec  novel-cov\n");
+          for (ci = 0; ci < xnconf; ++ci) {
+            int len = 0;
+            const char* name = libxs_strtoken(output_names, ",",
+              confidence_outputs[ci], &len);
+            fprintf(stdout, "  %-4.*s        %6.1f%%     %6.1f%%     %6.1f%%\n",
+              len, name,
+              (0 < xacted[ci][0])
+                ? 100.0 * xcorrect[ci][0] / xacted[ci][0] : 100.0,
+              (0 < xacted[ci][1])
+                ? 100.0 * xcorrect[ci][1] / xacted[ci][1] : 100.0,
+              (0 < nnovel) ? 100.0 * xacted[ci][1] / nnovel : 0.0);
+          }
+          /**
+           * The same figures read at OUR coverage instead of at our gate. Two
+           * models do not put the same meaning behind the same number, so a
+           * precision compared at a shared gate is a comparison of two
+           * different operating points; the gate that matters is whichever one
+           * makes the two act equally often. XGBoost's gate is searched for
+           * that coverage per parameter rather than assumed.
+           */
+          fprintf(stdout, "XGBoost read at OUR novel coverage"
+            " (its gate searched per param):\n");
+          fprintf(stdout,
+            "  param  novel-cov  xgb-gate  xgb-prec\n");
+          for (ci = 0; ci < xnconf; ++ci) {
+            const int oi = confidence_outputs[ci];
+            double best_gate = 1.0, best_delta = 2.0, best_prec = 100.0;
+            double best_cov = 0.0;
+            int step;
+            if (0 > novel_cov[ci]) continue;
+            for (step = 0; step <= 100; ++step) {
+              const double g = 0.01 * step;
+              int acted = 0, correct = 0;
+              for (i = 0; i < ntotal; ++i) {
+                if (0 == trained[i]
+                  && xgb_conf[(size_t)i * NOUTPUTS + oi] >= g)
+                {
+                  double expected[NOUTPUTS];
+                  const double xval = xgb_predicted[(size_t)i * NOUTPUTS + oi];
+                  libxs_predict_get(reference, i, NULL, expected);
+                  ++acted;
+                  if (LIBXS_ROUNDX(int, xval)
+                    == LIBXS_ROUNDX(int, expected[oi]))
+                  {
+                    ++correct;
+                  }
+                }
+              }
+              { const double cov = (0 < nnovel)
+                  ? ((double)acted / nnovel) : 0.0;
+                const double delta = LIBXS_DELTA(cov, novel_cov[ci]);
+                if (delta < best_delta) {
+                  best_delta = delta;
+                  best_gate = g;
+                  best_cov = cov;
+                  best_prec = (0 < acted) ? (100.0 * correct / acted) : 100.0;
+                }
+              }
+            }
+            { int len = 0;
+              const char* name = libxs_strtoken(output_names, ",", oi, &len);
+              fprintf(stdout, "  %-4.*s     %6.1f%%     %5.2f    %6.1f%%\n",
+                len, name, 100.0 * best_cov, best_gate, best_prec);
+            }
+          }
+        }
       }
+      free(xgb_conf);
       free(xgb_predicted);
     }
 #endif
