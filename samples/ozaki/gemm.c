@@ -46,6 +46,20 @@ int main(int argc, char* argv[])
   const int evil_raw = (NULL != env_evil && 0 != *env_evil) ? atoi(env_evil) : 0;
   const int evil = evil_raw < 0 ? -evil_raw : evil_raw;
   const int evil_perelement = (evil_raw < 0);
+  /**
+   * TAME is EVIL's sibling on the other axis and with the opposite sense: EVIL widens the
+   * exponent range, which is what makes a decomposition need more of everything, while TAME
+   * narrows the significand, which is what makes it need less. TAME=n keeps n mantissa bits
+   * and clears the rest, so TAME=24 is data promoted from single precision, TAME=1 is
+   * powers of two, and dyadic fractions and few-significant-digit measurements sit between.
+   * Zero (the default) leaves the operands untouched.
+   *
+   * It is a property of real inputs rather than a way to cheat: clearing bits that are
+   * already zero is what an implementation is entitled to exploit, so a run at TAME=n and a
+   * run at TAME=0 answer different questions and both are exact.
+   */
+  const char* const env_tame = getenv("TAME");
+  const int tame = (NULL != env_tame && 0 != *env_tame) ? atoi(env_tame) : 0;
   const int nrep = (NULL == nrepeat_env ? 3 : atoi(nrepeat_env));
   const int nrepeat = (0 < nrep ? nrep : 1);
   GEMM_INT_TYPE m = (1 < argc ? atoi(argv[1]) : 257);
@@ -231,6 +245,28 @@ int main(int argc, char* argv[])
     else {
       LIBXS_MATRNG(GEMM_INT_TYPE, GEMM_REAL_TYPE, -evil, b,
         (GEMM_INT_TYPE)(nc * b_rows), b_cols, (GEMM_INT_TYPE)(nc * ldb), scale);
+    }
+  }
+
+  /* Applied after both operands exist, so file input and every EVIL variant see it alike. */
+  if (EXIT_SUCCESS == result && 0 < tame) {
+    const int mant = (int)(sizeof(GEMM_REAL_TYPE) == sizeof(double) ? 53 : 24);
+    const int drop = (tame < mant) ? (mant - tame) : 0;
+    if (0 < drop) {
+      const size_t na = (size_t)nc * lda * a_cols, nb = (size_t)nc * ldb * b_cols;
+      size_t ti;
+      if (sizeof(GEMM_REAL_TYPE) == sizeof(double)) {
+        const unsigned long long mask = ~((1ULL << drop) - 1ULL);
+        union { double d; unsigned long long u; } v;
+        for (ti = 0; ti < na; ++ti) { v.d = (double)a[ti]; v.u &= mask; a[ti] = (GEMM_REAL_TYPE)v.d; }
+        for (ti = 0; ti < nb; ++ti) { v.d = (double)b[ti]; v.u &= mask; b[ti] = (GEMM_REAL_TYPE)v.d; }
+      }
+      else {
+        const unsigned int mask = ~((1U << drop) - 1U);
+        union { float f; unsigned int u; } v;
+        for (ti = 0; ti < na; ++ti) { v.f = (float)a[ti]; v.u &= mask; a[ti] = (GEMM_REAL_TYPE)v.f; }
+        for (ti = 0; ti < nb; ++ti) { v.f = (float)b[ti]; v.u &= mask; b[ti] = (GEMM_REAL_TYPE)v.f; }
+      }
     }
   }
 

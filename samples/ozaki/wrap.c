@@ -26,7 +26,7 @@
         FTYPE pfout; \
       } wrapper; \
       static volatile LIBXS_ATOMIC_LOCKTYPE lock = 0; \
-      LIBXS_ATOMIC_ACQUIRE(&lock, LIBXS_SYNC_NPAUSE, LIBXS_ATOMIC_LOCKORDER); \
+      LIBXS_ATOMIC_ACQUIRE(&lock, LIBXS_NPAUSE_LOCK, LIBXS_ATOMIC_LOCKORDER); \
       if (NULL == ORIGPTR) { \
         dlerror(); \
         wrapper.pfin = dlsym(LIBXS_RTLD_NEXT, LIBXS_STRINGIFY(SYMBOL)); \

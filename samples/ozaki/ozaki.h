@@ -1253,7 +1253,7 @@ LIBXS_INLINE int gemm_dump_matrices(GEMM_ARGDECL, size_t ncomponents)
   settings.oztrim = ozaki_trim;
   settings.ldc = *ldc;
 
-  LIBXS_ATOMIC_ACQUIRE(&gemm_lock, LIBXS_SYNC_NPAUSE, LIBXS_ATOMIC_LOCKORDER);
+  LIBXS_ATOMIC_ACQUIRE(&gemm_lock, LIBXS_NPAUSE_LOCK, LIBXS_ATOMIC_LOCKORDER);
 
   if (0 > slurm) LIBXS_SNPRINTF(fname, sizeof(fname), GEMM_LABEL "-%u-%i-a.mhd", rid, gemm_diff.r);
   else LIBXS_SNPRINTF(fname, sizeof(fname), GEMM_LABEL "-%i-%u-%i-a.mhd", slurm, rid, gemm_diff.r);
@@ -1322,7 +1322,7 @@ LIBXS_INLINE int gemm_dump_matrices(GEMM_ARGDECL, size_t ncomponents)
 LIBXS_INLINE void ozaki_post_diff(GEMM_ARGDECL, const char* label, size_t ncomponents, libxs_matdiff_t* diff)
 {
   libxs_matdiff_t call_diff = *diff;
-  LIBXS_ATOMIC_ACQUIRE(&gemm_lock, LIBXS_SYNC_NPAUSE, LIBXS_ATOMIC_LOCKORDER);
+  LIBXS_ATOMIC_ACQUIRE(&gemm_lock, LIBXS_NPAUSE_LOCK, LIBXS_ATOMIC_LOCKORDER);
   libxs_matdiff_reduce(&gemm_diff, diff);
   call_diff.r = gemm_diff.r;
   LIBXS_ATOMIC_RELEASE(&gemm_lock, LIBXS_ATOMIC_LOCKORDER);
