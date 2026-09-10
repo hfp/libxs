@@ -13,15 +13,28 @@
 #include "libxs_math.h"
 
 /**
+ * Generator version, bumped whenever the produced values change. A campaign records it so
+ * rows from different generators are never mixed: they are otherwise indistinguishable.
+ * 2: significands are drawn modulo an odd number in both branches, and the ESPAN!=0 ramp
+ *    spans -|ESPAN|..+|ESPAN| (rounded) instead of 0..|ESPAN| (truncated).
+ */
+#define LIBXS_MATRNG_VERSION 2
+
+/**
  * Initialize a column-major matrix with deterministic values.
  * ESPAN==0: shuffle-based init covering the full LD*NCOLS range, values in [-|SCALE|,+|SCALE|].
- * ESPAN!=0: adversarial exponent span for emulation stress-testing.
- *           Base values are shuffled in [1,2), then column j is scaled by
- *           2^(|ESPAN|*j/(NCOLS-1)) when ESPAN>0, or by
- *           2^(-|ESPAN|*j/(NCOLS-1)) when ESPAN<0.
+ * ESPAN!=0: adversarial exponent span for emulation stress-testing, patterned after the
+ *           graded BLAS accuracy tests (Demmel et al., BLIS Retreat 2024): base values in
+ *           [1,2) scaled by a diagonal of powers of two, column j taking the exponent
+ *           -|ESPAN| + round(2*|ESPAN|*j/(NCOLS-1)), i.e. 2*|ESPAN| binades in total.
+ *           ESPAN is that construction's b, so it is comparable with published sweeps.
  *           Use +ESPAN for A and -ESPAN for B so that A*B is well-conditioned
  *           but each operand has wide exponent range.
  *           Padding rows [NROWS,LD) are zero-filled.
+ * Both branches divide by an ODD modulus, which is what keeps significands full. Dividing by
+ * LD*NCOLS instead makes every value dyadic at power-of-two shapes, carrying only
+ * log2(LD*NCOLS) significant bits, and an emulator that adapts to spare mantissa bits then
+ * measures the generator rather than the data.
  */
 #define LIBXS_MATRNG_AUX(OMP, INT_TYPE, REAL_TYPE, ESPAN, DST, NROWS, NCOLS, LD, SCALE) do { \
   const double libxs_matrng_espan_ = (double)(ESPAN); \
@@ -52,15 +65,17 @@
     const double libxs_matrng_sign_ = (0 < libxs_matrng_espan_) ? 1.0 : -1.0; \
     const double libxs_matrng_abspan_ = libxs_matrng_sign_ * libxs_matrng_espan_; \
     const double libxs_matrng_denom_ = (1 < libxs_matrng_ncols_) ? (double)(libxs_matrng_ncols_ - 1) : 1.0; \
+    const size_t libxs_matrng_maxodd_ = (size_t)libxs_matrng_maxval_ | 1; \
+    const size_t libxs_matrng_shodd_ = libxs_coprime2(libxs_matrng_maxodd_); \
     OMP(parallel for private(libxs_matrng_i_, libxs_matrng_j_)) \
     for (libxs_matrng_i_ = 0; libxs_matrng_i_ < libxs_matrng_ncols_; ++libxs_matrng_i_) { \
-      const double libxs_matrng_exp_ = libxs_matrng_sign_ * \
-        floor(libxs_matrng_abspan_ * libxs_matrng_i_ / libxs_matrng_denom_); \
+      const double libxs_matrng_exp_ = libxs_matrng_sign_ * (LIBXS_ROUND( \
+        2.0 * libxs_matrng_abspan_ * libxs_matrng_i_ / libxs_matrng_denom_) - libxs_matrng_abspan_); \
       const REAL_TYPE libxs_matrng_colscale_ = (REAL_TYPE)ldexp(1.0, (int)libxs_matrng_exp_); \
       for (libxs_matrng_j_ = 0; libxs_matrng_j_ < libxs_matrng_nrows_; ++libxs_matrng_j_) { \
         const INT_TYPE libxs_matrng_k_ = libxs_matrng_i_ * libxs_matrng_ld_ + libxs_matrng_j_; \
-        const REAL_TYPE libxs_matrng_base_ = (REAL_TYPE)(1.0 + \
-          (double)(libxs_matrng_shuffle_ * libxs_matrng_k_ % libxs_matrng_maxval_) / libxs_matrng_maxval_); \
+        const REAL_TYPE libxs_matrng_base_ = (REAL_TYPE)(1.0 + (double)(libxs_matrng_shodd_ \
+          * (size_t)libxs_matrng_k_ % libxs_matrng_maxodd_) / (double)libxs_matrng_maxodd_); \
         ((REAL_TYPE*)(DST))[libxs_matrng_k_] = libxs_matrng_colscale_ * libxs_matrng_base_; \
       } \
       for (; libxs_matrng_j_ < libxs_matrng_ld_; ++libxs_matrng_j_) { \

@@ -270,6 +270,11 @@ int main(int argc, char* argv[])
     }
   }
 
+  /* Stamped on every run: rows from different generators are otherwise indistinguishable. */
+  if (EXIT_SUCCESS == result) {
+    fprintf(stderr, "DATA: matrng=%i evil=%i tame=%i\n", LIBXS_MATRNG_VERSION, evil_raw, tame);
+  }
+
   if (EXIT_SUCCESS == result) { /* Call GEMM */
     const GEMM_REAL_TYPE* const ga = (0 != complex_input) ? complex_alpha : &alpha;
     const GEMM_REAL_TYPE* const gb = (0 != complex_input) ? complex_beta : &beta;
