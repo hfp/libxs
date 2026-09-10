@@ -16,6 +16,19 @@
 #if !defined(LIBXS_MALLOC_SEED)
 # define LIBXS_MALLOC_SEED 1051981
 #endif
+/**
+ * Shards a pool's free list is split into; a power of two. One list per pool put
+ * every allocation and every release of every task behind one lock, which is what
+ * a pool serving scratch is asked for most often.
+ *
+ * Keyed by the TASK rather than by the chunk, because the pattern that hammers a
+ * pool is a task taking scratch and giving it back: keyed this way a task finds
+ * what it released, where keyed by the chunk it would find a stranger's and miss
+ * its own.
+ */
+#if !defined(LIBXS_MALLOC_NSHARDS)
+# define LIBXS_MALLOC_NSHARDS 16
+#endif
 #if !defined(LIBXS_MALLOC_NLOCKS)
 # define LIBXS_MALLOC_NLOCKS 16
 #endif
@@ -60,16 +73,29 @@ typedef struct internal_libxs_malloc_chunk_t {
 #endif
 } internal_libxs_malloc_chunk_t;
 
+/**
+ * One shard of a pool. A chunk belongs to the shard that CREATED it for as long
+ * as it exists, which is the list teardown walks; being FREE is separate
+ * membership, so a chunk released by another task joins that task's free list and
+ * is still owned, and still freed exactly once, by the shard that made it.
+ *
+ * The lock needs no initializing for the same reason the pool's single lock never
+ * did: a pool is calloc'd and a zeroed atomic lock is an unlocked one.
+ */
+typedef struct internal_libxs_malloc_shard_t {
+  libxs_lock_t lock;
+  internal_libxs_malloc_chunk_t *all;
+  internal_libxs_malloc_chunk_t **slots;
+  size_t slots_size;
+  size_t slots_num;
+} internal_libxs_malloc_shard_t;
+
 struct libxs_malloc_pool_t {
   union { libxs_malloc_fn std; libxs_malloc_xfn ext; } fn_malloc;
   union { libxs_free_fn std; libxs_free_xfn ext; } fn_free;
   const void** extra; /* per-thread extra args, NULL for standard pools */
   int max_nthreads; /* 0 for standard pools */
-  libxs_lock_t plock;
-  internal_libxs_malloc_chunk_t *all;
-  internal_libxs_malloc_chunk_t **slots;
-  size_t slots_size;
-  size_t slots_num;
+  internal_libxs_malloc_shard_t shard[LIBXS_MALLOC_NSHARDS];
 #if defined(LIBXS_MALLOC_EVICT)
   size_t generation;
   size_t pool_bytes;
@@ -176,24 +202,69 @@ LIBXS_API void libxs_pfree(void* pointer, void* pool[], size_t* num)
 }
 
 
+/**
+ * Gives every shard a free list, or none of them: a pool whose shards are not all
+ * usable is not usable, and the caller releases it as a whole.
+ */
+LIBXS_API_INLINE int internal_libxs_malloc_shards_init(libxs_malloc_pool_t *pool)
+{
+  unsigned int sh;
+  int result = 1;
+  for (sh = 0; sh < LIBXS_MALLOC_NSHARDS; ++sh) {
+    internal_libxs_malloc_shard_t *const shard = pool->shard + sh;
+    shard->slots = (internal_libxs_malloc_chunk_t**)malloc(
+      LIBXS_MALLOC_POOL_INIT * sizeof(void*));
+    if (NULL != shard->slots) {
+      shard->slots_size = LIBXS_MALLOC_POOL_INIT;
+      shard->slots_num = 0;
+      shard->all = NULL;
+    }
+    else result = 0;
+  }
+  return result;
+}
+
+
+/** Releases the free lists, leaving the chunks to the caller that owns them. */
+LIBXS_API_INLINE void internal_libxs_malloc_shards_free(libxs_malloc_pool_t *pool)
+{
+  unsigned int sh;
+  for (sh = 0; sh < LIBXS_MALLOC_NSHARDS; ++sh) {
+    internal_libxs_malloc_shard_t *const shard = pool->shard + sh;
+    shard->slots_size = shard->slots_num = 0;
+    free(shard->slots);
+    shard->slots = NULL;
+  }
+}
+
+
+/** The shard a task takes from and returns to. */
+LIBXS_API_INLINE internal_libxs_malloc_shard_t* internal_libxs_malloc_shard(
+  libxs_malloc_pool_t *pool)
+{
+  return pool->shard + LIBXS_MOD2(libxs_tid(), LIBXS_MALLOC_NSHARDS);
+}
+
+
 LIBXS_API_INLINE void internal_libxs_malloc_pool_return(internal_libxs_malloc_chunk_t *chunk)
 {
-  libxs_malloc_pool_t *const pool = chunk->pool;
-  LIBXS_LOCK_ACQUIRE(LIBXS_LOCK, &pool->plock);
-  if (pool->slots_num >= pool->slots_size) {
-    const size_t new_size = (0 < pool->slots_size
-      ? (2 * pool->slots_size) : LIBXS_MALLOC_POOL_INIT);
+  internal_libxs_malloc_shard_t *const shard =
+    internal_libxs_malloc_shard(chunk->pool);
+  LIBXS_LOCK_ACQUIRE(LIBXS_LOCK, &shard->lock);
+  if (shard->slots_num >= shard->slots_size) {
+    const size_t new_size = (0 < shard->slots_size
+      ? (2 * shard->slots_size) : LIBXS_MALLOC_POOL_INIT);
     internal_libxs_malloc_chunk_t **const np = (internal_libxs_malloc_chunk_t**)realloc(
-      pool->slots, new_size * sizeof(void*));
+      shard->slots, new_size * sizeof(void*));
     if (NULL != np) {
-      pool->slots_size = new_size;
-      pool->slots = np;
+      shard->slots_size = new_size;
+      shard->slots = np;
     }
   }
-  if (pool->slots_num < pool->slots_size) {
-    pool->slots[pool->slots_num++] = chunk;
+  if (shard->slots_num < shard->slots_size) {
+    shard->slots[shard->slots_num++] = chunk;
   }
-  LIBXS_LOCK_RELEASE(LIBXS_LOCK, &pool->plock);
+  LIBXS_LOCK_RELEASE(LIBXS_LOCK, &shard->lock);
 }
 
 
@@ -271,22 +342,28 @@ LIBXS_API_INLINE size_t internal_libxs_malloc_evict_available(
   for (;;) {
     void *pointer = NULL;
     size_t used = 0, i;
-    LIBXS_LOCK_ACQUIRE(LIBXS_LOCK, &pool->plock);
-    for (i = 0; i < pool->slots_num; ++i) {
-      internal_libxs_malloc_chunk_t *const chunk = pool->slots[i];
-      if (NULL != chunk->pointer) {
-        const int hist_b = internal_libxs_malloc_hist_bucket(chunk->used);
-        pointer = chunk->pointer;
-        used = chunk->used;
-        chunk->pointer = NULL;
-        chunk->used = 0;
-        chunk->size = 0;
-        LIBXS_ATOMIC_SIZE(LIBXS_ATOMIC_ADD_FETCH)(
-          &pool->hist[hist_b].nevicts_limit, 1, LIBXS_ATOMIC_RELAXED);
-        break;
+    unsigned int sh;
+    /* every shard, because a chunk worth evicting sits in whichever free list the
+       task that released it belongs to */
+    for (sh = 0; sh < LIBXS_MALLOC_NSHARDS && NULL == pointer; ++sh) {
+      internal_libxs_malloc_shard_t *const shard = pool->shard + sh;
+      LIBXS_LOCK_ACQUIRE(LIBXS_LOCK, &shard->lock);
+      for (i = 0; i < shard->slots_num; ++i) {
+        internal_libxs_malloc_chunk_t *const chunk = shard->slots[i];
+        if (NULL != chunk->pointer) {
+          const int hist_b = internal_libxs_malloc_hist_bucket(chunk->used);
+          pointer = chunk->pointer;
+          used = chunk->used;
+          chunk->pointer = NULL;
+          chunk->used = 0;
+          chunk->size = 0;
+          LIBXS_ATOMIC_SIZE(LIBXS_ATOMIC_ADD_FETCH)(
+            &pool->hist[hist_b].nevicts_limit, 1, LIBXS_ATOMIC_RELAXED);
+          break;
+        }
       }
+      LIBXS_LOCK_RELEASE(LIBXS_LOCK, &shard->lock);
     }
-    LIBXS_LOCK_RELEASE(LIBXS_LOCK, &pool->plock);
     if (NULL == pointer) break;
     internal_libxs_malloc_deallocate(pool, pointer);
     reclaimed += used;
@@ -332,25 +409,31 @@ LIBXS_API_INLINE size_t internal_libxs_malloc_evict_bounded(
   for (;;) {
     void *pointer = NULL;
     size_t used = 0, i;
+    unsigned int sh;
     const size_t pool_bytes = LIBXS_ATOMIC_SIZE(LIBXS_ATOMIC_LOAD)(
       &pool->pool_bytes, LIBXS_ATOMIC_RELAXED);
     if (pool_bytes <= target) break;
-    LIBXS_LOCK_ACQUIRE(LIBXS_LOCK, &pool->plock);
-    for (i = 0; i < pool->slots_num; ++i) {
-      internal_libxs_malloc_chunk_t *const chunk = pool->slots[i];
-      if (NULL != chunk->pointer) {
-        const int hist_b = internal_libxs_malloc_hist_bucket(chunk->used);
-        pointer = chunk->pointer;
-        used = chunk->used;
-        chunk->pointer = NULL;
-        chunk->used = 0;
-        chunk->size = 0;
-        LIBXS_ATOMIC_SIZE(LIBXS_ATOMIC_ADD_FETCH)(
-          &pool->hist[hist_b].nevicts_limit, 1, LIBXS_ATOMIC_RELAXED);
-        break;
+    /* every shard, because a chunk worth evicting sits in whichever free list the
+       task that released it belongs to */
+    for (sh = 0; sh < LIBXS_MALLOC_NSHARDS && NULL == pointer; ++sh) {
+      internal_libxs_malloc_shard_t *const shard = pool->shard + sh;
+      LIBXS_LOCK_ACQUIRE(LIBXS_LOCK, &shard->lock);
+      for (i = 0; i < shard->slots_num; ++i) {
+        internal_libxs_malloc_chunk_t *const chunk = shard->slots[i];
+        if (NULL != chunk->pointer) {
+          const int hist_b = internal_libxs_malloc_hist_bucket(chunk->used);
+          pointer = chunk->pointer;
+          used = chunk->used;
+          chunk->pointer = NULL;
+          chunk->used = 0;
+          chunk->size = 0;
+          LIBXS_ATOMIC_SIZE(LIBXS_ATOMIC_ADD_FETCH)(
+            &pool->hist[hist_b].nevicts_limit, 1, LIBXS_ATOMIC_RELAXED);
+          break;
+        }
       }
+      LIBXS_LOCK_RELEASE(LIBXS_LOCK, &shard->lock);
     }
-    LIBXS_LOCK_RELEASE(LIBXS_LOCK, &pool->plock);
     if (NULL == pointer) break;
     internal_libxs_malloc_deallocate(pool, pointer);
     LIBXS_ATOMIC_SIZE(LIBXS_ATOMIC_SUB_FETCH)(
@@ -367,26 +450,27 @@ LIBXS_API void* libxs_malloc(libxs_malloc_pool_t* pool, size_t size, int alignme
   void *result = NULL;
   if (NULL == pool) pool = internal_libxs_malloc_default_pool();
   if (NULL != pool && 0 != size) {
+    internal_libxs_malloc_shard_t *const shard = internal_libxs_malloc_shard(pool);
     internal_libxs_malloc_chunk_t *chunk = NULL;
     void **info = NULL;
 #if defined(LIBXS_MALLOC_SEARCH)
     internal_libxs_malloc_chunk_t **hit = NULL;
     size_t i = 0, diff = (size_t)-1;
-    LIBXS_ASSERT(NULL != pool->slots);
-    LIBXS_LOCK_ACQUIRE(LIBXS_LOCK, &pool->plock);
-    if (0 < pool->slots_num) {
+    LIBXS_ASSERT(NULL != shard->slots);
+    LIBXS_LOCK_ACQUIRE(LIBXS_LOCK, &shard->lock);
+    if (0 < shard->slots_num) {
       do {
-        internal_libxs_malloc_chunk_t *const c = pool->slots[i];
+        internal_libxs_malloc_chunk_t *const c = shard->slots[i];
         if (size <= c->size) {
           const size_t delta = c->size - size;
           if (delta < diff) {
-            diff = delta; hit = pool->slots + i;
+            diff = delta; hit = shard->slots + i;
             if (c->size < (size + LIBXS_MALLOC_UPSIZE)) break;
           }
         }
-      } while (++i < pool->slots_num);
+      } while (++i < shard->slots_num);
       { /* allocate slot and eventually reuse */
-        internal_libxs_malloc_chunk_t **const alloc = pool->slots + --pool->slots_num;
+        internal_libxs_malloc_chunk_t **const alloc = shard->slots + --shard->slots_num;
         if (hit != alloc && NULL != hit && size <= (*hit)->size) {
           LIBXS_VALUE_SWAP(*alloc, *hit);
         }
@@ -397,25 +481,25 @@ LIBXS_API void* libxs_malloc(libxs_malloc_pool_t* pool, size_t size, int alignme
       chunk = (internal_libxs_malloc_chunk_t*)calloc(1, sizeof(internal_libxs_malloc_chunk_t));
       if (NULL != chunk) {
         chunk->pool = pool;
-        chunk->next = pool->all;
-        pool->all = chunk;
+        chunk->next = shard->all;
+        shard->all = chunk;
       }
     }
-    LIBXS_LOCK_RELEASE(LIBXS_LOCK, &pool->plock);
+    LIBXS_LOCK_RELEASE(LIBXS_LOCK, &shard->lock);
 #else
-    LIBXS_LOCK_ACQUIRE(LIBXS_LOCK, &pool->plock);
-    if (0 < pool->slots_num) {
-      chunk = pool->slots[--pool->slots_num];
+    LIBXS_LOCK_ACQUIRE(LIBXS_LOCK, &shard->lock);
+    if (0 < shard->slots_num) {
+      chunk = shard->slots[--shard->slots_num];
     }
     else { /* pool empty: allocate new chunk on demand */
       chunk = (internal_libxs_malloc_chunk_t*)calloc(1, sizeof(internal_libxs_malloc_chunk_t));
       if (NULL != chunk) {
         chunk->pool = pool;
-        chunk->next = pool->all;
-        pool->all = chunk;
+        chunk->next = shard->all;
+        shard->all = chunk;
       }
     }
-    LIBXS_LOCK_RELEASE(LIBXS_LOCK, &pool->plock);
+    LIBXS_LOCK_RELEASE(LIBXS_LOCK, &shard->lock);
 #endif
     if (NULL != chunk) {
       const int hist_b = internal_libxs_malloc_hist_bucket(size);
@@ -609,7 +693,7 @@ LIBXS_API void libxs_free(void* pointer)
     }
     LIBXS_ASSERT(NULL != chunk && NULL != chunk->pool);
     pool = chunk->pool;
-    LIBXS_ASSERT(NULL != pool && NULL != pool->slots);
+    LIBXS_ASSERT(NULL != pool && NULL != pool->shard[0].slots);
 #if defined(LIBXS_MALLOC_EVICT)
     { const size_t limit = internal_libxs_malloc_evict_limit_get();
       if (NULL != chunk->pointer && (0 == limit || LIBXS_MALLOC_EVICT_SIZE <= chunk->used)) {
@@ -667,18 +751,14 @@ LIBXS_API libxs_malloc_pool_t* libxs_malloc_pool(libxs_malloc_fn malloc_fn, libx
     pool = (libxs_malloc_pool_t*)calloc(1, sizeof(libxs_malloc_pool_t));
   }
   if (NULL != pool) {
-    pool->slots = (internal_libxs_malloc_chunk_t**)malloc(
-      LIBXS_MALLOC_POOL_INIT * sizeof(void*));
-    if (NULL != pool->slots) {
+    if (0 != internal_libxs_malloc_shards_init(pool)) {
       pool->fn_malloc.std = malloc_fn;
       pool->fn_free.std = free_fn;
       pool->extra = NULL;
       pool->max_nthreads = 0;
-      pool->slots_size = LIBXS_MALLOC_POOL_INIT;
-      pool->slots_num = 0;
-      pool->all = NULL;
     }
     else {
+      internal_libxs_malloc_shards_free(pool);
       free(pool);
       pool = NULL;
     }
@@ -697,19 +777,14 @@ LIBXS_API libxs_malloc_pool_t* libxs_malloc_xpool(libxs_malloc_xfn malloc_fn, li
   }
   if (NULL != pool) {
     pool->extra = (const void**)calloc(max_nthreads, sizeof(void*));
-    pool->slots = (internal_libxs_malloc_chunk_t**)malloc(
-      LIBXS_MALLOC_POOL_INIT * sizeof(void*));
-    if (NULL != pool->slots && NULL != pool->extra) {
+    if (0 != internal_libxs_malloc_shards_init(pool) && NULL != pool->extra) {
       pool->fn_malloc.ext = malloc_fn;
       pool->fn_free.ext = free_fn;
       pool->max_nthreads = max_nthreads;
-      pool->slots_size = LIBXS_MALLOC_POOL_INIT;
-      pool->slots_num = 0;
-      pool->all = NULL;
     }
     else {
+      internal_libxs_malloc_shards_free(pool);
       free(pool->extra);
-      free(pool->slots);
       free(pool);
       pool = NULL;
     }
@@ -733,29 +808,30 @@ LIBXS_API void libxs_free_pool(libxs_malloc_pool_t* pool)
       libxs_malloc_pool_print(stderr,
         0 < pool->max_nthreads ? "INFO LIBXS: xpool " : "INFO LIBXS: pool ", pool);
     }
-    if (NULL != pool->slots) {
+    if (NULL != pool->shard[0].slots) {
       libxs_registry_t *const reg = internal_libxs_malloc_registry;
-      internal_libxs_malloc_chunk_t *chunk = pool->all;
-      while (NULL != chunk) {
-        internal_libxs_malloc_chunk_t *const next = chunk->next;
-        if (NULL != chunk->pointer) {
-          if (NULL != reg) {
-            const void *const ptr = chunk->pointer;
-            libxs_registry_remove(reg, &ptr, sizeof(void*), libxs_registry_lock(reg));
+      unsigned int sh;
+      for (sh = 0; sh < LIBXS_MALLOC_NSHARDS; ++sh) {
+        internal_libxs_malloc_chunk_t *chunk = pool->shard[sh].all;
+        while (NULL != chunk) {
+          internal_libxs_malloc_chunk_t *const next = chunk->next;
+          if (NULL != chunk->pointer) {
+            if (NULL != reg) {
+              const void *const ptr = chunk->pointer;
+              libxs_registry_remove(reg, &ptr, sizeof(void*), libxs_registry_lock(reg));
+            }
+            internal_libxs_malloc_deallocate(pool, chunk->pointer);
           }
-          internal_libxs_malloc_deallocate(pool, chunk->pointer);
+          free(chunk);
+          chunk = next;
         }
-        free(chunk);
-        chunk = next;
+        pool->shard[sh].all = NULL;
       }
-      pool->all = NULL;
 #if defined(LIBXS_MALLOC_EVICT)
       pool->pool_bytes = 0;
       pool->pool_peak = 0;
 #endif
-      pool->slots_size = pool->slots_num = 0;
-      free(pool->slots);
-      pool->slots = NULL;
+      internal_libxs_malloc_shards_free(pool);
     }
     free(pool->extra);
     pool->extra = NULL;
@@ -770,17 +846,23 @@ LIBXS_API int libxs_malloc_pool_info(const libxs_malloc_pool_t* pool, libxs_mall
   if (NULL == pool) pool = internal_libxs_malloc_default_pool();
   if (NULL != info) {
     memset(info, 0, sizeof(*info));
-    if (NULL != pool && NULL != pool->slots) {
-      const internal_libxs_malloc_chunk_t *chunk = pool->all;
-      size_t nchunks = 0, i;
-      while (NULL != chunk) {
-        info->nmallocs += chunk->nmallocs;
-        info->used += chunk->used;
-        info->size += chunk->size;
-        chunk = chunk->next;
-        ++nchunks;
+    if (NULL != pool && NULL != pool->shard[0].slots) {
+      size_t nchunks = 0, nfree = 0, i;
+      unsigned int sh;
+      /* the accounting is the pool's and not a shard's: what a caller asks about
+         is how much the pool holds, however its free lists are divided */
+      for (sh = 0; sh < LIBXS_MALLOC_NSHARDS; ++sh) {
+        const internal_libxs_malloc_chunk_t *chunk = pool->shard[sh].all;
+        while (NULL != chunk) {
+          info->nmallocs += chunk->nmallocs;
+          info->used += chunk->used;
+          info->size += chunk->size;
+          chunk = chunk->next;
+          ++nchunks;
+        }
+        nfree += pool->shard[sh].slots_num;
       }
-      info->nactive = nchunks - pool->slots_num;
+      info->nactive = nchunks - nfree;
 #if defined(LIBXS_MALLOC_EVICT)
       info->peak = pool->pool_peak;
 #endif
