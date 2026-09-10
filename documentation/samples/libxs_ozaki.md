@@ -110,8 +110,10 @@ LIBXSTREAM Ozaki README.
 | Variable     | Default   | Description                                                        |
 |--------------|-----------|--------------------------------------------------------------------|
 | CHECK        | 0         | Validate vs BLAS: 0=off, negative=auto-threshold, positive=custom  |
+| GRADE        | 0         | Componentwise accuracy grade vs BLAS (see below)                   |
 | NREPEAT      | 3         | Number of GEMM calls (first call is warmup when >1)                |
 | EVIL         | 0         | Adversarial exponent-span test (see below)                         |
+| TAME         | 0         | Keep n mantissa bits and clear the rest (see below)                |
 | OZAKI_DECAY  | 0         | Decay diagnostic + K-permutation (0-4, see below)                  |
 | GEMM_HOSTMEM | 0         | Operands from LIBXSTREAM (page-locked) instead of `malloc`         |
 
@@ -134,9 +136,11 @@ The magnitude sets the exponent span in bits; the sign selects
 the distribution:
 
   EVIL=N  (N>0)   Per-column.  Column j of A is scaled by
-                  2^(N\*j/(ncols-1)), column j of B by the
-                  inverse.  Product A\*B is well-conditioned.
-                  Uniform exponents within each column.
+                  2^(-N + round(2\*N\*j/(ncols-1))), column j of B
+                  by the inverse, so the span is 2N binades
+                  centred on zero.  Product A\*B is
+                  well-conditioned.  Uniform exponents within
+                  each column.
 
   EVIL=-N (N>0)   Per-element.  Each element gets a pseudorandom
                   exponent in [0,N] via coprime shuffle, with
@@ -147,9 +151,33 @@ the distribution:
   EVIL=0          Default shuffle mode (no exponent structure).
 
 The per-column mode (EVIL>0) matches the NVIDIA emulation grading
-test (diagonal scaling with D and D^-1).  The per-element mode
-(EVIL<0) is adversarial for the adaptive slice-pair reduction:
-it forces all slices to be populated in every row.
+test (diagonal scaling with D and D^-1), where EVIL is that test's
+exponent-range parameter b.  The per-element mode (EVIL<0) is
+adversarial for the adaptive slice-pair reduction: it forces all
+slices to be populated in every row.
+
+TAME is the sibling knob on the significand axis: `TAME=n` keeps n
+mantissa bits and clears the rest, so `TAME=24` is data promoted
+from single precision.  The two axes are independent, and the
+generator carries a version (`LIBXS_MATRNG_VERSION`, reported per
+run as `DATA: matrng=...`) because a change to it makes results
+incomparable in a way nothing downstream can see.
+
+### Accuracy Grade (GRADE)
+
+`GRADE=1` applies the componentwise criterion of the graded BLAS
+accuracy tests: `|C - C_ref| <= f(n) * u * (|alpha||A||B| +
+|beta||C|)` with `f(n) = n` and `u` the unit roundoff.  It reports
+`GRADE: a=<max ratio> f(n)=<n>` and fails the run when the ratio
+exceeds `f(n)`.
+
+Prefer it over `CHECK` when the question is whether a result is
+as accurate as the scheme claims.  `CHECK` compares one scalar
+against a fixed threshold (1e-10 for double, 1e-3 for single),
+which is orders looser than these schemes deliver and therefore
+admits results that are lossy but not broken.  `rsq` substitutes
+for neither: it saturates at 1 unless the output degenerates.
+GRADE costs one extra reference GEMM and one m-by-n buffer.
 
 ### Decay Diagnostic and K-Permutation (OZAKI_DECAY)
 

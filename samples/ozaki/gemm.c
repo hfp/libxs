@@ -60,6 +60,19 @@ int main(int argc, char* argv[])
    */
   const char* const env_tame = getenv("TAME");
   const int tame = (NULL != env_tame && 0 != *env_tame) ? atoi(env_tame) : 0;
+  /**
+   * GRADE applies the componentwise criterion of the graded BLAS accuracy tests,
+   * |fl(AB) - AB| <= f(n) * u * (|alpha||A||B| + |beta||C|), with f(n) linear in n.
+   * It answers a different question than CHECK: CHECK compares one scalar against a
+   * fixed threshold (1e-10 for double), which is four to six orders looser than what
+   * these schemes deliver and therefore passes results that are lossy but not broken.
+   * The bound here scales with the data, so it needs no per-case tuning, and rsq cannot
+   * substitute for either: it is 1 - SS_res/SS_tot and saturates at 1 unless the output
+   * degenerates. Costs one more reference GEMM and one m-by-n buffer.
+   */
+  const char* const env_grade = getenv("GRADE");
+  const int grade = (NULL != env_grade && 0 != *env_grade) ? atoi(env_grade) : 0;
+  double grade_max = -1.0;
   const int nrep = (NULL == nrepeat_env ? 3 : atoi(nrepeat_env));
   const int nrepeat = (0 < nrep ? nrep : 1);
   GEMM_INT_TYPE m = (1 < argc ? atoi(argv[1]) : 257);
@@ -81,7 +94,7 @@ int main(int argc, char* argv[])
   int complex_input = 0;
 #endif
   GEMM_REAL_TYPE complex_alpha[2] = { 0 }, complex_beta[2] = { 0 };
-  GEMM_REAL_TYPE *a = NULL, *b = NULL, *c = NULL, *c_ref = NULL;
+  GEMM_REAL_TYPE *a = NULL, *b = NULL, *c = NULL, *c_ref = NULL, *c_bnd = NULL;
   GEMM_INT_TYPE a_rows, a_cols, b_rows, b_cols;
   size_t nc = 1;
   libxs_matdiff_t diff;
@@ -189,6 +202,16 @@ int main(int argc, char* argv[])
       }
       else memset(c, 0, sizeof(GEMM_REAL_TYPE) * nc * ldc * n);
       memcpy(c_ref, c, sizeof(GEMM_REAL_TYPE) * nc * ldc * n);
+      /* |C| has to be captured here: the reference GEMM overwrites c_ref and c. */
+      if (0 != grade && 0 == complex_input) {
+        c_bnd = (GEMM_REAL_TYPE*)gemm_host_malloc(sizeof(GEMM_REAL_TYPE) * ldc * n, hostmem);
+        if (NULL != c_bnd) {
+          size_t ti;
+          for (ti = 0; ti < (size_t)ldc * n; ++ti) {
+            c_bnd[ti] = (GEMM_REAL_TYPE)fabs((double)c[ti]);
+          }
+        }
+      }
     }
     else result = EXIT_FAILURE;
   }
@@ -341,6 +364,19 @@ int main(int argc, char* argv[])
         diff.r = nrepeat;
         print_diff(stdout, (0 != complex_input ? ZGEMM_LABEL : GEMM_LABEL), 0 /*detail*/, &diff);
       }
+      /* A and B are dead once the reference ran, so |A| and |B| are formed in place. */
+      if (EXIT_SUCCESS == result && NULL != c_bnd) {
+        const GEMM_REAL_TYPE absa = (GEMM_REAL_TYPE)fabs((double)alpha);
+        const GEMM_REAL_TYPE absb = (GEMM_REAL_TYPE)fabs((double)beta);
+        const size_t na = (size_t)lda * a_cols, nb = (size_t)ldb * b_cols;
+        size_t ti;
+        for (ti = 0; ti < na; ++ti) a[ti] = (GEMM_REAL_TYPE)fabs((double)a[ti]);
+        for (ti = 0; ti < nb; ++ti) b[ti] = (GEMM_REAL_TYPE)fabs((double)b[ti]);
+        ref(&transa, &transb, &m, &n, &k, &absa, a, &lda, b, &ldb, &absb, c_bnd, &ldc);
+        result = libxs_matdiff_grade(&diff, LIBXS_DATATYPE(GEMM_REAL_TYPE), m, n,
+          c_ref, c, c_bnd, &ldc, &ldc, &ldc);
+        if (EXIT_SUCCESS == result) grade_max = diff.grade;
+      }
     }
     else { /* fallback: checksum only (no reference GEMM available) */
       const libxs_data_t dt = (0 != complex_input) ? (GEMM_IS_DOUBLE ? LIBXS_DATATYPE_C64 : LIBXS_DATATYPE_C32)
@@ -377,7 +413,16 @@ int main(int argc, char* argv[])
     }
   }
 
+  /* Linear growth is the most a componentwise-stable O(n^3) product may show. */
+  if (EXIT_SUCCESS == result && 0 <= grade_max) {
+    const double fn = (double)n;
+    const int graded = (grade_max <= fn);
+    fprintf(stderr, "GRADE: a=%g f(n)=%g (%s)\n", grade_max, fn, 0 != graded ? "pass" : "FAIL");
+    if (0 == graded) result = EXIT_FAILURE;
+  }
+
   libxs_finalize();
+  gemm_host_free(c_bnd, hostmem);
   gemm_host_free(c_ref, hostmem);
   gemm_host_free(c, hostmem);
   gemm_host_free(b, hostmem);
