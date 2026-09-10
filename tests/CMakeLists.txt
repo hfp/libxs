@@ -135,6 +135,7 @@ set(LIBXS_C_TESTS
   predict_missing
   predict_neighbors
   predict_prob
+  predict_serial
   predict_weights
   registry
   setdiff
@@ -418,6 +419,7 @@ set(LIBXS_TEST_ENTRIES
   predict_missing.c
   predict_neighbors.c
   predict_prob.c
+  predict_serial.c
   predict_weights.c
   registry.c
   setdiff.c
