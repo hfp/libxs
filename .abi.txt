@@ -10,6 +10,7 @@ libxs_binom
 libxs_bisect_min
 libxs_cmp_f32
 libxs_cmp_f64
+libxs_cmp_f64_idx
 libxs_cmp_i32
 libxs_cmp_u32
 libxs_coprime
@@ -196,6 +197,7 @@ libxs_predict_get
 libxs_predict_inverse
 libxs_predict_load
 libxs_predict_load_csv
+libxs_predict_load_csv_opts
 libxs_predict_lock
 libxs_predict_prob
 libxs_predict_prob_commit
