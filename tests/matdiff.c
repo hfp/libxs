@@ -385,5 +385,64 @@ int main(void)
     if (0 != epsilon) result = EXIT_FAILURE;
   }
 
+  /* test the componentwise grade, which rsq and a fixed margin both miss */
+  if (EXIT_SUCCESS == result) {
+    const double unit = 0.5 * 2.2204460492503131E-16;
+    const double bound[] = { 1.0, 1.0, 1E12, 1E12 };
+    const double refval[] = { 1.0, 1.0, 1E12, 1E12 };
+    double tstval[] = { 1.0, 1.0, 1E12, 1E12 };
+    libxs_matdiff_t dg;
+    /* an exact copy grades zero */
+    if (EXIT_SUCCESS == libxs_matdiff_grade(&dg, LIBXS_DATATYPE_F64, 4, 1,
+      refval, tstval, bound, NULL, NULL, NULL))
+    {
+      if (0 != dg.grade) result = EXIT_FAILURE;
+    }
+    else result = EXIT_FAILURE;
+    /* an error of eight units of roundoff grades eight */
+    if (EXIT_SUCCESS == result) {
+      tstval[1] = refval[1] + 8.0 * unit;
+      if (EXIT_SUCCESS == libxs_matdiff_grade(&dg, LIBXS_DATATYPE_F64, 4, 1,
+        refval, tstval, bound, NULL, NULL, NULL))
+      {
+        if (0.01 < LIBXS_ABS(dg.grade - 8.0)) result = EXIT_FAILURE;
+      }
+      else result = EXIT_FAILURE;
+      tstval[1] = refval[1];
+    }
+    /**
+     * The same relative error on the entry twelve orders larger grades the same, which is the
+     * point of a componentwise criterion: an absolute margin would have to admit 1e-4 here to
+     * accept 1e-16 above. The tolerance is a whole unit because the perturbed value is not
+     * representable at that scale and rounds to a whole unit in the last place.
+     */
+    if (EXIT_SUCCESS == result) {
+      tstval[3] = refval[3] * (1.0 + 8.0 * unit);
+      if (EXIT_SUCCESS == libxs_matdiff_grade(&dg, LIBXS_DATATYPE_F64, 4, 1,
+        refval, tstval, bound, NULL, NULL, NULL))
+      {
+        if (1.0 < LIBXS_ABS(dg.grade - 8.0)) result = EXIT_FAILURE;
+      }
+      else result = EXIT_FAILURE;
+    }
+    /* a difference where the bound vanishes is unbounded rather than small */
+    if (EXIT_SUCCESS == result) {
+      const double zero_bound[] = { 0.0 }, zero_ref[] = { 0.0 }, nonzero_tst[] = { 1.0 };
+      if (EXIT_SUCCESS == libxs_matdiff_grade(&dg, LIBXS_DATATYPE_F64, 1, 1,
+        zero_ref, nonzero_tst, zero_bound, NULL, NULL, NULL))
+      {
+        if (dg.grade <= 1E300) result = EXIT_FAILURE;
+      }
+      else result = EXIT_FAILURE;
+    }
+    /* an unsupported datatype is reported rather than graded */
+    if (EXIT_SUCCESS == result
+      && EXIT_SUCCESS == libxs_matdiff_grade(&dg, LIBXS_DATATYPE_I32, 4, 1,
+           refval, tstval, bound, NULL, NULL, NULL))
+    {
+      result = EXIT_FAILURE;
+    }
+  }
+
   return result;
 }

@@ -287,6 +287,46 @@ LIBXS_API int libxs_matdiff(libxs_matdiff_t* info,
 }
 
 
+LIBXS_API int libxs_matdiff_grade(libxs_matdiff_t* info,
+  libxs_data_t datatype, int m, int n, const void* ref, const void* tst, const void* bound,
+  const int* ldref, const int* ldtst, const int* ldbnd)
+{
+  int result = EXIT_SUCCESS;
+  const int ldr = (NULL == ldref ? m : *ldref);
+  const int ldt = (NULL == ldtst ? m : *ldtst);
+  const int ldb = (NULL == ldbnd ? m : *ldbnd);
+  const int f64 = (LIBXS_DATATYPE_F64 == (int)datatype);
+  if (NULL != info && NULL != ref && NULL != tst && NULL != bound
+    && m <= ldr && m <= ldt && m <= ldb
+    && (0 != f64 || LIBXS_DATATYPE_F32 == (int)datatype))
+  {
+    /* The other members come from the regular driver, which clears the info first. */
+    result = libxs_matdiff(info, datatype, m, n, ref, tst, ldref, ldtst);
+  }
+  else result = EXIT_FAILURE;
+  if (EXIT_SUCCESS == result) {
+    /* Unit roundoff is half the datatype's epsilon (IEEE-754, as assumed elsewhere here). */
+    const double unit = 0.5 * (0 != f64 ? 2.2204460492503131E-16 : 1.1920928955078125E-07);
+    double worst = 0;
+    int i, j;
+    for (j = 0; j < n; ++j) {
+      for (i = 0; i < m; ++i) {
+        const size_t ir = (size_t)j * ldr + i, it = (size_t)j * ldt + i, ib = (size_t)j * ldb + i;
+        const double r = (0 != f64 ? ((const double*)ref)[ir] : (double)((const float*)ref)[ir]);
+        const double t = (0 != f64 ? ((const double*)tst)[it] : (double)((const float*)tst)[it]);
+        const double b = (0 != f64 ? ((const double*)bound)[ib] : (double)((const float*)bound)[ib]);
+        const double delta = fabs(r - t), limit = unit * fabs(b);
+        /* A nonzero difference where the bound vanishes is unbounded, not a small ratio. */
+        const double ratio = (0 < limit) ? (delta / limit) : (0 < delta ? HUGE_VAL : 0);
+        if (ratio > worst) worst = ratio;
+      }
+    }
+    info->grade = worst;
+  }
+  return result;
+}
+
+
 LIBXS_API double libxs_matdiff_epsilon(const libxs_matdiff_t* input)
 {
   double result;
@@ -481,6 +521,8 @@ LIBXS_API void libxs_matdiff_reduce(libxs_matdiff_t* output, const libxs_matdiff
       output->l2_rel = input->l2_rel;
     }
     if (output->normf_rel <= input->normf_rel) output->normf_rel = input->normf_rel;
+    /* The grade is already a worst case, so the reduction keeps the larger one. */
+    if (output->grade <= input->grade) output->grade = input->grade;
     if (output->var_ref <= input->var_ref) output->var_ref = input->var_ref;
     if (output->var_tst <= input->var_tst) output->var_tst = input->var_tst;
     if (output->max_ref <= input->max_ref) output->max_ref = input->max_ref;

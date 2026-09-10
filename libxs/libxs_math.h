@@ -38,8 +38,10 @@ LIBXS_EXTERN_C typedef struct libxs_matdiff_t {
   double l1_tst, min_tst, max_tst, avg_tst, var_tst;
   /** Diagonal statistics: min and max of diagonal elements. */
   double diag_min_ref, diag_max_ref, diag_min_tst, diag_max_tst;
-  /* Values(v_ref, v_tst) and location(m, n) of largest linf_abs. */
+  /** Values(v_ref, v_tst) and location(m, n) of largest linf_abs. */
   double v_ref, v_tst;
+  /** Componentwise grade, zero unless libxs_matdiff_grade drove this info. */
+  double grade;
   /** Cumulative weight for online mean. */
   double w;
   /**
@@ -102,12 +104,35 @@ LIBXS_API int libxs_matdiff(libxs_matdiff_t* info,
   const int* ldref, const int* ldtst);
 
 /**
+ * Alternative driver: everything libxs_matdiff calculates, plus the componentwise grade,
+ * which libxs_matdiff leaves zero. The grade is the largest |ref - tst| in units of the
+ * exact result's own magnitude, max |ref - tst| / (u * bound) with u the unit roundoff of
+ * the datatype. The caller supplies bound, the elementwise upper bound on the exact result:
+ * for a GEMM that is |alpha||A||B| + |beta||C|, which needs a product and therefore stays
+ * with the caller. A grade at or below f(n), linear in n, is what a componentwise-stable
+ * implementation may show; the criterion is that of the graded BLAS accuracy tests.
+ * Prefer it over a fixed threshold on libxs_matdiff_epsilon when the question is whether a
+ * result is as accurate as an algorithm claims: an absolute margin has to be loose enough for
+ * the worst-scaled entry, so it admits results that are inaccurate but not broken. Note that
+ * rsq answers neither question: it saturates at 1 unless the output degenerates.
+ * A grade is a maximum over per-element ratios, so it cannot be recovered afterwards from
+ * separately reduced scalars, which is why the bound is taken here rather than later.
+ * libxs_matdiff_reduce carries the grade like any other member; libxs_matdiff_combine zeroes
+ * it along with the other element-wise members. F64 and F32 only, and a datatype that cannot
+ * be graded is reported rather than silently left ungraded.
+ */
+LIBXS_API int libxs_matdiff_grade(libxs_matdiff_t* info,
+  libxs_data_t datatype, int m, int n, const void* ref, const void* tst, const void* bound,
+  const int* ldref, const int* ldtst, const int* ldbnd);
+
+/**
  * Combine absolute and relative norms into a value which can be used to check against a margin.
  * A file or directory path given per environment variable LIBXS_MATDIFF=/path/to/file stores
  * the epsilon (followed by a line-break), which can be used to calibrate margins of a test case.
  * LIBXS_MATDIFF can carry optional space-separated arguments used to amend the file entry.
  */
 LIBXS_API double libxs_matdiff_epsilon(const libxs_matdiff_t* input);
+
 /**
  * Combine two single-matrix infos (each from libxs_matdiff with ref=NULL)
  * into a meta-diff. Output supplies the "reference" side and input the
