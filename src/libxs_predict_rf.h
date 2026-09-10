@@ -391,28 +391,57 @@ LIBXS_API_INLINE int internal_libxs_predict_rf_split(
 }
 
 
-LIBXS_API_INLINE int internal_libxs_predict_rf_build_tree(
-  const internal_libxs_predict_entry_t* entries,
-  const unsigned char* bins, const double* bin_edge, int nbins,
-  int* subset, int nsub, int nfeat, int max_depth, int min_leaf,
-  internal_libxs_predict_rf_node_t* nodes, int max_nodes,
-  int output_idx, int label_off, int regress, int nclass, int leaf_floor)
+/** Features a split samples: the square root of what there is, which is the choice
+ *  that makes a forest a forest. Here rather than at each caller so they agree. */
+LIBXS_API_INLINE int internal_libxs_predict_rf_nfeatsub(int nfeat)
 {
+  int result = (int)(sqrt((double)nfeat) + 0.5);
+  if (1 > result) result = 1;
+  return result;
+}
+
+
+/**
+ * Grows a subtree from one unit of work into `nodes`, whose entry 0 is that unit's
+ * own node. The unit is `si0`, `nc0` and `depth0`: the rows it covers as a range
+ * into `subset`, and how deep it already sits. Growth is depth-first, as it has
+ * always been.
+ *
+ * `frontier` bounds the pending stack. Reaching it stops the loop and leaves the
+ * pending units in `fr_*`, which is how several tasks take work from one tree: a
+ * pending unit is a node that exists and has not been grown, and the rows of any
+ * two of them are disjoint ranges of `subset`, so growing them shares nothing.
+ * Zero grows the subtree whole and writes no frontier, which is what a caller that
+ * wants one tree in one task passes.
+ */
+LIBXS_API_INLINE int internal_libxs_predict_rf_build_part(
+  const internal_libxs_predict_rf_grow_t* g, int* subset,
+  int si0, int nc0, int depth0,
+  internal_libxs_predict_rf_node_t* nodes, int max_nodes,
+  int frontier, int* fr_si, int* fr_nc, int* fr_depth, int* fr_node,
+  int* fr_count)
+{
+  const internal_libxs_predict_entry_t* entries = g->entries;
+  const unsigned char* bins = g->bins;
+  const double* bin_edge = g->bin_edge;
+  const int nbins = g->nbins, nfeat = g->nfeat, nfeatsub = g->nfeatsub;
+  const int max_depth = g->max_depth, min_leaf = g->min_leaf;
+  const int leaf_floor = g->leaf_floor, output_idx = g->output_idx;
+  const int label_off = g->label_off, regress = g->regress, nclass = g->nclass;
   int stack_subset[64], stack_count[64], stack_depth[64], stack_node[64];
   int sp = 0, nnodes = 0;
-  int nfeatsub = (int)(sqrt((double)nfeat) + 0.5);
-  if (nfeatsub < 1) nfeatsub = 1;
-  stack_subset[0] = 0;
-  stack_count[0] = nsub;
-  stack_depth[0] = 0;
+  stack_subset[0] = si0;
+  stack_count[0] = nc0;
+  stack_depth[0] = depth0;
   stack_node[0] = nnodes++;
   nodes[0].feature = -1;
   nodes[0].left = -1;
   nodes[0].right = -1;
   nodes[0].label = 0;
   nodes[0].value = 0;
+  nodes[0].threshold = 0;
   sp = 1;
-  while (sp > 0 && nnodes < max_nodes - 2) {
+  while (sp > 0 && nnodes < max_nodes - 2 && (0 == frontier || sp < frontier)) {
     const int si = stack_subset[--sp];
     const int nc = stack_count[sp];
     const int depth = stack_depth[sp];
@@ -449,7 +478,8 @@ LIBXS_API_INLINE int internal_libxs_predict_rf_build_tree(
     nodes[ni].value = mean;
     if (depth >= max_depth || nc <= min_leaf || 0 != pure
       || 0 == internal_libxs_predict_rf_split(entries, bins, bin_edge, nbins,
-        subset + si, nc, nfeat, nfeatsub, &split, (size_t)ni, output_idx,
+        subset + si, nc, nfeat, nfeatsub, &split,
+        (size_t)si * 2654435761u + (size_t)nc, output_idx,
         label_off, regress, leaf_floor, nclass))
     {
       nodes[ni].feature = -1;
@@ -496,6 +526,8 @@ LIBXS_API_INLINE int internal_libxs_predict_rf_build_tree(
       nodes[nnodes].right = -1;
       nodes[nnodes].label = best_label;
       nodes[nnodes].value = mean;
+      /* a node that stays a leaf is never given one, and it is written out */
+      nodes[nnodes].threshold = 0;
       if (sp < 64) {
         stack_subset[sp] = si;
         stack_count[sp] = nleft;
@@ -510,6 +542,8 @@ LIBXS_API_INLINE int internal_libxs_predict_rf_build_tree(
       nodes[nnodes].right = -1;
       nodes[nnodes].label = best_label;
       nodes[nnodes].value = mean;
+      /* a node that stays a leaf is never given one, and it is written out */
+      nodes[nnodes].threshold = 0;
       if (sp < 64) {
         stack_subset[sp] = si + nleft;
         stack_count[sp] = nright;
@@ -520,7 +554,144 @@ LIBXS_API_INLINE int internal_libxs_predict_rf_build_tree(
       ++nnodes;
     }
   }
+  /* what is left pending is the frontier: nodes that exist and are not grown */
+  if (NULL != fr_count) {
+    int k;
+    for (k = 0; k < sp; ++k) {
+      fr_si[k] = stack_subset[k];
+      fr_nc[k] = stack_count[k];
+      fr_depth[k] = stack_depth[k];
+      fr_node[k] = stack_node[k];
+    }
+    *fr_count = sp;
+  }
   return nnodes;
+}
+
+
+/**
+ * Whole tree in one task: the unit is the root, covering every row, and nothing is
+ * left pending. Kept as its own entry point because that is what most callers want
+ * and it is the shape the depth probe needs.
+ */
+LIBXS_API_INLINE int internal_libxs_predict_rf_build_tree(
+  const internal_libxs_predict_rf_grow_t* g, int* subset, int nsub,
+  internal_libxs_predict_rf_node_t* nodes, int max_nodes)
+{
+  return internal_libxs_predict_rf_build_part(g, subset, 0, nsub, 0,
+    nodes, max_nodes, 0, NULL, NULL, NULL, NULL, NULL);
+}
+
+
+/**
+ * Renumbers a grown tree into the order one task growing it alone would produce.
+ * The numbering follows the SHAPE and nothing else - a split takes both children
+ * at once, then the right is descended first - and the shape does not depend on
+ * who grew which part of it. That is what lets a tree assembled from separately
+ * grown subtrees serialize byte for byte like a tree grown in one piece. Nodes the
+ * assembly left unreachable are dropped, so it also compacts.
+ *
+ * `map` is scratch of `nsrc` entries. Returns the count written to `dst`, or zero
+ * if the tree is deeper than the traversal holds, which is the bound growth has.
+ */
+LIBXS_API_INLINE int internal_libxs_predict_rf_relabel(
+  const internal_libxs_predict_rf_node_t* src, int nsrc, int root,
+  int* map, internal_libxs_predict_rf_node_t* dst)
+{
+  int stack[64], sp = 0, next = 1, i, result = 0;
+  for (i = 0; i < nsrc; ++i) map[i] = -1;
+  if (0 < nsrc && 0 <= root && root < nsrc) {
+    int ok = 1;
+    map[root] = 0;
+    stack[sp++] = root;
+    while (0 < sp && 0 != ok) {
+      const int ni = stack[--sp];
+      if (0 <= src[ni].feature && 0 <= src[ni].left && 0 <= src[ni].right) {
+        map[src[ni].left] = next++;
+        map[src[ni].right] = next++;
+        /* both children are taken before either is descended, so the pending
+           count grows by one per split exactly as it does while growing */
+        if (62 >= sp) {
+          stack[sp++] = src[ni].left;
+          stack[sp++] = src[ni].right;
+        }
+        else ok = 0;
+      }
+    }
+    if (0 != ok) {
+      for (i = 0; i < nsrc; ++i) {
+        if (0 <= map[i]) {
+          dst[map[i]] = src[i];
+          if (0 <= src[i].feature && 0 <= src[i].left && 0 <= src[i].right) {
+            dst[map[i]].left = map[src[i].left];
+            dst[map[i]].right = map[src[i].right];
+          }
+        }
+      }
+      result = next;
+    }
+  }
+  return result;
+}
+
+
+/**
+ * Grows a whole tree through the frontier decomposition: the top is grown until
+ * `frontier` units are pending, each pending unit is grown on its own, and the
+ * result is renumbered into the tree a single pass would have built.
+ *
+ * The units cover DISJOINT ranges of `subset`, which is what will let them go to
+ * different tasks. Here they are grown in order, so that the decomposition can be
+ * verified against the undecomposed build before any task holds one.
+ */
+LIBXS_API_INLINE int internal_libxs_predict_rf_build_tree_parts(
+  const internal_libxs_predict_rf_grow_t* g, int* subset, int nsub,
+  internal_libxs_predict_rf_node_t* nodes, int max_nodes, int frontier)
+{
+  int fr_si[64], fr_nc[64], fr_depth[64], fr_node[64], fc = 0;
+  int result = internal_libxs_predict_rf_build_part(g, subset, 0, nsub, 0,
+    nodes, max_nodes, frontier, fr_si, fr_nc, fr_depth, fr_node, &fc);
+  int i;
+  for (i = 0; i < fc && 0 < result; ++i) {
+    const int base = result;
+    const int room = max_nodes - base;
+    if (2 < room) {
+      const int np = internal_libxs_predict_rf_build_part(g, subset,
+        fr_si[i], fr_nc[i], fr_depth[i], nodes + base, room,
+        0, NULL, NULL, NULL, NULL, NULL);
+      int j;
+      /* the unit grew into its own range and numbered from zero within it */
+      for (j = 0; j < np; ++j) {
+        if (0 <= nodes[base + j].left) nodes[base + j].left += base;
+        if (0 <= nodes[base + j].right) nodes[base + j].right += base;
+      }
+      /* the unit's node already exists in the top, so its grown form replaces it
+         and the copy at `base` is left for the renumbering to drop */
+      nodes[fr_node[i]] = nodes[base];
+      result = base + np;
+    }
+    else result = 0;
+  }
+  if (0 < fc && 0 < result) {
+    int map_pool = 0, dst_pool = 0;
+    int* map = (int*)LIBXS_PREDICT_MALLOC(
+      (size_t)result * sizeof(int), map_pool);
+    internal_libxs_predict_rf_node_t* dst =
+      (internal_libxs_predict_rf_node_t*)LIBXS_PREDICT_MALLOC(
+        (size_t)result * sizeof(internal_libxs_predict_rf_node_t), dst_pool);
+    if (NULL != map && NULL != dst) {
+      const int n = internal_libxs_predict_rf_relabel(nodes, result, 0, map, dst);
+      if (0 < n) {
+        memcpy(nodes, dst, (size_t)n * sizeof(internal_libxs_predict_rf_node_t));
+        result = n;
+      }
+      else result = 0;
+    }
+    else result = 0;
+    if (NULL != dst) LIBXS_PREDICT_FREE(dst, dst_pool);
+    if (NULL != map) LIBXS_PREDICT_FREE(map, map_pool);
+  }
+  return result;
 }
 
 
@@ -687,10 +858,15 @@ LIBXS_API_INLINE double internal_libxs_predict_rf_score(
       }
       /* the probe splits exactly: it runs before the bins are filled, and it
          ranks depths against each other rather than reporting an error */
-      nn[t] = internal_libxs_predict_rf_build_tree(entries, NULL, NULL, 0,
-        bootstrap, ntrain,
-        m, max_depth, min_leaf, nodes + (size_t)t * max_nodes, max_nodes,
-        output_idx, label_off, regress, nclass, min_leaf);
+      { internal_libxs_predict_rf_grow_t g;
+        g.entries = entries; g.bins = NULL; g.bin_edge = NULL; g.nbins = 0;
+        g.nfeat = m; g.nfeatsub = internal_libxs_predict_rf_nfeatsub(m);
+        g.max_depth = max_depth; g.min_leaf = min_leaf; g.leaf_floor = min_leaf;
+        g.output_idx = output_idx; g.label_off = label_off;
+        g.regress = regress; g.nclass = nclass;
+        nn[t] = internal_libxs_predict_rf_build_tree(&g, bootstrap, ntrain,
+          nodes + (size_t)t * max_nodes, max_nodes);
+      }
     }
     for (i = ntrain; i < p; ++i) {
       const double* inputs = entries[i].inputs;
@@ -1011,11 +1187,24 @@ LIBXS_API_INLINE void internal_libxs_predict_rf_build_tasks(
             boot_coprime, (size_t)(oi * ntrees + t) * 7 + 13, p, hstep, hrows);
         }
         if (NULL != nodes) {
-          nn = internal_libxs_predict_rf_build_tree(
-            model->entries, rf->bins, rf->bin_edge, rf->nbins,
-            bootstrap, p, m, max_depth, min_leaf,
-            nodes, max_nodes, oi, rf->label_offset[oi], rf->regress[oi],
-            rf->nclass[oi], leaf_floor);
+          internal_libxs_predict_rf_grow_t g;
+          g.entries = model->entries;
+          g.bins = rf->bins; g.bin_edge = rf->bin_edge; g.nbins = rf->nbins;
+          g.nfeat = m; g.nfeatsub = internal_libxs_predict_rf_nfeatsub(m);
+          g.max_depth = max_depth; g.min_leaf = min_leaf;
+          g.leaf_floor = leaf_floor; g.output_idx = oi;
+          g.label_off = rf->label_offset[oi]; g.regress = rf->regress[oi];
+          g.nclass = rf->nclass[oi];
+          /* the decomposition must answer as the single pass does, so it is
+             selectable and off by default until a task actually holds a unit */
+          { const char* fenv = getenv("LIBXS_PREDICT_RF_FRONTIER");
+            const int fr = (NULL != fenv) ? atoi(fenv) : 0;
+            nn = (0 < fr && 63 > max_depth)
+              ? internal_libxs_predict_rf_build_tree_parts(&g, bootstrap, p,
+                  nodes, max_nodes, LIBXS_MIN(fr, 64))
+              : internal_libxs_predict_rf_build_tree(&g, bootstrap, p,
+                  nodes, max_nodes);
+          }
           rf->trees[ti].nodes = (internal_libxs_predict_rf_node_t*)malloc(
             (size_t)nn * sizeof(internal_libxs_predict_rf_node_t));
           if (NULL != rf->trees[ti].nodes) {

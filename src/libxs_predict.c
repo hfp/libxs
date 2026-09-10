@@ -186,6 +186,22 @@ typedef struct internal_libxs_predict_rf_node_t {
   int label;
 } internal_libxs_predict_rf_node_t;
 
+/**
+ * What growing a node needs and what never changes while a tree is grown: the
+ * corpus, the bins a split may be found over, and the limits the shape is held to.
+ * Passed as one pointer so that a unit of work stays the four numbers it is - the
+ * rows it covers, how deep it sits, and the node it fills - and can therefore be
+ * handed to another task.
+ */
+typedef struct internal_libxs_predict_rf_grow_t {
+  const internal_libxs_predict_entry_t* entries;
+  const unsigned char* bins;
+  const double* bin_edge;
+  int nbins, nfeat, nfeatsub;
+  int max_depth, min_leaf, leaf_floor;
+  int output_idx, label_off, regress, nclass;
+} internal_libxs_predict_rf_grow_t;
+
 typedef struct internal_libxs_predict_rf_tree_t {
   internal_libxs_predict_rf_node_t* nodes;
   /**
