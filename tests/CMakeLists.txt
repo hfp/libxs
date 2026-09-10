@@ -215,8 +215,13 @@ libxs_add_c_program(libxs_sample_setdiff samples/setdiff setdiff
 libxs_add_c_program(libxs_sample_shuffle samples/shuffle shuffle
   "${PROJECT_SOURCE_DIR}/samples/shuffle/shuffle.c")
 
-libxs_add_c_program(libxs_sample_sync samples/sync sync
-  "${PROJECT_SOURCE_DIR}/samples/sync/sync.c")
+libxs_add_c_program(libxs_sample_sync_lock samples/sync sync_lock
+  "${PROJECT_SOURCE_DIR}/samples/sync/sync_lock.c")
+
+# tests/sync.sh runs this one and skips without it, so leaving it out of the
+# CTest path would leave that test always skipping and looking like a pass
+libxs_add_c_program(libxs_sample_sync_barrier samples/sync sync_barrier
+  "${PROJECT_SOURCE_DIR}/samples/sync/sync_barrier.c")
 
 libxs_add_c_program(libxs_sample_registry samples/registry registry
   "${PROJECT_SOURCE_DIR}/samples/registry/registry.c")

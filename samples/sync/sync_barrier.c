@@ -58,6 +58,23 @@ int main(int argc, char* argv[])
         nthreads, nrepeat);
       tickw = libxs_timer_tick();
 #if defined(_OPENMP)
+#     pragma omp parallel num_threads(nthreads)
+#endif
+      { /* the rendezvous and nothing else, which is what is being timed */
+        int r;
+        for (r = 0; r < nrepeat; ++r) {
+          libxs_barrier_wait(&barrier);
+          libxs_barrier_wait(&barrier);
+        }
+      }
+      tickw = libxs_timer_ncycles(tickw, libxs_timer_tick());
+      /**
+       * Checked in a pass of its own, and deliberately outside the timing above:
+       * a task reads every stamp, so the check is work proportional to the team
+       * and at a wide one it costs more than the rendezvous it is checking. Timing
+       * it together would report the check and call it the barrier.
+       */
+#if defined(_OPENMP)
 #     pragma omp parallel num_threads(nthreads) reduction(+:stale)
 #endif
       { /* each task stamps its own slot and then reads every slot: a task that
@@ -79,7 +96,6 @@ int main(int argc, char* argv[])
           libxs_barrier_wait(&barrier);
         }
       }
-      tickw = libxs_timer_ncycles(tickw, libxs_timer_tick());
       tickb = libxs_timer_tick();
 #if defined(_OPENMP)
 #     pragma omp parallel num_threads(nthreads) reduction(+:wrong)

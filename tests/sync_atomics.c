@@ -65,7 +65,7 @@ int main(void)
     result = EXIT_FAILURE;
   }
 
-  LIBXS_ATOMIC_ACQUIRE(&lock, LIBXS_SYNC_NPAUSE, ATOMIC_KIND);
+  LIBXS_ATOMIC_ACQUIRE(&lock, LIBXS_NPAUSE_LOCK, ATOMIC_KIND);
   if (0 == lock) result = EXIT_FAILURE;
   if (LIBXS_ATOMIC_TRYLOCK(&lock, ATOMIC_KIND)) {
     result = EXIT_FAILURE;

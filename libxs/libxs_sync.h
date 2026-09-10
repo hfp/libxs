@@ -128,9 +128,6 @@ typedef enum libxs_atomic_kind_t {
 # define LIBXS_ATOMIC_ACQUIRE LIBXS_NONATOMIC_ACQUIRE
 # define LIBXS_ATOMIC_RELEASE LIBXS_NONATOMIC_RELEASE
 # define LIBXS_ATOMIC_SYNC LIBXS_NONATOMIC_SYNC
-# if !defined(LIBXS_SYNC_NPAUSE)
-#   define LIBXS_SYNC_NPAUSE 0
-# endif
 #elif (defined(LIBXS_GCC_BASELINE) || defined(__LIBATOMIC) /* GNU's libatomic required */ || \
       (defined(__GNUC__) && LIBXS_VERSION2(4, 1) <= LIBXS_VERSION2(__GNUC__, __GNUC_MINOR__)))
 # if defined(__LIBATOMIC)
@@ -249,9 +246,6 @@ typedef enum libxs_atomic_kind_t {
           LIBXS_ASSERT(0 == LIBXS_MOD2((uintptr_t)(DST_PTR), 4)); \
           while (!LIBXS_ATOMIC_TRYLOCK(DST_PTR, KIND)) LIBXS_SYNC_CYCLE(DST_PTR, 0/*free*/, NPAUSE); \
           LIBXS_ASSERT_MSG(0 != *(DST_PTR), "LIBXS_ATOMIC_ACQUIRE"); } while(0)
-# if !defined(LIBXS_SYNC_NPAUSE)
-#   define LIBXS_SYNC_NPAUSE 4096
-# endif
 #elif defined(_WIN32)
 # define LIBXS_ATOMIC(FN, BITS) LIBXS_CONCATENATE(LIBXS_ATOMIC, BITS)(FN)
 # define LIBXS_ATOMIC8(FN) LIBXS_CONCATENATE(FN, 8)
@@ -307,9 +301,6 @@ typedef enum libxs_atomic_kind_t {
           LIBXS_ASSERT_MSG(0 != *(DST_PTR), "LIBXS_ATOMIC_RELEASE"); \
           LIBXS_ATOMIC(LIBXS_ATOMIC_STORE_ZERO, 8)(DST_PTR, KIND); } while(0)
 # define LIBXS_ATOMIC_SYNC(KIND) MemoryBarrier()
-# if !defined(LIBXS_SYNC_NPAUSE)
-#   define LIBXS_SYNC_NPAUSE 4096
-# endif
 #else /* consider to permit LIBXS_SYNC_NONE */
 # error LIBXS is missing atomic compiler builtins!
 #endif
@@ -322,8 +313,35 @@ typedef enum libxs_atomic_kind_t {
  */
 #define LIBXS_ATOMIC_SIZE(FN) (size_t)LIBXS_ATOMIC(FN, LIBXS_BITS_SIZE)
 
+/**
+ * Pauses a waiting task takes before it yields, and then between yields. There are
+ * two because the two waits are not the same wait.
+ *
+ * Waiting for a LOCK is waiting for a task that is running, so spinning waits for
+ * something that will finish and yielding only loses the waiter its turn: this one
+ * is therefore large. It is not larger still because a critical section long enough
+ * to have its holder descheduled inverts the argument - then the waiters hold the
+ * cores the holder needs, and the ramp has to reach the yield.
+ *
+ * Waiting at a BARRIER can be waiting for a task that has no core to arrive on,
+ * because the team is wider than the machine. Such a team cannot arrive while its
+ * members spin, so this one yields sooner. Not much sooner: a team that yields
+ * every few pauses spends its time in the scheduler instead of arriving.
+ *
+ * Both are counts of pauses rather than durations, but what matters is the duration
+ * they amount to, compared against the wait they cover. A batch of pauses that
+ * outlasts the wait costs a task that is already released, because it does not
+ * look again until the batch is done.
+ */
+#if !defined(LIBXS_NPAUSE_LOCK)
+# define LIBXS_NPAUSE_LOCK 4096
+#endif
+#if !defined(LIBXS_NPAUSE_BARRIER)
+# define LIBXS_NPAUSE_BARRIER 1024
+#endif
+
 #if !defined(LIBXS_SYNC_CYCLE)
-# if (0 < LIBXS_SYNC_NPAUSE)
+# if !((0 == LIBXS_SYNC) || defined(LIBXS_SYNC_NONE))
 #   define LIBXS_SYNC_CYCLE_ELSE(DST_PTR, EXP_STATE, NPAUSE, ELSE) do { int libxs_sync_cycle_npause_ = 1; \
       do { int libxs_sync_cycle_counter_ = 0; \
         for (; libxs_sync_cycle_counter_ < libxs_sync_cycle_npause_; ++libxs_sync_cycle_counter_) LIBXS_SYNC_PAUSE; \
@@ -568,7 +586,7 @@ typedef enum libxs_atomic_kind_t {
 #   define LIBXS_LOCK_INIT_spin(LOCK, ATTR) do { LIBXS_UNUSED(ATTR); (*(LOCK) = 0); } while(0)
 #   define LIBXS_LOCK_DESTROY_spin(LOCK) LIBXS_UNUSED(LOCK)
 #   define LIBXS_LOCK_TRYLOCK_spin(LOCK) (LIBXS_LOCK_ACQUIRED_spin + !LIBXS_ATOMIC_TRYLOCK(LOCK, LIBXS_ATOMIC_LOCKORDER))
-#   define LIBXS_LOCK_ACQUIRE_spin(LOCK) LIBXS_ATOMIC_ACQUIRE(LOCK, LIBXS_SYNC_NPAUSE, LIBXS_ATOMIC_LOCKORDER)
+#   define LIBXS_LOCK_ACQUIRE_spin(LOCK) LIBXS_ATOMIC_ACQUIRE(LOCK, LIBXS_NPAUSE_LOCK, LIBXS_ATOMIC_LOCKORDER)
 #   define LIBXS_LOCK_RELEASE_spin(LOCK) LIBXS_ATOMIC_RELEASE(LOCK, LIBXS_ATOMIC_LOCKORDER)
 #   define LIBXS_LOCK_TRYREAD_spin(LOCK) LIBXS_LOCK_TRYLOCK_spin(LOCK)
 #   define LIBXS_LOCK_ACQREAD_spin(LOCK) LIBXS_LOCK_ACQUIRE_spin(LOCK)
@@ -585,7 +603,7 @@ typedef enum libxs_atomic_kind_t {
 #   define LIBXS_LOCK_INIT_mutex(LOCK, ATTR) do { LIBXS_UNUSED(ATTR); (*(LOCK) = 0); } while(0)
 #   define LIBXS_LOCK_DESTROY_mutex(LOCK) LIBXS_UNUSED(LOCK)
 #   define LIBXS_LOCK_TRYLOCK_mutex(LOCK) (LIBXS_LOCK_ACQUIRED_mutex + !LIBXS_ATOMIC_TRYLOCK(LOCK, LIBXS_ATOMIC_LOCKORDER))
-#   define LIBXS_LOCK_ACQUIRE_mutex(LOCK) LIBXS_ATOMIC_ACQUIRE(LOCK, LIBXS_SYNC_NPAUSE, LIBXS_ATOMIC_LOCKORDER)
+#   define LIBXS_LOCK_ACQUIRE_mutex(LOCK) LIBXS_ATOMIC_ACQUIRE(LOCK, LIBXS_NPAUSE_LOCK, LIBXS_ATOMIC_LOCKORDER)
 #   define LIBXS_LOCK_RELEASE_mutex(LOCK) LIBXS_ATOMIC_RELEASE(LOCK, LIBXS_ATOMIC_LOCKORDER)
 #   define LIBXS_LOCK_TRYREAD_mutex(LOCK) LIBXS_LOCK_TRYLOCK_mutex(LOCK)
 #   define LIBXS_LOCK_ACQREAD_mutex(LOCK) LIBXS_LOCK_ACQUIRE_mutex(LOCK)
@@ -602,7 +620,7 @@ typedef enum libxs_atomic_kind_t {
 #   define LIBXS_LOCK_INIT_rwlock(LOCK, ATTR) do { LIBXS_UNUSED(ATTR); (*(LOCK) = 0); } while(0)
 #   define LIBXS_LOCK_DESTROY_rwlock(LOCK) LIBXS_UNUSED(LOCK)
 #   define LIBXS_LOCK_TRYLOCK_rwlock(LOCK) (LIBXS_LOCK_ACQUIRED_rwlock + !LIBXS_ATOMIC_TRYLOCK(LOCK, LIBXS_ATOMIC_LOCKORDER))
-#   define LIBXS_LOCK_ACQUIRE_rwlock(LOCK) LIBXS_ATOMIC_ACQUIRE(LOCK, LIBXS_SYNC_NPAUSE, LIBXS_ATOMIC_LOCKORDER)
+#   define LIBXS_LOCK_ACQUIRE_rwlock(LOCK) LIBXS_ATOMIC_ACQUIRE(LOCK, LIBXS_NPAUSE_LOCK, LIBXS_ATOMIC_LOCKORDER)
 #   define LIBXS_LOCK_RELEASE_rwlock(LOCK) LIBXS_ATOMIC_RELEASE(LOCK, LIBXS_ATOMIC_LOCKORDER)
 #   define LIBXS_LOCK_TRYREAD_rwlock(LOCK) LIBXS_LOCK_TRYLOCK_rwlock(LOCK)
 #   define LIBXS_LOCK_ACQREAD_rwlock(LOCK) LIBXS_LOCK_ACQUIRE_rwlock(LOCK)
@@ -620,7 +638,7 @@ typedef enum libxs_atomic_kind_t {
 # define LIBXS_LOCK_INIT_atomic(LOCK, ATTR) do { LIBXS_UNUSED(ATTR); (*(LOCK) = 0); } while(0)
 # define LIBXS_LOCK_DESTROY_atomic(LOCK) LIBXS_UNUSED(LOCK)
 # define LIBXS_LOCK_TRYLOCK_atomic(LOCK) (LIBXS_LOCK_ACQUIRED_atomic + !LIBXS_ATOMIC_TRYLOCK(LOCK, LIBXS_ATOMIC_LOCKORDER))
-# define LIBXS_LOCK_ACQUIRE_atomic(LOCK) LIBXS_ATOMIC_ACQUIRE(LOCK, LIBXS_SYNC_NPAUSE, LIBXS_ATOMIC_LOCKORDER)
+# define LIBXS_LOCK_ACQUIRE_atomic(LOCK) LIBXS_ATOMIC_ACQUIRE(LOCK, LIBXS_NPAUSE_LOCK, LIBXS_ATOMIC_LOCKORDER)
 # define LIBXS_LOCK_RELEASE_atomic(LOCK) LIBXS_ATOMIC_RELEASE(LOCK, LIBXS_ATOMIC_LOCKORDER)
 # define LIBXS_LOCK_TRYREAD_atomic(LOCK) LIBXS_LOCK_TRYLOCK_atomic(LOCK)
 # define LIBXS_LOCK_ACQREAD_atomic(LOCK) LIBXS_LOCK_ACQUIRE_atomic(LOCK)
@@ -767,10 +785,20 @@ LIBXS_API_INLINE void libxs_barrier_wait(libxs_barrier_t* barrier) {
       LIBXS_ATOMIC_ADD_FETCH(&barrier->epoch.i, 1, LIBXS_ATOMIC_SEQ_CST);
     }
     else {
+      /**
+       * The ramp waits for the PARITY of the epoch to become that of the release,
+       * which is what LIBXS_SYNC_CYCLE tests, and one bit is enough here: the next
+       * rendezvous cannot complete without this task, so the epoch cannot advance
+       * twice while this task is still waiting for the first advance.
+       *
+       * The outer test is kept because the macro is a single pause where the build
+       * has no synchronization, and it reads the epoch atomically where the macro
+       * dereferences it plainly.
+       */
       while (epoch == (int)LIBXS_ATOMIC_LOAD(
         &barrier->epoch.i, LIBXS_ATOMIC_SEQ_CST))
       {
-        LIBXS_SYNC_PAUSE;
+        LIBXS_SYNC_CYCLE(&barrier->epoch.i, epoch + 1, LIBXS_NPAUSE_BARRIER);
       }
     }
   }

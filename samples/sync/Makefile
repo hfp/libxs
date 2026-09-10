@@ -60,7 +60,7 @@ FTNSRCS := $(FXXSRCS) $(F77SRCS) $(F90SRCS)
 MODULES := $(addsuffix .mod,$(basename $(FTNSRCS)))
 FTNOBJS := $(FXXOBJS) $(F77OBJS) $(F90OBJS)
 # one binary per source: each carries its own main
-XFILES := $(OUTDIR)/sync.x $(OUTDIR)/barrier.x
+XFILES := $(OUTDIR)/sync_lock.x $(OUTDIR)/sync_barrier.x
 
 .PHONY: all
 all: $(XFILES)
@@ -68,11 +68,11 @@ all: $(XFILES)
 .PHONY: compile
 compile: $(OBJECTS) $(FTNOBJS)
 
-$(OUTDIR)/sync.x: $(OUTDIR)/.make $(BLDDIR)/sync-c.o $(XLIB)
-	$(LD) -o $@ $(BLDDIR)/sync-c.o $(XLIB) $(SLDFLAGS) $(LDFLAGS) $(CLDFLAGS)
+$(OUTDIR)/sync_lock.x: $(OUTDIR)/.make $(BLDDIR)/sync_lock-c.o $(XLIB)
+	$(LD) -o $@ $(BLDDIR)/sync_lock-c.o $(XLIB) $(SLDFLAGS) $(LDFLAGS) $(CLDFLAGS)
 
-$(OUTDIR)/barrier.x: $(OUTDIR)/.make $(BLDDIR)/barrier-c.o $(XLIB)
-	$(LD) -o $@ $(BLDDIR)/barrier-c.o $(XLIB) $(SLDFLAGS) $(LDFLAGS) $(CLDFLAGS)
+$(OUTDIR)/sync_barrier.x: $(OUTDIR)/.make $(BLDDIR)/sync_barrier-c.o $(XLIB)
+	$(LD) -o $@ $(BLDDIR)/sync_barrier-c.o $(XLIB) $(SLDFLAGS) $(LDFLAGS) $(CLDFLAGS)
 
 $(BLDDIR)/%-cpp.o: $(SRCDIR)/%.cpp .state $(BLDDIR)/.make $(HEADERS) Makefile $(DEPDIR)/Makefile.inc
 	$(CXX) $(DFLAGS) $(IFLAGS) $(CXXFLAGS) $(CTARGET) -c $< -o $@

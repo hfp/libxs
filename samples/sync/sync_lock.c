@@ -34,7 +34,8 @@
   } \
   duration = libxs_timer_duration(0, latency); \
   if (0 < duration && 0 < nops_) { \
-    printf("\tro-latency: %.0f ns (call/s %.0f MHz, %.0f cycles)\n", \
+    printf("\t%s ro-latency: %.0f ns (call/s %.0f MHz, %.0f cycles)\n", \
+      LIBXS_STRINGIFY(LOCK_KIND), \
       duration / nops_ * 1e9, nops_ / (1e6 * duration), (double)latency / nops_); \
   } \
 } while(0)
@@ -59,7 +60,8 @@
   } \
   duration = libxs_timer_duration(0, latency); \
   if (0 < duration && 0 < nops_) { \
-    printf("\trw-latency: %.0f ns (call/s %.0f MHz, %.0f cycles)\n", \
+    printf("\t%s rw-latency: %.0f ns (call/s %.0f MHz, %.0f cycles)\n", \
+      LIBXS_STRINGIFY(LOCK_KIND), \
       duration / nops_ * 1e9, nops_ / (1e6 * duration), (double)latency / nops_); \
   } \
 } while(0)
@@ -115,7 +117,8 @@
   duration = libxs_timer_duration(0, throughput); \
   if (0 < duration) { \
     const double r = 1.0 / (NT); \
-    printf("\tthroughput: %.0f us (call/s %.0f kHz, %.0f cycles)\n", \
+    printf("\t%s throughput: %.0f us (call/s %.0f kHz, %.0f cycles)\n", \
+      LIBXS_STRINGIFY(LOCK_KIND), \
       duration * r * 1e6, (NT) / (1e3 * duration), throughput * r); \
   } \
 } while(0)
@@ -179,12 +182,18 @@ int main(int argc, char* argv[])
   const int ntpt = LIBXS_MAX(6 < argc ? atoi(argv[6]) : 10000, 1);
 
   libxs_init();
-  printf("LIBXS: default lock-kind \"%s\" (%s)\n\n", LIBXS_STRINGIFY(LIBXS_LOCK_DEFAULT),
+  printf("LIBXS: default lock-kind \"%s\" (%s)\n", LIBXS_STRINGIFY(LIBXS_LOCK_DEFAULT),
 #if defined(LIBXS_LOCK_SYSTEM_SPINLOCK)
     "OS-native");
 #else
     "Other");
 #endif
+  /**
+   * The pause budget is what a contended figure depends on most, so a run that
+   * is going to be compared against another one has to say which it used.
+   */
+  printf("LIBXS: pauses before yielding %i (lock), %i (barrier)\n\n",
+    (int)LIBXS_NPAUSE_LOCK, (int)LIBXS_NPAUSE_BARRIER);
 
   BENCHMARK(LIBXS_LOCK_DEFAULT, "default", nthreads, work_r, work_w, wratioperc, nlat, ntpt);
 #if defined(LIBXS_LOCK_SYSTEM_SPINLOCK)

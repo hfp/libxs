@@ -1,9 +1,9 @@
 # Synchronization Primitives
 
-Two binaries over `libxs_sync.h`: `sync.x` for the lock kinds and
-`barrier.x` for `libxs_barrier_t`.
+Two binaries over `libxs_sync.h`: `sync_lock.x` for the lock kinds and
+`sync_barrier.x` for `libxs_barrier_t`.
 
-## sync.x
+## sync_lock.x
 
 Micro-benchmark for the lock implementations provided by LIBXS
 (`libxs_sync.h`). Measures single-thread latency (uncontended
@@ -32,7 +32,7 @@ OpenMP is enabled by default (OMP=1) for multi-threaded tests.
 ## Run
 
 ```bash
-./sync.x [nthreads] [wratio%] [work_r] [work_w] [nlat] [ntpt]
+./sync_lock.x [nthreads] [wratio%] [work_r] [work_w] [nlat] [ntpt]
 ```
 
 | Argument | Default       | Description                                      |
@@ -47,17 +47,33 @@ OpenMP is enabled by default (OMP=1) for multi-threaded tests.
 ### Example
 
 ```bash
-./sync.x 4 5 100 1000
+./sync_lock.x 4 5 100 1000
 ```
 
 ```text
 LIBXS: default lock-kind "atomic" (Other)
+LIBXS: pauses before yielding 4096 (lock), 1024 (barrier)
 
 Latency and throughput of "atomic" (default) for nthreads=4 wratio=5% ...
-        ro-latency: 11 ns (call/s 91 MHz, 33 cycles)
-        rw-latency: 11 ns (call/s 90 MHz, 33 cycles)
-        throughput: 0 us (call/s 9128 kHz, 328 cycles)
+        atomic ro-latency: 11 ns (call/s 91 MHz, 33 cycles)
+        atomic rw-latency: 11 ns (call/s 90 MHz, 33 cycles)
+        atomic throughput: 0 us (call/s 9128 kHz, 328 cycles)
 ```
+
+Each measured line names the lock kind it belongs to, and the run reports the
+pause budgets it was built with, because a contended figure depends on those
+more than on anything else on the command line.
+
+To reach the regime a hot internal lock lives in - a critical section of a few
+instructions, taken by every thread - ask for a short one and nothing but
+writes:
+
+```bash
+./sync_lock.x 384 100 1 1 100000 5000
+```
+
+The defaults instead describe a long critical section, where the lock is held
+long enough that waiting for it is not the cost.
 
 ## Measurement Details
 
@@ -69,13 +85,13 @@ Latency and throughput of "atomic" (default) for nthreads=4 wratio=5% ...
   wratio%. Simulated work inside the critical section is subtracted
   so only synchronization overhead is reported.
 
-## barrier.x
+## sync_barrier.x
 
 Cost of a rendezvous over `libxs_barrier_t`, and of the broadcast that
 hands one task's value to the rest.
 
 ```bash
-./barrier.x [nthreads] [nrepeat]
+./sync_barrier.x [nthreads] [nrepeat]
 ```
 
 | Argument | Default       | Description                          |
@@ -87,11 +103,15 @@ The team is asked how large it actually is rather than told: a barrier
 initialized for more tasks than the runtime grants waits for one that
 never arrives.
 
-Both measurements check themselves and the binary fails if either is
-wrong, because a rendezvous that releases a task early is fast and
-worthless. `wait` has every task stamp a slot of its own and read all
-of them afterwards; `bcast` publishes a value that changes each round.
-Nothing is reported unless every task saw the current round.
+Both are checked and the binary fails if either is wrong, because a
+rendezvous that releases a task early is fast and worthless: every task
+stamps a slot of its own and reads all of them after the rendezvous,
+and the broadcast publishes a value that changes each round.
+
+The stamp check runs in a pass of its own, outside the timing. Reading
+every stamp is work proportional to the team, so at a wide one it costs
+more than the rendezvous it checks, and timing the two together would
+report the check as if it were the barrier.
 
 Expect a flat barrier to cost more once the team reaches the number of
 cores: every waiting task spins, so a team that over-subscribes the
