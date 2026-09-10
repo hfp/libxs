@@ -113,7 +113,7 @@ OZAKI_API_INTERN void gemm_init(void)
 {
   static volatile int gemm_initialized = 0;
   if (0 == gemm_initialized) {
-    LIBXS_ATOMIC_ACQUIRE(&gemm_lock, LIBXS_SYNC_NPAUSE, LIBXS_ATOMIC_LOCKORDER);
+    LIBXS_ATOMIC_ACQUIRE(&gemm_lock, LIBXS_NPAUSE_LOCK, LIBXS_ATOMIC_LOCKORDER);
     if (0 == gemm_initialized) {
       const char* const ozaki_env = getenv("OZAKI");
       const char* const ozaki_stat_env = getenv("OZAKI_STAT");
@@ -330,7 +330,7 @@ OZAKI_API_INTERN LIBXS_ATTRIBUTE_WEAK void GEMM_WRAP(const char* transa, const c
           GEMM_REAL(transa, transb, m, n, k, alpha, a, lda, b, ldb, beta, c, ldc);
         }
         if (0 != ozaki_verbose && 0 > ozaki_stat) {
-          LIBXS_ATOMIC_ACQUIRE(&gemm_lock, LIBXS_SYNC_NPAUSE, LIBXS_ATOMIC_LOCKORDER);
+          LIBXS_ATOMIC_ACQUIRE(&gemm_lock, LIBXS_NPAUSE_LOCK, LIBXS_ATOMIC_LOCKORDER);
           if (1 < ozaki_verbose || 0 > ozaki_verbose) {
             const int nth = (0 < ozaki_verbose ? ozaki_verbose : 1);
             if (0 == (gemm_diff.r % nth)) {
