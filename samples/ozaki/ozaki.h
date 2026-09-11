@@ -106,8 +106,13 @@
 # endif
 #endif
 
+/**
+ * A negative OZAKI_VERBOSE asks for diagnostics rather than statistics: the JIT lines name the
+ * tile and cutoff that were selected, while the per-call reference GEMM stays out of the timed
+ * loop, so a timed run can still say which kernel it measured.
+ */
 #define OZAKI_GEMM_WRAPPER(DIFF_FN, LABEL, NCOMP) \
-  if (0 == ozaki_verbose) { \
+  if (0 >= ozaki_verbose) { \
     DIFF_FN(transa, transb, m, n, k, alpha, a, lda, b, ldb, beta, c, ldc, NULL); \
   } \
   else { \

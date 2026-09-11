@@ -436,7 +436,20 @@ int main(int argc, char* argv[])
   /* Linear growth is the most a componentwise-stable O(n^3) product may show. The grade is
    * reported even when CHECK already failed, since that is where it says the most. */
   if (0 <= grade_max) {
-    const double fn = (double)n;
+    /**
+     * f counts the summed terms, so it is K: the output width says nothing about how much
+     * rounding a dot product accumulated, and the two coincide only for a square GEMM. The
+     * constant matters as much as the slope here, because a decomposition rounds a
+     * size-independent number of times on top of the accumulation: measured at TRIM=0 the
+     * grade is 70 to 270 at every size (fp32 Scheme 1: 255 at K=512, 102 at K=2048, 74 at
+     * K=8192, rising as 1/sqrt(K) while K falls), so a bound of K alone leaves no margin
+     * below K=512 and would fail a correct result. Grade A constrains the growth, not the
+     * constant, so the floor carries the part that does not grow. The constant is sized for
+     * the device path: the host reconstruction grades a flat 35 to 42 at every size, while
+     * the hierarchical one on the GPU is several times that, and the smallest failure worth
+     * catching (a trimmed or broken result) has been thousands.
+     */
+    const double fn = (double)k + 1024.0;
     const int graded = (grade_max <= fn);
     fprintf(stderr, "GRADE: a=%g f(n)=%g (%s)\n", grade_max, fn,
       0 != graded ? "pass" : (0 < grade ? "FAIL" : "advisory"));

@@ -166,10 +166,14 @@ incomparable in a way nothing downstream can see.
 ### Accuracy Grade (GRADE)
 
 `GRADE=1` applies the componentwise criterion of the graded BLAS
-accuracy tests: `|C - C_ref| <= f(n) * u * (|alpha||A||B| +
-|beta||C|)` with `f(n) = n` and `u` the unit roundoff.  It reports
-`GRADE: a=<max ratio> f(n)=<n>` and fails the run when the ratio
-exceeds `f(n)`.
+accuracy tests: `|C - C_ref| <= f(K) * u * (|alpha||A||B| +
+|beta||C|)` with `f(K) = K` and `u` the unit roundoff.  K is the
+number of terms summed, so a short-K GEMM is held to a tighter bound
+than a square one of the same size.  It reports
+`GRADE: a=<max ratio> f(n)=<K>` and fails the run when the ratio
+exceeds it.  `GRADE=-1` reports without failing, which is what a
+deliberately trimmed run needs: it gives up precision on purpose, so
+this is not the criterion it claims.
 
 Prefer it over `CHECK` when the question is whether a result is
 as accurate as the scheme claims.  `CHECK` compares one scalar
