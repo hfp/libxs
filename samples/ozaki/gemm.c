@@ -71,6 +71,8 @@ int main(int argc, char* argv[])
    * degenerates. Costs one more reference GEMM and one m-by-n buffer.
    */
   const char* const env_grade = getenv("GRADE");
+  /* Negative reports the grade without gating: a deliberately trimmed run gives up precision
+   * on purpose, so the criterion it would be held to is not the one it claims. */
   const int grade = (NULL != env_grade && 0 != *env_grade) ? atoi(env_grade) : 0;
   double grade_max = -1.0;
   const int nrep = (NULL == nrepeat_env ? 3 : atoi(nrepeat_env));
@@ -436,8 +438,9 @@ int main(int argc, char* argv[])
   if (0 <= grade_max) {
     const double fn = (double)n;
     const int graded = (grade_max <= fn);
-    fprintf(stderr, "GRADE: a=%g f(n)=%g (%s)\n", grade_max, fn, 0 != graded ? "pass" : "FAIL");
-    if (0 == graded) result = EXIT_FAILURE;
+    fprintf(stderr, "GRADE: a=%g f(n)=%g (%s)\n", grade_max, fn,
+      0 != graded ? "pass" : (0 < grade ? "FAIL" : "advisory"));
+    if (0 == graded && 0 < grade) result = EXIT_FAILURE;
   }
 
   libxs_finalize();
