@@ -103,4 +103,6 @@ at a size worth splitting, and with `LIBXS_SYRK_BLAS=0`.
 
 - Scratch memory for the temporary block products is a thread-local
   buffer that grows on demand, hence tasks need no synchronization:
-  each task holds its own scratch and writes its own blocks of C.
+  each task holds its own scratch and writes its own blocks of C. It
+  is drawn from the LIBXS memory pool, so it appears in the pool
+  statistics rather than in an untracked allocation.

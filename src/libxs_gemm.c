@@ -9,6 +9,7 @@
 ******************************************************************************/
 #include <libxs/libxs_gemm.h>
 #include <libxs/libxs_math.h>
+#include <libxs/libxs_malloc.h>
 #include "libxs_main.h"
 #include "libxs_crc32.h"
 
@@ -1240,8 +1241,10 @@ LIBXS_API_INTERN void* internal_libxs_syrk_scratch(size_t need);
 LIBXS_API_INTERN void* internal_libxs_syrk_scratch(size_t need)
 {
   if (need > internal_libxs_syrk_buffer_size) {
-    free(internal_libxs_syrk_buffer);
-    internal_libxs_syrk_buffer = malloc(need);
+    libxs_free(internal_libxs_syrk_buffer);
+    /* pooled: the scratch is a kernel operand, hence aligned and accounted */
+    internal_libxs_syrk_buffer = libxs_malloc(
+      libxs_default_pool(), need, LIBXS_CACHELINE);
     internal_libxs_syrk_buffer_size = (NULL != internal_libxs_syrk_buffer) ? need : 0;
   }
   return internal_libxs_syrk_buffer;
