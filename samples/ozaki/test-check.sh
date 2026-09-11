@@ -65,7 +65,7 @@ else
 fi
 echo
 
-# Scheme 2 (CRT modular arithmetic): exact with default nprimes (u8)
+# Scheme 2 (CRT modular arithmetic): exact with default nmoduli (u8)
 echo "-----------------------------------"
 echo "CHECK [${TEST}]: Scheme 2 (CRT u8)"
 if [ "$*" ]; then echo "args    $*"; fi

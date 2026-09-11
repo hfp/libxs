@@ -55,7 +55,7 @@ layout; MMA uses m16n8k32. Both are mainly limited by 2D block loads.
 Replaces BLAS GEMM with low-precision arithmetic.
 
 - **Scheme 1**: Mantissa slicing (int8) — quadratic in slices
-- **Scheme 2**: Chinese Remainder Theorem (CRT) — linear in primes
+- **Scheme 2**: Chinese Remainder Theorem (CRT) — linear in moduli
 - **Adaptive**: Automatic selection based on data characteristics
 
 Built-in accuracy tracking tells if results are trustworthy.
@@ -231,7 +231,7 @@ Reproduce the problem offline:
 | OZAKI=1 | S·(S+1)/2 integer GEMMs | Narrow exponent spans                 |
 | OZAKI=3 | Auto-selects 1 or 2     | Repeated calls, unknown data          |
 
-P = number of primes (default 16 for FP64).
+P = number of moduli (default 16 for FP64).
 S = number of slices (default 8 for FP64).
 
 Auto-selection only on GPU (Ozaki-2 on CPU).
@@ -244,7 +244,7 @@ Auto-selection only on GPU (Ozaki-2 on CPU).
 export OZAKI_TRIM=2         # give up precision for speed
 export OZAKI_TRIM=-6        # Ozaki-1: buy the full product back
 export OZAKI_THRESHOLD=0    # apply Ozaki to ALL GEMMs (default: 12)
-export OZAKI_N=12           # more slices/primes (more accurate)
+export OZAKI_N=12           # more slices/moduli (more accurate)
 ```
 
 `OZAKI_TRIM` counts from the default, which already drops pairs below

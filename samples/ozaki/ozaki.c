@@ -196,8 +196,8 @@ OZAKI_API_INTERN void gemm_init(void)
           if (1 != ozaki && NULL == ozaki_env) ozaki = 1;
           if (0 == ozaki_verbose && NULL == ozaki_verbose_env) ozaki_verbose = 1;
         }
-        if (2 == ozaki || 3 == ozaki) { /* Scheme 2 (or adaptive): CRT primes */
-          ozaki_n = LIBXS_CLMP(NULL == ozaki_n_env ? OZ2_NPRIMES_DEFAULT : atoi(ozaki_n_env), 1, OZ2_NPRIMES_MAX);
+        if (2 == ozaki || 3 == ozaki) { /* Scheme 2 (or adaptive): CRT moduli */
+          ozaki_n = LIBXS_CLMP(NULL == ozaki_n_env ? OZ2_NMODULI_DEFAULT : atoi(ozaki_n_env), 1, OZ2_NMODULI_MAX);
         }
         else { /* Scheme 1: mantissa slices */
           ozaki_n = LIBXS_CLMP(NULL == ozaki_n_env ? NSLICES_DEFAULT : atoi(ozaki_n_env), 1, MAX_NSLICES);
@@ -241,7 +241,7 @@ OZAKI_API_INTERN void gemm_init(void)
            *
            * OZAKI_N and OZAKI_MAXK travel the same way, and for OZAKI_MAXK it is
            * not cosmetic: it bounds the CRT bit budget on that side, so a CPU
-           * default imposed here would silently pick the device's prime count.
+           * default imposed here would silently pick the device's modulus count.
            */
           ozaki_ocl_handle = ozaki_ocl_create(GEMM_IS_DOUBLE, (NULL != ozaki_env) ? ozaki : -1 /*auto*/,
             ozaki_verbose, ocl_tm, ocl_tn, (NULL != ozaki_n_env) ? ozaki_n : 0 /*auto*/, ozaki_flags,

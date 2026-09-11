@@ -26,7 +26,7 @@
  * u8 (default): moduli <= 256, unsigned residues [0, p-1].
  *   Sign encoded via modular additive inverse (p - r == -r mod p).
  *   Enables u8*u8 VNNI via VPDPBUSD with B-side bias correction.
- *   Larger moduli reduce prime count: fp64 16 (vs 19), fp32 9 (vs 10).
+ *   Larger moduli reduce modulus count: fp64 16 (vs 19), fp32 9 (vs 10).
  *   Safe K without chunking: ~33K (255^2 * K per int32 accumulator).
  *
  * i8 (OZAKI_I8=1): moduli <= 128, signed residues [-127, +127].
@@ -41,7 +41,7 @@
 
 /**
  * 20 pairwise coprime moduli <= 128 (prime powers + primes).
- * 128=2^7, 125=5^3, 121=11^2, 119=7*17, 81=3^4 alongside primes.
+ * 128=2^7, 125=5^3, 121=11^2, 119=7*17, 81=3^4 alongside moduli.
  */
 static const uint16_t oz2_moduli[] = {128, 127, 125, 121, 119, 113, 109, 107, 103, 101, 97, 89, 83, 81, 79, 73, 71, 67, 61, 59};
 static const uint32_t oz2_rcp[] = {(uint32_t)(0x100000000ULL / 128), (uint32_t)(0x100000000ULL / 127),
@@ -67,7 +67,7 @@ typedef int8_t oz2_res_t;
 
 /**
  * 20 pairwise coprime moduli <= 256 (prime powers + primes).
- * 256=2^8, 243=3^5, 169=13^2 alongside primes.
+ * 256=2^8, 243=3^5, 169=13^2 alongside moduli.
  */
 static const uint16_t oz2_moduli[] = {
   256, 251, 243, 241, 239, 233, 229, 227, 223, 211, 199, 197, 193, 191, 181, 179, 173, 169, 167, 163};
@@ -122,16 +122,16 @@ LIBXS_INLINE unsigned int oz2_mod64(uint64_t x, int pidx)
  * delta = max_exp - element_exp (>= 0); mantissa is right-shifted
  * by delta bits for exponent alignment before reduction.
  */
-LIBXS_INLINE void oz2_reduce(uint64_t mantissa, int delta, uint8_t residues[OZ2_NPRIMES_MAX], int nprimes)
+LIBXS_INLINE void oz2_reduce(uint64_t mantissa, int delta, uint8_t residues[OZ2_NMODULI_MAX], int nmoduli)
 {
   int i;
-  nprimes = LIBXS_CLMP(nprimes, 0, OZ2_NPRIMES_MAX);
+  nmoduli = LIBXS_CLMP(nmoduli, 0, OZ2_NMODULI_MAX);
   if (delta > 0) {
     if (delta >= 64) mantissa = 0;
     else mantissa >>= delta;
   }
-  LIBXS_PRAGMA_LOOP_COUNT(1, OZ2_NPRIMES_MAX, OZ2_NPRIMES_DEFAULT)
-  for (i = 0; i < nprimes; ++i) {
+  LIBXS_PRAGMA_LOOP_COUNT(1, OZ2_NMODULI_MAX, OZ2_NMODULI_DEFAULT)
+  for (i = 0; i < nmoduli; ++i) {
     residues[i] = (uint8_t)oz2_mod64(mantissa, i);
   }
 }
@@ -139,11 +139,11 @@ LIBXS_INLINE void oz2_reduce(uint64_t mantissa, int delta, uint8_t residues[OZ2_
 
 /**
  * Hierarchical CRT: two-level Garner reconstruction.
- * Level 1: HIER_GS primes per group (small Garner, 32-bit).
+ * Level 1: HIER_GS moduli per group (small Garner, 32-bit).
  * Level 2: Garner over HIER_NGROUPS group-moduli (32-bit, 64-bit Barrett).
  */
 #define HIER_GS 4
-#define HIER_NGROUPS_MAX ((OZ2_NPRIMES_MAX + HIER_GS - 1) / HIER_GS)
+#define HIER_NGROUPS_MAX ((OZ2_NMODULI_MAX + HIER_GS - 1) / HIER_GS)
 #define HIER_L2_HORNER_GROUP 2
 
 LIBXS_INLINE unsigned int oz2_mod_l2(uint64_t x, uint32_t m, uint64_t barrett)
@@ -161,10 +161,10 @@ LIBXS_INLINE unsigned int oz2_mod_l2(uint64_t x, uint32_t m, uint64_t barrett)
 }
 
 LIBXS_INLINE unsigned int oz2_hier_l1_garner(const unsigned int group_residues[], int g,
-  uint8_t garner_inv[OZ2_NPRIMES_MAX][OZ2_NPRIMES_MAX], int nprimes)
+  uint8_t garner_inv[OZ2_NMODULI_MAX][OZ2_NMODULI_MAX], int nmoduli)
 {
   const int lo = g * HIER_GS;
-  const int hi = (lo + HIER_GS <= nprimes) ? (lo + HIER_GS) : nprimes;
+  const int hi = (lo + HIER_GS <= nmoduli) ? (lo + HIER_GS) : nmoduli;
   const int gsz = hi - lo;
   unsigned int v[HIER_GS];
   uint64_t hval = 0;
@@ -262,12 +262,12 @@ LIBXS_INLINE double oz2_hier_horner(const unsigned int d[], const uint32_t* gpro
   return result;
 }
 
-LIBXS_INLINE void oz2_reconstruct_batch(unsigned int batch_res[OZ2_BATCH][OZ2_NPRIMES_MAX],
-  uint8_t garner_inv[OZ2_NPRIMES_MAX][OZ2_NPRIMES_MAX],
+LIBXS_INLINE void oz2_reconstruct_batch(unsigned int batch_res[OZ2_BATCH][OZ2_NMODULI_MAX],
+  uint8_t garner_inv[OZ2_NMODULI_MAX][OZ2_NMODULI_MAX],
   const uint32_t* l2_garner_inv, const uint32_t* gprod, const uint64_t* l2_barrett,
-  int nprimes, int bsz, double result[OZ2_BATCH])
+  int nmoduli, int bsz, double result[OZ2_BATCH])
 {
-  const int ngroups = LIBXS_UPDIV(nprimes, HIER_GS);
+  const int ngroups = LIBXS_UPDIV(nmoduli, HIER_GS);
   int bi, g;
 
   for (bi = 0; bi < bsz; ++bi) {
@@ -278,11 +278,11 @@ LIBXS_INLINE void oz2_reconstruct_batch(unsigned int batch_res[OZ2_BATCH][OZ2_NP
 
     for (g = 0; g < ngroups; ++g) {
       const int lo = g * HIER_GS;
-      const int hi = (lo + HIER_GS <= nprimes) ? (lo + HIER_GS) : nprimes;
+      const int hi = (lo + HIER_GS <= nmoduli) ? (lo + HIER_GS) : nmoduli;
       unsigned int gr[HIER_GS];
       int li;
       for (li = 0; li < hi - lo; ++li) gr[li] = batch_res[bi][lo + li];
-      gval[g] = oz2_hier_l1_garner(gr, g, garner_inv, nprimes);
+      gval[g] = oz2_hier_l1_garner(gr, g, garner_inv, nmoduli);
     }
 
     is_negative = oz2_hier_l2_garner(gval, d, l2_garner_inv, gprod, l2_barrett, ngroups);
@@ -304,18 +304,18 @@ LIBXS_INLINE void oz2_reconstruct_batch(unsigned int batch_res[OZ2_BATCH][OZ2_NP
  * Level 2: scalar Garner + Horner per element (only HIER_NGROUPS_MAX steps).
  */
 LIBXS_INLINE LIBXS_INTRINSICS(LIBXS_X86_AVX512) void oz2_reconstruct_batch_avx512(
-  unsigned int batch_res[OZ2_BATCH][OZ2_NPRIMES_MAX],
-  uint8_t garner_inv[OZ2_NPRIMES_MAX][OZ2_NPRIMES_MAX],
+  unsigned int batch_res[OZ2_BATCH][OZ2_NMODULI_MAX],
+  uint8_t garner_inv[OZ2_NMODULI_MAX][OZ2_NMODULI_MAX],
   const uint32_t* l2_garner_inv, const uint32_t* gprod, const uint64_t* l2_barrett,
-  int nprimes, int bsz, double result[OZ2_BATCH])
+  int nmoduli, int bsz, double result[OZ2_BATCH])
 {
-  const int ngroups = LIBXS_UPDIV(nprimes, HIER_GS);
+  const int ngroups = LIBXS_UPDIV(nmoduli, HIER_GS);
   unsigned int gval_all[OZ2_BATCH][HIER_NGROUPS_MAX];
   int g, bi;
 
   for (g = 0; g < ngroups; ++g) {
     const int lo = g * HIER_GS;
-    const int hi = (lo + HIER_GS <= nprimes) ? (lo + HIER_GS) : nprimes;
+    const int hi = (lo + HIER_GS <= nmoduli) ? (lo + HIER_GS) : nmoduli;
     const int gsz = hi - lo;
     unsigned int vt[HIER_GS][OZ2_BATCH];
     __m512i u_vec;
@@ -387,7 +387,7 @@ LIBXS_INLINE void gemm_oz2_diff(const char* transa, const char* transb, const GE
   const GEMM_INT_TYPE* k, const GEMM_REAL_TYPE* alpha, const GEMM_REAL_TYPE* a, const GEMM_INT_TYPE* lda, const GEMM_REAL_TYPE* b,
   const GEMM_INT_TYPE* ldb, const GEMM_REAL_TYPE* beta, GEMM_REAL_TYPE* c, const GEMM_INT_TYPE* ldc, libxs_matdiff_t* diff)
 {
-  uint8_t garner_inv[OZ2_NPRIMES_MAX][OZ2_NPRIMES_MAX];
+  uint8_t garner_inv[OZ2_NMODULI_MAX][OZ2_NMODULI_MAX];
   uint32_t hier_gprod[HIER_NGROUPS_MAX];
   uint64_t hier_l2_barrett[HIER_NGROUPS_MAX];
   uint32_t l2_garner_inv[HIER_NGROUPS_MAX * HIER_NGROUPS_MAX];
@@ -405,7 +405,7 @@ LIBXS_INLINE void gemm_oz2_diff(const char* transa, const char* transb, const GE
   const int tb = (*transb != 'N' && *transb != 'n');
   const GEMM_INT_TYPE M = *m, N = *n, K = *k;
   const GEMM_INT_TYPE ldcv = *ldc;
-  int nprimes = LIBXS_CLMP(ozaki_n, 1, OZ2_NPRIMES_MAX);
+  int nmoduli = LIBXS_CLMP(ozaki_n, 1, OZ2_NMODULI_MAX);
   int oztrim_bits = 0;
   const GEMM_INT_TYPE K_grp_size = (0 < ozaki_maxk ? (GEMM_INT_TYPE)ozaki_maxk : K);
   const GEMM_INT_TYPE K_grp_max = LIBXS_MIN(K_grp_size, K);
@@ -422,12 +422,12 @@ LIBXS_INLINE void gemm_oz2_diff(const char* transa, const char* transb, const GE
   LIBXS_ASSERT(LIBXS_DATATYPE_F64 == LIBXS_DATATYPE(GEMM_REAL_TYPE) || LIBXS_DATATYPE_F32 == LIBXS_DATATYPE(GEMM_REAL_TYPE));
 
   /**
-   * Trim counts primes, the unit of work, and the truncation follows from what those
-   * primes carry: a product of two b-bit significands summed over K terms needs
+   * Trim counts moduli, the unit of work, and the truncation follows from what those
+   * moduli carry: a product of two b-bit significands summed over K terms needs
    * 2*b + ceil(log2(K)) + 1 bits, so asking for fewer bits than the moduli hold
    * loses accuracy at no saving. Same accounting as GPU Scheme 2 (ozaki_crt_bits in
    * LIBXSTREAM), with the pass's own K rather than a declared bound, which is
-   * tighter. A negative trim adds primes and buys the precision back.
+   * tighter. A negative trim adds moduli and buys the precision back.
    */
   {
     const int sig = GEMM_IS_DOUBLE ? 53 : 24;
@@ -439,22 +439,22 @@ LIBXS_INLINE void gemm_oz2_diff(const char* transa, const char* transb, const GE
     uint64_t kk = (uint64_t)K_grp_max - 1;
     int lgk = 1, avail;
     while (0 < kk) { ++lgk; kk >>= 1; }
-    nprimes = LIBXS_CLMP(nprimes - ozaki_trim, 2, OZ2_NPRIMES_MAX);
-    avail = cumbits[nprimes-1] - lgk;
+    nmoduli = LIBXS_CLMP(nmoduli - ozaki_trim, 2, OZ2_NMODULI_MAX);
+    avail = cumbits[nmoduli-1] - lgk;
     oztrim_bits = LIBXS_CLMP(sig - (0 < avail ? avail / 2 : 0), 0, sig - 1);
   }
 
   /* Precompute Garner modular inverse table */
   memset(garner_inv, 0, sizeof(garner_inv));
-  for (i = 0; i < nprimes; ++i) {
-    for (j = i + 1; j < nprimes; ++j) {
+  for (i = 0; i < nmoduli; ++i) {
+    for (j = i + 1; j < nmoduli; ++j) {
       garner_inv[i][j] = (uint8_t)libxs_mod_inverse_u32(oz2_moduli[i] % oz2_moduli[j], oz2_moduli[j]);
     }
   }
-  { const int ngroups = LIBXS_UPDIV(nprimes, HIER_GS);
+  { const int ngroups = LIBXS_UPDIV(nmoduli, HIER_GS);
     for (i = 0; i < ngroups; ++i) {
       const int lo = i * HIER_GS;
-      const int hi = (lo + HIER_GS <= nprimes) ? (lo + HIER_GS) : nprimes;
+      const int hi = (lo + HIER_GS <= nmoduli) ? (lo + HIER_GS) : nmoduli;
       uint32_t p = 1;
       for (j = lo; j < hi; ++j) p *= (uint32_t)oz2_moduli[j];
       hier_gprod[i] = p;
@@ -468,8 +468,8 @@ LIBXS_INLINE void gemm_oz2_diff(const char* transa, const char* transb, const GE
     }
   }
 
-  a_res = (oz2_res_t*)libxs_malloc(gemm_pool, (size_t)nprimes * M * K_grp_pad, 0);
-  b_res = (oz2_res_t*)libxs_malloc(gemm_pool, (size_t)nprimes * N * K_grp_pad, 0);
+  a_res = (oz2_res_t*)libxs_malloc(gemm_pool, (size_t)nmoduli * M * K_grp_pad, 0);
+  b_res = (oz2_res_t*)libxs_malloc(gemm_pool, (size_t)nmoduli * N * K_grp_pad, 0);
   expa_raw = (int16_t*)libxs_malloc(gemm_pool, (size_t)M * sizeof(int16_t), 0);
   expb_raw = (int16_t*)libxs_malloc(gemm_pool, (size_t)N * sizeof(int16_t), 0);
   expa_fp = (double*)libxs_malloc(gemm_pool, (size_t)M * sizeof(double), 0);
@@ -515,7 +515,7 @@ LIBXS_INLINE void gemm_oz2_diff(const char* transa, const char* transb, const GE
         int16_t row_max_exp = 0;
         GEMM_INT_TYPE kk;
         /* Zero this row's residue buffers */
-        for (pidx = 0; pidx < nprimes; ++pidx) {
+        for (pidx = 0; pidx < nmoduli; ++pidx) {
           memset(a_res + (long)pidx * M * K_grp_pad + (long)row * K_grp_pad, 0, (size_t)K_grp_pad);
         }
         for (kk = kb_grp; kk < kb_grp + K_len; ++kk) {
@@ -532,10 +532,10 @@ LIBXS_INLINE void gemm_oz2_diff(const char* transa, const char* transb, const GE
           sign = ozaki_extract_ieee(a[LIBXS_INDEX(ta, *lda, row, kk)], &e, &mt);
           if (0 != mt) {
             const int delta = (int)row_max_exp - (int)e + oztrim_bits;
-            uint8_t tmp[OZ2_NPRIMES_MAX];
-            oz2_reduce(mt, delta, tmp, nprimes);
-            LIBXS_PRAGMA_LOOP_COUNT(1, OZ2_NPRIMES_MAX, OZ2_NPRIMES_DEFAULT)
-            for (pidx = 0; pidx < nprimes; ++pidx) {
+            uint8_t tmp[OZ2_NMODULI_MAX];
+            oz2_reduce(mt, delta, tmp, nmoduli);
+            LIBXS_PRAGMA_LOOP_COUNT(1, OZ2_NMODULI_MAX, OZ2_NMODULI_DEFAULT)
+            for (pidx = 0; pidx < nmoduli; ++pidx) {
 #if defined(OZAKI_I8) && (OZAKI_I8)
               a_res[(long)pidx * M * K_grp_pad + (long)row * K_grp_pad + (kk - kb_grp)] = (oz2_res_t)(sign * (int8_t)tmp[pidx]);
 #else
@@ -555,7 +555,7 @@ LIBXS_INLINE void gemm_oz2_diff(const char* transa, const char* transb, const GE
         int16_t col_max_exp = 0;
         GEMM_INT_TYPE kk;
         /* Zero this column's residue buffers */
-        for (pidx = 0; pidx < nprimes; ++pidx) {
+        for (pidx = 0; pidx < nmoduli; ++pidx) {
           memset(b_res + (long)pidx * N * K_grp_pad + (long)col * K_grp_pad, 0, (size_t)K_grp_pad);
         }
         for (kk = kb_grp; kk < kb_grp + K_len; ++kk) {
@@ -572,10 +572,10 @@ LIBXS_INLINE void gemm_oz2_diff(const char* transa, const char* transb, const GE
           sign = ozaki_extract_ieee(b[LIBXS_INDEX(tb, *ldb, kk, col)], &e, &mt);
           if (0 != mt) {
             const int delta = (int)col_max_exp - (int)e + oztrim_bits;
-            uint8_t tmp[OZ2_NPRIMES_MAX];
-            oz2_reduce(mt, delta, tmp, nprimes);
-            LIBXS_PRAGMA_LOOP_COUNT(1, OZ2_NPRIMES_MAX, OZ2_NPRIMES_DEFAULT)
-            for (pidx = 0; pidx < nprimes; ++pidx) {
+            uint8_t tmp[OZ2_NMODULI_MAX];
+            oz2_reduce(mt, delta, tmp, nmoduli);
+            LIBXS_PRAGMA_LOOP_COUNT(1, OZ2_NMODULI_MAX, OZ2_NMODULI_DEFAULT)
+            for (pidx = 0; pidx < nmoduli; ++pidx) {
 #if defined(OZAKI_I8) && (OZAKI_I8)
               b_res[(long)pidx * N * K_grp_pad + (long)col * K_grp_pad + (kk - kb_grp)] = (oz2_res_t)(sign * (int8_t)tmp[pidx]);
 #else
@@ -613,19 +613,19 @@ LIBXS_INLINE void gemm_oz2_diff(const char* transa, const char* transb, const GE
           const GEMM_INT_TYPE iblk = LIBXS_MIN(BLOCK_M, M - ib);
           const GEMM_INT_TYPE jblk = LIBXS_MIN(BLOCK_N, N - jb);
           GEMM_REAL_TYPE* const cb = c + jb * ldcv + ib;
-          uint8_t tile_res[BLOCK_M * BLOCK_N][OZ2_NPRIMES_MAX];
+          uint8_t tile_res[BLOCK_M * BLOCK_N][OZ2_NMODULI_MAX];
           memset(tile_res, 0, sizeof(tile_res));
 
           /**
-           * Fused GEMM + mod-reduce: inline VNNI panel per prime, Barrett-
+           * Fused GEMM + mod-reduce: inline VNNI panel per modulus, Barrett-
            * reduce accumulators in-register, accumulate into tile_res.
-           * Eliminates partial[] buffer and per-prime function call overhead.
+           * Eliminates partial[] buffer and per-modulus function call overhead.
            */
 #if defined(LIBXS_INTRINSICS_AVX512) && 16 == BLOCK_N && \
   (LIBXS_X86_AVX512 <= LIBXS_STATIC_TARGET_ARCH || LIBXS_X86_AVX512 <= LIBXS_MAX_STATIC_TARGET_ARCH)
           if (BLOCK_N == jblk && LIBXS_X86_AVX512 <= ozaki_target_arch) {
-            LIBXS_PRAGMA_LOOP_COUNT(1, OZ2_NPRIMES_MAX, OZ2_NPRIMES_DEFAULT)
-            for (pidx = 0; pidx < nprimes; ++pidx) {
+            LIBXS_PRAGMA_LOOP_COUNT(1, OZ2_NMODULI_MAX, OZ2_NMODULI_DEFAULT)
+            for (pidx = 0; pidx < nmoduli; ++pidx) {
               const unsigned int pi = oz2_moduli[pidx];
               const unsigned int rcp_i = oz2_rcp[pidx];
               const __m512i vpi = _mm512_set1_epi32((int)pi);
@@ -731,8 +731,8 @@ LIBXS_INLINE void gemm_oz2_diff(const char* transa, const char* transb, const GE
           { /* Scalar fallback */
             for (kb = 0; kb < K_grp_pad; kb += K_CHUNK) {
               const GEMM_INT_TYPE chunk_k = ((GEMM_INT_TYPE)K_CHUNK < K_grp_pad - kb) ? (GEMM_INT_TYPE)K_CHUNK : (K_grp_pad - kb);
-              LIBXS_PRAGMA_LOOP_COUNT(1, OZ2_NPRIMES_MAX, OZ2_NPRIMES_DEFAULT)
-              for (pidx = 0; pidx < nprimes; ++pidx) {
+              LIBXS_PRAGMA_LOOP_COUNT(1, OZ2_NMODULI_MAX, OZ2_NMODULI_DEFAULT)
+              for (pidx = 0; pidx < nmoduli; ++pidx) {
                 LIBXS_ALIGNED(int32_t partial[BLOCK_M * BLOCK_N], LIBXS_ALIGNMENT);
 #if defined(OZAKI_I8) && (OZAKI_I8)
                 ozaki_gemm_s8s8s32('N', 'T', iblk, jblk, chunk_k,
@@ -771,29 +771,29 @@ LIBXS_INLINE void gemm_oz2_diff(const char* transa, const char* transb, const GE
           for (mi = 0; mi < iblk; ++mi) {
             for (nj = 0; nj < jblk; nj += OZ2_BATCH) {
               const GEMM_INT_TYPE bsz = LIBXS_MIN(OZ2_BATCH, (int)(jblk - nj));
-              unsigned int batch_res[OZ2_BATCH][OZ2_NPRIMES_MAX];
+              unsigned int batch_res[OZ2_BATCH][OZ2_NMODULI_MAX];
               double batch_val[OZ2_BATCH];
               int bi;
               for (bi = 0; bi < (int)bsz; ++bi) {
-                LIBXS_PRAGMA_LOOP_COUNT(1, OZ2_NPRIMES_MAX, OZ2_NPRIMES_DEFAULT)
-                for (pidx = 0; pidx < nprimes; ++pidx) {
+                LIBXS_PRAGMA_LOOP_COUNT(1, OZ2_NMODULI_MAX, OZ2_NMODULI_DEFAULT)
+                for (pidx = 0; pidx < nmoduli; ++pidx) {
                   batch_res[bi][pidx] = tile_res[mi * jblk + nj + bi][pidx];
                 }
               }
 
 #if defined(LIBXS_INTRINSICS_AVX512) && 16 == OZ2_BATCH
 # if (LIBXS_X86_AVX512 <= LIBXS_STATIC_TARGET_ARCH)
-              oz2_reconstruct_batch_avx512(batch_res, garner_inv, l2_garner_inv, hier_gprod, hier_l2_barrett, nprimes, (int)bsz, batch_val);
+              oz2_reconstruct_batch_avx512(batch_res, garner_inv, l2_garner_inv, hier_gprod, hier_l2_barrett, nmoduli, (int)bsz, batch_val);
 # else
               if (LIBXS_X86_AVX512 <= ozaki_target_arch) {
-                oz2_reconstruct_batch_avx512(batch_res, garner_inv, l2_garner_inv, hier_gprod, hier_l2_barrett, nprimes, (int)bsz, batch_val);
+                oz2_reconstruct_batch_avx512(batch_res, garner_inv, l2_garner_inv, hier_gprod, hier_l2_barrett, nmoduli, (int)bsz, batch_val);
               }
               else {
-                oz2_reconstruct_batch(batch_res, garner_inv, l2_garner_inv, hier_gprod, hier_l2_barrett, nprimes, (int)bsz, batch_val);
+                oz2_reconstruct_batch(batch_res, garner_inv, l2_garner_inv, hier_gprod, hier_l2_barrett, nmoduli, (int)bsz, batch_val);
               }
 # endif
 #else
-              oz2_reconstruct_batch(batch_res, garner_inv, l2_garner_inv, hier_gprod, hier_l2_barrett, nprimes, (int)bsz, batch_val);
+              oz2_reconstruct_batch(batch_res, garner_inv, l2_garner_inv, hier_gprod, hier_l2_barrett, nmoduli, (int)bsz, batch_val);
 #endif
 
               for (bi = 0; bi < (int)bsz; ++bi) {

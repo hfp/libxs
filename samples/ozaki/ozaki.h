@@ -91,18 +91,18 @@
 #define OZ1_XOVER_DEFAULT 2048
 
 #if GEMM_IS_DOUBLE
-# define OZ2_NPRIMES_MAX 20
+# define OZ2_NMODULI_MAX 20
 # if defined(OZAKI_I8) && (OZAKI_I8)
-#   define OZ2_NPRIMES_DEFAULT 19
+#   define OZ2_NMODULI_DEFAULT 19
 # else
-#   define OZ2_NPRIMES_DEFAULT 16
+#   define OZ2_NMODULI_DEFAULT 16
 # endif
 #else /* single-precision */
-# define OZ2_NPRIMES_MAX 12
+# define OZ2_NMODULI_MAX 12
 # if defined(OZAKI_I8) && (OZAKI_I8)
-#   define OZ2_NPRIMES_DEFAULT 10
+#   define OZ2_NMODULI_DEFAULT 10
 # else
-#   define OZ2_NPRIMES_DEFAULT 9
+#   define OZ2_NMODULI_DEFAULT 9
 # endif
 #endif
 
