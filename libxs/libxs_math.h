@@ -109,8 +109,10 @@ LIBXS_API int libxs_matdiff(libxs_matdiff_t* info,
  * exact result's own magnitude, max |ref - tst| / (u * bound) with u the unit roundoff of
  * the datatype. The caller supplies bound, the elementwise upper bound on the exact result:
  * for a GEMM that is |alpha||A||B| + |beta||C|, which needs a product and therefore stays
- * with the caller. A grade at or below f(n), linear in n, is what a componentwise-stable
- * implementation may show; the criterion is that of the graded BLAS accuracy tests.
+ * with the caller. A grade at or below f(K) is what a componentwise-stable implementation may
+ * show, K being the number of terms summed (the GEMM's inner dimension, not the output width)
+ * and f at most linear; the criterion is that of the graded BLAS accuracy tests. The grade
+ * itself is dimensionless, in units of roundoff, so the threshold stays with the caller.
  * Prefer it over a fixed threshold on libxs_matdiff_epsilon when the question is whether a
  * result is as accurate as an algorithm claims: an absolute margin has to be loose enough for
  * the worst-scaled entry, so it admits results that are inaccurate but not broken. Note that
