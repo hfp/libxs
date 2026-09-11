@@ -295,7 +295,11 @@ static void evaluate(const libxs_predict_t* model,
   const libxs_predict_t* reference, int ntotal, const char trained[],
   int use_xgb)
 {
+#if defined(__XGBOOST)
+  /* read only by the comparison below, which is what carries our coverage over
+     to it; without XGBoost nothing reads it and filling it is dead work */
   double novel_cov[5];
+#endif
   double* all_inputs = (double*)malloc((size_t)ntotal * NINPUTS * sizeof(double));
   double* all_predicted = (double*)malloc((size_t)ntotal * NOUTPUTS * sizeof(double));
   LIBXS_UNUSED(use_xgb);
@@ -344,7 +348,9 @@ static void evaluate(const libxs_predict_t* model,
      * carried out of the gate block so the XGBoost comparison below can be read
      * at the coverage this model actually reached, not at the same gate value
      */
+#if defined(__XGBOOST)
     for (j = 0; j < 5; ++j) novel_cov[j] = -1.0;
+#endif
     { const int nconf = (int)(sizeof(confidence_outputs)
         / sizeof(confidence_outputs[0]));
       double gates[8];
@@ -460,8 +466,10 @@ static void evaluate(const libxs_predict_t* model,
           (0 < split_acted[ci][1])
             ? 100.0 * split_correct[ci][1] / split_acted[ci][1] : 100.0,
           (0 < split_n[1]) ? 100.0 * split_acted[ci][1] / split_n[1] : 0.0);
+#if defined(__XGBOOST)
         novel_cov[ci] = (0 < split_n[1])
           ? ((double)split_acted[ci][1] / split_n[1]) : 0.0;
+#endif
       }
     }
 #if defined(__XGBOOST)
