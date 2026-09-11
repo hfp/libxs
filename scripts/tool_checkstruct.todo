@@ -17,3 +17,37 @@ stacked-comments    2  samples/converse/converse_hier.c
 stacked-comments    5  samples/converse/converse_lm.c
 stacked-comments   12  samples/converse/converse_qa.c
 stacked-comments    6  samples/converse/converse_recomb.c
+# section-order is new. Every finding below predates it: the rule is a ratchet
+# from here on, and the existing files come down one at a time. Some entries
+# are the exceptions the policy already names, judged here rather than guessed
+# at by the rule: libxs_predict.c includes its implementation fragments where
+# their code belongs, and 5 of the 14 type findings are a type sitting above
+# the one entry point it parameterizes. The public headers account for 23 of
+# the 40, because they group per feature -- a type, then the functions that
+# take it, then the next feature -- which is the section order read across a
+# file rather than along it.
+section-order       2  libxs/libxs_gemm.h
+section-order       2  libxs/libxs_hist.h
+section-order       1  libxs/libxs_macros.h
+section-order       1  libxs/libxs_malloc.h
+section-order       4  libxs/libxs_math.h
+section-order       1  libxs/libxs_mhd.h
+section-order       4  libxs/libxs_perm.h
+section-order       2  libxs/libxs_predict.h
+section-order       1  libxs/libxs_reg.h
+section-order       1  libxs/libxs_str.h
+section-order       2  libxs/libxs_sync.h
+section-order       1  libxs/libxs_timer.h
+section-order       1  libxs/libxs_token.h
+section-order       1  src/libxs_cpuid_x86.c
+section-order       1  src/libxs_gemm.c
+section-order       1  src/libxs_hash.c
+section-order       2  src/libxs_main.c
+section-order       1  src/libxs_matdiff.h
+section-order       3  src/libxs_math.c
+section-order       1  src/libxs_math_fprint.h
+section-order       1  src/libxs_perm.c
+section-order       1  src/libxs_perm_kdtree.h
+section-order       3  src/libxs_predict.c
+section-order       1  src/libxs_reg.c
+section-order       1  src/libxs_rng.c
