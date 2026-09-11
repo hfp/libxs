@@ -426,7 +426,8 @@ LIBXS_API int libxs_predict_save(const libxs_predict_t* model, void* buffer, siz
       }
       for (c = 0; c < total_trees; ++c) {
         required += sizeof(uint32_t) + sizeof(uint8_t);
-        required += (size_t)model->rf->trees[c].nnodes * (2 + 8 + 8 + 4 + 4 + 1);
+        /* feature, threshold, value, left, right, label, leafp */
+        required += (size_t)model->rf->trees[c].nnodes * (2 + 8 + 8 + 4 + 4 + 1 + 4);
         if (NULL != model->rf->trees[c].incr) {
           required += (size_t)model->rf->trees[c].nnodes
             * (size_t)model->rf->nclass[c / model->rf->ntrees]
@@ -594,6 +595,11 @@ LIBXS_API int libxs_predict_save(const libxs_predict_t* model, void* buffer, siz
               memcpy(dst, &r, 4); dst += 4;
             }
             WRITE_U8(nd->label);
+            /* what a leaf's read-out is worth, see the node type; four bytes
+               because it is an estimate and not a quantity to accumulate */
+            { const float lp = nd->leafp;
+              memcpy(dst, &lp, 4); dst += 4;
+            }
           }
           if (NULL != tree->incr) {
             const int nk = tree->nnodes * model->rf->nclass[c / model->rf->ntrees];
@@ -1579,7 +1585,15 @@ LIBXS_API libxs_predict_t* libxs_predict_load(const void* buffer, size_t size)
                     rf->trees[ti].nodes[k].left = (int)l;
                     rf->trees[ti].nodes[k].right = (int)r;
                     rf->trees[ti].nodes[k].label = (int)lab;
+                    rf->trees[ti].nodes[k].leafp = 0.f;
                     if (1 >= version) rf->trees[ti].nodes[k].value = (double)lab;
+                  }
+                  /* zero above, so a v1 model, which recorded none, falls back
+                     to the share and answers as it always did */
+                  if (EXIT_SUCCESS == ok && 1 < version) {
+                    float lp = 0.f;
+                    ok = internal_libxs_predict_read(&src, end, &lp, 4);
+                    if (EXIT_SUCCESS == ok) rf->trees[ti].nodes[k].leafp = lp;
                   }
                 }
                 if (EXIT_SUCCESS == ok && 0 != hasincr) {

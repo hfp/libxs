@@ -73,11 +73,11 @@ LIBXS_EXTERN_C typedef struct libxs_predict_info_t {
    * queries that has nothing to do with 0.9, and returns a rate it never
    * promised.
    *
-   * LIBXS_PREDICT_RF_CALIB_ROWS asks a forest to measure what its shares are
-   * worth on rows withheld from it, and the confidence is then a probability
-   * that a threshold can be read against. It costs accuracy, because the rows
-   * are withheld, and it changes no ranking: the mapping is monotone, so what
-   * improves is what the number means and not what the model can tell apart.
+   * libxs_predict_calibrate measures what a forest's shares are worth, and
+   * libxs_predict_probability then reads this number as a probability that a
+   * threshold can be held to. It changes no ranking: the mapping is monotone, so
+   * what improves is what the number means and not what the model can tell
+   * apart.
    */
   const double* confidence;
   /** Per-output variance among k nearest neighbors (noutputs elements). */
@@ -106,6 +106,22 @@ LIBXS_EXTERN_C typedef struct libxs_predict_query_t {
   int nclusters;
   /** Total number of pushed entries. */
   int nentries;
+  /**
+   * Whether the entries behind nentries are actually there to be rebuilt from.
+   *
+   * A loaded model carries the count from its file but recovers the entries
+   * themselves from the stored partition, and a mode that dropped coordinates
+   * cannot be recovered from: Fisher, setdiff and PCA zero the weight of an
+   * input, the partition stores the weighted value, and the original is not in
+   * the file. Reconstructing it as garbage would answer plausibly and wrongly,
+   * so the model abstains and this reports zero.
+   *
+   * Zero therefore says that rebuilding under another method will be declined -
+   * which is the question a caller holding a stored model has, and which it
+   * could otherwise only answer by attempting the build and reading a failure.
+   * A model that was just built has its corpus and reports one.
+   */
+  int corpus;
   /** GSS iterations performed during quality optimization (0 if quality >= 0). */
   int iterations;
   /** Auto-detected differencing order (0 if DIFF not enabled or not needed). */
@@ -946,6 +962,49 @@ LIBXS_API void libxs_predict_eval_batch_task(
  */
 LIBXS_API int libxs_predict_save(const libxs_predict_t* model,
   void* buffer, size_t* size);
+
+/**
+ * Fits the curve that turns a reported confidence into a probability, from rows
+ * the model was NOT built from. `inputs` holds nentries*ninputs values and
+ * `outputs` nentries*noutputs, laid out per entry as libxs_predict_push takes
+ * them.
+ *
+ * A confidence is otherwise a RANKING on a scale of its own - for a forest, the
+ * share of the trees that agree - which orders queries correctly and promises no
+ * rate. The curve is what makes a threshold mean the same thing across corpora,
+ * across tree granularities and against another library.
+ *
+ * Fitted here rather than during the build because the build has no rows to
+ * spare: measuring on rows withheld from every tree costs exactly the accuracy
+ * those rows would have bought, and withholding them from a fold of the trees
+ * instead cannot work, since how much of the forest omits a row is the same
+ * quantity as how much of it can score that row. A caller holding a validation
+ * set has rows that cost nothing, and they are the distribution it will gate on.
+ *
+ * Only a forest carries such a curve; for any other model this reports failure
+ * and changes nothing. Calling it again refits from scratch.
+ * Returns EXIT_SUCCESS, or EXIT_FAILURE if there is nothing to calibrate.
+ */
+LIBXS_API int libxs_predict_calibrate(libxs_predict_t* model,
+  const double* inputs, const double* outputs, int nentries);
+
+/**
+ * Translates a confidence reported by libxs_predict_eval into a probability,
+ * using the curve fitted by libxs_predict_calibrate (or carried in a loaded
+ * model). `probability` always receives a value.
+ *
+ * The RETURN VALUE says which of the two it is, and a caller comparing against
+ * anything else has to read it: EXIT_SUCCESS when a fitted curve was applied and
+ * the value is a probability, EXIT_FAILURE when it is the confidence unchanged
+ * and remains a ranking. A number whose scale cannot be seen is what makes a
+ * gated precision incomparable, so this does not quietly return one for the
+ * other.
+ *
+ * The mapping is monotone: it reorders no query, so a coverage is unchanged and
+ * precision at matched coverage is identical. What it buys is comparability.
+ */
+LIBXS_API int libxs_predict_probability(const libxs_predict_t* model,
+  int output, double confidence, double* probability);
 
 /**
  * Load a model from a binary buffer (previously saved with libxs_predict_save).

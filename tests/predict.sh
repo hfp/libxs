@@ -108,20 +108,32 @@ if [ "$(echo "${AUTO} ${PCA}" | awk '{print ($1 >= $2)}')" != "1" ]; then
   exit 1
 fi
 
-# What a stored model can still be asked for. Where the mode was selected, the
-# file carries the corpus and a loaded model rebuilds under another mode; where
-# the caller named it, the file carries that mode alone and the switch is
-# declined. Both are checked, because a switch that silently answers from a
-# corpus that is not there is the failure this pair exists to catch - it
-# segfaulted once, in exactly the second case.
+# What a stored model can still be asked for. Whether it can be rebuilt under
+# another method is decided by whether its CORPUS survived the file, and not by
+# whether the method was named or selected: naming one stores no partition and so
+# keeps nothing, while a selected mode that dropped coordinates stores a partition
+# and still keeps nothing, because the partition holds the weighted value and the
+# original is not in the file. The failure this pair exists to catch is a switch
+# that answers from a corpus that is not there - it segfaulted once.
+#
+# The outcome is therefore not asserted, because which mode is selected depends on
+# the data and the modes differ in whether they keep a corpus. What is asserted is
+# the contract around it: a selected mode stores its partition, and wherever a
+# corpus IS kept the rebuild must succeed rather than fail.
 OUT=$(TEST=1 ${RUN} 2>&1) || true
-if ! echo "${OUT}" | grep -q "^Method switch: .* to .* over [0-9]* entries$"; then
-  echo "a selected mode did not survive a round trip as another mode"
+if echo "${OUT}" | grep -q "^Reloaded: 0 clusters"; then
+  echo "a selected mode was stored without the partition a switch reads"
+  exit 1
+fi
+if ! echo "${OUT}" | grep -qE "^Method switch: (.* to .* over [0-9]* entries|declined, .* kept no corpus to rebuild from)$"; then
+  echo "a selected mode neither switched nor said why it could not"
   echo "${OUT}" | grep -E "^Reloaded|^Method switch" || echo "${OUT}" | tail -3
   exit 1
 fi
-if echo "${OUT}" | grep -q "^Reloaded: 0 clusters"; then
-  echo "a selected mode was stored without the corpus the switch needs"
+# the corpus was there and the rebuild failed anyway, which is the regression
+if echo "${OUT}" | grep -q "^Method switch: declined by a model built as"; then
+  echo "a switch was declined by a model that had kept its corpus"
+  echo "${OUT}" | grep -E "^Reloaded|^Method switch"
   exit 1
 fi
 

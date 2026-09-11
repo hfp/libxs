@@ -62,15 +62,28 @@ static void switch_method(const libxs_predict_t* model, int decompose)
         libxs_predict_query(loaded, &ql);
         fprintf(stdout, "Reloaded: %d clusters, %d entries\n",
           ql.nclusters, ql.nentries);
-        libxs_predict_set_decompose(loaded, other);
-        if (EXIT_SUCCESS == libxs_predict_build(loaded, 0, 1, 0.0)) {
-          libxs_predict_query(loaded, &ql);
-          fprintf(stdout, "Method switch: %s to %s over %d entries\n",
-            mode_name(decompose), mode_name(other), ql.nentries);
+        /**
+         * Whether a stored model can be rebuilt under another method is decided
+         * by whether its corpus survived the file, and NOT by whether the method
+         * was named or selected. A selected mode that dropped coordinates stores
+         * a partition and still cannot be rebuilt from, so the reason is
+         * reported rather than left to be inferred from the mode.
+         */
+        if (0 == ql.corpus) {
+          fprintf(stdout, "Method switch: declined, %s kept no corpus to"
+            " rebuild from\n", mode_name(decompose));
         }
         else {
-          fprintf(stdout, "Method switch: declined by a model built as %s\n",
-            mode_name(decompose));
+          libxs_predict_set_decompose(loaded, other);
+          if (EXIT_SUCCESS == libxs_predict_build(loaded, 0, 1, 0.0)) {
+            libxs_predict_query(loaded, &ql);
+            fprintf(stdout, "Method switch: %s to %s over %d entries\n",
+              mode_name(decompose), mode_name(other), ql.nentries);
+          }
+          else {
+            fprintf(stdout, "Method switch: declined by a model built as %s\n",
+              mode_name(decompose));
+          }
         }
         libxs_predict_destroy(loaded);
       }

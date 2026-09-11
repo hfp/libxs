@@ -189,6 +189,7 @@ libxs_pmalloc_lock
 libxs_pow2
 libxs_predict_build
 libxs_predict_build_task
+libxs_predict_calibrate
 libxs_predict_create
 libxs_predict_destroy
 libxs_predict_eval
@@ -206,6 +207,7 @@ libxs_predict_prob_create
 libxs_predict_prob_destroy
 libxs_predict_prob_observe
 libxs_predict_prob_support
+libxs_predict_probability
 libxs_predict_push
 libxs_predict_push_weighted
 libxs_predict_query

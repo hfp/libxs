@@ -43,6 +43,62 @@
 #if !defined(LIBXS_PREDICT_RF_HISTMAX)
 #  define LIBXS_PREDICT_RF_HISTMAX 65536
 #endif
+/** Shrinkage applied to each boosted stage. The leaf basis is large enough
+ *  that an unshrunk read-out over it fits the sample rather than the signal. */
+#if !defined(LIBXS_PREDICT_RF_RATE)
+#  define LIBXS_PREDICT_RF_RATE 0.1
+#endif
+/** Consecutive stages allowed not to improve before boosting stops. Each stage
+ *  scores on its own tree's out-of-bag rows, a different subset every time, so
+ *  a single stage that fails to improve is noise rather than a trend. */
+#if !defined(LIBXS_PREDICT_RF_PATIENCE)
+#  define LIBXS_PREDICT_RF_PATIENCE 3
+#endif
+/** One row in this many is held back from every stage's leaf means, to be the
+ *  only honest witness of whether the stages are still generalizing. */
+#if !defined(LIBXS_PREDICT_RF_HOLD)
+#  define LIBXS_PREDICT_RF_HOLD 5
+#endif
+#if !defined(LIBXS_PREDICT_RF_SEED)
+#  define LIBXS_PREDICT_RF_SEED 1013
+#endif
+/* smallest parent worth splitting; a finer one buys capacity, and costs it */
+#if !defined(LIBXS_PREDICT_RF_MINLEAF)
+#  define LIBXS_PREDICT_RF_MINLEAF 3
+#endif
+/**
+ * Nodes a tree may hold. This is a memory bound and nothing else: a task builds
+ * one tree at a time into a scratch of this many nodes, so the peak is one such
+ * scratch per task. It is fixed rather than derived from the machine, so that a
+ * corpus yields the same forest whatever the thread count.
+ *
+ * It used to be 32767 because a saved node index was a signed 16-bit number, and
+ * it kept that value after the index was widened. That mattered more than a stale
+ * constant usually does, because the budget is what sets leaf_floor
+ * (2*nentries/MAXNODES): a fixed budget forces coarser trees as the corpus grows,
+ * which is why accuracy stopped improving with data. A finer budget than this one
+ * still buys a little accuracy, and stops being worth the memory.
+ *
+ * The budget raises the leaf floor rather than truncating growth: growth is
+ * depth-first, so hitting the ceiling leaves the first subtree grown and every
+ * later one a stub, worth 9 points on a million rows.
+ */
+#if !defined(LIBXS_PREDICT_RF_MAXNODES)
+#  define LIBXS_PREDICT_RF_MAXNODES 524287
+#endif
+#if !defined(LIBXS_PREDICT_RF_NTREES)
+#  define LIBXS_PREDICT_RF_NTREES 100
+#endif
+/** Trees per candidate while scoring depth: enough to average out the
+ *  bootstrap, few enough that trying four depths is not four full builds. */
+#if !defined(LIBXS_PREDICT_RF_PROBE)
+#  define LIBXS_PREDICT_RF_PROBE 12
+#endif
+/** Bins over the share of trees agreeing, each carrying what that share was
+ *  worth. Few enough that every bin is populated on a small corpus. */
+#if !defined(LIBXS_PREDICT_RF_CALIB)
+#  define LIBXS_PREDICT_RF_CALIB 16
+#endif
 
 
 LIBXS_API_INLINE int internal_libxs_predict_rf_pair_cmp(
@@ -440,6 +496,7 @@ LIBXS_API_INLINE int internal_libxs_predict_rf_build_part(
   nodes[0].label = 0;
   nodes[0].value = 0;
   nodes[0].threshold = 0;
+  nodes[0].leafp = 0.f;
   sp = 1;
   while (sp > 0 && nnodes < max_nodes - 2 && (0 == frontier || sp < frontier)) {
     const int si = stack_subset[--sp];
@@ -476,6 +533,11 @@ LIBXS_API_INLINE int internal_libxs_predict_rf_build_part(
     }
     nodes[ni].label = best_label;
     nodes[ni].value = mean;
+    /* what this read-out would be worth if the node ends as a leaf; a folded
+       output only, since a real-valued one reports no share to begin with */
+    nodes[ni].leafp = (0 == regress && 0 < nc)
+      ? (float)((best_count + 1.0) / (nc + ((0 < nclass) ? nclass : 1)))
+      : 0.f;
     if (depth >= max_depth || nc <= min_leaf || 0 != pure
       || 0 == internal_libxs_predict_rf_split(entries, bins, bin_edge, nbins,
         subset + si, nc, nfeat, nfeatsub, &split,
@@ -528,6 +590,7 @@ LIBXS_API_INLINE int internal_libxs_predict_rf_build_part(
       nodes[nnodes].value = mean;
       /* a node that stays a leaf is never given one, and it is written out */
       nodes[nnodes].threshold = 0;
+      nodes[nnodes].leafp = nodes[ni].leafp;
       if (sp < 64) {
         stack_subset[sp] = si;
         stack_count[sp] = nleft;
@@ -544,6 +607,7 @@ LIBXS_API_INLINE int internal_libxs_predict_rf_build_part(
       nodes[nnodes].value = mean;
       /* a node that stays a leaf is never given one, and it is written out */
       nodes[nnodes].threshold = 0;
+      nodes[nnodes].leafp = nodes[ni].leafp;
       if (sp < 64) {
         stack_subset[sp] = si + nleft;
         stack_count[sp] = nright;
@@ -695,124 +759,11 @@ LIBXS_API_INLINE int internal_libxs_predict_rf_build_tree_parts(
 }
 
 
-/* smallest parent worth splitting; a finer one buys capacity, and costs it */
-#if !defined(LIBXS_PREDICT_RF_MINLEAF)
-#  define LIBXS_PREDICT_RF_MINLEAF 3
-#endif
-/**
- * Nodes a tree may hold. This is a memory bound and nothing else: a task builds
- * one tree at a time into a scratch of this many nodes, so the peak is one such
- * scratch per task. It is fixed rather than derived from the machine, so that a
- * corpus yields the same forest whatever the thread count.
- *
- * It used to be 32767 because a saved node index was a signed 16-bit number, and
- * it kept that value after the index was widened. That mattered more than a stale
- * constant usually does, because the budget is what sets leaf_floor
- * (2*nentries/MAXNODES): a fixed budget forces coarser trees as the corpus grows,
- * which is why accuracy stopped improving with data. A finer budget than this one
- * still buys a little accuracy, and stops being worth the memory.
- *
- * The budget raises the leaf floor rather than truncating growth: growth is
- * depth-first, so hitting the ceiling leaves the first subtree grown and every
- * later one a stub, worth 9 points on a million rows.
- */
-#if !defined(LIBXS_PREDICT_RF_MAXNODES)
-#  define LIBXS_PREDICT_RF_MAXNODES 524287
-#endif
-#if !defined(LIBXS_PREDICT_RF_NTREES)
-#  define LIBXS_PREDICT_RF_NTREES 100
-#endif
-/** Trees per candidate while scoring depth: enough to average out the
- *  bootstrap, few enough that trying four depths is not four full builds. */
-#if !defined(LIBXS_PREDICT_RF_PROBE)
-#  define LIBXS_PREDICT_RF_PROBE 12
-#endif
-/** Bins over the share of trees agreeing, each carrying what that share was
- *  worth. Few enough that every bin is populated on a small corpus. */
-#if !defined(LIBXS_PREDICT_RF_CALIB)
-#  define LIBXS_PREDICT_RF_CALIB 16
-#endif
-/**
- * Rows the calibration measures on, and the switch that asks for it at all.
- *
- * ZERO BY DEFAULT, so the reported confidence is the share of the trees that
- * agree: a ranking, on a scale of its own. That is what a caller taking the most
- * confident fraction of its queries needs, and it costs nothing.
- *
- * A caller reading the confidence as a PROBABILITY - gating at 0.9 and expecting
- * nine in ten to be right - needs the curve, and pays for it in accuracy: the
- * rows it measures on are withheld from every tree. Set this to the number of
- * rows to measure on (the curve wants hundreds per bin) either here or in the
- * environment under the same name.
- *
- * What it buys is comparability and nothing else. The mapping is monotone, so it
- * reorders nothing: accuracy is unchanged and precision at matched coverage is
- * identical. What changes is that a threshold means the same thing across
- * corpora, across tree granularities, and against another library, where the bare
- * share promises a rate it does not keep.
- */
-#if !defined(LIBXS_PREDICT_RF_CALIB_ROWS)
-#  define LIBXS_PREDICT_RF_CALIB_ROWS 0
-#endif
-/** Most of the corpus this many rows may be withheld, so that a small corpus
- *  gives up a share of itself rather than a fixed count of its rows. */
-#if !defined(LIBXS_PREDICT_RF_HOLDOUT)
-#  define LIBXS_PREDICT_RF_HOLDOUT 50
-#endif
-
-
-/**
- * Which rows the calibration withholds, as a stride: every hstep-th row up to
- * hrows of them. A rule rather than a stored set, because the bootstrap has to
- * agree with it in four places - where it is drawn, and the three that
- * reconstruct membership from it - and a rule cannot fall out of step with
- * itself. hstep of zero withholds nothing, which is the default.
- *
- * Withheld from EVERY tree, not from a fold of them. Spreading the rows over
- * folds so that each tree omits only a tenth of them looks like it buys the
- * accuracy back for nothing, and cannot: a row omitted by a tenth of the trees
- * is a row only a tenth of them can judge, and how much of the forest omits a
- * row is the same quantity as how much of it can score that row.
- *
- * Moving the query off the row instead - far enough to leave the leaf that
- * memorized it - costs no rows and was measured to fail differently: accuracy
- * against the borrowed label FALLS as the trees agree more (0.930 at a share of
- * 0.7, and lower still at 0.9), because a query that has crossed a
- * boundary is confidently right about where it now is while the label still
- * belongs to the row it came from. The artifact sits exactly where a gate reads.
- */
-LIBXS_API_INLINE void internal_libxs_predict_rf_holdout(int p,
-  int* hstep, int* hrows)
-{
-  const char* renv = getenv("LIBXS_PREDICT_RF_CALIB_ROWS");
-  const int rows = (NULL != renv) ? atoi(renv) : LIBXS_PREDICT_RF_CALIB_ROWS;
-  const int want = LIBXS_MIN(rows, p / LIBXS_PREDICT_RF_HOLDOUT);
-  if (0 < rows && 0 < want && 4 <= p) {
-    *hstep = p / want;
-    *hrows = want;
-    /* a stride of one would withhold the corpus; nothing is measurable then */
-    if (2 > *hstep) { *hstep = 0; *hrows = 0; }
-  }
-  else {
-    *hstep = 0;
-    *hrows = 0;
-  }
-}
-
-
-/**
- * The row a tree's i-th bootstrap draw lands on, skipping any row withheld for
- * the calibration. Row 1 is the fallback because a stride of at least two never
- * withholds it, where wrapping to row 0 would land on a withheld row again.
- */
+/** The row a tree's i-th bootstrap draw lands on. */
 LIBXS_API_INLINE int internal_libxs_predict_rf_draw(size_t i, size_t boot_n,
-  size_t coprime, size_t seed, int p, int hstep, int hrows)
+  size_t coprime, size_t seed, int p)
 {
-  int j = (int)(LIBXS_SHUFFLE_INDEX(i, boot_n, coprime, seed) % (size_t)p);
-  if (0 < hstep && 0 == (j % hstep) && (j / hstep) < hrows) {
-    j = (j + 1 < p) ? (j + 1) : 1;
-  }
-  return j;
+  return (int)(LIBXS_SHUFFLE_INDEX(i, boot_n, coprime, seed) % (size_t)p);
 }
 
 
@@ -910,6 +861,7 @@ LIBXS_API_INLINE double internal_libxs_predict_rf_score(
   LIBXS_PREDICT_FREE(nodes, nodes_pool);
   return result;
 }
+
 
 /**
  * Places the bin edges at quantiles of each input and allocates the bins the
@@ -1089,7 +1041,8 @@ LIBXS_API_INLINE void internal_libxs_predict_rf_build(libxs_predict_t* model)
        * Scoring is opt-in (a negative request), not the default, because it was
        * measured not to pay: on the shipped tuning corpus it moved exact match
        * over sixteen outputs by half a point and made the absolute error of the
-       * widest three outputs worse, while costing several times the build. It is kept because it is the only way to find out for a corpus
+       * widest three outputs worse, while costing several times the build.
+       * It is kept because it is the only way to find out for a corpus
        * where the derived depth is wrong, and because there was previously no
        * way to ask at all.
        */
@@ -1161,11 +1114,9 @@ LIBXS_API_INLINE void internal_libxs_predict_rf_build_tasks(
         / (LIBXS_PREDICT_RF_MAXNODES - 1)) : 1;
     const int max_nodes = LIBXS_MIN(p / leaf_floor * 2 + 1,
       LIBXS_PREDICT_RF_MAXNODES);
-    int begin, end, bootstrap_pool = 0, hstep = 0, hrows = 0;
+    int begin, end, bootstrap_pool = 0;
     int* bootstrap = (int*)LIBXS_PREDICT_MALLOC(
       (size_t)p * sizeof(int), bootstrap_pool);
-    /* a withheld row is in no tree, so the draw skips it; none by default */
-    internal_libxs_predict_rf_holdout(p, &hstep, &hrows);
     internal_libxs_predict_split(total_trees, tid, ntasks, &begin, &end);
     if (NULL != bootstrap) {
       int ti;
@@ -1184,7 +1135,7 @@ LIBXS_API_INLINE void internal_libxs_predict_rf_build_tasks(
             nodes_pool);
         for (i = 0; i < p; ++i) {
           bootstrap[i] = internal_libxs_predict_rf_draw((size_t)i, boot_n,
-            boot_coprime, (size_t)(oi * ntrees + t) * 7 + 13, p, hstep, hrows);
+            boot_coprime, (size_t)(oi * ntrees + t) * 7 + 13, p);
         }
         if (NULL != nodes) {
           internal_libxs_predict_rf_grow_t g;
@@ -1241,27 +1192,6 @@ LIBXS_API_INLINE int internal_libxs_predict_rf_leafof(
   }
   return result;
 }
-
-
-/** Shrinkage applied to each boosted stage. The leaf basis is large enough
- *  that an unshrunk read-out over it fits the sample rather than the signal. */
-#if !defined(LIBXS_PREDICT_RF_RATE)
-#  define LIBXS_PREDICT_RF_RATE 0.1
-#endif
-/** Consecutive stages allowed not to improve before boosting stops. Each stage
- *  scores on its own tree's out-of-bag rows, a different subset every time, so
- *  a single stage that fails to improve is noise rather than a trend. */
-#if !defined(LIBXS_PREDICT_RF_PATIENCE)
-#  define LIBXS_PREDICT_RF_PATIENCE 3
-#endif
-/** One row in this many is held back from every stage's leaf means, to be the
- *  only honest witness of whether the stages are still generalizing. */
-#if !defined(LIBXS_PREDICT_RF_HOLD)
-#  define LIBXS_PREDICT_RF_HOLD 5
-#endif
-#if !defined(LIBXS_PREDICT_RF_SEED)
-#  define LIBXS_PREDICT_RF_SEED 1013
-#endif
 
 
 /**
@@ -1322,116 +1252,59 @@ LIBXS_API_INLINE void internal_libxs_predict_rf_hold_score(
  * predecessor is reading a sampling accident, which is what pooling it away
  * says. Bins nothing landed in inherit the value below them for the same
  * reason: they carry no evidence of their own.
+ *
+ * The bin a share falls in, as one rule: the curve is filled, read and refitted
+ * in separate places and they have to agree on where a value belongs.
  */
-LIBXS_API_INLINE void internal_libxs_predict_rf_calibrate(libxs_predict_t* model)
+LIBXS_API_INLINE int internal_libxs_predict_rf_calib_bin(double share, int nbin)
 {
-  internal_libxs_predict_rf_t* rf = model->rf;
-  const int nbin = LIBXS_PREDICT_RF_CALIB;
-  int hstep = 0, hrows = 0;
-  if (0 < nbin && NULL != rf && NULL != model->entries
-    && NULL != rf->regress && NULL != rf->nclass && NULL == rf->calib)
-  {
-    internal_libxs_predict_rf_holdout(model->nentries, &hstep, &hrows);
+  int result = (int)(share * nbin);
+  if (result >= nbin) result = nbin - 1;
+  if (0 > result) result = 0;
+  return result;
+}
+
+
+/**
+ * Pool adjacent violators: where a bin scores below the one under it, the two
+ * are merged and the merged block re-checked against what is under IT, so a dip
+ * is averaged away against the evidence that contradicts it. Clamping the dip up
+ * to its predecessor instead looks like the same thing and is not - one thinly
+ * populated low bin that happens to score well then propagates its value through
+ * every bin above, which flattens the curve to a single number and reports one
+ * confidence for every query.
+ *
+ * The result is monotone, which is what makes the mapping safe to apply after
+ * the fact: it reorders no query, so a coverage stays the coverage it was.
+ */
+LIBXS_API_INLINE void internal_libxs_predict_rf_isotonic(
+  const double hit[], const double cnt[], int nbin, double curve[])
+{
+  double wsum[LIBXS_PREDICT_RF_CALIB], vsum[LIBXS_PREDICT_RF_CALIB];
+  int at[LIBXS_PREDICT_RF_CALIB], nblock = 0, b, k;
+  for (b = 0; b < nbin; ++b) {
+    if (0 >= cnt[b]) continue; /* no evidence of its own */
+    wsum[nblock] = cnt[b];
+    vsum[nblock] = hit[b];
+    at[nblock] = b;
+    ++nblock;
+    while (1 < nblock && vsum[nblock - 1] / wsum[nblock - 1]
+      < vsum[nblock - 2] / wsum[nblock - 2])
+    {
+      wsum[nblock - 2] += wsum[nblock - 1];
+      vsum[nblock - 2] += vsum[nblock - 1];
+      --nblock;
+    }
   }
-  /* nothing withheld is nothing to measure on: the share is reported unchanged */
-  if (0 < hstep && 0 < hrows) {
-    const internal_libxs_predict_entry_t* entries = model->entries;
-    const int ntrees = rf->ntrees;
-    int hit_pool = 0, cnt_pool = 0, oi;
-    double* hit = (double*)LIBXS_PREDICT_MALLOC(
-      (size_t)nbin * sizeof(double), hit_pool);
-    double* cnt = (double*)LIBXS_PREDICT_MALLOC(
-      (size_t)nbin * sizeof(double), cnt_pool);
-    rf->calib = (double*)malloc(
-      (size_t)rf->noutputs * (size_t)nbin * sizeof(double));
-    if (NULL != hit && NULL != cnt && NULL != rf->calib) {
-      for (oi = 0; oi < rf->noutputs; ++oi) {
-        double* curve = rf->calib + (size_t)oi * nbin;
-        const int tbase = oi * ntrees;
-        const int nc = rf->nclass[oi];
-        int b, r;
-        for (b = 0; b < nbin; ++b) { hit[b] = 0; cnt[b] = 0; }
-        /* a real-valued output reports no share to calibrate, see
-           internal_libxs_predict_rf_eval_output */
-        if (0 == rf->regress[oi] && 1 < nc && 128 >= nc) {
-          for (r = 0; r < hrows; ++r) {
-            const int i = r * hstep;
-            int votes[128], nvote = 0, best = 0, bcount = 0, k, t;
-            if (i >= model->nentries) break;
-            memset(votes, 0, (size_t)nc * sizeof(int));
-            /* every tree, which is the vote eval computes, and honestly so
-               because the row is in none of their bootstraps */
-            for (t = 0; t < ntrees; ++t) {
-              const internal_libxs_predict_rf_tree_t* tr = &rf->trees[tbase + t];
-              int ni;
-              if (NULL == tr->nodes || 0 == tr->nnodes) continue;
-              ni = internal_libxs_predict_rf_leafof(tr, entries[i].inputs);
-              if (0 <= ni) {
-                const int lc = tr->nodes[ni].label & 127;
-                if (lc < nc) { ++votes[lc]; ++nvote; }
-              }
-            }
-            if (0 < nvote) {
-              const int label = (LIBXS_ROUNDX(int,
-                entries[i].outputs[oi]) + rf->label_offset[oi]) & 127;
-              for (k = 0; k < nc; ++k) {
-                if (votes[k] > bcount) { bcount = votes[k]; best = k; }
-              }
-              /* binned by the share over the WHOLE forest, which is what eval
-                 hands to the curve, rather than over the trees that voted */
-              b = (int)((double)bcount / ntrees * nbin);
-              if (b >= nbin) b = nbin - 1;
-              if (0 > b) b = 0;
-              cnt[b] += 1.0;
-              if (best == label) hit[b] += 1.0;
-            }
-          }
-        }
-        { /**
-           * Pool adjacent violators: where a bin scores below the one under it,
-           * the two are merged and the merged block re-checked against what is
-           * under IT, so a dip is averaged away against the evidence that
-           * contradicts it. Clamping the dip up to its predecessor instead looks
-           * like the same thing and is not - one thinly populated low bin that
-           * happens to score well then propagates its value through every bin
-           * above, which flattens the curve to a single number and reports one
-           * confidence for every query.
-           */
-          double wsum[LIBXS_PREDICT_RF_CALIB], vsum[LIBXS_PREDICT_RF_CALIB];
-          int at[LIBXS_PREDICT_RF_CALIB], nblock = 0, k;
-          for (b = 0; b < nbin; ++b) {
-            if (0 >= cnt[b]) continue; /* no evidence of its own */
-            wsum[nblock] = cnt[b];
-            vsum[nblock] = hit[b];
-            at[nblock] = b;
-            ++nblock;
-            while (1 < nblock && vsum[nblock - 1] / wsum[nblock - 1]
-              < vsum[nblock - 2] / wsum[nblock - 2])
-            {
-              wsum[nblock - 2] += wsum[nblock - 1];
-              vsum[nblock - 2] += vsum[nblock - 1];
-              --nblock;
-            }
-          }
-          { /* every bin takes the block that covers it, and a bin below the
-               first block or above the last takes the nearest one */
-            double prev = (0 < nblock) ? (vsum[0] / wsum[0]) : 0.0;
-            k = 0;
-            for (b = 0; b < nbin; ++b) {
-              while (k + 1 < nblock && at[k + 1] <= b) ++k;
-              if (0 < nblock && at[k] <= b) prev = vsum[k] / wsum[k];
-              curve[b] = prev;
-            }
-          }
-        }
-      }
+  { /* every bin takes the block that covers it, and a bin below the first block
+       or above the last takes the nearest one */
+    double prev = (0 < nblock) ? (vsum[0] / wsum[0]) : 0.0;
+    k = 0;
+    for (b = 0; b < nbin; ++b) {
+      while (k + 1 < nblock && at[k + 1] <= b) ++k;
+      if (0 < nblock && at[k] <= b) prev = vsum[k] / wsum[k];
+      curve[b] = prev;
     }
-    else { /* without the whole measurement the share is reported unchanged */
-      free(rf->calib);
-      rf->calib = NULL;
-    }
-    LIBXS_PREDICT_FREE(cnt, cnt_pool);
-    LIBXS_PREDICT_FREE(hit, hit_pool);
   }
 }
 
@@ -1476,10 +1349,7 @@ LIBXS_API_INLINE void internal_libxs_predict_rf_boost(libxs_predict_t* model)
     const int ntrees = rf->ntrees;
     const char* renv = getenv("LIBXS_PREDICT_RF_RATE");
     const double rate = (NULL != renv) ? atof(renv) : LIBXS_PREDICT_RF_RATE;
-    int maxn = 0, ncmax = 1, ti, hstep = 0, hrows = 0;
-    /* the same rule the bootstrap was drawn under, or the rows reconstructed as
-       out-of-bag are not the rows the tree actually left out */
-    internal_libxs_predict_rf_holdout(p, &hstep, &hrows);
+    int maxn = 0, ncmax = 1, ti;
     for (ti = 0; ti < ntrees * rf->noutputs; ++ti) {
       if (maxn < rf->trees[ti].nnodes) maxn = rf->trees[ti].nnodes;
     }
@@ -1524,7 +1394,7 @@ LIBXS_API_INLINE void internal_libxs_predict_rf_boost(libxs_predict_t* model)
             for (i = 0; i < p; ++i) {
               oob[internal_libxs_predict_rf_draw((size_t)i, boot_n,
                 boot_coprime, (size_t)(tbase + t) * 7 + 13,
-                p, hstep, hrows)] = 0;
+                p)] = 0;
             }
             for (i = 0; i < p; ++i) {
               if (0 != oob[i]) {
@@ -1556,7 +1426,7 @@ LIBXS_API_INLINE void internal_libxs_predict_rf_boost(libxs_predict_t* model)
             for (i = 0; i < p; ++i) {
               oob[internal_libxs_predict_rf_draw((size_t)i, boot_n,
                 boot_coprime, (size_t)(tbase + t) * 7 + 13,
-                p, hstep, hrows)] = 0;
+                p)] = 0;
             }
             /**
              * Judged on the held-back rows alone. Judging on this tree's
@@ -1664,12 +1534,13 @@ LIBXS_API_INLINE double internal_libxs_predict_rf_eval_output(
   const int nc = (NULL != rf->nclass) ? rf->nclass[output_idx] : 1;
   const int base = output_idx * rf->ntrees;
   int votes[128];
-  double bscore[128];
+  double bscore[128], lscore[128];
   int best_label = 0, best_count = 0, nvalid = 0, t, k;
   double sum = 0, sqr = 0, boost = 0, result;
   if (0 == regress) {
     memset(votes, 0, sizeof(votes));
     memset(bscore, 0, sizeof(bscore));
+    memset(lscore, 0, sizeof(lscore));
   }
   for (t = 0; t < rf->ntrees; ++t) {
     const internal_libxs_predict_rf_tree_t* tree = &rf->trees[base + t];
@@ -1683,7 +1554,9 @@ LIBXS_API_INLINE double internal_libxs_predict_rf_eval_output(
         if (NULL != tree->incr) boost += tree->incr[ni];
       }
       else {
-        ++votes[tree->nodes[ni].label & 127];
+        const int lab = tree->nodes[ni].label & 127;
+        ++votes[lab];
+        lscore[lab] += tree->nodes[ni].leafp;
         ++nvalid;
         if (NULL != tree->incr) {
           for (k = 0; k < nc && k < 128; ++k) {
@@ -1732,17 +1605,28 @@ LIBXS_API_INLINE double internal_libxs_predict_rf_eval_output(
     }
     best_count = votes[best_label];
     if (NULL != confidence) {
+      /**
+       * What the trees that voted for the answer were worth, rather than how
+       * many of them there were. The count alone cannot separate the queries
+       * every tree agrees on - a third of a corpus arrives there and is handed
+       * one number - and those are exactly the queries a high gate keeps. The
+       * per-leaf estimate does separate them, because it reads how many rows
+       * stood behind each of those agreeing leaves.
+       *
+       * Bounded above by the share, since no leaf is worth more than one vote,
+       * and it falls back TO the share where the estimates are absent (a model
+       * saved before they were recorded), so an older model keeps answering as
+       * it did.
+       *
+       * A RANKING still, on its own scale: libxs_predict_calibrate is what makes
+       * it a rate. The decision above is untouched - it is the same majority
+       * vote - so this changes what is reported and not what is answered.
+       */
       const double share = (rf->ntrees > 0)
         ? (double)best_count / rf->ntrees : 0.0;
-      if (NULL != rf->calib) {
-        /* what that share was measured to be worth, see
-           internal_libxs_predict_rf_calibrate */
-        int b = (int)(share * LIBXS_PREDICT_RF_CALIB);
-        if (b >= LIBXS_PREDICT_RF_CALIB) b = LIBXS_PREDICT_RF_CALIB - 1;
-        if (0 > b) b = 0;
-        *confidence = rf->calib[(size_t)output_idx * LIBXS_PREDICT_RF_CALIB + b];
-      }
-      else *confidence = share;
+      const double soft = (rf->ntrees > 0)
+        ? (lscore[best_label] / rf->ntrees) : 0.0;
+      *confidence = (0 < soft) ? soft : share;
     }
     if (NULL != variance) *variance = 0;
     result = (double)(best_label - rf->label_offset[output_idx]);

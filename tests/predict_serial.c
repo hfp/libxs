@@ -31,7 +31,7 @@ static void fill(double input[], double* out, int i)
   input[2] = (double)((i * 13) % 11);
   input[3] = (double)(i % 5);
   *out = (double)(((input[0] > 48.0) ? 1 : 0)
-    + ((input[1] > 15.0) ? 1 : 0)) ;
+    + ((input[1] > 15.0) ? 1 : 0));
   if (*out >= NCLASS) *out = NCLASS - 1;
 }
 

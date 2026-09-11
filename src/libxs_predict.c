@@ -184,6 +184,20 @@ typedef struct internal_libxs_predict_rf_node_t {
   double value;
   int left, right;
   int label;
+  /**
+   * What a leaf's read-out is worth: the Laplace estimate of the majority share,
+   * (hits + 1) / (rows + nclass), and zero where a node is not a leaf.
+   *
+   * The share of trees that agree cannot separate the queries every tree agrees
+   * on, and a leaf's PURITY cannot either, because growth stops at purity and so
+   * almost every leaf is pure. What differs between two pure leaves is how many
+   * rows stood behind them, which is what the smoothing reads: three rows give
+   * 4/(3+nclass) where fifty give 51/(50+nclass).
+   *
+   * A float, and placed here, because the struct is padded to eight after
+   * `label` and this occupies that hole rather than growing every node.
+   */
+  float leafp;
 } internal_libxs_predict_rf_node_t;
 
 /**
@@ -3544,7 +3558,6 @@ LIBXS_API_INLINE int internal_libxs_predict_build_impl(libxs_barrier_t* barrier,
         internal_libxs_predict_rf_build_tasks(model, 0, 1);
         internal_libxs_predict_rf_bins_free(model);
         internal_libxs_predict_rf_boost(model);
-        internal_libxs_predict_rf_calibrate(model);
       }
     }
   }
@@ -4069,9 +4082,6 @@ LIBXS_API int libxs_predict_build_task(libxs_predict_t* model,
     if (0 == tid) {
       internal_libxs_predict_rf_bins_free(model);
       internal_libxs_predict_rf_boost(model);
-      /* after the stages: they change what the trees answer, and the curve
-         says what the answer the forest actually gives is worth */
-      internal_libxs_predict_rf_calibrate(model);
     }
     libxs_barrier_wait(team);
   }
@@ -4851,6 +4861,77 @@ LIBXS_API void libxs_predict_eval(libxs_lock_t* lock,
     }
     for (j = 0; j < n; ++j) outputs[j] = acc[j] / nacc;
   }
+}
+
+
+LIBXS_API int libxs_predict_calibrate(libxs_predict_t* model,
+  const double* inputs, const double* outputs, int nentries)
+{
+  int result = EXIT_FAILURE;
+  if (NULL != model && NULL != model->rf && NULL != inputs && NULL != outputs
+    && 0 < nentries && NULL != model->rf->nclass && NULL != model->rf->regress)
+  {
+    internal_libxs_predict_rf_t* rf = model->rf;
+    const int nbin = LIBXS_PREDICT_RF_CALIB, n = rf->noutputs;
+    const int m = model->ninputs, nout = model->noutputs;
+    double* hit = (double*)calloc((size_t)n * nbin, sizeof(double));
+    double* cnt = (double*)calloc((size_t)n * nbin, sizeof(double));
+    double* curve = (double*)malloc((size_t)n * nbin * sizeof(double));
+    /* the fit reads the share, so any curve already installed has to go first
+       or the second fit is measured through the first */
+    free(rf->calib);
+    rf->calib = NULL;
+    if (NULL != hit && NULL != cnt && NULL != curve) {
+      int i, j;
+      for (i = 0; i < nentries; ++i) {
+        libxs_predict_info_t info;
+        libxs_predict_eval(NULL, model, inputs + (size_t)i * m, NULL, &info, 1);
+        if (NULL == info.confidence || NULL == info.values) continue;
+        for (j = 0; j < n && j < nout; ++j) {
+          /* a real-valued output reports no share, see rf_eval_output */
+          if (0 == rf->regress[j] && 1 < rf->nclass[j] && 128 >= rf->nclass[j]) {
+            const int b = internal_libxs_predict_rf_calib_bin(
+              info.confidence[j], nbin);
+            const double expect = outputs[(size_t)i * nout + j];
+            cnt[(size_t)j * nbin + b] += 1.0;
+            if (LIBXS_ROUNDX(int, info.values[j]) == LIBXS_ROUNDX(int, expect)) {
+              hit[(size_t)j * nbin + b] += 1.0;
+            }
+          }
+        }
+      }
+      for (j = 0; j < n; ++j) {
+        internal_libxs_predict_rf_isotonic(hit + (size_t)j * nbin,
+          cnt + (size_t)j * nbin, nbin, curve + (size_t)j * nbin);
+      }
+      rf->calib = curve;
+      curve = NULL;
+      result = EXIT_SUCCESS;
+    }
+    free(curve);
+    free(cnt);
+    free(hit);
+  }
+  return result;
+}
+
+
+LIBXS_API int libxs_predict_probability(const libxs_predict_t* model,
+  int output, double confidence, double* probability)
+{
+  int result = EXIT_FAILURE;
+  if (NULL != probability) {
+    *probability = confidence;
+    if (NULL != model && NULL != model->rf && NULL != model->rf->calib
+      && 0 <= output && output < model->rf->noutputs)
+    {
+      const int nbin = LIBXS_PREDICT_RF_CALIB;
+      const int b = internal_libxs_predict_rf_calib_bin(confidence, nbin);
+      *probability = model->rf->calib[(size_t)output * nbin + b];
+      result = EXIT_SUCCESS;
+    }
+  }
+  return result;
 }
 
 
@@ -6260,6 +6341,8 @@ LIBXS_API void libxs_predict_query(
   info->order = model->order;
   info->nclusters = model->nclusters;
   info->nentries = model->nentries;
+  /* a count with nothing behind it is what a rebuild refuses, see the field */
+  info->corpus = (0 >= model->nentries || NULL != model->entries) ? 1 : 0;
   info->iterations = model->iterations;
   info->diff_order = model->diff_order;
   info->window = (model->nseries > 0) ? model->window : 0;

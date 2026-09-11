@@ -132,6 +132,7 @@ set(LIBXS_C_TESTS
   ngram
   perm
   perm_sort
+  predict_calib
   predict_missing
   predict_neighbors
   predict_prob
@@ -416,6 +417,7 @@ set(LIBXS_TEST_ENTRIES
   ngram.c
   perm.c
   perm_sort.c
+  predict_calib.c
   predict_missing.c
   predict_neighbors.c
   predict_prob.c
