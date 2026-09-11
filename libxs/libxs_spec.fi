@@ -240,6 +240,7 @@
           REAL(C_DOUBLE) :: diag_min_ref, diag_max_ref
           REAL(C_DOUBLE) :: diag_min_tst, diag_max_tst
           REAL(C_DOUBLE) :: v_ref, v_tst
+          REAL(C_DOUBLE) :: grade  !! Zero unless _grade drove it
           REAL(C_DOUBLE) :: w
           INTEGER(C_INT) :: m, n, i, r
         END TYPE

@@ -16,6 +16,7 @@ typedef struct libxs_matdiff_t {
   double diag_min_ref, diag_max_ref;   /* diagonal min/max (reference) */
   double diag_min_tst, diag_max_tst;   /* diagonal min/max (test) */
   double v_ref, v_tst;          /* values at max-diff location */
+  double grade;                 /* componentwise grade (matdiff_grade) */
   double w;                     /* cumulative weight for online mean */
   int m, n, i, r;               /* location and reduction count */
 } libxs_matdiff_t;
@@ -38,6 +39,21 @@ int libxs_matdiff(libxs_matdiff_t* info,
 ```
 
 Compute scalar differences between two matrices. Supports all real and integer `libxs_data_t` types, plus `LIBXS_DATATYPE_C64` and `LIBXS_DATATYPE_C32` (interleaved complex; dimensions refer to complex elements).
+
+```C
+int libxs_matdiff_grade(libxs_matdiff_t* info,
+  libxs_data_t datatype, int m, int n,
+  const void* ref, const void* tst, const void* bound,
+  const int* ldref, const int* ldtst, const int* ldbnd);
+```
+
+Everything `libxs_matdiff` calculates, plus `grade`, which `libxs_matdiff`
+leaves zero. The caller supplies `bound`, the elementwise upper bound on the
+exact result (for a GEMM: `|alpha||A||B| + |beta||C|`). The grade is
+dimensionless (units of roundoff), so the threshold stays with the caller:
+a componentwise-stable implementation stays at or below a modest multiple
+of the number of terms summed. `LIBXS_DATATYPE_F64` and `F32` only; any
+other type is reported rather than silently left ungraded.
 
 ```C
 double libxs_matdiff_epsilon(const libxs_matdiff_t* input);

@@ -105,17 +105,21 @@
      &      internal_aligned(ptr, pinc, palign)
         END FUNCTION
 
-        ! matdiff wrapper with OPTIONAL arguments
+        ! matdiff wrapper with OPTIONAL arguments;
+        ! bound selects the componentwise grade driver.
         SUBROUTINE libxs_matdiff(info, datatype, m, n,                  &
-     &  ref, tst, ldref, ldtst)
+     &  ref, tst, ldref, ldtst, bound, ldbnd, rc)
           INTEGER(C_INT), INTENT(IN) :: datatype
           INTEGER(C_INT), INTENT(IN) :: m
           INTEGER(C_INT), INTENT(IN), OPTIONAL :: n, ldref, ldtst
-          TYPE(C_PTR), INTENT(IN), OPTIONAL :: ref, tst
+          INTEGER(C_INT), INTENT(IN), OPTIONAL :: ldbnd
+          TYPE(C_PTR), INTENT(IN), OPTIONAL :: ref, tst, bound
           TYPE(libxs_matdiff_t), INTENT(OUT) :: info
-          INTEGER(C_INT) :: nn, rc
-          INTEGER(C_INT), TARGET :: lr, lt
-          TYPE(C_PTR) :: rr, tt, plr, plt
+          ! Nonzero unless the difference was calculated.
+          INTEGER(C_INT), INTENT(OUT), OPTIONAL :: rc
+          INTEGER(C_INT) :: nn, res
+          INTEGER(C_INT), TARGET :: lr, lt, lb
+          TYPE(C_PTR) :: rr, tt, plr, plt, plb
           INTERFACE
             FUNCTION internal_matdiff(info,                             &
      &      datatype, m, n, ref, tst, ldref, ldtst)                     &
@@ -125,6 +129,19 @@
               INTEGER(C_INT), INTENT(IN), VALUE :: m, n
               TYPE(C_PTR), INTENT(IN), VALUE :: ref, tst
               TYPE(C_PTR), INTENT(IN), VALUE :: ldref, ldtst
+              TYPE(libxs_matdiff_t), INTENT(OUT) :: info
+              INTEGER(C_INT) :: res
+            END FUNCTION
+            FUNCTION internal_grade(info, datatype, m, n,               &
+     &      ref, tst, bound, ldref, ldtst, ldbnd)                       &
+     &      RESULT(res) BIND(C, NAME="libxs_matdiff_grade")
+              IMPORT :: libxs_matdiff_t, C_PTR, C_INT
+              INTEGER(C_INT), INTENT(IN), VALUE :: datatype
+              INTEGER(C_INT), INTENT(IN), VALUE :: m, n
+              TYPE(C_PTR), INTENT(IN), VALUE :: ref, tst
+              TYPE(C_PTR), INTENT(IN), VALUE :: bound
+              TYPE(C_PTR), INTENT(IN), VALUE :: ldref, ldtst
+              TYPE(C_PTR), INTENT(IN), VALUE :: ldbnd
               TYPE(libxs_matdiff_t), INTENT(OUT) :: info
               INTEGER(C_INT) :: res
             END FUNCTION
@@ -140,8 +157,17 @@
           IF (PRESENT(ldtst)) THEN
             lt = ldtst; plt = C_LOC(lt)
           ELSE; plt = C_NULL_PTR; END IF
-          rc = internal_matdiff(info, datatype, m, nn,                  &
-     &      rr, tt, plr, plt)
+          IF (PRESENT(ldbnd)) THEN
+            lb = ldbnd; plb = C_LOC(lb)
+          ELSE; plb = C_NULL_PTR; END IF
+          IF (PRESENT(bound)) THEN
+            res = internal_grade(info, datatype, m, nn,                 &
+     &        rr, tt, bound, plr, plt, plb)
+          ELSE
+            res = internal_matdiff(info, datatype, m, nn,               &
+     &        rr, tt, plr, plt)
+          END IF
+          IF (PRESENT(rc)) rc = res
         END SUBROUTINE
 
         !> General fingerprint: C_PTR data, explicit shape/stride.
