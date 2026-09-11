@@ -135,14 +135,23 @@ shape, hence a copy is the safe place for `LIBXS_GEMM_FLAG_NOLOCK`.
 owned by the registry, and `libxs_gemm_release` is a no-op for the
 copy (release the registry, or the config the registry returned).
 
-The Fortran spelling is mirrored, with the historical difference
-that `libxs_gemm_dispatch` is already the copy flavor there:
+In Fortran the plain name covers both flavors, and the first
+argument selects: pass a config to fill it (copy), omit it to
+receive the registry-owned pointer. The suffixed names remain and
+name one flavor each, which is what C has to do throughout:
 
-| Operation | C pointer | C copy | Fortran pointer | Fortran copy |
-| :--- | :--- | :--- | :--- | :--- |
-| GEMM | `libxs_gemm_dispatch` | `libxs_gemm_dispatch_cpy` | `libxs_gemm_dispatch_ptr` | `libxs_gemm_dispatch` |
-| SYR2K | `libxs_syr2k_dispatch` | `libxs_syr2k_dispatch_cpy` | `libxs_syr2k_dispatch` | `libxs_syr2k_dispatch_cpy` |
-| SYRK | `libxs_syrk_dispatch` | `libxs_syrk_dispatch_cpy` | `libxs_syrk_dispatch` | `libxs_syrk_dispatch_cpy` |
+| Operation | C pointer | C copy | Fortran (either) | Fortran pointer | Fortran copy |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| GEMM | `libxs_gemm_dispatch` | `libxs_gemm_dispatch_cpy` | `libxs_gemm_dispatch` | `libxs_gemm_dispatch_ptr` | `libxs_gemm_dispatch` |
+| SYR2K | `libxs_syr2k_dispatch` | `libxs_syr2k_dispatch_cpy` | `libxs_syr2k_dispatch` | `libxs_syr2k_dispatch` | `libxs_syr2k_dispatch_cpy` |
+| SYRK | `libxs_syrk_dispatch` | `libxs_syrk_dispatch_cpy` | `libxs_syrk_dispatch` | `libxs_syrk_dispatch` | `libxs_syrk_dispatch_cpy` |
+
+The result type follows the flavor, so the call tells which one ran:
+
+```fortran
+ptr = libxs_syrk_dispatch(LIBXS_DATATYPE_F64, n, k, lda, ldc)
+rc = libxs_syrk_dispatch(config, LIBXS_DATATYPE_F64, n, k, lda, ldc)
+```
 
 All of the above are inlines (or Fortran wrappers) that detect the
 backend at the caller's compile time. Backends are never a runtime

@@ -94,12 +94,34 @@
         PUBLIC :: libxs_syrk_dispatch, libxs_syrk_dispatch_cpy
         PUBLIC :: libxs_syr2k_dispatch, libxs_syr2k_dispatch_cpy
 
+        INTERFACE libxs_gemm_dispatch
+          MODULE PROCEDURE libxs_gemm_dispatch_cpy_jit
+          MODULE PROCEDURE libxs_gemm_dispatch_ptr_jit
+        END INTERFACE
+        INTERFACE libxs_gemm_dispatch_ptr
+          MODULE PROCEDURE libxs_gemm_dispatch_ptr_jit
+        END INTERFACE
+        INTERFACE libxs_syrk_dispatch
+          MODULE PROCEDURE libxs_syrk_dispatch_ptr_jit
+          MODULE PROCEDURE libxs_syrk_dispatch_cpy_jit
+        END INTERFACE
+        INTERFACE libxs_syrk_dispatch_cpy
+          MODULE PROCEDURE libxs_syrk_dispatch_cpy_jit
+        END INTERFACE
+        INTERFACE libxs_syr2k_dispatch
+          MODULE PROCEDURE libxs_syr2k_dispatch_ptr_jit
+          MODULE PROCEDURE libxs_syr2k_dispatch_cpy_jit
+        END INTERFACE
+        INTERFACE libxs_syr2k_dispatch_cpy
+          MODULE PROCEDURE libxs_syr2k_dispatch_cpy_jit
+        END INTERFACE
+
       CONTAINS
         INCLUDE 'libxs_procs.fi'
 
         !> Dispatch a GEMM kernel with auto-detected backends and
         !> return the registry-owned config.
-        FUNCTION libxs_gemm_dispatch_ptr(                               &
+        FUNCTION libxs_gemm_dispatch_ptr_jit(                           &
      &  datatype, transa, transb,                                       &
      &  m, n, k, lda, ldb, ldc, alpha, beta, registry)
           INTEGER(C_INT), INTENT(IN) :: datatype
@@ -107,7 +129,7 @@
           INTEGER(C_INT), INTENT(IN) :: m, n, k, lda, ldb, ldc
           REAL(C_DOUBLE), INTENT(IN) :: alpha, beta
           TYPE(C_PTR), INTENT(IN), OPTIONAL :: registry
-          TYPE(C_PTR) :: libxs_gemm_dispatch_ptr
+          TYPE(C_PTR) :: libxs_gemm_dispatch_ptr_jit
           TYPE(C_FUNPTR) :: dgemm_fp, sgemm_fp
 #if defined(__MKL)
           TYPE(C_FUNPTR) :: jcd_fp, jgd_fp, jcs_fp, jgs_fp
@@ -126,7 +148,7 @@
 #if defined(__LIBXSMM)
           xdisp_fp = C_FUNLOC(libxsmm_dispatch_gemm)
 #endif
-          libxs_gemm_dispatch_ptr = libxs_gemm_dispatch_ptr_base(       &
+          libxs_gemm_dispatch_ptr_jit = libxs_gemm_dispatch_ptr_base(   &
      &      datatype, transa, transb,                                   &
      &      m, n, k, lda, ldb, ldc, alpha, beta,                        &
 #if defined(__MKL)
@@ -144,8 +166,8 @@
         END FUNCTION
 
         !> Dispatch a GEMM kernel with auto-detected backends.
-        FUNCTION libxs_gemm_dispatch(config,                            &
-     &  datatype, transa, transb,                                       &
+        FUNCTION libxs_gemm_dispatch_cpy_jit(                           &
+     &  config, datatype, transa, transb,                               &
      &  m, n, k, lda, ldb, ldc, alpha, beta, registry)
           TYPE(libxs_gemm_config_t), INTENT(INOUT) :: config
           INTEGER(C_INT), INTENT(IN) :: datatype
@@ -153,7 +175,7 @@
           INTEGER(C_INT), INTENT(IN) :: m, n, k, lda, ldb, ldc
           REAL(C_DOUBLE), INTENT(IN) :: alpha, beta
           TYPE(C_PTR), INTENT(IN), OPTIONAL :: registry
-          INTEGER(C_INT) :: libxs_gemm_dispatch
+          INTEGER(C_INT) :: libxs_gemm_dispatch_cpy_jit
           TYPE(C_FUNPTR) :: dgemm_fp, sgemm_fp
 #if defined(__MKL)
           TYPE(C_FUNPTR) :: jcd_fp, jgd_fp, jcs_fp, jgs_fp
@@ -172,8 +194,8 @@
 #if defined(__LIBXSMM)
           xdisp_fp = C_FUNLOC(libxsmm_dispatch_gemm)
 #endif
-          libxs_gemm_dispatch = libxs_gemm_dispatch_base(config,        &
-     &      datatype, transa, transb,                                   &
+          libxs_gemm_dispatch_cpy_jit = libxs_gemm_dispatch_base(       &
+     &      config, datatype, transa, transb,                           &
      &      m, n, k, lda, ldb, ldc, alpha, beta,                        &
 #if defined(__MKL)
      &      jit_create_dgemm=jcd_fp,                                    &
@@ -190,12 +212,12 @@
         END FUNCTION
 
         !> Dispatch a SYR2K config with auto-detected backends.
-        FUNCTION libxs_syr2k_dispatch(datatype,                         &
+        FUNCTION libxs_syr2k_dispatch_ptr_jit(datatype,                 &
      &  n, k, lda, ldb, ldc, registry)
           INTEGER(C_INT), INTENT(IN) :: datatype, n, k
           INTEGER(C_INT), INTENT(IN) :: lda, ldb, ldc
           TYPE(C_PTR), INTENT(IN), OPTIONAL :: registry
-          TYPE(C_PTR) :: libxs_syr2k_dispatch
+          TYPE(C_PTR) :: libxs_syr2k_dispatch_ptr_jit
           TYPE(C_FUNPTR) :: dgemm_fp, sgemm_fp
 #if defined(__MKL)
           TYPE(C_FUNPTR) :: jcd_fp, jgd_fp, jcs_fp, jgs_fp
@@ -214,7 +236,8 @@
 #if defined(__LIBXSMM)
           xdisp_fp = C_FUNLOC(libxsmm_dispatch_gemm)
 #endif
-          libxs_syr2k_dispatch = libxs_syr2k_dispatch_base(datatype,    &
+          libxs_syr2k_dispatch_ptr_jit =                                &
+     &      libxs_syr2k_dispatch_base(datatype,                         &
      &      n, k, lda, ldb, ldc,                                        &
 #if defined(__MKL)
      &      jit_create_dgemm=jcd_fp,                                    &
@@ -231,25 +254,26 @@
         END FUNCTION
 
         !> Dispatch a SYRK config with auto-detected backends.
-        FUNCTION libxs_syrk_dispatch(datatype,                          &
+        FUNCTION libxs_syrk_dispatch_ptr_jit(datatype,                  &
      &  n, k, lda, ldc, registry)
           INTEGER(C_INT), INTENT(IN) :: datatype, n, k
           INTEGER(C_INT), INTENT(IN) :: lda, ldc
           TYPE(C_PTR), INTENT(IN), OPTIONAL :: registry
-          TYPE(C_PTR) :: libxs_syrk_dispatch
-          libxs_syrk_dispatch = libxs_syr2k_dispatch(datatype,          &
+          TYPE(C_PTR) :: libxs_syrk_dispatch_ptr_jit
+          libxs_syrk_dispatch_ptr_jit =                                 &
+     &      libxs_syr2k_dispatch_ptr_jit(datatype,                      &
      &      n, k, lda, lda, ldc, registry)
         END FUNCTION
 
         !> Dispatch a SYR2K config with auto-detected backends into a
         !> caller-owned config.
-        FUNCTION libxs_syr2k_dispatch_cpy(config, datatype,             &
+        FUNCTION libxs_syr2k_dispatch_cpy_jit(config, datatype,         &
      &  n, k, lda, ldb, ldc, registry)
           TYPE(libxs_gemm_config_t), INTENT(INOUT) :: config
           INTEGER(C_INT), INTENT(IN) :: datatype, n, k
           INTEGER(C_INT), INTENT(IN) :: lda, ldb, ldc
           TYPE(C_PTR), INTENT(IN), OPTIONAL :: registry
-          INTEGER(C_INT) :: libxs_syr2k_dispatch_cpy
+          INTEGER(C_INT) :: libxs_syr2k_dispatch_cpy_jit
           TYPE(C_FUNPTR) :: dgemm_fp, sgemm_fp
 #if defined(__MKL)
           TYPE(C_FUNPTR) :: jcd_fp, jgd_fp, jcs_fp, jgs_fp
@@ -268,7 +292,7 @@
 #if defined(__LIBXSMM)
           xdisp_fp = C_FUNLOC(libxsmm_dispatch_gemm)
 #endif
-          libxs_syr2k_dispatch_cpy = libxs_syr2k_dispatch_cpy_base(     &
+          libxs_syr2k_dispatch_cpy_jit = libxs_syr2k_dispatch_cpy_base( &
      &      config, datatype, n, k, lda, ldb, ldc,                      &
 #if defined(__MKL)
      &      jit_create_dgemm=jcd_fp,                                    &
@@ -286,14 +310,15 @@
 
         !> Dispatch a SYRK config with auto-detected backends into a
         !> caller-owned config.
-        FUNCTION libxs_syrk_dispatch_cpy(config, datatype,              &
+        FUNCTION libxs_syrk_dispatch_cpy_jit(config, datatype,          &
      &  n, k, lda, ldc, registry)
           TYPE(libxs_gemm_config_t), INTENT(INOUT) :: config
           INTEGER(C_INT), INTENT(IN) :: datatype, n, k
           INTEGER(C_INT), INTENT(IN) :: lda, ldc
           TYPE(C_PTR), INTENT(IN), OPTIONAL :: registry
-          INTEGER(C_INT) :: libxs_syrk_dispatch_cpy
-          libxs_syrk_dispatch_cpy = libxs_syr2k_dispatch_cpy(config,    &
+          INTEGER(C_INT) :: libxs_syrk_dispatch_cpy_jit
+          libxs_syrk_dispatch_cpy_jit =                                 &
+     &      libxs_syr2k_dispatch_cpy_jit(config,                        &
      &      datatype, n, k, lda, lda, ldc, registry)
         END FUNCTION
 #else

@@ -8,6 +8,7 @@
 * SPDX-License-Identifier: BSD-3-Clause                                       *
 ******************************************************************************/
 #include <libxs/libxs_gemm.h>
+#include <libxs/libxs_math.h>
 #include "libxs_main.h"
 #include "libxs_crc32.h"
 
@@ -1247,6 +1248,56 @@ LIBXS_API_INTERN void* internal_libxs_syrk_scratch(size_t need)
 }
 
 
+LIBXS_API_INLINE int internal_libxs_syrk_partition_lower(
+  int t, int nb, int ntasks)
+{
+  int result;
+  if (0 >= t) {
+    result = 0;
+  }
+  else if (t >= ntasks) {
+    result = nb;
+  }
+  else {
+    const unsigned long long s = (unsigned long long)nb * (nb + 1) / 2;
+    const unsigned long long ct = ((unsigned long long)t * s + ((unsigned int)ntasks >> 1)) / (unsigned int)ntasks;
+    const unsigned long long two_nb_plus_1 = 2 * (unsigned long long)nb + 1;
+    const unsigned long long d = two_nb_plus_1 * two_nb_plus_1 - 8 * ct;
+    const unsigned int q = libxs_isqrt_u64(0 < d ? d : 1);
+    const int j0 = (int)((two_nb_plus_1 - q) / 2);
+    const unsigned long long fj0 = (0 < j0
+      ? (unsigned long long)j0 * nb - (unsigned long long)j0 * (j0 - 1) / 2
+      : 0);
+    const unsigned long long e0 = (fj0 < ct ? ct - fj0 : fj0 - ct);
+    result = j0;
+    if (j0 + 1 <= nb) {
+      const int j1 = j0 + 1;
+      const unsigned long long fj1 = (unsigned long long)j1 * nb - (unsigned long long)j1 * (j1 - 1) / 2;
+      const unsigned long long e1 = (fj1 < ct ? ct - fj1 : fj1 - ct);
+      if (e1 < e0) {
+        result = j1;
+      }
+    }
+  }
+  return result;
+}
+
+
+LIBXS_API_INLINE void internal_libxs_syrk_partition(
+  int tid, int ntasks, int nb, int upper, int* begin, int* end)
+{
+  LIBXS_ASSERT(NULL != begin && NULL != end);
+  if (0 == upper) {
+    *begin = internal_libxs_syrk_partition_lower(tid, nb, ntasks);
+    *end = internal_libxs_syrk_partition_lower(tid + 1, nb, ntasks);
+  }
+  else {
+    *begin = nb - internal_libxs_syrk_partition_lower(ntasks - tid, nb, ntasks);
+    *end = nb - internal_libxs_syrk_partition_lower(ntasks - (tid + 1), nb, ntasks);
+  }
+}
+
+
 LIBXS_API void libxs_syr2k_task(
   const libxs_gemm_config_t* config, char uplo,
   double alpha, double beta,
@@ -1291,36 +1342,40 @@ LIBXS_API void libxs_syr2k_task(
         }
       }
     }
-    else if (0 == tid && LIBXS_DATATYPE_F64 == config->shape.datatype
+    else if (LIBXS_DATATYPE_F64 == config->shape.datatype
       && NULL != internal_libxs_dsyr2k_blas)
     {
+      if (0 == tid) {
 #if defined(LIBXS_GEMM_PRINT)
-      { static int interval = -1;
-        if (-1 == interval) {
-          const char *const env = getenv("LIBXS_SYRK_PRINT");
-          interval = (NULL != env ? atoi(env) : 0);
+        { static int interval = -1;
+          if (-1 == interval) {
+            const char *const env = getenv("LIBXS_SYRK_PRINT");
+            interval = (NULL != env ? atoi(env) : 0);
+          }
+          if (0 < interval) {
+            fprintf(stderr, "LIBXS INFO[%u]: dsyr2k uplo=%c n=%i k=%i"
+              " lda=%i ldb=%i ldc=%i alpha=%g beta=%g upper=%i\n",
+              internal_libxs_gemm_origin(),
+              uplo, n, k, lda, ldb, ldc, alpha, beta, upper);
+          }
         }
-        if (0 < interval) {
-          fprintf(stderr, "LIBXS INFO[%u]: dsyr2k uplo=%c n=%i k=%i"
-            " lda=%i ldb=%i ldc=%i alpha=%g beta=%g upper=%i\n",
-            internal_libxs_gemm_origin(),
-            uplo, n, k, lda, ldb, ldc, alpha, beta, upper);
-        }
-      }
 #endif
-      internal_libxs_dsyr2k_blas(&uplo, "N", &n, &k,
-        (const double*)&alpha, (const double*)a, &lda,
-        (const double*)b, &ldb,
-        (const double*)&beta, (double*)c, &ldc);
+        internal_libxs_dsyr2k_blas(&uplo, "N", &n, &k,
+          (const double*)&alpha, (const double*)a, &lda,
+          (const double*)b, &ldb,
+          (const double*)&beta, (double*)c, &ldc);
+      }
     }
-    else if (0 == tid && LIBXS_DATATYPE_F32 == config->shape.datatype
+    else if (LIBXS_DATATYPE_F32 == config->shape.datatype
       && NULL != internal_libxs_ssyr2k_blas)
     {
-      const float fa = (float)alpha, fb = (float)beta;
-      internal_libxs_ssyr2k_blas(&uplo, "N", &n, &k,
-        &fa, (const float*)a, &lda,
-        (const float*)b, &ldb,
-        &fb, (float*)c, &ldc);
+      if (0 == tid) {
+        const float fa = (float)alpha, fb = (float)beta;
+        internal_libxs_ssyr2k_blas(&uplo, "N", &n, &k,
+          &fa, (const float*)a, &lda,
+          (const float*)b, &ldb,
+          &fb, (float*)c, &ldc);
+      }
     }
     else {
       const int bm = internal_libxs_gemm_bm;
@@ -1328,26 +1383,23 @@ LIBXS_API void libxs_syr2k_task(
       const int bk = internal_libxs_gemm_bk;
       const int nb_m = LIBXS_UPDIV(n, bm);
       const int nb_n = LIBXS_UPDIV(n, bn);
-      const int nblocks = nb_m * nb_n;
-      const int nsplit = LIBXS_MIN(nblocks, ntasks);
-      if (tid < nsplit) {
-        const int tasksize = LIBXS_UPDIV(nblocks, nsplit);
-        const int begin = tid * tasksize;
-        int end = begin + tasksize;
+      int j_begin, j_end;
+      internal_libxs_syrk_partition(tid, ntasks, nb_n, upper, &j_begin, &j_end);
+      if (j_begin < j_end) {
         const size_t need = (size_t)bm * bn * 2 * elemsize;
         void* scratch = internal_libxs_syrk_scratch(need);
-        if (end > nblocks) end = nblocks;
         if (NULL != scratch) {
           void* scratch2 = (char*)scratch + (size_t)bm * bn * elemsize;
-          int idx;
-          for (idx = begin; idx < end; ++idx) {
-            const int jb = (idx / nb_m) * bn;
-            const int ib = (idx % nb_m) * bm;
+          int j;
+          for (j = j_begin; j < j_end; ++j) {
+            const int jb = j * bn;
             const int cn = LIBXS_MIN(bn, n - jb);
-            const int cm = LIBXS_MIN(bm, n - ib);
-            const int skip = upper
-              ? (ib > jb + cn - 1) : (ib + cm - 1 < jb);
-            if (0 == skip) {
+            const int i_begin = (0 == upper ? (jb / bm) : 0);
+            const int i_end = (0 == upper ? nb_m : LIBXS_MIN(nb_m, (jb + cn - 1) / bm + 1));
+            int i;
+            for (i = i_begin; i < i_end; ++i) {
+              const int ib = i * bm;
+              const int cm = LIBXS_MIN(bm, n - ib);
               const int diag = (ib < jb + cn && jb < ib + cm);
               const int sym = (diag && ib == jb && cm == cn);
               const int full = (cm == bm && cn == bn);
@@ -1459,34 +1511,38 @@ LIBXS_API void libxs_syrk_task(
         }
       }
     }
-    else if (0 == tid && LIBXS_DATATYPE_F64 == config->shape.datatype
+    else if (LIBXS_DATATYPE_F64 == config->shape.datatype
       && NULL != internal_libxs_dsyrk_blas)
     {
+      if (0 == tid) {
 #if defined(LIBXS_GEMM_PRINT)
-      { static int interval = -1;
-        if (-1 == interval) {
-          const char *const env = getenv("LIBXS_SYRK_PRINT");
-          interval = (NULL != env ? atoi(env) : 0);
+        { static int interval = -1;
+          if (-1 == interval) {
+            const char *const env = getenv("LIBXS_SYRK_PRINT");
+            interval = (NULL != env ? atoi(env) : 0);
+          }
+          if (0 < interval) {
+            fprintf(stderr, "LIBXS INFO[%u]: dsyrk uplo=%c n=%i k=%i"
+              " lda=%i ldc=%i alpha=%g beta=%g upper=%i\n",
+              internal_libxs_gemm_origin(),
+              uplo, n, k, lda, ldc, alpha, beta, upper);
+          }
         }
-        if (0 < interval) {
-          fprintf(stderr, "LIBXS INFO[%u]: dsyrk uplo=%c n=%i k=%i"
-            " lda=%i ldc=%i alpha=%g beta=%g upper=%i\n",
-            internal_libxs_gemm_origin(),
-            uplo, n, k, lda, ldc, alpha, beta, upper);
-        }
-      }
 #endif
-      internal_libxs_dsyrk_blas(&uplo, "N", &n, &k,
-        (const double*)&alpha, (const double*)a, &lda,
-        (const double*)&beta, (double*)c, &ldc);
+        internal_libxs_dsyrk_blas(&uplo, "N", &n, &k,
+          (const double*)&alpha, (const double*)a, &lda,
+          (const double*)&beta, (double*)c, &ldc);
+      }
     }
-    else if (0 == tid && LIBXS_DATATYPE_F32 == config->shape.datatype
+    else if (LIBXS_DATATYPE_F32 == config->shape.datatype
       && NULL != internal_libxs_ssyrk_blas)
     {
-      const float fa = (float)alpha, fb = (float)beta;
-      internal_libxs_ssyrk_blas(&uplo, "N", &n, &k,
-        &fa, (const float*)a, &lda,
-        &fb, (float*)c, &ldc);
+      if (0 == tid) {
+        const float fa = (float)alpha, fb = (float)beta;
+        internal_libxs_ssyrk_blas(&uplo, "N", &n, &k,
+          &fa, (const float*)a, &lda,
+          &fb, (float*)c, &ldc);
+      }
     }
     else {
       const int bm = internal_libxs_gemm_bm;
@@ -1494,25 +1550,22 @@ LIBXS_API void libxs_syrk_task(
       const int bk = internal_libxs_gemm_bk;
       const int nb_m = LIBXS_UPDIV(n, bm);
       const int nb_n = LIBXS_UPDIV(n, bn);
-      const int nblocks = nb_m * nb_n;
-      const int nsplit = LIBXS_MIN(nblocks, ntasks);
-      if (tid < nsplit) {
-        const int tasksize = LIBXS_UPDIV(nblocks, nsplit);
-        const int begin = tid * tasksize;
-        int end = begin + tasksize;
+      int j_begin, j_end;
+      internal_libxs_syrk_partition(tid, ntasks, nb_n, upper, &j_begin, &j_end);
+      if (j_begin < j_end) {
         const size_t need = (size_t)bm * bn * elemsize;
         void* scratch = internal_libxs_syrk_scratch(need);
-        if (end > nblocks) end = nblocks;
         if (NULL != scratch) {
-          int idx;
-          for (idx = begin; idx < end; ++idx) {
-            const int jb = (idx / nb_m) * bn;
-            const int ib = (idx % nb_m) * bm;
+          int j;
+          for (j = j_begin; j < j_end; ++j) {
+            const int jb = j * bn;
             const int cn = LIBXS_MIN(bn, n - jb);
-            const int cm = LIBXS_MIN(bm, n - ib);
-            const int skip = upper
-              ? (ib > jb + cn - 1) : (ib + cm - 1 < jb);
-            if (0 == skip) {
+            const int i_begin = (0 == upper ? (jb / bm) : 0);
+            const int i_end = (0 == upper ? nb_m : LIBXS_MIN(nb_m, (jb + cn - 1) / bm + 1));
+            int i;
+            for (i = i_begin; i < i_end; ++i) {
+              const int ib = i * bm;
+              const int cm = LIBXS_MIN(bm, n - ib);
               const int diag = (ib < jb + cn && jb < ib + cm);
               const int full = (cm == bm && cn == bn);
               int kb;

@@ -23,7 +23,7 @@ use JIT-compiled kernels when available.
 
 ## Run
 
-    ./syrk.x [N [K [nrepeat [direct]]]]
+    ./syrk.x [N [K [nrepeat [direct [tasks]]]]]
 
 Arguments (all optional, positional):
 
@@ -33,10 +33,37 @@ Arguments (all optional, positional):
     direct   Interface selection.             Default: 0
                0 = config (dispatch + call separately)
                1 = direct (one-shot generic)
+    tasks    Tasks per thread (OpenMP).       Default: 4
+
+## OpenMP
+
+`libxs_syrk_task` and `libxs_syr2k_task` take a task index and a task
+count instead of running the whole update. The sample shows both ways
+to supply them:
+
+    OMP      one task per thread (tid = omp_get_thread_num)
+    TASK     tasks * threads tasks over an OpenMP DO (dynamic)
+
+Oversubscribing is worthwhile because the tasks cover a triangle: tasks
+are handed out as contiguous ranges of C blocks, and the blocks skipped
+outside the triangle are not spread evenly over those ranges. A dynamic
+schedule with more tasks than threads evens this out.
+
+Both forms stay correct without OpenMP: the first runs as one task, the
+second as a serial loop over all tasks. No build-time branch is needed.
+
+The parallel split only engages where SYRK is decomposed into blocks.
+With `N` or `K` beyond the block size (`LIBXS_GEMM_BM`, `LIBXS_GEMM_BN`,
+`LIBXS_GEMM_BK`), a BLAS `dsyrk` found at runtime is preferred over the
+decomposition, and it runs on the first task alone. Set
+`LIBXS_SYRK_BLAS=0` to keep the blocked path, which is what the OpenMP
+variants parallelize:
+
+    LIBXS_SYRK_BLAS=0 OMP_NUM_THREADS=8 ./syrk.x 2000 2000 20
 
 ## Example Output
 
-    syrk(F): N=64 K=64 nrepeat=100
+    SYRK: N=64 K=64 nrepeat=100 direct=0
 
     --- libxs_syrk (lower) ---
       max error (lower): 0.00000E+00
@@ -44,9 +71,24 @@ Arguments (all optional, positional):
     --- libxs_syr2k (upper) ---
       max error (upper): 0.00000E+00
 
+    --- libxs_syrk_task (OpenMP) ---
+      threads=8 ntasks=32
+      max error (omp):  0.00000E+00
+      max error (omp tasks):  0.00000E+00
+
     --- SYRK performance ---
-      time:      0.002 s (100 calls)
-      perf:      28.4 GFLOPS/s
+      BLAS:      0.002 s (100 calls)
+                     28.4 GFLOPS/s
+      LIBXS:     0.002 s (100 calls)
+                     28.1 GFLOPS/s
+      OMP:       0.002 s (100 calls)
+                     28.0 GFLOPS/s
+      TASK:      0.002 s (100 calls)
+                     27.9 GFLOPS/s
+
+At the default N=64 the update is a handful of blocks and the BLAS
+path is preferred, so OMP and TASK match LIBXS. Both only pull ahead
+at a size worth splitting, and with `LIBXS_SYRK_BLAS=0`.
 
 ## Notes
 
@@ -59,6 +101,6 @@ Arguments (all optional, positional):
   diagonal and off-diagonal blocks. The dispatched GEMM kernel
   (MKL JIT, LIBXSMM, or fallback BLAS) handles the inner loop.
 
-- Scratch memory for the temporary full-panel product is managed
-  via a thread-local buffer that grows on demand and is freed at
-  finalization.
+- Scratch memory for the temporary block products is a thread-local
+  buffer that grows on demand, hence tasks need no synchronization:
+  each task holds its own scratch and writes its own blocks of C.

@@ -15,18 +15,21 @@
         PUBLIC :: libxs_syr2k_dispatch, libxs_syr2k_dispatch_cpy
         INTERFACE libxs_gemm_dispatch
           MODULE PROCEDURE libxs_gemm_dispatch_base
+          MODULE PROCEDURE libxs_gemm_dispatch_ptr_base
         END INTERFACE
         INTERFACE libxs_gemm_dispatch_ptr
           MODULE PROCEDURE libxs_gemm_dispatch_ptr_base
         END INTERFACE
         INTERFACE libxs_syrk_dispatch
           MODULE PROCEDURE libxs_syrk_dispatch_base
+          MODULE PROCEDURE libxs_syrk_dispatch_cpy_base
         END INTERFACE
         INTERFACE libxs_syrk_dispatch_cpy
           MODULE PROCEDURE libxs_syrk_dispatch_cpy_base
         END INTERFACE
         INTERFACE libxs_syr2k_dispatch
           MODULE PROCEDURE libxs_syr2k_dispatch_base
+          MODULE PROCEDURE libxs_syr2k_dispatch_cpy_base
         END INTERFACE
         INTERFACE libxs_syr2k_dispatch_cpy
           MODULE PROCEDURE libxs_syr2k_dispatch_cpy_base

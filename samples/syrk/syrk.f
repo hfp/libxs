@@ -12,13 +12,15 @@
         USE :: LIBXS_JIT, ONLY: LIBXS_DATATYPE_F64,                     &
      &    LIBXS_TIMER_TICK_KIND,                                        &
      &    libxs_gemm_config_t,                                          &
-     &    libxs_syrk_dispatch, libxs_syrk,                              &
+     &    libxs_syrk_dispatch, libxs_syrk, libxs_syrk_task,             &
      &    libxs_syr2k_dispatch, libxs_syr2k,                            &
      &    libxs_matdiff_t, libxs_matdiff, libxs_matdiff_clear,          &
      &    libxs_timer_tick, libxs_timer_duration,                       &
      &    libxs_init, libxs_finalize,                                   &
      &    C_LOC, C_PTR, C_NULL_PTR, C_ASSOCIATED,                       &
      &    C_F_POINTER, C_DOUBLE, C_INT
+!$      USE :: OMP_LIB, ONLY: omp_get_thread_num,                       &
+!$   &    omp_get_num_threads, omp_get_max_threads
         IMPLICIT NONE
 
         INTERFACE
@@ -46,6 +48,7 @@
 
         INTEGER, PARAMETER :: T = KIND(0D0)
         INTEGER :: n, k, argc, r, nrepeat, direct
+        INTEGER :: i, tid, nt, tasks, ntasks, nthreads
         CHARACTER(32) :: argv
         REAL(T), ALLOCATABLE, TARGET :: a(:,:), b(:,:)
         REAL(T), ALLOCATABLE, TARGET :: c(:,:), cref(:,:)
@@ -82,6 +85,16 @@
         ELSE
           direct = 0
         END IF
+        IF (5 <= argc) THEN
+          CALL GET_COMMAND_ARGUMENT(5, argv)
+          READ(argv, "(I32)") tasks
+        ELSE
+          tasks = 4
+        END IF
+
+        nthreads = 1
+!$      nthreads = omp_get_max_threads()
+        ntasks = nthreads * MAX(tasks, 1)
 
         alpha = 1D0; beta = 1D0
 
@@ -156,10 +169,54 @@
      &    "  max error (upper): ", diff%linf_abs
 
         WRITE(*, "(A)") ""
-        WRITE(*, "(A)") "--- SYRK performance ---"
+        WRITE(*, "(A)") "--- libxs_syrk_task (OpenMP) ---"
 
         ptr = libxs_syrk_dispatch(LIBXS_DATATYPE_F64, n, k, n, n)
+        IF (.NOT. C_ASSOCIATED(ptr)) THEN
+          WRITE(*, "(A)") "FAILED: libxs_syrk_dispatch returned NULL"
+          ERROR STOP 1
+        END IF
         CALL C_F_POINTER(ptr, config)
+        WRITE(*, "(A,I0,A,I0)")                                         &
+     &    "  threads=", nthreads, " ntasks=", ntasks
+
+        cref = 0D0
+        CALL DSYRK('L', 'N', n, k, alpha, a, n, beta, cref, n)
+
+        c = 0D0
+!$OMP PARALLEL DEFAULT(NONE) PRIVATE(tid, nt)                           &
+!$OMP&  SHARED(config, alpha, beta, a, c)
+        tid = 0
+        nt = 1
+!$      tid = omp_get_thread_num()
+!$      nt = omp_get_num_threads()
+        CALL libxs_syrk_task(config, 'L', alpha, beta,                  &
+     &    C_LOC(a), C_LOC(c), tid, nt)
+!$OMP END PARALLEL
+
+        CALL libxs_matdiff_clear(diff)
+        CALL libxs_matdiff(diff, LIBXS_DATATYPE_F64, n, n,              &
+     &    C_LOC(cref), C_LOC(c))
+        WRITE(*, "(A,E12.5)")                                           &
+     &    "  max error (omp): ", diff%linf_abs
+
+        c = 0D0
+!$OMP PARALLEL DO DEFAULT(NONE) SCHEDULE(DYNAMIC) PRIVATE(i)            &
+!$OMP&  SHARED(config, alpha, beta, a, c, ntasks)
+        DO i = 0, ntasks - 1
+          CALL libxs_syrk_task(config, 'L', alpha, beta,                &
+     &      C_LOC(a), C_LOC(c), i, ntasks)
+        END DO
+!$OMP END PARALLEL DO
+
+        CALL libxs_matdiff_clear(diff)
+        CALL libxs_matdiff(diff, LIBXS_DATATYPE_F64, n, n,              &
+     &    C_LOC(cref), C_LOC(c))
+        WRITE(*, "(A,E12.5)")                                           &
+     &    "  max error (omp tasks): ", diff%linf_abs
+
+        WRITE(*, "(A)") ""
+        WRITE(*, "(A)") "--- SYRK performance ---"
 
         gflops = DBLE(n) * DBLE(n) * DBLE(k) * 2D-9
 
@@ -191,6 +248,50 @@
         IF (0D0 < duration) THEN
           WRITE(*, "(A,F10.3,A,I0,A)")                                  &
      &      "  LIBXS:", duration, " s (", nrepeat, " calls)"
+          WRITE(*, "(A,F10.1,A)")                                       &
+     &      "        ", gflops * DBLE(nrepeat) / duration,              &
+     &      " GFLOPS/s"
+        END IF
+
+        c = 0D0
+        t0 = libxs_timer_tick()
+        DO r = 1, nrepeat
+!$OMP PARALLEL DEFAULT(NONE) PRIVATE(tid, nt)                           &
+!$OMP&  SHARED(config, alpha, beta, a, c)
+          tid = 0
+          nt = 1
+!$        tid = omp_get_thread_num()
+!$        nt = omp_get_num_threads()
+          CALL libxs_syrk_task(config, 'L', alpha, beta,                &
+     &      C_LOC(a), C_LOC(c), tid, nt)
+!$OMP END PARALLEL
+        END DO
+        t1 = libxs_timer_tick()
+        duration = libxs_timer_duration(t0, t1)
+        IF (0D0 < duration) THEN
+          WRITE(*, "(A,F10.3,A,I0,A)")                                  &
+     &      "  OMP:  ", duration, " s (", nrepeat, " calls)"
+          WRITE(*, "(A,F10.1,A)")                                       &
+     &      "        ", gflops * DBLE(nrepeat) / duration,              &
+     &      " GFLOPS/s"
+        END IF
+
+        c = 0D0
+        t0 = libxs_timer_tick()
+        DO r = 1, nrepeat
+!$OMP PARALLEL DO DEFAULT(NONE) SCHEDULE(DYNAMIC) PRIVATE(i)            &
+!$OMP&  SHARED(config, alpha, beta, a, c, ntasks)
+          DO i = 0, ntasks - 1
+            CALL libxs_syrk_task(config, 'L', alpha, beta,              &
+     &        C_LOC(a), C_LOC(c), i, ntasks)
+          END DO
+!$OMP END PARALLEL DO
+        END DO
+        t1 = libxs_timer_tick()
+        duration = libxs_timer_duration(t0, t1)
+        IF (0D0 < duration) THEN
+          WRITE(*, "(A,F10.3,A,I0,A)")                                  &
+     &      "  TASK: ", duration, " s (", nrepeat, " calls)"
           WRITE(*, "(A,F10.1,A)")                                       &
      &      "        ", gflops * DBLE(nrepeat) / duration,              &
      &      " GFLOPS/s"
