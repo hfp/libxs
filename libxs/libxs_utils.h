@@ -475,7 +475,8 @@ LIBXS_API unsigned int LIBXS_INTRINSICS_BITSCANBWD64(unsigned long long n);
 
 /** LIBXS_NBITS determines the minimum number of bits needed to represent N. */
 #define LIBXS_NBITS(N) (LIBXS_INTRINSICS_BITSCANBWD64(N) + LIBXS_MIN(1, N))
-#define LIBXS_ISQRT2(N) ((unsigned int)((1ULL << (LIBXS_NBITS(N) >> 1)) /*+ LIBXS_MIN(1, N)*/))
+#define LIBXS_ISQRT2_HI(N) ((unsigned int)((1ULL << (LIBXS_NBITS(N) >> 1)) /*+ LIBXS_MIN(1, N)*/))
+#define LIBXS_ISQRT2_LO(N) ((unsigned int)(1ULL << (LIBXS_INTRINSICS_BITSCANBWD64(N) >> 1)))
 /** LIBXS_ILOG2 definition matches ceil(log2(N)). */
 LIBXS_API unsigned int LIBXS_ILOG2(unsigned long long n);
 

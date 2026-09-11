@@ -65,8 +65,9 @@ Use GCC `__builtin_ctz`/`__builtin_clz` when available, Windows `_BitScanForward
 ## Derived Macros
 
 ```C
-LIBXS_NBITS(N)     /* minimum bits to represent N */
-LIBXS_ISQRT2(N)    /* fast power-of-two approximation of sqrt(N) */
+LIBXS_NBITS(N)        /* minimum bits to represent N */
+LIBXS_ISQRT2_HI(N)    /* approximation of sqrt(N), rounding up to POT */
+LIBXS_ISQRT2_LO(N)    /* approximation of sqrt(N), rounding down to POT */
 ```
 
 ```C

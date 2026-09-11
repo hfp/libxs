@@ -26,12 +26,12 @@ LIBXS_INLINE unsigned int ref_isqrt_u32(unsigned int u32)
 }
 
 
-LIBXS_INLINE unsigned int ref_isqrt_u64(unsigned long long u64)
+LIBXS_INLINE unsigned int ref_isqrt_u64(uint64_t u64)
 {
 #if defined(__STDC_VERSION__) && (199901L <= __STDC_VERSION__) /*C99*/
-  const unsigned long long r = (unsigned long long)(sqrtl((long double)u64) + 0.5);
+  const uint64_t r = (uint64_t)(sqrtl((long double)u64) + 0.5);
 #else
-  const unsigned long long r = (unsigned long long)(sqrt((double)u64) + 0.5);
+  const uint64_t r = (uint64_t)(sqrt((double)u64) + 0.5);
 #endif
   return (unsigned int)(((long double)r * r) <= u64 ? r : (r - 1));
 }
@@ -45,15 +45,16 @@ LIBXS_INLINE unsigned int ref_ilog2_u32(unsigned int u32)
 
 int main(int argc, char* argv[])
 {
-  const unsigned long long scale64 = ((unsigned long long)-1) / (RAND_MAX) - 1;
   const unsigned int scale32 = ((unsigned int)-1) / (RAND_MAX) - 1;
+  const uint64_t scale64 = ((uint64_t)-1) / (RAND_MAX) - 1;
+  const uint64_t factor64 = ((uint64_t)-1) / (N);
   int i, j;
   LIBXS_UNUSED(argc); LIBXS_UNUSED(argv);
 
   for (i = 0; i < (N); ++i) {
     const int r1 = (0 != i ? rand() : 0), r2 = (1 < i ? rand() : 0);
     const double rd = 2.0 * ((long long int)r1 * (r2 - RAND_MAX / 2)) / RAND_MAX;
-    const unsigned long long r64 = scale64 * r1;
+    const uint64_t r64 = scale64 * r1;
     const unsigned int r32 = scale32 * r1;
     double d1, d2, e1, e2, e3;
     unsigned int a, b;
@@ -105,13 +106,25 @@ int main(int argc, char* argv[])
     b = ref_ilog2_u32(r32);
     if (0 != r32 && a != b) exit(EXIT_FAILURE);
 
-    a = LIBXS_ISQRT2(i);
+    a = LIBXS_ISQRT2_LO(i);
     b = libxs_isqrt_u32(i);
     if (a < LIBXS_DELTA(a, b)) exit(EXIT_FAILURE);
-    a = LIBXS_ISQRT2(r32);
+    if (0 != i && b < a) exit(EXIT_FAILURE);
+    a = LIBXS_ISQRT2_LO((uint64_t)i * factor64);
+    b = libxs_isqrt_u64((uint64_t)i * factor64);
+    if (a < LIBXS_DELTA(a, b)) exit(EXIT_FAILURE);
+    if (0 != i && b < a) exit(EXIT_FAILURE);
+
+    a = LIBXS_ISQRT2_HI(i);
+    b = libxs_isqrt_u32(i);
+    if (a < LIBXS_DELTA(a, b)) exit(EXIT_FAILURE);
+    a = LIBXS_ISQRT2_HI((uint64_t)i * factor64);
+    b = libxs_isqrt_u64((uint64_t)i * factor64);
+    if (0 != a/*u32-overflow*/ && a < LIBXS_DELTA(a, b)) exit(EXIT_FAILURE);
+    a = LIBXS_ISQRT2_HI(r32);
     b = libxs_isqrt_u32(r32);
     if (a < LIBXS_DELTA(a, b)) exit(EXIT_FAILURE);
-    a = LIBXS_ISQRT2(r64);
+    a = LIBXS_ISQRT2_HI(r64);
     b = libxs_isqrt_u64(r64);
     if (0 != a/*u32-overflow*/ && a < LIBXS_DELTA(a, b)) exit(EXIT_FAILURE);
   }
@@ -568,7 +581,7 @@ int main(int argc, char* argv[])
           while (0 != h) { const unsigned int t = h; h = g % h; g = t; }
           if (i == j || 0 == a || 1 != g) continue;
           { const unsigned int inv = libxs_mod_inverse_u32(a, m);
-            if (1 != (unsigned int)(((unsigned long long)a * inv) % m)) {
+            if (1 != (unsigned int)(((uint64_t)a * inv) % m)) {
               FPRINTF(stderr, "ERROR line #%i: %u * modinv(%u,%u)=%u != 1 (mod %u)\n",
                 __LINE__, a, a, m, inv, m);
               exit(EXIT_FAILURE);
@@ -629,7 +642,7 @@ int main(int argc, char* argv[])
           if (got != ref) {
             FPRINTF(stderr,
               "ERROR line #%i: mod_u64(0x%llx, %u) = %u != %u\n",
-              __LINE__, (unsigned long long)v, p, got, ref);
+              __LINE__, (uint64_t)v, p, got, ref);
             exit(EXIT_FAILURE);
           }
         }
