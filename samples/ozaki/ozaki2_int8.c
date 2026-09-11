@@ -422,25 +422,26 @@ LIBXS_INLINE void gemm_oz2_diff(const char* transa, const char* transb, const GE
   LIBXS_ASSERT(LIBXS_DATATYPE_F64 == LIBXS_DATATYPE(GEMM_REAL_TYPE) || LIBXS_DATATYPE_F32 == LIBXS_DATATYPE(GEMM_REAL_TYPE));
 
   /**
-   * Trim: truncate mantissa bits to reduce nprimes (mirroring GPU Scheme 2).
-   * Each trim level drops 2 input bits (4 product bits). Auto-reduce nprimes
-   * when cumulative CRT product bits exceed the required representation.
+   * Trim counts primes, the unit of work, and the truncation follows from what those
+   * primes carry: a product of two b-bit significands summed over K terms needs
+   * 2*b + ceil(log2(K)) + 1 bits, so asking for fewer bits than the moduli hold
+   * loses accuracy at no saving. Same accounting as GPU Scheme 2 (ozaki_crt_bits in
+   * LIBXSTREAM), with the pass's own K rather than a declared bound, which is
+   * tighter. A negative trim adds primes and buys the precision back.
    */
-  if (0 < ozaki_trim) {
-    const int mant = GEMM_IS_DOUBLE ? 52 : 23;
-    const int max_levels = mant / 2;
+  {
+    const int sig = GEMM_IS_DOUBLE ? 53 : 24;
 #if defined(OZAKI_I8) && (OZAKI_I8)
     static const int cumbits[20] = {7, 13, 20, 27, 34, 41, 48, 55, 61, 68, 75, 81, 87, 94, 100, 106, 112, 118, 124, 130};
 #else
     static const int cumbits[20] = {8, 15, 23, 31, 39, 47, 55, 63, 71, 78, 86, 94, 101, 109, 116, 124, 131, 139, 146, 153};
 #endif
-    oztrim_bits = LIBXS_MIN(ozaki_trim, max_levels) * 2;
-    {
-      const int req = 2 * (mant - oztrim_bits) + 23;
-      int np;
-      for (np = 0; np < OZ2_NPRIMES_MAX && cumbits[np] < req; ++np);
-      nprimes = LIBXS_CLMP((np < OZ2_NPRIMES_MAX) ? np + 1 : OZ2_NPRIMES_MAX, 1, nprimes);
-    }
+    uint64_t kk = (uint64_t)K_grp_max - 1;
+    int lgk = 1, avail;
+    while (0 < kk) { ++lgk; kk >>= 1; }
+    nprimes = LIBXS_CLMP(nprimes - ozaki_trim, 2, OZ2_NPRIMES_MAX);
+    avail = cumbits[nprimes-1] - lgk;
+    oztrim_bits = LIBXS_CLMP(sig - (0 < avail ? avail / 2 : 0), 0, sig - 1);
   }
 
   /* Precompute Garner modular inverse table */

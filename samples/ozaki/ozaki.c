@@ -238,10 +238,14 @@ OZAKI_API_INTERN void gemm_init(void)
            * an accelerator, and the device-side knowledge lives on the other side
            * of this call. The CPU decision below stays here; the GPU default is
            * ozaki_init's. An explicit OZAKI still forces both.
+           *
+           * OZAKI_N and OZAKI_MAXK travel the same way, and for OZAKI_MAXK it is
+           * not cosmetic: it bounds the CRT bit budget on that side, so a CPU
+           * default imposed here would silently pick the device's prime count.
            */
           ozaki_ocl_handle = ozaki_ocl_create(GEMM_IS_DOUBLE, (NULL != ozaki_env) ? ozaki : -1 /*auto*/,
-            ozaki_verbose, ocl_tm, ocl_tn, ozaki_n, ozaki_flags,
-            ozaki_trim, ocl_groups, ozaki_maxk);
+            ozaki_verbose, ocl_tm, ocl_tn, (NULL != ozaki_n_env) ? ozaki_n : 0 /*auto*/, ozaki_flags,
+            ozaki_trim, ocl_groups, (NULL != ozaki_maxk_env) ? ozaki_maxk : 0 /*auto*/);
         }
 #endif
         atexit(gemm_atexit);
