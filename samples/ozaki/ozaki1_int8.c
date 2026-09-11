@@ -60,8 +60,17 @@ LIBXS_INLINE void gemm_oz1_diff(const char* transa, const char* transb, const GE
   const int nslices = LIBXS_CLMP(ozaki_n, 1, MAX_NSLICES);
   /* once per call, not per tile: the loop below runs inside a parallel region */
   const int oz1_flags = ozaki_flags_eff(M, N, K);
-  const int trim = LIBXS_MIN(ozaki_trim, 2 * (nslices - 1));
-  const int cutoff = 2 * (nslices - 1) - trim;
+  /**
+   * The pair cutoff starts at the slices the significand needs rather than at the complete
+   * product: a pair (i,j) contributes about 2^-((i+j)*w) of the result, so the rest lands
+   * below its last bit. Measured bit-identical there at every K from 512 to 8192 and on the
+   * device path alike; one level further is where it breaks. A negative trim buys the
+   * remainder back, up to the complete product.
+   */
+  const int cutoff_full = 2 * (nslices - 1);
+  const int cutoff_base = LIBXS_MIN(sizeof(double) == sizeof(GEMM_REAL_TYPE) ? 8 : 4, cutoff_full);
+  const int trim = LIBXS_CLMP(ozaki_trim, cutoff_base - cutoff_full, cutoff_base);
+  const int cutoff = cutoff_base - trim;
   int eff_cutoff = cutoff, sma = -1, smb = -1;
   const GEMM_INT_TYPE K_grp_size = (0 < ozaki_maxk ? (GEMM_INT_TYPE)ozaki_maxk : K);
   const GEMM_INT_TYPE K_grp_max = LIBXS_MIN(K_grp_size, K);

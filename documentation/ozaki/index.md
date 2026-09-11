@@ -159,7 +159,7 @@ Before production, enable statistics and set a quality threshold:
 
 ```bash
 export OZAKI_VERBOSE=1      # print summary at exit
-export OZAKI_RSQ=0.95       # dump matrices if R² drops below 0.95
+export OZAKI_EPS=1e-12      # dump matrices if the error exceeds it
 ```
 
 Run your workload and check the exit summary.
@@ -181,9 +181,14 @@ In brackets are the call-count followed by the PID.
 | linf_rel | Max rel. error          | <1e-10 (FP64) |
 | l2_rel   | RMS rel. error          | <1e-12 (FP64) |
 | eps      | Frobenius               | <1e-10 (FP64) |
-| rsq      | R² (best single metric) | 1.0 = perfect |
+| rsq      | R² (gross failure only) | 1.0 = perfect |
 
-R² is the important number. Investigate if below 0.99.
+**`l2_rel` is the number to watch.** R² is `1 - normf_rel²`, so it
+reads exactly 1.0 for relative errors below ~1e-9
+
+Note: RSQ cannot see FP64-scale, while `eps` and `linf_rel`
+are dominated by the largest entries: at `EVIL=-52` they
+read 7e-16 while `l2_rel` is 3e-04.
 
 ---
 
@@ -193,12 +198,12 @@ For HPC jobs that run hours or days, track accuracy over time:
 
 ```bash
 export OZAKI_VERBOSE=1000   # print stats every 1000th GEMM
-export OZAKI_RSQ=0.9        # auto-dump problematic matrices
+export OZAKI_EPS=1e-12      # auto-dump problematic matrices
 export OZAKI_EXIT=0         # keep running after threshold violation
 ```
 
-Watch for R² degradation — it indicates ill-conditioned matrices
-or insufficient decomposition depth.
+`OZAKI_RSQ` only fires on gross failure. To catch precision loss,
+threshold `OZAKI_EPS` instead, and watch `l2_rel` in the summary.
 
 ---
 
@@ -236,10 +241,16 @@ Auto-selection only on GPU (Ozaki-2 on CPU).
 ## Tuning: Accuracy vs Speed
 
 ```bash
-export OZAKI_TRIM=7         # drop seven precision levels (faster)
+export OZAKI_TRIM=2         # give up precision for speed
+export OZAKI_TRIM=-6        # Ozaki-1: buy the full product back
 export OZAKI_THRESHOLD=0    # apply Ozaki to ALL GEMMs (default: 12)
 export OZAKI_N=12           # more slices/primes (more accurate)
 ```
+
+`OZAKI_TRIM` counts from the default, which already drops pairs below
+the result's last bit (Ozaki-1: 31% faster FP64, 18% FP32, bit-identical).
+Level 1 is nearly free, level 2 costs, negative values buy precision back;
+further trimming is free only where the data has spare mantissa bits.
 
 The `OZAKI_THRESHOLD` controls minimum arithmetic intensity.
 GEMMs below the threshold fall through to the original BLAS.
@@ -324,7 +335,7 @@ export OZAKI_COMPLEX=2      # GPU+fallback (default)
 export LD_PRELOAD=$HOME/libxs/samples/ozaki/libwrap.so
 export OZAKI=2              # CRT scheme (default)
 export OZAKI_VERBOSE=1000   # monitor every 1000th GEMM
-export OZAKI_RSQ=0.9        # dump if accuracy drops
+export OZAKI_EPS=1e-12      # dump if accuracy drops
 
 srun --export=ALL ./yourapp.x workload.inp
 ```
@@ -357,10 +368,10 @@ ldd ./app | grep libwrap
 
 1. **Build**: `cd libxs/samples/ozaki && make -j`
 2. **Deploy**: `mpirun -np N env LD_PRELOAD=./libwrap.so ./app`
-3. **Validate**: `OZAKI_VERBOSE=1 OZAKI_RSQ=0.95`
+3. **Validate**: `OZAKI_VERBOSE=1 OZAKI_EPS=1e-12`
 4. **Monitor**: `OZAKI_VERBOSE=1000 OZAKI_EXIT=0`
 5. **Debug**: `./dgemm-wrap.x dumped-a.mhd dumped-b.mhd`
-6. **Tune**: `OZAKI=1 OZAKI_TRIM=7`
+6. **Tune**: `OZAKI=1 OZAKI_TRIM=1`
 
 ---
 
@@ -397,6 +408,6 @@ FP64 stagnation already due to AI dominance.
 
 ## Questions?
 
-- Hans Pabst (hans.pabst @ intel.com)
+- Hans Pabst (hf.pabst @ gmail.com)
 - https://github.com/hfp/libxs
 - https://github.com/hfp/libxstream

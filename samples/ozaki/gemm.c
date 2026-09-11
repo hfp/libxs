@@ -219,6 +219,20 @@ int main(int argc, char* argv[])
   /* Print requested GEMM arguments (regardless of result code) */
   print_gemm(stdout, 0, &transa, &transb, &m, &n, &k, &alpha, a, &lda, b, &ldb, &beta, c, &ldc);
 
+  /**
+   * Per-element exponent spread degrades componentwise accuracy steeply, and far below the
+   * significand width: measured at n=512, the grade is 233 at EVIL=-8 and 8960 at EVIL=-16,
+   * against a bound of f(n)=n. The cause is the accumulated sum of partially aligned terms
+   * rather than any single element leaving the window. Worth saying out loud because eps does
+   * not show it, being dominated by the largest entries: at EVIL=-52 eps reads 6.9e-16 while
+   * l2_rel is 3.4e-04 and the grade 4.7e+09. The exact boundary rises with n, so GRADE
+   * decides the case; this only warns that the question is live.
+   */
+  if (0 != evil_perelement && 8 < evil) {
+    fprintf(stderr, "WARNING: EVIL=-%i spreads exponents per element;"
+                    " componentwise accuracy degrades steeply (check GRADE, not eps)\n", evil);
+  }
+
   if (EXIT_SUCCESS == result) { /* Initialize A-matrix */
     if (0x1 & file_input) {
       result = gemm_mhd_read(argv[1], NULL, NULL, NULL, NULL, NULL, NULL, NULL, a);
@@ -358,24 +372,28 @@ int main(int argc, char* argv[])
       {
         const libxs_data_t dt = (0 != complex_input) ? (GEMM_IS_DOUBLE ? LIBXS_DATATYPE_C64 : LIBXS_DATATYPE_C32)
                                                      : LIBXS_DATATYPE(GEMM_REAL_TYPE);
-        result = libxs_matdiff(&diff, dt, m, n, c_ref, c, &ldc, &ldc);
+        /**
+         * One driver or the other, never both: libxs_matdiff_grade fills what libxs_matdiff
+         * fills, and a second call would clear the info again, including the reference count
+         * set below. A and B are dead once the reference ran, so |A| and |B| are formed in
+         * place to bound the exact result by |alpha||A||B| + |beta||C|.
+         */
+        if (NULL != c_bnd) {
+          const GEMM_REAL_TYPE absa = (GEMM_REAL_TYPE)fabs((double)alpha);
+          const GEMM_REAL_TYPE absb = (GEMM_REAL_TYPE)fabs((double)beta);
+          const size_t na = (size_t)lda * a_cols, nb = (size_t)ldb * b_cols;
+          size_t ti;
+          for (ti = 0; ti < na; ++ti) a[ti] = (GEMM_REAL_TYPE)fabs((double)a[ti]);
+          for (ti = 0; ti < nb; ++ti) b[ti] = (GEMM_REAL_TYPE)fabs((double)b[ti]);
+          ref(&transa, &transb, &m, &n, &k, &absa, a, &lda, b, &ldb, &absb, c_bnd, &ldc);
+          result = libxs_matdiff_grade(&diff, dt, m, n, c_ref, c, c_bnd, &ldc, &ldc, &ldc);
+          if (EXIT_SUCCESS == result) grade_max = diff.grade;
+        }
+        else result = libxs_matdiff(&diff, dt, m, n, c_ref, c, &ldc, &ldc);
       }
       if (EXIT_SUCCESS == result) {
         diff.r = nrepeat;
         print_diff(stdout, (0 != complex_input ? ZGEMM_LABEL : GEMM_LABEL), 0 /*detail*/, &diff);
-      }
-      /* A and B are dead once the reference ran, so |A| and |B| are formed in place. */
-      if (EXIT_SUCCESS == result && NULL != c_bnd) {
-        const GEMM_REAL_TYPE absa = (GEMM_REAL_TYPE)fabs((double)alpha);
-        const GEMM_REAL_TYPE absb = (GEMM_REAL_TYPE)fabs((double)beta);
-        const size_t na = (size_t)lda * a_cols, nb = (size_t)ldb * b_cols;
-        size_t ti;
-        for (ti = 0; ti < na; ++ti) a[ti] = (GEMM_REAL_TYPE)fabs((double)a[ti]);
-        for (ti = 0; ti < nb; ++ti) b[ti] = (GEMM_REAL_TYPE)fabs((double)b[ti]);
-        ref(&transa, &transb, &m, &n, &k, &absa, a, &lda, b, &ldb, &absb, c_bnd, &ldc);
-        result = libxs_matdiff_grade(&diff, LIBXS_DATATYPE(GEMM_REAL_TYPE), m, n,
-          c_ref, c, c_bnd, &ldc, &ldc, &ldc);
-        if (EXIT_SUCCESS == result) grade_max = diff.grade;
       }
     }
     else { /* fallback: checksum only (no reference GEMM available) */
@@ -413,8 +431,9 @@ int main(int argc, char* argv[])
     }
   }
 
-  /* Linear growth is the most a componentwise-stable O(n^3) product may show. */
-  if (EXIT_SUCCESS == result && 0 <= grade_max) {
+  /* Linear growth is the most a componentwise-stable O(n^3) product may show. The grade is
+   * reported even when CHECK already failed, since that is where it says the most. */
+  if (0 <= grade_max) {
     const double fn = (double)n;
     const int graded = (grade_max <= fn);
     fprintf(stderr, "GRADE: a=%g f(n)=%g (%s)\n", grade_max, fn, 0 != graded ? "pass" : "FAIL");

@@ -75,7 +75,7 @@ Setting OZAKI applies to both.
 | Variable          | Default   | Description                                                      |
 |-------------------|-----------|------------------------------------------------------------------|
 | OZAKI_FLAGS       | 3         | Sch.1 bitmask: 1=Triangular, 2=Symmetrize, 0=full S^2 square     |
-| OZAKI_TRIM        | 0         | Levels to trim (0=exact). ~7 bits/level (Sch.1), ~4 bits (Sch.2) |
+| OZAKI_TRIM        | 0         | Levels to trim (0=default). ~7 bits/level (Sch.1), ~4 bits (Sch.2); negative buys precision back |
 | OZAKI_I8          | 0         | Sch.2: signed i8 residues (moduli<=128) instead of u8            |
 | OZAKI_GROUPS      | 0         | Sch.2: K-grouping (0/1=off). Consecutive K panels, one reconstr. |
 | OZAKI_MAXK        | 32768     | Max K per preprocessing pass (0=full K in one pass)              |
@@ -231,7 +231,7 @@ timings vary between runs, the more so on a many-core part.
 ```bash
 ./dgemm-wrap.x 256                          # CRT scheme (default)
 OZAKI=1 ./dgemm-wrap.x 256                  # mantissa slicing
-OZAKI_TRIM=4 OZAKI=1 ./dgemm-wrap.x 256     # drop 4 least significant diagonals
+OZAKI_TRIM=2 OZAKI=1 ./dgemm-wrap.x 256     # drop 2 diagonals below the default
 OZAKI=2 OZAKI_GROUPS=4 ./dgemm-wrap.x 4096  # CRT with K-grouping
 OZAKI=3 ./dgemm-wrap.x 4096                 # adaptive scheme selection
 EVIL=512 ./dgemm-wrap.x 1024                # accuracy grading (wide exponent span)
