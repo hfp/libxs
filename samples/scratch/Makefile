@@ -67,7 +67,7 @@ QKMALLOC ?= 0
 
 ifneq (1,$(HEADERONLY))
 ifneq (,$(strip $(FC)))
-ifneq (0,$(shell echo "$$((3>$(XSMM_GCC) || 40600<=$(FC_VERSION_NUM)))"))
+ifneq (0,$(shell echo "$$((3>$(XGCC) || 40600<=$(FC_VERSION_NUM)))"))
 $(OUTDIR)/$(OUTNAME)f.x: $(OUTDIR)/.make $(FTNOBJS) $(XLIB)
 	$(FLD) -o $@ $(FTNOBJS) $(XLIB) $(FCMTFLAGS) $(SLDFLAGS) $(LDFLAGS) $(FLDFLAGS) $(ELDFLAGS)
 else

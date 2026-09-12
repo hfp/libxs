@@ -702,28 +702,28 @@ ifeq (,$(strip $(FC)))
 endif
 
 # native GCC?
-XSMM_GCC ?= 0
+XGCC ?= 0
 ifeq (0,$(shell $(CC) $(CC_VERSION_FLAG) | $(GREP) -q "Free Software Foundation"; echo "$$?"))
-  XSMM_GCC := 1
+  XGCC := 1
 else ifeq (GCC,$(shell $(CC) $(CC_VERSION_FLAG) | head -n1 | $(SED) "s/.* (\(..*\)) .*/\1/"))
-  XSMM_GCC := 1
+  XGCC := 1
 else ifneq (pgcc,$(CC_NAME))
   ifneq (,$(findstring pgcc,$(CC_NAME)))
-    XSMM_GCC := 1
+    XGCC := 1
   endif
 endif
-ifeq (1,$(XSMM_GCC))
+ifeq (1,$(XGCC))
   ifeq (0,$(shell $(CXX) $(CXX_VERSION_FLAG) | $(GREP) -q "Free Software Foundation"; echo "$$?"))
-    XSMM_GCC := 2
+    XGCC := 2
   else ifeq (GCC,$(shell $(CXX) $(CXX_VERSION_FLAG) | head -n1 | $(SED) "s/.* (\(..*\)) .*/\1/"))
-    XSMM_GCC := 2
+    XGCC := 2
   else ifneq (,$(findstring g++,$(CXX_NAME)))
-    XSMM_GCC := 2
+    XGCC := 2
   endif
-  ifeq (2,$(XSMM_GCC))
+  ifeq (2,$(XGCC))
   ifneq (,$(strip $(GFC)))
     MKL_FCRTL := gf
-    XSMM_GCC := 3
+    XGCC := 3
   endif
   endif
 endif
@@ -821,7 +821,7 @@ BLAS_STATIC ?= $(STATIC)
 
 # PGI: ignore env. variable (same name)
 override PGI := 0
-ifeq (0,$(XSMM_GCC)) # not GCC
+ifeq (0,$(XGCC)) # not GCC
 ifeq (0,$(INTEL)) # not Intel
 ifneq (,$(call prepget,__clang__))
   CLANG := 1
@@ -833,7 +833,7 @@ endif
 CLANG ?= 0
 
 # Make GCC version number available even when not using GCC
-ifneq (0,$(XSMM_GCC))
+ifneq (0,$(XGCC))
   GCC_VERSION := $(CXX_VERSION)
 else ifeq (0,$(CLANG))
   GCCBIN := $(call qndir,$(call which,gcc))
@@ -851,7 +851,7 @@ GCC_VERSION_NUM := $(call version, \
 # Old logic:
 #   ifeq (,$(filter Windows_NT Darwin,$(UNAME)))
 #   ifeq (,$(SPACK_ENV_PATH)) # not under Spack
-#   ifeq (3,$(XSMM_GCC)) # pure GNU toolchain
+#   ifeq (3,$(XGCC)) # pure GNU toolchain
 #   ifneq (0,$(shell echo "$$((100000<=$(GCC_VERSION_NUM)))"))
 #
 MAINTAINER ?= 0
@@ -915,7 +915,7 @@ endif
 ifneq (0,$(INTEL))
   SUITE := Intel Compiler
   MKL_OMPRTL := intel
-else ifneq (0,$(XSMM_GCC))
+else ifneq (0,$(XGCC))
   SUITE := GNU Compiler Collection
   MKL_OMPRTL := gnu
 else ifneq (0,$(PGI))
@@ -1164,7 +1164,7 @@ else # non-Intel
   ifeq (1,$(STATIC))
     ifeq (0,$(PGI))
       SLDFLAGS += -Bstatic
-      ifeq (3,$(XSMM_GCC))
+      ifeq (3,$(XGCC))
         #SLDFLAGS += -static-libstdc++
         ifneq (Darwin,$(UNAME))
           SLDFLAGS += -static-libgcc
@@ -1518,14 +1518,14 @@ else # GCC assumed
       FCFLAGS += -g
       CFLAGS += -g
     else
-      ifneq (,$(filter 2 3,$(XSMM_GCC)))
+      ifneq (,$(filter 2 3,$(XGCC)))
         CXXFLAGS += -g3 -fno-omit-frame-pointer
         CFLAGS += -g3 -fno-omit-frame-pointer
       else
         CXXFLAGS += -g
         CFLAGS += -g
       endif
-      ifeq (3,$(XSMM_GCC))
+      ifeq (3,$(XGCC))
         FCFLAGS += -g3 -fno-omit-frame-pointer
       else
         FCFLAGS += -g
@@ -1546,7 +1546,7 @@ else # GCC assumed
       ifneq (0,$(shell echo "$$((40000<=$(CC_VERSION_NUM)))"))
         CFLAGS += -Wno-pass-failed
       endif
-    else ifneq (,$(filter-out 2 3,$(XSMM_GCC)))
+    else ifneq (,$(filter-out 2 3,$(XGCC)))
       CXXFLAGS += -std=c++11
     endif
   endif
@@ -1659,7 +1659,7 @@ else # GCC assumed
         endif
         CPEDANTIC += -Wno-long-long
         CXXFLAGS += $(CPEDANTIC)
-      else ifneq (0,$(XSMM_GCC))
+      else ifneq (0,$(XGCC))
         ifeq (,$(filter-out 0,$(FORCE_CXX)))
           CSTD := -std=c89
         endif
@@ -1722,7 +1722,7 @@ else # GCC assumed
       OMPRT := omp
     else ifeq (0,$(INTEL))
       ifneq (Darwin,$(UNAME))
-        ifneq (0,$(XSMM_GCC))
+        ifneq (0,$(XGCC))
           OMPFLAG_FORCE := $(GOMPFLAG)
         else ifneq (0,$(shell echo "$$((0!=$(CLANG)&&30900<=$(CC_VERSION_NUM)))"))
           OMPFLAG_FORCE := $(GOMPFLAG)
@@ -1796,7 +1796,7 @@ else # GCC assumed
         CXXFLAGS += $(OMPFLAG_FORCE)
         CFLAGS += $(OMPFLAG_FORCE)
       endif
-      ifeq (3,$(XSMM_GCC)) # pure GNU toolchain
+      ifeq (3,$(XGCC)) # pure GNU toolchain
         FLDFLAGS := $(GOMPFLAG) $(FLDFLAGS)
         FCFLAGS += $(GOMPFLAG)
       else # mixed toolchain
@@ -1852,7 +1852,7 @@ ifeq (undefined,$(origin TARGET))
   ifneq (0,$(shell echo "$$((3>$(DBG)))"))
     ifeq (x86_64,$(MNAME))
       ifneq (,$(filter 3,$(AVX))$(filter-out 0,$(VNNI) $(BF16)))
-      ifneq (0,$(shell echo "$$(((0!=$(XSMM_GCC)&&80000<=$(GCC_VERSION_NUM))|| \
+      ifneq (0,$(shell echo "$$(((0!=$(XGCC)&&80000<=$(GCC_VERSION_NUM))|| \
             (0!=$(CLANG)&&(40000<=$(CC_VERSION_NUM)||0==$(CC_VERSION_NUM)))|| \
             (0!=$(PGI)&&190000<=$(CC_VERSION_NUM))))"))
       ifneq (,$(call ctest,$(CC),-mfma -mavx512f -mavx512cd))
@@ -1865,7 +1865,7 @@ ifeq (undefined,$(origin TARGET))
           ifneq (Darwin,$(UNAME))
             CTARGET += -mavx512dq -mavx512bw -mavx512vl
             #CTARGET += -mavx512ifma -mavx512vbmi
-          else ifneq (,$(filter 1 2 3,$(INTEL) $(XSMM_GCC)))
+          else ifneq (,$(filter 1 2 3,$(INTEL) $(XGCC)))
             CTARGET += -mavx512dq -mavx512bw -mavx512vl
             #CTARGET += -mavx512ifma -mavx512vbmi
           else ifneq (0,$(shell echo "$$((0!=$(CLANG)&&80100<=$(CC_VERSION_NUM)))"))
@@ -1907,7 +1907,7 @@ ifeq (undefined,$(origin TARGET))
       ifneq (,$(filter 1 2 3 4,$(SSE) $(AVX)))
         ifeq (,$(CTARGET)) # SSE-4.2 or default-SSE
           ifneq (,$(filter 01 02 03 10 11 12 13 40 41 42 43,$(SSE)$(AVX)))
-            ifneq (0,$(XSMM_GCC))
+            ifneq (0,$(XGCC))
               ifneq (0,$(shell echo "$$((40300<=$(CC_VERSION_NUM)))"))
                 ifeq (0,$(MAINTAINER))
                   CTARGET := -msse4.2
@@ -2038,9 +2038,9 @@ ifneq (Darwin1,$(UNAME)$(INSTRUMENT))
     ifeq (0,$(INTEL)) # e.g. Intel, Clang, and others do not need/understand below flag
     ifneq (0,$(shell echo "$$((40300<=$(GCC_VERSION_NUM)))"))
       CFLAGS += -finstrument-functions-exclude-function-list=_mm_,_mm256_,_mm512_,__rdtsc
-      ifneq (,$(filter 2 3,$(XSMM_GCC)))
+      ifneq (,$(filter 2 3,$(XGCC)))
         CXXFLAGS += -finstrument-functions-exclude-function-list=_mm_,_mm256_,_mm512_,__rdtsc
-        ifeq (3,$(XSMM_GCC))
+        ifeq (3,$(XGCC))
           FCFLAGS += -finstrument-functions-exclude-function-list=_mm_,_mm256_,_mm512_,__rdtsc
         endif
       endif
@@ -2054,16 +2054,16 @@ ifeq (0,$(COMPATIBLE))
   ifneq (0,$(OPT))
   ifeq (0,$(INTEL))
     ifneq (0,$(SIMD))
-      ifneq (0,$(XSMM_GCC))
+      ifneq (0,$(XGCC))
         ifneq (,$(CTARGET))
         ifneq (0,$(shell echo "$$((40900<=$(CC_VERSION_NUM)))"))
           DFLAGS += -D__OPENMP_SIMD
           CFLAGS += $(GOMPFLAG)-simd
-          ifneq (1,$(XSMM_GCC))
+          ifneq (1,$(XGCC))
           ifneq (0,$(shell echo "$$((40900<=$(CXX_VERSION_NUM)))"))
             CXXFLAGS += $(GOMPFLAG)-simd
             ifneq (,$(FTARGET))
-            ifneq (2,$(XSMM_GCC))
+            ifneq (2,$(XGCC))
             ifneq (0,$(shell echo "$$((40900<=$(FC_VERSION_NUM)))"))
               FCFLAGS += $(GOMPFLAG)-simd
               SIMD ?= 1
@@ -2103,7 +2103,7 @@ ifeq (0,$(COMPATIBLE))
     ifeq (,$(filter-out 0,$(PGI)))
       CXXFLAGS += -funroll-loops
       CFLAGS += -funroll-loops
-      ifneq (,$(GFC)$(filter-out 0 1 2,$(XSMM_GCC)))
+      ifneq (,$(GFC)$(filter-out 0 1 2,$(XGCC)))
         FCFLAGS += -funroll-loops
       endif
     endif
@@ -2208,10 +2208,10 @@ CINFO := C / C++ target: $(if $(CTARGET),$(CTARGET),<compiler default>)
 
 ifeq (Darwin,$(UNAME))
   # avoid Homebrew based GCC AS; apply the flag only to the non-GCC components
-  ifneq (0,$(XSMM_GCC))
+  ifneq (0,$(XGCC))
     LDFLAGS += -Wa,-q
     CFLAGS += -Wa,-q
-    ifneq (,$(filter 2 3,$(XSMM_GCC)))
+    ifneq (,$(filter 2 3,$(XGCC)))
       CXXFLAGS += -Wa,-q
     endif
   endif
@@ -2330,7 +2330,7 @@ ifneq (,$(strip $(MKLROOT)))
   ifeq (0,$(PGI))
     MKL ?= $(if $(BLASLIB),0,$(BLAS))
     ifneq (,$(strip $(FC)))
-      ifneq (0,$(shell echo "$$((0==$(XSMM_GCC)||40600<=$(GCC_VERSION_NUM)))"))
+      ifneq (0,$(shell echo "$$((0==$(XGCC)||40600<=$(GCC_VERSION_NUM)))"))
         MKL_DIRECT ?= 0
       else
         MKL_DIRECT := 0
@@ -2351,7 +2351,7 @@ ifneq (0,$(MKL))
     else
       BLAS_FLAGS += -DMKL_DIRECT_CALL
     endif
-    ifneq (0,$(XSMM_GCC))
+    ifneq (0,$(XGCC))
       CXXFLAGS += -Wno-unused-value
       CFLAGS += -Wno-unused-value
     endif
@@ -2361,7 +2361,7 @@ ifneq (0,$(MKL))
     else
       BLAS_FLAGS += -DMKL_DIRECT_CALL_JIT
     endif
-    ifneq (0,$(XSMM_GCC))
+    ifneq (0,$(XGCC))
       CXXFLAGS += -Wno-unused-value
       CFLAGS += -Wno-unused-value
     endif
@@ -2536,7 +2536,7 @@ else ifneq (0,$(BLAS)) # generic
   endif
 endif
 ifneq (0,$(BLAS))
-ifneq (,$(GFC)$(filter-out 0,$(XSMM_GCC)))
+ifneq (,$(GFC)$(filter-out 0,$(XGCC)))
   ifneq (,$(LIBGFORTRAN))
     ifneq (0,$(STATIC))
       BLAS_CLDFLAGS += $(XLIB_BEGIN) $(LIBGFORTRAN) $(XLIB_END)

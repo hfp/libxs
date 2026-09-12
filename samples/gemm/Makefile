@@ -69,7 +69,7 @@ $(OUTDIR)/gemm_index.x: $(OUTDIR)/.make $(BLDDIR)/gemm_index-c.o $(XLIB)
 
 ifneq (1,$(HEADERONLY))
 ifneq (,$(strip $(FC)))
-ifneq (0,$(shell echo "$$((3>$(XSMM_GCC) || 40600<=$(FC_VERSION_NUM)))"))
+ifneq (0,$(shell echo "$$((3>$(XGCC) || 40600<=$(FC_VERSION_NUM)))"))
 $(OUTDIR)/gemm_indexf.x: $(OUTDIR)/.make $(BLDDIR)/gemm_index-f77.o $(JITOBJ) $(XLIB)
 	$(FLD) -o $@ $(BLDDIR)/gemm_index-f77.o $(JITOBJ) $(XLIB) $(FCMTFLAGS) $(SLDFLAGS) $(LDFLAGS) $(FLDFLAGS) $(ELDFLAGS)
 else

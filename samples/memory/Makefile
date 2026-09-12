@@ -74,7 +74,7 @@ compile: $(OBJECTS) $(FTNOBJS)
 
 ifneq (1,$(HEADERONLY))
 ifneq (,$(strip $(FC)))
-ifneq (0,$(shell echo "$$((3>$(XSMM_GCC) || 40600<=$(FC_VERSION_NUM)))"))
+ifneq (0,$(shell echo "$$((3>$(XGCC) || 40600<=$(FC_VERSION_NUM)))"))
 $(OUTDIR)/memcmpf.x: $(OUTDIR)/.make $(MCPOBJS) $(XLIB)
 	$(FLD) -o $@ $(MCPOBJS) $(XLIB) $(FCMTFLAGS) $(SLDFLAGS) $(LDFLAGS) $(FLDFLAGS) $(ELDFLAGS)
 
