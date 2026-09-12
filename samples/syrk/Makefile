@@ -19,6 +19,20 @@ SSE = 0
 # include common Makefile artifacts
 include $(DEPDIR)/Makefile.inc
 
+# root directory of LIBXSMM
+ifneq (0,$(LIBXSMM))
+  LIBXSMMROOT := $(wildcard $(DEPDIR)/../libxsmm)
+  XSMM_SLIB := $(wildcard $(LIBXSMMROOT)/lib/libxsmm.$(SLIBEXT))
+  XSMM_DLIB := $(wildcard $(LIBXSMMROOT)/lib/libxsmm.$(DLIBEXT))
+  XSMM_LIB := $(wildcard $(LIBXSMMROOT)/lib/libxsmm.$(LIBEXT))
+  XSMM_LIB := $(strip $(if $(XSMM_LIB),$(XSMM_LIB), \
+    $(if $(XSMM_SLIB),$(XSMM_SLIB),$(XSMM_DLIB))))
+  ifneq (,$(XSMM_LIB))
+    IFLAGS += -I$(call quote,$(LIBXSMMROOT)/include)
+    DFLAGS += -D__LIBXSMM
+  endif
+endif
+
 # header-only when library is not (yet) built
 ifeq (,$(XLIB))
 ifneq (,$(wildcard $(DEPDIR)/libxs/libxs_source.h))
@@ -59,8 +73,9 @@ compile: $(OBJECTS) $(FTNOBJS)
 ifneq (1,$(HEADERONLY))
 ifneq (,$(strip $(FC)))
 ifneq (0,$(shell echo "$$((3>$(XGCC) || 40600<=$(FC_VERSION_NUM)))"))
-$(OUTDIR)/$(OUTNAME).x: $(OUTDIR)/.make $(OBJECTS) $(FTNOBJS) $(XLIB)
-	$(FLD) -o $@ $(OBJECTS) $(FTNOBJS) $(XLIB) $(FCMTFLAGS) $(SLDFLAGS) $(LDFLAGS) $(FLDFLAGS) $(ELDFLAGS)
+$(OUTDIR)/$(OUTNAME).x: $(OUTDIR)/.make $(OBJECTS) $(FTNOBJS) $(XLIB) $(XSMM_LIB)
+	$(FLD) -o $@ $(OBJECTS) $(FTNOBJS) $(XLIB) $(XSMM_LIB) \
+		$(FCMTFLAGS) $(SLDFLAGS) $(LDFLAGS) $(FLDFLAGS) $(ELDFLAGS)
 else
 .PHONY: $(OUTDIR)/$(OUTNAME).x
 endif

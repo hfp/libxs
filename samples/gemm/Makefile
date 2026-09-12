@@ -17,6 +17,20 @@ SYM = 1
 # include common Makefile artifacts
 include $(DEPDIR)/Makefile.inc
 
+# root directory of LIBXSMM
+ifneq (0,$(LIBXSMM))
+  LIBXSMMROOT := $(wildcard $(DEPDIR)/../libxsmm)
+  XSMM_SLIB := $(wildcard $(LIBXSMMROOT)/lib/libxsmm.$(SLIBEXT))
+  XSMM_DLIB := $(wildcard $(LIBXSMMROOT)/lib/libxsmm.$(DLIBEXT))
+  XSMM_LIB := $(wildcard $(LIBXSMMROOT)/lib/libxsmm.$(LIBEXT))
+  XSMM_LIB := $(strip $(if $(XSMM_LIB),$(XSMM_LIB), \
+    $(if $(XSMM_SLIB),$(XSMM_SLIB),$(XSMM_DLIB))))
+  ifneq (,$(XSMM_LIB))
+    IFLAGS += -I$(call quote,$(LIBXSMMROOT)/include)
+    DFLAGS += -D__LIBXSMM
+  endif
+endif
+
 # header-only when library is not (yet) built
 ifeq (,$(XLIB))
 ifneq (,$(wildcard $(DEPDIR)/libxs/libxs_source.h))
@@ -55,23 +69,23 @@ all: $(XFILES)
 .PHONY: compile
 compile: $(OBJECTS) $(FTNOBJS)
 
-$(OUTDIR)/gemm_strided.x: $(OUTDIR)/.make $(BLDDIR)/gemm_strided-c.o $(XLIB)
-	$(LD) -o $@ $(BLDDIR)/gemm_strided-c.o $(XLIB) $(SLDFLAGS) $(LDFLAGS) $(CLDFLAGS)
+$(OUTDIR)/gemm_strided.x: $(OUTDIR)/.make $(BLDDIR)/gemm_strided-c.o $(XLIB) $(XSMM_LIB)
+	$(LD) -o $@ $(BLDDIR)/gemm_strided-c.o $(XLIB) $(XSMM_LIB) $(SLDFLAGS) $(LDFLAGS) $(CLDFLAGS)
 
-$(OUTDIR)/gemm_batch.x: $(OUTDIR)/.make $(BLDDIR)/gemm_batch-c.o $(XLIB)
-	$(LD) -o $@ $(BLDDIR)/gemm_batch-c.o $(XLIB) $(SLDFLAGS) $(LDFLAGS) $(CLDFLAGS)
+$(OUTDIR)/gemm_batch.x: $(OUTDIR)/.make $(BLDDIR)/gemm_batch-c.o $(XLIB) $(XSMM_LIB)
+	$(LD) -o $@ $(BLDDIR)/gemm_batch-c.o $(XLIB) $(XSMM_LIB) $(SLDFLAGS) $(LDFLAGS) $(CLDFLAGS)
 
-$(OUTDIR)/gemm_groups.x: $(OUTDIR)/.make $(BLDDIR)/gemm_groups-c.o $(XLIB)
-	$(LD) -o $@ $(BLDDIR)/gemm_groups-c.o $(XLIB) $(SLDFLAGS) $(LDFLAGS) $(CLDFLAGS)
+$(OUTDIR)/gemm_groups.x: $(OUTDIR)/.make $(BLDDIR)/gemm_groups-c.o $(XLIB) $(XSMM_LIB)
+	$(LD) -o $@ $(BLDDIR)/gemm_groups-c.o $(XLIB) $(XSMM_LIB) $(SLDFLAGS) $(LDFLAGS) $(CLDFLAGS)
 
-$(OUTDIR)/gemm_index.x: $(OUTDIR)/.make $(BLDDIR)/gemm_index-c.o $(XLIB)
-	$(LD) -o $@ $(BLDDIR)/gemm_index-c.o $(XLIB) $(SLDFLAGS) $(LDFLAGS) $(CLDFLAGS)
+$(OUTDIR)/gemm_index.x: $(OUTDIR)/.make $(BLDDIR)/gemm_index-c.o $(XLIB) $(XSMM_LIB)
+	$(LD) -o $@ $(BLDDIR)/gemm_index-c.o $(XLIB) $(XSMM_LIB) $(SLDFLAGS) $(LDFLAGS) $(CLDFLAGS)
 
 ifneq (1,$(HEADERONLY))
 ifneq (,$(strip $(FC)))
 ifneq (0,$(shell echo "$$((3>$(XGCC) || 40600<=$(FC_VERSION_NUM)))"))
-$(OUTDIR)/gemm_indexf.x: $(OUTDIR)/.make $(BLDDIR)/gemm_index-f77.o $(JITOBJ) $(XLIB)
-	$(FLD) -o $@ $(BLDDIR)/gemm_index-f77.o $(JITOBJ) $(XLIB) $(FCMTFLAGS) $(SLDFLAGS) $(LDFLAGS) $(FLDFLAGS) $(ELDFLAGS)
+$(OUTDIR)/gemm_indexf.x: $(OUTDIR)/.make $(BLDDIR)/gemm_index-f77.o $(JITOBJ) $(XLIB) $(XSMM_LIB)
+	$(FLD) -o $@ $(BLDDIR)/gemm_index-f77.o $(JITOBJ) $(XLIB) $(XSMM_LIB) $(FCMTFLAGS) $(SLDFLAGS) $(LDFLAGS) $(FLDFLAGS) $(ELDFLAGS)
 else
 .PHONY: $(OUTDIR)/gemm_indexf.x
 endif
