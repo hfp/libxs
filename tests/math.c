@@ -784,6 +784,28 @@ int main(int argc, char* argv[])
         }
       }
     }
+    { /* Test 9: u8 to BF16 is exact over the whole domain, block matches scalar */
+      libxs_bf16_t blk[256];
+      unsigned char src[256];
+      for (i = 0; i < 256; ++i) src[i] = (unsigned char)i;
+      libxs_u8_to_bf16_block(blk, src, 256);
+      for (i = 0; i < 256; ++i) {
+        const libxs_bf16_t b = libxs_u8_to_bf16((unsigned int)i);
+        if ((double)i != libxs_bf16_to_f64(b)) {
+          FPRINTF(stderr, "ERROR line #%i: u8_to_bf16(%i) inexact\n", __LINE__, i);
+          exit(EXIT_FAILURE);
+        }
+        if (blk[i] != b) {
+          FPRINTF(stderr, "ERROR line #%i: u8_to_bf16_block(%i) mismatch\n", __LINE__, i);
+          exit(EXIT_FAILURE);
+        }
+      }
+      /* 256 is the last integer BF16 holds exactly, one past the u8 domain */
+      if (256.0 != libxs_bf16_to_f64(libxs_u8_to_bf16(256))) {
+        FPRINTF(stderr, "ERROR line #%i: u8_to_bf16(256) inexact\n", __LINE__);
+        exit(EXIT_FAILURE);
+      }
+    }
   }
 
   return EXIT_SUCCESS;

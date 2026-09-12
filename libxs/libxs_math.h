@@ -563,6 +563,16 @@ LIBXS_API_INLINE double libxs_bf16_to_f64(libxs_bf16_t v) {
 }
 
 
+/**
+ * Convert an 8-bit unsigned integer to BF16 (exact). BF16 carries eight
+ * significand bits and hence every integer through 256, so the rounding in
+ * libxs_round_bf16_f32 never fires for a u8 input.
+ */
+LIBXS_API_INLINE libxs_bf16_t libxs_u8_to_bf16(unsigned int v) {
+  return libxs_round_bf16_f32((float)v);
+}
+
+
 /** Round a single-precision value to IEEE FP16 (round-to-nearest-even). */
 LIBXS_API_INLINE libxs_f16_t libxs_round_f16_f32(float x) {
 #if defined(LIBXS_F16)
@@ -717,6 +727,15 @@ LIBXS_API_INLINE void libxs_round_f16_f32_block(libxs_f16_t* dst,
   size_t i;
   LIBXS_PRAGMA_SIMD
   for (i = 0; i < n; ++i) dst[i] = libxs_round_f16_f32(src[i]);
+}
+
+/** Block conversion of 8-bit unsigned integers to BF16 (exact). */
+LIBXS_API_INLINE void libxs_u8_to_bf16_block(libxs_bf16_t* dst,
+  const unsigned char* src, size_t n)
+{
+  size_t i;
+  LIBXS_PRAGMA_SIMD
+  for (i = 0; i < n; ++i) dst[i] = libxs_u8_to_bf16(src[i]);
 }
 
 /**
