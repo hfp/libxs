@@ -615,6 +615,7 @@ LIBXS_API_INTERN libxs_gemm_config_t* internal_libxs_gemm_dispatch(
     }
     if (NULL == result && NULL != reg) {
       const int jit_allowed = jit_due;
+      const int tiled = (0 != memcmp(shape, kernel_shape, sizeof(*shape)));
       const libxs_gemm_config_t* kernel = NULL;
       const libxs_gemm_config_t* cached = NULL;
       libxs_gemm_config_t config;
@@ -622,7 +623,7 @@ LIBXS_API_INTERN libxs_gemm_config_t* internal_libxs_gemm_dispatch(
       LIBXS_MEMZERO(&config);
       /* snapshot of the shared warm-up counter (introspection only) */
       config.warmup = (int)wstate;
-      if (0 != memcmp(shape, kernel_shape, sizeof(*shape))) {
+      if (0 != tiled) {
         khash = libxs_registry_hash((const libxs_registry_t*)reg,
           kernel_shape, sizeof(*kernel_shape));
         cached = (const libxs_gemm_config_t*)libxs_registry_get_hashed(
@@ -651,8 +652,9 @@ LIBXS_API_INTERN libxs_gemm_config_t* internal_libxs_gemm_dispatch(
         const int klda = kernel_shape->lda, kldb = kernel_shape->ldb;
         const int kldc = kernel_shape->ldc;
         const int gemm_backend = internal_libxs_gemm_backend;
-        const int use_jit = (INTERNAL_GEMM_BACKEND_AUTO == gemm_backend
-          || INTERNAL_GEMM_BACKEND_MKL_JIT == gemm_backend);
+        /* MKL JIT assumes resident operands: a tile streams and loses ~2x to BLAS */
+        const int use_jit = (INTERNAL_GEMM_BACKEND_MKL_JIT == gemm_backend
+          || (INTERNAL_GEMM_BACKEND_AUTO == gemm_backend && 0 == tiled));
         const int use_xgemm = (INTERNAL_GEMM_BACKEND_LIBXSMM >= gemm_backend);
         const int use_blas = (INTERNAL_GEMM_BACKEND_BLAS >= gemm_backend);
         const size_t elemsize = LIBXS_TYPESIZE(kernel_shape->datatype);
@@ -742,7 +744,7 @@ LIBXS_API_INTERN libxs_gemm_config_t* internal_libxs_gemm_dispatch(
           }
         }
         internal_libxs_gemm_blas_init(&config, backend, use_blas);
-        if (0 != memcmp(shape, kernel_shape, sizeof(*shape))
+        if (0 != tiled
           && (NULL != config.dgemm_jit || NULL != config.sgemm_jit
             || NULL != config.xgemm))
         {

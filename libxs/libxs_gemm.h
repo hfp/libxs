@@ -180,6 +180,10 @@ typedef struct libxs_gemm_config_t {
  * Backend selection can be restricted with LIBXS_GEMM_BACKEND:
  *   0=auto/default, 1=MKL JIT, 2=LIBXSMM, 3=BLAS/MKL, 4=built-in.
  *   Selected external backends still fall back when unavailable.
+ *   Auto takes the MKL JIT only for a kernel_shape covering the whole
+ *   operation: its kernels assume resident operands, whereas a tile
+ *   streams through a larger matrix and is served better by BLAS.
+ *   1 requests the MKL JIT for a tile as well.
  * LIBXS_GEMM_PRINT=0 prints a registry summary when a registry is released.
  * Returns pointer to cached config (registry-owned), NULL on failure.
  */

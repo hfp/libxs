@@ -200,6 +200,15 @@ runtime fallback chain: 0 = automatic/default, 1 = MKL JIT,
 still fall through to lower-priority backends if the requested
 backend is not supplied or cannot dispatch the shape.
 
+Automatic takes the MKL JIT only when `kernel_shape` covers the
+whole operation. MKL's JIT kernels assume the operands are resident
+and neither pack nor prefetch, which suits a standalone small matrix
+but not a tile whose leading dimensions span a larger matrix: such a
+tile is served better by BLAS. Tiled callers (SYRK, SYR2K) therefore
+reach BLAS under automatic selection, and `LIBXS_GEMM_BACKEND=1`
+requests the MKL JIT for them as well. LIBXSMM is not restricted this
+way, its kernels being intended for exactly that access pattern.
+
 Backend callback signatures (MKL-compatible):
 
     jit_create_dgemm: int(void** jitter, int layout, int transa,
@@ -462,6 +471,8 @@ therefore degrades to later JIT, never to a wrong kernel.
     LIBXS_GEMM_BACKEND=N    Select runtime backend chain start:
                             0 auto (default), 1 MKL JIT,
                             2 LIBXSMM, 3 BLAS, 4 built-in fallback.
+                            Auto takes the MKL JIT only for an
+                            untiled kernel shape; 1 takes it always.
     LIBXS_GEMM_JIT_MAX=N    Arithmetic-intensity threshold for JIT
                             dispatch. JIT/LIBXSMM kernels are only
                             generated when the kernel shape's AI
