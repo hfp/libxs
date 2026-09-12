@@ -15,14 +15,14 @@
      &    libxs_gemm_config_t,                                          &
      &    libxs_gemm_dispatch,                                          &
      &    libxs_gemm_index,                                             &
-     &    libxs_gemm_index_task,                                        &
+     &    libxs_gemm_index_task, libxs_gemm_ntasks,                     &
      &    libxs_timer_tick,                                             &
      &    libxs_timer_duration,                                         &
      &    libxs_init, libxs_finalize,                                   &
      &    C_LOC, C_INT, C_DOUBLE, C_SIZEOF,                             &
      &    C_PTR, C_NULL_PTR
 !$      USE :: OMP_LIB, ONLY: omp_get_thread_num,                       &
-!$   &    omp_get_num_threads
+!$   &    omp_get_num_threads, omp_get_max_threads
         IMPLICIT NONE
 
         INTEGER, PARAMETER :: T = KIND(0D0)
@@ -39,7 +39,7 @@
         TYPE(libxs_gemm_config_t) :: config
         INTEGER(LIBXS_TIMER_TICK_KIND) :: t0, t1
         DOUBLE PRECISION :: duration, gflops
-        INTEGER(C_INT) :: rc
+        INTEGER(C_INT) :: rc, ntasks
 
         argc = COMMAND_ARGUMENT_COUNT()
         IF (1 <= argc) THEN
@@ -120,8 +120,34 @@
 
         gflops = 2D0 * REAL(m, 8) * REAL(n, 8) * REAL(k, 8) * 1D-9
 
+        ntasks = 1
+!$      ntasks = libxs_gemm_ntasks(config, batchsize,                   &
+!$   &    INT(omp_get_max_threads(), C_INT))
+        WRITE(*, "(A,I0)") "  libxs_gemm_index tasks: ", ntasks
+
+        ! plain call: parallel by itself when compiled with OpenMP
         t0 = libxs_timer_tick()
         DO r = 1, nrepeat
+          CALL libxs_gemm_index(                                        &
+     &      C_LOC(a), C_LOC(ia), C_LOC(b), C_LOC(ib),                   &
+     &      C_LOC(c), C_LOC(ic),                                        &
+     &      INT(C_SIZEOF(ia(1))), 1,                                    &
+     &      batchsize, config)
+        END DO
+        t1 = libxs_timer_tick()
+        duration = libxs_timer_duration(t0, t1)
+        IF (0D0 .LT. duration) THEN
+          WRITE(*, "(A,F10.3,A,I0,A)")                                  &
+     &      "Total time : ", duration, " s (", nrepeat, " repeats)"
+          WRITE(*, "(A,F10.1,A)")                                       &
+     &      "Performance: ",                                            &
+     &      gflops * REAL(batchsize, T) * REAL(nrepeat, T) / duration,  &
+     &      " GFLOPS/s"
+        END IF
+
+        ! explicit split: what the plain call does, spelled out
+!$      t0 = libxs_timer_tick()
+!$      DO r = 1, nrepeat
 !$OMP PARALLEL DEFAULT(NONE)                                            &
 !$OMP&  SHARED(a, ia, b, ib, c, ic,                                     &
 !$OMP&  batchsize, config)
@@ -132,25 +158,15 @@
 !$   &      batchsize, config,                                          &
 !$   &      omp_get_thread_num(), omp_get_num_threads())
 !$OMP END PARALLEL
-!$        IF (.FALSE.) THEN
-          CALL libxs_gemm_index(                                        &
-     &      C_LOC(a), C_LOC(ia), C_LOC(b), C_LOC(ib),                   &
-     &      C_LOC(c), C_LOC(ic),                                        &
-     &      INT(C_SIZEOF(ia(1))), 1,                                    &
-     &      batchsize, config)
-!$        END IF
-        END DO
-        t1 = libxs_timer_tick()
-        duration = libxs_timer_duration(t0, t1)
-
-        IF (0D0 .LT. duration) THEN
-          WRITE(*, "(A,F10.3,A,I0,A)")                                  &
-     &      "Total time : ", duration, " s (", nrepeat, " repeats)"
-          WRITE(*, "(A,F10.1,A)")                                       &
-     &      "Performance: ",                                            &
-     &      gflops * REAL(batchsize, T) * REAL(nrepeat, T) / duration,  &
-     &      " GFLOPS/s"
-        END IF
+!$      END DO
+!$      t1 = libxs_timer_tick()
+!$      duration = libxs_timer_duration(t0, t1)
+!$      IF (0D0 .LT. duration) THEN
+!$        WRITE(*, "(A,F10.1,A)")                                       &
+!$   &      "Task split : ",                                            &
+!$   &      gflops * REAL(batchsize, T) * REAL(nrepeat, T) / duration,  &
+!$   &      " GFLOPS/s"
+!$      END IF
 
         DEALLOCATE(a, b, c)
         DEALLOCATE(ia, ib, ic)

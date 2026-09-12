@@ -262,25 +262,22 @@ static int test_double_dispatch(void)
   for (i = 0; i < TEST_MAXWARMUP && 0 == jit_create_handle_calls; ++i) {
     config = libxs_gemm_dispatch_rt(&shape, &kshape, &backend, registry);
   }
-  /* a kernel is generated even though warm-up registered the shape first */
-  TEST_CHECK(1 == jit_create_handle_calls);
+  /* automatic selection declines a kernel that covers a tile of the shape:
+     such operands stream through a larger matrix, which a generated kernel
+     serves worse than BLAS (LIBXS_GEMM_BACKEND reaches the generators) */
+  TEST_CHECK(0 == jit_create_handle_calls);
   TEST_CHECK(NULL != config);
-  TEST_CHECK(NULL != config->dgemm_jit);
-  TEST_CHECK(&jit_handle == config->jitter);
+  TEST_CHECK(NULL == config->dgemm_jit);
+  TEST_CHECK(NULL == config->jitter);
+  TEST_CHECK(NULL != config->dgemm_blas); /* usable without a kernel */
+  TEST_CHECK(0 == (LIBXS_GEMM_FLAG_OWNJIT & config->flags));
+  /* no kernel, hence the tile owns no entry of its own */
   kernel = (libxs_gemm_config_t*)libxs_registry_get(
     registry, &kshape, sizeof(kshape), NULL);
-  TEST_CHECK(NULL != kernel);
-  TEST_CHECK(config->jitter == kernel->jitter);
-  /* exactly one config owns the handle, hence it is released once */
-  TEST_CHECK(0 != (LIBXS_GEMM_FLAG_OWNJIT & kernel->flags));
-  TEST_CHECK(0 == (LIBXS_GEMM_FLAG_OWNJIT & config->flags));
-  libxs_gemm_release(config); /* alias: must not release the handle */
-  TEST_CHECK(&jit_handle == kernel->jitter);
-  TEST_CHECK(0 != (LIBXS_GEMM_FLAG_OWNJIT & kernel->flags));
+  TEST_CHECK(NULL == kernel);
+  libxs_gemm_release(config); /* nothing is owned, hence a no-op */
+  TEST_CHECK(NULL == config->jitter);
 
-  /* the mock handle must not reach the JIT-provider's destructor */
-  kernel->jitter = NULL;
-  kernel->flags = LIBXS_GEMM_FLAGS_DEFAULT;
   libxs_gemm_release_registry(registry);
   return EXIT_SUCCESS;
 }

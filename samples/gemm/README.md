@@ -62,6 +62,11 @@ Fortran variant of gemm_index. Demonstrates the LIBXS Fortran module
 interface with one-based index arrays and C_LOC/C_SIZEOF interop.
 Requires a Fortran compiler.
 
+Compiled with OpenMP, `libxs_gemm_index` (and `libxs_gemm_batch`) run
+over an OpenMP team unless called from within a parallel region, sized by
+`libxs_gemm_ntasks` (printed as `libxs_gemm_index tasks`). `Performance`
+times this plain call, `Task split` the explicit `libxs_gemm_index_task`.
+
 ```bash
 ./gemm_indexf.x [M [N [K [batchsize [nrepeat]]]]]
 ```

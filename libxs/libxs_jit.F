@@ -53,6 +53,11 @@
             TYPE(C_FUNPTR) :: ptr
             TYPE(C_PTR), INTENT(IN), VALUE :: jitter
           END FUNCTION
+          FUNCTION mkl_blas_nthreads()                                  &
+     &    RESULT(nthreads) BIND(C, NAME="MKL_Get_Max_Threads")
+            IMPORT :: C_INT
+            INTEGER(C_INT) :: nthreads
+          END FUNCTION
         END INTERFACE
 #endif
 #if defined(__LIBXSMM)
@@ -132,7 +137,7 @@
           TYPE(C_PTR) :: libxs_gemm_dispatch_ptr_jit
           TYPE(C_FUNPTR) :: dgemm_fp, sgemm_fp
 #if defined(__MKL)
-          TYPE(C_FUNPTR) :: jcd_fp, jgd_fp, jcs_fp, jgs_fp
+          TYPE(C_FUNPTR) :: jcd_fp, jgd_fp, jcs_fp, jgs_fp, bnt_fp
 #endif
 #if defined(__LIBXSMM)
           TYPE(C_FUNPTR) :: xdisp_fp
@@ -144,6 +149,7 @@
           jgd_fp = C_FUNLOC(mkl_jit_get_dgemm_ptr)
           jcs_fp = C_FUNLOC(mkl_cblas_jit_create_sgemm)
           jgs_fp = C_FUNLOC(mkl_jit_get_sgemm_ptr)
+          bnt_fp = C_FUNLOC(mkl_blas_nthreads)
 #endif
 #if defined(__LIBXSMM)
           xdisp_fp = C_FUNLOC(libxsmm_dispatch_gemm)
@@ -156,6 +162,7 @@
      &      jit_get_dgemm=jgd_fp,                                       &
      &      jit_create_sgemm=jcs_fp,                                    &
      &      jit_get_sgemm=jgs_fp,                                       &
+     &      blas_nthreads=bnt_fp,                                       &
 #endif
 #if defined(__LIBXSMM)
      &      xgemm_dispatch=xdisp_fp,                                    &
@@ -178,7 +185,7 @@
           INTEGER(C_INT) :: libxs_gemm_dispatch_cpy_jit
           TYPE(C_FUNPTR) :: dgemm_fp, sgemm_fp
 #if defined(__MKL)
-          TYPE(C_FUNPTR) :: jcd_fp, jgd_fp, jcs_fp, jgs_fp
+          TYPE(C_FUNPTR) :: jcd_fp, jgd_fp, jcs_fp, jgs_fp, bnt_fp
 #endif
 #if defined(__LIBXSMM)
           TYPE(C_FUNPTR) :: xdisp_fp
@@ -190,6 +197,7 @@
           jgd_fp = C_FUNLOC(mkl_jit_get_dgemm_ptr)
           jcs_fp = C_FUNLOC(mkl_cblas_jit_create_sgemm)
           jgs_fp = C_FUNLOC(mkl_jit_get_sgemm_ptr)
+          bnt_fp = C_FUNLOC(mkl_blas_nthreads)
 #endif
 #if defined(__LIBXSMM)
           xdisp_fp = C_FUNLOC(libxsmm_dispatch_gemm)
@@ -202,6 +210,7 @@
      &      jit_get_dgemm=jgd_fp,                                       &
      &      jit_create_sgemm=jcs_fp,                                    &
      &      jit_get_sgemm=jgs_fp,                                       &
+     &      blas_nthreads=bnt_fp,                                       &
 #endif
 #if defined(__LIBXSMM)
      &      xgemm_dispatch=xdisp_fp,                                    &
@@ -220,7 +229,7 @@
           TYPE(C_PTR) :: libxs_syr2k_dispatch_ptr_jit
           TYPE(C_FUNPTR) :: dgemm_fp, sgemm_fp
 #if defined(__MKL)
-          TYPE(C_FUNPTR) :: jcd_fp, jgd_fp, jcs_fp, jgs_fp
+          TYPE(C_FUNPTR) :: jcd_fp, jgd_fp, jcs_fp, jgs_fp, bnt_fp
 #endif
 #if defined(__LIBXSMM)
           TYPE(C_FUNPTR) :: xdisp_fp
@@ -232,6 +241,7 @@
           jgd_fp = C_FUNLOC(mkl_jit_get_dgemm_ptr)
           jcs_fp = C_FUNLOC(mkl_cblas_jit_create_sgemm)
           jgs_fp = C_FUNLOC(mkl_jit_get_sgemm_ptr)
+          bnt_fp = C_FUNLOC(mkl_blas_nthreads)
 #endif
 #if defined(__LIBXSMM)
           xdisp_fp = C_FUNLOC(libxsmm_dispatch_gemm)
@@ -244,6 +254,7 @@
      &      jit_get_dgemm=jgd_fp,                                       &
      &      jit_create_sgemm=jcs_fp,                                    &
      &      jit_get_sgemm=jgs_fp,                                       &
+     &      blas_nthreads=bnt_fp,                                       &
 #endif
 #if defined(__LIBXSMM)
      &      xgemm_dispatch=xdisp_fp,                                    &
@@ -276,7 +287,7 @@
           INTEGER(C_INT) :: libxs_syr2k_dispatch_cpy_jit
           TYPE(C_FUNPTR) :: dgemm_fp, sgemm_fp
 #if defined(__MKL)
-          TYPE(C_FUNPTR) :: jcd_fp, jgd_fp, jcs_fp, jgs_fp
+          TYPE(C_FUNPTR) :: jcd_fp, jgd_fp, jcs_fp, jgs_fp, bnt_fp
 #endif
 #if defined(__LIBXSMM)
           TYPE(C_FUNPTR) :: xdisp_fp
@@ -288,6 +299,7 @@
           jgd_fp = C_FUNLOC(mkl_jit_get_dgemm_ptr)
           jcs_fp = C_FUNLOC(mkl_cblas_jit_create_sgemm)
           jgs_fp = C_FUNLOC(mkl_jit_get_sgemm_ptr)
+          bnt_fp = C_FUNLOC(mkl_blas_nthreads)
 #endif
 #if defined(__LIBXSMM)
           xdisp_fp = C_FUNLOC(libxsmm_dispatch_gemm)
@@ -299,6 +311,7 @@
      &      jit_get_dgemm=jgd_fp,                                       &
      &      jit_create_sgemm=jcs_fp,                                    &
      &      jit_get_sgemm=jgs_fp,                                       &
+     &      blas_nthreads=bnt_fp,                                       &
 #endif
 #if defined(__LIBXSMM)
      &      xgemm_dispatch=xdisp_fp,                                    &

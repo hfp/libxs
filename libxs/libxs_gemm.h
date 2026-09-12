@@ -109,6 +109,12 @@ typedef libxs_gemm_xfn_t (*libxs_xgemm_dispatch_t)(
   unsigned int prefetch_flags);
 
 
+/**
+ * Number of threads the BLAS uses by itself (e.g., MKL_Get_Max_Threads or
+ * openblas_get_num_threads); 1 means sequential.
+ */
+typedef int (*libxs_blas_nthreads_t)(void);
+
 /** Backend function pointers for GEMM dispatch. */
 typedef struct libxs_gemm_backend_t {
   libxs_jit_create_dgemm_t jit_create_dgemm;
@@ -118,6 +124,8 @@ typedef struct libxs_gemm_backend_t {
   libxs_xgemm_dispatch_t  xgemm_dispatch;
   libxs_gemm_dblas_t dgemm_blas;
   libxs_gemm_sblas_t sgemm_blas;
+  /** Tells whether the BLAS is threaded where it cannot be resolved at runtime (static link). */
+  libxs_blas_nthreads_t blas_nthreads;
 } libxs_gemm_backend_t;
 
 /**
@@ -180,10 +188,11 @@ typedef struct libxs_gemm_config_t {
  * Backend selection can be restricted with LIBXS_GEMM_BACKEND:
  *   0=auto/default, 1=MKL JIT, 2=LIBXSMM, 3=BLAS/MKL, 4=built-in.
  *   Selected external backends still fall back when unavailable.
- *   Auto takes the MKL JIT only for a kernel_shape covering the whole
- *   operation: its kernels assume resident operands, whereas a tile
- *   streams through a larger matrix and is served better by BLAS.
- *   1 requests the MKL JIT for a tile as well.
+ *   Auto takes a generated kernel (MKL JIT, LIBXSMM) only for resident
+ *   operands, i.e. leading dimensions matching the kernel's own extent.
+ *   A larger leading dimension means a window into a larger matrix, which
+ *   streams and is served better by BLAS, since neither generator packs.
+ *   1 and 2 request the respective generator regardless.
  * LIBXS_GEMM_PRINT=0 prints a registry summary when a registry is released.
  * Returns pointer to cached config (registry-owned), NULL on failure.
  */
@@ -223,6 +232,20 @@ LIBXS_API void libxs_gemm_batch_task(
   const void* a_array[], const void* b_array[], void* c_array[],
   int batchsize, const libxs_gemm_config_t* config,
   int tid, int ntasks);
+
+/**
+ * Number of tasks worth splitting libxs_gemm_batch_task or
+ * libxs_gemm_index_task into, given nthreads available. Returns 1 for a
+ * single element, or where a threaded BLAS (MKL, OpenBLAS) serves each
+ * element better than a split: without a generated kernel and with fewer
+ * elements than threads. Never exceeds the batch size. The Fortran module
+ * uses it to parallelize libxs_gemm_batch/libxs_gemm_index when compiled
+ * with OpenMP. Unless config->flags carries LIBXS_GEMM_FLAG_NOLOCK, a split
+ * serializes updates of the same C (duplicate pointers). A threaded BLAS is
+ * detected at runtime, or by the caller's backend (blas_nthreads) if static.
+ */
+LIBXS_API int libxs_gemm_ntasks(const libxs_gemm_config_t* config,
+  int batchsize, int nthreads);
 
 /**
  * Process a batch of GEMMs given index arrays into contiguous buffers.
@@ -273,6 +296,8 @@ LIBXS_EXTERN void LIBXS_FSYMBOL(sgemm)(
  * compile time (this is a header-inline, hence LIBXS stays decoupled):
  * MKL JIT if mkl.h was included before libxs_gemm.h, LIBXSMM if
  * libxsmm.h was included, BLAS if __BLAS, __MKL, or MKL_H is defined.
+ * The BLAS threading query comes from MKL, or from OpenBLAS if its
+ * cblas.h was included before libxs_gemm.h.
  * Unavailable backends are left NULL, i.e., dispatch falls through to
  * the built-in default kernel.
  */
@@ -295,6 +320,11 @@ LIBXS_API_INLINE void libxs_gemm_backend_init(libxs_gemm_backend_t* backend)
 #elif defined(__BLAS)
     backend->dgemm_blas = LIBXS_FSYMBOL(dgemm);
     backend->sgemm_blas = LIBXS_FSYMBOL(sgemm);
+#endif
+#if defined(__MKL) || defined(MKL_H)
+    LIBXS_FPTR_ASSIGN(libxs_blas_nthreads_t, backend->blas_nthreads, MKL_Get_Max_Threads);
+#elif defined(OPENBLAS_VERSION)
+    LIBXS_FPTR_ASSIGN(libxs_blas_nthreads_t, backend->blas_nthreads, openblas_get_num_threads);
 #endif
   }
 }
@@ -484,8 +514,8 @@ LIBXS_API void libxs_gemm_release_registry(libxs_registry_t* registry);
  * backend selection). The kernel shape is the SYRK tile, hence the
  * blocking (LIBXS_GEMM_BM/BN/BK) is applied inside. A shape wider than
  * one tile runs the BLAS SYRK where that entry point is available
- * (LIBXS_SYRK_BLAS), which reads the shape of the config but never its
- * kernel. The caller-owned flavors then skip the kernel and the registry
+ * (LIBXS_SYRK_BLAS) and the call is not split, which reads the shape of
+ * the config but never its kernel. The caller-owned flavors then skip the kernel and the registry
  * alike, whereas this flavor keeps an entry, because a returned pointer
  * has to stay valid.
  * backend: optional backend pointers (NULL = built-in only).
@@ -586,7 +616,10 @@ LIBXS_API void libxs_syr2k(
   double alpha, double beta,
   const void* a, const void* b, void* c);
 
-/** Per-thread form of libxs_syr2k. */
+/**
+ * Per-thread form of libxs_syr2k. A BLAS SYR2K serves a single task, hence
+ * it is taken for ntasks=1 only and any split runs the decomposition.
+ */
 LIBXS_API void libxs_syr2k_task(
   const libxs_gemm_config_t* config, char uplo,
   double alpha, double beta,
@@ -603,12 +636,26 @@ LIBXS_API void libxs_syrk(
   double alpha, double beta,
   const void* a, void* c);
 
-/** Per-thread form of libxs_syrk. */
+/**
+ * Per-thread form of libxs_syrk. A BLAS SYRK serves a single task, hence
+ * it is taken for ntasks=1 only and any split runs the decomposition.
+ */
 LIBXS_API void libxs_syrk_task(
   const libxs_gemm_config_t* config, char uplo,
   double alpha, double beta,
   const void* a, void* c,
   int tid, int ntasks);
+
+/**
+ * Number of tasks worth splitting libxs_syrk_task or libxs_syr2k_task into,
+ * given nthreads available. Returns 1 where the unsplit call is expected to be
+ * faster: a shape within one tile, a BLAS SYRK that is threaded by itself (MKL,
+ * OpenBLAS), or fewer than LIBXS_SYRK_MINTASKS threads against a sequential BLAS
+ * SYRK. Never exceeds the block columns there are to distribute. A threaded
+ * BLAS is detected at runtime, or by the caller's backend (blas_nthreads). The Fortran module uses it to parallelize libxs_syrk/libxs_syr2k
+ * when compiled with OpenMP.
+ */
+LIBXS_API int libxs_syrk_ntasks(const libxs_gemm_config_t* config, int nthreads);
 
 /* header-only: include implementation (deferred from libxs_macros.h) */
 #if defined(LIBXS_SOURCE) && !defined(LIBXS_SOURCE_H) \

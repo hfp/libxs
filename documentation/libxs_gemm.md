@@ -200,6 +200,16 @@ runtime fallback chain: 0 = automatic/default, 1 = MKL JIT,
 still fall through to lower-priority backends if the requested
 backend is not supplied or cannot dispatch the shape.
 
+Automatic selection takes a generated kernel only for resident
+operands, recognized by leading dimensions that match the kernel's
+own extent. A larger leading dimension means the operand is a window
+into a larger matrix: it streams, and neither generator packs or
+prefetches the panel the way a BLAS `gemm` does, so BLAS wins there
+by a wide margin. This is what a tiled caller (SYRK, SYR2K) hands
+down, hence such tiles reach BLAS by default while a standalone small
+matrix still reaches the generators. `LIBXS_GEMM_BACKEND=1` or `=2`
+requests the respective generator regardless.
+
 Automatic takes the MKL JIT only when `kernel_shape` covers the
 whole operation. MKL's JIT kernels assume the operands are resident
 and neither pack nor prefetch, which suits a standalone small matrix
@@ -444,9 +454,9 @@ required. Thread-local scratch buffers are used internally.
 The block sizes used for tiled SYRK/SYR2K can be overridden at
 compile time via preprocessor defines:
 
-    LIBXS_GEMM_BM        Row block size    (default: 24)
-    LIBXS_GEMM_BN        Column block size (default: 48)
-    LIBXS_GEMM_BK        K-direction block (default: 128)
+    LIBXS_GEMM_BM        Row block size    (default: 192)
+    LIBXS_GEMM_BN        Column block size (default: 32)
+    LIBXS_GEMM_BK        K-direction block (default: 48)
 
 Problems fitting within these limits use a single specialized
 kernel call (MKL JIT or LIBXSMM when available). The same values are
@@ -465,9 +475,9 @@ therefore degrades to later JIT, never to a wrong kernel.
 ## Environment Variables
 
     LIBXS_GEMM_BM=N         Row block size for tiled SYRK/SYR2K
-                            (default: 24).
-    LIBXS_GEMM_BN=N         Column block size (default: 48).
-    LIBXS_GEMM_BK=N         K-direction block size (default: 128).
+                            (default: 192).
+    LIBXS_GEMM_BN=N         Column block size (default: 32).
+    LIBXS_GEMM_BK=N         K-direction block size (default: 48).
     LIBXS_GEMM_BACKEND=N    Select runtime backend chain start:
                             0 auto (default), 1 MKL JIT,
                             2 LIBXSMM, 3 BLAS, 4 built-in fallback.

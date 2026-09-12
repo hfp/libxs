@@ -13,6 +13,7 @@
      &    LIBXS_TIMER_TICK_KIND,                                        &
      &    libxs_gemm_config_t,                                          &
      &    libxs_syrk_dispatch, libxs_syrk, libxs_syrk_task,             &
+     &    libxs_syrk_ntasks,                                            &
      &    libxs_syr2k_dispatch, libxs_syr2k,                            &
      &    libxs_matdiff_t, libxs_matdiff, libxs_matdiff_clear,          &
      &    libxs_timer_tick, libxs_timer_duration,                       &
@@ -48,7 +49,7 @@
 
         INTEGER, PARAMETER :: T = KIND(0D0)
         INTEGER :: n, k, argc, r, nrepeat, direct
-        INTEGER :: i, tid, nt, tasks, ntasks, nthreads
+        INTEGER :: i, tid, nt, tasks, ntasks, nthreads, nsyrk
         CHARACTER(32) :: argv
         REAL(T), ALLOCATABLE, TARGET :: a(:,:), b(:,:)
         REAL(T), ALLOCATABLE, TARGET :: c(:,:), cref(:,:)
@@ -177,8 +178,11 @@
           ERROR STOP 1
         END IF
         CALL C_F_POINTER(ptr, config)
-        WRITE(*, "(A,I0,A,I0)")                                         &
-     &    "  threads=", nthreads, " ntasks=", ntasks
+        nsyrk = 1
+!$      nsyrk = libxs_syrk_ntasks(config, INT(nthreads, C_INT))
+        WRITE(*, "(A,I0,A,I0,A,I0)")                                    &
+     &    "  threads=", nthreads, " ntasks=", ntasks,                   &
+     &    " libxs_syrk=", nsyrk
 
         cref = 0D0
         CALL DSYRK('L', 'N', n, k, alpha, a, n, beta, cref, n)
@@ -230,7 +234,7 @@
         duration = libxs_timer_duration(t0, t1)
         IF (0D0 < duration) THEN
           WRITE(*, "(A,F10.3,A,I0,A)")                                  &
-     &      "  BLAS: ", duration, " s (", nrepeat, " calls)"
+     &      "  DSYRK:", duration, " s (", nrepeat, " calls)"
           WRITE(*, "(A,F10.1,A)")                                       &
      &      "        ", gflops * DBLE(nrepeat) / duration,              &
      &      " GFLOPS/s"

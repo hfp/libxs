@@ -18,13 +18,16 @@
 #endif
 
 #if !defined(LIBXS_GEMM_BM)
-# define LIBXS_GEMM_BM 24
+# define LIBXS_GEMM_BM 192
 #endif
 #if !defined(LIBXS_GEMM_BN)
-# define LIBXS_GEMM_BN 48
+# define LIBXS_GEMM_BN 32
 #endif
 #if !defined(LIBXS_GEMM_BK)
-# define LIBXS_GEMM_BK 128
+# define LIBXS_GEMM_BK 48
+#endif
+#if !defined(LIBXS_SYRK_MINTASKS)
+# define LIBXS_SYRK_MINTASKS 4
 #endif
 #if !defined(INTERNAL_GEMM_NLOCKS)
 # define INTERNAL_GEMM_NLOCKS 16
@@ -165,6 +168,7 @@ typedef void (*internal_libxs_dsyr2k_t)(const char*, const char*, const int*, co
 typedef void (*internal_libxs_ssyr2k_t)(const char*, const char*, const int*, const int*,
   const float*, const float*, const int*, const float*, const int*,
   const float*, float*, const int*);
+typedef int (*internal_libxs_blas_query_t)(void);
 
 
 LIBXS_APIVAR_DEFINE(LIBXS_LOCK_TYPE(LIBXS_LOCK) internal_libxs_gemm_locks[INTERNAL_GEMM_NLOCKS]);
@@ -190,6 +194,10 @@ LIBXS_APIVAR_DEFINE(internal_libxs_dsyrk_t internal_libxs_dsyrk_blas);
 LIBXS_APIVAR_DEFINE(internal_libxs_ssyrk_t internal_libxs_ssyrk_blas);
 LIBXS_APIVAR_DEFINE(internal_libxs_dsyr2k_t internal_libxs_dsyr2k_blas);
 LIBXS_APIVAR_DEFINE(internal_libxs_ssyr2k_t internal_libxs_ssyr2k_blas);
+LIBXS_APIVAR_DEFINE(internal_libxs_blas_query_t internal_libxs_mkl_nthreads);
+LIBXS_APIVAR_DEFINE(internal_libxs_blas_query_t internal_libxs_openblas_parallel);
+LIBXS_APIVAR_DEFINE(internal_libxs_blas_query_t internal_libxs_openblas_nthreads);
+LIBXS_APIVAR_DEFINE(libxs_blas_nthreads_t internal_libxs_blas_nthreads);
 
 LIBXS_APIVAR_DEFINE(libxs_jit_create_dgemm_t internal_libxs_jit_create_dgemm);
 LIBXS_APIVAR_DEFINE(libxs_jit_get_dgemm_t internal_libxs_jit_get_dgemm);
@@ -244,6 +252,29 @@ LIBXS_API_INTERN void internal_libxs_gemm_init(void)
         LIBXS_FPTR_FROM_VPTR(internal_libxs_ssyr2k_t, internal_libxs_ssyr2k_blas, dl);
       }
     }
+    /* layered MKL exports the lowercase name only (interface layer), libmkl_rt both */
+    dlerror();
+    dl = dlsym(LIBXS_RTLD_NEXT, "mkl_get_max_threads");
+    if (NULL == dlerror() && NULL != dl) {
+      LIBXS_FPTR_FROM_VPTR(internal_libxs_blas_query_t, internal_libxs_mkl_nthreads, dl);
+    }
+    else {
+      dlerror();
+      dl = dlsym(LIBXS_RTLD_NEXT, "MKL_Get_Max_Threads");
+      if (NULL == dlerror() && NULL != dl) {
+        LIBXS_FPTR_FROM_VPTR(internal_libxs_blas_query_t, internal_libxs_mkl_nthreads, dl);
+      }
+    }
+    dlerror();
+    dl = dlsym(LIBXS_RTLD_NEXT, "openblas_get_parallel");
+    if (NULL == dlerror() && NULL != dl) {
+      LIBXS_FPTR_FROM_VPTR(internal_libxs_blas_query_t, internal_libxs_openblas_parallel, dl);
+    }
+    dlerror();
+    dl = dlsym(LIBXS_RTLD_NEXT, "openblas_get_num_threads");
+    if (NULL == dlerror() && NULL != dl) {
+      LIBXS_FPTR_FROM_VPTR(internal_libxs_blas_query_t, internal_libxs_openblas_nthreads, dl);
+    }
     dlerror();
     dl = dlsym(LIBXS_RTLD_NEXT, "mkl_cblas_jit_create_dgemm");
     if (NULL == dlerror() && NULL != dl) {
@@ -291,6 +322,26 @@ LIBXS_API_INTERN void internal_libxs_gemm_init(void)
     internal_libxs_gemm_registry = libxs_registry_create();
     internal_libxs_gemm_init_once = 1;
   }
+}
+
+
+/* nonzero if the BLAS parallelizes by itself; a library that cannot tell counts as sequential */
+LIBXS_API_INLINE int internal_libxs_blas_threaded(void)
+{
+  int result = 0;
+  if (NULL != internal_libxs_mkl_nthreads) {
+    result = (1 < internal_libxs_mkl_nthreads());
+  }
+  else if (NULL != internal_libxs_openblas_parallel
+    && NULL != internal_libxs_openblas_nthreads)
+  {
+    result = (0 != internal_libxs_openblas_parallel()
+      && 1 < internal_libxs_openblas_nthreads());
+  }
+  else if (NULL != internal_libxs_blas_nthreads) { /* backend of the caller (static link) */
+    result = (1 < internal_libxs_blas_nthreads());
+  }
+  return result;
 }
 
 
@@ -533,6 +584,9 @@ LIBXS_API_INLINE void internal_libxs_gemm_blas_init(
   libxs_gemm_config_t* config,
   const libxs_gemm_backend_t* backend, int use_blas)
 {
+  if (NULL != backend && NULL != backend->blas_nthreads) {
+    internal_libxs_blas_nthreads = backend->blas_nthreads;
+  }
   if (0 != use_blas) {
     config->dgemm_blas = (NULL != backend && NULL != backend->dgemm_blas)
       ? backend->dgemm_blas : (NULL != internal_libxs_dgemm_blas)
@@ -652,10 +706,15 @@ LIBXS_API_INTERN libxs_gemm_config_t* internal_libxs_gemm_dispatch(
         const int klda = kernel_shape->lda, kldb = kernel_shape->ldb;
         const int kldc = kernel_shape->ldc;
         const int gemm_backend = internal_libxs_gemm_backend;
-        /* MKL JIT assumes resident operands: a tile streams and loses ~2x to BLAS */
+        /* a leading dimension beyond the operand's own extent means a window
+           into a larger matrix: generated kernels neither pack nor prefetch
+           and then lose to BLAS, whereas resident operands are their domain */
+        const int strided = (klda > (0 != ta ? kk : km)
+          || kldb > (0 != tb ? kn : kk));
         const int use_jit = (INTERNAL_GEMM_BACKEND_MKL_JIT == gemm_backend
-          || (INTERNAL_GEMM_BACKEND_AUTO == gemm_backend && 0 == tiled));
-        const int use_xgemm = (INTERNAL_GEMM_BACKEND_LIBXSMM >= gemm_backend);
+          || (INTERNAL_GEMM_BACKEND_AUTO == gemm_backend && 0 == strided));
+        const int use_xgemm = (INTERNAL_GEMM_BACKEND_LIBXSMM >= gemm_backend
+          && (INTERNAL_GEMM_BACKEND_AUTO != gemm_backend || 0 == strided));
         const int use_blas = (INTERNAL_GEMM_BACKEND_BLAS >= gemm_backend);
         const size_t elemsize = LIBXS_TYPESIZE(kernel_shape->datatype);
         const size_t kflops = (size_t)km * kn * kk * 2;
@@ -1090,6 +1149,25 @@ LIBXS_API void libxs_gemm_index(
 }
 
 
+LIBXS_API int libxs_gemm_ntasks(const libxs_gemm_config_t* config,
+  int batchsize, int nthreads)
+{
+  int result = 1;
+  const int size = LIBXS_ABS(batchsize);
+  if (NULL != config && 1 < nthreads && 1 < size) {
+    const int kernel = (NULL != config->dgemm_jit || NULL != config->sgemm_jit
+      || NULL != config->xgemm);
+    internal_libxs_gemm_init(); /* a caller-built config may precede any dispatch */
+    result = LIBXS_MIN(nthreads, size); /* more tasks than elements idle */
+    /* a threaded BLAS gives every call the whole team, which a split of fewer elements cannot */
+    if (0 == kernel && size < nthreads && 0 != internal_libxs_blas_threaded()) {
+      result = 1;
+    }
+  }
+  return result;
+}
+
+
 LIBXS_API_INTERN void internal_libxs_gemm_blas(
   const libxs_gemm_config_t* config,
   const void* a, const void* b, void* c,
@@ -1347,7 +1425,9 @@ LIBXS_API void libxs_syr2k_task(
         }
       }
     }
-    else if (LIBXS_DATATYPE_F64 == config->shape.datatype
+    /* the BLAS entry point cannot honor a split, hence it serves one task */
+    else if (1 >= ntasks
+      && LIBXS_DATATYPE_F64 == config->shape.datatype
       && NULL != internal_libxs_dsyr2k_blas)
     {
       if (0 == tid) {
@@ -1371,7 +1451,8 @@ LIBXS_API void libxs_syr2k_task(
           (const double*)&beta, (double*)c, &ldc);
       }
     }
-    else if (LIBXS_DATATYPE_F32 == config->shape.datatype
+    else if (1 >= ntasks
+      && LIBXS_DATATYPE_F32 == config->shape.datatype
       && NULL != internal_libxs_ssyr2k_blas)
     {
       if (0 == tid) {
@@ -1516,7 +1597,9 @@ LIBXS_API void libxs_syrk_task(
         }
       }
     }
-    else if (LIBXS_DATATYPE_F64 == config->shape.datatype
+    /* the BLAS entry point cannot honor a split, hence it serves one task */
+    else if (1 >= ntasks
+      && LIBXS_DATATYPE_F64 == config->shape.datatype
       && NULL != internal_libxs_dsyrk_blas)
     {
       if (0 == tid) {
@@ -1539,7 +1622,8 @@ LIBXS_API void libxs_syrk_task(
           (const double*)&beta, (double*)c, &ldc);
       }
     }
-    else if (LIBXS_DATATYPE_F32 == config->shape.datatype
+    else if (1 >= ntasks
+      && LIBXS_DATATYPE_F32 == config->shape.datatype
       && NULL != internal_libxs_ssyrk_blas)
     {
       if (0 == tid) {
@@ -1617,6 +1701,28 @@ LIBXS_API void libxs_syrk(
   const void* a, void* c)
 {
   libxs_syrk_task(config, uplo, alpha, beta, a, c, 0, 1);
+}
+
+
+LIBXS_API int libxs_syrk_ntasks(const libxs_gemm_config_t* config, int nthreads)
+{
+  int result = 1;
+  if (NULL != config && 1 < nthreads) {
+    const int n = config->shape.m, k = config->shape.k;
+    internal_libxs_gemm_init(); /* a caller-built config may precede any dispatch */
+    if (n > internal_libxs_gemm_bm || n > internal_libxs_gemm_bn
+      || k > internal_libxs_gemm_bk)
+    {
+      /* a split runs at ~2/3 of a sequential BLAS SYRK per core, and loses to a threaded one */
+      if (0 == internal_libxs_syrk_blas_due(config->shape.datatype, n, k)
+        || (LIBXS_SYRK_MINTASKS <= nthreads && 0 == internal_libxs_blas_threaded()))
+      {
+        const int ncols = LIBXS_UPDIV(n, internal_libxs_gemm_bn);
+        result = LIBXS_MIN(nthreads, ncols); /* more tasks than block columns idle */
+      }
+    }
+  }
+  return result;
 }
 
 

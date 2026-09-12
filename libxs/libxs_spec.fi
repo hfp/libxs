@@ -97,6 +97,7 @@
         PUBLIC :: libxs_gemm_index, libxs_gemm_index_task
         PUBLIC :: libxs_syr2k, libxs_syrk
         PUBLIC :: libxs_syr2k_task, libxs_syrk_task
+        PUBLIC :: libxs_syrk_ntasks, libxs_gemm_ntasks
         PUBLIC :: libxs_gemm_release_registry
 
         PUBLIC :: libxs_predict_info_t, libxs_predict_query_t
@@ -316,6 +317,7 @@
           TYPE(C_FUNPTR) :: xgemm_dispatch   = C_NULL_FUNPTR
           TYPE(C_FUNPTR) :: dgemm_blas       = C_NULL_FUNPTR
           TYPE(C_FUNPTR) :: sgemm_blas       = C_NULL_FUNPTR
+          TYPE(C_FUNPTR) :: blas_nthreads    = C_NULL_FUNPTR
         END TYPE
 
         TYPE, BIND(C) :: libxs_gemm_shape_t
@@ -861,10 +863,10 @@
      &      m, n, ldi, ldo, tid, ntasks
           END SUBROUTINE
 
-          !> Pointer-array GEMM batch.
-          SUBROUTINE libxs_gemm_batch(                                  &
+          ! internal C binding
+          SUBROUTINE internal_gemm_batch(                               &
      &    a_array, b_array, c_array,                                    &
-     &    batchsize, config) BIND(C)
+     &    batchsize, config) BIND(C, NAME="libxs_gemm_batch")
             IMPORT :: C_PTR, C_INT,                                     &
      &        libxs_gemm_config_t
             INTEGER(C_INT), INTENT(IN), VALUE :: batchsize
@@ -886,11 +888,11 @@
             TYPE(libxs_gemm_config_t), INTENT(IN) :: config
           END SUBROUTINE
 
-          !> Index-array GEMM batch (element-offsets).
-          SUBROUTINE libxs_gemm_index(                                  &
+          ! internal C binding
+          SUBROUTINE internal_gemm_index(                               &
      &    a, stride_a, b, stride_b, c, stride_c,                        &
      &    index_stride, index_base,                                     &
-     &    batchsize, config) BIND(C)
+     &    batchsize, config) BIND(C, NAME="libxs_gemm_index")
             IMPORT :: C_PTR, C_INT,                                     &
      &        libxs_gemm_config_t
             INTEGER(C_INT), INTENT(IN), VALUE ::                        &
@@ -1005,6 +1007,23 @@
             INTEGER(C_INT), INTENT(IN), VALUE ::                        &
      &        tid, ntasks
           END SUBROUTINE
+
+          !> Tasks worth splitting a GEMM batch into (1: unsplit).
+          FUNCTION libxs_gemm_ntasks(config, batchsize, nthreads)       &
+     &    BIND(C)
+            IMPORT :: libxs_gemm_config_t, C_INT
+            TYPE(libxs_gemm_config_t), INTENT(IN) :: config
+            INTEGER(C_INT), INTENT(IN), VALUE :: batchsize, nthreads
+            INTEGER(C_INT) :: libxs_gemm_ntasks
+          END FUNCTION
+
+          !> Tasks worth splitting SYRK/SYR2K into (1: unsplit).
+          FUNCTION libxs_syrk_ntasks(config, nthreads) BIND(C)
+            IMPORT :: libxs_gemm_config_t, C_INT
+            TYPE(libxs_gemm_config_t), INTENT(IN) :: config
+            INTEGER(C_INT), INTENT(IN), VALUE :: nthreads
+            INTEGER(C_INT) :: libxs_syrk_ntasks
+          END FUNCTION
 
           !> Release all GEMM configs cached in a registry,
           !> then destroy the registry itself.

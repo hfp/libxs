@@ -37,29 +37,23 @@ Arguments (all optional, positional):
 
 ## OpenMP
 
-`libxs_syrk_task` and `libxs_syr2k_task` take a task index and a task
-count instead of running the whole update. The sample shows both ways
-to supply them:
+When the Fortran module is compiled with OpenMP (the sample's default),
+`libxs_syrk` and `libxs_syr2k` run over an OpenMP team, unless called
+from within a parallel region. The team size comes from
+`libxs_syrk_ntasks`, which returns 1 where the unsplit call is faster:
+small shapes, a threaded BLAS (which then parallelizes DSYRK itself),
+or too few threads against a sequential BLAS. The sample prints this
+count as `libxs_syrk=`.
 
-    OMP      one task per thread (tid = omp_get_thread_num)
-    TASK     tasks * threads tasks over an OpenMP DO (dynamic)
+The performance section compares `DSYRK` with `LIBXS` (`libxs_syrk`).
+`DSYRK` is only threaded with a threaded BLAS, hence build with
+`make MKL=2` to compare parallel DSYRK with the parallel `libxs_syrk`:
 
-Oversubscribing is worthwhile because the tasks cover a triangle: tasks
-are handed out as contiguous ranges of C blocks, and the blocks skipped
-outside the triangle are not spread evenly over those ranges. A dynamic
-schedule with more tasks than threads evens this out.
+    make MKL=2
+    OMP_NUM_THREADS=16 OMP_PROC_BIND=close ./syrk.x 2048 2048 5
 
-Both forms stay correct without OpenMP: the first runs as one task, the
-second as a serial loop over all tasks. No build-time branch is needed.
-
-The parallel split only engages where SYRK is decomposed into blocks.
-With `N` or `K` beyond the block size (`LIBXS_GEMM_BM`, `LIBXS_GEMM_BN`,
-`LIBXS_GEMM_BK`), a BLAS `dsyrk` found at runtime is preferred over the
-decomposition, and it runs on the first task alone. Set
-`LIBXS_SYRK_BLAS=0` to keep the blocked path, which is what the OpenMP
-variants parallelize:
-
-    LIBXS_SYRK_BLAS=0 OMP_NUM_THREADS=8 ./syrk.x 2000 2000 20
+The `OMP` and `TASK` lines call `libxs_syrk_task` explicitly, as C code
+would: one task per thread, or `tasks` per thread over a dynamic DO.
 
 ## Example Output
 
@@ -72,12 +66,12 @@ variants parallelize:
       max error (upper): 0.00000E+00
 
     --- libxs_syrk_task (OpenMP) ---
-      threads=8 ntasks=32
+      threads=8 ntasks=32 libxs_syrk=1
       max error (omp):  0.00000E+00
       max error (omp tasks):  0.00000E+00
 
     --- SYRK performance ---
-      BLAS:      0.002 s (100 calls)
+      DSYRK:     0.002 s (100 calls)
                      28.4 GFLOPS/s
       LIBXS:     0.002 s (100 calls)
                      28.1 GFLOPS/s
@@ -86,9 +80,8 @@ variants parallelize:
       TASK:      0.002 s (100 calls)
                      27.9 GFLOPS/s
 
-At the default N=64 the update is a handful of blocks and the BLAS
-path is preferred, so OMP and TASK match LIBXS. Both only pull ahead
-at a size worth splitting, and with `LIBXS_SYRK_BLAS=0`.
+At N=64 the update fits a single tile (`libxs_syrk=1`), hence all lines
+match; a split pays off at larger N.
 
 ## Notes
 
@@ -97,9 +90,9 @@ at a size worth splitting, and with `LIBXS_SYRK_BLAS=0`.
   remains valid until libxs_finalize or the registry is destroyed.
   There is no need to release it manually.
 
-- Internally, SYRK/SYR2K decompose into GEMM tiles on the
-  diagonal and off-diagonal blocks. The dispatched GEMM kernel
-  (MKL JIT, LIBXSMM, or fallback BLAS) handles the inner loop.
+- Internally, SYRK/SYR2K decompose into GEMM tiles (default
+  192x32x48, see `LIBXS_GEMM_BM`, `LIBXS_GEMM_BN`, `LIBXS_GEMM_BK`)
+  on the diagonal and off-diagonal blocks.
 
 - Scratch memory for the temporary block products is a thread-local
   buffer that grows on demand, hence tasks need no synchronization:
