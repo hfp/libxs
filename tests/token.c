@@ -390,6 +390,12 @@ int main(int argc, char* argv[])
     libxs_lexeme_stream_release(&norm_stream);
   }
   if (EXIT_SUCCESS == result) {
+    unsigned int count_id;
+    count_id = libxs_lexicon_id(lexicon, "tally", 5, 0, 1);
+    libxs_lexicon_id(lexicon, "tally", 5, 0, 1);
+    libxs_lexicon_id(lexicon, "tally", 5, 0, 1);
+    /* a lookup resolves the same id without inflating the frequency */
+    libxs_lexicon_id(lexicon, "tally", 5, 0, 0);
     result = libxs_lexicon_save(lexicon, NULL, &lexicon_buffer_size);
     if (EXIT_SUCCESS == result && lexicon_buffer_size > 0) {
       lexicon_buffer = malloc(lexicon_buffer_size);
@@ -403,7 +409,9 @@ int main(int argc, char* argv[])
       loaded_lexicon = libxs_lexicon_load(lexicon_buffer,
         lexicon_buffer_size);
       if (NULL == loaded_lexicon
-        || libxs_lexicon_size(loaded_lexicon) != libxs_lexicon_size(lexicon))
+        || libxs_lexicon_size(loaded_lexicon) != libxs_lexicon_size(lexicon)
+        || 3 != libxs_lexicon_count(lexicon, count_id)
+        || 3 != libxs_lexicon_count(loaded_lexicon, count_id))
       {
         FPRINTF(stderr, "ERROR line #%i: lexicon save/load\n", __LINE__);
         result = EXIT_FAILURE;

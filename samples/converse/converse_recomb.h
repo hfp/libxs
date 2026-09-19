@@ -47,7 +47,7 @@ typedef struct converse_recomb_host_t {
   int (*is_wordchar)(const unsigned char* text, size_t size, int* length);
   int (*entry_build)(corpus_entry_t* entry, const unsigned char* text, int len,
     unsigned char scale, libxs_lexicon_t* lexicon,
-    const libxs_lexrule_t* rules, int nrules);
+    const libxs_lexrule_t* rules, int nrules, int create);
   converse_recomb_prob_t word_prob;
   converse_recomb_seam_t seam_bits;
   int maxorder;

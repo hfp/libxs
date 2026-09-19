@@ -20,9 +20,15 @@
 
 int corpus_ingest_basename(libxs_registry_t* corpus, const char* basename,
   libxs_lexicon_t* lexicon, const libxs_lexrule_t* rules, int nrules);
+/**
+ * Build one corpus entry from text. create interns unseen words, which only
+ * ingest may do: a pass that rebuilds derived entries from stored text passes
+ * zero, because every id it needs exists and counting the occurrences again
+ * would inflate libxs_lexicon_count on every run.
+ */
 int corpus_entry_build(corpus_entry_t* entry, const unsigned char* text,
   int len, unsigned char scale, libxs_lexicon_t* lexicon,
-  const libxs_lexrule_t* rules, int nrules);
+  const libxs_lexrule_t* rules, int nrules, int create);
 int count_words(const unsigned char* text, int length);
 int entry_sketch_has_id(const corpus_entry_t* entry, unsigned int id);
 
@@ -41,6 +47,13 @@ int corpus_title_len(const char* text, int len);
 int corpus_line_markup(const char* text, int len);
 /** Path an entry's source id stands for, or NULL if the run has no name for it. */
 const char* corpus_source_path(unsigned int id);
+
+/**
+ * Path of the normalization table for the active corpus namespace. Loaded by
+ * converse_setup as relation rules of kind "norm", so a table written here is
+ * read by the next run of any binary.
+ */
+const char* converse_norms_path(void);
 int corpus_case_forced(const char* text, int at, int heading_len);
 
 int text_ends_sentence(const char* text, int text_len);

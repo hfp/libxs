@@ -1621,7 +1621,7 @@ static long recomb_capacity(const libxs_registry_t* corpus,
               int ncwords, nsub_pivots = 0, sub_capped = 0;
               if (EXIT_SUCCESS == recomb_host->entry_build(&host2,
                 (const unsigned char*)candidate, len, SCALE_SENTENCE, lexicon,
-                rules, nrules))
+                rules, nrules, 0))
               {
                 ncwords = recomb_words(lexicon, host2.text, host2.text_len,
                   cwords, (int)(sizeof(cwords) / sizeof(*cwords)));
@@ -2172,7 +2172,7 @@ int converse_recomb_compose_best(const libxs_registry_t* corpus,
    */
   if (EXIT_SUCCESS != recomb_host->entry_build(&a,
     (const unsigned char*)host_text, host_len, SCALE_SENTENCE, lexicon, rules,
-    nrules))
+    nrules, 0))
   {
     return 0;
   }

@@ -306,12 +306,26 @@ LIBXS_API unsigned int libxs_lexicon_id(libxs_lexicon_t* lexicon,
 LIBXS_API int libxs_lexicon_save(const libxs_lexicon_t* lexicon,
   void* buffer, size_t* size);
 
-/** Load a lexical vocabulary saved with libxs_lexicon_save. */
+/**
+ * Load a lexical vocabulary saved with libxs_lexicon_save, or NULL. A
+ * vocabulary written by a different version of the library is rejected rather
+ * than misread, so NULL does not mean the buffer held nothing: a caller that
+ * falls back to an empty vocabulary renumbers the ids that a corpus or a model
+ * saved beside it still refers to.
+ */
 LIBXS_API libxs_lexicon_t* libxs_lexicon_load(const void* buffer, size_t size);
 
 /** Query normalized token text and class flags by vocabulary id. */
 LIBXS_API const char* libxs_lexicon_text(const libxs_lexicon_t* lexicon,
   unsigned int id, int* length, unsigned int* flags);
+
+/**
+ * How often the vocabulary interned the text of an id, i.e. its occurrence
+ * count over everything encoded into it (0 if the id is unknown). Only the
+ * interning path counts, so a lookup does not inflate a frequency.
+ */
+LIBXS_API unsigned int libxs_lexicon_count(const libxs_lexicon_t* lexicon,
+  unsigned int id);
 
 /** Initialize an empty lexical token stream. */
 LIBXS_API void libxs_lexeme_stream_init(libxs_lexeme_stream_t* stream);

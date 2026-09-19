@@ -372,7 +372,7 @@ static void answer_lexnorms_build(void);
 static void converse_namespace_init(const char* prefix);
 static libxs_registry_t* corpus_load(void);
 static int corpus_save(const libxs_registry_t* corpus);
-static libxs_lexicon_t* converse_lexicon_load(void);
+static libxs_lexicon_t* converse_lexicon_load(int* stale);
 static int converse_lexicon_save(const libxs_lexicon_t* lexicon);
 static libxs_predict_t* converse_predict_load(void);
 static int converse_predict_save(const libxs_predict_t* model);
@@ -1948,6 +1948,7 @@ static void converse_namespace_init(const char* prefix)
     sprintf(converse_path_source, "%s.src", base);
     sprintf(converse_path_lexicon, "%s.lex", base);
     sprintf(converse_path_predict, "%s.prd", base);
+    sprintf(converse_path_norm, "%s.norms", base);
     sprintf(converse_path_bridge, "%s.bridges", base);
     sprintf(converse_path_relation, "%s.relations", base);
     sprintf(converse_path_language_own, "%s.rules", base);
@@ -2092,10 +2093,17 @@ static int corpus_save(const libxs_registry_t* corpus)
 }
 
 
-static libxs_lexicon_t* converse_lexicon_load(void)
+/**
+ * Load the persisted vocabulary. Optional stale separates the two reasons for
+ * a NULL result: no file yet, which an empty vocabulary answers, and a file the
+ * library refused, which it must not, because the corpus and the ranker saved
+ * beside it hold ids into the vocabulary that is gone.
+ */
+static libxs_lexicon_t* converse_lexicon_load(int* stale)
 {
   libxs_lexicon_t* result = NULL;
   FILE* file = fopen(converse_path_lexicon, "rb");
+  if (NULL != stale) *stale = 0;
   if (NULL != file) {
     long len;
     fseek(file, 0, SEEK_END);
@@ -2106,6 +2114,7 @@ static libxs_lexicon_t* converse_lexicon_load(void)
       if (NULL != buf) {
         if ((long)fread(buf, 1, (size_t)len, file) == len) {
           result = libxs_lexicon_load(buf, (size_t)len);
+          if (NULL == result && NULL != stale) *stale = 1;
         }
         free(buf);
       }
@@ -2344,7 +2353,8 @@ static int corpus_shuffle_mode(void)
 
 int corpus_entry_build(corpus_entry_t* entry,
   const unsigned char* text, int len, unsigned char scale,
-  libxs_lexicon_t* lexicon, const libxs_lexrule_t* rules, int nrules)
+  libxs_lexicon_t* lexicon, const libxs_lexrule_t* rules, int nrules,
+  int create)
 {
   int result = EXIT_FAILURE;
   const size_t shape = (size_t)len;
@@ -2374,7 +2384,7 @@ int corpus_entry_build(corpus_entry_t* entry,
   if (EXIT_SUCCESS == result && NULL != lexicon && NULL != rules
     && nrules > 0 && EXIT_SUCCESS == libxs_lexeme_stream_encode(lexicon,
       &stream, text, (size_t)len, rules, nrules,
-      answer_lexnorms, answer_lexnorms_size, 1))
+      answer_lexnorms, answer_lexnorms_size, create))
   {
     for (lexeme_pos = 0; lexeme_pos < stream.size; ++lexeme_pos) {
       const libxs_lexeme_t* lexeme = stream.data + lexeme_pos;
@@ -2722,6 +2732,12 @@ const char* corpus_source_path(unsigned int id)
   const char* result = NULL;
   if ((int)id < corpus_source_npaths) result = corpus_source_paths[id];
   return result;
+}
+
+
+const char* converse_norms_path(void)
+{
+  return converse_path_norm;
 }
 
 
@@ -3175,7 +3191,8 @@ static int corpus_span_build(const corpus_span_t* span, corpus_entry_t* entry)
     && (size_t)span->offset + (size_t)span->text_len <= (size_t)blob->text_len
     && EXIT_SUCCESS == corpus_entry_build(entry,
       (const unsigned char*)blob->text + span->offset, span->text_len,
-      span->scale, corpus_view_lexicon, corpus_view_rules, corpus_view_nrules))
+      span->scale, corpus_view_lexicon, corpus_view_rules,
+      corpus_view_nrules, 0))
   {
     entry->lexical_flags |= ENTRY_LEX_FRAGMENT;
     entry->source = blob->source;
@@ -4673,6 +4690,13 @@ void ngram_stats(const libxs_registry_t* model)
 }
 
 
+/**
+ * Training reads the vocabulary rather than extending it. The text is corpus
+ * text, so ingest has interned every id this needs, and creating here would
+ * count each occurrence again on every run: the model is rebuilt per run while
+ * the corpus is not, so libxs_lexicon_count would grow without the corpus
+ * growing. Every other pass over stored text already looks up.
+ */
 static void ngram_train_text(libxs_registry_t* model,
   libxs_lexicon_t* lexicon, const libxs_lexrule_t* rules, int nrules,
   const char* text, int text_len)
@@ -4683,7 +4707,7 @@ static void ngram_train_text(libxs_registry_t* model,
     libxs_lexeme_t nat[COMPOSE_MAXTEXT];
     unsigned int word_ids[COMPOSE_MAXTEXT];
     int ntok = ngram_native_tokens(lexicon, text, text_len, nat,
-      (0 != wctx) ? word_ids : NULL, COMPOSE_MAXTEXT, 1);
+      (0 != wctx) ? word_ids : NULL, COMPOSE_MAXTEXT, 0);
     unsigned int hist[NGRAM_ORDER_MAX];
     int hlen = 0, i;
     if (NULL == model) return;
@@ -4705,7 +4729,7 @@ static void ngram_train_text(libxs_registry_t* model,
     if (NULL != model && NULL != lexicon && NULL != rules && nrules > 0
       && text_len > 0 && EXIT_SUCCESS == libxs_lexeme_stream_encode(lexicon,
         &stream, (const unsigned char*)text, (size_t)text_len, rules, nrules,
-        answer_lexnorms, answer_lexnorms_size, 1))
+        answer_lexnorms, answer_lexnorms_size, 0))
     {
       size_t pos;
       unsigned int hist[NGRAM_ORDER_MAX];
@@ -5868,7 +5892,7 @@ static int corpus_store_clauses(libxs_registry_t* corpus,
             section, section_len);
         }
         if (EXIT_SUCCESS == corpus_entry_build(&entry, text + trim_start,
-          frag_len, SCALE_SENTENCE, lexicon, rules, nrules))
+          frag_len, SCALE_SENTENCE, lexicon, rules, nrules, 1))
         {
           corpus_span_t span;
           entry.lexical_flags |= ENTRY_LEX_FRAGMENT;
@@ -5964,7 +5988,7 @@ static int corpus_md_store(libxs_registry_t* corpus,
   {
     corpus_entry_t entry;
     if (EXIT_SUCCESS == corpus_entry_build(&entry, text, len,
-      SCALE_PARAGRAPH, lexicon, rules, nrules))
+      SCALE_PARAGRAPH, lexicon, rules, nrules, 1))
     {
       entry.line = corpus_line_at(NULL, 0, offset);
       corpus_entry_set_section(&entry, section, section_len);
@@ -5993,7 +6017,7 @@ static int corpus_md_store(libxs_registry_t* corpus,
           /* A block that is one sentence is already stored above. */
           if (8 < span && span < len && 3 <= count_words(text + begin, span)
             && EXIT_SUCCESS == corpus_entry_build(&entry, text + begin, span,
-              SCALE_SENTENCE, lexicon, rules, nrules))
+              SCALE_SENTENCE, lexicon, rules, nrules, 1))
           {
             entry.line = corpus_line_at(NULL, 0, offset + (size_t)begin);
             corpus_entry_set_section(&entry, section, section_len);
@@ -6222,7 +6246,7 @@ static int corpus_ingest_file(libxs_registry_t* corpus, const char* path,
               corpus_entry_t entry;
               if (EXIT_SUCCESS == corpus_entry_build(&entry,
                 text + sent_start, len, SCALE_SENTENCE,
-                lexicon, rules, nrules))
+                lexicon, rules, nrules, 1))
               {
                 entry.line = corpus_line_at(text, text_size, sent_start);
                 corpus_entry_set_section(&entry, current_section,
@@ -6260,7 +6284,7 @@ static int corpus_ingest_file(libxs_registry_t* corpus, const char* path,
               corpus_entry_t entry;
               if (EXIT_SUCCESS == corpus_entry_build(&entry,
                 text + para_start, plen, SCALE_PARAGRAPH,
-                lexicon, rules, nrules))
+                lexicon, rules, nrules, 1))
               {
                 entry.line = corpus_line_at(text, text_size, para_start);
                 corpus_entry_set_section(&entry, para_section,
@@ -6507,7 +6531,27 @@ const char* converse_eval_path(void)
 }
 
 
-static void converse_usage(const char* program)
+/** The normalizer shares the setup but none of the modes, so it has its own. */
+static void converse_usage_norm(const char* program)
+{
+  fprintf(stderr,
+    "Usage: %s [-e] [-r N] [-m N] [-t FILE] [-b PREFIX] corpus1.txt"
+    " [corpus2.txt ...]\n"
+    "  Normalize spellings against the corpus vocabulary; without -e or -t,\n"
+    "  read one word per line and print what it decodes to.\n"
+    "  -e: report vocabulary packing and decode accuracy, and exit.\n"
+    "  -t FILE: correct the forms in FILE (one per line) and write the\n"
+    "           accepted corrections to the norms table.\n"
+    "  -r N: largest edit distance a correction spans (default 1).\n"
+    "  -m N: distance the runner-up must add beyond it (default 1).\n"
+    "  -L: learn from the corpus, save state, and exit.\n"
+    "  -p STRUCTURE: corpus structure (prose|markdown; default by ext).\n"
+    "  -b PREFIX: ingest matching files next to PREFIX.\n",
+    program);
+}
+
+
+static void converse_usage_all(const char* program)
 {
   fprintf(stderr,
     "Usage: %s [-e] [-n N] [-P PROFILE] [-b PREFIX] corpus1.txt [corpus2.txt ...]\n"
@@ -6608,6 +6652,13 @@ static void converse_usage(const char* program)
 }
 
 
+static void converse_usage(const char* program, int role)
+{
+  if (CONVERSE_ROLE_NORM == role) converse_usage_norm(program);
+  else converse_usage_all(program);
+}
+
+
 /**
  * Parse the command line into `run`. `basenames` may be NULL when the caller
  * only needs the modes, which is how converse_role_of asks the same parser the
@@ -6640,6 +6691,20 @@ static int converse_parse(int argc, char* argv[], converse_run_t* run,
     else if (0 == strcmp(argv[i], "-x")) {
       converse_order_max = 1;
       ++i;
+    }
+    else if (0 == strcmp(argv[i], "-r") && i + 1 < argc) {
+      run->norm_radius = atoi(argv[i + 1]);
+      if (run->norm_radius < 0) run->norm_radius = 0;
+      i += 2;
+    }
+    else if (0 == strcmp(argv[i], "-m") && i + 1 < argc) {
+      run->norm_margin = atoi(argv[i + 1]);
+      if (run->norm_margin < 0) run->norm_margin = 0;
+      i += 2;
+    }
+    else if (0 == strcmp(argv[i], "-t") && i + 1 < argc) {
+      run->norm_words = argv[i + 1];
+      i += 2;
     }
     else if (0 == strcmp(argv[i], "-H") && i + 1 < argc) {
       run->ngram_holdout = atoi(argv[i + 1]);
@@ -6772,7 +6837,21 @@ static int converse_role_gate(const converse_run_t* run)
 {
   const int wanted = converse_run_role(run);
   int result = EXIT_SUCCESS;
-  if (CONVERSE_ROLE_ALL != run->role && 0 == run->learn_mode
+  if (CONVERSE_ROLE_NORM == run->role) {
+    /* -e is the normalizer's own evaluation; the prediction modes are not its */
+    if (0 != run->predict_eval_mode || 0 != run->complete_mode) {
+      fprintf(stderr, "the normalizer serves neither -E nor -c:"
+        " use converse-lm\n");
+      result = EXIT_FAILURE;
+    }
+  }
+  else if (NULL != run->norm_words || 0 <= run->norm_radius
+    || 0 <= run->norm_margin)
+  {
+    fprintf(stderr, "-t, -r and -m are normalization: use converse-norm\n");
+    result = EXIT_FAILURE;
+  }
+  else if (CONVERSE_ROLE_ALL != run->role && 0 == run->learn_mode
     && wanted != run->role)
   {
     if (CONVERSE_ROLE_LM == wanted) {
@@ -6815,9 +6894,11 @@ int converse_setup(int argc, char* argv[], int role, converse_run_t* run)
   run->ngram_kind = "trigram";
   run->profile = answer_predict_profile_default();
   run->rules = converse_lexrules;
+  /* negative is unspecified: a radius of zero is a meaningful request */
+  run->norm_radius = -1;
+  run->norm_margin = -1;
   if (argc < 2) {
-    converse_usage(argv[0]);
-    answer_predict_profile_list(stderr);
+    converse_usage(argv[0], role);
     result = EXIT_FAILURE;
   }
   else {
@@ -6842,10 +6923,20 @@ int converse_setup(int argc, char* argv[], int role, converse_run_t* run)
     }
   }
   if (EXIT_SUCCESS == result) {
+    int stale = 0;
     run->corpus = corpus_load();
     if (NULL == run->corpus) run->corpus = libxs_registry_create();
-    run->lexicon = converse_lexicon_load();
-    if (NULL == run->lexicon) run->lexicon = libxs_lexicon_create();
+    run->lexicon = converse_lexicon_load(&stale);
+    if (0 != stale) {
+      fprintf(stderr,
+        "%s was written by a different version and the corpus beside it "
+        "refers to its ids: remove %s and the companion files to rebuild\n",
+        converse_path_lexicon, converse_path_lexicon);
+      result = EXIT_FAILURE;
+    }
+    if (NULL == run->lexicon && 0 == stale) {
+      run->lexicon = libxs_lexicon_create();
+    }
     run->answer_model = converse_predict_load();
     run->nrules = libxs_lexrule_defaults(converse_lexrules, 96);
     if (NULL == run->corpus || NULL == run->lexicon || run->nrules <= 0) {
@@ -6878,15 +6969,20 @@ int converse_setup(int argc, char* argv[], int role, converse_run_t* run)
     /* Needs no corpus and no model, so it runs before any of them is built. */
     ngram_syllable_probe();
     /**
-     * A warm start reuses the persisted corpus, lexicon, and predictor instead
-     * of re-ingesting and re-training: the state is complete when the corpus
-     * loaded non-empty, the lexicon is populated, and the predictor loaded.
-     * Learn mode (-L) always rebuilds. Only the cheap fact index is rebuilt each
-     * run, by whichever half needs it.
+     * A warm start reuses the persisted corpus and lexicon instead of
+     * re-ingesting: the state is complete when the corpus loaded non-empty and
+     * the lexicon is populated. Learn mode (-L) always rebuilds. Only the cheap
+     * fact index is rebuilt each run, by whichever half needs it.
+     *
+     * The predictor is deliberately not evidence of state. It is skippable and
+     * off by default, so requiring it meant no default run ever warmed up: each
+     * one re-ingested sources the corpus already held, which the content-keyed
+     * corpus absorbs silently and libxs_lexicon_count does not, the occurrence
+     * counts doubling per run.
      */
     { libxs_registry_info_t warm;
       warm.size = 0;
-      warm_start = (0 == run->learn_mode && NULL != run->answer_model
+      warm_start = (0 == run->learn_mode
         && libxs_lexicon_size(run->lexicon) > 0
         && EXIT_SUCCESS == libxs_registry_info(run->corpus, &warm)
         && warm.size > 0) ? 1 : 0;

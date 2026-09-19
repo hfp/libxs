@@ -32,7 +32,8 @@ Or, from the `libxs` root, `make PEDANTIC=2 samples/converse`.
 | :--- | :--- | :--- |
 | `converse-qa.x` | interactive, `-e`, `-c`, `-L` | questions, evaluation, recombination |
 | `converse-lm.x` | `-E`, `-c -K KIND`, `-L` | next-token models, byte model |
-| `converse.x` | everything above | anything, and all documented examples |
+| `converse-norm.x` | prompt, `-e`, `-t`, `-r`, `-m` | spelling normalization |
+| `converse.x` | everything above but normalization | anything, and all documented examples |
 
 `converse.x` accepts every command below. The split binaries link only what they
 serve, and a mode a binary does not serve is rejected up front, naming the one that
@@ -204,6 +205,54 @@ learned, so one fixture works with and without rule files.
 ./converse.x -P temporal -e texts/prose1.txt
 ```
 
+## Normalizing spellings
+
+`converse-norm.x` reads the corpus vocabulary as a codebook and maps a surface
+form to the nearest word in it, so whatever it answers is a word the corpus
+contains. With no mode it prompts, one word per line, and prints the decision
+together with the words it chose between:
+
+```bash
+./converse-norm.x -b texts/grimm
+```
+
+```
+> rabbet
+rabbet -> rabbit  (distance 1)
+    rabbit (261)
+> quene
+quene: abstained, nearest at 2 with 4 tied
+    queen (373)
+    quite (242)
+```
+
+`-r` sets the largest edit distance a correction may span (default 1) and `-m`
+how far the runner-up must be beyond the chosen word (default 1, which accepts
+everything). `-e` reports how densely the vocabulary packs and how often a
+corrupted word is recovered, which is how to pick the two:
+
+```bash
+./converse-norm.x -e -r 1 -m 2 -b texts/grimm
+```
+
+**The two knobs trade recall for safety, and the wrong direction is expensive:** a
+wrong correction silently replaces the word that was typed. On a book-sized corpus
+`-r 2` recovers more but is wrong about a quarter of the time, while `-m 2` cuts
+that to a few percent and abstains far more often. Run `-e` on your own corpus
+before trusting a setting.
+
+`-t` reads surface forms from a file, one per line, and writes the accepted
+corrections to `<prefix>.norms`:
+
+```bash
+printf 'rabbet\nqueeen\n' > forms.txt
+./converse-norm.x -t forms.txt -b texts/grimm
+```
+
+Every binary loads that table on its next run and applies it while encoding, so a
+question asked with a corrected spelling answers as the corrected one would.
+Forms that decode to themselves, and those with no word in reach, are left out.
+
 ## Summarizing and composing
 
 `summarize.x` is a separate, smaller entry point:
@@ -353,6 +402,7 @@ All state is kept in the working directory, named after the `-b` prefix
 | `<prefix>.prd` | the answer reranker |
 | `<prefix>.src` | the file names the corpus refers to, for citations |
 | `<prefix>.facts` | the derived fact layers, rebuilt when the corpus changes |
+| `<prefix>.norms` | spelling corrections, written by `converse-norm.x -t` |
 
 Delete one of `.dat` / `.par` and both are rebuilt. The fixtures and rule files
 (`<prefix>.eval`, `<prefix>.learn.eval`, `<prefix>.predict`, `converse.rules`,

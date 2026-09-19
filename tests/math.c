@@ -642,7 +642,7 @@ int main(int argc, char* argv[])
           if (got != ref) {
             FPRINTF(stderr,
               "ERROR line #%i: mod_u64(0x%llx, %u) = %u != %u\n",
-              __LINE__, (uint64_t)v, p, got, ref);
+              __LINE__, (unsigned long long)v, p, got, ref);
             exit(EXIT_FAILURE);
           }
         }

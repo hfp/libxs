@@ -84,7 +84,8 @@
 enum {
   CONVERSE_ROLE_ALL = 0,
   CONVERSE_ROLE_QA = 1,
-  CONVERSE_ROLE_LM = 2
+  CONVERSE_ROLE_LM = 2,
+  CONVERSE_ROLE_NORM = 3
 };
 
 enum { CONN_SPACE = 0, CONN_COMMA = 1, CONN_PERIOD = 2, CONN_NEWLINE = 3 };
@@ -304,6 +305,10 @@ typedef struct converse_run_t {
   int predict_eval_mode;
   int complete_mode;
   int learn_mode;
+  /** Normalizer knobs (-r, -m) and the surface forms -t reads, or NULL. */
+  int norm_radius;
+  int norm_margin;
+  const char* norm_words;
   int role;
   /** A half must run: 0 after -L, which is complete once setup returns. */
   int pending;

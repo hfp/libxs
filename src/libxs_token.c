@@ -11,9 +11,17 @@
 #include <libxs/libxs_str.h>
 
 
+/**
+ * This record is what libxs_lexicon_save writes, as the registry value and
+ * verbatim, so its size is the serialization format's only version number.
+ * Adding or reordering a member invalidates every stored vocabulary, and
+ * internal_libxs_lexicon_fixup is what turns that into a rejection instead of
+ * a record read past its end.
+ */
 typedef struct internal_libxs_lexicon_entry_t {
   unsigned int id;
   unsigned int flags;
+  unsigned int count;
   unsigned short length;
   char text[LIBXS_LEXEME_MAXBYTES + 1];
 } internal_libxs_lexicon_entry_t;
@@ -62,9 +70,11 @@ LIBXS_API_INLINE
 void internal_libxs_lexicon_fixup(void* value, const void* key,
   size_t key_size, size_t value_size, void* udata)
 {
-  LIBXS_UNUSED(value); LIBXS_UNUSED(key);
-  LIBXS_UNUSED(key_size); LIBXS_UNUSED(value_size);
-  LIBXS_UNUSED(udata);
+  LIBXS_UNUSED(value); LIBXS_UNUSED(key); LIBXS_UNUSED(key_size);
+  /* the stored record size is the format version, and udata carries the verdict */
+  if (NULL != udata && sizeof(internal_libxs_lexicon_entry_t) != value_size) {
+    *(int*)udata = 1;
+  }
 }
 
 
@@ -79,13 +89,28 @@ unsigned int internal_libxs_lexicon_id(libxs_lexicon_t* lexicon,
     internal_libxs_lexicon_entry_t* entry;
     entry = (internal_libxs_lexicon_entry_t*)libxs_registry_get(
       lexicon->registry, text, (size_t)length, NULL);
-    if (NULL != entry) result = entry->id;
+    if (NULL != entry) {
+      /**
+       * The registry value is what persists and lexicon->entries is what the
+       * id-keyed accessors read, so an occurrence has to reach both. Saturate
+       * rather than wrap: a count back at zero reads as a word never seen,
+       * which is the one answer a frequency must never give.
+       */
+      if (0 != create && (unsigned int)-1 != entry->count) {
+        ++entry->count;
+        if (entry->id < lexicon->capacity) {
+          lexicon->entries[entry->id].count = entry->count;
+        }
+      }
+      result = entry->id;
+    }
     else if (0 != create) {
       internal_libxs_lexicon_entry_t init;
       unsigned int id = lexicon->size + 1;
       memset(&init, 0, sizeof(init));
       init.id = id;
       init.flags = flags;
+      init.count = 1;
       init.length = (unsigned short)length;
       memcpy(init.text, text, (size_t)length);
       init.text[length] = 0;
@@ -836,10 +861,13 @@ LIBXS_API int libxs_lexicon_save(const libxs_lexicon_t* lexicon,
 LIBXS_API libxs_lexicon_t* libxs_lexicon_load(const void* buffer, size_t size)
 {
   libxs_lexicon_t* result = NULL;
+  int mismatch = 0;
   libxs_registry_t* registry = libxs_registry_load(buffer, size,
-    internal_libxs_lexicon_fixup, NULL);
+    internal_libxs_lexicon_fixup, &mismatch);
   if (NULL != registry) {
-    result = (libxs_lexicon_t*)calloc(1, sizeof(libxs_lexicon_t));
+    if (0 == mismatch) {
+      result = (libxs_lexicon_t*)calloc(1, sizeof(libxs_lexicon_t));
+    }
     if (NULL != result) {
       const void* key = NULL;
       size_t cursor = 0;
@@ -876,6 +904,19 @@ LIBXS_API const char* libxs_lexicon_text(const libxs_lexicon_t* lexicon,
     if (NULL != length) *length = (int)entry->length;
     if (NULL != flags) *flags = entry->flags;
     result = entry->text;
+  }
+  return result;
+}
+
+
+LIBXS_API unsigned int libxs_lexicon_count(const libxs_lexicon_t* lexicon,
+  unsigned int id)
+{
+  unsigned int result = 0;
+  if (NULL != lexicon && 0 != id && id <= lexicon->size
+    && id < lexicon->capacity)
+  {
+    result = lexicon->entries[id].count;
   }
   return result;
 }

@@ -36,7 +36,8 @@ COBJCTS := $(patsubst %,$(BLDDIR)/%,$(notdir $(CSOURCS:.c=-c.o)))
 SOURCES := $(CSOURCS)
 OBJECTS := $(COBJCTS)
 XFILES := $(OUTDIR)/summarize.x $(OUTDIR)/converse.x \
-          $(OUTDIR)/converse-qa.x $(OUTDIR)/converse-lm.x
+          $(OUTDIR)/converse-qa.x $(OUTDIR)/converse-lm.x \
+          $(OUTDIR)/converse-norm.x
 
 # The corpus, the tokenizer, the word n-gram and the successor embedding: what
 # both halves are built from, and what -L persists.
@@ -46,6 +47,8 @@ CONVERSE_QA := $(BLDDIR)/converse_qa-c.o $(BLDDIR)/converse_recomb-c.o
 # The prediction half. It is the only half that may name the byte model, which
 # reaches the other one as an installed judge or not at all.
 CONVERSE_LM := $(BLDDIR)/converse_lm-c.o $(BLDDIR)/converse_hier-c.o
+# The normalizer. It reads the lexicon as a codebook and names no half.
+CONVERSE_NORM := $(BLDDIR)/converse_norm-c.o
 
 .PHONY: all
 all: $(XFILES)
@@ -70,6 +73,11 @@ $(OUTDIR)/converse-lm.x: $(OUTDIR)/.make $(BLDDIR)/main_lm-c.o \
   $(CONVERSE_CORE) $(CONVERSE_LM) $(XLIB)
 	$(LD) -o $@ $(BLDDIR)/main_lm-c.o $(CONVERSE_CORE) $(CONVERSE_LM) \
 	  $(XLIB) $(SLDFLAGS) $(LDFLAGS) $(CLDFLAGS)
+
+$(OUTDIR)/converse-norm.x: $(OUTDIR)/.make $(BLDDIR)/main_norm-c.o \
+  $(CONVERSE_CORE) $(CONVERSE_NORM) $(XLIB)
+	$(LD) -o $@ $(BLDDIR)/main_norm-c.o $(CONVERSE_CORE) \
+	  $(CONVERSE_NORM) $(XLIB) $(SLDFLAGS) $(LDFLAGS) $(CLDFLAGS)
 
 $(BLDDIR)/%-c.o: $(SRCDIR)/%.c .state $(BLDDIR)/.make $(HEADERS) Makefile $(DEPDIR)/Makefile.inc
 	$(CC) $(DFLAGS) $(IFLAGS) $(CFLAGS) $(CTARGET) -c $< -o $@

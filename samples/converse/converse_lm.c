@@ -4369,7 +4369,7 @@ static const libxs_registry_t* converse_lm_test_corpus(converse_run_t* run,
     if (NULL != test && EXIT_SUCCESS == corpus_ingest_basename(test,
       run->test_prefix, run->lexicon, run->rules, run->nrules))
     {
-      libxs_registry_info_t tinfo;
+      libxs_registry_info_t tinfo = { 0 };
       libxs_registry_info(test, &tinfo);
       fprintf(stderr, "test corpus: %lu sentences (%s)\n",
         (unsigned long)tinfo.size, run->test_prefix);
