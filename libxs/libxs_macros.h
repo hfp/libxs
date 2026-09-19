@@ -479,6 +479,19 @@
 # elif (defined(__GNUC__) /*|| defined(__clang__)*/) && !defined(__STRICT_ANSI__)
 #   define LIBXS_CALLER __PRETTY_FUNCTION__
 # endif
+/**
+ * LIBXS_INLINE is "static" plus this keyword, so losing the keyword does not
+ * merely cost inlining: a static function with no inline keyword is EMITTED into
+ * every translation unit that includes the header, dead or not, and whatever it
+ * calls becomes an undefined reference there. That is what a pre-C99 dialect did
+ * to every header-only helper, the C99 branch above being the only one that set
+ * a keyword for GCC. The reserved spelling is what -ansi accepts, so the strict
+ * build behaves like the others rather than carrying a copy of each helper.
+ */
+# if !defined(LIBXS_INLINE_KEYWORD) && defined(__GNUC__) /*|| __clang__*/
+#   define LIBXS_INLINE_KEYWORD __inline__
+#   define LIBXS_INLINE_FIXUP
+# endif
 # if !defined(LIBXS_INLINE_KEYWORD)
 #   define LIBXS_INLINE_KEYWORD
 #   define LIBXS_INLINE_FIXUP
