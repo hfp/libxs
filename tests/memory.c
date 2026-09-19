@@ -562,6 +562,16 @@ int main(int argc, char* argv[])
       FPRINTF(stderr, "ERROR line #%i: stridist color/colour\n", __LINE__);
       result = EXIT_FAILURE;
     }
+    /* a transposition is one edit, which is what separates this from Levenshtein */
+    if (EXIT_SUCCESS == result && 1 != libxs_stridist("teh", "the")) {
+      FPRINTF(stderr, "ERROR line #%i: stridist teh/the\n", __LINE__);
+      result = EXIT_FAILURE;
+    }
+    /* the form is RESTRICTED: unrestricted Damerau would answer 2 here */
+    if (EXIT_SUCCESS == result && 3 != libxs_stridist("ca", "abc")) {
+      FPRINTF(stderr, "ERROR line #%i: stridist ca/abc\n", __LINE__);
+      result = EXIT_FAILURE;
+    }
     if (EXIT_SUCCESS == result && 0 != libxs_stridist("abc", "ABC")) { /* case-insensitive */
       FPRINTF(stderr, "ERROR line #%i: stridist case insensitive\n", __LINE__);
       result = EXIT_FAILURE;

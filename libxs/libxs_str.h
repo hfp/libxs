@@ -21,7 +21,15 @@ typedef enum libxs_strisimilar_t {
 } libxs_strisimilar_t;
 
 
-/** Case-insensitive character-level edit distance (Levenshtein) between two strings. */
+/**
+ * Case-insensitive character-level edit distance between two strings, counting a
+ * transposition of adjacent characters as one edit and not two (restricted
+ * Damerau-Levenshtein). Transposition is the commonest typing error, so charging
+ * it twice puts a word further from its own misspelling than from words it has
+ * nothing to do with. The restricted form is not a true metric: it satisfies no
+ * triangle inequality, which a threshold or a minimum does not need but an index
+ * over the distance would.
+ */
 LIBXS_API int libxs_stridist(const char a[], const char b[]);
 
 /**
@@ -63,7 +71,7 @@ LIBXS_API int libxs_strimatch(const char a[], const char b[], const char delims[
 /**
  * Compute similarity between strings A and B as a minimum-cost word matching.
  * Words are split by optional delimiters (same as strimatch). Each matched word
- * pair contributes its character-level edit distance (case-insensitive Levenshtein).
+ * pair contributes its character-level edit distance (libxs_stridist).
  * Unmatched words contribute their full length. The result is order-independent.
  * Optional order receives a word-order penalty (number of pairwise inversions
  * among matched words, 0 means same order).

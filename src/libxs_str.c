@@ -144,10 +144,30 @@ LIBXS_API int libxs_strimatch(const char a[], const char b[], const char delims[
 }
 
 
+/**
+ * Restricted Damerau-Levenshtein (optimal string alignment): a transposition of
+ * adjacent characters costs one edit rather than the two Levenshtein charges it.
+ *
+ * That choice is not cosmetic, because transposition is the commonest single
+ * typing error: under Levenshtein "teh" is two edits from "the" and therefore
+ * further away than words it has nothing to do with, so any caller thresholding
+ * at one edit ranks it wrong. Distances only ever shrink against Levenshtein, so
+ * a tolerance that matched before still matches.
+ *
+ * What it gives up is the triangle inequality, which the restricted form does not
+ * satisfy. Nothing here needs it: the callers threshold or take a minimum, and an
+ * index that assumed a true metric (a BK-tree, say) would not be entitled to.
+ *
+ * Three rows are live because the transposition term reads the row before the
+ * previous one; they rotate by pointer, so the row is never copied.
+ */
 LIBXS_API_INLINE
-int internal_libxs_levenshtein(const char* a, int na, const char* b, int nb)
+int internal_libxs_stridist(const char* a, int na, const char* b, int nb)
 {
-  int row[64], result, i, j;
+  int buffer[3][65], result, i, j;
+  int* prev2 = buffer[0];
+  int* prev1 = buffer[1];
+  int* cur = buffer[2];
   if (0 == na || 0 == nb) result = (0 == na) ? nb : na;
   else {
     if (na < nb) { /* ensure nb <= na for O(min) space */
@@ -155,20 +175,30 @@ int internal_libxs_levenshtein(const char* a, int na, const char* b, int nb)
       i = na; na = nb; nb = i;
     }
     LIBXS_ASSERT(nb <= 64);
-    for (j = 0; j < nb; ++j) row[j] = j + 1;
-    for (i = 0; i < na; ++i) {
-      const int ca = internal_libxs_strilower(a[i]);
-      int prev = i;
-      for (j = 0; j < nb; ++j) {
-        const int cost = (ca != internal_libxs_strilower(b[j]));
-        int val = prev + cost; /* substitution */
-        if (row[j] + 1 < val) val = row[j] + 1; /* deletion */
-        if ((j > 0 ? row[j - 1] : i + 1) + 1 < val) val = (j > 0 ? row[j - 1] : i + 1) + 1; /* insertion */
-        prev = row[j];
-        row[j] = val;
+    for (j = 0; j <= nb; ++j) prev1[j] = j;
+    for (i = 1; i <= na; ++i) {
+      const int ca = internal_libxs_strilower(a[i - 1]);
+      int* rotate;
+      cur[0] = i;
+      for (j = 1; j <= nb; ++j) {
+        const int cb = internal_libxs_strilower(b[j - 1]);
+        int val = prev1[j - 1] + (ca != cb); /* substitution */
+        if (prev1[j] + 1 < val) val = prev1[j] + 1; /* deletion */
+        if (cur[j - 1] + 1 < val) val = cur[j - 1] + 1; /* insertion */
+        if (1 < i && 1 < j && prev2[j - 2] + 1 < val
+          && ca == internal_libxs_strilower(b[j - 2])
+          && internal_libxs_strilower(a[i - 2]) == cb)
+        {
+          val = prev2[j - 2] + 1; /* transposition */
+        }
+        cur[j] = val;
       }
+      rotate = prev2;
+      prev2 = prev1;
+      prev1 = cur;
+      cur = rotate;
     }
-    result = row[nb - 1];
+    result = prev1[nb];
   }
   return result;
 }
@@ -178,7 +208,7 @@ LIBXS_API int libxs_stridist(const char a[], const char b[])
 {
   int result = -1;
   if (NULL != a && NULL != b) {
-    result = internal_libxs_levenshtein(a, (int)strlen(a), b, (int)strlen(b));
+    result = internal_libxs_stridist(a, (int)strlen(a), b, (int)strlen(b));
   }
   return result;
 }
@@ -220,7 +250,7 @@ LIBXS_API int libxs_strisimilar(const char a[], const char b[],
     }
     for (i = 0; i < na; ++i) {
       for (j = 0; j < nb; ++j) {
-        cost[i * nb + j] = internal_libxs_levenshtein(wa[i], la[i], wb[j], lb[j]);
+        cost[i * nb + j] = internal_libxs_stridist(wa[i], la[i], wb[j], lb[j]);
       }
     }
     for (i = 0; i < na; ++i) used_a[i] = 0;
@@ -330,7 +360,7 @@ LIBXS_API int libxs_stridiff(const char a[], const char b[],
       for (j = 0; j < nl; ++j) {
         int d;
         if (0 != used[j]) continue;
-        d = internal_libxs_levenshtein(ws[i], ls[i], wl[j], ll[j]);
+        d = internal_libxs_stridist(ws[i], ls[i], wl[j], ll[j]);
         if (d <= tolerance && d < best_d) { best_d = d; best_j = j; }
       }
       if (-1 != best_j) used[best_j] = 1;
