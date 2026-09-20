@@ -214,6 +214,16 @@ int main(int argc, char* argv[])
           }
           if (EXIT_SUCCESS == build_ok && NULL != lconf && NULL != lok) {
             libxs_predict_query_t qi;
+            /* The native confidence is a ranking whose scale is its own, so a
+             * gate of 0.9 keeps a share of the queries unrelated to 0.9. The
+             * curve makes the number a rate; it is monotone, so coverage at a
+             * matched threshold moves but precision at matched coverage does
+             * not. The probe decides once whether a curve exists at all, and
+             * the reported score says which of the two was read. */
+            double probe = 0.5;
+            const int calibrated = (EXIT_SUCCESS
+              == libxs_predict_probability(model, 0, 0.5, &probe));
+            const char* const score = (0 != calibrated) ? "prob" : "conf";
             LIBXS_MEMZERO(&qi);
             libxs_predict_query(model, &qi);
             fprintf(stdout, "Train=%d, Test=%d\n", qi.nentries, total - train_end);
@@ -230,8 +240,11 @@ int main(int argc, char* argv[])
               libxs_predict_eval(NULL, model, inputs, &predicted, &info, 1);
               { int label, ok;
                 double expected;
-                const double conf = (NULL != info.confidence)
+                double conf = (NULL != info.confidence)
                   ? info.confidence[0] : 0.0;
+                if (0 != calibrated) {
+                  libxs_predict_probability(model, 0, conf, &conf);
+                }
                 libxs_predict_get(source, t, NULL, &expected);
                 label = LIBXS_ROUNDX(int, expected);
                 ok = (LIBXS_ROUNDX(int, predicted) == label);
@@ -250,12 +263,14 @@ int main(int argc, char* argv[])
             if (0 < ntest) {
               fprintf(stdout, "Accuracy: %d/%d = %.1f%%\n",
                 correct, ntest, 100.0 * correct / ntest);
-              fprintf(stdout, "Confidence-gated (>=%.2f): %d/%d = %.1f%%"
-                " (coverage %.1f%%)\n", gates[0],
+              fprintf(stdout, "Gated (%s>=%.2f): %d/%d = %.1f%%"
+                " (coverage %.1f%%)\n", score, gates[0],
                 gated_correct, gated,
                 (0 < gated) ? 100.0 * gated_correct / gated : 0.0,
                 100.0 * gated / ntest);
-              fprintf(stdout, "Avg confidence: %.3f\n", sum_conf / ntest);
+              fprintf(stdout, "Avg %s: %.3f\n",
+                (0 != calibrated) ? "probability" : "confidence",
+                sum_conf / ntest);
               fprintf(stdout, "Eval: %d queries (%.2f s)\n", ntest, dt_eval);
 #if defined(__XGBOOST)
               if (0 != use_xgb) {
@@ -297,12 +312,12 @@ int main(int argc, char* argv[])
                       predict_xgb_getd("XGB_ETA", 0.1));
                     fprintf(stdout, "  Accuracy: %d/%d = %.1f%%\n",
                       xcorrect, ntest, 100.0 * xcorrect / ntest);
-                    fprintf(stdout, "  Confidence-gated (>=%.2f): %d/%d ="
+                    fprintf(stdout, "  Gated (prob>=%.2f): %d/%d ="
                       " %.1f%% (coverage %.1f%%)\n", gates[0],
                       xgated_correct, xgated,
                       (0 < xgated) ? 100.0 * xgated_correct / xgated : 0.0,
                       100.0 * xgated / ntest);
-                    fprintf(stdout, "  Avg confidence: %.3f\n",
+                    fprintf(stdout, "  Avg probability: %.3f\n",
                       xsum_conf / ntest);
                     if (1 < ngates) {
                       gate_sweep(gates, ngates, ntest, lconf, lok,

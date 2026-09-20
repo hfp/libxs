@@ -81,6 +81,19 @@ int main(int argc, char* argv[])
   if (nseries > MAXCOLS) nseries = MAXCOLS;
   /* the comparison reads the built windows back, which compression prunes */
   if (0 != use_xgb) quality = 0;
+#if defined(__XGBOOST)
+  /**
+   * The comparison needs the plain configuration, and the selected mode is not
+   * known until the build, so a caller who asked for nothing gets the plain one
+   * here.  This configures rather than decides: as a branch of the chain below
+   * it consumed the call, and the run then produced no output at all.
+   */
+  if (0 != use_xgb && LIBXS_PREDICT_AUTO_DECOMPOSE == decompose
+    && 0 == attend && NULL == getenv("BANK"))
+  {
+    decompose = LIBXS_PREDICT_RAW;
+  }
+#endif
   if (NULL == filename || 0 != bad) {
     fprintf(stdout,
       "Usage: %s <ett_csv> [nseries=1..7]"
@@ -105,17 +118,8 @@ int main(int argc, char* argv[])
       " set XGBOOST_ROOT, or install the pkg-config module.\n");
   }
 #else
-  /**
-   * The comparison needs the plain configuration, and the selected mode is not
-   * known until the build.  A caller who did not ask for a decomposition gets
-   * the plain one here rather than a refusal; one who did still gets the
-   * refusal, because that is a request the comparison cannot honour.
-   */
-  else if (0 != use_xgb && LIBXS_PREDICT_AUTO_DECOMPOSE == decompose
-    && 0 == attend && NULL == getenv("BANK"))
-  {
-    decompose = LIBXS_PREDICT_RAW;
-  }
+  /* one who did ask for a decomposition still gets the refusal, because that is
+   * a request the comparison cannot honour */
   else if (0 != use_xgb && (LIBXS_PREDICT_RAW != decompose
     || 0 != attend || NULL != getenv("BANK")))
   {

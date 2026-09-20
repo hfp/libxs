@@ -353,17 +353,32 @@ static void evaluate(const libxs_predict_t* model,
 #endif
     { const int nconf = (int)(sizeof(confidence_outputs)
         / sizeof(confidence_outputs[0]));
-      double gates[8];
-      const int ngates = gate_list(gates, 8);
+      /* the list is taken in full: a capacity below it drops the high gates
+       * silently, and the sweep then stops where the evidence starts */
+      double gates[16];
+      const int ngates = gate_list(gates, 16);
       const double threshold = gates[0];
       double* swconf = (double*)malloc((size_t)ntotal * nconf * sizeof(double));
       char* swok = (char*)malloc((size_t)ntotal * nconf);
       int gated_correct[5] = {0}, gated_wrong[5] = {0}, deferred[5] = {0};
       int split_acted[5][2], split_correct[5][2], split_n[2];
-      int ci;
+      int calib[5], ncalib = 0, ci;
+      const char* score;
       memset(split_acted, 0, sizeof(split_acted));
       memset(split_correct, 0, sizeof(split_correct));
       split_n[0] = split_n[1] = 0;
+      /* A gate is read against a scale, and the native confidence has its own:
+       * the curve turns it into a rate so the threshold means what it says.
+       * The curve is fitted per output, so whether one exists is asked per
+       * output rather than once for the model. */
+      for (ci = 0; ci < nconf; ++ci) {
+        double probe = 0.5;
+        calib[ci] = (EXIT_SUCCESS == libxs_predict_probability(model,
+          confidence_outputs[ci], 0.5, &probe));
+        ncalib += calib[ci];
+      }
+      score = (0 == ncalib) ? "confidence"
+        : ((nconf == ncalib) ? "probability" : "mixed");
       for (i = 0; i < ntotal; ++i) {
         /**
          * An entry the model was built from is recalled, not predicted.  The
@@ -384,14 +399,17 @@ static void evaluate(const libxs_predict_t* model,
         }
         for (ci = 0; ci < nconf; ++ci) {
           const int oi = confidence_outputs[ci];
+          double conf = (NULL != info.confidence) ? info.confidence[oi] : 0.0;
+          if (0 != calib[ci]) {
+            libxs_predict_probability(model, oi, conf, &conf);
+          }
           if (NULL != swconf && NULL != swok) {
-            swconf[(size_t)i * nconf + ci] = (NULL != info.confidence)
-              ? info.confidence[oi] : 0.0;
+            swconf[(size_t)i * nconf + ci] = conf;
             swok[(size_t)i * nconf + ci] = (char)((NULL != info.values
               && LIBXS_ROUNDX(int, info.values[oi]) == (int)expected[oi])
                 ? 1 : 0);
           }
-          if (NULL != info.confidence && info.confidence[oi] >= threshold) {
+          if (NULL != info.confidence && conf >= threshold) {
             const int ok = (NULL != info.values
               && LIBXS_ROUNDX(int, info.values[oi]) == (int)expected[oi]);
             ++split_acted[ci][novel];
@@ -408,7 +426,8 @@ static void evaluate(const libxs_predict_t* model,
           }
         }
       }
-      fprintf(stdout, "Gated deployment (threshold=%.1f):\n", threshold);
+      fprintf(stdout, "Gated deployment (%s threshold=%.1f):\n", score,
+        threshold);
       fprintf(stdout,
         "  param  correct  wrong  deferred  coverage  precision\n");
       for (ci = 0; ci < nconf; ++ci) {
@@ -423,7 +442,8 @@ static void evaluate(const libxs_predict_t* model,
       }
       if (1 < ngates && NULL != swconf && NULL != swok) {
         int gi;
-        fprintf(stdout, "Gate sweep (coverage%% / precision%%):\n");
+        fprintf(stdout, "Gate sweep over %s (coverage%% / precision%%):\n",
+          score);
         fprintf(stdout, "  param ");
         for (gi = 0; gi < ngates; ++gi) fprintf(stdout, "  %11.2f", gates[gi]);
         fprintf(stdout, "\n");
