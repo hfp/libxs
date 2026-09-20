@@ -109,9 +109,14 @@ size, so the default prefix split holds out the *largest* shapes and measures
 extrapolation, which changes which model looks better.  Use `mix` for
 interpolation, omit it for extrapolation, and say which one a number came from.
 
-Exact-match on kernel parameters is a proxy for kernel quality: the shipped
-CSVs carry no `GFLOPS`, so a differently-parameterized kernel that performs
-identically counts as a miss for both models.
+Exact-match on kernel parameters is a proxy for kernel quality.  Where a CSV
+publishes `GFLOPS` the sample additionally weighs every shape by the throughput
+its tuned parameters reached, so a miss counts what it costs rather than once;
+`perf` also predicts that throughput, which says whether tuning a shape is
+worth the run.  A zero means the column is withheld, not that the kernel
+achieved nothing, and such a row weighs nothing.  The proxy does not disappear
+with the column: `GFLOPS` says what a shape is worth, not what a differing
+parameter would have reached on it, which needs running the kernel.
 
 
 ## predict_params

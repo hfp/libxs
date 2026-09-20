@@ -28,9 +28,18 @@ enum { NINPUTS = 3, NOUTPUTS = 16 };
 
 static const int confidence_outputs[] = { 5, 6, 8, 12, 13 };
 
+/**
+ * The throughput the tuned parameters reached, which the CSV carries per shape.
+ * Zero means the file withholds it, never that the kernel achieved nothing, so
+ * a zero row is excluded rather than counted as a shape with nothing at stake.
+ */
+static const char perf_name[] = "GFLOPS";
+
 static void evaluate(const libxs_predict_t* model,
   const libxs_predict_t* reference, int ntotal, const char trained[],
-  int use_xgb);
+  int use_xgb, const double gflops[]);
+static void predict_perf(const libxs_predict_t* source, const double gflops[],
+  int ntotal, const char trained[], int order);
 static int write_confidence_maps(const char* prefix, const void* buffer,
   size_t size, const libxs_predict_t* reference, int ntotal);
 static double deployment_confidence(const libxs_predict_info_t* info);
@@ -72,12 +81,12 @@ static const char* mode_name(int decompose)
 
 int main(int argc, char* argv[])
 {
+  const char *filename, *modelfile, *confidence_prefix;
+  double quality = 0, smooth = 0, consistency = 0;
+  double quantile = 0, eval_fraction = 0.8;
   int argi = 1, mode = LIBXS_PREDICT_AUTO, use_rf = 0, use_hknn = 0;
   int order_arg = 0, shuffle_split = 0, use_xgb = 0;
-  double quality = 0, smooth = 0, consistency = 0, quantile = 0;
-  double eval_fraction = 0.8;
-  const char *filename, *modelfile, *confidence_prefix;
-  int result = EXIT_FAILURE;
+  int result = EXIT_FAILURE, use_perf = 0;
   /**
    * A keyword is recognized wherever it appears and the remaining tokens keep
    * their order as file names. Position used to carry the distinction - all
@@ -104,6 +113,7 @@ int main(int argc, char* argv[])
       else if (0 != predict_iskey(arg, "rf")) use_rf = 1;
       else if (0 != predict_iskey(arg, "hknn")) use_hknn = 1;
       else if (0 != predict_iskey(arg, "xgb")) use_xgb = 1;
+      else if (0 != predict_iskey(arg, "perf")) use_perf = 1;
       else if (0 != predict_keyval(arg, "compress", 0.9, &quality)
         || 0 != predict_keyval(arg, "consist", 0.9, &consistency)
         || 0 != predict_keyval(arg, "quantile", 0.1, &quantile)
@@ -139,7 +149,7 @@ int main(int argc, char* argv[])
   }
   if (NULL == filename) {
     fprintf(stdout,
-      "Usage: %s [fraction] [auto|cat|compress[Q]|consist[C]|interp|quantile[Q]|rf|hknn|smooth[A]|xgb]"
+      "Usage: %s [fraction] [auto|cat|compress[Q]|consist[C]|interp|perf|quantile[Q]|rf|hknn|smooth[A]|xgb]"
       " [-N] <csvfile> [modelfile [confidence-prefix]]\n"
       "  fraction: validation split 0..1 for quality report (default: 0.8)\n"
       "  auto:     auto-detect mode per output (default)\n"
@@ -155,6 +165,8 @@ int main(int argc, char* argv[])
       "  hknn:     hierarchical kNN (Fisher-guided partition)\n"
       "  smooth:   multi-cluster blending (A: radius or -1=auto, default: auto)\n"
       "  xgb:      also train XGBoost on the same split and compare\n"
+      "  perf:     also predict achievable throughput per shape, which needs\n"
+      "            a CSV publishing GFLOPS (zero means withheld)\n"
       "  -N: max polynomial order (default: 0 = auto)\n"
       "  confidence-prefix: optional prefix for saved-model confidence maps\n"
       "  Trains on all entries, saves the model, and reports\n"
@@ -173,7 +185,44 @@ int main(int argc, char* argv[])
         input_names, output_names, NULL, 0, NULL);
       if (0 < ntotal) {
         libxs_predict_t* model = libxs_predict_create(NINPUTS, NOUTPUTS);
+        double* gflops = NULL;
         fprintf(stdout, "Loaded %d entries from %s\n", ntotal, filename);
+        /* Loaded as its own column rather than as a seventeenth output: the
+         * parameters are small integers and this spans two orders of magnitude,
+         * and one output of that range distorts the distances the parameter
+         * prediction is clustered on. A second pass over the same file selects
+         * a different set of columns, so its row count is checked rather than
+         * assumed: a row this pass keeps and the other skipped would misalign
+         * every weight that follows. */
+        { libxs_predict_t* perf = libxs_predict_create(NINPUTS, 1);
+          if (NULL != perf) {
+            const int nperf = libxs_predict_load_csv(perf, filename, NULL,
+              input_names, perf_name, NULL, 0, NULL);
+            if (nperf == ntotal) {
+              gflops = (double*)malloc((size_t)ntotal * sizeof(double));
+              if (NULL != gflops) {
+                int k, nz = 0;
+                for (k = 0; k < ntotal; ++k) {
+                  libxs_predict_get(perf, k, NULL, gflops + k);
+                  if (0 < gflops[k]) ++nz;
+                }
+                if (0 == nz) { /* withheld throughout, as most files do */
+                  free(gflops);
+                  gflops = NULL;
+                }
+                else if (nz < ntotal) {
+                  fprintf(stdout, "GFLOPS: %d of %d entries carry it, the rest"
+                    " are withheld and weigh nothing\n", nz, ntotal);
+                }
+              }
+            }
+            else if (0 < nperf) {
+              fprintf(stdout, "GFLOPS: %d rows against %d, so the column"
+                " cannot be aligned and is ignored\n", nperf, ntotal);
+            }
+            libxs_predict_destroy(perf);
+          }
+        }
         if (NULL != model) {
           libxs_timer_tick_t tick;
           int i, build_ok = EXIT_FAILURE;
@@ -248,7 +297,15 @@ int main(int argc, char* argv[])
                 if (EXIT_SUCCESS == libxs_predict_build(
                   val_model, 0, order_arg, quality))
                 {
-                  evaluate(val_model, source, ntotal, trained, use_xgb);
+                  evaluate(val_model, source, ntotal, trained, use_xgb,
+                    gflops);
+                  if (0 != use_perf && NULL != gflops) {
+                    predict_perf(source, gflops, ntotal, trained, order_arg);
+                  }
+                  else if (0 != use_perf) {
+                    fprintf(stdout, "Throughput prediction: declined, this CSV"
+                      " withholds GFLOPS\n");
+                  }
                 }
               }
               libxs_predict_destroy(val_model);
@@ -280,6 +337,7 @@ int main(int argc, char* argv[])
           }
           libxs_predict_destroy(model);
         }
+        free(gflops);
       }
       else {
         fprintf(stderr, "Failed to load entries from %s\n", filename);
@@ -291,9 +349,61 @@ int main(int argc, char* argv[])
 }
 
 
+/**
+ * Whether the throughput of a shape is itself predictable, which is what says
+ * whether tuning a shape is worth the run before the run. It is a model of its
+ * own rather than a seventeenth output for the reason given at the load: this
+ * spans two orders of magnitude where the parameters are small integers.
+ *
+ * It uses the same split as the parameter study, so the two numbers describe
+ * the same held-out shapes and can be read together. The mode is detected here
+ * rather than inherited: a categorical mode asked for on integer parameters
+ * does not carry to a continuous throughput.
+ */
+static void predict_perf(const libxs_predict_t* source, const double gflops[],
+  int ntotal, const char trained[], int order)
+{
+  libxs_predict_t* perf = libxs_predict_create(NINPUTS, 1);
+  if (NULL != perf) {
+    double vi[NINPUTS], sumrel = 0, maxrel = 0;
+    int i, npush = 0, ntest = 0;
+    libxs_predict_set_mode(perf, LIBXS_PREDICT_AUTO);
+    for (i = 0; i < ntotal; ++i) {
+      if (0 != trained[i] && 0 < gflops[i]) {
+        libxs_predict_get(source, i, vi, NULL);
+        libxs_predict_push(NULL, perf, vi, gflops + i);
+        ++npush;
+      }
+    }
+    if (0 < npush && EXIT_SUCCESS == libxs_predict_build(perf, 0, order, 0.0)) {
+      for (i = 0; i < ntotal; ++i) {
+        if (0 == trained[i] && 0 < gflops[i]) {
+          double predicted = 0;
+          libxs_predict_get(source, i, vi, NULL);
+          libxs_predict_eval(NULL, perf, vi, &predicted, NULL, 0);
+          { const double rel = LIBXS_ABS(predicted - gflops[i]) / gflops[i];
+            sumrel += rel;
+            if (rel > maxrel) maxrel = rel;
+            ++ntest;
+          }
+        }
+      }
+      fprintf(stdout, "Throughput prediction (%d train, %d held out): mean"
+        " %.1f%% error, worst %.1f%%\n", npush, ntest,
+        (0 < ntest) ? 100.0 * sumrel / ntest : 0.0, 100.0 * maxrel);
+    }
+    else {
+      fprintf(stdout, "Throughput prediction: no model (%d entries carry"
+        " GFLOPS in the training split)\n", npush);
+    }
+    libxs_predict_destroy(perf);
+  }
+}
+
+
 static void evaluate(const libxs_predict_t* model,
   const libxs_predict_t* reference, int ntotal, const char trained[],
-  int use_xgb)
+  int use_xgb, const double gflops[])
 {
 #if defined(__XGBOOST)
   /* read only by the comparison below, which is what carries our coverage over
@@ -364,6 +474,12 @@ static void evaluate(const libxs_predict_t* model,
       int split_acted[5][2], split_correct[5][2], split_n[2];
       int calib[5], ncalib = 0, ci;
       const char* score;
+      /* A shape counts once in the tables above whatever it is worth. These
+       * weigh it by the throughput its tuned parameters reached, which is the
+       * number a deployment feels: a miss on the widest shape and a miss on the
+       * narrowest are the same miss only when nothing is at stake. */
+      double wtotal = 0, wacted[5], wcorrect[5], wexact = 0;
+      int nexact = 0, nweighed = 0;
       memset(split_acted, 0, sizeof(split_acted));
       memset(split_correct, 0, sizeof(split_correct));
       split_n[0] = split_n[1] = 0;
@@ -379,6 +495,7 @@ static void evaluate(const libxs_predict_t* model,
       }
       score = (0 == ncalib) ? "confidence"
         : ((nconf == ncalib) ? "probability" : "mixed");
+      for (ci = 0; ci < nconf; ++ci) wacted[ci] = wcorrect[ci] = 0.0;
       for (i = 0; i < ntotal; ++i) {
         /**
          * An entry the model was built from is recalled, not predicted.  The
@@ -392,6 +509,25 @@ static void evaluate(const libxs_predict_t* model,
           all_inputs + (size_t)i * NINPUTS, NULL, &info, 1);
         libxs_predict_get(reference, i, NULL, expected);
         ++split_n[novel];
+        { const double w = (NULL != gflops) ? gflops[i] : 0.0;
+          if (0 < w) {
+            int allmatch = 1;
+            for (j = 0; j < NOUTPUTS; ++j) {
+              if (NULL == info.values
+                || LIBXS_ROUNDX(int, info.values[j]) != (int)expected[j])
+              {
+                allmatch = 0;
+                break;
+              }
+            }
+            wtotal += w;
+            ++nweighed;
+            if (0 != allmatch) {
+              wexact += w;
+              ++nexact;
+            }
+          }
+        }
         if (NULL != info.interpolated) {
           for (j = 0; j < NOUTPUTS; ++j) {
             if (0 != info.interpolated[j]) ++interp[j];
@@ -412,6 +548,10 @@ static void evaluate(const libxs_predict_t* model,
           if (NULL != info.confidence && conf >= threshold) {
             const int ok = (NULL != info.values
               && LIBXS_ROUNDX(int, info.values[oi]) == (int)expected[oi]);
+            if (NULL != gflops && 0 < gflops[i]) {
+              wacted[ci] += gflops[i];
+              if (0 != ok) wcorrect[ci] += gflops[i];
+            }
             ++split_acted[ci][novel];
             if (0 != ok) {
               ++gated_correct[ci];
@@ -469,6 +609,34 @@ static void evaluate(const libxs_predict_t* model,
       }
       free(swok);
       free(swconf);
+      if (NULL != gflops && 0 < wtotal) {
+        /**
+         * The same gate, weighed by what each shape is worth rather than by the
+         * count of shapes. Config-exact is the whole parameter vector, not one
+         * parameter of it: a kernel is built from all of them, so only a shape
+         * that reproduces every one inherits the throughput its tuned
+         * parameters reached. That makes its share a LOWER BOUND on what the
+         * prediction retains - a differing parameter set may still perform
+         * identically, and this file cannot say, because it holds the
+         * throughput of the tuned parameters alone.
+         */
+        fprintf(stdout, "Throughput-weighted (%d shapes, %.0f GFLOPS"
+          " published):\n", nweighed, wtotal);
+        fprintf(stdout, "  param  coverage  precision\n");
+        for (ci = 0; ci < nconf; ++ci) {
+          const int oi = confidence_outputs[ci];
+          int len = 0;
+          const char* name = libxs_strtoken(output_names, ",", oi, &len);
+          fprintf(stdout, "  %-4.*s    %5.1f%%     %5.1f%%\n", len, name,
+            100.0 * wacted[ci] / wtotal,
+            (0 < wacted[ci]) ? 100.0 * wcorrect[ci] / wacted[ci] : 100.0);
+        }
+        fprintf(stdout, "  Config-exact: %d of %d shapes (%.1f%%), %.1f%% of"
+          " throughput\n", nexact, nweighed,
+          100.0 * nexact / nweighed, 100.0 * wexact / wtotal);
+        fprintf(stdout, "  Unretained: %.1f%% of throughput sits on a shape"
+          " whose prediction differs\n", 100.0 * (wtotal - wexact) / wtotal);
+      }
       fprintf(stdout, "Attested-entry split: attested %d (%.1f%%)"
         " | novel %d (%.1f%%)\n", split_n[0],
         (ntotal > 0) ? 100.0 * split_n[0] / ntotal : 0.0, split_n[1],
@@ -554,9 +722,16 @@ static void evaluate(const libxs_predict_t* model,
             (0 < nnovel) ? 100.0 * lhit[j] / nnovel : 0.0,
             (0 < nnovel) ? 100.0 * xhit[j] / nnovel : 0.0);
         }
-        fprintf(stdout, "  Exact match is a proxy: this CSV carries no GFLOPS,"
-          " so a differing\n  parameter that performs identically counts as a"
-          " miss for both models.\n");
+        if (NULL == gflops) {
+          fprintf(stdout, "  Exact match is a proxy: this CSV carries no"
+            " GFLOPS, so a differing\n  parameter that performs identically"
+            " counts as a miss for both models.\n");
+        }
+        else {
+          fprintf(stdout, "  Exact match is still a proxy: GFLOPS says what a"
+            " shape is worth, not\n  what a differing parameter would have"
+            " reached on it.\n");
+        }
         /**
          * The same split, the same gate and the same accounting applied to
          * XGBoost's own confidence. Without it the attested/novel collapse is
