@@ -419,6 +419,8 @@ LIBXS_EXTERN_C struct libxs_predict_t {
    */
   double floor;
   double consistency;
+  /** Serialization version: the file's for a loaded model, current otherwise. */
+  int version;
   double quantile;
   /** Per-output sorted distinct values and counts: the exact support the
    *  probability normalizes over. Derived from raw_outputs at build/load, so
@@ -1829,6 +1831,7 @@ LIBXS_API libxs_predict_t* libxs_predict_create(int ninputs, int noutputs)
     if (NULL != model) {
       model->ninputs = ninputs;
       model->noutputs = noutputs;
+      model->version = LIBXS_PREDICT_VERSION;
       model->eval_mode = LIBXS_PREDICT_AUTO;
       model->diff_mode = -1;
       model->nbank = 1;
@@ -6392,6 +6395,9 @@ LIBXS_API void libxs_predict_query(
   const libxs_predict_t* model, libxs_predict_query_t* info)
 {
   LIBXS_ASSERT(NULL != model && 0 != model->built && NULL != info);
+  info->ninputs = model->ninputs;
+  info->noutputs = model->noutputs;
+  info->version = model->version;
   { const double raw = (double)model->nentries * (model->ninputs + model->noutputs);
     double compressed = 0;
     int c;

@@ -172,6 +172,8 @@ LIBXS_API_INLINE int internal_libxs_predict_save_hknn(
   int c, j;
   required += sizeof(uint32_t) + sizeof(uint16_t);
   required += 5 * sizeof(uint16_t) + sizeof(double);
+  /* consistency, smooth, quantile and floor, written with version 2 */
+  required += 4 * sizeof(double);
   required += (size_t)m * 2 * sizeof(double);
   if (NULL != model->input_knot) required += (size_t)m * LIBXS_PREDICT_KNOTS * sizeof(double);
   if (NULL != model->weights) required += (size_t)m * sizeof(double);
@@ -251,6 +253,17 @@ LIBXS_API_INLINE int internal_libxs_predict_save_hknn(
     /* introduced with version 2; an older file has no rank coordinate */
     WRITE_U16(NULL != model->input_knot ? LIBXS_PREDICT_KNOTS : 0);
     WRITE_F64(model->quality);
+    /**
+     * Introduced with version 2. These change how a model ANSWERS, not what it
+     * holds, and a file that lost them answered differently from the model that
+     * was saved: a confidence map rendered from a saved buffer could not show a
+     * consistency penalty at all. A version-1 file carries none and keeps the
+     * zero that create() gives, which is "off" for each of them.
+     */
+    WRITE_F64(model->consistency);
+    WRITE_F64(model->smooth);
+    WRITE_F64(model->quantile);
+    WRITE_F64(model->floor);
     WRITE_BLK(model->input_min, (size_t)m * sizeof(double));
     WRITE_BLK(model->input_rng, (size_t)m * sizeof(double));
     if (NULL != model->input_knot) {
@@ -383,6 +396,8 @@ LIBXS_API int libxs_predict_save(const libxs_predict_t* model, void* buffer, siz
     required += sizeof(uint32_t) + 4 * sizeof(uint16_t) + 2 * sizeof(uint8_t);
     required += 8 * sizeof(uint16_t) + 8 * sizeof(uint8_t) + sizeof(uint32_t)
       + sizeof(double);
+    /* consistency, smooth, quantile and floor, written with version 2 */
+    required += 4 * sizeof(double);
     /* the resolved neighbour counts, one byte each behind a flag */
     if (NULL != model->k_sel) required += (size_t)model->noutputs;
     required += (size_t)model->ninputs * 2 * sizeof(double);
@@ -501,6 +516,17 @@ LIBXS_API int libxs_predict_save(const libxs_predict_t* model, void* buffer, siz
       /* introduced with version 2; an older file has no rank coordinate */
       WRITE_U16(NULL != model->input_knot ? LIBXS_PREDICT_KNOTS : 0);
       WRITE_F64(model->quality);
+      /**
+       * Introduced with version 2. These change how a model ANSWERS, not what it
+       * holds, and a file that lost them answered differently from the model that
+       * was saved: a confidence map rendered from a saved buffer could not show a
+       * consistency penalty at all. A version-1 file carries none and keeps the
+       * zero that create() gives, which is "off" for each of them.
+       */
+      WRITE_F64(model->consistency);
+      WRITE_F64(model->smooth);
+      WRITE_F64(model->quantile);
+      WRITE_F64(model->floor);
       WRITE_BLK(model->input_min, (size_t)model->ninputs * sizeof(double));
       WRITE_BLK(model->input_rng, (size_t)model->ninputs * sizeof(double));
       if (NULL != model->input_knot) {
@@ -729,6 +755,8 @@ LIBXS_API_INLINE libxs_predict_t* internal_libxs_predict_load_hknn(
   if (EXIT_SUCCESS == ok) {
     model = libxs_predict_create((int)ninp, (int)nout);
     if (NULL == model) ok = EXIT_FAILURE;
+    /* create() stamps the current version; this one came from a file */
+    else model->version = (int)version;
   }
   if (EXIT_SUCCESS == ok && NULL != ksel) {
     model->k_sel = (int*)malloc((size_t)nout * sizeof(int));
@@ -752,6 +780,19 @@ LIBXS_API_INLINE libxs_predict_t* internal_libxs_predict_load_hknn(
   { double quality = 0;
     if (EXIT_SUCCESS == ok) ok = internal_libxs_predict_read(&src, end, &quality, 8);
     if (EXIT_SUCCESS == ok) model->quality = quality;
+  }
+  /* a version-1 file carries none of these and keeps create()'s zero, which is
+   * "off" for each, so it answers as such a file always did */
+  if (EXIT_SUCCESS == ok && 1 < version) {
+    double v = 0;
+    ok = internal_libxs_predict_read(&src, end, &v, 8);
+    if (EXIT_SUCCESS == ok) model->consistency = v;
+    if (EXIT_SUCCESS == ok) ok = internal_libxs_predict_read(&src, end, &v, 8);
+    if (EXIT_SUCCESS == ok) model->smooth = v;
+    if (EXIT_SUCCESS == ok) ok = internal_libxs_predict_read(&src, end, &v, 8);
+    if (EXIT_SUCCESS == ok) model->quantile = v;
+    if (EXIT_SUCCESS == ok) ok = internal_libxs_predict_read(&src, end, &v, 8);
+    if (EXIT_SUCCESS == ok) model->floor = v;
   }
   if (EXIT_SUCCESS == ok) {
     ok = internal_libxs_predict_read(&src, end,
@@ -1194,6 +1235,8 @@ LIBXS_API libxs_predict_t* libxs_predict_load(const void* buffer, size_t size)
     if (EXIT_SUCCESS == ok) {
       model = libxs_predict_create((int)ninp, (int)nout);
       if (NULL == model) ok = EXIT_FAILURE;
+      /* create() stamps the current version; this one came from a file */
+      else model->version = (int)version;
     }
     if (EXIT_SUCCESS == ok) {
       uint8_t has_weights = 0, has_transforms = 0, has_dmat = 0;
@@ -1253,6 +1296,18 @@ LIBXS_API libxs_predict_t* libxs_predict_load(const void* buffer, size_t size)
         if (EXIT_SUCCESS == ok) ok = internal_libxs_predict_read(&src, end, &quality, 8);
         if (EXIT_SUCCESS == ok) model->nentries = (int)nentries;
         if (EXIT_SUCCESS == ok) model->quality = quality;
+      }
+      /* as above: absent in a version-1 file, which keeps create()'s zero */
+      if (EXIT_SUCCESS == ok && 1 < version) {
+        double v = 0;
+        ok = internal_libxs_predict_read(&src, end, &v, 8);
+        if (EXIT_SUCCESS == ok) model->consistency = v;
+        if (EXIT_SUCCESS == ok) ok = internal_libxs_predict_read(&src, end, &v, 8);
+        if (EXIT_SUCCESS == ok) model->smooth = v;
+        if (EXIT_SUCCESS == ok) ok = internal_libxs_predict_read(&src, end, &v, 8);
+        if (EXIT_SUCCESS == ok) model->quantile = v;
+        if (EXIT_SUCCESS == ok) ok = internal_libxs_predict_read(&src, end, &v, 8);
+        if (EXIT_SUCCESS == ok) model->floor = v;
       }
       if (EXIT_SUCCESS == ok) {
         model->nseries = (int)ts_nseries;

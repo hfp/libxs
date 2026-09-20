@@ -60,7 +60,26 @@ LIBXS_INLINE void gate_sweep(const double gates[], int ngates, int n,
   const double lconf[], const char lok[],
   const double xconf[], const char xok[])
 {
+  /* A curve reads in order, and the list is not required to arrive in one: its
+   * first entry is the threshold the single-gate report uses, which is a
+   * different concern from where a row belongs in a sweep. Sorted here, on a
+   * copy, so naming a headline gate first costs the sweep nothing. */
+  double sorted[64];
   int g;
+  if (ngates > (int)(sizeof(sorted) / sizeof(*sorted))) {
+    ngates = (int)(sizeof(sorted) / sizeof(*sorted));
+  }
+  for (g = 0; g < ngates; ++g) sorted[g] = gates[g];
+  for (g = 1; g < ngates; ++g) {
+    const double v = sorted[g];
+    int k = g - 1;
+    while (0 <= k && sorted[k] > v) {
+      sorted[k + 1] = sorted[k];
+      --k;
+    }
+    sorted[k + 1] = v;
+  }
+  gates = sorted;
   fprintf(stdout, "Gate sweep (%d queries):\n", n);
   fprintf(stdout, (NULL != xconf)
     ? "  gate  libxs-prec  libxs-cov    xgb-prec    xgb-cov\n"

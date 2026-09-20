@@ -102,6 +102,21 @@ LIBXS_EXTERN_C typedef struct libxs_predict_info_t {
 LIBXS_EXTERN_C typedef struct libxs_predict_query_t {
   /** Compression ratio (raw size / model size). */
   double compression;
+  /**
+   * The model's shape, as it was created or loaded. A caller that evaluates into
+   * its own buffer needs this to size it: a model carrying one output more than
+   * the caller assumed writes past the end of an array sized from the
+   * assumption, which is not a wrong number but a corrupted stack.
+   */
+  int ninputs;
+  int noutputs;
+  /**
+   * Serialization version this model came from, or the current version for one
+   * built in this process rather than loaded. It says which fields a saved model
+   * could carry, not how many outputs it has - those are independent, and a
+   * caller wanting the shape reads noutputs above.
+   */
+  int version;
   /** Polynomial order used (after auto-optimization if order <= 0). */
   int order;
   /** Number of clusters. */
