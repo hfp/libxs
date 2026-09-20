@@ -126,10 +126,18 @@ int main(int argc, char* argv[])
           if (0 != depth || 0 != ntrees) {
             libxs_predict_set_forest(model, ntrees, depth);
           }
+          /* A full-corpus run spends minutes per stage with nothing to show
+           * for it, and a stage that stalls is then indistinguishable from one
+           * that is merely slow. Each stage reports as it completes, outside
+           * the region it timed, and flushes so the line survives a kill. */
+          tick = libxs_timer_tick();
           for (t = 0; t < train_end; ++t) {
             libxs_predict_get(source, t, in, out);
             libxs_predict_push(NULL, model, in, out);
           }
+          fprintf(stdout, "Stage: %d entries pushed in %.2f s\n", train_end,
+            libxs_timer_duration(tick, libxs_timer_tick()));
+          fflush(stdout);
           tick = libxs_timer_tick();
 #if defined(_OPENMP)
 #         pragma omp parallel
@@ -144,6 +152,8 @@ int main(int argc, char* argv[])
           if (EXIT_SUCCESS == build_ok) {
             int test_begin = train_end, calibrated = 0;
             double probability;
+            fprintf(stdout, "Stage: forest built in %.2f s\n", dt_build);
+            fflush(stdout);
             libxs_predict_query(model, &q);
             if (LIBXS_PREDICT_RF == q.decompose
               && EXIT_SUCCESS == libxs_predict_probability(
@@ -176,6 +186,9 @@ int main(int argc, char* argv[])
               }
             }
             dt_eval = libxs_timer_duration(tick, libxs_timer_tick());
+            fprintf(stdout, "Stage: %d queries evaluated in %.2f s\n", ntest,
+              dt_eval);
+            fflush(stdout);
             /**
              * The same queries again through the batch form. The loop above is
              * what a caller reading confidence has to do, since the batch form
@@ -205,6 +218,8 @@ int main(int argc, char* argv[])
                 libxs_predict_eval_batch(model, bin, bout, ntest, 0);
 #endif
                 dt_batch = libxs_timer_duration(tick, libxs_timer_tick());
+                fprintf(stdout, "Stage: batched eval in %.2f s\n", dt_batch);
+                fflush(stdout);
                 if (NULL != lpred) {
                   for (t = 0; t < ntest; ++t) {
                     if (bout[t] != lpred[t]) ++differ;
@@ -253,6 +268,8 @@ int main(int argc, char* argv[])
               predict_xgb_time_t xtime;
               if (NULL != xp && NULL != xc && NULL != mask) {
                 for (t = 0; t < train_end; ++t) mask[t] = 1;
+                fprintf(stdout, "Stage: XGBoost on the same split\n");
+                fflush(stdout);
                 if (EXIT_SUCCESS == predict_xgb(source, total, NFEAT, 1,
                   mask, test_begin, ntest, &classify, xp, xc, &task, NULL,
                   &xtime))
