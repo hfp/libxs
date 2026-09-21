@@ -28,11 +28,16 @@ export LIBXS_GEMM_WRAP=${LIBXS_GEMM_WRAP:-0}
 # disabled set of tests
 #TESTS_DISABLED="headeronly"
 
-# good-enough pattern to match main functions, and to include translation unit in test set
+# good-enough pattern to match main functions, and to include translation unit in test set;
+# every script but this one is a test as well, picked up by existing rather than by being listed
 if [ ! "$*" ]; then
-  TESTS="$(cd "${HERE}" && ${GREP} -l "main[[:space:]]*(.*)" ./*.c 2>/dev/null) \
-    gemm.sh matcpy.sh memcmp.sh ozaki.sh predict.sh scratch.sh syrk.sh \
-    transpose.sh wrap.sh"
+  TESTS="$(cd "${HERE}" && ${GREP} -l "main[[:space:]]*(.*)" ./*.c 2>/dev/null)"
+  for SCRIPT in "${HERE}"/*.sh; do
+    NAME=$(${SED} <<<"${SCRIPT}" 's/.*\///;s/\(.*\)\..*/\1/')
+    if [ "test" != "${NAME}" ] && [ -e "${SCRIPT}" ]; then
+      TESTS="${TESTS} ${NAME}.sh"
+    fi
+  done
   if [ "${SORT}" ]; then
     TESTS=$(${TR} <<<"${TESTS}" -s " " "\n" | ${SORT})
   fi
