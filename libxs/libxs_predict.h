@@ -117,6 +117,15 @@ LIBXS_EXTERN_C typedef struct libxs_predict_query_t {
    * caller wanting the shape reads noutputs above.
    */
   int version;
+  /**
+   * The smallest resolved neighbour count over the outputs, or zero where none
+   * was resolved. It bounds what a prediction interval can express: with k
+   * neighbours carrying about 1/k of the weight each, a quantile tighter than
+   * 1/k cannot move either edge, so the interval is the neighbour range whatever
+   * was asked for. A caller reading coverage against a nominal level needs this
+   * to know whether the level was representable.
+   */
+  int neighbors;
   /** Polynomial order used (after auto-optimization if order <= 0). */
   int order;
   /** Number of clusters. */

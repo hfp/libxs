@@ -6971,6 +6971,14 @@ LIBXS_API void libxs_predict_query(
   info->ninputs = model->ninputs;
   info->noutputs = model->noutputs;
   info->version = model->version;
+  info->neighbors = 0;
+  if (NULL != model->k_sel) {
+    int ks;
+    info->neighbors = model->k_sel[0];
+    for (ks = 1; ks < model->noutputs; ++ks) {
+      if (model->k_sel[ks] < info->neighbors) info->neighbors = model->k_sel[ks];
+    }
+  }
   { const double raw = (double)model->nentries * (model->ninputs + model->noutputs);
     double compressed = 0;
     int c;

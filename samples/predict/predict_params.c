@@ -417,16 +417,22 @@ static void evaluate(const libxs_predict_t* model,
        * narrowest are the same miss only when nothing is at stake. */
       double wtotal = 0, wacted[5], wcorrect[5], wexact = 0;
       int nexact = 0, nweighed = 0;
-      /* Empirical coverage of the prediction interval, which is the only read of
-       * what the quantile calibration produces: the level asks for 1-2q of the
-       * validation points to fall inside, so a miscalibrated interval shows up
-       * here and nowhere else. */
-      double iwidth[NOUTPUTS];
-      int icovered[NOUTPUTS], iseen = 0;
+      /**
+       * Empirical coverage of the prediction interval, split the way the gated
+       * precision is. An attested entry's own value sits in its neighbourhood
+       * AND carries the largest distance weight, so a central band of any width
+       * contains it: coverage over the attested part approaches one whatever the
+       * level asked for, and an aggregate over both is a weighted average of that
+       * and the number that means something. Measured together it reads 16% or
+       * 98% for the same nominal 80%, depending only on the split.
+       */
+      double iwidth[NOUTPUTS][2];
+      int icovered[NOUTPUTS][2], iseen[2];
       memset(split_acted, 0, sizeof(split_acted));
       memset(split_correct, 0, sizeof(split_correct));
       memset(icovered, 0, sizeof(icovered));
-      for (j = 0; j < NOUTPUTS; ++j) iwidth[j] = 0;
+      memset(iwidth, 0, sizeof(iwidth));
+      iseen[0] = iseen[1] = 0;
       split_n[0] = split_n[1] = 0;
       /* A gate is read against a scale, and the native confidence has its own:
        * the curve turns it into a rate so the threshold means what it says.
@@ -490,11 +496,11 @@ static void evaluate(const libxs_predict_t* model,
           }
         }
         if (NULL != info.lower && NULL != info.upper) {
-          ++iseen;
+          ++iseen[novel];
           for (j = 0; j < NOUTPUTS; ++j) {
-            iwidth[j] += info.upper[j] - info.lower[j];
+            iwidth[j][novel] += info.upper[j] - info.lower[j];
             if (expected[j] >= info.lower[j] && expected[j] <= info.upper[j]) {
-              ++icovered[j];
+              ++icovered[j][novel];
             }
           }
         }
@@ -531,15 +537,41 @@ static void evaluate(const libxs_predict_t* model,
           }
         }
       }
-      if (0 < iseen) {
-        fprintf(stdout, "Prediction intervals (%d queries, nominal %.1f%%):\n",
-          iseen, 100.0 * (1.0 - 2.0 * quantile_level));
-        fprintf(stdout, "  param   coverage   avg-width\n");
+      if (0 < iseen[0] + iseen[1]) {
+        libxs_predict_query_t iq;
+        int degenerate = 0;
+        memset(&iq, 0, sizeof(iq));
+        libxs_predict_query(model, &iq);
+        fprintf(stdout, "Prediction intervals (nominal %.1f%%), attested %d |"
+          " novel %d:\n", 100.0 * (1.0 - 2.0 * quantile_level),
+          iseen[0], iseen[1]);
+        fprintf(stdout, "  param   attested-cov  novel-cov  novel-width\n");
         for (j = 0; j < NOUTPUTS; ++j) {
           int len = 0;
-          const char* name = libxs_strtoken(output_names, ",", j, &len);
-          fprintf(stdout, "  %-6.*s   %6.1f%%  %10.3e\n", len, name,
-            100.0 * icovered[j] / iseen, iwidth[j] / iseen);
+          const char* name;
+          if (PERF_OUTPUT == j && 0 == nperf) continue;
+          name = libxs_strtoken(output_names, ",", j, &len);
+          if (0 < iseen[1] && 0 == iwidth[j][1]) ++degenerate;
+          fprintf(stdout, "  %-6.*s      %6.1f%%    %6.1f%%    %10.3e\n",
+            len, name,
+            (0 < iseen[0]) ? 100.0 * icovered[j][0] / iseen[0] : 0.0,
+            (0 < iseen[1]) ? 100.0 * icovered[j][1] / iseen[1] : 0.0,
+            (0 < iseen[1]) ? iwidth[j][1] / iseen[1] : 0.0);
+        }
+        /* Attested coverage is the control, not a result: it reports how often
+         * an entry the model holds falls inside a band centred on itself. */
+        fprintf(stdout, "  novel-cov is the calibration; attested-cov approaches"
+          " 100%% by construction\n");
+        if (0 < degenerate) {
+          fprintf(stdout, "  %d output(s) have zero width: constant in the"
+            " corpus, so the interval is a point\n", degenerate);
+        }
+        /* A level tighter than one neighbour's share of the weight cannot move
+         * either edge, so it is the neighbour range under another name. */
+        if (0 < iq.neighbors && quantile_level < 1.0 / iq.neighbors) {
+          fprintf(stdout, "  nominal is tighter than %d neighbours can express"
+            " (needs level >= %.3f): the edges are the neighbour range\n",
+            iq.neighbors, 1.0 / iq.neighbors);
         }
       }
       fprintf(stdout, "Gated deployment (%s threshold=%.1f):\n", score,

@@ -105,14 +105,26 @@ size, so the default prefix split holds out the *largest* shapes and measures
 extrapolation, which changes which model looks better.  Use `mix` for
 interpolation, omit it for extrapolation, and say which one a number came from.
 
-Exact-match on kernel parameters is a proxy for kernel quality.  Where a CSV
-publishes `GFLOPS` the sample additionally weighs every shape by the throughput
-its tuned parameters reached, so a miss counts what it costs rather than once;
-`perf` also predicts that throughput, which says whether tuning a shape is
-worth the run.  A zero means the column is withheld, not that the kernel
-achieved nothing, and such a row weighs nothing.  The proxy does not disappear
-with the column: `GFLOPS` says what a shape is worth, not what a differing
-parameter would have reached on it, which needs running the kernel.
+`quantile` reports interval coverage split into attested and novel entries, and
+only the novel column is a calibration.  An attested entry's own value lies in
+its neighbourhood and carries the largest distance weight, so a central band of
+any width contains it: measured over both parts together, the same nominal 80%
+reads anywhere from 16% to 98% depending only on the split.  An output that is
+constant in the corpus yields a zero-width interval covering everything, and a
+level tighter than one neighbour's share of the weight cannot move either edge --
+both are reported rather than left to be inferred from the numbers.
+
+`GFLOPS` is loaded as an output like every other column, so the schema does not
+depend on which CSV publishes it.  A zero means the column is withheld, not that
+the kernel achieved nothing: such a column is a constant the model reproduces
+exactly, so it predicts zero and is hidden from the report.  Where it is
+published, every shape is additionally weighed by the throughput its tuned
+parameters reached -- so a miss counts what it costs rather than once -- and the
+predicted throughput says whether tuning a shape is worth the run.
+
+Exact-match on kernel parameters remains a proxy for kernel quality even then:
+`GFLOPS` says what a shape is worth, not what a differing parameter would have
+reached on it, which needs running the kernel.
 ## predict_params
 
 Train a prediction model from a CSV file and save it for later use.
@@ -150,7 +162,7 @@ Timeseries forecasting using sliding-window nearest-neighbor prediction.
 
 ### Usage
 
-    ./predict_sunspots.x <csvfile> [train_fraction] [compress[Q]] [hknn|rf]
+    ./predict_sunspots.x <csvfile> [train_fraction] [compress[Q]] [consist[C]] [hknn|rf|none]
 
     NOPHASE=1  Drop the solar-cycle phase input.
     NOBANK=1   Use a single window view instead of the bank.
@@ -211,7 +223,7 @@ log-transform on outputs for heavy-tailed data.
 
 ### Usage
 
-    ./predict_discharge.x <discharge_tsv> [train_fraction] [compress[Q]] [hknn|rf]
+    ./predict_discharge.x <discharge_tsv> [train_fraction] [compress[Q]] [consist[C]] [hknn|rf|none]
 
 ### Example
 
@@ -229,7 +241,7 @@ pressure at Tahiti and Darwin using SPREAD decomposition.
 
 ### Usage
 
-    ./predict_soi.x <tahiti_file> <darwin_file> [train_fraction] [compress[Q]] [hknn|rf]
+    ./predict_soi.x <tahiti_file> <darwin_file> [train_fraction] [compress[Q]] [consist[C]] [hknn|rf]
 
 ### Example
 
@@ -246,7 +258,7 @@ PCA/SPREAD decomposition.
 
 ### Usage
 
-    ./predict_stock.x <csv_file> [columns] [train_fraction] [compress[Q]] [hknn|rf]
+    ./predict_stock.x <csv_file> [columns] [train_fraction] [compress[Q]] [consist[C]] [hknn|rf]
 
     columns    Comma-separated 0-based column indices (default: 1,2).
 

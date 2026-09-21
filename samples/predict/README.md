@@ -109,6 +109,15 @@ size, so the default prefix split holds out the *largest* shapes and measures
 extrapolation, which changes which model looks better.  Use `mix` for
 interpolation, omit it for extrapolation, and say which one a number came from.
 
+`quantile` reports interval coverage split into attested and novel entries, and
+only the novel column is a calibration.  An attested entry's own value lies in
+its neighbourhood and carries the largest distance weight, so a central band of
+any width contains it: measured over both parts together, the same nominal 80%
+reads anywhere from 16% to 98% depending only on the split.  An output that is
+constant in the corpus yields a zero-width interval covering everything, and a
+level tighter than one neighbour's share of the weight cannot move either edge --
+both are reported rather than left to be inferred from the numbers.
+
 `GFLOPS` is loaded as an output like every other column, so the schema does not
 depend on which CSV publishes it.  A zero means the column is withheld, not that
 the kernel achieved nothing: such a column is a constant the model reproduces
