@@ -779,8 +779,14 @@ LIBXS_API int libxs_predict_build_task(libxs_predict_t* model,
  *       the info structure is valid until the next call to
  *       libxs_predict_eval on the same model with the same lock,
  *       or libxs_predict_destroy.
- * nblend: number of nearest clusters to blend (1 = nearest only,
- *         0 = auto based on distance ratios).
+ * nblend: number of nearest clusters to blend.
+ *         nblend >= 2: that many clusters, regardless of confidence.
+ *         nblend == 0 or 1: automatic, i.e. the nearest cluster answers the
+ *           query unless its confidence is low enough to call for more
+ *           evidence, in which case the count grows as the agreement falls
+ *           (see libxs_predict_set_floor, which keeps queries out of this
+ *           path by keeping confidence high).
+ *         nblend < 0: the nearest cluster alone, never blended.
  * The lock is optional (NULL if single-threaded); concurrent eval
  * calls with distinct locks or NULL are safe on a built model.
  */
@@ -987,7 +993,7 @@ LIBXS_API void libxs_predict_get(const libxs_predict_t* model, int index,
  * inputs_batch: count*M values (contiguous, row-major).
  * outputs_batch: count*N values written.
  * count: number of queries in the batch.
- * nblend: number of nearest clusters to blend per query.
+ * nblend: as libxs_predict_eval, per query.
  */
 LIBXS_API void libxs_predict_eval_batch(
   const libxs_predict_t* model,

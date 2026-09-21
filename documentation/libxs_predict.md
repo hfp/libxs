@@ -366,7 +366,10 @@ void libxs_predict_eval(libxs_lock_t* lock,
 ```
 
 Predict outputs for given inputs. nblend controls
-multi-cluster blending: 1=nearest only, 0=auto.
+multi-cluster blending: nblend>=2 averages that many clusters,
+0 and 1 are automatic (the nearest cluster answers unless its
+confidence calls for more evidence), and nblend<0 pins the
+answer to the nearest cluster.
 The info pointer (optional) receives per-output confidence,
 variance, error bounds, and mode flags.
 

@@ -132,6 +132,7 @@ set(LIBXS_C_TESTS
   ngram
   perm
   perm_sort
+  predict_blend
   predict_calib
   predict_missing
   predict_neighbors

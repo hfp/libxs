@@ -4451,6 +4451,10 @@ LIBXS_API_INLINE void internal_libxs_predict_eval_ex(libxs_lock_t* lock,
     const int force_interp = (0 == incomplete
       && 0 != (mode & LIBXS_PREDICT_INTERPOLATE)) ? 1 : 0;
     const int extrapolate_mode = (0 != (mode & LIBXS_PREDICT_TEMPORAL)) ? 1 : 0;
+    /* a negative count is the caller's request for the nearest cluster alone:
+     * 0 and 1 both reach the adaptive gate below, so without it there is no
+     * value that keeps a query out of the blending path */
+    const int pinned = (nblend < 0) ? 1 : 0;
     const double* raw_inputs = inputs;
     int extrapolate = 0;
     int norm_pool = 0, decomp_pool = 0, diff_pool = 0;
@@ -4746,10 +4750,33 @@ LIBXS_API_INLINE void internal_libxs_predict_eval_ex(libxs_lock_t* lock,
           conf[j] = model->floor + cov * (conf[j] - model->floor);
         }
       }
-      if (model->nclusters > 1) {
+      if (0 == pinned && model->nclusters > 1) {
+        const int thresh = (int)(sqrt((double)cl->nentries) + 0.5);
         double avg_conf = 0;
-        for (j = 0; j < n; ++j) avg_conf += conf[j];
-        avg_conf /= n;
+        int nvote = 0;
+        /**
+         * Averaged over the outputs whose confidence is a vote fraction, i.e.
+         * the few-valued ones answered by the vote. An interpolating output and
+         * a many-valued one report 1.0 as a placeholder, so averaging those in
+         * let the number of smooth outputs a model happens to carry decide
+         * whether a categorical output blends at all. A query with no vote to
+         * read counts as confident, which is what keeps a window corpus out of
+         * the blending path: forced to blend, a timeseries went from 17.7 to
+         * 80.2 next-step error. Deciding the reach per output instead moved the
+         * measured errors 0.01 either way and was not taken; this average is a
+         * wash on every corpus measured (25 of 27 configurations identical, the
+         * other two 2e-4 apart in opposite directions), so it removes the
+         * coupling rather than buying accuracy.
+         */
+        for (j = 0; j < n; ++j) {
+          const int use_classify = (0 != force_classify)
+            ? 1 : ((0 != force_interp) ? 0 : cl->mode[j]);
+          if (0 != use_classify && cl->ndistinct[j] <= thresh) {
+            avg_conf += conf[j];
+            ++nvote;
+          }
+        }
+        avg_conf = (0 < nvote) ? (avg_conf / nvote) : 1.0;
         /**
          * How many clusters to average is read from the confidence rather than
          * fixed: the vote's own agreement says how far the evidence reaches.
@@ -4772,7 +4799,6 @@ LIBXS_API_INLINE void internal_libxs_predict_eval_ex(libxs_lock_t* lock,
            */
           int nmany = 0;
           for (j = 0; j < n; ++j) {
-            const int thresh = (int)(sqrt((double)cl->nentries) + 0.5);
             if (cl->ndistinct[j] > thresh) ++nmany;
           }
           if (nmany > n / 2) {
