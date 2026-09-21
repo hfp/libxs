@@ -803,8 +803,9 @@ LIBXS_API_INLINE void libxs_barrier_wait(libxs_barrier_t* barrier) {
        * has no synchronization, and it reads the epoch atomically where the macro
        * dereferences it plainly. That plain dereference is a data race by the
        * letter of the model and ThreadSanitizer reports it, which is what
-       * .tsan.supp defers: the wait can only end through the atomic load above,
-       * so the edge that releases this task is the atomic one either way.
+       * __tsan_default_suppressions in libxs_main.c defers: the wait can only end
+       * through the atomic load above, so the edge that releases this task is the
+       * atomic one either way.
        */
       while (epoch == (int)LIBXS_ATOMIC_LOAD(
         &barrier->epoch.i, LIBXS_ATOMIC_SEQ_CST))

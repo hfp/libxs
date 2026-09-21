@@ -384,6 +384,49 @@ LIBXS_API LIBXS_ATTRIBUTE_WEAK void for_stop_core_quiet(void)
 #endif
 
 
+#if defined(__SANITIZE_THREAD__) || __has_feature(thread_sanitizer)
+/**
+ * ThreadSanitizer reads both of these before main(), and the environment is
+ * parsed after them, so TSAN_OPTIONS still overrides whatever they return. They
+ * carry what a run of this library needs rather than what a caller prefers, and
+ * they are compiled in because an option that has to be remembered per command
+ * line is an option that does not hold.
+ *
+ * Three ways this goes silently inert, all of them measured. The decoration
+ * cannot be LIBXS_API, which header-only turns into "static inline" that the
+ * runtime cannot look up. Weak is what lets header-only define it in every
+ * translation unit rather than colliding, and it still wins over the runtime's
+ * own weak definition; it is spelled out rather than taken from
+ * LIBXS_ATTRIBUTE_WEAK, which is empty unless LIBXS_BUILD is defined and would
+ * leave header-only with two strong definitions. The default visibility is what
+ * puts it in the dynamic symbol table against -fvisibility=hidden. None of it
+ * helps a shared-library build, where the runtime's definition is found first,
+ * so that one needs the environment.
+ */
+LIBXS_EXTERN_C LIBXS_ATTRIBUTE(weak) LIBXS_VISIBILITY_PUBLIC
+const char* __tsan_default_options(void);
+LIBXS_EXTERN_C LIBXS_ATTRIBUTE(weak) LIBXS_VISIBILITY_PUBLIC
+const char* __tsan_default_options(void)
+{
+  /* GNU libgomp carries no annotations and does not link pthread, so the fork
+   * and join of every parallel region are invisible and each buffer handed in or
+   * out is reported; those accesses are ours, hence nothing can suppress them */
+  return "ignore_noninstrumented_modules=1";
+}
+
+
+LIBXS_EXTERN_C LIBXS_ATTRIBUTE(weak) LIBXS_VISIBILITY_PUBLIC
+const char* __tsan_default_suppressions(void);
+LIBXS_EXTERN_C LIBXS_ATTRIBUTE(weak) LIBXS_VISIBILITY_PUBLIC
+const char* __tsan_default_suppressions(void)
+{
+  /* the spin in libxs_barrier_wait reads the epoch plainly, which is benign for
+   * the reason libxs_sync.h gives beside it and is the one entry we defer */
+  return "race:libxs_barrier_wait\n";
+}
+#endif
+
+
 LIBXS_API_INTERN size_t internal_libxs_strlen(const char* /*cstr*/, size_t /*maxlen*/);
 LIBXS_API_INTERN size_t internal_libxs_strlen(const char* cstr, size_t maxlen)
 {
