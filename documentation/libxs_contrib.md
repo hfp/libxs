@@ -578,6 +578,25 @@ integration builds: GCC, Intel oneAPI, and macOS, covering release and strict
 debug configurations as well as a header-only build compiled as C++. See
 `.github/workflows/` for the exact matrix.
 
+`SANITIZE=<kind>` passes `-fsanitize=<kind>` to both the compiler and the
+linker, and `.tsan.supp` holds the ThreadSanitizer suppressions, each entry
+naming what it defers exactly as the `tool_check*.todo` lists do:
+
+```bash
+make SANITIZE=thread
+TSAN_OPTIONS=suppressions=$PWD/.tsan.supp setarch -R ./sample.x
+```
+
+Two things to know before reading the output. Some kernels need ASLR disabled
+(`setarch -R`) or the runtime aborts with `unexpected memory mapping` before
+`main()`. More importantly, **GNU libgomp is not instrumented**, so a race whose
+two accesses sit on opposite sides of an `omp parallel` region is reported even
+though the region's own barrier separates them; a fifteen-line correct program
+reproduces it. Reports pairing the main thread with a worker are that artifact
+and not findings. Suppressing them is not an option, because their stacks run
+through the code under test; building with Clang against a libomp that has TSan
+support (it ships `libarcher.so`) is what makes the region boundaries visible.
+
 ## ABI and Versioning
 
 The version derives from Git tags and `version.txt`; the shared library carries

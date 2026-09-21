@@ -762,21 +762,31 @@ LIBXS_API_INLINE void libxs_barrier_init(libxs_barrier_t* barrier, int ntasks) {
     /* without synchronization there is no team to wait for, and a wait for one
      * that cannot arrive does not end */
     LIBXS_UNUSED(ntasks);
-    barrier->ntasks = 1;
+    LIBXS_ATOMIC_STORE(&barrier->ntasks, 1, LIBXS_ATOMIC_RELAXED);
 #else
-    barrier->ntasks = (0 < ntasks) ? ntasks : 1;
+    LIBXS_ATOMIC_STORE(&barrier->ntasks,
+      (0 < ntasks) ? ntasks : 1, LIBXS_ATOMIC_RELAXED);
 #endif
   }
 }
 
 /** Wait until every task of the team has arrived. */
 LIBXS_API_INLINE void libxs_barrier_wait(libxs_barrier_t* barrier) {
-  if (NULL != barrier && 1 < barrier->ntasks) {
+  /**
+   * The count is read atomically and once, because a team is allowed to publish
+   * it per task rather than through an initializer: every task then writes the
+   * same value before its own first wait, which is idempotent, but a plain read
+   * beside those writes is a data race and the compiler is free to hoist it out
+   * of a caller that waits more than once.
+   */
+  const int ntasks = (NULL != barrier)
+    ? (int)LIBXS_ATOMIC_LOAD(&barrier->ntasks, LIBXS_ATOMIC_RELAXED) : 1;
+  if (1 < ntasks) {
     /* read before arriving: the last task may release the team before this one
      * looks at the epoch, and it must not then wait for the next release */
     const int epoch = (int)LIBXS_ATOMIC_LOAD(
       &barrier->epoch.i, LIBXS_ATOMIC_SEQ_CST);
-    if (barrier->ntasks == (int)LIBXS_ATOMIC_ADD_FETCH(
+    if (ntasks == (int)LIBXS_ATOMIC_ADD_FETCH(
       &barrier->arrived.i, 1, LIBXS_ATOMIC_SEQ_CST))
     {
       LIBXS_ATOMIC_STORE(&barrier->arrived.i, 0, LIBXS_ATOMIC_SEQ_CST);
@@ -791,7 +801,10 @@ LIBXS_API_INLINE void libxs_barrier_wait(libxs_barrier_t* barrier) {
        *
        * The outer test is kept because the macro is a single pause where the build
        * has no synchronization, and it reads the epoch atomically where the macro
-       * dereferences it plainly.
+       * dereferences it plainly. That plain dereference is a data race by the
+       * letter of the model and ThreadSanitizer reports it, which is what
+       * .tsan.supp defers: the wait can only end through the atomic load above,
+       * so the edge that releases this task is the atomic one either way.
        */
       while (epoch == (int)LIBXS_ATOMIC_LOAD(
         &barrier->epoch.i, LIBXS_ATOMIC_SEQ_CST))
@@ -817,7 +830,9 @@ LIBXS_API_INLINE int libxs_barrier_bcast(libxs_barrier_t* barrier,
   int tid, int root, int value)
 {
   int result = value;
-  if (NULL != barrier && 1 < barrier->ntasks) {
+  if (NULL != barrier
+    && 1 < (int)LIBXS_ATOMIC_LOAD(&barrier->ntasks, LIBXS_ATOMIC_RELAXED))
+  {
     /* the epoch does not move between two rendezvous, so every task of this one
      * picks the same slot without a further rendezvous to agree on it */
     const int slot = (int)LIBXS_ATOMIC_LOAD(
