@@ -15,6 +15,15 @@
 #include "libxs_crc32.h"
 #include "libxs_diff.h"
 
+#if defined(_WIN32)
+# include <windows.h>
+#else
+# include <unistd.h>
+# if defined(__APPLE__) && defined(__MACH__)
+#   include <sys/sysctl.h>
+# endif
+#endif
+
 #if !defined(LIBXS_MEM_STDLIB) && 0
 # define LIBXS_MEM_STDLIB
 #endif
@@ -299,6 +308,141 @@ LIBXS_APIVAR_DEFINE(void (*internal_libxs_mcopy_tile_function)(void*, const void
 LIBXS_APIVAR_DEFINE(void (*internal_libxs_tcopy_tile_function)(void*, const void*, unsigned int,
   unsigned int, unsigned int, unsigned int, unsigned int, unsigned int, unsigned int));
 #endif
+
+
+#if !defined(_WIN32) && defined(__linux__)
+/**
+ * The cgroup memory limit that applies to this process, or zero where none does.
+ * The physical size is what sysconf reports, and in a container that is the
+ * machine's rather than the process's: four gigabytes of limit on a host holding
+ * a terabyte reads as a terabyte, which is the wrong number precisely where a
+ * caller sizing itself against memory needs a right one.
+ *
+ * The limit is not necessarily on the process's own cgroup. A batch system puts
+ * it on the job while the process runs in a leaf below it, so the walk goes from
+ * the leaf to the root and takes the smallest limit found: reading the leaf alone
+ * finds "max" and concludes there is no limit.
+ */
+LIBXS_API_INLINE size_t internal_libxs_mem_cgroup(void)
+{
+  size_t result = 0;
+  FILE *const self = fopen("/proc/self/cgroup", "r");
+  if (NULL != self) {
+    char line[512];
+    while (NULL != fgets(line, sizeof(line), self)) {
+      char* path = NULL;
+      int v2 = 0;
+      if ('0' == line[0] && ':' == line[1] && ':' == line[2]) {
+        path = line + 3; /* unified hierarchy */
+        v2 = 1;
+      }
+      else { /* one controller per line, and only the memory one carries a limit */
+        char *const m = strstr(line, ":memory:");
+        if (NULL != m) path = m + 8;
+      }
+      if (NULL != path) {
+        char *const nl = strchr(path, '\n');
+        if (NULL != nl) *nl = '\0';
+        for (;;) {
+          char file[1024];
+          FILE* handle;
+          if (0 != v2) {
+            LIBXS_SNPRINTF(file, sizeof(file),
+              "/sys/fs/cgroup%s/memory.max", path);
+          }
+          else {
+            LIBXS_SNPRINTF(file, sizeof(file),
+              "/sys/fs/cgroup/memory%s/memory.limit_in_bytes", path);
+          }
+          handle = fopen(file, "r");
+          if (NULL != handle) {
+            char buffer[64];
+            if (NULL != fgets(buffer, sizeof(buffer), handle)) {
+              char* end = NULL;
+              const unsigned long long value = strtoull(buffer, &end, 10);
+              /* v2 spells no limit "max", which parses as zero; v1 spells it as a
+               * number past what the machine holds, which the caller clamps */
+              if (end != buffer && 0 < value
+                && (0 == result || (size_t)value < result))
+              {
+                result = (size_t)value;
+              }
+            }
+            fclose(handle);
+          }
+          if ('\0' == *path) break; /* the root was the last one to try */
+          { char *const slash = strrchr(path, '/');
+            if (NULL == slash) break;
+            *slash = '\0'; /* one level up; the root becomes the empty string */
+          }
+        }
+      }
+    }
+    fclose(self);
+  }
+  return result;
+}
+#endif
+
+
+LIBXS_API int libxs_mem_info(size_t* mem_free, size_t* mem_total)
+{
+  int result = EXIT_FAILURE;
+  size_t size_free = 0, size_total = 0;
+#if defined(_WIN32)
+  MEMORYSTATUSEX status;
+  status.dwLength = sizeof(status);
+  if (GlobalMemoryStatusEx(&status)) {
+    size_total = (size_t)status.ullTotalPhys;
+    size_free = (size_t)status.ullAvailPhys;
+  }
+#else
+# if defined(_SC_PAGE_SIZE)
+  const long page_size = sysconf(_SC_PAGE_SIZE);
+# else
+  const long page_size = 4096;
+# endif
+  long pages_free = 0, pages_total = 0;
+# if defined(__linux__)
+#   if defined(_SC_PHYS_PAGES)
+  pages_total = sysconf(_SC_PHYS_PAGES);
+#   endif
+#   if defined(_SC_AVPHYS_PAGES)
+  pages_free = sysconf(_SC_AVPHYS_PAGES);
+#   else
+  pages_free = pages_total;
+#   endif
+# elif defined(__APPLE__) && defined(__MACH__)
+  { size_t nfree = sizeof(long), ntotal = sizeof(long);
+    if (0 != sysctlbyname("hw.memsize", &pages_total, &ntotal, NULL, 0)) {
+      pages_total = 0;
+    }
+    else if (0 < page_size) pages_total /= page_size;
+    if (0 != sysctlbyname("vm.page_free_count", &pages_free, &nfree, NULL, 0)) {
+      pages_free = pages_total;
+    }
+  }
+# endif
+  if (0 < page_size && 0 <= pages_free && 0 <= pages_total) {
+    size_total = (size_t)page_size * (size_t)pages_total;
+    size_free = (size_t)page_size * (size_t)pages_free;
+  }
+# if defined(__linux__)
+  { const size_t limit = internal_libxs_mem_cgroup();
+    if (0 != limit && limit < size_total) {
+      size_total = limit;
+      if (size_total < size_free) size_free = size_total;
+    }
+  }
+# endif
+#endif
+  if (0 != size_total) {
+    if (NULL != mem_total) *mem_total = size_total;
+    if (NULL != mem_free) *mem_free = size_free;
+    result = EXIT_SUCCESS;
+  }
+  return result;
+}
 
 
 LIBXS_API size_t libxs_offset(size_t ndims, const size_t offset[], const size_t shape[], size_t* size)

@@ -115,6 +115,19 @@ int libxs_malloc_info(const void* pointer, libxs_malloc_info_t* info);
 
 Query the size of an allocation made with `libxs_malloc`. The pool is derived internally.
 
+## Environment
+
+`LIBXS_MALLOC_LIMIT` bounds the pool in MB. Beyond it, an allocation first evicts
+a cached chunk, which returns its memory to the system. A negative value removes
+the bound. Unset, the bound is derived: it scales with the number of threads that
+reached the pool, because each of them holds its own scratch, and a bound that
+does not scale starves a run on many threads while being ample on few.
+
+`LIBXS_MALLOC_SHARE` limits the derived bound to a percentage of the memory the
+process may use (default 50), which covers a host with many cores and little
+memory, and a container whose limit is below what the cores suggest. It does not
+apply when `LIBXS_MALLOC_LIMIT` pins the bound.
+
 ## Fixed-Size Pool
 
 A lightweight fixed-size pool for scenarios where the element size is known at initialization time.

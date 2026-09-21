@@ -41,6 +41,29 @@
 #if !defined(LIBXS_MALLOC_EVICT_LIMIT)
 # define LIBXS_MALLOC_EVICT_LIMIT ((size_t)256 * LIBXS_MALLOC_EVICT_SIZE)
 #endif
+/**
+ * What one thread may hold before the pool is over its limit. The demand is per
+ * thread - every task holds its own scratch - so a constant total is ample at
+ * eight threads and starving at hundreds: at the fixed limit a build on 384
+ * threads sat permanently over it, and eviction returns pages to the system, so
+ * the same work took twice the time while nothing showed below a hundred
+ * threads. Expressed in eviction-sized chunks because that is the granularity
+ * the pool reclaims in, and eight of them is where the fixed limit put a thread
+ * at the count it was chosen for.
+ */
+#if !defined(LIBXS_MALLOC_EVICT_QUOTA)
+# define LIBXS_MALLOC_EVICT_QUOTA (8 * LIBXS_MALLOC_EVICT_SIZE)
+#endif
+/**
+ * Share of host memory the pool may reach, in percent, whatever the thread count
+ * asks for. The per-thread quota assumes memory in balance with the core count,
+ * which is an assumption rather than a fact: it fails on a machine with many
+ * cores and little memory, and inside a container with a limit. LIBXS_MALLOC_SHARE
+ * overrides it, at no cost per allocation because the memory size is read once.
+ */
+#if !defined(LIBXS_MALLOC_EVICT_SHARE)
+# define LIBXS_MALLOC_EVICT_SHARE 50
+#endif
 #if !defined(LIBXS_MALLOC_EVICT_AGE)
 # define LIBXS_MALLOC_EVICT_AGE 8
 #endif
@@ -108,6 +131,8 @@ LIBXS_APIVAR_DEFINE(libxs_lock_t internal_libxs_malloc_plocks[LIBXS_MALLOC_NLOCK
 LIBXS_APIVAR_DEFINE(libxs_registry_t* internal_libxs_malloc_registry);
 #if defined(LIBXS_MALLOC_EVICT)
 LIBXS_APIVAR_DEFINE(size_t internal_libxs_malloc_evict_limit);
+/* host memory does not change, so the share of it is taken once */
+LIBXS_APIVAR_DEFINE(size_t internal_libxs_malloc_evict_cap);
 #endif
 
 
@@ -389,16 +414,52 @@ LIBXS_API_INLINE size_t internal_libxs_malloc_evict_available(
 LIBXS_API_INLINE size_t internal_libxs_malloc_evict_limit_get(void)
 {
   size_t stored = internal_libxs_malloc_evict_limit;
-  if (0 == stored) {
+  size_t result;
+  if (0 == stored) { /* the environment is read once; it does not change */
     const char *const env = getenv("LIBXS_MALLOC_LIMIT");
     if (NULL != env && '\0' != *env) {
       const long value = atol(env);
       stored = (0 > value) ? (size_t)-1 : ((size_t)value << 20) + 1;
     }
-    else stored = LIBXS_MALLOC_EVICT_LIMIT + 1;
+    else stored = (size_t)-2; /* derived below rather than fixed */
     internal_libxs_malloc_evict_limit = stored;
   }
-  return stored - 1;
+  /* Not pinned by the environment: scale with the threads that reached the pool.
+   * Recomputed rather than cached, because that count grows as threads first ask
+   * for a shard, and a limit stored at the first allocation would hold whatever
+   * had registered by then. Below the floor this is the fixed limit, so a count
+   * that is never populated leaves the behaviour as it was. */
+  if ((size_t)-2 == stored) {
+    const unsigned int nthreads = LIBXS_ATOMIC_LOAD(
+      &libxs_thread_count, LIBXS_ATOMIC_RELAXED);
+    const size_t scaled = (size_t)LIBXS_MAX(nthreads, 1)
+      * LIBXS_MALLOC_EVICT_QUOTA;
+    const size_t limit = LIBXS_MAX(scaled, LIBXS_MALLOC_EVICT_LIMIT);
+    /* The memory term is cached and the thread term is not: memory does not
+     * change while the count grows, and querying it per allocation would cost
+     * more than the eviction this limit exists to avoid. */
+    size_t cap = internal_libxs_malloc_evict_cap;
+    if (0 == cap) {
+      size_t total = 0;
+      unsigned int share = LIBXS_MALLOC_EVICT_SHARE;
+      const char *const env = getenv("LIBXS_MALLOC_SHARE");
+      if (NULL != env && '\0' != *env) {
+        const long value = atol(env);
+        if (0 < value && 100 >= value) share = (unsigned int)value;
+      }
+      if (EXIT_SUCCESS == libxs_mem_info(NULL, &total) && 0 != total) {
+        cap = (total / 100) * share;
+      }
+      /* unknown memory is no cap rather than no pool */
+      if (0 == cap) cap = (size_t)-1;
+      internal_libxs_malloc_evict_cap = cap;
+    }
+    /* the cap outranks the floor: a four-gigabyte machine has no business
+     * holding a four-gigabyte pool because that is what the constant said */
+    result = LIBXS_MIN(limit, cap);
+  }
+  else result = stored - 1;
+  return result;
 }
 
 

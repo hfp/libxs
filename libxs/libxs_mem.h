@@ -74,6 +74,23 @@ typedef enum libxs_mem_op_t {
 
 
 /**
+ * Host memory, in bytes: mem_total what the process may use, mem_free what is
+ * unused. Either pointer may be NULL. Returns EXIT_SUCCESS when a size was
+ * determined, and leaves the outputs untouched otherwise, so a caller that
+ * cannot query it can choose what absence means rather than read a zero.
+ *
+ * mem_total is what the PROCESS may use, not what the machine holds: a cgroup
+ * limit is taken into account where one applies, because the physical size is
+ * the wrong number in exactly the case a caller sizing itself against memory
+ * needs a right one.
+ *
+ * Device memory is not considered. A caller wanting the smaller of host and
+ * device applies that itself, since which of the two bounds it depends on where
+ * its allocation lands.
+ */
+LIBXS_API int libxs_mem_info(size_t* mem_free, size_t* mem_total);
+
+/**
  * Calculate the linear offset of the n-dimensional (ndims) offset (can be NULL),
  * and the (optional) linear size of the corresponding shape.
  */
