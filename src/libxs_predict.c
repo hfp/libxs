@@ -203,6 +203,8 @@ typedef struct internal_libxs_predict_ktrial_t {
   int* held;
   double* part;
   int nheld;
+  /* how kind, mad, held and part were allocated, in that order */
+  int pool[4];
 } internal_libxs_predict_ktrial_t;
 
 typedef struct internal_libxs_predict_order_ctx_t {
@@ -315,6 +317,8 @@ typedef struct internal_libxs_predict_rf_t {
    */
   unsigned char* bins;
   double* bin_edge;
+  /* how calib_fold, bins and bin_edge were allocated, being build scratch */
+  int fold_pool, bins_pool, edge_pool;
   /** Offset added to a rounded output to bring its labels to zero. Only a
    *  folded output has one, and only a folded output is in range for it. */
   int* label_offset;
@@ -370,9 +374,18 @@ LIBXS_EXTERN_C struct libxs_predict_t {
   int hknn_ngroups;
   internal_libxs_predict_cluster_t** hknn_po_clusters;
   double* eval_buf;
-  /* normalized inputs for every entry, built once per build and shared */
+  /**
+   * Normalized inputs for every entry, shared by the tasks of the partition and
+   * released when it ends: nothing after the partition reads them. Scratch, so
+   * how it was allocated is kept beside it.
+   */
   double* norm_pts;
-  /* partition scratch, and the shared token that gates taking part */
+  int norm_pts_pool;
+  /**
+   * Partition scratch, and the shared token that gates taking part. Both live
+   * only inside the partition step that allocates them, which also keeps their
+   * pool flags.
+   */
   double* norm_cen;
   /* Hamerly bounds: upper/lower per entry, then drift, separation, old centroids */
   double* norm_bnd;
@@ -502,8 +515,11 @@ LIBXS_EXTERN_C struct libxs_predict_t {
    * and frees after the one that collects it.
    */
   double* sync_partial;
+  int sync_partial_pool;
   /* The neighbour-count trial between its prep and its finish, likewise. */
   internal_libxs_predict_ktrial_t* sync_ktrial;
+  /* The team scoring the nodes of the hierarchical partition, likewise. */
+  struct internal_libxs_predict_hknn_team_t* sync_hknn;
 };
 
 /**
@@ -554,6 +570,10 @@ LIBXS_API_INLINE void internal_libxs_predict_rms_task(
   libxs_predict_t* model, int tid, int ntasks);
 LIBXS_API_INLINE void internal_libxs_predict_neighbors_free(
   internal_libxs_predict_ktrial_t* trial);
+LIBXS_API_INLINE void internal_libxs_predict_hknn_team_free(
+  libxs_predict_t* model);
+LIBXS_API_INLINE void internal_libxs_predict_normpts_free(
+  libxs_predict_t* model);
 LIBXS_API_INLINE int internal_libxs_predict_loo_ok(
   const internal_libxs_predict_cluster_t* cl);
 LIBXS_API_INLINE void internal_libxs_predict_loo_gather(
@@ -602,10 +622,7 @@ LIBXS_API_INLINE void internal_libxs_predict_free_clusters(libxs_predict_t* mode
   model->assignments = NULL;
   free(model->eval_buf);
   model->eval_buf = NULL;
-  free(model->norm_pts);
-  model->norm_pts = NULL;
-  free(model->norm_bnd);
-  model->norm_bnd = NULL;
+  internal_libxs_predict_normpts_free(model);
   /* the support cache is derived from raw_outputs and must not outlive it */
   if (NULL != model->sup_vals) {
     int j;
@@ -880,7 +897,7 @@ LIBXS_API_INLINE void internal_libxs_predict_extent(libxs_predict_t* model)
   const int p = model->nentries;
   free(model->input_min); free(model->input_rng);
   free(model->input_knot); model->input_knot = NULL;
-  free(model->norm_pts); model->norm_pts = NULL;
+  internal_libxs_predict_normpts_free(model);
   model->input_min = (double*)malloc((size_t)m * sizeof(double));
   model->input_rng = (double*)malloc((size_t)m * sizeof(double));
   if (NULL != model->input_min && NULL != model->input_rng) {
@@ -926,7 +943,8 @@ LIBXS_API_INLINE double* internal_libxs_predict_normpts(libxs_predict_t* model)
   const int m = model->ninputs;
   const int p = model->nentries;
   if (NULL == model->norm_pts && 0 < p && 0 < m) {
-    model->norm_pts = (double*)malloc((size_t)p * (size_t)m * sizeof(double));
+    model->norm_pts = (double*)LIBXS_PREDICT_MALLOC(
+      (size_t)p * (size_t)m * sizeof(double), model->norm_pts_pool);
     if (NULL != model->norm_pts) {
       int i;
       for (i = 0; i < p; ++i) {
@@ -936,6 +954,14 @@ LIBXS_API_INLINE double* internal_libxs_predict_normpts(libxs_predict_t* model)
     }
   }
   return model->norm_pts;
+}
+
+
+LIBXS_API_INLINE void internal_libxs_predict_normpts_free(libxs_predict_t* model)
+{
+  LIBXS_PREDICT_FREE(model->norm_pts, model->norm_pts_pool);
+  model->norm_pts = NULL;
+  model->norm_pts_pool = 0;
 }
 
 
@@ -1031,7 +1057,7 @@ LIBXS_API_INLINE void internal_libxs_predict_kmeans(libxs_barrier_t* barrier,
   const int p = model->nentries;
   const int missing = model->has_missing;
   int pool_comp = 0, pool_cnt = 0, pool_dist = 0;
-  int pool_dcnt = 0;
+  int pool_dcnt = 0, pool_cen = 0, pool_bnd = 0;
   const double* pts;
   double* centroids;
   double* comp = NULL;
@@ -1044,25 +1070,25 @@ LIBXS_API_INLINE void internal_libxs_predict_kmeans(libxs_barrier_t* barrier,
      * tasks racing to create it each fill a copy the others then read.
      */
     internal_libxs_predict_normpts(model);
-    free(model->norm_cen);
-    model->norm_cen = (double*)malloc(
-      (size_t)nclusters * (size_t)m * sizeof(double));
+    LIBXS_ASSERT(NULL == model->norm_cen && NULL == model->norm_bnd);
+    model->norm_cen = (double*)LIBXS_PREDICT_MALLOC(
+      (size_t)nclusters * (size_t)m * sizeof(double), pool_cen);
     comp = (double*)LIBXS_PREDICT_MALLOC((size_t)nclusters * (size_t)m * sizeof(double), pool_comp);
     counts = (int*)LIBXS_PREDICT_MALLOC((size_t)nclusters * sizeof(int), pool_cnt);
     dists = (double*)LIBXS_PREDICT_MALLOC((size_t)p * sizeof(double), pool_dist);
     /* per-dimension counts: a centroid averages only the values actually present */
     dcounts = (0 == missing) ? NULL : (int*)LIBXS_PREDICT_MALLOC(
       (size_t)nclusters * (size_t)m * sizeof(int), pool_dcnt);
-    free(model->norm_bnd);
-    model->norm_bnd = (double*)malloc(((size_t)p * 2
+    model->norm_bnd = (double*)LIBXS_PREDICT_MALLOC(((size_t)p * 2
       + (size_t)nclusters * 2 + 1 + (size_t)nclusters * (size_t)m)
-      * sizeof(double));
+      * sizeof(double), pool_bnd);
     model->sync_moved = 0;
     if (NULL == model->norm_cen || NULL == comp || NULL == counts
       || NULL == dists || NULL == model->norm_bnd
       || (0 != missing && NULL == dcounts))
     { /* every task tests norm_cen below, so releasing it declines the step */
-      free(model->norm_cen); model->norm_cen = NULL;
+      LIBXS_PREDICT_FREE(model->norm_cen, pool_cen);
+      model->norm_cen = NULL;
     }
   }
   libxs_barrier_wait(barrier);
@@ -1259,8 +1285,10 @@ LIBXS_API_INLINE void internal_libxs_predict_kmeans(libxs_barrier_t* barrier,
     LIBXS_PREDICT_FREE(dists, pool_dist);
     LIBXS_PREDICT_FREE(comp, pool_comp);
     LIBXS_PREDICT_FREE(counts, pool_cnt);
-    free(model->norm_cen);
+    LIBXS_PREDICT_FREE(model->norm_cen, pool_cen);
     model->norm_cen = NULL;
+    LIBXS_PREDICT_FREE(model->norm_bnd, pool_bnd);
+    model->norm_bnd = NULL;
   }
   /* the partition is complete for every task, not just the one that closed it */
   libxs_barrier_wait(barrier);
@@ -1974,10 +2002,11 @@ LIBXS_API void libxs_predict_destroy(libxs_predict_t* model)
     free(model->escape_w);
     free(model->central_out);
     /* the trial's partials, which only a build that failed mid-tail still holds */
-    free(model->sync_partial);
+    LIBXS_PREDICT_FREE(model->sync_partial, model->sync_partial_pool);
     model->sync_partial = NULL;
     internal_libxs_predict_neighbors_free(model->sync_ktrial);
     model->sync_ktrial = NULL;
+    internal_libxs_predict_hknn_team_free(model);
     model->central_out = NULL;
     model->sup_vals = NULL;
     model->sup_freq = NULL;
@@ -2053,10 +2082,10 @@ LIBXS_API void libxs_predict_destroy(libxs_predict_t* model)
         free(model->rf->trees[ti].incr);
       }
       free(model->rf->trees);
-      free(model->rf->calib_fold);
+      LIBXS_PREDICT_FREE(model->rf->calib_fold, model->rf->fold_pool);
       /* normally released with the last tree; here for a build that gave up */
-      free(model->rf->bins);
-      free(model->rf->bin_edge);
+      LIBXS_PREDICT_FREE(model->rf->bins, model->rf->bins_pool);
+      LIBXS_PREDICT_FREE(model->rf->bin_edge, model->rf->edge_pool);
       free(model->rf->label_offset);
       free(model->rf->regress);
       free(model->rf->nclass);
@@ -3123,9 +3152,13 @@ LIBXS_API_INLINE double internal_libxs_predict_ts_window_probe(
       if (cut > w + h) {
         libxs_predict_t* probe = libxs_predict_create(s * w + a + model->nderiv, h);
         if (NULL != probe) {
-          double* step = (double*)malloc((size_t)(s + a) * sizeof(double));
-          double* x = (double*)malloc((size_t)(s * w + a + model->nderiv) * sizeof(double));
-          double* y = (double*)malloc((size_t)h * sizeof(double));
+          int step_pool = 0, x_pool = 0, y_pool = 0;
+          double* step = (double*)LIBXS_PREDICT_MALLOC(
+            (size_t)(s + a) * sizeof(double), step_pool);
+          double* x = (double*)LIBXS_PREDICT_MALLOC(
+            (size_t)(s * w + a + model->nderiv) * sizeof(double), x_pool);
+          double* y = (double*)LIBXS_PREDICT_MALLOC(
+            (size_t)h * sizeof(double), y_pool);
           if (NULL != step && NULL != x && NULL != y) {
             double err = 0;
             int t, j, nsc = 0;
@@ -3183,7 +3216,9 @@ LIBXS_API_INLINE double internal_libxs_predict_ts_window_probe(
               }
             }
           }
-          free(y); free(x); free(step);
+          LIBXS_PREDICT_FREE(y, y_pool);
+          LIBXS_PREDICT_FREE(x, x_pool);
+          LIBXS_PREDICT_FREE(step, step_pool);
           libxs_predict_destroy(probe);
         }
       }
@@ -3690,28 +3725,54 @@ LIBXS_API_INLINE int internal_libxs_predict_build_impl(libxs_barrier_t* barrier,
   /* the builder's verdict on a stage no task could form for itself, handed over
    * as the rendezvous releases */
   result = libxs_barrier_bcast(barrier, tid, 0, result);
-  if (EXIT_SUCCESS == result && NULL != model && 0 < model->nentries
-    && LIBXS_PREDICT_HKNN == model->decompose
-    && NULL == model->hknn_assignments)
-  {
-    /**
-     * Deriving the hierarchy is the builder's: every task would otherwise
-     * derive its own over the same corpus and race on the result
+  { /**
+     * The builder's verdict, handed over rather than tested by every task: the
+     * test reads what the stage itself fills, so a task arriving late would see
+     * the hierarchy already derived, skip the stage, and miss the rendezvous
+     * the builder's partition holds for it.
      */
-    if (0 == tid) {
-      model->hknn_assignments = (int*)calloc((size_t)model->nentries, sizeof(int));
-      if (NULL != model->hknn_assignments) {
-        model->hknn_nclusters = 0;
-        internal_libxs_predict_hknn_partition(model, &model->hknn_nclusters);
-        if (model->hknn_nclusters < 1) model->hknn_nclusters = 1;
+    const int hknn = libxs_barrier_bcast(barrier, tid, 0,
+      (EXIT_SUCCESS == result && NULL != model && 0 < model->nentries
+        && LIBXS_PREDICT_HKNN == model->decompose
+        && NULL == model->hknn_assignments) ? 1 : 0);
+    if (0 != hknn) {
+      int team = 0;
+      /**
+       * Deriving the hierarchy is the builder's, the tree being grown node by
+       * node in an order the split reads (its score floor counts the leaves
+       * made so far), so subtrees cannot go to the tasks without changing the
+       * tree. What the tasks take is the scoring inside a node: each sorts and
+       * scans a share of the features, which is most of the work and leaves
+       * the tree exactly as the builder alone would have grown it.
+       */
+      if (0 == tid) {
+        model->hknn_assignments = (int*)calloc((size_t)model->nentries,
+          sizeof(int));
+        if (NULL != model->hknn_assignments && 1 < ntasks) {
+          team = internal_libxs_predict_hknn_team_create(model, ntasks);
+        }
+      }
+      team = libxs_barrier_bcast(barrier, tid, 0, team);
+      if (0 == tid) {
+        if (NULL != model->hknn_assignments) {
+          model->hknn_nclusters = 0;
+          internal_libxs_predict_hknn_partition(model, &model->hknn_nclusters,
+            barrier);
+          if (model->hknn_nclusters < 1) model->hknn_nclusters = 1;
+        }
+        if (0 != team) { /* releases the workers into their exit */
+          LIBXS_ATOMIC_STORE(&model->sync_hknn->op, 2, LIBXS_ATOMIC_SEQ_CST);
+          libxs_barrier_wait(barrier);
+        }
+      }
+      else if (0 != team) {
+        internal_libxs_predict_hknn_work(barrier, model, tid);
       }
     }
   }
-  /**
-   * Outside the test, not inside: the test reads what the stage itself fills,
-   * so a task arriving late skips the stage and never reaches the rendezvous.
-   */
   libxs_barrier_wait(barrier);
+  /* past the rendezvous, so no worker still reads the team */
+  if (0 == tid) internal_libxs_predict_hknn_team_free(model);
   if (EXIT_SUCCESS == result && NULL != model && 0 < model->nentries
     && LIBXS_PREDICT_RF == model->decompose && NULL == model->rf)
   {
@@ -3899,6 +3960,8 @@ LIBXS_API_INLINE int internal_libxs_predict_build_impl(libxs_barrier_t* barrier,
       }
     }
     libxs_barrier_wait(barrier);
+    /* the partition was their only reader, and every task is past it */
+    if (0 == tid) internal_libxs_predict_normpts_free(model);
     if (0 == tid && EXIT_SUCCESS == result) {
       for (i = 0; i < p; ++i) {
         ++model->clusters[model->assignments[i]].nentries;
@@ -4177,8 +4240,8 @@ LIBXS_API_INLINE int internal_libxs_predict_build_impl(libxs_barrier_t* barrier,
       if (0 >= model->central && NULL == model->rf
         && EXIT_SUCCESS == internal_libxs_predict_central_prep(model))
       {
-        model->sync_partial = (double*)malloc(
-          (size_t)2 * n * ntasks * sizeof(double));
+        model->sync_partial = (double*)LIBXS_PREDICT_MALLOC(
+          (size_t)2 * n * ntasks * sizeof(double), model->sync_partial_pool);
       }
     }
     result = libxs_barrier_bcast(barrier, tid, 0, result);
@@ -4204,7 +4267,7 @@ LIBXS_API_INLINE int internal_libxs_predict_build_impl(libxs_barrier_t* barrier,
     /* the builder's, the calibration below reading what it settles */
     if (0 == tid && EXIT_SUCCESS == result && NULL != model->sync_partial) {
       internal_libxs_predict_central_reduce(model, model->sync_partial, ntasks);
-      free(model->sync_partial);
+      LIBXS_PREDICT_FREE(model->sync_partial, model->sync_partial_pool);
       model->sync_partial = NULL;
     }
     libxs_barrier_wait(barrier);
@@ -5184,11 +5247,17 @@ LIBXS_API int libxs_predict_recalibrate(libxs_predict_t* model,
     internal_libxs_predict_rf_t* rf = model->rf;
     const int nbin = LIBXS_PREDICT_RF_CALIB, n = rf->noutputs;
     const int m = model->ninputs, nout = model->noutputs;
-    double* hit = (double*)calloc((size_t)n * nbin, sizeof(double));
-    double* cnt = (double*)calloc((size_t)n * nbin, sizeof(double));
+    int hit_pool = 0, cnt_pool = 0;
+    double* hit = (double*)LIBXS_PREDICT_MALLOC(
+      (size_t)n * nbin * sizeof(double), hit_pool);
+    double* cnt = (double*)LIBXS_PREDICT_MALLOC(
+      (size_t)n * nbin * sizeof(double), cnt_pool);
+    /* kept: it becomes the model's curve */
     double* curve = (double*)malloc((size_t)n * nbin * sizeof(double));
     if (NULL != hit && NULL != cnt && NULL != curve) {
       int i, j;
+      memset(hit, 0, (size_t)n * nbin * sizeof(double));
+      memset(cnt, 0, (size_t)n * nbin * sizeof(double));
       for (i = 0; i < nentries; ++i) {
         libxs_predict_info_t info;
         libxs_predict_eval(NULL, model, inputs + (size_t)i * m, NULL, &info, 1);
@@ -5216,8 +5285,8 @@ LIBXS_API int libxs_predict_recalibrate(libxs_predict_t* model,
       result = EXIT_SUCCESS;
     }
     free(curve);
-    free(cnt);
-    free(hit);
+    LIBXS_PREDICT_FREE(cnt, cnt_pool);
+    LIBXS_PREDICT_FREE(hit, hit_pool);
   }
   return result;
 }
@@ -5416,7 +5485,9 @@ LIBXS_API_INLINE int internal_libxs_predict_support(libxs_predict_t* model,
       }
     }
     if (0 < total) {
-      double* all = (double*)malloc((size_t)total * sizeof(double));
+      int all_pool = 0;
+      double* all = (double*)LIBXS_PREDICT_MALLOC(
+        (size_t)total * sizeof(double), all_pool);
       if (NULL != all) {
         int at = 0, i, nd = 1;
         for (c = 0; c < model->nclusters; ++c) {
@@ -5446,7 +5517,7 @@ LIBXS_API_INLINE int internal_libxs_predict_support(libxs_predict_t* model,
           model->sup_tot[j] = at;
         }
         else result = EXIT_FAILURE;
-        free(all);
+        LIBXS_PREDICT_FREE(all, all_pool);
       }
       else result = EXIT_FAILURE;
     }

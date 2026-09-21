@@ -968,9 +968,11 @@ LIBXS_API_INLINE void internal_libxs_predict_rf_edges(libxs_predict_t* model)
   const int m = model->ninputs;
   if (NULL != rf && LIBXS_PREDICT_RF_BINROWS <= p && 0 < m) {
     const int nb = LIBXS_PREDICT_RF_NBINS;
-    unsigned char* const bins = (unsigned char*)malloc((size_t)p * (size_t)m);
-    double* const edge = (double*)malloc(
-      (size_t)m * (size_t)(nb + 1) * sizeof(double));
+    int bins_pool = 0, edge_pool = 0;
+    unsigned char* const bins = (unsigned char*)LIBXS_PREDICT_MALLOC(
+      (size_t)p * (size_t)m, bins_pool);
+    double* const edge = (double*)LIBXS_PREDICT_MALLOC(
+      (size_t)m * (size_t)(nb + 1) * sizeof(double), edge_pool);
     if (NULL != bins && NULL != edge) {
       const int nsamp = LIBXS_MIN(p, LIBXS_PREDICT_RF_SKETCH);
       const int step = LIBXS_MAX(p / nsamp, 1);
@@ -999,13 +1001,15 @@ LIBXS_API_INLINE void internal_libxs_predict_rf_edges(libxs_predict_t* model)
       if (NULL != sv) { /* nothing was placed if the sample could not be held */
         rf->bins = bins;
         rf->bin_edge = edge;
+        rf->bins_pool = bins_pool;
+        rf->edge_pool = edge_pool;
         rf->nbins = nb;
       }
       LIBXS_PREDICT_FREE(sv, spool);
     }
     if (0 >= rf->nbins) { /* the sorted search needs none of it */
-      free(bins);
-      free(edge);
+      LIBXS_PREDICT_FREE(bins, bins_pool);
+      LIBXS_PREDICT_FREE(edge, edge_pool);
     }
   }
 }
@@ -1054,10 +1058,12 @@ LIBXS_API_INLINE void internal_libxs_predict_rf_bins_tasks(
 LIBXS_API_INLINE void internal_libxs_predict_rf_bins_free(libxs_predict_t* model)
 {
   if (NULL != model->rf) {
-    free(model->rf->bins);
-    free(model->rf->bin_edge);
+    LIBXS_PREDICT_FREE(model->rf->bins, model->rf->bins_pool);
+    LIBXS_PREDICT_FREE(model->rf->bin_edge, model->rf->edge_pool);
     model->rf->bins = NULL;
     model->rf->bin_edge = NULL;
+    model->rf->bins_pool = 0;
+    model->rf->edge_pool = 0;
     model->rf->nbins = 0;
   }
 }
@@ -1164,7 +1170,8 @@ LIBXS_API_INLINE void internal_libxs_predict_rf_build(libxs_predict_t* model)
         rf->depth[oi] = best;
       }
       model->rf = rf;
-      rf->calib_fold = (unsigned char*)malloc((size_t)p);
+      rf->calib_fold = (unsigned char*)LIBXS_PREDICT_MALLOC(
+        (size_t)p, rf->fold_pool);
       if (NULL != rf->calib_fold) {
         const int ncalib = (p / LIBXS_PREDICT_RF_HOLD) / 2;
         const int nsample = LIBXS_MIN(ncalib, LIBXS_PREDICT_RF_CALIB_SAMPLE);
@@ -1476,6 +1483,9 @@ LIBXS_API_INLINE int internal_libxs_predict_rf_build_tree_team(
   internal_libxs_predict_rf_build_node_t* part = NULL;
   double* values_scratch = NULL;
   int* index_scratch = NULL;
+  /* this rank's scratch, then the team's, which rank zero owns */
+  int part_pool = 0, values_pool = 0, index_pool = 0;
+  int boot_pool = 0, tvalues_pool = 0, tindex_pool = 0, nodes_pool = 0;
   if (0 == rank) {
     const size_t values_count = internal_libxs_predict_rf_values_count(
       rf, output, m, p);
@@ -1487,12 +1497,15 @@ LIBXS_API_INLINE int internal_libxs_predict_rf_build_tree_team(
       ctx->part[i] = NULL;
       ctx->part_n[i] = 0;
     }
-    ctx->bootstrap = (int*)malloc((size_t)p * sizeof(int));
-    ctx->values_scratch = (double*)malloc(values_count * sizeof(double));
-    ctx->index_scratch = (int*)malloc((size_t)p * sizeof(int));
-    ctx->nodes = (internal_libxs_predict_rf_build_node_t*)malloc(
+    ctx->bootstrap = (int*)LIBXS_PREDICT_MALLOC(
+      (size_t)p * sizeof(int), boot_pool);
+    ctx->values_scratch = (double*)LIBXS_PREDICT_MALLOC(
+      values_count * sizeof(double), tvalues_pool);
+    ctx->index_scratch = (int*)LIBXS_PREDICT_MALLOC(
+      (size_t)p * sizeof(int), tindex_pool);
+    ctx->nodes = (internal_libxs_predict_rf_build_node_t*)LIBXS_PREDICT_MALLOC(
       (size_t)(max_nodes + INTERNAL_LIBXS_PREDICT_RF_TEAM_MAX)
-        * sizeof(internal_libxs_predict_rf_build_node_t));
+        * sizeof(internal_libxs_predict_rf_build_node_t), nodes_pool);
     if (NULL == ctx->bootstrap || NULL == ctx->values_scratch
       || NULL == ctx->index_scratch || NULL == ctx->nodes)
     {
@@ -1556,10 +1569,13 @@ LIBXS_API_INLINE int internal_libxs_predict_rf_build_tree_team(
     const size_t values_count = internal_libxs_predict_rf_values_count(
       rf, output, m, nc);
     internal_libxs_predict_rf_grow_t g;
-    part = (internal_libxs_predict_rf_build_node_t*)malloc(
-      (size_t)part_cap * sizeof(internal_libxs_predict_rf_build_node_t));
-    values_scratch = (double*)malloc(values_count * sizeof(double));
-    index_scratch = (int*)malloc((size_t)nc * sizeof(int));
+    part = (internal_libxs_predict_rf_build_node_t*)LIBXS_PREDICT_MALLOC(
+      (size_t)part_cap * sizeof(internal_libxs_predict_rf_build_node_t),
+      part_pool);
+    values_scratch = (double*)LIBXS_PREDICT_MALLOC(
+      values_count * sizeof(double), values_pool);
+    index_scratch = (int*)LIBXS_PREDICT_MALLOC(
+      (size_t)nc * sizeof(int), index_pool);
     if (NULL != part && NULL != values_scratch && NULL != index_scratch) {
       g.entries = model->entries;
       g.bins = rf->bins; g.bin_edge = rf->bin_edge; g.nbins = rf->nbins;
@@ -1617,14 +1633,14 @@ LIBXS_API_INLINE int internal_libxs_predict_rf_build_tree_team(
   libxs_barrier_wait(&ctx->barrier);
   result = (0 == LIBXS_ATOMIC_LOAD(&ctx->failed, LIBXS_ATOMIC_SEQ_CST))
     ? EXIT_SUCCESS : EXIT_FAILURE;
-  free(index_scratch);
-  free(values_scratch);
-  free(part);
+  LIBXS_PREDICT_FREE(index_scratch, index_pool);
+  LIBXS_PREDICT_FREE(values_scratch, values_pool);
+  LIBXS_PREDICT_FREE(part, part_pool);
   if (0 == rank) {
-    free(ctx->nodes);
-    free(ctx->index_scratch);
-    free(ctx->values_scratch);
-    free(ctx->bootstrap);
+    LIBXS_PREDICT_FREE(ctx->nodes, nodes_pool);
+    LIBXS_PREDICT_FREE(ctx->index_scratch, tindex_pool);
+    LIBXS_PREDICT_FREE(ctx->values_scratch, tvalues_pool);
+    LIBXS_PREDICT_FREE(ctx->bootstrap, boot_pool);
   }
   return result;
 }
@@ -1862,12 +1878,20 @@ LIBXS_API_INLINE void internal_libxs_predict_rf_boost(libxs_predict_t* model)
       if (0 != rf->regress[ti]) enabled = 1;
     }
     if (0 < maxn && 0 < configured_rate && 0 != enabled) {
-      double* pred = (double*)malloc((size_t)p * ncmax * sizeof(double));
-      double* sum = (double*)malloc((size_t)maxn * ncmax * sizeof(double));
-      int* cnt = (int*)malloc((size_t)maxn * ncmax * sizeof(int));
-      unsigned char* oob = (unsigned char*)malloc((size_t)p);
-      int* cover = (int*)malloc((size_t)p * sizeof(int));
-      unsigned char* hold = (unsigned char*)malloc((size_t)p);
+      int pred_pool = 0, sum_pool = 0, cnt_pool = 0;
+      int oob_pool = 0, cover_pool = 0, hold_pool = 0;
+      double* pred = (double*)LIBXS_PREDICT_MALLOC(
+        (size_t)p * ncmax * sizeof(double), pred_pool);
+      double* sum = (double*)LIBXS_PREDICT_MALLOC(
+        (size_t)maxn * ncmax * sizeof(double), sum_pool);
+      int* cnt = (int*)LIBXS_PREDICT_MALLOC(
+        (size_t)maxn * ncmax * sizeof(int), cnt_pool);
+      unsigned char* oob = (unsigned char*)LIBXS_PREDICT_MALLOC(
+        (size_t)p, oob_pool);
+      int* cover = (int*)LIBXS_PREDICT_MALLOC(
+        (size_t)p * sizeof(int), cover_pool);
+      unsigned char* hold = (unsigned char*)LIBXS_PREDICT_MALLOC(
+        (size_t)p, hold_pool);
       if (NULL != pred && NULL != sum && NULL != cnt && NULL != oob
         && NULL != cover && NULL != hold)
       {
@@ -2027,12 +2051,12 @@ LIBXS_API_INLINE void internal_libxs_predict_rf_boost(libxs_predict_t* model)
           }
         }
       }
-      free(hold);
-      free(cover);
-      free(oob);
-      free(cnt);
-      free(sum);
-      free(pred);
+      LIBXS_PREDICT_FREE(hold, hold_pool);
+      LIBXS_PREDICT_FREE(cover, cover_pool);
+      LIBXS_PREDICT_FREE(oob, oob_pool);
+      LIBXS_PREDICT_FREE(cnt, cnt_pool);
+      LIBXS_PREDICT_FREE(sum, sum_pool);
+      LIBXS_PREDICT_FREE(pred, pred_pool);
     }
   }
 }
@@ -2274,11 +2298,17 @@ LIBXS_API_INLINE void internal_libxs_predict_rf_calibrate_oob(
     const size_t hold_inv = (1 < p)
       ? libxs_mod_inverse(hold_coprime, (size_t)p) : 0;
     const int step = LIBXS_MAX((ncalib + nsample - 1) / nsample, 1);
-    double* hit = (double*)calloc((size_t)n * nbin, sizeof(double));
-    double* cnt = (double*)calloc((size_t)n * nbin, sizeof(double));
+    int hit_pool = 0, cnt_pool = 0;
+    double* hit = (double*)LIBXS_PREDICT_MALLOC(
+      (size_t)n * nbin * sizeof(double), hit_pool);
+    double* cnt = (double*)LIBXS_PREDICT_MALLOC(
+      (size_t)n * nbin * sizeof(double), cnt_pool);
+    /* kept: it becomes the forest's curve */
     double* curve = (double*)malloc((size_t)n * nbin * sizeof(double));
     if (NULL != hit && NULL != cnt && NULL != curve) {
       int ci, oi, any = 0;
+      memset(hit, 0, (size_t)n * nbin * sizeof(double));
+      memset(cnt, 0, (size_t)n * nbin * sizeof(double));
       for (ci = 0; ci < ncalib; ci += step) {
         const int h = ci * 2 + 1;
         const int row = (int)LIBXS_SHUFFLE_INDEX((size_t)h, (size_t)p,
@@ -2327,11 +2357,12 @@ LIBXS_API_INLINE void internal_libxs_predict_rf_calibrate_oob(
       }
     }
     free(curve);
-    free(cnt);
-    free(hit);
+    LIBXS_PREDICT_FREE(cnt, cnt_pool);
+    LIBXS_PREDICT_FREE(hit, hit_pool);
   }
   if (NULL != rf) {
-    free(rf->calib_fold);
+    LIBXS_PREDICT_FREE(rf->calib_fold, rf->fold_pool);
     rf->calib_fold = NULL;
+    rf->fold_pool = 0;
   }
 }

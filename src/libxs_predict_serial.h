@@ -728,6 +728,7 @@ LIBXS_API_INLINE libxs_predict_t* internal_libxs_predict_load_hknn(
   uint16_t ninp = 0, nout = 0, nclust = 0, has_weights = 0, nknots = 0;
   int ok = EXIT_SUCCESS, c, j, has_ew = 0;
   uint8_t* ksel = NULL;
+  int ksel_pool = 0;
   ok = internal_libxs_predict_read(&src, end, &ninp, 2);
   if (EXIT_SUCCESS == ok) ok = internal_libxs_predict_read(&src, end, &nout, 2);
   if (EXIT_SUCCESS == ok) ok = internal_libxs_predict_read(&src, end, &nclust, 2);
@@ -741,7 +742,7 @@ LIBXS_API_INLINE libxs_predict_t* internal_libxs_predict_load_hknn(
     uint8_t v = 0;
     ok = internal_libxs_predict_read(&src, end, &v, 1);
     if (EXIT_SUCCESS == ok && 0 != v) {
-      ksel = (uint8_t*)malloc((size_t)nout);
+      ksel = (uint8_t*)LIBXS_PREDICT_MALLOC((size_t)nout, ksel_pool);
       if (NULL == ksel) {
         ok = EXIT_FAILURE;
       }
@@ -767,7 +768,7 @@ LIBXS_API_INLINE libxs_predict_t* internal_libxs_predict_load_hknn(
       for (j = 0; j < (int)nout; ++j) model->k_sel[j] = (int)ksel[j];
     }
   }
-  free(ksel);
+  LIBXS_PREDICT_FREE(ksel, ksel_pool);
   if (EXIT_SUCCESS == ok) {
     model->decompose = LIBXS_PREDICT_HKNN;
     model->input_min = (double*)malloc((size_t)ninp * sizeof(double));
@@ -1135,14 +1136,15 @@ LIBXS_API_INLINE int internal_libxs_predict_load_rf_tree_v1(
   uint16_t nn = 0;
   int result = internal_libxs_predict_read(src, end, &nn, 2);
   internal_libxs_predict_rf_build_node_t* nodes = NULL;
+  int nodes_pool = 0;
   if (EXIT_SUCCESS == result && INT16_MAX < nn) result = EXIT_FAILURE;
   if (EXIT_SUCCESS == result && 0 < nn) {
     result = internal_libxs_predict_avail(*src, end, (size_t)nn,
       2 + 8 + 2 + 2 + 1);
   }
   if (EXIT_SUCCESS == result && 0 < nn) {
-    nodes = (internal_libxs_predict_rf_build_node_t*)malloc(
-      (size_t)nn * sizeof(internal_libxs_predict_rf_build_node_t));
+    nodes = (internal_libxs_predict_rf_build_node_t*)LIBXS_PREDICT_MALLOC(
+      (size_t)nn * sizeof(internal_libxs_predict_rf_build_node_t), nodes_pool);
     if (NULL == nodes) result = EXIT_FAILURE;
   }
   if (NULL != nodes) {
@@ -1185,7 +1187,7 @@ LIBXS_API_INLINE int internal_libxs_predict_load_rf_tree_v1(
       if (0 >= tree->nnodes) result = EXIT_FAILURE;
     }
   }
-  free(nodes);
+  LIBXS_PREDICT_FREE(nodes, nodes_pool);
   return result;
 }
 

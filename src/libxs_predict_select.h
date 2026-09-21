@@ -164,8 +164,9 @@ LIBXS_API_INLINE double internal_libxs_predict_decompose_probe(
   libxs_predict_t* probe = libxs_predict_create(m, n);
   double result = 1e30;
   if (NULL != probe) {
-    double* pred = (double*)malloc((size_t)n * sizeof(double));
-    int i, j;
+    int pred_pool = 0, i, j;
+    double* pred = (double*)LIBXS_PREDICT_MALLOC(
+      (size_t)n * sizeof(double), pred_pool);
     probe->eval_mode = model->eval_mode;
     probe->decompose = mode;
     probe->central = model->central;
@@ -226,7 +227,7 @@ LIBXS_API_INLINE double internal_libxs_predict_decompose_probe(
       }
       if (0 < nval) result = err / ((double)nval * n);
     }
-    free(pred);
+    LIBXS_PREDICT_FREE(pred, pred_pool);
     libxs_predict_destroy(probe);
   }
   return result;
@@ -374,10 +375,10 @@ LIBXS_API_INLINE void internal_libxs_predict_neighbors_free(
 {
   if (NULL != trial) {
     libxs_predict_destroy(trial->probe);
-    free(trial->part);
-    free(trial->held);
-    free(trial->mad);
-    free(trial->kind);
+    LIBXS_PREDICT_FREE(trial->part, trial->pool[3]);
+    LIBXS_PREDICT_FREE(trial->held, trial->pool[2]);
+    LIBXS_PREDICT_FREE(trial->mad, trial->pool[1]);
+    LIBXS_PREDICT_FREE(trial->kind, trial->pool[0]);
     free(trial);
   }
 }
@@ -427,12 +428,16 @@ internal_libxs_predict_neighbors_prep(libxs_predict_t* model, int ntasks)
     const int series = (0 < model->nts && 0 < model->nseries) ? 1 : 0;
     const size_t npart = (size_t)3 * LIBXS_PREDICT_NNEIGHBORS * n;
     int i, ok;
-    trial->kind = (int*)malloc((size_t)n * sizeof(int));
-    trial->mad = (double*)malloc((size_t)n * sizeof(double));
-    trial->part = (double*)malloc(npart * ntasks * sizeof(double));
+    trial->kind = (int*)LIBXS_PREDICT_MALLOC(
+      (size_t)n * sizeof(int), trial->pool[0]);
+    trial->mad = (double*)LIBXS_PREDICT_MALLOC(
+      (size_t)n * sizeof(double), trial->pool[1]);
+    trial->part = (double*)LIBXS_PREDICT_MALLOC(
+      npart * ntasks * sizeof(double), trial->pool[3]);
     if (0 != series) {
       trial->probe = libxs_predict_create(model->ninputs, n);
-      trial->held = (int*)malloc((size_t)p * sizeof(int));
+      trial->held = (int*)LIBXS_PREDICT_MALLOC(
+        (size_t)p * sizeof(int), trial->pool[2]);
     }
     ok = (NULL != trial->kind && NULL != trial->mad && NULL != trial->part
       && (0 == series || (NULL != trial->probe && NULL != trial->held)))
