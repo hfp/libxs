@@ -713,7 +713,10 @@ LIBXS_API int libxs_predict_push_weighted(libxs_lock_t* lock,
  *            select among them: for a classify output unanimity pins the vote
  *            fraction at 1.0, so every positive value yields the same drop set.
  *            Only an interpolating output reads the magnitude, where it scales a
- *            residual tolerance.
+ *            residual tolerance. An entry is dropped only if every output
+ *            passes, and a many-valued output answered by the vote (continuous
+ *            data at order 1, say) almost never finds its neighbours unanimous,
+ *            so a model with one such output keeps every entry.
  *
  *            Requiring unanimity rather than a confident majority is deliberate.
  *            Letting the threshold decide was measured and is far worse: on a

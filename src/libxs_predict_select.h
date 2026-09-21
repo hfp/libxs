@@ -368,8 +368,25 @@ LIBXS_API_INLINE int internal_libxs_predict_neighbors_cand(int i)
 }
 
 
+/* release what prep allocated, whichever part of it exists */
+LIBXS_API_INLINE void internal_libxs_predict_neighbors_free(
+  internal_libxs_predict_ktrial_t* trial)
+{
+  if (NULL != trial) {
+    libxs_predict_destroy(trial->probe);
+    free(trial->part);
+    free(trial->held);
+    free(trial->mad);
+    free(trial->kind);
+    free(trial);
+  }
+}
+
+
 /**
- * Resolve one neighbour count per output, writing model->k_sel.
+ * Resolve one neighbour count per output, writing model->k_sel. The trial runs
+ * in three stages - prep and finish are the builder's, the scoring between
+ * them the team's - and its state lives on the model while it runs.
  *
  * A single probe build serves the whole grid, because the count changes nothing
  * about the model and only how many neighbours the vote reads. That is what
@@ -382,37 +399,44 @@ LIBXS_API_INLINE int internal_libxs_predict_neighbors_cand(int i)
  * them would leave a validation window's own history in the corpus that predicts
  * it, and every candidate would look equally good.
  */
-LIBXS_API_INLINE void internal_libxs_predict_neighbors_select(
-  libxs_predict_t* model)
+LIBXS_API_INLINE internal_libxs_predict_ktrial_t*
+internal_libxs_predict_neighbors_prep(libxs_predict_t* model, int ntasks)
 {
   const int p = model->nentries;
   const int n = model->noutputs;
   const int nfit = (int)(p * 0.8 + 0.5);
-  int role_pool = 0, kind_pool = 0, mad_pool = 0, buf_pool = 0;
+  internal_libxs_predict_ktrial_t* trial = NULL;
+  int role_pool = 0, buf_pool = 0;
   char* role = (char*)LIBXS_PREDICT_MALLOC((size_t)p, role_pool);
-  int* kind = (int*)LIBXS_PREDICT_MALLOC((size_t)n * sizeof(int), kind_pool);
-  double* mad = (double*)LIBXS_PREDICT_MALLOC(
-    (size_t)n * sizeof(double), mad_pool);
   double* buf = (double*)LIBXS_PREDICT_MALLOC(
     (size_t)p * sizeof(double), buf_pool);
-  if (NULL != role && NULL != kind && NULL != mad && NULL != buf
-    && 8 < p && NULL == model->k_sel)
-  {
-    libxs_predict_t* probe = libxs_predict_create(model->ninputs, n);
+  if (NULL != role && NULL != buf && 8 < p && NULL == model->k_sel) {
+    trial = (internal_libxs_predict_ktrial_t*)calloc(1, sizeof(*trial));
+  }
+  if (NULL != trial) {
     const int series = (0 < model->nts && 0 < model->nseries) ? 1 : 0;
-    int i;
-    if (0 != series) {
-      for (i = 0; i < p; ++i) role[i] = (char)((i < nfit) ? 0 : 1);
-    }
-    else {
-      const size_t co = libxs_coprime2((size_t)p);
-      for (i = 0; i < p; ++i) {
-        role[LIBXS_SHUFFLE_INDEX(i, p, co, 0)] = (char)((i < nfit) ? 0 : 1);
+    const size_t npart = (size_t)3 * LIBXS_PREDICT_NNEIGHBORS * n;
+    int i, ok;
+    trial->probe = libxs_predict_create(model->ninputs, n);
+    trial->kind = (int*)malloc((size_t)n * sizeof(int));
+    trial->mad = (double*)malloc((size_t)n * sizeof(double));
+    trial->held = (int*)malloc((size_t)p * sizeof(int));
+    trial->part = (double*)malloc(npart * ntasks * sizeof(double));
+    ok = (NULL != trial->probe && NULL != trial->kind && NULL != trial->mad
+      && NULL != trial->held && NULL != trial->part) ? 1 : 0;
+    if (0 != ok) {
+      libxs_predict_t* probe = trial->probe;
+      if (0 != series) {
+        for (i = 0; i < p; ++i) role[i] = (char)((i < nfit) ? 0 : 1);
       }
-    }
-    internal_libxs_predict_decompose_kind(model, role, kind, mad, buf);
-    if (NULL != probe) {
-      double* pred = (double*)malloc((size_t)n * sizeof(double));
+      else {
+        const size_t co = libxs_coprime2((size_t)p);
+        for (i = 0; i < p; ++i) {
+          role[LIBXS_SHUFFLE_INDEX(i, p, co, 0)] = (char)((i < nfit) ? 0 : 1);
+        }
+      }
+      internal_libxs_predict_decompose_kind(model, role, trial->kind,
+        trial->mad, buf);
       probe->eval_mode = model->eval_mode;
       probe->decompose = model->decompose;
       probe->central = model->central;
@@ -424,112 +448,179 @@ LIBXS_API_INLINE void internal_libxs_predict_neighbors_select(
       probe->missing_mode = model->missing_mode;
       probe->rf_ntrees = model->rf_ntrees;
       probe->rf_depth = model->rf_depth;
+      /* ascending, so each task's strided share keeps the scan's order */
       for (i = 0; i < p; ++i) {
         if (0 == role[i]) {
           libxs_predict_push(NULL, probe, model->entries[i].inputs,
             model->entries[i].outputs);
         }
+        else trial->held[trial->nheld++] = i;
       }
-      if (NULL != pred && 0 < probe->nentries
-        && EXIT_SUCCESS == libxs_predict_build(probe, 0, 2, 0.0))
-      {
-        double* err = (double*)malloc(
-          (size_t)LIBXS_PREDICT_NNEIGHBORS * (size_t)n * 3 * sizeof(double));
-        double* cmin = err + (size_t)LIBXS_PREDICT_NNEIGHBORS * n;
-        double* cmax = cmin + (size_t)LIBXS_PREDICT_NNEIGHBORS * n;
-        if (NULL != err) {
-          int c, j;
-          /**
-           * Every slot starts unreachable, because the scan below abandons the
-           * grid as soon as a candidate finds nothing to score and leaves the
-           * remaining slots untouched. A zero there reads as a perfect score
-           * and would win the reduction outright.
-           */
-          for (c = 0; c < LIBXS_PREDICT_NNEIGHBORS * n; ++c) {
-            err[c] = 1e30;
-            cmin[c] = 1e30;
-            cmax[c] = -1e30;
-          }
-          for (c = 0; c < LIBXS_PREDICT_NNEIGHBORS; ++c) {
-            int nval = 0;
-            probe->kreq = internal_libxs_predict_neighbors_cand(c);
-            internal_libxs_predict_kapply(probe);
-            for (j = 0; j < n; ++j) err[c * n + j] = 0;
-            for (i = 0; i < p; ++i) {
-              if (1 == role[i]) {
-                libxs_predict_info_t info;
-                memset(&info, 0, sizeof(info));
-                libxs_predict_eval(NULL, probe, model->entries[i].inputs,
-                  pred, &info, 1);
-                for (j = 0; j < n; ++j) {
-                  const double actual = model->entries[i].outputs[j];
-                  const double cf = (NULL != info.confidence)
-                    ? info.confidence[j] : 1.0;
-                  if (cf < cmin[c * n + j]) cmin[c * n + j] = cf;
-                  if (cf > cmax[c * n + j]) cmax[c * n + j] = cf;
-                  err[c * n + j] += (0 != kind[j])
-                    ? ((LIBXS_ROUNDX(int, pred[j])
-                      == LIBXS_ROUNDX(int, actual)) ? 0.0 : 1.0)
-                    : (LIBXS_FABS(pred[j] - actual) / mad[j]);
-                }
-                ++nval;
-              }
-            }
-            if (0 >= nval) c = LIBXS_PREDICT_NNEIGHBORS;
-          }
-          model->k_sel = (int*)malloc((size_t)n * sizeof(int));
-          if (NULL != model->k_sel) {
-          /**
-           * A count whose confidence never moves is refused rather than traded
-           * against: one neighbour votes unanimously whatever it holds, so the
-           * confidence is 1.0 everywhere and carries no information, and a gate
-           * reading it selects every query. Scoring the confidence instead (a
-           * Brier score over the reported value) was measured and is worse in
-           * the other direction, taking the crystal corpus to the widest count
-           * in the grid and 57.2% where the miss rate alone reaches 68.2%:
-           * calibration improves with a wide neighbourhood and accuracy does
-           * not. Excluding the degenerate end costs nothing that carries
-           * information.
-           */
-          for (c = 0; c < LIBXS_PREDICT_NNEIGHBORS; ++c) {
-            for (j = 0; j < n; ++j) {
-              if (0 != kind[j] && cmax[c * n + j] <= cmin[c * n + j]) {
-                err[c * n + j] = 1e30;
-              }
-            }
-          }
-            for (j = 0; j < n; ++j) {
-              int best = 0;
-              /**
-               * A tie goes to the larger count. A strict comparison kept the
-               * first candidate, which is one neighbour, and a corpus of
-               * near-duplicate inputs ties often enough that the grid order
-               * decided the count rather than the evidence.
-               */
-              for (c = 1; c < LIBXS_PREDICT_NNEIGHBORS; ++c) {
-                if (err[c * n + j] <= err[best * n + j]) best = c;
-              }
-              model->k_sel[j] = internal_libxs_predict_neighbors_cand(best);
-              /**
-               * A discrete output answers by vote, and a vote of one is
-               * unanimous whatever the neighbourhood holds: it pins the
-               * confidence at 1.0, which leaves a gate nothing to select on,
-               * and it makes the compression test vacuous (see
-               * libxs_predict_compress.h). Three is the fewest that leaves
-               * room for a minority. The count is still chosen by the trial;
-               * this only refuses the degenerate end of the grid.
-               */
-            }
-          }
-          free(err);
-        }
-      }
-      free(pred);
-      libxs_predict_destroy(probe);
+      if (0 >= probe->nentries) ok = 0;
+    }
+    if (0 == ok) {
+      internal_libxs_predict_neighbors_free(trial);
+      trial = NULL;
     }
   }
   LIBXS_PREDICT_FREE(buf, buf_pool);
-  LIBXS_PREDICT_FREE(mad, mad_pool);
-  LIBXS_PREDICT_FREE(kind, kind_pool);
   LIBXS_PREDICT_FREE(role, role_pool);
+  return trial;
+}
+
+
+/**
+ * One task's share of the trial. The probe is built by the whole team, which
+ * is what it costs: a model of its own, partition and all, that the builder
+ * used to fit alone while every other task waited. Each candidate count is
+ * then applied by the builder and scored by the team, every task taking a
+ * strided share of the held-back entries into its own partials and its own
+ * evaluation buffer - the model's is shared, and info points into it.
+ *
+ * With one task the sums run in the order the serial trial took; across tasks
+ * the reduction reorders the error of a many-valued output, so a count within
+ * rounding of the next can fall the other way. A miss count is an integer and
+ * cannot.
+ */
+LIBXS_API_INLINE void internal_libxs_predict_neighbors_task(
+  libxs_barrier_t* barrier, libxs_predict_t* model, int tid, int ntasks)
+{
+  internal_libxs_predict_ktrial_t* trial = model->sync_ktrial;
+  libxs_predict_t* probe = trial->probe;
+  const int n = model->noutputs;
+  const size_t nn = (size_t)LIBXS_PREDICT_NNEIGHBORS * n;
+  double* err = trial->part + (size_t)tid * 3 * nn;
+  double* cmin = err + nn;
+  double* cmax = cmin + nn;
+  int eval_pool = 0, pred_pool = 0;
+  double* evalbuf = (double*)LIBXS_PREDICT_MALLOC(
+    INTERNAL_LIBXS_PREDICT_EVALBYTES(n), eval_pool);
+  double* pred = (double*)LIBXS_PREDICT_MALLOC(
+    (size_t)n * sizeof(double), pred_pool);
+  size_t k;
+  int c;
+  /**
+   * Every slot starts unreachable, because a candidate that finds nothing to
+   * score leaves its slots untouched, and a zero there reads as a perfect score
+   * that would win the reduction outright.
+   */
+  for (k = 0; k < nn; ++k) {
+    err[k] = 1e30;
+    cmin[k] = 1e30;
+    cmax[k] = -1e30;
+  }
+  /* collective, so every task sees the same verdict in probe->built */
+  libxs_predict_build_task(probe, 0, 2, 0.0, tid, ntasks);
+  for (c = 0; c < LIBXS_PREDICT_NNEIGHBORS; ++c) {
+    if (0 == tid && 0 != probe->built) {
+      probe->kreq = internal_libxs_predict_neighbors_cand(c);
+      internal_libxs_predict_kapply(probe);
+    }
+    libxs_barrier_wait(barrier);
+    if (0 != probe->built && NULL != evalbuf && NULL != pred
+      && 0 < trial->nheld)
+    {
+      int t, j;
+      for (j = 0; j < n; ++j) err[c * n + j] = 0;
+      for (t = tid; t < trial->nheld; t += ntasks) {
+        const int i = trial->held[t];
+        libxs_predict_info_t info;
+        memset(&info, 0, sizeof(info));
+        internal_libxs_predict_eval_scratch(NULL, probe,
+          model->entries[i].inputs, pred, &info, 1, evalbuf);
+        for (j = 0; j < n; ++j) {
+          const double actual = model->entries[i].outputs[j];
+          const double cf = (NULL != info.confidence)
+            ? info.confidence[j] : 1.0;
+          if (cf < cmin[c * n + j]) cmin[c * n + j] = cf;
+          if (cf > cmax[c * n + j]) cmax[c * n + j] = cf;
+          err[c * n + j] += (0 != trial->kind[j])
+            ? ((LIBXS_ROUNDX(int, pred[j])
+              == LIBXS_ROUNDX(int, actual)) ? 0.0 : 1.0)
+            : (LIBXS_FABS(pred[j] - actual) / trial->mad[j]);
+        }
+      }
+    }
+    /* the builder moves the count only once every task has scored this one */
+    libxs_barrier_wait(barrier);
+  }
+  LIBXS_PREDICT_FREE(pred, pred_pool);
+  LIBXS_PREDICT_FREE(evalbuf, eval_pool);
+}
+
+
+/**
+ * The builder's close of the trial: sum the tasks' errors, take the extremes of
+ * their confidences, and settle one count per output.
+ */
+LIBXS_API_INLINE void internal_libxs_predict_neighbors_finish(
+  libxs_predict_t* model, int ntasks)
+{
+  internal_libxs_predict_ktrial_t* trial = model->sync_ktrial;
+  const int n = model->noutputs;
+  const size_t nn = (size_t)LIBXS_PREDICT_NNEIGHBORS * n;
+  if (0 != trial->probe->built) {
+    double* err = trial->part;
+    double* cmin = err + nn;
+    double* cmax = cmin + nn;
+    size_t k;
+    int t, c, j;
+    for (t = 1; t < ntasks; ++t) {
+      const double* terr = trial->part + (size_t)t * 3 * nn;
+      const double* tmin = terr + nn;
+      const double* tmax = tmin + nn;
+      for (k = 0; k < nn; ++k) {
+        /* a candidate no task scored stays unreachable rather than summing */
+        if (1e30 > terr[k]) err[k] = (1e30 > err[k]) ? (err[k] + terr[k]) : terr[k];
+        if (tmin[k] < cmin[k]) cmin[k] = tmin[k];
+        if (tmax[k] > cmax[k]) cmax[k] = tmax[k];
+      }
+    }
+    model->k_sel = (int*)malloc((size_t)n * sizeof(int));
+    if (NULL != model->k_sel) {
+      /**
+       * A count whose confidence never moves is refused rather than traded
+       * against: one neighbour votes unanimously whatever it holds, so the
+       * confidence is 1.0 everywhere and carries no information, and a gate
+       * reading it selects every query. Scoring the confidence instead (a
+       * Brier score over the reported value) was measured and is worse in
+       * the other direction, taking the crystal corpus to the widest count
+       * in the grid and 57.2% where the miss rate alone reaches 68.2%:
+       * calibration improves with a wide neighbourhood and accuracy does
+       * not. Excluding the degenerate end costs nothing that carries
+       * information.
+       */
+      for (c = 0; c < LIBXS_PREDICT_NNEIGHBORS; ++c) {
+        for (j = 0; j < n; ++j) {
+          if (0 != trial->kind[j] && cmax[c * n + j] <= cmin[c * n + j]) {
+            err[c * n + j] = 1e30;
+          }
+        }
+      }
+      for (j = 0; j < n; ++j) {
+        int best = 0;
+        /**
+         * A tie goes to the larger count. A strict comparison kept the
+         * first candidate, which is one neighbour, and a corpus of
+         * near-duplicate inputs ties often enough that the grid order
+         * decided the count rather than the evidence.
+         */
+        for (c = 1; c < LIBXS_PREDICT_NNEIGHBORS; ++c) {
+          if (err[c * n + j] <= err[best * n + j]) best = c;
+        }
+        model->k_sel[j] = internal_libxs_predict_neighbors_cand(best);
+        /**
+         * A discrete output answers by vote, and a vote of one is
+         * unanimous whatever the neighbourhood holds: it pins the
+         * confidence at 1.0, which leaves a gate nothing to select on,
+         * and it makes the compression test vacuous (see
+         * libxs_predict_compress.h). Three is the fewest that leaves
+         * room for a minority. The count is still chosen by the trial;
+         * this only refuses the degenerate end of the grid.
+         */
+      }
+    }
+  }
+  internal_libxs_predict_neighbors_free(trial);
+  model->sync_ktrial = NULL;
 }

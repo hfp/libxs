@@ -10,6 +10,8 @@
 #include <libxs/libxs_predict.h>
 #include <libxs/libxs_mem.h>
 
+#include "predict_args.h"
+
 /**
  * Code length of a held-out stream under the model, against the code length
  * under the training distribution alone.  A point estimate says how close the
@@ -37,8 +39,12 @@ int main(int argc, char* argv[])
   const double split = (argc > 4) ? atof(argv[4]) : 0.8;
   const int vocabulary = (argc > 5) ? atoi(argv[5]) : 0;
   const int hknn = (argc > 6) ? atoi(argv[6]) : 0;
+  static const int numeric[] = { 4, 5, 6 };
   int result = EXIT_FAILURE;
-  if (NULL == filename || NULL == innames || NULL == outname) {
+  if (NULL == filename || NULL == innames || NULL == outname
+    || 0 == predict_slots_ok(argc, argv, numeric, 3)
+    || 0 == predict_split_ok(split))
+  {
     fprintf(stdout,
       "Usage: %s <csvfile> <innames> <outname> [fraction] [vocabulary] [hknn]\n"
       "  Held-out code length in bits per event, under the model and under\n"

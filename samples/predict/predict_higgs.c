@@ -16,6 +16,7 @@
 #if defined(_OPENMP)
 # include <omp.h>
 #endif
+#include "predict_args.h"
 #include "predict_gate.h"
 
 #define NGATE 16
@@ -34,7 +35,7 @@ int main(int argc, char* argv[])
   int nrows = 200000, stride = 0, mode = LIBXS_PREDICT_RF, refine = 0;
   int nclusters = 0, order = 1, help = 0, i;
   int depth = 0, ntrees = 0, use_xgb = 0;
-  double split = 0.8;
+  double split = 0.8, v;
   int result = EXIT_FAILURE;
   for (i = 1; i < argc; ++i) {
     const char* const a = argv[i];
@@ -45,13 +46,17 @@ int main(int argc, char* argv[])
     else if (0 == strcmp("auto", a)) mode = LIBXS_PREDICT_AUTO_DECOMPOSE;
     else if (0 == strcmp("refine", a)) refine = -1;
     else if (0 == strcmp("xgb", a)) use_xgb = 1;
-    else if (0 == strncmp("rows", a, 4)) nrows = atoi(a + 4);
-    else if (0 == strncmp("stride", a, 6)) stride = atoi(a + 6);
-    else if (0 == strncmp("clusters", a, 8)) nclusters = atoi(a + 8);
-    else if (0 == strncmp("depth", a, 5)) depth = atoi(a + 5);
-    else if (0 == strncmp("trees", a, 5)) ntrees = atoi(a + 5);
-    else if (0 == strncmp("order", a, 5)) order = atoi(a + 5);
-    else if (0 == strncmp("split", a, 5)) split = atof(a + 5);
+    /* a value that is not a number leaves the token unmatched, so it is taken
+     * as the file and fails to load, rather than reading as zero */
+    else if (0 != predict_keyval(a, "rows", nrows, &v)) nrows = (int)v;
+    else if (0 != predict_keyval(a, "stride", stride, &v)) stride = (int)v;
+    else if (0 != predict_keyval(a, "clusters", nclusters, &v)) {
+      nclusters = (int)v;
+    }
+    else if (0 != predict_keyval(a, "depth", depth, &v)) depth = (int)v;
+    else if (0 != predict_keyval(a, "trees", ntrees, &v)) ntrees = (int)v;
+    else if (0 != predict_keyval(a, "order", order, &v)) order = (int)v;
+    else if (0 != predict_keyval(a, "split", split, &v)) split = v;
     else filename = a;
   }
 #if !defined(__XGBOOST)
@@ -152,7 +157,7 @@ int main(int argc, char* argv[])
           if (EXIT_SUCCESS == build_ok) {
             int test_begin = train_end, calibrated = 0;
             double probability;
-            fprintf(stdout, "Stage: forest built in %.2f s\n", dt_build);
+            fprintf(stdout, "Stage: model built in %.2f s\n", dt_build);
             fflush(stdout);
             libxs_predict_query(model, &q);
             if (LIBXS_PREDICT_RF == q.decompose

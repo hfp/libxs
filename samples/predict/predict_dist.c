@@ -13,6 +13,8 @@
 #include <libxs/libxs_rng.h>
 #include <libxs/libxs_timer.h>
 
+#include "predict_args.h"
+
 #define DIST_MAXSUP 4096
 #define DIST_DRAWS 20000
 
@@ -29,9 +31,11 @@ int main(int argc, char* argv[])
   const char* outnames = (argc > 8) ? argv[8] : NULL;
   const int vocabulary = (argc > 9) ? atoi(argv[9]) : 0;
   const int decompose = (argc > 10) ? atoi(argv[10]) : LIBXS_PREDICT_RAW;
+  static const int numeric[] = { 2, 3, 4, 5, 6, 9, 10 };
   int result = EXIT_FAILURE;
-  if (NULL == filename || 0 >= ninputs || 0 >= noutputs
-    || 0 > output || output >= noutputs)
+  if (NULL == filename || 0 == predict_slots_ok(argc, argv, numeric, 7)
+    || 0 >= ninputs || 0 >= noutputs
+    || 0 > output || output >= noutputs || 0 == predict_split_ok(split))
   {
     fprintf(stdout,
       "Usage: %s <csvfile> [ninputs] [noutputs] [output] [fraction]"

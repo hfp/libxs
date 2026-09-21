@@ -123,6 +123,9 @@
  * Every int group is sized with this, so appending to the layout stays safe.
  */
 #define INTERNAL_LIBXS_PREDICT_NBINT(N) LIBXS_UP2((size_t)(N) * sizeof(int), sizeof(double))
+/* what one evaluation writes: six arrays of doubles per output and the flags */
+#define INTERNAL_LIBXS_PREDICT_EVALBYTES(N) \
+  ((size_t)(N) * 6 * sizeof(double) + INTERNAL_LIBXS_PREDICT_NBINT(N))
 
 
 typedef struct internal_libxs_predict_entry_t {
@@ -172,6 +175,34 @@ typedef struct internal_libxs_predict_cluster_t {
 typedef struct internal_libxs_predict_view_t {
   int w, s, full;
 } internal_libxs_predict_view_t;
+
+/**
+ * One gathered neighbourhood, kept by index as well as by value so that every
+ * output reading it to the same depth can take its own column rather than
+ * gather again. The values are the column of whichever output filled it last.
+ */
+typedef struct internal_libxs_predict_scan_t {
+  double candidates[LIBXS_PREDICT_KNN];
+  double dists[LIBXS_PREDICT_KNN];
+  double iw[LIBXS_PREDICT_KNN];
+  int idx[LIBXS_PREDICT_KNN];
+  double best;
+  int nfound, exact, settled, exact_idx;
+} internal_libxs_predict_scan_t;
+
+/**
+ * The neighbour-count trial while it runs: the probe fitted on four fifths of
+ * the corpus, the held-back fifth by index, and per task the error and the
+ * confidence extremes of every candidate count for every output.
+ */
+typedef struct internal_libxs_predict_ktrial_t {
+  libxs_predict_t* probe;
+  int* kind;
+  double* mad;
+  int* held;
+  double* part;
+  int nheld;
+} internal_libxs_predict_ktrial_t;
 
 typedef struct internal_libxs_predict_order_ctx_t {
   libxs_predict_t* model;
@@ -461,6 +492,17 @@ LIBXS_EXTERN_C struct libxs_predict_t {
   volatile int sync_failed;
   /* Per-candidate scores of a collective trial, indexed by candidate. */
   double sync_score[8];
+  /**
+   * Per-task partial errors of the mean/median trial, 2*noutputs per task. It is
+   * a pointer and not a fixed array because the width is the output count, and
+   * it is the model's because the tasks need the builder's allocation: a stage
+   * long enough to be worth splitting is also one whose scratch outlives no part
+   * of it, so the builder allocates before the rendezvous that releases the team
+   * and frees after the one that collects it.
+   */
+  double* sync_partial;
+  /* The neighbour-count trial between its prep and its finish, likewise. */
+  internal_libxs_predict_ktrial_t* sync_ktrial;
 };
 
 /**
@@ -502,6 +544,18 @@ static const double internal_libxs_predict_escape_rate[
 LIBXS_API_INLINE int internal_libxs_predict_support_all(libxs_predict_t* model);
 LIBXS_API_INLINE void internal_libxs_predict_missing_all(libxs_predict_t* model);
 LIBXS_API_INLINE void internal_libxs_predict_central_all(libxs_predict_t* model);
+LIBXS_API_INLINE int internal_libxs_predict_central_prep(libxs_predict_t* model);
+LIBXS_API_INLINE void internal_libxs_predict_central_task(
+  const libxs_predict_t* model, int tid, int ntasks, double* err);
+LIBXS_API_INLINE void internal_libxs_predict_central_reduce(
+  libxs_predict_t* model, const double* err, int ntasks);
+LIBXS_API_INLINE void internal_libxs_predict_rms_task(
+  libxs_predict_t* model, int tid, int ntasks);
+LIBXS_API_INLINE void internal_libxs_predict_neighbors_free(
+  internal_libxs_predict_ktrial_t* trial);
+LIBXS_API_INLINE void internal_libxs_predict_eval_scratch(libxs_lock_t* lock,
+  const libxs_predict_t* model, const double inputs[], double outputs[],
+  libxs_predict_info_t* info, int nblend, double* scratch);
 LIBXS_API_INLINE void internal_libxs_predict_keff_all(libxs_predict_t* model);
 LIBXS_API_INLINE void internal_libxs_predict_kapply(libxs_predict_t* model);
 LIBXS_API_INLINE int internal_libxs_predict_build_impl(libxs_barrier_t* barrier,
@@ -1481,6 +1535,22 @@ LIBXS_API_INLINE double internal_libxs_predict_viewdist2(const double* a,
 
 
 /**
+ * How deep this output reads its neighbourhood. k_eff sizes the caller's arrays
+ * and on a loaded model comes from a file byte, so the bound is clamped here
+ * rather than assumed: the loaders reject an out-of-range value, but keeping the
+ * clamp in one place means no caller can exceed the arrays whatever it passed,
+ * and the grouping that shares a scan derives the same number as the scan.
+ */
+LIBXS_API_INLINE int internal_libxs_predict_depth(
+  const internal_libxs_predict_cluster_t* cl, int output_j)
+{
+  const int kreq = (NULL != cl->k_out) ? cl->k_out[output_j] : cl->k_eff;
+  return (kreq < LIBXS_PREDICT_KNN)
+    ? ((0 < kreq) ? kreq : 1) : LIBXS_PREDICT_KNN;
+}
+
+
+/**
  * The local evidence a query draws on for one output: the k nearest neighbors
  * within the cluster, their output values and distances, plus whether the query
  * coincides with a stored point. Every scoring rule in this file reads this
@@ -1495,25 +1565,18 @@ LIBXS_API_INLINE void internal_libxs_predict_evidence(
   int extrapolate, int skip_local, const char* skip_set,
   const int* po_groups, int query_group,
   double* candidates, double* dists, int* out_nfound,
-  int* out_exact, int* out_exact_nearest, double* out_best,
-  const internal_libxs_predict_view_t* view, int missing, double* out_iw)
+  int* out_exact, int* out_settled, double* out_best,
+  const internal_libxs_predict_view_t* view, int missing, double* out_iw,
+  int* out_idx, int* out_exact_idx)
 {
   const double* kd_pts = cl->kd_pts;
   const int nc = cl->nentries;
-  /**
-   * k_eff sizes the caller's candidates/dists arrays, and on a loaded model it
-   * comes from a file byte, so the bound is clamped here rather than assumed.
-   * The loaders reject an out-of-range value, but keeping the clamp local means
-   * the writes cannot exceed the arrays whatever the caller passed.
-   */
-  const int kreq = (NULL != cl->k_out) ? cl->k_out[output_j] : cl->k_eff;
-  const int k = (kreq < LIBXS_PREDICT_KNN)
-    ? ((0 < kreq) ? kreq : 1) : LIBXS_PREDICT_KNN;
+  const int k = internal_libxs_predict_depth(cl, output_j);
   double qtan[512];
   const double* qpts = inputs;
   const double* dpts = kd_pts;
   int dm = m;
-  int nfound = 0, exact = 0, exact_nearest = 0, i, max_idx = 0;
+  int nfound = 0, exact = 0, settled = 0, i, max_idx = 0;
   if (NULL != cl->tangent && NULL != cl->kd_tan
     && cl->tdim > 0 && cl->tdim <= 512)
   {
@@ -1569,20 +1632,12 @@ LIBXS_API_INLINE void internal_libxs_predict_evidence(
     {
       continue;
     }
-    /**
-     * An exact match is authoritative for the value wherever the scan finds
-     * it, not only when it happens to be admitted first. Collapsing the
-     * spread is a separate question: with duplicate input vectors (9410 in
-     * the crystal set) a zero-distance neighbor is ordinary evidence, and
-     * reporting zero variance for it makes the compression criterion drop
-     * entries it must keep. Hence nearest, tracked separately.
-     */
-    if (0.0 == d2) {
-      if (0 == exact) {
-        *out_best = cl->raw_outputs[(size_t)i * nouts + output_j];
-        exact = 1;
-      }
-      if (0 == nfound) exact_nearest = 1;
+    /* an exact match is authoritative for the value wherever the scan finds
+     * it, not only when it happens to be admitted first */
+    if (0.0 == d2 && 0 == exact) {
+      *out_best = cl->raw_outputs[(size_t)i * nouts + output_j];
+      if (NULL != out_exact_idx) *out_exact_idx = i;
+      exact = 1;
     }
     if (nfound < k) {
       candidates[nfound] = cl->raw_outputs[(size_t)i * nouts + output_j];
@@ -1590,6 +1645,7 @@ LIBXS_API_INLINE void internal_libxs_predict_evidence(
       if (NULL != out_iw) {
         out_iw[nfound] = (NULL != cl->eweight) ? cl->eweight[i] : 1.0;
       }
+      if (NULL != out_idx) out_idx[nfound] = i;
       ++nfound;
     }
     else {
@@ -1603,12 +1659,28 @@ LIBXS_API_INLINE void internal_libxs_predict_evidence(
         if (NULL != out_iw) {
           out_iw[worst] = (NULL != cl->eweight) ? cl->eweight[i] : 1.0;
         }
+        if (NULL != out_idx) out_idx[worst] = i;
       }
     }
   }
+  /**
+   * Whether the match also settles the spread depends on who asks, not on the
+   * match. A query coinciding with a stored point is answered by it, so the
+   * answer has no spread; leaving one pulled a verbatim answer toward the
+   * cluster mean (the variance shrink in eval), which got 40 of 1071 attested
+   * rows of a GPU-tuning table wrong. A stored entry scored with itself held out -
+   * compression, the build-time trials - asks whether its neighbourhood
+   * reproduces it, and a duplicate is part of that neighbourhood rather than a
+   * verdict: settling there zeroed the variance the compression criterion keeps
+   * duplicates by, and crystal fell from 68.3% to 41.2%. The flag used to be
+   * "the first point scanned is at distance zero", which fell between the two
+   * by scan order: crystal+compress scored 74.1% with it, 74.2% with this, and
+   * 71.1% when every match settled.
+   */
+  settled = (0 != exact && 0 > skip_local && NULL == skip_set) ? 1 : 0;
   *out_nfound = nfound;
   *out_exact = exact;
-  *out_exact_nearest = exact_nearest;
+  *out_settled = settled;
 }
 
 
@@ -1625,6 +1697,190 @@ LIBXS_API_INLINE int internal_libxs_predict_central(
 }
 
 
+/**
+ * Turn one gathered neighbourhood into this output's answer. Split from the
+ * gather so a scan can be read by more than one output: the distances do not
+ * depend on the output, only the depth they are taken to and the column the
+ * values come from, which is what the leave-one-out stages exploit.
+ */
+LIBXS_API_INLINE double internal_libxs_predict_vote(
+  const internal_libxs_predict_cluster_t* cl, int output_j, int nouts,
+  int ndistinct, int extrapolate, int central,
+  const double* candidates, const double* dists, const double* iw,
+  int nfound, int exact, int settled, double best_val,
+  double* confidence, double* out_variance,
+  double quantile, double* out_lower, double* out_upper)
+{
+  const int nc = cl->nentries;
+  const int ndistinct_thresh = (int)(sqrt((double)nc) + 0.5);
+  const int interval = (NULL != out_lower && NULL != out_upper
+    && quantile > 0) ? 1 : 0;
+  int i;
+  if (NULL != out_variance) {
+    if (0 != settled || nfound <= 1) {
+      *out_variance = 0;
+    }
+    else {
+      double mean = 0, v = 0;
+      for (i = 0; i < nfound; ++i) mean += candidates[i];
+      mean /= nfound;
+      for (i = 0; i < nfound; ++i) {
+        const double d = candidates[i] - mean;
+        v += d * d;
+      }
+      *out_variance = v / nfound;
+    }
+  }
+  if (0 != interval && nfound > 1 && 0 == settled) {
+    /**
+     * Zero-initialized because nfound arrives through a pointer from the
+     * evidence scan: nothing at this point proves it positive, so a reader
+     * cannot see that the first element was written. The loops below are
+     * bounded by nfound in any case, but leaving the arrays indeterminate
+     * makes the code depend on that proof holding, which it does not across
+     * the extraction boundary.
+     */
+    double weights[LIBXS_PREDICT_KNN] = { 0 };
+    double sorted_v[LIBXS_PREDICT_KNN] = { 0 };
+    double sorted_w[LIBXS_PREDICT_KNN] = { 0 };
+    const int nq = (nfound < LIBXS_PREDICT_KNN)
+      ? nfound : LIBXS_PREDICT_KNN;
+    double wsum = 0;
+    int si, sj;
+    for (i = 0; i < nq; ++i) {
+      weights[i] = iw[i] * ((dists[i] > 0.0) ? (1.0 / dists[i]) : 1e30);
+      wsum += weights[i];
+    }
+    for (i = 0; i < nq; ++i) {
+      sorted_v[i] = candidates[i];
+      sorted_w[i] = weights[i] / wsum;
+    }
+    for (si = 0; si < nq - 1; ++si) {
+      for (sj = si + 1; sj < nq; ++sj) {
+        if (sorted_v[sj] < sorted_v[si]) {
+          double tv = sorted_v[si], tw = sorted_w[si];
+          sorted_v[si] = sorted_v[sj]; sorted_w[si] = sorted_w[sj];
+          sorted_v[sj] = tv; sorted_w[sj] = tw;
+        }
+      }
+    }
+    { double cum = 0;
+      *out_lower = sorted_v[0];
+      for (i = 0; i < nq; ++i) {
+        cum += sorted_w[i];
+        if (cum >= quantile) { *out_lower = sorted_v[i]; break; }
+      }
+    }
+    { double cum = 0;
+      *out_upper = sorted_v[nq - 1];
+      for (i = nq - 1; i >= 0; --i) {
+        cum += sorted_w[i];
+        if (cum >= quantile) { *out_upper = sorted_v[i]; break; }
+      }
+    }
+  }
+  if (0 == exact && nfound > 0) {
+    if (ndistinct > ndistinct_thresh) {
+      double wsum = 0, wavg = 0;
+      for (i = 0; i < nfound; ++i) {
+        const double wi = iw[i] * ((dists[i] > 0.0) ? (1.0 / dists[i]) : 1e30);
+        wavg += wi * candidates[i];
+        wsum += wi;
+      }
+      wavg = (wsum > 0.0) ? wavg / wsum : candidates[0];
+      /**
+       * A right-skewed neighborhood pulls the weighted average off the bulk
+       * of its own evidence, and absolute error is minimized by the median
+       * rather than the mean. The median is unweighted on purpose: distance
+       * weighting measured worse than none (earthquake MAE 0.241 vs 0.236),
+       * because it re-concentrates the estimate on the few nearest neighbors
+       * and gives up the robustness the median was chosen for.
+       */
+      if (0 != central && nfound > 1) {
+        double sorted[LIBXS_PREDICT_KNN];
+        int si, sj;
+        for (i = 0; i < nfound; ++i) sorted[i] = candidates[i];
+        for (si = 0; si < nfound - 1; ++si) {
+          for (sj = si + 1; sj < nfound; ++sj) {
+            if (sorted[sj] < sorted[si]) {
+              const double t = sorted[si];
+              sorted[si] = sorted[sj];
+              sorted[sj] = t;
+            }
+          }
+        }
+        wavg = (0 == (nfound & 1))
+          ? (0.5 * (sorted[nfound / 2 - 1] + sorted[nfound / 2]))
+          : sorted[nfound / 2];
+      }
+      /**
+       * The mean is snapped to the nearest value the cluster attests, because
+       * an average of attested values need not be one. A median of an odd
+       * count already is one, and snapping it would search the whole cluster
+       * and can only move it off the neighborhood it summarizes, so the
+       * median is reported as computed.
+       */
+      if (0 != extrapolate || (0 != central && nfound > 1)) {
+        best_val = wavg;
+      }
+      else {
+        double best_dist = DBL_MAX;
+        for (i = 0; i < nc; ++i) {
+          const double v = cl->raw_outputs[(size_t)i * nouts + output_j];
+          const double d = (v > wavg) ? (v - wavg) : (wavg - v);
+          if (d < best_dist) { best_dist = d; best_val = v; }
+        }
+      }
+      if (NULL != confidence) {
+        /**
+         * A many-valued output has no vote fraction, so it reports 1.0 and
+         * callers read info->variance for the neighborhood spread. Folding
+         * that spread into the confidence instead was measured and removed:
+         * it lowered quality wherever it applied once the blended-cluster
+         * count was derived from the confidence rather than fixed.
+         */
+        *confidence = 1.0;
+      }
+    }
+    else {
+      double best_weight = 0;
+      for (i = 0; i < nfound; ++i) {
+        double ws = 0;
+        int ii;
+        for (ii = 0; ii < nfound; ++ii) {
+          if (candidates[ii] == candidates[i]) {
+            ws += iw[ii] * ((dists[ii] > 0.0) ? (1.0 / dists[ii]) : 1e30);
+          }
+        }
+        if (ws > best_weight) { best_weight = ws; best_val = candidates[i]; }
+      }
+      if (NULL != confidence) {
+        double total_weight = 0;
+        for (i = 0; i < nfound; ++i) {
+          total_weight += iw[i]
+            * ((dists[i] > 0.0) ? (1.0 / dists[i]) : 1e30);
+        }
+        *confidence = (total_weight > 0.0) ? best_weight / total_weight : 1.0;
+      }
+    }
+  }
+  else if (NULL != confidence) {
+    *confidence = 1.0;
+  }
+  /**
+   * No spread to read - an exact match, or a single neighbour - is still a
+   * measurement: the interval is the answer itself, which the calibration then
+   * widens. Leaving it unwritten reported [0, 0] beside an answer of 7.3, and a
+   * blend averaged those zeros into its bounds.
+   */
+  if (0 != interval && (nfound <= 1 || 0 != settled)) {
+    *out_lower = best_val;
+    *out_upper = best_val;
+  }
+  return best_val;
+}
+
+
 LIBXS_API_INLINE double internal_libxs_predict_classify2(
   const internal_libxs_predict_cluster_t* cl,
   int m, const double* inputs, int output_j, int nouts,
@@ -1635,175 +1891,27 @@ LIBXS_API_INLINE double internal_libxs_predict_classify2(
   int central, const internal_libxs_predict_view_t* view, int missing)
 {
   const int nc = cl->nentries;
-  const int ndistinct_thresh = (int)(sqrt((double)nc) + 0.5);
   double candidates[LIBXS_PREDICT_KNN];
   double dists[LIBXS_PREDICT_KNN];
   double iw[LIBXS_PREDICT_KNN];
   double best_val = 0.0;
-  int nfound = 0, exact = 0, exact_nearest = 0, i;
+  int nfound = 0, exact = 0, settled = 0;
   if (NULL != confidence) *confidence = 0.0;
   if (NULL != out_variance) *out_variance = 0.0;
-  if (NULL != out_lower) *out_lower = 0.0;
-  if (NULL != out_upper) *out_upper = 0.0;
   if (nc > 0 && NULL != cl->raw_outputs) {
     best_val = cl->raw_outputs[output_j];
     internal_libxs_predict_evidence(cl, m, inputs, output_j, nouts,
       extrapolate, skip_local, skip_set, po_groups, query_group,
-      candidates, dists, &nfound, &exact, &exact_nearest, &best_val, view,
-      missing, iw);
-    if (NULL != out_variance) {
-      if (0 != exact_nearest || nfound <= 1) {
-        *out_variance = 0;
-      }
-      else {
-        double mean = 0, v = 0;
-        for (i = 0; i < nfound; ++i) mean += candidates[i];
-        mean /= nfound;
-        for (i = 0; i < nfound; ++i) {
-          const double d = candidates[i] - mean;
-          v += d * d;
-        }
-        *out_variance = v / nfound;
-      }
-    }
-    if (NULL != out_lower && NULL != out_upper && quantile > 0
-      && nfound > 1 && 0 == exact_nearest)
-    {
-      /**
-       * Zero-initialized because nfound arrives through a pointer from the
-       * evidence scan: nothing at this point proves it positive, so a reader
-       * cannot see that the first element was written. The loops below are
-       * bounded by nfound in any case, but leaving the arrays indeterminate
-       * makes the code depend on that proof holding, which it does not across
-       * the extraction boundary.
-       */
-      double weights[LIBXS_PREDICT_KNN] = { 0 };
-      double sorted_v[LIBXS_PREDICT_KNN] = { 0 };
-      double sorted_w[LIBXS_PREDICT_KNN] = { 0 };
-      const int nq = (nfound < LIBXS_PREDICT_KNN)
-        ? nfound : LIBXS_PREDICT_KNN;
-      double wsum = 0;
-      int si, sj;
-      for (i = 0; i < nq; ++i) {
-        weights[i] = iw[i] * ((dists[i] > 0.0) ? (1.0 / dists[i]) : 1e30);
-        wsum += weights[i];
-      }
-      for (i = 0; i < nq; ++i) {
-        sorted_v[i] = candidates[i];
-        sorted_w[i] = weights[i] / wsum;
-      }
-      for (si = 0; si < nq - 1; ++si) {
-        for (sj = si + 1; sj < nq; ++sj) {
-          if (sorted_v[sj] < sorted_v[si]) {
-            double tv = sorted_v[si], tw = sorted_w[si];
-            sorted_v[si] = sorted_v[sj]; sorted_w[si] = sorted_w[sj];
-            sorted_v[sj] = tv; sorted_w[sj] = tw;
-          }
-        }
-      }
-      { double cum = 0;
-        *out_lower = sorted_v[0];
-        for (i = 0; i < nq; ++i) {
-          cum += sorted_w[i];
-          if (cum >= quantile) { *out_lower = sorted_v[i]; break; }
-        }
-      }
-      { double cum = 0;
-        *out_upper = sorted_v[nq - 1];
-        for (i = nq - 1; i >= 0; --i) {
-          cum += sorted_w[i];
-          if (cum >= quantile) { *out_upper = sorted_v[i]; break; }
-        }
-      }
-    }
-    if (0 == exact && nfound > 0) {
-      if (ndistinct > ndistinct_thresh) {
-        double wsum = 0, wavg = 0;
-        for (i = 0; i < nfound; ++i) {
-          const double wi = iw[i] * ((dists[i] > 0.0) ? (1.0 / dists[i]) : 1e30);
-          wavg += wi * candidates[i];
-          wsum += wi;
-        }
-        wavg = (wsum > 0.0) ? wavg / wsum : candidates[0];
-        /**
-         * A right-skewed neighborhood pulls the weighted average off the bulk
-         * of its own evidence, and absolute error is minimized by the median
-         * rather than the mean. The median is unweighted on purpose: distance
-         * weighting measured worse than none (earthquake MAE 0.241 vs 0.236),
-         * because it re-concentrates the estimate on the few nearest neighbors
-         * and gives up the robustness the median was chosen for.
-         */
-        if (0 != central && nfound > 1) {
-          double sorted[LIBXS_PREDICT_KNN];
-          int si, sj;
-          for (i = 0; i < nfound; ++i) sorted[i] = candidates[i];
-          for (si = 0; si < nfound - 1; ++si) {
-            for (sj = si + 1; sj < nfound; ++sj) {
-              if (sorted[sj] < sorted[si]) {
-                const double t = sorted[si];
-                sorted[si] = sorted[sj];
-                sorted[sj] = t;
-              }
-            }
-          }
-          wavg = (0 == (nfound & 1))
-            ? (0.5 * (sorted[nfound / 2 - 1] + sorted[nfound / 2]))
-            : sorted[nfound / 2];
-        }
-        /**
-         * The mean is snapped to the nearest value the cluster attests, because
-         * an average of attested values need not be one. A median of an odd
-         * count already is one, and snapping it would search the whole cluster
-         * and can only move it off the neighborhood it summarizes, so the
-         * median is reported as computed.
-         */
-        if (0 != extrapolate || (0 != central && nfound > 1)) {
-          best_val = wavg;
-        }
-        else {
-          double best_dist = DBL_MAX;
-          for (i = 0; i < nc; ++i) {
-            const double v = cl->raw_outputs[(size_t)i * nouts + output_j];
-            const double d = (v > wavg) ? (v - wavg) : (wavg - v);
-            if (d < best_dist) { best_dist = d; best_val = v; }
-          }
-        }
-        if (NULL != confidence) {
-          /**
-           * A many-valued output has no vote fraction, so it reports 1.0 and
-           * callers read info->variance for the neighborhood spread. Folding
-           * that spread into the confidence instead was measured and removed:
-           * it lowered quality wherever it applied once the blended-cluster
-           * count was derived from the confidence rather than fixed.
-           */
-          *confidence = 1.0;
-        }
-      }
-      else {
-        double best_weight = 0;
-        for (i = 0; i < nfound; ++i) {
-          double ws = 0;
-          int ii;
-          for (ii = 0; ii < nfound; ++ii) {
-            if (candidates[ii] == candidates[i]) {
-              ws += iw[ii] * ((dists[ii] > 0.0) ? (1.0 / dists[ii]) : 1e30);
-            }
-          }
-          if (ws > best_weight) { best_weight = ws; best_val = candidates[i]; }
-        }
-        if (NULL != confidence) {
-          double total_weight = 0;
-          for (i = 0; i < nfound; ++i) {
-            total_weight += iw[i]
-              * ((dists[i] > 0.0) ? (1.0 / dists[i]) : 1e30);
-          }
-          *confidence = (total_weight > 0.0) ? best_weight / total_weight : 1.0;
-        }
-      }
-    }
-    else if (NULL != confidence) {
-      *confidence = 1.0;
-    }
+      candidates, dists, &nfound, &exact, &settled, &best_val, view,
+      missing, iw, NULL, NULL);
+    best_val = internal_libxs_predict_vote(cl, output_j, nouts, ndistinct,
+      extrapolate, central, candidates, dists, iw, nfound, exact,
+      settled, best_val, confidence, out_variance, quantile,
+      out_lower, out_upper);
+  }
+  else if (NULL != out_lower && NULL != out_upper && quantile > 0) {
+    *out_lower = best_val;
+    *out_upper = best_val;
   }
   return best_val;
 }
@@ -1857,6 +1965,11 @@ LIBXS_API void libxs_predict_destroy(libxs_predict_t* model)
     free(model->sup_tot);
     free(model->escape_w);
     free(model->central_out);
+    /* the trial's partials, which only a build that failed mid-tail still holds */
+    free(model->sync_partial);
+    model->sync_partial = NULL;
+    internal_libxs_predict_neighbors_free(model->sync_ktrial);
+    model->sync_ktrial = NULL;
     model->central_out = NULL;
     model->sup_vals = NULL;
     model->sup_freq = NULL;
@@ -3705,12 +3818,8 @@ LIBXS_API_INLINE int internal_libxs_predict_build_impl(libxs_barrier_t* barrier,
     const int m = model->ninputs;
     const int n = model->noutputs;
     int c, i;
-    /* entries bucketed by cluster, so collecting a cluster's members is a
-     * lookup rather than a scan over all entries (that scan made build
-     * O(p*nclusters), hence superlinear at the default nclusters = sqrt(p)) */
-    int pool_bucket = 0, pool_cbegin = 0;
-    int* bucket = NULL;
-    int* cbegin = NULL;
+    int pool_cursor = 0;
+    int* cursor = NULL;
     /* laying out the corpus is the builder's; its verdict is published below */
     if (0 == tid) {
       if (order > LIBXS_FPRINT_MAXORDER) order = LIBXS_FPRINT_MAXORDER;
@@ -3826,55 +3935,83 @@ LIBXS_API_INLINE int internal_libxs_predict_build_impl(libxs_barrier_t* barrier,
           model->nclusters = nclusters;
         }
       }
+      /**
+       * Each cluster's members are collected by a counting sort rather than by a
+       * scan over all entries per cluster (that scan made build O(p*nclusters),
+       * hence superlinear at the default nclusters = sqrt(p)). The map lands in
+       * the cluster's own sorted_idx and not in one index shared across
+       * clusters, which is what lets the assembly below be split: a task then
+       * reads the entries and writes its own clusters, and nothing else.
+       */
       if (EXIT_SUCCESS == result) {
-        bucket = (int*)LIBXS_PREDICT_MALLOC(
-          (size_t)p * sizeof(int), pool_bucket);
-        cbegin = (int*)LIBXS_PREDICT_MALLOC(
-          (size_t)(nclusters + 1) * sizeof(int), pool_cbegin);
-        if (NULL == bucket || NULL == cbegin) result = EXIT_FAILURE;
-        else { /* counting sort keeps each cluster in ascending entry order */
-          int at = 0;
-          for (c = 0; c < nclusters; ++c) {
-            cbegin[c] = at;
-            at += model->clusters[c].nentries;
-          }
-          cbegin[nclusters] = at;
-          /* cbegin doubles as the fill cursor, then the starts are restored */
-          for (i = 0; i < p; ++i) {
-            bucket[cbegin[model->assignments[i]]++] = i;
-          }
-          for (c = 0; c < nclusters; ++c) {
-            cbegin[c] -= model->clusters[c].nentries;
+        cursor = (int*)LIBXS_PREDICT_MALLOC(
+          (size_t)nclusters * sizeof(int), pool_cursor);
+        if (NULL == cursor) result = EXIT_FAILURE;
+        for (c = 0; c < nclusters && EXIT_SUCCESS == result; ++c) {
+          const int nc = model->clusters[c].nentries;
+          cursor[c] = 0;
+          if (0 < nc) {
+            model->clusters[c].sorted_idx = (int*)malloc((size_t)nc * sizeof(int));
+            if (NULL == model->clusters[c].sorted_idx) result = EXIT_FAILURE;
           }
         }
+        if (EXIT_SUCCESS == result) {
+          /* ascending entry order within each cluster, as the scan it replaced */
+          for (i = 0; i < p; ++i) {
+            const int a = model->assignments[i];
+            model->clusters[a].sorted_idx[cursor[a]++] = i;
+          }
+        }
+        LIBXS_PREDICT_FREE(cursor, pool_cursor);
       }
-      for (c = 0; c < nclusters && EXIT_SUCCESS == result; ++c) {
+      /* zeroed before the rendezvous that releases the team, so the reduction
+       * below cannot read a verdict left by an earlier stage */
+      model->sync_failed = 0;
+    } /* end of the builder's layout of the clusters */
+    result = libxs_barrier_bcast(barrier, tid, 0, result);
+    /**
+     * The clusters are independent - each of the steps below reads the corpus
+     * and writes one cluster - so they are assembled by the whole team and not
+     * by the builder alone. Strided rather than contiguous because the clusters
+     * are unequal in size, so a block of indices need not be a block of work.
+     *
+     * This is not where a large build spends its time - the partition is - so
+     * the gain here is modest. What made the builder alone the wrong owner is
+     * that every other task spent the stage waiting at the rendezvous.
+     */
+    if (EXIT_SUCCESS == result) {
+      /* the count the builder settled on; the local one had no part in the
+       * compaction above and is only the request */
+      const int anc = model->nclusters;
+      int cres = EXIT_SUCCESS;
+      for (c = tid; c < anc && EXIT_SUCCESS == cres; c += ntasks) {
         internal_libxs_predict_cluster_t* cl = &model->clusters[c];
         const int nc = cl->nentries;
         int j, k, maxorder;
         if (0 >= nc) continue;
-        cl->sorted_idx = (int*)malloc((size_t)nc * sizeof(int));
         cl->sorted_dist = (double*)malloc((size_t)nc * sizeof(double));
         cl->order = (int*)malloc((size_t)n * sizeof(int));
         cl->interpolated = (int*)malloc((size_t)n * sizeof(int));
         cl->mode = (int*)malloc((size_t)n * sizeof(int));
         cl->ndistinct = (int*)malloc((size_t)n * sizeof(int));
-        if (NULL == cl->sorted_idx || NULL == cl->sorted_dist
+        if (NULL == cl->sorted_dist
           || NULL == cl->order || NULL == cl->interpolated
           || NULL == cl->mode || NULL == cl->ndistinct)
         {
-          result = EXIT_FAILURE;
+          cres = EXIT_FAILURE;
         }
-        if (EXIT_SUCCESS == result) {
-          int pool_inmat = 0, pool_perm = 0;
+        if (EXIT_SUCCESS == cres) {
+          int pool_inmat = 0, pool_perm = 0, pool_emap = 0;
           double *const inmat = (double*)LIBXS_PREDICT_MALLOC((size_t)nc * (size_t)m * sizeof(double), pool_inmat);
           int *const sort_perm = (int*)LIBXS_PREDICT_MALLOC((size_t)nc * sizeof(int), pool_perm);
-          const int *const entry_map = bucket + cbegin[c];
-          if (NULL == inmat || NULL == sort_perm) {
-            result = EXIT_FAILURE;
+          /* the sort permutes sorted_idx into itself, hence a copy to read from */
+          int *const entry_map = (int*)LIBXS_PREDICT_MALLOC((size_t)nc * sizeof(int), pool_emap);
+          if (NULL == inmat || NULL == sort_perm || NULL == entry_map) {
+            cres = EXIT_FAILURE;
           }
           else {
             int ki;
+            memcpy(entry_map, cl->sorted_idx, (size_t)nc * sizeof(int));
             for (ki = 0; ki < nc; ++ki) {
               const double *const src = model->entries[entry_map[ki]].inputs;
               for (k = 0; k < m; ++k) {
@@ -3898,7 +4035,14 @@ LIBXS_API_INLINE int internal_libxs_predict_build_impl(libxs_barrier_t* barrier,
             if (0 != model->has_eweight && NULL == cl->eweight) {
               cl->eweight = (double*)malloc((size_t)nc * sizeof(double));
             }
-            if (NULL != cl->kd_pts) {
+            /* a build failure: without the points the cluster cannot be
+             * searched, and without the weights it would answer unweighted */
+            if (NULL == cl->kd_pts
+              || (0 != model->has_eweight && NULL == cl->eweight))
+            {
+              cres = EXIT_FAILURE;
+            }
+            else {
               for (k = 0; k < nc; ++k) {
                 internal_libxs_predict_normalize(model,
                   model->entries[cl->sorted_idx[k]].inputs,
@@ -3912,10 +4056,11 @@ LIBXS_API_INLINE int internal_libxs_predict_build_impl(libxs_barrier_t* barrier,
               }
             }
           }
+          LIBXS_PREDICT_FREE(entry_map, pool_emap);
           LIBXS_PREDICT_FREE(sort_perm, pool_perm);
           LIBXS_PREDICT_FREE(inmat, pool_inmat);
         }
-        if (EXIT_SUCCESS == result) {
+        if (EXIT_SUCCESS == cres) {
           maxorder = LIBXS_MIN(nc - 1, order);
           maxorder = LIBXS_MIN(maxorder, LIBXS_FPRINT_MAXORDER);
           if (maxorder < 1) maxorder = 1;
@@ -3930,7 +4075,7 @@ LIBXS_API_INLINE int internal_libxs_predict_build_impl(libxs_barrier_t* barrier,
             || NULL == cl->raw_outputs
             || NULL == cl->out_mean || NULL == cl->out_var)
           {
-            result = EXIT_FAILURE;
+            cres = EXIT_FAILURE;
           }
           else {
             for (k = 0; k < nc; ++k) {
@@ -3950,29 +4095,21 @@ LIBXS_API_INLINE int internal_libxs_predict_build_impl(libxs_barrier_t* barrier,
             for (j = 0; j < n; ++j) cl->out_var[j] /= nc;
           }
         }
-        if (EXIT_SUCCESS == result) {
+        if (EXIT_SUCCESS == cres) {
           internal_libxs_predict_cluster_refit(cl, n, 1);
         }
-        if (EXIT_SUCCESS == result && nc > 2 && NULL != cl->out_rms
-          && model->quantile > 0)
-        {
-          for (j = 0; j < n; ++j) {
-            double sse = 0;
-            for (k = 0; k < nc; ++k) {
-              const double actual = cl->raw_outputs[(size_t)k * n + j];
-              const double pred = internal_libxs_predict_classify(
-                cl, m, cl->kd_pts + (size_t)k * m,
-                j, n, cl->ndistinct[j], 0, k, NULL, NULL, 0, NULL,
-                model->has_missing);
-              const double res = pred - actual;
-              sse += res * res;
-            }
-            cl->out_rms[j] = sqrt(sse / nc);
-          }
-        }
       }
-      LIBXS_PREDICT_FREE(cbegin, pool_cbegin);
-      LIBXS_PREDICT_FREE(bucket, pool_bucket);
+      if (EXIT_SUCCESS != cres) {
+        LIBXS_ATOMIC_STORE(&model->sync_failed, 1, LIBXS_ATOMIC_SEQ_CST);
+      }
+    }
+    /* a task that failed reports it here and not through the broadcast: every
+     * task may write this verdict, where a broadcast carries the builder's */
+    libxs_barrier_wait(barrier);
+    if (0 != LIBXS_ATOMIC_LOAD(&model->sync_failed, LIBXS_ATOMIC_SEQ_CST)) {
+      result = EXIT_FAILURE;
+    }
+    if (0 == tid) {
       if (EXIT_SUCCESS == result) {
         model->built = 1;
         ++model->nbuild;
@@ -3989,8 +4126,9 @@ LIBXS_API_INLINE int internal_libxs_predict_build_impl(libxs_barrier_t* barrier,
          * pay for it again without asking a different question.
          */
         if (0 != model->kreq && NULL == model->k_sel) {
-          if (0 > model->kreq) {
-            internal_libxs_predict_neighbors_select(model);
+          if (0 > model->kreq) { /* scored by the team, below */
+            model->sync_ktrial = internal_libxs_predict_neighbors_prep(model,
+              ntasks);
           }
           else {
             /**
@@ -4005,49 +4143,96 @@ LIBXS_API_INLINE int internal_libxs_predict_build_impl(libxs_barrier_t* barrier,
             }
           }
         }
-        internal_libxs_predict_kapply(model);
-        /**
-         * Choosing between the mean and the median scores both over every member
-         * of every cluster, and each score scans the member's whole cluster, so
-         * the step is nentries * nentries / nclusters: the nentries^1.5 term that
-         * dominated a large build. A forest answers from the trees and asks the
-         * cluster only whether it is non-empty, so it never reads the choice,
-         * exactly as it never reads the compression below. A model saved here
-         * and loaded to be evaluated by another method makes the choice on load.
-         */
-        if (0 >= model->central && NULL == model->rf) {
-          internal_libxs_predict_central_all(model);
-        }
-        internal_libxs_predict_bank_all(model);
-        if (model->smooth < 0) {
-          int nsmooth = 0, ntotal_modes = 0, j;
-          for (c = 0; c < nclusters; ++c) {
-            const internal_libxs_predict_cluster_t* cl = &model->clusters[c];
-            if (NULL != cl->mode) {
-              for (j = 0; j < n; ++j) {
-                if (0 == cl->mode[j]) ++nsmooth;
-                ++ntotal_modes;
-              }
-            }
-          }
-          model->smooth = (ntotal_modes > 0)
-            ? 0.5 * (double)nsmooth / ntotal_modes : 0.0;
-        }
-        if (LIBXS_PREDICT_HKNN == model->decompose && n > 1
-          && NULL == model->hknn_po_clusters)
-        {
-          internal_libxs_predict_hknn_build_po(model);
-        }
-        if (quality > 0 && NULL == model->rf
-          && NULL != model->entries && NULL != model->assignments)
-        {
-          internal_libxs_predict_compress(model, order, quality);
-        }
       }
       else {
         internal_libxs_predict_free_clusters(model);
       }
-    } /* end of the builder's assembly: only the partition above is shared */
+    }
+    result = libxs_barrier_bcast(barrier, tid, 0, result);
+    /**
+     * The neighbour-count trial builds a model of its own and scores every
+     * candidate count on the entries it held back. Fitted by the builder alone
+     * it was most of a large build - a whole partition, single-task, while the
+     * rest of the team waited here - so the probe is built by the team and the
+     * scoring split across it.
+     */
+    if (EXIT_SUCCESS == result && NULL != model->sync_ktrial) {
+      internal_libxs_predict_neighbors_task(barrier, model, tid, ntasks);
+    }
+    if (0 == tid && EXIT_SUCCESS == result) {
+      if (NULL != model->sync_ktrial) {
+        internal_libxs_predict_neighbors_finish(model, ntasks);
+      }
+      internal_libxs_predict_kapply(model);
+      /* the partials of the stage below, whose slices the tasks fill. A model
+       * that wants no trial allocates none, which is what that stage tests */
+      if (0 >= model->central && NULL == model->rf
+        && EXIT_SUCCESS == internal_libxs_predict_central_prep(model))
+      {
+        model->sync_partial = (double*)malloc(
+          (size_t)2 * n * ntasks * sizeof(double));
+      }
+    }
+    result = libxs_barrier_bcast(barrier, tid, 0, result);
+    /**
+     * Choosing between the mean and the median scores both over every member of
+     * every cluster, and each score scans the member's whole cluster, so the step
+     * is nentries * nentries / nclusters: the nentries^1.5 term that dominated a
+     * large build, which is why it is the team's and not the builder's. A forest
+     * answers from the trees and asks the cluster only whether it is non-empty,
+     * so it never reads the choice, exactly as it never reads the compression
+     * below. A model saved here and loaded to be evaluated by another method
+     * makes the choice on load, where there is no team to spread it over.
+     *
+     * The neighbour counts must be settled before this runs, hence a stage of its
+     * own and not part of the assembly: the trial scores the aggregation the
+     * model will actually use, and kapply above is what fixes that.
+     */
+    if (EXIT_SUCCESS == result && NULL != model->sync_partial) {
+      internal_libxs_predict_central_task(model, tid, ntasks,
+        model->sync_partial + (size_t)tid * 2 * n);
+    }
+    libxs_barrier_wait(barrier);
+    /* the builder's, the calibration below reading what it settles */
+    if (0 == tid && EXIT_SUCCESS == result && NULL != model->sync_partial) {
+      internal_libxs_predict_central_reduce(model, model->sync_partial, ntasks);
+      free(model->sync_partial);
+      model->sync_partial = NULL;
+    }
+    libxs_barrier_wait(barrier);
+    /* per cluster and per output like the trial, hence the team again */
+    if (EXIT_SUCCESS == result && model->quantile > 0) {
+      internal_libxs_predict_rms_task(model, tid, ntasks);
+    }
+    libxs_barrier_wait(barrier);
+    if (0 == tid && EXIT_SUCCESS == result) {
+      /* the builder's again: what follows reads every cluster at once */
+      internal_libxs_predict_bank_all(model);
+      if (model->smooth < 0) {
+        int nsmooth = 0, ntotal_modes = 0, j;
+        for (c = 0; c < nclusters; ++c) {
+          const internal_libxs_predict_cluster_t* cl = &model->clusters[c];
+          if (NULL != cl->mode) {
+            for (j = 0; j < n; ++j) {
+              if (0 == cl->mode[j]) ++nsmooth;
+              ++ntotal_modes;
+            }
+          }
+        }
+        model->smooth = (ntotal_modes > 0)
+          ? 0.5 * (double)nsmooth / ntotal_modes : 0.0;
+      }
+      if (LIBXS_PREDICT_HKNN == model->decompose && n > 1
+        && NULL == model->hknn_po_clusters)
+      {
+        internal_libxs_predict_hknn_build_po(model);
+      }
+      if (quality > 0 && NULL == model->rf
+        && NULL != model->entries && NULL != model->assignments)
+      {
+        internal_libxs_predict_compress(model, order, quality);
+      }
+    } /* end of the builder's tail: the assembly and the trial are the team's */
   }
   return result;
 }
@@ -4170,7 +4355,8 @@ LIBXS_API_INLINE void internal_libxs_predict_eval_ex(libxs_lock_t* lock,
   const libxs_predict_t* model, const double inputs[], double outputs[],
   libxs_predict_info_t* info, int nblend,
   const internal_libxs_predict_cluster_t** src, int* src_mode,
-  int* src_out, int* src_nout, const internal_libxs_predict_view_t* view)
+  int* src_out, int* src_nout, const internal_libxs_predict_view_t* view,
+  double* scratch)
 {
   LIBXS_ASSERT(NULL != model && 0 != model->built && NULL != inputs);
   {
@@ -4274,7 +4460,18 @@ LIBXS_API_INLINE void internal_libxs_predict_eval_ex(libxs_lock_t* lock,
     }
     if (NULL != lock) LIBXS_LOCK_ACQUIRE(LIBXS_LOCK, lock);
     internal_libxs_predict_normalize(model, inputs, norm_inputs);
-    if (NULL == lock && NULL == info && NULL != outputs && n * 6 + n <= 256) {
+    /**
+     * The model's buffer is the last resort, because it is shared: info points
+     * into whichever buffer this picks, so two callers writing the model's at
+     * once read each other's results. A caller evaluating concurrently without
+     * a lock brings its own (EVALBYTES), which is what makes it safe.
+     */
+    if (NULL != scratch) {
+      vals = scratch;
+    }
+    else if (NULL == lock && NULL == info && NULL != outputs
+      && n * 6 + n <= 256)
+    {
       vals = local_buf;
     }
     else {
@@ -4286,7 +4483,12 @@ LIBXS_API_INLINE void internal_libxs_predict_eval_ex(libxs_lock_t* lock,
     lo = var + n;
     hi = lo + n;
     rels = (int*)(hi + n);
-    for (j = 0; j < n; ++j) { lo[j] = 0; hi[j] = 0; }
+    /* absent, not zero: zero is a bound an interval can have, and reading it as
+     * "no interval" dropped the calibration from any interval that met it */
+    for (j = 0; j < n; ++j) {
+      lo[j] = internal_libxs_predict_absent();
+      hi[j] = lo[j];
+    }
     if (nblend < 0) nblend = 0;
     if (nblend > model->nclusters) nblend = model->nclusters;
     /**
@@ -4613,8 +4815,10 @@ LIBXS_API_INLINE void internal_libxs_predict_eval_ex(libxs_lock_t* lock,
               var[j] = blend_var / wsum;
               errs[j] = blend_err / wsum;
               rels[j] = blend_rel;
-              lo[j] = blend_lo / wsum;
-              hi[j] = blend_hi / wsum;
+              if (0 == blend_rel) {
+                lo[j] = blend_lo / wsum;
+                hi[j] = blend_hi / wsum;
+              }
             }
           }
         }
@@ -4803,7 +5007,7 @@ LIBXS_API_INLINE void internal_libxs_predict_eval_ex(libxs_lock_t* lock,
     if (NULL != model->transforms) {
       for (j = 0; j < n; ++j) {
         vals[j] = internal_libxs_predict_inv(model->transforms[j], vals[j]);
-        if (model->quantile > 0 && (lo[j] != 0 || hi[j] != 0)) {
+        if (model->quantile > 0 && LIBXS_NOTNAN(lo[j])) {
           lo[j] = internal_libxs_predict_inv(model->transforms[j], lo[j]);
           hi[j] = internal_libxs_predict_inv(model->transforms[j], hi[j]);
         }
@@ -4824,7 +5028,7 @@ LIBXS_API_INLINE void internal_libxs_predict_eval_ex(libxs_lock_t* lock,
         for (j = 0; j < n; ++j) {
           base += vals[j];
           vals[j] = base;
-          if (model->quantile > 0 && (lo[j] != 0 || hi[j] != 0)) {
+          if (model->quantile > 0 && LIBXS_NOTNAN(lo[j])) {
             base_lo += lo[j]; lo[j] = base_lo;
             base_hi += hi[j]; hi[j] = base_hi;
           }
@@ -4839,7 +5043,7 @@ LIBXS_API_INLINE void internal_libxs_predict_eval_ex(libxs_lock_t* lock,
         const double z = internal_libxs_predict_quantile_z(model->quantile);
         const internal_libxs_predict_cluster_t* icl = &model->clusters[best_c];
         for (j = 0; j < n; ++j) {
-          if (lo[j] != 0 || hi[j] != 0) {
+          if (LIBXS_NOTNAN(lo[j])) {
             const double c_inv = (conf[j] > 0) ? (1.0 / conf[j]) : 1.0;
             const double mid = vals[j];
             double hw_lo = (mid - lo[j]) * c_inv;
@@ -4867,6 +5071,10 @@ LIBXS_API_INLINE void internal_libxs_predict_eval_ex(libxs_lock_t* lock,
             lo[j] = vals[j] - errs[j] * c_inv;
             hi[j] = vals[j] + errs[j] * c_inv;
           }
+          else { /* nothing measured an uncertainty: the answer alone */
+            lo[j] = vals[j];
+            hi[j] = vals[j];
+          }
         }
         info->lower = lo;
         info->upper = hi;
@@ -4890,14 +5098,19 @@ LIBXS_API_INLINE void internal_libxs_predict_eval_ex(libxs_lock_t* lock,
 }
 
 
-LIBXS_API void libxs_predict_eval(libxs_lock_t* lock,
+/**
+ * The public evaluation with the buffer made explicit: scratch, when given,
+ * receives what info points into (EVALBYTES), so callers evaluating one model
+ * concurrently without a lock can each read their own results.
+ */
+LIBXS_API_INLINE void internal_libxs_predict_eval_scratch(libxs_lock_t* lock,
   const libxs_predict_t* model, const double inputs[], double outputs[],
-  libxs_predict_info_t* info, int nblend)
+  libxs_predict_info_t* info, int nblend, double* scratch)
 {
   LIBXS_ASSERT(NULL != model);
   if (1 >= model->nbank || NULL == model->bank_w || NULL == outputs) {
     internal_libxs_predict_eval_ex(lock, model, inputs, outputs, info, nblend,
-      NULL, NULL, NULL, NULL, NULL);
+      NULL, NULL, NULL, NULL, NULL, scratch);
   }
   else {
     /**
@@ -4908,27 +5121,48 @@ LIBXS_API void libxs_predict_eval(libxs_lock_t* lock,
      * rather than an average of incomparable numbers.
      */
     const int n = model->noutputs;
-    double acc[LIBXS_PREDICT_HMAX];
-    int b, j, nacc = 0;
     if (n > LIBXS_PREDICT_HMAX) {
       internal_libxs_predict_eval_ex(lock, model, inputs, outputs, info, nblend,
-        NULL, NULL, NULL, NULL, NULL);
-      return;
+        NULL, NULL, NULL, NULL, NULL, scratch);
     }
-    for (j = 0; j < n; ++j) acc[j] = 0;
-    for (b = 0; b < model->nbank; ++b) {
-      internal_libxs_predict_view_t view;
-      view.w = model->bank_w[b];
-      view.s = model->nseries;
-      view.full = model->bank_w[0];
-      internal_libxs_predict_eval_ex(lock, model, inputs, outputs,
-        (0 == b) ? info : NULL, nblend, NULL, NULL, NULL, NULL,
-        (0 == b) ? NULL : &view);
-      for (j = 0; j < n; ++j) acc[j] += outputs[j];
-      ++nacc;
+    else {
+      /**
+       * The views after the first write a buffer of their own. Past the stack
+       * bound they took the model's, which is where info already pointed, so a
+       * model of more than 36 outputs reported the last view's values while
+       * documenting the first.
+       */
+      int view_pool = 0;
+      double* view_buf = (n * 6 + n <= 256) ? NULL
+        : (double*)LIBXS_PREDICT_MALLOC(INTERNAL_LIBXS_PREDICT_EVALBYTES(n),
+          view_pool);
+      double acc[LIBXS_PREDICT_HMAX];
+      int b, j, nacc = 0;
+      for (j = 0; j < n; ++j) acc[j] = 0;
+      for (b = 0; b < model->nbank; ++b) {
+        internal_libxs_predict_view_t view;
+        view.w = model->bank_w[b];
+        view.s = model->nseries;
+        view.full = model->bank_w[0];
+        internal_libxs_predict_eval_ex(lock, model, inputs, outputs,
+          (0 == b) ? info : NULL, nblend, NULL, NULL, NULL, NULL,
+          (0 == b) ? NULL : &view, (0 == b) ? scratch : view_buf);
+        for (j = 0; j < n; ++j) acc[j] += outputs[j];
+        ++nacc;
+      }
+      for (j = 0; j < n; ++j) outputs[j] = acc[j] / nacc;
+      LIBXS_PREDICT_FREE(view_buf, view_pool);
     }
-    for (j = 0; j < n; ++j) outputs[j] = acc[j] / nacc;
   }
+}
+
+
+LIBXS_API void libxs_predict_eval(libxs_lock_t* lock,
+  const libxs_predict_t* model, const double inputs[], double outputs[],
+  libxs_predict_info_t* info, int nblend)
+{
+  internal_libxs_predict_eval_scratch(lock, model, inputs, outputs, info,
+    nblend, NULL);
 }
 
 
@@ -5319,14 +5553,14 @@ LIBXS_API_INLINE int internal_libxs_predict_dist(
   double dists[LIBXS_PREDICT_KNN];
   double* local = scratch + stride;
   double best = 0, wsum, ent = 0;
-  int nfound = 0, exact = 0, exact_nearest = 0, i, e;
+  int nfound = 0, exact = 0, settled = 0, i, e;
   int result = EXIT_SUCCESS;
   const int nvoc = (vocabulary > ns) ? vocabulary : ns;
   const int outside = nvoc - ns;
   internal_libxs_predict_evidence(cl,
     model->ninputs, norm_inputs, out_j, nouts, extrapolate, -1, NULL,
-    NULL, -1, candidates, dists, &nfound, &exact, &exact_nearest, &best, NULL,
-    model->has_missing, NULL);
+    NULL, -1, candidates, dists, &nfound, &exact, &settled, &best, NULL,
+    model->has_missing, NULL, NULL, NULL);
   for (i = 0; i < ns; ++i) local[i] = 0;
   for (i = 0; i < nfound; ++i) {
     const int si = internal_libxs_predict_support_index(sv, ns, candidates[i]);
@@ -5411,7 +5645,7 @@ LIBXS_API_INLINE int internal_libxs_predict_point(
   double local[LIBXS_PREDICT_KNN];
   int index[LIBXS_PREDICT_KNN];
   double best = 0, wsum = 0, a = 0, b = 0, esc_sum = 0, mass, novel;
-  int nfound = 0, exact = 0, exact_nearest = 0, nlocal = 0, i, e;
+  int nfound = 0, exact = 0, settled = 0, nlocal = 0, i, e;
   int result = EXIT_SUCCESS;
   const int nvoc = (vocabulary > ns) ? vocabulary : ns;
   const int outside = nvoc - ns;
@@ -5420,8 +5654,8 @@ LIBXS_API_INLINE int internal_libxs_predict_point(
   const int si = internal_libxs_predict_support_index(sv, ns, v);
   internal_libxs_predict_evidence(cl,
     model->ninputs, norm_inputs, out_j, nouts, extrapolate, -1, NULL,
-    NULL, -1, candidates, dists, &nfound, &exact, &exact_nearest, &best, NULL,
-    model->has_missing, NULL);
+    NULL, -1, candidates, dists, &nfound, &exact, &settled, &best, NULL,
+    model->has_missing, NULL, NULL, NULL);
   /* Accumulate evidence per DISTINCT support entry, as the dense path does by
    * indexing into local[]; a value can be returned by several neighbors. */
   for (i = 0; i < nfound; ++i) {
@@ -5621,6 +5855,8 @@ LIBXS_API_INLINE size_t internal_libxs_predict_ctx_size(int n, int maxsup)
   bytes += (size_t)n * sizeof(void*);   /* src */
   bytes += (size_t)n * sizeof(double);  /* vals */
   bytes += INTERNAL_LIBXS_PREDICT_NBINT(3 * n); /* smode, sout, snout */
+  /* what eval_ex writes, which otherwise lands in the model's shared buffer */
+  bytes += INTERNAL_LIBXS_PREDICT_EVALBYTES(n);
   return bytes;
 }
 
@@ -5739,14 +5975,237 @@ LIBXS_API_INLINE void internal_libxs_predict_kapply(libxs_predict_t* model)
 
 
 /**
- * Decide per output whether the vote reports the mean or the median, by
- * scoring both against the entries the model was built from. Each entry is
- * predicted with itself excluded (skip_local), so the comparison is not the
- * fit but the error the aggregation would have made on data it did not see.
- * Absolute error is the criterion because that is what the median optimizes;
- * a tie keeps the mean, which is the historical behavior.
+ * The representative of each output's depth group: the first output that reads
+ * the neighbourhood to the same depth. The depth depends on the cluster and the
+ * output and not on the entry held out, so the grouping is settled once per
+ * cluster and every entry of it reuses it.
  */
-LIBXS_API_INLINE void internal_libxs_predict_central_all(libxs_predict_t* model)
+LIBXS_API_INLINE void internal_libxs_predict_loo_groups(
+  const internal_libxs_predict_cluster_t* cl, int n, int* rep)
+{
+  int j, jj;
+  for (j = 0; j < n; ++j) {
+    const int depth = internal_libxs_predict_depth(cl, j);
+    rep[j] = j;
+    for (jj = 0; jj < j && rep[j] == j; ++jj) {
+      if (internal_libxs_predict_depth(cl, jj) == depth) rep[j] = rep[jj];
+    }
+  }
+}
+
+
+/**
+ * Gather entry e's neighbourhood with e held out, reading the column of output
+ * g, which represents every output of its depth. What the gather keeps depends
+ * on the distances and the depth alone - the eviction never compares values -
+ * so a member of the group rereading it with loo_reread gets exactly what a
+ * gather of its own would have kept, in the same order.
+ */
+LIBXS_API_INLINE void internal_libxs_predict_loo_gather(
+  const libxs_predict_t* model, const internal_libxs_predict_cluster_t* cl,
+  int e, int g, internal_libxs_predict_scan_t* scan)
+{
+  const int n = model->noutputs;
+  const int m = model->ninputs;
+  scan->best = cl->raw_outputs[g];
+  scan->exact_idx = -1;
+  internal_libxs_predict_evidence(cl, m, cl->kd_pts + (size_t)e * m, g, n,
+    0, e, NULL, NULL, -1, scan->candidates, scan->dists, &scan->nfound,
+    &scan->exact, &scan->settled, &scan->best, NULL,
+    model->has_missing, scan->iw, scan->idx, &scan->exact_idx);
+}
+
+
+/* output j's column out of a scan its group's representative gathered */
+LIBXS_API_INLINE void internal_libxs_predict_loo_reread(
+  const internal_libxs_predict_cluster_t* cl, int j, int n,
+  internal_libxs_predict_scan_t* scan)
+{
+  int t;
+  for (t = 0; t < scan->nfound; ++t) {
+    scan->candidates[t] = cl->raw_outputs[(size_t)scan->idx[t] * n + j];
+  }
+  scan->best = (0 <= scan->exact_idx)
+    ? cl->raw_outputs[(size_t)scan->exact_idx * n + j]
+    : cl->raw_outputs[j];
+}
+
+
+/* one held-out prediction of output j from a scan that already reads its column */
+LIBXS_API_INLINE double internal_libxs_predict_loo_vote(
+  const internal_libxs_predict_cluster_t* cl, int j, int n, int central,
+  const internal_libxs_predict_scan_t* scan)
+{
+  return internal_libxs_predict_vote(cl, j, n, cl->ndistinct[j], 0, central,
+    scan->candidates, scan->dists, scan->iw, scan->nfound, scan->exact,
+    scan->settled, scan->best, NULL, NULL, 0, NULL, NULL);
+}
+
+
+/**
+ * Whether a cluster carries what a leave-one-out scan reads. Both scans ask it,
+ * and the trial's reduction asks it again to count what was scored, rather than
+ * each counting for itself.
+ */
+LIBXS_API_INLINE int internal_libxs_predict_loo_ok(
+  const internal_libxs_predict_cluster_t* cl)
+{
+  return (cl->nentries > 2 && NULL != cl->kd_pts && NULL != cl->raw_outputs
+    && NULL != cl->ndistinct) ? 1 : 0;
+}
+
+
+/**
+ * One task's share of the mean/median trial: the clusters it takes, scored for
+ * every output into err, which holds the absolute error of the mean in its first
+ * noutputs entries and of the median in the next. The sums stay the caller's
+ * because the decision is over all clusters and no task can form it from its own
+ * share.
+ *
+ * The clusters are strided rather than blocked: the score is quadratic in a
+ * cluster's size, so equal counts of indices are not equal amounts of work.
+ * Within one output the summation order over (cluster, entry) is what a single
+ * task walks, hence a one-task call is bit-identical to the serial form; across
+ * tasks the reduction reorders the sum, and a trial whose two errors lie within
+ * rounding of each other can therefore fall the other way. A tie keeps the mean.
+ */
+LIBXS_API_INLINE void internal_libxs_predict_central_task(
+  const libxs_predict_t* model, int tid, int ntasks, double* err)
+{
+  const int n = model->noutputs;
+  int rep_pool = 0, c, j;
+  int* rep = (int*)LIBXS_PREDICT_MALLOC((size_t)n * sizeof(int), rep_pool);
+  for (j = 0; j < 2 * n; ++j) err[j] = 0;
+  if (NULL != model->clusters && NULL != rep) {
+    for (c = tid; c < model->nclusters; c += ntasks) {
+      const internal_libxs_predict_cluster_t* cl = &model->clusters[c];
+      if (0 != internal_libxs_predict_loo_ok(cl)) {
+        const int nc = cl->nentries;
+        int e, g;
+        internal_libxs_predict_loo_groups(cl, n, rep);
+        for (e = 0; e < nc; ++e) {
+          for (g = 0; g < n; ++g) {
+            if (rep[g] == g) {
+              internal_libxs_predict_scan_t scan;
+              internal_libxs_predict_loo_gather(model, cl, e, g, &scan);
+              for (j = g; j < n; ++j) {
+                if (rep[j] == g) {
+                  const double actual = cl->raw_outputs[(size_t)e * n + j];
+                  double a, d;
+                  if (j != g) internal_libxs_predict_loo_reread(cl, j, n, &scan);
+                  a = internal_libxs_predict_loo_vote(cl, j, n, 0, &scan);
+                  d = internal_libxs_predict_loo_vote(cl, j, n, 1, &scan);
+                  err[j] += LIBXS_FABS(a - actual);
+                  err[n + j] += LIBXS_FABS(d - actual);
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+  LIBXS_PREDICT_FREE(rep, rep_pool);
+}
+
+
+/**
+ * Sum the tasks' shares and settle each output. The scored count is recovered
+ * here rather than carried through the partials: it is the same for every output
+ * and for every task, being the membership of the clusters the trial accepted,
+ * so counting it costs one pass over the clusters and saves a second reduction.
+ */
+LIBXS_API_INLINE void internal_libxs_predict_central_reduce(
+  libxs_predict_t* model, const double* err, int ntasks)
+{
+  const int n = model->noutputs;
+  int nscored = 0, c, j, t;
+  if (NULL != model->clusters) {
+    for (c = 0; c < model->nclusters; ++c) {
+      const internal_libxs_predict_cluster_t* cl = &model->clusters[c];
+      if (0 != internal_libxs_predict_loo_ok(cl)) nscored += cl->nentries;
+    }
+  }
+  for (j = 0; j < n; ++j) {
+    double err_avg = 0, err_med = 0;
+    for (t = 0; t < ntasks; ++t) {
+      err_avg += err[(size_t)t * 2 * n + j];
+      err_med += err[(size_t)t * 2 * n + n + j];
+    }
+    model->central_out[j] = (0 < nscored && err_med < err_avg) ? 1 : 0;
+    if (0 > model->central) {
+      fprintf(stderr, "LIBXS PREDICT: output %i uses the %s"
+        " (mean %.4f, median %.4f over %i entries)\n", j,
+        (0 != model->central_out[j]) ? "median" : "mean",
+        (0 < nscored) ? (err_avg / nscored) : 0.0,
+        (0 < nscored) ? (err_med / nscored) : 0.0, nscored);
+    }
+  }
+}
+
+
+/**
+ * The quantile calibration: every entry predicted with itself excluded, so what
+ * scales the interval is the error the vote makes on data it did not see. What
+ * it leaves overwrites the polynomial fit residual that refit wrote for the
+ * interpolating outputs, the interval being a statement about the vote.
+ *
+ * It runs here and not in the per-cluster assembly because it has to read what
+ * the assembly cannot yet know. The neighbour count kapply settles and the
+ * aggregation the trial picks are both later, and calibrating against a
+ * predictor the model does not use is what this did before it moved: k_eff for
+ * k_out, which differ for an interpolating output among classifying ones, and
+ * the mean for whichever of the two the trial chose.
+ */
+LIBXS_API_INLINE void internal_libxs_predict_rms_task(
+  libxs_predict_t* model, int tid, int ntasks)
+{
+  const int n = model->noutputs;
+  int rep_pool = 0, sse_pool = 0, c;
+  int* rep = (int*)LIBXS_PREDICT_MALLOC((size_t)n * sizeof(int), rep_pool);
+  double* sse = (double*)LIBXS_PREDICT_MALLOC(
+    (size_t)n * sizeof(double), sse_pool);
+  if (NULL != model->clusters && NULL != rep && NULL != sse) {
+    for (c = tid; c < model->nclusters; c += ntasks) {
+      internal_libxs_predict_cluster_t* cl = &model->clusters[c];
+      if (NULL != cl->out_rms && 0 != internal_libxs_predict_loo_ok(cl)) {
+        const int nc = cl->nentries;
+        int e, g, j;
+        internal_libxs_predict_loo_groups(cl, n, rep);
+        for (j = 0; j < n; ++j) sse[j] = 0;
+        for (e = 0; e < nc; ++e) {
+          for (g = 0; g < n; ++g) {
+            if (rep[g] == g) {
+              internal_libxs_predict_scan_t scan;
+              internal_libxs_predict_loo_gather(model, cl, e, g, &scan);
+              for (j = g; j < n; ++j) {
+                if (rep[j] == g) {
+                  const double actual = cl->raw_outputs[(size_t)e * n + j];
+                  double res;
+                  if (j != g) internal_libxs_predict_loo_reread(cl, j, n, &scan);
+                  res = internal_libxs_predict_loo_vote(cl, j, n,
+                    internal_libxs_predict_central(model, j), &scan) - actual;
+                  sse[j] += res * res;
+                }
+              }
+            }
+          }
+        }
+        for (j = 0; j < n; ++j) cl->out_rms[j] = sqrt(sse[j] / nc);
+      }
+    }
+  }
+  LIBXS_PREDICT_FREE(sse, sse_pool);
+  LIBXS_PREDICT_FREE(rep, rep_pool);
+}
+
+
+/**
+ * Allocate the per-output choice, which the trial fills and a reload reads. Kept
+ * apart from the trial so the collective form allocates it once on the builder
+ * while every task scores into the partials.
+ */
+LIBXS_API_INLINE int internal_libxs_predict_central_prep(libxs_predict_t* model)
 {
   const int n = model->noutputs;
   if (NULL == model->central_out) {
@@ -5756,40 +6215,33 @@ LIBXS_API_INLINE void internal_libxs_predict_central_all(libxs_predict_t* model)
       for (i = 0; i < n; ++i) model->central_out[i] = 0;
     }
   }
-  if (NULL != model->central_out && NULL != model->clusters) {
-    const int m = model->ninputs;
-    int j;
-    for (j = 0; j < n; ++j) {
-      double err_avg = 0, err_med = 0;
-      int c, nscored = 0;
-      for (c = 0; c < model->nclusters; ++c) {
-        const internal_libxs_predict_cluster_t* cl = &model->clusters[c];
-        const int nc = cl->nentries;
-        if (nc > 2 && NULL != cl->kd_pts && NULL != cl->raw_outputs
-          && NULL != cl->ndistinct)
-        {
-          int k;
-          for (k = 0; k < nc; ++k) {
-            const double* x = cl->kd_pts + (size_t)k * m;
-            const double actual = cl->raw_outputs[(size_t)k * n + j];
-            const double a = internal_libxs_predict_classify(cl, m, x, j, n,
-              cl->ndistinct[j], 0, k, NULL, NULL, 0, NULL, model->has_missing);
-            const double d = internal_libxs_predict_classify(cl, m, x, j, n,
-              cl->ndistinct[j], 0, k, NULL, NULL, 1, NULL, model->has_missing);
-            err_avg += LIBXS_FABS(a - actual);
-            err_med += LIBXS_FABS(d - actual);
-            ++nscored;
-          }
-        }
-      }
-      model->central_out[j] = (0 < nscored && err_med < err_avg) ? 1 : 0;
-      if (0 > model->central) {
-        fprintf(stderr, "LIBXS PREDICT: output %i uses the %s"
-          " (mean %.4f, median %.4f over %i entries)\n", j,
-          (0 != model->central_out[j]) ? "median" : "mean",
-          (0 < nscored) ? (err_avg / nscored) : 0.0,
-          (0 < nscored) ? (err_med / nscored) : 0.0, nscored);
-      }
+  return (NULL != model->central_out) ? EXIT_SUCCESS : EXIT_FAILURE;
+}
+
+
+/**
+ * Decide per output whether the vote reports the mean or the median, by
+ * scoring both against the entries the model was built from. Each entry is
+ * predicted with itself excluded (skip_local), so the comparison is not the
+ * fit but the error the aggregation would have made on data it did not see.
+ * Absolute error is the criterion because that is what the median optimizes;
+ * a tie keeps the mean, which is the historical behavior.
+ *
+ * This is the one-task form, which a reload takes: there the model arrives whole
+ * and there is no team to spread the trial over.
+ */
+LIBXS_API_INLINE void internal_libxs_predict_central_all(libxs_predict_t* model)
+{
+  if (EXIT_SUCCESS == internal_libxs_predict_central_prep(model)
+    && NULL != model->clusters)
+  {
+    int err_pool = 0;
+    double* err = (double*)LIBXS_PREDICT_MALLOC(
+      (size_t)2 * model->noutputs * sizeof(double), err_pool);
+    if (NULL != err) {
+      internal_libxs_predict_central_task(model, 0, 1, err);
+      internal_libxs_predict_central_reduce(model, err, 1);
+      LIBXS_PREDICT_FREE(err, err_pool);
     }
   }
 }
@@ -5931,6 +6383,17 @@ LIBXS_API_INLINE void* internal_libxs_predict_ctx_disp(
 }
 
 
+/** The evaluation buffer, past the dispatch buffers. */
+LIBXS_API_INLINE double* internal_libxs_predict_ctx_eval(
+  internal_libxs_predict_ctx_t* ctx)
+{
+  const size_t n = (size_t)ctx->noutputs;
+  return (double*)((unsigned char*)internal_libxs_predict_ctx_disp(ctx)
+    + n * sizeof(void*) + n * sizeof(double)
+    + INTERNAL_LIBXS_PREDICT_NBINT(3 * n));
+}
+
+
 LIBXS_API void* libxs_predict_prob_create(const libxs_predict_t* model)
 {
   void* result = NULL;
@@ -6029,7 +6492,7 @@ LIBXS_API void libxs_predict_prob(libxs_lock_t* lock,
     int scratch_pool = 0;
     const internal_libxs_predict_cluster_t** src = NULL;
     int *smode, *sout, *snout;
-    double *vals, *local = NULL;
+    double *vals, *local = NULL, *evalbuf = NULL;
     if (NULL != ctx) {
       unsigned char* d = (unsigned char*)internal_libxs_predict_ctx_disp(ctx);
       src = (const internal_libxs_predict_cluster_t**)d;
@@ -6038,16 +6501,18 @@ LIBXS_API void libxs_predict_prob(libxs_lock_t* lock,
       smode = (int*)d; d += (size_t)n * sizeof(int);
       sout = (int*)d; d += (size_t)n * sizeof(int);
       snout = (int*)d;
+      evalbuf = internal_libxs_predict_ctx_eval(ctx);
     }
     else {
-      const size_t nb = (size_t)n * sizeof(void*)
+      const size_t na = (size_t)n * sizeof(void*)
         + (size_t)n * sizeof(double)
         + (size_t)3 * stride * sizeof(double)
         + INTERNAL_LIBXS_PREDICT_NBINT(3 * n);
-      unsigned char* d = (unsigned char*)LIBXS_PREDICT_MALLOC(nb,
-        scratch_pool);
+      unsigned char* d = (unsigned char*)LIBXS_PREDICT_MALLOC(
+        na + INTERNAL_LIBXS_PREDICT_EVALBYTES(n), scratch_pool);
       src = (const internal_libxs_predict_cluster_t**)d;
       if (NULL != d) {
+        evalbuf = (double*)(d + na);
         d += (size_t)n * sizeof(void*);
         vals = (double*)d; d += (size_t)n * sizeof(double);
         local = (double*)d; d += (size_t)3 * stride * sizeof(double);
@@ -6081,7 +6546,7 @@ LIBXS_API void libxs_predict_prob(libxs_lock_t* lock,
         }
       }
       internal_libxs_predict_eval_ex(NULL, model, inputs, vals, NULL,
-        nblend, src, smode, sout, snout, NULL);
+        nblend, src, smode, sout, snout, NULL, evalbuf);
       for (j = 0; j < n; ++j) {
         const int ns = model->sup_n[j];
         /* frozen mode reads the model's weights and never writes them */
@@ -6220,7 +6685,7 @@ LIBXS_API int libxs_predict_prob_observe(libxs_lock_t* lock,
     int scratch_pool = 0;
     const internal_libxs_predict_cluster_t** src = NULL;
     int *smode, *sout, *snout;
-    double* local = NULL;
+    double *local = NULL, *evalbuf = NULL;
     if (NULL != ctx) {
       unsigned char* d = (unsigned char*)internal_libxs_predict_ctx_disp(ctx);
       src = (const internal_libxs_predict_cluster_t**)d;
@@ -6229,15 +6694,17 @@ LIBXS_API int libxs_predict_prob_observe(libxs_lock_t* lock,
       smode = (int*)d; d += (size_t)n * sizeof(int);
       sout = (int*)d; d += (size_t)n * sizeof(int);
       snout = (int*)d;
+      evalbuf = internal_libxs_predict_ctx_eval(ctx);
     }
     else {
-      const size_t nb = (size_t)n * sizeof(void*)
+      const size_t na = (size_t)n * sizeof(void*)
         + (size_t)3 * stride * sizeof(double)
         + INTERNAL_LIBXS_PREDICT_NBINT(3 * n);
-      unsigned char* d = (unsigned char*)LIBXS_PREDICT_MALLOC(nb,
-        scratch_pool);
+      unsigned char* d = (unsigned char*)LIBXS_PREDICT_MALLOC(
+        na + INTERNAL_LIBXS_PREDICT_EVALBYTES(n), scratch_pool);
       src = (const internal_libxs_predict_cluster_t**)d;
       if (NULL != d) {
+        evalbuf = (double*)(d + na);
         d += (size_t)n * sizeof(void*);
         local = (double*)d; d += (size_t)3 * stride * sizeof(double);
         smode = (int*)d; d += (size_t)n * sizeof(int);
@@ -6266,7 +6733,7 @@ LIBXS_API int libxs_predict_prob_observe(libxs_lock_t* lock,
         }
       }
       internal_libxs_predict_eval_ex(NULL, model, inputs, NULL, NULL,
-        nblend, src, smode, sout, snout, NULL);
+        nblend, src, smode, sout, snout, NULL, evalbuf);
       /**
        * Nothing to report but the outcome to learn from: the caller asked for no
        * values, no probs, no novel and no info, so the distribution is never

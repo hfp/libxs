@@ -10,6 +10,7 @@
 #include <libxs/libxs_predict.h>
 #include <libxs/libxs_math.h>
 #include <libxs/libxs_mem.h>
+#include "predict_args.h"
 
 enum { WINDOW_DEF = 12, HORIZON = 6, NSERIES = 2, WMAX = 120 };
 
@@ -23,7 +24,6 @@ int main(int argc, char* argv[])
 {
   const char* tahiti_file = (argc > 1) ? argv[1] : NULL;
   const char* darwin_file = (argc > 2) ? argv[2] : NULL;
-  const double split = (argc > 3) ? atof(argv[3]) : 0.8;
   const char* wenv = getenv("WINDOW");
   const int window_req = (NULL != wenv) ? atoi(wenv) : LIBXS_PREDICT_AUTO_WINDOW;
   /**
@@ -35,29 +35,37 @@ int main(int argc, char* argv[])
   int window = window_req;
   int decompose = -1;
   double quality = 0, consistency = 0;
-  int argi, result = EXIT_FAILURE;
+  double split = 0.8;
+  int argi, npos = 0, bad = 0, result = EXIT_FAILURE;
   double *tahiti = NULL, *darwin = NULL;
   int ntahiti = 0, ndarwin = 0;
-  for (argi = 4; argi < argc; ++argi) {
-    if ('c' == argv[argi][0] && 'o' == argv[argi][1]
-      && 'n' == argv[argi][2])
+  /* whole words, as predict_args.h requires: matching the first letter read
+   * any argument starting with 'r' as the forest and with 'c' as compression */
+  for (argi = 3; argi < argc; ++argi) {
+    const char* arg = argv[argi];
+    if (0 != predict_isnum(arg)) {
+      if (0 == npos) split = atof(arg);
+      else bad = argi;
+      ++npos;
+    }
+    else if (0 != predict_keyval(arg, "consist", 0.9, &consistency)
+      || 0 != predict_keyval(arg, "compress", 0.9, &quality))
     {
-      const char* p = argv[argi];
-      while ('\0' != *p && (*p < '0' || *p > '9') && '.' != *p) ++p;
-      consistency = ('\0' != *p) ? atof(p) : 0.9;
+      /* the keyword that matched has already assigned its own value */
     }
-    else if ('c' == argv[argi][0]) {
-      const char* p = argv[argi];
-      while ('\0' != *p && (*p < '0' || *p > '9') && '.' != *p) ++p;
-      quality = ('\0' != *p) ? atof(p) : 0.9;
-    }
-    else if ('h' == argv[argi][0]) decompose = LIBXS_PREDICT_HKNN;
-    else if ('r' == argv[argi][0]) decompose = LIBXS_PREDICT_RF;
+    else if (0 != predict_iskey(arg, "hknn")) decompose = LIBXS_PREDICT_HKNN;
+    else if (0 != predict_iskey(arg, "rf")) decompose = LIBXS_PREDICT_RF;
+    else bad = argi;
   }
-  if (NULL == tahiti_file || NULL == darwin_file) {
+  if (0 != bad) {
+    fprintf(stderr, "Unrecognized argument \"%s\".\n", argv[bad]);
+  }
+  if (NULL == tahiti_file || NULL == darwin_file || 0 != bad
+    || 0 == predict_split_ok(split))
+  {
     fprintf(stdout,
       "Usage: %s <tahiti_file> <darwin_file> [train_fraction]"
-      " [compress[Q]] [hknn|rf]\n"
+      " [compress[Q]] [consist[C]] [hknn|rf]\n"
       "  SOI prediction from anti-correlated Tahiti/Darwin SLP.\n"
       "  Uses SPREAD decomposition (sum/diff modes).\n"
       "  Input: NOAA CPC fixed-width monthly SLP files.\n"

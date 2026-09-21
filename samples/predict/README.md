@@ -161,7 +161,7 @@ Timeseries forecasting using sliding-window nearest-neighbor prediction.
 
 ### Usage
 
-    ./predict_sunspots.x <csvfile> [train_fraction] [compress[Q]] [hknn|rf]
+    ./predict_sunspots.x <csvfile> [train_fraction] [compress[Q]] [consist[C]] [hknn|rf|none]
 
     NOPHASE=1  Drop the solar-cycle phase input.
     NOBANK=1   Use a single window view instead of the bank.
@@ -226,7 +226,7 @@ log-transform on outputs for heavy-tailed data.
 
 ### Usage
 
-    ./predict_discharge.x <discharge_tsv> [train_fraction] [compress[Q]] [hknn|rf]
+    ./predict_discharge.x <discharge_tsv> [train_fraction] [compress[Q]] [consist[C]] [hknn|rf|none]
 
 ### Example
 
@@ -246,7 +246,7 @@ pressure at Tahiti and Darwin using SPREAD decomposition.
 
 ### Usage
 
-    ./predict_soi.x <tahiti_file> <darwin_file> [train_fraction] [compress[Q]] [hknn|rf]
+    ./predict_soi.x <tahiti_file> <darwin_file> [train_fraction] [compress[Q]] [consist[C]] [hknn|rf]
 
 ### Example
 
@@ -265,7 +265,7 @@ PCA/SPREAD decomposition.
 
 ### Usage
 
-    ./predict_stock.x <csv_file> [columns] [train_fraction] [compress[Q]] [hknn|rf]
+    ./predict_stock.x <csv_file> [columns] [train_fraction] [compress[Q]] [consist[C]] [hknn|rf]
 
     columns    Comma-separated 0-based column indices (default: 1,2).
 

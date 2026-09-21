@@ -39,7 +39,7 @@ static const int confidence_outputs[] = { 5, 6, 8, 12, 13 };
 
 static void evaluate(const libxs_predict_t* model,
   const libxs_predict_t* reference, int ntotal, const char trained[],
-  int use_xgb);
+  int use_xgb, double quantile_level);
 static int write_confidence_maps(const char* prefix, const void* buffer,
   size_t size, const libxs_predict_t* reference, int ntotal);
 static double deployment_confidence(const libxs_predict_info_t* info);
@@ -103,7 +103,12 @@ int main(int argc, char* argv[])
     int npos = 0;
     for (; argi < argc; ++argi) {
       const char* arg = argv[argi];
-      if (0 != predict_isnum(arg)) eval_fraction = atof(arg);
+      /* ahead of the fraction: "-4" is a number too, and taken as a fraction it
+       * made the order option unreachable and trained on a single entry */
+      if ('-' == arg[0] && '0' <= arg[1] && '9' >= arg[1] && 0 == order_arg) {
+        order_arg = atoi(arg);
+      }
+      else if (0 != predict_isnum(arg)) eval_fraction = atof(arg);
       else if (0 != predict_iskey(arg, "auto")) mode = LIBXS_PREDICT_AUTO;
       else if (0 != predict_iskey(arg, "cat")) mode = LIBXS_PREDICT_CLASSIFY;
       else if (0 != predict_iskey(arg, "interp")) {
@@ -120,9 +125,6 @@ int main(int argc, char* argv[])
       {
         /* the keyword that matched has already assigned its own value */
       }
-      else if ('-' == arg[0] && '\0' != arg[1] && 0 == order_arg) {
-        order_arg = atoi(arg);
-      }
       else if (npos < (int)(sizeof(positional) / sizeof(*positional))) {
         positional[npos++] = arg;
       }
@@ -131,6 +133,13 @@ int main(int argc, char* argv[])
       }
     }
     filename = (0 < npos) ? positional[0] : NULL;
+    /* the split marks that share of the entries as trained: above one it wrote
+     * past the marks, and at zero or below it trained on a single entry */
+    if (!(0 < eval_fraction && 1 >= eval_fraction)) {
+      fprintf(stderr, "Validation fraction %g is outside (0, 1].\n",
+        eval_fraction);
+      filename = NULL;
+    }
     modelfile = (1 < npos) ? positional[1] : NULL;
     confidence_prefix = (2 < npos) ? positional[2] : NULL;
   }
@@ -240,6 +249,12 @@ int main(int argc, char* argv[])
                 if (0.0 != consistency) {
                   libxs_predict_set_consistency(val_model, consistency);
                 }
+                /* the validation model mirrors the deployed one, intervals
+                 * included: without this the quantile option reached only the
+                 * model that is saved and never the one that is read back */
+                if (0.0 != quantile) {
+                  libxs_predict_set_quantile(val_model, quantile);
+                }
                 if (0 != shuffle_split) {
                   const size_t co = libxs_coprime2((size_t)ntotal);
                   for (i = 0; i < nval; ++i) {
@@ -258,7 +273,8 @@ int main(int argc, char* argv[])
                 if (EXIT_SUCCESS == libxs_predict_build(
                   val_model, 0, order_arg, quality))
                 {
-                  evaluate(val_model, source, ntotal, trained, use_xgb);
+                  evaluate(val_model, source, ntotal, trained, use_xgb,
+                    quantile);
                 }
               }
               libxs_predict_destroy(val_model);
@@ -303,7 +319,7 @@ int main(int argc, char* argv[])
 
 static void evaluate(const libxs_predict_t* model,
   const libxs_predict_t* reference, int ntotal, const char trained[],
-  int use_xgb)
+  int use_xgb, double quantile_level)
 {
 #if defined(__XGBOOST)
   /* read only by the comparison below, which is what carries our coverage over
@@ -391,8 +407,16 @@ static void evaluate(const libxs_predict_t* model,
        * narrowest are the same miss only when nothing is at stake. */
       double wtotal = 0, wacted[5], wcorrect[5], wexact = 0;
       int nexact = 0, nweighed = 0;
+      /* Empirical coverage of the prediction interval, which is the only read of
+       * what the quantile calibration produces: the level asks for 1-2q of the
+       * validation points to fall inside, so a miscalibrated interval shows up
+       * here and nowhere else. */
+      double iwidth[NOUTPUTS];
+      int icovered[NOUTPUTS], iseen = 0;
       memset(split_acted, 0, sizeof(split_acted));
       memset(split_correct, 0, sizeof(split_correct));
+      memset(icovered, 0, sizeof(icovered));
+      for (j = 0; j < NOUTPUTS; ++j) iwidth[j] = 0;
       split_n[0] = split_n[1] = 0;
       /* A gate is read against a scale, and the native confidence has its own:
        * the curve turns it into a rate so the threshold means what it says.
@@ -455,6 +479,15 @@ static void evaluate(const libxs_predict_t* model,
             if (0 != info.interpolated[j]) ++interp[j];
           }
         }
+        if (NULL != info.lower && NULL != info.upper) {
+          ++iseen;
+          for (j = 0; j < NOUTPUTS; ++j) {
+            iwidth[j] += info.upper[j] - info.lower[j];
+            if (expected[j] >= info.lower[j] && expected[j] <= info.upper[j]) {
+              ++icovered[j];
+            }
+          }
+        }
         for (ci = 0; ci < nconf; ++ci) {
           const int oi = confidence_outputs[ci];
           double conf = (NULL != info.confidence) ? info.confidence[oi] : 0.0;
@@ -486,6 +519,17 @@ static void evaluate(const libxs_predict_t* model,
           else {
             ++deferred[ci];
           }
+        }
+      }
+      if (0 < iseen) {
+        fprintf(stdout, "Prediction intervals (%d queries, nominal %.1f%%):\n",
+          iseen, 100.0 * (1.0 - 2.0 * quantile_level));
+        fprintf(stdout, "  param   coverage   avg-width\n");
+        for (j = 0; j < NOUTPUTS; ++j) {
+          int len = 0;
+          const char* name = libxs_strtoken(output_names, ",", j, &len);
+          fprintf(stdout, "  %-6.*s   %6.1f%%  %10.3e\n", len, name,
+            100.0 * icovered[j] / iseen, iwidth[j] / iseen);
         }
       }
       fprintf(stdout, "Gated deployment (%s threshold=%.1f):\n", score,

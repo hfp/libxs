@@ -61,7 +61,7 @@ int main(int argc, char* argv[])
   if (0 != bad) {
     fprintf(stderr, "Unrecognized argument \"%s\".\n", argv[bad]);
   }
-  if (NULL == filename || 0 != bad) {
+  if (NULL == filename || 0 != bad || 0 == predict_split_ok(split)) {
     fprintf(stdout,
       "Usage: %s <usgs_csv> [train_fraction] [compress[Q]]"
       " [hknn|rf|none] [xgb]\n"

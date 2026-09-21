@@ -48,14 +48,18 @@ static int build_model(libxs_predict_t* model)
 }
 
 
-/** Non-zero if the two models answer the same queries the same way. */
+/**
+ * Non-zero if the two models answer the same queries the same way. The queries
+ * are drawn past the corpus: a stored point is answered by its own value
+ * whatever the count, so only a query the vote decides can show the count.
+ */
 static int agree(const libxs_predict_t* a, const libxs_predict_t* b)
 {
   int i, j, result = 1;
   for (i = 0; i < 64; ++i) {
     double inputs[NINPUT], outputs[NOUTPUT];
     double pa[NOUTPUT], pb[NOUTPUT];
-    fill(inputs, outputs, i * 7 + 3);
+    fill(inputs, outputs, NENTRY + i * 7 + 3);
     libxs_predict_eval(NULL, a, inputs, pa, NULL, 1);
     libxs_predict_eval(NULL, b, inputs, pb, NULL, 1);
     for (j = 0; j < NOUTPUT; ++j) {

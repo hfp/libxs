@@ -11,6 +11,7 @@
 #include <libxs/libxs_timer.h>
 #include <libxs/libxs_math.h>
 #include <libxs/libxs_mem.h>
+#include "predict_args.h"
 
 #if defined(_OPENMP)
 # include <omp.h>
@@ -33,32 +34,37 @@ int main(int argc, char* argv[])
 {
   const char* filename = (argc > 1) ? argv[1] : NULL;
   const char* colspec = (argc > 2) ? argv[2] : "1,2";
-  const double split = (argc > 3) ? atof(argv[3]) : 0.8;
   int decompose_arg = -1;
   double quality = 0, consistency = 0;
-  int argi, result = EXIT_FAILURE;
-  for (argi = 4; argi < argc; ++argi) {
-    if ('c' == argv[argi][0] && 'o' == argv[argi][1]
-      && 'n' == argv[argi][2])
+  double split = 0.8;
+  int argi, npos = 0, bad = 0, result = EXIT_FAILURE;
+  /* whole words, as predict_args.h requires: matching the first letter read
+   * any argument starting with 'r' as the forest and with 'c' as compression */
+  for (argi = 3; argi < argc; ++argi) {
+    const char* arg = argv[argi];
+    if (0 != predict_isnum(arg)) {
+      if (0 == npos) split = atof(arg);
+      else bad = argi;
+      ++npos;
+    }
+    else if (0 != predict_keyval(arg, "consist", 0.9, &consistency)
+      || 0 != predict_keyval(arg, "compress", 0.9, &quality))
     {
-      const char* p = argv[argi];
-      while ('\0' != *p && (*p < '0' || *p > '9') && '.' != *p) ++p;
-      consistency = ('\0' != *p) ? atof(p) : 0.9;
+      /* the keyword that matched has already assigned its own value */
     }
-    else if ('c' == argv[argi][0]) {
-      const char* p = argv[argi];
-      while ('\0' != *p && (*p < '0' || *p > '9') && '.' != *p) ++p;
-      quality = ('\0' != *p) ? atof(p) : 0.9;
+    else if (0 != predict_iskey(arg, "hknn")) {
+      decompose_arg = LIBXS_PREDICT_HKNN;
     }
-    else if ('h' == argv[argi][0]) decompose_arg = LIBXS_PREDICT_HKNN;
-    else if ('r' == argv[argi][0] && 'f' == argv[argi][1]) {
-      decompose_arg = LIBXS_PREDICT_RF;
-    }
+    else if (0 != predict_iskey(arg, "rf")) decompose_arg = LIBXS_PREDICT_RF;
+    else bad = argi;
   }
-  if (NULL == filename) {
+  if (0 != bad) {
+    fprintf(stderr, "Unrecognized argument \"%s\".\n", argv[bad]);
+  }
+  if (NULL == filename || 0 != bad || 0 == predict_split_ok(split)) {
     fprintf(stderr,
       "Usage: %s <csv_file> [columns] [train_fraction]"
-      " [compress[Q]] [hknn|rf]\n"
+      " [compress[Q]] [consist[C]] [hknn|rf]\n"
       "  Multi-stock timeseries prediction with auto-differencing.\n"
       "  columns: comma-separated 0-based column indices (default: 1,2).\n"
       "  Uses PCA decomposition for 3+ series, SPREAD for 2.\n"

@@ -12,6 +12,8 @@
 #include <libxs/libxs_perm.h>
 #include <libxs/libxs_timer.h>
 
+#include "predict_args.h"
+
 #define PROB_KNN 32
 #define PROB_LOO 2000
 #define PROB_NBUCKET 12
@@ -124,9 +126,11 @@ int main(int argc, char* argv[])
   const char* innames = (argc > 7) ? argv[7] : NULL;
   const char* outnames = (argc > 8) ? argv[8] : NULL;
   const double eta = (argc > 9) ? atof(argv[9]) : 0.5;
+  static const int numeric[] = { 2, 3, 4, 5, 6, 9 };
   int result = EXIT_FAILURE;
-  if (NULL == filename || 0 >= ninputs || 0 >= noutputs
-    || 0 > target || target >= noutputs)
+  if (NULL == filename || 0 == predict_slots_ok(argc, argv, numeric, 6)
+    || 0 >= ninputs || 0 >= noutputs
+    || 0 > target || target >= noutputs || 0 == predict_split_ok(split))
   {
     fprintf(stdout,
       "Usage: %s <csvfile> [ninputs] [noutputs] [output] [fraction]"

@@ -11,6 +11,7 @@
 #include <libxs/libxs_timer.h>
 #include <libxs/libxs_math.h>
 #include <libxs/libxs_mem.h>
+#include "predict_args.h"
 
 #if defined(_OPENMP)
 # include <omp.h>
@@ -35,7 +36,6 @@ static const char* mode_name(int decompose)
 int main(int argc, char* argv[])
 {
   const char* filename = (argc > 1) ? argv[1] : NULL;
-  const double split = (argc > 2) ? atof(argv[2]) : 0.8;
   const char* wenv = getenv("WINDOW");
   const int window_req = (NULL != wenv) ? atoi(wenv) : LIBXS_PREDICT_AUTO_WINDOW;
   const int ninputs = (0 < window_req) ? window_req : WMAX;
@@ -46,29 +46,36 @@ int main(int argc, char* argv[])
   const char* benv = getenv("NOBANK");
   const int nobank = (NULL != benv) ? atoi(benv) : 0;
   double quality = 0, consistency = 0;
-  int argi, result = EXIT_FAILURE;
+  double split = 0.8;
+  int argi, npos = 0, bad = 0, result = EXIT_FAILURE;
   double* series = NULL;
   int total = 0;
-  for (argi = 3; argi < argc; ++argi) {
-    if ('c' == argv[argi][0] && 'o' == argv[argi][1]
-      && 'n' == argv[argi][2])
+  /* whole words, as predict_args.h requires: matching the first letter read
+   * any argument starting with 'r' as the forest and with 'c' as compression */
+  for (argi = 2; argi < argc; ++argi) {
+    const char* arg = argv[argi];
+    if (0 != predict_isnum(arg)) {
+      if (0 == npos) split = atof(arg);
+      else bad = argi;
+      ++npos;
+    }
+    else if (0 != predict_keyval(arg, "consist", 0.9, &consistency)
+      || 0 != predict_keyval(arg, "compress", 0.9, &quality))
     {
-      const char* p = argv[argi];
-      while ('\0' != *p && (*p < '0' || *p > '9') && '.' != *p) ++p;
-      consistency = ('\0' != *p) ? atof(p) : 0.9;
+      /* the keyword that matched has already assigned its own value */
     }
-    else if ('c' == argv[argi][0]) {
-      const char* p = argv[argi];
-      while ('\0' != *p && (*p < '0' || *p > '9') && '.' != *p) ++p;
-      quality = ('\0' != *p) ? atof(p) : 0.9;
-    }
-    else if ('h' == argv[argi][0]) decompose = LIBXS_PREDICT_HKNN;
-    else if ('r' == argv[argi][0]) decompose = LIBXS_PREDICT_RF;
-    else if ('n' == argv[argi][0]) decompose = LIBXS_PREDICT_RAW;
+    else if (0 != predict_iskey(arg, "hknn")) decompose = LIBXS_PREDICT_HKNN;
+    else if (0 != predict_iskey(arg, "rf")) decompose = LIBXS_PREDICT_RF;
+    else if (0 != predict_iskey(arg, "none")) decompose = LIBXS_PREDICT_RAW;
+    else bad = argi;
   }
-  if (NULL == filename) {
+  if (0 != bad) {
+    fprintf(stderr, "Unrecognized argument \"%s\".\n", argv[bad]);
+  }
+  if (NULL == filename || 0 != bad || 0 == predict_split_ok(split)) {
     fprintf(stdout,
-      "Usage: %s <sunspot_csv> [train_fraction] [compress[Q]] [hknn|rf]\n"
+      "Usage: %s <sunspot_csv> [train_fraction] [compress[Q]] [consist[C]]"
+      " [hknn|rf|none]\n"
       "  Timeseries prediction using sliding-window kNN.\n"
       "  Input: SILSO monthly sunspot CSV (semicolon-delimited).\n"
       "  Default train_fraction: 0.8\n"

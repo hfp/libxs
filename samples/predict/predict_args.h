@@ -73,4 +73,40 @@ LIBXS_INLINE int predict_keyval(const char* arg, const char* name,
   return result;
 }
 
+/**
+ * Non-zero if every listed positional slot is either absent or a number,
+ * reporting the first that is not. For the samples whose slots are fixed by
+ * position and mix numbers with names: there a word in a number's place read
+ * as zero and the run went ahead on it.
+ */
+LIBXS_INLINE int predict_slots_ok(int argc, char* argv[],
+  const int slots[], int nslots)
+{
+  int result = 1, i;
+  for (i = 0; i < nslots && 0 != result; ++i) {
+    const int s = slots[i];
+    if (s < argc && 0 == predict_isnum(argv[s])) {
+      fprintf(stderr, "Argument %d \"%s\" is not a number.\n", s, argv[s]);
+      result = 0;
+    }
+  }
+  return result;
+}
+
+
+/**
+ * Non-zero if a training fraction leaves both a training and a held-out part,
+ * reporting why not otherwise. The samples size the training part from it and
+ * read the remainder as held out: above one that read past the corpus, which
+ * only an assertion guards, and at zero it trained on the floor count alone.
+ */
+LIBXS_INLINE int predict_split_ok(double split)
+{
+  const int result = (0 < split && 1 > split) ? 1 : 0;
+  if (0 == result) {
+    fprintf(stderr, "Training fraction %g is outside (0, 1).\n", split);
+  }
+  return result;
+}
+
 #endif /*PREDICT_ARGS_H*/

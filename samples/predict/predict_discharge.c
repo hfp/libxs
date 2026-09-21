@@ -11,6 +11,8 @@
 #include <libxs/libxs_math.h>
 #include <libxs/libxs_mem.h>
 
+#include "predict_args.h"
+
 /**
  * Two equivalent constructions of the same engineered model:
  * default (DISCHARGE_USE_API): the engineered features expressed through
@@ -49,32 +51,38 @@ static const char* mode_name(int decompose)
 int main(int argc, char* argv[])
 {
   const char* filename = (argc > 1) ? argv[1] : NULL;
-  const double split = (argc > 2) ? atof(argv[2]) : 0.8;
+  double split = 0.8, quality = 0, consistency = 0;
   int decompose = LIBXS_PREDICT_AUTO_DECOMPOSE;
-  double quality = 0, consistency = 0;
-  int argi, result = EXIT_FAILURE;
+  int argi, npos = 0, bad = 0, result = EXIT_FAILURE;
   double* series = NULL;
   int total = 0;
-  for (argi = 3; argi < argc; ++argi) {
-    if ('c' == argv[argi][0] && 'o' == argv[argi][1]
-      && 'n' == argv[argi][2])
+  /* whole words, as predict_args.h requires: the first letter alone read any
+   * argument starting with 'r' as the forest and one starting with 'c' as
+   * compression, and a keyword in the fraction's place trained on 15 rows */
+  for (argi = 2; argi < argc; ++argi) {
+    const char* arg = argv[argi];
+    if (0 != predict_isnum(arg)) {
+      if (0 == npos) split = atof(arg);
+      else bad = argi;
+      ++npos;
+    }
+    else if (0 != predict_keyval(arg, "consist", 0.9, &consistency)
+      || 0 != predict_keyval(arg, "compress", 0.9, &quality))
     {
-      const char* p = argv[argi];
-      while ('\0' != *p && (*p < '0' || *p > '9') && '.' != *p) ++p;
-      consistency = ('\0' != *p) ? atof(p) : 0.9;
+      /* the keyword that matched has already assigned its own value */
     }
-    else if ('c' == argv[argi][0]) {
-      const char* p = argv[argi];
-      while ('\0' != *p && (*p < '0' || *p > '9') && '.' != *p) ++p;
-      quality = ('\0' != *p) ? atof(p) : 0.9;
-    }
-    else if ('h' == argv[argi][0]) decompose = LIBXS_PREDICT_HKNN;
-    else if ('r' == argv[argi][0]) decompose = LIBXS_PREDICT_RF;
-    else if ('n' == argv[argi][0]) decompose = LIBXS_PREDICT_RAW;
+    else if (0 != predict_iskey(arg, "hknn")) decompose = LIBXS_PREDICT_HKNN;
+    else if (0 != predict_iskey(arg, "rf")) decompose = LIBXS_PREDICT_RF;
+    else if (0 != predict_iskey(arg, "none")) decompose = LIBXS_PREDICT_RAW;
+    else bad = argi;
   }
-  if (NULL == filename) {
+  if (0 != bad) {
+    fprintf(stderr, "Unrecognized argument \"%s\".\n", argv[bad]);
+  }
+  if (NULL == filename || 0 != bad || 0 == predict_split_ok(split)) {
     fprintf(stdout,
-      "Usage: %s <discharge_file> [train_fraction] [compress[Q]] [hknn|rf]\n"
+      "Usage: %s <discharge_file> [train_fraction] [compress[Q]]"
+      " [consist[C]] [hknn|rf|none]\n"
       "  River discharge forecasting using sliding-window kNN.\n"
       "  Input: USGS NWIS daily discharge (tab-delimited, # comments).\n"
       "  Predicts next %d days from previous %d days + derivatives.\n"
