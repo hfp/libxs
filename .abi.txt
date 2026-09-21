@@ -120,6 +120,7 @@ libxs_lexeme_stream_push
 libxs_lexeme_stream_release
 libxs_lexeme_stream_reserve
 libxs_lexeme_word_next
+libxs_lexicon_count
 libxs_lexicon_create
 libxs_lexicon_destroy
 libxs_lexicon_id
