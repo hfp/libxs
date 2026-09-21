@@ -106,39 +106,55 @@ LIBXS_API const char* libxs_strtoken(const char str[],
 }
 
 
+/**
+ * Number of words in A with a word in B that one of the two begins. A word opens
+ * at a word boundary: searching for its first character anywhere would let the
+ * last letter of one word stand for another word ("A100" found in "NVIDIA").
+ */
+LIBXS_API_INLINE
+int internal_libxs_strimatch(const char* a, const char* b, const char* sep, int* nwords)
+{
+  char s[2] = {'\0'};
+  int result = 0, n = 0;
+  for (;;) {
+    const char* aend;
+    while (*s = *a, NULL != strpbrk(s, sep)) ++a; /* left-trim */
+    if ('\0' == *a || '[' == *a) break; /* no words past a device ID */
+    aend = a;
+    while ('\0' != *aend && (*s = *aend, NULL == strpbrk(s, sep))) ++aend;
+    ++n;
+    { const char* c = b;
+      int found = 0;
+      while (0 == found) {
+        const char* cend;
+        size_t m, i = 0;
+        while (*s = *c, NULL != strpbrk(s, sep)) ++c; /* left-trim */
+        if ('\0' == *c || '[' == *c) break;
+        cend = c;
+        while ('\0' != *cend && (*s = *cend, NULL == strpbrk(s, sep))) ++cend;
+        m = LIBXS_MIN((size_t)(aend - a), (size_t)(cend - c));
+        while (i < m && internal_libxs_strilower(a[i]) == internal_libxs_strilower(c[i])) ++i;
+        if (i == m) found = 1;
+        c = cend;
+      }
+      result += found;
+    }
+    a = aend;
+  }
+  *nwords = n;
+  return result;
+}
+
+
 LIBXS_API int libxs_strimatch(const char a[], const char b[], const char delims[], int* count)
 {
-  int result = 0, na = 0, nb = 0;
+  int result = -1, na = 0, nb = 0;
   if (NULL != a && NULL != b && '\0' != *a && '\0' != *b) {
     const char* const sep = ((NULL == delims || '\0' == *delims) ? " \t;,:-" : delims);
-    const char *c, *tmp;
-    char s[2] = {'\0'};
-    size_t m, n;
-    for (;;) {
-      while (*s = *b, NULL != strpbrk(s, sep)) ++b; /* left-trim */
-      if ('\0' != *b && '[' != *b) ++nb; /* count words */
-      else break;
-      tmp = b;
-      while ('\0' != *tmp && (*s = *tmp, NULL == strpbrk(s, sep))) ++tmp;
-      m = tmp - b;
-      c = libxs_stristrn(a, b, LIBXS_MIN(1, m));
-      if (NULL != c) {
-        const char* d = c;
-        while ('\0' != *d && (*s = *d, NULL == strpbrk(s, sep))) ++d;
-        n = d - c;
-        if (1 >= n || NULL != libxs_stristrn(c, b, LIBXS_MIN(m, n))) ++result;
-      }
-      b = tmp;
-    }
-    for (;;) { /* count number of words */
-      while (*s = *a, NULL != strpbrk(s, sep)) ++a; /* left-trim */
-      if ('\0' != *a && '[' != *a) ++na; /* count words */
-      else break;
-      while ('\0' != *a && (*s = *a, NULL == strpbrk(s, sep))) ++a;
-    }
-    if (na < result) result = na;
+    const int ab = internal_libxs_strimatch(a, b, sep, &na);
+    const int ba = internal_libxs_strimatch(b, a, sep, &nb);
+    result = LIBXS_MIN(ab, ba); /* symmetric, and bounded by either word count */
   }
-  else result = -1;
   if (NULL != count) *count = LIBXS_MAX(na, nb);
   return result;
 }

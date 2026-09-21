@@ -60,11 +60,12 @@ LIBXS_API const char* libxs_stristrn(const char a[], const char b[], size_t maxl
 LIBXS_API const char* libxs_stristr(const char a[], const char b[]);
 
 /**
- * Count the number of words in A (or B) with match in B (or A) respectively (case-insensitive).
- * Can be used to score the equality of A and B on a word-basis. The result is independent of
- * A-B or B-A order (symmetry). The score cannot exceed the number of words in A or B.
- * Optional delimiters determine characters splitting words (can be NULL).
- * Optional count yields total number of words.
+ * Count the words of A (or B) with a match in B (or A), where two words match if one
+ * begins the other (case-insensitive), e.g., "Prod" and "Product". The result is the
+ * smaller of both counts, hence independent of A-B or B-A order (symmetry), and cannot
+ * exceed the number of words in A or B. A word starting with '[' ends the words of its
+ * string (device IDs). Optional delimiters determine characters splitting words (can be
+ * NULL). Optional count yields the number of words of the string with more words.
  */
 LIBXS_API int libxs_strimatch(const char a[], const char b[], const char delims[], int* count);
 

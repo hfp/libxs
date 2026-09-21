@@ -24,10 +24,12 @@ first match in `a`, or NULL.
 int libxs_stridist(const char a[], const char b[]);
 ```
 
-Case-insensitive character-level edit distance (Levenshtein)
-between two strings. Returns the minimum number of
-single-character insertions, deletions, or substitutions to
-transform `a` into `b` (ignoring case). Returns -1 for NULL input.
+Case-insensitive character-level edit distance between two
+strings. Returns the minimum number of single-character
+insertions, deletions, substitutions, or transpositions of
+adjacent characters to transform `a` into `b` (ignoring case),
+i.e., the restricted Damerau-Levenshtein distance. Returns -1
+for NULL input.
 
 ## Word Matching
 
@@ -37,10 +39,14 @@ int libxs_strimatch(const char a[], const char b[],
 ```
 
 Word-level fuzzy matching. Counts how many words in `a` (or `b`)
-appear in the other string (case-insensitive, symmetric).
+have a match in the other string, where two words match if one
+begins the other (case-insensitive), e.g., `Prod` and `Product`.
+The result is the smaller of both counts (symmetric). A word
+starting with `[` ends the words of its string (device IDs).
 Optional `delims` define word separators (default: space, tab,
 semicolon, comma, colon, dash). Optional `count` receives the
-total word count of the larger string. Returns -1 for invalid input.
+word count of the string with more words. Returns -1 for invalid
+input.
 
 ## Word Difference
 
@@ -60,7 +66,7 @@ Parameters:
 - `a`, `b` — input strings (NULL returns -1)
 - `delims` — word separator characters (NULL uses default:
   space, tab, semicolon, comma, colon, dash)
-- `tolerance` — maximum Levenshtein distance for two words to
+- `tolerance` — maximum edit distance (`libxs_stridist`) for two words to
   be considered a match (0 = exact match only, 1 = allows one
   edit such as plural/tense inflection)
 - `count` — optional output, receives the word count of the
@@ -110,7 +116,8 @@ word-order analysis.
 Strings are split into words using the same delimiters as
 `libxs_strimatch`. Each word in `a` is matched to a word in `b`
 via minimum-cost bipartite matching, where the cost of a pair is
-the character-level Levenshtein distance (case-insensitive).
+the character-level edit distance of `libxs_stridist`
+(case-insensitive, an adjacent transposition counting as one edit).
 Unmatched words (when the strings have different word counts)
 contribute their full length.
 
