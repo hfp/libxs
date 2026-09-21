@@ -388,16 +388,26 @@ LIBXS_API_INLINE void internal_libxs_predict_neighbors_free(
  * in three stages - prep and finish are the builder's, the scoring between
  * them the team's - and its state lives on the model while it runs.
  *
- * A single probe build serves the whole grid, because the count changes nothing
- * about the model and only how many neighbours the vote reads. That is what
- * makes choosing this per output affordable where choosing the mode per output
- * was not, and the grid being ordered is what makes it work: a pick one step off
- * the optimum is one step off, not a different model.
+ * The count changes nothing about the model, only how many neighbours the vote
+ * reads, so one model serves the whole grid. That is what makes choosing this
+ * per output affordable where choosing the mode per output was not, and the grid
+ * being ordered is what makes it work: a pick one step off the optimum is one
+ * step off, not a different model.
  *
- * The held-back entries are a contiguous tail for a timeseries and a shuffled
- * fifth otherwise. Overlapping windows share timesteps, so a shuffled split of
- * them would leave a validation window's own history in the corpus that predicts
- * it, and every candidate would look equally good.
+ * The model scored is the one being built, every entry predicted with itself
+ * held out. The header of this file refuses leave-one-out for the mode, whose
+ * candidates exploit near-duplicates differently; the count does not, and it
+ * measured so. Against a probe fitted on four fifths and scored on the rest it
+ * picked the same count on every configuration of the crystal and earthquake
+ * corpora where the count reaches the answer, with identical accuracy, and its
+ * error curve came out flatter rather than tilted toward small counts: an exact
+ * duplicate is answered by the match at every count and so favours none. It
+ * saves a second build, partition included - about half of a large one.
+ *
+ * A timeseries keeps the probe, fitted on the leading four fifths and scored on
+ * the tail. Overlapping windows share timesteps, so a window held out alone would
+ * leave its own history in the corpus that predicts it, and every candidate
+ * would look equally good.
  */
 LIBXS_API_INLINE internal_libxs_predict_ktrial_t*
 internal_libxs_predict_neighbors_prep(libxs_predict_t* model, int ntasks)
@@ -417,26 +427,26 @@ internal_libxs_predict_neighbors_prep(libxs_predict_t* model, int ntasks)
     const int series = (0 < model->nts && 0 < model->nseries) ? 1 : 0;
     const size_t npart = (size_t)3 * LIBXS_PREDICT_NNEIGHBORS * n;
     int i, ok;
-    trial->probe = libxs_predict_create(model->ninputs, n);
     trial->kind = (int*)malloc((size_t)n * sizeof(int));
     trial->mad = (double*)malloc((size_t)n * sizeof(double));
-    trial->held = (int*)malloc((size_t)p * sizeof(int));
     trial->part = (double*)malloc(npart * ntasks * sizeof(double));
-    ok = (NULL != trial->probe && NULL != trial->kind && NULL != trial->mad
-      && NULL != trial->held && NULL != trial->part) ? 1 : 0;
+    if (0 != series) {
+      trial->probe = libxs_predict_create(model->ninputs, n);
+      trial->held = (int*)malloc((size_t)p * sizeof(int));
+    }
+    ok = (NULL != trial->kind && NULL != trial->mad && NULL != trial->part
+      && (0 == series || (NULL != trial->probe && NULL != trial->held)))
+      ? 1 : 0;
     if (0 != ok) {
-      libxs_predict_t* probe = trial->probe;
-      if (0 != series) {
-        for (i = 0; i < p; ++i) role[i] = (char)((i < nfit) ? 0 : 1);
-      }
-      else {
-        const size_t co = libxs_coprime2((size_t)p);
-        for (i = 0; i < p; ++i) {
-          role[LIBXS_SHUFFLE_INDEX(i, p, co, 0)] = (char)((i < nfit) ? 0 : 1);
-        }
+      /* every entry is scored without a probe, so every entry sets the scale */
+      for (i = 0; i < p; ++i) {
+        role[i] = (char)((0 != series && i >= nfit) ? 1 : 0);
       }
       internal_libxs_predict_decompose_kind(model, role, trial->kind,
         trial->mad, buf);
+    }
+    if (0 != ok && 0 != series) {
+      libxs_predict_t* probe = trial->probe;
       probe->eval_mode = model->eval_mode;
       probe->decompose = model->decompose;
       probe->central = model->central;
@@ -470,45 +480,98 @@ internal_libxs_predict_neighbors_prep(libxs_predict_t* model, int ntasks)
 
 
 /**
- * One task's share of the trial. The probe is built by the whole team, which
- * is what it costs: a model of its own, partition and all, that the builder
- * used to fit alone while every other task waited. Each candidate count is
- * then applied by the builder and scored by the team, every task taking a
- * strided share of the held-back entries into its own partials and its own
- * evaluation buffer - the model's is shared, and info points into it.
+ * One task's share of the scoring without a probe: the clusters it takes, every
+ * entry held out in turn. Each entry's neighbourhood is gathered once, to the
+ * widest count on the grid, and every smaller count reads the nearest prefix of
+ * it, so the grid costs one scan per entry rather than one per count. Ties in
+ * distance are broken by position in the cluster, which is the order the scan
+ * admits them in. An exact duplicate answers by the match whatever the count,
+ * and it is never settled here: the entry is held out, not queried.
  *
- * With one task the sums run in the order the serial trial took; across tasks
- * the reduction reorders the error of a many-valued output, so a count within
- * rounding of the next can fall the other way. A miss count is an integer and
- * cannot.
+ * The mean is scored and not the median, because the choice between the two is
+ * made after the count and reads it. The probe made that choice for itself.
  */
-LIBXS_API_INLINE void internal_libxs_predict_neighbors_task(
-  libxs_barrier_t* barrier, libxs_predict_t* model, int tid, int ntasks)
+LIBXS_API_INLINE void internal_libxs_predict_neighbors_loo(
+  const libxs_predict_t* model, const internal_libxs_predict_ktrial_t* trial,
+  int tid, int ntasks, double* err, double* cmin, double* cmax)
 {
-  internal_libxs_predict_ktrial_t* trial = model->sync_ktrial;
+  const int n = model->noutputs;
+  int c;
+  for (c = tid; c < model->nclusters; c += ntasks) {
+    const internal_libxs_predict_cluster_t* cl = &model->clusters[c];
+    if (0 != internal_libxs_predict_loo_ok(cl)) {
+      int e;
+      for (e = 0; e < cl->nentries; ++e) {
+        internal_libxs_predict_scan_t scan;
+        double cand[LIBXS_PREDICT_KNN], dist[LIBXS_PREDICT_KNN];
+        double iw[LIBXS_PREDICT_KNN];
+        int order[LIBXS_PREDICT_KNN], t, u, j, ci;
+        internal_libxs_predict_loo_gather(model, cl, e, 0, LIBXS_PREDICT_KNN,
+          &scan);
+        for (t = 0; t < scan.nfound; ++t) {
+          for (u = t; 0 < u && (scan.dists[order[u - 1]] > scan.dists[t]
+            || (scan.dists[order[u - 1]] == scan.dists[t]
+              && scan.idx[order[u - 1]] > scan.idx[t])); --u)
+          {
+            order[u] = order[u - 1];
+          }
+          order[u] = t;
+        }
+        for (t = 0; t < scan.nfound; ++t) {
+          dist[t] = scan.dists[order[t]];
+          iw[t] = scan.iw[order[t]];
+        }
+        for (j = 0; j < n; ++j) {
+          const double actual = cl->raw_outputs[(size_t)e * n + j];
+          const double best = (0 <= scan.exact_idx)
+            ? cl->raw_outputs[(size_t)scan.exact_idx * n + j]
+            : cl->raw_outputs[j];
+          for (t = 0; t < scan.nfound; ++t) {
+            cand[t] = cl->raw_outputs[(size_t)scan.idx[order[t]] * n + j];
+          }
+          for (ci = 0; ci < LIBXS_PREDICT_NNEIGHBORS; ++ci) {
+            const int kc = LIBXS_MIN(internal_libxs_predict_neighbors_cand(ci),
+              scan.nfound);
+            const size_t at = (size_t)ci * n + j;
+            double conf = 1.0;
+            const double pred = internal_libxs_predict_vote(cl, j, n,
+              cl->ndistinct[j], 0, 0, cand, dist, iw, kc, scan.exact, 0,
+              best, &conf, NULL, 0, NULL, NULL);
+            if (1e30 <= err[at]) err[at] = 0;
+            if (conf < cmin[at]) cmin[at] = conf;
+            if (conf > cmax[at]) cmax[at] = conf;
+            err[at] += (0 != trial->kind[j])
+              ? ((LIBXS_ROUNDX(int, pred) == LIBXS_ROUNDX(int, actual))
+                ? 0.0 : 1.0)
+              : (LIBXS_FABS(pred - actual) / trial->mad[j]);
+          }
+        }
+      }
+    }
+  }
+}
+
+
+/**
+ * One task's share of the scoring with a probe. The probe is built by the whole
+ * team, and each candidate count is then applied by the builder and scored by
+ * the team, every task taking a strided share of the held-back entries into its
+ * own partials and its own evaluation buffer - the model's is shared, and info
+ * points into it.
+ */
+LIBXS_API_INLINE void internal_libxs_predict_neighbors_probe(
+  libxs_barrier_t* barrier, const libxs_predict_t* model,
+  const internal_libxs_predict_ktrial_t* trial, int tid, int ntasks,
+  double* err, double* cmin, double* cmax)
+{
   libxs_predict_t* probe = trial->probe;
   const int n = model->noutputs;
-  const size_t nn = (size_t)LIBXS_PREDICT_NNEIGHBORS * n;
-  double* err = trial->part + (size_t)tid * 3 * nn;
-  double* cmin = err + nn;
-  double* cmax = cmin + nn;
   int eval_pool = 0, pred_pool = 0;
   double* evalbuf = (double*)LIBXS_PREDICT_MALLOC(
     INTERNAL_LIBXS_PREDICT_EVALBYTES(n), eval_pool);
   double* pred = (double*)LIBXS_PREDICT_MALLOC(
     (size_t)n * sizeof(double), pred_pool);
-  size_t k;
   int c;
-  /**
-   * Every slot starts unreachable, because a candidate that finds nothing to
-   * score leaves its slots untouched, and a zero there reads as a perfect score
-   * that would win the reduction outright.
-   */
-  for (k = 0; k < nn; ++k) {
-    err[k] = 1e30;
-    cmin[k] = 1e30;
-    cmax[k] = -1e30;
-  }
   /* collective, so every task sees the same verdict in probe->built */
   libxs_predict_build_task(probe, 0, 2, 0.0, tid, ntasks);
   for (c = 0; c < LIBXS_PREDICT_NNEIGHBORS; ++c) {
@@ -550,6 +613,44 @@ LIBXS_API_INLINE void internal_libxs_predict_neighbors_task(
 
 
 /**
+ * One task's share of the trial, into its own partials. With one task the sums
+ * run in the order the serial trial took; across tasks the reduction reorders
+ * the error of a many-valued output, so a count within rounding of the next can
+ * fall the other way. A miss count is an integer and cannot.
+ */
+LIBXS_API_INLINE void internal_libxs_predict_neighbors_task(
+  libxs_barrier_t* barrier, libxs_predict_t* model, int tid, int ntasks)
+{
+  const internal_libxs_predict_ktrial_t* trial = model->sync_ktrial;
+  const size_t nn = (size_t)LIBXS_PREDICT_NNEIGHBORS * model->noutputs;
+  double* err = trial->part + (size_t)tid * 3 * nn;
+  double* cmin = err + nn;
+  double* cmax = cmin + nn;
+  size_t k;
+  /**
+   * Every slot starts unreachable, because a candidate that finds nothing to
+   * score leaves its slots untouched, and a zero there reads as a perfect score
+   * that would win the reduction outright.
+   */
+  for (k = 0; k < nn; ++k) {
+    err[k] = 1e30;
+    cmin[k] = 1e30;
+    cmax[k] = -1e30;
+  }
+  if (NULL == trial->probe) {
+    internal_libxs_predict_neighbors_loo(model, trial, tid, ntasks,
+      err, cmin, cmax);
+  }
+  else {
+    internal_libxs_predict_neighbors_probe(barrier, model, trial, tid, ntasks,
+      err, cmin, cmax);
+  }
+  /* the builder reduces what every task wrote */
+  libxs_barrier_wait(barrier);
+}
+
+
+/**
  * The builder's close of the trial: sum the tasks' errors, take the extremes of
  * their confidences, and settle one count per output.
  */
@@ -559,7 +660,7 @@ LIBXS_API_INLINE void internal_libxs_predict_neighbors_finish(
   internal_libxs_predict_ktrial_t* trial = model->sync_ktrial;
   const int n = model->noutputs;
   const size_t nn = (size_t)LIBXS_PREDICT_NNEIGHBORS * n;
-  if (0 != trial->probe->built) {
+  if (NULL == trial->probe || 0 != trial->probe->built) {
     double* err = trial->part;
     double* cmin = err + nn;
     double* cmax = cmin + nn;

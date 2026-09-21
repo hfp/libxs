@@ -191,9 +191,10 @@ typedef struct internal_libxs_predict_scan_t {
 } internal_libxs_predict_scan_t;
 
 /**
- * The neighbour-count trial while it runs: the probe fitted on four fifths of
- * the corpus, the held-back fifth by index, and per task the error and the
- * confidence extremes of every candidate count for every output.
+ * The neighbour-count trial while it runs: per task the error and the
+ * confidence extremes of every candidate count for every output, and for a
+ * timeseries the probe fitted on the leading four fifths with the held-back
+ * tail by index. Without a probe the trial scores the model itself.
  */
 typedef struct internal_libxs_predict_ktrial_t {
   libxs_predict_t* probe;
@@ -553,6 +554,11 @@ LIBXS_API_INLINE void internal_libxs_predict_rms_task(
   libxs_predict_t* model, int tid, int ntasks);
 LIBXS_API_INLINE void internal_libxs_predict_neighbors_free(
   internal_libxs_predict_ktrial_t* trial);
+LIBXS_API_INLINE int internal_libxs_predict_loo_ok(
+  const internal_libxs_predict_cluster_t* cl);
+LIBXS_API_INLINE void internal_libxs_predict_loo_gather(
+  const libxs_predict_t* model, const internal_libxs_predict_cluster_t* cl,
+  int e, int g, int depth, internal_libxs_predict_scan_t* scan);
 LIBXS_API_INLINE void internal_libxs_predict_eval_scratch(libxs_lock_t* lock,
   const libxs_predict_t* model, const double inputs[], double outputs[],
   libxs_predict_info_t* info, int nblend, double* scratch);
@@ -1567,11 +1573,13 @@ LIBXS_API_INLINE void internal_libxs_predict_evidence(
   double* candidates, double* dists, int* out_nfound,
   int* out_exact, int* out_settled, double* out_best,
   const internal_libxs_predict_view_t* view, int missing, double* out_iw,
-  int* out_idx, int* out_exact_idx)
+  int* out_idx, int* out_exact_idx, int depth)
 {
   const double* kd_pts = cl->kd_pts;
   const int nc = cl->nentries;
-  const int k = internal_libxs_predict_depth(cl, output_j);
+  /* the output's own count unless the caller asks for a deeper scan */
+  const int k = (0 < depth) ? LIBXS_MIN(depth, LIBXS_PREDICT_KNN)
+    : internal_libxs_predict_depth(cl, output_j);
   double qtan[512];
   const double* qpts = inputs;
   const double* dpts = kd_pts;
@@ -1903,7 +1911,7 @@ LIBXS_API_INLINE double internal_libxs_predict_classify2(
     internal_libxs_predict_evidence(cl, m, inputs, output_j, nouts,
       extrapolate, skip_local, skip_set, po_groups, query_group,
       candidates, dists, &nfound, &exact, &settled, &best_val, view,
-      missing, iw, NULL, NULL);
+      missing, iw, NULL, NULL, 0);
     best_val = internal_libxs_predict_vote(cl, output_j, nouts, ndistinct,
       extrapolate, central, candidates, dists, iw, nfound, exact,
       settled, best_val, confidence, out_variance, quantile,
@@ -5560,7 +5568,7 @@ LIBXS_API_INLINE int internal_libxs_predict_dist(
   internal_libxs_predict_evidence(cl,
     model->ninputs, norm_inputs, out_j, nouts, extrapolate, -1, NULL,
     NULL, -1, candidates, dists, &nfound, &exact, &settled, &best, NULL,
-    model->has_missing, NULL, NULL, NULL);
+    model->has_missing, NULL, NULL, NULL, 0);
   for (i = 0; i < ns; ++i) local[i] = 0;
   for (i = 0; i < nfound; ++i) {
     const int si = internal_libxs_predict_support_index(sv, ns, candidates[i]);
@@ -5655,7 +5663,7 @@ LIBXS_API_INLINE int internal_libxs_predict_point(
   internal_libxs_predict_evidence(cl,
     model->ninputs, norm_inputs, out_j, nouts, extrapolate, -1, NULL,
     NULL, -1, candidates, dists, &nfound, &exact, &settled, &best, NULL,
-    model->has_missing, NULL, NULL, NULL);
+    model->has_missing, NULL, NULL, NULL, 0);
   /* Accumulate evidence per DISTINCT support entry, as the dense path does by
    * indexing into local[]; a value can be returned by several neighbors. */
   for (i = 0; i < nfound; ++i) {
@@ -5999,11 +6007,12 @@ LIBXS_API_INLINE void internal_libxs_predict_loo_groups(
  * g, which represents every output of its depth. What the gather keeps depends
  * on the distances and the depth alone - the eviction never compares values -
  * so a member of the group rereading it with loo_reread gets exactly what a
- * gather of its own would have kept, in the same order.
+ * gather of its own would have kept, in the same order. A positive depth
+ * replaces the group's own, for a scan that serves several counts at once.
  */
 LIBXS_API_INLINE void internal_libxs_predict_loo_gather(
   const libxs_predict_t* model, const internal_libxs_predict_cluster_t* cl,
-  int e, int g, internal_libxs_predict_scan_t* scan)
+  int e, int g, int depth, internal_libxs_predict_scan_t* scan)
 {
   const int n = model->noutputs;
   const int m = model->ninputs;
@@ -6012,7 +6021,7 @@ LIBXS_API_INLINE void internal_libxs_predict_loo_gather(
   internal_libxs_predict_evidence(cl, m, cl->kd_pts + (size_t)e * m, g, n,
     0, e, NULL, NULL, -1, scan->candidates, scan->dists, &scan->nfound,
     &scan->exact, &scan->settled, &scan->best, NULL,
-    model->has_missing, scan->iw, scan->idx, &scan->exact_idx);
+    model->has_missing, scan->iw, scan->idx, &scan->exact_idx, depth);
 }
 
 
@@ -6087,7 +6096,7 @@ LIBXS_API_INLINE void internal_libxs_predict_central_task(
           for (g = 0; g < n; ++g) {
             if (rep[g] == g) {
               internal_libxs_predict_scan_t scan;
-              internal_libxs_predict_loo_gather(model, cl, e, g, &scan);
+              internal_libxs_predict_loo_gather(model, cl, e, g, 0, &scan);
               for (j = g; j < n; ++j) {
                 if (rep[j] == g) {
                   const double actual = cl->raw_outputs[(size_t)e * n + j];
@@ -6177,7 +6186,7 @@ LIBXS_API_INLINE void internal_libxs_predict_rms_task(
           for (g = 0; g < n; ++g) {
             if (rep[g] == g) {
               internal_libxs_predict_scan_t scan;
-              internal_libxs_predict_loo_gather(model, cl, e, g, &scan);
+              internal_libxs_predict_loo_gather(model, cl, e, g, 0, &scan);
               for (j = g; j < n; ++j) {
                 if (rep[j] == g) {
                   const double actual = cl->raw_outputs[(size_t)e * n + j];
