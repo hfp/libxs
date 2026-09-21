@@ -20,18 +20,15 @@
 #endif
 #include "predict_args.h"
 
-static const char input_names[] = "latitude,longitude,depth";
-static const char output_names[] = "mag";
 
 enum { NINPUTS = 3, NOUTPUTS = 1 };
 
 
-static const char* mode_name(int decompose)
-{
-  static const char* names[] = { "RAW", "SPREAD", "PCA", "SETDIFF", "FISHER",
-    "RF", "hKNN" };
-  return (0 <= decompose && 7 > decompose) ? names[decompose] : "?";
-}
+static const char input_names[] = "latitude,longitude,depth";
+static const char output_names[] = "mag";
+
+
+static const char* mode_name(int decompose);
 
 
 int main(int argc, char* argv[])
@@ -40,6 +37,9 @@ int main(int argc, char* argv[])
   double split = 0.8, quality = 0, consistency = 0;
   int decompose = LIBXS_PREDICT_AUTO_DECOMPOSE;
   int argi, npos = 0, use_xgb = 0, bad = 0, result = EXIT_FAILURE;
+
+  libxs_init();
+
   for (argi = 2; argi < argc; ++argi) {
     const char* arg = argv[argi];
     if (0 != predict_isnum(arg)) {
@@ -184,5 +184,16 @@ int main(int argc, char* argv[])
       libxs_predict_destroy(source);
     }
   }
+
+  libxs_finalize();
+
   return result;
+}
+
+
+static const char* mode_name(int decompose)
+{
+  static const char* names[] = { "RAW", "SPREAD", "PCA", "SETDIFF", "FISHER",
+    "RF", "hKNN" };
+  return (0 <= decompose && 7 > decompose) ? names[decompose] : "?";
 }

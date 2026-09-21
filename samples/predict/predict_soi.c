@@ -12,7 +12,9 @@
 #include <libxs/libxs_mem.h>
 #include "predict_args.h"
 
+
 enum { WINDOW_DEF = 12, HORIZON = 6, NSERIES = 2, WMAX = 120 };
+
 
 static int load_noaa_slp(const char* filename, double** values, int* count);
 static void evaluate_forecast(const libxs_predict_t* model,
@@ -39,6 +41,9 @@ int main(int argc, char* argv[])
   int argi, npos = 0, bad = 0, result = EXIT_FAILURE;
   double *tahiti = NULL, *darwin = NULL;
   int ntahiti = 0, ndarwin = 0;
+
+  libxs_init();
+
   /* whole words, as predict_args.h requires: matching the first letter read
    * any argument starting with 'r' as the forest and with 'c' as compression */
   for (argi = 3; argi < argc; ++argi) {
@@ -160,6 +165,9 @@ int main(int argc, char* argv[])
   else {
     fprintf(stderr, "Failed to load SLP data\n");
   }
+
+  libxs_finalize();
+
   return result;
 }
 

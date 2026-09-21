@@ -19,7 +19,9 @@
 
 #define STOCK_MAXCOLS 16
 
+
 enum { WINDOW = 20, HORIZON = 5 };
+
 
 static void build_inputs(const libxs_predict_t* source,
   int t, int series, int nseries, double* inputs);
@@ -38,6 +40,9 @@ int main(int argc, char* argv[])
   double quality = 0, consistency = 0;
   double split = 0.8;
   int argi, npos = 0, bad = 0, result = EXIT_FAILURE;
+
+  libxs_init();
+
   /* whole words, as predict_args.h requires: matching the first letter read
    * any argument starting with 'r' as the forest and with 'c' as compression */
   for (argi = 3; argi < argc; ++argi) {
@@ -322,6 +327,9 @@ int main(int argc, char* argv[])
       }
     }
   }
+
+  libxs_finalize();
+
   return result;
 }
 

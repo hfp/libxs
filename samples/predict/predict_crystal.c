@@ -20,91 +20,13 @@
 #include "predict_args.h"
 #include "predict_gate.h"
 
+
 enum { NFEAT = 37, NGATE = 16 };
 
 
-/**
- * Replace a fraction of the inputs with the absent value, deterministically per
- * row so a run is repeatable.  A quiet NaN is what the library reads as "not
- * known here"; it is produced rather than written as a literal so the file needs
- * no constant for it.
- */
-static const char* mode_name(int decompose)
-{
-  static const char* names[] = { "RAW", "SPREAD", "PCA", "SETDIFF", "FISHER",
-    "RF", "hKNN" };
-  return (0 <= decompose && 7 > decompose) ? names[decompose] : "?";
-}
-
-
-/**
- * Save the model, load it back, and ask the loaded one for a different method.
- * The switch is what the per-cluster storage in the file pays for, so a model
- * built under a named method declines it: what comes back carries the forest
- * and no corpus. Reported rather than judged - the caller decides which of the
- * two outcomes it expected.
- */
-static void switch_method(const libxs_predict_t* model, int decompose)
-{
-  size_t size = 0;
-  if (EXIT_SUCCESS == libxs_predict_save(model, NULL, &size) && 0 < size) {
-    void* buffer = malloc(size);
-    if (NULL != buffer
-      && EXIT_SUCCESS == libxs_predict_save(model, buffer, &size))
-    {
-      libxs_predict_t* loaded = libxs_predict_load(buffer, size);
-      if (NULL != loaded) {
-        /* any method other than the one it was built with will do */
-        const int other = (LIBXS_PREDICT_HKNN == decompose)
-          ? LIBXS_PREDICT_RF : LIBXS_PREDICT_HKNN;
-        libxs_predict_query_t ql;
-        LIBXS_MEMZERO(&ql);
-        libxs_predict_query(loaded, &ql);
-        fprintf(stdout, "Reloaded: %d clusters, %d entries\n",
-          ql.nclusters, ql.nentries);
-        /**
-         * Whether a stored model can be rebuilt under another method is decided
-         * by whether its corpus survived the file, and NOT by whether the method
-         * was named or selected. A selected mode that dropped coordinates stores
-         * a partition and still cannot be rebuilt from, so the reason is
-         * reported rather than left to be inferred from the mode.
-         */
-        if (0 == ql.corpus) {
-          fprintf(stdout, "Method switch: declined, %s kept no corpus to"
-            " rebuild from\n", mode_name(decompose));
-        }
-        else {
-          libxs_predict_set_decompose(loaded, other);
-          if (EXIT_SUCCESS == libxs_predict_build(loaded, 0, 1, 0.0)) {
-            libxs_predict_query(loaded, &ql);
-            fprintf(stdout, "Method switch: %s to %s over %d entries\n",
-              mode_name(decompose), mode_name(other), ql.nentries);
-          }
-          else {
-            fprintf(stdout, "Method switch: declined by a model built as %s\n",
-              mode_name(decompose));
-          }
-        }
-        libxs_predict_destroy(loaded);
-      }
-      else fprintf(stdout, "Method switch: the model did not load\n");
-    }
-    free(buffer);
-  }
-  else fprintf(stdout, "Method switch: the model did not save\n");
-}
-
-
-static void blank_inputs(double inputs[], int n, double fraction, unsigned int s)
-{
-  const volatile double zero = 0;
-  const double absent = zero / zero;
-  int i;
-  for (i = 0; i < n; ++i) {
-    s = s * 1103515245u + 12345u;
-    if (((double)((s >> 16) & 0x7fff) / 32767.0) < fraction) inputs[i] = absent;
-  }
-}
+static const char* mode_name(int decompose);
+static void switch_method(const libxs_predict_t* model, int decompose);
+static void blank_inputs(double inputs[], int n, double fraction, unsigned int s);
 
 
 int main(int argc, char* argv[])
@@ -114,6 +36,9 @@ int main(int argc, char* argv[])
   int order = 2, nclusters = 0;
   int decompose = LIBXS_PREDICT_AUTO_DECOMPOSE;
   int argi, npos = 0, use_xgb = 0, bad = 0, result = EXIT_FAILURE;
+
+  libxs_init();
+
   for (argi = 2; argi < argc; ++argi) {
     const char* arg = argv[argi];
     if (0 != predict_isnum(arg)) {
@@ -360,5 +285,92 @@ int main(int argc, char* argv[])
       libxs_predict_destroy(source);
     }
   }
+
+  libxs_finalize();
+
   return result;
+}
+
+
+/**
+ * Replace a fraction of the inputs with the absent value, deterministically per
+ * row so a run is repeatable.  A quiet NaN is what the library reads as "not
+ * known here"; it is produced rather than written as a literal so the file needs
+ * no constant for it.
+ */
+static const char* mode_name(int decompose)
+{
+  static const char* names[] = { "RAW", "SPREAD", "PCA", "SETDIFF", "FISHER",
+    "RF", "hKNN" };
+  return (0 <= decompose && 7 > decompose) ? names[decompose] : "?";
+}
+
+
+/**
+ * Save the model, load it back, and ask the loaded one for a different method.
+ * The switch is what the per-cluster storage in the file pays for, so a model
+ * built under a named method declines it: what comes back carries the forest
+ * and no corpus. Reported rather than judged - the caller decides which of the
+ * two outcomes it expected.
+ */
+static void switch_method(const libxs_predict_t* model, int decompose)
+{
+  size_t size = 0;
+  if (EXIT_SUCCESS == libxs_predict_save(model, NULL, &size) && 0 < size) {
+    void* buffer = malloc(size);
+    if (NULL != buffer
+      && EXIT_SUCCESS == libxs_predict_save(model, buffer, &size))
+    {
+      libxs_predict_t* loaded = libxs_predict_load(buffer, size);
+      if (NULL != loaded) {
+        /* any method other than the one it was built with will do */
+        const int other = (LIBXS_PREDICT_HKNN == decompose)
+          ? LIBXS_PREDICT_RF : LIBXS_PREDICT_HKNN;
+        libxs_predict_query_t ql;
+        LIBXS_MEMZERO(&ql);
+        libxs_predict_query(loaded, &ql);
+        fprintf(stdout, "Reloaded: %d clusters, %d entries\n",
+          ql.nclusters, ql.nentries);
+        /**
+         * Whether a stored model can be rebuilt under another method is decided
+         * by whether its corpus survived the file, and NOT by whether the method
+         * was named or selected. A selected mode that dropped coordinates stores
+         * a partition and still cannot be rebuilt from, so the reason is
+         * reported rather than left to be inferred from the mode.
+         */
+        if (0 == ql.corpus) {
+          fprintf(stdout, "Method switch: declined, %s kept no corpus to"
+            " rebuild from\n", mode_name(decompose));
+        }
+        else {
+          libxs_predict_set_decompose(loaded, other);
+          if (EXIT_SUCCESS == libxs_predict_build(loaded, 0, 1, 0.0)) {
+            libxs_predict_query(loaded, &ql);
+            fprintf(stdout, "Method switch: %s to %s over %d entries\n",
+              mode_name(decompose), mode_name(other), ql.nentries);
+          }
+          else {
+            fprintf(stdout, "Method switch: declined by a model built as %s\n",
+              mode_name(decompose));
+          }
+        }
+        libxs_predict_destroy(loaded);
+      }
+      else fprintf(stdout, "Method switch: the model did not load\n");
+    }
+    free(buffer);
+  }
+  else fprintf(stdout, "Method switch: the model did not save\n");
+}
+
+
+static void blank_inputs(double inputs[], int n, double fraction, unsigned int s)
+{
+  const volatile double zero = 0;
+  const double absent = zero / zero;
+  int i;
+  for (i = 0; i < n; ++i) {
+    s = s * 1103515245u + 12345u;
+    if (((double)((s >> 16) & 0x7fff) / 32767.0) < fraction) inputs[i] = absent;
+  }
 }

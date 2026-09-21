@@ -17,20 +17,15 @@
 # include <omp.h>
 #endif
 
+
 enum { WINDOW_DEF = 12, HORIZON = 6, WMAX = 160, PMAX = 400, NBANK = 2 };
+
 
 static int load_sunspots(const char* filename, double** values, int* count);
 static int cycle_period(const double* series, int n);
 static int cycle_phase(const double* series, int n, int period,
   double* phase);
-
-
-static const char* mode_name(int decompose)
-{
-  static const char* names[] = { "RAW", "SPREAD", "PCA", "SETDIFF", "FISHER",
-    "RF", "hKNN" };
-  return (0 <= decompose && 7 > decompose) ? names[decompose] : "?";
-}
+static const char* mode_name(int decompose);
 
 
 int main(int argc, char* argv[])
@@ -50,6 +45,9 @@ int main(int argc, char* argv[])
   int argi, npos = 0, bad = 0, result = EXIT_FAILURE;
   double* series = NULL;
   int total = 0;
+
+  libxs_init();
+
   /* whole words, as predict_args.h requires: matching the first letter read
    * any argument starting with 'r' as the forest and with 'c' as compression */
   for (argi = 2; argi < argc; ++argi) {
@@ -179,7 +177,18 @@ int main(int argc, char* argv[])
   else {
     fprintf(stderr, "Failed to load sunspot data from %s\n", filename);
   }
+
+  libxs_finalize();
+
   return result;
+}
+
+
+static const char* mode_name(int decompose)
+{
+  static const char* names[] = { "RAW", "SPREAD", "PCA", "SETDIFF", "FISHER",
+    "RF", "hKNN" };
+  return (0 <= decompose && 7 > decompose) ? names[decompose] : "?";
 }
 
 

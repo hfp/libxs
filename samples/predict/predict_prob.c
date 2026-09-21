@@ -128,6 +128,9 @@ int main(int argc, char* argv[])
   const double eta = (argc > 9) ? atof(argv[9]) : 0.5;
   static const int numeric[] = { 2, 3, 4, 5, 6, 9 };
   int result = EXIT_FAILURE;
+
+  libxs_init();
+
   if (NULL == filename || 0 == predict_slots_ok(argc, argv, numeric, 6)
     || 0 >= ninputs || 0 >= noutputs
     || 0 > target || target >= noutputs || 0 == predict_split_ok(split))
@@ -452,6 +455,9 @@ int main(int argc, char* argv[])
       libxs_predict_destroy(source);
     }
   }
+
+  libxs_finalize();
+
   return result;
 }
 

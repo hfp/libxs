@@ -20,9 +20,6 @@
 #endif
 #include "predict_args.h"
 
-static const char input_names[] = "M,N,K";
-static const char output_names[] =
-  "BS,BM,BN,BK,WS,WG,LU,NZ,AL,TB,TC,AP,AA,AB,AC,XF,GFLOPS";
 
 /**
  * GFLOPS is loaded as an output like any other, so the schema does not depend on
@@ -35,7 +32,12 @@ static const char output_names[] =
  */
 enum { NINPUTS = 3, NPARAM = 16, NOUTPUTS = 17, PERF_OUTPUT = NPARAM };
 
+
+static const char input_names[] = "M,N,K";
+static const char output_names[] =
+  "BS,BM,BN,BK,WS,WG,LU,NZ,AL,TB,TC,AP,AA,AB,AC,XF,GFLOPS";
 static const int confidence_outputs[] = { 5, 6, 8, 12, 13 };
+
 
 static void evaluate(const libxs_predict_t* model,
   const libxs_predict_t* reference, int ntotal, const char trained[],
@@ -43,40 +45,8 @@ static void evaluate(const libxs_predict_t* model,
 static int write_confidence_maps(const char* prefix, const void* buffer,
   size_t size, const libxs_predict_t* reference, int ntotal);
 static double deployment_confidence(const libxs_predict_info_t* info);
-
-
-/**
- * Confidence thresholds to report, from GATE (comma separated). The first
- * drives the gated table; more than one adds a sweep, because precision at one
- * threshold is a single point on a curve and two modes rarely sit at the same
- * coverage there.
- */
-static int gate_list(double gates[], int capacity)
-{
-  const char* const env = getenv("GATE");
-  int result = 0;
-  if (NULL != env && '\0' != *env) {
-    int len = 0;
-    const char* token = libxs_strtoken(env, ",", result, &len);
-    while (NULL != token && result < capacity) {
-      gates[result++] = atof(token);
-      token = libxs_strtoken(env, ",", result, &len);
-    }
-  }
-  if (0 == result) {
-    gates[0] = 0.9;
-    result = 1;
-  }
-  return result;
-}
-
-
-static const char* mode_name(int decompose)
-{
-  static const char* names[] = { "RAW", "SPREAD", "PCA", "SETDIFF", "FISHER",
-    "RF", "hKNN" };
-  return (0 <= decompose && 7 > decompose) ? names[decompose] : "?";
-}
+static int gate_list(double gates[], int capacity);
+static const char* mode_name(int decompose);
 
 
 int main(int argc, char* argv[])
@@ -87,6 +57,9 @@ int main(int argc, char* argv[])
   int argi = 1, mode = LIBXS_PREDICT_AUTO, use_rf = 0, use_hknn = 0;
   int order_arg = 0, shuffle_split = 0, use_xgb = 0;
   int result = EXIT_FAILURE;
+
+  libxs_init();
+
   /**
    * A keyword is recognized wherever it appears and the remaining tokens keep
    * their order as file names. Position used to carry the distinction - all
@@ -313,7 +286,44 @@ int main(int argc, char* argv[])
       libxs_predict_destroy(source);
     }
   }
+
+  libxs_finalize();
+
   return result;
+}
+
+
+/**
+ * Confidence thresholds to report, from GATE (comma separated). The first
+ * drives the gated table; more than one adds a sweep, because precision at one
+ * threshold is a single point on a curve and two modes rarely sit at the same
+ * coverage there.
+ */
+static int gate_list(double gates[], int capacity)
+{
+  const char* const env = getenv("GATE");
+  int result = 0;
+  if (NULL != env && '\0' != *env) {
+    int len = 0;
+    const char* token = libxs_strtoken(env, ",", result, &len);
+    while (NULL != token && result < capacity) {
+      gates[result++] = atof(token);
+      token = libxs_strtoken(env, ",", result, &len);
+    }
+  }
+  if (0 == result) {
+    gates[0] = 0.9;
+    result = 1;
+  }
+  return result;
+}
+
+
+static const char* mode_name(int decompose)
+{
+  static const char* names[] = { "RAW", "SPREAD", "PCA", "SETDIFF", "FISHER",
+    "RF", "hKNN" };
+  return (0 <= decompose && 7 > decompose) ? names[decompose] : "?";
 }
 
 

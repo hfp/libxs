@@ -41,6 +41,9 @@ int main(int argc, char* argv[])
   const int hknn = (argc > 6) ? atoi(argv[6]) : 0;
   static const int numeric[] = { 4, 5, 6 };
   int result = EXIT_FAILURE;
+
+  libxs_init();
+
   if (NULL == filename || NULL == innames || NULL == outname
     || 0 == predict_slots_ok(argc, argv, numeric, 3)
     || 0 == predict_split_ok(split))
@@ -163,6 +166,9 @@ int main(int argc, char* argv[])
       }
     }
   }
+
+  libxs_finalize();
+
   return result;
 }
 

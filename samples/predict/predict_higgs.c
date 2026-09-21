@@ -37,6 +37,9 @@ int main(int argc, char* argv[])
   int depth = 0, ntrees = 0, use_xgb = 0;
   double split = 0.8, v;
   int result = EXIT_FAILURE;
+
+  libxs_init();
+
   for (i = 1; i < argc; ++i) {
     const char* const a = argv[i];
     if (0 == strcmp("-h", a) || 0 == strcmp("--help", a)) help = 1;
@@ -352,5 +355,8 @@ int main(int argc, char* argv[])
       libxs_predict_destroy(source);
     }
   }
+
+  libxs_finalize();
+
   return result;
 }

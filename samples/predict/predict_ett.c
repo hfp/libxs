@@ -19,7 +19,10 @@
 #endif
 #include "predict_args.h"
 
+
 enum { WINDOW_DEF = 96, HORIZON = 96, MAXCOLS = 7, WMAX = 512 };
+
+
 static const char* col_names[MAXCOLS] = {
   "HUFL", "HULL", "MUFL", "MULL", "LUFL", "LULL", "OT"
 };
@@ -28,30 +31,23 @@ static const char* col_names[MAXCOLS] = {
 static double local_corr(const double* ch, const double* tgt, int w);
 static int load_ett_all(const char* filename, double** values,
   int* count, int* ncols_out);
-
-
-static const char* mode_name(int decompose)
-{
-  static const char* names[] = { "RAW", "SPREAD", "PCA", "SETDIFF", "FISHER",
-    "RF", "hKNN" };
-  return (0 <= decompose && 7 > decompose) ? names[decompose] : "?";
-}
+static const char* mode_name(int decompose);
 
 
 int main(int argc, char* argv[])
 {
   const char* filename = (argc > 1) ? argv[1] : NULL;
-  int nseries = 1;
   const double split = 0.661;
+  double quality = 0, *data = NULL;
   const char* wenv = getenv("WINDOW");
   const int window_req = (NULL != wenv) ? atoi(wenv) : LIBXS_PREDICT_AUTO_WINDOW;
   int window = (0 < window_req) ? window_req : WINDOW_DEF;
   int decompose = LIBXS_PREDICT_AUTO_DECOMPOSE;
-  int attend = 0;
-  double quality = 0;
   int argi, npos = 0, use_xgb = 0, bad = 0, result = EXIT_FAILURE;
-  double* data = NULL;
-  int total = 0, ncols = 0;
+  int nseries = 1, attend = 0, total = 0, ncols = 0;
+
+  libxs_init();
+
   for (argi = 2; argi < argc; ++argi) {
     const char* arg = argv[argi];
     if (0 != predict_isnum(arg)) {
@@ -386,7 +382,18 @@ int main(int argc, char* argv[])
   else {
     fprintf(stderr, "Failed to load data from %s\n", filename);
   }
+
+  libxs_finalize();
+
   return result;
+}
+
+
+static const char* mode_name(int decompose)
+{
+  static const char* names[] = { "RAW", "SPREAD", "PCA", "SETDIFF", "FISHER",
+    "RF", "hKNN" };
+  return (0 <= decompose && 7 > decompose) ? names[decompose] : "?";
 }
 
 

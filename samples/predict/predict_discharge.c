@@ -29,7 +29,9 @@
 # define DISCHARGE_USE_API
 #endif
 
+
 enum { WINDOW_DEF = 14, HORIZON = 7, NDIFFS = 3, WMAX = 120 };
+
 
 static int window_size(void);
 static int load_discharge(const char* filename, double** values, int* count);
@@ -38,14 +40,7 @@ static void fill_inputs(const double* series, int t, int window, double* inputs)
 #endif
 static void evaluate_forecast(const libxs_predict_t* model,
   const double* series, int total, int train_end, int window);
-
-
-static const char* mode_name(int decompose)
-{
-  static const char* names[] = { "RAW", "SPREAD", "PCA", "SETDIFF", "FISHER",
-    "RF", "hKNN" };
-  return (0 <= decompose && 7 > decompose) ? names[decompose] : "?";
-}
+static const char* mode_name(int decompose);
 
 
 int main(int argc, char* argv[])
@@ -56,6 +51,9 @@ int main(int argc, char* argv[])
   int argi, npos = 0, bad = 0, result = EXIT_FAILURE;
   double* series = NULL;
   int total = 0;
+
+  libxs_init();
+
   /* whole words, as predict_args.h requires: the first letter alone read any
    * argument starting with 'r' as the forest and one starting with 'c' as
    * compression, and a keyword in the fraction's place trained on 15 rows */
@@ -151,7 +149,18 @@ int main(int argc, char* argv[])
   else {
     fprintf(stderr, "Failed to load discharge data from %s\n", filename);
   }
+
+  libxs_finalize();
+
   return result;
+}
+
+
+static const char* mode_name(int decompose)
+{
+  static const char* names[] = { "RAW", "SPREAD", "PCA", "SETDIFF", "FISHER",
+    "RF", "hKNN" };
+  return (0 <= decompose && 7 > decompose) ? names[decompose] : "?";
 }
 
 

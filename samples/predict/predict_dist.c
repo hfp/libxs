@@ -33,6 +33,9 @@ int main(int argc, char* argv[])
   const int decompose = (argc > 10) ? atoi(argv[10]) : LIBXS_PREDICT_RAW;
   static const int numeric[] = { 2, 3, 4, 5, 6, 9, 10 };
   int result = EXIT_FAILURE;
+
+  libxs_init();
+
   if (NULL == filename || 0 == predict_slots_ok(argc, argv, numeric, 7)
     || 0 >= ninputs || 0 >= noutputs
     || 0 > output || output >= noutputs || 0 == predict_split_ok(split))
@@ -249,5 +252,8 @@ int main(int argc, char* argv[])
       libxs_predict_destroy(source);
     }
   }
+
+  libxs_finalize();
+
   return result;
 }
