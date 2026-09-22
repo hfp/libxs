@@ -220,6 +220,124 @@ static void dirty_scratch(void)
 
 
 /**
+ * A conformal correction must survive the file. It cannot be compared through a
+ * getter, because there is none: the interval it produces IS the observable, so
+ * the same raw interval is put through both models and the results must agree.
+ *
+ * A byte comparison would not settle this. A field written and never read back
+ * leaves both saves identical and reports nothing, which is the defect this looks
+ * for: the values are written behind a flag, and a reader that consumes the flag
+ * but not the values would still save identically.
+ */
+static int check_interval_roundtrip(void)
+{
+  libxs_predict_t* model = libxs_predict_create(NFEAT, 1);
+  int result = EXIT_FAILURE;
+  if (NULL != model) {
+    const int nhold = NENTRY / 4, nbuild = NENTRY - nhold;
+    double* hin = (double*)malloc((size_t)nhold * NFEAT * sizeof(double));
+    double* hout = (double*)malloc((size_t)nhold * sizeof(double));
+    int i;
+    libxs_predict_set_quantile(model, 0.1);
+    for (i = 0; i < nbuild; ++i) {
+      double input[NFEAT], out;
+      fill(input, &out, i);
+      libxs_predict_push(NULL, model, input, &out);
+    }
+    /* the held-out quarter, which is what makes a correction mean anything */
+    for (i = 0; NULL != hin && NULL != hout && i < nhold; ++i) {
+      fill(hin + (size_t)i * NFEAT, hout + i, nbuild + i);
+    }
+    if (NULL == hin || NULL == hout) {
+      fprintf(stderr, "out of memory for the held-out rows\n");
+    }
+    else if (EXIT_SUCCESS != libxs_predict_build(model, 0, 1, 0.0)) {
+      fprintf(stderr, "the model with a quantile level did not build\n");
+    }
+    else if (EXIT_SUCCESS != libxs_predict_recalibrate_interval(
+      model, hin, hout, nhold))
+    {
+      /* nothing to correct is not a failure: a corpus this small can leave every
+       * interval unset, and then there is no round trip to check */
+      result = EXIT_SUCCESS;
+    }
+    else {
+      size_t size = 0;
+      double lo_a = 0, hi_a = 0;
+      if (EXIT_SUCCESS != libxs_predict_interval(model, 0, -1.0, 1.0,
+        &lo_a, &hi_a))
+      {
+        fprintf(stderr, "the fitted model reports no correction\n");
+      }
+      else if (EXIT_SUCCESS != libxs_predict_save(model, NULL, &size)
+        || 0 == size)
+      {
+        fprintf(stderr, "the calibrated model reports no size\n");
+      }
+      else {
+        void *const buffer = malloc(size);
+        if (NULL == buffer
+          || EXIT_SUCCESS != libxs_predict_save(model, buffer, &size))
+        {
+          fprintf(stderr, "the calibrated model did not save\n");
+        }
+        else {
+          libxs_predict_t *const loaded = libxs_predict_load(buffer, size);
+          if (NULL == loaded) {
+            fprintf(stderr, "the saved model did not load back\n");
+          }
+          else {
+            double lo_b = 0, hi_b = 0;
+            if (EXIT_SUCCESS != libxs_predict_interval(loaded, 0, -1.0, 1.0,
+              &lo_b, &hi_b))
+            {
+              fprintf(stderr, "the loaded model reports no correction where the"
+                " saved one hadns\n");
+            }
+            else if (lo_a != lo_b || hi_a != hi_b) {
+              fprintf(stderr, "the correction did not survive the file:"
+                " [%g,%g] became [%g,%g]\n", lo_a, hi_a, lo_b, hi_b);
+            }
+            else result = EXIT_SUCCESS;
+            libxs_predict_destroy(loaded);
+          }
+        }
+        free(buffer);
+      }
+    }
+    free(hout);
+    free(hin);
+    libxs_predict_destroy(model);
+  }
+  return result;
+}
+
+
+/** A model that was never calibrated must pass the interval through untouched. */
+static int check_interval_absent(void)
+{
+  libxs_predict_t* model = libxs_predict_create(NFEAT, 1);
+  int result = EXIT_FAILURE;
+  if (NULL == model || EXIT_SUCCESS != build_model(model, 0, 0)) {
+    fprintf(stderr, "the uncalibrated model did not build\n");
+  }
+  else {
+    double lo = 0, hi = 0;
+    if (EXIT_SUCCESS == libxs_predict_interval(model, 0, -2.0, 3.0, &lo, &hi)) {
+      fprintf(stderr, "an uncalibrated model reported a correction\n");
+    }
+    else if (-2.0 != lo || 3.0 != hi) {
+      fprintf(stderr, "the raw interval was not passed through: [%g,%g]\n",
+        lo, hi);
+    }
+    else result = EXIT_SUCCESS;
+  }
+  libxs_predict_destroy(model);
+  return result;
+}
+
+
+/**
  * A saved model must depend on the corpus and the settings, and on nothing else.
  * It is checked by BYTES rather than by a round trip: a field that is written
  * but never read survives a round trip unchanged and reports nothing, while an
@@ -267,6 +385,8 @@ int main(void)
   if (EXIT_SUCCESS == result) {
     result = check_roundtrip(first, nfirst, prediction);
   }
+  if (EXIT_SUCCESS == result) result = check_interval_absent();
+  if (EXIT_SUCCESS == result) result = check_interval_roundtrip();
   free(second);
   free(first);
   return result;

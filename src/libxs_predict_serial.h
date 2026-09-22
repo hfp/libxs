@@ -1,3 +1,81 @@
+/**
+ * How a block of doubles is stored. The corpus is most of a model file and its
+ * columns carry few values each - a tuned parameter takes one of a handful, and
+ * several take exactly one - so storing every entry as eight bytes stores the
+ * same number over and over. The tag says which form follows, out of band rather
+ * than as a value inside the data: an in-band marker cannot be told from a datum
+ * that happens to equal it, and NaN is already meaningful here.
+ */
+#define INTERNAL_LIBXS_PREDICT_DENC_RAW 0
+#define INTERNAL_LIBXS_PREDICT_DENC_CONST 1
+#define INTERNAL_LIBXS_PREDICT_DENC_DICT 2
+/* a one-byte index addresses this many, which also bounds the distinct scan */
+#define INTERNAL_LIBXS_PREDICT_DENC_DICTMAX 256
+
+
+/**
+ * Writes count values read with the given stride, in the smallest of the three
+ * forms, and returns the bytes written. NEVER more than the verbatim form takes:
+ * the dictionary is chosen only where it is actually smaller, which is what lets
+ * the size query remain a plain upper bound instead of a second copy of this
+ * decision that has to agree with it.
+ */
+LIBXS_API_INLINE size_t internal_libxs_predict_denc_write(unsigned char* dst,
+  const double* values, size_t count, size_t stride)
+{
+  double dict[INTERNAL_LIBXS_PREDICT_DENC_DICTMAX];
+  unsigned char* const start = dst;
+  size_t i, ndict = 0;
+  int tag = INTERNAL_LIBXS_PREDICT_DENC_RAW;
+  if (0 != count) {
+    for (i = 0; i < count && 0 != (ndict + 1); ++i) {
+      const double v = values[i * stride];
+      size_t d = 0;
+      while (d < ndict && dict[d] != v) ++d;
+      if (d == ndict) {
+        if (INTERNAL_LIBXS_PREDICT_DENC_DICTMAX == ndict) {
+          ndict = (size_t)-1; /* too many to index in a byte: verbatim */
+        }
+        else dict[ndict++] = v;
+      }
+    }
+    if ((size_t)-1 != ndict) {
+      if (1 == ndict) tag = INTERNAL_LIBXS_PREDICT_DENC_CONST;
+      /* the dictionary pays for itself only past its own header */
+      else if ((3 + ndict * sizeof(double) + count)
+        < (1 + count * sizeof(double)))
+      {
+        tag = INTERNAL_LIBXS_PREDICT_DENC_DICT;
+      }
+    }
+  }
+  *dst++ = (unsigned char)tag;
+  if (INTERNAL_LIBXS_PREDICT_DENC_CONST == tag) {
+    memcpy(dst, dict, sizeof(double));
+    dst += sizeof(double);
+  }
+  else if (INTERNAL_LIBXS_PREDICT_DENC_DICT == tag) {
+    const uint16_t n16 = (uint16_t)ndict;
+    memcpy(dst, &n16, 2);
+    dst += 2;
+    memcpy(dst, dict, ndict * sizeof(double));
+    dst += ndict * sizeof(double);
+    for (i = 0; i < count; ++i) {
+      const double v = values[i * stride];
+      size_t d = 0;
+      while (dict[d] != v) ++d;
+      *dst++ = (unsigned char)d;
+    }
+  }
+  else for (i = 0; i < count; ++i) {
+    const double v = values[i * stride];
+    memcpy(dst, &v, sizeof(double));
+    dst += sizeof(double);
+  }
+  return (size_t)(dst - start);
+}
+
+
 LIBXS_API_INLINE int internal_libxs_predict_crc(const void* buffer,
   size_t size, uint32_t* crc)
 {
@@ -174,6 +252,10 @@ LIBXS_API_INLINE int internal_libxs_predict_save_hknn(
   required += 5 * sizeof(uint16_t) + sizeof(double);
   /* consistency, smooth, quantile and floor, written with version 2 */
   required += 4 * sizeof(double);
+  required += sizeof(uint8_t); /* whether a conformal correction follows */
+  if (0 != model->qconform_ok && NULL != model->qconform) {
+    required += (size_t)n * sizeof(double);
+  }
   required += (size_t)m * 2 * sizeof(double);
   if (NULL != model->input_knot) required += (size_t)m * LIBXS_PREDICT_KNOTS * sizeof(double);
   if (NULL != model->weights) required += (size_t)m * sizeof(double);
@@ -185,6 +267,7 @@ LIBXS_API_INLINE int internal_libxs_predict_save_hknn(
     required += (size_t)n * sizeof(uint16_t);
     required += (size_t)cl->nentries * (size_t)m * sizeof(double);
     required += (size_t)cl->nentries * (size_t)n * sizeof(double);
+    required += (size_t)n; /* one tag per encoded column, never more */
     required += (size_t)n * sizeof(double);
     required += (size_t)cl->nentries * sizeof(uint16_t);
   }
@@ -212,6 +295,7 @@ LIBXS_API_INLINE int internal_libxs_predict_save_hknn(
           if (pcl->nentries > 0) {
             required += (size_t)pcl->nentries * (size_t)m * sizeof(double);
             required += (size_t)pcl->nentries * (size_t)gsz * sizeof(double);
+            required += (size_t)gsz; /* one tag per encoded column */
           }
         }
       }
@@ -264,6 +348,14 @@ LIBXS_API_INLINE int internal_libxs_predict_save_hknn(
     WRITE_F64(model->smooth);
     WRITE_F64(model->quantile);
     WRITE_F64(model->floor);
+    /* The conformal correction, behind a flag: a model that was never calibrated
+     * carries none, and a model that was answers with the interval it was
+     * measured to give rather than losing the fit across a save. */
+    WRITE_U8(0 != model->qconform_ok && NULL != model->qconform ? 1 : 0);
+    if (0 != model->qconform_ok && NULL != model->qconform) {
+      int qi;
+      for (qi = 0; qi < n; ++qi) WRITE_F64(model->qconform[qi]);
+    }
     WRITE_BLK(model->input_min, (size_t)m * sizeof(double));
     WRITE_BLK(model->input_rng, (size_t)m * sizeof(double));
     if (NULL != model->input_knot) {
@@ -283,8 +375,13 @@ LIBXS_API_INLINE int internal_libxs_predict_save_hknn(
       for (j = 0; j < n; ++j) WRITE_U16(cl->ndistinct[j]);
       WRITE_BLK(cl->kd_pts,
         (size_t)cl->nentries * (size_t)m * sizeof(double));
-      WRITE_BLK(cl->raw_outputs,
-        (size_t)cl->nentries * (size_t)n * sizeof(double));
+      /* per column, where the cardinality is; an entry mixes every output */
+      { int qj;
+        for (qj = 0; qj < n; ++qj) {
+          dst += internal_libxs_predict_denc_write(dst, cl->raw_outputs + qj,
+            (size_t)cl->nentries, (size_t)n);
+        }
+      }
       if (0 != model->has_eweight) {
         WRITE_BLK(cl->eweight, (size_t)cl->nentries * sizeof(double));
       }
@@ -336,8 +433,13 @@ LIBXS_API_INLINE int internal_libxs_predict_save_hknn(
             if (pcl->nentries > 0) {
               WRITE_BLK(pcl->kd_pts,
                 (size_t)pcl->nentries * (size_t)m * sizeof(double));
-              WRITE_BLK(pcl->raw_outputs,
-                (size_t)pcl->nentries * (size_t)gsz * sizeof(double));
+              { int qj;
+                for (qj = 0; qj < gsz; ++qj) {
+                  dst += internal_libxs_predict_denc_write(dst,
+                    pcl->raw_outputs + qj, (size_t)pcl->nentries,
+                    (size_t)gsz);
+                }
+              }
             }
           }
         }
@@ -398,6 +500,10 @@ LIBXS_API int libxs_predict_save(const libxs_predict_t* model, void* buffer, siz
       + sizeof(double);
     /* consistency, smooth, quantile and floor, written with version 2 */
     required += 4 * sizeof(double);
+    required += sizeof(uint8_t); /* whether a conformal correction follows */
+    if (0 != model->qconform_ok && NULL != model->qconform) {
+      required += (size_t)model->noutputs * sizeof(double);
+    }
     /* the resolved neighbour counts, one byte each behind a flag */
     if (NULL != model->k_sel) required += (size_t)model->noutputs;
     required += (size_t)model->ninputs * 2 * sizeof(double);
@@ -420,6 +526,9 @@ LIBXS_API int libxs_predict_save(const libxs_predict_t* model, void* buffer, siz
       required += (size_t)model->noutputs * sizeof(double);
       required += (size_t)cl->nentries * (size_t)model->ninputs * sizeof(double);
       required += (size_t)cl->nentries * (size_t)model->noutputs * sizeof(double);
+      /* one tag per column; the encoding never exceeds the verbatim form, so this
+       * bound holds without repeating the choice the writer makes */
+      required += (size_t)model->noutputs;
       if (0 != has_sidx) required += (size_t)cl->nentries * sizeof(uint32_t);
       if (0 != has_ew) required += (size_t)cl->nentries * sizeof(double);
       for (j = 0; j < model->noutputs; ++j) {
@@ -527,6 +636,16 @@ LIBXS_API int libxs_predict_save(const libxs_predict_t* model, void* buffer, siz
       WRITE_F64(model->smooth);
       WRITE_F64(model->quantile);
       WRITE_F64(model->floor);
+      /* The conformal correction, behind a flag: a model that was never calibrated
+       * carries none, and a model that was answers with the interval it was
+       * measured to give rather than losing the fit across a save. */
+      WRITE_U8(0 != model->qconform_ok && NULL != model->qconform ? 1 : 0);
+      if (0 != model->qconform_ok && NULL != model->qconform) {
+        int qi;
+        for (qi = 0; qi < model->noutputs; ++qi) {
+          WRITE_F64(model->qconform[qi]);
+        }
+      }
       WRITE_BLK(model->input_min, (size_t)model->ninputs * sizeof(double));
       WRITE_BLK(model->input_rng, (size_t)model->ninputs * sizeof(double));
       if (NULL != model->input_knot) {
@@ -557,7 +676,15 @@ LIBXS_API int libxs_predict_save(const libxs_predict_t* model, void* buffer, siz
         WRITE_BLK(cl->errors, (size_t)model->noutputs * sizeof(double));
         WRITE_BLK(cl->out_rms, (size_t)model->noutputs * sizeof(double));
         WRITE_BLK(cl->kd_pts, (size_t)cl->nentries * (size_t)model->ninputs * sizeof(double));
-        WRITE_BLK(cl->raw_outputs, (size_t)cl->nentries * (size_t)model->noutputs * sizeof(double));
+        /* per column and not per entry: the cardinality is a property of the
+         * parameter, and an entry mixes all of them together */
+        { int qj;
+          for (qj = 0; qj < model->noutputs; ++qj) {
+            dst += internal_libxs_predict_denc_write(dst,
+              cl->raw_outputs + qj, (size_t)cl->nentries,
+              (size_t)model->noutputs);
+          }
+        }
         if (0 != has_ew) {
           WRITE_BLK(cl->eweight, (size_t)cl->nentries * sizeof(double));
         }
@@ -664,6 +791,55 @@ LIBXS_API_INLINE int internal_libxs_predict_read(
   else {
     memcpy(dst, *src, sz);
     *src += sz;
+  }
+  return result;
+}
+
+
+/** Reads what denc_write produced into a strided destination. */
+LIBXS_API_INLINE int internal_libxs_predict_denc_read(
+  const unsigned char** src, const unsigned char* end,
+  double* values, size_t count, size_t stride)
+{
+  int result = EXIT_SUCCESS;
+  uint8_t tag = 0;
+  result = internal_libxs_predict_read(src, end, &tag, 1);
+  if (EXIT_SUCCESS == result) {
+    size_t i;
+    if (INTERNAL_LIBXS_PREDICT_DENC_CONST == tag) {
+      double v = 0;
+      result = internal_libxs_predict_read(src, end, &v, sizeof(double));
+      if (EXIT_SUCCESS == result) {
+        for (i = 0; i < count; ++i) values[i * stride] = v;
+      }
+    }
+    else if (INTERNAL_LIBXS_PREDICT_DENC_DICT == tag) {
+      double dict[INTERNAL_LIBXS_PREDICT_DENC_DICTMAX];
+      uint16_t ndict = 0;
+      result = internal_libxs_predict_read(src, end, &ndict, 2);
+      if (EXIT_SUCCESS == result
+        && INTERNAL_LIBXS_PREDICT_DENC_DICTMAX < ndict)
+      {
+        result = EXIT_FAILURE; /* a file claiming more than a byte can index */
+      }
+      if (EXIT_SUCCESS == result) {
+        result = internal_libxs_predict_read(src, end, dict,
+          (size_t)ndict * sizeof(double));
+      }
+      for (i = 0; i < count && EXIT_SUCCESS == result; ++i) {
+        uint8_t d = 0;
+        result = internal_libxs_predict_read(src, end, &d, 1);
+        if (EXIT_SUCCESS == result && d >= ndict) result = EXIT_FAILURE;
+        if (EXIT_SUCCESS == result) values[i * stride] = dict[d];
+      }
+    }
+    else if (INTERNAL_LIBXS_PREDICT_DENC_RAW == tag) {
+      for (i = 0; i < count && EXIT_SUCCESS == result; ++i) {
+        result = internal_libxs_predict_read(src, end,
+          values + i * stride, sizeof(double));
+      }
+    }
+    else result = EXIT_FAILURE; /* a tag this build does not know */
   }
   return result;
 }
@@ -794,6 +970,24 @@ LIBXS_API_INLINE libxs_predict_t* internal_libxs_predict_load_hknn(
     if (EXIT_SUCCESS == ok) model->quantile = v;
     if (EXIT_SUCCESS == ok) ok = internal_libxs_predict_read(&src, end, &v, 8);
     if (EXIT_SUCCESS == ok) model->floor = v;
+    /* absent in a version-1 file, and absent in a version-2 file that was never
+     * calibrated: either way the model answers with its raw interval */
+    if (EXIT_SUCCESS == ok) {
+      uint8_t has_q = 0;
+      ok = internal_libxs_predict_read(&src, end, &has_q, 1);
+      if (EXIT_SUCCESS == ok && 0 != has_q) {
+        model->qconform = (double*)malloc((size_t)nout * sizeof(double));
+        if (NULL == model->qconform) ok = EXIT_FAILURE;
+        else {
+          int qi;
+          for (qi = 0; qi < (int)nout && EXIT_SUCCESS == ok; ++qi) {
+            ok = internal_libxs_predict_read(&src, end,
+              model->qconform + qi, 8);
+          }
+          if (EXIT_SUCCESS == ok) model->qconform_ok = 1;
+        }
+      }
+    }
   }
   if (EXIT_SUCCESS == ok) {
     ok = internal_libxs_predict_read(&src, end,
@@ -879,17 +1073,19 @@ LIBXS_API_INLINE libxs_predict_t* internal_libxs_predict_load_hknn(
           cl->kd_pts, (size_t)ne * (size_t)ninp * sizeof(double));
       }
     }
-    if (EXIT_SUCCESS == ok) {
-      ok = internal_libxs_predict_avail(src, end,
-        (size_t)ne * (size_t)nout, sizeof(double));
-    }
+    /* no size check ahead of the read: the encoded form is smaller than the
+     * verbatim one by an amount only the tags reveal, and denc_read bounds every
+     * value it takes */
     if (EXIT_SUCCESS == ok) {
       cl->raw_outputs = (double*)malloc(
         (size_t)ne * (size_t)nout * sizeof(double));
       if (NULL == cl->raw_outputs) ok = EXIT_FAILURE;
       else {
-        ok = internal_libxs_predict_read(&src, end,
-          cl->raw_outputs, (size_t)ne * (size_t)nout * sizeof(double));
+        int qj;
+        for (qj = 0; qj < (int)nout && EXIT_SUCCESS == ok; ++qj) {
+          ok = internal_libxs_predict_denc_read(&src, end,
+            cl->raw_outputs + qj, (size_t)ne, (size_t)nout);
+        }
       }
     }
     if (EXIT_SUCCESS == ok && 0 != has_ew) {
@@ -1078,8 +1274,11 @@ LIBXS_API_INLINE libxs_predict_t* internal_libxs_predict_load_hknn(
                   cls[ci].kd_pts, (size_t)ne * (size_t)ninp * sizeof(double));
               }
               if (EXIT_SUCCESS == ok) {
-                ok = internal_libxs_predict_read(&src, end, cls[ci].raw_outputs,
-                  (size_t)ne * (size_t)gsz * sizeof(double));
+                int qj;
+                for (qj = 0; qj < (int)gsz && EXIT_SUCCESS == ok; ++qj) {
+                  ok = internal_libxs_predict_denc_read(&src, end,
+                    cls[ci].raw_outputs + qj, (size_t)ne, (size_t)gsz);
+                }
               }
             }
           }
@@ -1310,6 +1509,24 @@ LIBXS_API libxs_predict_t* libxs_predict_load(const void* buffer, size_t size)
         if (EXIT_SUCCESS == ok) model->quantile = v;
         if (EXIT_SUCCESS == ok) ok = internal_libxs_predict_read(&src, end, &v, 8);
         if (EXIT_SUCCESS == ok) model->floor = v;
+        /* absent in a version-1 file, and absent in a version-2 file that was never
+         * calibrated: either way the model answers with its raw interval */
+        if (EXIT_SUCCESS == ok) {
+          uint8_t has_q = 0;
+          ok = internal_libxs_predict_read(&src, end, &has_q, 1);
+          if (EXIT_SUCCESS == ok && 0 != has_q) {
+            model->qconform = (double*)malloc((size_t)nout * sizeof(double));
+            if (NULL == model->qconform) ok = EXIT_FAILURE;
+            else {
+              int qi;
+              for (qi = 0; qi < (int)nout && EXIT_SUCCESS == ok; ++qi) {
+                ok = internal_libxs_predict_read(&src, end,
+                  model->qconform + qi, 8);
+              }
+              if (EXIT_SUCCESS == ok) model->qconform_ok = 1;
+            }
+          }
+        }
       }
       if (EXIT_SUCCESS == ok) {
         model->nseries = (int)ts_nseries;
@@ -1489,9 +1706,12 @@ LIBXS_API libxs_predict_t* libxs_predict_load(const void* buffer, size_t size)
           cl->raw_outputs = (double*)malloc(
             (size_t)cl->nentries * (size_t)nout * sizeof(double));
           if (NULL == cl->raw_outputs) ok = EXIT_FAILURE;
-          if (EXIT_SUCCESS == ok) {
-            ok = internal_libxs_predict_read(&src, end,
-              cl->raw_outputs, (size_t)cl->nentries * (size_t)nout * sizeof(double));
+          if (EXIT_SUCCESS == ok) { /* per column, as the writer encoded it */
+            int qj;
+            for (qj = 0; qj < (int)nout && EXIT_SUCCESS == ok; ++qj) {
+              ok = internal_libxs_predict_denc_read(&src, end,
+                cl->raw_outputs + qj, (size_t)cl->nentries, (size_t)nout);
+            }
           }
         }
         if (EXIT_SUCCESS == ok && 0 != has_ew) {

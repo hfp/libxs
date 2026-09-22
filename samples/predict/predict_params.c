@@ -39,7 +39,7 @@ static const char output_names[] =
 static const int confidence_outputs[] = { 5, 6, 8, 12, 13 };
 
 
-static void evaluate(const libxs_predict_t* model,
+static void evaluate(libxs_predict_t* model,
   const libxs_predict_t* reference, int ntotal, const char trained[],
   int use_xgb, double quantile_level);
 static int write_confidence_maps(const char* prefix, const void* buffer,
@@ -327,7 +327,7 @@ static const char* mode_name(int decompose)
 }
 
 
-static void evaluate(const libxs_predict_t* model,
+static void evaluate(libxs_predict_t* model,
   const libxs_predict_t* reference, int ntotal, const char trained[],
   int use_xgb, double quantile_level)
 {
@@ -565,11 +565,11 @@ static void evaluate(const libxs_predict_t* model,
           /**
            * How the output is answered, which is not the same question as what it
            * is: a throughput answered by the vote is continuous data read off
-           * observed values. Both edges of the interval are weighted quantiles of
-           * the neighbours, so its width takes one of a handful of values whatever
-           * the output holds, and no nominal is attained exactly - the label says
-           * which mechanism produced the number rather than claiming one of them
-           * could. An output constant in the corpus is the case worth separating,
+           * observed values. The label reports the mechanism and nothing more,
+           * because coverage is not a property of it - the half-widths are scaled
+           * by the reciprocal of the confidence and then taken against a
+           * parametric term, so they are continuous whichever way the value came.
+           * An output constant in the corpus is the case worth separating,
            * because it covers everything with a point.
            */
           if (0 < iseen[1] && 0 == iwidth[j][1]) kind = "const";
@@ -583,9 +583,76 @@ static void evaluate(const libxs_predict_t* model,
         /* Attested coverage is the control, not a result: it reports how often
          * an entry the model holds falls inside a band centred on itself. */
         fprintf(stdout, "  novel-cov is the calibration; attested-cov approaches"
-          " 100%% by construction. Both\n  edges are neighbour quantiles, so a"
-          " nominal is approached and not attained, and\n  a const output covers"
-          " everything with a point.\n");
+          " 100%% by construction, and\n  a const output covers everything with a"
+          " point\n");
+        /**
+         * What the conformal correction is worth, measured rather than assumed.
+         * The novel rows are split in two: the correction is fitted on one half
+         * and read on the other, because fitted and measured on the same rows it
+         * would cover them by construction - which is the mistake the attested
+         * column above exists to illustrate. Both halves are reported raw as well,
+         * so the change is read against the same rows and not against the whole.
+         */
+        if (0 < quantile_level && 1 < iseen[1]) {
+          const int nnov = split_n[1];
+          double* fin = (double*)malloc((size_t)nnov * NINPUTS * sizeof(double));
+          double* fout = (double*)malloc((size_t)nnov * NOUTPUTS * sizeof(double));
+          int* which = (int*)malloc((size_t)nnov * sizeof(int));
+          if (NULL != fin && NULL != fout && NULL != which) {
+            int nfit = 0, ntest = 0, k;
+            /* alternating, so both halves span the corpus rather than a prefix */
+            for (i = 0; i < ntotal; ++i) {
+              if (0 == trained[i]) {
+                if (0 == (nfit + ntest) % 2) {
+                  double e[NOUTPUTS];
+                  libxs_predict_get(reference, i, NULL, e);
+                  memcpy(fin + (size_t)nfit * NINPUTS,
+                    all_inputs + (size_t)i * NINPUTS,
+                    NINPUTS * sizeof(double));
+                  memcpy(fout + (size_t)nfit * NOUTPUTS, e,
+                    NOUTPUTS * sizeof(double));
+                  ++nfit;
+                }
+                else which[ntest++] = i;
+              }
+            }
+            if (0 < nfit && 0 < ntest && EXIT_SUCCESS ==
+              libxs_predict_recalibrate_interval(model, fin, fout, nfit))
+            {
+              int raw[NOUTPUTS], cal[NOUTPUTS];
+              memset(raw, 0, sizeof(raw));
+              memset(cal, 0, sizeof(cal));
+              for (k = 0; k < ntest; ++k) {
+                double e[NOUTPUTS];
+                libxs_predict_info_t info;
+                libxs_predict_eval(NULL, model,
+                  all_inputs + (size_t)which[k] * NINPUTS, NULL, &info, 1);
+                libxs_predict_get(reference, which[k], NULL, e);
+                if (NULL == info.lower || NULL == info.upper) continue;
+                for (j = 0; j < NOUTPUTS; ++j) {
+                  double lo = info.lower[j], hi = info.upper[j];
+                  if (e[j] >= lo && e[j] <= hi) ++raw[j];
+                  libxs_predict_interval(model, j, lo, hi, &lo, &hi);
+                  if (e[j] >= lo && e[j] <= hi) ++cal[j];
+                }
+              }
+              fprintf(stdout, "Conformal correction (fitted on %d novel rows,"
+                " read on %d):\n", nfit, ntest);
+              fprintf(stdout, "  param   raw-cov  conformal-cov\n");
+              for (j = 0; j < NOUTPUTS; ++j) {
+                int len = 0;
+                const char* name;
+                if (PERF_OUTPUT == j && 0 == nperf) continue;
+                name = libxs_strtoken(output_names, ",", j, &len);
+                fprintf(stdout, "  %-6.*s   %6.1f%%   %6.1f%%\n", len, name,
+                  100.0 * raw[j] / ntest, 100.0 * cal[j] / ntest);
+              }
+            }
+          }
+          free(which);
+          free(fout);
+          free(fin);
+        }
         /* A level tighter than one neighbour's share of the weight cannot move
          * either edge, so it is the neighbour range under another name. */
         if (0 < iq.neighbors && quantile_level < 1.0 / iq.neighbors) {

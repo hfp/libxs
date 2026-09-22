@@ -1053,6 +1053,42 @@ LIBXS_API int libxs_predict_recalibrate(libxs_predict_t* model,
   const double* inputs, const double* outputs, int nentries);
 
 /**
+ * Fits the conformal correction for the prediction interval from rows the model
+ * was NOT built from, laid out as libxs_predict_recalibrate takes them. Requires
+ * a model built with a quantile level, since there is otherwise no interval to
+ * correct; it applies to any model kind, not only to a forest.
+ *
+ * There is no automatic equivalent. A forest calibrates its confidence from rows
+ * its own trees omitted, which bagging supplies for free; a neighbour model has
+ * no such rows, and an interval measured against entries the model holds covers
+ * them whatever its width - the truth is its own nearest neighbour. Held-out rows
+ * are therefore what makes the correction mean anything, and asking for them is
+ * the honest interface rather than an inconvenience.
+ *
+ * Returns EXIT_SUCCESS, or EXIT_FAILURE if there is nothing to fit.
+ */
+LIBXS_API int libxs_predict_recalibrate_interval(libxs_predict_t* model,
+  const double* inputs, const double* outputs, int nentries);
+
+/**
+ * Corrects an interval reported by libxs_predict_eval so that its coverage
+ * matches the level that was asked for. `lower_out` and `upper_out` always
+ * receive a value, the input interval unchanged where no correction was fitted.
+ *
+ * The RETURN VALUE says which of the two it is: EXIT_SUCCESS when a fitted
+ * correction was applied, EXIT_FAILURE when the interval passed through. A width
+ * whose calibration cannot be seen is what makes a stated coverage meaningless,
+ * so this does not quietly return one for the other.
+ *
+ * UNLIKE libxs_predict_probability this is NOT monotone and does not preserve
+ * anything: changing coverage is precisely what it does. A caller comparing two
+ * models must say whether the intervals were corrected, because a raw interval
+ * and a corrected one answer different questions.
+ */
+LIBXS_API int libxs_predict_interval(const libxs_predict_t* model, int output,
+  double lower, double upper, double* lower_out, double* upper_out);
+
+/**
  * Translates a confidence reported by libxs_predict_eval into the probability
  * that the reported RF class is correct. Uses the automatic out-of-bag curve,
  * a curve that libxs_predict_recalibrate replaced it with, or one carried in a

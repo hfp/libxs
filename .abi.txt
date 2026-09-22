@@ -148,6 +148,7 @@ libxs_matdiff_combine
 libxs_matdiff_epsilon
 libxs_matdiff_grade
 libxs_matdiff_reduce
+libxs_mem_info
 libxs_mem_ntasks
 libxs_memcmp
 libxs_mhd_element_comparison
@@ -198,6 +199,7 @@ libxs_predict_eval
 libxs_predict_eval_batch
 libxs_predict_eval_batch_task
 libxs_predict_get
+libxs_predict_interval
 libxs_predict_inverse
 libxs_predict_load
 libxs_predict_load_csv
@@ -214,6 +216,7 @@ libxs_predict_push
 libxs_predict_push_weighted
 libxs_predict_query
 libxs_predict_recalibrate
+libxs_predict_recalibrate_interval
 libxs_predict_save
 libxs_predict_set_central
 libxs_predict_set_consistency

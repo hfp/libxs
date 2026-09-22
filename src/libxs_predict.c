@@ -467,6 +467,16 @@ LIBXS_EXTERN_C struct libxs_predict_t {
   /** Serialization version: the file's for a loaded model, current otherwise. */
   int version;
   double quantile;
+  /**
+   * Per-output conformal correction for the prediction interval, and whether one
+   * was fitted. Additive on both edges, which is the split-conformal form and
+   * carries its coverage guarantee: the model's edges already widen with the
+   * confidence, so a uniform shift corrects the level without flattening that.
+   * A negative value narrows, which is the case where the raw interval was too
+   * wide - what the measurement found.
+   */
+  double* qconform;
+  int qconform_ok;
   /** Per-output sorted distinct values and counts: the exact support the
    *  probability normalizes over. Derived from raw_outputs at build/load, so
    *  the serialization format is unchanged. */
@@ -641,6 +651,10 @@ LIBXS_API_INLINE void internal_libxs_predict_free_clusters(libxs_predict_t* mode
   }
   free(model->central_out);
   model->central_out = NULL;
+  /* the fit describes the model that was replaced, so a rebuild invalidates it */
+  free(model->qconform);
+  model->qconform = NULL;
+  model->qconform_ok = 0;
   model->nclusters = 0;
   model->built = 0;
 }
@@ -5313,6 +5327,111 @@ LIBXS_API int libxs_predict_recalibrate(libxs_predict_t* model,
     free(curve);
     LIBXS_PREDICT_FREE(cnt, cnt_pool);
     LIBXS_PREDICT_FREE(hit, hit_pool);
+  }
+  return result;
+}
+
+
+LIBXS_API_INLINE int internal_libxs_predict_score_cmp(
+  const void* a, const void* b)
+{
+  const double x = *(const double*)a, y = *(const double*)b;
+  return (x < y) ? -1 : ((y < x) ? 1 : 0);
+}
+
+
+LIBXS_API int libxs_predict_recalibrate_interval(libxs_predict_t* model,
+  const double* inputs, const double* outputs, int nentries)
+{
+  int result = EXIT_FAILURE;
+  if (NULL != model && 0 != model->built && 0 < model->quantile
+    && NULL != inputs && NULL != outputs && 0 < nentries)
+  {
+    const int m = model->ninputs, n = model->noutputs;
+    double* fit = (double*)malloc((size_t)n * sizeof(double));
+    /* one eval yields every output, so the scores are gathered in one pass and
+     * the per-output quantile is taken afterwards */
+    double* score = (double*)malloc((size_t)n * nentries * sizeof(double));
+    int* nscore = (int*)malloc((size_t)n * sizeof(int));
+    if (NULL != fit && NULL != score && NULL != nscore) {
+      /**
+       * The conformity score of split-conformal quantile regression: how far
+       * outside its own interval the truth fell, negative where it fell inside.
+       * The correction is the score's own (1-alpha) quantile with the (n+1) term,
+       * which is what makes the corrected interval cover at least 1-alpha on an
+       * exchangeable draw rather than approximately.
+       */
+      const double alpha = 2.0 * model->quantile;
+      int i, j, nfit = 0;
+      memset(nscore, 0, (size_t)n * sizeof(int));
+      for (i = 0; i < nentries; ++i) {
+        libxs_predict_info_t info;
+        libxs_predict_eval(NULL, model, inputs + (size_t)i * m, NULL, &info, 1);
+        if (NULL == info.lower || NULL == info.upper) continue;
+        for (j = 0; j < n; ++j) {
+          if (LIBXS_NOTNAN(info.lower[j]) && LIBXS_NOTNAN(info.upper[j])) {
+            const double y = outputs[(size_t)i * n + j];
+            const double below = info.lower[j] - y, above = y - info.upper[j];
+            score[(size_t)j * nentries + nscore[j]] = LIBXS_MAX(below, above);
+            ++nscore[j];
+          }
+        }
+      }
+      for (j = 0; j < n; ++j) {
+        if (0 < nscore[j]) {
+          /* rank counts from one, and a level the sample cannot resolve takes
+           * the largest score rather than reading past the end */
+          const double rank = ceil((nscore[j] + 1) * (1.0 - alpha));
+          const int k = (int)LIBXS_CLMP(rank, 1, nscore[j]);
+          qsort(score + (size_t)j * nentries, (size_t)nscore[j],
+            sizeof(double), internal_libxs_predict_score_cmp);
+          fit[j] = score[(size_t)j * nentries + k - 1];
+          ++nfit;
+        }
+        else fit[j] = 0.0;
+      }
+      if (0 < nfit) {
+        free(model->qconform);
+        model->qconform = fit;
+        model->qconform_ok = 1;
+        fit = NULL;
+        result = EXIT_SUCCESS;
+      }
+    }
+    free(nscore);
+    free(score);
+    free(fit);
+  }
+  return result;
+}
+
+
+LIBXS_API int libxs_predict_interval(const libxs_predict_t* model, int output,
+  double lower, double upper, double* lower_out, double* upper_out)
+{
+  int result = EXIT_FAILURE;
+  if (NULL != lower_out && NULL != upper_out) {
+    /* the raw interval whether or not a fit exists, so a caller reading the
+     * outputs without the return value is wrong rather than unfed */
+    *lower_out = lower;
+    *upper_out = upper;
+    if (NULL != model && 0 != model->qconform_ok && NULL != model->qconform
+      && 0 <= output && output < model->noutputs)
+    {
+      const double e = model->qconform[output];
+      /* a correction that would invert the interval leaves it a point: the fit
+       * asked for less width than the interval has, not for a negative one */
+      if ((upper + e) >= (lower - e)) {
+        *lower_out = lower - e;
+        *upper_out = upper + e;
+      }
+      else {
+        const double mid = 0.5 * (lower + upper);
+        *lower_out = mid;
+        *upper_out = mid;
+      }
+      result = EXIT_SUCCESS;
+    }
   }
   return result;
 }
