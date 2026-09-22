@@ -1520,6 +1520,14 @@ else # GCC assumed
     FCFLAGS += -fsanitize=$(SANITIZE)
     LDFLAGS += -fsanitize=$(SANITIZE)
     SYM = 1
+    # Instrumentation inflates functions past GCC's variable tracking limit,
+    # which notes every such function after retrying without the assignments.
+    # The note is benign but buries what the sanitizer build is meant to show.
+    NOVARTRACK_CFLAG := $(call ctest,$(CC),-fno-var-tracking-assignments)
+    NOVARTRACK_FCFLAG := $(call ftest,$(FC),-fno-var-tracking-assignments)
+    CXXFLAGS += $(NOVARTRACK_CFLAG)
+    CFLAGS += $(NOVARTRACK_CFLAG)
+    FCFLAGS += $(NOVARTRACK_FCFLAG)
   endif
   ifneq (0,$(SYM))
     ifeq (1,$(SYM))
