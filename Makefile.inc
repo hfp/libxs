@@ -2731,6 +2731,18 @@ PDF_TMPL_SED = \
 	-e 's/\\usepackage{listings}/\\usepackage{listings}\\lstset{basicstyle=\\footnotesize\\ttfamily,showstringspaces=false}/' \
 	-e 's/\(\\usepackage.*{hyperref}\)/\\usepackage[hyphens]{url}\n\1/'
 
+# Superscripts become Pandoc's own "^x^" rather than the bare digit, which is what
+# DOC_HTML_SED already does for the <sup> form: mapped to the digit, 10<U+2079>
+# reads as 109 and the document then says something it does not mean.  Per
+# character, so a run needs its seam closed -- "2<U+00B2><U+2074>" becomes
+# "2^2^^4^" and the ^^ rule collapses it to "2^24^".  That rule must stay last of
+# the superscripts, and it does eat a literal ^^ if a document has one.  Subscripts
+# are deliberately absent: the same seam rule for ~~ would break GFM strikethrough.
+# U+00AE, U+2122 and U+00A7 are deliberately NOT translated: they used to map to
+# raw LaTeX, which a GFM reader escapes, so "Intel<U+00AE>" reached the page as the
+# literal text \textregistered{}.  The template loads inputenc, fontenc and
+# textcomp, so the characters typeset as themselves when left alone -- and a glyph
+# some future font lacks fails loudly at LaTeX rather than silently on the page.
 PDF_UTF8_SED = \
 	-e 's/\xe2\x88\x92/-/g' \
 	-e 's/\xe2\x89\xa4/<=/g' \
@@ -2742,20 +2754,26 @@ PDF_UTF8_SED = \
 	-e 's/\xe2\x80\x94/---/g' \
 	-e 's/\xe2\x80\xa6/.../g' \
 	-e 's/\xe2\x86\x92/->/g' \
-	-e 's/\xc2\xb9/1/g' \
-	-e 's/\xc2\xb2/2/g' \
-	-e 's/\xc2\xb3/3/g' \
-	-e 's/\xe2\x81\xb5/5/g' \
-	-e 's/\xe2\x81\xb9/9/g' \
-	-e 's/\xe2\x81\xbb/-/g' \
-	-e 's/\xe2\x81\xbd/(/g' \
-	-e 's/\xe2\x81\xbe/)/g' \
+	-e 's/\xc2\xb9/^1^/g' \
+	-e 's/\xc2\xb2/^2^/g' \
+	-e 's/\xc2\xb3/^3^/g' \
+	-e 's/\xe2\x81\xb0/^0^/g' \
+	-e 's/\xe2\x81\xb4/^4^/g' \
+	-e 's/\xe2\x81\xb5/^5^/g' \
+	-e 's/\xe2\x81\xb6/^6^/g' \
+	-e 's/\xe2\x81\xb7/^7^/g' \
+	-e 's/\xe2\x81\xb8/^8^/g' \
+	-e 's/\xe2\x81\xb9/^9^/g' \
+	-e 's/\xe2\x81\xba/^+^/g' \
+	-e 's/\xe2\x81\xbb/^-^/g' \
+	-e 's/\xe2\x81\xbc/^=^/g' \
+	-e 's/\xe2\x81\xbd/^(^/g' \
+	-e 's/\xe2\x81\xbe/^)^/g' \
+	-e 's/\^\^//g' \
 	-e 's/\xca\xb7/w/g' \
 	-e 's/\xe1\xb5\x87/b/g' \
 	-e 's/\xc2\xa0/ /g' \
 	-e 's/\xe2\x80\xaf/ /g' \
-	-e 's/\xc2\xae/\\\\textregistered{}/g' \
-	-e 's/\xe2\x84\xa2/\\\\texttrademark{}/g' \
 	-e 's/\xe2\x86\x90/<-/g' \
 	-e 's/\xe2\x86\x94/<->/g' \
 	-e 's/\xe2\x87\x92/=>/g' \
