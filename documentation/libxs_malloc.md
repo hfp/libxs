@@ -119,9 +119,12 @@ Query the size of an allocation made with `libxs_malloc`. The pool is derived in
 
 `LIBXS_MALLOC_LIMIT` bounds the pool in MB. Beyond it, an allocation first evicts
 a cached chunk, which returns its memory to the system. A negative value removes
-the bound. Unset, the bound is derived: it scales with the number of threads that
-reached the pool, because each of them holds its own scratch, and a bound that
-does not scale starves a run on many threads while being ample on few.
+the bound. Unset, the bound follows the pool's own high-water mark with headroom,
+so it settles at what a workload concurrently holds instead of at a constant. A
+bound below that cannot reduce what is held - it only keeps eviction firing on
+memory that is not surplus - and what reclaims idle memory is the age-based
+eviction rather than the bound. Run with `LIBXS_VERBOSE=3` to see the pool report,
+which states the high-water and the bound it implies.
 
 `LIBXS_MALLOC_SHARE` limits the derived bound to a percentage of the memory the
 process may use (default 50), which covers a host with many cores and little

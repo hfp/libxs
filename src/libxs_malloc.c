@@ -42,25 +42,24 @@
 # define LIBXS_MALLOC_EVICT_LIMIT ((size_t)256 * LIBXS_MALLOC_EVICT_SIZE)
 #endif
 /**
- * What one thread may hold before the pool is over its limit. The demand is per
- * thread - every task holds its own scratch - so a constant total is ample at
- * eight threads and starving at hundreds: at the fixed limit a build on 384
- * threads sat permanently over it, and eviction returns pages to the system, so
- * the same work took twice the time while nothing showed below a hundred
- * threads. Expressed in eviction-sized chunks because that is the granularity
- * the pool reclaims in, and eight of them is where the fixed limit put a thread
- * at the count it was chosen for.
+ * Headroom over the observed working set, as a right shift: the limit sits at the
+ * peak plus this fraction of it.
+ *
+ * A limit below what a workload concurrently holds cannot reduce what it holds -
+ * it only keeps eviction firing, and eviction returns pages to the system that
+ * the next allocation takes back. Measured: a build sat permanently over a fixed
+ * limit and took twice the time for identical work, while the memory it was
+ * pressured out of was not surplus. So the limit follows the peak rather than a
+ * constant, and what actually reclaims idle memory is the age-based eviction,
+ * which this does not touch.
+ *
+ * The PEAK and not the current size, because the peak only grows: a limit derived
+ * from what is held right now would fall as eviction succeeded and rise as it
+ * stopped, which is an oscillation around the very threshold it controls.
  */
-#if !defined(LIBXS_MALLOC_EVICT_QUOTA)
-# define LIBXS_MALLOC_EVICT_QUOTA (8 * LIBXS_MALLOC_EVICT_SIZE)
+#if !defined(LIBXS_MALLOC_EVICT_HEADROOM)
+# define LIBXS_MALLOC_EVICT_HEADROOM 2 /* peak + peak/4 */
 #endif
-/**
- * Share of host memory the pool may reach, in percent, whatever the thread count
- * asks for. The per-thread quota assumes memory in balance with the core count,
- * which is an assumption rather than a fact: it fails on a machine with many
- * cores and little memory, and inside a container with a limit. LIBXS_MALLOC_SHARE
- * overrides it, at no cost per allocation because the memory size is read once.
- */
 #if !defined(LIBXS_MALLOC_EVICT_SHARE)
 # define LIBXS_MALLOC_EVICT_SHARE 50
 #endif
@@ -411,7 +410,8 @@ LIBXS_API_INLINE size_t internal_libxs_malloc_evict_available(
 }
 
 
-LIBXS_API_INLINE size_t internal_libxs_malloc_evict_limit_get(void)
+LIBXS_API_INLINE size_t internal_libxs_malloc_evict_limit_get(
+  const libxs_malloc_pool_t *pool)
 {
   size_t stored = internal_libxs_malloc_evict_limit;
   size_t result;
@@ -424,17 +424,15 @@ LIBXS_API_INLINE size_t internal_libxs_malloc_evict_limit_get(void)
     else stored = (size_t)-2; /* derived below rather than fixed */
     internal_libxs_malloc_evict_limit = stored;
   }
-  /* Not pinned by the environment: scale with the threads that reached the pool.
-   * Recomputed rather than cached, because that count grows as threads first ask
-   * for a shard, and a limit stored at the first allocation would hold whatever
-   * had registered by then. Below the floor this is the fixed limit, so a count
-   * that is never populated leaves the behaviour as it was. */
+  /* Not pinned by the environment: follow the pool's own high-water. Recomputed
+   * rather than cached, because the peak grows and a limit stored at the first
+   * allocation would hold whatever had been reached by then. Below the floor this
+   * is the fixed limit, so a pool that never grows behaves as it always did. */
   if ((size_t)-2 == stored) {
-    const unsigned int nthreads = LIBXS_ATOMIC_LOAD(
-      &libxs_thread_count, LIBXS_ATOMIC_RELAXED);
-    const size_t scaled = (size_t)LIBXS_MAX(nthreads, 1)
-      * LIBXS_MALLOC_EVICT_QUOTA;
-    const size_t limit = LIBXS_MAX(scaled, LIBXS_MALLOC_EVICT_LIMIT);
+    const size_t peak = (NULL != pool) ? LIBXS_ATOMIC_SIZE(LIBXS_ATOMIC_LOAD)(
+      &pool->pool_peak, LIBXS_ATOMIC_RELAXED) : 0;
+    const size_t grown = peak + (peak >> LIBXS_MALLOC_EVICT_HEADROOM);
+    const size_t limit = LIBXS_MAX(grown, LIBXS_MALLOC_EVICT_LIMIT);
     /* The memory term is cached and the thread term is not: memory does not
      * change while the count grows, and querying it per allocation would cost
      * more than the eviction this limit exists to avoid. */
@@ -599,7 +597,7 @@ LIBXS_API void* libxs_malloc(libxs_malloc_pool_t* pool, size_t size, int alignme
           if (chunk->size < alloc_size) {
             char *pointer;
 #if defined(LIBXS_MALLOC_EVICT)
-            { const size_t limit = internal_libxs_malloc_evict_limit_get();
+            { const size_t limit = internal_libxs_malloc_evict_limit_get(pool);
               const size_t pool_bytes = LIBXS_ATOMIC_SIZE(LIBXS_ATOMIC_LOAD)(
                 &pool->pool_bytes, LIBXS_ATOMIC_RELAXED);
               if (limit < pool_bytes + alloc_size) {
@@ -687,7 +685,7 @@ LIBXS_API void* libxs_malloc(libxs_malloc_pool_t* pool, size_t size, int alignme
         }
         else { char *pointer;
 #if defined(LIBXS_MALLOC_EVICT)
-          { const size_t limit = internal_libxs_malloc_evict_limit_get();
+          { const size_t limit = internal_libxs_malloc_evict_limit_get(pool);
             const size_t pool_bytes = LIBXS_ATOMIC_SIZE(LIBXS_ATOMIC_LOAD)(
               &pool->pool_bytes, LIBXS_ATOMIC_RELAXED);
             if (limit < pool_bytes + alloc_size) {
@@ -756,7 +754,7 @@ LIBXS_API void libxs_free(void* pointer)
     pool = chunk->pool;
     LIBXS_ASSERT(NULL != pool && NULL != pool->shard[0].slots);
 #if defined(LIBXS_MALLOC_EVICT)
-    { const size_t limit = internal_libxs_malloc_evict_limit_get();
+    { const size_t limit = internal_libxs_malloc_evict_limit_get(pool);
       if (NULL != chunk->pointer && (0 == limit || LIBXS_MALLOC_EVICT_SIZE <= chunk->used)) {
         const size_t total_bytes = LIBXS_ATOMIC_SIZE(LIBXS_ATOMIC_LOAD)(&pool->pool_bytes, LIBXS_ATOMIC_RELAXED);
         if (limit < total_bytes || 0 == limit) {
