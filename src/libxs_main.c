@@ -386,11 +386,11 @@ LIBXS_API LIBXS_ATTRIBUTE_WEAK void for_stop_core_quiet(void)
 
 #if defined(__SANITIZE_THREAD__) || __has_feature(thread_sanitizer)
 /**
- * ThreadSanitizer reads both of these before main(), and the environment is
- * parsed after them, so TSAN_OPTIONS still overrides whatever they return. They
- * carry what a run of this library needs rather than what a caller prefers, and
- * they are compiled in because an option that has to be remembered per command
- * line is an option that does not hold.
+ * ThreadSanitizer reads both of these before main-function, and the environment
+ * is parsed after them, so TSAN_OPTIONS still overrides whatever they return.
+ * They carry what a run of this library needs rather than what a caller prefers,
+ * and they are compiled in because an option that has to be remembered per
+ * command line is an option that does not hold.
  *
  * Three ways this goes silently inert, all of them measured. The decoration
  * cannot be LIBXS_API, which header-only turns into "static inline" that the
