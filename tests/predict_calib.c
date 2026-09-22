@@ -73,7 +73,7 @@ int main(void)
   /* Caller-owned rows replace the automatic curve when deployment data is
    * available, without changing the forest or its native confidence. */
   if (EXIT_SUCCESS == result) {
-    result = libxs_predict_recalibrate(model, cin, cout, NCALIB);
+    result = libxs_predict_recalibrate_prob(model, cin, cout, NCALIB);
     if (EXIT_SUCCESS != result) fprintf(stderr, "the curve was not fitted\n");
   }
   if (EXIT_SUCCESS == result) {

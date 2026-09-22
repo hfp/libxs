@@ -77,9 +77,9 @@ LIBXS_EXTERN_C typedef struct libxs_predict_info_t {
    * trees scoring them. No row is removed from forest training. The native
    * confidence remains here so a caller can rank without losing resolution;
    * libxs_predict_probability applies the curve and reports whether the result
-   * is a probability. libxs_predict_recalibrate can replace the automatic curve
-   * with one fitted on deployment-representative rows. The mapping is monotone,
-   * so neither form changes the ranking.
+   * is a probability. libxs_predict_recalibrate_prob can replace the automatic
+   * curve with one fitted on deployment-representative rows. The mapping is
+   * monotone, so neither form changes the ranking.
    */
   const double* confidence;
   /** Per-output variance among k nearest neighbors (noutputs elements). */
@@ -1049,14 +1049,14 @@ LIBXS_API int libxs_predict_save(const libxs_predict_t* model,
  * and changes nothing. Calling it again refits from scratch.
  * Returns EXIT_SUCCESS, or EXIT_FAILURE if there is nothing to calibrate.
  */
-LIBXS_API int libxs_predict_recalibrate(libxs_predict_t* model,
+LIBXS_API int libxs_predict_recalibrate_prob(libxs_predict_t* model,
   const double* inputs, const double* outputs, int nentries);
 
 /**
  * Fits the conformal correction for the prediction interval from rows the model
- * was NOT built from, laid out as libxs_predict_recalibrate takes them. Requires
- * a model built with a quantile level, since there is otherwise no interval to
- * correct; it applies to any model kind, not only to a forest.
+ * was NOT built from, laid out as libxs_predict_recalibrate_prob takes them.
+ * Requires a model built with a quantile level, since there is otherwise no
+ * interval to correct; it applies to any model kind, not only to a forest.
  *
  * There is no automatic equivalent. A forest calibrates its confidence from rows
  * its own trees omitted, which bagging supplies for free; a neighbour model has
@@ -1091,9 +1091,9 @@ LIBXS_API int libxs_predict_interval(const libxs_predict_t* model, int output,
 /**
  * Translates a confidence reported by libxs_predict_eval into the probability
  * that the reported RF class is correct. Uses the automatic out-of-bag curve,
- * a curve that libxs_predict_recalibrate replaced it with, or one carried in a
- * loaded model. This is a top-class correctness probability, not the complete
- * class distribution P(y|x). `probability` always receives a value.
+ * a curve that libxs_predict_recalibrate_prob replaced it with, or one carried
+ * in a loaded model. This is a top-class correctness probability, not the
+ * complete class distribution P(y|x). `probability` always receives a value.
  *
  * The RETURN VALUE says which of the two it is, and a caller comparing against
  * anything else has to read it: EXIT_SUCCESS when a fitted curve was applied and

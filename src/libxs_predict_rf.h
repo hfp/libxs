@@ -2169,9 +2169,10 @@ LIBXS_API_INLINE double internal_libxs_predict_rf_eval_output_impl(
        * saved before they were recorded), so an older model keeps answering as
        * it did.
        *
-       * A RANKING still, on its own scale: libxs_predict_recalibrate is what makes
-       * it a rate. The decision above is untouched - it is the same majority
-       * vote - so this changes what is reported and not what is answered.
+       * A RANKING still, on its own scale: libxs_predict_recalibrate_prob
+       * is what makes it a rate. The decision above is untouched - it is the
+       * same majority vote - so this changes what is reported and not what is
+       * answered.
        */
       const double share = (0 < nvalid)
         ? (double)best_count / nvalid : 0.0;

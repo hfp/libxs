@@ -5277,7 +5277,7 @@ LIBXS_API void libxs_predict_eval(libxs_lock_t* lock,
 }
 
 
-LIBXS_API int libxs_predict_recalibrate(libxs_predict_t* model,
+LIBXS_API int libxs_predict_recalibrate_prob(libxs_predict_t* model,
   const double* inputs, const double* outputs, int nentries)
 {
   int result = EXIT_FAILURE;

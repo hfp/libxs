@@ -215,8 +215,8 @@ libxs_predict_probability
 libxs_predict_push
 libxs_predict_push_weighted
 libxs_predict_query
-libxs_predict_recalibrate
 libxs_predict_recalibrate_interval
+libxs_predict_recalibrate_prob
 libxs_predict_save
 libxs_predict_set_central
 libxs_predict_set_consistency
