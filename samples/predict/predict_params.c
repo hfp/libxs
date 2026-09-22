@@ -539,21 +539,43 @@ static void evaluate(const libxs_predict_t* model,
       }
       if (0 < iseen[0] + iseen[1]) {
         libxs_predict_query_t iq;
-        int degenerate = 0;
         memset(&iq, 0, sizeof(iq));
         libxs_predict_query(model, &iq);
-        fprintf(stdout, "Prediction intervals (nominal %.1f%%), attested %d |"
-          " novel %d:\n", 100.0 * (1.0 - 2.0 * quantile_level),
-          iseen[0], iseen[1]);
-        fprintf(stdout, "  param   attested-cov  novel-cov  novel-width\n");
+        /* The neighbour count is reported when the model holds one, because it
+         * bounds what a nominal can express; it is resolved per cluster and not
+         * stored unless a count was requested, and "derived" says so rather than
+         * printing a zero that reads as none. */
+        if (0 < iq.neighbors) {
+          fprintf(stdout, "Prediction intervals (nominal %.1f%%, k=%d), attested"
+            " %d | novel %d:\n", 100.0 * (1.0 - 2.0 * quantile_level),
+            iq.neighbors, iseen[0], iseen[1]);
+        }
+        else {
+          fprintf(stdout, "Prediction intervals (nominal %.1f%%, k derived),"
+            " attested %d | novel %d:\n",
+            100.0 * (1.0 - 2.0 * quantile_level), iseen[0], iseen[1]);
+        }
+        fprintf(stdout, "  param   kind  attested-cov  novel-cov  novel-width\n");
         for (j = 0; j < NOUTPUTS; ++j) {
           int len = 0;
           const char* name;
+          const char* kind;
           if (PERF_OUTPUT == j && 0 == nperf) continue;
           name = libxs_strtoken(output_names, ",", j, &len);
-          if (0 < iseen[1] && 0 == iwidth[j][1]) ++degenerate;
-          fprintf(stdout, "  %-6.*s      %6.1f%%    %6.1f%%    %10.3e\n",
-            len, name,
+          /**
+           * How the output is answered, which is not the same question as what it
+           * is: a throughput answered by the vote is continuous data read off
+           * observed values. Both edges of the interval are weighted quantiles of
+           * the neighbours, so its width takes one of a handful of values whatever
+           * the output holds, and no nominal is attained exactly - the label says
+           * which mechanism produced the number rather than claiming one of them
+           * could. An output constant in the corpus is the case worth separating,
+           * because it covers everything with a point.
+           */
+          if (0 < iseen[1] && 0 == iwidth[j][1]) kind = "const";
+          else kind = (2 * interp[j] < ntotal) ? "vote" : "interp";
+          fprintf(stdout, "  %-6.*s  %-5s      %6.1f%%    %6.1f%%    %10.3e\n",
+            len, name, kind,
             (0 < iseen[0]) ? 100.0 * icovered[j][0] / iseen[0] : 0.0,
             (0 < iseen[1]) ? 100.0 * icovered[j][1] / iseen[1] : 0.0,
             (0 < iseen[1]) ? iwidth[j][1] / iseen[1] : 0.0);
@@ -561,11 +583,9 @@ static void evaluate(const libxs_predict_t* model,
         /* Attested coverage is the control, not a result: it reports how often
          * an entry the model holds falls inside a band centred on itself. */
         fprintf(stdout, "  novel-cov is the calibration; attested-cov approaches"
-          " 100%% by construction\n");
-        if (0 < degenerate) {
-          fprintf(stdout, "  %d output(s) have zero width: constant in the"
-            " corpus, so the interval is a point\n", degenerate);
-        }
+          " 100%% by construction. Both\n  edges are neighbour quantiles, so a"
+          " nominal is approached and not attained, and\n  a const output covers"
+          " everything with a point.\n");
         /* A level tighter than one neighbour's share of the weight cannot move
          * either edge, so it is the neighbour range under another name. */
         if (0 < iq.neighbors && quantile_level < 1.0 / iq.neighbors) {
