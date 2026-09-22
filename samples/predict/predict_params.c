@@ -327,6 +327,31 @@ static const char* mode_name(int decompose)
 }
 
 
+/**
+ * Exchanges two rows of a fit set, inputs and outputs together. The rotation
+ * needs the row under test at the end so the fit is a prefix; swapping back
+ * restores the order, which keeps the set identical across folds rather than
+ * accumulating a permutation that would make one fold's fit depend on the last.
+ */
+LIBXS_INLINE void internal_params_swap(double* fin, double* fout, int a, int b)
+{
+  if (a != b) {
+    double tmp;
+    int c;
+    for (c = 0; c < NINPUTS; ++c) {
+      tmp = fin[(size_t)a * NINPUTS + c];
+      fin[(size_t)a * NINPUTS + c] = fin[(size_t)b * NINPUTS + c];
+      fin[(size_t)b * NINPUTS + c] = tmp;
+    }
+    for (c = 0; c < NOUTPUTS; ++c) {
+      tmp = fout[(size_t)a * NOUTPUTS + c];
+      fout[(size_t)a * NOUTPUTS + c] = fout[(size_t)b * NOUTPUTS + c];
+      fout[(size_t)b * NOUTPUTS + c] = tmp;
+    }
+  }
+}
+
+
 static void evaluate(libxs_predict_t* model,
   const libxs_predict_t* reference, int ntotal, const char trained[],
   int use_xgb, double quantile_level)
@@ -587,11 +612,16 @@ static void evaluate(libxs_predict_t* model,
           " point\n");
         /**
          * What the conformal correction is worth, measured rather than assumed.
-         * The novel rows are split in two: the correction is fitted on one half
-         * and read on the other, because fitted and measured on the same rows it
-         * would cover them by construction - which is the mistake the attested
-         * column above exists to illustrate. Both halves are reported raw as well,
-         * so the change is read against the same rows and not against the whole.
+         *
+         * Leave one out: the correction is fitted on every novel row but one and
+         * read on the one left out, rotating through all of them. Halving the set
+         * instead fits on half and measures on half, which throws away both - and
+         * fitting and reading the same rows is worse still, because a correction
+         * covers what it was fitted on by construction, the mistake the attested
+         * column above exists to illustrate.
+         *
+         * The model keeps the fit from ALL of them: the rotation is how coverage
+         * is measured honestly, not how the correction a caller gets is made.
          */
         if (0 < quantile_level && 1 < iseen[1]) {
           const int nnov = split_n[1];
@@ -599,36 +629,40 @@ static void evaluate(libxs_predict_t* model,
           double* fout = (double*)malloc((size_t)nnov * NOUTPUTS * sizeof(double));
           int* which = (int*)malloc((size_t)nnov * sizeof(int));
           if (NULL != fin && NULL != fout && NULL != which) {
-            int nfit = 0, ntest = 0, k;
-            /* alternating, so both halves span the corpus rather than a prefix */
+            int nnovel = 0, k;
             for (i = 0; i < ntotal; ++i) {
               if (0 == trained[i]) {
-                if (0 == (nfit + ntest) % 2) {
-                  double e[NOUTPUTS];
-                  libxs_predict_get(reference, i, NULL, e);
-                  memcpy(fin + (size_t)nfit * NINPUTS,
-                    all_inputs + (size_t)i * NINPUTS,
-                    NINPUTS * sizeof(double));
-                  memcpy(fout + (size_t)nfit * NOUTPUTS, e,
-                    NOUTPUTS * sizeof(double));
-                  ++nfit;
-                }
-                else which[ntest++] = i;
+                double e[NOUTPUTS];
+                libxs_predict_get(reference, i, NULL, e);
+                memcpy(fin + (size_t)nnovel * NINPUTS,
+                  all_inputs + (size_t)i * NINPUTS, NINPUTS * sizeof(double));
+                memcpy(fout + (size_t)nnovel * NOUTPUTS, e,
+                  NOUTPUTS * sizeof(double));
+                which[nnovel++] = i;
               }
             }
-            if (0 < nfit && 0 < ntest && EXIT_SUCCESS ==
-              libxs_predict_recalibrate_interval(model, fin, fout, nfit))
-            {
-              int raw[NOUTPUTS], cal[NOUTPUTS];
+            if (1 < nnovel) {
+              int raw[NOUTPUTS], cal[NOUTPUTS], nread = 0;
               memset(raw, 0, sizeof(raw));
               memset(cal, 0, sizeof(cal));
-              for (k = 0; k < ntest; ++k) {
+              for (k = 0; k < nnovel; ++k) {
                 double e[NOUTPUTS];
                 libxs_predict_info_t info;
+                /* the row under test goes last, so the fit is the first n-1 and
+                 * no copy of the set is needed per rotation */
+                internal_params_swap(fin, fout, k, nnovel - 1);
+                if (EXIT_SUCCESS != libxs_predict_recalibrate_interval(
+                  model, fin, fout, nnovel - 1))
+                {
+                  internal_params_swap(fin, fout, k, nnovel - 1);
+                  continue;
+                }
                 libxs_predict_eval(NULL, model,
                   all_inputs + (size_t)which[k] * NINPUTS, NULL, &info, 1);
                 libxs_predict_get(reference, which[k], NULL, e);
+                internal_params_swap(fin, fout, k, nnovel - 1);
                 if (NULL == info.lower || NULL == info.upper) continue;
+                ++nread;
                 for (j = 0; j < NOUTPUTS; ++j) {
                   double lo = info.lower[j], hi = info.upper[j];
                   if (e[j] >= lo && e[j] <= hi) ++raw[j];
@@ -636,16 +670,21 @@ static void evaluate(libxs_predict_t* model,
                   if (e[j] >= lo && e[j] <= hi) ++cal[j];
                 }
               }
-              fprintf(stdout, "Conformal correction (fitted on %d novel rows,"
-                " read on %d):\n", nfit, ntest);
-              fprintf(stdout, "  param   raw-cov  conformal-cov\n");
-              for (j = 0; j < NOUTPUTS; ++j) {
-                int len = 0;
-                const char* name;
-                if (PERF_OUTPUT == j && 0 == nperf) continue;
-                name = libxs_strtoken(output_names, ",", j, &len);
-                fprintf(stdout, "  %-6.*s   %6.1f%%   %6.1f%%\n", len, name,
-                  100.0 * raw[j] / ntest, 100.0 * cal[j] / ntest);
+              /* what the model carries away is fitted on every one of them */
+              LIBXS_EXPECT(EXIT_SUCCESS == libxs_predict_recalibrate_interval(
+                model, fin, fout, nnovel));
+              if (0 < nread) {
+                fprintf(stdout, "Conformal correction (leave-one-out over %d"
+                  " novel rows, %d fitted per fold):\n", nread, nnovel - 1);
+                fprintf(stdout, "  param   raw-cov  conformal-cov\n");
+                for (j = 0; j < NOUTPUTS; ++j) {
+                  int len = 0;
+                  const char* name;
+                  if (PERF_OUTPUT == j && 0 == nperf) continue;
+                  name = libxs_strtoken(output_names, ",", j, &len);
+                  fprintf(stdout, "  %-6.*s   %6.1f%%   %6.1f%%\n", len, name,
+                    100.0 * raw[j] / nread, 100.0 * cal[j] / nread);
+                }
               }
             }
           }
