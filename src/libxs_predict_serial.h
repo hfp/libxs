@@ -846,6 +846,33 @@ LIBXS_API_INLINE int internal_libxs_predict_denc_read(
 
 
 /**
+ * The per-entry outputs, whichever way the file stores them. Version 1 wrote the
+ * block verbatim and must keep loading: the encoding is a version-2 layout, and
+ * decoding a verbatim block consumes the first value as a tag and everything
+ * after it is nonsense. The rule lives here so the three places that read these
+ * blocks cannot disagree about which files are encoded.
+ */
+LIBXS_API_INLINE int internal_libxs_predict_read_outputs(
+  const unsigned char** src, const unsigned char* end,
+  double* values, size_t count, size_t ncol, int version)
+{
+  int result = EXIT_SUCCESS;
+  if (1 < version) {
+    size_t j;
+    for (j = 0; j < ncol && EXIT_SUCCESS == result; ++j) {
+      result = internal_libxs_predict_denc_read(src, end,
+        values + j, count, ncol);
+    }
+  }
+  else {
+    result = internal_libxs_predict_read(src, end, values,
+      count * ncol * sizeof(double));
+  }
+  return result;
+}
+
+
+/**
  * Reject a file-supplied element count that cannot be covered by the remaining
  * payload before it is used to size an allocation: the division avoids the
  * overflow that a plain nelem*esz product would incur for hostile counts.
@@ -1081,11 +1108,8 @@ LIBXS_API_INLINE libxs_predict_t* internal_libxs_predict_load_hknn(
         (size_t)ne * (size_t)nout * sizeof(double));
       if (NULL == cl->raw_outputs) ok = EXIT_FAILURE;
       else {
-        int qj;
-        for (qj = 0; qj < (int)nout && EXIT_SUCCESS == ok; ++qj) {
-          ok = internal_libxs_predict_denc_read(&src, end,
-            cl->raw_outputs + qj, (size_t)ne, (size_t)nout);
-        }
+        ok = internal_libxs_predict_read_outputs(&src, end, cl->raw_outputs,
+          (size_t)ne, (size_t)nout, version);
       }
     }
     if (EXIT_SUCCESS == ok && 0 != has_ew) {
@@ -1274,11 +1298,8 @@ LIBXS_API_INLINE libxs_predict_t* internal_libxs_predict_load_hknn(
                   cls[ci].kd_pts, (size_t)ne * (size_t)ninp * sizeof(double));
               }
               if (EXIT_SUCCESS == ok) {
-                int qj;
-                for (qj = 0; qj < (int)gsz && EXIT_SUCCESS == ok; ++qj) {
-                  ok = internal_libxs_predict_denc_read(&src, end,
-                    cls[ci].raw_outputs + qj, (size_t)ne, (size_t)gsz);
-                }
+                ok = internal_libxs_predict_read_outputs(&src, end,
+                  cls[ci].raw_outputs, (size_t)ne, (size_t)gsz, version);
               }
             }
           }
@@ -1698,20 +1719,17 @@ LIBXS_API libxs_predict_t* libxs_predict_load(const void* buffer, size_t size)
               cl->kd_pts, (size_t)cl->nentries * (size_t)ninp * sizeof(double));
           }
         }
-        if (EXIT_SUCCESS == ok) {
-          ok = internal_libxs_predict_avail(src, end,
-            (size_t)cl->nentries * (size_t)nout, sizeof(double));
-        }
+        /* no size check ahead of the read: an encoded block is smaller than the
+         * verbatim one by an amount only its tags reveal, and read_outputs bounds
+         * every value it takes either way */
         if (EXIT_SUCCESS == ok) {
           cl->raw_outputs = (double*)malloc(
             (size_t)cl->nentries * (size_t)nout * sizeof(double));
           if (NULL == cl->raw_outputs) ok = EXIT_FAILURE;
-          if (EXIT_SUCCESS == ok) { /* per column, as the writer encoded it */
-            int qj;
-            for (qj = 0; qj < (int)nout && EXIT_SUCCESS == ok; ++qj) {
-              ok = internal_libxs_predict_denc_read(&src, end,
-                cl->raw_outputs + qj, (size_t)cl->nentries, (size_t)nout);
-            }
+          if (EXIT_SUCCESS == ok) {
+            ok = internal_libxs_predict_read_outputs(&src, end,
+              cl->raw_outputs, (size_t)cl->nentries, (size_t)nout,
+              (int)version);
           }
         }
         if (EXIT_SUCCESS == ok && 0 != has_ew) {
