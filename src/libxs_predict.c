@@ -5277,6 +5277,51 @@ LIBXS_API void libxs_predict_eval(libxs_lock_t* lock,
 }
 
 
+LIBXS_API int libxs_predict_shape(const libxs_predict_t* model,
+  int* ninputs, int* noutputs)
+{
+  int result = EXIT_FAILURE;
+  if (NULL != model) {
+    if (NULL != ninputs) *ninputs = model->ninputs;
+    if (NULL != noutputs) *noutputs = model->noutputs;
+    result = EXIT_SUCCESS;
+  }
+  return result;
+}
+
+
+LIBXS_API void libxs_predict_eval_flat(const libxs_predict_t* model,
+  const double inputs[], double outputs[], double confidence[],
+  double variance[], double lower[], double upper[])
+{
+  if (NULL != model && NULL != inputs) {
+    const int n = model->noutputs;
+    libxs_predict_info_t info;
+    int j;
+    memset(&info, 0, sizeof(info));
+    libxs_predict_eval(NULL, model, inputs, outputs, &info, 0);
+    for (j = 0; j < n; ++j) {
+      const double value = (NULL != info.values) ? info.values[j]
+        : ((NULL != outputs) ? outputs[j] : 0.0);
+      if (NULL != confidence) {
+        confidence[j] = (NULL != info.confidence) ? info.confidence[j] : 0.0;
+      }
+      if (NULL != variance) {
+        variance[j] = (NULL != info.variance) ? info.variance[j] : 0.0;
+      }
+      if (NULL != lower) {
+        lower[j] = (NULL != info.lower && LIBXS_NOTNAN(info.lower[j]))
+          ? info.lower[j] : value;
+      }
+      if (NULL != upper) {
+        upper[j] = (NULL != info.upper && LIBXS_NOTNAN(info.upper[j]))
+          ? info.upper[j] : value;
+      }
+    }
+  }
+}
+
+
 LIBXS_API int libxs_predict_recalibrate_prob(libxs_predict_t* model,
   const double* inputs, const double* outputs, int nentries)
 {

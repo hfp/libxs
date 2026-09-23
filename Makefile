@@ -284,8 +284,12 @@ ifneq ($(ABSDIR),$(HEREDIR))
 $(INCDIR)/$(PROJECT).f: $(wildcard $(ROOTINC)/$(PROJECT)*.f $(ROOTINC)/$(PROJECT)*.fi $(ROOTINC)/$(PROJECT)*.F) $(INCDIR)/.make
 	@$(CP) $(wildcard $(ROOTINC)/$(PROJECT)*.f $(ROOTINC)/$(PROJECT)*.fi $(ROOTINC)/$(PROJECT)*.F) $(INCDIR)
 endif
+# The SIMD-only OpenMP flag is filtered for the module: it enables the module's
+# conditional compilation (!$ lines) and so compiles calls into the OpenMP runtime,
+# but links no runtime, which left the shared library with references nothing it
+# depends on resolves. The module carries no SIMD directive for it to serve.
 $(BLDDIR)/intel64/$(PROJECT)-mod.o: $(BLDDIR)/intel64/.make $(INCDIR)/$(PROJECT).f
-	$(FC) $(DFLAGS) $(IFLAGS) $(FCMTFLAGS) $(filter-out $(FFORM_FLAG),$(FCFLAGS)) $(FTARGET) \
+	$(FC) $(DFLAGS) $(IFLAGS) $(FCMTFLAGS) $(filter-out $(FFORM_FLAG) -fopenmp-simd -qopenmp-simd,$(FCFLAGS)) $(FTARGET) \
 		-c $(INCDIR)/$(PROJECT).f -o $@ $(FMFLAGS) $(INCDIR)
 $(INCDIR)/$(PROJECT).mod: $(BLDDIR)/intel64/$(PROJECT)-mod.o
 	@if [ -e $(BLDDIR)/intel64/$(PROJECT).mod ]; then $(CP) $(BLDDIR)/intel64/$(PROJECT).mod $(INCDIR); fi

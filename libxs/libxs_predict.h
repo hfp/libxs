@@ -805,6 +805,29 @@ LIBXS_API void libxs_predict_eval(libxs_lock_t* lock,
   libxs_predict_info_t* info, int nblend);
 
 /**
+ * The model's shape, for a caller that sizes its own arrays. Either pointer may
+ * be NULL. Returns EXIT_FAILURE for a NULL model, leaving the outputs untouched.
+ */
+LIBXS_API int libxs_predict_shape(const libxs_predict_t* model,
+  int* ninputs, int* noutputs);
+
+/**
+ * libxs_predict_eval with the per-output fields copied into arrays the caller
+ * owns, each noutputs long and each optional (NULL skips it). This is the form
+ * for a foreign-function caller - ctypes, or Fortran through iso_c_binding -
+ * which would otherwise mirror libxs_predict_info_t: a mirrored struct is not
+ * checked against this header, so a field added here would shift every field
+ * after it on the other side, and the caller would read wrong values without an
+ * error. Arrays of doubles have no layout to drift.
+ *
+ * Where the model reports no interval (no quantile level set), lower and upper
+ * both receive the prediction: a point, which covers nothing but is not garbage.
+ */
+LIBXS_API void libxs_predict_eval_flat(const libxs_predict_t* model,
+  const double inputs[], double outputs[], double confidence[],
+  double variance[], double lower[], double upper[]);
+
+/**
  * Inverse prediction: find inputs that produce desired outputs.
  * target_outputs: N desired output values.
  * inputs: M values written (best-matching input parameters).
