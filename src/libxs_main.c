@@ -24,6 +24,9 @@
 # include <sys/mman.h>
 # include <sys/stat.h>
 # include <fcntl.h>
+# if defined(__linux__)
+#   include <sys/prctl.h>
+# endif
 #endif
 #if defined(__APPLE__)
 # include <libkern/OSCacheControl.h>
@@ -609,6 +612,16 @@ LIBXS_API_CTOR void libxs_init(void)
             internal_libxs_sigentries[1].signum = SIGSEGV;
           }
         }
+#if defined(__linux__) && defined(PR_SET_PTRACER) && defined(PR_SET_PTRACER_ANY)
+        { /* where only an ancestor may attach (Yama ptrace_scope=1), a hung process is otherwise out of a debugger's reach */
+          const char *const env_ptrace = getenv("LIBXS_PTRACE");
+          if (NULL != env_ptrace && 0 != atoi(env_ptrace)) {
+            if (0 != prctl(PR_SET_PTRACER, PR_SET_PTRACER_ANY, 0, 0, 0) && 0 != libxs_verbosity) {
+              fprintf(stderr, "LIBXS WARNING: LIBXS_PTRACE requested but prctl(PR_SET_PTRACER) failed\n");
+            }
+          }
+        }
+#endif
         result_atexit = atexit(internal_libxs_finalize);
         s1 = internal_libxs_timer_tick_rtc(); t1 = internal_libxs_timer_tick_tsc(); /* final timing */
         /* set timer-scale */

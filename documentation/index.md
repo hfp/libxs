@@ -123,6 +123,10 @@ No special include order is required. When used through
 pre-built library (`-DLIBXSTREAM_SOURCE`), `LIBXS_SOURCE` is
 implied automatically.
 
+**Debugging** — `LIBXS_PTRACE=1` lets a debugger of the same user
+attach to the running process (`gdb -p <pid>`) where the system
+otherwise allows only a parent to do so (Linux, `ptrace_scope=1`).
+
 **Fortran** — use the provided module
 ([documentation](libxs_fortran.md)):
 
