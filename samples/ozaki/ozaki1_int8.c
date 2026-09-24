@@ -79,6 +79,10 @@ LIBXS_INLINE void gemm_oz1_diff(const char* transa, const char* transb, const GE
   int8_t* b_slices = NULL;
   int* k_perm = NULL;
   int32_t* b_packed = NULL;
+#if defined(__LIBXSMM)
+  ozaki_xsmm_t xsmm;
+#endif
+  int use_xsmm = 0;
   int16_t* expa_raw = NULL;
   int16_t* expb_raw = NULL;
   double* expa_fp = NULL;
@@ -103,9 +107,17 @@ LIBXS_INLINE void gemm_oz1_diff(const char* transa, const char* transb, const GE
   if (LIBXS_SORT_IDENTITY < ozaki_decay) {
     k_perm = (int*)libxs_malloc(gemm_pool, (size_t)K_grp_max * sizeof(int), 0);
   }
+#if defined(__LIBXSMM)
+  if (0 != ozaki_xsmm) { /* LIBXSMM ahead of the built-in kernels */
+    if (EXIT_SUCCESS == ozaki_xsmm_init(&xsmm, LIBXSMM_DATATYPE_I8, M, K_grp_pad, K_grp_pad, 2)) {
+      b_packed = (int32_t*)libxs_malloc(gemm_pool, (size_t)nslices * LIBXS_UPDIV(N, BLOCK_N) * K_grp_pad * BLOCK_N, 0);
+      use_xsmm = (NULL != b_packed);
+    }
+  }
+#endif
 #if defined(LIBXS_INTRINSICS_AVX512) && 16 == BLOCK_N && (16 == BLOCK_K || 32 == BLOCK_K || 64 == BLOCK_K)
   /* The packed-B path has no scalar counterpart: b_packed stays NULL without 512-bit VNNI. */
-  if (OZAKI_VNNI512) {
+  if (0 == use_xsmm && OZAKI_VNNI512) {
     const GEMM_INT_TYPE N_blocks = LIBXS_UPDIV(N, BLOCK_N);
     b_packed = (int32_t*)libxs_malloc(gemm_pool, (size_t)nslices * N_blocks * (K_grp_pad / 4) * BLOCK_N * sizeof(int32_t), 0);
   }
@@ -357,8 +369,24 @@ LIBXS_INLINE void gemm_oz1_diff(const char* transa, const char* transb, const GE
       }
 
       /* Phase 3: reformat B slices into VNNI layout for panel kernels. */
+#if defined(__LIBXSMM)
+      if (0 != use_xsmm) {
+        const GEMM_INT_TYPE N_blocks = LIBXS_UPDIV(N, BLOCK_N);
+        const size_t bp_bytes = (size_t)K_grp_pad * BLOCK_N;
+# if defined(_OPENMP)
+#       pragma omp for LIBXS_OPENMP_COLLAPSE(2) OZAKI_OMP_SCHEDULE
+# endif
+        for (jb = 0; jb < N; jb += BLOCK_N) {
+          for (slice_a = 0; slice_a < nslices; ++slice_a) {
+            ozaki_xsmm_pack(xsmm.pf, (const char*)(b_slices + (long)slice_a * N * K_grp_pad + (long)jb * K_grp_pad),
+              K_grp_pad, LIBXS_MIN(BLOCK_N, N - jb), K_grp_pad,
+              (char*)b_packed + ((size_t)slice_a * N_blocks + (size_t)(jb / BLOCK_N)) * bp_bytes);
+          }
+        }
+      }
+#endif
 #if defined(LIBXS_INTRINSICS_AVX512) && 16 == BLOCK_N && (16 == BLOCK_K || 32 == BLOCK_K || 64 == BLOCK_K)
-      if (NULL != b_packed) {
+      if (NULL != b_packed && 0 == use_xsmm) {
         const GEMM_INT_TYPE N_blocks = LIBXS_UPDIV(N, BLOCK_N);
         const GEMM_INT_TYPE bp_stride = (K_grp_pad / 4) * BLOCK_N;
 #if defined(_OPENMP)
@@ -401,6 +429,7 @@ LIBXS_INLINE void gemm_oz1_diff(const char* transa, const char* transb, const GE
           GEMM_REAL_TYPE* const cb = c + jb * ldcv + ib;
           LIBXS_ALIGNED(GEMM_REAL_TYPE c_local[BLOCK_M * BLOCK_N], LIBXS_ALIGNMENT);
           LIBXS_ALIGNED(int32_t c_acc[BLOCK_M * BLOCK_N], LIBXS_ALIGNMENT);
+          const GEMM_INT_TYPE ldacc = (0 != use_xsmm ? BLOCK_N : jblk); /* LIBXSMM stores padded rows */
 
           /* Load current C tile into contiguous local buffer */
           for (nj = 0; nj < jblk; ++nj) {
@@ -418,6 +447,21 @@ LIBXS_INLINE void gemm_oz1_diff(const char* transa, const char* transb, const GE
               const double pair_scale = (*alpha) * pow2_low[slice_a] * pow2_low[slice_b];
               const int do_mirror = (0 != (oz1_flags & OZ1_SYMMETRIZE)) && (slice_a != slice_b);
 
+#if defined(__LIBXSMM)
+              if (0 != use_xsmm) {
+                const size_t bp_bytes = (size_t)K_grp_pad * BLOCK_N;
+                const size_t bslice_bytes = (size_t)LIBXS_UPDIV(N, BLOCK_N) * bp_bytes;
+                const char* const bp_jb = (const char*)b_packed + (size_t)(jb / BLOCK_N) * bp_bytes;
+                const libxsmm_gemmfunction* const kernel = (BLOCK_M == iblk ? xsmm.full : xsmm.edge);
+                ozaki_xsmm_call(kernel[0], bp_jb + (size_t)slice_b * bslice_bytes,
+                  a_slices + (long)slice_a * M * K_grp_pad + (long)ib * K_grp_pad, c_acc);
+                if (do_mirror) {
+                  ozaki_xsmm_call(kernel[1], bp_jb + (size_t)slice_a * bslice_bytes,
+                    a_slices + (long)slice_b * M * K_grp_pad + (long)ib * K_grp_pad, c_acc);
+                }
+              }
+              else
+#endif
 #if defined(LIBXS_INTRINSICS_AVX512) && 16 == BLOCK_N && (16 == BLOCK_K || 32 == BLOCK_K || 64 == BLOCK_K)
               if (NULL != b_packed && BLOCK_N == jblk) {
                 const GEMM_INT_TYPE N_blks = LIBXS_UPDIV(N, BLOCK_N);
@@ -454,8 +498,8 @@ LIBXS_INLINE void gemm_oz1_diff(const char* transa, const char* transb, const GE
               for (mi = 0; mi < iblk; ++mi) {
                 const double ea = pair_scale * expa_fp[ib + mi];
                 for (nj = 0; nj < jblk; ++nj) {
-                  if (0 != c_acc[mi * jblk + nj]) {
-                    c_local[mi * jblk + nj] += (GEMM_REAL_TYPE)(ea * expb_fp[jb + nj] * (double)c_acc[mi * jblk + nj]);
+                  if (0 != c_acc[mi * ldacc + nj]) {
+                    c_local[mi * jblk + nj] += (GEMM_REAL_TYPE)(ea * expb_fp[jb + nj] * (double)c_acc[mi * ldacc + nj]);
                   }
                 }
               }

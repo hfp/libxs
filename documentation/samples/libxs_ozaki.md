@@ -17,9 +17,8 @@ LIBXS must be built first from the repository root. When a sibling
 compiled in (see OZAKI_OCL below).
 
 `make LIBXSMM=1` puts LIBXSMM's int8 kernels ahead of the built-in
-VNNI/AMX kernels (Scheme 2 for now); `OZAKI_XSMM=0` returns to the
-built-in kernels at runtime. It needs a built sibling `libxsmm`
-directory.
+VNNI/AMX kernels; `OZAKI_XSMM=0` returns to the built-in kernels at
+runtime. It needs a built sibling `libxsmm` directory.
 
 ## Link-Time Interception
 
