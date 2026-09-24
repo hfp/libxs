@@ -228,11 +228,6 @@
           _mm512_xor_si512(_mm512_i32gather_epi32(VIDX, (const char*)(B) + (KB) + rf_kk_, 1), rf_xor_)); \
       } \
     } while (0)
-
-# define OZAKI_PANEL_REFORMAT_B(B, LDB, KB, N, BUF) \
-    OZAKI_REFORMAT_B_IMPL(OZAKI_GATHER_VIDX(LDB), B, KB, N, BUF, BLOCK_K)
-# define OZAKI_PANEL_REFORMAT_B_XOR(B, LDB, KB, N, BUF) \
-    OZAKI_REFORMAT_B_XOR_IMPL(OZAKI_GATHER_VIDX(LDB), B, KB, N, BUF, BLOCK_K)
 #endif
 
 
@@ -513,133 +508,6 @@ LIBXS_INLINE LIBXS_INTRINSICS(LIBXS_X86_AVX512) void ozaki_panel_i8_vnni_fused(G
   }
 }
 
-
-/* u8*u8 panel via DPBUUD (AVX-VNNI-INT8, 512-bit EVEX). */
-# if (LIBXS_X86_AVX512_INT8 <= LIBXS_MAX_STATIC_TARGET_ARCH)
-LIBXS_INLINE LIBXS_INTRINSICS(LIBXS_X86_AVX512_INT8) void ozaki_panel_u8_buud(GEMM_INT_TYPE M, GEMM_INT_TYPE N, GEMM_INT_TYPE K,
-  const uint8_t* a, GEMM_INT_TYPE lda, const int32_t* b, GEMM_INT_TYPE ldb, int beta, int32_t* c, GEMM_INT_TYPE ldc)
-{
-  __m512i acc[BLOCK_M];
-  GEMM_INT_TYPE mi, kb;
-  int kk;
-  for (mi = 0; mi < M; ++mi) {
-    acc[mi] = (0 != beta) ? _mm512_loadu_si512((__m512i*)(c + mi * ldc)) : _mm512_setzero_si512();
-  }
-  for (kb = 0; kb < K; kb += BLOCK_K) {
-    for (kk = 0; kk < BLOCK_K; kk += 4) {
-      const __m512i vb = _mm512_load_si512((const __m512i*)(b + ((kb + kk) >> 2) * ldb));
-      LIBXS_PRAGMA_LOOP_COUNT(1, BLOCK_M, BLOCK_M)
-      for (mi = 0; mi < M; ++mi) {
-        const __m512i va = _mm512_set1_epi32(*(const int32_t*)(a + (long)mi * lda + kb + kk));
-        acc[mi] = _mm512_dpbuud_epi32(acc[mi], va, vb);
-      }
-    }
-  }
-  for (mi = 0; mi < M; ++mi) {
-    _mm512_storeu_si512((__m512i*)(c + mi * ldc), acc[mi]);
-  }
-}
-
-LIBXS_INLINE LIBXS_INTRINSICS(LIBXS_X86_AVX512_INT8) void ozaki_panel_u8_buud_fused(GEMM_INT_TYPE M, GEMM_INT_TYPE N,
-  GEMM_INT_TYPE K, const uint8_t* a1, GEMM_INT_TYPE lda1, const int32_t* b1, GEMM_INT_TYPE ldb1,
-  const uint8_t* a2, GEMM_INT_TYPE lda2, const int32_t* b2, GEMM_INT_TYPE ldb2,
-  int beta, int32_t* c, GEMM_INT_TYPE ldc)
-{
-  __m512i acc[BLOCK_M];
-  GEMM_INT_TYPE mi, kb;
-  int kk;
-  for (mi = 0; mi < M; ++mi) {
-    acc[mi] = (0 != beta) ? _mm512_loadu_si512((__m512i*)(c + mi * ldc)) : _mm512_setzero_si512();
-  }
-  for (kb = 0; kb < K; kb += BLOCK_K) {
-    for (kk = 0; kk < BLOCK_K; kk += 4) {
-      const __m512i vb1 = _mm512_load_si512((const __m512i*)(b1 + ((kb + kk) >> 2) * ldb1));
-      const __m512i vb2 = _mm512_load_si512((const __m512i*)(b2 + ((kb + kk) >> 2) * ldb2));
-      LIBXS_PRAGMA_LOOP_COUNT(1, BLOCK_M, BLOCK_M)
-      for (mi = 0; mi < M; ++mi) {
-        const __m512i va1 = _mm512_set1_epi32(*(const int32_t*)(a1 + (long)mi * lda1 + kb + kk));
-        const __m512i va2 = _mm512_set1_epi32(*(const int32_t*)(a2 + (long)mi * lda2 + kb + kk));
-        acc[mi] = _mm512_dpbuud_epi32(acc[mi], va1, vb1);
-        acc[mi] = _mm512_dpbuud_epi32(acc[mi], va2, vb2);
-      }
-    }
-  }
-  for (mi = 0; mi < M; ++mi) {
-    _mm512_storeu_si512((__m512i*)(c + mi * ldc), acc[mi]);
-  }
-}
-# endif /* AVX512_INT8 panel u8 */
-
-
-/**
- * u8*u8 panel via DPBUSD with bias correction (base AVX-512 VNNI).
- * DPBUSD is u8*s8; XOR B with 0x80 converts u8 to s8 during reformat,
- * then add 128 * row_sum(A) to correct.
- */
-LIBXS_INLINE LIBXS_INTRINSICS(LIBXS_X86_AVX512) void ozaki_panel_u8_vnni(GEMM_INT_TYPE M, GEMM_INT_TYPE N, GEMM_INT_TYPE K,
-  const uint8_t* a, GEMM_INT_TYPE lda, const int32_t* b, GEMM_INT_TYPE ldb, int beta, int32_t* c, GEMM_INT_TYPE ldc)
-{
-  __m512i acc[BLOCK_M];
-  GEMM_INT_TYPE mi, kb;
-  int kk;
-  for (mi = 0; mi < M; ++mi) {
-    acc[mi] = (0 != beta) ? _mm512_loadu_si512((__m512i*)(c + mi * ldc)) : _mm512_setzero_si512();
-  }
-  for (kb = 0; kb < K; kb += BLOCK_K) {
-    for (kk = 0; kk < BLOCK_K; kk += 4) {
-      const __m512i vb = _mm512_load_si512((const __m512i*)(b + ((kb + kk) >> 2) * ldb));
-      LIBXS_PRAGMA_LOOP_COUNT(1, BLOCK_M, BLOCK_M)
-      for (mi = 0; mi < M; ++mi) {
-        const __m512i va = _mm512_set1_epi32(*(const int32_t*)(a + (long)mi * lda + kb + kk));
-        acc[mi] = _mm512_dpbusd_epi32(acc[mi], va, vb);
-      }
-    }
-  }
-  for (mi = 0; mi < M; ++mi) {
-    int32_t asum = 0;
-    GEMM_INT_TYPE k;
-    for (k = 0; k < K; ++k) asum += (int32_t)a[mi * lda + k];
-    acc[mi] = _mm512_add_epi32(acc[mi], _mm512_set1_epi32(128 * asum));
-    _mm512_storeu_si512((__m512i*)(c + mi * ldc), acc[mi]);
-  }
-}
-
-LIBXS_INLINE LIBXS_INTRINSICS(LIBXS_X86_AVX512) void ozaki_panel_u8_vnni_fused(GEMM_INT_TYPE M, GEMM_INT_TYPE N, GEMM_INT_TYPE K,
-  const uint8_t* a1, GEMM_INT_TYPE lda1, const int32_t* b1, GEMM_INT_TYPE ldb1,
-  const uint8_t* a2, GEMM_INT_TYPE lda2, const int32_t* b2, GEMM_INT_TYPE ldb2,
-  int beta, int32_t* c, GEMM_INT_TYPE ldc)
-{
-  __m512i acc[BLOCK_M];
-  GEMM_INT_TYPE mi, kb;
-  int kk;
-  for (mi = 0; mi < M; ++mi) {
-    acc[mi] = (0 != beta) ? _mm512_loadu_si512((__m512i*)(c + mi * ldc)) : _mm512_setzero_si512();
-  }
-  for (kb = 0; kb < K; kb += BLOCK_K) {
-    for (kk = 0; kk < BLOCK_K; kk += 4) {
-      const __m512i vb1 = _mm512_load_si512((const __m512i*)(b1 + ((kb + kk) >> 2) * ldb1));
-      const __m512i vb2 = _mm512_load_si512((const __m512i*)(b2 + ((kb + kk) >> 2) * ldb2));
-      LIBXS_PRAGMA_LOOP_COUNT(1, BLOCK_M, BLOCK_M)
-      for (mi = 0; mi < M; ++mi) {
-        const __m512i va1 = _mm512_set1_epi32(*(const int32_t*)(a1 + (long)mi * lda1 + kb + kk));
-        const __m512i va2 = _mm512_set1_epi32(*(const int32_t*)(a2 + (long)mi * lda2 + kb + kk));
-        acc[mi] = _mm512_dpbusd_epi32(acc[mi], va1, vb1);
-        acc[mi] = _mm512_dpbusd_epi32(acc[mi], va2, vb2);
-      }
-    }
-  }
-  for (mi = 0; mi < M; ++mi) {
-    int32_t asum1 = 0, asum2 = 0;
-    GEMM_INT_TYPE k;
-    for (k = 0; k < K; ++k) {
-      asum1 += (int32_t)a1[mi * lda1 + k];
-      asum2 += (int32_t)a2[mi * lda2 + k];
-    }
-    acc[mi] = _mm512_add_epi32(acc[mi], _mm512_set1_epi32(128 * (asum1 + asum2)));
-    _mm512_storeu_si512((__m512i*)(c + mi * ldc), acc[mi]);
-  }
-}
-
 #endif /* LIBXS_INTRINSICS_AVX512 && BLOCK_N==16 && BLOCK_K valid */
 
 
@@ -759,17 +627,14 @@ LIBXS_INLINE LIBXS_INTRINSICS(LIBXS_X86_AVX512_AMX) void ozaki_panel_i8_amx_fuse
 
 
 /**
- * Dispatch helpers: select BSSD/BUUD (native int8) vs VNNI (base AVX-512).
+ * Dispatch helper: select BSSD (native int8) vs VNNI (base AVX-512).
  * Arguments are statement blocks (may contain do{}while(0) macros).
  */
 #if (LIBXS_X86_AVX512_INT8 <= LIBXS_STATIC_TARGET_ARCH) || (LIBXS_X86_AVX512_INT8 <= LIBXS_MAX_STATIC_TARGET_ARCH)
 # define OZAKI_DISPATCH_I8(BSSD_CALL, VNNI_CALL) \
     if (LIBXS_X86_AVX512_INT8 <= ozaki_target_arch) { BSSD_CALL; } else { VNNI_CALL; }
-# define OZAKI_DISPATCH_U8(BUUD_CALL, VNNI_CALL) \
-    if (LIBXS_X86_AVX512_INT8 <= ozaki_target_arch) { BUUD_CALL; } else { VNNI_CALL; }
 #else
 # define OZAKI_DISPATCH_I8(BSSD_CALL, VNNI_CALL) { VNNI_CALL; }
-# define OZAKI_DISPATCH_U8(BUUD_CALL, VNNI_CALL) { VNNI_CALL; }
 #endif
 
 /* Non-zero if the 512-bit VNNI panels may execute (compile-time true if implied by the baseline). */
@@ -849,26 +714,10 @@ LIBXS_INLINE void ozaki_xsmm_call(libxsmm_gemmfunction kernel, const void* bp, c
 }
 #endif
 
-/* u8*u8 -> s32 GEMM. */
+/* u8*u8 -> s32 GEMM (scalar: Ozaki-2 inlines its vector paths at the call site). */
 LIBXS_INLINE void ozaki_gemm_u8u8s32(char transa, char transb, GEMM_INT_TYPE M, GEMM_INT_TYPE N, GEMM_INT_TYPE K,
   const uint8_t* a, GEMM_INT_TYPE lda, const uint8_t* b, GEMM_INT_TYPE ldb, int beta, int32_t* c, GEMM_INT_TYPE ldc)
 {
-#if defined(LIBXS_INTRINSICS_AVX512) && 16 == BLOCK_N && (16 == BLOCK_K || 32 == BLOCK_K || 64 == BLOCK_K)
-  if (OZAKI_VNNI512 && N == BLOCK_N && 0 == (K % BLOCK_K)) {
-    const __m512i rf_vidx = OZAKI_GATHER_VIDX(ldb);
-    GEMM_INT_TYPE kb;
-    for (kb = 0; kb < K; kb += BLOCK_K) {
-      LIBXS_ALIGNED(int32_t bp[(BLOCK_K / 4) * BLOCK_N], LIBXS_ALIGNMENT);
-      const int b1 = (kb == 0) ? beta : 1;
-      OZAKI_DISPATCH_U8(
-        OZAKI_REFORMAT_B_IMPL(rf_vidx, b, kb, BLOCK_N, bp, BLOCK_K);
-        ozaki_panel_u8_buud(M, N, BLOCK_K, a + kb, lda, bp, BLOCK_N, b1, c, ldc),
-        OZAKI_REFORMAT_B_XOR_IMPL(rf_vidx, b, kb, BLOCK_N, bp, BLOCK_K);
-        ozaki_panel_u8_vnni(M, N, BLOCK_K, a + kb, lda, bp, BLOCK_N, b1, c, ldc))
-    }
-    return;
-  }
-#endif
   OZAKI_GEMM_INT8_BODY(uint8_t, ozaki_dot_u8_sw)
 }
 
@@ -898,38 +747,6 @@ LIBXS_INLINE void ozaki_gemm_s8s8s32(char transa, char transb, GEMM_INT_TYPE M, 
 # endif
   OZAKI_GEMM_INT8_BODY(int8_t, ozaki_dot_i8_sw)
 #endif
-}
-
-/* Fused u8*u8 -> s32 GEMM: c += A1*B1 + A2*B2 in one kernel call. */
-LIBXS_INLINE void ozaki_gemm_u8u8s32_fused(GEMM_INT_TYPE M, GEMM_INT_TYPE N, GEMM_INT_TYPE K,
-  const uint8_t* a1, GEMM_INT_TYPE lda1, const uint8_t* b1, GEMM_INT_TYPE ldb1,
-  const uint8_t* a2, GEMM_INT_TYPE lda2, const uint8_t* b2, GEMM_INT_TYPE ldb2,
-  int beta, int32_t* c, GEMM_INT_TYPE ldc)
-{
-#if defined(LIBXS_INTRINSICS_AVX512) && 16 == BLOCK_N && (16 == BLOCK_K || 32 == BLOCK_K || 64 == BLOCK_K)
-  if (OZAKI_VNNI512 && N == BLOCK_N && 0 == (K % BLOCK_K)) {
-    const __m512i rf_vidx1 = OZAKI_GATHER_VIDX(ldb1);
-    const __m512i rf_vidx2 = OZAKI_GATHER_VIDX(ldb2);
-    GEMM_INT_TYPE kb;
-    for (kb = 0; kb < K; kb += BLOCK_K) {
-      LIBXS_ALIGNED(int32_t bp1[(BLOCK_K / 4) * BLOCK_N], LIBXS_ALIGNMENT);
-      LIBXS_ALIGNED(int32_t bp2[(BLOCK_K / 4) * BLOCK_N], LIBXS_ALIGNMENT);
-      const int bt = (kb == 0) ? beta : 1;
-      OZAKI_DISPATCH_U8(
-        OZAKI_REFORMAT_B_IMPL(rf_vidx1, b1, kb, BLOCK_N, bp1, BLOCK_K);
-        OZAKI_REFORMAT_B_IMPL(rf_vidx2, b2, kb, BLOCK_N, bp2, BLOCK_K);
-        ozaki_panel_u8_buud_fused(M, N, BLOCK_K, a1 + kb, lda1, bp1, BLOCK_N,
-          a2 + kb, lda2, bp2, BLOCK_N, bt, c, ldc),
-        OZAKI_REFORMAT_B_XOR_IMPL(rf_vidx1, b1, kb, BLOCK_N, bp1, BLOCK_K);
-        OZAKI_REFORMAT_B_XOR_IMPL(rf_vidx2, b2, kb, BLOCK_N, bp2, BLOCK_K);
-        ozaki_panel_u8_vnni_fused(M, N, BLOCK_K, a1 + kb, lda1, bp1, BLOCK_N,
-          a2 + kb, lda2, bp2, BLOCK_N, bt, c, ldc))
-    }
-    return;
-  }
-#endif
-  ozaki_gemm_u8u8s32('N', 'T', M, N, K, a1, lda1, b1, ldb1, beta, c, ldc);
-  ozaki_gemm_u8u8s32('N', 'T', M, N, K, a2, lda2, b2, ldb2, 1, c, ldc);
 }
 
 /* Fused s8*s8 -> s32 GEMM: c += A1*B1 + A2*B2 in one kernel call. */
