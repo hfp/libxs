@@ -189,27 +189,22 @@ LIBXS_API_INTERN int internal_libxs_cpuid_x86(libxs_cpuid_t* info)
                   feature_cpu = LIBXS_X86_AVX512_AMX;
                 }
                 { unsigned int eax2, ebx2, ecx3, edx2;
-                  int has_vnni_int8 = 0;
                   LIBXS_CPUID_X86(7, 1/*ecx*/, eax2, ebx2, ecx3, edx2);
-                  LIBXS_UNUSED(ebx2); LIBXS_UNUSED(ecx3);
-                  if (LIBXS_CPUID_CHECK(eax2, 0x00000010)) { /* AVX_VNNI_INT8 */
-                    has_vnni_int8 = 1;
-                    /**
-                     * keep the level monotone: INT8 (1110) sits above AMX (1105),
-                     * so only elevate when AMX is present (fold requirement upward)
-                     */
-                    if (LIBXS_X86_AVX512_AMX <= feature_cpu) {
-                      feature_cpu = LIBXS_X86_AVX512_INT8;
-                    }
-                  }
-                  if (LIBXS_CPUID_CHECK(edx2, 0x00080000)) { /* AVX10 */
+                  LIBXS_UNUSED(eax2); LIBXS_UNUSED(ebx2); LIBXS_UNUSED(ecx3);
+                  /**
+                   * 512-bit VPDPBUUD/BSSD (INT8, 1110) arrived with AVX10.2; the VEX-encoded
+                   * AVX-VNNI-INT8 bit does not imply them. The level stays monotone: INT8
+                   * sits above AMX (1105), hence AVX10.2 raises the level only with AMX.
+                   */
+                  if (LIBXS_CPUID_CHECK(edx2, 0x00080000) /* AVX10 */
+                    && LIBXS_X86_AVX512_AMX <= feature_cpu)
+                  {
                     unsigned int eax_10, ebx_10, ecx_10, edx_10;
                     LIBXS_CPUID_X86(0x24, 0/*ecx*/, eax_10, ebx_10, ecx_10, edx_10);
                     LIBXS_UNUSED(eax_10); LIBXS_UNUSED(ecx_10);
                     LIBXS_UNUSED(edx_10);
-                    if (LIBXS_CPUID_CHECK(ebx_10, 0x00040000) && 0 != has_vnni_int8
-                      && LIBXS_X86_AVX512_AMX <= feature_cpu)
-                    {
+                    /* EBX[7:0]: AVX10 version, EBX[18]: 512-bit vectors */
+                    if (2 <= (ebx_10 & 0xFF) && LIBXS_CPUID_CHECK(ebx_10, 0x00040000)) {
                       feature_cpu = LIBXS_X86_AVX10_512;
                     }
                   }

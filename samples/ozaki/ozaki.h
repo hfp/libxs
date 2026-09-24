@@ -788,15 +788,11 @@ LIBXS_INLINE void ozaki_gemm_s8s8s32_packed(GEMM_INT_TYPE M, GEMM_INT_TYPE K,
 {
 #if defined(LIBXS_INTRINSICS_AVX512) && 16 == BLOCK_N && (16 == BLOCK_K || 32 == BLOCK_K || 64 == BLOCK_K)
 # if defined(LIBXS_INTRINSICS_AMX) && 16 == BLOCK_M && 16 == BLOCK_N
-#   if (LIBXS_X86_AVX512_AMX <= LIBXS_STATIC_TARGET_ARCH)
-  ozaki_panel_i8_amx(M, BLOCK_N, K, a, lda, b, BLOCK_N, 0, c, ldc);
-  return;
-#   elif (LIBXS_X86_AVX512_AMX <= LIBXS_MAX_STATIC_TARGET_ARCH)
+  /* never by the static target: AMX needs the OS permission that only a runtime request gets */
   if (LIBXS_X86_AVX512_AMX <= ozaki_target_arch) {
     ozaki_panel_i8_amx(M, BLOCK_N, K, a, lda, b, BLOCK_N, 0, c, ldc);
-    return;
   }
-#   endif
+  else
 # endif
   OZAKI_DISPATCH_I8(
     ozaki_panel_i8_bssd(M, BLOCK_N, K, a, lda, b, BLOCK_N, 0, c, ldc),
@@ -812,15 +808,11 @@ LIBXS_INLINE void ozaki_gemm_s8s8s32_packed_fused(GEMM_INT_TYPE M, GEMM_INT_TYPE
 {
 #if defined(LIBXS_INTRINSICS_AVX512) && 16 == BLOCK_N && (16 == BLOCK_K || 32 == BLOCK_K || 64 == BLOCK_K)
 # if defined(LIBXS_INTRINSICS_AMX) && 16 == BLOCK_M && 16 == BLOCK_N
-#   if (LIBXS_X86_AVX512_AMX <= LIBXS_STATIC_TARGET_ARCH)
-  ozaki_panel_i8_amx_fused(M, BLOCK_N, K, a1, lda1, b1, BLOCK_N, a2, lda2, b2, BLOCK_N, 0, c, ldc);
-  return;
-#   elif (LIBXS_X86_AVX512_AMX <= LIBXS_MAX_STATIC_TARGET_ARCH)
+  /* never by the static target: AMX needs the OS permission that only a runtime request gets */
   if (LIBXS_X86_AVX512_AMX <= ozaki_target_arch) {
     ozaki_panel_i8_amx_fused(M, BLOCK_N, K, a1, lda1, b1, BLOCK_N, a2, lda2, b2, BLOCK_N, 0, c, ldc);
-    return;
   }
-#   endif
+  else
 # endif
   OZAKI_DISPATCH_I8(
     ozaki_panel_i8_bssd_fused(M, BLOCK_N, K, a1, lda1, b1, BLOCK_N, a2, lda2, b2, BLOCK_N, 0, c, ldc),

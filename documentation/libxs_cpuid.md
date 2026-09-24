@@ -2,7 +2,7 @@
 
 Header: `libxs_cpuid.h`
 
-Portable CPU feature detection for x86-64, AArch64, and RISC-V targets. Returns an ISA level that can be compared numerically — higher values indicate more capable instruction sets. x86 levels use thermometer ordering: higher numeric value implies all features of lower levels. AVX10/256 sits below AVX512 because it lacks 512-bit vectors.
+Portable CPU feature detection for x86-64, AArch64, and RISC-V targets. Returns an ISA level that can be compared numerically — higher values indicate more capable instruction sets. x86 levels use thermometer ordering: higher numeric value implies all features of lower levels. AVX10/256 sits below AVX512 because it lacks 512-bit vectors. The VEX-encoded AVX-VNNI-INT8 extension has no 512-bit form: `LIBXS_X86_AVX512_INT8` and above need AVX10.2, and AMX CPUs without it report as `LIBXS_X86_AVX512_AMX`.
 
 ## ISA Constants
 
@@ -18,8 +18,8 @@ Portable CPU feature detection for x86-64, AArch64, and RISC-V targets. Returns 
 | `LIBXS_X86_AVX10_256` | 1030 | AVX10.1/256: all features, 256-bit max (Sierra Forest) |
 | `LIBXS_X86_AVX512` | 1100 | AVX-512 (F + CD + DQ + BW + VL + VNNI) |
 | `LIBXS_X86_AVX512_AMX` | 1105 | AVX-512 + AMX (TILE + INT8 + BF16); Sapphire/Granite Rapids |
-| `LIBXS_X86_AVX512_INT8` | 1110 | AVX-512 + AVX-VNNI-INT8 (VPDPBUUD/BSSD) |
-| `LIBXS_X86_AVX10_512` | 1200 | AVX10.1/512 + AMX + INT8: full feature set |
+| `LIBXS_X86_AVX512_INT8` | 1110 | AMX + AVX10.2: 512-bit VPDPBUUD/BSSD |
+| `LIBXS_X86_AVX10_512` | 1200 | AVX10.2/512 + AMX: full feature set |
 | `LIBXS_AARCH64` | 2001 | ARMv8.1 baseline |
 | `LIBXS_AARCH64_SVE128` | 2201 | SVE 128-bit |
 | `LIBXS_AARCH64_SVE256` | 2301 | SVE 256-bit |
