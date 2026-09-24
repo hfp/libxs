@@ -20,6 +20,12 @@
 
 #define OZ2_AMX_NACC 6
 
+/* VPDPBUUD can be compiled (it runs if the CPU has AVX512_INT8) */
+#if defined(LIBXS_INTRINSICS_AVX512) && 16 == BLOCK_N && (16 == BLOCK_K || 32 == BLOCK_K || 64 == BLOCK_K) && \
+  (LIBXS_X86_AVX512_INT8 <= LIBXS_MAX_STATIC_TARGET_ARCH)
+# define OZ2_BUUD
+#endif
+
 /** Sign folding for residue storage: additive inverse (p - r) for negatives. */
 #define OZ2_SIGN_FOLD(SIGN, RES, PIDX) ((oz2_res_t)(((SIGN) < 0 && 0 != (RES)) ? (oz2_moduli[(PIDX)] - (RES)) : (RES)))
 
@@ -377,6 +383,30 @@ LIBXS_INLINE LIBXS_INTRINSICS(LIBXS_X86_AVX512) void oz2_reconstruct_batch_avx51
 }
 
 #endif /* LIBXS_INTRINSICS_AVX512 && OZ2_BATCH == 16 */
+
+
+#if defined(OZ2_BUUD)
+/** acc[M] += A[M,K] * B'[16,K] via VPDPBUUD: u8*u8 natively, so B needs no bias and A no row-sum. */
+LIBXS_INLINE LIBXS_INTRINSICS(LIBXS_X86_AVX512_INT8) void oz2_gemm_buud(GEMM_INT_TYPE M, GEMM_INT_TYPE K,
+  const oz2_res_t* a, GEMM_INT_TYPE lda, const oz2_res_t* b, GEMM_INT_TYPE ldb, __m512i acc[BLOCK_M])
+{
+  const __m512i vidx = OZAKI_GATHER_VIDX(ldb);
+  GEMM_INT_TYPE kk, mi;
+  int bk;
+  for (kk = 0; kk < K; kk += BLOCK_K) {
+    LIBXS_ALIGNED(int32_t bv[(BLOCK_K / 4) * BLOCK_N], LIBXS_ALIGNMENT);
+    OZAKI_REFORMAT_B_IMPL(vidx, b, kk, BLOCK_N, bv, BLOCK_K);
+    for (bk = 0; bk < BLOCK_K; bk += 4) {
+      const __m512i vb = _mm512_load_si512((const __m512i*)(bv + (bk >> 2) * BLOCK_N));
+      LIBXS_PRAGMA_LOOP_COUNT(1, BLOCK_M, BLOCK_M)
+      for (mi = 0; mi < M; ++mi) {
+        const __m512i va = _mm512_set1_epi32(*(const int32_t*)(a + (long)mi * lda + kk + bk));
+        acc[mi] = _mm512_dpbuud_epi32(acc[mi], va, vb);
+      }
+    }
+  }
+}
+#endif
 
 
 #if defined(LIBXS_INTRINSICS_AMX) && defined(LIBXS_INTRINSICS_AVX512) && \
@@ -877,7 +907,15 @@ LIBXS_INLINE void gemm_oz2_diff(const char* transa, const char* transb, const GE
                 const GEMM_INT_TYPE chunk_k = ((GEMM_INT_TYPE)K_CHUNK < K_grp_pad - kb) ? (GEMM_INT_TYPE)K_CHUNK : (K_grp_pad - kb);
                 __m512i acc[BLOCK_M];
                 GEMM_INT_TYPE kk;
+                int biased = 1; /* VPDPBUSD reads B signed: B is XOR-biased, then corrected by +128*row_sum(A) */
                 for (mi = 0; mi < iblk; ++mi) acc[mi] = _mm512_setzero_si512();
+#if defined(OZ2_BUUD)
+                if (LIBXS_X86_AVX512_INT8 <= ozaki_target_arch) {
+                  oz2_gemm_buud(iblk, chunk_k, a_prime + kb, K_grp_pad, b_prime + kb, K_grp_pad, acc);
+                  biased = 0;
+                }
+                else
+#endif
                 {
                   const __m512i vidx = OZAKI_GATHER_VIDX(K_grp_pad);
                   for (kk = kb; kk - kb < chunk_k; kk += BLOCK_K) {
@@ -896,8 +934,10 @@ LIBXS_INLINE void gemm_oz2_diff(const char* transa, const char* transb, const GE
                 }
                 for (mi = 0; mi < iblk; ++mi) {
                   int32_t asum = 0;
-                  for (kk = kb; kk - kb < chunk_k; ++kk) {
-                    asum += (int32_t)a_prime[mi * K_grp_pad + kk];
+                  if (0 != biased) {
+                    for (kk = kb; kk - kb < chunk_k; ++kk) {
+                      asum += (int32_t)a_prime[mi * K_grp_pad + kk];
+                    }
                   }
                   {
                     const __m512i vr = libxs_mod_u32x16(_mm512_add_epi32(acc[mi], _mm512_set1_epi32(128 * asum)), pi, rcp_i);
