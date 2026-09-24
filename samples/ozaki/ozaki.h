@@ -553,20 +553,33 @@ LIBXS_INLINE void ozaki_amx_tilecfg_init(ozaki_amx_tilecfg_t* cfg, int m_rows, i
 }
 
 
-/** AMX s8*s8 panel via TDPBSSD: both operands signed, no bias correction. */
+/** Tile config of the i8 panels: BLOCK_M rows and a K-tail pair of k_tail bytes, loaded once per thread. */
+LIBXS_INLINE LIBXS_INTRINSICS(LIBXS_X86_AVX512_AMX) void ozaki_amx_configure(int k_tail)
+{
+  ozaki_amx_tilecfg_t cfg;
+  ozaki_amx_tilecfg_init(&cfg, BLOCK_M, k_tail);
+  _tile_loadconfig(&cfg);
+}
+
+
+LIBXS_INLINE LIBXS_INTRINSICS(LIBXS_X86_AVX512_AMX) void ozaki_amx_release(void)
+{
+  _tile_release();
+}
+
+
+/** AMX s8*s8 panel via TDPBSSD: both operands signed, no bias correction; needs ozaki_amx_configure(K % 64). */
 LIBXS_INLINE LIBXS_INTRINSICS(LIBXS_X86_AVX512_AMX) void ozaki_panel_i8_amx(GEMM_INT_TYPE M, GEMM_INT_TYPE N, GEMM_INT_TYPE K,
   const int8_t* a, GEMM_INT_TYPE lda, const int32_t* b, GEMM_INT_TYPE ldb, int beta, int32_t* c, GEMM_INT_TYPE ldc)
 {
-  ozaki_amx_tilecfg_t cfg;
   const GEMM_INT_TYPE kfull = K & ~(GEMM_INT_TYPE)63;
   const int b_stride = (int)ldb * (int)sizeof(int32_t);
   const int c_stride = (int)ldc * (int)sizeof(int32_t);
   GEMM_INT_TYPE kb;
-  LIBXS_ASSERT(M <= BLOCK_M && N == BLOCK_N && 0 == (K % 4));
+  LIBXS_ASSERT(BLOCK_M == M && N == BLOCK_N && 0 == (K % 4));
+  LIBXS_UNUSED(M);
   LIBXS_UNUSED(N);
 
-  ozaki_amx_tilecfg_init(&cfg, (int)M, (int)(K - kfull));
-  _tile_loadconfig(&cfg);
   if (0 == beta) _tile_zero(OZAKI_AMX_TILE_C);
   else _tile_loadd(OZAKI_AMX_TILE_C, c, c_stride);
   for (kb = 0; kb < kfull; kb += 64) {
@@ -580,27 +593,24 @@ LIBXS_INLINE LIBXS_INTRINSICS(LIBXS_X86_AVX512_AMX) void ozaki_panel_i8_amx(GEMM
     _tile_dpbssd(OZAKI_AMX_TILE_C, OZAKI_AMX_TILE_AT, OZAKI_AMX_TILE_BT);
   }
   _tile_stored(OZAKI_AMX_TILE_C, c, c_stride);
-  _tile_release();
 }
 
 
-/** Fused AMX s8*s8 panel: C = A1*B1 + A2*B2 via TDPBSSD into one C tile. */
+/** Fused AMX s8*s8 panel: C = A1*B1 + A2*B2 via TDPBSSD into one C tile; needs ozaki_amx_configure(K % 64). */
 LIBXS_INLINE LIBXS_INTRINSICS(LIBXS_X86_AVX512_AMX) void ozaki_panel_i8_amx_fused(GEMM_INT_TYPE M, GEMM_INT_TYPE N,
   GEMM_INT_TYPE K, const int8_t* a1, GEMM_INT_TYPE lda1, const int32_t* b1, GEMM_INT_TYPE ldb1,
   const int8_t* a2, GEMM_INT_TYPE lda2, const int32_t* b2, GEMM_INT_TYPE ldb2,
   int beta, int32_t* c, GEMM_INT_TYPE ldc)
 {
-  ozaki_amx_tilecfg_t cfg;
   const GEMM_INT_TYPE kfull = K & ~(GEMM_INT_TYPE)63;
   const int b1_stride = (int)ldb1 * (int)sizeof(int32_t);
   const int b2_stride = (int)ldb2 * (int)sizeof(int32_t);
   const int c_stride = (int)ldc * (int)sizeof(int32_t);
   GEMM_INT_TYPE kb;
-  LIBXS_ASSERT(M <= BLOCK_M && N == BLOCK_N && 0 == (K % 4));
+  LIBXS_ASSERT(BLOCK_M == M && N == BLOCK_N && 0 == (K % 4));
+  LIBXS_UNUSED(M);
   LIBXS_UNUSED(N);
 
-  ozaki_amx_tilecfg_init(&cfg, (int)M, (int)(K - kfull));
-  _tile_loadconfig(&cfg);
   if (0 == beta) _tile_zero(OZAKI_AMX_TILE_C);
   else _tile_loadd(OZAKI_AMX_TILE_C, c, c_stride);
   for (kb = 0; kb < kfull; kb += 64) {
@@ -620,7 +630,6 @@ LIBXS_INLINE LIBXS_INTRINSICS(LIBXS_X86_AVX512_AMX) void ozaki_panel_i8_amx_fuse
     _tile_dpbssd(OZAKI_AMX_TILE_C, OZAKI_AMX_TILE_AT, OZAKI_AMX_TILE_BT);
   }
   _tile_stored(OZAKI_AMX_TILE_C, c, c_stride);
-  _tile_release();
 }
 
 #endif /* LIBXS_INTRINSICS_AMX && BLOCK_M==16 && BLOCK_N==16 */
@@ -789,7 +798,7 @@ LIBXS_INLINE void ozaki_gemm_s8s8s32_packed(GEMM_INT_TYPE M, GEMM_INT_TYPE K,
 #if defined(LIBXS_INTRINSICS_AVX512) && 16 == BLOCK_N && (16 == BLOCK_K || 32 == BLOCK_K || 64 == BLOCK_K)
 # if defined(LIBXS_INTRINSICS_AMX) && 16 == BLOCK_M && 16 == BLOCK_N
   /* never by the static target: AMX needs the OS permission that only a runtime request gets */
-  if (LIBXS_X86_AVX512_AMX <= ozaki_target_arch) {
+  if (LIBXS_X86_AVX512_AMX <= ozaki_target_arch && BLOCK_M == M) { /* tiles: ozaki_amx_configure */
     ozaki_panel_i8_amx(M, BLOCK_N, K, a, lda, b, BLOCK_N, 0, c, ldc);
   }
   else
@@ -809,7 +818,7 @@ LIBXS_INLINE void ozaki_gemm_s8s8s32_packed_fused(GEMM_INT_TYPE M, GEMM_INT_TYPE
 #if defined(LIBXS_INTRINSICS_AVX512) && 16 == BLOCK_N && (16 == BLOCK_K || 32 == BLOCK_K || 64 == BLOCK_K)
 # if defined(LIBXS_INTRINSICS_AMX) && 16 == BLOCK_M && 16 == BLOCK_N
   /* never by the static target: AMX needs the OS permission that only a runtime request gets */
-  if (LIBXS_X86_AVX512_AMX <= ozaki_target_arch) {
+  if (LIBXS_X86_AVX512_AMX <= ozaki_target_arch && BLOCK_M == M) { /* tiles: ozaki_amx_configure */
     ozaki_panel_i8_amx_fused(M, BLOCK_N, K, a1, lda1, b1, BLOCK_N, a2, lda2, b2, BLOCK_N, 0, c, ldc);
   }
   else

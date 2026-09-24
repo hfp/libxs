@@ -123,7 +123,7 @@ OZAKI_API_INTERN void gemm_init(void)
       const char* const ozaki_maxk_env = getenv("OZAKI_MAXK");
       const char* const ozaki_verbose_env = getenv("OZAKI_VERBOSE");
       const char* const ozaki_complex_env = getenv("OZAKI_COMPLEX");
-      ozaki = (NULL == ozaki_env ? 2 /*default*/ : atoi(ozaki_env));
+      ozaki = (NULL == ozaki_env ? 3 /*adaptive*/ : atoi(ozaki_env));
       /**
        * OZAKI_MAXK: max K per preprocessing pass (0=no grouping).
        * Default: K_GRP (compile-time, typically 32768).
@@ -265,6 +265,16 @@ OZAKI_API_INTERN void gemm_init(void)
             ozaki_trim, ocl_groups, (NULL != ozaki_maxk_env) ? ozaki_maxk : 0 /*auto*/);
         }
 #endif
+        { /* adaptive on the CPU: Scheme 1 is faster once AMX is active, Scheme 2 otherwise (and twice as accurate) */
+          int cpu = (3 == ozaki);
+#if defined(__LIBXSTREAM)
+          if (NULL != ozaki_ocl_handle) cpu = 0; /* the device resolves its own adaptive scheme */
+#endif
+          if (0 != cpu) {
+            ozaki = (LIBXS_X86_AVX512_AMX <= ozaki_target_arch ? 1 : 2);
+            if (1 == ozaki) ozaki_n = LIBXS_CLMP(NULL == ozaki_n_env ? NSLICES_DEFAULT : atoi(ozaki_n_env), 1, MAX_NSLICES);
+          }
+        }
         atexit(gemm_atexit);
         signal(SIGABRT, gemm_signal_handler);
         signal(SIGTERM, gemm_signal_handler);

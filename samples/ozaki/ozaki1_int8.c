@@ -83,6 +83,10 @@ LIBXS_INLINE void gemm_oz1_diff(const char* transa, const char* transb, const GE
   ozaki_xsmm_t xsmm;
 #endif
   int use_xsmm = 0;
+#if defined(LIBXS_INTRINSICS_AMX) && defined(LIBXS_INTRINSICS_AVX512) && \
+  16 == BLOCK_M && 16 == BLOCK_N && (16 == BLOCK_K || 32 == BLOCK_K || 64 == BLOCK_K)
+  int use_amx = 0;
+#endif
   int16_t* expa_raw = NULL;
   int16_t* expb_raw = NULL;
   double* expa_fp = NULL;
@@ -121,6 +125,10 @@ LIBXS_INLINE void gemm_oz1_diff(const char* transa, const char* transb, const GE
     const GEMM_INT_TYPE N_blocks = LIBXS_UPDIV(N, BLOCK_N);
     b_packed = (int32_t*)libxs_malloc(gemm_pool, (size_t)nslices * N_blocks * (K_grp_pad / 4) * BLOCK_N * sizeof(int32_t), 0);
   }
+#endif
+#if defined(LIBXS_INTRINSICS_AMX) && defined(LIBXS_INTRINSICS_AVX512) && \
+  16 == BLOCK_M && 16 == BLOCK_N && (16 == BLOCK_K || 32 == BLOCK_K || 64 == BLOCK_K)
+  use_amx = (NULL != b_packed && 0 == use_xsmm && LIBXS_X86_AVX512_AMX <= ozaki_target_arch);
 #endif
   expa_raw = (int16_t*)libxs_malloc(gemm_pool, (size_t)M * sizeof(int16_t), 0);
   expb_raw = (int16_t*)libxs_malloc(gemm_pool, (size_t)N * sizeof(int16_t), 0);
@@ -419,6 +427,10 @@ LIBXS_INLINE void gemm_oz1_diff(const char* transa, const char* transb, const GE
        * of a read-modify-write per pair. Also eliminates per-pair
        * omp-for barriers (implicit barrier at end of tile loop suffices).
        */
+#if defined(LIBXS_INTRINSICS_AMX) && defined(LIBXS_INTRINSICS_AVX512) && \
+  16 == BLOCK_M && 16 == BLOCK_N && (16 == BLOCK_K || 32 == BLOCK_K || 64 == BLOCK_K)
+      if (0 != use_amx) ozaki_amx_configure((int)(K_grp_pad % 64)); /* per thread, not per panel call */
+#endif
 #if defined(_OPENMP)
 #     pragma omp for LIBXS_OPENMP_COLLAPSE(2) OZAKI_OMP_SCHEDULE
 #endif
@@ -514,6 +526,10 @@ LIBXS_INLINE void gemm_oz1_diff(const char* transa, const char* transb, const GE
           }
         }
       }
+#if defined(LIBXS_INTRINSICS_AMX) && defined(LIBXS_INTRINSICS_AVX512) && \
+  16 == BLOCK_M && 16 == BLOCK_N && (16 == BLOCK_K || 32 == BLOCK_K || 64 == BLOCK_K)
+      if (0 != use_amx) ozaki_amx_release();
+#endif
     } /* end K-group loop */
 
   } /* end parallel */
