@@ -19,6 +19,8 @@
 #endif
 
 #define OZ2_AMX_NACC 6
+/* Below this problem size (cube root of M*N*K) AMX loses to VNNI by up to 1.6x, above it wins up to 4x */
+#define OZ2_AMX_MIN 640
 
 /* VPDPBUUD can be compiled (it runs if the CPU has AVX512_INT8) */
 #if defined(LIBXS_INTRINSICS_AVX512) && 16 == BLOCK_N && (16 == BLOCK_K || 32 == BLOCK_K || 64 == BLOCK_K) && \
@@ -529,15 +531,9 @@ LIBXS_INLINE void gemm_oz2_diff(const char* transa, const char* transb, const GE
   const int tb = (*transb != 'N' && *transb != 'n');
   const GEMM_INT_TYPE M = *m, N = *n, K = *k;
   const GEMM_INT_TYPE ldcv = *ldc;
-  int nmoduli = LIBXS_CLMP(ozaki_n, 1, OZ2_NMODULI_MAX);
-  int oztrim_bits = 0;
   const GEMM_INT_TYPE K_grp_size = (0 < ozaki_maxk ? (GEMM_INT_TYPE)ozaki_maxk : K);
   const GEMM_INT_TYPE K_grp_max = LIBXS_MIN(K_grp_size, K);
-  int use_amx = 0;
-#if defined(__LIBXSMM)
-  ozaki_xsmm_t xsmm[2]; /* whole K_CHUNK, chunk tail */
-#endif
-  int use_xsmm = 0;
+  const size_t c_size = (size_t)ldcv * (size_t)N * sizeof(GEMM_REAL_TYPE);
   GEMM_INT_TYPE K_grp_pad, nchunk, jstep;
   int32_t* a_rowsum = NULL;
   oz2_res_t* a_res = NULL;
@@ -548,13 +544,18 @@ LIBXS_INLINE void gemm_oz2_diff(const char* transa, const char* transb, const GE
   double* expa_fp = NULL;
   double* expb_fp = NULL;
   GEMM_REAL_TYPE* c_ref = NULL;
-  const size_t c_size = (size_t)ldcv * (size_t)N * sizeof(GEMM_REAL_TYPE);
+#if defined(__LIBXSMM)
+  ozaki_xsmm_t xsmm[2]; /* whole K_CHUNK, chunk tail */
+  int use_xsmm = 0;
+#endif
+  int nmoduli = LIBXS_CLMP(ozaki_n, 1, OZ2_NMODULI_MAX);
+  int oztrim_bits = 0, use_amx = 0;
   int i, j;
   LIBXS_ASSERT(LIBXS_DATATYPE_F64 == LIBXS_DATATYPE(GEMM_REAL_TYPE) || LIBXS_DATATYPE_F32 == LIBXS_DATATYPE(GEMM_REAL_TYPE));
-
 #if defined(LIBXS_INTRINSICS_AMX) && defined(LIBXS_INTRINSICS_AVX512) && \
   16 == BLOCK_M && 16 == BLOCK_N && (16 == BLOCK_K || 32 == BLOCK_K || 64 == BLOCK_K)
-  use_amx = (BLOCK_M <= M && BLOCK_N <= N && LIBXS_X86_AVX512_AMX <= ozaki_target_arch);
+  use_amx = (BLOCK_M <= M && BLOCK_N <= N && LIBXS_X86_AVX512_AMX <= ozaki_target_arch
+             && (0 < ozaki_amx || (double)OZ2_AMX_MIN * OZ2_AMX_MIN * OZ2_AMX_MIN <= (double)M * N * K));
 #endif
 #if defined(__LIBXSMM)
   if (0 != ozaki_xsmm) { /* LIBXSMM ahead of the built-in kernels */

@@ -24,6 +24,7 @@ OZAKI_APIVAR_PUBLIC_DEF(int ozaki_maxk);
 OZAKI_APIVAR_PRIVATE_DEF(volatile LIBXS_ATOMIC_LOCKTYPE gemm_lock);
 OZAKI_APIVAR_PRIVATE_DEF(libxs_malloc_pool_t* gemm_pool);
 OZAKI_APIVAR_PRIVATE_DEF(int ozaki_target_arch);
+OZAKI_APIVAR_PRIVATE_DEF(int ozaki_amx);
 OZAKI_APIVAR_PRIVATE_DEF(int ozaki_idx);
 OZAKI_APIVAR_PRIVATE_DEF(double ozaki_eps);
 OZAKI_APIVAR_PRIVATE_DEF(double ozaki_rsq);
@@ -165,7 +166,6 @@ OZAKI_API_INTERN void gemm_init(void)
         const char* const ozaki_tn_env = getenv("OZAKI_TN");
         const int ozaki_ocl = (NULL == ozaki_ocl_env ? 0 /*default*/ : atoi(ozaki_ocl_env));
 #endif
-        const int ozaki_amx = (NULL == ozaki_amx_env ? 0 /*default*/ : atoi(ozaki_amx_env));
         libxs_init(); /*libxs_malloc_pool()*/
         libxs_matdiff_clear(&gemm_diff);
         gemm_pool = libxs_malloc_pool(NULL, NULL);
@@ -223,8 +223,10 @@ OZAKI_API_INTERN void gemm_init(void)
           if (0 == ozaki_verbose) ozaki_verbose = 1;
           ozaki_rsq = atof(ozaki_rsq_env);
         }
+        /* OZAKI_AMX: unset is auto (-1), where each scheme decides per call (see use_amx) */
+        ozaki_amx = (NULL == ozaki_amx_env || '\0' == *ozaki_amx_env) ? -1 : atoi(ozaki_amx_env);
         ozaki_target_arch = libxs_cpuid(NULL);
-        if (0 != ozaki_amx) { /* say why an explicit request falls back: silently, VNNI was once measured as AMX */
+        if (0 != ozaki_amx) {
           const char* reason = NULL;
 #if defined(LIBXS_INTRINSICS_AMX)
           if (LIBXS_X86_AVX512_AMX > ozaki_target_arch) reason = "not supported by the CPU";
@@ -235,7 +237,10 @@ OZAKI_API_INTERN void gemm_init(void)
 #else
           reason = "not compiled in";
 #endif
-          if (NULL != reason) fprintf(stderr, "OZAKI: OZAKI_AMX=%i has no effect, AMX is %s\n", ozaki_amx, reason);
+          /* say why an explicit request falls back: silently, VNNI was once measured as AMX */
+          if (NULL != reason && 0 < ozaki_amx) {
+            fprintf(stderr, "OZAKI: OZAKI_AMX=%i has no effect, AMX is %s\n", ozaki_amx, reason);
+          }
         }
         else if (LIBXS_X86_AVX512_AMX <= ozaki_target_arch) {
           ozaki_target_arch = LIBXS_X86_AVX512_AMX - 1;

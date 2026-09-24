@@ -63,15 +63,15 @@ The `zgemm-wrap.x` and `cgemm-wrap.x` drivers call ZGEMM and CGEMM.
 | OZAKI           | 3         | 0=bypass (BLAS), 1=mantissa slicing, 2=CRT, 3=adaptive            |
 | OZAKI_COMPLEX   | (auto)    | Complex dispatch: 0=BLAS, 1=CPU, 2=GPU+fallback. Auto: 2 if on    |
 | OZAKI_N         | (auto)    | Slices (Sch.1: fp64=8, fp32=4) or moduli (Sch.2: fp64=16, fp32=9) |
-| OZAKI_AMX       | 0         | 1=AMX int8 kernels where available (CPU)                          |
+| OZAKI_AMX       | (auto)    | CPU: 0=VNNI, 1=AMX. Auto: AMX for Sch.1, for Sch.2 from N~640     |
 | OZAKI_XSMM      | 1         | With `make LIBXSMM=1`: 0=built-in int8 kernels, 1=LIBXSMM         |
 
 OZAKI=3 (adaptive) starts with Scheme 1 on the first GPU call to
 learn the effective cutoff from preprocessing occupancy. Subsequent
 calls compare the Scheme-1 pair count (at the cached cutoff) against
 the Scheme-2 modulus count and pick the cheaper path. On the CPU,
-adaptive means Scheme 1 when AMX is active (OZAKI_AMX=1), and Scheme 2
-otherwise.
+adaptive means Scheme 1 where AMX is available (unless OZAKI_AMX=0),
+and Scheme 2 otherwise.
 
 Unset means adaptive. The GPU default is LIBXSTREAM's, so that it stays
 the same whichever driver asks for it. Setting OZAKI applies to both.

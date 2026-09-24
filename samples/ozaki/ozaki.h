@@ -154,6 +154,7 @@
 #define ozaki_eps LIBXS_TPREFIX(GEMM_REAL_TYPE, ozaki_eps)
 #define ozaki_rsq LIBXS_TPREFIX(GEMM_REAL_TYPE, ozaki_rsq)
 #define ozaki_target_arch LIBXS_TPREFIX(GEMM_REAL_TYPE, ozaki_tarch)
+#define ozaki_amx LIBXS_TPREFIX(GEMM_REAL_TYPE, ozaki_amx)
 #define gemm_oz1 LIBXS_TPREFIX(GEMM_REAL_TYPE, gemm_oz1)
 #define gemm_oz2 LIBXS_TPREFIX(GEMM_REAL_TYPE, gemm_oz2)
 #define ozaki_decay LIBXS_TPREFIX(GEMM_REAL_TYPE, ozaki_decay)
@@ -272,6 +273,7 @@ OZAKI_APIVAR_PRIVATE(volatile LIBXS_ATOMIC_LOCKTYPE gemm_lock);
 OZAKI_APIVAR_PRIVATE(zgemm_function_t zgemm_original);
 OZAKI_APIVAR_PRIVATE(libxs_malloc_pool_t* gemm_pool);
 OZAKI_APIVAR_PRIVATE(int ozaki_target_arch);
+OZAKI_APIVAR_PRIVATE(int ozaki_amx);
 OZAKI_APIVAR_PRIVATE(int ozaki_idx);
 OZAKI_APIVAR_PRIVATE(double ozaki_eps);
 OZAKI_APIVAR_PRIVATE(double ozaki_rsq);
