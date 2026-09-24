@@ -224,12 +224,20 @@ OZAKI_API_INTERN void gemm_init(void)
           ozaki_rsq = atof(ozaki_rsq_env);
         }
         ozaki_target_arch = libxs_cpuid(NULL);
-        if (0 != ozaki_amx && LIBXS_X86_AVX512_AMX <= ozaki_target_arch) {
-          if (EXIT_SUCCESS != libxs_cpuid_amx_enable()) {
+        if (0 != ozaki_amx) { /* say why an explicit request falls back: silently, VNNI was once measured as AMX */
+          const char* reason = NULL;
+#if defined(LIBXS_INTRINSICS_AMX)
+          if (LIBXS_X86_AVX512_AMX > ozaki_target_arch) reason = "not supported by the CPU";
+          else if (EXIT_SUCCESS != libxs_cpuid_amx_enable()) {
             ozaki_target_arch = LIBXS_MIN(ozaki_target_arch, LIBXS_X86_AVX512_AMX - 1);
+            reason = "not permitted by the OS";
           }
+#else
+          reason = "not compiled in";
+#endif
+          if (NULL != reason) fprintf(stderr, "OZAKI: OZAKI_AMX=%i has no effect, AMX is %s\n", ozaki_amx, reason);
         }
-        else if (0 == ozaki_amx && LIBXS_X86_AVX512_AMX <= ozaki_target_arch) {
+        else if (LIBXS_X86_AVX512_AMX <= ozaki_target_arch) {
           ozaki_target_arch = LIBXS_X86_AVX512_AMX - 1;
         }
 #if defined(__LIBXSMM)

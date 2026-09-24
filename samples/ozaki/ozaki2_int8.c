@@ -527,9 +527,10 @@ LIBXS_INLINE void gemm_oz2_diff(const char* transa, const char* transb, const GE
   int use_amx = 0;
 #if defined(__LIBXSMM)
   ozaki_xsmm_t xsmm[2]; /* whole K_CHUNK, chunk tail */
-  int use_xsmm = 0;
 #endif
-  GEMM_INT_TYPE K_grp_pad;
+  int use_xsmm = 0;
+  GEMM_INT_TYPE K_grp_pad, nchunk;
+  int32_t* a_rowsum = NULL;
   oz2_res_t* a_res = NULL;
   oz2_res_t* b_res = NULL;
   int32_t* b_packed = NULL;
@@ -555,6 +556,7 @@ LIBXS_INLINE void gemm_oz2_diff(const char* transa, const char* transb, const GE
   }
 #endif
   K_grp_pad = LIBXS_UP(K_grp_max, 0 != use_amx ? 64 : BLOCK_K);
+  nchunk = LIBXS_UPDIV(K_grp_pad, K_CHUNK);
 
   /**
    * Trim counts moduli, the unit of work, and the truncation follows from what those
@@ -616,6 +618,18 @@ LIBXS_INLINE void gemm_oz2_diff(const char* transa, const char* transb, const GE
     if (NULL == b_packed) use_xsmm = 0;
   }
 #endif
+#if defined(LIBXS_INTRINSICS_AVX512) && 16 == BLOCK_N && \
+  (LIBXS_X86_AVX512 <= LIBXS_STATIC_TARGET_ARCH || LIBXS_X86_AVX512 <= LIBXS_MAX_STATIC_TARGET_ARCH)
+  { /* VPDPBUSD is corrected by +128*row_sum(A), which depends on row, modulus, and K chunk but not on the tile */
+    int biased = (0 == use_xsmm && LIBXS_X86_AVX512 <= ozaki_target_arch);
+# if defined(OZ2_BUUD)
+    if (LIBXS_X86_AVX512_INT8 <= ozaki_target_arch) biased = 0;
+# endif
+    if (0 != biased) {
+      a_rowsum = (int32_t*)libxs_malloc(gemm_pool, (size_t)nmoduli * M * nchunk * sizeof(int32_t), 0);
+    }
+  }
+#endif
   expa_raw = (int16_t*)libxs_malloc(gemm_pool, (size_t)M * sizeof(int16_t), 0);
   expb_raw = (int16_t*)libxs_malloc(gemm_pool, (size_t)N * sizeof(int16_t), 0);
   expa_fp = (double*)libxs_malloc(gemm_pool, (size_t)M * sizeof(double), 0);
@@ -663,6 +677,7 @@ LIBXS_INLINE void gemm_oz2_diff(const char* transa, const char* transb, const GE
         /* Zero this row's residue buffers */
         for (pidx = 0; pidx < nmoduli; ++pidx) {
           memset(a_res + (long)pidx * M * K_grp_pad + (long)row * K_grp_pad, 0, (size_t)K_grp_pad);
+          if (NULL != a_rowsum) memset(a_rowsum + ((size_t)pidx * M + row) * nchunk, 0, (size_t)nchunk * sizeof(int32_t));
         }
         for (kk = kb_grp; kk < kb_grp + K_len; ++kk) {
           int16_t e;
@@ -671,18 +686,31 @@ LIBXS_INLINE void gemm_oz2_diff(const char* transa, const char* transb, const GE
           if (e > row_max_exp) row_max_exp = e;
         }
         expa_raw[row] = row_max_exp;
-        for (kk = kb_grp; kk < kb_grp + K_len; ++kk) {
-          int16_t e;
-          uint64_t mt;
-          int sign;
-          sign = ozaki_extract_ieee(a[LIBXS_INDEX(ta, *lda, row, kk)], &e, &mt);
-          if (0 != mt) {
-            const int delta = (int)row_max_exp - (int)e + oztrim_bits;
-            uint8_t tmp[OZ2_NMODULI_MAX];
-            oz2_reduce(mt, delta, tmp, nmoduli);
-            LIBXS_PRAGMA_LOOP_COUNT(1, OZ2_NMODULI_MAX, OZ2_NMODULI_DEFAULT)
+        for (kk = kb_grp; kk < kb_grp + K_len; kk += K_CHUNK) { /* local row sums: rows of two threads share lines */
+          const GEMM_INT_TYPE kend = LIBXS_MIN(kk + (GEMM_INT_TYPE)K_CHUNK, kb_grp + K_len);
+          int32_t rsum[OZ2_NMODULI_MAX];
+          GEMM_INT_TYPE kc;
+          memset(rsum, 0, sizeof(rsum));
+          for (kc = kk; kc < kend; ++kc) {
+            int16_t e;
+            uint64_t mt;
+            int sign;
+            sign = ozaki_extract_ieee(a[LIBXS_INDEX(ta, *lda, row, kc)], &e, &mt);
+            if (0 != mt) {
+              const int delta = (int)row_max_exp - (int)e + oztrim_bits;
+              uint8_t tmp[OZ2_NMODULI_MAX];
+              oz2_reduce(mt, delta, tmp, nmoduli);
+              LIBXS_PRAGMA_LOOP_COUNT(1, OZ2_NMODULI_MAX, OZ2_NMODULI_DEFAULT)
+              for (pidx = 0; pidx < nmoduli; ++pidx) {
+                const oz2_res_t r = OZ2_SIGN_FOLD(sign, tmp[pidx], pidx);
+                a_res[(long)pidx * M * K_grp_pad + (long)row * K_grp_pad + (kc - kb_grp)] = r;
+                rsum[pidx] += r;
+              }
+            }
+          }
+          if (NULL != a_rowsum) {
             for (pidx = 0; pidx < nmoduli; ++pidx) {
-              a_res[(long)pidx * M * K_grp_pad + (long)row * K_grp_pad + (kk - kb_grp)] = OZ2_SIGN_FOLD(sign, tmp[pidx], pidx);
+              a_rowsum[((size_t)pidx * M + row) * nchunk + (kk - kb_grp) / K_CHUNK] = rsum[pidx];
             }
           }
         }
@@ -935,8 +963,11 @@ LIBXS_INLINE void gemm_oz2_diff(const char* transa, const char* transb, const GE
                 for (mi = 0; mi < iblk; ++mi) {
                   int32_t asum = 0;
                   if (0 != biased) {
-                    for (kk = kb; kk - kb < chunk_k; ++kk) {
-                      asum += (int32_t)a_prime[mi * K_grp_pad + kk];
+                    if (NULL != a_rowsum) asum = a_rowsum[((size_t)pidx * M + ib + mi) * nchunk + kb / K_CHUNK];
+                    else {
+                      for (kk = kb; kk - kb < chunk_k; ++kk) {
+                        asum += (int32_t)a_prime[mi * K_grp_pad + kk];
+                      }
                     }
                   }
                   {
@@ -1036,6 +1067,7 @@ LIBXS_INLINE void gemm_oz2_diff(const char* transa, const char* transb, const GE
   libxs_free(a_res);
   libxs_free(b_res);
   libxs_free(b_packed);
+  libxs_free(a_rowsum);
   libxs_free(expa_raw);
   libxs_free(expb_raw);
   libxs_free(expa_fp);
