@@ -35,6 +35,9 @@ OZAKI_APIVAR_PRIVATE_DEF(int ozaki_exit);
 OZAKI_APIVAR_PRIVATE_DEF(int ozaki_n);
 OZAKI_APIVAR_PRIVATE_DEF(int ozaki_decay);
 OZAKI_APIVAR_PRIVATE_DEF(int gemm_threshold);
+#if defined(__LIBXSMM)
+OZAKI_APIVAR_PRIVATE_DEF(int ozaki_xsmm);
+#endif
 #if GEMM_IS_DOUBLE /* single definition across both precision builds */
 LIBXS_TLS int gemm_nozaki;
 LIBXS_TLS int gemm_dump_inhibit;
@@ -152,6 +155,9 @@ OZAKI_API_INTERN void gemm_init(void)
         const char* const ozaki_rsq_env = getenv("OZAKI_RSQ");
         const char* const ozaki_n_env = getenv("OZAKI_N");
         const char* const ozaki_decay_env = getenv("OZAKI_DECAY");
+#if defined(__LIBXSMM)
+        const char* const ozaki_xsmm_env = getenv("OZAKI_XSMM");
+#endif
 #if defined(__LIBXSTREAM)
         const char* const ozaki_groups_env = getenv("OZAKI_GROUPS");
         const char* const ozaki_ocl_env = getenv("OZAKI_OCL");
@@ -226,6 +232,9 @@ OZAKI_API_INTERN void gemm_init(void)
         else if (0 == ozaki_amx && LIBXS_X86_AVX512_AMX <= ozaki_target_arch) {
           ozaki_target_arch = LIBXS_X86_AVX512_AMX - 1;
         }
+#if defined(__LIBXSMM)
+        ozaki_xsmm = (NULL == ozaki_xsmm_env ? 1 /*default*/ : atoi(ozaki_xsmm_env));
+#endif
 #if defined(__LIBXSTREAM)
         /* initialize OpenCL Ozaki context */
         if (0 != ozaki_ocl && (0 < ozaki && 3 >= ozaki)) {

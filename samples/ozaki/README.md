@@ -16,6 +16,11 @@ LIBXS must be built first from the repository root. When a sibling
 `libxstream` directory is detected, the optional OpenCL/GPU path is
 compiled in (see OZAKI_OCL below).
 
+`make LIBXSMM=1` puts LIBXSMM's int8 kernels ahead of the built-in
+VNNI/AMX kernels (Scheme 2 for now); `OZAKI_XSMM=0` returns to the
+built-in kernels at runtime. It needs a built sibling `libxsmm`
+directory.
+
 ## Link-Time Interception
 
 Two link-time variants are built per precision:
@@ -59,6 +64,7 @@ The `zgemm-wrap.x` and `cgemm-wrap.x` drivers call ZGEMM and CGEMM.
 | OZAKI           | 2 (CPU)   | 0=bypass (BLAS), 1=mantissa slicing, 2=CRT, 3=adaptive            |
 | OZAKI_COMPLEX   | (auto)    | Complex dispatch: 0=BLAS, 1=CPU, 2=GPU+fallback. Auto: 2 if on    |
 | OZAKI_N         | (auto)    | Slices (Sch.1: fp64=8, fp32=4) or moduli (Sch.2: fp64=16, fp32=9) |
+| OZAKI_XSMM      | 1         | With `make LIBXSMM=1`: 0=built-in int8 kernels, 1=LIBXSMM         |
 
 OZAKI=3 (adaptive) starts with Scheme 1 on the first GPU call to
 learn the effective cutoff from preprocessing occupancy. Subsequent
@@ -78,10 +84,6 @@ Setting OZAKI applies to both.
 | OZAKI_TRIM        | 0         | Levels to trim (0=default). ~7 bits/level (Sch.1), ~4 bits (Sch.2); negative buys precision back |
 | OZAKI_MAXK        | 32768     | Max K per preprocessing pass (0=full K in one pass)              |
 | OZAKI_THRESHOLD   | 12        | Intensity threshold. Bypass when flops/(bytes\*thr)<1. 0=always  |
-
-`OZAKI_I8` selects signed i8 residues (moduli<=128) instead of u8 for
-Scheme 2 on the CPU path. It is a compile-time define (`-DOZAKI_I8=1`)
-rather than an environment variable, and the GPU path does not have it.
 
 `OZAKI_MAXK` also travels to the GPU context, where it decides the
 derived K-grouping; the LIBXSTREAM Ozaki README states that rule, so

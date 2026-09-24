@@ -11,6 +11,7 @@ CFLAGS = $(NULL)
 DFLAGS = $(NULL)
 
 DNNL = 0
+LIBXSMM = 0
 OMP = 1
 OCL = 2
 SYM = 1
@@ -86,13 +87,27 @@ ifneq (0,$(DNNL))
   endif
 endif
 
+# LIBXSMM int8 kernels ahead of the scalar fallback
+ifneq (0,$(LIBXSMM))
+  LIBXSMMROOT := $(wildcard $(DEPDIR)/../libxsmm)
+  XSMM_SLIB := $(call libexists,$(wildcard $(LIBXSMMROOT)/lib/libxsmm.$(SLIBEXT)))
+  XSMM_DLIB := $(call libexists,$(wildcard $(LIBXSMMROOT)/lib/libxsmm.$(DLIBEXT)))
+  XSMM_LIB := $(call libexists,$(wildcard $(LIBXSMMROOT)/lib/libxsmm.$(LIBEXT)))
+  XSMM_LIB := $(strip $(if $(XSMM_LIB),$(XSMM_LIB), \
+    $(if $(XSMM_SLIB),$(XSMM_SLIB),$(XSMM_DLIB))))
+  ifneq (,$(XSMM_LIB))
+    IFLAGS += -I$(call quote,$(LIBXSMMROOT)/include)
+    DFLAGS += -D__LIBXSMM
+  endif
+endif
+
 # include directories
 IFLAGS += -I$(call quote,$(DEPDIR))
 IFLAGS += -I$(call quote,$(DEPDIR)/libxs)
 IFLAGS += -I$(call quote,$(INCDIR))
 
 # An interposer exports the calls it interposes, not what it happens to link:
-# LIBXS and LIBXSTREAM come in as static archives, so their public symbols stay
+# LIBXS, LIBXSTREAM, and LIBXSMM come in as static archives, so their public symbols stay
 # internal to libwrap. Otherwise an application carrying its own copy ends up
 # with two definitions of the same global, either of which can bind the other's
 # references (and a sanitizer rightly calls the pair an ODR violation).
@@ -156,18 +171,18 @@ compile: $(OBJECTS)
 # Link recipe for static-wrap executables (handles OMP variants)
 ifneq (0,$(OMP))
   define LINK_WRAP
-	$(LD) -o $@ $< $(OUTDIR)/libwrap.$(SLIBEXT) $(call abslib,$(XSTREAM_LIB)) $(call abslib,$(XLIB)) \
+	$(LD) -o $@ $< $(OUTDIR)/libwrap.$(SLIBEXT) $(call abslib,$(XSTREAM_LIB)) $(call abslib,$(XSMM_LIB)) $(call abslib,$(XLIB)) \
 		$(SLDFLAGS) $(LDFLAGS) $(CLDFLAGS) $(WRAP_GEMM)
   endef
 else ifneq (,$(strip $(OMPLIB)))
   define LINK_WRAP
-	$(LD) -o $@ $< $(OUTDIR)/libwrap.$(SLIBEXT) $(call abslib,$(XSTREAM_LIB)) $(call abslib,$(XLIB)) \
+	$(LD) -o $@ $< $(OUTDIR)/libwrap.$(SLIBEXT) $(call abslib,$(XSTREAM_LIB)) $(call abslib,$(XSMM_LIB)) $(call abslib,$(XLIB)) \
 		$(SLDFLAGS) $(LDFLAGS) $(CLDFLAGS) $(WRAP_GEMM) \
 		$(XLIB_BEGIN) $(OMPLIB) $(XLIB_END)
   endef
 else
   define LINK_WRAP
-	$(LD) -o $@ $< $(OUTDIR)/libwrap.$(SLIBEXT) $(call abslib,$(XSTREAM_LIB)) $(call abslib,$(XLIB)) \
+	$(LD) -o $@ $< $(OUTDIR)/libwrap.$(SLIBEXT) $(call abslib,$(XSTREAM_LIB)) $(call abslib,$(XSMM_LIB)) $(call abslib,$(XLIB)) \
 		$(SLDFLAGS) $(LDFLAGS) $(CLDFLAGS) $(WRAP_GEMM)
   endef
 endif
@@ -178,23 +193,23 @@ endif
 $(OUTDIR)/libwrap.$(SLIBEXT): $(OUTDIR)/.make $(IMPLOBJS) $(OCLOBJS)
 	$(MAKE_AR) $@ $(call tailwords,$^)
 
-$(OUTDIR)/libwrap.$(DLIBEXT): $(IMPLOBJS) $(ENTRYOBJS) $(OCLOBJS) $(XSTREAM_LIB) $(XLIB) $(OUTDIR)/.make
+$(OUTDIR)/libwrap.$(DLIBEXT): $(IMPLOBJS) $(ENTRYOBJS) $(OCLOBJS) $(XSTREAM_LIB) $(XSMM_LIB) $(XLIB) $(OUTDIR)/.make
 	$(LIB_SOLD) $(call solink,$@) $(IMPLOBJS) $(ENTRYOBJS) $(OCLOBJS) \
-		$(call abslib,$(XSTREAM_LIB)) $(call abslib,$(XLIB)) $(WRAP_HIDE) \
+		$(call abslib,$(XSTREAM_LIB)) $(call abslib,$(XSMM_LIB)) $(call abslib,$(XLIB)) $(WRAP_HIDE) \
 		$(call cleanld,$(BASE_LDFLAGS) $(CLDFLAGS))
 
 # Executables depend on BLAS linkage mode
 ifneq (,$(WRAP_GEMM))
-$(OUTDIR)/dgemm-wrap.x: $(BLDDIR)/gemm-dc.o $(OUTDIR)/libwrap.$(SLIBEXT) $(XSTREAM_LIB) $(XLIB) $(OUTDIR)/.make
+$(OUTDIR)/dgemm-wrap.x: $(BLDDIR)/gemm-dc.o $(OUTDIR)/libwrap.$(SLIBEXT) $(XSTREAM_LIB) $(XSMM_LIB) $(XLIB) $(OUTDIR)/.make
 	$(LINK_WRAP)
 
-$(OUTDIR)/sgemm-wrap.x: $(BLDDIR)/gemm-sc.o $(OUTDIR)/libwrap.$(SLIBEXT) $(XSTREAM_LIB) $(XLIB) $(OUTDIR)/.make
+$(OUTDIR)/sgemm-wrap.x: $(BLDDIR)/gemm-sc.o $(OUTDIR)/libwrap.$(SLIBEXT) $(XSTREAM_LIB) $(XSMM_LIB) $(XLIB) $(OUTDIR)/.make
 	$(LINK_WRAP)
 
-$(OUTDIR)/zgemm-wrap.x: $(BLDDIR)/gemm-zc.o $(OUTDIR)/libwrap.$(SLIBEXT) $(XSTREAM_LIB) $(XLIB) $(OUTDIR)/.make
+$(OUTDIR)/zgemm-wrap.x: $(BLDDIR)/gemm-zc.o $(OUTDIR)/libwrap.$(SLIBEXT) $(XSTREAM_LIB) $(XSMM_LIB) $(XLIB) $(OUTDIR)/.make
 	$(LINK_WRAP)
 
-$(OUTDIR)/cgemm-wrap.x: $(BLDDIR)/gemm-cc.o $(OUTDIR)/libwrap.$(SLIBEXT) $(XSTREAM_LIB) $(XLIB) $(OUTDIR)/.make
+$(OUTDIR)/cgemm-wrap.x: $(BLDDIR)/gemm-cc.o $(OUTDIR)/libwrap.$(SLIBEXT) $(XSTREAM_LIB) $(XSMM_LIB) $(XLIB) $(OUTDIR)/.make
 	$(LINK_WRAP)
 
 .PHONY: $(OUTDIR)/dgemm-blas.x $(OUTDIR)/sgemm-blas.x
