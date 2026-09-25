@@ -633,7 +633,10 @@ LIBXS_INLINE void gemm_oz2_diff(const char* transa, const char* transb, const GE
 #if defined(LIBXS_INTRINSICS_AVX512) && 16 == BLOCK_N && \
   (LIBXS_X86_AVX512 <= LIBXS_STATIC_TARGET_ARCH || LIBXS_X86_AVX512 <= LIBXS_MAX_STATIC_TARGET_ARCH)
   { /* VPDPBUSD is corrected by +128*row_sum(A), which depends on row, modulus, and K chunk but not on the tile */
-    int biased = (0 == use_xsmm && LIBXS_X86_AVX512 <= ozaki_target_arch);
+    int biased = (LIBXS_X86_AVX512 <= ozaki_target_arch);
+#if defined(__LIBXSMM)
+    biased = (biased && 0 == use_xsmm);
+#endif
 # if defined(OZ2_BUUD)
     if (LIBXS_X86_AVX512_INT8 <= ozaki_target_arch) biased = 0;
 # endif
