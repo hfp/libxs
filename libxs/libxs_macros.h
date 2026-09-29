@@ -1181,6 +1181,10 @@ LIBXS_EXTERN int mkstemp(char*) LIBXS_NOTHROW;
 # endif
 LIBXS_EXTERN int putenv(char*) LIBXS_NOTHROW;
 #endif
+#if defined(__linux__) /* strict C hides them unless _DEFAULT_SOURCE precedes the first system header */
+LIBXS_EXTERN long syscall(long, ...) LIBXS_NOTHROW;
+LIBXS_EXTERN void sync(void) LIBXS_NOTHROW;
+#endif
 
 /* block must be after including above header files */
 #if (defined(__GLIBC__) && defined(__GLIBC_MINOR__) && LIBXS_VERSION2(__GLIBC__, __GLIBC_MINOR__) < LIBXS_VERSION2(2, 26)) \

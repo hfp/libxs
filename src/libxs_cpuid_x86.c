@@ -19,7 +19,6 @@
 #endif
 #if defined(__linux__) && defined(LIBXS_PLATFORM_X86)
 # include <sys/syscall.h>
-LIBXS_EXTERN long syscall(long, ...) LIBXS_NOTHROW;
 #endif
 
 #define LIBXS_CPUID_CHECK(VALUE, CHECK) ((CHECK) == ((CHECK) & (VALUE)))
