@@ -138,6 +138,16 @@ typedef enum libxs_gemm_flags_t {
   LIBXS_GEMM_FLAG_OWNJIT = 2
 } libxs_gemm_flags_t;
 
+/** Kind of kernel serving a GEMM (libxs_gemm_backend_kind). */
+typedef enum libxs_gemm_kind_t {
+  /** Built-in auto-vectorized C code. */
+  LIBXS_GEMM_KIND_DEFAULT = 0,
+  /** External BLAS, e.g., MKL or OpenBLAS. */
+  LIBXS_GEMM_KIND_BLAS = 1,
+  /** Generated kernel, i.e., MKL JIT or LIBXSMM. */
+  LIBXS_GEMM_KIND_JIT = 2
+} libxs_gemm_kind_t;
+
 /**
  * GEMM shape: problem geometry, transpose flags, and scalar
  * coefficients.  Alpha/beta are stored as double regardless of
@@ -217,6 +227,18 @@ LIBXS_API int libxs_gemm_dispatch_cpy_rt(
   const libxs_gemm_shape_t* kernel_shape,
   const libxs_gemm_backend_t* backend,
   void* registry);
+/**
+ * Kind of kernel libxs_gemm_dispatch_rt settles on for the shape and backend
+ * once warmed up (LIBXS_GEMM_JIT_WARMUP), honoring LIBXS_GEMM_BACKEND and
+ * LIBXS_GEMM_JIT_MAX. A NULL shape asks for the best kind any shape can
+ * receive, and a NULL backend for the library's own. LIBXS_GEMM_KIND_JIT
+ * means a generator is tried, which may still refuse a particular shape.
+ * Neither generates a kernel nor consults a registry, i.e., it is cheap
+ * enough to decide per call. Given the maxima of several shapes with the
+ * same leading dimensions, JIT for the maxima holds for all of them.
+ */
+LIBXS_API libxs_gemm_kind_t libxs_gemm_backend_kind(
+  const libxs_gemm_backend_t* backend, const libxs_gemm_shape_t* shape);
 
 /**
  * Process a batch of GEMMs given arrays of pointers to matrices.
@@ -289,6 +311,16 @@ LIBXS_EXTERN void LIBXS_FSYMBOL(sgemm)(
   const float*, const float*, const int*,
   const float*, const int*,
   const float*, float*, const int*);
+#endif
+
+/**
+ * Defined if libxs_gemm_backend_init provides a generator (MKL JIT or LIBXSMM)
+ * at the caller's compile time, which likewise requires mkl.h or libxsmm.h to
+ * be included before libxs_gemm.h. Runtime settings and generators the library
+ * resolves by itself are known to libxs_gemm_backend_kind only.
+ */
+#if defined(mkl_jit_create_dgemm) || defined(LIBXSMM_H)
+# define LIBXS_GEMM_JIT
 #endif
 
 /**

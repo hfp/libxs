@@ -11,6 +11,7 @@
       MODULE LIBXS
         INCLUDE 'libxs_spec.fi'
         PUBLIC :: libxs_gemm_dispatch, libxs_gemm_dispatch_ptr
+        PUBLIC :: libxs_gemm_backend_kind
         PUBLIC :: libxs_syrk_dispatch, libxs_syrk_dispatch_cpy
         PUBLIC :: libxs_syr2k_dispatch, libxs_syr2k_dispatch_cpy
         INTERFACE libxs_gemm_dispatch
@@ -19,6 +20,10 @@
         END INTERFACE
         INTERFACE libxs_gemm_dispatch_ptr
           MODULE PROCEDURE libxs_gemm_dispatch_ptr_base
+        END INTERFACE
+        INTERFACE libxs_gemm_backend_kind
+          MODULE PROCEDURE libxs_gemm_backend_kind_shape
+          MODULE PROCEDURE libxs_gemm_backend_kind_any
         END INTERFACE
         INTERFACE libxs_syrk_dispatch
           MODULE PROCEDURE libxs_syrk_dispatch_base

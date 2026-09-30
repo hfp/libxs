@@ -936,6 +936,57 @@
      &      shape, shape, be, preg)
         END FUNCTION
 
+        !> Kind of kernel (LIBXS_GEMM_KIND_*) a dispatch settles on for
+        !> the shape once warmed up, without generating a kernel.
+        FUNCTION libxs_gemm_backend_kind_shape(                         &
+     &    datatype, transa, transb,                                     &
+     &    m, n, k, lda, ldb, ldc, alpha, beta,                          &
+     &    jit_create_dgemm, jit_get_dgemm,                              &
+     &    jit_create_sgemm, jit_get_sgemm,                              &
+     &    xgemm_dispatch, dgemm_blas, sgemm_blas, blas_nthreads)
+          INTEGER(C_INT), INTENT(IN) :: datatype
+          CHARACTER(C_CHAR), INTENT(IN), VALUE :: transa, transb
+          INTEGER(C_INT), INTENT(IN) :: m, n, k, lda, ldb, ldc
+          REAL(C_DOUBLE), INTENT(IN) :: alpha, beta
+          TYPE(C_FUNPTR), INTENT(IN), OPTIONAL ::                       &
+     &      jit_create_dgemm, jit_get_dgemm,                            &
+     &      jit_create_sgemm, jit_get_sgemm,                            &
+     &      xgemm_dispatch, dgemm_blas, sgemm_blas, blas_nthreads
+          INTEGER(C_INT) :: libxs_gemm_backend_kind_shape
+          TYPE(libxs_gemm_shape_t), TARGET :: shape
+          TYPE(libxs_gemm_backend_t), TARGET :: be
+          shape%datatype = datatype
+          shape%transa = transa; shape%transb = transb
+          shape%m = m; shape%n = n; shape%k = k
+          shape%lda = lda; shape%ldb = ldb; shape%ldc = ldc
+          shape%alpha = alpha; shape%beta = beta
+          CALL internal_gemm_backend(be,                                &
+     &      jit_create_dgemm, jit_get_dgemm,                            &
+     &      jit_create_sgemm, jit_get_sgemm,                            &
+     &      xgemm_dispatch, dgemm_blas, sgemm_blas, blas_nthreads)
+          libxs_gemm_backend_kind_shape =                               &
+     &      internal_gemm_backend_kind(C_LOC(be), C_LOC(shape))
+        END FUNCTION
+
+        !> Best kind of kernel (LIBXS_GEMM_KIND_*) any shape receives.
+        FUNCTION libxs_gemm_backend_kind_any(                           &
+     &    jit_create_dgemm, jit_get_dgemm,                              &
+     &    jit_create_sgemm, jit_get_sgemm,                              &
+     &    xgemm_dispatch, dgemm_blas, sgemm_blas, blas_nthreads)
+          TYPE(C_FUNPTR), INTENT(IN), OPTIONAL ::                       &
+     &      jit_create_dgemm, jit_get_dgemm,                            &
+     &      jit_create_sgemm, jit_get_sgemm,                            &
+     &      xgemm_dispatch, dgemm_blas, sgemm_blas, blas_nthreads
+          INTEGER(C_INT) :: libxs_gemm_backend_kind_any
+          TYPE(libxs_gemm_backend_t), TARGET :: be
+          CALL internal_gemm_backend(be,                                &
+     &      jit_create_dgemm, jit_get_dgemm,                            &
+     &      jit_create_sgemm, jit_get_sgemm,                            &
+     &      xgemm_dispatch, dgemm_blas, sgemm_blas, blas_nthreads)
+          libxs_gemm_backend_kind_any =                                 &
+     &      internal_gemm_backend_kind(C_LOC(be), C_NULL_PTR)
+        END FUNCTION
+
         !> Release a GEMM config: clear all kernel pointers.
         SUBROUTINE libxs_gemm_release(config)
           TYPE(libxs_gemm_config_t), INTENT(INOUT) :: config

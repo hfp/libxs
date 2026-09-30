@@ -75,6 +75,12 @@
 #define INTERNAL_GEMM_BACKEND_BLAS 3
 #define INTERNAL_GEMM_BACKEND_DEFAULT 4
 
+/* bits of internal_libxs_gemm_select */
+#define INTERNAL_GEMM_SELECT_JIT 1
+#define INTERNAL_GEMM_SELECT_XGEMM 2
+#define INTERNAL_GEMM_SELECT_BLAS 4
+#define INTERNAL_GEMM_SELECT_KERNEL 8
+
 #define INTERNAL_GEMM_NOTRANS(C) ('N' == (C) || 'n' == (C))
 
 #define INTERNAL_SYRK_IRANGE(UPPER, JJ, IB, JB, CM, ISTART, IEND) \
@@ -632,6 +638,92 @@ LIBXS_API_INLINE void internal_libxs_gemm_blas_init(
 }
 
 
+/**
+ * Which kinds of kernel a kernel shape may receive (INTERNAL_GEMM_SELECT_*),
+ * warm-up aside; KERNEL tells whether generating one pays (LIBXS_GEMM_JIT_MAX).
+ * A NULL shape selects what any shape may receive.
+ */
+LIBXS_API_INLINE int internal_libxs_gemm_select(const libxs_gemm_shape_t* kernel_shape)
+{
+  const int gemm_backend = internal_libxs_gemm_backend;
+  int strided = 0, xgemm_ok = 1, kernel_ok = (0 < internal_libxs_gemm_jit_max);
+  int result = 0;
+  if (NULL != kernel_shape) {
+    const int ta = ('N' != kernel_shape->transa && 'n' != kernel_shape->transa);
+    const int tb = ('N' != kernel_shape->transb && 'n' != kernel_shape->transb);
+    const int km = kernel_shape->m, kn = kernel_shape->n, kk = kernel_shape->k;
+    const size_t elemsize = LIBXS_TYPESIZE(kernel_shape->datatype);
+    const size_t kflops = (size_t)km * kn * kk * 2;
+    const size_t kbytes = elemsize *
+      ((size_t)km * kk + (size_t)kk * kn + (size_t)km * kn);
+    /* a leading dimension beyond the operand's own extent means a window
+     * into a larger matrix: generated kernels neither pack nor prefetch
+     * and then lose to BLAS, whereas resident operands are their domain */
+    strided = (kernel_shape->lda > (0 != ta ? kk : km)
+      || kernel_shape->ldb > (0 != tb ? kn : kk));
+    xgemm_ok = (1.0 == kernel_shape->alpha
+      && (0.0 == kernel_shape->beta || 1.0 == kernel_shape->beta));
+    kernel_ok = (0 != kernel_ok
+      && kflops < (size_t)internal_libxs_gemm_jit_max * kbytes);
+  }
+  if (INTERNAL_GEMM_BACKEND_MKL_JIT == gemm_backend
+    || (INTERNAL_GEMM_BACKEND_AUTO == gemm_backend && 0 == strided))
+  {
+    result |= INTERNAL_GEMM_SELECT_JIT;
+  }
+  if (INTERNAL_GEMM_BACKEND_LIBXSMM >= gemm_backend && 0 != xgemm_ok
+    && (INTERNAL_GEMM_BACKEND_AUTO != gemm_backend || 0 == strided))
+  {
+    result |= INTERNAL_GEMM_SELECT_XGEMM;
+  }
+  if (INTERNAL_GEMM_BACKEND_BLAS >= gemm_backend) result |= INTERNAL_GEMM_SELECT_BLAS;
+  if (0 != kernel_ok) result |= INTERNAL_GEMM_SELECT_KERNEL;
+  return result;
+}
+
+
+LIBXS_API libxs_gemm_kind_t libxs_gemm_backend_kind(
+  const libxs_gemm_backend_t* backend, const libxs_gemm_shape_t* shape)
+{
+  libxs_gemm_kind_t result = LIBXS_GEMM_KIND_DEFAULT;
+  const int f64 = (NULL == shape || LIBXS_DATATYPE_F64 == shape->datatype);
+  const int f32 = (NULL == shape || LIBXS_DATATYPE_F32 == shape->datatype);
+  if (0 != f64 || 0 != f32) {
+    int select;
+    internal_libxs_gemm_init();
+    select = internal_libxs_gemm_select(shape);
+    { const libxs_jit_create_dgemm_t jcd = (NULL != backend && NULL != backend->jit_create_dgemm)
+        ? backend->jit_create_dgemm : internal_libxs_jit_create_dgemm;
+      const libxs_jit_get_dgemm_t jgd = (NULL != backend && NULL != backend->jit_get_dgemm)
+        ? backend->jit_get_dgemm : internal_libxs_jit_get_dgemm;
+      const libxs_jit_create_sgemm_t jcs = (NULL != backend && NULL != backend->jit_create_sgemm)
+        ? backend->jit_create_sgemm : internal_libxs_jit_create_sgemm;
+      const libxs_jit_get_sgemm_t jgs = (NULL != backend && NULL != backend->jit_get_sgemm)
+        ? backend->jit_get_sgemm : internal_libxs_jit_get_sgemm;
+      const libxs_xgemm_dispatch_t xdisp = (NULL != backend && NULL != backend->xgemm_dispatch)
+        ? backend->xgemm_dispatch : internal_libxs_xgemm_dispatch;
+      const libxs_gemm_dblas_t dblas = (NULL != backend && NULL != backend->dgemm_blas)
+        ? backend->dgemm_blas : internal_libxs_dgemm_blas;
+      const libxs_gemm_sblas_t sblas = (NULL != backend && NULL != backend->sgemm_blas)
+        ? backend->sgemm_blas : internal_libxs_sgemm_blas;
+      const int jit = (0 != (INTERNAL_GEMM_SELECT_JIT & select)
+        && ((0 != f64 && NULL != jcd && NULL != jgd)
+         || (0 != f32 && NULL != jcs && NULL != jgs)));
+      const int xgemm = (0 != (INTERNAL_GEMM_SELECT_XGEMM & select) && NULL != xdisp);
+      if (0 != (INTERNAL_GEMM_SELECT_KERNEL & select) && (0 != jit || 0 != xgemm)) {
+        result = LIBXS_GEMM_KIND_JIT;
+      }
+      else if (0 != (INTERNAL_GEMM_SELECT_BLAS & select)
+        && ((0 != f64 && NULL != dblas) || (0 != f32 && NULL != sblas)))
+      {
+        result = LIBXS_GEMM_KIND_BLAS;
+      }
+    }
+  }
+  return result;
+}
+
+
 /* own is the caller's config; a kernel-less config then owns no entry */
 LIBXS_API_INTERN libxs_gemm_config_t* internal_libxs_gemm_dispatch(
   const libxs_gemm_shape_t* shape,
@@ -735,24 +827,12 @@ LIBXS_API_INTERN libxs_gemm_config_t* internal_libxs_gemm_dispatch(
         const int km = kernel_shape->m, kn = kernel_shape->n, kk = kernel_shape->k;
         const int klda = kernel_shape->lda, kldb = kernel_shape->ldb;
         const int kldc = kernel_shape->ldc;
-        const int gemm_backend = internal_libxs_gemm_backend;
-        /* a leading dimension beyond the operand's own extent means a window
-         * into a larger matrix: generated kernels neither pack nor prefetch
-         * and then lose to BLAS, whereas resident operands are their domain */
-        const int strided = (klda > (0 != ta ? kk : km)
-          || kldb > (0 != tb ? kn : kk));
-        const int use_jit = (INTERNAL_GEMM_BACKEND_MKL_JIT == gemm_backend
-          || (INTERNAL_GEMM_BACKEND_AUTO == gemm_backend && 0 == strided));
-        const int use_xgemm = (INTERNAL_GEMM_BACKEND_LIBXSMM >= gemm_backend
-          && (INTERNAL_GEMM_BACKEND_AUTO != gemm_backend || 0 == strided));
-        const int use_blas = (INTERNAL_GEMM_BACKEND_BLAS >= gemm_backend);
-        const size_t elemsize = LIBXS_TYPESIZE(kernel_shape->datatype);
-        const size_t kflops = (size_t)km * kn * kk * 2;
-        const size_t kbytes = elemsize *
-          ((size_t)km * kk + (size_t)kk * kn + (size_t)km * kn);
+        const int select = internal_libxs_gemm_select(kernel_shape);
+        const int use_jit = (0 != (INTERNAL_GEMM_SELECT_JIT & select));
+        const int use_xgemm = (0 != (INTERNAL_GEMM_SELECT_XGEMM & select));
+        const int use_blas = (0 != (INTERNAL_GEMM_SELECT_BLAS & select));
         const int use_kernel = (0 != jit_allowed
-          && 0 < internal_libxs_gemm_jit_max
-          && kflops < (size_t)internal_libxs_gemm_jit_max * kbytes);
+          && 0 != (INTERNAL_GEMM_SELECT_KERNEL & select));
         const libxs_jit_create_dgemm_t jcd =
           (NULL != backend && NULL != backend->jit_create_dgemm)
           ? backend->jit_create_dgemm : internal_libxs_jit_create_dgemm;

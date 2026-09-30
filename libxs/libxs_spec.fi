@@ -93,6 +93,8 @@
         PUBLIC :: libxs_gemm_shape_t, libxs_gemm_config_t
         PUBLIC :: LIBXS_GEMM_FLAGS_DEFAULT, LIBXS_GEMM_FLAG_NOLOCK
         PUBLIC :: LIBXS_GEMM_FLAG_OWNJIT
+        PUBLIC :: LIBXS_GEMM_KIND_DEFAULT, LIBXS_GEMM_KIND_BLAS
+        PUBLIC :: LIBXS_GEMM_KIND_JIT
         PUBLIC :: libxs_gemm_call
         PUBLIC :: libxs_gemm_release
         PUBLIC :: libxs_gemm_config_cpy
@@ -178,6 +180,13 @@
      &    LIBXS_GEMM_FLAGS_DEFAULT = 0,                                 &
      &    LIBXS_GEMM_FLAG_NOLOCK   = 1,                                 &
      &    LIBXS_GEMM_FLAG_OWNJIT   = 2
+
+        !> Kind of kernel serving a GEMM (libxs_gemm_backend_kind):
+        !> built-in, external BLAS, or generated (MKL JIT, LIBXSMM).
+        INTEGER(C_INT), PARAMETER ::                                    &
+     &    LIBXS_GEMM_KIND_DEFAULT = 0,                                  &
+     &    LIBXS_GEMM_KIND_BLAS    = 1,                                  &
+     &    LIBXS_GEMM_KIND_JIT     = 2
 
         !> Target architectures and ISA extensions.
         INTEGER(C_INT), PARAMETER ::                                    &
@@ -930,6 +939,14 @@
      &        stride_a, stride_b, stride_c
             TYPE(libxs_gemm_config_t), INTENT(IN) :: config
           END SUBROUTINE
+
+          ! internal kind query (NULL: library's backends, any shape)
+          FUNCTION internal_gemm_backend_kind(backend, shape)           &
+     &    BIND(C, NAME="libxs_gemm_backend_kind")
+            IMPORT :: C_PTR, C_INT
+            TYPE(C_PTR), INTENT(IN), VALUE :: backend, shape
+            INTEGER(C_INT) :: internal_gemm_backend_kind
+          END FUNCTION
 
           ! internal runtime dispatch
           FUNCTION internal_gemm_dispatch_rt(shape,                     &

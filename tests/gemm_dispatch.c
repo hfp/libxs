@@ -623,6 +623,56 @@ static int test_registry_no_syrk_entries(void)
 }
 
 
+static int test_backend_kind(void)
+{
+  libxs_gemm_backend_t backend;
+  libxs_gemm_shape_t shape;
+  libxs_gemm_config_t* config = NULL;
+  libxs_registry_t* registry;
+  int i;
+
+  LIBXS_MEMZERO(&backend);
+  backend.jit_create_dgemm = test_jit_create_handle;
+  backend.jit_get_dgemm = test_jit_get_handle;
+  LIBXS_MEMZERO(&shape);
+  shape.datatype = LIBXS_DATATYPE_F64;
+  shape.transa = 'N'; shape.transb = 'N';
+  shape.m = 4; shape.n = 4; shape.k = 4;
+  shape.lda = 4; shape.ldb = 4; shape.ldc = 4;
+  shape.alpha = 2.0; shape.beta = 1.0;
+  TEST_CHECK(LIBXS_GEMM_KIND_JIT == libxs_gemm_backend_kind(&backend, NULL));
+  TEST_CHECK(LIBXS_GEMM_KIND_JIT == libxs_gemm_backend_kind(&backend, &shape));
+
+  /* the query neither generates nor enters anything, but the dispatch agrees */
+  registry = libxs_registry_create();
+  TEST_CHECK(NULL != registry);
+  jit_create_handle_calls = 0;
+  for (i = 0; i < TEST_MAXWARMUP && 0 == jit_create_handle_calls; ++i) {
+    config = libxs_gemm_dispatch_rt(&shape, NULL, &backend, registry);
+  }
+  TEST_CHECK(1 == jit_create_handle_calls);
+  TEST_CHECK(NULL != config && NULL != config->dgemm_jit);
+  test_disown_jitters(registry);
+  libxs_gemm_release_registry(registry);
+
+  /* resident but beyond LIBXS_GEMM_JIT_MAX: generating does not pay */
+  shape.m = shape.n = shape.k = 512;
+  shape.lda = shape.ldb = shape.ldc = 512;
+  TEST_CHECK(LIBXS_GEMM_KIND_JIT != libxs_gemm_backend_kind(&backend, &shape));
+
+  /* a window into a larger matrix is left to BLAS or the built-in code */
+  shape.m = shape.n = shape.k = 4;
+  shape.lda = 64; shape.ldb = 4; shape.ldc = 64;
+  TEST_CHECK(LIBXS_GEMM_KIND_JIT != libxs_gemm_backend_kind(&backend, &shape));
+
+  /* no GEMM for this datatype */
+  shape.lda = 4; shape.ldc = 4;
+  shape.datatype = LIBXS_DATATYPE_I32;
+  TEST_CHECK(LIBXS_GEMM_KIND_DEFAULT == libxs_gemm_backend_kind(&backend, &shape));
+  return EXIT_SUCCESS;
+}
+
+
 int main(void)
 {
   int result = test_missing_jit_handle();
@@ -635,5 +685,6 @@ int main(void)
   if (EXIT_SUCCESS == result) result = test_registry_no_warmup_entries();
   if (EXIT_SUCCESS == result) result = test_registry_no_blas_entries();
   if (EXIT_SUCCESS == result) result = test_registry_no_syrk_entries();
+  if (EXIT_SUCCESS == result) result = test_backend_kind();
   return result;
 }

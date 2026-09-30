@@ -96,6 +96,7 @@
         END INTERFACE
 
         PUBLIC :: libxs_gemm_dispatch, libxs_gemm_dispatch_ptr
+        PUBLIC :: libxs_gemm_backend_kind
         PUBLIC :: libxs_syrk_dispatch, libxs_syrk_dispatch_cpy
         PUBLIC :: libxs_syr2k_dispatch, libxs_syr2k_dispatch_cpy
 
@@ -105,6 +106,10 @@
         END INTERFACE
         INTERFACE libxs_gemm_dispatch_ptr
           MODULE PROCEDURE libxs_gemm_dispatch_ptr_jit
+        END INTERFACE
+        INTERFACE libxs_gemm_backend_kind
+          MODULE PROCEDURE libxs_gemm_backend_kind_shape_jit
+          MODULE PROCEDURE libxs_gemm_backend_kind_any_jit
         END INTERFACE
         INTERFACE libxs_syrk_dispatch
           MODULE PROCEDURE libxs_syrk_dispatch_ptr_jit
@@ -170,6 +175,92 @@
      &      dgemm_blas=dgemm_fp,                                        &
      &      sgemm_blas=sgemm_fp,                                        &
      &      registry=registry)
+        END FUNCTION
+
+        !> Kind of kernel (LIBXS_GEMM_KIND_*) for the shape given the
+        !> auto-detected backends, without generating a kernel.
+        FUNCTION libxs_gemm_backend_kind_shape_jit(                     &
+     &  datatype, transa, transb,                                       &
+     &  m, n, k, lda, ldb, ldc, alpha, beta)
+          INTEGER(C_INT), INTENT(IN) :: datatype
+          CHARACTER(C_CHAR), INTENT(IN), VALUE :: transa, transb
+          INTEGER(C_INT), INTENT(IN) :: m, n, k, lda, ldb, ldc
+          REAL(C_DOUBLE), INTENT(IN) :: alpha, beta
+          INTEGER(C_INT) :: libxs_gemm_backend_kind_shape_jit
+          TYPE(C_FUNPTR) :: dgemm_fp, sgemm_fp
+#if defined(__MKL)
+          TYPE(C_FUNPTR) :: jcd_fp, jgd_fp, jcs_fp, jgs_fp, bnt_fp
+#endif
+#if defined(__LIBXSMM)
+          TYPE(C_FUNPTR) :: xdisp_fp
+#endif
+          dgemm_fp = C_FUNLOC(dgemm_blas)
+          sgemm_fp = C_FUNLOC(sgemm_blas)
+#if defined(__MKL)
+          jcd_fp = C_FUNLOC(mkl_cblas_jit_create_dgemm)
+          jgd_fp = C_FUNLOC(mkl_jit_get_dgemm_ptr)
+          jcs_fp = C_FUNLOC(mkl_cblas_jit_create_sgemm)
+          jgs_fp = C_FUNLOC(mkl_jit_get_sgemm_ptr)
+          bnt_fp = C_FUNLOC(mkl_blas_nthreads)
+#endif
+#if defined(__LIBXSMM)
+          xdisp_fp = C_FUNLOC(libxsmm_dispatch_gemm)
+#endif
+          libxs_gemm_backend_kind_shape_jit =                           &
+     &      libxs_gemm_backend_kind_shape(                              &
+     &      datatype, transa, transb,                                   &
+     &      m, n, k, lda, ldb, ldc, alpha, beta,                        &
+#if defined(__MKL)
+     &      jit_create_dgemm=jcd_fp,                                    &
+     &      jit_get_dgemm=jgd_fp,                                       &
+     &      jit_create_sgemm=jcs_fp,                                    &
+     &      jit_get_sgemm=jgs_fp,                                       &
+     &      blas_nthreads=bnt_fp,                                       &
+#endif
+#if defined(__LIBXSMM)
+     &      xgemm_dispatch=xdisp_fp,                                    &
+#endif
+     &      dgemm_blas=dgemm_fp,                                        &
+     &      sgemm_blas=sgemm_fp)
+        END FUNCTION
+
+        !> Best kind of kernel (LIBXS_GEMM_KIND_*) any shape receives
+        !> given the auto-detected backends.
+        FUNCTION libxs_gemm_backend_kind_any_jit()
+          INTEGER(C_INT) :: libxs_gemm_backend_kind_any_jit
+          TYPE(C_FUNPTR) :: dgemm_fp, sgemm_fp
+#if defined(__MKL)
+          TYPE(C_FUNPTR) :: jcd_fp, jgd_fp, jcs_fp, jgs_fp, bnt_fp
+#endif
+#if defined(__LIBXSMM)
+          TYPE(C_FUNPTR) :: xdisp_fp
+#endif
+          dgemm_fp = C_FUNLOC(dgemm_blas)
+          sgemm_fp = C_FUNLOC(sgemm_blas)
+#if defined(__MKL)
+          jcd_fp = C_FUNLOC(mkl_cblas_jit_create_dgemm)
+          jgd_fp = C_FUNLOC(mkl_jit_get_dgemm_ptr)
+          jcs_fp = C_FUNLOC(mkl_cblas_jit_create_sgemm)
+          jgs_fp = C_FUNLOC(mkl_jit_get_sgemm_ptr)
+          bnt_fp = C_FUNLOC(mkl_blas_nthreads)
+#endif
+#if defined(__LIBXSMM)
+          xdisp_fp = C_FUNLOC(libxsmm_dispatch_gemm)
+#endif
+          libxs_gemm_backend_kind_any_jit =                             &
+     &      libxs_gemm_backend_kind_any(                                &
+#if defined(__MKL)
+     &      jit_create_dgemm=jcd_fp,                                    &
+     &      jit_get_dgemm=jgd_fp,                                       &
+     &      jit_create_sgemm=jcs_fp,                                    &
+     &      jit_get_sgemm=jgs_fp,                                       &
+     &      blas_nthreads=bnt_fp,                                       &
+#endif
+#if defined(__LIBXSMM)
+     &      xgemm_dispatch=xdisp_fp,                                    &
+#endif
+     &      dgemm_blas=dgemm_fp,                                        &
+     &      sgemm_blas=sgemm_fp)
         END FUNCTION
 
         !> Dispatch a GEMM kernel with auto-detected backends.

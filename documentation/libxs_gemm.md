@@ -270,6 +270,47 @@ All backend arguments are OPTIONAL C_FUNPTR (named arguments).
 Returns nonzero on success (dispatch produced a callable config).
 The config is populated from the registry-owned copy.
 
+## Backend Query
+
+```C
+libxs_gemm_kind_t libxs_gemm_backend_kind(
+  const libxs_gemm_backend_t* backend /* = NULL */,
+  const libxs_gemm_shape_t* shape /* = NULL */);
+```
+
+Tells which kind of kernel a dispatch settles on once warmed up:
+`LIBXS_GEMM_KIND_JIT` (MKL JIT or LIBXSMM), `LIBXS_GEMM_KIND_BLAS`
+(external BLAS), or `LIBXS_GEMM_KIND_DEFAULT` (built-in code). The
+query honors `LIBXS_GEMM_BACKEND` and `LIBXS_GEMM_JIT_MAX`, but it
+neither generates a kernel nor consults a registry, hence it is cheap
+enough to decide per call. Without a shape, it answers for any shape;
+without a backend, for the library's own. JIT means a generator is
+tried, which may still refuse a particular shape. For shapes with
+resident operands (leading dimensions equal to the extents), JIT for
+the largest shape holds for all smaller ones.
+
+```C
+libxs_gemm_backend_t backend;
+libxs_gemm_backend_init(&backend);
+if (LIBXS_GEMM_KIND_JIT == libxs_gemm_backend_kind(&backend, NULL)) {
+  /* generated kernels are available */
+}
+```
+
+At compile time, `LIBXS_GEMM_JIT` is defined if
+`libxs_gemm_backend_init` provides a generator, which likewise
+requires mkl.h or libxsmm.h to be included before libxs_gemm.h.
+
+```fortran
+USE LIBXS_JIT
+kind = libxs_gemm_backend_kind() ! any shape
+kind = libxs_gemm_backend_kind(LIBXS_DATATYPE_F64, 'N', 'N',
+     &  m, n, k, lda, ldb, ldc, alpha, beta)
+```
+
+With `USE LIBXS`, the backend pointers are OPTIONAL named arguments
+as for the dispatch.
+
 ## Single-Kernel Call
 
 ```C

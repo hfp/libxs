@@ -51,6 +51,9 @@ libxs_fprint_raw
 libxs_free
 libxs_free_pool
 libxs_gcd
+libxs_gemm_backend_kind
+libxs_gemm_backend_kind_any
+libxs_gemm_backend_kind_shape
 libxs_gemm_batch
 libxs_gemm_batch_task
 libxs_gemm_call_config
