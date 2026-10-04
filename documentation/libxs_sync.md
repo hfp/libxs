@@ -102,13 +102,18 @@ Per-file locking for thread-safe I/O. Maps to `flockfile`/`funlockfile` on POSIX
 unsigned int libxs_nranks(void);
 ```
 
-Return the number of MPI ranks.
+Return the number of MPI ranks on the node of the calling process, as the launcher
+states it (`MPI_LOCALNRANKS`, `OMPI_COMM_WORLD_LOCAL_SIZE`, or
+`MV2_COMM_WORLD_LOCAL_SIZE`), or one.
 
 ```C
 unsigned int libxs_nrank(void);
 ```
 
-Return the MPI rank of the calling process.
+Return the MPI rank of the calling process among the ranks on its node
+(`MPI_LOCALRANKID`, `OMPI_COMM_WORLD_LOCAL_RANK`, `MV2_COMM_WORLD_LOCAL_RANK`, or
+`SLURM_LOCALID`). The global `PMI_RANK` is the last resort, which is local only if
+ranks are placed in blocks of `libxs_nranks` per node.
 
 ```C
 unsigned int libxs_rid(void);

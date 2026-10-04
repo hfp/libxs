@@ -21,16 +21,27 @@
 
 LIBXS_API unsigned int libxs_nranks(void)
 {
-  const char *const env_nranks = getenv("MPI_LOCALNRANKS"); /* TODO */
-  return LIBXS_MAX(NULL == env_nranks ? 1 : atoi(env_nranks), 1);
+  /* Intel MPI and MPICH, Open MPI, MVAPICH2 */
+  const char* env_nranks = getenv("MPI_LOCALNRANKS");
+  int nranks;
+  if (NULL == env_nranks) env_nranks = getenv("OMPI_COMM_WORLD_LOCAL_SIZE");
+  if (NULL == env_nranks) env_nranks = getenv("MV2_COMM_WORLD_LOCAL_SIZE");
+  nranks = (NULL == env_nranks ? 1 : atoi(env_nranks));
+  return (unsigned int)LIBXS_MAX(nranks, 1);
 }
 
 
 LIBXS_API unsigned int libxs_nrank(void)
 {
-  const char *const env_rank = (NULL != getenv("PMI_RANK")
-    ? getenv("PMI_RANK") : getenv("OMPI_COMM_WORLD_LOCAL_RANK"));
-  return (NULL == env_rank ? 0 : atoi(env_rank)) % libxs_nranks();
+  /* the global PMI_RANK is the last resort: it is local only if ranks are placed in blocks */
+  const char* env_rank = getenv("MPI_LOCALRANKID");
+  int nrank;
+  if (NULL == env_rank) env_rank = getenv("OMPI_COMM_WORLD_LOCAL_RANK");
+  if (NULL == env_rank) env_rank = getenv("MV2_COMM_WORLD_LOCAL_RANK");
+  if (NULL == env_rank) env_rank = getenv("SLURM_LOCALID");
+  if (NULL == env_rank) env_rank = getenv("PMI_RANK");
+  nrank = (NULL == env_rank ? 0 : atoi(env_rank));
+  return (unsigned int)LIBXS_MAX(nrank, 0) % libxs_nranks();
 }
 
 
