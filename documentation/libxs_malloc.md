@@ -128,8 +128,9 @@ which states the high-water and the bound it implies.
 
 `LIBXS_MALLOC_SHARE` limits the derived bound to a percentage of the memory the
 process may use (default 50), which covers a host with many cores and little
-memory, and a container whose limit is below what the cores suggest. It does not
-apply when `LIBXS_MALLOC_LIMIT` pins the bound.
+memory, and a container whose limit is below what the cores suggest. The share is
+of the node: with several MPI ranks on it (`libxs_nranks`), each rank receives its
+part of the share. It does not apply when `LIBXS_MALLOC_LIMIT` pins the bound.
 
 ## Fixed-Size Pool
 

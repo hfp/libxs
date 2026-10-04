@@ -445,8 +445,9 @@ LIBXS_API_INLINE size_t internal_libxs_malloc_evict_limit_get(
         const long value = atol(env);
         if (0 < value && 100 >= value) share = (unsigned int)value;
       }
+      /* the share is of the node, which the processes on it divide among them */
       if (EXIT_SUCCESS == libxs_mem_info(NULL, &total) && 0 != total) {
-        cap = (total / 100) * share;
+        cap = (total / 100) * share / libxs_nranks();
       }
       /* unknown memory is no cap rather than no pool */
       if (0 == cap) cap = (size_t)-1;
