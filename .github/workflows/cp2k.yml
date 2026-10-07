@@ -1,0 +1,150 @@
+name: CP2K
+
+permissions:
+  contents: read
+
+# CP2K and DBCSR move independently of this repository: weekly catches drift
+# in either direction without failing unrelated pull requests. A manual run can
+# point to a fork or branch, e.g., to try a change before it is upstream.
+# CPU only: LIBXSTREAM's copy of this workflow covers the OpenCL backends.
+on:
+  schedule:
+    - cron: "0 4 * * 1"
+  workflow_dispatch:
+    inputs:
+      owner_cp2k:
+        description: "Owner of the CP2K repository (hfp until upstreamed)"
+        default: "hfp"
+      ref_cp2k:
+        description: "CP2K branch or tag"
+        default: "master"
+      owner_dbcsr:
+        description: "Owner of the DBCSR repository (hfp until upstreamed)"
+        default: "hfp"
+      ref_dbcsr:
+        description: "DBCSR branch or tag"
+        default: "develop"
+      env:
+        description: "Environment for all steps, e.g., LIBXS_VERBOSE=2"
+        default: ""
+
+jobs:
+  DBM:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    env:
+      # the scheduled run has no inputs, hence the defaults of the inputs again
+      OWNER_CP2K: ${{ github.event.inputs.owner_cp2k || 'hfp' }}
+      REF_CP2K: ${{ github.event.inputs.ref_cp2k || 'master' }}
+      OMP_NUM_THREADS: 2
+    steps:
+    - uses: actions/checkout@v5
+
+    # Space-separated NAME=VALUE pairs given when launching manually. They come
+    # in through the environment rather than the script, so no value is executed.
+    - name: Setup environment
+      if: github.event.inputs.env != ''
+      env:
+        INPUT_ENV: ${{ github.event.inputs.env }}
+      run: |
+        for NAME_VALUE in ${INPUT_ENV}; do
+          if ! echo "${NAME_VALUE}" | grep -qE '^[A-Za-z_][A-Za-z0-9_]*=[^[:space:]]*$'; then
+            echo "ERROR: \"${NAME_VALUE}\" is not NAME=VALUE"; exit 1
+          fi
+          echo "${NAME_VALUE}" >> $GITHUB_ENV
+          echo "${NAME_VALUE}"
+        done
+
+    - name: Install OpenBLAS, GNU Fortran, and MPICH
+      run: |
+        sudo apt update -y
+        sudo apt install -y libopenblas-openmp-dev gfortran mpich libmpich-dev
+
+    - name: Setup CP2K
+      run: |
+        CP2K_REPO="https://github.com/${OWNER_CP2K}/cp2k.git"
+        git clone --depth 1 --branch "${REF_CP2K}" "${CP2K_REPO}" ${{ github.workspace }}/../cp2k
+        echo "CP2K_ROOT=${{ github.workspace }}/../cp2k" >> $GITHUB_ENV
+        git -C ${{ github.workspace }}/../cp2k log -1 --format="CP2K %H %cs"
+
+    # Library rather than header-only: CP2K's src/dbm/Makefile links lib/libxs.a.
+    - name: Build LIBXS
+      run: make -j $(nproc)
+
+    - name: Build DBM miniapp
+      run: |
+        make -j $(nproc) -C "${CP2K_ROOT}/src/dbm" LIBXSROOT="${{ github.workspace }}" \
+          OPENCL=0 OPENBLAS=1 MPICC=mpicc.mpich
+
+    # DBM_MULTIPLY_VERIFY=2 repeats every batch with the BLAS library, so LIBXS
+    # is checked against an independent reference although no device exists.
+    - name: Test DBM miniapp
+      shell: bash # pipefail, or tee hides a failure
+      env:
+        DBM_MULTIPLY_VERIFY: 2
+        DBM_MULTIPLY_MAXEPS: 1e-12
+      run: |
+        cd "${CP2K_ROOT}/src/dbm"
+        mpiexec.mpich -n 2 ./dbm_miniapp.x 23x23x23 2>&1 | tee miniapp.log
+        mpiexec.mpich -n 2 ./dbm_miniapp.x 5x13x7 2>&1 | tee -a miniapp.log
+
+  DBCSR:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    env:
+      # the scheduled run has no inputs, hence the defaults of the inputs again
+      OWNER_DBCSR: ${{ github.event.inputs.owner_dbcsr || 'hfp' }}
+      REF_DBCSR: ${{ github.event.inputs.ref_dbcsr || 'develop' }}
+    steps:
+    - uses: actions/checkout@v5
+
+    - name: Setup environment
+      if: github.event.inputs.env != ''
+      env:
+        INPUT_ENV: ${{ github.event.inputs.env }}
+      run: |
+        for NAME_VALUE in ${INPUT_ENV}; do
+          if ! echo "${NAME_VALUE}" | grep -qE '^[A-Za-z_][A-Za-z0-9_]*=[^[:space:]]*$'; then
+            echo "ERROR: \"${NAME_VALUE}\" is not NAME=VALUE"; exit 1
+          fi
+          echo "${NAME_VALUE}" >> $GITHUB_ENV
+          echo "${NAME_VALUE}"
+        done
+
+    - name: Install OpenBLAS, GNU Fortran, and MPICH
+      run: |
+        sudo apt update -y
+        sudo apt install -y libopenblas-openmp-dev gfortran mpich libmpich-dev
+
+    - name: Setup DBCSR
+      run: |
+        DBCSR_REPO="https://github.com/${OWNER_DBCSR}/dbcsr.git"
+        git clone --depth 1 --recursive --shallow-submodules --branch "${REF_DBCSR}" \
+          "${DBCSR_REPO}" ${{ github.workspace }}/../dbcsr
+        echo "DBCSR_ROOT=${{ github.workspace }}/../dbcsr" >> $GITHUB_ENV
+        git -C ${{ github.workspace }}/../dbcsr log -1 --format="DBCSR %H %cs"
+
+    # Installed package as DBCSR's own CI consumes it, which is the route that
+    # locates libxs_jit.F (compiled by DBCSR) in the installed include directory.
+    - name: Install LIBXS
+      run: |
+        cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DLIBXS_FORTRAN=ON \
+          -DCMAKE_INSTALL_PREFIX="${{ github.workspace }}/../install"
+        cmake --build build -j $(nproc) --target install
+
+    - name: Build DBCSR
+      run: |
+        cmake -S "${DBCSR_ROOT}" -B "${DBCSR_ROOT}/build" -DCMAKE_BUILD_TYPE=Release \
+          -DUSE_LIBXS=ON -DUSE_LIBXSMM=OFF -DUSE_MPI=ON -DUSE_OPENMP=ON \
+          -DMPI_EXECUTABLE_SUFFIX=.mpich -DTEST_MPI_RANKS=2 -DTEST_OMP_THREADS=2 \
+          -DBUILD_TESTING=ON -DCMAKE_PREFIX_PATH="${{ github.workspace }}/../install"
+        cmake --build "${DBCSR_ROOT}/build" -j $(nproc)
+
+    # DBCSR's own tests, selected rather than repeated: those multiplying on the
+    # host, where LIBXS dispatches the blocks. Only perf inputs that check their
+    # checksum qualify (test_H2O.perf does not, and unittest3 has its blocks).
+    - name: Test DBCSR
+      run: |
+        cd "${DBCSR_ROOT}/build"
+        ctest --output-on-failure \
+          -R 'dbcsr_unittest[1-4]$|dbcsr_perf:inputs/test_rect1_dense\.perf$'
