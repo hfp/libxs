@@ -37,6 +37,8 @@ jobs:
       OWNER_CP2K: ${{ github.event.inputs.owner_cp2k || 'hfp' }}
       REF_CP2K: ${{ github.event.inputs.ref_cp2k || 'master' }}
       OMP_NUM_THREADS: 2
+      # MPICH's UCX otherwise probes RDMA devices some runners expose (unusable)
+      UCX_TLS: self,sm,tcp
     steps:
     - uses: actions/checkout@v5
 
@@ -97,6 +99,7 @@ jobs:
       # the scheduled run has no inputs, hence the defaults of the inputs again
       OWNER_DBCSR: ${{ github.event.inputs.owner_dbcsr || 'hfp' }}
       REF_DBCSR: ${{ github.event.inputs.ref_dbcsr || 'develop' }}
+      UCX_TLS: self,sm,tcp
     # Coverage is DBCSR's own CI build type (-O0, -fcheck=all, -finit-*), kept
     # while it fails there but not in Release (temporary)
     strategy:
