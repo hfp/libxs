@@ -59,6 +59,8 @@ jobs:
       run: |
         sudo apt update -y
         sudo apt install -y libopenblas-openmp-dev gfortran mpich libmpich-dev
+        # distribution build flags (e.g., -flto) reach consumers through the wrappers
+        for WRAPPER in mpicc mpicxx mpif90; do ${WRAPPER}.mpich -show; done
 
     - name: Setup CP2K
       run: |
@@ -115,6 +117,8 @@ jobs:
       run: |
         sudo apt update -y
         sudo apt install -y libopenblas-openmp-dev gfortran mpich libmpich-dev
+        # distribution build flags (e.g., -flto) reach consumers through the wrappers
+        for WRAPPER in mpicc mpicxx mpif90; do ${WRAPPER}.mpich -show; done
 
     - name: Setup DBCSR
       run: |
