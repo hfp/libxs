@@ -97,6 +97,12 @@ jobs:
       # the scheduled run has no inputs, hence the defaults of the inputs again
       OWNER_DBCSR: ${{ github.event.inputs.owner_dbcsr || 'hfp' }}
       REF_DBCSR: ${{ github.event.inputs.ref_dbcsr || 'develop' }}
+    # Coverage is DBCSR's own CI build type (-O0, -fcheck=all, -finit-*), kept
+    # while it fails there but not in Release (temporary)
+    strategy:
+      fail-fast: false
+      matrix:
+        build_type: [Release, Coverage]
     steps:
     - uses: actions/checkout@v5
 
@@ -138,7 +144,7 @@ jobs:
 
     - name: Build DBCSR
       run: |
-        cmake -S "${DBCSR_ROOT}" -B "${DBCSR_ROOT}/build" -DCMAKE_BUILD_TYPE=Release \
+        cmake -S "${DBCSR_ROOT}" -B "${DBCSR_ROOT}/build" -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} \
           -DUSE_LIBXS=ON -DUSE_LIBXSMM=OFF -DUSE_MPI=ON -DUSE_OPENMP=ON \
           -DMPI_EXECUTABLE_SUFFIX=.mpich -DTEST_MPI_RANKS=2 -DTEST_OMP_THREADS=2 \
           -DBUILD_TESTING=ON -DCMAKE_PREFIX_PATH="${{ github.workspace }}/../install"
