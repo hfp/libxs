@@ -19,33 +19,13 @@
      &    libxs_timer_tick, libxs_timer_duration,                       &
      &    libxs_init, libxs_finalize,                                   &
      &    C_LOC, C_PTR, C_NULL_PTR, C_ASSOCIATED,                       &
-     &    C_F_POINTER, C_DOUBLE, C_INT
+     &    C_F_POINTER, C_INT
 !$      USE :: OMP_LIB, ONLY: omp_get_thread_num,                       &
 !$   &    omp_get_num_threads, omp_get_max_threads
         IMPLICIT NONE
 
-        INTERFACE
-          SUBROUTINE DSYRK(uplo, trans, n, k,                           &
-     &    alpha, a, lda, beta, c, ldc)                                  &
-     &    BIND(C, NAME="dsyrk_")
-            USE, INTRINSIC :: ISO_C_BINDING,                            &
-     &        ONLY: C_DOUBLE, C_INT, C_CHAR
-            CHARACTER(1, C_CHAR), INTENT(IN) :: uplo, trans
-            INTEGER(C_INT), INTENT(IN) :: n, k, lda, ldc
-            REAL(C_DOUBLE), INTENT(IN) :: alpha, beta, a(*)
-            REAL(C_DOUBLE), INTENT(INOUT) :: c(*)
-          END SUBROUTINE
-          SUBROUTINE DSYR2K(uplo, trans, n, k,                          &
-     &    alpha, a, lda, b, ldb, beta, c, ldc)                          &
-     &    BIND(C, NAME="dsyr2k_")
-            USE, INTRINSIC :: ISO_C_BINDING,                            &
-     &        ONLY: C_DOUBLE, C_INT, C_CHAR
-            CHARACTER(1, C_CHAR), INTENT(IN) :: uplo, trans
-            INTEGER(C_INT), INTENT(IN) :: n, k, lda, ldb, ldc
-            REAL(C_DOUBLE), INTENT(IN) :: alpha, beta, a(*), b(*)
-            REAL(C_DOUBLE), INTENT(INOUT) :: c(*)
-          END SUBROUTINE
-        END INTERFACE
+        ! implicit interface: the compiler passes the hidden lengths
+        EXTERNAL :: DSYRK, DSYR2K
 
         INTEGER, PARAMETER :: T = KIND(0D0)
         INTEGER :: n, k, argc, r, nrepeat, direct

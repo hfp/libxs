@@ -193,7 +193,10 @@ ldc for scratch). NULL means same as shape. If kernel_shape
 differs from shape, the kernel is looked up under kernel_shape
 first (double-dispatch), avoiding redundant code generation.
 backend: function pointers for backends. NULL means built-in
-default only. Same registry semantics as above.
+default only. Same registry semantics as above. The BLAS pointers
+take the two hidden lengths of transa and transb as trailing
+`size_t` arguments (always 1), which a BLAS compiled from Fortran
+expects; a C BLAS ignores them.
 `LIBXS_GEMM_BACKEND` can restrict the starting point of the
 runtime fallback chain: 0 = automatic/default, 1 = MKL JIT,
 2 = LIBXSMM, 3 = BLAS/MKL, 4 = built-in fallback. Choices 1-3

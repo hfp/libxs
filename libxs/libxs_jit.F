@@ -73,23 +73,27 @@
         END INTERFACE
 #endif
 
-! BLAS GEMM (dgemm_, sgemm_)
+! BLAS GEMM (dgemm_, sgemm_) including the hidden lengths
         INTERFACE
           SUBROUTINE dgemm_blas(transa, transb, m, n, k,                &
-     &    alpha, a, lda, b, ldb, beta, c, ldc)                          &
+     &    alpha, a, lda, b, ldb, beta, c, ldc,                          &
+     &    transa_len, transb_len)                                       &
      &    BIND(C, NAME="dgemm_")
-            IMPORT :: C_DOUBLE, C_INT, C_CHAR
+            IMPORT :: C_DOUBLE, C_INT, C_CHAR, C_SIZE_T
             CHARACTER(1, C_CHAR), INTENT(IN) :: transa, transb
             INTEGER(C_INT), INTENT(IN) :: m, n, k, lda, ldb, ldc
+            INTEGER(C_SIZE_T), VALUE :: transa_len, transb_len
             REAL(C_DOUBLE), INTENT(IN) :: alpha, beta, a(*), b(*)
             REAL(C_DOUBLE), INTENT(INOUT) :: c(*)
           END SUBROUTINE
           SUBROUTINE sgemm_blas(transa, transb, m, n, k,                &
-     &    alpha, a, lda, b, ldb, beta, c, ldc)                          &
+     &    alpha, a, lda, b, ldb, beta, c, ldc,                          &
+     &    transa_len, transb_len)                                       &
      &    BIND(C, NAME="sgemm_")
-            IMPORT :: C_FLOAT, C_INT, C_CHAR
+            IMPORT :: C_FLOAT, C_INT, C_CHAR, C_SIZE_T
             CHARACTER(1, C_CHAR), INTENT(IN) :: transa, transb
             INTEGER(C_INT), INTENT(IN) :: m, n, k, lda, ldb, ldc
+            INTEGER(C_SIZE_T), VALUE :: transa_len, transb_len
             REAL(C_FLOAT), INTENT(IN) :: alpha, beta, a(*), b(*)
             REAL(C_FLOAT), INTENT(INOUT) :: c(*)
           END SUBROUTINE

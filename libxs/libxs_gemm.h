@@ -24,21 +24,26 @@
 #endif
 
 
-/** Standard Fortran BLAS dgemm signature (e.g., dgemm_). */
+/**
+ * Fortran BLAS dgemm (e.g., dgemm_) including the hidden lengths of transa
+ * and transb, which a BLAS compiled from Fortran may access even if unused.
+ */
 typedef void (*libxs_gemm_dblas_t)(
   const char* transa, const char* transb,
   const int* m, const int* n, const int* k,
   const double* alpha, const double* a, const int* lda,
                        const double* b, const int* ldb,
-  const double* beta,        double* c, const int* ldc);
+  const double* beta,        double* c, const int* ldc,
+  size_t transa_len, size_t transb_len);
 
-/** Standard Fortran BLAS sgemm signature (e.g., sgemm_). */
+/** Fortran BLAS sgemm (e.g., sgemm_) including the hidden lengths. */
 typedef void (*libxs_gemm_sblas_t)(
   const char* transa, const char* transb,
   const int* m, const int* n, const int* k,
   const float* alpha, const float* a, const int* lda,
                       const float* b, const int* ldb,
-  const float* beta,        float* c, const int* ldc);
+  const float* beta,        float* c, const int* ldc,
+  size_t transa_len, size_t transb_len);
 
 /**
  * MKL JIT dgemm kernel signature (mkl_jit_get_dgemm_ptr).
@@ -298,6 +303,7 @@ LIBXS_API void libxs_gemm_index_task(
   int batchsize, const libxs_gemm_config_t* config,
   int tid, int ntasks);
 
+/* the usual C prototypes without hidden lengths, as consumers declare them, too */
 #if defined(__BLAS) && !defined(__MKL) && !defined(MKL_H)
 LIBXS_EXTERN void LIBXS_FSYMBOL(dgemm)(
   const char*, const char*,
@@ -350,8 +356,8 @@ LIBXS_API_INLINE void libxs_gemm_backend_init(libxs_gemm_backend_t* backend)
     LIBXS_FPTR_ASSIGN(libxs_gemm_dblas_t, backend->dgemm_blas, dgemm);
     LIBXS_FPTR_ASSIGN(libxs_gemm_sblas_t, backend->sgemm_blas, sgemm);
 #elif defined(__BLAS)
-    backend->dgemm_blas = LIBXS_FSYMBOL(dgemm);
-    backend->sgemm_blas = LIBXS_FSYMBOL(sgemm);
+    LIBXS_FPTR_ASSIGN(libxs_gemm_dblas_t, backend->dgemm_blas, LIBXS_FSYMBOL(dgemm));
+    LIBXS_FPTR_ASSIGN(libxs_gemm_sblas_t, backend->sgemm_blas, LIBXS_FSYMBOL(sgemm));
 #endif
 #if defined(__MKL) || defined(MKL_H)
     LIBXS_FPTR_ASSIGN(libxs_blas_nthreads_t, backend->blas_nthreads, MKL_Get_Max_Threads);
@@ -489,7 +495,7 @@ LIBXS_API_INLINE void libxs_gemm_call(
         &config->shape.m, &config->shape.n, &config->shape.k,
         &config->shape.alpha, (const double*)a, &config->shape.lda,
         (const double*)b, &config->shape.ldb,
-        &config->shape.beta, (double*)c, &config->shape.ldc);
+        &config->shape.beta, (double*)c, &config->shape.ldc, 1, 1);
     }
     else if (LIBXS_DATATYPE_F32 == config->shape.datatype
       && NULL != config->sgemm_blas)
@@ -501,7 +507,7 @@ LIBXS_API_INLINE void libxs_gemm_call(
         &config->shape.m, &config->shape.n, &config->shape.k,
         &falpha, (const float*)a, &config->shape.lda,
         (const float*)b, &config->shape.ldb,
-        &fbeta, (float*)c, &config->shape.ldc);
+        &fbeta, (float*)c, &config->shape.ldc, 1, 1);
     }
     else LIBXS_ASSERT_MSG(0, "invalid config");
   }

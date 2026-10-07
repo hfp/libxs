@@ -178,16 +178,19 @@
 } while(0)
 
 
+/* trailing hidden lengths of uplo and trans as with libxs_gemm_dblas_t */
 typedef void (*internal_libxs_dsyrk_t)(const char*, const char*, const int*, const int*,
-  const double*, const double*, const int*, const double*, double*, const int*);
+  const double*, const double*, const int*, const double*, double*, const int*,
+  size_t, size_t);
 typedef void (*internal_libxs_ssyrk_t)(const char*, const char*, const int*, const int*,
-  const float*, const float*, const int*, const float*, float*, const int*);
+  const float*, const float*, const int*, const float*, float*, const int*,
+  size_t, size_t);
 typedef void (*internal_libxs_dsyr2k_t)(const char*, const char*, const int*, const int*,
   const double*, const double*, const int*, const double*, const int*,
-  const double*, double*, const int*);
+  const double*, double*, const int*, size_t, size_t);
 typedef void (*internal_libxs_ssyr2k_t)(const char*, const char*, const int*, const int*,
   const float*, const float*, const int*, const float*, const int*,
-  const float*, float*, const int*);
+  const float*, float*, const int*, size_t, size_t);
 typedef int (*internal_libxs_blas_query_t)(void);
 
 
@@ -444,19 +447,23 @@ LIBXS_API_INTERN void internal_libxs_dgemm_default(
   const int* m, const int* n, const int* k,
   const double* alpha, const double* a, const int* lda,
                        const double* b, const int* ldb,
-  const double* beta,        double* c, const int* ldc);
+  const double* beta,        double* c, const int* ldc,
+  size_t transa_len, size_t transb_len);
 LIBXS_API_INTERN void internal_libxs_dgemm_default(
   const char* transa, const char* transb,
   const int* m, const int* n, const int* k,
   const double* alpha, const double* a, const int* lda,
                        const double* b, const int* ldb,
-  const double* beta,        double* c, const int* ldc)
+  const double* beta,        double* c, const int* ldc,
+  size_t transa_len, size_t transb_len)
 {
   const int mm = *m, nn = *n, kk = *k;
   const int llda = *lda, lldb = *ldb, lldc = *ldc;
   const double dalpha = (NULL != alpha ? *alpha : 1.0);
   const double dbeta = (NULL != beta ? *beta : 0.0);
   int i, j, p;
+  LIBXS_UNUSED(transa_len);
+  LIBXS_UNUSED(transb_len);
   LIBXS_ASSERT(NULL != transa && NULL != transb);
   LIBXS_ASSERT(NULL != a && NULL != b && NULL != c);
   for (j = 0; j < nn; ++j) {
@@ -480,19 +487,23 @@ LIBXS_API_INTERN void internal_libxs_sgemm_default(
   const int* m, const int* n, const int* k,
   const float* alpha, const float* a, const int* lda,
                       const float* b, const int* ldb,
-  const float* beta,        float* c, const int* ldc);
+  const float* beta,        float* c, const int* ldc,
+  size_t transa_len, size_t transb_len);
 LIBXS_API_INTERN void internal_libxs_sgemm_default(
   const char* transa, const char* transb,
   const int* m, const int* n, const int* k,
   const float* alpha, const float* a, const int* lda,
                       const float* b, const int* ldb,
-  const float* beta,        float* c, const int* ldc)
+  const float* beta,        float* c, const int* ldc,
+  size_t transa_len, size_t transb_len)
 {
   const int mm = *m, nn = *n, kk = *k;
   const int llda = *lda, lldb = *ldb, lldc = *ldc;
   const float falpha = (NULL != alpha ? *alpha : 1.f);
   const float fbeta = (NULL != beta ? *beta : 0.f);
   int i, j, p;
+  LIBXS_UNUSED(transa_len);
+  LIBXS_UNUSED(transb_len);
   LIBXS_ASSERT(NULL != transa && NULL != transb);
   LIBXS_ASSERT(NULL != a && NULL != b && NULL != c);
   for (j = 0; j < nn; ++j) {
@@ -1071,7 +1082,7 @@ LIBXS_API void libxs_gemm_batch_task(
           dgemm_blas(&config->shape.transa, &config->shape.transb, &m, &n, &k,
             &dalpha, (const double*)a_array[i], &lda,
             (const double*)b_array[i], &ldb,
-            &dbeta, (double*)c_array[i], &ldc);
+            &dbeta, (double*)c_array[i], &ldc, 1, 1);
         }
       }
     }
@@ -1107,7 +1118,7 @@ LIBXS_API void libxs_gemm_batch_task(
           sgemm_blas(&config->shape.transa, &config->shape.transb, &m, &n, &k,
             &falpha, (const float*)a_array[i], &lda,
             (const float*)b_array[i], &ldb,
-            &fbeta, (float*)c_array[i], &ldc);
+            &fbeta, (float*)c_array[i], &ldc, 1, 1);
         }
       }
     }
@@ -1193,7 +1204,7 @@ LIBXS_API void libxs_gemm_index_task(
           dgemm_blas(&config->shape.transa, &config->shape.transb, &m, &n, &k, &dalpha,
             (const double*)((const char*)a + (size_t)INTERNAL_GEMM_INDEX(i, stride_a) * elemsize), &lda,
             (const double*)((const char*)b + (size_t)INTERNAL_GEMM_INDEX(i, stride_b) * elemsize), &ldb,
-            &dbeta, ci, &ldc);
+            &dbeta, ci, &ldc, 1, 1);
         }
       }
     }
@@ -1234,7 +1245,7 @@ LIBXS_API void libxs_gemm_index_task(
           sgemm_blas(&config->shape.transa, &config->shape.transb, &m, &n, &k, &falpha,
             (const float*)((const char*)a + (size_t)INTERNAL_GEMM_INDEX(i, stride_a) * elemsize), &lda,
             (const float*)((const char*)b + (size_t)INTERNAL_GEMM_INDEX(i, stride_b) * elemsize), &ldb,
-            &fbeta, ci, &ldc);
+            &fbeta, ci, &ldc, 1, 1);
         }
       }
     }
@@ -1297,7 +1308,7 @@ LIBXS_API_INTERN void internal_libxs_gemm_blas(
       ? internal_libxs_dgemm_blas : internal_libxs_dgemm_default;
     fn(&config->shape.transa, &config->shape.transb, &m, &n, &k,
       &alpha, (const double*)a, &lda,
-      (const double*)b, &ldb, &beta, (double*)c, &ldc);
+      (const double*)b, &ldb, &beta, (double*)c, &ldc, 1, 1);
   }
   else if (LIBXS_DATATYPE_F32 == config->shape.datatype) {
     const float falpha = (float)alpha, fbeta = (float)beta;
@@ -1306,7 +1317,7 @@ LIBXS_API_INTERN void internal_libxs_gemm_blas(
       ? internal_libxs_sgemm_blas : internal_libxs_sgemm_default;
     fn(&config->shape.transa, &config->shape.transb, &m, &n, &k,
       &falpha, (const float*)a, &lda,
-      (const float*)b, &ldb, &fbeta, (float*)c, &ldc);
+      (const float*)b, &ldb, &fbeta, (float*)c, &ldc, 1, 1);
   }
 }
 
@@ -1558,7 +1569,7 @@ LIBXS_API void libxs_syr2k_task(
         internal_libxs_dsyr2k_blas(&uplo, "N", &n, &k,
           (const double*)&alpha, (const double*)a, &lda,
           (const double*)b, &ldb,
-          (const double*)&beta, (double*)c, &ldc);
+          (const double*)&beta, (double*)c, &ldc, 1, 1);
       }
     }
     else if (1 >= ntasks
@@ -1570,7 +1581,7 @@ LIBXS_API void libxs_syr2k_task(
         internal_libxs_ssyr2k_blas(&uplo, "N", &n, &k,
           &fa, (const float*)a, &lda,
           (const float*)b, &ldb,
-          &fb, (float*)c, &ldc);
+          &fb, (float*)c, &ldc, 1, 1);
       }
     }
     else {
@@ -1627,14 +1638,14 @@ LIBXS_API void libxs_syr2k_task(
               internal_libxs_dsyr2k_blas(&uplo, "N", &pn, &k,
                 (const double*)&alpha, (const double*)a + pb, &lda,
                 (const double*)b + pb, &ldb,
-                (const double*)&beta, (double*)c + ((size_t)pb * ldc + pb), &ldc);
+                (const double*)&beta, (double*)c + ((size_t)pb * ldc + pb), &ldc, 1, 1);
               continue;
             }
             else if (NULL != ssyr2k_fn) {
               const float fa = (float)alpha, fb = (float)beta;
               internal_libxs_ssyr2k_blas(&uplo, "N", &pn, &k,
                 &fa, (const float*)a + pb, &lda, (const float*)b + pb, &ldb,
-                &fb, (float*)c + ((size_t)pb * ldc + pb), &ldc);
+                &fb, (float*)c + ((size_t)pb * ldc + pb), &ldc, 1, 1);
               continue;
             }
             for (j = 0; j < pn; j += bn) {
@@ -1781,7 +1792,7 @@ LIBXS_API void libxs_syrk_task(
 #endif
         internal_libxs_dsyrk_blas(&uplo, "N", &n, &k,
           (const double*)&alpha, (const double*)a, &lda,
-          (const double*)&beta, (double*)c, &ldc);
+          (const double*)&beta, (double*)c, &ldc, 1, 1);
       }
     }
     else if (1 >= ntasks
@@ -1792,7 +1803,7 @@ LIBXS_API void libxs_syrk_task(
         const float fa = (float)alpha, fb = (float)beta;
         internal_libxs_ssyrk_blas(&uplo, "N", &n, &k,
           &fa, (const float*)a, &lda,
-          &fb, (float*)c, &ldc);
+          &fb, (float*)c, &ldc, 1, 1);
       }
     }
     else {
@@ -1843,14 +1854,14 @@ LIBXS_API void libxs_syrk_task(
             if (NULL != dsyrk_fn) {
               internal_libxs_dsyrk_blas(&uplo, "N", &pn, &k,
                 (const double*)&alpha, (const double*)a + pb, &lda,
-                (const double*)&beta, (double*)c + ((size_t)pb * ldc + pb), &ldc);
+                (const double*)&beta, (double*)c + ((size_t)pb * ldc + pb), &ldc, 1, 1);
               continue;
             }
             else if (NULL != ssyrk_fn) {
               const float fa = (float)alpha, fb = (float)beta;
               internal_libxs_ssyrk_blas(&uplo, "N", &pn, &k,
                 &fa, (const float*)a + pb, &lda,
-                &fb, (float*)c + ((size_t)pb * ldc + pb), &ldc);
+                &fb, (float*)c + ((size_t)pb * ldc + pb), &ldc, 1, 1);
               continue;
             }
             for (j = 0; j < pn; j += bn) {
