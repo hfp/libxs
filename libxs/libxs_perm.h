@@ -90,6 +90,8 @@ LIBXS_API int libxs_sort_smooth(libxs_sort_t method, int m, int n,
  * to libxs_sort takes the same radix path the value comparators take.
  */
 LIBXS_API int libxs_cmp_f64_idx(const void* a, const void* b, void* ctx);
+/** Like libxs_cmp_f64_idx, but ctx holds int keys (e.g., offsets to group by). */
+LIBXS_API int libxs_cmp_i32_idx(const void* a, const void* b, void* ctx);
 
 /** Built-in comparators (enable fast paths when recognized). */
 LIBXS_API int libxs_cmp_f64(const void* a, const void* b, void* ctx);

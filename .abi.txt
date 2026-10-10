@@ -12,6 +12,7 @@ libxs_cmp_f32
 libxs_cmp_f64
 libxs_cmp_f64_idx
 libxs_cmp_i32
+libxs_cmp_i32_idx
 libxs_cmp_u32
 libxs_coprime
 libxs_coprime_bias

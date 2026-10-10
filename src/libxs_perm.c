@@ -166,6 +166,14 @@ LIBXS_API int libxs_cmp_f64_idx(const void* a, const void* b, void* ctx)
 }
 
 
+LIBXS_API int libxs_cmp_i32_idx(const void* a, const void* b, void* ctx)
+{
+  const int* const keys = (const int*)ctx;
+  const int x = keys[*(const int*)a], y = keys[*(const int*)b];
+  return (x > y) - (x < y);
+}
+
+
 LIBXS_API int libxs_cmp_f64(const void* a, const void* b, void* ctx)
 {
   const double va = *(const double*)a, vb = *(const double*)b;
@@ -288,6 +296,33 @@ LIBXS_API_INLINE void internal_libxs_radix_idx(
 }
 
 
+/** As internal_libxs_radix_idx, but over 32-bit keys (even pass count as well). */
+LIBXS_API_INLINE void internal_libxs_radix_idx32(
+  unsigned int* ka, unsigned int* kb, int* ia, int* ib, int n)
+{
+  int pass;
+  for (pass = 0; pass < 4; ++pass) {
+    const int shift = pass * 8;
+    int count[256], i;
+    memset(count, 0, sizeof(count));
+    for (i = 0; i < n; ++i) ++count[(ka[i] >> shift) & 0xFF];
+    { int sum = 0, j;
+      for (j = 0; j < 256; ++j) {
+        const int c = count[j];
+        count[j] = sum; sum += c;
+      }
+    }
+    for (i = 0; i < n; ++i) {
+      const int at = count[(ka[i] >> shift) & 0xFF]++;
+      kb[at] = ka[i];
+      ib[at] = ia[i];
+    }
+    { unsigned int* tk = ka; ka = kb; kb = tk; }
+    { int* ti = ia; ia = ib; ib = ti; }
+  }
+}
+
+
 LIBXS_API_INLINE void internal_libxs_sort_radix_f64(
   double* LIBXS_RESTRICT dst, const double* src, int n, void* scratch)
 {
@@ -365,7 +400,7 @@ LIBXS_API void libxs_sort(void* base, int n, size_t size,
    * one corpus and 30% faster on another before this bound was in place.
    */
   if (LIBXS_SORT_RADIX_MIN > n) {
-    if (cmp == libxs_cmp_f64_idx) { /* ctx holds the keys the indices order */
+    if (cmp == libxs_cmp_f64_idx || cmp == libxs_cmp_i32_idx) { /* ctx holds the keys */
       internal_libxs_sort_heap(base, n, size, cmp, ctx);
     }
     else if (cmp == libxs_cmp_f64 || cmp == libxs_cmp_f32
@@ -393,6 +428,25 @@ LIBXS_API void libxs_sort(void* base, int n, size_t size,
         ka[i] = (bits >> 63) ? ~bits : (bits | 0x8000000000000000ULL);
       }
       internal_libxs_radix_idx(ka, kb, idx, ib, n);
+      LIBXS_MEM_SHUFFLE_FREE(scratch, pool);
+    }
+    else internal_libxs_sort_heap(base, n, size, cmp, ctx);
+  }
+  else if (cmp == libxs_cmp_i32_idx && NULL != ctx) {
+    const int* const keys = (const int*)ctx;
+    int* const idx = (int*)base;
+    int pool = 0;
+    void* scratch = LIBXS_MEM_SHUFFLE_MALLOC(
+      (size_t)n * (2 * sizeof(unsigned int) + sizeof(int)), pool);
+    if (NULL != scratch) {
+      unsigned int* const ka = (unsigned int*)scratch;
+      unsigned int* const kb = ka + n;
+      int* const ib = (int*)(kb + n);
+      int i;
+      for (i = 0; i < n; ++i) { /* flipping the sign bit orders signed keys */
+        ka[i] = (unsigned int)keys[idx[i]] ^ 0x80000000U;
+      }
+      internal_libxs_radix_idx32(ka, kb, idx, ib, n);
       LIBXS_MEM_SHUFFLE_FREE(scratch, pool);
     }
     else internal_libxs_sort_heap(base, n, size, cmp, ctx);

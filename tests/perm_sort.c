@@ -56,10 +56,12 @@ int main(void) {
     double* want = (double*)malloc((size_t)n * sizeof(double));
     double* src = (double*)malloc((size_t)n * sizeof(double));
     double* keys = (double*)malloc((size_t)n * sizeof(double));
+    int* ikeys = (int*)malloc((size_t)n * sizeof(int));
+    int* iperm = (int*)malloc((size_t)n * sizeof(int));
     int* perm = (int*)malloc((size_t)n * sizeof(int));
     char* seen = (char*)calloc((size_t)n, 1);
     if (NULL == data || NULL == want || NULL == src || NULL == keys
-      || NULL == perm || NULL == seen)
+      || NULL == perm || NULL == seen || NULL == ikeys || NULL == iperm)
     {
       result = EXIT_FAILURE;
     }
@@ -70,6 +72,8 @@ int main(void) {
         src[i] = value_of(i);
         keys[i] = value_of(i);
         perm[i] = i;
+        ikeys[i] = (int)(value_of(i) * 8.0); /* exact: same order as the oracle */
+        iperm[i] = i;
         want[i] = value_of(i);
       }
       qsort(want, (size_t)n, sizeof(double), cmp_qsort);
@@ -118,6 +122,24 @@ int main(void) {
         }
         else seen[perm[i]] = 1;
       }
+      /* the indirect kind over int keys, against the same oracle */
+      libxs_sort(iperm, n, sizeof(int), libxs_cmp_i32_idx, ikeys);
+      memset(seen, 0, (size_t)n);
+      for (i = 0; i < n; ++i) {
+        if ((double)ikeys[iperm[i]] / 8.0 != want[i]) {
+          FPRINTF(stderr, "i32_idx n=%i differs at %i\n", n, i);
+          result = EXIT_FAILURE;
+        }
+        if ((int)(value_of(i) * 8.0) != ikeys[i]) {
+          FPRINTF(stderr, "i32_idx n=%i moved the keys\n", n);
+          result = EXIT_FAILURE;
+        }
+        if (0 > iperm[i] || n <= iperm[i] || 0 != seen[iperm[i]]) {
+          FPRINTF(stderr, "i32_idx n=%i is not a permutation\n", n);
+          result = EXIT_FAILURE;
+        }
+        else seen[iperm[i]] = 1;
+      }
       for (i = 0; i < n; ++i) data[i] = value_of(i);
       libxs_sort(data, n, sizeof(double), cmp_descend, NULL);
       for (i = 0; i < n; ++i) {
@@ -127,6 +149,7 @@ int main(void) {
         }
       }
     }
+    free(iperm); free(ikeys);
     free(seen); free(perm); free(keys); free(src); free(want); free(data);
   }
   return result;

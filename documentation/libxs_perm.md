@@ -96,7 +96,15 @@ int libxs_cmp_u32(const void* a, const void* b, void* ctx);
 Built-in comparators enable an O(n) radix sort fast path.
 Custom comparators use O(n log n) heap sort.
 
-With a built-in comparator, ctx controls the mode:
+Index comparators order an array of indices (base) by keys that ctx
+points to, and leave the keys untouched (e.g., to permute a payload):
+
+```C
+int libxs_cmp_f64_idx(const void* a, const void* b, void* ctx);
+int libxs_cmp_i32_idx(const void* a, const void* b, void* ctx);
+```
+
+With a built-in value comparator, ctx controls the mode:
 
   ctx = NULL   Sort base in-place.
   ctx != NULL  Read from ctx, write sorted result to base
@@ -109,6 +117,7 @@ Examples:
 
   libxs_sort(data, n, sizeof(double), libxs_cmp_f64, NULL);
   libxs_sort(dst, n, sizeof(double), libxs_cmp_f64, src);
+  libxs_sort(perm, n, sizeof(int), libxs_cmp_i32_idx, keys);
   libxs_sort(perm, n, sizeof(int), my_indirect_cmp, keys);
 
 ## Space-Filling Curves
