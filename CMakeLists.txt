@@ -58,11 +58,6 @@ if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
                                                "RelWithDebInfo" "MinSizeRel")
 endif()
 
-message(STATUS "******** Build Summary ********")
-message(STATUS "  CMake version         : ${CMAKE_VERSION}")
-message(STATUS "  System                : ${CMAKE_SYSTEM_NAME}")
-message(STATUS "  LIBXS_FORTRAN         : ${LIBXS_FORTRAN}")
-
 set(LIBXS_ROOT_DIR "${PROJECT_SOURCE_DIR}")
 set(LIBXS_INCLUDE_DIR "${LIBXS_ROOT_DIR}/libxs")
 if(NOT CMAKE_INSTALL_Fortran_MODULES)
