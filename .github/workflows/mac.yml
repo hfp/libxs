@@ -51,7 +51,6 @@ jobs:
 
     strategy:
       matrix:
-        build_type: [Release, Debug]
         shared: [static, shared]
 
     env:
@@ -62,13 +61,17 @@ jobs:
       - uses: actions/checkout@v5
 
       - name: Install dependencies
-        run: brew install cmake
+        run: brew install cmake libomp
 
       - name: Configure
         run: |
           cmake -B build \
-                -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} \
-                -DBUILD_SHARED_LIBS=$( [ "${{ matrix.shared }}" = "shared" ] && echo ON || echo OFF )
+                -DBUILD_SHARED_LIBS=$( [ "${{ matrix.shared }}" = "shared" ] && echo ON || echo OFF ) \
+                -DBUILD_TESTING=ON \
+                -DOpenMP_ROOT="$(brew --prefix libomp)"
 
       - name: Build
-        run: cmake --build build --parallel $(sysctl -n hw.ncpu)
+        run: cmake --build build -j $(sysctl -n hw.ncpu)
+
+      - name: Test
+        run: ctest --test-dir build --output-on-failure -j $(sysctl -n hw.ncpu)
