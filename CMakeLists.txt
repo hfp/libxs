@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.13 FATAL_ERROR)
+cmake_minimum_required(VERSION 3.14 FATAL_ERROR)
 
 set(LIBXS_VERSION_FILE "${CMAKE_CURRENT_SOURCE_DIR}/version.txt")
 if(NOT EXISTS "${LIBXS_VERSION_FILE}")
@@ -240,12 +240,7 @@ write_basic_package_version_file(
   COMPATIBILITY SameMajorVersion)
 
 # Installation rules
-install(
-  TARGETS libxs
-  EXPORT libxsTargets
-  ARCHIVE DESTINATION "${CMAKE_INSTALL_LIBDIR}"
-  LIBRARY DESTINATION "${CMAKE_INSTALL_LIBDIR}"
-  RUNTIME DESTINATION "${CMAKE_INSTALL_BINDIR}")
+install(TARGETS libxs EXPORT libxsTargets)
 
 # Install public headers.
 install(
