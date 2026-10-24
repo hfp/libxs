@@ -246,7 +246,6 @@ if(NOT APPLE)
     libxs_common_target_setup(${target})
     target_include_directories(${target}
                                PRIVATE "${PROJECT_SOURCE_DIR}/samples/ozaki")
-    target_compile_definitions(${target} PRIVATE __NO_INTRINSICS)
     set_target_properties(${target} PROPERTIES POSITION_INDEPENDENT_CODE ON)
   endforeach()
   target_compile_definitions(libxs_ozaki_impl_s PRIVATE GEMM_REAL_TYPE=float)
@@ -259,7 +258,6 @@ if(NOT APPLE)
     libxs_common_target_setup(${target})
     target_include_directories(${target}
                                PRIVATE "${PROJECT_SOURCE_DIR}/samples/ozaki")
-    target_compile_definitions(${target} PRIVATE __NO_INTRINSICS)
     set_target_properties(${target} PROPERTIES POSITION_INDEPENDENT_CODE ON)
   endforeach()
   target_compile_definitions(libxs_ozaki_entry_s PRIVATE GEMM_REAL_TYPE=float)
@@ -285,12 +283,24 @@ if(NOT APPLE)
   target_link_libraries(libxs_ozaki_wrap_shared PRIVATE libxs ${BLAS_LIBRARIES}
                                                         ${CMAKE_DL_LIBS})
 
+  # Keep symbols from static dependencies internal to the BLAS interposer.
+  include(CheckCSourceCompiles)
+  include(CMakePushCheckState)
+  cmake_push_check_state(RESET)
+  set(CMAKE_REQUIRED_LIBRARIES "-Wl,--exclude-libs,ALL")
+  check_c_source_compiles("int main(void) { return 0; }"
+                          LIBXS_LINKER_HAS_EXCLUDE_LIBS)
+  cmake_pop_check_state()
+  if(LIBXS_LINKER_HAS_EXCLUDE_LIBS)
+    target_link_options(libxs_ozaki_wrap_shared PRIVATE
+                        "-Wl,--exclude-libs,ALL")
+  endif()
+
   function(libxs_add_ozaki_driver target output_name)
     add_executable(${target} "${PROJECT_SOURCE_DIR}/samples/ozaki/gemm.c")
     libxs_common_target_setup(${target})
     target_include_directories(${target}
                                PRIVATE "${PROJECT_SOURCE_DIR}/samples/ozaki")
-    target_compile_definitions(${target} PRIVATE __NO_INTRINSICS)
     target_link_libraries(${target} PRIVATE libxs ${BLAS_LIBRARIES})
     libxs_set_runtime_output(${target} "samples/ozaki" "${output_name}")
   endfunction()
@@ -321,7 +331,6 @@ if(NOT APPLE)
     libxs_common_target_setup(${target})
     target_include_directories(${target}
                                PRIVATE "${PROJECT_SOURCE_DIR}/samples/ozaki")
-    target_compile_definitions(${target} PRIVATE __NO_INTRINSICS)
     target_link_libraries(${target} PRIVATE libxs_ozaki_wrap_static libxs
                                             ${LIBXS_STATIC_BLAS_LIBRARIES})
     target_link_options(

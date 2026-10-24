@@ -19,7 +19,9 @@ skip() {
 cd "${HERE}/../samples/ozaki" 2>/dev/null \
   || skip "no samples/ozaki to test"
 if [ ! -x ./test-wrap.sh ]; then skip "./test-wrap.sh is absent"; fi
-./test-wrap.sh dgemm
-./test-wrap.sh dgemm  16  20 350 1 0  1 0.0 350 350 1000
-./test-wrap.sh dgemm  23  21  32 0 1 -1 0.5  32  32 1000
-./test-wrap.sh dgemm 200 200 256 1 1  1 0.0 256 256 1000
+for GEMM in dgemm sgemm zgemm cgemm; do
+  ./test-wrap.sh "${GEMM}"
+  ./test-wrap.sh "${GEMM}"  16  20 350 1 0  1 0.0 350 350 1000
+  ./test-wrap.sh "${GEMM}"  23  21  32 0 1 -1 0.5  32  32 1000
+  ./test-wrap.sh "${GEMM}" 200 200 256 1 1  1 0.0 256 256 1000
+done
