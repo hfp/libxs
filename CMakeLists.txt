@@ -37,7 +37,8 @@ option(LIBXS_FORTRAN
 option(LIBXS_INSTALL_HEADER_ONLY
        "Install the header-only implementation sources" OFF)
 
-option(BUILD_TESTING "Build unit tests; requires BLAS" OFF)
+option(BUILD_TESTING "Build unit tests" OFF)
+option(LIBXS_BUILD_SAMPLES "Build samples; requires BLAS" "${BUILD_TESTING}")
 
 if(LIBXS_FORTRAN)
   if(NOT CMAKE_Fortran_COMPILER)
@@ -181,6 +182,9 @@ if(LIBXS_FORTRAN)
                  $<INSTALL_INTERFACE:${CMAKE_INSTALL_Fortran_MODULES}>)
 endif()
 
+if(LIBXS_BUILD_SAMPLES)
+  add_subdirectory(samples)
+endif()
 if(BUILD_TESTING)
   add_subdirectory(tests)
 endif()
