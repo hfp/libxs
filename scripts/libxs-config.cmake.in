@@ -8,7 +8,7 @@ set(LIBXS_FORTRAN "@LIBXS_FORTRAN@")
 find_dependency(Threads)
 find_dependency(OpenMP COMPONENTS C)
 
-set_and_check(LIBXS_TARGETS_FILE "${CMAKE_CURRENT_LIST_DIR}/libxsTargets.cmake")
+set_and_check(LIBXS_TARGETS_FILE "${CMAKE_CURRENT_LIST_DIR}/libxs-targets.cmake")
 include("${LIBXS_TARGETS_FILE}")
 
 check_required_components(libxs)

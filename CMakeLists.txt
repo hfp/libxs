@@ -233,18 +233,18 @@ configure_file("${CMAKE_CURRENT_SOURCE_DIR}/scripts/libxs.pc.in"
 
 # CMake package config files
 configure_package_config_file(
-  "${CMAKE_CURRENT_SOURCE_DIR}/scripts/libxsConfig.cmake.in"
-  "${CMAKE_CURRENT_BINARY_DIR}/libxsConfig.cmake"
+  "${CMAKE_CURRENT_SOURCE_DIR}/scripts/libxs-config.cmake.in"
+  "${CMAKE_CURRENT_BINARY_DIR}/libxs-config.cmake"
   INSTALL_DESTINATION "${CMAKE_INSTALL_LIBDIR}/cmake/libxs"
   PATH_VARS CMAKE_INSTALL_INCLUDEDIR CMAKE_INSTALL_LIBDIR)
 
 write_basic_package_version_file(
-  "${CMAKE_CURRENT_BINARY_DIR}/libxsConfigVersion.cmake"
+  "${CMAKE_CURRENT_BINARY_DIR}/libxs-config-version.cmake"
   VERSION ${PROJECT_VERSION}
   COMPATIBILITY SameMajorVersion)
 
 # Installation rules
-install(TARGETS libxs EXPORT libxsTargets)
+install(TARGETS libxs EXPORT libxs-targets)
 
 # Install public headers.
 install(
@@ -301,13 +301,13 @@ install(
 
 # CMake package config export
 install(
-  EXPORT libxsTargets
-  FILE libxsTargets.cmake
+  EXPORT libxs-targets
+  FILE libxs-targets.cmake
   NAMESPACE libxs::
   DESTINATION "${CMAKE_INSTALL_LIBDIR}/cmake/libxs")
 
-install(FILES "${CMAKE_CURRENT_BINARY_DIR}/libxsConfig.cmake"
-              "${CMAKE_CURRENT_BINARY_DIR}/libxsConfigVersion.cmake"
+install(FILES "${CMAKE_CURRENT_BINARY_DIR}/libxs-config.cmake"
+              "${CMAKE_CURRENT_BINARY_DIR}/libxs-config-version.cmake"
         DESTINATION "${CMAKE_INSTALL_LIBDIR}/cmake/libxs")
 
 # Install documentation.

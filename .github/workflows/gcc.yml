@@ -268,8 +268,8 @@ jobs:
         test -d $HOME/libxs-install/include/libxs/src
         ls $HOME/libxs-install/lib/libxs* >/dev/null
         ls $HOME/libxs-install/lib/pkgconfig/libxs.pc >/dev/null
-        test -f $HOME/libxs-install/lib/cmake/libxs/libxsConfig.cmake
-        test -f $HOME/libxs-install/lib/cmake/libxs/libxsTargets.cmake
+        test -f $HOME/libxs-install/lib/cmake/libxs/libxs-config.cmake
+        test -f $HOME/libxs-install/lib/cmake/libxs/libxs-targets.cmake
         test -d $HOME/libxs-install/share/libxs
 
     - name: Verify find_package
