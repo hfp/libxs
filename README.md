@@ -96,6 +96,10 @@ cmake --build build
 cmake --install build --prefix $HOME/libxs
 ```
 
+The CMake build requires OpenMP for C and, when enabled, Fortran. The library,
+tests, and samples are compiled with OpenMP, including the Fortran module's
+parallel wrappers. CMake selects the compiler flags and runtime libraries.
+
 | Option                    | Default | Description                                 |
 |---------------------------|---------|---------------------------------------------|
 | LIBXS_FORTRAN             | (auto)  | Build the Fortran module                    |
@@ -135,7 +139,7 @@ desired headers:
 
 Both builds install pkg-config files (`libxs.pc`) and a CMake package
 (target `libxs::libxs`). A static library needs `--static` to also
-list its dependencies (pthread, libm, libdl, librt):
+list its dependencies (OpenMP when enabled, pthread, libm, libdl, librt):
 
 ```bash
 cc app.c $(pkg-config --cflags libxs) $(pkg-config --libs --static libxs)

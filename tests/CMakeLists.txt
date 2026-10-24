@@ -7,7 +7,6 @@
 
 find_program(LIBXS_TEST_SHELL NAMES bash sh REQUIRED)
 
-find_package(OpenMP)
 find_package(BLAS REQUIRED)
 
 set(LIBXS_STATIC_BLAS_LIBRARIES)
@@ -84,9 +83,7 @@ endfunction()
 
 function(libxs_common_target_setup target)
   target_include_directories(${target} PRIVATE ${LIBXS_TEST_COMMON_INCLUDES})
-  if(OpenMP_C_FOUND)
-    target_link_libraries(${target} PRIVATE OpenMP::OpenMP_C)
-  endif()
+  target_link_libraries(${target} PRIVATE OpenMP::OpenMP_C)
 endfunction()
 
 function(libxs_add_c_program target rel_dir output_name)
@@ -107,9 +104,7 @@ function(libxs_add_fortran_program target rel_dir output_name)
     if(BLAS_FOUND)
       target_link_libraries(${target} PRIVATE ${BLAS_LIBRARIES})
     endif()
-    if(OpenMP_Fortran_FOUND)
-      target_link_libraries(${target} PRIVATE OpenMP::OpenMP_Fortran)
-    endif()
+    target_link_libraries(${target} PRIVATE OpenMP::OpenMP_Fortran)
     libxs_set_runtime_output(${target} "${rel_dir}" "${output_name}")
   endif()
 endfunction()
@@ -254,6 +249,7 @@ foreach(name IN ITEMS gemm_strided gemm_batch gemm_groups gemm_index)
 endforeach()
 if(LIBXS_FORTRAN)
   add_library(libxs_sample_jit OBJECT "${PROJECT_SOURCE_DIR}/libxs/libxs_jit.F")
+  target_link_libraries(libxs_sample_jit PRIVATE libxs OpenMP::OpenMP_Fortran)
   target_compile_definitions(libxs_sample_jit PRIVATE __LIBXS)
   target_include_directories(libxs_sample_jit PRIVATE
     ${LIBXS_TEST_COMMON_INCLUDES}
