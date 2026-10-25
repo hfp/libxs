@@ -14,6 +14,7 @@
 #include <libxs/libxs_gemm.h>
 #include <libxs/libxs_hash.h>
 #include "libxs_main.h"
+#include <locale.h>
 #if defined(__linux__)
 # include <sys/mman.h>
 #endif
@@ -26,6 +27,10 @@
 #endif
 #if !defined(LIBXS_PREDICT_MAGIC_HKNN)
 #  define LIBXS_PREDICT_MAGIC_HKNN 0x58534B4EU /* "XSKN" */
+#endif
+/** Bytes a CSV is read in at a time; a longer line grows the buffer. */
+#if !defined(LIBXS_PREDICT_CSV_CHUNK)
+#  define LIBXS_PREDICT_CSV_CHUNK (4 << 20)
 #endif
 
 #define INTERNAL_LIBXS_PREDICT_RF_TEAM_MAX 64
@@ -183,6 +188,14 @@
 #define INTERNAL_LIBXS_PREDICT_EVALBYTES(N) \
   ((size_t)(N) * 6 * sizeof(double) + INTERNAL_LIBXS_PREDICT_NBINT(N))
 
+
+/** Lines of a file read through one large buffer rather than one call each. */
+typedef struct internal_libxs_predict_lines_t {
+  FILE* file;
+  char* buf;
+  size_t cap, len, pos;
+  int pool, eof;
+} internal_libxs_predict_lines_t;
 
 typedef struct internal_libxs_predict_entry_t {
   double* inputs;
