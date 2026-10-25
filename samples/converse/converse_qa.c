@@ -1045,7 +1045,8 @@ static int corpus_spatial_build(libxs_spatial_t* sp,
   const libxs_registry_t* corpus)
 {
   int result = EXIT_FAILURE;
-  libxs_registry_info_t info = { 0 };
+  libxs_registry_info_t info;
+  memset(&info, 0, sizeof(info));
   if (NULL == sp || NULL == corpus) return EXIT_FAILURE;
   libxs_registry_info(corpus, &info);
   if (0 < info.size) {
