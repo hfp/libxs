@@ -460,6 +460,9 @@ static void evaluate(libxs_predict_t* model,
       int split_acted[NPARAM][2], split_correct[NPARAM][2], split_n[2];
       int calib[NPARAM], ncalib = 0, ci;
       const char* score;
+      /* every query's answer and gate score (DUMP), for curves the tables above summarize */
+      const char* const dumpname = getenv("DUMP");
+      FILE* const dump = (NULL != dumpname && '\0' != *dumpname) ? fopen(dumpname, "w") : NULL;
       /* A shape counts once in the tables above whatever it is worth. These
        * weigh it by the throughput its tuned parameters reached, which is the
        * number a deployment feels: a miss on the widest shape and a miss on the
@@ -496,6 +499,21 @@ static void evaluate(libxs_predict_t* model,
       score = (0 == ncalib) ? "confidence"
         : ((nconf == ncalib) ? "probability" : "mixed");
       for (ci = 0; ci < nconf; ++ci) wacted[ci] = wcorrect[ci] = 0.0;
+      if (NULL != dump) {
+        fprintf(dump, "novel");
+        for (j = 0; j < NINPUTS; ++j) {
+          int len = 0;
+          const char* const name = libxs_strtoken(input_names, ",", j, &len);
+          fprintf(dump, " %.*s", len, name);
+        }
+        for (ci = 0; ci < nconf; ++ci) {
+          int len = 0;
+          const char* const name = libxs_strtoken(output_names, ",",
+            confidence_outputs[ci], &len);
+          fprintf(dump, " %.*s_t %.*s_p %.*s_s", len, name, len, name, len, name);
+        }
+        fprintf(dump, "\n");
+      }
       /* the sweep is a curve and reads in order; the threshold above is already
        * taken, so sorting here lets the headline gate be named first */
       for (i = 1; i < ngates; ++i) {
@@ -519,6 +537,12 @@ static void evaluate(libxs_predict_t* model,
         libxs_predict_eval(NULL, model,
           all_inputs + (size_t)i * NINPUTS, NULL, &info, 1);
         libxs_predict_get(reference, i, NULL, expected);
+        if (NULL != dump) {
+          fprintf(dump, "%d", novel);
+          for (j = 0; j < NINPUTS; ++j) {
+            fprintf(dump, " %g", all_inputs[(size_t)i * NINPUTS + j]);
+          }
+        }
         ++split_n[novel];
         { const double w = expected[PERF_OUTPUT];
           if (0 < w) {
@@ -559,6 +583,10 @@ static void evaluate(libxs_predict_t* model,
           if (0 != calib[ci]) {
             libxs_predict_probability(model, oi, conf, &conf);
           }
+          if (NULL != dump) {
+            fprintf(dump, " %d %d %.6f", (int)expected[oi], (NULL != info.values)
+              ? LIBXS_ROUNDX(int, info.values[oi]) : (int)expected[oi] - 1, conf);
+          }
           if (NULL != swconf && NULL != swok) {
             swconf[(size_t)i * nconf + ci] = conf;
             swok[(size_t)i * nconf + ci] = (char)((NULL != info.values
@@ -585,7 +613,9 @@ static void evaluate(libxs_predict_t* model,
             ++deferred[ci];
           }
         }
+        if (NULL != dump) fprintf(dump, "\n");
       }
+      if (NULL != dump) fclose(dump);
       if (0 < iseen[0] + iseen[1]) {
         libxs_predict_query_t iq;
         memset(&iq, 0, sizeof(iq));

@@ -90,6 +90,10 @@ sweep for both models, which is what compares two confidence signals:
 
     GATE=0.5,0.6,0.7,0.8,0.9,0.95,0.99 ./predict_crystal.x predict_crystal.csv 0.8 2 0 xgb
 
+`predict_params` also reads `DUMP`: a file that receives one line per validation
+query (whether the model was built without it, the inputs, and per varying
+parameter the tuned value, the prediction, and the score the gate reads).
+
 ### Examples
 
     ./predict_params.x 0.8 mix xgb /path/to/libxstream/samples/smm/params/tune_multiply_PVC.csv
