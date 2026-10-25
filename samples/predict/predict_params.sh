@@ -21,10 +21,10 @@ if [ ! -x "${HERE}/predict_params.x" ]; then
 fi
 
 # Deployed models are embedded, so the default names the method rather than
-# leaving it to the trial, which would choose a forest many times their size.
-# hKNN over kNN: it matches 4.8 points more of the tuned parameters on shapes
-# it was not built from, at twice the size of a kNN model.
-ARGS="${*:-hknn}"
+# leaving it to the trial, which scores exact matches only. A forest of eight
+# trees matches hKNN on shapes it was not built from, at under twice its size,
+# and its gate reads a calibrated probability where hKNN's confidence overstates.
+ARGS="${*:-rf trees8}"
 
 for csv in "${PARAMS_DIR}"/tune_multiply_*.csv; do
   if [ -f "${csv}" ]; then

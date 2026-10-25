@@ -119,7 +119,7 @@ Reports validation quality on a held-out subset.
 
 ### Usage
 
-    ./predict_params.x [fraction] [auto|cat|compress[Q]|consist[C]|interp|mix|quantile[Q]|rf|hknn|knn|smooth[A]|xgb] [-N] <csvfile> [modelfile [confidence-prefix]]
+    ./predict_params.x [fraction] [auto|cat|compress[Q]|consist[C]|interp|mix|quantile[Q]|rf|hknn|knn|smooth[A]|trees[N]|xgb] [-N] <csvfile> [modelfile [confidence-prefix]]
 
     fraction   Validation split 0..1 for quality report (default: 0.8).
     auto       Auto-detect mode per output (default).
@@ -133,6 +133,7 @@ Reports validation quality on a held-out subset.
     hknn       Hierarchical kNN (Fisher-guided partition).
     knn        Plain kNN.
     smooth     Multi-cluster blending (A: radius, or -1 = auto; default -1).
+    trees      Trees per output of a forest, named or chosen by trial (N, default 64).
     xgb        Also train XGBoost on the same split and compare.
     -N         Max polynomial order (default: 0 = auto).
     csvfile    Delimited text file.

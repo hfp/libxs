@@ -61,7 +61,7 @@ int main(int argc, char* argv[])
 {
   const char *filename, *modelfile, *confidence_prefix;
   double quality = 0, smooth = 0, consistency = 0;
-  double quantile = 0, eval_fraction = 0.8;
+  double quantile = 0, eval_fraction = 0.8, trees = 0;
   int argi = 1, mode = LIBXS_PREDICT_AUTO;
   int decompose = LIBXS_PREDICT_AUTO_DECOMPOSE;
   int order_arg = 0, shuffle_split = 0, use_xgb = 0;
@@ -104,7 +104,8 @@ int main(int argc, char* argv[])
       else if (0 != predict_keyval(arg, "compress", 0.9, &quality)
         || 0 != predict_keyval(arg, "consist", 0.9, &consistency)
         || 0 != predict_keyval(arg, "quantile", 0.1, &quantile)
-        || 0 != predict_keyval(arg, "smooth", -1.0, &smooth))
+        || 0 != predict_keyval(arg, "smooth", -1.0, &smooth)
+        || 0 != predict_keyval(arg, "trees", 0.0, &trees))
       {
         /* the keyword that matched has already assigned its own value */
       }
@@ -140,7 +141,7 @@ int main(int argc, char* argv[])
   }
   if (NULL == filename) {
     fprintf(stdout,
-      "Usage: %s [fraction] [auto|cat|compress[Q]|consist[C]|interp|quantile[Q]|rf|hknn|knn|smooth[A]|xgb]"
+      "Usage: %s [fraction] [auto|cat|compress[Q]|consist[C]|interp|quantile[Q]|rf|hknn|knn|smooth[A]|trees[N]|xgb]"
       " [-N] <csvfile> [modelfile [confidence-prefix]]\n"
       "  fraction: validation split 0..1 for quality report (default: 0.8)\n"
       "  auto:     auto-detect mode per output (default)\n"
@@ -156,6 +157,7 @@ int main(int argc, char* argv[])
       "  hknn:     hierarchical kNN (Fisher-guided partition)\n"
       "  knn:      plain kNN; without rf, hknn or knn the build chooses by trial\n"
       "  smooth:   multi-cluster blending (A: radius or -1=auto, default: auto)\n"
+      "  trees:    trees per output of a forest, named or chosen by trial (N, default: 64)\n"
       "  xgb:      also train XGBoost on the same split and compare\n"
 
       "  -N: max polynomial order (default: 0 = auto)\n"
@@ -186,6 +188,7 @@ int main(int argc, char* argv[])
           libxs_predict_set_decompose(model, decompose);
           if (0.0 != smooth) libxs_predict_set_smooth(model, smooth);
           if (0.0 != consistency) libxs_predict_set_consistency(model, consistency);
+          if (0 < trees) libxs_predict_set_forest(model, (int)trees, 0);
           if (0.0 != quantile) libxs_predict_set_quantile(model, quantile);
           for (i = 0; i < ntotal; ++i) {
             libxs_predict_get(source, i, inputs, outputs);
@@ -229,6 +232,7 @@ int main(int argc, char* argv[])
                 if (0.0 != consistency) {
                   libxs_predict_set_consistency(val_model, consistency);
                 }
+                if (0 < trees) libxs_predict_set_forest(val_model, (int)trees, 0);
                 /* the validation model mirrors the deployed one, intervals
                  * included: without this the quantile option reached only the
                  * model that is saved and never the one that is read back */
