@@ -408,11 +408,7 @@
 #endif
 #if defined(_WIN32) && !defined(__GNUC__) && !defined(__clang__)
 # define LIBXS_ATTRIBUTE(A) __declspec(A)
-# if defined(__cplusplus)
-#   define LIBXS_INLINE_ALWAYS __forceinline
-# else
-#   define LIBXS_INLINE_ALWAYS static __forceinline
-# endif
+# define LIBXS_INLINE_ALWAYS static __forceinline
 # define LIBXS_INLINE_NEVER LIBXS_ATTRIBUTE(noinline)
 # define LIBXS_ALIGNED(DECL, N) LIBXS_ATTRIBUTE(align(N)) DECL
 # if !defined(LIBXS_UNPACKED)
@@ -483,7 +479,11 @@
 # define LIBXS_EXTERN extern "C"
 # define LIBXS_EXTERN_C extern "C"
 # define LIBXS_INLINE_KEYWORD inline
-# define LIBXS_INLINE LIBXS_INLINE_KEYWORD
+/**
+ * Static as in C: a plain inline function is merged across translation units by
+ * name, so a source compiled twice (double and float) runs one copy for both.
+ */
+# define LIBXS_INLINE static LIBXS_INLINE_KEYWORD LIBXS_ATTRIBUTE_UNUSED
 # if defined(__GNUC__) || defined(_CRAYC)
 #   define LIBXS_CALLER __PRETTY_FUNCTION__
 # elif defined(_MSC_VER)
@@ -604,6 +604,12 @@
 #define LIBXS_APIKIND_LINKAGE_2 LIBXS_EXTERN_C
 #define LIBXS_APIKIND_LINKAGE(KIND) LIBXS_CONCATENATE(LIBXS_APIKIND_LINKAGE_, KIND)
 
+/** Function linkage per build-kind: none for INLINE, as C++ rejects extern "C" static. */
+#define LIBXS_APIKIND_FLINKAGE_0 LIBXS_EXTERN
+#define LIBXS_APIKIND_FLINKAGE_1 LIBXS_EXTERN
+#define LIBXS_APIKIND_FLINKAGE_2
+#define LIBXS_APIKIND_FLINKAGE(KIND) LIBXS_CONCATENATE(LIBXS_APIKIND_FLINKAGE_, KIND)
+
 /** Parameterized inline target per build-kind. */
 #define LIBXS_APIKIND_TARGET_0
 #define LIBXS_APIKIND_TARGET_1
@@ -632,9 +638,9 @@
 #define LIBXS_APIKIND_VIS(VIS, KIND) LIBXS_CONCATENATE(LIBXS_APIKIND_V, VIS)(KIND)
 
 /** Public function decoration parameterized by build-kind. */
-#define LIBXS_API_DECL(KIND) LIBXS_APIKIND_LINKAGE(KIND) LIBXS_APIKIND_TARGET(KIND) LIBXS_APIKIND_VEXPORT(KIND)
+#define LIBXS_API_DECL(KIND) LIBXS_APIKIND_FLINKAGE(KIND) LIBXS_APIKIND_TARGET(KIND) LIBXS_APIKIND_VEXPORT(KIND)
 /** Private function decoration parameterized by build-kind. */
-#define LIBXS_API_DECL_INTERN(KIND) LIBXS_APIKIND_LINKAGE(KIND) LIBXS_APIKIND_TARGET(KIND) LIBXS_APIKIND_VINTERN(KIND)
+#define LIBXS_API_DECL_INTERN(KIND) LIBXS_APIKIND_FLINKAGE(KIND) LIBXS_APIKIND_TARGET(KIND) LIBXS_APIKIND_VINTERN(KIND)
 /** Variable helpers parameterized by build-kind. */
 #define LIBXS_APIVAR_DECL(DECL, VIS, EXTERN, KIND) EXTERN LIBXS_APIKIND_COMMON(KIND) LIBXS_APIKIND_VIS(VIS, KIND) DECL
 #if (!defined(__INTEL_COMPILER) || !defined(_WIN32))
