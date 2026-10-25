@@ -46,11 +46,11 @@ trap 'rm ${TMPF}' EXIT
 # a plain *-blas.x against 2 for both the static wrap and the LD_PRELOAD path.
 WRAPPED="GEMM\["
 
-# Every verdict goes to stderr as well as stdout, because tests/test.sh runs this
-# with stdout on /dev/null and reports only what it captured from stderr.  A
+# A failure or a skip goes to stderr as well as stdout, because tests/test.sh runs
+# this with stdout on /dev/null and reports only what it captured from stderr.  A
 # failure that announces itself on stdout alone therefore reaches CI as a bare
 # exit code with no message, which is how one arrived: "FAILED(127)" and nothing
-# else to read.
+# else to read.  An OK stays on stdout, or test.sh repeats each one after its own.
 say() {
   echo "$*"
   echo "${NAME:-test-wrap}: $*" >&2
@@ -89,7 +89,7 @@ for TEST in ${TESTS}; do
       say "FAILED[${RESULT}] $(${CAT} "${TMPF}")"
       exit ${RESULT}
     elif ! ${GREP} -q "${WRAPPED}" "${TMPF}"; then
-      say "OK"
+      echo "OK"
     else
       say "FAILED: expected ${WRAPPED} $(${CAT} "${TMPF}")"
       exit 1
@@ -111,7 +111,7 @@ for TEST in ${TESTS}; do
       say "FAILED[${RESULT}] $(${CAT} "${TMPF}")"
       exit ${RESULT}
     elif ${GREP} -q "${WRAPPED}" "${TMPF}"; then
-      say "OK"
+      echo "OK"
     else
       say "FAILED: expected ${WRAPPED} $(${CAT} "${TMPF}")"
       exit 1
@@ -147,7 +147,7 @@ for TEST in ${TESTS}; do
       say "FAILED[${RESULT}] $(${CAT} "${TMPF}")"
       exit ${RESULT}
     elif ${GREP} -q "${WRAPPED}" "${TMPF}"; then
-      say "OK"
+      echo "OK"
     else
       say "FAILED: expected ${WRAPPED} $(${CAT} "${TMPF}")"
       exit 1
