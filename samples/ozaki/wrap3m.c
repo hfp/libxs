@@ -10,6 +10,11 @@
 #include "ozaki.h"
 #include <libxs/libxs_malloc.h>
 
+#define zgemm_block_construct_a LIBXS_TPREFIX(GEMM_REAL_TYPE, zgemm_block_construct_a)
+#define zgemm_block_construct_b LIBXS_TPREFIX(GEMM_REAL_TYPE, zgemm_block_construct_b)
+#define zgemm_block_finalize LIBXS_TPREFIX(GEMM_REAL_TYPE, zgemm_block_finalize)
+#define gemm_complex_diff LIBXS_TPREFIX(GEMM_REAL_TYPE, gemm_complex_diff)
+
 /**
  * Complex GEMM via block embedding into a single real GEMM:
  *   C = alpha * A * B + beta * C

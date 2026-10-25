@@ -56,6 +56,7 @@ if(LIBXS_BUILD_SAMPLES)
       matcpy
       memcmp
       ozaki
+      ozaki_names
       predict
       scratch
       sync

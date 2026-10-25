@@ -9,6 +9,9 @@
 ******************************************************************************/
 #include "ozaki.h"
 
+#define split_digits LIBXS_TPREFIX(GEMM_REAL_TYPE, split_digits)
+#define gemm_oz1_diff LIBXS_TPREFIX(GEMM_REAL_TYPE, gemm_oz1_diff)
+
 
 /**
  * Split a (pre-aligned) mantissa into signed 7-bit digits.

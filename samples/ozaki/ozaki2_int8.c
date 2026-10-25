@@ -9,6 +9,20 @@
 ******************************************************************************/
 #include "ozaki.h"
 
+#define oz2_mod LIBXS_TPREFIX(GEMM_REAL_TYPE, oz2_mod)
+#define oz2_mod64 LIBXS_TPREFIX(GEMM_REAL_TYPE, oz2_mod64)
+#define oz2_reduce LIBXS_TPREFIX(GEMM_REAL_TYPE, oz2_reduce)
+#define oz2_reduce_avx512 LIBXS_TPREFIX(GEMM_REAL_TYPE, oz2_reduce_avx512)
+#define oz2_hier_l1_garner LIBXS_TPREFIX(GEMM_REAL_TYPE, oz2_hier_l1_garner)
+#define oz2_hier_l2_garner LIBXS_TPREFIX(GEMM_REAL_TYPE, oz2_hier_l2_garner)
+#define oz2_reconstruct_batch LIBXS_TPREFIX(GEMM_REAL_TYPE, oz2_reconstruct_batch)
+#define oz2_reconstruct_batch_avx512 LIBXS_TPREFIX(GEMM_REAL_TYPE, oz2_reconstruct_batch_avx512)
+#define oz2_amx_tilecfg_init LIBXS_TPREFIX(GEMM_REAL_TYPE, oz2_amx_tilecfg_init)
+#define oz2_amx_configure LIBXS_TPREFIX(GEMM_REAL_TYPE, oz2_amx_configure)
+#define oz2_amx_gemm LIBXS_TPREFIX(GEMM_REAL_TYPE, oz2_amx_gemm)
+#define oz2_tile_vnni512 LIBXS_TPREFIX(GEMM_REAL_TYPE, oz2_tile_vnni512)
+#define gemm_oz2_diff LIBXS_TPREFIX(GEMM_REAL_TYPE, gemm_oz2_diff)
+
 /**
  * Number of (mi,nj) elements processed in one Garner reconstruction batch.
  * Batching exposes data-parallelism across independent elements so the
