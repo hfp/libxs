@@ -305,6 +305,7 @@ LIBXS_API_INTERN void internal_libxs_finalize(void)
     libxs_singleton_release(internal_libxs_singleton_handle - 1);
     internal_libxs_singleton_handle = 0;
   }
+  internal_libxs_slot_release();
 #endif
   if (0 != libxs_verbosity) LIBXS_STDIO_RELEASE(); /* synchronize I/O */
 #if (0 != LIBXS_SYNC)
@@ -588,6 +589,7 @@ LIBXS_API_CTOR void libxs_init(void)
           /*rely on user id to avoid permission issues in case of left-over files*/userid);
 # endif
         internal_libxs_singleton_handle = libxs_singleton_acquire("") + 1;
+        internal_libxs_slot_acquire();
 # if !defined(_WIN32)
         libxs_stdio_handle = ((0 < result_stdio && (int)sizeof(internal_libxs_stdio_fname) > result_stdio)
           ? (open(internal_libxs_stdio_fname, O_WRONLY | O_CREAT, S_IRUSR | S_IWUSR) + 1) : 0);

@@ -890,10 +890,16 @@ LIBXS_API_INLINE int libxs_barrier_bcast(libxs_barrier_t* barrier,
   return result;
 }
 
-/** Utility function to receive the number of MPI-ranks. */
+/**
+ * Number of MPI-ranks on the node of the calling process, as the launcher states it,
+ * or else the number of the user's processes on the node that initialized LIBXS.
+ */
 LIBXS_API unsigned int libxs_nranks(void);
 
-/** Utility function to receive the MPI-rank. */
+/**
+ * MPI-rank of the calling process among the ranks on its node, as the launcher
+ * states it, or else a node-local ID unique among the processes that initialized LIBXS.
+ */
 LIBXS_API unsigned int libxs_nrank(void);
 
 /** Utility function to receive a rank ID of the calling process. */

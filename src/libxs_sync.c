@@ -33,8 +33,17 @@
 #endif
 #if !defined(_WIN32) && defined(O_CLOEXEC)
 # define INTERNAL_LIBXS_SINGLETON_OFLAGS (O_RDWR | O_CREAT | O_CLOEXEC)
+# define INTERNAL_LIBXS_SLOT_OFLAGS (O_RDWR | O_CLOEXEC)
 #elif !defined(_WIN32)
 # define INTERNAL_LIBXS_SINGLETON_OFLAGS (O_RDWR | O_CREAT)
+# define INTERNAL_LIBXS_SLOT_OFLAGS O_RDWR
+#endif
+/* node-local slots (one per process), and missing slot files ending a count */
+#if !defined(INTERNAL_LIBXS_SLOT_MAX)
+# define INTERNAL_LIBXS_SLOT_MAX 4096
+#endif
+#if !defined(INTERNAL_LIBXS_SLOT_GAP)
+# define INTERNAL_LIBXS_SLOT_GAP 16
 #endif
 /* pauses before a ring side sleeps: a short wait costs no system call */
 #if !defined(INTERNAL_LIBXS_RING_NSPIN)
@@ -65,6 +74,85 @@ LIBXS_EXTERN_C typedef struct internal_libxs_singleton_t {
 
 
 LIBXS_APIVAR_DEFINE(internal_libxs_singleton_t internal_libxs_singletons[INTERNAL_LIBXS_SINGLETON_MAX]);
+/* descriptor (plus one) and index of the node-local slot of this process (zero: none) */
+LIBXS_APIVAR_DEFINE(int internal_libxs_slot_handle);
+LIBXS_APIVAR_DEFINE(unsigned int internal_libxs_slot_index);
+
+
+#if !defined(_WIN32)
+/* Name of a slot file: per user as the singleton's, but not a name a singleton key can form. */
+LIBXS_API_INLINE int internal_libxs_slot_fname(char fname[], size_t size, unsigned int index)
+{
+  const int nchars = LIBXS_SNPRINTF(fname, size, "/tmp/.libxs.slot.%u.%u", (unsigned int)getuid(), index);
+  return (0 < nchars && (int)size > nchars) ? EXIT_SUCCESS : EXIT_FAILURE;
+}
+#endif
+
+
+LIBXS_API_INTERN void internal_libxs_slot_acquire(void)
+{
+#if !defined(_WIN32)
+  unsigned int index = 0;
+  for (; index < INTERNAL_LIBXS_SLOT_MAX && 0 == internal_libxs_slot_handle; ++index) {
+    char fname[256];
+    if (EXIT_SUCCESS == internal_libxs_slot_fname(fname, sizeof(fname), index)) {
+      const int fd = open(fname, INTERNAL_LIBXS_SINGLETON_OFLAGS, S_IRUSR | S_IWUSR);
+      if (0 <= fd) {
+        struct stat file_stat, path_stat;
+        /* a lock on a file that is no longer at the path is stale (see libxs_singleton_acquire) */
+        if (0 == flock(fd, LOCK_EX | LOCK_NB) && 0 == fstat(fd, &file_stat) && 0 == stat(fname, &path_stat)
+          && file_stat.st_ino == path_stat.st_ino && file_stat.st_dev == path_stat.st_dev)
+        {
+          internal_libxs_slot_handle = fd + 1;
+          internal_libxs_slot_index = index;
+        }
+        else close(fd);
+      }
+    }
+  }
+#endif
+}
+
+
+LIBXS_API_INTERN void internal_libxs_slot_release(void)
+{
+#if !defined(_WIN32)
+  if (0 != internal_libxs_slot_handle) {
+    char fname[256];
+    if (EXIT_SUCCESS == internal_libxs_slot_fname(fname, sizeof(fname), internal_libxs_slot_index)) {
+      unlink(fname); /* before the lock is dropped */
+    }
+    close(internal_libxs_slot_handle - 1);
+    internal_libxs_slot_handle = 0;
+  }
+#endif
+}
+
+
+/**
+ * Processes of this user on the node that hold a slot (libxs_init), i.e., slot files that
+ * cannot be locked. A process probing its own slot counts it, since a lock of another open
+ * file of the same file conflicts. Ends after INTERNAL_LIBXS_SLOT_GAP missing slot files.
+ */
+LIBXS_API_INLINE unsigned int internal_libxs_slot_count(void)
+{
+  unsigned int result = 0;
+#if !defined(_WIN32)
+  unsigned int index = 0, gap = 0;
+  for (; index < INTERNAL_LIBXS_SLOT_MAX && INTERNAL_LIBXS_SLOT_GAP > gap; ++index) {
+    char fname[256];
+    const int fd = (EXIT_SUCCESS == internal_libxs_slot_fname(fname, sizeof(fname), index)
+      ? open(fname, INTERNAL_LIBXS_SLOT_OFLAGS) : -1);
+    if (0 <= fd) {
+      if (0 != flock(fd, LOCK_EX | LOCK_NB)) ++result;
+      close(fd); /* also drops the lock if it was taken (stale slot file) */
+      gap = 0;
+    }
+    else ++gap;
+  }
+#endif
+  return result;
+}
 
 
 LIBXS_API unsigned int libxs_nranks(void)
@@ -74,22 +162,30 @@ LIBXS_API unsigned int libxs_nranks(void)
   int nranks;
   if (NULL == env_nranks) env_nranks = getenv("OMPI_COMM_WORLD_LOCAL_SIZE");
   if (NULL == env_nranks) env_nranks = getenv("MV2_COMM_WORLD_LOCAL_SIZE");
-  nranks = (NULL == env_nranks ? 1 : atoi(env_nranks));
+  /* no launcher states it: the processes holding a node-local slot */
+  nranks = (NULL != env_nranks ? atoi(env_nranks) : (int)internal_libxs_slot_count());
   return (unsigned int)LIBXS_MAX(nranks, 1);
 }
 
 
 LIBXS_API unsigned int libxs_nrank(void)
 {
-  /* the global PMI_RANK is the last resort: it is local only if ranks are placed in blocks */
   const char* env_rank = getenv("MPI_LOCALRANKID");
-  int nrank;
+  unsigned int result;
   if (NULL == env_rank) env_rank = getenv("OMPI_COMM_WORLD_LOCAL_RANK");
   if (NULL == env_rank) env_rank = getenv("MV2_COMM_WORLD_LOCAL_RANK");
   if (NULL == env_rank) env_rank = getenv("SLURM_LOCALID");
-  if (NULL == env_rank) env_rank = getenv("PMI_RANK");
-  nrank = (NULL == env_rank ? 0 : atoi(env_rank));
-  return (unsigned int)LIBXS_MAX(nrank, 0) % libxs_nranks();
+  if (NULL == env_rank && 0 != internal_libxs_slot_handle) {
+    result = internal_libxs_slot_index; /* unique on the node, not necessarily below libxs_nranks */
+  }
+  else {
+    int nrank;
+    /* the global PMI_RANK is the last resort: it is local only if ranks are placed in blocks */
+    if (NULL == env_rank) env_rank = getenv("PMI_RANK");
+    nrank = (NULL == env_rank ? 0 : atoi(env_rank));
+    result = (unsigned int)LIBXS_MAX(nrank, 0) % libxs_nranks();
+  }
+  return result;
 }
 
 

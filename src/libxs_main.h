@@ -65,6 +65,9 @@
 #endif
 
 
+/** Takes (at initialization) and releases a node-local slot of this process (libxs_nranks). */
+LIBXS_API_INTERN void internal_libxs_slot_acquire(void);
+LIBXS_API_INTERN void internal_libxs_slot_release(void);
 LIBXS_API_INTERN void* internal_libxs_scratch_malloc(size_t size, int* pool);
 LIBXS_API_INTERN void internal_libxs_scratch_free(void* ptr, int pool);
 

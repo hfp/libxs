@@ -185,7 +185,10 @@ unsigned int libxs_nranks(void);
 
 Return the number of MPI ranks on the node of the calling process, as the launcher
 states it (`MPI_LOCALNRANKS`, `OMPI_COMM_WORLD_LOCAL_SIZE`, or
-`MV2_COMM_WORLD_LOCAL_SIZE`), or one.
+`MV2_COMM_WORLD_LOCAL_SIZE`). Without these, it counts the user's processes on the
+node that initialized LIBXS (each holds a slot, a locked file in `/tmp`), or one.
+Such a count grows while processes start, hence it is better queried when needed
+than right at initialization.
 
 ```C
 unsigned int libxs_nrank(void);
@@ -193,7 +196,9 @@ unsigned int libxs_nrank(void);
 
 Return the MPI rank of the calling process among the ranks on its node
 (`MPI_LOCALRANKID`, `OMPI_COMM_WORLD_LOCAL_RANK`, `MV2_COMM_WORLD_LOCAL_RANK`, or
-`SLURM_LOCALID`). The global `PMI_RANK` is the last resort, which is local only if
+`SLURM_LOCALID`). Without these, it returns the index of the process' slot (see
+`libxs_nranks`), which is unique on the node but not necessarily below
+`libxs_nranks`. The global `PMI_RANK` is the last resort, which is local only if
 ranks are placed in blocks of `libxs_nranks` per node.
 
 ```C
