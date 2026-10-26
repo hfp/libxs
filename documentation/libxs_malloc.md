@@ -26,7 +26,7 @@ typedef struct libxs_malloc_pool_hist_t {
 typedef struct libxs_malloc_pool_info_t {
   size_t used;      /* memory currently in use (sum of requested sizes) */
   size_t size;      /* total allocated memory (sum of actual chunk sizes) */
-  size_t peak;      /* peak memory consumption */
+  size_t peak;      /* peak of the total allocated memory */
   size_t nactive;   /* pending (not yet freed) allocations */
   size_t nmallocs;  /* total allocation count */
   libxs_malloc_pool_hist_t hist[6]; /* per-bucket histogram */

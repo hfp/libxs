@@ -42,7 +42,7 @@ LIBXS_EXTERN_C typedef struct libxs_malloc_pool_info_t {
   size_t used;
   /** Total allocated memory (sum of actual chunk sizes). */
   size_t size;
-  /** Peak memory consumption. */
+  /** Peak of the total allocated memory (bounds the pool). */
   size_t peak;
   /** Pending allocations (not released). */
   size_t nactive;
