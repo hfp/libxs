@@ -130,6 +130,7 @@ LIBXS_APIVAR_DEFINE(libxs_lock_t internal_libxs_malloc_plocks[LIBXS_MALLOC_NLOCK
 LIBXS_APIVAR_DEFINE(libxs_registry_t* internal_libxs_malloc_registry);
 #if defined(LIBXS_MALLOC_EVICT)
 LIBXS_APIVAR_DEFINE(size_t internal_libxs_malloc_evict_limit);
+LIBXS_APIVAR_DEFINE(size_t internal_libxs_malloc_evict_age);
 /* host memory does not change, so the share of it is taken once */
 LIBXS_APIVAR_DEFINE(size_t internal_libxs_malloc_evict_cap);
 #endif
@@ -410,6 +411,21 @@ LIBXS_API_INLINE size_t internal_libxs_malloc_evict_available(
 }
 
 
+/* Age in ticks after which an unused chunk is evicted, SIZE_MAX if never. */
+LIBXS_API_INLINE size_t internal_libxs_malloc_evict_age_get(void)
+{
+  size_t stored = internal_libxs_malloc_evict_age;
+  if (0 == stored) { /* the environment is read once; it does not change */
+    const char *const env = getenv("LIBXS_MALLOC_EVICT_AGE");
+    const long value = ((NULL != env && '\0' != *env) ? atol(env) : 0);
+    if (0 > value) stored = (size_t)-1;
+    else stored = (0 != value ? (size_t)value : LIBXS_MALLOC_EVICT_AGE) + 1;
+    internal_libxs_malloc_evict_age = stored;
+  }
+  return ((size_t)-1 != stored ? (stored - 1) : stored);
+}
+
+
 LIBXS_API_INLINE size_t internal_libxs_malloc_evict_limit_get(
   const libxs_malloc_pool_t *pool)
 {
@@ -584,7 +600,7 @@ LIBXS_API void* libxs_malloc(libxs_malloc_pool_t* pool, size_t size, int alignme
         LIBXS_ATOMIC_SIZE(LIBXS_ATOMIC_ADD_FETCH)(&pool->hist[hist_b].count, 1, LIBXS_ATOMIC_RELAXED);
 #if defined(LIBXS_MALLOC_EVICT)
         if (NULL != chunk->pointer && chunk->last_tick != 0 &&
-            LIBXS_MALLOC_EVICT_AGE < nmallocs / LIBXS_MALLOC_TICK_RATE - chunk->last_tick)
+            internal_libxs_malloc_evict_age_get() < nmallocs / LIBXS_MALLOC_TICK_RATE - chunk->last_tick)
         {
           internal_libxs_malloc_deallocate(pool, chunk->pointer);
           chunk->pointer = NULL;

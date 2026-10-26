@@ -129,6 +129,12 @@ process may use (default 50). With several MPI ranks on a node (`libxs_nranks`),
 each rank receives its part of the share. It does not apply when
 `LIBXS_MALLOC_LIMIT` is set.
 
+`LIBXS_MALLOC_EVICT_AGE` evicts a cached chunk that was not used for this many
+ticks of 1024 allocations from its pool (default 8). A negative value disables
+eviction by age, leaving the bound above as the only eviction. A larger age
+reallocates less often, at the cost of holding idle memory longer. The pool report
+(`LIBXS_VERBOSE=3`) counts both kinds of eviction per size class.
+
 `LIBXS_MALLOC_NATIVE` selects where `libxs_malloc` keeps its metadata. Unset,
 `LIBXS_MALLOC_NATIVE` allocations keep the native pointer (out-of-band metadata)
 and `LIBXS_MALLOC_AUTO` uses inline metadata. A non-zero value makes
