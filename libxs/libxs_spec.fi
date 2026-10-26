@@ -32,6 +32,7 @@
 
         PUBLIC :: libxs_matdiff_t
         PUBLIC :: libxs_fprint_t, libxs_timer_info_t
+        PUBLIC :: LIBXS_MALLOC_AUTO, LIBXS_MALLOC_NATIVE
         PUBLIC :: libxs_malloc_info_t
         PUBLIC :: libxs_malloc_pool_hist_t
         PUBLIC :: libxs_malloc_pool_info_t
@@ -273,6 +274,12 @@
           REAL(C_DOUBLE) :: w = 0
           INTEGER(C_INT) :: m = 0, n = 0, i = 0, r = 0
         END TYPE
+
+        !> Alignment argument of libxs_malloc: automatic alignment with
+        !> inline metadata, or the allocator's own pointer (values > 1
+        !> request an explicit alignment in Bytes).
+        INTEGER(C_INT), PARAMETER ::                                    &
+     &    LIBXS_MALLOC_AUTO = 0, LIBXS_MALLOC_NATIVE = 1
 
         !> Information about an allocated pointer.
         TYPE, BIND(C) :: libxs_malloc_info_t
