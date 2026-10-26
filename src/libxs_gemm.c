@@ -539,7 +539,7 @@ LIBXS_API_INLINE unsigned int internal_libxs_gemm_origin(void)
 LIBXS_API_INLINE void internal_libxs_gemm_print_registry(const libxs_registry_t* registry)
 {
 #if defined(LIBXS_GEMM_PRINT)
-  if (NULL != registry) {
+  if (NULL != registry && 0 != libxs_verbosity) {
     const char *const env = getenv("LIBXS_GEMM_PRINT");
     if (NULL != env && 0 == atoi(env)) {
       libxs_registry_info_t info;
