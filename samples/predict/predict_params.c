@@ -322,7 +322,7 @@ static int gate_list(double gates[], int capacity)
       token = libxs_strtoken(env, ",", result, &len);
     }
   }
-  /* the threshold a deployment applies by default (OPENCL_LIBSMM_SMM_PREDICT_CONF) */
+  /* a vote majority, the operating point the gated tables report at; a deployment sets its own */
   if (0 == result) {
     gates[0] = 0.5;
     result = 1;
