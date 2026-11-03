@@ -14,6 +14,14 @@
 #include <libxs/libxs_perm.h>
 #include <libxs/libxs_mem.h>
 #include <libxs/libxs_mhd.h>
+#include <libxs/libxs_gemm.h>
+#include <errno.h>
+#include <limits.h>
+#if defined(_OPENMP)
+#include <omp.h>
+#endif
+
+#define WORK_DIM 16
 
 #if !defined(BUBBLE_SORT) && 0
 # define BUBBLE_SORT
@@ -49,6 +57,41 @@ typedef enum redop_enum {
   redop_sumdelta
 } redop_enum;
 
+typedef struct work_t {
+  size_t n, coprime, offset;
+  int gemm;
+  int* cost;
+  size_t* rowptr;
+  unsigned int* column;
+  double *value, *x, *output, *reference;
+  double a[WORK_DIM * WORK_DIM], b[WORK_DIM * WORK_DIM];
+  libxs_gemm_config_t config;
+} work_t;
+
+typedef struct worker_t {
+  uint64_t units;
+  size_t tasks;
+  double seconds;
+} worker_t;
+
+static const size_t energy_lags[] = { 1, 2, 3, 7, 16, 63 };
+static const char* work_methods[] = {
+  "blocked", "cyclic", "affine", "table", "dynamic", "guided"
+};
+static const void* mhd_element_hash_base;
+
+static int shuffle_benchmark(int argc, char* argv[]);
+static int work_benchmark(const char* kernel, int argc, char* argv[]);
+static int work_integer(const char* name, const char* text,
+  int fallback, int lower, int upper, int* value);
+static int work_cost(size_t row, size_t count, int pattern,
+  int low, int high, int width, int shift, int period);
+static double work_item(const work_t* work, size_t row);
+static int work_measure(work_t* work, int method, const unsigned int* table,
+  worker_t* workers, int* nthreads, double* seconds);
+static int uint_energy_report(const void* original, void* scratch,
+  size_t elemsize, size_t count, size_t coprime, size_t offset, const size_t* nrepeat);
+static double uint_energy(const void* input, size_t elemsize, size_t count, size_t lag);
 size_t shuffle(void* inout, size_t elemsize, size_t count);
 /** Compares the sum of values between the left and the right partition. */
 size_t uint_reduce_op(const void* input, size_t elemsize, size_t count,
@@ -63,7 +106,6 @@ size_t uint_bsort_asc(void* inout, size_t elemsize, size_t count);
 size_t uint_msort_inversions(void* inout, size_t elemsize, size_t count);
 #endif
 
-static const void* mhd_element_hash_base;
 static int mhd_element_hash(void* dst,
   const libxs_mhd_element_handler_info_t* dst_info, libxs_data_t src_type,
   const void* src, const void* src_min, const void* src_max,
@@ -71,6 +113,18 @@ static int mhd_element_hash(void* dst,
 
 
 int main(int argc, char* argv[])
+{
+  const char* kernel = getenv("LIBXS_SHUFFLE_WORK");
+  int result;
+  libxs_init();
+  result = (NULL == kernel ? shuffle_benchmark(argc, argv)
+    : work_benchmark(kernel, argc, argv));
+  libxs_finalize();
+  return result;
+}
+
+
+static int shuffle_benchmark(int argc, char* argv[])
 {
   const int nelems = (1 < argc ? atoi(argv[1]) : 0);
   const int insize = (2 < argc ? atoi(argv[2]) : 0);
@@ -97,8 +151,6 @@ int main(int argc, char* argv[])
   void *const data1 = malloc(nbytes);
   void *const data2 = malloc(nbytes);
   int result = EXIT_SUCCESS;
-
-  libxs_init();
 
   if (NULL != data1 && NULL != data2) {
     size_t a1 = 0, a2 = 0, a3 = 0, b1 = 0, b2 = 0, b3 = 0;
@@ -331,26 +383,8 @@ int main(int argc, char* argv[])
         }
       }
     }
-    if (0 != stats && 0 <= elemtype && EXIT_SUCCESS == result) {
-      const libxs_data_t fptype = elemtypes[elemtype];
-      const size_t fpshape = n;
-      libxs_fprint_t fp_orig, fp_rng, fp_ds1, fp_ds2;
-      libxs_fprint(&fp_orig, fptype, data1, 1, &fpshape, NULL, 4, 0, 0, 0);
-      memcpy(data2, data1, nbytes);
-      shuffle(data2, elsize, n);
-      libxs_fprint(&fp_rng, fptype, data2, 1, &fpshape, NULL, 4, 0, 0, 0);
-      memcpy(data2, data1, nbytes);
-      libxs_shuffle(data2, elsize, n, &coprime, offset, NULL);
-      libxs_fprint(&fp_ds1, fptype, data2, 1, &fpshape, NULL, 4, 0, 0, 0);
-      libxs_shuffle2(data2, data1, elsize, n, &coprime, offset, NULL);
-      libxs_fprint(&fp_ds2, fptype, data2, 1, &fpshape, NULL, 4, 0, 0, 0);
-      printf("---------------------------------------\n");
-      printf("Fingerprint distance (Sobolev, order 4)\n");
-      printf("  orig->RNG: %.6e\n", libxs_fprint_diff(&fp_orig, &fp_rng, NULL));
-      printf("  orig->DS1: %.6e\n", libxs_fprint_diff(&fp_orig, &fp_ds1, NULL));
-      printf("  orig->DS2: %.6e\n", libxs_fprint_diff(&fp_orig, &fp_ds2, NULL));
-      printf("  RNG ->DS1: %.6e\n", libxs_fprint_diff(&fp_rng, &fp_ds1, NULL));
-      printf("  RNG ->DS2: %.6e\n", libxs_fprint_diff(&fp_rng, &fp_ds2, NULL));
+    if (0 != stats && EXIT_SUCCESS == result) {
+      result = uint_energy_report(data1, data2, elsize, n, coprime, offset, &m);
     }
     if (EXIT_SUCCESS == result) {
       const size_t vmask = (elsize < sizeof(size_t)
@@ -399,10 +433,433 @@ int main(int argc, char* argv[])
     result = EXIT_FAILURE;
   }
 
-  libxs_finalize();
   free(data1);
   free(data2);
 
+  return result;
+}
+
+
+static int work_integer(const char* name, const char* text,
+  int fallback, int lower, int upper, int* value)
+{
+  int result = EXIT_SUCCESS;
+  long number = fallback;
+  if (NULL != text) {
+    char* end;
+    errno = 0;
+    number = strtol(text, &end, 10);
+    if (ERANGE == errno || end == text || '\0' != *end) result = EXIT_FAILURE;
+  }
+  if (lower > number || upper < number) result = EXIT_FAILURE;
+  if (EXIT_SUCCESS == result) *value = (int)number;
+  else fprintf(stderr, "ERROR: %s must be an integer in [%d,%d]\n", name, lower, upper);
+  return result;
+}
+
+
+static int work_cost(size_t row, size_t count, int pattern,
+  int low, int high, int width, int shift, int period)
+{
+  const size_t position = (row + count - (size_t)shift) % count;
+  int result = low;
+  if (1 == pattern) {
+    result += (int)((uint64_t)(high - low) * position / (count - 1));
+  }
+  else if ((2 == pattern && position < (size_t)width)
+    || (3 == pattern && 0 == position % (size_t)period))
+  {
+    result = high;
+  }
+  return result;
+}
+
+
+static double work_item(const work_t* work, size_t row)
+{
+  double result = 0;
+  size_t j;
+  if (0 != work->gemm) {
+    double c[WORK_DIM * WORK_DIM];
+    int repeat;
+    memset(c, 0, sizeof(c));
+    for (repeat = 0; repeat < work->cost[row]; ++repeat) {
+      libxs_gemm_call(&work->config, work->a, work->b, c);
+    }
+    for (j = 0; j < WORK_DIM * WORK_DIM; ++j) result += c[j];
+  }
+  else {
+    for (j = work->rowptr[row]; j < work->rowptr[row + 1]; ++j) {
+      result += work->value[j] * work->x[work->column[j]];
+    }
+  }
+  return result;
+}
+
+
+static int work_measure(work_t* work, int method, const unsigned int* table,
+  worker_t* workers, int* nthreads, double* seconds)
+{
+  const libxs_timer_tick_t start = libxs_timer_tick();
+  int result = EXIT_SUCCESS;
+  size_t row;
+#if defined(_OPENMP)
+#pragma omp parallel
+#endif
+  {
+    int tid = 0, team = 1, i;
+    uint64_t units = 0;
+    size_t tasks = 0;
+    libxs_timer_tick_t worker_start;
+#if defined(_OPENMP)
+    tid = omp_get_thread_num();
+    team = omp_get_num_threads();
+#pragma omp barrier
+#endif
+    worker_start = libxs_timer_tick();
+    if (0 == tid) *nthreads = team;
+    if (4 == method) {
+#if defined(_OPENMP)
+#pragma omp for schedule(dynamic, 1) nowait
+#endif
+      for (i = 0; i < (int)work->n; ++i) {
+        work->output[i] = work_item(work, (size_t)i);
+        units += work->cost[i];
+        ++tasks;
+      }
+    }
+    else if (5 == method) {
+#if defined(_OPENMP)
+#pragma omp for schedule(guided, 1) nowait
+#endif
+      for (i = 0; i < (int)work->n; ++i) {
+        work->output[i] = work_item(work, (size_t)i);
+        units += work->cost[i];
+        ++tasks;
+      }
+    }
+    else {
+      const size_t width = work->n / (size_t)team;
+      const size_t remainder = work->n % (size_t)team;
+      const size_t begin = width * (size_t)tid + LIBXS_MIN((size_t)tid, remainder);
+      const size_t end = begin + width + ((size_t)tid < remainder ? 1 : 0);
+      size_t k = (1 == method ? (size_t)tid : begin);
+      const size_t step = (1 == method ? (size_t)team : 1);
+      const size_t limit = (1 == method ? work->n : end);
+      for (; k < limit; k += step) {
+        const size_t task = (2 == method
+          ? LIBXS_SHUFFLE_INDEX(k, work->n, work->coprime, work->offset)
+          : 3 == method ? table[k] : k);
+        work->output[task] = work_item(work, task);
+        units += work->cost[task];
+        ++tasks;
+      }
+    }
+    workers[tid].units = units;
+    workers[tid].tasks = tasks;
+    workers[tid].seconds = libxs_timer_duration(worker_start, libxs_timer_tick());
+  }
+  *seconds = libxs_timer_duration(start, libxs_timer_tick());
+  for (row = 0; row < work->n && EXIT_SUCCESS == result; ++row) {
+    if (work->output[row] != work->reference[row]) {
+      fprintf(stderr, "ERROR: %s result mismatch at task %llu\n",
+        work_methods[method], (unsigned long long)row);
+      result = EXIT_FAILURE;
+    }
+  }
+  return result;
+}
+
+
+static int work_benchmark(const char* kernel, int argc, char* argv[])
+{
+  work_t work;
+  const char* pattern = getenv("LIBXS_SHUFFLE_PATTERN");
+  const char* env_bias = getenv("BIAS");
+  unsigned int* table = NULL;
+  worker_t* workers = NULL;
+  int result = EXIT_SUCCESS, n = 4096, repeat = 3, low = 1, high = 16;
+  int width = 1, shift = 0, period = 64, seed = 1, offset = 0, kind = 2;
+  int capacity = 1, iteration, order;
+  size_t row, j;
+  uint64_t total = 0;
+  double bias = 0, table_seconds = 0, affine_seconds = 0, gemm_reference = 0;
+  libxs_timer_tick_t start;
+  LIBXS_MEMZERO(&work);
+  if (NULL == pattern) pattern = "hotspot";
+  work.gemm = (0 == strcmp(kernel, "gemm"));
+  if (0 == strcmp(kernel, "spmv")) { low = 8; high = 128; }
+  else if (0 == work.gemm) {
+    fprintf(stderr, "ERROR: LIBXS_SHUFFLE_WORK must be spmv or gemm\n");
+    result = EXIT_FAILURE;
+  }
+  if (0 == strcmp(pattern, "uniform")) kind = 0;
+  else if (0 == strcmp(pattern, "ramp")) kind = 1;
+  else if (0 == strcmp(pattern, "hotspot")) kind = 2;
+  else if (0 == strcmp(pattern, "periodic")) kind = 3;
+  else {
+    fprintf(stderr, "ERROR: LIBXS_SHUFFLE_PATTERN must be uniform, ramp, hotspot, or periodic\n");
+    result = EXIT_FAILURE;
+  }
+  if (EXIT_SUCCESS == result) {
+    result = work_integer("nelems", 1 < argc ? argv[1] : NULL, n, 2, INT_MAX, &n);
+  }
+  if (EXIT_SUCCESS == result) {
+    result = work_integer("repeat", 4 < argc ? argv[4] : NULL, repeat, 1, 100000, &repeat);
+  }
+  if (EXIT_SUCCESS == result) {
+    int argument;
+    result = work_integer("elemsize in workload mode", 2 < argc ? argv[2] : NULL, 4, 4, 4, &argument);
+    if (EXIT_SUCCESS == result) {
+      result = work_integer("niters in workload mode", 3 < argc ? argv[3] : NULL, 1, 1, 1, &argument);
+    }
+  }
+  if (EXIT_SUCCESS == result) {
+    result = work_integer("LIBXS_SHUFFLE_LOW", getenv("LIBXS_SHUFFLE_LOW"), low, 1, 1000000, &low);
+  }
+  if (EXIT_SUCCESS == result) {
+    result = work_integer("LIBXS_SHUFFLE_HIGH", getenv("LIBXS_SHUFFLE_HIGH"), high, low, 1000000, &high);
+  }
+  if (EXIT_SUCCESS == result) {
+    result = work_integer("LIBXS_SHUFFLE_WIDTH", getenv("LIBXS_SHUFFLE_WIDTH"),
+      LIBXS_MAX(n / 8, 1), 1, n, &width);
+  }
+  if (EXIT_SUCCESS == result) {
+    result = work_integer("LIBXS_SHUFFLE_SHIFT", getenv("LIBXS_SHUFFLE_SHIFT"), 0, 0, n - 1, &shift);
+  }
+  if (EXIT_SUCCESS == result) {
+    result = work_integer("LIBXS_SHUFFLE_PERIOD", getenv("LIBXS_SHUFFLE_PERIOD"),
+      LIBXS_MIN(n, period), 1, n, &period);
+  }
+  if (EXIT_SUCCESS == result) {
+    result = work_integer("LIBXS_SHUFFLE_SEED", getenv("LIBXS_SHUFFLE_SEED"), 1, 0, INT_MAX, &seed);
+  }
+  if (EXIT_SUCCESS == result) {
+    result = work_integer("OFFSET", getenv("OFFSET"), 0, 0, INT_MAX, &offset);
+  }
+  if (EXIT_SUCCESS == result && NULL != env_bias) {
+    char* end;
+    errno = 0;
+    bias = strtod(env_bias, &end);
+    if (ERANGE == errno || end == env_bias || '\0' != *end || !(-1 <= bias && bias <= 1)) {
+      fprintf(stderr, "ERROR: BIAS must be a number in [-1,1]\n");
+      result = EXIT_FAILURE;
+    }
+  }
+  if (EXIT_SUCCESS == result && 0 != work.gemm) {
+    const char* backend = getenv("LIBXS_GEMM_BACKEND");
+    if (NULL == backend || 0 != strcmp(backend, "4")) {
+      fprintf(stderr, "ERROR: use LIBXS_GEMM_BACKEND=4 for the serial built-in GEMM workload\n");
+      result = EXIT_FAILURE;
+    }
+  }
+#if defined(_OPENMP)
+  capacity = omp_get_max_threads();
+#else
+  if (EXIT_SUCCESS == result) fprintf(stderr, "NOTE: OpenMP disabled; using one worker\n");
+#endif
+  if (EXIT_SUCCESS == result) {
+    work.n = (size_t)n;
+    start = libxs_timer_tick();
+    work.coprime = libxs_coprime_bias(work.n, bias);
+    work.offset = (size_t)offset % work.n;
+    affine_seconds = libxs_timer_duration(start, libxs_timer_tick());
+    if ((size_t)-1 / sizeof(double) <= work.n
+      || 0 == work.coprime || ((size_t)-1 - work.offset) / (work.n - 1) < work.coprime)
+    {
+      fprintf(stderr, "ERROR: workload size exceeds allocation or index arithmetic limits\n");
+      result = EXIT_FAILURE;
+    }
+  }
+  if (EXIT_SUCCESS == result) {
+    work.cost = (int*)malloc(work.n * sizeof(int));
+    work.output = (double*)malloc(work.n * sizeof(double));
+    work.reference = (double*)malloc(work.n * sizeof(double));
+    table = (unsigned int*)malloc(work.n * sizeof(unsigned int));
+    workers = (worker_t*)calloc((size_t)capacity, sizeof(worker_t));
+    if (NULL == work.cost || NULL == work.output || NULL == work.reference
+      || NULL == table || NULL == workers)
+    {
+      fprintf(stderr, "ERROR: workload allocation failed\n");
+      result = EXIT_FAILURE;
+    }
+  }
+  if (EXIT_SUCCESS == result) {
+    for (row = 0; row < work.n; ++row) {
+      work.cost[row] = work_cost(row, work.n, kind, low, high, width, shift, period);
+      total += work.cost[row];
+    }
+    if (0 != work.gemm) {
+      libxs_gemm_config_t* cached;
+      const double one = 1;
+      int m, k, col;
+      for (j = 0; j < WORK_DIM * WORK_DIM; ++j) {
+        work.a[j] = (double)(1 + j % 7) / 8;
+        work.b[j] = (double)(1 + j % 5) / 8;
+      }
+      for (col = 0; col < WORK_DIM; ++col) {
+        for (m = 0; m < WORK_DIM; ++m) {
+          for (k = 0; k < WORK_DIM; ++k) {
+            gemm_reference += work.a[m + k * WORK_DIM] * work.b[k + col * WORK_DIM];
+          }
+        }
+      }
+      cached = libxs_gemm_dispatch(LIBXS_DATATYPE_F64, 'N', 'N',
+        WORK_DIM, WORK_DIM, WORK_DIM, WORK_DIM, WORK_DIM, WORK_DIM, &one, &one, NULL);
+      if (0 == libxs_gemm_config_cpy(&work.config, cached)) {
+        fprintf(stderr, "ERROR: GEMM dispatch failed\n");
+        result = EXIT_FAILURE;
+      }
+      for (row = 0; row < work.n; ++row) work.reference[row] = gemm_reference * work.cost[row];
+    }
+    else if ((uint64_t)((size_t)-1 / sizeof(double)) < total) {
+      fprintf(stderr, "ERROR: CSR storage size exceeds allocation limits\n");
+      result = EXIT_FAILURE;
+    }
+    else {
+      work.rowptr = (size_t*)malloc((work.n + 1) * sizeof(size_t));
+      work.column = (unsigned int*)malloc((size_t)total * sizeof(unsigned int));
+      work.value = (double*)malloc((size_t)total * sizeof(double));
+      work.x = (double*)malloc(work.n * sizeof(double));
+      if (NULL == work.rowptr || NULL == work.column || NULL == work.value || NULL == work.x) {
+        fprintf(stderr, "ERROR: CSR allocation failed\n");
+        result = EXIT_FAILURE;
+      }
+      if (EXIT_SUCCESS == result) {
+        for (row = 0; row < work.n; ++row) work.x[row] = 1 + (double)(row % 8) / 8;
+        work.rowptr[0] = 0;
+        for (row = 0; row < work.n; ++row) {
+          double expected = 0;
+          work.rowptr[row + 1] = work.rowptr[row] + (size_t)work.cost[row];
+          for (j = work.rowptr[row]; j < work.rowptr[row + 1]; ++j) {
+            const unsigned int column = libxs_hash32((uint64_t)j) % (unsigned int)n;
+            work.column[j] = column;
+            work.value[j] = 1;
+            expected += work.x[column];
+          }
+          work.reference[row] = expected;
+        }
+      }
+    }
+  }
+  if (EXIT_SUCCESS == result) {
+    libxs_rng_set_seed((unsigned int)seed);
+    start = libxs_timer_tick();
+    for (row = 0; row < work.n; ++row) table[row] = (unsigned int)row;
+    shuffle(table, sizeof(*table), work.n);
+    table_seconds = libxs_timer_duration(start, libxs_timer_tick());
+    printf("Workload: kernel=%s pattern=%s N=%d C=%llu B=%llu low=%d high=%d width=%d shift=%d period=%d seed=%d\n",
+      kernel, pattern, n, (unsigned long long)work.coprime, (unsigned long long)work.offset,
+      low, high, width, shift, period, seed);
+    printf("work,kernel,pattern,N,C,B,seed,low,high,width,shift,period,method,threads,repeat,"
+      "seconds,index_setup_s,index_bytes,units,max_units,imbalance_pct,checksum\n");
+    printf("worker,kernel,pattern,N,C,B,seed,low,high,width,shift,period,method,threads,"
+      "repeat,tid,tasks,units,seconds\n");
+    for (iteration = 0; iteration <= repeat && EXIT_SUCCESS == result; ++iteration) {
+      for (order = 0; order < 6 && EXIT_SUCCESS == result; ++order) {
+        const int method = (order + iteration) % 6;
+        uint64_t accounted = 0, maximum = 0;
+        size_t tasks = 0;
+        double seconds = 0, checksum = 0;
+        int team = 1, tid;
+        for (row = 0; row < work.n; ++row) work.output[row] = -1;
+        result = work_measure(&work, method, table, workers, &team, &seconds);
+        for (tid = 0; tid < team; ++tid) {
+          accounted += workers[tid].units;
+          maximum = LIBXS_MAX(maximum, workers[tid].units);
+          tasks += workers[tid].tasks;
+        }
+        if (EXIT_SUCCESS == result && (total != accounted || work.n != tasks)) {
+          fprintf(stderr, "ERROR: workload coverage/accounting mismatch\n");
+          result = EXIT_FAILURE;
+        }
+        for (row = 0; row < work.n; ++row) checksum += work.output[row];
+        if (EXIT_SUCCESS == result && 0 < iteration) {
+          printf("work,%s,%s,%d,%llu,%llu,%d,%d,%d,%d,%d,%d,%s,%d,%d,"
+            "%.9g,%.9g,%llu,%llu,%llu,%.6f,%.17g\n",
+            kernel, pattern, n, (unsigned long long)work.coprime, (unsigned long long)work.offset,
+            seed, low, high, width, shift, period, work_methods[method], team, iteration, seconds,
+            3 == method ? table_seconds : 2 == method ? affine_seconds : 0,
+            (unsigned long long)(3 == method ? work.n * sizeof(*table) : 0),
+            (unsigned long long)total, (unsigned long long)maximum,
+            100 * ((double)team * (double)maximum / (double)total - 1), checksum);
+          for (tid = 0; tid < team; ++tid) {
+            printf("worker,%s,%s,%d,%llu,%llu,%d,%d,%d,%d,%d,%d,%s,%d,%d,%d,%llu,%llu,%.9g\n",
+              kernel, pattern, n, (unsigned long long)work.coprime,
+              (unsigned long long)work.offset, seed, low, high, width, shift, period,
+              work_methods[method], team, iteration, tid,
+              (unsigned long long)workers[tid].tasks,
+              (unsigned long long)workers[tid].units, workers[tid].seconds);
+          }
+        }
+      }
+    }
+  }
+  free(work.cost); free(work.output); free(work.reference);
+  free(work.rowptr); free(work.column); free(work.value); free(work.x);
+  free(table); free(workers);
+  return result;
+}
+
+
+static double uint_energy(const void* input, size_t elemsize, size_t count, size_t lag)
+{
+  const char* data = (const char*)input;
+  long double sum = 0;
+  size_t i;
+  for (i = 0; i < count; ++i) {
+    size_t x = 0, y = 0;
+    long double delta;
+    LIBXS_MEMCPY(&x, data + elemsize * i, LIBXS_MIN(elemsize, sizeof(size_t)));
+    LIBXS_MEMCPY(&y, data + elemsize * ((i + lag) % count), LIBXS_MIN(elemsize, sizeof(size_t)));
+    delta = (long double)y - (long double)x;
+    sum += delta * delta;
+  }
+  return (double)(sum / (long double)count);
+}
+
+
+static int uint_energy_report(const void* original, void* scratch,
+  size_t elemsize, size_t count, size_t coprime, size_t offset, const size_t* nrepeat)
+{
+  const char* names[] = { "RNG", "DS1", "DS2" };
+  const double reference = (double)count * ((double)count + 1) / 6;
+  int method, result = EXIT_SUCCESS;
+  size_t lag;
+  if (1 >= count || (elemsize < sizeof(size_t) && count > ((size_t)1 << (CHAR_BIT * elemsize)))) {
+    printf("Lag energy skipped: requires at least two distinct identity labels\n");
+  }
+  else {
+    printf("Cyclic lag energy (Q=energy/random expectation)\n");
+    for (method = 0; method < 3 && EXIT_SUCCESS == result; ++method) {
+      size_t coefficient = 1, r;
+      memcpy(scratch, original, elemsize * count);
+      if (0 == method) shuffle(scratch, elemsize, count);
+      else if (1 == method) result = libxs_shuffle(scratch, elemsize, count, &coprime, offset, nrepeat);
+      else result = libxs_shuffle2(scratch, original, elemsize, count, &coprime, offset, nrepeat);
+      for (r = 0; r < *nrepeat; ++r) coefficient = (size_t)((uint64_t)coefficient * coprime % count);
+      for (lag = 0; lag < sizeof(energy_lags) / sizeof(*energy_lags) && EXIT_SUCCESS == result; ++lag) {
+        const size_t h = energy_lags[lag];
+        if (h < count) {
+          const double energy = uint_energy(scratch, elemsize, count, h);
+          if (0 == method) printf("energy,%s,%llu,%.12g,%.12g\n",
+            names[method], (unsigned long long)h, energy, energy / reference);
+          else {
+            const size_t d = (size_t)((uint64_t)coefficient * h % count);
+            const double expected = (double)d * (double)(count - d);
+            printf("energy,%s,%llu,%.12g,%.12g,analytic=%.12g\n",
+              names[method], (unsigned long long)h, energy, energy / reference, expected / reference);
+            if (1E-8 * LIBXS_MAX(1.0, expected) < fabs(energy - expected)) {
+              fprintf(stderr, "ERROR: %s lag-energy identity failed at h=%llu\n",
+                names[method], (unsigned long long)h);
+              result = EXIT_FAILURE;
+            }
+          }
+        }
+      }
+    }
+    if (EXIT_SUCCESS != result) fprintf(stderr, "ERROR: lag-energy evaluation failed\n");
+  }
   return result;
 }
 

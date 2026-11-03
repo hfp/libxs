@@ -301,6 +301,7 @@ foreach(
     libxs_sample_sync_lock
     libxs_sample_sync_barrier
     libxs_sample_registry
+    libxs_sample_shuffle
     libxs_sample_memcmp
     libxs_sample_itrans
     libxs_sample_scratch

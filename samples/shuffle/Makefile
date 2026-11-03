@@ -11,7 +11,7 @@ CFLAGS = $(NULL)
 DFLAGS = $(NULL)
 
 BLAS = 0
-OMP = 0
+OMP = 1
 SYM = 1
 
 # include common Makefile artifacts
