@@ -59,8 +59,9 @@ as sub-boxes of whole rows (split at the middle of axis 1 or 2) with exceptions,
 encoded, decoded, and checked, with a length word per block. `KDLEAF=n` in the
 environment lets it split only into leaves of at least `n` values.
 
-The rows "rice lengths" and "rice per width" are another prototype, also encoded,
-decoded, and checked, in 4 or 8 lanes, or in two streams of 8 lanes.
+With `LIBXS_VPACK=1` in the environment, the rows of a group of 8 (vpack group 8,
+deltas, step 2*eps) take the second format of `libxs_vpack`, so two runs compare
+the formats.
 
 With `REPEAT=n` in the environment (default 1), a measurement takes `n` timed passes
 and the fastest counts, as with `nrepeat` for synthetic values. The encoding of the

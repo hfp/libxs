@@ -21,6 +21,8 @@ cd samples/shuffle
 make
 ```
 
+OpenMP is enabled by default; `make OMP=0` retains a serial build.
+
 ## Usage
 
 ```bash
@@ -42,7 +44,7 @@ make
 | OFFSET   | 0       | Offset of the deterministic shuffles                          |
 | RANDOM   | 0       | Non-zero: count inversions and report randomness (rand=%)     |
 | SPLIT    | 1       | Partitioning depth for the STATS metrics                      |
-| STATS    | 0       | Non-zero: print partition metrics (sum, imb) and displacement |
+| STATS    | 0       | Non-zero: print partition metrics, displacement, and cyclic lag energies |
 
 BIAS=-1 selects the smallest non-trivial coprime, 0 one near sqrt(n), and
 +1 one near n/2. If BIAS, OFFSET, RANDOM or STATS is non-zero, the sample
@@ -86,9 +88,89 @@ Optional quality metrics:
   values.
 - imb — Partition imbalance, measuring how unevenly element sums
   are distributed across sub-partitions (SPLIT).
-- With STATS=1, the sample also prints the fingerprint distance
-  (Sobolev, order 4) between the original and each shuffled array,
-  and between the RNG-shuffled and each deterministic result.
+- With STATS=1 and distinct identity labels, the sample prints cyclic
+  squared-increment energies at lags 1, 2, 3, 7, 16, and 63 below n.
+  `Q` divides the energy by the exact random-permutation expectation,
+  n*(n+1)/6. The deterministic paths additionally check their measured
+  energies against d*(n-d), with d=(C^niters*lag) mod n.
+  Energies do not depend on OFFSET; large Q is not necessarily better.
+  These metrics require no fingerprint computation.
+
+## Irregular Work Scheduling
+
+Set `LIBXS_SHUFFLE_WORK=spmv` or `gemm` to replace the shuffle-throughput
+run with an irregular-work scheduling benchmark. The first positional
+argument is the number of tasks (default 4096); the second and third,
+if supplied, must be 4 and 1. The fourth remains the number of timed
+repetitions after one warm-up.
+
+```bash
+# Irregular CSR rows; increase the size to investigate bandwidth limits.
+OMP_NUM_THREADS=4 OMP_PROC_BIND=close OMP_PLACES=cores \
+  LIBXS_SHUFFLE_WORK=spmv ./shuffle.x 1000000 4 1 5
+
+# Cache-resident 16x16 DGEMMs, with a variable number of calls per task.
+LIBXS_GEMM_BACKEND=4 OMP_NUM_THREADS=4 OMP_PROC_BIND=close OMP_PLACES=cores \
+  LIBXS_SHUFFLE_WORK=gemm ./shuffle.x 4096 4 1 5
+```
+
+SpMV uses a generated CSR matrix, hashed column indices, and one output
+per row. Its cost units are nonzeros. GEMM tasks share read-only resident
+operands, accumulate into private 16x16 matrices, and store one checksum
+per task. Their cost units are DGEMM calls (8192 floating-point operations
+each). GEMM requires `LIBXS_GEMM_BACKEND=4`, selecting LIBXS's built-in,
+serial kernel rather than a potentially threaded external BLAS.
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| LIBXS_SHUFFLE_WORK | unset | `spmv` or `gemm`; unset preserves the original benchmark |
+| LIBXS_SHUFFLE_PATTERN | hotspot | `uniform`, `ramp`, `hotspot`, or `periodic` task costs |
+| LIBXS_SHUFFLE_LOW | 8 / 1 | Minimum nonzeros per row / DGEMM calls per task |
+| LIBXS_SHUFFLE_HIGH | 128 / 16 | Maximum cost, at least LOW |
+| LIBXS_SHUFFLE_WIDTH | max(n/8,1) | Number of expensive tasks in the hotspot |
+| LIBXS_SHUFFLE_SHIFT | 0 | Cyclic phase of the cost profile, from 0 to n-1 |
+| LIBXS_SHUFFLE_PERIOD | min(n,64) | Spacing of expensive tasks in the periodic profile |
+| LIBXS_SHUFFLE_SEED | 1 | Seed for the stored Fisher-Yates permutation |
+
+BIAS and OFFSET also apply. Uniform costs are LOW everywhere; the ramp
+increases from LOW to HIGH over the shifted task domain. The hotspot has
+WIDTH consecutive HIGH-cost tasks; the periodic profile has one HIGH-cost
+task every PERIOD positions. Other tasks cost LOW. Costs must be between
+1 and 1000000. Task count must be at least two; task count and seed
+must fit signed int.
+
+Every case runs six assignments:
+
+- `blocked`: balanced contiguous task counts in original order.
+- `cyclic`: worker t visits t, t+T, ... .
+- `affine`: blocked traversal positions mapped through SHUFFLE_INDEX.
+- `table`: blocked traversal positions mapped through a seeded Fisher-Yates table.
+- `dynamic`: OpenMP dynamic scheduling with chunk size one.
+- `guided`: OpenMP guided scheduling with minimum chunk size one.
+
+Output records beginning with `work,` use the printed CSV header.
+`seconds` includes the OpenMP parallel region and per-worker accounting,
+but excludes input construction, index setup, output initialization, and
+verification. `index_setup_s` reports coprime selection or table construction
+separately; the table is reused across repetitions. `index_bytes` counts
+the permutation table only, not the common workload and verification arrays.
+For a one-use comparison, add index setup to execution time.
+
+`units` is total work and `max_units` the largest assigned worker load.
+`imbalance_pct` is 100*(T*max_units/units-1), using the actual team size.
+Additional records have the form
+`worker,kernel,pattern,N,C,B,seed,low,high,width,shift,period,method,threads,repeat,tid,tasks,units,seconds`;
+their times end before the final team barrier. Worksharing imbalance is
+the observed assignment, not a prediction of runtime or bandwidth.
+Method order rotates between repetitions. Every execution, including
+warm-up, checks all task outputs against an independent reference and
+checks total task/work counts; a failure exits nonzero.
+
+Compare multiple thread counts, domain sizes, phases, offsets, and random
+seeds. The periodic profile is a resonance control, not a promise of an
+affine win. Small SpMV instances may fit in cache; only sufficiently large
+instances can investigate memory-system limits. GEMM is a resident compute
+comparison, not a representative end-to-end scientific application.
 
 ### Image Output
 
@@ -102,6 +184,6 @@ hash of the element value and its position.
 
 | Variable    | Default   | Description                                              |
 |-------------|-----------|----------------------------------------------------------|
-| OMP         | 0         | Enable OpenMP (not used by this sample)                  |
+| OMP         | 1         | Enable OpenMP for the irregular-work benchmark          |
 | SYM         | 1         | Include debug symbols (-g)                               |
 | BUBBLE_SORT | undefined | Define (-DBUBBLE_SORT) for O(n^2) inversion counter      |

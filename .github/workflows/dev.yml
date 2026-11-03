@@ -85,12 +85,15 @@ jobs:
         if [ "" != "${FILE_URL}" ]; then INPUT_ARGS=input.mhd; fi
         CPU=$(($(nproc) - 1))
         for BUILD in avx512 avx2 avx512-again; do
-          echo "--- ${BUILD}" | tee -a "pack-${{ matrix.job }}.log"
-          taskset -c "${CPU}" "./pack-${BUILD%-again}.x" ${INPUT_ARGS} | tee -a "pack-${{ matrix.job }}.log"
+          for FORMAT in 0 1; do # LIBXS_VPACK: the format of a group of 8
+            echo "--- ${BUILD}, LIBXS_VPACK=${FORMAT}" | tee -a "pack-${{ matrix.job }}.log"
+            LIBXS_VPACK=${FORMAT} taskset -c "${CPU}" "./pack-${BUILD%-again}.x" ${INPUT_ARGS} \
+              | tee -a "pack-${{ matrix.job }}.log"
+          done
         done
         {
           echo '```'
-          grep -E '^(--- |variant|vpack (group )?8 |kd-tree rows, exc|rice )' "pack-${{ matrix.job }}.log"
+          grep -E '^(--- |variant|vpack (group )?8 |vpack deltas|kd-tree rows, exc)' "pack-${{ matrix.job }}.log"
           echo '```'
         } >> "$GITHUB_STEP_SUMMARY"
 

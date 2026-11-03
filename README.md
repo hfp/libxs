@@ -32,30 +32,30 @@ of [LIBXSMM](https://github.com/libxsmm/libxsmm).
 | [MHD][dmhd]      | `libxs_mhd.h`      | Read/write MetaImage (MHD/MHA) files                                             |
 | [RNG][drng]      | `libxs_rng.h`      | Pseudo-random generation (SplitMix64)                                            |
 
-[dcore]: documentation/libxs_core.md
-[dreg]:  documentation/libxs_reg.md
-[dprd]:  documentation/libxs_predict.md
-[dmal]:  documentation/libxs_malloc.md
-[dmem]:  documentation/libxs_mem.md
-[dstr]:  documentation/libxs_str.md
-[dngr]:  documentation/libxs_ngram.md
-[dtok]:  documentation/libxs_token.md
-[dtmr]:  documentation/libxs_timer.md
-[dcpu]:  documentation/libxs_cpuid.md
-[dutil]: documentation/libxs_utils.md
-[dsync]: documentation/libxs_sync.md
-[dgemm]: documentation/libxs_gemm.md
-[dmath]: documentation/libxs_math.md
-[dhash]: documentation/libxs_hash.md
-[dpack]: documentation/libxs_pack.md
-[dperm]: documentation/libxs_perm.md
-[dhist]: documentation/libxs_hist.md
-[dmix]:  documentation/libxs_mix.md
-[dmhd]:  documentation/libxs_mhd.md
-[drng]:  documentation/libxs_rng.md
+[dcore]: libxs_core.md
+[dreg]: libxs_reg.md
+[dprd]: libxs_predict.md
+[dmal]: libxs_malloc.md
+[dmem]: libxs_mem.md
+[dstr]: libxs_str.md
+[dngr]: libxs_ngram.md
+[dtok]: libxs_token.md
+[dtmr]: libxs_timer.md
+[dcpu]: libxs_cpuid.md
+[dutil]: libxs_utils.md
+[dsync]: libxs_sync.md
+[dgemm]: libxs_gemm.md
+[dmath]: libxs_math.md
+[dhash]: libxs_hash.md
+[dpack]: libxs_pack.md
+[dperm]: libxs_perm.md
+[dhist]: libxs_hist.md
+[dmix]: libxs_mix.md
+[dmhd]: libxs_mhd.md
+[drng]: libxs_rng.md
 
-See also: [Fortran Interface](documentation/libxs_fortran.md),
-[Scripts](documentation/libxs_scripts.md).
+See also: [Fortran Interface](libxs_fortran.md),
+[Scripts](libxs_scripts.md).
 
 ## Build
 
@@ -103,32 +103,14 @@ default; set `LIBXS_SAMPLES_OMP=OFF` to disable it. Both options are available
 only when their corresponding targets are built. On macOS, Homebrew's `libomp`
 is detected via `brew --prefix libomp`; use `OpenMP_ROOT` for another installation.
 
-| Option                    | Default        | Description                                 |
-|---------------------------|----------------|---------------------------------------------|
-| LIBXS_FORTRAN             | (auto)         | Build the Fortran module                    |
-| LIBXS_FORTRAN_OMP         | OFF            | Enable OpenMP in the Fortran module         |
-| LIBXS_SAMPLES_OMP         | ON             | Enable OpenMP in samples and tests          |
-| LIBXS_INSTALL_HEADER_ONLY | OFF            | Also install the header-only implementation |
-| LIBXS_BUILD_SAMPLES       | `BUILD_TESTING` | Build the samples (requires BLAS)           |
-| BUILD_TESTING             | OFF            | Build unit tests                            |
-| BUILD_SHARED_LIBS         | OFF            | Build the shared library                    |
-
-Samples can be built independently with `-DLIBXS_BUILD_SAMPLES=ON`. On the first
-configuration, this option defaults to `BUILD_TESTING`; later changes to
-`BUILD_TESTING` do not override its cached value. When both options are enabled,
-CTest also registers the shell tests that use the samples. Set `-DLIBXS_BUILD_SAMPLES=OFF`
-to build only the unit tests, without requiring BLAS.
-
-For a fresh build directory, enable tests and their default samples with:
-
-```bash
-cmake -S . -B build -DBUILD_TESTING=ON
-cmake --build build -j 8
-(cd build && ctest --output-on-failure -j 8)
-```
-
-Executables and their supplied data are placed under `build/samples`, and
-the test runner is available as `build/tests/test.sh`.
+| Option                    | Default | Description                                 |
+|---------------------------|---------|---------------------------------------------|
+| LIBXS_FORTRAN             | (auto)  | Build the Fortran module                    |
+| LIBXS_FORTRAN_OMP         | OFF     | Enable OpenMP in the Fortran module          |
+| LIBXS_SAMPLES_OMP         | ON      | Enable OpenMP in samples and tests           |
+| LIBXS_INSTALL_HEADER_ONLY | OFF     | Also install the header-only implementation |
+| BUILD_TESTING             | OFF     | Build the tests (requires BLAS)             |
+| BUILD_SHARED_LIBS         | OFF     | Build the shared library                    |
 
 ## Installation
 
@@ -162,8 +144,7 @@ desired headers:
 
 Both builds install pkg-config files (`libxs.pc`) and a CMake package
 (target `libxs::libxs`). A static library needs `--static` to also
-list its dependencies (OpenMP when enabled in the Fortran module, pthread,
-libm, libdl, librt):
+list its dependencies (pthread, libm, libdl, librt):
 
 ```bash
 cc app.c $(pkg-config --cflags libxs) $(pkg-config --libs --static libxs)
@@ -194,8 +175,8 @@ implied automatically. Either way, the application still links
 is installed next to the headers (`include/libxs`). `USE LIBXS_JIT`
 adds GEMM dispatch with the kernel providers filled in; the
 application compiles `libxs_jit.F` itself (see
-[Kernel Providers](documentation/libxs_gemm.md#kernel-providers)
-and the [Fortran Interface](documentation/libxs_fortran.md)):
+[Kernel Providers](libxs_gemm.md#kernel-providers)
+and the [Fortran Interface](libxs_fortran.md)):
 
 ```fortran
       USE :: LIBXS, ONLY: libxs_memcmp
@@ -206,6 +187,7 @@ and the [Fortran Interface](documentation/libxs_fortran.md)):
 | Variable         | Default   | Description                                                                                                     |
 |------------------|-----------|-----------------------------------------------------------------------------------------------------------------|
 | LIBXS_VERBOSE    | 0         | Verbosity level; empty means 1, negative means all (debug build: all)                                           |
+| LIBXS_VPACK      | 0         | Format of libxs_vpack for groups of 8: 1 takes less space and unpacks more slowly (see Pack)                    |
 | LIBXS_PTRACE     | 0         | Linux: any process may attach a debugger (not only an ancestor)                                                 |
 | LIBXS_SIGNAL     | (verbose) | Report at SIGABRT/SIGSEGV, then pass the signal on (on if verbose); 0 leaves handlers alone                     |
 | LIBXS_DUMP_BUILD | 0         | Print the build state (GNU Make build): >0 at exit, <0 at startup                                               |
@@ -236,23 +218,23 @@ printed by the first LIBXS process on the system only.
 | [syrk]        | Symmetric rank-k/2k update with validation      |
 | [sync]        | Lock implementation microbenchmarks             |
 
-[tokenizer]: documentation/samples/libxs_tokenizer.md
-[converse]:  documentation/samples/libxs_converse.md
-[registry]:  documentation/samples/libxs_registry.md
-[predict]:   documentation/samples/libxs_predict.md
-[rosetta]:   documentation/samples/libxs_rosetta.md
-[setdiff]:   documentation/samples/libxs_setdiff.md
-[shuffle]:   documentation/samples/libxs_shuffle.md
-[pack]:      documentation/samples/libxs_pack.md
-[scratch]:   documentation/samples/libxs_scratch.md
-[spatial]:   documentation/samples/libxs_spatial.md
-[fprint]:    documentation/samples/libxs_fprint.md
-[bracket]:   documentation/samples/libxs_bracket.md
-[memory]:    documentation/samples/libxs_memory.md
-[ozaki]:     documentation/samples/libxs_ozaki.md
-[gemm]:      documentation/samples/libxs_gemm.md
-[syrk]:      documentation/samples/libxs_syrk.md
-[sync]:      documentation/samples/libxs_sync.md
+[tokenizer]: samples/libxs_tokenizer.md
+[converse]: samples/libxs_converse.md
+[registry]: samples/libxs_registry.md
+[predict]: samples/libxs_predict.md
+[rosetta]: samples/libxs_rosetta.md
+[setdiff]: samples/libxs_setdiff.md
+[shuffle]: samples/libxs_shuffle.md
+[pack]: samples/libxs_pack.md
+[scratch]: samples/libxs_scratch.md
+[spatial]: samples/libxs_spatial.md
+[fprint]: samples/libxs_fprint.md
+[bracket]: samples/libxs_bracket.md
+[memory]: samples/libxs_memory.md
+[ozaki]: samples/libxs_ozaki.md
+[gemm]: samples/libxs_gemm.md
+[syrk]: samples/libxs_syrk.md
+[sync]: samples/libxs_sync.md
 
 ## License
 

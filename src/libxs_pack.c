@@ -9,6 +9,7 @@
 ******************************************************************************/
 #include <libxs/libxs_pack.h>
 #include <libxs/libxs_utils.h>
+#include "libxs_main.h"
 
 /* plain code on 64-bit words (no intrinsics, no exceptions), group sizes that are a multiple of 8
  * as 8 interleaved streams (value 8*c+l in stream l, all at the same bit position): every shift is
@@ -22,6 +23,16 @@
 #endif
 /* values per group of the exceptions format: a bitmap byte (and a vector lane) per value */
 #define LIBXS_PACK_EXC_GROUP 8
+/* format of LIBXS_VPACK=1: lanes per group, parameter and escape of the codes, values from which a call
+ * takes two streams, zero bytes behind the streams (reads of 8 bytes stay inside), streams at most */
+#define LIBXS_PACK_LANES 8
+#define LIBXS_PACK_LANES_K 2
+#define LIBXS_PACK_LANES_ESC 24
+#define LIBXS_PACK_LANES_SPLIT 2048
+#define LIBXS_PACK_LANES_SLACK 7
+#define LIBXS_PACK_LANES_NSUB (2 * (LIBXS_PACK_LANES + 1))
+/* groups between two checks of the streams against their capacity (a group writes up to 2 words each) */
+#define LIBXS_PACK_LANES_CHECK 32
 
 #define LIBXS_PACK_MASK(NBITS) (64 > (NBITS) \
   ? ((((uint64_t)1) << (NBITS)) - 1) : ~((uint64_t)0))
@@ -65,6 +76,29 @@ typedef struct internal_libxs_pack_writer_t {
   uint64_t acc;
   int fill;
 } internal_libxs_pack_writer_t;
+
+/* A stream of the format of LIBXS_VPACK=1. */
+typedef struct internal_libxs_lanes_writer_t {
+  uint64_t* out;
+  uint64_t acc;
+  int fill;
+} internal_libxs_lanes_writer_t;
+
+#if defined(LIBXS_PACK_AVX2)
+/* Decoder state of four lanes. */
+typedef struct internal_libxs_lanes_avx2_t {
+  __m256i bit, p1, p2;
+} internal_libxs_lanes_avx2_t;
+#endif
+
+#if defined(LIBXS_PACK_AVX512)
+/* Decoder state of a stream of eight lanes. */
+typedef struct internal_libxs_lanes_avx512_t {
+  __m512i bit, p1, p2;
+  size_t cbit, g, ngroups, run, n;
+  int zero;
+} internal_libxs_lanes_avx512_t;
+#endif
 
 
 #if defined(LIBXS_PACK_RUNTIME)
@@ -867,6 +901,583 @@ LIBXS_API_INLINE size_t internal_libxs_vunpack64(uint64_t* LIBXS_RESTRICT out,
 }
 
 
+/* Appends n bits (at most 64) to a stream, the word being filled stays in a register (no branch). */
+LIBXS_INLINE_ALWAYS void internal_libxs_lanes_put(internal_libxs_lanes_writer_t* bw, uint64_t v, int n)
+{
+  const int next = bw->fill + n;
+  const uint64_t acc = bw->acc | (v << bw->fill), hi = (v >> 1) >> (63 - bw->fill);
+  *bw->out = acc;
+  bw->out += next >> 6;
+  bw->acc = (64 <= next ? hi : acc);
+  bw->fill = next & 63;
+}
+
+
+/* Code s (an escape holds s in 8 bits) and nb bits of x. */
+LIBXS_INLINE_ALWAYS void internal_libxs_lanes_value(internal_libxs_lanes_writer_t* bw, unsigned int s, uint64_t x, int nb)
+{
+  const unsigned int m = s >> LIBXS_PACK_LANES_K;
+  if (m < LIBXS_PACK_LANES_ESC) {
+    const int nc = (int)m + 1 + LIBXS_PACK_LANES_K;
+    const uint64_t code = ((((uint64_t)1) << m) - 1)
+      | (((uint64_t)(s & ((1U << LIBXS_PACK_LANES_K) - 1))) << (m + 1));
+    if (nc + nb <= 64) internal_libxs_lanes_put(bw, code | (x << nc), nc + nb);
+    else {
+      internal_libxs_lanes_put(bw, code, nc);
+      internal_libxs_lanes_put(bw, x, nb);
+    }
+  }
+  else {
+    internal_libxs_lanes_put(bw, (((uint64_t)1) << LIBXS_PACK_LANES_ESC) - 1, LIBXS_PACK_LANES_ESC + 1);
+    internal_libxs_lanes_put(bw, s, 8);
+    internal_libxs_lanes_put(bw, x, nb);
+  }
+}
+
+
+/* Length of a run of groups. */
+LIBXS_INLINE_ALWAYS void internal_libxs_lanes_run(internal_libxs_lanes_writer_t* bw, size_t run)
+{
+  const int b = (int)LIBXS_NBITS(run + 1);
+  internal_libxs_lanes_put(bw, (((uint64_t)1) << (b - 1)) - 1, b);
+  internal_libxs_lanes_put(bw, (run + 1) & LIBXS_PACK_MASK(b - 1), b - 1);
+}
+
+
+/* Values of stream s when n values are split into split streams of whole groups. */
+LIBXS_API_INLINE size_t internal_libxs_lanes_part(size_t n, int split, int s)
+{
+  const size_t chunk = (n + (size_t)(LIBXS_PACK_LANES * split) - 1)
+    / (size_t)(LIBXS_PACK_LANES * split) * LIBXS_PACK_LANES;
+  const size_t start = LIBXS_MIN(n, (size_t)s * chunk);
+  return (split - 1 == s ? n : LIBXS_MIN(n, start + chunk)) - start;
+}
+
+
+/* Codes len values from base into the 8 lanes and the runs (bw[0..8]); returns zero once a stream
+ * passes its limit (checked every LIBXS_PACK_LANES_CHECK groups). */
+LIBXS_API_INLINE int internal_libxs_lanes_code(internal_libxs_lanes_writer_t* bw, uint64_t* const limit[],
+  const void* values, libxs_data_t type, size_t base, size_t len, uint64_t mask, uint64_t sign)
+{
+  const size_t ngroups = (len + LIBXS_PACK_LANES - 1) / LIBXS_PACK_LANES;
+  const int direct = (8 == internal_libxs_pack_typesize(type)); /* 64-bit values are read in place */
+  int p1[LIBXS_PACK_LANES], p2[LIBXS_PACK_LANES], l, zero = 1, result = 1;
+  size_t i, run = 0;
+  for (l = 0; l < LIBXS_PACK_LANES; ++l) p1[l] = p2[l] = 0;
+  for (i = 0; i < ngroups && 0 != result; ++i) {
+    const size_t m = LIBXS_MIN((size_t)LIBXS_PACK_LANES, len - LIBXS_PACK_LANES * i);
+    uint64_t z[LIBXS_PACK_LANES], any = 0;
+    const uint64_t* src = z;
+    if (0 != direct && LIBXS_PACK_LANES == m) src = (const uint64_t*)values + base + LIBXS_PACK_LANES * i;
+    else internal_libxs_pack_load(z, values, type, base + LIBXS_PACK_LANES * i, m);
+    for (l = 0; l < LIBXS_PACK_LANES; ++l) {
+      uint64_t v = ((size_t)l < m ? (src[l] & mask) : 0);
+      if (0 != sign) { /* sign-extend from maxbits, then fold the sign (zig-zag) */
+        v = (v ^ sign) - sign;
+        v = (v << 1) ^ (0 - (v >> 63));
+      }
+      z[l] = v;
+      any |= v;
+    }
+    if ((0 == any) != (0 != zero)) {
+      internal_libxs_lanes_run(bw + LIBXS_PACK_LANES, run);
+      zero = !zero;
+      run = 0;
+    }
+    ++run;
+    if (0 != any) {
+      for (l = 0; l < LIBXS_PACK_LANES; ++l) {
+        if (0 != z[l]) {
+          const int b = (int)LIBXS_NBITS(z[l]), d = b - ((p1[l] + p2[l] + 1) >> 1);
+          internal_libxs_lanes_value(bw + l, (unsigned int)(0 <= d ? 2 * d : -2 * d - 1) + 1,
+            z[l] ^ (((uint64_t)1) << (b - 1)), b - 1);
+          p2[l] = p1[l];
+          p1[l] = b;
+        }
+        else internal_libxs_lanes_value(bw + l, 0, 0, 0);
+      }
+    }
+    if (LIBXS_PACK_LANES_CHECK - 1 == (i % LIBXS_PACK_LANES_CHECK)) {
+      int over = 0;
+      for (l = 0; l <= LIBXS_PACK_LANES; ++l) over |= (bw[l].out >= limit[l] ? 1 : 0);
+      if (0 != over) result = 0;
+    }
+  }
+  if (0 != result) internal_libxs_lanes_run(bw + LIBXS_PACK_LANES, run);
+  return result;
+}
+
+
+/* Groups of 8 as streams per lane (LIBXS_VPACK=1): each stream into scratch (a share of the bound), then
+ * all copied behind a header of their lengths. Writes only the words it returns; zero if the result would
+ * not fit into nwords (or on big-endian, or without scratch), so the caller falls back. */
+LIBXS_API_INLINE size_t internal_libxs_vpack_lanes(void* packed, const void* values, libxs_data_t type,
+  size_t n, int maxbits, size_t nwords)
+{
+  const union { uint32_t u; unsigned char c[4]; } probe = { 1 };
+  const int split = (LIBXS_PACK_LANES_SPLIT <= n ? 2 : 1), nsub = split * (LIBXS_PACK_LANES + 1);
+  const uint64_t mask = LIBXS_PACK_MASK(maxbits);
+  const uint64_t sign = (0 != internal_libxs_pack_signed(type) ? (((uint64_t)1) << (maxbits - 1)) : 0);
+  /* words per stream: a quarter more than an even share of the bound, and the most written between checks */
+  const size_t margin = 2 * LIBXS_PACK_LANES_CHECK + 2;
+  const size_t cap = (nwords + (size_t)nsub - 1) / (size_t)nsub * 5 / 4 + margin + 2;
+  size_t result = 0;
+  int pool = 0;
+  uint64_t *const tmp = (0 != probe.c[0]
+    ? (uint64_t*)internal_libxs_scratch_malloc((size_t)nsub * cap * sizeof(uint64_t), &pool) : NULL);
+  if (NULL != tmp) {
+    unsigned char *const out = (unsigned char*)packed;
+    internal_libxs_lanes_writer_t bw[LIBXS_PACK_LANES_NSUB];
+    uint64_t* limit[LIBXS_PACK_LANES_NSUB];
+    size_t nbytes[LIBXS_PACK_LANES_NSUB], maxlen = 1, at = 0;
+    int s, k, ok = 1;
+    for (k = 0; k < nsub; ++k) {
+      bw[k].out = tmp + (size_t)k * cap;
+      bw[k].acc = 0;
+      bw[k].fill = 0;
+      limit[k] = bw[k].out + cap - margin;
+    }
+    for (s = 0; s < split && 0 != ok; ++s) {
+      const size_t len = internal_libxs_lanes_part(n, split, s);
+      ok = internal_libxs_lanes_code(bw + (LIBXS_PACK_LANES + 1) * s, limit + (LIBXS_PACK_LANES + 1) * s,
+        values, type, at, len, mask, sign);
+      at += len;
+    }
+    if (0 != ok) {
+      size_t hdr, total, dst, i;
+      uint64_t acc = 0;
+      int nb, fill = 0;
+      for (k = 0; k < nsub; ++k) {
+        if (0 != bw[k].fill) *bw[k].out = bw[k].acc;
+        nbytes[k] = 8 * (size_t)(bw[k].out - (tmp + (size_t)k * cap)) + (size_t)((bw[k].fill + 7) / 8);
+        maxlen = LIBXS_MAX(maxlen, nbytes[k]);
+      }
+      nb = (int)LIBXS_NBITS(maxlen);
+      hdr = 3 + ((size_t)nsub * (size_t)nb + 7) / 8;
+      total = hdr + LIBXS_PACK_LANES_SLACK;
+      for (k = 0; k < nsub; ++k) total += nbytes[k];
+      if ((total + 7) / 8 <= nwords) {
+        out[0] = 0; /* no group size: this format */
+        out[1] = (unsigned char)split;
+        out[2] = (unsigned char)nb;
+        for (k = 0, i = 3; k < nsub; ++k) {
+          acc |= (uint64_t)nbytes[k] << fill;
+          fill += nb;
+          for (; 8 <= fill; fill -= 8, acc >>= 8) out[i++] = (unsigned char)acc;
+        }
+        if (0 < fill) out[i] = (unsigned char)acc;
+        for (k = 0, dst = hdr; k < nsub; ++k) {
+          memcpy(out + dst, tmp + (size_t)k * cap, nbytes[k]);
+          dst += nbytes[k];
+        }
+        for (; dst < 8 * ((total + 7) / 8); ++dst) out[dst] = 0;
+        result = (total + 7) / 8;
+      }
+    }
+    internal_libxs_scratch_free(tmp, pool);
+  }
+  return result;
+}
+
+
+/* Length of the next run of groups. */
+LIBXS_INLINE_ALWAYS size_t internal_libxs_lanes_runlen(const unsigned char* in, size_t* bit)
+{
+  uint64_t v;
+  int b;
+  memcpy(&v, in + (*bit >> 3), sizeof(v));
+  v >>= *bit & 7;
+  b = (int)LIBXS_INTRINSICS_BITSCANFWD64(~v) + 1;
+  *bit += (size_t)(2 * b - 1);
+  return (size_t)((((uint64_t)1) << (b - 1)) | ((v >> b) & LIBXS_PACK_MASK(b - 1))) - 1;
+}
+
+
+/* Next value of a lane (sign still folded). */
+LIBXS_INLINE_ALWAYS uint64_t internal_libxs_lanes_get(const unsigned char* in, size_t* bit, uint64_t* p1, uint64_t* p2)
+{
+  uint64_t v, result = 0;
+  unsigned int s;
+  int m;
+  memcpy(&v, in + (*bit >> 3), sizeof(v));
+  v >>= *bit & 7;
+  m = (int)LIBXS_INTRINSICS_BITSCANFWD64(~v);
+  if (m < LIBXS_PACK_LANES_ESC) {
+    s = ((unsigned int)m << LIBXS_PACK_LANES_K) | ((unsigned int)(v >> (m + 1)) & ((1U << LIBXS_PACK_LANES_K) - 1));
+    *bit += (size_t)m + 1 + LIBXS_PACK_LANES_K;
+  }
+  else {
+    s = (unsigned int)(v >> (LIBXS_PACK_LANES_ESC + 1)) & 0xFF;
+    *bit += LIBXS_PACK_LANES_ESC + 9;
+  }
+  if (0 != s) {
+    const unsigned int u = s - 1;
+    const int d = (int)(u >> 1) ^ -(int)(u & 1), b = (int)((*p1 + *p2 + 1) >> 1) + d, nb = b - 1;
+    const int lo = LIBXS_MIN(nb, 32);
+    uint64_t hi = 0;
+    memcpy(&v, in + (*bit >> 3), sizeof(v));
+    v = (v >> (*bit & 7)) & LIBXS_PACK_MASK(lo);
+    *bit += (size_t)lo;
+    if (lo < nb) {
+      memcpy(&hi, in + (*bit >> 3), sizeof(hi));
+      hi = (hi >> (*bit & 7)) & LIBXS_PACK_MASK(nb - lo);
+      *bit += (size_t)(nb - lo);
+    }
+    result = v | (hi << lo) | (((uint64_t)1) << nb);
+    *p2 = *p1;
+    *p1 = (uint64_t)b;
+  }
+  return result;
+}
+
+
+/* One stream of n values on the general path, nothing written beyond n. */
+LIBXS_API_INLINE void internal_libxs_lanes_decode(uint64_t* q, size_t n, const unsigned char* in,
+  const size_t* offs, int is_signed)
+{
+  const size_t ngroups = (n + LIBXS_PACK_LANES - 1) / LIBXS_PACK_LANES;
+  uint64_t p1[LIBXS_PACK_LANES], p2[LIBXS_PACK_LANES];
+  size_t bit[LIBXS_PACK_LANES], cbit = 8 * offs[LIBXS_PACK_LANES], g = 0;
+  int l, zero = 1;
+  for (l = 0; l < LIBXS_PACK_LANES; ++l) {
+    bit[l] = 8 * offs[l];
+    p1[l] = p2[l] = 0;
+  }
+  while (g < ngroups) {
+    const size_t run = internal_libxs_lanes_runlen(in, &cbit);
+    if (0 != zero) {
+      const size_t i0 = LIBXS_PACK_LANES * g, i1 = LIBXS_MIN(n, LIBXS_PACK_LANES * (g + run));
+      memset(q + i0, 0, (i1 - i0) * sizeof(*q));
+    }
+    else {
+      size_t k;
+      for (k = 0; k < run * LIBXS_PACK_LANES; ++k) {
+        const size_t i = LIBXS_PACK_LANES * g + k;
+        const uint64_t v = internal_libxs_lanes_get(in, bit + k % LIBXS_PACK_LANES,
+          p1 + k % LIBXS_PACK_LANES, p2 + k % LIBXS_PACK_LANES);
+        if (i < n) q[i] = (0 != is_signed ? ((v >> 1) ^ (0 - (v & 1))) : v);
+      }
+    }
+    g += run;
+    zero = !zero;
+  }
+}
+
+
+#if defined(LIBXS_PACK_AVX2)
+/* Four lanes of a group; a code or a value out of reach takes the general path. */
+LIBXS_INLINE_ALWAYS LIBXS_INTRINSICS(LIBXS_X86_AVX2)
+void internal_libxs_lanes_step_avx2(internal_libxs_lanes_avx2_t* st, uint64_t* q, const unsigned char* in,
+  int is_signed)
+{
+  const __m256i lut = _mm256_setr_epi8(0, 1, 0, 2, 0, 1, 0, 3, 0, 1, 0, 2, 0, 1, 0, 4,
+    0, 1, 0, 2, 0, 1, 0, 3, 0, 1, 0, 2, 0, 1, 0, 4);
+  const __m256i one = _mm256_set1_epi64x(1), three = _mm256_set1_epi64x(3), four = _mm256_set1_epi64x(4);
+  const __m256i nibble = _mm256_set1_epi64x(15), zeros = _mm256_setzero_si256();
+  const __m256i v = _mm256_srlv_epi64(_mm256_i64gather_epi64((const long long*)in, _mm256_srli_epi64(st->bit, 3), 1),
+    _mm256_and_si256(st->bit, _mm256_set1_epi64x(7)));
+  const __m256i lo = _mm256_shuffle_epi8(lut, _mm256_and_si256(v, nibble));
+  const __m256i hi = _mm256_shuffle_epi8(lut, _mm256_and_si256(_mm256_srli_epi64(v, 4), nibble));
+  const __m256i m = _mm256_add_epi64(lo, _mm256_and_si256(_mm256_cmpeq_epi64(lo, four), hi));
+  const __m256i adv = _mm256_add_epi64(m, three);
+  const __m256i s = _mm256_or_si256(_mm256_slli_epi64(m, LIBXS_PACK_LANES_K),
+    _mm256_and_si256(_mm256_srlv_epi64(v, _mm256_add_epi64(m, one)), three));
+  const __m256i zero = _mm256_cmpeq_epi64(s, zeros);
+  const __m256i u = _mm256_sub_epi64(s, one);
+  const __m256i d = _mm256_xor_si256(_mm256_srli_epi64(u, 1), _mm256_sub_epi64(zeros, _mm256_and_si256(u, one)));
+  const __m256i b = _mm256_andnot_si256(zero, _mm256_add_epi64(d,
+    _mm256_srli_epi64(_mm256_add_epi64(_mm256_add_epi64(st->p1, st->p2), one), 1)));
+  const __m256i nb = _mm256_andnot_si256(zero, _mm256_sub_epi64(b, one));
+  const __m256i used = _mm256_add_epi64(adv, nb);
+  if (0 == _mm256_movemask_epi8(_mm256_or_si256(_mm256_cmpeq_epi64(m, _mm256_set1_epi64x(8)),
+    _mm256_cmpgt_epi64(used, _mm256_set1_epi64x(57)))))
+  {
+    const __m256i top = _mm256_sllv_epi64(one, nb);
+    const __m256i x = _mm256_andnot_si256(zero, _mm256_or_si256(top,
+      _mm256_and_si256(_mm256_srlv_epi64(v, adv), _mm256_sub_epi64(top, one))));
+    const __m256i y = (0 != is_signed ? _mm256_xor_si256(_mm256_srli_epi64(x, 1),
+      _mm256_sub_epi64(zeros, _mm256_and_si256(x, one))) : x);
+    _mm256_storeu_si256((__m256i*)q, y);
+    st->bit = _mm256_add_epi64(st->bit, used);
+    st->p2 = _mm256_blendv_epi8(st->p1, st->p2, zero);
+    st->p1 = _mm256_blendv_epi8(b, st->p1, zero);
+  }
+  else {
+    uint64_t bits[4], p1[4], p2[4];
+    int l;
+    _mm256_storeu_si256((__m256i*)bits, st->bit);
+    _mm256_storeu_si256((__m256i*)p1, st->p1);
+    _mm256_storeu_si256((__m256i*)p2, st->p2);
+    for (l = 0; l < 4; ++l) {
+      size_t bit = (size_t)bits[l];
+      const uint64_t w = internal_libxs_lanes_get(in, &bit, p1 + l, p2 + l);
+      q[l] = (0 != is_signed ? ((w >> 1) ^ (0 - (w & 1))) : w);
+      bits[l] = bit;
+    }
+    st->bit = _mm256_loadu_si256((const __m256i*)bits);
+    st->p1 = _mm256_loadu_si256((const __m256i*)p1);
+    st->p2 = _mm256_loadu_si256((const __m256i*)p2);
+  }
+}
+
+
+/* As internal_libxs_lanes_decode, a run at a time without calls (the state stays in registers). */
+LIBXS_INLINE_ALWAYS LIBXS_INTRINSICS(LIBXS_X86_AVX2)
+void internal_libxs_lanes_decode_avx2_impl(uint64_t* q, size_t n, const unsigned char* in, const size_t* offs,
+  int is_signed)
+{
+  const size_t ngroups = (n + LIBXS_PACK_LANES - 1) / LIBXS_PACK_LANES;
+  const size_t tail = n % LIBXS_PACK_LANES;
+  internal_libxs_lanes_avx2_t a, b;
+  size_t cbit = 8 * offs[LIBXS_PACK_LANES], g = 0;
+  int zero = 1;
+  a.bit = _mm256_set_epi64x((long long)(8 * offs[3]), (long long)(8 * offs[2]), (long long)(8 * offs[1]),
+    (long long)(8 * offs[0]));
+  b.bit = _mm256_set_epi64x((long long)(8 * offs[7]), (long long)(8 * offs[6]), (long long)(8 * offs[5]),
+    (long long)(8 * offs[4]));
+  a.p1 = a.p2 = b.p1 = b.p2 = _mm256_setzero_si256();
+  while (g < ngroups) {
+    const size_t run = internal_libxs_lanes_runlen(in, &cbit);
+    if (0 != zero) {
+      const size_t i0 = LIBXS_PACK_LANES * g, i1 = LIBXS_MIN(n, LIBXS_PACK_LANES * (g + run));
+      memset(q + i0, 0, (i1 - i0) * sizeof(*q));
+    }
+    else {
+      const size_t k = run - ((g + run == ngroups && 0 != tail) ? 1 : 0);
+      size_t j;
+      for (j = 0; j < k; ++j) {
+        uint64_t *const p = q + LIBXS_PACK_LANES * (g + j);
+        internal_libxs_lanes_step_avx2(&a, p, in, is_signed);
+        internal_libxs_lanes_step_avx2(&b, p + 4, in, is_signed);
+      }
+      if (k < run) { /* the last group is incomplete */
+        uint64_t t[LIBXS_PACK_LANES];
+        internal_libxs_lanes_step_avx2(&a, t, in, is_signed);
+        internal_libxs_lanes_step_avx2(&b, t + 4, in, is_signed);
+        memcpy(q + LIBXS_PACK_LANES * (g + k), t, tail * sizeof(*t));
+      }
+    }
+    g += run;
+    zero = !zero;
+  }
+}
+
+
+/* Specialized for the signedness: no branch on it per step. */
+LIBXS_API_INLINE LIBXS_INTRINSICS(LIBXS_X86_AVX2)
+void internal_libxs_lanes_decode_avx2(uint64_t* q, size_t n, const unsigned char* in, const size_t* offs,
+  int is_signed)
+{
+  if (0 != is_signed) internal_libxs_lanes_decode_avx2_impl(q, n, in, offs, 1);
+  else internal_libxs_lanes_decode_avx2_impl(q, n, in, offs, 0);
+}
+#endif
+
+
+#if defined(LIBXS_PACK_AVX512)
+/* A group of eight lanes, then the next group; a code or a value out of reach takes the general path. */
+LIBXS_INLINE_ALWAYS LIBXS_INTRINSICS(LIBXS_X86_AVX512)
+void internal_libxs_lanes_step_avx512(internal_libxs_lanes_avx512_t* st, uint64_t* p, const unsigned char* in,
+  int is_signed)
+{
+  const __m512i one = _mm512_set1_epi64(1), three = _mm512_set1_epi64(3), seven = _mm512_set1_epi64(7);
+  const __m512i high = _mm512_set1_epi64(63), esc = _mm512_set1_epi64(LIBXS_PACK_LANES_ESC);
+  const __m512i reach = _mm512_set1_epi64(57), zeros = _mm512_setzero_si512();
+  const __m512i v = _mm512_srlv_epi64(_mm512_i64gather_epi64(_mm512_srli_epi64(st->bit, 3), in, 1),
+    _mm512_and_si512(st->bit, seven));
+  const __m512i ones = _mm512_andnot_si512(v, _mm512_add_epi64(v, one));
+  const __m512i m = _mm512_sub_epi64(high, _mm512_lzcnt_epi64(ones));
+  const __m512i s = _mm512_or_si512(_mm512_slli_epi64(m, LIBXS_PACK_LANES_K),
+    _mm512_and_si512(_mm512_srlv_epi64(v, _mm512_add_epi64(m, one)), three));
+  const __mmask8 nz = _mm512_test_epi64_mask(s, s);
+  const __m512i u = _mm512_sub_epi64(s, one);
+  const __m512i d = _mm512_xor_si512(_mm512_srli_epi64(u, 1), _mm512_sub_epi64(zeros, _mm512_and_si512(u, one)));
+  const __m512i b = _mm512_maskz_add_epi64(nz, d,
+    _mm512_srli_epi64(_mm512_add_epi64(_mm512_add_epi64(st->p1, st->p2), one), 1));
+  const __m512i nb = _mm512_maskz_sub_epi64(nz, b, one);
+  const __m512i adv = _mm512_add_epi64(m, three), used = _mm512_add_epi64(adv, nb);
+  if (0 == (_mm512_cmpge_epu64_mask(m, esc) | _mm512_cmpgt_epi64_mask(used, reach))) {
+    const __m512i top = _mm512_sllv_epi64(one, nb);
+    const __m512i x = _mm512_maskz_or_epi64(nz, top,
+      _mm512_and_si512(_mm512_srlv_epi64(v, adv), _mm512_sub_epi64(top, one)));
+    const __m512i y = (0 != is_signed ? _mm512_xor_si512(_mm512_srli_epi64(x, 1),
+      _mm512_sub_epi64(zeros, _mm512_and_si512(x, one))) : x);
+    _mm512_storeu_si512(p, y);
+    st->bit = _mm512_add_epi64(st->bit, used);
+    st->p2 = _mm512_mask_mov_epi64(st->p2, nz, st->p1);
+    st->p1 = _mm512_mask_mov_epi64(st->p1, nz, b);
+  }
+  else {
+    uint64_t bits[8], a1[8], a2[8];
+    int l;
+    _mm512_storeu_si512(bits, st->bit);
+    _mm512_storeu_si512(a1, st->p1);
+    _mm512_storeu_si512(a2, st->p2);
+    for (l = 0; l < 8; ++l) {
+      size_t bit = (size_t)bits[l];
+      const uint64_t w = internal_libxs_lanes_get(in, &bit, a1 + l, a2 + l);
+      p[l] = (0 != is_signed ? ((w >> 1) ^ (0 - (w & 1))) : w);
+      bits[l] = bit;
+    }
+    st->bit = _mm512_loadu_si512(bits);
+    st->p1 = _mm512_loadu_si512(a1);
+    st->p2 = _mm512_loadu_si512(a2);
+  }
+  --st->run;
+  ++st->g;
+}
+
+
+LIBXS_INLINE_ALWAYS LIBXS_INTRINSICS(LIBXS_X86_AVX512)
+void internal_libxs_lanes_init_avx512(internal_libxs_lanes_avx512_t* st, size_t n, const size_t* offs)
+{
+  st->bit = _mm512_set_epi64((long long)(8 * offs[7]), (long long)(8 * offs[6]), (long long)(8 * offs[5]),
+    (long long)(8 * offs[4]), (long long)(8 * offs[3]), (long long)(8 * offs[2]), (long long)(8 * offs[1]),
+    (long long)(8 * offs[0]));
+  st->p1 = st->p2 = _mm512_setzero_si512();
+  st->cbit = 8 * offs[LIBXS_PACK_LANES];
+  st->g = st->run = 0;
+  st->n = n;
+  st->ngroups = (n + LIBXS_PACK_LANES - 1) / LIBXS_PACK_LANES;
+  st->zero = 1;
+}
+
+
+/* Reaches the next group of a nonzero run, filling the zero runs on the way; returns 0 at the end. */
+LIBXS_INLINE_ALWAYS LIBXS_INTRINSICS(LIBXS_X86_AVX512)
+int internal_libxs_lanes_next_avx512(internal_libxs_lanes_avx512_t* st, uint64_t* q, const unsigned char* in)
+{
+  while (0 == st->run && st->g < st->ngroups) {
+    const size_t run = internal_libxs_lanes_runlen(in, &st->cbit);
+    if (0 != st->zero) {
+      const size_t i0 = LIBXS_PACK_LANES * st->g, i1 = LIBXS_MIN(st->n, LIBXS_PACK_LANES * (st->g + run));
+      memset(q + i0, 0, (i1 - i0) * sizeof(*q));
+      st->g += run;
+    }
+    else st->run = run;
+    st->zero = !st->zero;
+  }
+  return (0 != st->run ? 1 : 0);
+}
+
+
+/* Groups of the current run that can be stored in place: all but an incomplete last group. */
+LIBXS_INLINE_ALWAYS size_t internal_libxs_lanes_full_avx512(const internal_libxs_lanes_avx512_t* st)
+{
+  return st->run - ((st->g + st->run == st->ngroups && 0 != (st->n % LIBXS_PACK_LANES)) ? 1 : 0);
+}
+
+
+/* The rest of a stream, a run at a time without calls (the state stays in registers). */
+LIBXS_INLINE_ALWAYS LIBXS_INTRINSICS(LIBXS_X86_AVX512)
+void internal_libxs_lanes_finish_avx512(internal_libxs_lanes_avx512_t* st, uint64_t* q, const unsigned char* in,
+  int is_signed)
+{
+  while (0 != internal_libxs_lanes_next_avx512(st, q, in)) {
+    const size_t k = internal_libxs_lanes_full_avx512(st);
+    size_t j;
+    for (j = 0; j < k; ++j) internal_libxs_lanes_step_avx512(st, q + LIBXS_PACK_LANES * st->g, in, is_signed);
+    if (0 != st->run) { /* the last group is incomplete */
+      uint64_t t[LIBXS_PACK_LANES];
+      const size_t i = LIBXS_PACK_LANES * st->g;
+      internal_libxs_lanes_step_avx512(st, t, in, is_signed);
+      memcpy(q + i, t, (st->n - i) * sizeof(*t));
+    }
+  }
+}
+
+
+/* One or two streams (the second at q + n[0]); the steps of the two do not depend on each other. */
+LIBXS_INLINE_ALWAYS LIBXS_INTRINSICS(LIBXS_X86_AVX512)
+void internal_libxs_lanes_decode_avx512_impl(uint64_t* q, const size_t n[], int split, const unsigned char* in,
+  const size_t* offs, int is_signed)
+{
+  internal_libxs_lanes_avx512_t a, b;
+  internal_libxs_lanes_init_avx512(&a, n[0], offs);
+  if (2 == split) {
+    uint64_t *const q1 = q + n[0];
+    internal_libxs_lanes_init_avx512(&b, n[1], offs + LIBXS_PACK_LANES + 1);
+    while (0 != internal_libxs_lanes_next_avx512(&a, q, in) && 0 != internal_libxs_lanes_next_avx512(&b, q1, in)) {
+      const size_t k = LIBXS_MIN(internal_libxs_lanes_full_avx512(&a), internal_libxs_lanes_full_avx512(&b));
+      size_t j;
+      if (0 == k) break; /* an incomplete last group: the rest one by one */
+      for (j = 0; j < k; ++j) {
+        internal_libxs_lanes_step_avx512(&a, q + LIBXS_PACK_LANES * a.g, in, is_signed);
+        internal_libxs_lanes_step_avx512(&b, q1 + LIBXS_PACK_LANES * b.g, in, is_signed);
+      }
+    }
+    internal_libxs_lanes_finish_avx512(&a, q, in, is_signed);
+    internal_libxs_lanes_finish_avx512(&b, q1, in, is_signed);
+  }
+  else internal_libxs_lanes_finish_avx512(&a, q, in, is_signed);
+}
+
+
+/* Specialized for the signedness: no branch on it per step. */
+LIBXS_API_INLINE LIBXS_INTRINSICS(LIBXS_X86_AVX512)
+void internal_libxs_lanes_decode_avx512(uint64_t* q, const size_t n[], int split, const unsigned char* in,
+  const size_t* offs, int is_signed)
+{
+  if (0 != is_signed) internal_libxs_lanes_decode_avx512_impl(q, n, split, in, offs, 1);
+  else internal_libxs_lanes_decode_avx512_impl(q, n, split, in, offs, 0);
+}
+#endif
+
+
+/* Decodes the format of internal_libxs_vpack_lanes; returns the words consumed, zero if invalid. */
+LIBXS_API_INLINE size_t internal_libxs_vunpack_lanes(void* values, const void* packed, libxs_data_t type,
+  size_t n, int is_signed)
+{
+  const union { uint32_t u; unsigned char c[4]; } probe = { 1 };
+  const unsigned char *const in = (const unsigned char*)packed;
+  const int split = in[1], nb = in[2], nsub = split * (LIBXS_PACK_LANES + 1);
+  size_t result = 0;
+  if (0 != probe.c[0] && 1 <= split && 2 >= split && 0 < nb && 56 >= nb) {
+    const size_t hdr = 3 + ((size_t)nsub * (size_t)nb + 7) / 8;
+    const int typesize = internal_libxs_pack_typesize(type);
+    size_t offs[LIBXS_PACK_LANES_NSUB + 1], len[2] = { 0, 0 };
+    uint64_t* q = (uint64_t*)values;
+    int pool = 0, k, s;
+    offs[0] = hdr;
+    for (k = 0; k < nsub; ++k) {
+      const size_t bit = 24 + (size_t)k * (size_t)nb;
+      uint64_t v;
+      memcpy(&v, in + (bit >> 3), sizeof(v));
+      offs[k + 1] = offs[k] + (size_t)((v >> (bit & 7)) & LIBXS_PACK_MASK(nb));
+    }
+    for (s = 0; s < split; ++s) len[s] = internal_libxs_lanes_part(n, split, s);
+    if (8 != typesize) q = (uint64_t*)internal_libxs_scratch_malloc(n * sizeof(uint64_t), &pool);
+    if (NULL != q) {
+#if defined(LIBXS_PACK_AVX512) || defined(LIBXS_PACK_AVX2)
+      const int kind = internal_libxs_pack_target();
+#endif
+#if defined(LIBXS_PACK_AVX512)
+      if (3 == kind) internal_libxs_lanes_decode_avx512(q, len, split, in, offs, is_signed);
+      else
+#endif
+      {
+        size_t at = 0;
+        for (s = 0; s < split; ++s) {
+          const size_t* const of = offs + (LIBXS_PACK_LANES + 1) * s;
+#if defined(LIBXS_PACK_AVX2)
+          if (2 <= kind) internal_libxs_lanes_decode_avx2(q + at, len[s], in, of, is_signed);
+          else
+#endif
+          internal_libxs_lanes_decode(q + at, len[s], in, of, is_signed);
+          at += len[s];
+        }
+      }
+      if (8 != typesize) {
+        internal_libxs_pack_store(values, q, type, 0, n);
+        internal_libxs_scratch_free(q, pool);
+      }
+      result = (offs[nsub] + LIBXS_PACK_LANES_SLACK + 7) / 8;
+    }
+  }
+  return result;
+}
+
+
 LIBXS_API int libxs_pack(void* packed, const void* values,
   libxs_data_t type, size_t n, int nbits)
 {
@@ -960,10 +1571,11 @@ LIBXS_API size_t libxs_vpack(void* packed, const void* values,
 {
   const int typesize = internal_libxs_pack_typesize(type);
   const int g = (0 == group ? LIBXS_VPACK_GROUP : group);
-  size_t result = 0;
-  if (0 < typesize && 0 < maxbits && maxbits <= 8 * typesize && 0 < g && 255 >= g
-    && 0 < n && NULL != packed && NULL != values)
-  {
+  const int valid = (0 < typesize && 0 < maxbits && maxbits <= 8 * typesize && 0 < g && 255 >= g
+    && 0 < n && NULL != packed && NULL != values);
+  size_t result = ((0 != valid && LIBXS_PACK_EXC_GROUP == g && 1 == internal_libxs_vpack_format)
+    ? internal_libxs_vpack_lanes(packed, values, type, n, maxbits, libxs_vpack_bound(n, maxbits, g)) : 0);
+  if (0 != valid && 0 == result) { /* otherwise, or if it does not fit */
     const size_t ngroups = (n + g - 1) / g, nhead = (1 + ngroups + 7) / 8;
     const uint64_t mask = LIBXS_PACK_MASK(maxbits);
     const uint64_t sign = (0 != internal_libxs_pack_signed(type)
@@ -1170,6 +1782,8 @@ LIBXS_API size_t libxs_vunpack(void* values, const void* packed, size_t npacked,
       }
       result = nhead + (bit + 63) / 64;
     }
+    else result = internal_libxs_vunpack_lanes(values, packed, type, n, is_signed);
+    LIBXS_ASSERT(result <= npacked);
   }
   return result;
 }

@@ -66,6 +66,7 @@ LIBXS_APIVAR_PRIVATE_DEF(double libxs_timer_scale);
 LIBXS_APIVAR_PRIVATE_DEF(int libxs_stdio_handle);
 LIBXS_APIVAR_PRIVATE_DEF(int libxs_verbosity);
 LIBXS_APIVAR_PRIVATE_DEF(int libxs_se);
+LIBXS_APIVAR_PRIVATE_DEF(int internal_libxs_vpack_format);
 
 /* handle of libxs_singleton_acquire plus one, hence zero (not acquired) before initialization */
 #define INTERNAL_SINGLETON(HANDLE) (0 < (HANDLE))
@@ -511,7 +512,7 @@ LIBXS_API_INTERN void internal_libxs_init(void)
   const void *const dlsymbol = dlsym(LIBXS_RTLD_NEXT, dlsymname);
   const void *const dlmpi = (NULL == dlerror() ? dlsymbol : NULL);
 #endif
-  const char *const env_verbose = getenv("LIBXS_VERBOSE");
+  const char *const env_verbose = getenv("LIBXS_VERBOSE"), *const env_vpack = getenv("LIBXS_VPACK");
   /* setup verbosity as early as possible since below code may rely on verbose output */
   if (NULL != env_verbose) {
     libxs_verbosity = ('\0' != *env_verbose ? atoi(env_verbose) : 1);
@@ -521,6 +522,7 @@ LIBXS_API_INTERN void internal_libxs_init(void)
     libxs_verbosity = INT_MAX; /* quiet -> verbose */
   }
 #endif
+  if (NULL != env_vpack && '\0' != *env_vpack) internal_libxs_vpack_format = atoi(env_vpack);
 #if defined(LIBXS_AUTOPIN)
 # if defined(LIBXS_INTERCEPT_DYNAMIC)
   /* MPI: unwanted affinity can slow-down unrelated jobs (over-subscription), e.g., CP2K regtests */
