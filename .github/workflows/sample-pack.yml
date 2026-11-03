@@ -1,45 +1,30 @@
-name: Dev
+name: Sample Pack
 
 permissions:
   contents: read
 
 # Manual only: a quick look at a code path on the server-class CPUs runners happen
 # to land on. Runners differ per job, hence several of them, and a job on a CPU
-# without AVX-512 still gives AVX2 numbers. Pack compares two ISA caps; Predict
-# runs parameter samples. Compare timings within a job, not across jobs.
+# without AVX-512 still gives AVX2 numbers. Every job compares a build with AVX-512
+# and one limited to AVX2 on the same CPU: compare within a job, not across jobs.
 on:
   workflow_dispatch:
     inputs:
-      experiment:
-        description: "Sample experiment"
-        type: choice
-        options: [pack, predict, both]
-        default: pack
       args:
         description: "Arguments of pack.x (synthetic values) unless a file is given"
         default: "8388608 24 12 10 10"
-      predict_args:
-        description: "Arguments of predict_params.x"
-        default: "0.8 mix xgb"
       file_url:
         description: "URL of an MHD file for pack.x (HTTPS), replaces the arguments"
-        default: ""
-      predict_file_url:
-        description: "Optional HTTPS CSV input for predict_params.x"
-        default: ""
-      holdout_url:
-        description: "Optional HTTPS test CSV for predict (requires predict_file_url)"
         default: ""
       env:
         description: "Environment for all steps, e.g., RECORD=1024"
         default: "REPEAT=7"
       baseline:
-        description: "Revision whose src/libxs_pack.c also runs (LIBXS_VPACK=1), e.g., 708b79b"
+        description: "Revision whose src/libxs_pack.c also runs (LIBXS_VPACK=1), full hash if amended"
         default: ""
 
 jobs:
   Pack:
-    if: github.event.inputs.experiment != 'predict'
     runs-on: ubuntu-latest
     timeout-minutes: 60
     strategy:
@@ -98,8 +83,17 @@ jobs:
         if ! echo "${BASELINE}" | grep -qE '^[0-9A-Za-z._/-]+$'; then
           echo "ERROR: \"${BASELINE}\" is not a revision"; exit 1
         fi
-        git fetch --quiet --unshallow origin # the checkout is shallow
-        git show "${BASELINE}:src/libxs_pack.c" > ../../src/libxs_pack.c
+        # A full hash is fetched even if amended away, an abbreviated one needs the history.
+        if git fetch --quiet --depth=1 origin "${BASELINE}" 2>/dev/null; then
+          REVISION=FETCH_HEAD
+        else
+          git fetch --quiet --unshallow origin
+          REVISION=${BASELINE}
+        fi
+        if ! git cat-file -e "${REVISION}:src/libxs_pack.c" 2>/dev/null; then
+          echo "ERROR: \"${BASELINE}\" is not found, an amended revision needs the full hash"; exit 1
+        fi
+        git show "${REVISION}:src/libxs_pack.c" > ../../src/libxs_pack.c
         make clean
         make -j "$(nproc)" FORTRAN=0 SSE=4
         mv pack.x pack-base-avx512.x
@@ -148,109 +142,3 @@ jobs:
       with:
         name: pack-${{ matrix.job }}
         path: samples/pack/pack-${{ matrix.job }}.log
-
-  Predict:
-    if: github.event.inputs.experiment == 'predict' || github.event.inputs.experiment == 'both'
-    runs-on: ubuntu-latest
-    timeout-minutes: 60
-    strategy:
-      fail-fast: false
-      matrix:
-        job: [1, 2, 3, 4, 5, 6]
-    env:
-      PREDICT_ARGS: ${{ github.event.inputs.predict_args }}
-      FILE_URL: ${{ github.event.inputs.predict_file_url }}
-      HOLDOUT_URL: ${{ github.event.inputs.holdout_url }}
-      LIBXSTREAM_ROOT: ${{ github.workspace }}/libxstream
-    steps:
-    - uses: actions/checkout@v5
-
-    - name: System Information
-      run: lscpu
-
-    - name: Setup environment
-      if: github.event.inputs.env != ''
-      env:
-        INPUT_ENV: ${{ github.event.inputs.env }}
-      run: |
-        for NAME_VALUE in ${INPUT_ENV}; do
-          if ! echo "${NAME_VALUE}" | grep -qE '^[A-Za-z_][A-Za-z0-9_]*=[^[:space:]]*$'; then
-            echo "ERROR: \"${NAME_VALUE}\" is not NAME=VALUE"; exit 1
-          fi
-          echo "${NAME_VALUE}" >> "$GITHUB_ENV"
-        done
-
-    - name: Setup LIBXSTREAM
-      uses: actions/checkout@v5
-      with:
-        repository: hfp/libxstream
-        path: libxstream
-
-    - name: Install XGBoost
-      run: |
-        sudo apt update -y
-        sudo apt install -y libxgboost-dev
-
-    - name: Build
-      working-directory: samples/predict
-      run: make -j "$(nproc)" DBG=0 FORTRAN=0 SSE=4 XGB=1 predict_params.x
-
-    - name: Run
-      working-directory: samples/predict
-      shell: bash
-      env:
-        BUILD_FLAGS: DBG=0 FORTRAN=0 SSE=4 XGB=1
-      run: |
-        mkdir -p output
-        export OMP_NUM_THREADS=${OMP_NUM_THREADS:-$(nproc)}
-        export XGB_NTHREAD=${XGB_NTHREAD:-${OMP_NUM_THREADS}}
-        if [ "" != "${HOLDOUT_URL}" ] && [ "" = "${FILE_URL}" ]; then
-          echo "ERROR: holdout_url requires predict_file_url"; exit 1
-        fi
-        if [ "" != "${FILE_URL}" ]; then
-          curl -fsSL --proto '=https' --proto-redir '=https' \
-            -o output/input.csv "${FILE_URL}"
-          FILES=(output/input.csv)
-        else
-          FILES=("${LIBXSTREAM_ROOT}"/samples/smm/params/tune_multiply_*.csv)
-        fi
-        if [ "" != "${HOLDOUT_URL}" ]; then
-          curl -fsSL --proto '=https' --proto-redir '=https' \
-            -o output/holdout.csv "${HOLDOUT_URL}"
-          export HOLDOUT="${PWD}/output/holdout.csv"
-        fi
-        {
-          lscpu
-          "${CC:-cc}" --version
-          git rev-parse HEAD
-          git -C "${LIBXSTREAM_ROOT}" rev-parse HEAD
-          echo "BUILD_FLAGS=${BUILD_FLAGS}"
-          echo "OMP_NUM_THREADS=${OMP_NUM_THREADS} XGB_NTHREAD=${XGB_NTHREAD}"
-          ldd predict_params.x
-          sha256sum predict_params.x
-        } > output/system.txt
-        read -r -a ARGS <<< "${PREDICT_ARGS}"
-        for CSV in "${FILES[@]}"; do
-          if [ ! -f "${CSV}" ]; then
-            echo "ERROR: no input CSV: ${CSV}"; exit 1
-          fi
-          BASE=$(basename "${CSV}" .csv)
-          sha256sum "${CSV}" >> output/system.txt
-          DUMP="${PWD}/output/${BASE}.dump" DUMP_ALL=1 \
-            ./predict_params.x "${ARGS[@]}" "${CSV}" "output/${BASE}.bin" \
-            2>&1 | tee "output/${BASE}.log"
-        done
-        {
-          echo '### predict_params.x'
-          echo "OMP_NUM_THREADS=${OMP_NUM_THREADS}"
-          echo '```'
-          grep -hE '^(Loaded|Built|Eval|Decomposition|XGBoost head-to-head)' output/*.log
-          echo '```'
-        } >> "$GITHUB_STEP_SUMMARY"
-
-    - uses: actions/upload-artifact@v5
-      if: always() && env.UPLOAD != '0'
-      with:
-        name: predict-${{ matrix.job }}
-        path: samples/predict/output/
-        if-no-files-found: warn
