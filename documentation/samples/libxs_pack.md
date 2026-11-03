@@ -60,7 +60,7 @@ encoded, decoded, and checked, with a length word per block. `KDLEAF=n` in the
 environment lets it split only into leaves of at least `n` values.
 
 The rows "rice lengths" and "rice per width" are another prototype, also encoded,
-decoded, and checked, in 4 or 8 lanes.
+decoded, and checked, in 4 or 8 lanes, or in two streams of 8 lanes.
 
 With `REPEAT=n` in the environment (default 1), a measurement takes `n` timed passes
 and the fastest counts, as with `nrepeat` for synthetic values. The encoding of the

@@ -31,6 +31,7 @@
 #define RICE_K 2
 #define RICE_ESC 24
 #define RICE_MAXLANES 8
+#define RICE_MAXSPLIT 4
 
 
 typedef struct stream_t {
@@ -49,6 +50,15 @@ typedef struct stats_t {
   int has_twice;
 } stats_t;
 
+
+#if defined(LIBXS_INTRINSICS_AVX512)
+/* Decoder state of one stream of eight lanes. */
+typedef struct rice_avx512_t {
+  __m512i bit, p1, p2;
+  size_t cbit, g, ng, run;
+  int zero;
+} rice_avx512_t;
+#endif
 
 #if defined(LIBXS_INTRINSICS_AVX2)
 /* Decoder state of four lanes. */
@@ -79,6 +89,8 @@ size_t vunpack_f(int64_t* values, const int64_t* packed, size_t n);
 
 
 static const int groups[NGROUPS] = { 4, 8, 16, 32, 64 };
+/* Rows of the prototype: lanes and streams. */
+static const int rice_rows[][2] = { { 4, 1 }, { 8, 1 }, { 8, 2 }, { 8, 4 } };
 static uint64_t rng_state = 0x9E3779B97F4A7C15ULL;
 static size_t record; /* values per record (env. RECORD), 0: a stream at once */
 static int nrepeat = 1; /* timed passes per measurement, the fastest counts */
@@ -1422,12 +1434,12 @@ static size_t rice_encode(unsigned char* out, const int64_t* q, size_t n, int w,
   int64_t pad[RICE_MAXLANES];
   size_t pos = 0, g, run = 0;
   int l, zero = 1;
-  for (l = 0; l <= w; ++l) {
+  for (l = 0; l <= w; ++l) { /* the lanes and the control stream */
     bw[l].out = tmp + (size_t)l * cap;
     bw[l].acc = 0;
     bw[l].fill = 0;
-    if (l < w) p1[l] = p2[l] = 0;
   }
+  for (l = 0; l < w; ++l) p1[l] = p2[l] = 0;
   for (g = 0; g < ng; ++g) {
     const size_t i = g * (size_t)w;
     const int64_t* v = q + i;
@@ -1632,113 +1644,280 @@ void rice_decode_avx2(int64_t* q, size_t n, const unsigned char* in, int w, cons
     zero = !zero;
   }
 }
+
 #endif
 
 
 #if defined(LIBXS_INTRINSICS_AVX512)
+/* Decodes a group of eight lanes and moves on by one group. */
+LIBXS_INLINE_ALWAYS LIBXS_INTRINSICS(LIBXS_X86_AVX512)
+void rice_step_avx512(rice_avx512_t* st, int64_t* p, const unsigned char* in)
+{
+  const __m512i one = _mm512_set1_epi64(1), three = _mm512_set1_epi64(3), seven = _mm512_set1_epi64(7);
+  const __m512i high = _mm512_set1_epi64(63), esc = _mm512_set1_epi64(RICE_ESC), reach = _mm512_set1_epi64(57);
+  const __m512i zeros = _mm512_setzero_si512();
+  const __m512i v = _mm512_srlv_epi64(_mm512_i64gather_epi64(_mm512_srli_epi64(st->bit, 3), in, 1),
+    _mm512_and_si512(st->bit, seven));
+  const __m512i ones = _mm512_andnot_si512(v, _mm512_add_epi64(v, one));
+  const __m512i m = _mm512_sub_epi64(high, _mm512_lzcnt_epi64(ones));
+  const __m512i s = _mm512_or_si512(_mm512_slli_epi64(m, RICE_K),
+    _mm512_and_si512(_mm512_srlv_epi64(v, _mm512_add_epi64(m, one)), three));
+  const __mmask8 nz = _mm512_test_epi64_mask(s, s);
+  const __m512i u = _mm512_sub_epi64(s, one);
+  const __m512i d = _mm512_xor_si512(_mm512_srli_epi64(u, 1), _mm512_sub_epi64(zeros, _mm512_and_si512(u, one)));
+  const __m512i b = _mm512_maskz_add_epi64(nz, d,
+    _mm512_srli_epi64(_mm512_add_epi64(_mm512_add_epi64(st->p1, st->p2), one), 1));
+  const __m512i nb = _mm512_maskz_sub_epi64(nz, b, one);
+  const __m512i adv = _mm512_add_epi64(m, three), used = _mm512_add_epi64(adv, nb);
+  if (0 == (_mm512_cmpge_epu64_mask(m, esc) | _mm512_cmpgt_epi64_mask(used, reach))) {
+    const __m512i top = _mm512_sllv_epi64(one, nb);
+    const __m512i x = _mm512_maskz_or_epi64(nz, top, _mm512_and_si512(_mm512_srlv_epi64(v, adv), _mm512_sub_epi64(top, one)));
+    _mm512_storeu_si512(p, _mm512_xor_si512(_mm512_srli_epi64(x, 1),
+      _mm512_sub_epi64(zeros, _mm512_and_si512(x, one))));
+    st->bit = _mm512_add_epi64(st->bit, used);
+    st->p2 = _mm512_mask_mov_epi64(st->p2, nz, st->p1);
+    st->p1 = _mm512_mask_mov_epi64(st->p1, nz, b);
+  }
+  else {
+    uint64_t bits[8], a1[8], a2[8];
+    int l;
+    _mm512_storeu_si512(bits, st->bit);
+    _mm512_storeu_si512(a1, st->p1);
+    _mm512_storeu_si512(a2, st->p2);
+    for (l = 0; l < 8; ++l) {
+      size_t b1 = (size_t)bits[l];
+      p[l] = rice_value(in, &b1, a1 + l, a2 + l);
+      bits[l] = b1;
+    }
+    st->bit = _mm512_loadu_si512(bits);
+    st->p1 = _mm512_loadu_si512(a1);
+    st->p2 = _mm512_loadu_si512(a2);
+  }
+  --st->run;
+  ++st->g;
+}
+
+
+/* Reaches the next group of a nonzero run, filling the zero runs on the way; returns 0 at the end. */
+LIBXS_INLINE_ALWAYS LIBXS_INTRINSICS(LIBXS_X86_AVX512)
+int rice_next_avx512(rice_avx512_t* st, int64_t* q, const unsigned char* in)
+{
+  while (0 == st->run && st->g < st->ng) {
+    const size_t run = rice_run(in, &st->cbit);
+    if (0 != st->zero) {
+      memset(q + st->g * 8, 0, run * 8 * sizeof(*q));
+      st->g += run;
+    }
+    else st->run = run;
+    st->zero = !st->zero;
+  }
+  return (0 != st->run ? 1 : 0);
+}
+
+
+LIBXS_INLINE_ALWAYS LIBXS_INTRINSICS(LIBXS_X86_AVX512)
+void rice_init_avx512(rice_avx512_t* st, size_t n, const size_t* offs)
+{
+  st->bit = _mm512_set_epi64((long long)(8 * offs[7]), (long long)(8 * offs[6]), (long long)(8 * offs[5]),
+    (long long)(8 * offs[4]), (long long)(8 * offs[3]), (long long)(8 * offs[2]), (long long)(8 * offs[1]),
+    (long long)(8 * offs[0]));
+  st->p1 = st->p2 = _mm512_setzero_si512();
+  st->cbit = 8 * offs[8];
+  st->g = st->run = 0;
+  st->ng = (n + 7) / 8;
+  st->zero = 1;
+}
+
+
+/* Decodes the rest of a stream, a run at a time: without calls, the state stays in registers. */
+LIBXS_INLINE_ALWAYS LIBXS_INTRINSICS(LIBXS_X86_AVX512)
+void rice_finish_avx512(rice_avx512_t* st, int64_t* q, const unsigned char* in)
+{
+  while (0 != rice_next_avx512(st, q, in)) {
+    const size_t k = st->run;
+    size_t j;
+    for (j = 0; j < k; ++j) rice_step_avx512(st, q + st->g * 8, in);
+  }
+}
+
+
 /* As rice_decode for 8 lanes. */
 static LIBXS_INLINE_NEVER LIBXS_INTRINSICS(LIBXS_X86_AVX512)
 void rice_decode_avx512(int64_t* q, size_t n, const unsigned char* in, const size_t* offs)
 {
-  const size_t ng = (n + 7) / 8;
-  const __m512i one = _mm512_set1_epi64(1), three = _mm512_set1_epi64(3), seven = _mm512_set1_epi64(7);
-  const __m512i high = _mm512_set1_epi64(63), esc = _mm512_set1_epi64(RICE_ESC), reach = _mm512_set1_epi64(57);
-  const __m512i zeros = _mm512_setzero_si512();
-  __m512i bit = _mm512_set_epi64((long long)(8 * offs[7]), (long long)(8 * offs[6]), (long long)(8 * offs[5]),
-    (long long)(8 * offs[4]), (long long)(8 * offs[3]), (long long)(8 * offs[2]), (long long)(8 * offs[1]),
-    (long long)(8 * offs[0]));
-  __m512i p1 = zeros, p2 = zeros;
-  size_t cbit = 8 * offs[8], g = 0;
-  int zero = 1;
-  while (g < ng) {
-    const size_t run = rice_run(in, &cbit);
-    if (0 != zero) memset(q + g * 8, 0, run * 8 * sizeof(*q));
-    else {
-      int64_t* p = q + g * 8;
-      size_t k;
-      for (k = 0; k < run; ++k, p += 8) {
-        const __m512i v = _mm512_srlv_epi64(_mm512_i64gather_epi64(_mm512_srli_epi64(bit, 3), in, 1),
-          _mm512_and_si512(bit, seven));
-        const __m512i ones = _mm512_andnot_si512(v, _mm512_add_epi64(v, one));
-        const __m512i m = _mm512_sub_epi64(high, _mm512_lzcnt_epi64(ones));
-        const __m512i s = _mm512_or_si512(_mm512_slli_epi64(m, RICE_K),
-          _mm512_and_si512(_mm512_srlv_epi64(v, _mm512_add_epi64(m, one)), three));
-        const __mmask8 nz = _mm512_test_epi64_mask(s, s);
-        const __m512i u = _mm512_sub_epi64(s, one);
-        const __m512i d = _mm512_xor_si512(_mm512_srli_epi64(u, 1), _mm512_sub_epi64(zeros, _mm512_and_si512(u, one)));
-        const __m512i b = _mm512_maskz_add_epi64(nz, d,
-          _mm512_srli_epi64(_mm512_add_epi64(_mm512_add_epi64(p1, p2), one), 1));
-        const __m512i nb = _mm512_maskz_sub_epi64(nz, b, one);
-        const __m512i adv = _mm512_add_epi64(m, three), used = _mm512_add_epi64(adv, nb);
-        if (0 == (_mm512_cmpge_epu64_mask(m, esc) | _mm512_cmpgt_epi64_mask(used, reach))) {
-          const __m512i top = _mm512_sllv_epi64(one, nb);
-          const __m512i x = _mm512_maskz_or_epi64(nz, top, _mm512_and_si512(_mm512_srlv_epi64(v, adv), _mm512_sub_epi64(top, one)));
-          _mm512_storeu_si512(p, _mm512_xor_si512(_mm512_srli_epi64(x, 1),
-            _mm512_sub_epi64(zeros, _mm512_and_si512(x, one))));
-          bit = _mm512_add_epi64(bit, used);
-          p2 = _mm512_mask_mov_epi64(p2, nz, p1);
-          p1 = _mm512_mask_mov_epi64(p1, nz, b);
-        }
-        else {
-          uint64_t bits[8], a1[8], a2[8];
-          int l;
-          _mm512_storeu_si512(bits, bit);
-          _mm512_storeu_si512(a1, p1);
-          _mm512_storeu_si512(a2, p2);
-          for (l = 0; l < 8; ++l) {
-            size_t b1 = (size_t)bits[l];
-            p[l] = rice_value(in, &b1, a1 + l, a2 + l);
-            bits[l] = b1;
-          }
-          bit = _mm512_loadu_si512(bits);
-          p1 = _mm512_loadu_si512(a1);
-          p2 = _mm512_loadu_si512(a2);
-        }
-      }
+  rice_avx512_t a;
+  rice_init_avx512(&a, n, offs);
+  rice_finish_avx512(&a, q, in);
+}
+
+
+/* Two streams of 8 lanes at once, n[s] values each, one after the other in q. */
+static LIBXS_INLINE_NEVER LIBXS_INTRINSICS(LIBXS_X86_AVX512)
+void rice_decode2_avx512(int64_t* q, const size_t n[], const unsigned char* in, const size_t* offs)
+{
+  int64_t *const q1 = q + n[0];
+  rice_avx512_t a, b;
+  rice_init_avx512(&a, n[0], offs);
+  rice_init_avx512(&b, n[1], offs + 9);
+  while (0 != rice_next_avx512(&a, q, in) && 0 != rice_next_avx512(&b, q1, in)) {
+    const size_t k = LIBXS_MIN(a.run, b.run); /* both runs at once, without calls */
+    size_t j;
+    for (j = 0; j < k; ++j) {
+      rice_step_avx512(&a, q + a.g * 8, in);
+      rice_step_avx512(&b, q1 + b.g * 8, in);
     }
-    g += run;
-    zero = !zero;
   }
+  rice_finish_avx512(&a, q, in);
+  rice_finish_avx512(&b, q1, in);
+}
+
+
+/* Four streams of 8 lanes at once, n[s] values each, one after the other in q. */
+static LIBXS_INLINE_NEVER LIBXS_INTRINSICS(LIBXS_X86_AVX512)
+void rice_decode4_avx512(int64_t* q, const size_t n[], const unsigned char* in, const size_t* offs)
+{
+  int64_t *const q1 = q + n[0], *const q2 = q1 + n[1], *const q3 = q2 + n[2];
+  rice_avx512_t a, b, c, d;
+  rice_init_avx512(&a, n[0], offs);
+  rice_init_avx512(&b, n[1], offs + 9);
+  rice_init_avx512(&c, n[2], offs + 18);
+  rice_init_avx512(&d, n[3], offs + 27);
+  while (0 != rice_next_avx512(&a, q, in) && 0 != rice_next_avx512(&b, q1, in)
+    && 0 != rice_next_avx512(&c, q2, in) && 0 != rice_next_avx512(&d, q3, in))
+  {
+    const size_t k = LIBXS_MIN(LIBXS_MIN(a.run, b.run), LIBXS_MIN(c.run, d.run)); /* without calls */
+    size_t j;
+    for (j = 0; j < k; ++j) {
+      rice_step_avx512(&a, q + a.g * 8, in);
+      rice_step_avx512(&b, q1 + b.g * 8, in);
+      rice_step_avx512(&c, q2 + c.g * 8, in);
+      rice_step_avx512(&d, q3 + d.g * 8, in);
+    }
+  }
+  rice_finish_avx512(&a, q, in);
+  rice_finish_avx512(&b, q1, in);
+  rice_finish_avx512(&c, q2, in);
+  rice_finish_avx512(&d, q3, in);
 }
 #endif
 
 
-/* Encodes, decodes, and checks the prototype, per record if given, in a reused buffer as vpack_bits. */
-static double rice_bits(const int64_t* q, size_t n, int w, double* seconds, double* useconds, int* ok)
+/* One stream of the prototype on the best path available. */
+static void rice_decode_any(int64_t* q, size_t n, const unsigned char* in, int w, const size_t* offs,
+  int avx512, int avx2)
+{
+#if defined(LIBXS_INTRINSICS_AVX512)
+  if (8 == w && 0 != avx512) rice_decode_avx512(q, n, in, offs);
+  else
+#endif
+#if defined(LIBXS_INTRINSICS_AVX2)
+  if (0 != avx2) rice_decode_avx2(q, n, in, w, offs);
+  else
+#endif
+  rice_decode(q, n, in, w, offs);
+  LIBXS_UNUSED(avx512);
+  LIBXS_UNUSED(avx2);
+}
+
+
+/* Splits m values into split streams of whole groups of w: the length of stream s. */
+static size_t rice_part(size_t m, int w, int split, int s)
+{
+  const size_t chunk = (m + (size_t)(w * split) - 1) / (size_t)(w * split) * (size_t)w;
+  const size_t start = LIBXS_MIN(m, (size_t)s * chunk);
+  return (split - 1 == s ? m : LIBXS_MIN(m, start + chunk)) - start;
+}
+
+
+/* Ends a record with the byte lengths of its first n streams at the same width, and the width in
+ * the last byte. Returns the bytes written. */
+static size_t rice_trailer_put(unsigned char* out, const size_t len[], int n, uint64_t* tmp)
+{
+  rice_writer_t bw;
+  size_t maxlen = 1, nbytes;
+  int k, nb;
+  for (k = 0; k < n; ++k) maxlen = LIBXS_MAX(maxlen, len[k]);
+  nb = (int)LIBXS_NBITS(maxlen);
+  bw.out = tmp;
+  bw.acc = 0;
+  bw.fill = 0;
+  for (k = 0; k < n; ++k) rice_put(&bw, len[k], nb);
+  nbytes = rice_flush(out, tmp, &bw);
+  out[nbytes] = (unsigned char)nb;
+  return nbytes + 1;
+}
+
+
+/* Positions of the n streams of a record [begin, end) from its trailer (n - 1 lengths). */
+static void rice_trailer_get(size_t offs[], int n, const unsigned char* in, size_t begin, size_t end)
+{
+  const int nb = (int)in[end - 1];
+  const size_t at = 8 * (end - 1 - ((size_t)(n - 1) * (size_t)nb + 7) / 8);
+  int k;
+  offs[0] = begin;
+  for (k = 0; k + 1 < n; ++k) {
+    const size_t bit = at + (size_t)k * (size_t)nb;
+    uint64_t v;
+    memcpy(&v, in + (bit >> 3), sizeof(v));
+    offs[k + 1] = offs[k] + (size_t)((v >> (bit & 7)) & KD_MASK(nb));
+  }
+}
+
+
+/* Encodes, decodes, and checks the prototype, per record if given, in a reused buffer as vpack_bits;
+ * split > 1 encodes each record as that many streams that decode at once. Every record ends with the
+ * lengths of its streams, so its bits include them (and a length word per record if given). */
+static double rice_bits(const int64_t* q, size_t n, int w, int split, double* seconds, double* useconds, int* ok)
 {
   const size_t r = (0 != record ? LIBXS_MIN(record, n) : n), nrec = (n + r - 1) / LIBXS_MAX(r, 1);
-  const size_t nbytes = 8 * (2 * n + 8 * nrec * ((size_t)w + 1) + 8);
-  const size_t cap = 2 * (r / (size_t)w + 2) + 8, ntmp = 8 * cap * ((size_t)w + 1);
+  const size_t noffs = (size_t)w + 1, nsub = noffs * (size_t)split;
+  const size_t nbytes = 8 * (2 * n + 8 * nrec * nsub + 8);
+  const size_t cap = 2 * (r / (size_t)w + 2) + 8 + nsub, ntmp = 8 * cap * noffs;
   unsigned char *const packed = (unsigned char*)malloc(nbytes);
   uint64_t *const tmp = (uint64_t*)malloc(ntmp);
-  size_t *const offs = (size_t*)malloc((nrec + 1) * ((size_t)w + 1) * sizeof(size_t));
-  int64_t *const back = (int64_t*)malloc((n + (size_t)w) * sizeof(int64_t));
-  int64_t *const buf = (int64_t*)malloc((r + (size_t)w) * sizeof(int64_t));
+  size_t *const ends = (size_t*)malloc((nrec + 1) * sizeof(size_t));
+  int64_t *const back = (int64_t*)malloc((n + (size_t)(w * split)) * sizeof(int64_t));
+  int64_t *const buf = (int64_t*)malloc((r + (size_t)(w * split)) * sizeof(int64_t));
   double bits = 0;
   *seconds = *useconds = 0;
-  if (NULL != packed && NULL != tmp && NULL != offs && NULL != back && NULL != buf && 0 != n) {
+  if (NULL != packed && NULL != tmp && NULL != ends && NULL != back && NULL != buf && 0 != n
+    && 0 < split && split <= RICE_MAXSPLIT && w <= RICE_MAXLANES)
+  {
 #if defined(LIBXS_INTRINSICS_AVX512)
     const int avx512 = (LIBXS_X86_AVX512 <= libxs_cpuid(NULL) ? 1 : 0);
+#else
+    const int avx512 = 0;
 #endif
 #if defined(LIBXS_INTRINSICS_AVX2)
     const int avx2 = (LIBXS_X86_AVX2 <= libxs_cpuid(NULL) ? 1 : 0);
+#else
+    const int avx2 = 0;
 #endif
     double best = DBL_MAX, ubest = DBL_MAX;
     size_t irec, size = 0;
-    int rep, l;
+    int rep, part;
     first_touch(packed, nbytes);
     first_touch(tmp, ntmp);
-    first_touch(back, (n + (size_t)w) * sizeof(int64_t));
-    first_touch(buf, (r + (size_t)w) * sizeof(int64_t));
+    first_touch(back, (n + (size_t)(w * split)) * sizeof(int64_t));
+    first_touch(buf, (r + (size_t)(w * split)) * sizeof(int64_t));
     for (rep = 0; rep < nrepeat; ++rep) {
       const libxs_timer_tick_t t0 = libxs_timer_tick();
       double d;
       for (irec = 0, size = 0; irec < nrec; ++irec) {
-        const size_t off = irec * r;
-        size_t *const of = offs + irec * ((size_t)w + 1);
-        const size_t len = rice_encode(packed + size, q + off, LIBXS_MIN(r, n - off), w, of, tmp, cap);
-        for (l = 0; l <= w; ++l) of[l] += size;
-        size += len;
+        const size_t off = irec * r, m = LIBXS_MIN(r, n - off), begin = size;
+        size_t lens[RICE_MAXSPLIT * (RICE_MAXLANES + 1)], of[RICE_MAXLANES + 1], start = 0;
+        int k, l;
+        for (part = 0, k = 0; part < split; ++part) {
+          const size_t len = rice_part(m, w, split, part);
+          const size_t nb = rice_encode(packed + size, q + off + start, len, w, of, tmp, cap);
+          for (l = 0; l < w; ++l) lens[k++] = of[l + 1] - of[l];
+          lens[k++] = nb - of[w];
+          size += nb;
+          start += len;
+        }
+        size += rice_trailer_put(packed + size, lens, (int)nsub - 1, tmp);
+        ends[irec] = size;
+        LIBXS_UNUSED(begin);
       }
       d = libxs_timer_duration(t0, libxs_timer_tick());
       best = LIBXS_MIN(best, d);
@@ -1748,30 +1927,36 @@ static double rice_bits(const int64_t* q, size_t n, int w, double* seconds, doub
       double d = 0;
       for (irec = 0; irec < nrec; ++irec) {
         const size_t off = irec * r, m = LIBXS_MIN(r, n - off);
-        const size_t *const of = offs + irec * ((size_t)w + 1);
+        const size_t begin = (0 != irec ? ends[irec - 1] : 0), end = ends[irec];
         int64_t *const dst = (0 != record ? buf : back);
+        size_t len[RICE_MAXSPLIT], of[RICE_MAXSPLIT * (RICE_MAXLANES + 1)];
         const libxs_timer_tick_t t1 = libxs_timer_tick();
+        rice_trailer_get(of, (int)nsub, packed, begin, end);
+        for (part = 0; part < split; ++part) len[part] = rice_part(m, w, split, part);
+        if (1 == split) rice_decode_any(dst, m, packed, w, of, avx512, avx2);
 #if defined(LIBXS_INTRINSICS_AVX512)
-        if (8 == w && 0 != avx512) rice_decode_avx512(dst, m, packed, of);
-        else
+        else if (8 == w && 2 == split && 0 != avx512) rice_decode2_avx512(dst, len, packed, of);
+        else if (8 == w && 4 == split && 0 != avx512) rice_decode4_avx512(dst, len, packed, of);
 #endif
-#if defined(LIBXS_INTRINSICS_AVX2)
-        if (0 != avx2) rice_decode_avx2(dst, m, packed, w, of);
-        else
-#endif
-        rice_decode(dst, m, packed, w, of);
+        else { /* one stream after the other */
+          size_t start = 0;
+          for (part = 0; part < split; ++part) {
+            rice_decode_any(dst + start, len[part], packed, w, of + (size_t)part * noffs, avx512, avx2);
+            start += len[part];
+          }
+        }
         d += libxs_timer_duration(t1, libxs_timer_tick());
         if (0 != memcmp(dst, q + off, m * sizeof(int64_t))) *ok = 0;
       }
       ubest = LIBXS_MIN(ubest, d);
     }
     *useconds = ubest;
-    bits = 8.0 * (double)size + (0 != record ? (64.0 + 16.0 * (w + 1)) * (double)nrec : 0.0);
+    bits = 8.0 * (double)size + (0 != record ? 64.0 * (double)nrec : 0.0);
   }
   else if (0 != n) *ok = 0;
   free(packed);
   free(tmp);
-  free(offs);
+  free(ends);
   free(back);
   free(buf);
   return bits;
@@ -1779,7 +1964,7 @@ static double rice_bits(const int64_t* q, size_t n, int w, double* seconds, doub
 
 
 /* As rice_bits over the streams per width of vpack_bits. */
-static double rice_bits_streams(const stream_t* s, int w, double* seconds, double* useconds, int* ok)
+static double rice_bits_streams(const stream_t* s, int w, int split, double* seconds, double* useconds, int* ok)
 {
   double bits = 0;
   int nbits;
@@ -1787,7 +1972,7 @@ static double rice_bits_streams(const stream_t* s, int w, double* seconds, doubl
   for (nbits = 0; nbits <= MAXBITS; ++nbits) {
     if (0 != s[nbits].n) {
       double ds, du;
-      bits += rice_bits(s[nbits].q, s[nbits].n, w, &ds, &du, ok);
+      bits += rice_bits(s[nbits].q, s[nbits].n, w, split, &ds, &du, ok);
       *seconds += ds;
       *useconds += du;
     }
@@ -1847,15 +2032,17 @@ static int run_files(int nfiles, char* files[], double eps)
         1E9 * useconds / nb, nb / LIBXS_MAX(1, kd_leaves), nb / LIBXS_MAX(1, kd_runs));
       for (i = 4; i <= RICE_MAXLANES; i *= 2) {
         char label[48];
-        bits = rice_bits(st.blocks.q, st.blocks.n, i, &seconds, &useconds, &ok);
+        bits = rice_bits(st.blocks.q, st.blocks.n, i, 1, &seconds, &useconds, &ok);
         LIBXS_SNPRINTF(label, sizeof(label), "rice lengths, %i lanes", i);
         printf("%-26s %10.2f %8.2f %14.2f %14.2f\n", label, bits / nb,
           st.bits_fixed * (nb / n) / bits, 1E9 * seconds / nb, 1E9 * useconds / nb);
       }
-      for (i = 4; i <= RICE_MAXLANES; i *= 2) {
+      for (i = 0; i < (int)(sizeof(rice_rows) / sizeof(*rice_rows)); ++i) {
+        const int w = rice_rows[i][0], split = rice_rows[i][1];
         char label[48];
-        bits = rice_bits_streams(st.plain, i, &seconds, &useconds, &ok) + hdr;
-        LIBXS_SNPRINTF(label, sizeof(label), "rice per width, %i lanes", i);
+        bits = rice_bits_streams(st.plain, w, split, &seconds, &useconds, &ok) + hdr;
+        if (1 == split) LIBXS_SNPRINTF(label, sizeof(label), "rice per width, %i lanes", w);
+        else LIBXS_SNPRINTF(label, sizeof(label), "rice per width, %ix%i lanes", split, w);
         printf("%-26s %10.2f %8.2f %14.2f %14.2f\n", label, bits / n, st.bits_fixed / bits,
           1E9 * seconds / n, 1E9 * useconds / n);
       }
@@ -2033,11 +2220,13 @@ static int run_synthetic(size_t n, int nbits, int range, int zeros)
         1E9 * dpack / n, 1E9 * dunpack / n);
     }
     if (EXIT_SUCCESS == result) {
-      int ok = 1, w;
-      for (w = 4; w <= RICE_MAXLANES; w *= 2) {
+      int ok = 1, k;
+      for (k = 0; k < (int)(sizeof(rice_rows) / sizeof(*rice_rows)); ++k) {
+        const int lanes = rice_rows[k][0], split = rice_rows[k][1];
         char label[48];
-        const double bits = rice_bits(q, n, w, &dpack, &dunpack, &ok);
-        LIBXS_SNPRINTF(label, sizeof(label), "rice %i lanes", w);
+        const double bits = rice_bits(q, n, lanes, split, &dpack, &dunpack, &ok);
+        if (1 == split) LIBXS_SNPRINTF(label, sizeof(label), "rice %i lanes", lanes);
+        else LIBXS_SNPRINTF(label, sizeof(label), "rice %ix%i lanes", split, lanes);
         printf("%-14s %10.2f %8.2f %14.2f %14.2f\n", label, bits / n, (double)nbits * n / bits,
           1E9 * dpack / n, 1E9 * dunpack / n);
       }

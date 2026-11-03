@@ -18,7 +18,7 @@ on:
         default: ""
       env:
         description: "Environment for all steps, e.g., RECORD=1024"
-        default: "REPEAT=5"
+        default: "REPEAT=7"
 
 jobs:
   Pack:
