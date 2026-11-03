@@ -320,9 +320,11 @@ int main(int argc, char* argv[])
     LIBXS_DATATYPE_I8, LIBXS_DATATYPE_U8, LIBXS_DATATYPE_I16, LIBXS_DATATYPE_U16,
     LIBXS_DATATYPE_I32, LIBXS_DATATYPE_U32, LIBXS_DATATYPE_I64, LIBXS_DATATYPE_U64
   };
-  int result = check_edges(), i;
+  int result, i;
   LIBXS_UNUSED(argc);
   LIBXS_UNUSED(argv);
+  libxs_init(); /* reads LIBXS_VPACK before check_lanes forces the format */
+  result = check_edges();
   for (i = 0; i < (int)(sizeof(types) / sizeof(*types)) && EXIT_SUCCESS == result; ++i) {
     result = check_fixed(types[i]);
     if (EXIT_SUCCESS == result) result = check_variable(types[i]);
@@ -332,5 +334,6 @@ int main(int argc, char* argv[])
 #if !defined(LIBXS_PACK_SW) && (defined(LIBXS_PACK_AVX512) || defined(LIBXS_PACK_AVX2))
   if (EXIT_SUCCESS == result) result = check_exc_simd();
 #endif
+  libxs_finalize();
   return result;
 }
