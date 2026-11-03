@@ -36,14 +36,16 @@ Every group of `group` values (1 to 255; 0 selects `LIBXS_VPACK_GROUP`,
 which is 8) is stored at the width its largest magnitude needs, so groups of
 small values or zeros cost little. Values are taken as integers of `maxbits`
 bits (1 to eight times the type size); signed types fold the sign so that
-small magnitudes of either sign stay narrow. A group of 8 (the default) may
-instead store a smaller regular width and the few values above it at the
-group's full width (exceptions, marked by a bitmap) if that takes fewer bytes.
-With `LIBXS_VPACK=1` in the environment, a group of 8 is written in a second
-format that takes less space for data of mostly similar magnitudes and unpacks
-more slowly; a call falls back to the first format wherever the second would
-not fit `libxs_vpack_bound`. Unpacking reads either format, whatever the
-environment.
+small magnitudes of either sign stay narrow. `LIBXS_PACK` in the environment
+selects the format (read at the first call). With 1 (the default), groups of a
+multiple of 8 are stored as 8 interleaved streams of words, the format of
+`samples/pack/vpack.f`. With 2, a group of 8 (the default group) may instead
+store a smaller regular width and the few values above it at the group's full
+width (exceptions, marked by a bitmap) if that takes fewer bytes. With 3, a
+group of 8 is written in a format that takes less space for data of mostly
+similar magnitudes and unpacks more slowly; a call falls back to the format of
+2 wherever it would not fit `libxs_vpack_bound`. Packing and unpacking need the
+same setting.
 The stream records the group size and the widths, so unpacking needs only `n`
 and the number of words available (`npacked`, checked against the stream in
 debug builds only). It does not record the type: unpack with a type of the

@@ -26,7 +26,7 @@ on:
 jobs:
   Pack:
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    timeout-minutes: 90
     strategy:
       fail-fast: false
       matrix:
@@ -61,21 +61,35 @@ jobs:
           echo "${NAME_VALUE}"
         done
 
+    # vpack.f is the code used without LIBXS (the sample leaves it out without a compiler)
+    - name: Install GNU Fortran
+      run: |
+        sudo apt update -y
+        sudo apt install -y gfortran
+
     # Both at the same static target (SSE=4: the CPU check can yield -march=native,
     # which makes the whole build AVX-512), so only the dispatch cap differs.
     - name: Build
       working-directory: samples/pack
       run: |
-        make -j "$(nproc)" FORTRAN=0 SSE=4
+        make -j "$(nproc)" SSE=4
         mv pack.x pack-avx512.x
         make clean
-        make -j "$(nproc)" FORTRAN=0 SSE=4 EFLAGS=-DLIBXS_MAX_STATIC_TARGET_ARCH=1006
+        make -j "$(nproc)" SSE=4 EFLAGS=-DLIBXS_MAX_STATIC_TARGET_ARCH=1006
         mv pack.x pack-avx2.x
         if nm pack-avx2.x | grep -q _avx512; then
           echo "ERROR: the AVX2 build contains AVX-512 code"; exit 1
         fi
 
-    # The same two builds with the baseline's src/libxs_pack.c, then the file restored.
+    # The same at the CPU's own width (SSE=0: -march=native), where vpack.f vectorizes.
+    - name: Build native
+      working-directory: samples/pack
+      run: |
+        make clean
+        make -j "$(nproc)" SSE=0
+        mv pack.x pack-native.x
+
+    # The baseline's whole tree in a worktree, built as the first two above.
     - name: Build baseline
       if: github.event.inputs.baseline != ''
       working-directory: samples/pack
@@ -85,22 +99,21 @@ jobs:
         fi
         # A full hash is fetched even if amended away, an abbreviated one needs the history.
         if git fetch --quiet --depth=1 origin "${BASELINE}" 2>/dev/null; then
-          REVISION=FETCH_HEAD
+          REVISION=$(git rev-parse FETCH_HEAD)
         else
           git fetch --quiet --unshallow origin
-          REVISION=${BASELINE}
+          REVISION=$(git rev-parse --verify --quiet "${BASELINE}^{commit}" || true)
         fi
-        if ! git cat-file -e "${REVISION}:src/libxs_pack.c" 2>/dev/null; then
+        if [ "" = "${REVISION}" ] || ! git cat-file -e "${REVISION}:samples/pack/Makefile" 2>/dev/null; then
           echo "ERROR: \"${BASELINE}\" is not found, an amended revision needs the full hash"; exit 1
         fi
-        git show "${REVISION}:src/libxs_pack.c" > ../../src/libxs_pack.c
-        make clean
-        make -j "$(nproc)" FORTRAN=0 SSE=4
-        mv pack.x pack-base-avx512.x
-        make clean
-        make -j "$(nproc)" FORTRAN=0 SSE=4 EFLAGS=-DLIBXS_MAX_STATIC_TARGET_ARCH=1006
-        mv pack.x pack-base-avx2.x
-        git checkout -- ../../src/libxs_pack.c
+        BASEDIR="${RUNNER_TEMP}/baseline"
+        git worktree add --detach "${BASEDIR}" "${REVISION}"
+        make -C "${BASEDIR}/samples/pack" -j "$(nproc)" SSE=4
+        mv "${BASEDIR}/samples/pack/pack.x" pack-base-avx512.x
+        make -C "${BASEDIR}/samples/pack" clean
+        make -C "${BASEDIR}/samples/pack" -j "$(nproc)" SSE=4 EFLAGS=-DLIBXS_MAX_STATIC_TARGET_ARCH=1006
+        mv "${BASEDIR}/samples/pack/pack.x" pack-base-avx2.x
         if nm pack-base-avx2.x | grep -q _avx512; then
           echo "ERROR: the AVX2 build contains AVX-512 code"; exit 1
         fi
@@ -118,22 +131,20 @@ jobs:
       run: |
         if [ "" != "${FILE_URL}" ]; then INPUT_ARGS=input.mhd; fi
         CPU=$(($(nproc) - 1))
-        BUILDS="avx512 avx2 avx512-again"
-        if [ "" != "${BASELINE}" ]; then BUILDS="avx512 base-avx512 avx2 base-avx2 avx512-again"; fi
+        BUILDS="avx512 avx2 native avx512-again"
+        if [ "" != "${BASELINE}" ]; then BUILDS="avx512 base-avx512 avx2 base-avx2 native avx512-again"; fi
         for BUILD in ${BUILDS}; do
-          FORMATS="0 1" # LIBXS_VPACK: the format of a group of 8
-          if [ "${BUILD#base-}" != "${BUILD}" ]; then FORMATS="1"; fi # the other format is the same code
-          for FORMAT in ${FORMATS}; do
-            LABEL="${BUILD}"
-            if [ "${BUILD#base-}" != "${BUILD}" ]; then LABEL="${BUILD} (${BASELINE})"; fi
-            echo "--- ${LABEL}, LIBXS_VPACK=${FORMAT}" | tee -a "pack-${{ matrix.job }}.log"
-            LIBXS_VPACK=${FORMAT} taskset -c "${CPU}" "./pack-${BUILD%-again}.x" ${INPUT_ARGS} \
-              | tee -a "pack-${{ matrix.job }}.log"
+          LABEL="${BUILD}"
+          if [ "${BUILD#base-}" != "${BUILD}" ]; then LABEL="${BUILD} (${BASELINE})"; fi
+          for FORMAT in 1 2 3; do # LIBXS_PACK; a baseline from before reads LIBXS_VPACK (1: format 3)
+            echo "--- ${LABEL}, LIBXS_PACK=${FORMAT}" | tee -a "pack-${{ matrix.job }}.log"
+            LIBXS_PACK=${FORMAT} LIBXS_VPACK=$((3 == FORMAT ? 1 : 0)) taskset -c "${CPU}" "./pack-${BUILD%-again}.x" \
+              ${INPUT_ARGS} | tee -a "pack-${{ matrix.job }}.log"
           done
         done
         {
           echo '```'
-          grep -E '^(--- |variant|vpack (group )?8 |vpack deltas|kd-tree rows, exc)' "pack-${{ matrix.job }}.log"
+          grep -E '^(--- |variant|vpack (group )?8 |fortran group 8|vpack deltas|kd-tree rows, exc)' "pack-${{ matrix.job }}.log"
           echo '```'
         } >> "$GITHUB_STEP_SUMMARY"
 

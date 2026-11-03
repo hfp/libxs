@@ -59,9 +59,9 @@ as sub-boxes of whole rows (split at the middle of axis 1 or 2) with exceptions,
 encoded, decoded, and checked, with a length word per block. `KDLEAF=n` in the
 environment lets it split only into leaves of at least `n` values.
 
-With `LIBXS_VPACK=1` in the environment, the rows of a group of 8 (vpack group 8,
-deltas, step 2*eps) take the second format of `libxs_vpack`, so two runs compare
-the formats.
+`LIBXS_PACK` in the environment (1 to 3) selects the format of `libxs_vpack` for
+the rows vpack group 8, deltas, and step 2*eps, so runs compare the formats. With
+`LIBXS_PACK=1`, the format of `vpack.f`, each also decodes what the other packed.
 
 With `REPEAT=n` in the environment (default 1), a measurement takes `n` timed passes
 and the fastest counts, as with `nrepeat` for synthetic values. The encoding of the

@@ -9,7 +9,7 @@
 !=======================================================================!
 
       ! Packs n signed values of up to maxbits bits as libxs_vpack does
-      ! for a group of 8 under LIBXS_PACK_SW: header bytes (the group,
+      ! for a group of 8 with LIBXS_PACK=1: header bytes (the group,
       ! then a width per group), then 8 interleaved streams (value 8*c+l
       ! in stream l, all at the same bit position), so every shift is
       ! uniform over the lanes. Returns the number of words written.
@@ -70,7 +70,7 @@
       END FUNCTION
 
       ! Unpacks n values written by vpack_f (or by libxs_vpack for a
-      ! group of 8 under LIBXS_PACK_SW); returns the words read.
+      ! group of 8 with LIBXS_PACK=1); returns the words read.
       FUNCTION vunpack_f(values, packed, n) BIND(C, NAME="vunpack_f")
         USE, INTRINSIC :: ISO_C_BINDING, ONLY: C_INT64_T, C_SIZE_T
         IMPLICIT NONE

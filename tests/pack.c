@@ -170,12 +170,10 @@ static int check_exceptions(libxs_data_t type)
         fprintf(stderr, "exceptions: mismatch (type %i, small %i, wide %i)\n", (int)type, small[is], k);
         result = EXIT_FAILURE;
       }
-#if !defined(LIBXS_PACK_SW)
-      else if (8 == typesize && 0 == nexc) {
+      else if (8 == typesize && 0 == nexc && LIBXS_PACK_BYTES == internal_libxs_pack_format) {
         fprintf(stderr, "exceptions: none used (type %i, small %i, wide %i)\n", (int)type, small[is], k);
         result = EXIT_FAILURE;
       }
-#endif
       LIBXS_UNUSED(nexc);
     }
   }
@@ -183,7 +181,7 @@ static int check_exceptions(libxs_data_t type)
 }
 
 
-#if !defined(LIBXS_PACK_SW) && (defined(LIBXS_PACK_AVX512) || defined(LIBXS_PACK_AVX2))
+#if defined(LIBXS_PACK_AVX512) || defined(LIBXS_PACK_AVX2)
 /** The AVX-512 and AVX2 encoders of a group of 8 write the header and bytes of the scalar one. */
 static int check_exc_simd(void)
 {
@@ -258,12 +256,12 @@ static int check_edges(void)
 }
 
 
-/** The format of LIBXS_VPACK=1 (groups of 8), forced: two streams from LIBXS_PACK_LANES_SPLIT values, zeros in runs and
- * within groups, every type and width; nothing written beyond the words returned. */
+/** The format LIBXS_PACK_CODES (groups of 8), forced: runs of zero groups and blocks of nonzero ones, zeros within
+ * groups, every type and width; nothing written beyond the words returned. */
 static int check_lanes(libxs_data_t type)
 {
   static const size_t counts[] = { 1, 7, 8, 9, 63, 64, 65, 333, 1024, 2047, 2048, 2049, 8193, 20005 };
-  const int typesize = (int)LIBXS_TYPESIZE(type), format = internal_libxs_vpack_format;
+  const int typesize = (int)LIBXS_TYPESIZE(type), format = internal_libxs_pack_format;
   const size_t nmax = 20005;
   uint64_t *const values = (uint64_t*)malloc(nmax * sizeof(uint64_t));
   uint64_t *const back = (uint64_t*)malloc(nmax * sizeof(uint64_t));
@@ -271,7 +269,7 @@ static int check_lanes(libxs_data_t type)
   int result = (NULL != values && NULL != back && NULL != packed) ? EXIT_SUCCESS : EXIT_FAILURE;
   int maxbits, zeros, nlanes = 0, nlarge = 0;
   size_t ic, i;
-  internal_libxs_vpack_format = 1;
+  internal_libxs_pack_format = LIBXS_PACK_CODES;
   for (maxbits = 1; maxbits <= 8 * typesize && EXIT_SUCCESS == result; maxbits += 5) {
     for (ic = 0; ic < sizeof(counts) / sizeof(*counts) && EXIT_SUCCESS == result; ++ic) {
       for (zeros = 0; zeros < 2 && EXIT_SUCCESS == result; ++zeros) {
@@ -297,16 +295,16 @@ static int check_lanes(libxs_data_t type)
         }
         else if (0 == ((const unsigned char*)packed)[0]) { /* the format, not the fallback */
           ++nlanes;
-          if (LIBXS_PACK_LANES_SPLIT <= n && 2 == ((const unsigned char*)packed)[1]) ++nlarge;
+          if (LIBXS_PACK_LANES * LIBXS_PACK_LANES_BLOCK < n) ++nlarge; /* more than a block */
         }
       }
     }
   }
   if (EXIT_SUCCESS == result && (0 == nlanes || 0 == nlarge)) {
-    fprintf(stderr, "lanes: format not taken (type %i: %i calls, %i with two streams)\n", (int)type, nlanes, nlarge);
+    fprintf(stderr, "lanes: format not taken (type %i: %i calls, %i beyond a block)\n", (int)type, nlanes, nlarge);
     result = EXIT_FAILURE;
   }
-  internal_libxs_vpack_format = format;
+  internal_libxs_pack_format = format;
   free(values);
   free(back);
   free(packed);
@@ -320,18 +318,23 @@ int main(int argc, char* argv[])
     LIBXS_DATATYPE_I8, LIBXS_DATATYPE_U8, LIBXS_DATATYPE_I16, LIBXS_DATATYPE_U16,
     LIBXS_DATATYPE_I32, LIBXS_DATATYPE_U32, LIBXS_DATATYPE_I64, LIBXS_DATATYPE_U64
   };
-  int result, i;
+  int result, format, i;
   LIBXS_UNUSED(argc);
   LIBXS_UNUSED(argv);
-  libxs_init(); /* reads LIBXS_VPACK before check_lanes forces the format */
+  libxs_init();
   result = check_edges();
   for (i = 0; i < (int)(sizeof(types) / sizeof(*types)) && EXIT_SUCCESS == result; ++i) {
     result = check_fixed(types[i]);
-    if (EXIT_SUCCESS == result) result = check_variable(types[i]);
-    if (EXIT_SUCCESS == result) result = check_exceptions(types[i]);
+    for (format = LIBXS_PACK_WORDS; format <= LIBXS_PACK_CODES && EXIT_SUCCESS == result; ++format) {
+      internal_libxs_pack_format = format; /* forced, whatever LIBXS_PACK says */
+      result = check_variable(types[i]);
+      if (EXIT_SUCCESS == result) result = check_exceptions(types[i]);
+      if (EXIT_SUCCESS != result) fprintf(stderr, "(format %i)\n", format);
+    }
+    internal_libxs_pack_format = 0;
     if (EXIT_SUCCESS == result) result = check_lanes(types[i]);
   }
-#if !defined(LIBXS_PACK_SW) && (defined(LIBXS_PACK_AVX512) || defined(LIBXS_PACK_AVX2))
+#if defined(LIBXS_PACK_AVX512) || defined(LIBXS_PACK_AVX2)
   if (EXIT_SUCCESS == result) result = check_exc_simd();
 #endif
   libxs_finalize();

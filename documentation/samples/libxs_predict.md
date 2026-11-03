@@ -93,6 +93,13 @@ sweep for both models, which is what compares two confidence signals:
 `predict_params` also reads `DUMP`: a file that receives one line per validation
 query (whether the model was built without it, the inputs, and per varying
 parameter the tuned value, the prediction, and the score the gate reads).
+`DUMP_ALL=1` includes all sixteen parameters, including constants, in the
+report and dump.
+
+`HOLDOUT=/path/to/test.csv` evaluates the full model built from the input CSV
+against explicit test rows instead of fitting the internal validation model.
+The report and dump contain both training and test rows, marked separately.
+Use disjoint input and test tables.
 
 ### Examples
 

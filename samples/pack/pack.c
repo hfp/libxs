@@ -55,7 +55,7 @@ typedef size_t (*vpack_fn)(void*, const void*, libxs_data_t, size_t, int, int);
 typedef size_t (*vunpack_fn)(void*, const void*, size_t, libxs_data_t, size_t);
 
 #if defined(PACK_FORTRAN)
-/* vpack.f: a group of 8 in the format libxs_vpack writes under LIBXS_PACK_SW */
+/* vpack.f: a group of 8 in the format libxs_vpack writes with LIBXS_PACK=1 */
 size_t vpack_f(int64_t* packed, const int64_t* values, size_t n, int maxbits);
 size_t vunpack_f(int64_t* values, const int64_t* packed, size_t n);
 #endif
@@ -1378,10 +1378,13 @@ static int run_files(int nfiles, char* files[], double eps)
     bits = vpack_bits(st.plain, 8, vpack_fortran, vunpack_fortran, &seconds, &useconds, &ok, NULL) + hdr;
     printf("%-26s %10.2f %8.2f %14.2f %14.2f\n", "fortran group 8", bits / n, st.bits_fixed / bits,
       1E9 * seconds / n, 1E9 * useconds / n);
-# if defined(LIBXS_PACK_SW) /* same format: each decodes what the other packed */
-    vpack_bits(st.plain, 8, vpack_fortran, libxs_vunpack, &seconds, &useconds, &ok, NULL);
-    vpack_bits(st.plain, 8, libxs_vpack, vunpack_fortran, &seconds, &useconds, &ok, NULL);
-# endif
+    { /* LIBXS_PACK=1, the same format: each decodes what the other packed */
+      const char *const env = getenv("LIBXS_PACK");
+      if (NULL != env && 1 == atoi(env)) {
+        vpack_bits(st.plain, 8, vpack_fortran, libxs_vunpack, &seconds, &useconds, &ok, NULL);
+        vpack_bits(st.plain, 8, libxs_vpack, vunpack_fortran, &seconds, &useconds, &ok, NULL);
+      }
+    }
 #endif
     if (0 != st.shapes.n) { /* values of blocks without a shape are not covered */
       const double nb = (double)st.blocks.n;
