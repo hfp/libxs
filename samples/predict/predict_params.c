@@ -45,7 +45,7 @@ static int confidence_outputs[NPARAM];
 static int nconfidence;
 
 
-static void evaluate(libxs_predict_t* model,
+static int evaluate(libxs_predict_t* model,
   const libxs_predict_t* reference, int ntotal, const char trained[],
   int use_xgb, double quantile_level);
 static int write_confidence_maps(const char* prefix, const void* buffer,
@@ -60,6 +60,7 @@ static const char* mode_name(int decompose);
 int main(int argc, char* argv[])
 {
   const char *filename, *modelfile, *confidence_prefix;
+  const char* const holdout = getenv("HOLDOUT");
   double quality = 0, smooth = 0, consistency = 0;
   double quantile = 0, eval_fraction = 0.8, trees = 0;
   int argi = 1, mode = LIBXS_PREDICT_AUTO;
@@ -163,7 +164,11 @@ int main(int argc, char* argv[])
       "  -N: max polynomial order (default: 0 = auto)\n"
       "  confidence-prefix: optional prefix for saved-model confidence maps\n"
       "  Trains on all entries, saves the model, and reports\n"
-      "  quality on a held-out validation set.\n", argv[0]);
+      "  quality on a held-out validation set.\n"
+      "  HOLDOUT=file evaluates the saved model against an explicit test CSV\n"
+      "    instead of fitting an internal validation model.\n"
+      "  DUMP=file exports predictions; DUMP_ALL=1 includes constant parameters.\n",
+      argv[0]);
   }
 #if !defined(__XGBOOST)
   else if (0 != use_xgb) {
@@ -182,7 +187,7 @@ int main(int argc, char* argv[])
         confidence_select(source, ntotal);
         if (NULL != model) {
           libxs_timer_tick_t tick;
-          int i, build_ok = EXIT_FAILURE;
+          int i, build_ok = EXIT_FAILURE, validation_ok = EXIT_SUCCESS;
           double inputs[NINPUTS], outputs[NOUTPUTS], dt_build;
           libxs_predict_set_mode(model, mode);
           libxs_predict_set_decompose(model, decompose);
@@ -219,7 +224,30 @@ int main(int argc, char* argv[])
                 qi.order, qi.nentries, dt_build);
               fprintf(stdout, "Reach: %d further clusters\n", qi.reach);
             }
-            { const int nval = LIBXS_MAX(
+            if (NULL != holdout && '\0' != *holdout) {
+              const int ntest = libxs_predict_load_csv(source, holdout, NULL,
+                input_names, output_names, NULL, 0, NULL);
+              if (0 < ntest) {
+                char* trained = (char*)calloc((size_t)ntotal + ntest, 1);
+                if (NULL != trained) {
+                  memset(trained, 1, (size_t)ntotal);
+                  fprintf(stdout, "Explicit holdout: %d training, %d test entries\n",
+                    ntotal, ntest);
+                  validation_ok = evaluate(model, source, ntotal + ntest, trained, use_xgb,
+                    quantile);
+                  free(trained);
+                }
+                else {
+                  fprintf(stderr, "Failed to allocate explicit holdout marks\n");
+                  validation_ok = EXIT_FAILURE;
+                }
+              }
+              else {
+                fprintf(stderr, "Failed to load holdout entries from %s\n", holdout);
+                validation_ok = EXIT_FAILURE;
+              }
+            }
+            else { const int nval = LIBXS_MAX(
                 (int)(ntotal * eval_fraction + 0.5), 1);
               libxs_predict_t* val_model =
                 libxs_predict_create(NINPUTS, NOUTPUTS);
@@ -257,14 +285,22 @@ int main(int argc, char* argv[])
                 if (EXIT_SUCCESS == libxs_predict_build(
                   val_model, 0, order_arg, quality))
                 {
-                  evaluate(val_model, source, ntotal, trained, use_xgb,
+                  validation_ok = evaluate(val_model, source, ntotal, trained, use_xgb,
                     quantile);
                 }
+                else {
+                  fprintf(stderr, "Failed to build validation model\n");
+                  validation_ok = EXIT_FAILURE;
+                }
+              }
+              else {
+                fprintf(stderr, "Failed to allocate validation model\n");
+                validation_ok = EXIT_FAILURE;
               }
               libxs_predict_destroy(val_model);
               free(trained);
             }
-            { size_t size = 0;
+            if (EXIT_SUCCESS == validation_ok) { size_t size = 0;
               void* buffer;
               libxs_predict_save(model, NULL, &size);
               buffer = malloc(size);
@@ -272,16 +308,24 @@ int main(int argc, char* argv[])
                 if (EXIT_SUCCESS == libxs_predict_save(model, buffer, &size)) {
                   FILE* out = fopen(modelfile, "wb");
                   if (NULL != out) {
-                    fwrite(buffer, 1, size, out);
-                    fclose(out);
-                    fprintf(stdout, "Saved model to %s (%lu bytes)\n",
-                      modelfile, (unsigned long)size);
-                    if (NULL == confidence_prefix || EXIT_SUCCESS ==
-                      write_confidence_maps(confidence_prefix, buffer, size,
-                        source, ntotal))
-                    {
-                      result = EXIT_SUCCESS;
+                    const size_t written = fwrite(buffer, 1, size, out);
+                    const int closed = fclose(out);
+                    if (size == written && 0 == closed) {
+                      fprintf(stdout, "Saved model to %s (%lu bytes)\n",
+                        modelfile, (unsigned long)size);
+                      if (NULL == confidence_prefix || EXIT_SUCCESS ==
+                        write_confidence_maps(confidence_prefix, buffer, size,
+                          source, ntotal))
+                      {
+                        result = EXIT_SUCCESS;
+                      }
                     }
+                    else {
+                      fprintf(stderr, "Failed to write model %s\n", modelfile);
+                    }
+                  }
+                  else {
+                    fprintf(stderr, "Failed to open model %s\n", modelfile);
                   }
                 }
                 free(buffer);
@@ -333,6 +377,7 @@ static int gate_list(double gates[], int capacity)
 
 static void confidence_select(const libxs_predict_t* source, int ntotal)
 {
+  const char* const all = getenv("DUMP_ALL");
   int j, i;
   nconfidence = 0;
   for (j = 0; j < NPARAM; ++j) {
@@ -343,7 +388,9 @@ static void confidence_select(const libxs_predict_t* source, int ntotal)
       if (0 == i) first = outputs[j];
       else if (outputs[j] != first) varies = 1;
     }
-    if (0 != varies) confidence_outputs[nconfidence++] = j;
+    if (0 != varies || (NULL != all && 0 != atoi(all))) {
+      confidence_outputs[nconfidence++] = j;
+    }
   }
 }
 
@@ -381,10 +428,11 @@ LIBXS_INLINE void internal_params_swap(double* fin, double* fout, int a, int b)
 }
 
 
-static void evaluate(libxs_predict_t* model,
+static int evaluate(libxs_predict_t* model,
   const libxs_predict_t* reference, int ntotal, const char trained[],
   int use_xgb, double quantile_level)
 {
+  int result = EXIT_FAILURE;
 #if defined(__XGBOOST)
   /* read only by the comparison below, which is what carries our coverage over
    * to it; without XGBoost nothing reads it and filling it is dead work */
@@ -399,6 +447,7 @@ static void evaluate(libxs_predict_t* model,
     libxs_timer_tick_t tick;
     double dt_eval;
     int i, j, nperf = 0;
+    result = EXIT_SUCCESS;
     memset(interp, 0, sizeof(interp));
     for (i = 0; i < ntotal; ++i) {
       double e[NOUTPUTS];
@@ -484,6 +533,10 @@ static void evaluate(libxs_predict_t* model,
        */
       double iwidth[NOUTPUTS][2];
       int icovered[NOUTPUTS][2], iseen[2];
+      if (NULL != dumpname && '\0' != *dumpname && NULL == dump) {
+        fprintf(stderr, "Failed to open prediction dump %s\n", dumpname);
+        result = EXIT_FAILURE;
+      }
       memset(split_acted, 0, sizeof(split_acted));
       memset(split_correct, 0, sizeof(split_correct));
       memset(icovered, 0, sizeof(icovered));
@@ -619,7 +672,14 @@ static void evaluate(libxs_predict_t* model,
         }
         if (NULL != dump) fprintf(dump, "\n");
       }
-      if (NULL != dump) fclose(dump);
+      if (NULL != dump) {
+        const int failed = ferror(dump);
+        const int closed = fclose(dump);
+        if (0 != failed || 0 != closed) {
+          fprintf(stderr, "Failed to write prediction dump %s\n", dumpname);
+          result = EXIT_FAILURE;
+        }
+      }
       if (0 < iseen[0] + iseen[1]) {
         libxs_predict_query_t iq;
         memset(&iq, 0, sizeof(iq));
@@ -1032,8 +1092,12 @@ static void evaluate(libxs_predict_t* model,
     }
 #endif
   }
+  if (NULL == all_inputs || NULL == all_predicted) {
+    fprintf(stderr, "Failed to allocate validation arrays\n");
+  }
   free(all_inputs);
   free(all_predicted);
+  return result;
 }
 
 
