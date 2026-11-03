@@ -1,0 +1,101 @@
+name: Dev
+
+permissions:
+  contents: read
+
+# Manual only: a quick look at a code path on the server-class CPUs runners happen
+# to land on. Runners differ per job, hence several of them, and a job on a CPU
+# without AVX-512 still gives AVX2 numbers. Every job compares a build with AVX-512
+# and one limited to AVX2 on the same CPU: compare within a job, not across jobs.
+on:
+  workflow_dispatch:
+    inputs:
+      args:
+        description: "Arguments of pack.x (synthetic values) unless a file is given"
+        default: "8388608 24 12 10 10"
+      file_url:
+        description: "URL of an MHD file for pack.x (HTTPS), replaces the arguments"
+        default: ""
+      env:
+        description: "Environment for all steps, e.g., RECORD=1024"
+        default: "REPEAT=5"
+
+jobs:
+  Pack:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        job: [1, 2, 3, 4, 5, 6]
+    env:
+      INPUT_ARGS: ${{ github.event.inputs.args }}
+      FILE_URL: ${{ github.event.inputs.file_url }}
+    steps:
+    - uses: actions/checkout@v5
+
+    - name: System Information
+      run: |
+        MODEL=$(lscpu --extended=MODELNAME 2>/dev/null | tail -n1)
+        # LIBXS_X86_AVX512 includes VNNI, otherwise the AVX-512 paths stay off
+        ISA=$(grep -qw avx512_vnni /proc/cpuinfo && echo "AVX-512" || echo "AVX2 or less")
+        echo "${MODEL} (${ISA})"
+        echo "### ${MODEL} (${ISA})" >> "$GITHUB_STEP_SUMMARY"
+
+    # Space-separated NAME=VALUE pairs given when launching manually. They come
+    # in through the environment rather than the script, so no value is executed.
+    - name: Setup environment
+      if: github.event.inputs.env != ''
+      env:
+        INPUT_ENV: ${{ github.event.inputs.env }}
+      run: |
+        for NAME_VALUE in ${INPUT_ENV}; do
+          if ! echo "${NAME_VALUE}" | grep -qE '^[A-Za-z_][A-Za-z0-9_]*=[^[:space:]]*$'; then
+            echo "ERROR: \"${NAME_VALUE}\" is not NAME=VALUE"; exit 1
+          fi
+          echo "${NAME_VALUE}" >> $GITHUB_ENV
+          echo "${NAME_VALUE}"
+        done
+
+    # Both at the same static target (SSE=4: the CPU check can yield -march=native,
+    # which makes the whole build AVX-512), so only the dispatch cap differs.
+    - name: Build
+      working-directory: samples/pack
+      run: |
+        make -j "$(nproc)" FORTRAN=0 SSE=4
+        mv pack.x pack-avx512.x
+        make clean
+        make -j "$(nproc)" FORTRAN=0 SSE=4 EFLAGS=-DLIBXS_MAX_STATIC_TARGET_ARCH=1006
+        mv pack.x pack-avx2.x
+        if nm pack-avx2.x | grep -q _avx512; then
+          echo "ERROR: the AVX2 build contains AVX-512 code"; exit 1
+        fi
+
+    - name: Download
+      if: github.event.inputs.file_url != ''
+      working-directory: samples/pack
+      run: curl -fsSL --proto '=https' -o input.mhd "${FILE_URL}"
+
+    # One shot per job, with the first build again at the end to show the noise.
+    # Pinned to the last CPU, the runner's own work more likely lands on the first.
+    - name: Run
+      working-directory: samples/pack
+      shell: bash # pipefail: a failed round trip must not disappear behind tee
+      run: |
+        if [ "" != "${FILE_URL}" ]; then INPUT_ARGS=input.mhd; fi
+        CPU=$(($(nproc) - 1))
+        for BUILD in avx512 avx2 avx512-again; do
+          echo "--- ${BUILD}" | tee -a "pack-${{ matrix.job }}.log"
+          taskset -c "${CPU}" "./pack-${BUILD%-again}.x" ${INPUT_ARGS} | tee -a "pack-${{ matrix.job }}.log"
+        done
+        {
+          echo '```'
+          grep -E '^(--- |variant|vpack (group )?8 |kd-tree rows, exc|rice )' "pack-${{ matrix.job }}.log"
+          echo '```'
+        } >> "$GITHUB_STEP_SUMMARY"
+
+    - uses: actions/upload-artifact@v5
+      if: always()
+      with:
+        name: pack-${{ matrix.job }}
+        path: samples/pack/pack-${{ matrix.job }}.log

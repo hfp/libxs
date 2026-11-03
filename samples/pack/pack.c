@@ -28,6 +28,9 @@
 #define NTREES 2 /* dyadic tree: one width per leaf, or with exceptions at leaves of 8 */
 #define NKD 4 /* k-d tree: all axes, all axes with exceptions, axes 1+2 (whole rows), axis 2 (ranges) */
 #define NORDERS 6 /* traversal orders of a block's axes (innermost first) */
+#define RICE_K 2
+#define RICE_ESC 24
+#define RICE_MAXLANES 8
 
 
 typedef struct stream_t {
@@ -47,6 +50,20 @@ typedef struct stats_t {
 } stats_t;
 
 
+#if defined(LIBXS_INTRINSICS_AVX2)
+/* Decoder state of four lanes. */
+typedef struct rice_avx2_t {
+  __m256i bit, p1, p2;
+} rice_avx2_t;
+#endif
+
+/* Output stream of the prototype. */
+typedef struct rice_writer_t {
+  uint64_t* out;
+  uint64_t acc;
+  int fill;
+} rice_writer_t;
+
 typedef struct header_t {
   double payload, byte, seven, base3, base2, nwidths, hist[MAXBITS + 1];
 } header_t;
@@ -64,6 +81,7 @@ size_t vunpack_f(int64_t* values, const int64_t* packed, size_t n);
 static const int groups[NGROUPS] = { 4, 8, 16, 32, 64 };
 static uint64_t rng_state = 0x9E3779B97F4A7C15ULL;
 static size_t record; /* values per record (env. RECORD), 0: a stream at once */
+static int nrepeat = 1; /* timed passes per measurement, the fastest counts */
 static size_t kd_minleaf; /* k-d prototype: values a leaf has at least (env. KDLEAF) */
 static double kd_runs, kd_leaves; /* k-d prototype: contiguous runs and leaves decoded */
 static int kd_exc = 1; /* k-d prototype: exceptions (env. KDEXC) */
@@ -116,6 +134,14 @@ static int needed_bits(int64_t q)
 {
   const uint64_t z = ((uint64_t)q << 1) ^ (0 - ((uint64_t)q >> 63));
   return (int)LIBXS_NBITS(z);
+}
+
+
+/* Zeroes fresh memory outside a timing. Not inlined: next to its malloc, a memset becomes calloc and
+ * the page faults stay in the timed code. */
+static LIBXS_INLINE_NEVER void first_touch(void* p, size_t size)
+{
+  memset(p, 0, size);
 }
 
 
@@ -676,26 +702,37 @@ static void fixed_seconds(const stream_t* s, double* seconds, double* useconds, 
       uint64_t *const back = (uint64_t*)malloc(n * sizeof(uint64_t));
       uint64_t *const tmp = (uint64_t*)malloc(r * sizeof(uint64_t));
       if (NULL != packed && NULL != back && NULL != tmp) {
-        libxs_timer_tick_t t0;
+        double best = DBL_MAX, ubest = DBL_MAX;
         size_t i, k;
-        memset(packed, 0, LIBXS_MAX(nwords, 1) * sizeof(uint64_t)); /* first touch outside the timing */
-        memset(tmp, 0, r * sizeof(uint64_t));
+        int rep;
+        first_touch(packed, LIBXS_MAX(nwords, 1) * sizeof(uint64_t));
+        first_touch(tmp, r * sizeof(uint64_t));
         for (i = 0; i < n; ++i) back[i] = (uint64_t)s[nbits].q[i] + offset;
-        t0 = libxs_timer_tick();
-        for (k = 0; k < nrec; ++k) {
-          libxs_pack(packed + k * rwords, back + k * r, LIBXS_DATATYPE_U64, LIBXS_MIN(r, n - k * r), nbits);
-        }
-        *seconds += libxs_timer_duration(t0, libxs_timer_tick());
-        for (k = 0; k < nrec; ++k) {
-          const size_t m = LIBXS_MIN(r, n - k * r);
-          uint64_t *const dst = (0 != record ? tmp : back);
-          const libxs_timer_tick_t t1 = libxs_timer_tick();
-          libxs_unpack(dst, packed + k * rwords, LIBXS_DATATYPE_U64, m, nbits);
-          *useconds += libxs_timer_duration(t1, libxs_timer_tick());
-          for (i = 0; i < m; ++i) {
-            if (dst[i] != (uint64_t)s[nbits].q[k * r + i] + offset) *ok = 0;
+        for (rep = 0; rep < nrepeat; ++rep) {
+          const libxs_timer_tick_t t0 = libxs_timer_tick();
+          double d;
+          for (k = 0; k < nrec; ++k) {
+            libxs_pack(packed + k * rwords, back + k * r, LIBXS_DATATYPE_U64, LIBXS_MIN(r, n - k * r), nbits);
           }
+          d = libxs_timer_duration(t0, libxs_timer_tick());
+          best = LIBXS_MIN(best, d);
         }
+        *seconds += best;
+        for (rep = 0; rep < nrepeat; ++rep) {
+          double d = 0;
+          for (k = 0; k < nrec; ++k) {
+            const size_t m = LIBXS_MIN(r, n - k * r);
+            uint64_t *const dst = (0 != record ? tmp : back);
+            const libxs_timer_tick_t t1 = libxs_timer_tick();
+            libxs_unpack(dst, packed + k * rwords, LIBXS_DATATYPE_U64, m, nbits);
+            d += libxs_timer_duration(t1, libxs_timer_tick());
+            for (i = 0; i < m; ++i) {
+              if (dst[i] != (uint64_t)s[nbits].q[k * r + i] + offset) *ok = 0;
+            }
+          }
+          ubest = LIBXS_MIN(ubest, d);
+        }
+        *useconds += ubest;
       }
       else *ok = 0;
       free(packed);
@@ -746,32 +783,43 @@ static double vpack_bits(const stream_t* s, int group, vpack_fn pack, vunpack_fn
       int64_t *const tmp = (int64_t*)malloc(r * sizeof(int64_t));
       size_t *const len = (size_t*)malloc(nrec * sizeof(size_t));
       if (NULL != packed && NULL != back && NULL != tmp && NULL != len) {
-        libxs_timer_tick_t t0;
+        double best = DBL_MAX, ubest = DBL_MAX;
         size_t k, off = 0;
-        memset(packed, 0, bound * sizeof(uint64_t)); /* first touch outside the timing */
-        memset(back, 0, n * sizeof(int64_t));
-        memset(tmp, 0, r * sizeof(int64_t));
-        t0 = libxs_timer_tick();
-        for (k = 0; k < nrec; ++k) {
-          len[k] = pack(packed + off, s[nbits].q + k * r, LIBXS_DATATYPE_I64, LIBXS_MIN(r, n - k * r), nbits, group);
-          off += len[k];
-        }
-        *seconds += libxs_timer_duration(t0, libxs_timer_tick());
-        for (k = 0, off = 0; k < nrec; ++k) {
-          const size_t m = LIBXS_MIN(r, n - k * r);
-          int64_t *const dst = (0 != record ? tmp : back);
-          const libxs_timer_tick_t t1 = libxs_timer_tick();
-          const size_t nread = unpack(dst, packed + off, len[k], LIBXS_DATATYPE_I64, m);
-          *useconds += libxs_timer_duration(t1, libxs_timer_tick());
-          if (nread != len[k]) *ok = 0;
-          if (dst != back) memcpy(back + k * r, dst, m * sizeof(int64_t));
-          if (NULL != h) {
-            const size_t ngroups = (m + group - 1) / group;
-            h->payload += 64.0 * ((double)len[k] - (double)((1 + ngroups + 7) / 8));
-            header_costs(h, (const unsigned char*)(packed + off) + 1, ngroups);
+        int rep;
+        first_touch(packed, bound * sizeof(uint64_t));
+        first_touch(back, n * sizeof(int64_t));
+        first_touch(tmp, r * sizeof(int64_t));
+        for (rep = 0; rep < nrepeat; ++rep) {
+          const libxs_timer_tick_t t0 = libxs_timer_tick();
+          double d;
+          for (k = 0, off = 0; k < nrec; ++k) {
+            len[k] = pack(packed + off, s[nbits].q + k * r, LIBXS_DATATYPE_I64, LIBXS_MIN(r, n - k * r), nbits, group);
+            off += len[k];
           }
-          off += len[k];
+          d = libxs_timer_duration(t0, libxs_timer_tick());
+          best = LIBXS_MIN(best, d);
         }
+        *seconds += best;
+        for (rep = 0; rep < nrepeat; ++rep) {
+          double d = 0;
+          for (k = 0, off = 0; k < nrec; ++k) {
+            const size_t m = LIBXS_MIN(r, n - k * r);
+            int64_t *const dst = (0 != record ? tmp : back);
+            const libxs_timer_tick_t t1 = libxs_timer_tick();
+            const size_t nread = unpack(dst, packed + off, len[k], LIBXS_DATATYPE_I64, m);
+            d += libxs_timer_duration(t1, libxs_timer_tick());
+            if (nread != len[k]) *ok = 0;
+            if (dst != back) memcpy(back + k * r, dst, m * sizeof(int64_t));
+            if (NULL != h && 0 == rep) {
+              const size_t ngroups = (m + group - 1) / group;
+              h->payload += 64.0 * ((double)len[k] - (double)((1 + ngroups + 7) / 8));
+              header_costs(h, (const unsigned char*)(packed + off) + 1, ngroups);
+            }
+            off += len[k];
+          }
+          ubest = LIBXS_MIN(ubest, d);
+        }
+        *useconds += ubest;
         if (0 != memcmp(back, s[nbits].q, n * sizeof(int64_t))) *ok = 0;
         bits += 64.0 * (double)(off + (0 != record ? nrec : 0));
       }
@@ -786,9 +834,6 @@ static double vpack_bits(const stream_t* s, int group, vpack_fn pack, vunpack_fn
 }
 
 
-#if !defined(KD_REPEAT) /* timed decodes of the k-d prototype (profiling) */
-# define KD_REPEAT 1
-#endif
 #define KD_MASK(N) (64 > (N) ? ((((uint64_t)1) << (N)) - 1) : ~((uint64_t)0))
 
 typedef struct kd_bits_t {
@@ -1262,7 +1307,8 @@ static double kd_rows_bits(const stats_t* st, double* seconds, double* useconds,
       off += n;
     }
     *seconds = libxs_timer_duration(t0, libxs_timer_tick());
-    for (k = 0; k <= KD_REPEAT; ++k) { /* timed, then checked */
+    *useconds = DBL_MAX;
+    for (k = 0; k <= nrepeat; ++k) { /* timed, then checked */
       t0 = libxs_timer_tick();
       for (b = 0, off = 0; b < nblk; ++b) {
         const size_t s0 = (size_t)st->shapes.q[3 * b], s1 = (size_t)st->shapes.q[3 * b + 1];
@@ -1281,7 +1327,7 @@ static double kd_rows_bits(const stats_t* st, double* seconds, double* useconds,
         bit = (bit + 7) & ~(size_t)7;
         bit += 8 * kd_heads(leaves, nleaves, (const unsigned char*)in + bit / 8);
         for (l = 0; l < nleaves; ++l) nruns += kd_fill(out, tmp, pos, leaves + l, s0, s1, in, &bit);
-        if (KD_REPEAT == k) {
+        if (nrepeat == k) {
           if ((bit + 63) / 64 != nw[b] || 0 != memcmp(out, st->blocks.q + off, n * sizeof(int64_t))) *ok = 0;
           kd_runs += (double)nruns;
           kd_leaves += (double)nleaves;
@@ -1289,7 +1335,10 @@ static double kd_rows_bits(const stats_t* st, double* seconds, double* useconds,
         }
         off += n;
       }
-      if (KD_REPEAT > k) *useconds += libxs_timer_duration(t0, libxs_timer_tick()) / KD_REPEAT;
+      if (nrepeat > k) {
+        const double d = libxs_timer_duration(t0, libxs_timer_tick());
+        *useconds = LIBXS_MIN(*useconds, d);
+      }
     }
   }
   else *ok = 0;
@@ -1308,14 +1357,455 @@ static double kd_rows_bits(const stats_t* st, double* seconds, double* useconds,
 }
 
 
+/* Appends n bits (at most 64) to a word stream, no branch on the data. */
+LIBXS_INLINE_ALWAYS void rice_put(rice_writer_t* bw, uint64_t v, int n)
+{
+  const int next = bw->fill + n;
+  const uint64_t acc = bw->acc | (v << bw->fill), hi = (v >> 1) >> (63 - bw->fill);
+  *bw->out = acc;
+  bw->out += next >> 6;
+  bw->acc = (64 <= next ? hi : acc);
+  bw->fill = next & 63;
+}
+
+
+/* Appends a code and its value. */
+LIBXS_INLINE_ALWAYS void rice_value_put(rice_writer_t* bw, unsigned int s, uint64_t x, int nb)
+{
+  const unsigned int m = s >> RICE_K;
+  const int nc = (int)m + 1 + RICE_K;
+  if (m < RICE_ESC && nc + nb <= 64) {
+    const uint64_t code = ((((uint64_t)1) << m) - 1) | (((uint64_t)(s & ((1U << RICE_K) - 1))) << (m + 1));
+    rice_put(bw, code | (x << nc), nc + nb);
+  }
+  else {
+    if (m < RICE_ESC) {
+      rice_put(bw, (((uint64_t)1) << m) - 1, (int)m + 1);
+      rice_put(bw, s & ((1U << RICE_K) - 1), RICE_K);
+    }
+    else {
+      rice_put(bw, (((uint64_t)1) << RICE_ESC) - 1, RICE_ESC + 1);
+      rice_put(bw, s, 8);
+    }
+    rice_put(bw, x, nb);
+  }
+}
+
+
+/* Appends a run length. */
+LIBXS_INLINE_ALWAYS void rice_run_put(rice_writer_t* bw, size_t run)
+{
+  const int b = (int)LIBXS_NBITS(run + 1);
+  rice_put(bw, (((uint64_t)1) << (b - 1)) - 1, b);
+  rice_put(bw, (run + 1) & KD_MASK(b - 1), b - 1);
+}
+
+
+/* Copies a finished stream from the words at tmp to out; returns the bytes it takes. */
+static size_t rice_flush(unsigned char* out, const uint64_t* tmp, const rice_writer_t* bw)
+{
+  const size_t nwords = (size_t)(bw->out - tmp), nrest = (size_t)((bw->fill + 7) / 8);
+  memcpy(out, tmp, 8 * nwords);
+  memcpy(out + 8 * nwords, &bw->acc, nrest);
+  return 8 * nwords + nrest;
+}
+
+
+/* Encodes n values in w lanes, cap words of tmp per stream. Returns the bytes written, offs[l] is the
+ * byte position of stream l. */
+static size_t rice_encode(unsigned char* out, const int64_t* q, size_t n, int w, size_t* offs,
+  uint64_t* tmp, size_t cap)
+{
+  const size_t ng = (n + (size_t)w - 1) / (size_t)w;
+  rice_writer_t bw[RICE_MAXLANES + 1];
+  int p1[RICE_MAXLANES], p2[RICE_MAXLANES];
+  int64_t pad[RICE_MAXLANES];
+  size_t pos = 0, g, run = 0;
+  int l, zero = 1;
+  for (l = 0; l <= w; ++l) {
+    bw[l].out = tmp + (size_t)l * cap;
+    bw[l].acc = 0;
+    bw[l].fill = 0;
+    if (l < w) p1[l] = p2[l] = 0;
+  }
+  for (g = 0; g < ng; ++g) {
+    const size_t i = g * (size_t)w;
+    const int64_t* v = q + i;
+    int64_t any = 0;
+    if (n < i + (size_t)w) {
+      memset(pad, 0, sizeof(pad));
+      memcpy(pad, v, (n - i) * sizeof(int64_t));
+      v = pad;
+    }
+    for (l = 0; l < w; ++l) any |= v[l];
+    if ((0 == any) != (0 != zero)) {
+      rice_run_put(bw + w, run);
+      zero = !zero;
+      run = 0;
+    }
+    ++run;
+    if (0 != any) {
+      for (l = 0; l < w; ++l) {
+        const uint64_t z = zigzag(v[l]);
+        if (0 != z) {
+          const int b = (int)LIBXS_NBITS(z), d = b - ((p1[l] + p2[l] + 1) >> 1);
+          rice_value_put(bw + l, (unsigned int)(0 <= d ? 2 * d : -2 * d - 1) + 1, z ^ (((uint64_t)1) << (b - 1)), b - 1);
+          p2[l] = p1[l];
+          p1[l] = b;
+        }
+        else rice_put(bw + l, 0, 1 + RICE_K);
+      }
+    }
+  }
+  rice_run_put(bw + w, run);
+  for (l = 0; l <= w; ++l) {
+    offs[l] = pos;
+    pos += rice_flush(out + pos, tmp + (size_t)l * cap, bw + l);
+  }
+  return pos;
+}
+
+
+/* Next run length. */
+LIBXS_INLINE_ALWAYS size_t rice_run(const unsigned char* in, size_t* bit)
+{
+  uint64_t v;
+  int g;
+  memcpy(&v, in + (*bit >> 3), sizeof(v));
+  v >>= *bit & 7;
+  g = (int)LIBXS_INTRINSICS_BITSCANFWD64(~v) + 1;
+  *bit += (size_t)(2 * g - 1);
+  return (size_t)((((uint64_t)1) << (g - 1)) | ((v >> g) & KD_MASK(g - 1))) - 1;
+}
+
+
+/* Next value of a lane, on the general path. */
+LIBXS_INLINE_ALWAYS int64_t rice_value(const unsigned char* in, size_t* bit, uint64_t* p1, uint64_t* p2)
+{
+  int64_t result = 0;
+  uint64_t v;
+  unsigned int s;
+  int m;
+  memcpy(&v, in + (*bit >> 3), sizeof(v));
+  v >>= *bit & 7;
+  m = (int)LIBXS_INTRINSICS_BITSCANFWD64(~v);
+  if (m < RICE_ESC) {
+    s = ((unsigned int)m << RICE_K) | ((unsigned int)(v >> (m + 1)) & ((1U << RICE_K) - 1));
+    *bit += (size_t)m + 1 + RICE_K;
+  }
+  else {
+    s = (unsigned int)(v >> (RICE_ESC + 1)) & 0xFF;
+    *bit += RICE_ESC + 9;
+  }
+  if (0 != s) {
+    const unsigned int u = s - 1;
+    const int d = (int)(u >> 1) ^ -(int)(u & 1), b = (int)((*p1 + *p2 + 1) >> 1) + d, nb = b - 1;
+    const int lo = LIBXS_MIN(nb, 32);
+    uint64_t hi = 0;
+    memcpy(&v, in + (*bit >> 3), sizeof(v));
+    v = (v >> (*bit & 7)) & KD_MASK(lo);
+    *bit += (size_t)lo;
+    if (lo < nb) {
+      memcpy(&hi, in + (*bit >> 3), sizeof(hi));
+      hi = (hi >> (*bit & 7)) & KD_MASK(nb - lo);
+      *bit += (size_t)(nb - lo);
+    }
+    v |= (hi << lo) | (((uint64_t)1) << nb);
+    result = (int64_t)(v >> 1) ^ -(int64_t)(v & 1);
+    *p2 = *p1;
+    *p1 = (uint64_t)b;
+  }
+  return result;
+}
+
+
+/* Decodes n values (padded to a group): q holds room for a whole group more. */
+static void rice_decode(int64_t* q, size_t n, const unsigned char* in, int w, const size_t* offs)
+{
+  const size_t ng = (n + (size_t)w - 1) / (size_t)w;
+  uint64_t p1[RICE_MAXLANES], p2[RICE_MAXLANES];
+  size_t bit[RICE_MAXLANES], cbit = 8 * offs[w], g = 0;
+  int l, zero = 1;
+  for (l = 0; l < w; ++l) {
+    bit[l] = 8 * offs[l];
+    p1[l] = p2[l] = 0;
+  }
+  while (g < ng) {
+    const size_t run = rice_run(in, &cbit);
+    if (0 != zero) memset(q + g * (size_t)w, 0, run * (size_t)w * sizeof(*q));
+    else {
+      size_t k;
+      for (k = 0; k < run * (size_t)w; ++k) {
+        l = (int)(k % (size_t)w);
+        q[g * (size_t)w + k] = rice_value(in, bit + l, p1 + l, p2 + l);
+      }
+    }
+    g += run;
+    zero = !zero;
+  }
+}
+
+
+#if defined(LIBXS_INTRINSICS_AVX2)
+/* Decodes a group of four lanes. */
+LIBXS_INLINE_ALWAYS LIBXS_INTRINSICS(LIBXS_X86_AVX2)
+void rice_step_avx2(rice_avx2_t* st, int64_t* q, const unsigned char* in)
+{
+  const __m256i lut = _mm256_setr_epi8(0, 1, 0, 2, 0, 1, 0, 3, 0, 1, 0, 2, 0, 1, 0, 4,
+    0, 1, 0, 2, 0, 1, 0, 3, 0, 1, 0, 2, 0, 1, 0, 4);
+  const __m256i one = _mm256_set1_epi64x(1), three = _mm256_set1_epi64x(3), four = _mm256_set1_epi64x(4);
+  const __m256i nibble = _mm256_set1_epi64x(15), zeros = _mm256_setzero_si256();
+  const __m256i v = _mm256_srlv_epi64(_mm256_i64gather_epi64((const long long*)in, _mm256_srli_epi64(st->bit, 3), 1),
+    _mm256_and_si256(st->bit, _mm256_set1_epi64x(7)));
+  const __m256i lo = _mm256_shuffle_epi8(lut, _mm256_and_si256(v, nibble));
+  const __m256i hi = _mm256_shuffle_epi8(lut, _mm256_and_si256(_mm256_srli_epi64(v, 4), nibble));
+  const __m256i m = _mm256_add_epi64(lo, _mm256_and_si256(_mm256_cmpeq_epi64(lo, four), hi));
+  const __m256i adv = _mm256_add_epi64(m, three);
+  const __m256i s = _mm256_or_si256(_mm256_slli_epi64(m, RICE_K),
+    _mm256_and_si256(_mm256_srlv_epi64(v, _mm256_add_epi64(m, one)), three));
+  const __m256i zero = _mm256_cmpeq_epi64(s, zeros);
+  const __m256i u = _mm256_sub_epi64(s, one);
+  const __m256i d = _mm256_xor_si256(_mm256_srli_epi64(u, 1), _mm256_sub_epi64(zeros, _mm256_and_si256(u, one)));
+  const __m256i b = _mm256_andnot_si256(zero, _mm256_add_epi64(d,
+    _mm256_srli_epi64(_mm256_add_epi64(_mm256_add_epi64(st->p1, st->p2), one), 1)));
+  const __m256i nb = _mm256_andnot_si256(zero, _mm256_sub_epi64(b, one));
+  const __m256i used = _mm256_add_epi64(adv, nb);
+  if (0 == _mm256_movemask_epi8(_mm256_or_si256(_mm256_cmpeq_epi64(m, _mm256_set1_epi64x(8)),
+    _mm256_cmpgt_epi64(used, _mm256_set1_epi64x(57)))))
+  {
+    const __m256i top = _mm256_sllv_epi64(one, nb);
+    const __m256i x = _mm256_andnot_si256(zero, _mm256_or_si256(top,
+      _mm256_and_si256(_mm256_srlv_epi64(v, adv), _mm256_sub_epi64(top, one))));
+    _mm256_storeu_si256((__m256i*)q, _mm256_xor_si256(_mm256_srli_epi64(x, 1),
+      _mm256_sub_epi64(zeros, _mm256_and_si256(x, one))));
+    st->bit = _mm256_add_epi64(st->bit, used);
+    st->p2 = _mm256_blendv_epi8(st->p1, st->p2, zero);
+    st->p1 = _mm256_blendv_epi8(b, st->p1, zero);
+  }
+  else {
+    uint64_t bits[4], p1[4], p2[4];
+    int l;
+    _mm256_storeu_si256((__m256i*)bits, st->bit);
+    _mm256_storeu_si256((__m256i*)p1, st->p1);
+    _mm256_storeu_si256((__m256i*)p2, st->p2);
+    for (l = 0; l < 4; ++l) {
+      size_t bit = (size_t)bits[l];
+      q[l] = rice_value(in, &bit, p1 + l, p2 + l);
+      bits[l] = bit;
+    }
+    st->bit = _mm256_loadu_si256((const __m256i*)bits);
+    st->p1 = _mm256_loadu_si256((const __m256i*)p1);
+    st->p2 = _mm256_loadu_si256((const __m256i*)p2);
+  }
+}
+
+
+/* As rice_decode for 4 or 8 lanes. */
+static LIBXS_INLINE_NEVER LIBXS_INTRINSICS(LIBXS_X86_AVX2)
+void rice_decode_avx2(int64_t* q, size_t n, const unsigned char* in, int w, const size_t* offs)
+{
+  const size_t ng = (n + (size_t)w - 1) / (size_t)w;
+  size_t bits[RICE_MAXLANES] = { 0 }, cbit = 8 * offs[w], g = 0;
+  rice_avx2_t a, b;
+  int l, zero = 1;
+  for (l = 0; l < w; ++l) bits[l] = 8 * offs[l];
+  a.bit = _mm256_loadu_si256((const __m256i*)bits);
+  b.bit = (8 == w ? _mm256_loadu_si256((const __m256i*)(bits + 4)) : a.bit);
+  a.p1 = a.p2 = b.p1 = b.p2 = _mm256_setzero_si256();
+  while (g < ng) {
+    const size_t run = rice_run(in, &cbit);
+    if (0 != zero) memset(q + g * (size_t)w, 0, run * (size_t)w * sizeof(*q));
+    else {
+      int64_t* p = q + g * (size_t)w;
+      size_t k;
+      if (8 == w) {
+        for (k = 0; k < run; ++k, p += 8) {
+          rice_step_avx2(&a, p, in);
+          rice_step_avx2(&b, p + 4, in);
+        }
+      }
+      else {
+        for (k = 0; k < run; ++k, p += 4) rice_step_avx2(&a, p, in);
+      }
+    }
+    g += run;
+    zero = !zero;
+  }
+}
+#endif
+
+
+#if defined(LIBXS_INTRINSICS_AVX512)
+/* As rice_decode for 8 lanes. */
+static LIBXS_INLINE_NEVER LIBXS_INTRINSICS(LIBXS_X86_AVX512)
+void rice_decode_avx512(int64_t* q, size_t n, const unsigned char* in, const size_t* offs)
+{
+  const size_t ng = (n + 7) / 8;
+  const __m512i one = _mm512_set1_epi64(1), three = _mm512_set1_epi64(3), seven = _mm512_set1_epi64(7);
+  const __m512i high = _mm512_set1_epi64(63), esc = _mm512_set1_epi64(RICE_ESC), reach = _mm512_set1_epi64(57);
+  const __m512i zeros = _mm512_setzero_si512();
+  __m512i bit = _mm512_set_epi64((long long)(8 * offs[7]), (long long)(8 * offs[6]), (long long)(8 * offs[5]),
+    (long long)(8 * offs[4]), (long long)(8 * offs[3]), (long long)(8 * offs[2]), (long long)(8 * offs[1]),
+    (long long)(8 * offs[0]));
+  __m512i p1 = zeros, p2 = zeros;
+  size_t cbit = 8 * offs[8], g = 0;
+  int zero = 1;
+  while (g < ng) {
+    const size_t run = rice_run(in, &cbit);
+    if (0 != zero) memset(q + g * 8, 0, run * 8 * sizeof(*q));
+    else {
+      int64_t* p = q + g * 8;
+      size_t k;
+      for (k = 0; k < run; ++k, p += 8) {
+        const __m512i v = _mm512_srlv_epi64(_mm512_i64gather_epi64(_mm512_srli_epi64(bit, 3), in, 1),
+          _mm512_and_si512(bit, seven));
+        const __m512i ones = _mm512_andnot_si512(v, _mm512_add_epi64(v, one));
+        const __m512i m = _mm512_sub_epi64(high, _mm512_lzcnt_epi64(ones));
+        const __m512i s = _mm512_or_si512(_mm512_slli_epi64(m, RICE_K),
+          _mm512_and_si512(_mm512_srlv_epi64(v, _mm512_add_epi64(m, one)), three));
+        const __mmask8 nz = _mm512_test_epi64_mask(s, s);
+        const __m512i u = _mm512_sub_epi64(s, one);
+        const __m512i d = _mm512_xor_si512(_mm512_srli_epi64(u, 1), _mm512_sub_epi64(zeros, _mm512_and_si512(u, one)));
+        const __m512i b = _mm512_maskz_add_epi64(nz, d,
+          _mm512_srli_epi64(_mm512_add_epi64(_mm512_add_epi64(p1, p2), one), 1));
+        const __m512i nb = _mm512_maskz_sub_epi64(nz, b, one);
+        const __m512i adv = _mm512_add_epi64(m, three), used = _mm512_add_epi64(adv, nb);
+        if (0 == (_mm512_cmpge_epu64_mask(m, esc) | _mm512_cmpgt_epi64_mask(used, reach))) {
+          const __m512i top = _mm512_sllv_epi64(one, nb);
+          const __m512i x = _mm512_maskz_or_epi64(nz, top, _mm512_and_si512(_mm512_srlv_epi64(v, adv), _mm512_sub_epi64(top, one)));
+          _mm512_storeu_si512(p, _mm512_xor_si512(_mm512_srli_epi64(x, 1),
+            _mm512_sub_epi64(zeros, _mm512_and_si512(x, one))));
+          bit = _mm512_add_epi64(bit, used);
+          p2 = _mm512_mask_mov_epi64(p2, nz, p1);
+          p1 = _mm512_mask_mov_epi64(p1, nz, b);
+        }
+        else {
+          uint64_t bits[8], a1[8], a2[8];
+          int l;
+          _mm512_storeu_si512(bits, bit);
+          _mm512_storeu_si512(a1, p1);
+          _mm512_storeu_si512(a2, p2);
+          for (l = 0; l < 8; ++l) {
+            size_t b1 = (size_t)bits[l];
+            p[l] = rice_value(in, &b1, a1 + l, a2 + l);
+            bits[l] = b1;
+          }
+          bit = _mm512_loadu_si512(bits);
+          p1 = _mm512_loadu_si512(a1);
+          p2 = _mm512_loadu_si512(a2);
+        }
+      }
+    }
+    g += run;
+    zero = !zero;
+  }
+}
+#endif
+
+
+/* Encodes, decodes, and checks the prototype, per record if given, in a reused buffer as vpack_bits. */
+static double rice_bits(const int64_t* q, size_t n, int w, double* seconds, double* useconds, int* ok)
+{
+  const size_t r = (0 != record ? LIBXS_MIN(record, n) : n), nrec = (n + r - 1) / LIBXS_MAX(r, 1);
+  const size_t nbytes = 8 * (2 * n + 8 * nrec * ((size_t)w + 1) + 8);
+  const size_t cap = 2 * (r / (size_t)w + 2) + 8, ntmp = 8 * cap * ((size_t)w + 1);
+  unsigned char *const packed = (unsigned char*)malloc(nbytes);
+  uint64_t *const tmp = (uint64_t*)malloc(ntmp);
+  size_t *const offs = (size_t*)malloc((nrec + 1) * ((size_t)w + 1) * sizeof(size_t));
+  int64_t *const back = (int64_t*)malloc((n + (size_t)w) * sizeof(int64_t));
+  int64_t *const buf = (int64_t*)malloc((r + (size_t)w) * sizeof(int64_t));
+  double bits = 0;
+  *seconds = *useconds = 0;
+  if (NULL != packed && NULL != tmp && NULL != offs && NULL != back && NULL != buf && 0 != n) {
+#if defined(LIBXS_INTRINSICS_AVX512)
+    const int avx512 = (LIBXS_X86_AVX512 <= libxs_cpuid(NULL) ? 1 : 0);
+#endif
+#if defined(LIBXS_INTRINSICS_AVX2)
+    const int avx2 = (LIBXS_X86_AVX2 <= libxs_cpuid(NULL) ? 1 : 0);
+#endif
+    double best = DBL_MAX, ubest = DBL_MAX;
+    size_t irec, size = 0;
+    int rep, l;
+    first_touch(packed, nbytes);
+    first_touch(tmp, ntmp);
+    first_touch(back, (n + (size_t)w) * sizeof(int64_t));
+    first_touch(buf, (r + (size_t)w) * sizeof(int64_t));
+    for (rep = 0; rep < nrepeat; ++rep) {
+      const libxs_timer_tick_t t0 = libxs_timer_tick();
+      double d;
+      for (irec = 0, size = 0; irec < nrec; ++irec) {
+        const size_t off = irec * r;
+        size_t *const of = offs + irec * ((size_t)w + 1);
+        const size_t len = rice_encode(packed + size, q + off, LIBXS_MIN(r, n - off), w, of, tmp, cap);
+        for (l = 0; l <= w; ++l) of[l] += size;
+        size += len;
+      }
+      d = libxs_timer_duration(t0, libxs_timer_tick());
+      best = LIBXS_MIN(best, d);
+    }
+    *seconds = best;
+    for (rep = 0; rep < nrepeat; ++rep) {
+      double d = 0;
+      for (irec = 0; irec < nrec; ++irec) {
+        const size_t off = irec * r, m = LIBXS_MIN(r, n - off);
+        const size_t *const of = offs + irec * ((size_t)w + 1);
+        int64_t *const dst = (0 != record ? buf : back);
+        const libxs_timer_tick_t t1 = libxs_timer_tick();
+#if defined(LIBXS_INTRINSICS_AVX512)
+        if (8 == w && 0 != avx512) rice_decode_avx512(dst, m, packed, of);
+        else
+#endif
+#if defined(LIBXS_INTRINSICS_AVX2)
+        if (0 != avx2) rice_decode_avx2(dst, m, packed, w, of);
+        else
+#endif
+        rice_decode(dst, m, packed, w, of);
+        d += libxs_timer_duration(t1, libxs_timer_tick());
+        if (0 != memcmp(dst, q + off, m * sizeof(int64_t))) *ok = 0;
+      }
+      ubest = LIBXS_MIN(ubest, d);
+    }
+    *useconds = ubest;
+    bits = 8.0 * (double)size + (0 != record ? (64.0 + 16.0 * (w + 1)) * (double)nrec : 0.0);
+  }
+  else if (0 != n) *ok = 0;
+  free(packed);
+  free(tmp);
+  free(offs);
+  free(back);
+  free(buf);
+  return bits;
+}
+
+
+/* As rice_bits over the streams per width of vpack_bits. */
+static double rice_bits_streams(const stream_t* s, int w, double* seconds, double* useconds, int* ok)
+{
+  double bits = 0;
+  int nbits;
+  *seconds = *useconds = 0;
+  for (nbits = 0; nbits <= MAXBITS; ++nbits) {
+    if (0 != s[nbits].n) {
+      double ds, du;
+      bits += rice_bits(s[nbits].q, s[nbits].n, w, &ds, &du, ok);
+      *seconds += ds;
+      *useconds += du;
+    }
+  }
+  return bits;
+}
+
+
 static int run_files(int nfiles, char* files[], double eps)
 {
   stats_t st;
   int result = EXIT_SUCCESS, i;
   const char *const env_record = getenv("RECORD"), *const env_kdleaf = getenv("KDLEAF");
   const char *const env_kdexc = getenv("KDEXC");
+  const char *const env_repeat = getenv("REPEAT");
   memset(&st, 0, sizeof(st));
   record = (NULL != env_record ? (size_t)LIBXS_MAX(atoi(env_record), 0) : 0);
+  nrepeat = (NULL != env_repeat ? LIBXS_MAX(atoi(env_repeat), 1) : 1);
   kd_minleaf = (NULL != env_kdleaf ? (size_t)LIBXS_MAX(atoi(env_kdleaf), 0) : 0);
   kd_exc = (NULL != env_kdexc ? atoi(env_kdexc) : 1);
   for (i = 0; i < nfiles && EXIT_SUCCESS == result; ++i) result = add_file(&st, files[i], eps);
@@ -1355,6 +1845,20 @@ static int run_files(int nfiles, char* files[], double eps)
       printf("%-26s %10.2f %8.2f %14.2f %14.2f   (%.1f values per leaf, %.1f per run)\n",
         "kd-tree rows, exceptions", bits / nb, st.bits_fixed * (nb / n) / bits, 1E9 * seconds / nb,
         1E9 * useconds / nb, nb / LIBXS_MAX(1, kd_leaves), nb / LIBXS_MAX(1, kd_runs));
+      for (i = 4; i <= RICE_MAXLANES; i *= 2) {
+        char label[48];
+        bits = rice_bits(st.blocks.q, st.blocks.n, i, &seconds, &useconds, &ok);
+        LIBXS_SNPRINTF(label, sizeof(label), "rice lengths, %i lanes", i);
+        printf("%-26s %10.2f %8.2f %14.2f %14.2f\n", label, bits / nb,
+          st.bits_fixed * (nb / n) / bits, 1E9 * seconds / nb, 1E9 * useconds / nb);
+      }
+      for (i = 4; i <= RICE_MAXLANES; i *= 2) {
+        char label[48];
+        bits = rice_bits_streams(st.plain, i, &seconds, &useconds, &ok) + hdr;
+        LIBXS_SNPRINTF(label, sizeof(label), "rice per width, %i lanes", i);
+        printf("%-26s %10.2f %8.2f %14.2f %14.2f\n", label, bits / n, st.bits_fixed / bits,
+          1E9 * seconds / n, 1E9 * useconds / n);
+      }
     }
     bits = vpack_bits(st.delta, LIBXS_VPACK_GROUP, libxs_vpack, libxs_vunpack, &seconds, &useconds,
       &ok, NULL) + hdr;
@@ -1469,7 +1973,7 @@ static void synthesize(int64_t* q, size_t n, int nbits, int range, int zeros)
 }
 
 
-static int run_synthetic(size_t n, int nbits, int range, int zeros, int nrepeat)
+static int run_synthetic(size_t n, int nbits, int range, int zeros)
 {
   const size_t nfixed = (n * (size_t)nbits + 63) / 64;
   const size_t bound = libxs_vpack_bound(n, nbits, 1);
@@ -1479,7 +1983,7 @@ static int run_synthetic(size_t n, int nbits, int range, int zeros, int nrepeat)
   int result = EXIT_FAILURE;
   if (NULL != q && NULL != back && NULL != packed) {
     const uint64_t offset = ((uint64_t)1) << (nbits - 1);
-    double dpack = 0, dunpack = 0;
+    double dpack = DBL_MAX, dunpack = DBL_MAX;
     size_t i, nwords = 0;
     int r, ig;
     result = EXIT_SUCCESS;
@@ -1489,36 +1993,55 @@ static int run_synthetic(size_t n, int nbits, int range, int zeros, int nrepeat)
     for (i = 0; i < n; ++i) back[i] = (int64_t)((uint64_t)q[i] + offset); /* CP2K: offset binary */
     for (r = 0; r < nrepeat; ++r) {
       const libxs_timer_tick_t t0 = libxs_timer_tick();
+      double d;
       libxs_pack(packed, back, LIBXS_DATATYPE_U64, n, nbits);
-      dpack += libxs_timer_duration(t0, libxs_timer_tick());
+      d = libxs_timer_duration(t0, libxs_timer_tick());
+      dpack = LIBXS_MIN(dpack, d);
     }
     for (r = 0; r < nrepeat; ++r) {
       const libxs_timer_tick_t t0 = libxs_timer_tick();
+      double d;
       libxs_unpack(back, packed, LIBXS_DATATYPE_U64, n, nbits);
-      dunpack += libxs_timer_duration(t0, libxs_timer_tick());
+      d = libxs_timer_duration(t0, libxs_timer_tick());
+      dunpack = LIBXS_MIN(dunpack, d);
     }
     for (i = 0; i < n && EXIT_SUCCESS == result; ++i) {
       if ((uint64_t)back[i] != (uint64_t)q[i] + offset) result = EXIT_FAILURE;
     }
     printf("%-14s %10.2f %8.2f %14.2f %14.2f\n", "fixed", (double)nbits, 1.0,
-      1E9 * dpack / nrepeat / n, 1E9 * dunpack / nrepeat / n);
+      1E9 * dpack / n, 1E9 * dunpack / n);
     for (ig = 0; ig < NGROUPS && EXIT_SUCCESS == result; ++ig) {
       char label[32];
-      dpack = dunpack = 0;
+      dpack = dunpack = DBL_MAX;
       for (r = 0; r < nrepeat; ++r) {
         const libxs_timer_tick_t t0 = libxs_timer_tick();
+        double d;
         nwords = libxs_vpack(packed, q, LIBXS_DATATYPE_I64, n, nbits, groups[ig]);
-        dpack += libxs_timer_duration(t0, libxs_timer_tick());
+        d = libxs_timer_duration(t0, libxs_timer_tick());
+        dpack = LIBXS_MIN(dpack, d);
       }
       for (r = 0; r < nrepeat; ++r) {
         const libxs_timer_tick_t t0 = libxs_timer_tick();
+        double d;
         if (nwords != libxs_vunpack(back, packed, nwords, LIBXS_DATATYPE_I64, n)) result = EXIT_FAILURE;
-        dunpack += libxs_timer_duration(t0, libxs_timer_tick());
+        d = libxs_timer_duration(t0, libxs_timer_tick());
+        dunpack = LIBXS_MIN(dunpack, d);
       }
       if (0 != memcmp(back, q, n * sizeof(int64_t))) result = EXIT_FAILURE;
       LIBXS_SNPRINTF(label, sizeof(label), "vpack %i", groups[ig]);
       printf("%-14s %10.2f %8.2f %14.2f %14.2f\n", label, 64.0 * nwords / n, (double)nfixed / nwords,
-        1E9 * dpack / nrepeat / n, 1E9 * dunpack / nrepeat / n);
+        1E9 * dpack / n, 1E9 * dunpack / n);
+    }
+    if (EXIT_SUCCESS == result) {
+      int ok = 1, w;
+      for (w = 4; w <= RICE_MAXLANES; w *= 2) {
+        char label[48];
+        const double bits = rice_bits(q, n, w, &dpack, &dunpack, &ok);
+        LIBXS_SNPRINTF(label, sizeof(label), "rice %i lanes", w);
+        printf("%-14s %10.2f %8.2f %14.2f %14.2f\n", label, bits / n, (double)nbits * n / bits,
+          1E9 * dpack / n, 1E9 * dunpack / n);
+      }
+      if (0 == ok) result = EXIT_FAILURE;
     }
     if (EXIT_SUCCESS != result) fprintf(stderr, "ERROR: a round trip failed\n");
   }
@@ -1533,6 +2056,7 @@ int main(int argc, char* argv[])
 {
   FILE *const file = (1 < argc ? fopen(argv[1], "rb") : NULL);
   int result;
+  libxs_init();
   if (NULL != file) { /* MHD files, optionally followed by eps */
     double eps = 0;
     int nfiles = argc - 1;
@@ -1552,8 +2076,9 @@ int main(int argc, char* argv[])
     const int nbits = LIBXS_CLMP(2 < argc ? atoi(argv[2]) : 24, 2, 63);
     const int range = LIBXS_CLMP(3 < argc ? atoi(argv[3]) : 12, 1, nbits);
     const int zeros = LIBXS_CLMP(4 < argc ? atoi(argv[4]) : 10, 0, 100);
-    const int nrepeat = LIBXS_MAX(1, 5 < argc ? atoi(argv[5]) : 10);
-    result = run_synthetic(n, nbits, range, zeros, nrepeat);
+    nrepeat = LIBXS_MAX(1, 5 < argc ? atoi(argv[5]) : 10);
+    result = run_synthetic(n, nbits, range, zeros);
   }
+  libxs_finalize();
   return result;
 }

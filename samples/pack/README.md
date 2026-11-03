@@ -28,7 +28,7 @@ values, with `zeros` percent set to zero.
 | nbits      | 24      | Width of the fixed format (2 to 63)          |
 | range      | 12      | Spread of magnitudes in bits                 |
 | zeros      | 10      | Percentage of zeros                          |
-| nrepeat    | 10      | Repetitions per measurement                  |
+| nrepeat    | 10      | Timed passes per measurement, fastest counts |
 
 With MHD files (any element type), the values are measured in blocks of 512
 and summed over all files. Integer data is packed as it is. Floating-point
@@ -58,6 +58,13 @@ The row "kd-tree rows, exceptions" is a prototype of such a format: every block
 as sub-boxes of whole rows (split at the middle of axis 1 or 2) with exceptions,
 encoded, decoded, and checked, with a length word per block. `KDLEAF=n` in the
 environment lets it split only into leaves of at least `n` values.
+
+The rows "rice lengths" and "rice per width" are another prototype, also encoded,
+decoded, and checked, in 4 or 8 lanes.
+
+With `REPEAT=n` in the environment (default 1), a measurement takes `n` timed passes
+and the fastest counts, as with `nrepeat` for synthetic values. The encoding of the
+kd-tree prototype takes one pass regardless.
 
 With `RECORD=n` in the environment, every stream is packed in records of `n`
 values (CP2K: 1024), each with a length word, and every record decodes into a
