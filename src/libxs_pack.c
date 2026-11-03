@@ -1131,6 +1131,13 @@ LIBXS_INLINE_ALWAYS uint64_t internal_libxs_lanes_get(const unsigned char* in, s
 }
 
 
+/* Unfolds the sign of a value if is_signed (0 or 1) without a branch. */
+LIBXS_INLINE_ALWAYS uint64_t internal_libxs_lanes_sign(uint64_t w, int is_signed)
+{
+  return (w >> is_signed) ^ (0 - (w & (uint64_t)is_signed));
+}
+
+
 /* One stream of n values on the general path, nothing written beyond n. */
 LIBXS_API_INLINE void internal_libxs_lanes_decode(uint64_t* q, size_t n, const unsigned char* in,
   const size_t* offs, int is_signed)
@@ -1155,7 +1162,7 @@ LIBXS_API_INLINE void internal_libxs_lanes_decode(uint64_t* q, size_t n, const u
         const size_t i = LIBXS_PACK_LANES * g + k;
         const uint64_t v = internal_libxs_lanes_get(in, bit + k % LIBXS_PACK_LANES,
           p1 + k % LIBXS_PACK_LANES, p2 + k % LIBXS_PACK_LANES);
-        if (i < n) q[i] = (0 != is_signed ? ((v >> 1) ^ (0 - (v & 1))) : v);
+        if (i < n) q[i] = internal_libxs_lanes_sign(v, is_signed);
       }
     }
     g += run;
@@ -1174,6 +1181,7 @@ void internal_libxs_lanes_step_avx2(internal_libxs_lanes_avx2_t* st, uint64_t* q
     0, 1, 0, 2, 0, 1, 0, 3, 0, 1, 0, 2, 0, 1, 0, 4);
   const __m256i one = _mm256_set1_epi64x(1), three = _mm256_set1_epi64x(3), four = _mm256_set1_epi64x(4);
   const __m256i nibble = _mm256_set1_epi64x(15), zeros = _mm256_setzero_si256();
+  const __m256i sign = _mm256_set1_epi64x(is_signed);
   const __m256i v = _mm256_srlv_epi64(_mm256_i64gather_epi64((const long long*)in, _mm256_srli_epi64(st->bit, 3), 1),
     _mm256_and_si256(st->bit, _mm256_set1_epi64x(7)));
   const __m256i lo = _mm256_shuffle_epi8(lut, _mm256_and_si256(v, nibble));
@@ -1195,8 +1203,7 @@ void internal_libxs_lanes_step_avx2(internal_libxs_lanes_avx2_t* st, uint64_t* q
     const __m256i top = _mm256_sllv_epi64(one, nb);
     const __m256i x = _mm256_andnot_si256(zero, _mm256_or_si256(top,
       _mm256_and_si256(_mm256_srlv_epi64(v, adv), _mm256_sub_epi64(top, one))));
-    const __m256i y = (0 != is_signed ? _mm256_xor_si256(_mm256_srli_epi64(x, 1),
-      _mm256_sub_epi64(zeros, _mm256_and_si256(x, one))) : x);
+    const __m256i y = _mm256_xor_si256(_mm256_srlv_epi64(x, sign), _mm256_sub_epi64(zeros, _mm256_and_si256(x, sign)));
     _mm256_storeu_si256((__m256i*)q, y);
     st->bit = _mm256_add_epi64(st->bit, used);
     st->p2 = _mm256_blendv_epi8(st->p1, st->p2, zero);
@@ -1211,7 +1218,7 @@ void internal_libxs_lanes_step_avx2(internal_libxs_lanes_avx2_t* st, uint64_t* q
     for (l = 0; l < 4; ++l) {
       size_t bit = (size_t)bits[l];
       const uint64_t w = internal_libxs_lanes_get(in, &bit, p1 + l, p2 + l);
-      q[l] = (0 != is_signed ? ((w >> 1) ^ (0 - (w & 1))) : w);
+      q[l] = internal_libxs_lanes_sign(w, is_signed);
       bits[l] = bit;
     }
     st->bit = _mm256_loadu_si256((const __m256i*)bits);
@@ -1222,8 +1229,8 @@ void internal_libxs_lanes_step_avx2(internal_libxs_lanes_avx2_t* st, uint64_t* q
 
 
 /* As internal_libxs_lanes_decode, a run at a time without calls (the state stays in registers). */
-LIBXS_INLINE_ALWAYS LIBXS_INTRINSICS(LIBXS_X86_AVX2)
-void internal_libxs_lanes_decode_avx2_impl(uint64_t* q, size_t n, const unsigned char* in, const size_t* offs,
+LIBXS_API_INLINE LIBXS_INTRINSICS(LIBXS_X86_AVX2)
+void internal_libxs_lanes_decode_avx2(uint64_t* q, size_t n, const unsigned char* in, const size_t* offs,
   int is_signed)
 {
   const size_t ngroups = (n + LIBXS_PACK_LANES - 1) / LIBXS_PACK_LANES;
@@ -1261,16 +1268,6 @@ void internal_libxs_lanes_decode_avx2_impl(uint64_t* q, size_t n, const unsigned
     zero = !zero;
   }
 }
-
-
-/* Specialized for the signedness: no branch on it per step. */
-LIBXS_API_INLINE LIBXS_INTRINSICS(LIBXS_X86_AVX2)
-void internal_libxs_lanes_decode_avx2(uint64_t* q, size_t n, const unsigned char* in, const size_t* offs,
-  int is_signed)
-{
-  if (0 != is_signed) internal_libxs_lanes_decode_avx2_impl(q, n, in, offs, 1);
-  else internal_libxs_lanes_decode_avx2_impl(q, n, in, offs, 0);
-}
 #endif
 
 
@@ -1283,6 +1280,7 @@ void internal_libxs_lanes_step_avx512(internal_libxs_lanes_avx512_t* st, uint64_
   const __m512i one = _mm512_set1_epi64(1), three = _mm512_set1_epi64(3), seven = _mm512_set1_epi64(7);
   const __m512i high = _mm512_set1_epi64(63), esc = _mm512_set1_epi64(LIBXS_PACK_LANES_ESC);
   const __m512i reach = _mm512_set1_epi64(57), zeros = _mm512_setzero_si512();
+  const __m512i sign = _mm512_set1_epi64(is_signed);
   const __m512i v = _mm512_srlv_epi64(_mm512_i64gather_epi64(_mm512_srli_epi64(st->bit, 3), in, 1),
     _mm512_and_si512(st->bit, seven));
   const __m512i ones = _mm512_andnot_si512(v, _mm512_add_epi64(v, one));
@@ -1300,8 +1298,7 @@ void internal_libxs_lanes_step_avx512(internal_libxs_lanes_avx512_t* st, uint64_
     const __m512i top = _mm512_sllv_epi64(one, nb);
     const __m512i x = _mm512_maskz_or_epi64(nz, top,
       _mm512_and_si512(_mm512_srlv_epi64(v, adv), _mm512_sub_epi64(top, one)));
-    const __m512i y = (0 != is_signed ? _mm512_xor_si512(_mm512_srli_epi64(x, 1),
-      _mm512_sub_epi64(zeros, _mm512_and_si512(x, one))) : x);
+    const __m512i y = _mm512_xor_si512(_mm512_srlv_epi64(x, sign), _mm512_sub_epi64(zeros, _mm512_and_si512(x, sign)));
     _mm512_storeu_si512(p, y);
     st->bit = _mm512_add_epi64(st->bit, used);
     st->p2 = _mm512_mask_mov_epi64(st->p2, nz, st->p1);
@@ -1316,7 +1313,7 @@ void internal_libxs_lanes_step_avx512(internal_libxs_lanes_avx512_t* st, uint64_
     for (l = 0; l < 8; ++l) {
       size_t bit = (size_t)bits[l];
       const uint64_t w = internal_libxs_lanes_get(in, &bit, a1 + l, a2 + l);
-      p[l] = (0 != is_signed ? ((w >> 1) ^ (0 - (w & 1))) : w);
+      p[l] = internal_libxs_lanes_sign(w, is_signed);
       bits[l] = bit;
     }
     st->bit = _mm512_loadu_si512(bits);
@@ -1388,8 +1385,8 @@ void internal_libxs_lanes_finish_avx512(internal_libxs_lanes_avx512_t* st, uint6
 
 
 /* One or two streams (the second at q + n[0]); the steps of the two do not depend on each other. */
-LIBXS_INLINE_ALWAYS LIBXS_INTRINSICS(LIBXS_X86_AVX512)
-void internal_libxs_lanes_decode_avx512_impl(uint64_t* q, const size_t n[], int split, const unsigned char* in,
+LIBXS_API_INLINE LIBXS_INTRINSICS(LIBXS_X86_AVX512)
+void internal_libxs_lanes_decode_avx512(uint64_t* q, const size_t n[], int split, const unsigned char* in,
   const size_t* offs, int is_signed)
 {
   internal_libxs_lanes_avx512_t a, b;
@@ -1410,16 +1407,6 @@ void internal_libxs_lanes_decode_avx512_impl(uint64_t* q, const size_t n[], int 
     internal_libxs_lanes_finish_avx512(&b, q1, in, is_signed);
   }
   else internal_libxs_lanes_finish_avx512(&a, q, in, is_signed);
-}
-
-
-/* Specialized for the signedness: no branch on it per step. */
-LIBXS_API_INLINE LIBXS_INTRINSICS(LIBXS_X86_AVX512)
-void internal_libxs_lanes_decode_avx512(uint64_t* q, const size_t n[], int split, const unsigned char* in,
-  const size_t* offs, int is_signed)
-{
-  if (0 != is_signed) internal_libxs_lanes_decode_avx512_impl(q, n, split, in, offs, 1);
-  else internal_libxs_lanes_decode_avx512_impl(q, n, split, in, offs, 0);
 }
 #endif
 
