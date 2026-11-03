@@ -13,13 +13,12 @@ make
 ## Usage
 
 ```bash
-mkdir -p results/setdiff
 ./setdiff.x [outdir [sizes [reps [land_n [land_steps]]]]]
 ```
 
 | Positional | Default                 | Description |
 |------------|-------------------------|-------------|
-| outdir     | `results/setdiff`       | Directory for CSV output |
+| outdir     | `-`                     | Existing directory for CSV files, `-` for stdout |
 | sizes      | `128 1024 8192 65536`   | Vector sizes for tolerance and scaling runs, as one quoted argument separated by spaces |
 | reps       | `10`                    | Repetitions per scaling size |
 | land_n     | `32`                    | Tolerance-landscape vector length |

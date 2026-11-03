@@ -14,6 +14,7 @@ int main(int argc, char* argv[])
   unsigned char* input = NULL;
   size_t input_size = 0;
   int result = EXIT_FAILURE;
+  libxs_init();
 
   if (1 < argc && 0 == strcmp(argv[1], "-")) {
     result = read_stdin(&input, &input_size);
@@ -45,6 +46,7 @@ int main(int argc, char* argv[])
   if (EXIT_SUCCESS != result) fprintf(stderr, "tokenizer: failed\n");
 
   free(input);
+  libxs_finalize();
   return result;
 }
 

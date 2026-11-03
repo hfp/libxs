@@ -86,6 +86,7 @@ int main(int argc, char* argv[])
   int* idx = NULL;
   libxs_timer_tick_t tick;
   double t_build, t_count;
+  libxs_init();
 
   memset(&cat, 0, sizeof(cat));
   memset(&bins, 0, sizeof(bins));
@@ -182,6 +183,7 @@ int main(int argc, char* argv[])
   free(counts);
   free(idx);
   free(cat.pts);
+  libxs_finalize();
   return result;
 }
 

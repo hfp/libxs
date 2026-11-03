@@ -91,7 +91,7 @@ typedef struct rotdata_t {
 } rotdata_t;
 
 
-static char output_dir[BRACKET_PATH_MAX] = ".";
+static char output_dir[BRACKET_PATH_MAX] = { 0 };
 
 static double gaussian(void);
 static double cosine_lr(double lr, int step, int nsteps);
@@ -254,6 +254,7 @@ int write_image(const char name[], const double data[], size_t ncols, size_t nro
       }
     }
     else result = EXIT_FAILURE;
+    if (EXIT_SUCCESS != result) fprintf(stderr, "ERROR: cannot write %s to %s\n", name, output_dir);
   }
   return result;
 }
@@ -1857,6 +1858,7 @@ int report(const study_t* study, const char target[], const char variant[],
   if (EXIT_SUCCESS == result) {
     printf("%-8s %-17s %10.3e %8.3f %7.3f %9.3e %10.3e %7.2fs\n", target, variant,
       err, pos / study->htrain, slope, eps / study->htrain, dist, seconds);
+    fflush(stdout);
   }
   return result;
 }

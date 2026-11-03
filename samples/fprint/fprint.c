@@ -35,6 +35,7 @@ static char output_dir[FPRINT_PATH_MAX] = { 0 };
 
 static int make_path(char path[FPRINT_PATH_MAX], const char name[]);
 static FILE* open_csv(const char name[]);
+static void close_csv(FILE* file, const char name[]);
 static double sample_value(sample_kind_t kind, double position);
 static double noise_value(size_t index);
 static int fill_sequence(double values[], size_t count, sample_kind_t kind);
@@ -68,6 +69,7 @@ int main(void)
 {
   const char* const env_dir = getenv("FPRINT_OUTDIR");
   int result = EXIT_SUCCESS;
+  libxs_init();
   if (NULL != env_dir && 0 != *env_dir && strlen(env_dir) < sizeof(output_dir)) {
     strcpy(output_dir, env_dir);
   }
@@ -82,6 +84,7 @@ int main(void)
   if (EXIT_SUCCESS == result) result = run_timing();
   if (EXIT_SUCCESS == result) result = run_convergence_rate();
   if (EXIT_SUCCESS == result) printf("FPRINT: done\n");
+  libxs_finalize();
   return result;
 }
 
@@ -105,10 +108,23 @@ static int make_path(char path[FPRINT_PATH_MAX], const char name[])
 
 static FILE* open_csv(const char name[])
 {
-  FILE* result = NULL;
-  char path[FPRINT_PATH_MAX];
-  if (EXIT_SUCCESS == make_path(path, name)) result = fopen(path, "w");
+  FILE* result = stdout;
+  if (0 != output_dir[0]) {
+    char path[FPRINT_PATH_MAX];
+    result = (EXIT_SUCCESS == make_path(path, name)) ? fopen(path, "w") : NULL;
+    if (NULL == result) fprintf(stderr, "ERROR: cannot write %s to %s\n", name, output_dir);
+  }
+  else printf("# %s\n", name);
   return result;
+}
+
+
+static void close_csv(FILE* file, const char name[])
+{
+  if (NULL != file && stdout != file) {
+    fclose(file);
+    printf("  %s\n", name);
+  }
 }
 
 
@@ -233,8 +249,7 @@ static int run_convergence(void)
   }
   free(values);
   free(reference);
-  if (NULL != file) fclose(file);
-  printf("  convergence.csv\n");
+  close_csv(file, "convergence.csv");
   return result;
 }
 
@@ -294,8 +309,7 @@ static int run_sensitivity(void)
   }
   free(trial);
   free(base);
-  if (NULL != file) fclose(file);
-  printf("  sensitivity.csv\n");
+  close_csv(file, "sensitivity.csv");
   return result;
 }
 
@@ -502,8 +516,7 @@ static int run_geometry(void)
     }
   }
   free(values);
-  if (NULL != file) fclose(file);
-  printf("  geometry.csv\n");
+  close_csv(file, "geometry.csv");
   return result;
 }
 
@@ -572,8 +585,7 @@ static int run_hierarchy(void)
     }
   }
   free(values);
-  if (NULL != file) fclose(file);
-  printf("  hierarchy.csv\n");
+  close_csv(file, "hierarchy.csv");
   return result;
 }
 
@@ -644,8 +656,7 @@ static int run_compression(void)
   }
   free(diffs);
   free(values);
-  if (NULL != file) fclose(file);
-  printf("  compression.csv\n");
+  close_csv(file, "compression.csv");
   return result;
 }
 
@@ -742,8 +753,7 @@ static int run_collision(void)
   }
   free(data_b);
   free(data_a);
-  if (NULL != file) fclose(file);
-  printf("  collision.csv\n");
+  close_csv(file, "collision.csv");
   return result;
 }
 
@@ -784,8 +794,7 @@ static int run_timing(void)
     }
   }
   free(values);
-  if (NULL != file) fclose(file);
-  printf("  timing.csv\n");
+  close_csv(file, "timing.csv");
   return result;
 }
 
@@ -860,7 +869,6 @@ static int run_convergence_rate(void)
   }
   free(values);
   free(reference);
-  if (NULL != file) fclose(file);
-  printf("  convergence_rate.csv\n");
+  close_csv(file, "convergence_rate.csv");
   return result;
 }

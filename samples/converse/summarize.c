@@ -80,6 +80,7 @@ int main(int argc, char* argv[])
     return EXIT_FAILURE;
   }
 
+  libxs_init();
   while (argi < argc && '-' == argv[argi][0] && '\0' != argv[argi][1]) {
     if (0 == strcmp(argv[argi], "-n") && argi + 1 < argc) {
       target_n = atoi(argv[argi + 1]);
@@ -140,6 +141,11 @@ int main(int argc, char* argv[])
     }
   }
 
+  if (EXIT_SUCCESS != result || 0 == input_size) {
+    fprintf(stderr, "ERROR: no input, see --help\n");
+    result = EXIT_FAILURE;
+  }
+
   if (EXIT_SUCCESS == result && 0 != reflow_mode && NULL != input) {
     unsigned char* reflowed = NULL;
     size_t reflowed_size = 0;
@@ -188,6 +194,7 @@ int main(int argc, char* argv[])
   }
 
   free(doc.text);
+  libxs_finalize();
   return result;
 }
 

@@ -29,6 +29,7 @@ int main(int argc, char* argv[])
   libxs_timer_tick_t tickw = 0, tickb = 0;
   int nthreads = 1, result = EXIT_SUCCESS;
   int* stamp = NULL;
+  libxs_init();
   if (3 < argc) {
     fprintf(stderr, "Usage:\n  %s [nthreads] [nrepeat]\n", argv[0]);
   }
@@ -131,5 +132,6 @@ int main(int argc, char* argv[])
       free(stamp);
     }
   }
+  libxs_finalize();
   return result;
 }

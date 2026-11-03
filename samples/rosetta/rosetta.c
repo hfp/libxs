@@ -101,10 +101,14 @@ int main(void)
   void* blob;
   libxs_data_t discovered;
   int stride;
+  libxs_init();
 
   generate_table(table);
   blob = malloc(nbytes);
-  if (NULL == blob) return EXIT_FAILURE;
+  if (NULL == blob) {
+    libxs_finalize();
+    return EXIT_FAILURE;
+  }
   memcpy(blob, table, nbytes);
   artifact_open();
 
@@ -141,6 +145,7 @@ int main(void)
 
   artifact_close();
   free(blob);
+  libxs_finalize();
   return EXIT_SUCCESS;
 }
 

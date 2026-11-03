@@ -20,19 +20,42 @@ static int write_complex(const char outdir[]);
 
 int main(int argc, char* argv[])
 {
-  const char* const outdir = (1 < argc ? argv[1] : "results/setdiff");
+  const char* const outdir = (1 < argc && 0 != strcmp("-", argv[1]) ? argv[1] : NULL);
   const char* const sizes = (2 < argc ? argv[2] : "128 1024 8192 65536");
   const int reps = (3 < argc ? atoi(argv[3]) : 10);
   const int land_n = (4 < argc ? atoi(argv[4]) : 32);
   const int land_steps = (5 < argc ? atoi(argv[5]) : 40);
   int result = EXIT_SUCCESS;
+  libxs_init();
   srand(1u);
   if (EXIT_SUCCESS == result) result = write_summary(outdir);
   if (EXIT_SUCCESS == result) result = write_landscape(outdir, land_n, land_steps);
   if (EXIT_SUCCESS == result) result = write_tolerance(outdir, sizes);
   if (EXIT_SUCCESS == result) result = write_scaling(outdir, sizes, reps);
   if (EXIT_SUCCESS == result) result = write_complex(outdir);
+  libxs_finalize();
   return result;
+}
+
+
+/* Without a directory, the tables go to stdout. */
+static FILE* open_csv(const char outdir[], const char name[])
+{
+  FILE* result = stdout;
+  if (NULL != outdir) {
+    char path[SETDIFF_PATH_MAX];
+    LIBXS_SNPRINTF(path, sizeof(path), "%s/%s", outdir, name);
+    result = fopen(path, "w");
+    if (NULL == result) fprintf(stderr, "ERROR: cannot write %s\n", path);
+  }
+  else printf("# %s\n", name);
+  return result;
+}
+
+
+static void close_csv(FILE* file)
+{
+  if (stdout != file) fclose(file);
 }
 
 
@@ -134,7 +157,6 @@ static double bisection_tol(const double* avals, int na, const double* bvals, in
 
 static int write_summary(const char outdir[])
 {
-  char path[SETDIFF_PATH_MAX];
   FILE* file;
   double avals[8];
   double bvals[8];
@@ -142,8 +164,7 @@ static int write_summary(const char outdir[])
   double dup_b[4] = {1.0, 2.0, 2.0, 2.0};
   int i;
   int result = EXIT_FAILURE;
-  LIBXS_SNPRINTF(path, sizeof(path), "%s/summary.csv", outdir);
-  file = fopen(path, "w");
+  file = open_csv(outdir, "summary.csv");
   if (NULL != file) {
     fprintf(file, "case,n,elementwise_mismatch,setdiff,tol\n");
     for (i = 0; i < 8; ++i) {
@@ -156,7 +177,7 @@ static int write_summary(const char outdir[])
     fprintf(file, "duplicates,4,NA,%d,0\n",
       libxs_setdiff(LIBXS_DATATYPE_F64, dup_a, 4, dup_b, 4, 0.0));
     result = ferror(file) ? EXIT_FAILURE : EXIT_SUCCESS;
-    fclose(file);
+    close_csv(file);
   }
   return result;
 }
@@ -164,7 +185,6 @@ static int write_summary(const char outdir[])
 
 static int write_landscape(const char outdir[], int n, int steps)
 {
-  char path[SETDIFF_PATH_MAX];
   FILE* file;
   double* avals = (double*)checked_malloc((size_t)n * sizeof(double));
   double* bvals = (double*)checked_malloc((size_t)n * sizeof(double));
@@ -172,8 +192,7 @@ static int write_landscape(const char outdir[], int n, int steps)
   int result = EXIT_FAILURE;
   fill_real(avals, bvals, n, 0.45);
   bvals[n / 2] += 2.0;
-  LIBXS_SNPRINTF(path, sizeof(path), "%s/landscape.csv", outdir);
-  file = fopen(path, "w");
+  file = open_csv(outdir, "landscape.csv");
   if (NULL != file) {
     fprintf(file, "tau,defect\n");
     for (k = 0; k <= steps; ++k) {
@@ -182,7 +201,7 @@ static int write_landscape(const char outdir[], int n, int steps)
         libxs_setdiff(LIBXS_DATATYPE_F64, avals, n, bvals, n, tau));
     }
     result = ferror(file) ? EXIT_FAILURE : EXIT_SUCCESS;
-    fclose(file);
+    close_csv(file);
   }
   free(avals);
   free(bvals);
@@ -192,14 +211,12 @@ static int write_landscape(const char outdir[], int n, int steps)
 
 static int write_tolerance(const char outdir[], const char sizes[])
 {
-  char path[SETDIFF_PATH_MAX];
   char* copy = (char*)checked_malloc(strlen(sizes) + 1);
   char* token;
   FILE* file;
   int result = EXIT_SUCCESS;
   strcpy(copy, sizes);
-  LIBXS_SNPRINTF(path, sizeof(path), "%s/tolerance.csv", outdir);
-  file = fopen(path, "w");
+  file = open_csv(outdir, "tolerance.csv");
   if (NULL == file) result = EXIT_FAILURE;
   if (EXIT_SUCCESS == result) {
     fprintf(file, "n,gss_defect,gss_tol,bisect_defect,bisect_tol,abs_delta\n");
@@ -225,7 +242,7 @@ static int write_tolerance(const char outdir[], const char sizes[])
       token = strtok(NULL, " ");
     }
     if (ferror(file)) result = EXIT_FAILURE;
-    fclose(file);
+    close_csv(file);
   }
   free(copy);
   return result;
@@ -234,14 +251,12 @@ static int write_tolerance(const char outdir[], const char sizes[])
 
 static int write_scaling(const char outdir[], const char sizes[], int reps)
 {
-  char path[SETDIFF_PATH_MAX];
   char* copy = (char*)checked_malloc(strlen(sizes) + 1);
   char* token;
   FILE* file;
   int result = EXIT_SUCCESS;
   strcpy(copy, sizes);
-  LIBXS_SNPRINTF(path, sizeof(path), "%s/scaling.csv", outdir);
-  file = fopen(path, "w");
+  file = open_csv(outdir, "scaling.csv");
   if (NULL == file) result = EXIT_FAILURE;
   if (EXIT_SUCCESS == result) {
     fprintf(file, "n,reps,fixed_seconds,min_seconds,fixed_defect,min_defect,min_tol\n");
@@ -278,7 +293,7 @@ static int write_scaling(const char outdir[], const char sizes[], int reps)
       token = strtok(NULL, " ");
     }
     if (ferror(file)) result = EXIT_FAILURE;
-    fclose(file);
+    close_csv(file);
   }
   free(copy);
   return result;
@@ -287,7 +302,6 @@ static int write_scaling(const char outdir[], const char sizes[], int reps)
 
 static int write_complex(const char outdir[])
 {
-  char path[SETDIFF_PATH_MAX];
   FILE* file;
   const int n = 64;
   double* avals = (double*)checked_malloc((size_t)(2 * n) * sizeof(double));
@@ -303,14 +317,13 @@ static int write_complex(const char outdir[])
     bvals[2 * i + 1] = avals[2 * i + 1] + 0.01 * (double)(((i + 1) % 3) - 1);
   }
   defect = libxs_setdiff_min(LIBXS_DATATYPE_C64, avals, n, bvals, n, &tol);
-  LIBXS_SNPRINTF(path, sizeof(path), "%s/complex.csv", outdir);
-  file = fopen(path, "w");
+  file = open_csv(outdir, "complex.csv");
   if (NULL != file) {
     fprintf(file, "n,defect,tol,fixed_defect_at_tol\n");
     fprintf(file, "%d,%d,%.17g,%d\n", n, defect, tol,
       libxs_setdiff(LIBXS_DATATYPE_C64, avals, n, bvals, n, tol));
     result = ferror(file) ? EXIT_FAILURE : EXIT_SUCCESS;
-    fclose(file);
+    close_csv(file);
   }
   free(avals);
   free(bvals);

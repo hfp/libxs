@@ -76,7 +76,7 @@ confident 50% and 80%, and, for libxs_predict, its number of coordinates (`ncoor
 
 | Variable          | Default | Meaning                                                    |
 |-------------------|---------|------------------------------------------------------------|
-| `BRACKET_OUTDIR`  | `.`     | Directory for MHD and PNG output (empty: no output).       |
+| `BRACKET_OUTDIR`  | none    | Existing directory for MHD and PNG output.                 |
 | `BRACKET_NSTEPS`  | 20000   | Adam steps in 1-D; the 2-D models run a quarter of them.   |
 | `BRACKET_WD`      | 0.01    | Weight decay of the `*_wd` variants.                       |
 | `BRACKET_SEED`    | 1       | Seed for initialization and noise.                         |
