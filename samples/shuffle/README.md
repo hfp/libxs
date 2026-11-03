@@ -42,7 +42,7 @@ make
 | OFFSET   | 0       | Offset of the deterministic shuffles                          |
 | RANDOM   | 0       | Non-zero: count inversions and report randomness (rand=%)     |
 | SPLIT    | 1       | Partitioning depth for the STATS metrics                      |
-| STATS    | 0       | Non-zero: print partition imbalance (imb) and distance (dst)  |
+| STATS    | 0       | Non-zero: print partition metrics (sum, imb) and displacement |
 
 BIAS=-1 selects the smallest non-trivial coprime, 0 one near sqrt(n), and
 +1 one near n/2. If BIAS, OFFSET, RANDOM or STATS is non-zero, the sample
@@ -76,9 +76,14 @@ Optional quality metrics:
 
 - rand — Enabled by RANDOM=1. Inversions are counted via merge-sort
   and compared against the expected count for a random permutation
-  (n*(n-1)/4) to give a percentage.
-- dst — Manhattan distance of the element sum from the expected
-  uniform value, split into hierarchical partitions (SPLIT).
+  (n*(n-1)/4) to give a percentage, which exceeds 100% for a permutation
+  with more inversions than expected.
+- sum — Distance of the element sum from the expected uniform value,
+  split into hierarchical partitions (SPLIT). At depth 1 the sum of all
+  elements is fixed, hence zero.
+- disp — Mean distance of each value from its position, relative to n.
+  A uniform draw expects 33.3%. Not printed if the element size repeats
+  values.
 - imb — Partition imbalance, measuring how unevenly element sums
   are distributed across sub-partitions (SPLIT).
 - With STATS=1, the sample also prints the fingerprint distance

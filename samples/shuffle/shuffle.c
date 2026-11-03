@@ -46,13 +46,15 @@
 
 typedef enum redop_enum {
   redop_imbalance,
-  redop_mdistance
+  redop_sumdelta
 } redop_enum;
 
 size_t shuffle(void* inout, size_t elemsize, size_t count);
 /** Compares the sum of values between the left and the right partition. */
 size_t uint_reduce_op(const void* input, size_t elemsize, size_t count,
   redop_enum redop, size_t split);
+/** Mean distance of each value from its position (percent of count), negative if values repeat. */
+double uint_displacement(const void* input, size_t elemsize, size_t count);
 #if defined(BUBBLE_SORT)
 /** Bubble-Sort the given data and return the number of swap operations. */
 size_t uint_bsort_asc(void* inout, size_t elemsize, size_t count);
@@ -102,7 +104,7 @@ int main(int argc, char* argv[])
     size_t a1 = 0, a2 = 0, a3 = 0, b1 = 0, b2 = 0, b3 = 0;
     size_t g1 = 0, g2 = 0, g3 = 0, h1 = 0, h2 = 0, h3 = 0;
     size_t n1 = 0, n2 = 0, n3 = 0, j;
-    double d0, d1 = 0, d2 = 0, d3 = 0;
+    double d0, d1 = 0, d2 = 0, d3 = 0, p1 = 0, p2 = 0, p3 = 0;
     const libxs_data_t elemtypes[] = {
       LIBXS_DATATYPE_U64,
       LIBXS_DATATYPE_U32,
@@ -172,10 +174,11 @@ int main(int argc, char* argv[])
         d0 = libxs_timer_duration(start, libxs_timer_tick()) / mm;
         if (0 < i) { /* skip warm-up; average RNG quality metrics */
           if (0 != stats) {
-            a1 += uint_reduce_op(data2, elsize, n, redop_mdistance, split);
-            b1 += uint_reduce_op(data2, elsize, n, redop_mdistance, split * 2);
+            a1 += uint_reduce_op(data2, elsize, n, redop_sumdelta, split);
+            b1 += uint_reduce_op(data2, elsize, n, redop_sumdelta, split * 2);
             g1 += uint_reduce_op(data2, elsize, n, redop_imbalance, split);
             h1 += uint_reduce_op(data2, elsize, n, redop_imbalance, split * 2);
+            p1 += uint_displacement(data2, elsize, n);
           }
           if (0 != random) {
 #if defined(BUBBLE_SORT)
@@ -205,10 +208,11 @@ int main(int argc, char* argv[])
         d0 = libxs_timer_duration(start, libxs_timer_tick()) / mm;
         if (0 < i) {
           if (0 != stats) {
-            a2 += uint_reduce_op(data2, elsize, n, redop_mdistance, split);
-            b2 += uint_reduce_op(data2, elsize, n, redop_mdistance, split * 2);
+            a2 += uint_reduce_op(data2, elsize, n, redop_sumdelta, split);
+            b2 += uint_reduce_op(data2, elsize, n, redop_sumdelta, split * 2);
             g2 += uint_reduce_op(data2, elsize, n, redop_imbalance, split);
             h2 += uint_reduce_op(data2, elsize, n, redop_imbalance, split * 2);
+            p2 += uint_displacement(data2, elsize, n);
           }
           if (0 != random) {
 #if defined(BUBBLE_SORT)
@@ -237,10 +241,11 @@ int main(int argc, char* argv[])
         d0 = libxs_timer_duration(start, libxs_timer_tick()) / mm;
         if (0 < i) {
           if (0 != stats) {
-            a3 += uint_reduce_op(data2, elsize, n, redop_mdistance, split);
-            b3 += uint_reduce_op(data2, elsize, n, redop_mdistance, split * 2);
+            a3 += uint_reduce_op(data2, elsize, n, redop_sumdelta, split);
+            b3 += uint_reduce_op(data2, elsize, n, redop_sumdelta, split * 2);
             g3 += uint_reduce_op(data2, elsize, n, redop_imbalance, split);
             h3 += uint_reduce_op(data2, elsize, n, redop_imbalance, split * 2);
+            p3 += uint_displacement(data2, elsize, n);
           }
           if (0 != random) {
 #if defined(BUBBLE_SORT)
@@ -274,54 +279,55 @@ int main(int argc, char* argv[])
         a1 /= repeat; b1 /= repeat; g1 /= repeat; h1 /= repeat;
         a2 /= repeat; b2 /= repeat; g2 /= repeat; h2 /= repeat;
         a3 /= repeat; b3 /= repeat; g3 /= repeat; h3 /= repeat;
+        p1 /= repeat; p2 /= repeat; p3 /= repeat;
       }
       if (0 != random) { n1 /= repeat; n2 /= repeat; n3 /= repeat; }
       if (0 < d1) {
         printf("RNG-shuffle: %.8f s (%i MB/s)\n", d1,
           (int)LIBXS_ROUND((2.0 * nbytes) / ((1024.0 * 1024.0) * d1)));
         if (0 != stats) {
-          printf("             dst%i=%llu%% dst%i=%llu%%\n",
+          printf("             sum%i=%llu%% sum%i=%llu%%\n",
             split * 2, (unsigned long long)LIBXS_UPDIV(100ULL * b1, n),
             split, (unsigned long long)LIBXS_UPDIV(100ULL * a1, n));
+          if (0 <= p1) printf("             disp=%.1f%%\n", p1);
           printf("             imb%i=%llu%% imb%i=%llu%%\n",
             split * 2, (unsigned long long)LIBXS_UPDIV(100ULL * h1, n),
             split, (unsigned long long)LIBXS_UPDIV(100ULL * g1, n));
         }
         if (0 != random) {
-          printf("             rand=%llu%%\n",
-            (unsigned long long)LIBXS_UPDIV(100ULL * LIBXS_MIN(n1, nn), nn));
+          printf("             rand=%.1f%%\n", 100.0 * (double)n1 / (double)nn);
         }
       }
       if (0 < d2) {
         printf("DS1-shuffle: %.8f s (%i MB/s)\n", d2,
           (int)LIBXS_ROUND((2.0 * nbytes) / ((1024.0 * 1024.0) * d2)));
         if (0 != stats) {
-          printf("             dst%i=%llu%% dst%i=%llu%%\n",
+          printf("             sum%i=%llu%% sum%i=%llu%%\n",
             split * 2, (unsigned long long)LIBXS_UPDIV(100ULL * b2, n),
             split, (unsigned long long)LIBXS_UPDIV(100ULL * a2, n));
+          if (0 <= p2) printf("             disp=%.1f%%\n", p2);
           printf("             imb%i=%llu%% imb%i=%llu%%\n",
             split * 2, (unsigned long long)LIBXS_UPDIV(100ULL * h2, n),
             split, (unsigned long long)LIBXS_UPDIV(100ULL * g2, n));
         }
         if (0 != random) {
-          printf("             rand=%llu%%\n",
-            (unsigned long long)LIBXS_UPDIV(100ULL * LIBXS_MIN(n2, nn), nn));
+          printf("             rand=%.1f%%\n", 100.0 * (double)n2 / (double)nn);
         }
       }
       if (0 < d3) {
         printf("DS2-shuffle: %.8f s (%i MB/s)\n", d3,
           (int)LIBXS_ROUND((2.0 * nbytes) / ((1024.0 * 1024.0) * d3)));
         if (0 != stats) {
-          printf("             dst%i=%llu%% dst%i=%llu%%\n",
+          printf("             sum%i=%llu%% sum%i=%llu%%\n",
             split * 2, (unsigned long long)LIBXS_UPDIV(100ULL * b3, n),
             split, (unsigned long long)LIBXS_UPDIV(100ULL * a3, n));
+          if (0 <= p3) printf("             disp=%.1f%%\n", p3);
           printf("             imb%i=%llu%% imb%i=%llu%%\n",
             split * 2, (unsigned long long)LIBXS_UPDIV(100ULL * h3, n),
             split, (unsigned long long)LIBXS_UPDIV(100ULL * g3, n));
         }
         if (0 != random) {
-          printf("             rand=%llu%%\n",
-            (unsigned long long)LIBXS_UPDIV(100ULL * LIBXS_MIN(n3, nn), nn));
+          printf("             rand=%.1f%%\n", 100.0 * (double)n3 / (double)nn);
         }
       }
     }
@@ -450,7 +456,7 @@ size_t uint_reduce_op(const void* input, size_t elemsize, size_t count,
         case redop_imbalance: {
           n = LIBXS_UPDIV(LIBXS_DELTA(lo, hi) * count, result);
         } break;
-        case redop_mdistance: {
+        case redop_sumdelta: {
           n = LIBXS_DELTA(result * 2, count * (count - 1)) / 2;
         } break;
         /*default: n = result;*/
@@ -460,6 +466,24 @@ size_t uint_reduce_op(const void* input, size_t elemsize, size_t count,
     }
   }
   return (size_t)result;
+}
+
+
+double uint_displacement(const void* input, size_t elemsize, size_t count)
+{
+  double result = -1;
+  if (sizeof(size_t) <= elemsize || count <= ((size_t)1) << (8 * elemsize)) {
+    const char *const data = (const char*)input;
+    size_t i;
+    result = 0;
+    for (i = 0; i < count; ++i) {
+      size_t v = 0;
+      LIBXS_MEMCPY(&v, data + elemsize * i, LIBXS_MIN(elemsize, sizeof(size_t)));
+      result += (double)(i < v ? (v - i) : (i - v));
+    }
+    result *= 100.0 / ((double)count * (double)count);
+  }
+  return result;
 }
 
 
