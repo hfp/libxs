@@ -20,6 +20,7 @@
 
 #define BLOCK 512
 #define NGROUPS 5
+#define NLEVELS 3 /* levels of libxs_vpack */
 #define MAXBITS 64
 #define WIDTH_HEADER 6 /* bits per block that record its width (CP2K: maxval stream) */
 #define NMODELS 4 /* group of 8: width byte + 8*w, zero mask, exceptions, both */
@@ -55,7 +56,7 @@ typedef size_t (*vpack_fn)(void*, const void*, libxs_data_t, size_t, int, int);
 typedef size_t (*vunpack_fn)(void*, const void*, size_t, libxs_data_t, size_t);
 
 #if defined(PACK_FORTRAN)
-/* vpack.f: a group of 8 in the format libxs_vpack writes with LIBXS_PACK=1 */
+/* vpack.f: a group of 8 in the format libxs_vpack writes at level 1 */
 size_t vpack_f(int64_t* packed, const int64_t* values, size_t n, int maxbits);
 size_t vunpack_f(int64_t* values, const int64_t* packed, size_t n);
 #endif
@@ -654,7 +655,7 @@ static void header_costs(header_t* h, const unsigned char* widths, size_t ngroup
     const size_t m = LIBXS_MIN((size_t)8, ngroups - i);
     int wmin = MAXBITS, wmax = 0;
     for (j = 0; j < m; ++j) {
-      const int w = widths[i + j] & 0x7F; /* the regular width (group 8: 0x80 marks exceptions) */
+      const int w = widths[i + j];
       wmin = LIBXS_MIN(wmin, w);
       wmax = LIBXS_MAX(wmax, w);
       h->hist[w] += 1;
@@ -665,6 +666,43 @@ static void header_costs(header_t* h, const unsigned char* widths, size_t ngroup
   h->byte += 8.0 * (1 + ngroups);
   h->seven += 7.0 * ngroups;
   h->nwidths += (double)ngroups;
+}
+
+
+/* A width per group of the given size (per record if given): the payload at these widths, and what storing
+ * the widths costs. */
+static void group_widths(const stream_t* s, int group, header_t* h)
+{
+  unsigned char* widths = NULL;
+  size_t cap = 0;
+  int nbits;
+  for (nbits = 1; nbits <= MAXBITS && (0 == cap || NULL != widths); ++nbits) {
+    const size_t n = s[nbits].n, r = (0 != record ? LIBXS_MIN(record, n) : n);
+    size_t k;
+    for (k = 0; k < n && 0 < r; k += r) {
+      const size_t m = LIBXS_MIN(r, n - k), ngroups = (m + group - 1) / group;
+      size_t i;
+      if (cap < ngroups) {
+        unsigned char *const grown = (unsigned char*)realloc(widths, ngroups);
+        if (NULL == grown) break;
+        widths = grown;
+        cap = ngroups;
+      }
+      for (i = 0; i < ngroups; ++i) {
+        const size_t base = k + i * group, c = LIBXS_MIN((size_t)group, k + m - base);
+        uint64_t any = 0;
+        size_t j;
+        for (j = 0; j < c; ++j) {
+          const int64_t v = s[nbits].q[base + j];
+          any |= ((uint64_t)v << 1) ^ (uint64_t)(v >> 63); /* zig-zag */
+        }
+        widths[i] = (unsigned char)LIBXS_NBITS(any);
+        h->payload += (double)c * widths[i];
+      }
+      header_costs(h, widths, ngroups);
+    }
+  }
+  free(widths);
 }
 
 
@@ -750,8 +788,8 @@ static size_t vunpack_fortran(void* values, const void* packed, size_t npacked,
  * Packs every stream at its width (one stream per width, as CP2K's containers), per record if
  * given: a length word each (as CP2K stores it), and every record decodes into a reused buffer.
  */
-static double vpack_bits(const stream_t* s, int group, vpack_fn pack, vunpack_fn unpack,
-  double* seconds, double* useconds, int* ok, header_t* h)
+static double vpack_bits(const stream_t* s, int level, vpack_fn pack, vunpack_fn unpack,
+  double* seconds, double* useconds, int* ok)
 {
   double bits = 0;
   int nbits;
@@ -760,7 +798,7 @@ static double vpack_bits(const stream_t* s, int group, vpack_fn pack, vunpack_fn
     if (0 != s[nbits].n) {
       const size_t n = s[nbits].n, r = (0 != record ? LIBXS_MIN(record, n) : n), nrec = (n + r - 1) / r;
       /* 8 interleaved streams (vpack.f) pad each stream to a word: up to 7 words more */
-      const size_t bound = nrec * (libxs_vpack_bound(r, nbits, group) + 7);
+      const size_t bound = nrec * (libxs_vpack_bound(r, nbits) + 7);
       uint64_t *const packed = (uint64_t*)malloc(bound * sizeof(uint64_t));
       int64_t *const back = (int64_t*)malloc(n * sizeof(int64_t));
       int64_t *const tmp = (int64_t*)malloc(r * sizeof(int64_t));
@@ -776,7 +814,7 @@ static double vpack_bits(const stream_t* s, int group, vpack_fn pack, vunpack_fn
           const libxs_timer_tick_t t0 = libxs_timer_tick();
           double d;
           for (k = 0, off = 0; k < nrec; ++k) {
-            len[k] = pack(packed + off, s[nbits].q + k * r, LIBXS_DATATYPE_I64, LIBXS_MIN(r, n - k * r), nbits, group);
+            len[k] = pack(packed + off, s[nbits].q + k * r, LIBXS_DATATYPE_I64, LIBXS_MIN(r, n - k * r), nbits, level);
             off += len[k];
           }
           d = libxs_timer_duration(t0, libxs_timer_tick());
@@ -793,11 +831,6 @@ static double vpack_bits(const stream_t* s, int group, vpack_fn pack, vunpack_fn
             d += libxs_timer_duration(t1, libxs_timer_tick());
             if (nread != len[k]) *ok = 0;
             if (dst != back) memcpy(back + k * r, dst, m * sizeof(int64_t));
-            if (NULL != h && 0 == rep) {
-              const size_t ngroups = (m + group - 1) / group;
-              h->payload += 64.0 * ((double)len[k] - (double)((1 + ngroups + 7) / 8));
-              header_costs(h, (const unsigned char*)(packed + off) + 1, ngroups);
-            }
             off += len[k];
           }
           ubest = LIBXS_MIN(ubest, d);
@@ -1357,7 +1390,7 @@ static int run_files(int nfiles, char* files[], double eps)
     const double hdr = (double)st.nblocks * WIDTH_HEADER, n = (double)st.nvalues;
     header_t hd[NGROUPS];
     double seconds, useconds, bits;
-    int ok = 1, ig;
+    int ok = 1, ig, il;
     printf("files %i  blocks %lu  values %lu  zeros %.1f%%  eps %g  skipped %lu  record %lu\n", nfiles,
       (unsigned long)st.nblocks, (unsigned long)st.nvalues, 100.0 * st.nzeros / n, st.eps,
       (unsigned long)st.nskipped, (unsigned long)record);
@@ -1365,26 +1398,20 @@ static int run_files(int nfiles, char* files[], double eps)
     fixed_seconds(st.plain, &seconds, &useconds, &ok);
     printf("%-26s %10.2f %8.2f %14.2f %14.2f\n", "fixed", st.bits_fixed / n, 1.0,
       1E9 * seconds / n, 1E9 * useconds / n);
-    for (ig = 0; ig < NGROUPS; ++ig) {
+    for (il = 1; il <= NLEVELS; ++il) {
       char label[32];
-      memset(&hd[ig], 0, sizeof(hd[ig]));
-      bits = vpack_bits(st.plain, groups[ig], libxs_vpack, libxs_vunpack, &seconds, &useconds, &ok,
-        &hd[ig]) + hdr;
-      LIBXS_SNPRINTF(label, sizeof(label), "vpack group %i", groups[ig]);
+      bits = vpack_bits(st.plain, il, libxs_vpack, libxs_vunpack, &seconds, &useconds, &ok) + hdr;
+      LIBXS_SNPRINTF(label, sizeof(label), "vpack level %i", il);
       printf("%-26s %10.2f %8.2f %14.2f %14.2f\n", label, bits / n, st.bits_fixed / bits,
         1E9 * seconds / n, 1E9 * useconds / n);
     }
 #if defined(PACK_FORTRAN)
-    bits = vpack_bits(st.plain, 8, vpack_fortran, vunpack_fortran, &seconds, &useconds, &ok, NULL) + hdr;
+    bits = vpack_bits(st.plain, 1, vpack_fortran, vunpack_fortran, &seconds, &useconds, &ok) + hdr;
     printf("%-26s %10.2f %8.2f %14.2f %14.2f\n", "fortran group 8", bits / n, st.bits_fixed / bits,
       1E9 * seconds / n, 1E9 * useconds / n);
-    { /* LIBXS_PACK=1, the same format: each decodes what the other packed */
-      const char *const env = getenv("LIBXS_PACK");
-      if (NULL != env && 1 == atoi(env)) {
-        vpack_bits(st.plain, 8, vpack_fortran, libxs_vunpack, &seconds, &useconds, &ok, NULL);
-        vpack_bits(st.plain, 8, libxs_vpack, vunpack_fortran, &seconds, &useconds, &ok, NULL);
-      }
-    }
+    /* level 1, the same format: each decodes what the other packed */
+    vpack_bits(st.plain, 1, vpack_fortran, libxs_vunpack, &seconds, &useconds, &ok);
+    vpack_bits(st.plain, 1, libxs_vpack, vunpack_fortran, &seconds, &useconds, &ok);
 #endif
     if (0 != st.shapes.n) { /* values of blocks without a shape are not covered */
       const double nb = (double)st.blocks.n;
@@ -1393,20 +1420,22 @@ static int run_files(int nfiles, char* files[], double eps)
         "kd-tree rows, exceptions", bits / nb, st.bits_fixed * (nb / n) / bits, 1E9 * seconds / nb,
         1E9 * useconds / nb, nb / LIBXS_MAX(1, kd_leaves), nb / LIBXS_MAX(1, kd_runs));
     }
-    bits = vpack_bits(st.delta, LIBXS_VPACK_GROUP, libxs_vpack, libxs_vunpack, &seconds, &useconds,
-      &ok, NULL) + hdr;
+    bits = vpack_bits(st.delta, 0, libxs_vpack, libxs_vunpack, &seconds, &useconds, &ok) + hdr;
     printf("%-26s %10.2f %8.2f %14.2f %14.2f\n", "vpack deltas", bits / n, st.bits_fixed / bits,
       1E9 * seconds / n, 1E9 * useconds / n);
     if (0 != st.has_twice) {
       printf("%-26s %10.2f %8.2f\n", "fixed, step 2*eps", st.bits_twice / n, st.bits_fixed / st.bits_twice);
-      bits = vpack_bits(st.twice, LIBXS_VPACK_GROUP, libxs_vpack, libxs_vunpack, &seconds,
-        &useconds, &ok, NULL) + hdr;
+      bits = vpack_bits(st.twice, 0, libxs_vpack, libxs_vunpack, &seconds, &useconds, &ok) + hdr;
       printf("%-26s %10.2f %8.2f %14.2f %14.2f\n", "vpack, step 2*eps", bits / n, st.bits_fixed / bits,
         1E9 * seconds / n, 1E9 * useconds / n);
     }
     printf("%-26s %10.2f %8.2f\n", "needed per value (bound)", (st.bits_needed + hdr) / n,
       st.bits_fixed / (st.bits_needed + hdr));
     printf("\n%-8s %9s %26s\n", "group", "payload", "+ header: bytes 7-bit base+3 base+2 entropy");
+    for (ig = 0; ig < NGROUPS; ++ig) {
+      memset(&hd[ig], 0, sizeof(hd[ig]));
+      group_widths(st.plain, groups[ig], &hd[ig]);
+    }
     for (ig = 0; ig < NGROUPS; ++ig) {
       const double nw = LIBXS_MAX(1.0, hd[ig].nwidths), pay = hd[ig].payload + hdr;
       double entropy = 0;
@@ -1509,7 +1538,7 @@ static void synthesize(int64_t* q, size_t n, int nbits, int range, int zeros)
 static int run_synthetic(size_t n, int nbits, int range, int zeros)
 {
   const size_t nfixed = (n * (size_t)nbits + 63) / 64;
-  const size_t bound = libxs_vpack_bound(n, nbits, 1);
+  const size_t bound = libxs_vpack_bound(n, nbits);
   int64_t *const q = (int64_t*)malloc(n * sizeof(int64_t));
   int64_t *const back = (int64_t*)malloc(n * sizeof(int64_t));
   uint64_t *const packed = (uint64_t*)malloc(LIBXS_MAX(bound, nfixed + 1) * sizeof(uint64_t));
@@ -1518,7 +1547,7 @@ static int run_synthetic(size_t n, int nbits, int range, int zeros)
     const uint64_t offset = ((uint64_t)1) << (nbits - 1);
     double dpack = DBL_MAX, dunpack = DBL_MAX;
     size_t i, nwords = 0;
-    int r, ig;
+    int r, il;
     result = EXIT_SUCCESS;
     synthesize(q, n, nbits, range, zeros);
     printf("values %lu  nbits %i  range %i  zeros %i%%\n", (unsigned long)n, nbits, range, zeros);
@@ -1543,13 +1572,13 @@ static int run_synthetic(size_t n, int nbits, int range, int zeros)
     }
     printf("%-14s %10.2f %8.2f %14.2f %14.2f\n", "fixed", (double)nbits, 1.0,
       1E9 * dpack / n, 1E9 * dunpack / n);
-    for (ig = 0; ig < NGROUPS && EXIT_SUCCESS == result; ++ig) {
+    for (il = 1; il <= NLEVELS && EXIT_SUCCESS == result; ++il) {
       char label[32];
       dpack = dunpack = DBL_MAX;
       for (r = 0; r < nrepeat; ++r) {
         const libxs_timer_tick_t t0 = libxs_timer_tick();
         double d;
-        nwords = libxs_vpack(packed, q, LIBXS_DATATYPE_I64, n, nbits, groups[ig]);
+        nwords = libxs_vpack(packed, q, LIBXS_DATATYPE_I64, n, nbits, il);
         d = libxs_timer_duration(t0, libxs_timer_tick());
         dpack = LIBXS_MIN(dpack, d);
       }
@@ -1561,7 +1590,7 @@ static int run_synthetic(size_t n, int nbits, int range, int zeros)
         dunpack = LIBXS_MIN(dunpack, d);
       }
       if (0 != memcmp(back, q, n * sizeof(int64_t))) result = EXIT_FAILURE;
-      LIBXS_SNPRINTF(label, sizeof(label), "vpack %i", groups[ig]);
+      LIBXS_SNPRINTF(label, sizeof(label), "vpack level %i", il);
       printf("%-14s %10.2f %8.2f %14.2f %14.2f\n", label, 64.0 * nwords / n, (double)nfixed / nwords,
         1E9 * dpack / n, 1E9 * dunpack / n);
     }

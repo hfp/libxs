@@ -187,7 +187,7 @@ and the [Fortran Interface](libxs_fortran.md)):
 | Variable         | Default   | Description                                                                                                     |
 |------------------|-----------|-----------------------------------------------------------------------------------------------------------------|
 | LIBXS_VERBOSE    | 0         | Verbosity level; empty means 1, negative means all (debug build: all)                                           |
-| LIBXS_PACK       | 2         | Trade-off of libxs_vpack (at the first call): 1 fastest, 2 smaller, 3 smallest (see Pack)                       |
+| LIBXS_PACK       | 2         | Level 0 of libxs_vpack (at the first call): 1 fastest, 2 smaller, 3 smallest (see Pack)                         |
 | LIBXS_PTRACE     | 0         | Linux: any process may attach a debugger (not only an ancestor)                                                 |
 | LIBXS_SIGNAL     | (verbose) | Report at SIGABRT/SIGSEGV, then pass the signal on (on if verbose); 0 leaves handlers alone                     |
 | LIBXS_DUMP_BUILD | 0         | Print the build state (GNU Make build): >0 at exit, <0 at startup                                               |

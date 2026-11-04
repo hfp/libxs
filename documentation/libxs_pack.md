@@ -26,8 +26,8 @@ with n > 0.
 
 ```C
 size_t libxs_vpack(void* packed, const void* values,
-  libxs_data_t type, size_t n, int maxbits, int group);
-size_t libxs_vpack_bound(size_t n, int maxbits, int group);
+  libxs_data_t type, size_t n, int maxbits, int level);
+size_t libxs_vpack_bound(size_t n, int maxbits);
 size_t libxs_vunpack(void* values, const void* packed, size_t npacked,
   libxs_data_t type, size_t n);
 ```
@@ -35,28 +35,28 @@ size_t libxs_vunpack(void* values, const void* packed, size_t npacked,
 Packs `n` integers of `type` (as above) into a stream of words whose size
 follows the magnitudes, so small values or zeros cost little. Values are taken
 as integers of `maxbits` bits (1 to eight times the type size); small
-magnitudes of either sign stay small. `group` (1 to 255) asks for a width per
-group of that many values; 0 selects `LIBXS_VPACK_GROUP`, which is 8. For that
-group, `LIBXS_PACK` in the environment selects a trade-off (read at the first
-call): 1 packs and unpacks fastest, 2 (the default) takes less space, and 3 the
-least; each step takes more time to pack and to unpack.
+magnitudes of either sign stay small. The `level` selects a trade-off: 1 packs
+and unpacks fastest, 2 takes less space, and 3 (or more) the least; each step
+takes more time to pack and to unpack. Level 0 (or less) takes the default,
+which is 2 unless `LIBXS_PACK` in the environment says otherwise (read at the
+first call).
 
 Unpacking needs only `n` and the number of words available (`npacked`, checked
-against the stream in debug builds only), but not the type: unpack with a type
-of the same signedness as used for packing. The layout of the stream is
-internal and may change between versions: packed data is meant to be unpacked
-by the same library with the same `LIBXS_PACK`, not to be stored.
+against the stream in debug builds only), whatever the level. The stream does
+not record the type: unpack with a type of the same signedness as used for
+packing. The layout of the stream is internal and may change between versions:
+packed data is meant to be unpacked by the same library, not to be stored.
 
 `libxs_vpack` returns the number of words written, at most
-`libxs_vpack_bound(n, maxbits, group)`, and `libxs_vunpack` the number of words
-consumed. Both return zero for invalid arguments (including NULL pointers);
-`libxs_vunpack` also returns zero for an empty stream (`npacked` of zero) and
-leaves the values untouched.
+`libxs_vpack_bound(n, maxbits)` for any level, and `libxs_vunpack` the number
+of words consumed. Both return zero for invalid arguments (including NULL
+pointers); `libxs_vunpack` also returns zero for an empty stream (`npacked` of
+zero) and leaves the values untouched.
 
-From Fortran (`USE libxs`), `libxs_vpack(packed, values, maxbits[, group])`
+From Fortran (`USE libxs`), `libxs_vpack(packed, values, maxbits[, level])`
 and `libxs_vunpack(values, packed)` take contiguous `INTEGER(C_LONG_LONG)`
 arrays and return the number of words as `INTEGER(C_SIZE_T)`;
-`libxs_vpack_bound(n, maxbits, group)` is bound directly.
+`libxs_vpack_bound(n, maxbits)` is bound directly.
 
 The [pack sample](samples/libxs_pack.md) measures the trade-offs on synthetic
 data or on MHD files.

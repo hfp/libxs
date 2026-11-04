@@ -12,9 +12,6 @@
 
 #include "libxs.h"
 
-/** Values per group of the variable-width format (libxs_vpack) unless given. */
-#define LIBXS_VPACK_GROUP 8
-
 
 /**
  * Packs n integers of the given type (I8..I64, U8..U64) at nbits each (1 to
@@ -33,22 +30,21 @@ LIBXS_API int libxs_unpack(void* values, const void* packed,
   libxs_data_t type, size_t n, int nbits);
 
 /**
- * Variable width: every group of values (group = 1..255, 0 = LIBXS_VPACK_GROUP)
- * is stored at the width its largest magnitude needs. Values are taken as
- * integers of maxbits bits (signed types sign-extended from maxbits, unsigned
- * types masked), and signed types fold the sign so that small magnitudes of
- * either sign stay narrow. A group size that is a multiple of 8 keeps every
- * group's data byte-aligned, which is the fast path. A group of 8 (default)
- * may instead store a smaller regular width and the few values above it at
- * the full width (exceptions) if that takes fewer bytes. The stream records the
- * group size and widths; only n has to be known to unpack. Returns the number
- * of 64-bit words written, at most libxs_vpack_bound, or zero for invalid
+ * Variable width: packs n integers of the given type (I8..I64, U8..U64) into
+ * 64-bit words whose number follows the magnitudes, so small values or zeros
+ * cost little. Values are taken as integers of maxbits bits (signed types
+ * sign-extended from maxbits, unsigned types masked); small magnitudes of
+ * either sign stay small. The level selects a trade-off: 1 packs and unpacks
+ * fastest, 2 takes less space, 3 (or more) the least; 0 (or less) takes the
+ * default (2, or LIBXS_PACK in the environment). The stream is internal and may change
+ * between versions; only n has to be known to unpack. Returns the number of
+ * 64-bit words written, at most libxs_vpack_bound, or zero for invalid
  * arguments or n of zero.
  */
 LIBXS_API size_t libxs_vpack(void* packed, const void* values,
-  libxs_data_t type, size_t n, int maxbits, int group);
-/** Number of 64-bit words libxs_vpack writes at most. */
-LIBXS_API size_t libxs_vpack_bound(size_t n, int maxbits, int group);
+  libxs_data_t type, size_t n, int maxbits, int level);
+/** Number of 64-bit words libxs_vpack writes at most (any level). */
+LIBXS_API size_t libxs_vpack_bound(size_t n, int maxbits);
 /**
  * Unpacks n integers written by libxs_vpack from npacked 64-bit words, which
  * have to hold the stream (checked in debug code only). Returns the number of

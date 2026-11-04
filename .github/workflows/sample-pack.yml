@@ -23,8 +23,8 @@ on:
         description: "Revision built as well (whole tree, same formats), full hash if amended"
         default: ""
       formats:
-        description: "Values of LIBXS_PACK to run, e.g., 1 2 3"
-        default: "1 2 3"
+        description: "Values of LIBXS_PACK to run (the sample shows every level; 0: the default)"
+        default: "0"
 
 jobs:
   Pack:
@@ -143,7 +143,7 @@ jobs:
         for BUILD in ${BUILDS}; do
           LABEL="${BUILD}"
           if [ "${BUILD#base-}" != "${BUILD}" ]; then LABEL="${BUILD} (${BASELINE})"; fi
-          for FORMAT in ${FORMATS}; do # LIBXS_PACK; a baseline from before reads LIBXS_VPACK (1: format 3)
+          for FORMAT in ${FORMATS}; do # LIBXS_PACK: level 0; a baseline from before reads LIBXS_VPACK (1: Rice)
             echo "--- ${LABEL}, LIBXS_PACK=${FORMAT}" | tee -a "pack-${{ matrix.job }}.log"
             LIBXS_PACK=${FORMAT} LIBXS_VPACK=$((3 == FORMAT ? 1 : 0)) taskset -c "${CPU}" "./pack-${BUILD%-again}.x" \
               ${INPUT_ARGS} | tee -a "pack-${{ matrix.job }}.log"
@@ -151,7 +151,7 @@ jobs:
         done
         {
           echo '```'
-          grep -E '^(--- |variant|vpack (group )?8 |fortran group 8|vpack deltas|kd-tree rows, exc)' "pack-${{ matrix.job }}.log"
+          grep -E '^(--- |variant|vpack (group )?8 |vpack level |fortran group 8|vpack deltas|kd-tree rows, exc)' "pack-${{ matrix.job }}.log"
           echo '```'
         } >> "$GITHUB_STEP_SUMMARY"
 

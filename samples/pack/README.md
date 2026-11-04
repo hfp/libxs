@@ -38,14 +38,14 @@ extension holds a REAL(8) eps, an INT32 number of blocks, and an INT32 shape(3)
 per block provides eps and the blocks itself, so a dump of the data to analyze
 can carry its own blocking.
 
-The output compares the fixed width with a width per group of 4 to 64 values
-(a group of 8 in the format `LIBXS_PACK` selects), with deltas between
-neighbors, and for floating-point data with a quantization step of twice `eps`,
-plus the bits that a width per value would need.
-With MHD files, a second table splits each group size into the payload and
-the cost of storing the widths: one byte per width, 7 bits per width, a base
-per 8 groups with 3- or 2-bit offsets (`base+3`, `base+2`), and the entropy
-of the widths as a bound. Each row gives bits per value and the ratio.
+The output compares the fixed width with the levels of `libxs_vpack`, with
+deltas between neighbors, and for floating-point data with a quantization step
+of twice `eps`, plus the bits that a width per value would need. With MHD files,
+a second table takes a width per group of 4 to 64 values (computed by the
+sample) and splits it into the payload and the cost of storing the widths: one
+byte per width, 7 bits per width, a base per 8 groups with 3- or 2-bit offsets
+(`base+3`, `base+2`), and the entropy of the widths as a bound. Each row gives
+bits per value and the ratio.
 
 A third table estimates the bits of other ways to store a group of 8, without
 implementing them: a zero mask with only the nonzeros packed, exceptions (the
@@ -59,9 +59,10 @@ as sub-boxes of whole rows (split at the middle of axis 1 or 2) with exceptions,
 encoded, decoded, and checked, with a length word per block. `KDLEAF=n` in the
 environment lets it split only into leaves of at least `n` values.
 
-`LIBXS_PACK` in the environment (1 to 3) selects the format of `libxs_vpack` for
-the rows vpack group 8, deltas, and step 2*eps, so runs compare the formats. With
-`LIBXS_PACK=1`, the format of `vpack.f`, each also decodes what the other packed.
+The rows "vpack level 1" to "vpack level 3" pack at the levels of
+`libxs_vpack`; the rows vpack deltas and step 2*eps at level 0, the default
+(`LIBXS_PACK` in the environment). At level 1, `vpack.f` and `libxs_vunpack`
+also decode what the other packed.
 
 With `REPEAT=n` in the environment (default 1), a measurement takes `n` timed passes
 and the fastest counts, as with `nrepeat` for synthetic values. The encoding of the

@@ -1579,22 +1579,21 @@
           END FUNCTION
 
           !> Words libxs_vpack writes at most (libxs_pack.h).
-          PURE FUNCTION libxs_vpack_bound(n, maxbits, group)            &
-     &    BIND(C)
+          PURE FUNCTION libxs_vpack_bound(n, maxbits) BIND(C)
             IMPORT :: C_SIZE_T, C_INT
             INTEGER(C_SIZE_T), INTENT(IN), VALUE :: n
-            INTEGER(C_INT), INTENT(IN), VALUE :: maxbits, group
+            INTEGER(C_INT), INTENT(IN), VALUE :: maxbits
             INTEGER(C_SIZE_T) :: libxs_vpack_bound
           END FUNCTION
 
           ! internal (use libxs_vpack)
           FUNCTION internal_vpack(packed, values, datatype, n,          &
-     &    maxbits, group) BIND(C, NAME="libxs_vpack")
+     &    maxbits, level) BIND(C, NAME="libxs_vpack")
             IMPORT :: C_PTR, C_INT, C_SIZE_T
             TYPE(C_PTR), INTENT(IN), VALUE :: packed, values
             INTEGER(C_INT), INTENT(IN), VALUE :: datatype
             INTEGER(C_SIZE_T), INTENT(IN), VALUE :: n
-            INTEGER(C_INT), INTENT(IN), VALUE :: maxbits, group
+            INTEGER(C_INT), INTENT(IN), VALUE :: maxbits, level
             INTEGER(C_SIZE_T) :: internal_vpack
           END FUNCTION
 
@@ -1692,8 +1691,8 @@
         END INTERFACE
 
         !> Variable-width packing (libxs_pack.h): values are taken as
-        !> integers of maxbits bits; the group size defaults to 8.
-        !> Returns the number of words written.
+        !> integers of maxbits bits; the level (trade-off of space and
+        !> time) defaults to 0. Returns the number of words written.
         INTERFACE libxs_vpack
           MODULE PROCEDURE libxs_vpack_i64
         END INTERFACE

@@ -77,39 +77,40 @@ static int check_fixed(libxs_data_t type)
 }
 
 
+/** Every level (below 1: the default, above the last: the last), counts around groups of 4 and 8, zeros or not. */
 static int check_variable(libxs_data_t type)
 {
-  static const size_t counts[] = { 1, 15, 16, 17, 333, NMAX };
-  static const int groups[] = { 0, 1, 7, 64, 255 };
+  static const size_t counts[] = { 1, 3, 4, 5, 15, 16, 17, 333, NMAX };
+  static const int levels[] = { -1, 0, 1, 2, 3, 9 };
   const int typesize = (int)LIBXS_TYPESIZE(type);
   uint64_t values[NMAX], back[NMAX], packed[2 * NMAX];
-  int result = EXIT_SUCCESS, maxbits, ig, zeros;
+  int result = EXIT_SUCCESS, maxbits, il, zeros;
   size_t ic, i;
   for (maxbits = 1; maxbits <= 8 * typesize && EXIT_SUCCESS == result; maxbits += 3) {
-    for (ig = 0; ig < (int)(sizeof(groups) / sizeof(*groups)) && EXIT_SUCCESS == result; ++ig) {
+    for (il = 0; il < (int)(sizeof(levels) / sizeof(*levels)) && EXIT_SUCCESS == result; ++il) {
       for (ic = 0; ic < sizeof(counts) / sizeof(*counts) && EXIT_SUCCESS == result; ++ic) {
         for (zeros = 0; zeros < 2 && EXIT_SUCCESS == result; ++zeros) {
           const size_t n = counts[ic];
-          const size_t bound = libxs_vpack_bound(n, maxbits, groups[ig]);
+          const size_t bound = libxs_vpack_bound(n, maxbits);
           size_t nwords, nread;
           fill(values, type, n, maxbits, zeros);
           for (i = 0; i < 2 * NMAX; ++i) packed[i] = SENTINEL;
           memset(back, 0xFF, sizeof(back));
-          nwords = libxs_vpack(packed, values, type, n, maxbits, groups[ig]);
+          nwords = libxs_vpack(packed, values, type, n, maxbits, levels[il]);
           nread = libxs_vunpack(back, packed, nwords, type, n);
           if (0 == nwords || nwords > bound || nread != nwords) {
-            fprintf(stderr, "variable: %i words (bound %i, read %i) for type %i, maxbits %i, group %i, n %i\n",
-              (int)nwords, (int)bound, (int)nread, (int)type, maxbits, groups[ig], (int)n);
+            fprintf(stderr, "variable: %i words (bound %i, read %i) for type %i, maxbits %i, level %i, n %i\n",
+              (int)nwords, (int)bound, (int)nread, (int)type, maxbits, levels[il], (int)n);
             result = EXIT_FAILURE;
           }
           else if (SENTINEL != packed[nwords]) {
-            fprintf(stderr, "variable: overrun (type %i, maxbits %i, group %i, n %i)\n",
-              (int)type, maxbits, groups[ig], (int)n);
+            fprintf(stderr, "variable: overrun (type %i, maxbits %i, level %i, n %i)\n",
+              (int)type, maxbits, levels[il], (int)n);
             result = EXIT_FAILURE;
           }
           else if (0 != memcmp(values, back, n * (size_t)typesize)) {
-            fprintf(stderr, "variable: mismatch (type %i, maxbits %i, group %i, n %i)\n",
-              (int)type, maxbits, groups[ig], (int)n);
+            fprintf(stderr, "variable: mismatch (type %i, maxbits %i, level %i, n %i)\n",
+              (int)type, maxbits, levels[il], (int)n);
             result = EXIT_FAILURE;
           }
         }
@@ -132,7 +133,7 @@ static void store(void* values, libxs_data_t type, size_t i, uint64_t v)
 
 
 /** Groups of 8 with a few values at the full width among small ones (zeros included). */
-static int check_outliers(libxs_data_t type)
+static int check_outliers(libxs_data_t type, int level)
 {
   static const int small[] = { 0, 1, 3, 7 };
   const int typesize = (int)LIBXS_TYPESIZE(type), maxbits = 8 * typesize;
@@ -143,7 +144,7 @@ static int check_outliers(libxs_data_t type)
   for (is = 0; is < (int)(sizeof(small) / sizeof(*small)) && EXIT_SUCCESS == result; ++is) {
     for (k = 1; k <= 3 && EXIT_SUCCESS == result; ++k) { /* values at the full width per group */
       const size_t n = NMAX - (size_t)k; /* a partial last group */
-      const size_t bound = libxs_vpack_bound(n, maxbits, 8);
+      const size_t bound = libxs_vpack_bound(n, maxbits);
       size_t i, nwords, nread;
       for (i = 0; i < n; ++i) {
         const size_t lane = (i + (i / 8) * 3) & 7; /* where the wide values are moves per group */
@@ -154,7 +155,7 @@ static int check_outliers(libxs_data_t type)
       }
       for (i = 0; i < 2 * NMAX; ++i) packed[i] = SENTINEL;
       memset(back, 0xFF, sizeof(back));
-      nwords = libxs_vpack(packed, values, type, n, maxbits, 8);
+      nwords = libxs_vpack(packed, values, type, n, maxbits, level);
       nread = libxs_vunpack(back, packed, nwords, type, n);
       if (0 == nwords || nwords > bound || nread != nwords) {
         fprintf(stderr, "outliers: %i words (bound %i, read %i) for type %i, small %i, wide %i\n",
@@ -169,7 +170,7 @@ static int check_outliers(libxs_data_t type)
         fprintf(stderr, "outliers: mismatch (type %i, small %i, wide %i)\n", (int)type, small[is], k);
         result = EXIT_FAILURE;
       }
-      else if (LIBXS_PACK_QUADS == internal_libxs_pack_format && 0 != ((const unsigned char*)packed)[0]) {
+      else if (LIBXS_PACK_QUADS == level && LIBXS_PACK_QUADS != (int)((packed[0] >> 8) & 0xFF)) {
         fprintf(stderr, "outliers: groups of 4 not taken (type %i, small %i, wide %i)\n", (int)type, small[is], k);
         result = EXIT_FAILURE;
       }
@@ -184,7 +185,7 @@ static int check_edges(void)
 {
   uint64_t values[64] = { 0 }, packed[64], back[1] = { SENTINEL };
   int result = EXIT_SUCCESS;
-  if (1 != libxs_vpack(packed, values, LIBXS_DATATYPE_I64, 32, 40, 16)) {
+  if (1 != libxs_vpack(packed, values, LIBXS_DATATYPE_I64, 32, 40, LIBXS_PACK_WORDS)) {
     fprintf(stderr, "edges: zeros are not header-only\n");
     result = EXIT_FAILURE;
   }
@@ -196,7 +197,7 @@ static int check_edges(void)
     || EXIT_SUCCESS == libxs_pack(packed, values, LIBXS_DATATYPE_I32, 64, 33)
     || EXIT_SUCCESS == libxs_pack(packed, values, LIBXS_DATATYPE_U8, 64, 0)
     || 0 != libxs_vpack(packed, values, LIBXS_DATATYPE_F32, 64, 8, 0)
-    || 0 != libxs_vpack(packed, values, LIBXS_DATATYPE_I16, 64, 8, 256))
+    || 0 != libxs_vpack(packed, values, LIBXS_DATATYPE_I16, 64, 0, 0))
   {
     fprintf(stderr, "edges: invalid arguments accepted\n");
     result = EXIT_FAILURE;
@@ -205,12 +206,12 @@ static int check_edges(void)
 }
 
 
-/** The format LIBXS_PACK_CODES (groups of 8), forced: runs of zero groups and blocks of nonzero ones, zeros within
- * groups, every type and width; nothing written beyond the words returned. */
+/** The level LIBXS_PACK_CODES: runs of zero groups and blocks of nonzero ones, zeros within groups, every type and
+ * width; nothing written beyond the words returned. */
 static int check_lanes(libxs_data_t type)
 {
   static const size_t counts[] = { 1, 7, 8, 9, 63, 64, 65, 333, 1024, 2047, 2048, 2049, 8193, 20005 };
-  const int typesize = (int)LIBXS_TYPESIZE(type), format = internal_libxs_pack_format;
+  const int typesize = (int)LIBXS_TYPESIZE(type);
   const size_t nmax = 20005;
   uint64_t *const values = (uint64_t*)malloc(nmax * sizeof(uint64_t));
   uint64_t *const back = (uint64_t*)malloc(nmax * sizeof(uint64_t));
@@ -218,16 +219,15 @@ static int check_lanes(libxs_data_t type)
   int result = (NULL != values && NULL != back && NULL != packed) ? EXIT_SUCCESS : EXIT_FAILURE;
   int maxbits, zeros, nlanes = 0, nlarge = 0;
   size_t ic, i;
-  internal_libxs_pack_format = LIBXS_PACK_CODES;
   for (maxbits = 1; maxbits <= 8 * typesize && EXIT_SUCCESS == result; maxbits += 5) {
     for (ic = 0; ic < sizeof(counts) / sizeof(*counts) && EXIT_SUCCESS == result; ++ic) {
       for (zeros = 0; zeros < 2 && EXIT_SUCCESS == result; ++zeros) {
-        const size_t n = counts[ic], bound = libxs_vpack_bound(n, maxbits, 8);
+        const size_t n = counts[ic], bound = libxs_vpack_bound(n, maxbits);
         size_t nwords, nread;
         fill(values, type, n, maxbits, zeros);
         for (i = 0; i < 2 * nmax + 64; ++i) packed[i] = SENTINEL;
         memset(back, 0xFF, nmax * sizeof(uint64_t));
-        nwords = libxs_vpack(packed, values, type, n, maxbits, 8);
+        nwords = libxs_vpack(packed, values, type, n, maxbits, LIBXS_PACK_CODES);
         nread = libxs_vunpack(back, packed, nwords, type, n);
         if (0 == nwords || nwords > bound || nread != nwords) {
           fprintf(stderr, "lanes: %i words (bound %i, read %i) for type %i, maxbits %i, n %i\n",
@@ -242,7 +242,7 @@ static int check_lanes(libxs_data_t type)
           fprintf(stderr, "lanes: mismatch (type %i, maxbits %i, n %i)\n", (int)type, maxbits, (int)n);
           result = EXIT_FAILURE;
         }
-        else if (0 == ((const unsigned char*)packed)[0]) { /* the format, not the fallback */
+        else if (0 == ((const unsigned char*)packed)[0]) { /* the level, not the fallback */
           ++nlanes;
           if (LIBXS_PACK_LANES * LIBXS_PACK_LANES_BLOCK < n) ++nlarge; /* more than a block */
         }
@@ -253,7 +253,6 @@ static int check_lanes(libxs_data_t type)
     fprintf(stderr, "lanes: format not taken (type %i: %i calls, %i beyond a block)\n", (int)type, nlanes, nlarge);
     result = EXIT_FAILURE;
   }
-  internal_libxs_pack_format = format;
   free(values);
   free(back);
   free(packed);
@@ -267,20 +266,17 @@ int main(int argc, char* argv[])
     LIBXS_DATATYPE_I8, LIBXS_DATATYPE_U8, LIBXS_DATATYPE_I16, LIBXS_DATATYPE_U16,
     LIBXS_DATATYPE_I32, LIBXS_DATATYPE_U32, LIBXS_DATATYPE_I64, LIBXS_DATATYPE_U64
   };
-  int result, format, i;
+  int result, level, i;
   LIBXS_UNUSED(argc);
   LIBXS_UNUSED(argv);
   libxs_init();
   result = check_edges();
   for (i = 0; i < (int)(sizeof(types) / sizeof(*types)) && EXIT_SUCCESS == result; ++i) {
     result = check_fixed(types[i]);
-    for (format = LIBXS_PACK_WORDS; format <= LIBXS_PACK_CODES && EXIT_SUCCESS == result; ++format) {
-      internal_libxs_pack_format = format; /* forced, whatever LIBXS_PACK says */
-      result = check_variable(types[i]);
-      if (EXIT_SUCCESS == result) result = check_outliers(types[i]);
-      if (EXIT_SUCCESS != result) fprintf(stderr, "(format %i)\n", format);
+    if (EXIT_SUCCESS == result) result = check_variable(types[i]);
+    for (level = LIBXS_PACK_WORDS; level <= LIBXS_PACK_CODES && EXIT_SUCCESS == result; ++level) {
+      result = check_outliers(types[i], level);
     }
-    internal_libxs_pack_format = 0;
     if (EXIT_SUCCESS == result) result = check_lanes(types[i]);
   }
   libxs_finalize();

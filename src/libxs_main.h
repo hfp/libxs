@@ -129,7 +129,7 @@ LIBXS_APIVAR_PRIVATE(int libxs_stdio_handle);
 LIBXS_APIVAR_PRIVATE(int libxs_verbosity);
 /** Security-enhanced environment. */
 LIBXS_APIVAR_PRIVATE(int libxs_se);
-/** Format of libxs_vpack (env. LIBXS_PACK): 0 until the first call determines it, then 1 to 3. */
+/** Level 0 of libxs_vpack (env. LIBXS_PACK): 0 until the first call determines it, then 1 to 3. */
 LIBXS_APIVAR_PRIVATE(int internal_libxs_pack_format);
 
 #endif /*LIBXS_MAIN_H*/

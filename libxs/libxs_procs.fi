@@ -1619,21 +1619,21 @@
         END FUNCTION
 
         !> Variable-width packing (see libxs_vpack).
-        FUNCTION libxs_vpack_i64(packed, values, maxbits, group)        &
+        FUNCTION libxs_vpack_i64(packed, values, maxbits, level)        &
      &  RESULT(nwords)
           INTEGER(C_LONG_LONG), INTENT(OUT), CONTIGUOUS,                &
      &      TARGET :: packed(:)
           INTEGER(C_LONG_LONG), INTENT(IN), CONTIGUOUS,                 &
      &      TARGET :: values(:)
           INTEGER(C_INT), INTENT(IN) :: maxbits
-          INTEGER(C_INT), INTENT(IN), OPTIONAL :: group
+          INTEGER(C_INT), INTENT(IN), OPTIONAL :: level
           INTEGER(C_SIZE_T) :: nwords
-          INTEGER(C_INT) :: g
-          g = 0
-          IF (PRESENT(group)) g = group
+          INTEGER(C_INT) :: l
+          l = 0
+          IF (PRESENT(level)) l = level
           nwords = internal_vpack(C_LOC(packed), C_LOC(values),         &
      &      LIBXS_DATATYPE_I64, SIZE(values, KIND=C_SIZE_T),            &
-     &      maxbits, g)
+     &      maxbits, l)
         END FUNCTION
 
         !> Variable-width unpacking (see libxs_vunpack).

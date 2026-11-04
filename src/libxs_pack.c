@@ -15,12 +15,12 @@
 #if !defined(LIBXS_PACK_SW) && 0
 # define LIBXS_PACK_SW
 #endif
-/* formats of libxs_vpack (LIBXS_PACK, 0 or unset: LIBXS_PACK_DEFAULT): group sizes that are a multiple
- * of 8 as 8 interleaved streams of words (value 8*c+l in stream l, all at the same bit position, so every
- * shift is uniform over lanes) as samples/pack/vpack.f writes them, other sizes as one stream of bits;
- * a group of 8 (LIBXS_PACK_GROUP) as two groups of 4 in words with their widths as deltas
- * (internal_libxs_vpack_quads); or a group of 8 as codes of the lengths (internal_libxs_vpack_lanes).
- * Where a format does not apply or the result would not fit, the first one is taken. */
+/* formats of libxs_vpack (the level, 0: LIBXS_PACK or LIBXS_PACK_DEFAULT): groups of 8 (LIBXS_PACK_GROUP)
+ * as 8 interleaved streams of words (value 8*c+l in stream l, all at the same bit position, so every shift
+ * is uniform over lanes) as samples/pack/vpack.f writes them (byte 0 is the group size); a group of 8 as
+ * two groups of 4 in words with their widths as deltas (internal_libxs_vpack_quads); or as codes of the
+ * lengths (internal_libxs_vpack_lanes). The latter two start with a zero byte and the format; where they
+ * would not fit, the first one is taken. */
 #define LIBXS_PACK_WORDS 1
 #define LIBXS_PACK_QUADS 2
 #define LIBXS_PACK_CODES 3
@@ -569,7 +569,8 @@ LIBXS_API_INLINE size_t internal_libxs_vpack_quads_bound(size_t n, int maxbits)
  * interleaved streams of words (as LIBXS_PACK_WORDS), behind them a delta of the width per group in 4 bits
  * (zig-zag, 16 per word; all ones: the delta is the next of the escapes), then the escapes (8 bits, signed,
  * 8 per word, a word more). Word 0 holds the words of the streams shifted by 8
- * (byte 0 is zero). Returns the words written, zero without scratch (the caller falls back). */
+ * (word 0 also holds the format above a zero byte). Returns the words written, zero without scratch (the
+ * caller falls back). */
 LIBXS_API_INLINE size_t internal_libxs_vpack_quads(void* packed, const void* values, libxs_data_t type,
   size_t n, int maxbits)
 {
@@ -626,7 +627,7 @@ LIBXS_API_INLINE size_t internal_libxs_vpack_quads(void* packed, const void* val
       for (l = 0; l < LIBXS_PACK_QUAD; ++l) data[LIBXS_PACK_QUAD * j + l] = row[l];
     }
     nwords = LIBXS_PACK_QUAD * (j + (0 != off ? 1 : 0));
-    out[0] = (uint64_t)nwords << 8;
+    out[0] = ((uint64_t)nwords << 16) | ((uint64_t)LIBXS_PACK_QUADS << 8);
     memcpy(data + nwords, head, ndelta * sizeof(uint64_t));
     esc = data + nwords + ndelta;
     for (k = 0; k <= e / 8; ++k) esc[k] = 0;
@@ -715,7 +716,7 @@ LIBXS_INLINE_ALWAYS void internal_libxs_quads_group(uint64_t* LIBXS_RESTRICT out
 LIBXS_INLINE_ALWAYS size_t internal_libxs_vunpack64_quads_body(uint64_t* LIBXS_RESTRICT out,
   const uint64_t* LIBXS_RESTRICT in, size_t n, int is_signed)
 {
-  const size_t ngroups = (n + LIBXS_PACK_QUAD - 1) / LIBXS_PACK_QUAD, nwords = (size_t)(in[0] >> 8);
+  const size_t ngroups = (n + LIBXS_PACK_QUAD - 1) / LIBXS_PACK_QUAD, nwords = (size_t)(in[0] >> 16);
   const uint64_t *const data = in + 1, *const head = data + nwords, *const esc = head + (ngroups + 15) / 16;
   size_t i, e = 0, bit = 0;
   int prev = 0;
@@ -756,7 +757,7 @@ LIBXS_API_INLINE LIBXS_INTRINSICS(LIBXS_X86_AVX512)
 size_t internal_libxs_vunpack64_quads_avx512(uint64_t* LIBXS_RESTRICT out,
   const uint64_t* LIBXS_RESTRICT in, size_t n, int is_signed)
 {
-  const size_t ngroups = (n + LIBXS_PACK_QUAD - 1) / LIBXS_PACK_QUAD, nwords = (size_t)(in[0] >> 8);
+  const size_t ngroups = (n + LIBXS_PACK_QUAD - 1) / LIBXS_PACK_QUAD, nwords = (size_t)(in[0] >> 16);
   const size_t nrows = nwords / LIBXS_PACK_QUAD;
   const uint64_t *const data = in + 1, *const head = data + nwords, *const esc = head + (ngroups + 15) / 16;
   const __m512i ones = _mm512_set1_epi64(-1), sixtythree = _mm512_set1_epi64(63);
@@ -979,13 +980,14 @@ LIBXS_API_INLINE size_t internal_libxs_vpack_lanes(void* packed, const void* val
         maxlen = LIBXS_MAX(maxlen, nbytes[k]);
       }
       nb = (int)LIBXS_NBITS(maxlen);
-      hdr = 2 + (LIBXS_PACK_LANES_NSUB * (size_t)nb + 7) / 8;
+      hdr = 3 + (LIBXS_PACK_LANES_NSUB * (size_t)nb + 7) / 8;
       total = hdr + LIBXS_PACK_LANES_SLACK;
       for (k = 0; k < LIBXS_PACK_LANES_NSUB; ++k) total += nbytes[k];
       if ((total + 7) / 8 <= nwords) {
-        out[0] = 0; /* no group size: this format */
-        out[1] = (unsigned char)nb;
-        for (k = 0, i = 2; k < LIBXS_PACK_LANES_NSUB; ++k) {
+        out[0] = 0; /* no group size: the format follows */
+        out[1] = (unsigned char)LIBXS_PACK_CODES;
+        out[2] = (unsigned char)nb;
+        for (k = 0, i = 3; k < LIBXS_PACK_LANES_NSUB; ++k) {
           acc |= (uint64_t)nbytes[k] << fill;
           fill += nb;
           for (; 8 <= fill; fill -= 8, acc >>= 8) out[i++] = (unsigned char)acc;
@@ -1342,14 +1344,14 @@ LIBXS_API_INLINE size_t internal_libxs_vunpack_lanes(void* values, const void* p
 {
   const union { uint32_t u; unsigned char c[4]; } probe = { 1 };
   const unsigned char *const in = (const unsigned char*)packed;
-  const int nb = in[1];
+  const int nb = in[2];
   size_t result = 0;
   if (0 != probe.c[0] && 0 < nb && 56 >= nb) {
     size_t offs[LIBXS_PACK_LANES_NSUB + 1];
     int k;
-    offs[0] = 2 + (LIBXS_PACK_LANES_NSUB * (size_t)nb + 7) / 8;
+    offs[0] = 3 + (LIBXS_PACK_LANES_NSUB * (size_t)nb + 7) / 8;
     for (k = 0; k < LIBXS_PACK_LANES_NSUB; ++k) {
-      const size_t bit = 16 + (size_t)k * (size_t)nb;
+      const size_t bit = 24 + (size_t)k * (size_t)nb;
       uint64_t v;
       memcpy(&v, in + (bit >> 3), sizeof(v));
       offs[k + 1] = offs[k] + (size_t)((v >> (bit & 7)) & LIBXS_PACK_MASK(nb));
@@ -1446,62 +1448,51 @@ LIBXS_API int libxs_unpack(void* values, const void* packed,
 }
 
 
-LIBXS_API size_t libxs_vpack_bound(size_t n, int maxbits, int group)
+LIBXS_API size_t libxs_vpack_bound(size_t n, int maxbits)
 {
-  const int g = (0 == group ? LIBXS_VPACK_GROUP : group);
   size_t result = 0;
-  if (0 < n && 0 < maxbits && 64 >= maxbits && 0 < g && 255 >= g) {
-    const size_t ngroups = (n + g - 1) / g; /* 8 interleaved streams in whole words (bits: fewer) */
-    result = (1 + ngroups + 7) / 8 + 8 * ((((n + 7) / 8) * (size_t)maxbits + 63) / 64);
-    if (LIBXS_PACK_GROUP == g && LIBXS_PACK_QUADS == internal_libxs_vpack_format()) {
-      result = LIBXS_MAX(result, internal_libxs_vpack_quads_bound(n, maxbits));
-    }
+  if (0 < n && 0 < maxbits && 64 >= maxbits) { /* 8 interleaved streams in whole words, or groups of 4 */
+    const size_t ngroups = (n + LIBXS_PACK_GROUP - 1) / LIBXS_PACK_GROUP;
+    result = LIBXS_MAX((1 + ngroups + 7) / 8 + 8 * ((ngroups * (size_t)maxbits + 63) / 64),
+      internal_libxs_vpack_quads_bound(n, maxbits));
   }
   return result;
 }
 
 
 LIBXS_API size_t libxs_vpack(void* packed, const void* values,
-  libxs_data_t type, size_t n, int maxbits, int group)
+  libxs_data_t type, size_t n, int maxbits, int level)
 {
   const int typesize = internal_libxs_pack_typesize(type);
-  const int g = (0 == group ? LIBXS_VPACK_GROUP : group);
-  const int valid = (0 < typesize && 0 < maxbits && maxbits <= 8 * typesize && 0 < g && 255 >= g
+  const int valid = (0 < typesize && 0 < maxbits && maxbits <= 8 * typesize
     && 0 < n && NULL != packed && NULL != values);
-  const int format = (0 != valid ? internal_libxs_vpack_format() : 0);
+  const int format = (0 != valid /* a level above the last takes the last, below 1 the default */
+    ? (0 < level ? LIBXS_MIN(level, LIBXS_PACK_CODES) : internal_libxs_vpack_format()) : 0);
   size_t result = 0;
-  if (LIBXS_PACK_GROUP == g && LIBXS_PACK_QUADS == format) {
-    result = internal_libxs_vpack_quads(packed, values, type, n, maxbits);
+  if (LIBXS_PACK_QUADS == format) result = internal_libxs_vpack_quads(packed, values, type, n, maxbits);
+  else if (LIBXS_PACK_CODES == format) {
+    result = internal_libxs_vpack_lanes(packed, values, type, n, maxbits, libxs_vpack_bound(n, maxbits));
   }
-  else if (LIBXS_PACK_GROUP == g && LIBXS_PACK_CODES == format) {
-    result = internal_libxs_vpack_lanes(packed, values, type, n, maxbits, libxs_vpack_bound(n, maxbits, g));
-  }
-  if (0 != valid && 0 == result) { /* LIBXS_PACK_WORDS: otherwise, or if it does not fit */
-    const int words = (0 == (g & 7));
-    const size_t ngroups = (n + g - 1) / g, nhead = (1 + ngroups + 7) / 8;
+  if (0 != valid && 0 == result) { /* LIBXS_PACK_WORDS: also where another format does not fit */
+    const size_t ngroups = (n + LIBXS_PACK_GROUP - 1) / LIBXS_PACK_GROUP, nhead = (1 + ngroups + 7) / 8;
     const uint64_t mask = LIBXS_PACK_MASK(maxbits);
     const uint64_t sign = (0 != internal_libxs_pack_signed(type)
       ? (((uint64_t)1) << (maxbits - 1)) : 0);
     unsigned char *const head = (unsigned char*)packed;
-    internal_libxs_pack_writer_t wr;
-    uint64_t buf[255 + 7];
+    uint64_t *const out = (uint64_t*)packed + nhead, buf[LIBXS_PACK_GROUP];
     size_t i, k, j = 0;
     int off = 0;
-    head[0] = (unsigned char)g;
+    head[0] = (unsigned char)LIBXS_PACK_GROUP;
     for (i = 1 + ngroups; i < 8 * nhead; ++i) head[i] = 0;
-    wr.out = (uint64_t*)packed + nhead;
-    wr.nwords = 0;
-    wr.acc = 0;
-    wr.fill = 0;
     for (i = 0; i < ngroups; ++i) {
-      const size_t base = i * g, m = LIBXS_MIN((size_t)g, n - base);
+      const size_t base = i * LIBXS_PACK_GROUP, m = LIBXS_MIN((size_t)LIBXS_PACK_GROUP, n - base);
       uint64_t any = 0;
       int w;
       const uint64_t* src = buf;
-      if (8 == typesize) src = (const uint64_t*)values + base;
+      if (8 == typesize && LIBXS_PACK_GROUP == m) src = (const uint64_t*)values + base;
       else internal_libxs_pack_load(buf, values, type, base, m);
-      for (k = 0; k < m; ++k) {
-        uint64_t v = src[k] & mask;
+      for (k = 0; k < LIBXS_PACK_GROUP; ++k) {
+        uint64_t v = (k < m ? src[k] & mask : 0);
         if (0 != sign) { /* sign-extend from maxbits, then fold the sign (zig-zag) */
           v = (v ^ sign) - sign;
           v = (v << 1) ^ (0 - (v >> 63));
@@ -1511,19 +1502,9 @@ LIBXS_API size_t libxs_vpack(void* packed, const void* values,
       }
       w = (int)LIBXS_NBITS(any);
       head[1 + i] = (unsigned char)w;
-      if (0 < w && 0 != words) {
-        for (k = m; k < ((m + 7) & ~(size_t)7); ++k) buf[k] = 0;
-        for (k = 0; k < m; k += 8) internal_libxs_vpack8_col(wr.out, buf + k, &j, &off, w);
-      }
-      else if (0 < w) {
-        for (k = 0; k < m; ++k) internal_libxs_pack_put(&wr, buf[k], w);
-      }
+      if (0 < w) internal_libxs_vpack8_col(out, buf, &j, &off, w);
     }
-    if (0 != words) result = nhead + 8 * (j + (0 != off ? 1 : 0));
-    else {
-      internal_libxs_pack_flush(&wr);
-      result = nhead + wr.nwords;
-    }
+    result = nhead + 8 * (j + (0 != off ? 1 : 0));
   }
   return result;
 }
@@ -1536,42 +1517,29 @@ LIBXS_API size_t libxs_vunpack(void* values, const void* packed, size_t npacked,
   size_t result = 0;
   if (0 < typesize && 0 < n && 0 < npacked && NULL != packed && NULL != values) {
     const unsigned char *const head = (const unsigned char*)packed;
-    const int g = head[0], is_signed = internal_libxs_pack_signed(type), format = internal_libxs_vpack_format();
-    if (0 < g) { /* LIBXS_PACK_WORDS */
-      const int words = (0 == (g & 7));
-      const size_t ngroups = (n + g - 1) / g, nhead = (1 + ngroups + 7) / 8;
+    const int is_signed = internal_libxs_pack_signed(type);
+    if (LIBXS_PACK_GROUP == head[0]) { /* LIBXS_PACK_WORDS */
+      const size_t ngroups = (n + LIBXS_PACK_GROUP - 1) / LIBXS_PACK_GROUP, nhead = (1 + ngroups + 7) / 8;
       const uint64_t *const in = (const uint64_t*)packed + nhead;
-      uint64_t buf[255 + 7];
-      size_t i, k, bit = 0;
+      size_t bit;
 #if !defined(NDEBUG)
       { /* the stream fits: the widths are read only once the header fits */
         size_t nbits = 0, j;
         LIBXS_ASSERT(nhead <= npacked);
-        for (j = 0; j < ngroups && nhead <= npacked; ++j) {
-          const size_t m = LIBXS_MIN((size_t)g, n - j * g);
-          nbits += (size_t)head[1 + j] * (0 != words ? ((m + 7) & ~(size_t)7) : m);
-        }
-        if (0 != words) nbits = 8 * 64 * ((nbits / 8 + 63) / 64); /* 8 streams in whole words */
-        LIBXS_ASSERT(nhead + (nbits + 63) / 64 <= npacked);
+        for (j = 0; j < ngroups && nhead <= npacked; ++j) nbits += (size_t)head[1 + j];
+        LIBXS_ASSERT(nhead + 8 * ((nbits + 63) / 64) <= npacked);
       }
 #endif
-      if (0 != words && 8 == typesize) {
-        bit = internal_libxs_vunpack64_words((uint64_t*)values, head + 1, in, n, g, is_signed);
+      if (8 == typesize) {
+        bit = internal_libxs_vunpack64_words((uint64_t*)values, head + 1, in, n, LIBXS_PACK_GROUP, is_signed);
       }
-      else if (0 != words) { /* 8 interleaved streams */
-        size_t j = 0;
+      else { /* a group at a time into a buffer */
+        uint64_t buf[LIBXS_PACK_GROUP];
+        size_t i, k, j = 0;
         int off = 0;
         for (i = 0; i < ngroups; ++i) {
-          const size_t base = i * g, m = LIBXS_MIN((size_t)g, n - base);
-          const int w = head[1 + i];
-          for (k = 0; k < m; k += 8) {
-            if (k + 8 <= m) internal_libxs_vunpack8_col(buf + k, in, &j, &off, w);
-            else {
-              uint64_t tmp[8];
-              internal_libxs_vunpack8_col(tmp, in, &j, &off, w);
-              memcpy(buf + k, tmp, (m - k) * sizeof(*tmp));
-            }
-          }
+          const size_t base = i * LIBXS_PACK_GROUP, m = LIBXS_MIN((size_t)LIBXS_PACK_GROUP, n - base);
+          internal_libxs_vunpack8_col(buf, in, &j, &off, head[1 + i]);
           if (0 != is_signed) {
             for (k = 0; k < m; ++k) buf[k] = (buf[k] >> 1) ^ (0 - (buf[k] & 1));
           }
@@ -1579,27 +1547,14 @@ LIBXS_API size_t libxs_vunpack(void* values, const void* packed, size_t npacked,
         }
         bit = 64 * 8 * (j + (0 != off ? 1 : 0));
       }
-      else { /* one stream of bits */
-        for (i = 0; i < ngroups; ++i) {
-          const size_t base = i * g, m = LIBXS_MIN((size_t)g, n - base);
-          const int w = head[1 + i];
-          for (k = 0; k < m; ++k) {
-            buf[k] = 0;
-            if (0 < w) {
-              buf[k] = internal_libxs_pack_get(in, bit, w);
-              bit += w;
-            }
-          }
-          if (0 != is_signed) {
-            for (k = 0; k < m; ++k) buf[k] = (buf[k] >> 1) ^ (0 - (buf[k] & 1));
-          }
-          internal_libxs_pack_store(values, buf, type, base, m);
-        }
-      }
       result = nhead + (bit + 63) / 64;
     }
-    else if (LIBXS_PACK_QUADS == format) result = internal_libxs_vunpack_quads(values, packed, type, n, is_signed);
-    else result = internal_libxs_vunpack_lanes(values, packed, type, n, is_signed);
+    else if (0 == head[0]) { /* the format follows */
+      if (LIBXS_PACK_QUADS == (int)((((const uint64_t*)packed)[0] >> 8) & 0xFF)) {
+        result = internal_libxs_vunpack_quads(values, packed, type, n, is_signed);
+      }
+      else if (LIBXS_PACK_CODES == head[1]) result = internal_libxs_vunpack_lanes(values, packed, type, n, is_signed);
+    }
     LIBXS_ASSERT(result <= npacked);
   }
   return result;
