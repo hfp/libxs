@@ -62,7 +62,10 @@ environment lets it split only into leaves of at least `n` values.
 The rows "vpack level 1" to "vpack level 3" pack at the levels of
 `libxs_vpack`; the rows vpack deltas and step 2*eps at level 0, the default
 (`LIBXS_PACK` in the environment). At level 1, `vpack.f` and `libxs_vunpack`
-also decode what the other packed.
+also decode what the other packed. For floating-point input, the rows "vpack
+real" pack the values as they are (level 0): lossless, keeping 52 or 32 leading
+bits, and with an absolute error of at most the largest power of two up to
+`eps/2`; each checks its error, and its ratio is against 64 bits per value.
 
 With `REPEAT=n` in the environment (default 1), a measurement takes `n` timed passes
 and the fastest counts, as with `nrepeat` for synthetic values. The encoding of the

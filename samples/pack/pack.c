@@ -44,6 +44,8 @@ typedef struct stats_t {
   double bits_axis[1 + NAXES], bits_axis_best; /* per block: as is, delta along an axis, best */
   double bits_kd[NKD], nleaves_kd[NKD]; /* per block: k-d tree of sub-boxes */
   double bits_order[NORDERS][2], bits_order_best[2]; /* per block: groups of 8 in an axis order, w/o and with exceptions */
+  double* reals; /* floating-point input as is (in order) */
+  size_t nreals;
   int has_twice;
 } stats_t;
 
@@ -592,8 +594,14 @@ static int add_file(stats_t* st, const char* filename, double eps)
     if (0 != is_float) {
       x = (double*)malloc(n * sizeof(double));
       if (NULL != x) {
+        double *const reals = (double*)realloc(st->reals, (st->nreals + n) * sizeof(double));
         for (i = 0; i < n; ++i) {
           x[i] = (LIBXS_DATATYPE_F64 == info.type ? ((const double*)data)[i] : ((const float*)data)[i]);
+        }
+        if (NULL != reals) {
+          memcpy(reals + st->nreals, x, n * sizeof(double));
+          st->reals = reals;
+          st->nreals += n;
         }
       }
       if (0 >= eps) {
@@ -846,6 +854,63 @@ static double vpack_bits(const stream_t* s, int level, vpack_fn pack, vunpack_fn
       free(len);
     }
   }
+  return bits;
+}
+
+
+/**
+ * Packs floating-point values as they are (per record if given, a length word each) and checks the error: none
+ * (lossless), relative to a value's magnitude (0 < maxbits < 64), or at most 2^maxbits (maxbits <= 0).
+ */
+static double vpack_reals(const double* x, size_t n, int maxbits, int level, double* seconds, double* useconds,
+  int* ok)
+{
+  const size_t r = (0 != record ? LIBXS_MIN(record, n) : n), nrec = (0 < r ? (n + r - 1) / r : 0);
+  const size_t bound = nrec * libxs_vpack_bound(r, maxbits);
+  uint64_t *const packed = (uint64_t*)malloc(LIBXS_MAX(bound, 1) * sizeof(uint64_t));
+  double *const back = (double*)malloc(LIBXS_MAX(n, 1) * sizeof(double));
+  size_t *const len = (size_t*)malloc(LIBXS_MAX(nrec, 1) * sizeof(size_t));
+  double bits = 0;
+  *seconds = *useconds = 0;
+  if (NULL != packed && NULL != back && NULL != len && 0 < n) {
+    double best = DBL_MAX, ubest = DBL_MAX;
+    size_t k, i, off = 0;
+    int rep;
+    first_touch(packed, bound * sizeof(uint64_t));
+    first_touch(back, n * sizeof(double));
+    for (rep = 0; rep < nrepeat; ++rep) {
+      const libxs_timer_tick_t t0 = libxs_timer_tick();
+      for (k = 0, off = 0; k < nrec; ++k) {
+        len[k] = libxs_vpack(packed + off, x + k * r, LIBXS_DATATYPE_F64, LIBXS_MIN(r, n - k * r), maxbits, level);
+        off += len[k];
+      }
+      best = LIBXS_MIN(best, libxs_timer_duration(t0, libxs_timer_tick()));
+    }
+    for (rep = 0; rep < nrepeat; ++rep) {
+      const libxs_timer_tick_t t1 = libxs_timer_tick();
+      size_t at = 0;
+      for (k = 0; k < nrec; ++k) {
+        if (len[k] != libxs_vunpack(back + k * r, packed + at, len[k], LIBXS_DATATYPE_F64, LIBXS_MIN(r, n - k * r))) {
+          *ok = 0;
+        }
+        at += len[k];
+      }
+      ubest = LIBXS_MIN(ubest, libxs_timer_duration(t1, libxs_timer_tick()));
+    }
+    for (i = 0; i < n && 0 != *ok; ++i) {
+      const double e = fabs(back[i] - x[i]);
+      if (64 <= maxbits) *ok = (0 == memcmp(back + i, x + i, sizeof(double)));
+      else if (0 < maxbits) *ok = (e <= LIBXS_MAX(ldexp(fabs(x[i]), 12 - LIBXS_MAX(maxbits, 13)), DBL_MIN));
+      else *ok = (e <= ldexp(1.0, maxbits));
+    }
+    *seconds = best;
+    *useconds = ubest;
+    bits = 64.0 * (double)(off + (0 != record ? nrec : 0));
+  }
+  else if (0 < n) *ok = 0;
+  free(packed);
+  free(back);
+  free(len);
   return bits;
 }
 
@@ -1429,6 +1494,20 @@ static int run_files(int nfiles, char* files[], double eps)
       printf("%-26s %10.2f %8.2f %14.2f %14.2f\n", "vpack, step 2*eps", bits / n, st.bits_fixed / bits,
         1E9 * seconds / n, 1E9 * useconds / n);
     }
+    if (0 != st.nreals) { /* floating-point data as is: lossless, relative, absolute (eps/2 or less) */
+      const double nr = (double)st.nreals;
+      int modes[] = { 64, 52, 32, 0 }, im;
+      modes[3] = (int)floor(log2(0.5 * st.eps)); /* a power of two up to eps/2 */
+      for (im = 0; im < (int)(sizeof(modes) / sizeof(*modes)); ++im) {
+        char label[32];
+        bits = vpack_reals(st.reals, st.nreals, modes[im], 0, &seconds, &useconds, &ok);
+        if (64 <= modes[im]) LIBXS_SNPRINTF(label, sizeof(label), "vpack real, lossless");
+        else if (0 < modes[im]) LIBXS_SNPRINTF(label, sizeof(label), "vpack real, %i bits", modes[im]);
+        else LIBXS_SNPRINTF(label, sizeof(label), "vpack real, error 2^%i", modes[im]);
+        printf("%-26s %10.2f %8.2f %14.2f %14.2f\n", label, bits / nr, 64.0 * nr / bits,
+          1E9 * seconds / nr, 1E9 * useconds / nr);
+      }
+    }
     printf("%-26s %10.2f %8.2f\n", "needed per value (bound)", (st.bits_needed + hdr) / n,
       st.bits_fixed / (st.bits_needed + hdr));
     printf("\n%-8s %9s %26s\n", "group", "payload", "+ header: bytes 7-bit base+3 base+2 entropy");
@@ -1512,6 +1591,7 @@ static int run_files(int nfiles, char* files[], double eps)
   }
   free(st.blocks.q);
   free(st.shapes.q);
+  free(st.reals);
   for (i = 0; i <= MAXBITS; ++i) {
     free(st.plain[i].q);
     free(st.delta[i].q);

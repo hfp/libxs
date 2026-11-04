@@ -25,6 +25,15 @@
 #define LIBXS_PACK_QUADS 2
 #define LIBXS_PACK_CODES 3
 #define LIBXS_PACK_GROUP 8
+/* floating-point data: a header word (a zero byte, this id, the transform, the bits kept per value, the exponent
+ * of the absolute error in 16 bits), then the values as integers at the level; the transforms: the sign at bit 0
+ * and a XOR with the previous value (as is, or bit-reversed so that trailing zeros lead), integral values as
+ * integers, or quantized at a step of 2^(maxbits+1) */
+#define LIBXS_PACK_REALS 4
+#define LIBXS_PACK_REAL_XOR 0
+#define LIBXS_PACK_REAL_REV 1
+#define LIBXS_PACK_REAL_INT 2
+#define LIBXS_PACK_REAL_ABS 3
 /* format LIBXS_PACK_QUADS: values per group, bits of a width delta (all ones: the width follows in 8 bits) */
 #define LIBXS_PACK_QUAD 4
 #define LIBXS_PACK_QUAD_DELTA 4
@@ -1451,16 +1460,17 @@ LIBXS_API int libxs_unpack(void* values, const void* packed,
 LIBXS_API size_t libxs_vpack_bound(size_t n, int maxbits)
 {
   size_t result = 0;
-  if (0 < n && 0 < maxbits && 64 >= maxbits) { /* 8 interleaved streams in whole words, or groups of 4 */
-    const size_t ngroups = (n + LIBXS_PACK_GROUP - 1) / LIBXS_PACK_GROUP;
-    result = LIBXS_MAX((1 + ngroups + 7) / 8 + 8 * ((ngroups * (size_t)maxbits + 63) / 64),
-      internal_libxs_vpack_quads_bound(n, maxbits));
+  if (0 < n) { /* 8 interleaved streams in whole words, or groups of 4; a word more for floating-point data */
+    const size_t ngroups = (n + LIBXS_PACK_GROUP - 1) / LIBXS_PACK_GROUP; /* bits kept: sign, exponent, a bit */
+    const int nbits = ((0 < maxbits && 64 > maxbits) ? LIBXS_MAX(maxbits, 13) : 64);
+    result = 1 + LIBXS_MAX((1 + ngroups + 7) / 8 + 8 * ((ngroups * (size_t)nbits + 63) / 64),
+      internal_libxs_vpack_quads_bound(n, nbits));
   }
   return result;
 }
 
 
-LIBXS_API size_t libxs_vpack(void* packed, const void* values,
+LIBXS_API_INLINE size_t internal_libxs_vpack_int(void* packed, const void* values,
   libxs_data_t type, size_t n, int maxbits, int level)
 {
   const int typesize = internal_libxs_pack_typesize(type);
@@ -1510,7 +1520,7 @@ LIBXS_API size_t libxs_vpack(void* packed, const void* values,
 }
 
 
-LIBXS_API size_t libxs_vunpack(void* values, const void* packed, size_t npacked,
+LIBXS_API_INLINE size_t internal_libxs_vunpack_int(void* values, const void* packed, size_t npacked,
   libxs_data_t type, size_t n)
 {
   const int typesize = internal_libxs_pack_typesize(type);
@@ -1557,5 +1567,217 @@ LIBXS_API size_t libxs_vunpack(void* values, const void* packed, size_t npacked,
     }
     LIBXS_ASSERT(result <= npacked);
   }
+  return result;
+}
+
+
+/* The lowest width bits of v reversed. */
+LIBXS_INLINE_ALWAYS uint64_t internal_libxs_reals_rev(uint64_t v, int width)
+{
+  v = ((v >> 1) & 0x5555555555555555ULL) | ((v & 0x5555555555555555ULL) << 1);
+  v = ((v >> 2) & 0x3333333333333333ULL) | ((v & 0x3333333333333333ULL) << 2);
+  v = ((v >> 4) & 0x0F0F0F0F0F0F0F0FULL) | ((v & 0x0F0F0F0F0F0F0F0FULL) << 4);
+  v = ((v >> 8) & 0x00FF00FF00FF00FFULL) | ((v & 0x00FF00FF00FF00FFULL) << 8);
+  v = ((v >> 16) & 0x0000FFFF0000FFFFULL) | ((v & 0x0000FFFF0000FFFFULL) << 16);
+  v = (v >> 32) | (v << 32);
+  return v >> (64 - width);
+}
+
+
+/* 2^k for a normal double (-1022 <= k <= 1023). */
+LIBXS_INLINE_ALWAYS double internal_libxs_reals_pow2(int k)
+{
+  const uint64_t bits = ((uint64_t)(1023 + k)) << 52;
+  double result;
+  memcpy(&result, &bits, sizeof(result));
+  return result;
+}
+
+
+/* The bits of value i (F64 or F32, zero-extended). */
+LIBXS_INLINE_ALWAYS uint64_t internal_libxs_reals_bits(const void* values, int f64, size_t i)
+{
+  uint64_t result = 0;
+  if (0 != f64) memcpy(&result, (const double*)values + i, sizeof(double));
+  else {
+    uint32_t b;
+    memcpy(&b, (const float*)values + i, sizeof(b));
+    result = b;
+  }
+  return result;
+}
+
+
+/* Floating-point data (LIBXS_PACK_REALS) as integers at the level: maxbits of zero or less quantizes at a step
+ * of 2^(maxbits+1) (an absolute error of at most 2^maxbits), else maxbits leading bits of a value are kept
+ * (rounded, at least sign, exponent, and a bit; all of them: lossless). Values that cannot be quantized take
+ * the lossless way. */
+LIBXS_API_INLINE size_t internal_libxs_vpack_reals(void* packed, const void* values, libxs_data_t type,
+  size_t n, int maxbits, int level)
+{
+  const int f64 = (LIBXS_DATATYPE_F64 == type ? 1 : 0), width = (0 != f64 ? 64 : 32), expbits = (0 != f64 ? 11 : 8);
+  const uint64_t smask = ((uint64_t)1) << (width - 1);
+  const uint64_t expall = (smask - 1) & ~((((uint64_t)1) << (width - 1 - expbits)) - 1); /* exponent all ones */
+  int pool = 0;
+  uint64_t *const u = (uint64_t*)internal_libxs_scratch_malloc(n * sizeof(uint64_t), &pool);
+  size_t result = 0;
+  if (NULL != u) {
+    uint64_t *const out = (uint64_t*)packed;
+    int transform = -1, keep = LIBXS_MIN(LIBXS_MAX(maxbits, 2 + expbits), width), t = 0; /* a mantissa bit */
+    size_t i, nwords;
+    if (0 >= maxbits) { /* quantized, if every value can be */
+      const int e = LIBXS_MAX(maxbits, 0 != f64 ? -1023 : -127); /* the step is a normal number */
+      const double scale = internal_libxs_reals_pow2(-(e + 1)), big = internal_libxs_reals_pow2(62);
+      const double exact = internal_libxs_reals_pow2(52); /* from here on, every double is an integer */
+      int ok = 1;
+      for (i = 0; i < n && 0 != ok; ++i) {
+        const double x = (0 != f64 ? ((const double*)values)[i] : (double)((const float*)values)[i]), v = x * scale;
+        if (-big < v && v < big) { /* finite and in range (NaN is not) */
+          u[i] = (uint64_t)((-exact < v && v < exact) ? (int64_t)(v + (0 <= v ? 0.5 : -0.5)) : (int64_t)v);
+        }
+        else ok = 0;
+      }
+      if (0 != ok) {
+        transform = LIBXS_PACK_REAL_ABS;
+        t = e;
+      }
+      else keep = width;
+    }
+    if (0 > transform && width == keep) { /* integral values as integers (no -0, no loss) */
+      const double limit = internal_libxs_reals_pow2(0 != f64 ? 53 : 24);
+      int ok = 1;
+      for (i = 0; i < n && 0 != ok; ++i) {
+        const double x = (0 != f64 ? ((const double*)values)[i] : (double)((const float*)values)[i]);
+        if (-limit <= x && x <= limit && (double)(int64_t)x == x
+          && (0 != x || 0 == (internal_libxs_reals_bits(values, f64, i) & smask)))
+        {
+          u[i] = (uint64_t)(int64_t)x;
+        }
+        else ok = 0;
+      }
+      if (0 != ok) transform = LIBXS_PACK_REAL_INT;
+    }
+    if (0 > transform) { /* sign at bit 0, XOR with the previous value; bit-reversed if that takes less */
+      const int drop = width - keep;
+      uint64_t prev = 0, gx = 0, gr = 0;
+      size_t costx = 0, costr = 0;
+      for (i = 0; i < n; ++i) {
+        const uint64_t b = internal_libxs_reals_bits(values, f64, i);
+        uint64_t mag = b & (smask - 1), s, v;
+        if (0 < drop) {
+          if (expall != (mag & expall)) { /* finite: round, but not into Inf */
+            mag += ((uint64_t)1) << (drop - 1);
+            if (expall == (mag & expall)) mag = expall - 1;
+          }
+          else if (expall != mag) mag |= ((uint64_t)1) << drop; /* NaN stays NaN */
+          mag >>= drop;
+        }
+        s = (mag << 1) | (b >> (width - 1));
+        v = s ^ prev;
+        prev = s;
+        u[i] = v;
+        gx |= v;
+        gr |= internal_libxs_reals_rev(v, keep);
+        if (LIBXS_PACK_GROUP - 1 == (i % LIBXS_PACK_GROUP) || n == i + 1) { /* estimate: the widths of the groups */
+          costx += LIBXS_NBITS(gx);
+          costr += LIBXS_NBITS(gr);
+          gx = gr = 0;
+        }
+      }
+      transform = LIBXS_PACK_REAL_XOR;
+      if (costr < costx) {
+        transform = LIBXS_PACK_REAL_REV;
+        for (i = 0; i < n; ++i) u[i] = internal_libxs_reals_rev(u[i], keep);
+      }
+    }
+    if (LIBXS_PACK_REAL_ABS == transform) {
+      nwords = internal_libxs_vpack_int(out + 1, u, LIBXS_DATATYPE_I64, n, 64, level);
+    }
+    else if (LIBXS_PACK_REAL_INT == transform) { /* at most 2^53 (2^24) in magnitude */
+      nwords = internal_libxs_vpack_int(out + 1, u, LIBXS_DATATYPE_I64, n, 0 != f64 ? 55 : 26, level);
+    }
+    else nwords = internal_libxs_vpack_int(out + 1, u, LIBXS_DATATYPE_U64, n, keep, level);
+    if (0 != nwords) {
+      out[0] = (((uint64_t)((unsigned int)t & 0xFFFF)) << 32) | (((uint64_t)keep) << 24)
+        | (((uint64_t)transform) << 16) | (((uint64_t)LIBXS_PACK_REALS) << 8);
+      result = 1 + nwords;
+    }
+    internal_libxs_scratch_free(u, pool);
+  }
+  return result;
+}
+
+
+/* Decodes the format of internal_libxs_vpack_reals; returns the words consumed, zero if invalid. */
+LIBXS_API_INLINE size_t internal_libxs_vunpack_reals(void* values, const void* packed, size_t npacked,
+  libxs_data_t type, size_t n)
+{
+  const uint64_t head = ((const uint64_t*)packed)[0];
+  const int f64 = (LIBXS_DATATYPE_F64 == type ? 1 : 0), width = (0 != f64 ? 64 : 32), expbits = (0 != f64 ? 11 : 8);
+  const int transform = (int)((head >> 16) & 0xFF), keep = (int)((head >> 24) & 0xFF);
+  const int t = (int)(int16_t)((head >> 32) & 0xFFFF);
+  size_t result = 0;
+  if (LIBXS_PACK_REALS == (int)((head >> 8) & 0xFF) && LIBXS_PACK_REAL_ABS >= transform && 1 < npacked
+    && 2 + expbits <= keep && width >= keep)
+  {
+    const int integers = (LIBXS_PACK_REAL_ABS == transform || LIBXS_PACK_REAL_INT == transform);
+    int pool = 0;
+    uint64_t *const u = (uint64_t*)internal_libxs_scratch_malloc(n * sizeof(uint64_t), &pool);
+    if (NULL != u) {
+      const size_t nwords = internal_libxs_vunpack_int(u, (const uint64_t*)packed + 1, npacked - 1,
+        0 != integers ? LIBXS_DATATYPE_I64 : LIBXS_DATATYPE_U64, n);
+      if (0 != nwords) {
+        const double step = (LIBXS_PACK_REAL_ABS == transform ? internal_libxs_reals_pow2(t + 1) : 1.0);
+        uint64_t s = 0;
+        size_t i;
+        for (i = 0; i < n; ++i) {
+          if (0 != integers) { /* exact: the step is a power of two */
+            const double x = (double)(int64_t)u[i] * step;
+            if (0 != f64) ((double*)values)[i] = x;
+            else ((float*)values)[i] = (float)x;
+          }
+          else { /* XOR with the previous value undone, then the sign back on top */
+            const uint64_t v = (LIBXS_PACK_REAL_REV == transform ? internal_libxs_reals_rev(u[i], keep) : u[i]);
+            uint64_t b;
+            s ^= v;
+            b = ((s >> 1) << (width - keep)) | ((s & 1) << (width - 1));
+            if (0 != f64) memcpy((double*)values + i, &b, sizeof(double));
+            else {
+              const uint32_t b32 = (uint32_t)b;
+              memcpy((float*)values + i, &b32, sizeof(b32));
+            }
+          }
+        }
+        result = 1 + nwords;
+      }
+      internal_libxs_scratch_free(u, pool);
+    }
+  }
+  return result;
+}
+
+
+LIBXS_API size_t libxs_vpack(void* packed, const void* values,
+  libxs_data_t type, size_t n, int maxbits, int level)
+{
+  size_t result;
+  if (LIBXS_DATATYPE_F64 == type || LIBXS_DATATYPE_F32 == type) {
+    result = ((0 < n && NULL != packed && NULL != values)
+      ? internal_libxs_vpack_reals(packed, values, type, n, maxbits, level) : 0);
+  }
+  else result = internal_libxs_vpack_int(packed, values, type, n, maxbits, level);
+  return result;
+}
+
+
+LIBXS_API size_t libxs_vunpack(void* values, const void* packed, size_t npacked,
+  libxs_data_t type, size_t n)
+{
+  size_t result;
+  if (LIBXS_DATATYPE_F64 == type || LIBXS_DATATYPE_F32 == type) {
+    result = ((0 < n && 0 < npacked && NULL != packed && NULL != values)
+      ? internal_libxs_vunpack_reals(values, packed, npacked, type, n) : 0);
+  }
+  else result = internal_libxs_vunpack_int(values, packed, npacked, type, n);
   return result;
 }

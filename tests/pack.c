@@ -8,6 +8,7 @@
 * SPDX-License-Identifier: BSD-3-Clause                                       *
 ******************************************************************************/
 #include <libxs/libxs_source.h>
+#include <math.h>
 
 #define NMAX 1000
 #define SENTINEL 0x5A5A5A5A5A5A5A5AULL
@@ -196,7 +197,7 @@ static int check_edges(void)
   else if (EXIT_SUCCESS == libxs_pack(packed, values, LIBXS_DATATYPE_F64, 64, 8)
     || EXIT_SUCCESS == libxs_pack(packed, values, LIBXS_DATATYPE_I32, 64, 33)
     || EXIT_SUCCESS == libxs_pack(packed, values, LIBXS_DATATYPE_U8, 64, 0)
-    || 0 != libxs_vpack(packed, values, LIBXS_DATATYPE_F32, 64, 8, 0)
+    || 0 != libxs_vpack(packed, values, LIBXS_DATATYPE_C64, 64, 8, 0)
     || 0 != libxs_vpack(packed, values, LIBXS_DATATYPE_I16, 64, 0, 0))
   {
     fprintf(stderr, "edges: invalid arguments accepted\n");
@@ -260,6 +261,105 @@ static int check_lanes(libxs_data_t type)
 }
 
 
+/** Floating-point data: lossless (bit-exact), relative (maxbits leading bits, rounded), absolute (2^maxbits),
+ * with integral values, zeros of either sign, Inf, NaN, subnormals, and large values among them. */
+static int check_reals(libxs_data_t type)
+{
+  static const size_t counts[] = { 1, 7, 8, 9, 63, 333, 1024, 4099 };
+  static const int modes64[] = { 64, 40, 20, 5, 0, -10, -30, -60, -2000 };
+  static const int modes32[] = { 32, 20, 12, 3, 0, -5, -20, -200 };
+  const int f64 = (LIBXS_DATATYPE_F64 == type), width = (0 != f64 ? 64 : 32), expbits = (0 != f64 ? 11 : 8);
+  const int* const modes = (0 != f64 ? modes64 : modes32);
+  const int nmodes = (0 != f64 ? (int)(sizeof(modes64) / sizeof(*modes64)) : (int)(sizeof(modes32) / sizeof(*modes32)));
+  const size_t nmax = 4099;
+  double *const x = (double*)malloc(nmax * sizeof(double)), *const y = (double*)malloc(nmax * sizeof(double));
+  float *const xf = (float*)malloc(nmax * sizeof(float)), *const yf = (float*)malloc(nmax * sizeof(float));
+  uint64_t *const packed = (uint64_t*)malloc((2 * nmax + 64) * sizeof(uint64_t));
+  int result = (NULL != x && NULL != y && NULL != xf && NULL != yf && NULL != packed) ? EXIT_SUCCESS : EXIT_FAILURE;
+  int kind, im, level;
+  size_t ic, i;
+  for (kind = 0; kind < 3 && EXIT_SUCCESS == result; ++kind) { /* full mantissas, integral, specials among them */
+    for (i = 0; i < nmax; ++i) {
+      const double r = (double)(rng_next() >> 11) / 9007199254740992.0 - 0.5;
+      x[i] = (0 == kind ? ldexp(r, (int)(rng_next() % 40) - 20)
+        : (double)((int64_t)(rng_next() % 2001) - 1000));
+      if (0 == (rng_next() % 5)) x[i] = 0;
+    }
+    if (2 == kind) { /* specials */
+      const uint64_t inf = 0x7FF0000000000000ULL, nan = 0x7FF8000000000001ULL;
+      memcpy(x + 3, &inf, sizeof(double));
+      x[5] = -x[3];
+      memcpy(x + 6, &nan, sizeof(double));
+      x[1] = -0.0;
+      x[10] = 4.9e-324;
+      x[12] = 1e300;
+      x[20] = -1e-310;
+    }
+    for (i = 0; i < nmax; ++i) xf[i] = (float)x[i];
+    for (im = 0; im < nmodes && EXIT_SUCCESS == result; ++im) {
+      const int maxbits = modes[im], keep = LIBXS_MIN(LIBXS_MAX(maxbits, 2 + expbits), width);
+      const int mbits = keep - 1 - expbits; /* mantissa bits kept */
+      for (level = 1; level <= 3 && EXIT_SUCCESS == result; ++level) {
+        for (ic = 0; ic < sizeof(counts) / sizeof(*counts) && EXIT_SUCCESS == result; ++ic) {
+          const size_t n = counts[ic], bound = libxs_vpack_bound(n, maxbits);
+          size_t nwords, nread, k;
+          int exact = (width <= maxbits), special = 0;
+          for (i = 0; i < 2 * nmax + 64; ++i) packed[i] = SENTINEL;
+          memset(y, 0xFF, nmax * sizeof(double));
+          memset(yf, 0xFF, nmax * sizeof(float));
+          nwords = libxs_vpack(packed, 0 != f64 ? (const void*)x : (const void*)xf, type, n, maxbits, level);
+          nread = libxs_vunpack(0 != f64 ? (void*)y : (void*)yf, packed, nwords, type, n);
+          for (k = 0; k < n; ++k) {
+            const double v = (0 != f64 ? x[k] : (double)xf[k]);
+            if (!(v == v) || v - v != 0) special = 1; /* NaN or Inf */
+            if (0 != f64 && 0 != v && fabs(v) * ldexp(1.0, -(maxbits + 1)) >= ldexp(1.0, 62)) special = 1;
+          }
+          if (0 >= maxbits && 0 != special) exact = 1; /* not quantized: lossless */
+          if (0 == nwords || nwords > bound || nread != nwords) {
+            fprintf(stderr, "reals: %i words (bound %i, read %i) for type %i, kind %i, maxbits %i, level %i, n %i\n",
+              (int)nwords, (int)bound, (int)nread, (int)type, kind, maxbits, level, (int)n);
+            result = EXIT_FAILURE;
+          }
+          else if (SENTINEL != packed[nwords]) {
+            fprintf(stderr, "reals: overrun (type %i, kind %i, maxbits %i, level %i, n %i)\n", (int)type, kind, maxbits,
+              level, (int)n);
+            result = EXIT_FAILURE;
+          }
+          for (k = 0; k < n && EXIT_SUCCESS == result; ++k) {
+            const double v = (0 != f64 ? x[k] : (double)xf[k]), w = (0 != f64 ? y[k] : (double)yf[k]);
+            int ok;
+            if (0 != exact) {
+              ok = (0 != f64 ? (0 == memcmp(x + k, y + k, sizeof(double)))
+                : (0 == memcmp(xf + k, yf + k, sizeof(float))));
+            }
+            else if (!(v == v)) ok = !(w == w); /* NaN stays NaN */
+            else if (v - v != 0) ok = (v == w); /* Inf stays Inf */
+            else if (0 >= maxbits) {
+              ok = (fabs(w - v) <= ldexp(1.0, LIBXS_MAX(maxbits, 0 != f64 ? -1023 : -127)));
+            }
+            else { /* relative, or absolute below the normal numbers */
+              const double tiny = ldexp(1.0, (0 != f64 ? -1022 : -126) - mbits);
+              ok = (fabs(w - v) <= LIBXS_MAX(ldexp(fabs(v), -mbits), tiny));
+            }
+            if (0 == ok) {
+              fprintf(stderr, "reals: value %i is %.17g, not %.17g (type %i, kind %i, maxbits %i, level %i, n %i)\n",
+                (int)k, w, v, (int)type, kind, maxbits, level, (int)n);
+              result = EXIT_FAILURE;
+            }
+          }
+        }
+      }
+    }
+  }
+  free(x);
+  free(y);
+  free(xf);
+  free(yf);
+  free(packed);
+  return result;
+}
+
+
 int main(int argc, char* argv[])
 {
   static const libxs_data_t types[] = {
@@ -279,6 +379,8 @@ int main(int argc, char* argv[])
     }
     if (EXIT_SUCCESS == result) result = check_lanes(types[i]);
   }
+  if (EXIT_SUCCESS == result) result = check_reals(LIBXS_DATATYPE_F64);
+  if (EXIT_SUCCESS == result) result = check_reals(LIBXS_DATATYPE_F32);
   libxs_finalize();
   return result;
 }

@@ -30,16 +30,20 @@ LIBXS_API int libxs_unpack(void* values, const void* packed,
   libxs_data_t type, size_t n, int nbits);
 
 /**
- * Variable width: packs n integers of the given type (I8..I64, U8..U64) into
- * 64-bit words whose number follows the magnitudes, so small values or zeros
- * cost little. Values are taken as integers of maxbits bits (signed types
- * sign-extended from maxbits, unsigned types masked); small magnitudes of
- * either sign stay small. The level selects a trade-off: 1 packs and unpacks
- * fastest, 2 takes less space, 3 (or more) the least; 0 (or less) takes the
- * default (2, or LIBXS_PACK in the environment). The stream is internal and may change
- * between versions; only n has to be known to unpack. Returns the number of
- * 64-bit words written, at most libxs_vpack_bound, or zero for invalid
- * arguments or n of zero.
+ * Variable width: packs n values of the given type (I8..I64, U8..U64, F64,
+ * F32) into 64-bit words whose number follows the magnitudes, so small values
+ * or zeros cost little. Integers are taken as integers of maxbits bits (signed
+ * types sign-extended from maxbits, unsigned types masked); small magnitudes
+ * of either sign stay small. For F64 and F32, maxbits sets the accuracy: the
+ * width of the type (or more) is lossless, fewer bits keep that many leading
+ * bits of each value (at least sign, exponent, and a bit: a relative error),
+ * and zero or less bounds the absolute error by 2^maxbits (values that cannot
+ * be held to it, such as Inf or NaN, are kept exactly). The level selects a
+ * trade-off: 1 packs and unpacks fastest, 2 takes less space, 3 (or more) the
+ * least; 0 (or less) takes the default (2, or LIBXS_PACK in the environment).
+ * The stream is internal and may change between versions; only n has to be
+ * known to unpack. Returns the number of 64-bit words written, at most
+ * libxs_vpack_bound, or zero for invalid arguments or n of zero.
  */
 LIBXS_API size_t libxs_vpack(void* packed, const void* values,
   libxs_data_t type, size_t n, int maxbits, int level);

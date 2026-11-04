@@ -1648,3 +1648,61 @@
      &      SIZE(packed, KIND=C_SIZE_T), LIBXS_DATATYPE_I64,            &
      &      SIZE(values, KIND=C_SIZE_T))
         END FUNCTION
+
+        !> Variable-width packing of REAL(C_DOUBLE) (see libxs_vpack).
+        FUNCTION libxs_vpack_f64(packed, values, maxbits, level)        &
+     &  RESULT(nwords)
+          INTEGER(C_LONG_LONG), INTENT(OUT), CONTIGUOUS,                &
+     &      TARGET :: packed(:)
+          REAL(C_DOUBLE), INTENT(IN), CONTIGUOUS, TARGET :: values(:)
+          INTEGER(C_INT), INTENT(IN) :: maxbits
+          INTEGER(C_INT), INTENT(IN), OPTIONAL :: level
+          INTEGER(C_SIZE_T) :: nwords
+          INTEGER(C_INT) :: l
+          l = 0
+          IF (PRESENT(level)) l = level
+          nwords = internal_vpack(C_LOC(packed), C_LOC(values),         &
+     &      LIBXS_DATATYPE_F64, SIZE(values, KIND=C_SIZE_T),            &
+     &      maxbits, l)
+        END FUNCTION
+
+        !> Variable-width unpacking of REAL(C_DOUBLE) (libxs_vunpack).
+        FUNCTION libxs_vunpack_f64(values, packed) RESULT(nwords)
+          REAL(C_DOUBLE), INTENT(OUT), CONTIGUOUS, TARGET :: values(:)
+          INTEGER(C_LONG_LONG), INTENT(IN), CONTIGUOUS,                 &
+     &      TARGET :: packed(:)
+          INTEGER(C_SIZE_T) :: nwords
+          ! C_LOC needs SIZE(packed) > 0; npacked = 0 makes C return 0
+          nwords = internal_vunpack(C_LOC(values), C_LOC(packed),       &
+     &      SIZE(packed, KIND=C_SIZE_T), LIBXS_DATATYPE_F64,            &
+     &      SIZE(values, KIND=C_SIZE_T))
+        END FUNCTION
+
+        !> Variable-width packing of REAL(C_FLOAT) (see libxs_vpack).
+        FUNCTION libxs_vpack_f32(packed, values, maxbits, level)        &
+     &  RESULT(nwords)
+          INTEGER(C_LONG_LONG), INTENT(OUT), CONTIGUOUS,                &
+     &      TARGET :: packed(:)
+          REAL(C_FLOAT), INTENT(IN), CONTIGUOUS, TARGET :: values(:)
+          INTEGER(C_INT), INTENT(IN) :: maxbits
+          INTEGER(C_INT), INTENT(IN), OPTIONAL :: level
+          INTEGER(C_SIZE_T) :: nwords
+          INTEGER(C_INT) :: l
+          l = 0
+          IF (PRESENT(level)) l = level
+          nwords = internal_vpack(C_LOC(packed), C_LOC(values),         &
+     &      LIBXS_DATATYPE_F32, SIZE(values, KIND=C_SIZE_T),            &
+     &      maxbits, l)
+        END FUNCTION
+
+        !> Variable-width unpacking of REAL(C_FLOAT) (libxs_vunpack).
+        FUNCTION libxs_vunpack_f32(values, packed) RESULT(nwords)
+          REAL(C_FLOAT), INTENT(OUT), CONTIGUOUS, TARGET :: values(:)
+          INTEGER(C_LONG_LONG), INTENT(IN), CONTIGUOUS,                 &
+     &      TARGET :: packed(:)
+          INTEGER(C_SIZE_T) :: nwords
+          ! C_LOC needs SIZE(packed) > 0; npacked = 0 makes C return 0
+          nwords = internal_vunpack(C_LOC(values), C_LOC(packed),       &
+     &      SIZE(packed, KIND=C_SIZE_T), LIBXS_DATATYPE_F32,            &
+     &      SIZE(values, KIND=C_SIZE_T))
+        END FUNCTION
