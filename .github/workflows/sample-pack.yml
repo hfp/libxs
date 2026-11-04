@@ -20,8 +20,11 @@ on:
         description: "Environment for all steps, e.g., RECORD=1024"
         default: "REPEAT=7"
       baseline:
-        description: "Revision whose src/libxs_pack.c also runs (LIBXS_VPACK=1), full hash if amended"
+        description: "Revision built as well (whole tree, same formats), full hash if amended"
         default: ""
+      formats:
+        description: "Values of LIBXS_PACK to run, e.g., 1 2 3"
+        default: "1 2 3"
 
 jobs:
   Pack:
@@ -35,6 +38,7 @@ jobs:
       INPUT_ARGS: ${{ github.event.inputs.args }}
       FILE_URL: ${{ github.event.inputs.file_url }}
       BASELINE: ${{ github.event.inputs.baseline }}
+      FORMATS: ${{ github.event.inputs.formats }}
     steps:
     - uses: actions/checkout@v5
 
@@ -130,13 +134,16 @@ jobs:
       shell: bash # pipefail: a failed round trip must not disappear behind tee
       run: |
         if [ "" != "${FILE_URL}" ]; then INPUT_ARGS=input.mhd; fi
+        if ! echo "${FORMATS}" | grep -qE '^[0-9 ]+$'; then
+          echo "ERROR: \"${FORMATS}\" is not a list of numbers"; exit 1
+        fi
         CPU=$(($(nproc) - 1))
         BUILDS="avx512 avx2 native avx512-again"
         if [ "" != "${BASELINE}" ]; then BUILDS="avx512 base-avx512 avx2 base-avx2 native avx512-again"; fi
         for BUILD in ${BUILDS}; do
           LABEL="${BUILD}"
           if [ "${BUILD#base-}" != "${BUILD}" ]; then LABEL="${BUILD} (${BASELINE})"; fi
-          for FORMAT in 1 2 3; do # LIBXS_PACK; a baseline from before reads LIBXS_VPACK (1: format 3)
+          for FORMAT in ${FORMATS}; do # LIBXS_PACK; a baseline from before reads LIBXS_VPACK (1: format 3)
             echo "--- ${LABEL}, LIBXS_PACK=${FORMAT}" | tee -a "pack-${{ matrix.job }}.log"
             LIBXS_PACK=${FORMAT} LIBXS_VPACK=$((3 == FORMAT ? 1 : 0)) taskset -c "${CPU}" "./pack-${BUILD%-again}.x" \
               ${INPUT_ARGS} | tee -a "pack-${{ matrix.job }}.log"

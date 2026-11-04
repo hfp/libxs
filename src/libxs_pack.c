@@ -17,18 +17,20 @@
 #endif
 /* formats of libxs_vpack (LIBXS_PACK, 0 or unset: LIBXS_PACK_DEFAULT): group sizes that are a multiple
  * of 8 as 8 interleaved streams of words (value 8*c+l in stream l, all at the same bit position, so every
- * shift is uniform over lanes) as samples/pack/vpack.f writes them; as bytes, a group of 8 with
- * exceptions; or a group of 8 as codes of the lengths (internal_libxs_vpack_lanes, else as bytes) */
+ * shift is uniform over lanes) as samples/pack/vpack.f writes them, other sizes as one stream of bits;
+ * a group of 8 (LIBXS_PACK_GROUP) as two groups of 4 in words with their widths as deltas
+ * (internal_libxs_vpack_quads); or a group of 8 as codes of the lengths (internal_libxs_vpack_lanes).
+ * Where a format does not apply or the result would not fit, the first one is taken. */
 #define LIBXS_PACK_WORDS 1
-#define LIBXS_PACK_BYTES 2
+#define LIBXS_PACK_QUADS 2
 #define LIBXS_PACK_CODES 3
-#define LIBXS_PACK_DEFAULT LIBXS_PACK_WORDS
-/* AVX2 decoder (8 permutes per group of 8): measured no faster than the scalar decoder */
-#if !defined(LIBXS_PACK_AVX2_UNPACK) && 0
-# define LIBXS_PACK_AVX2_UNPACK
-#endif
-/* values per group of the exceptions format: a bitmap byte (and a vector lane) per value */
-#define LIBXS_PACK_EXC_GROUP 8
+#define LIBXS_PACK_GROUP 8
+/* format LIBXS_PACK_QUADS: values per group, bits of a width delta (all ones: the width follows in 8 bits) */
+#define LIBXS_PACK_QUAD 4
+#define LIBXS_PACK_QUAD_DELTA 4
+/* formats LIBXS_PACK_WORDS and LIBXS_PACK_QUADS: columns whose positions are found before they are read */
+#define LIBXS_PACK_SPAN 64
+#define LIBXS_PACK_DEFAULT LIBXS_PACK_QUADS
 /* format LIBXS_PACK_CODES: lanes per group (a predictor each), parameter and escape of the codes,
  * streams, zero bytes behind the streams (reads of 8 bytes stay inside), groups per decoded block */
 #define LIBXS_PACK_LANES 8
@@ -72,8 +74,6 @@
 #elif defined(LIBXS_PACK_AVX2) && (2 > LIBXS_PACK_STATIC)
 # define LIBXS_PACK_RUNTIME
 #endif
-#define LIBXS_PACK_CASE_VPACK(N) case N: internal_libxs_vpack8(out, in, N); break;
-#define LIBXS_PACK_CASE_VUNPACK(N) case N: internal_libxs_vunpack8(out, in, N); break;
 
 
 typedef struct internal_libxs_pack_writer_t {
@@ -325,86 +325,6 @@ LIBXS_API_INLINE void internal_libxs_unpack_group(uint64_t* LIBXS_RESTRICT out,
 }
 
 
-/* 8 values of w bits (no higher bits set) into exactly w bytes. */
-LIBXS_INLINE_ALWAYS void internal_libxs_vpack8(unsigned char* LIBXS_RESTRICT out,
-  const uint64_t* LIBXS_RESTRICT in, int w)
-{
-  uint64_t tmp[8], acc = 0;
-  int fill = 0, nwords = 0, i;
-  LIBXS_PRAGMA_UNROLL_N(8)
-  for (i = 0; i < 8; ++i) {
-    const uint64_t v = in[i];
-    acc |= v << fill;
-    fill += w;
-    if (64 <= fill) {
-      tmp[nwords] = acc;
-      ++nwords;
-      fill -= 64;
-      acc = (0 != fill ? (v >> (w - fill)) : 0);
-    }
-  }
-  if (0 != fill) tmp[nwords] = acc;
-  memcpy(out, tmp, w);
-}
-
-
-LIBXS_INLINE_ALWAYS void internal_libxs_vunpack8(uint64_t* LIBXS_RESTRICT out,
-  const unsigned char* LIBXS_RESTRICT in, int w)
-{
-  const uint64_t mask = LIBXS_PACK_MASK(w);
-  uint64_t tmp[8];
-  int i;
-  tmp[(w - 1) >> 3] = 0; /* bytes beyond w in the last word */
-  memcpy(tmp, in, w);
-  LIBXS_PRAGMA_UNROLL_N(8)
-  for (i = 0; i < 8; ++i) {
-    const int bit = i * w, off = bit & 63;
-    uint64_t v = tmp[bit >> 6] >> off;
-    if (64 < off + w) v |= tmp[(bit >> 6) + 1] << (64 - off);
-    out[i] = v & mask;
-  }
-}
-
-
-/* 8 values of w bits (w <= 56) by unaligned loads; reads up to 7 bytes past the w bytes. */
-LIBXS_API_INLINE void internal_libxs_vunpack8_load(uint64_t* LIBXS_RESTRICT out,
-  const unsigned char* LIBXS_RESTRICT in, int w)
-{
-  const uint64_t mask = LIBXS_PACK_MASK(w);
-  int i;
-  LIBXS_PRAGMA_UNROLL_N(8)
-  for (i = 0; i < 8; ++i) {
-    const int bit = i * w;
-    uint64_t x;
-    memcpy(&x, in + (bit >> 3), sizeof(x));
-    out[i] = (x >> (bit & 7)) & mask;
-  }
-}
-
-
-LIBXS_API_INLINE void internal_libxs_vpack8_group(unsigned char* LIBXS_RESTRICT out,
-  const uint64_t* LIBXS_RESTRICT in, int w)
-{
-  switch (w) {
-    LIBXS_PACK_CASES(LIBXS_PACK_CASE_VPACK)
-    default:;
-  }
-}
-
-
-LIBXS_API_INLINE void internal_libxs_vunpack8_group(uint64_t* LIBXS_RESTRICT out,
-  const unsigned char* LIBXS_RESTRICT in, int w)
-{
-  switch (w) {
-    LIBXS_PACK_CASES(LIBXS_PACK_CASE_VUNPACK)
-    default: {
-      int i;
-      for (i = 0; i < 8; ++i) out[i] = 0;
-    }
-  }
-}
-
-
 /* Appends the w low bits of v (1 <= w <= 64, no higher bits set). */
 LIBXS_API_INLINE void internal_libxs_pack_put(internal_libxs_pack_writer_t* wr,
   uint64_t v, int w)
@@ -491,162 +411,6 @@ LIBXS_API_INLINE void internal_libxs_vunpack8_col(uint64_t* LIBXS_RESTRICT out,
 }
 
 
-/* Payload bytes of a byte-aligned stream, rounded to words: unaligned loads stay within. */
-LIBXS_API_INLINE size_t internal_libxs_vpack_nbytes(const unsigned char* widths, size_t n, int g)
-{
-  const size_t ngroups = (n + g - 1) / g;
-  size_t i, nbytes = 0;
-  for (i = 0; i < ngroups; ++i) nbytes += widths[i] * ((LIBXS_MIN((size_t)g, n - i * g) + 7) / 8);
-  return (nbytes + 7) & ~(size_t)7;
-}
-
-
-/* Decodes 8 values (sign unfolded) from a byte-aligned group; fast reads where safe. */
-LIBXS_API_INLINE void internal_libxs_vunpack8_any(uint64_t* LIBXS_RESTRICT out,
-  const unsigned char* LIBXS_RESTRICT data, size_t pos, size_t nbytes, int w, int is_signed)
-{
-  int i;
-  if (0 < w && 56 >= w && pos + (size_t)w + 7 <= nbytes) internal_libxs_vunpack8_load(out, data + pos, w);
-  else internal_libxs_vunpack8_group(out, data + pos, w);
-  if (0 != is_signed) {
-    for (i = 0; i < 8; ++i) out[i] = (out[i] >> 1) ^ (0 - (out[i] & 1));
-  }
-}
-
-
-/* Decodes a byte-aligned stream into 64-bit integers; returns the bits consumed. */
-LIBXS_API_INLINE size_t internal_libxs_vunpack64_sw(uint64_t* LIBXS_RESTRICT out,
-  const unsigned char* LIBXS_RESTRICT widths, const unsigned char* LIBXS_RESTRICT data,
-  size_t n, int g, int is_signed)
-{
-  const size_t ngroups = (n + g - 1) / g, nbytes = internal_libxs_vpack_nbytes(widths, n, g);
-  uint64_t tmp[8];
-  size_t i, k, pos = 0;
-  for (i = 0; i < ngroups; ++i) {
-    const size_t base = i * g, m = LIBXS_MIN((size_t)g, n - base);
-    const int w = widths[i];
-    for (k = 0; k < m; k += 8) {
-      if (k + 8 <= m) internal_libxs_vunpack8_any(out + base + k, data, pos, nbytes, w, is_signed);
-      else {
-        internal_libxs_vunpack8_any(tmp, data, pos, nbytes, w, is_signed);
-        memcpy(out + base + k, tmp, (m - k) * sizeof(*tmp));
-      }
-      pos += (size_t)w;
-    }
-  }
-  return 8 * pos;
-}
-
-
-#if defined(LIBXS_PACK_AVX512)
-/* As internal_libxs_vunpack64_sw, a group of 8 per vector: the w bytes are loaded (masked,
- * hence no read past them), and each lane funnel-shifts its two words into place. */
-LIBXS_API_INLINE LIBXS_INTRINSICS(LIBXS_X86_AVX512)
-size_t internal_libxs_vunpack64_avx512(uint64_t* LIBXS_RESTRICT out,
-  const unsigned char* LIBXS_RESTRICT widths, const unsigned char* LIBXS_RESTRICT data,
-  size_t n, int g, int is_signed)
-{
-  const size_t ngroups = (n + g - 1) / g;
-  const __m512i lane = _mm512_set_epi64(7, 6, 5, 4, 3, 2, 1, 0);
-  const __m512i word = _mm512_set1_epi64(63), one = _mm512_set1_epi64(1);
-  const __m512i sixtyfour = _mm512_set1_epi64(64);
-  size_t i, k, pos = 0;
-  for (i = 0; i < ngroups; ++i) {
-    const size_t base = i * g, m = LIBXS_MIN((size_t)g, n - base);
-    const int w = widths[i];
-    const __m512i bits = _mm512_mullo_epi64(lane, _mm512_set1_epi64(w));
-    const __m512i lo = _mm512_srli_epi64(bits, 6), hi = _mm512_add_epi64(lo, one);
-    const __m512i shift = _mm512_and_si512(bits, word), back = _mm512_sub_epi64(sixtyfour, shift);
-    const __m512i mask = _mm512_set1_epi64((long long)LIBXS_PACK_MASK(w));
-    const __mmask64 bytes = (64 > w ? ((((__mmask64)1) << w) - 1) : ~((__mmask64)0));
-    for (k = 0; k < m; k += 8) {
-      const __m512i src = _mm512_maskz_loadu_epi8(bytes, data + pos);
-      __m512i x = _mm512_or_si512( /* a shift by 64 yields zero */
-        _mm512_srlv_epi64(_mm512_permutexvar_epi64(lo, src), shift),
-        _mm512_sllv_epi64(_mm512_permutexvar_epi64(hi, src), back));
-      x = _mm512_and_si512(x, mask);
-      if (0 != is_signed) {
-        x = _mm512_xor_si512(_mm512_srli_epi64(x, 1),
-          _mm512_sub_epi64(_mm512_setzero_si512(), _mm512_and_si512(x, one)));
-      }
-      if (k + 8 <= m) _mm512_storeu_si512((void*)(out + base + k), x);
-      else _mm512_mask_storeu_epi64(out + base + k, (__mmask8)((1u << (m - k)) - 1), x);
-      pos += (size_t)w;
-    }
-  }
-  return 8 * pos;
-}
-#endif
-
-
-#if defined(LIBXS_PACK_AVX2) && defined(LIBXS_PACK_AVX2_UNPACK)
-/* As internal_libxs_vunpack64_sw, a group of 8 as two halves: qword loads (masked to the
- * w bytes, rounded up to whole qwords), and a permute across two registers per word. */
-LIBXS_API_INLINE LIBXS_INTRINSICS(LIBXS_X86_AVX2)
-size_t internal_libxs_vunpack64_avx2(uint64_t* LIBXS_RESTRICT out,
-  const unsigned char* LIBXS_RESTRICT widths, const unsigned char* LIBXS_RESTRICT data,
-  size_t n, int g, int is_signed)
-{
-  const size_t ngroups = (n + g - 1) / g, nbytes = internal_libxs_vpack_nbytes(widths, n, g);
-  const __m256i qlane = _mm256_set_epi64x(3, 2, 1, 0), one = _mm256_set1_epi64x(1);
-  const __m256i three = _mm256_set1_epi64x(3), six = _mm256_set1_epi64x(6);
-  const __m256i odd = _mm256_set1_epi64x(((long long)1) << 32);
-  const __m256i word = _mm256_set1_epi64x(63), sixtyfour = _mm256_set1_epi64x(64);
-  __m256i plo[2], phi[2], mlo[2], mhi[2], shift[2], back[2];
-  uint64_t tmp[8];
-  size_t i, k, pos = 0;
-  int h;
-  for (i = 0; i < ngroups; ++i) {
-    const size_t base = i * g, m = LIBXS_MIN((size_t)g, n - base);
-    const int w = widths[i], nq = (w + 7) >> 3;
-    const __m256i wide = _mm256_set1_epi64x(w);
-    const __m256i mask = _mm256_set1_epi64x((long long)LIBXS_PACK_MASK(w));
-    const __m256i load0 = _mm256_cmpgt_epi64(_mm256_set1_epi64x(nq), qlane);
-    const __m256i load1 = _mm256_cmpgt_epi64(_mm256_set1_epi64x(nq - 4), qlane);
-    for (h = 0; h < 2; ++h) { /* per half: word indexes as dword pairs, and which register */
-      const __m256i b = _mm256_mul_epu32(_mm256_add_epi64(qlane, _mm256_set1_epi64x(4 * h)), wide);
-      const __m256i lo = _mm256_srli_epi64(b, 6), hi = _mm256_add_epi64(lo, one);
-      const __m256i tlo = _mm256_and_si256(_mm256_slli_epi64(lo, 1), six); /* even dword */
-      const __m256i thi = _mm256_and_si256(_mm256_slli_epi64(hi, 1), six);
-      plo[h] = _mm256_or_si256(_mm256_or_si256(tlo, _mm256_slli_epi64(tlo, 32)), odd);
-      phi[h] = _mm256_or_si256(_mm256_or_si256(thi, _mm256_slli_epi64(thi, 32)), odd);
-      mlo[h] = _mm256_cmpgt_epi64(lo, three);
-      mhi[h] = _mm256_cmpgt_epi64(hi, three);
-      shift[h] = _mm256_and_si256(b, word);
-      back[h] = _mm256_sub_epi64(sixtyfour, shift[h]);
-    }
-    for (k = 0; k < m; k += 8) {
-      if (k + 8 <= m && 0 < w && pos + (size_t)w + 7 <= nbytes) {
-        const __m256i q0 = _mm256_maskload_epi64((const long long*)(data + pos), load0);
-        const __m256i q1 = _mm256_maskload_epi64((const long long*)(data + pos + 32), load1);
-        for (h = 0; h < 2; ++h) {
-          const __m256i a = _mm256_blendv_epi8(_mm256_permutevar8x32_epi32(q0, plo[h]),
-            _mm256_permutevar8x32_epi32(q1, plo[h]), mlo[h]);
-          const __m256i c = _mm256_blendv_epi8(_mm256_permutevar8x32_epi32(q0, phi[h]),
-            _mm256_permutevar8x32_epi32(q1, phi[h]), mhi[h]);
-          __m256i x = _mm256_or_si256( /* a shift by 64 yields zero */
-            _mm256_srlv_epi64(a, shift[h]), _mm256_sllv_epi64(c, back[h]));
-          x = _mm256_and_si256(x, mask);
-          if (0 != is_signed) {
-            x = _mm256_xor_si256(_mm256_srli_epi64(x, 1),
-              _mm256_sub_epi64(_mm256_setzero_si256(), _mm256_and_si256(x, one)));
-          }
-          _mm256_storeu_si256((__m256i*)(out + base + k + 4 * h), x);
-        }
-      }
-      else if (k + 8 <= m) internal_libxs_vunpack8_any(out + base + k, data, pos, nbytes, w, is_signed);
-      else {
-        internal_libxs_vunpack8_any(tmp, data, pos, nbytes, w, is_signed);
-        memcpy(out + base + k, tmp, (m - k) * sizeof(*tmp));
-      }
-      pos += (size_t)w;
-    }
-  }
-  return 8 * pos;
-}
-#endif
-
-
 /* Format of libxs_vpack: LIBXS_PACK (1 to 3) as found by the first call, else LIBXS_PACK_DEFAULT. */
 LIBXS_API_INLINE int internal_libxs_vpack_format(void)
 {
@@ -684,321 +448,44 @@ LIBXS_API_INLINE int internal_libxs_pack_target(void)
 }
 
 
-/* Bits set in a byte (of the bitmap of groups of 8 with exceptions, LIBXS_PACK_BYTES: a regular width v
- * and the values above it at the full width w, whenever this takes fewer bytes than w bits each). */
-LIBXS_API_INLINE int internal_libxs_pack_popcount8(unsigned int m)
-{
-  m = m - ((m >> 1) & 0x55u);
-  m = (m & 0x33u) + ((m >> 2) & 0x33u);
-  return (int)((m + (m >> 4)) & 0x0Fu);
-}
-
-
-/* Lanes of a group of 8 in order, at v bits or at w bits above v (nb), into words (no branch on
- * the data); writes header byte 0x80|v, bitmap and w-v. */
-LIBXS_API_INLINE void internal_libxs_vpack8_exc_put(uint64_t tmp[9], unsigned char* LIBXS_RESTRICT head,
-  unsigned char* LIBXS_RESTRICT out, const uint64_t* LIBXS_RESTRICT in, const long long nb[8], int v, int w)
-{
-  uint64_t acc = 0;
-  unsigned int mask = 0;
-  size_t k = 0;
-  int fill = 0, i;
-  for (i = 0; i < 8; ++i) { /* the word being filled stays in a register, stores only */
-    const int x = (v < nb[i] ? 1 : 0), f = fill + (0 != x ? w : v), full = (64 <= f ? 1 : 0);
-    const uint64_t lo = acc | (in[i] << fill), hi = (in[i] >> 1) >> (63 - fill); /* hi: bits beyond */
-    tmp[k] = lo;
-    k += (size_t)full;
-    acc = (0 != full ? hi : lo);
-    fill = f & 63;
-    mask |= (unsigned int)x << i;
-  }
-  tmp[k] = acc;
-  *head = (unsigned char)(0x80 | v);
-  out[0] = (unsigned char)mask;
-  out[1] = (unsigned char)(w - v);
-}
-
-
-/* Group of 8 (zig-zag, w bits): a regular width v (one of the widths) with the values above it at w
- * bits (header byte 0x80|v, then bitmap and w-v), or w bits each, whichever takes fewer bytes. */
-LIBXS_API_INLINE size_t internal_libxs_vpack8_exc(unsigned char* LIBXS_RESTRICT head,
-  unsigned char* LIBXS_RESTRICT out, const uint64_t* LIBXS_RESTRICT in, int w)
-{
-  size_t result = (size_t)w;
-  long long nb[8];
-  int i, j, v = w;
-  for (i = 0; i < 8; ++i) nb[i] = (long long)LIBXS_NBITS(in[i]);
-  for (j = 0; j < 8; ++j) { /* no branch on the data */
-    const int c = (int)nb[j];
-    size_t nbytes;
-    int e = 0;
-    for (i = 0; i < 8; ++i) e += (c < nb[i] ? 1 : 0);
-    nbytes = (c < w ? 2 + (size_t)((8 * c + e * (w - c) + 7) >> 3) : (size_t)w);
-    v = (nbytes < result ? c : v);
-    result = LIBXS_MIN(nbytes, result);
-  }
-  if (v < w) {
-    uint64_t tmp[9];
-    internal_libxs_vpack8_exc_put(tmp, head, out, in, nb, v, w);
-    memcpy(out + 2, tmp, result - 2);
-  }
-  else {
-    *head = (unsigned char)w;
-    internal_libxs_vpack8_group(out, in, w);
-  }
-  return result;
-}
-
-
-# if defined(LIBXS_PACK_AVX512)
-/* As internal_libxs_vpack8_exc (same result): the widths by leading zeros, then the bytes for every
- * candidate v (a lane's width) at once, the exceptions counted over the lanes rotated by 1 to 7. */
-LIBXS_API_INLINE LIBXS_INTRINSICS(LIBXS_X86_AVX512)
-size_t internal_libxs_vpack8_exc_avx512(unsigned char* LIBXS_RESTRICT head,
-  unsigned char* LIBXS_RESTRICT out, const uint64_t* LIBXS_RESTRICT in, int w)
-{
-  const __m512i one = _mm512_set1_epi64(1), wv = _mm512_set1_epi64(w);
-  const __m512i nbv = _mm512_sub_epi64(_mm512_set1_epi64(64), _mm512_lzcnt_epi64(_mm512_loadu_si512(in)));
-  __m512i e, cost;
-  long long nb[8];
-  size_t result;
-  /* rotations by 1 to 7 (independent): lane l compares with lane l+r */
-  e = _mm512_maskz_mov_epi64(_mm512_cmpgt_epi64_mask(_mm512_alignr_epi64(nbv, nbv, 1), nbv), one);
-  e = _mm512_mask_add_epi64(e, _mm512_cmpgt_epi64_mask(_mm512_alignr_epi64(nbv, nbv, 2), nbv), e, one);
-  e = _mm512_mask_add_epi64(e, _mm512_cmpgt_epi64_mask(_mm512_alignr_epi64(nbv, nbv, 3), nbv), e, one);
-  e = _mm512_mask_add_epi64(e, _mm512_cmpgt_epi64_mask(_mm512_alignr_epi64(nbv, nbv, 4), nbv), e, one);
-  e = _mm512_mask_add_epi64(e, _mm512_cmpgt_epi64_mask(_mm512_alignr_epi64(nbv, nbv, 5), nbv), e, one);
-  e = _mm512_mask_add_epi64(e, _mm512_cmpgt_epi64_mask(_mm512_alignr_epi64(nbv, nbv, 6), nbv), e, one);
-  e = _mm512_mask_add_epi64(e, _mm512_cmpgt_epi64_mask(_mm512_alignr_epi64(nbv, nbv, 7), nbv), e, one);
-  cost = _mm512_add_epi64(_mm512_slli_epi64(nbv, 3), _mm512_mullo_epi64(e, _mm512_sub_epi64(wv, nbv)));
-  cost = _mm512_add_epi64(_mm512_set1_epi64(2), _mm512_srli_epi64(_mm512_add_epi64(cost, _mm512_set1_epi64(7)), 3));
-  cost = _mm512_mask_blend_epi64(_mm512_cmplt_epi64_mask(nbv, wv), wv, cost);
-  result = (size_t)_mm512_reduce_min_epi64(cost);
-  _mm512_storeu_si512((void*)nb, nbv);
-  if (result < (size_t)w) {
-    const int j = (int)LIBXS_INTRINSICS_BITSCANFWD32(
-      (unsigned int)_mm512_cmpeq_epi64_mask(cost, _mm512_set1_epi64((long long)result)));
-    uint64_t tmp[9];
-    internal_libxs_vpack8_exc_put(tmp, head, out, in, nb, (int)nb[j], w);
-    _mm512_mask_storeu_epi8(out + 2, (((__mmask64)1) << (result - 2)) - 1, _mm512_loadu_si512(tmp));
-  }
-  else {
-    *head = (unsigned char)w;
-    internal_libxs_vpack8_group(out, in, w);
-  }
-  return result;
-}
-# endif
-
-
-# if defined(LIBXS_PACK_AVX2)
-/* As internal_libxs_vpack8_exc (same result): the widths as 32-bit lanes, the exceptions counted
- * over the lanes rotated by 1 to 7, then the bytes for every candidate v at once. */
-LIBXS_API_INLINE LIBXS_INTRINSICS(LIBXS_X86_AVX2)
-size_t internal_libxs_vpack8_exc_avx2(unsigned char* LIBXS_RESTRICT head,
-  unsigned char* LIBXS_RESTRICT out, const uint64_t* LIBXS_RESTRICT in, int w)
-{
-  const __m256i lane = _mm256_setr_epi32(0, 1, 2, 3, 4, 5, 6, 7), seven = _mm256_set1_epi32(7);
-  const __m256i wv = _mm256_set1_epi32(w);
-  __m256i nbv, e = _mm256_setzero_si256(), cost, m;
-  long long nb[8];
-  int nb32[8], i;
-  size_t result;
-  for (i = 0; i < 8; ++i) {
-    nb[i] = (long long)LIBXS_NBITS(in[i]);
-    nb32[i] = (int)nb[i];
-  }
-  nbv = _mm256_loadu_si256((const __m256i*)nb32);
-  for (i = 1; i < 8; ++i) { /* lane l compares with lane l+i (independent rotations) */
-    const __m256i idx = _mm256_and_si256(_mm256_add_epi32(lane, _mm256_set1_epi32(i)), seven);
-    e = _mm256_sub_epi32(e, _mm256_cmpgt_epi32(_mm256_permutevar8x32_epi32(nbv, idx), nbv));
-  }
-  cost = _mm256_add_epi32(_mm256_slli_epi32(nbv, 3), _mm256_mullo_epi32(e, _mm256_sub_epi32(wv, nbv)));
-  cost = _mm256_add_epi32(_mm256_set1_epi32(2), _mm256_srli_epi32(_mm256_add_epi32(cost, seven), 3));
-  cost = _mm256_blendv_epi8(wv, cost, _mm256_cmpgt_epi32(wv, nbv));
-  m = _mm256_min_epi32(cost, _mm256_permute2x128_si256(cost, cost, 1)); /* the minimum in every lane */
-  m = _mm256_min_epi32(m, _mm256_shuffle_epi32(m, 0x4E));
-  m = _mm256_min_epi32(m, _mm256_shuffle_epi32(m, 0xB1));
-  result = (size_t)_mm256_cvtsi256_si32(m);
-  if (result < (size_t)w) {
-    const int j = (int)LIBXS_INTRINSICS_BITSCANFWD32(
-      (unsigned int)_mm256_movemask_ps(_mm256_castsi256_ps(_mm256_cmpeq_epi32(cost, m))));
-    uint64_t tmp[9];
-    internal_libxs_vpack8_exc_put(tmp, head, out, in, nb, (int)nb[j], w);
-    memcpy(out + 2, tmp, result - 2);
-  }
-  else {
-    *head = (unsigned char)w;
-    internal_libxs_vpack8_group(out, in, w);
-  }
-  return result;
-}
-# endif
-
-
-/* Decodes a group of 8 (sign unfolded) at byte position pos (stream of nbytes); returns its bytes. */
-LIBXS_API_INLINE size_t internal_libxs_vunpack8_exc(uint64_t* LIBXS_RESTRICT out,
-  const unsigned char* LIBXS_RESTRICT data, size_t pos, size_t nbytes, int hb, int is_signed)
-{
-  size_t result;
-  if (0 == (hb & 0x80)) {
-    internal_libxs_vunpack8_any(out, data, pos, nbytes, hb, is_signed);
-    result = (size_t)hb;
-  }
-  else {
-    const unsigned int mask = data[pos];
-    const int v = hb & 0x7F, w = v + data[pos + 1];
-    const size_t nb = (size_t)((8 * v + internal_libxs_pack_popcount8(mask) * (w - v) + 7) / 8);
-    size_t bit = 0;
-    int i;
-    if (57 >= w && pos + 2 + nb + 7 <= nbytes) { /* a load of 8 bytes per value, no branch */
-      const unsigned char *const src = data + pos + 2;
-      const uint64_t mv = LIBXS_PACK_MASK(v), mw = LIBXS_PACK_MASK(w), ones = 0x0101010101010101ULL;
-      /* a byte per lane: its bit of the mask, then the exceptions before it (prefix by multiplying) */
-      const uint64_t lanes = ((((uint64_t)mask * ones) & 0x8040201008040201ULL) + 0x7F7F7F7F7F7F7F7FULL) >> 7 & ones;
-      const uint64_t before = lanes * ones - lanes;
-      for (i = 0; i < 8; ++i) {
-        const int x = (int)((lanes >> (8 * i)) & 1);
-        const size_t at = (size_t)i * (size_t)v + (size_t)((before >> (8 * i)) & 0xFF) * (size_t)(w - v);
-        uint64_t q;
-        memcpy(&q, src + (at >> 3), sizeof(q));
-        out[i] = (q >> (at & 7)) & (0 != x ? mw : mv);
-      }
-    }
-    else {
-      uint64_t tmp[8];
-      memset(tmp, 0, sizeof(tmp));
-      memcpy(tmp, data + pos + 2, nb);
-      for (i = 0; i < 8; ++i) {
-        const int wl = (0 != (mask & (1u << i)) ? w : v);
-        out[i] = (0 < wl ? internal_libxs_pack_get(tmp, bit, wl) : 0);
-        bit += (size_t)wl;
-      }
-    }
-    if (0 != is_signed) {
-      for (i = 0; i < 8; ++i) out[i] = (out[i] >> 1) ^ (0 - (out[i] & 1));
-    }
-    result = 2 + nb;
-  }
-  return result;
-}
-
-
-LIBXS_API_INLINE size_t internal_libxs_vunpack64_exc_sw(uint64_t* LIBXS_RESTRICT out,
-  const unsigned char* LIBXS_RESTRICT widths, const unsigned char* LIBXS_RESTRICT data,
-  size_t n, size_t nbytes, int is_signed)
-{
-  const size_t ngroups = (n + LIBXS_PACK_EXC_GROUP - 1) / LIBXS_PACK_EXC_GROUP;
-  uint64_t tmp[LIBXS_PACK_EXC_GROUP];
-  size_t i, pos = 0;
-  for (i = 0; i < ngroups; ++i) {
-    const size_t base = LIBXS_PACK_EXC_GROUP * i;
-    const size_t m = LIBXS_MIN((size_t)LIBXS_PACK_EXC_GROUP, n - base);
-    if (LIBXS_PACK_EXC_GROUP == m) {
-      pos += internal_libxs_vunpack8_exc(out + base, data, pos, nbytes, widths[i], is_signed);
-    }
-    else {
-      pos += internal_libxs_vunpack8_exc(tmp, data, pos, nbytes, widths[i], is_signed);
-      memcpy(out + base, tmp, m * sizeof(*tmp));
-    }
-  }
-  return 8 * pos;
-}
-
-
-# if defined(LIBXS_PACK_AVX512)
-/* As internal_libxs_vunpack64_exc_sw: the bit position per lane is the prefix sum of the lane
- * widths (v, or w for an exception), then as internal_libxs_vunpack64_avx512. */
-LIBXS_API_INLINE LIBXS_INTRINSICS(LIBXS_X86_AVX512)
-size_t internal_libxs_vunpack64_exc_avx512(uint64_t* LIBXS_RESTRICT out,
-  const unsigned char* LIBXS_RESTRICT widths, const unsigned char* LIBXS_RESTRICT data,
-  size_t n, int is_signed)
-{
-  const size_t ngroups = (n + LIBXS_PACK_EXC_GROUP - 1) / LIBXS_PACK_EXC_GROUP;
-  const __m512i lane = _mm512_set_epi64(7, 6, 5, 4, 3, 2, 1, 0);
-  const __m512i word = _mm512_set1_epi64(63), one = _mm512_set1_epi64(1);
-  const __m512i sixtyfour = _mm512_set1_epi64(64), ones = _mm512_set1_epi64(-1);
-  const __m512i zero = _mm512_setzero_si512();
-  size_t i, pos = 0;
-  for (i = 0; i < ngroups; ++i) {
-    const size_t base = LIBXS_PACK_EXC_GROUP * i;
-    const size_t m = LIBXS_MIN((size_t)LIBXS_PACK_EXC_GROUP, n - base);
-    const int hb = widths[i], v = hb & 0x7F;
-    __m512i wl, bits, lo, hi, shift, back, x;
-    __mmask64 bytes;
-    size_t nb;
-    if (0 == (hb & 0x80)) {
-      wl = _mm512_set1_epi64(v);
-      bits = _mm512_mullo_epi64(lane, wl);
-      nb = (size_t)v;
-    }
-    else {
-      const unsigned int mask = data[pos];
-      const int w = v + data[pos + 1];
-      __m512i incl;
-      wl = _mm512_mask_blend_epi64((__mmask8)mask, _mm512_set1_epi64(v), _mm512_set1_epi64(w));
-      incl = _mm512_add_epi64(wl, _mm512_alignr_epi64(wl, zero, 7)); /* lanes up by 1, 2, 4 */
-      incl = _mm512_add_epi64(incl, _mm512_alignr_epi64(incl, zero, 6));
-      incl = _mm512_add_epi64(incl, _mm512_alignr_epi64(incl, zero, 4));
-      bits = _mm512_sub_epi64(incl, wl);
-      nb = (size_t)((8 * v + internal_libxs_pack_popcount8(mask) * (w - v) + 7) / 8);
-      pos += 2;
-    }
-    lo = _mm512_srli_epi64(bits, 6);
-    hi = _mm512_add_epi64(lo, one);
-    shift = _mm512_and_si512(bits, word);
-    back = _mm512_sub_epi64(sixtyfour, shift);
-    bytes = (64 > nb ? ((((__mmask64)1) << nb) - 1) : ~((__mmask64)0));
-    x = _mm512_maskz_loadu_epi8(bytes, data + pos);
-    x = _mm512_or_si512( /* a shift by 64 yields zero */
-      _mm512_srlv_epi64(_mm512_permutexvar_epi64(lo, x), shift),
-      _mm512_sllv_epi64(_mm512_permutexvar_epi64(hi, x), back));
-    x = _mm512_and_si512(x, _mm512_srlv_epi64(ones, _mm512_sub_epi64(sixtyfour, wl)));
-    if (0 != is_signed) {
-      x = _mm512_xor_si512(_mm512_srli_epi64(x, 1), _mm512_sub_epi64(zero, _mm512_and_si512(x, one)));
-    }
-    if (LIBXS_PACK_EXC_GROUP == m) _mm512_storeu_si512((void*)(out + base), x);
-    else _mm512_mask_storeu_epi64(out + base, (__mmask8)((1u << m) - 1), x);
-    pos += nb;
-  }
-  return 8 * pos;
-}
-# endif
-
-
-LIBXS_API_INLINE size_t internal_libxs_vunpack64_exc(uint64_t* LIBXS_RESTRICT out,
-  const unsigned char* LIBXS_RESTRICT widths, const unsigned char* LIBXS_RESTRICT data,
-  size_t n, size_t nbytes, int is_signed)
-{
-  const int kind = internal_libxs_pack_target();
-  size_t result;
-# if defined(LIBXS_PACK_AVX512)
-  if (3 == kind) result = internal_libxs_vunpack64_exc_avx512(out, widths, data, n, is_signed);
-  else
-# endif
-  result = internal_libxs_vunpack64_exc_sw(out, widths, data, n, nbytes, is_signed);
-  LIBXS_UNUSED(kind);
-  return result;
-}
-
-
-/* Reads 8 interleaved streams (LIBXS_PACK_WORDS) into 64-bit integers; returns the bits consumed.
- * Every lane of a column takes the same shift: plain code, vectorized per target by the compiler. */
+/* Reads 8 interleaved streams (LIBXS_PACK_WORDS) into 64-bit integers; returns the bits consumed. A span of
+ * columns at a time: their positions first (a sum of widths), then the columns, which do not depend on each
+ * other. Every lane of a column takes the same shift: plain code, vectorized per target by the compiler. */
 LIBXS_INLINE_ALWAYS size_t internal_libxs_vunpack64_words_body(uint64_t* LIBXS_RESTRICT out,
   const unsigned char* LIBXS_RESTRICT widths, const uint64_t* LIBXS_RESTRICT in, size_t n, int g, int is_signed)
 {
-  const size_t ngroups = (n + g - 1) / g;
+  const size_t ngroups = (n + g - 1) / g, ncols = (n + 7) / 8, cpg = (size_t)g / 8;
   const uint64_t sign = (uint64_t)is_signed;
-  size_t i, k, j = 0;
-  int off = 0, l;
-  for (i = 0; i < ngroups; ++i) {
-    const size_t base = i * g, m = LIBXS_MIN((size_t)g, n - base);
-    const int w = widths[i];
-    const uint64_t mask = LIBXS_PACK_MASK(w);
-    for (k = 0; k < m; k += 8) {
-      const uint64_t *const lo = in + 8 * j;
-      uint64_t tmp[8], *const dst = (k + 8 <= m ? out + base + k : tmp);
-      if (64 < off + w) { /* spills into the next word of every stream */
+  size_t i, c, gi = 0, cc = 0, bit = 0, total = 0, nrows;
+  for (i = 0; i < ngroups; ++i) total += (size_t)widths[i] * ((LIBXS_MIN((size_t)g, n - i * g) + 7) / 8);
+  nrows = (total + 63) / 64;
+  for (c = 0; c < ncols; c += LIBXS_PACK_SPAN) {
+    const size_t nc = LIBXS_MIN((size_t)LIBXS_PACK_SPAN, ncols - c);
+    size_t pos[LIBXS_PACK_SPAN], k;
+    int wid[LIBXS_PACK_SPAN];
+    for (k = 0; k < nc; ++k) {
+      wid[k] = widths[gi];
+      pos[k] = bit;
+      bit += (size_t)wid[k];
+      if (cpg == ++cc) {
+        cc = 0;
+        ++gi;
+      }
+    }
+    for (k = 0; k < nc; ++k) {
+      const size_t at = 8 * (c + k), row = pos[k] >> 6;
+      const int w = wid[k], off = (int)(pos[k] & 63);
+      const uint64_t mask = LIBXS_PACK_MASK(w), *const lo = in + 8 * row;
+      uint64_t tmp[8], *const dst = (at + 8 <= n ? out + at : tmp);
+      int l;
+      if (row + 1 < nrows) { /* the next word of every stream is readable: no branch on a spill */
+        LIBXS_PRAGMA_SIMD
+        for (l = 0; l < 8; ++l) { /* (x << 1) << (63 - off): zero if off is zero */
+          const uint64_t v = ((lo[l] >> off) | ((lo[8 + l] << 1) << (63 - off))) & mask;
+          dst[l] = (v >> sign) ^ (0 - (v & sign));
+        }
+      }
+      else if (64 < off + w) { /* spills into the next word of every stream */
         LIBXS_PRAGMA_SIMD
         for (l = 0; l < 8; ++l) {
           const uint64_t v = ((lo[l] >> off) | (lo[8 + l] << (64 - off))) & mask;
@@ -1015,15 +502,10 @@ LIBXS_INLINE_ALWAYS size_t internal_libxs_vunpack64_words_body(uint64_t* LIBXS_R
       else {
         for (l = 0; l < 8; ++l) dst[l] = 0;
       }
-      if (dst == tmp) memcpy(out + base + k, tmp, (m - k) * sizeof(*tmp));
-      off += w;
-      if (64 <= off) {
-        off -= 64;
-        ++j;
-      }
+      if (dst == tmp) memcpy(out + at, tmp, (n - at) * sizeof(*tmp));
     }
   }
-  return 64 * 8 * (j + (0 != off ? 1 : 0));
+  return 64 * 8 * nrows;
 }
 
 
@@ -1075,24 +557,278 @@ LIBXS_API_INLINE size_t internal_libxs_vunpack64_words(uint64_t* LIBXS_RESTRICT 
 }
 
 
-/* Decodes a byte-aligned stream into 64-bit integers with the best path available. */
-LIBXS_API_INLINE size_t internal_libxs_vunpack64(uint64_t* LIBXS_RESTRICT out,
-  const unsigned char* LIBXS_RESTRICT widths, const unsigned char* LIBXS_RESTRICT data,
-  size_t n, int g, int is_signed)
+/* Words of the format LIBXS_PACK_QUADS at most: the count, 4 interleaved streams, the deltas, the escapes. */
+LIBXS_API_INLINE size_t internal_libxs_vpack_quads_bound(size_t n, int maxbits)
 {
-  const int kind = internal_libxs_pack_target();
-  size_t result;
+  const size_t ngroups = (n + LIBXS_PACK_QUAD - 1) / LIBXS_PACK_QUAD;
+  return 1 + LIBXS_PACK_QUAD * ((ngroups * (size_t)maxbits + 63) / 64) + (ngroups + 15) / 16 + ngroups / 8 + 1;
+}
+
+
+/* A group of 8 (LIBXS_PACK_QUADS) as groups of 4: every value of a group at the group's width in 4
+ * interleaved streams of words (as LIBXS_PACK_WORDS), behind them a delta of the width per group in 4 bits
+ * (zig-zag, 16 per word; all ones: the delta is the next of the escapes), then the escapes (8 bits, signed,
+ * 8 per word, a word more). Word 0 holds the words of the streams shifted by 8
+ * (byte 0 is zero). Returns the words written, zero without scratch (the caller falls back). */
+LIBXS_API_INLINE size_t internal_libxs_vpack_quads(void* packed, const void* values, libxs_data_t type,
+  size_t n, int maxbits)
+{
+  const size_t ngroups = (n + LIBXS_PACK_QUAD - 1) / LIBXS_PACK_QUAD, ndelta = (ngroups + 15) / 16;
+  const int direct = (8 == internal_libxs_pack_typesize(type)); /* 64-bit values are read in place */
+  const uint64_t mask = LIBXS_PACK_MASK(maxbits);
+  const uint64_t sign = (0 != internal_libxs_pack_signed(type) ? (((uint64_t)1) << (maxbits - 1)) : 0);
+  const uint64_t fold = (0 != sign ? 1 : 0), escape = (((uint64_t)1) << LIBXS_PACK_QUAD_DELTA) - 1;
+  int pool = 0; /* the deltas, then the escapes as bytes (one per group at most) */
+  uint64_t *const head = (uint64_t*)internal_libxs_scratch_malloc(ndelta * sizeof(uint64_t) + ngroups + 1, &pool);
+  size_t result = 0;
+  if (NULL != head) { /* no branch on the data: stores go to a dummy where nothing is complete */
+    uint64_t *const out = (uint64_t*)packed, *const data = out + 1, *esc;
+    unsigned char *const escb = (unsigned char*)(head + ndelta);
+    uint64_t row[LIBXS_PACK_QUAD], dummy[LIBXS_PACK_QUAD], dacc = 0;
+    size_t i, k, j = 0, e = 0, nwords;
+    int off = 0, prev = 0, l;
+    for (l = 0; l < LIBXS_PACK_QUAD; ++l) row[l] = 0;
+    for (i = 0; i < ngroups; ++i) {
+      const size_t base = LIBXS_PACK_QUAD * i, m = LIBXS_MIN((size_t)LIBXS_PACK_QUAD, n - base);
+      uint64_t z[LIBXS_PACK_QUAD], any = 0, d;
+      const uint64_t* src = z;
+      int w, dw, c, x;
+      if (0 != direct && LIBXS_PACK_QUAD == m) src = (const uint64_t*)values + base;
+      else internal_libxs_pack_load(z, values, type, base, m);
+      for (l = 0; l < LIBXS_PACK_QUAD; ++l) { /* sign-extend from maxbits, then fold the sign (zig-zag) */
+        const uint64_t v = ((((size_t)l < m ? src[l] : 0) & mask) ^ sign) - sign;
+        z[l] = (v << fold) ^ (0 - ((v >> 63) & fold));
+        any |= z[l];
+      }
+      w = (int)LIBXS_NBITS(any);
+      dw = w - prev;
+      d = (uint64_t)(0 <= dw ? 2 * dw : -2 * dw - 1);
+      x = (escape <= d ? 1 : 0);
+      escb[e] = (unsigned char)dw;
+      e += (size_t)x;
+      dacc |= (0 != x ? escape : d) << (LIBXS_PACK_QUAD_DELTA * (i & 15));
+      head[i >> 4] = dacc;
+      dacc &= 0 - (uint64_t)(15 != (i & 15) ? 1 : 0);
+      prev = w;
+      c = (off + w) >> 6; /* the row is complete */
+      {
+        uint64_t *const lo = (0 != c ? data + LIBXS_PACK_QUAD * j : dummy);
+        for (l = 0; l < LIBXS_PACK_QUAD; ++l) {
+          const uint64_t v = row[l] | (z[l] << off);
+          lo[l] = v; /* (x >> 1) >> (63 - off): what spills, zero if off is zero */
+          row[l] = (0 != c ? ((z[l] >> 1) >> (63 - off)) : v);
+        }
+      }
+      j += (size_t)c;
+      off = (off + w) & 63;
+    }
+    if (0 != off) {
+      for (l = 0; l < LIBXS_PACK_QUAD; ++l) data[LIBXS_PACK_QUAD * j + l] = row[l];
+    }
+    nwords = LIBXS_PACK_QUAD * (j + (0 != off ? 1 : 0));
+    out[0] = (uint64_t)nwords << 8;
+    memcpy(data + nwords, head, ndelta * sizeof(uint64_t));
+    esc = data + nwords + ndelta;
+    for (k = 0; k <= e / 8; ++k) esc[k] = 0;
+    for (k = 0; k < e; ++k) esc[k >> 3] |= (uint64_t)escb[k] << (8 * (k & 7));
+    result = 1 + nwords + ndelta + e / 8 + 1;
+    internal_libxs_scratch_free(head, pool);
+  }
+  return result;
+}
+
+
+/* Widths and positions of the ng groups from group i (LIBXS_PACK_QUADS): the deltas of a word at once, then
+ * its escapes, then sums. */
+LIBXS_INLINE_ALWAYS void internal_libxs_quads_span(int wid[], size_t pos[], size_t i, size_t ng,
+  const uint64_t* LIBXS_RESTRICT head, const uint64_t* LIBXS_RESTRICT esc, size_t* e, int* prev, size_t* bit)
+{
+  const uint64_t escape = (((uint64_t)1) << LIBXS_PACK_QUAD_DELTA) - 1;
+  int delta[LIBXS_PACK_SPAN], w = *prev;
+  size_t k, b = *bit, x = *e;
+  for (k = 0; k < ng; k += 16) {
+    const uint64_t word = head[(i + k) >> 4];
+    const size_t m = LIBXS_MIN((size_t)16, ng - k);
+    uint64_t mask = 0;
+    int l;
+    for (l = 0; l < 16; ++l) {
+      const int d = (int)((word >> (LIBXS_PACK_QUAD_DELTA * l)) & escape);
+      delta[k + l] = (d >> 1) ^ -(d & 1);
+      mask |= (uint64_t)(escape == (uint64_t)d ? 1 : 0) << l;
+    }
+    for (mask &= (((uint64_t)1) << m) - 1; 0 != mask; mask &= mask - 1, ++x) {
+      delta[k + LIBXS_INTRINSICS_BITSCANFWD64(mask)] = (int)(signed char)((esc[x >> 3] >> (8 * (x & 7))) & 0xFF);
+    }
+  }
+  for (k = 0; k < ng; ++k) {
+    w += delta[k];
+    wid[k] = w;
+    pos[k] = b;
+    b += (size_t)w;
+  }
+  *prev = w;
+  *bit = b;
+  *e = x;
+}
+
+
+/* A group of 4 (LIBXS_PACK_QUADS) of width w at bit position p of the streams into out + at. */
+LIBXS_INLINE_ALWAYS void internal_libxs_quads_group(uint64_t* LIBXS_RESTRICT out, size_t n, size_t at,
+  const uint64_t* LIBXS_RESTRICT data, size_t nrows, size_t p, int w, uint64_t sign)
+{
+  const size_t row = p >> 6;
+  const int off = (int)(p & 63);
+  const uint64_t mask = LIBXS_PACK_MASK(w), *const lo = data + LIBXS_PACK_QUAD * row;
+  uint64_t tmp[LIBXS_PACK_QUAD], *const dst = (at + LIBXS_PACK_QUAD <= n ? out + at : tmp);
+  int l;
+  if (row + 1 < nrows) { /* the next word of every stream is readable: no branch on a spill */
+    LIBXS_PRAGMA_SIMD
+    for (l = 0; l < LIBXS_PACK_QUAD; ++l) { /* (x << 1) << (63 - off): zero if off is zero */
+      const uint64_t v = ((lo[l] >> off) | ((lo[LIBXS_PACK_QUAD + l] << 1) << (63 - off))) & mask;
+      dst[l] = (v >> sign) ^ (0 - (v & sign));
+    }
+  }
+  else if (64 < off + w) { /* spills into the next word of every stream */
+    LIBXS_PRAGMA_SIMD
+    for (l = 0; l < LIBXS_PACK_QUAD; ++l) {
+      const uint64_t v = ((lo[l] >> off) | (lo[LIBXS_PACK_QUAD + l] << (64 - off))) & mask;
+      dst[l] = (v >> sign) ^ (0 - (v & sign));
+    }
+  }
+  else if (0 < w) {
+    LIBXS_PRAGMA_SIMD
+    for (l = 0; l < LIBXS_PACK_QUAD; ++l) {
+      const uint64_t v = (lo[l] >> off) & mask;
+      dst[l] = (v >> sign) ^ (0 - (v & sign));
+    }
+  }
+  else {
+    for (l = 0; l < LIBXS_PACK_QUAD; ++l) dst[l] = 0;
+  }
+  if (dst == tmp) memcpy(out + at, tmp, (n - at) * sizeof(*tmp));
+}
+
+
+/* Reads the format LIBXS_PACK_QUADS into 64-bit integers; returns the words consumed. A span of groups at a
+ * time: their widths and positions first, then the groups, which do not depend on each other. Every lane of
+ * a group takes the same shift: plain code, vectorized per target by the compiler. */
+LIBXS_INLINE_ALWAYS size_t internal_libxs_vunpack64_quads_body(uint64_t* LIBXS_RESTRICT out,
+  const uint64_t* LIBXS_RESTRICT in, size_t n, int is_signed)
+{
+  const size_t ngroups = (n + LIBXS_PACK_QUAD - 1) / LIBXS_PACK_QUAD, nwords = (size_t)(in[0] >> 8);
+  const uint64_t *const data = in + 1, *const head = data + nwords, *const esc = head + (ngroups + 15) / 16;
+  size_t i, e = 0, bit = 0;
+  int prev = 0;
+  for (i = 0; i < ngroups; i += LIBXS_PACK_SPAN) {
+    const size_t ng = LIBXS_MIN((size_t)LIBXS_PACK_SPAN, ngroups - i);
+    size_t pos[LIBXS_PACK_SPAN], k;
+    int wid[LIBXS_PACK_SPAN];
+    internal_libxs_quads_span(wid, pos, i, ng, head, esc, &e, &prev, &bit);
+    for (k = 0; k < ng; ++k) {
+      internal_libxs_quads_group(out, n, LIBXS_PACK_QUAD * (i + k), data, nwords / LIBXS_PACK_QUAD, pos[k], wid[k],
+        (uint64_t)is_signed);
+    }
+  }
+  return 1 + nwords + (ngroups + 15) / 16 + e / 8 + 1;
+}
+
+
+LIBXS_API_INLINE size_t internal_libxs_vunpack64_quads_sw(uint64_t* LIBXS_RESTRICT out,
+  const uint64_t* LIBXS_RESTRICT in, size_t n, int is_signed)
+{
+  return internal_libxs_vunpack64_quads_body(out, in, n, is_signed);
+}
+
+
+#if defined(LIBXS_PACK_AVX2)
+LIBXS_API_INLINE LIBXS_INTRINSICS(LIBXS_X86_AVX2)
+size_t internal_libxs_vunpack64_quads_avx2(uint64_t* LIBXS_RESTRICT out,
+  const uint64_t* LIBXS_RESTRICT in, size_t n, int is_signed)
+{
+  return internal_libxs_vunpack64_quads_body(out, in, n, is_signed);
+}
+#endif
+
+
 #if defined(LIBXS_PACK_AVX512)
-  if (3 == kind) result = internal_libxs_vunpack64_avx512(out, widths, data, n, g, is_signed);
-  else
+/* As internal_libxs_vunpack64_quads_body, two groups at once (lanes 0-3 and 4-7, a shift per lane). */
+LIBXS_API_INLINE LIBXS_INTRINSICS(LIBXS_X86_AVX512)
+size_t internal_libxs_vunpack64_quads_avx512(uint64_t* LIBXS_RESTRICT out,
+  const uint64_t* LIBXS_RESTRICT in, size_t n, int is_signed)
+{
+  const size_t ngroups = (n + LIBXS_PACK_QUAD - 1) / LIBXS_PACK_QUAD, nwords = (size_t)(in[0] >> 8);
+  const size_t nrows = nwords / LIBXS_PACK_QUAD;
+  const uint64_t *const data = in + 1, *const head = data + nwords, *const esc = head + (ngroups + 15) / 16;
+  const __m512i ones = _mm512_set1_epi64(-1), sixtythree = _mm512_set1_epi64(63);
+  const __m512i sixtyfour = _mm512_set1_epi64(64), sign = _mm512_set1_epi64(is_signed);
+  const __m512i zeros = _mm512_setzero_si512();
+  size_t i, e = 0, bit = 0;
+  int prev = 0;
+  for (i = 0; i < ngroups; i += LIBXS_PACK_SPAN) {
+    const size_t ng = LIBXS_MIN((size_t)LIBXS_PACK_SPAN, ngroups - i);
+    size_t pos[LIBXS_PACK_SPAN], k;
+    int wid[LIBXS_PACK_SPAN];
+    internal_libxs_quads_span(wid, pos, i, ng, head, esc, &e, &prev, &bit);
+    for (k = 0; k + 1 < ng; k += 2) {
+      const size_t at = LIBXS_PACK_QUAD * (i + k), r0 = pos[k] >> 6, r1 = pos[k + 1] >> 6;
+      if (r1 + 1 < nrows && at + 2 * LIBXS_PACK_QUAD <= n) { /* both groups and their next rows */
+        const uint64_t *const a = data + LIBXS_PACK_QUAD * r0, *const b = data + LIBXS_PACK_QUAD * r1;
+        const __m512i lo = _mm512_inserti64x4(_mm512_castsi256_si512(_mm256_loadu_si256((const __m256i*)a)),
+          _mm256_loadu_si256((const __m256i*)b), 1);
+        const __m512i hi = _mm512_inserti64x4(_mm512_castsi256_si512(
+          _mm256_loadu_si256((const __m256i*)(a + LIBXS_PACK_QUAD))),
+          _mm256_loadu_si256((const __m256i*)(b + LIBXS_PACK_QUAD)), 1);
+        const __m512i off = _mm512_mask_blend_epi64(0xF0, _mm512_set1_epi64((long long)(pos[k] & 63)),
+          _mm512_set1_epi64((long long)(pos[k + 1] & 63)));
+        const __m512i w = _mm512_mask_blend_epi64(0xF0, _mm512_set1_epi64(wid[k]), _mm512_set1_epi64(wid[k + 1]));
+        const __m512i mask = _mm512_srlv_epi64(ones, _mm512_sub_epi64(sixtyfour, w)); /* zero for no bits */
+        const __m512i v = _mm512_and_si512(mask, _mm512_or_si512(_mm512_srlv_epi64(lo, off),
+          _mm512_sllv_epi64(_mm512_slli_epi64(hi, 1), _mm512_sub_epi64(sixtythree, off))));
+        _mm512_storeu_si512(out + at,
+          _mm512_xor_si512(_mm512_srlv_epi64(v, sign), _mm512_sub_epi64(zeros, _mm512_and_si512(v, sign))));
+      }
+      else {
+        internal_libxs_quads_group(out, n, at, data, nrows, pos[k], wid[k], (uint64_t)is_signed);
+        internal_libxs_quads_group(out, n, at + LIBXS_PACK_QUAD, data, nrows, pos[k + 1], wid[k + 1],
+          (uint64_t)is_signed);
+      }
+    }
+    if (k < ng) {
+      internal_libxs_quads_group(out, n, LIBXS_PACK_QUAD * (i + k), data, nrows, pos[k], wid[k], (uint64_t)is_signed);
+    }
+  }
+  return 1 + nwords + (ngroups + 15) / 16 + e / 8 + 1;
+}
 #endif
-#if defined(LIBXS_PACK_AVX2) && defined(LIBXS_PACK_AVX2_UNPACK)
-  /* 8 permutes per group (no qword permute across registers) amortize from 16 values on */
-  if (2 <= kind && 16 <= g) result = internal_libxs_vunpack64_avx2(out, widths, data, n, g, is_signed);
-  else
+
+
+/* Decodes the format LIBXS_PACK_QUADS with the widest code the CPU runs; returns the words consumed. */
+LIBXS_API_INLINE size_t internal_libxs_vunpack_quads(void* values, const void* packed, libxs_data_t type,
+  size_t n, int is_signed)
+{
+  const int typesize = internal_libxs_pack_typesize(type);
+  uint64_t* q = (uint64_t*)values;
+  size_t result = 0;
+  int pool = 0;
+  if (8 != typesize) q = (uint64_t*)internal_libxs_scratch_malloc(n * sizeof(uint64_t), &pool);
+  if (NULL != q) {
+#if defined(LIBXS_PACK_AVX512) || defined(LIBXS_PACK_AVX2)
+    const int kind = internal_libxs_pack_target();
 #endif
-  result = internal_libxs_vunpack64_sw(out, widths, data, n, g, is_signed);
-  LIBXS_UNUSED(kind);
+#if defined(LIBXS_PACK_AVX512)
+    if (3 == kind) result = internal_libxs_vunpack64_quads_avx512(q, (const uint64_t*)packed, n, is_signed);
+    else
+#endif
+#if defined(LIBXS_PACK_AVX2)
+    if (2 == kind) result = internal_libxs_vunpack64_quads_avx2(q, (const uint64_t*)packed, n, is_signed);
+    else
+#endif
+    result = internal_libxs_vunpack64_quads_sw(q, (const uint64_t*)packed, n, is_signed);
+    if (8 != typesize) {
+      internal_libxs_pack_store(values, q, type, 0, n);
+      internal_libxs_scratch_free(q, pool);
+    }
+  }
   return result;
 }
 
@@ -1521,7 +1257,38 @@ void internal_libxs_lanes_decode_avx2(void* values, libxs_data_t type, size_t n,
 
 
 #if defined(LIBXS_PACK_AVX512)
-/* As internal_libxs_lanes_decode_avx2, the lengths with masks (the payload as there: four values at once). */
+/* Eight values of lengths b (64-bit lanes) from the payload position base on; base moves past them. */
+LIBXS_INLINE_ALWAYS LIBXS_INTRINSICS(LIBXS_X86_AVX512)
+void internal_libxs_lanes_payload_avx512(uint64_t* q, __m512i b, __m512i* base, const unsigned char* in, int is_signed)
+{
+  const __m512i one = _mm512_set1_epi64(1), seven = _mm512_set1_epi64(7), zeros = _mm512_setzero_si512();
+  const __m512i sign = _mm512_set1_epi64(is_signed), last = _mm512_set1_epi64(7);
+  const __mmask8 nz = _mm512_test_epi64_mask(b, b);
+  const __m512i nb = _mm512_maskz_sub_epi64(nz, b, one);
+  const __m512i x1 = _mm512_add_epi64(nb, _mm512_alignr_epi64(nb, zeros, 7));
+  const __m512i x2 = _mm512_add_epi64(x1, _mm512_alignr_epi64(x1, zeros, 6));
+  const __m512i incl = _mm512_add_epi64(x2, _mm512_alignr_epi64(x2, zeros, 4));
+  const __m512i pos = _mm512_add_epi64(*base, _mm512_sub_epi64(incl, nb));
+  const __m512i sh = _mm512_and_si512(pos, seven);
+  if (0 == _mm512_cmpgt_epi64_mask(_mm512_add_epi64(nb, sh), _mm512_set1_epi64(64))) {
+    const __m512i v = _mm512_srlv_epi64(_mm512_i64gather_epi64(_mm512_srli_epi64(pos, 3), in, 1), sh);
+    const __m512i top = _mm512_sllv_epi64(one, nb);
+    const __m512i x = _mm512_or_si512(_mm512_and_si512(v, _mm512_sub_epi64(top, one)), _mm512_maskz_mov_epi64(nz, top));
+    _mm512_storeu_si512(q,
+      _mm512_xor_si512(_mm512_srlv_epi64(x, sign), _mm512_sub_epi64(zeros, _mm512_and_si512(x, sign))));
+  }
+  else { /* a value out of reach of one load */
+    uint64_t p[8], w[8];
+    int l;
+    _mm512_storeu_si512(p, pos);
+    _mm512_storeu_si512(w, b);
+    for (l = 0; l < 8; ++l) q[l] = internal_libxs_lanes_value(in, (size_t)p[l], (int)w[l], is_signed);
+  }
+  *base = _mm512_add_epi64(*base, _mm512_permutexvar_epi64(last, incl));
+}
+
+
+/* As internal_libxs_lanes_decode_avx2, eight values of the payload at once. */
 LIBXS_API_INLINE LIBXS_INTRINSICS(LIBXS_X86_AVX512)
 void internal_libxs_lanes_decode_avx512(void* values, libxs_data_t type, size_t n, const unsigned char* in,
   const size_t* offs, int is_signed)
@@ -1531,7 +1298,8 @@ void internal_libxs_lanes_decode_avx512(void* values, libxs_data_t type, size_t 
   const size_t ngroups = (n + LIBXS_PACK_LANES - 1) / LIBXS_PACK_LANES;
   internal_libxs_lanes_reader_t rd;
   uint64_t buffer[LIBXS_PACK_LANES * LIBXS_PACK_LANES_BLOCK];
-  __m256i p1 = _mm256_setzero_si256(), p2 = _mm256_setzero_si256(), base = _mm256_setzero_si256();
+  __m256i p1 = _mm256_setzero_si256(), p2 = _mm256_setzero_si256();
+  __m512i base = _mm512_setzero_si512();
   size_t g = 0;
   int zero = 1;
   internal_libxs_lanes_begin(&rd, in, offs);
@@ -1554,10 +1322,7 @@ void internal_libxs_lanes_decode_avx512(void* values, libxs_data_t type, size_t 
             _mm256_srai_epi32(_mm256_add_epi32(_mm256_add_epi32(p1, p2), one), 1));
           p2 = _mm256_mask_mov_epi32(p2, nz, p1);
           p1 = _mm256_mask_mov_epi32(p1, nz, b);
-          internal_libxs_lanes_payload_avx2(q + j, _mm256_cvtepi32_epi64(_mm256_castsi256_si128(b)), &base,
-            rd.in[4], is_signed);
-          internal_libxs_lanes_payload_avx2(q + j + 4, _mm256_cvtepi32_epi64(_mm256_extracti128_si256(b, 1)), &base,
-            rd.in[4], is_signed);
+          internal_libxs_lanes_payload_avx512(q + j, _mm512_cvtepi32_epi64(b), &base, rd.in[4], is_signed);
         }
         internal_libxs_lanes_next(&rd, nv);
         internal_libxs_lanes_done(values, type, at, nv, n, q, buffer);
@@ -1686,11 +1451,11 @@ LIBXS_API size_t libxs_vpack_bound(size_t n, int maxbits, int group)
   const int g = (0 == group ? LIBXS_VPACK_GROUP : group);
   size_t result = 0;
   if (0 < n && 0 < maxbits && 64 >= maxbits && 0 < g && 255 >= g) {
-    const size_t ngroups = (n + g - 1) / g;
-    if (LIBXS_PACK_WORDS == internal_libxs_vpack_format()) { /* 8 interleaved streams, each in whole words */
-      result = (1 + ngroups + 7) / 8 + 8 * ((((n + 7) / 8) * (size_t)maxbits + 63) / 64);
+    const size_t ngroups = (n + g - 1) / g; /* 8 interleaved streams in whole words (bits: fewer) */
+    result = (1 + ngroups + 7) / 8 + 8 * ((((n + 7) / 8) * (size_t)maxbits + 63) / 64);
+    if (LIBXS_PACK_GROUP == g && LIBXS_PACK_QUADS == internal_libxs_vpack_format()) {
+      result = LIBXS_MAX(result, internal_libxs_vpack_quads_bound(n, maxbits));
     }
-    else result = (1 + ngroups + 7) / 8 + (((n + 7) / 8) * (size_t)maxbits + 7) / 8;
   }
   return result;
 }
@@ -1704,24 +1469,24 @@ LIBXS_API size_t libxs_vpack(void* packed, const void* values,
   const int valid = (0 < typesize && 0 < maxbits && maxbits <= 8 * typesize && 0 < g && 255 >= g
     && 0 < n && NULL != packed && NULL != values);
   const int format = (0 != valid ? internal_libxs_vpack_format() : 0);
-  size_t result = ((LIBXS_PACK_CODES == format && LIBXS_PACK_EXC_GROUP == g)
-    ? internal_libxs_vpack_lanes(packed, values, type, n, maxbits, libxs_vpack_bound(n, maxbits, g)) : 0);
-  if (0 != valid && 0 == result) { /* otherwise, or if it does not fit */
-    const int words = (LIBXS_PACK_WORDS == format && 0 == (g & 7));
-    const int exc = (LIBXS_PACK_WORDS != format && LIBXS_PACK_EXC_GROUP == g);
+  size_t result = 0;
+  if (LIBXS_PACK_GROUP == g && LIBXS_PACK_QUADS == format) {
+    result = internal_libxs_vpack_quads(packed, values, type, n, maxbits);
+  }
+  else if (LIBXS_PACK_GROUP == g && LIBXS_PACK_CODES == format) {
+    result = internal_libxs_vpack_lanes(packed, values, type, n, maxbits, libxs_vpack_bound(n, maxbits, g));
+  }
+  if (0 != valid && 0 == result) { /* LIBXS_PACK_WORDS: otherwise, or if it does not fit */
+    const int words = (0 == (g & 7));
     const size_t ngroups = (n + g - 1) / g, nhead = (1 + ngroups + 7) / 8;
     const uint64_t mask = LIBXS_PACK_MASK(maxbits);
     const uint64_t sign = (0 != internal_libxs_pack_signed(type)
       ? (((uint64_t)1) << (maxbits - 1)) : 0);
     unsigned char *const head = (unsigned char*)packed;
-    unsigned char *const data = (unsigned char*)((uint64_t*)packed + nhead);
     internal_libxs_pack_writer_t wr;
     uint64_t buf[255 + 7];
-    size_t i, k, j = 0, nbytes = 0;
+    size_t i, k, j = 0;
     int off = 0;
-#if defined(LIBXS_PACK_AVX512) || defined(LIBXS_PACK_AVX2)
-    const int kind = internal_libxs_pack_target();
-#endif
     head[0] = (unsigned char)g;
     for (i = 1 + ngroups; i < 8 * nhead; ++i) head[i] = 0;
     wr.out = (uint64_t*)packed + nhead;
@@ -1746,38 +1511,15 @@ LIBXS_API size_t libxs_vpack(void* packed, const void* values,
       }
       w = (int)LIBXS_NBITS(any);
       head[1 + i] = (unsigned char)w;
-      if (0 < w && 0 == (g & 7)) { /* byte-aligned: 8 values take w bytes */
+      if (0 < w && 0 != words) {
         for (k = m; k < ((m + 7) & ~(size_t)7); ++k) buf[k] = 0;
-        if (0 != exc) {
-#if defined(LIBXS_PACK_AVX512)
-          if (3 == kind) nbytes += internal_libxs_vpack8_exc_avx512(head + 1 + i, data + nbytes, buf, w);
-          else
-#endif
-#if defined(LIBXS_PACK_AVX2)
-          if (2 <= kind) nbytes += internal_libxs_vpack8_exc_avx2(head + 1 + i, data + nbytes, buf, w);
-          else
-#endif
-          nbytes += internal_libxs_vpack8_exc(head + 1 + i, data + nbytes, buf, w);
-        }
-        else if (0 != words) {
-          for (k = 0; k < m; k += 8) internal_libxs_vpack8_col(wr.out, buf + k, &j, &off, w);
-        }
-        else {
-          for (k = 0; k < m; k += 8) {
-            internal_libxs_vpack8_group(data + nbytes, buf + k, w);
-            nbytes += (size_t)w;
-          }
-        }
+        for (k = 0; k < m; k += 8) internal_libxs_vpack8_col(wr.out, buf + k, &j, &off, w);
       }
       else if (0 < w) {
         for (k = 0; k < m; ++k) internal_libxs_pack_put(&wr, buf[k], w);
       }
     }
     if (0 != words) result = nhead + 8 * (j + (0 != off ? 1 : 0));
-    else if (0 == (g & 7)) { /* bytes, with or without exceptions */
-      for (; 0 != (nbytes & 7); ++nbytes) data[nbytes] = 0;
-      result = nhead + nbytes / 8;
-    }
     else {
       internal_libxs_pack_flush(&wr);
       result = nhead + wr.nwords;
@@ -1795,13 +1537,10 @@ LIBXS_API size_t libxs_vunpack(void* values, const void* packed, size_t npacked,
   if (0 < typesize && 0 < n && 0 < npacked && NULL != packed && NULL != values) {
     const unsigned char *const head = (const unsigned char*)packed;
     const int g = head[0], is_signed = internal_libxs_pack_signed(type), format = internal_libxs_vpack_format();
-    if (0 < g) {
-      const int words = (LIBXS_PACK_WORDS == format && 0 == (g & 7));
-      const int exc = (LIBXS_PACK_WORDS != format && LIBXS_PACK_EXC_GROUP == g);
+    if (0 < g) { /* LIBXS_PACK_WORDS */
+      const int words = (0 == (g & 7));
       const size_t ngroups = (n + g - 1) / g, nhead = (1 + ngroups + 7) / 8;
       const uint64_t *const in = (const uint64_t*)packed + nhead;
-      const unsigned char *const data = (const unsigned char*)in;
-      const union { uint32_t u; unsigned char c[4]; } probe = { 1 };
       uint64_t buf[255 + 7];
       size_t i, k, bit = 0;
 #if !defined(NDEBUG)
@@ -1810,32 +1549,13 @@ LIBXS_API size_t libxs_vunpack(void* values, const void* packed, size_t npacked,
         LIBXS_ASSERT(nhead <= npacked);
         for (j = 0; j < ngroups && nhead <= npacked; ++j) {
           const size_t m = LIBXS_MIN((size_t)g, n - j * g);
-          nbits += (size_t)head[1 + j] * (0 == (g & 7) ? ((m + 7) & ~(size_t)7) : m);
+          nbits += (size_t)head[1 + j] * (0 != words ? ((m + 7) & ~(size_t)7) : m);
         }
         if (0 != words) nbits = 8 * 64 * ((nbits / 8 + 63) / 64); /* 8 streams in whole words */
-        if (0 != exc) nbits = 0; /* depends on the data: checked after decoding */
         LIBXS_ASSERT(nhead + (nbits + 63) / 64 <= npacked);
       }
 #endif
-      if (0 != exc) {
-        const size_t nbytes = (nhead < npacked ? 8 * (npacked - nhead) : 0);
-        if (8 == typesize && 0 != probe.c[0]) {
-          bit = internal_libxs_vunpack64_exc((uint64_t*)values, head + 1, data, n, nbytes, is_signed);
-        }
-        else {
-          size_t pos = 0;
-          for (i = 0; i < ngroups; ++i) {
-            const size_t base = LIBXS_PACK_EXC_GROUP * i;
-            const size_t m = LIBXS_MIN((size_t)LIBXS_PACK_EXC_GROUP, n - base);
-            pos += internal_libxs_vunpack8_exc(buf, data, pos, (0 != probe.c[0] ? nbytes : 0), head[1 + i],
-              is_signed);
-            internal_libxs_pack_store(values, buf, type, base, m);
-          }
-          bit = 8 * pos;
-        }
-        LIBXS_ASSERT(nhead + (bit + 63) / 64 <= npacked);
-      }
-      else if (0 != words && 8 == typesize) {
+      if (0 != words && 8 == typesize) {
         bit = internal_libxs_vunpack64_words((uint64_t*)values, head + 1, in, n, g, is_signed);
       }
       else if (0 != words) { /* 8 interleaved streams */
@@ -1843,44 +1563,31 @@ LIBXS_API size_t libxs_vunpack(void* values, const void* packed, size_t npacked,
         int off = 0;
         for (i = 0; i < ngroups; ++i) {
           const size_t base = i * g, m = LIBXS_MIN((size_t)g, n - base);
-          uint64_t *const dst = buf;
           const int w = head[1 + i];
           for (k = 0; k < m; k += 8) {
-            if (k + 8 <= m) internal_libxs_vunpack8_col(dst + k, in, &j, &off, w);
+            if (k + 8 <= m) internal_libxs_vunpack8_col(buf + k, in, &j, &off, w);
             else {
               uint64_t tmp[8];
               internal_libxs_vunpack8_col(tmp, in, &j, &off, w);
-              memcpy(dst + k, tmp, (m - k) * sizeof(*tmp));
+              memcpy(buf + k, tmp, (m - k) * sizeof(*tmp));
             }
           }
           if (0 != is_signed) {
-            for (k = 0; k < m; ++k) dst[k] = (dst[k] >> 1) ^ (0 - (dst[k] & 1));
+            for (k = 0; k < m; ++k) buf[k] = (buf[k] >> 1) ^ (0 - (buf[k] & 1));
           }
           internal_libxs_pack_store(values, buf, type, base, m);
         }
         bit = 64 * 8 * (j + (0 != off ? 1 : 0));
       }
-      else if (0 == (g & 7) && 8 == typesize && 0 != probe.c[0]) { /* byte-aligned into 64-bit */
-        bit = internal_libxs_vunpack64((uint64_t*)values, head + 1, data, n, g, is_signed);
-      }
-      else {
-        const size_t nbytes = (0 == (g & 7) ? internal_libxs_vpack_nbytes(head + 1, n, g) : 0);
+      else { /* one stream of bits */
         for (i = 0; i < ngroups; ++i) {
           const size_t base = i * g, m = LIBXS_MIN((size_t)g, n - base);
           const int w = head[1 + i];
-          if (0 == (g & 7)) { /* byte-aligned: 8 values take w bytes */
-            for (k = 0; k < m; k += 8) {
-              internal_libxs_vunpack8_any(buf + k, data, bit / 8, (0 != probe.c[0] ? nbytes : 0), w, 0);
-              bit += 8 * (size_t)w;
-            }
-          }
-          else {
-            for (k = 0; k < m; ++k) {
-              buf[k] = 0;
-              if (0 < w) {
-                buf[k] = internal_libxs_pack_get(in, bit, w);
-                bit += w;
-              }
+          for (k = 0; k < m; ++k) {
+            buf[k] = 0;
+            if (0 < w) {
+              buf[k] = internal_libxs_pack_get(in, bit, w);
+              bit += w;
             }
           }
           if (0 != is_signed) {
@@ -1891,6 +1598,7 @@ LIBXS_API size_t libxs_vunpack(void* values, const void* packed, size_t npacked,
       }
       result = nhead + (bit + 63) / 64;
     }
+    else if (LIBXS_PACK_QUADS == format) result = internal_libxs_vunpack_quads(values, packed, type, n, is_signed);
     else result = internal_libxs_vunpack_lanes(values, packed, type, n, is_signed);
     LIBXS_ASSERT(result <= npacked);
   }
