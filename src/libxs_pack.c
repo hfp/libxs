@@ -1722,8 +1722,9 @@ LIBXS_API_INLINE size_t internal_libxs_vunpack_reals(void* values, const void* p
     && 2 + expbits <= keep && width >= keep)
   {
     const int integers = (LIBXS_PACK_REAL_ABS == transform || LIBXS_PACK_REAL_INT == transform);
-    int pool = 0;
-    uint64_t *const u = (uint64_t*)internal_libxs_scratch_malloc(n * sizeof(uint64_t), &pool);
+    int pool = 0; /* F64: the integers go where the values go (8 bytes each), then are converted in place */
+    uint64_t *const u = (0 != f64 ? (uint64_t*)values
+      : (uint64_t*)internal_libxs_scratch_malloc(n * sizeof(uint64_t), &pool));
     if (NULL != u) {
       const size_t nwords = internal_libxs_vunpack_int(u, (const uint64_t*)packed + 1, npacked - 1,
         0 != integers ? LIBXS_DATATYPE_I64 : LIBXS_DATATYPE_U64, n);
@@ -1731,18 +1732,24 @@ LIBXS_API_INLINE size_t internal_libxs_vunpack_reals(void* values, const void* p
         const double step = (LIBXS_PACK_REAL_ABS == transform ? internal_libxs_reals_pow2(t + 1) : 1.0);
         uint64_t s = 0;
         size_t i;
-        for (i = 0; i < n; ++i) {
-          if (0 != integers) { /* exact: the step is a power of two */
-            const double x = (double)(int64_t)u[i] * step;
-            if (0 != f64) ((double*)values)[i] = x;
+        if (0 != integers) { /* exact: the step is a power of two */
+          for (i = 0; i < n; ++i) {
+            int64_t q;
+            double x;
+            memcpy(&q, u + i, sizeof(q)); /* no access as two types */
+            x = (double)q * step;
+            if (0 != f64) memcpy((double*)values + i, &x, sizeof(x));
             else ((float*)values)[i] = (float)x;
           }
-          else { /* XOR with the previous value undone, then the sign back on top */
-            const uint64_t v = (LIBXS_PACK_REAL_REV == transform ? internal_libxs_reals_rev(u[i], keep) : u[i]);
-            uint64_t b;
+        }
+        else { /* XOR with the previous value undone, then the sign back on top */
+          for (i = 0; i < n; ++i) {
+            uint64_t v, b;
+            memcpy(&v, u + i, sizeof(v));
+            if (LIBXS_PACK_REAL_REV == transform) v = internal_libxs_reals_rev(v, keep);
             s ^= v;
             b = ((s >> 1) << (width - keep)) | ((s & 1) << (width - 1));
-            if (0 != f64) memcpy((double*)values + i, &b, sizeof(double));
+            if (0 != f64) memcpy((double*)values + i, &b, sizeof(b));
             else {
               const uint32_t b32 = (uint32_t)b;
               memcpy((float*)values + i, &b32, sizeof(b32));
@@ -1751,7 +1758,7 @@ LIBXS_API_INLINE size_t internal_libxs_vunpack_reals(void* values, const void* p
         }
         result = 1 + nwords;
       }
-      internal_libxs_scratch_free(u, pool);
+      if (0 == f64) internal_libxs_scratch_free(u, pool);
     }
   }
   return result;
