@@ -51,6 +51,7 @@ static void* test_xmalloc(size_t size, const void* extra)
   return malloc(size);
 }
 
+
 static void test_xfree(void* pointer, const void* extra)
 {
   LIBXS_UNUSED(extra);
@@ -456,11 +457,8 @@ int main(void)
   /* Test: libxs_free_pool(NULL) is safe */
   libxs_free_pool(NULL);
 
-  if (0 == nerrors) {
-    return EXIT_SUCCESS;
-  }
-  else {
+  if (0 != nerrors) {
     FPRINTF(stderr, "Errors: %i\n", nerrors);
-    return EXIT_FAILURE;
   }
+  return (0 == nerrors) ? EXIT_SUCCESS : EXIT_FAILURE;
 }

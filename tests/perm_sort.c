@@ -26,25 +26,32 @@
 #endif
 
 /* an independent oracle: what the result must equal, not merely that it rises */
-static int cmp_qsort(const void* a, const void* b) {
+static int cmp_qsort(const void* a, const void* b)
+{
   const double x = *(const double*)a, y = *(const double*)b;
   return (x > y) - (x < y);
 }
 
+
 /* an unknown comparator, which must take the generic path */
-static int cmp_descend(const void* a, const void* b, void* ctx) {
+static int cmp_descend(const void* a, const void* b, void* ctx)
+{
   const double x = *(const double*)a, y = *(const double*)b;
   LIBXS_UNUSED(ctx);
   return (x < y) - (x > y);
 }
 
+
 /* spread, signed, and with duplicates so equal keys are exercised */
-static double value_of(int i) {
+static double value_of(int i)
+{
   const double v = (double)(int)((unsigned int)i * 2654435761u % 1000003u);
   return ((0 == (i % 7)) ? -v : v) / 8.0;
 }
 
-int main(void) {
+
+int main(void)
+{
   /* around LIBXS_SORT_RADIX_MIN, and one size well above it */
   const int sizes[] = { 1, 2, 3, 39, 40, 41, 511, 512, 513, 4096 };
   const int nsizes = (int)(sizeof(sizes) / sizeof(*sizes));

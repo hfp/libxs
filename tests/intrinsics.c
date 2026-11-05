@@ -41,10 +41,12 @@ int test_intrinsics_avx(void)
   const __m256 a = _mm256_set1_ps(1.5f);
   const __m256 b = _mm256_set1_ps(2.5f);
   const __m256 c = _mm256_add_ps(a, b);
-  int i;
+  int i, result = EXIT_SUCCESS;
   _mm256_store_ps(buf, c);
-  for (i = 0; i < 8; ++i) if (4.0f != buf[i]) return EXIT_FAILURE;
-  return 0;
+  for (i = 0; i < 8 && EXIT_SUCCESS == result; ++i) {
+    if (4.0f != buf[i]) result = EXIT_FAILURE;
+  }
+  return result;
 }
 #endif
 
@@ -58,10 +60,12 @@ int test_intrinsics_avx2(void)
   const __m256i a = _mm256_set1_epi32(3);
   const __m256i b = _mm256_set1_epi32(4);
   const __m256i c = _mm256_add_epi32(a, b);
-  int i;
+  int i, result = EXIT_SUCCESS;
   _mm256_store_si256((__m256i*)buf, c);
-  for (i = 0; i < 8; ++i) if (7 != buf[i]) return EXIT_FAILURE;
-  return 0;
+  for (i = 0; i < 8 && EXIT_SUCCESS == result; ++i) {
+    if (7 != buf[i]) result = EXIT_FAILURE;
+  }
+  return result;
 }
 #endif
 
@@ -75,10 +79,12 @@ int test_intrinsics_avx512(void)
   const __m512i a = _mm512_set1_epi32(11);
   const __m512i b = _mm512_set1_epi32(22);
   const __m512i c = _mm512_add_epi32(a, b);
-  int i;
+  int i, result = EXIT_SUCCESS;
   _mm512_store_si512(buf, c);
-  for (i = 0; i < 16; ++i) if (33 != buf[i]) return EXIT_FAILURE;
-  return 0;
+  for (i = 0; i < 16 && EXIT_SUCCESS == result; ++i) {
+    if (33 != buf[i]) result = EXIT_FAILURE;
+  }
+  return result;
 }
 #endif
 

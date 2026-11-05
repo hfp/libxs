@@ -123,38 +123,86 @@ int main(int argc, char* argv[])
 
   /* check libxs_strimatch */
   if (EXIT_SUCCESS == result && (2 != libxs_strimatch("Co Product A", "Corp Prod B",
-      delims, &count) || 3 != count)) result = EXIT_FAILURE;
+      delims, &count) || 3 != count))
+  {
+    result = EXIT_FAILURE;
+  }
   if (EXIT_SUCCESS == result && (2 != libxs_strimatch("Corp Prod B", "Co Product A",
-      delims, &count) || 3 != count)) result = EXIT_FAILURE;
+      delims, &count) || 3 != count))
+  {
+    result = EXIT_FAILURE;
+  }
   if (EXIT_SUCCESS == result && (3 != libxs_strimatch("Co Product A", "Corp Prod AA",
-      delims, &count) || 3 != count)) result = EXIT_FAILURE;
+      delims, &count) || 3 != count))
+  {
+    result = EXIT_FAILURE;
+  }
   if (EXIT_SUCCESS == result && (3 != libxs_strimatch("Corp Prod AA", "Co Product A",
-      delims, &count) || 3 != count)) result = EXIT_FAILURE;
+      delims, &count) || 3 != count))
+  {
+    result = EXIT_FAILURE;
+  }
   if (EXIT_SUCCESS == result && (3 != libxs_strimatch("Corp Prod AA", "Co Product A",
-      delims, &count) || 3 != count)) result = EXIT_FAILURE;
+      delims, &count) || 3 != count))
+  {
+    result = EXIT_FAILURE;
+  }
   if (EXIT_SUCCESS == result && (3 != libxs_strimatch("Co Product A", "Corp Prod AA",
-      delims, &count) || 3 != count)) result = EXIT_FAILURE;
+      delims, &count) || 3 != count))
+  {
+    result = EXIT_FAILURE;
+  }
   if (EXIT_SUCCESS == result && (3 != libxs_strimatch("Corp Prod A", "Co Product A",
-      delims, &count) || 3 != count)) result = EXIT_FAILURE;
+      delims, &count) || 3 != count))
+  {
+    result = EXIT_FAILURE;
+  }
   if (EXIT_SUCCESS == result && (3 != libxs_strimatch("Co Product A", "Corp Prod A",
-      delims, &count) || 3 != count)) result = EXIT_FAILURE;
+      delims, &count) || 3 != count))
+  {
+    result = EXIT_FAILURE;
+  }
   if (EXIT_SUCCESS == result && (3 != libxs_strimatch("C Product A", "Cor Prod AA",
-      delims, &count) || 3 != count)) result = EXIT_FAILURE;
+      delims, &count) || 3 != count))
+  {
+    result = EXIT_FAILURE;
+  }
   if (EXIT_SUCCESS == result && (3 != libxs_strimatch("Cor Prod AA", "C Product A",
-      delims, &count) || 3 != count)) result = EXIT_FAILURE;
+      delims, &count) || 3 != count))
+  {
+    result = EXIT_FAILURE;
+  }
   if (EXIT_SUCCESS == result && (1 != libxs_strimatch("aaaa", "A A A A",
-      delims, &count) || 4 != count)) result = EXIT_FAILURE;
+      delims, &count) || 4 != count))
+  {
+    result = EXIT_FAILURE;
+  }
   if (EXIT_SUCCESS == result && (1 != libxs_strimatch("A A A A", "aaaa",
-      delims, &count) || 4 != count)) result = EXIT_FAILURE;
+      delims, &count) || 4 != count))
+  {
+    result = EXIT_FAILURE;
+  }
   /* a word opens at a word boundary: "A100" is not the last letter of "NVIDIA" */
   if (EXIT_SUCCESS == result && (2 != libxs_strimatch("NVIDIA H100 PCIe", "NVIDIA A100 PCIe",
-      delims, &count) || 3 != count)) result = EXIT_FAILURE;
+      delims, &count) || 3 != count))
+  {
+    result = EXIT_FAILURE;
+  }
   if (EXIT_SUCCESS == result && (1 != libxs_strimatch("NVIDIA A100 PCIe", "NVIDIA H200",
-      delims, &count) || 3 != count)) result = EXIT_FAILURE;
+      delims, &count) || 3 != count))
+  {
+    result = EXIT_FAILURE;
+  }
   if (EXIT_SUCCESS == result && (1 != libxs_strimatch("A AB", "AB X",
-      delims, &count) || 2 != count)) result = EXIT_FAILURE;
+      delims, &count) || 2 != count))
+  {
+    result = EXIT_FAILURE;
+  }
   if (EXIT_SUCCESS == result && (1 != libxs_strimatch("AB X", "A AB",
-      delims, &count) || 2 != count)) result = EXIT_FAILURE;
+      delims, &count) || 2 != count))
+  {
+    result = EXIT_FAILURE;
+  }
   if (EXIT_SUCCESS == result) {
     const char *const sample[] = {
       "The quick red squirrel jumps over the low fence",

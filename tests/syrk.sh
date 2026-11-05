@@ -27,7 +27,7 @@ TOL=1E-10
 run_check() {
   local N=$1 K=$2 R=$3
   local OUTPUT
-  OUTPUT=$(${PROG} ${N} ${K} ${R} 2>&1)
+  OUTPUT=$(${PROG} "${N}" "${K}" "${R}" 2>&1)
   local ERR
   for ERR in $(echo "${OUTPUT}" | sed -n 's/.*max error.*: *//p'); do
     if awk "BEGIN{exit(${ERR} <= ${TOL} ? 0 : 1)}" 2>/dev/null; then

@@ -25,8 +25,15 @@ typedef struct test_struct_key_t {
   double y;
 } test_struct_key_t;
 
+/** Entry whose function pointer the fixup callback restores after a load. */
+typedef struct test_fixup_entry_t {
+  int data;
+  void (*callback)(int);
+} test_fixup_entry_t;
+
 static size_t test_fixup_nvisits;
 static int test_fixup_keysizes;
+static int test_fixup_counter;
 
 
 static int test_null_args(void)
@@ -1020,17 +1027,11 @@ static int test_load_invalid(void)
 }
 
 
-typedef struct test_fixup_entry_t {
-  int data;
-  void (*callback)(int);
-} test_fixup_entry_t;
-
-static int test_fixup_counter;
-
 static void test_fixup_cb(int v)
 {
   test_fixup_counter += v;
 }
+
 
 static void test_fixup_fn(void* value, const void* key, size_t key_size,
   size_t value_size, void* udata)
@@ -1040,6 +1041,7 @@ static void test_fixup_fn(void* value, const void* key, size_t key_size,
   LIBXS_UNUSED(value_size); LIBXS_UNUSED(udata);
   e->callback = test_fixup_cb;
 }
+
 
 static int test_save_load_fixup(void)
 { /* fixup callback restores function pointers after load */

@@ -15,35 +15,43 @@
 # define FPRINTF(STREAM, ...) do {} while(0)
 #endif
 
+#define KNN_MAXN 512
+#define KNN_MAXK 32
+#define KNN_MAXD 8
 
-static int check_sorted_f64(const double* data, int n) {
-  int i;
-  for (i = 1; i < n; ++i) {
-    if (data[i - 1] > data[i]) return 0;
+
+static int check_sorted_f64(const double* data, int n)
+{
+  int i, result = 1;
+  for (i = 1; i < n && 0 != result; ++i) {
+    if (data[i - 1] > data[i]) result = 0;
   }
-  return 1;
+  return result;
 }
 
 
-static int check_sorted_f32(const float* data, int n) {
-  int i;
-  for (i = 1; i < n; ++i) {
-    if (data[i - 1] > data[i]) return 0;
+static int check_sorted_f32(const float* data, int n)
+{
+  int i, result = 1;
+  for (i = 1; i < n && 0 != result; ++i) {
+    if (data[i - 1] > data[i]) result = 0;
   }
-  return 1;
+  return result;
 }
 
 
-static int check_sorted_i32(const int* data, int n) {
-  int i;
-  for (i = 1; i < n; ++i) {
-    if (data[i - 1] > data[i]) return 0;
+static int check_sorted_i32(const int* data, int n)
+{
+  int i, result = 1;
+  for (i = 1; i < n && 0 != result; ++i) {
+    if (data[i - 1] > data[i]) result = 0;
   }
-  return 1;
+  return result;
 }
 
 
-static int cmp_by_abs(const void* a, const void* b, void* ctx) {
+static int cmp_by_abs(const void* a, const void* b, void* ctx)
+{
   const double va = *(const double*)a, vb = *(const double*)b;
   const double aa = (va < 0 ? -va : va), ab = (vb < 0 ? -vb : vb);
   LIBXS_UNUSED(ctx);
@@ -51,7 +59,8 @@ static int cmp_by_abs(const void* a, const void* b, void* ctx) {
 }
 
 
-static int cmp_indirect_f64(const void* a, const void* b, void* ctx) {
+static int cmp_indirect_f64(const void* a, const void* b, void* ctx)
+{
   const double* keys = (const double*)ctx;
   const int ia = *(const int*)a, ib = *(const int*)b;
   return (keys[ia] > keys[ib]) - (keys[ia] < keys[ib]);
@@ -162,11 +171,6 @@ static void decode_hilbert_bits(
 }
 
 
-#define KNN_MAXN 512
-#define KNN_MAXK 32
-#define KNN_MAXD 8
-
-
 /**
  * Linear-scan oracle: the k nearest by brute force, sorted ascending. The kd-tree
  * search must agree with this exactly - it is meant to avoid visiting subtrees
@@ -214,22 +218,23 @@ static int knn_check(const double* pts, int* idx, int n, int ndims,
     query, max_dist2, tidx, td2, k);
   const int no = knn_oracle(pts, n, ndims, ndims, query, max_dist2,
     oidx, od2, k);
+  int result = 1;
   if (nt != no) {
     FPRINTF(stderr, "ERROR line #%i: knn found %i, oracle %i\n", line, nt, no);
-    return 0;
+    result = 0;
   }
-  for (i = 0; i < nt; ++i) {
+  for (i = 0; i < nt && 0 != result; ++i) {
     if (td2[i] != od2[i]) {
       FPRINTF(stderr, "ERROR line #%i: knn d2[%i]=%g, oracle %g\n",
         line, i, td2[i], od2[i]);
-      return 0;
+      result = 0;
     }
-    if (0 < i && td2[i - 1] > td2[i]) {
+    else if (0 < i && td2[i - 1] > td2[i]) {
       FPRINTF(stderr, "ERROR line #%i: knn result not sorted\n", line);
-      return 0;
+      result = 0;
     }
   }
-  return 1;
+  return result;
 }
 
 

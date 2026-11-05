@@ -26,7 +26,7 @@ if [ -x "${MATCPY}" ]; then
   run_otrans() {
     local N=$1 LD=$2 NREPEAT=$3
     local OUTPUT
-    OUTPUT=$(${MATCPY} ${N} ${N} ${LD} ${LD} ${NREPEAT} ${NMB} 2>&1) || {
+    OUTPUT=$(${MATCPY} "${N}" "${N}" "${LD}" "${LD}" "${NREPEAT}" "${NMB}" 2>&1) || {
       >&2 echo "FAILED: ${MATCPY} ${N} ${N} ${LD} ${LD} ${NREPEAT}"
       exit 1
     }
@@ -55,7 +55,7 @@ fi
 
 run_itrans() {
   local M=$1 N=$2 LDI=$3 LDO=$4
-  ${ITRANS} ${M} ${N} ${LDI} ${LDO} || {
+  ${ITRANS} "${M}" "${N}" "${LDI}" "${LDO}" || {
     >&2 echo "FAILED: ${ITRANS} ${M} ${N} ${LDI} ${LDO}"
     exit 1
   }

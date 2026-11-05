@@ -48,17 +48,8 @@ fi
 if [ "Windows_NT" = "${OS}" ]; then
   # Cygwin's "env" does not set PATH ("Files/Black: No such file or directory")
   export PATH=${PATH}:${HERE}/../lib:/usr/x86_64-w64-mingw32/sys-root/mingw/bin
-  # Cygwin's ldd hangs with dyn. linked executables or certain shared libraries
-  LDD=$(command -v cygcheck)
   EXE=.exe
 else
-  if [ "$(command -v ldd)" ]; then
-    LDD=ldd
-  elif [ "$(command -v otool)" ]; then
-    LDD="otool -L"
-  else
-    LDD="echo"
-  fi
   EXE=.x
 fi
 

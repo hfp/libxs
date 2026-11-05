@@ -28,7 +28,7 @@ NMB=1
 run_check() {
   local M=$1 N=$2 LDI=$3 LDO=$4 NREPEAT=$5
   local OUTPUT
-  OUTPUT=$(${PROG} ${M} ${N} ${LDI} ${LDO} ${NREPEAT} ${NMB} 2>&1) || {
+  OUTPUT=$(${PROG} "${M}" "${N}" "${LDI}" "${LDO}" "${NREPEAT}" "${NMB}" 2>&1) || {
     >&2 echo "FAILED: ${PROG} ${M} ${N} ${LDI} ${LDO} ${NREPEAT}"
     exit 1
   }

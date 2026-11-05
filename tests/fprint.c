@@ -301,10 +301,13 @@ int main(void)
     const size_t shape[] = {3, 4, 2};
     libxs_fprint_t fp;
     int i0, i1, i2, k, ax;
-    for (i2 = 0; i2 < 2; ++i2)
-      for (i1 = 0; i1 < 4; ++i1)
-        for (i0 = 0; i0 < 3; ++i0)
+    for (i2 = 0; i2 < 2; ++i2) {
+      for (i1 = 0; i1 < 4; ++i1) {
+        for (i0 = 0; i0 < 3; ++i0) {
           m[i2 * 12 + i1 * 3 + i0] = 1.0 + i1;
+        }
+      }
+    }
     for (ax = 0; ax < 3; ++ax) {
       if (EXIT_SUCCESS != libxs_fprint(&fp, LIBXS_DATATYPE_F64, m, 3, shape, NULL, 3, ax, 0, LIBXS_FPRINT_PERAXIS)) {
         FPRINTF(stderr, "ERROR line #%i: 3D axis=%d fprint failed\n", __LINE__, ax);
