@@ -84,7 +84,7 @@ ifneq (0,$(XGB))
     # dependency. The old tag is inherited down the chain where RUNPATH is not,
     # so one directory resolves the library and whatever it drags in.
     XGBLDFLAGS := $(XGB_OLDTAGS) $(call abslibpath,$(XGBOOST_LIBDIR)) -lxgboost
-  else ifneq (,$(shell $(PKGCFG) --exists xgboost 2>/dev/null && echo yes))
+  else ifneq (,$(and $(PKGCFG),$(shell $(PKGCFG) --exists xgboost 2>/dev/null && echo yes)))
     IFLAGS += $(shell $(PKGCFG) --cflags xgboost)
     DFLAGS += -D__XGBOOST
     XGBLDFLAGS := $(shell $(PKGCFG) --libs xgboost)
