@@ -1480,8 +1480,8 @@ LIBXS_API_INLINE size_t internal_libxs_vpack_int(void* packed, const void* value
     ? (0 < level ? LIBXS_MIN(level, LIBXS_PACK_CODES) : internal_libxs_vpack_format()) : 0);
   size_t result = 0;
   if (LIBXS_PACK_QUADS == format) result = internal_libxs_vpack_quads(packed, values, type, n, maxbits);
-  else if (LIBXS_PACK_CODES == format) {
-    result = internal_libxs_vpack_lanes(packed, values, type, n, maxbits, libxs_vpack_bound(n, maxbits));
+  else if (LIBXS_PACK_CODES == format) { /* the bound's last word is for floating-point data (a header) */
+    result = internal_libxs_vpack_lanes(packed, values, type, n, maxbits, libxs_vpack_bound(n, maxbits) - 1);
   }
   if (0 != valid && 0 == result) { /* LIBXS_PACK_WORDS: also where another format does not fit */
     const size_t ngroups = (n + LIBXS_PACK_GROUP - 1) / LIBXS_PACK_GROUP, nhead = (1 + ngroups + 7) / 8;
@@ -1751,6 +1751,48 @@ LIBXS_API_INLINE size_t internal_libxs_vunpack_reals(void* values, const void* p
         result = 1 + nwords;
       }
       internal_libxs_scratch_free(u, pool);
+    }
+  }
+  return result;
+}
+
+
+/* The exponent e of a positive finite x: 2^e <= x < 2^(e+1) (exact, subnormals included). */
+LIBXS_INLINE_ALWAYS int internal_libxs_reals_log2(double x)
+{
+  uint64_t bits;
+  int result;
+  memcpy(&bits, &x, sizeof(bits));
+  result = (int)((bits >> 52) & 0x7FF);
+  if (0 != result) result -= 1023;
+  else result = -1075 + (int)LIBXS_NBITS(bits & 0x000FFFFFFFFFFFFFULL);
+  return result;
+}
+
+
+LIBXS_API int libxs_vpack_maxbits(libxs_data_t type, double value, int relative)
+{
+  const int typesize = internal_libxs_pack_typesize(type);
+  int result = 0;
+  if (0 < typesize) { /* the bits for magnitudes up to value (a sign bit more for signed types) */
+    const double v = (0 <= value ? value : -value);
+    int nbits = 8 * typesize;
+    if (v < 18446744073709551616.0) { /* 2^64 */
+      uint64_t u = (uint64_t)v;
+      if ((double)u < v) ++u; /* up */
+      nbits = (int)LIBXS_NBITS(u) + internal_libxs_pack_signed(type);
+    }
+    result = LIBXS_MIN(LIBXS_MAX(nbits, 1), 8 * typesize);
+  }
+  else if (LIBXS_DATATYPE_F64 == type || LIBXS_DATATYPE_F32 == type) {
+    const int width = (LIBXS_DATATYPE_F64 == type ? 64 : 32), expbits = (LIBXS_DATATYPE_F64 == type ? 11 : 8);
+    if (!(0 < value)) result = width; /* no error (or NaN): lossless */
+    else if (0 == relative) { /* the largest power of two up to value */
+      result = (value < 1.0 ? internal_libxs_reals_log2(value) : 0);
+    }
+    else { /* m mantissa bits round to within 2^-(m+1) of a value: m = ceil(-log2(value)) - 1 */
+      const int m = (value < 1.0 ? -internal_libxs_reals_log2(value) - 1 : 1);
+      result = LIBXS_MIN(1 + expbits + LIBXS_MAX(m, 1), width);
     }
   }
   return result;

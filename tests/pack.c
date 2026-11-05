@@ -360,6 +360,53 @@ static int check_reals(libxs_data_t type)
 }
 
 
+/** libxs_vpack_maxbits: the bits for integer magnitudes, the bits within an error, and the error kept. */
+static int check_maxbits(void)
+{
+  static const struct { libxs_data_t type; double value; int relative, expected; } cases[] = {
+    { LIBXS_DATATYPE_I8, 127, 0, 8 }, { LIBXS_DATATYPE_I8, 1000, 0, 8 }, { LIBXS_DATATYPE_U8, 255, 0, 8 },
+    { LIBXS_DATATYPE_I32, 0, 0, 1 }, { LIBXS_DATATYPE_U32, 0, 0, 1 }, { LIBXS_DATATYPE_I16, -1000, 0, 11 },
+    { LIBXS_DATATYPE_U64, 2.5, 0, 2 }, { LIBXS_DATATYPE_I64, 1e30, 0, 64 }, { LIBXS_DATATYPE_U16, 1024, 1, 11 },
+    { LIBXS_DATATYPE_F64, 0, 0, 64 }, { LIBXS_DATATYPE_F32, -1, 1, 32 }, { LIBXS_DATATYPE_F64, 5e-12, 0, -38 },
+    { LIBXS_DATATYPE_F64, 1.0, 0, 0 }, { LIBXS_DATATYPE_F64, 4.0, 0, 0 }, { LIBXS_DATATYPE_F64, 4.9e-324, 0, -1074 },
+    { LIBXS_DATATYPE_F64, 0.5, 1, 13 }, { LIBXS_DATATYPE_F64, 1.0 / 1048576, 1, 31 },
+    { LIBXS_DATATYPE_F64, 1.5 / 1048576, 1, 31 }, { LIBXS_DATATYPE_F32, 1.0 / 1048576, 1, 28 },
+    { LIBXS_DATATYPE_F64, 1e-30, 1, 64 }, { LIBXS_DATATYPE_F64, 2.0, 1, 13 }, { LIBXS_DATATYPE_C64, 1, 0, 0 }
+  };
+  enum { N = 1000 };
+  double x[N], y[N];
+  uint64_t packed[2 * N + 64];
+  int result = EXIT_SUCCESS, i, kind;
+  for (i = 0; i < (int)(sizeof(cases) / sizeof(*cases)) && EXIT_SUCCESS == result; ++i) {
+    const int got = libxs_vpack_maxbits(cases[i].type, cases[i].value, cases[i].relative);
+    if (cases[i].expected != got) {
+      fprintf(stderr, "maxbits: %i, not %i (type %i, value %g, relative %i)\n", got, cases[i].expected,
+        (int)cases[i].type, cases[i].value, cases[i].relative);
+      result = EXIT_FAILURE;
+    }
+  }
+  for (i = 0; i < N; ++i) {
+    x[i] = ldexp((double)(rng_next() >> 11) / 9007199254740992.0 - 0.5, (int)(rng_next() % 30) - 10);
+  }
+  for (kind = 0; kind < 4 && EXIT_SUCCESS == result; ++kind) { /* relative and absolute errors kept */
+    static const double errors[] = { 1e-6, 3e-14, 1e-9, 0.25 };
+    const int relative = (2 > kind), maxbits = libxs_vpack_maxbits(LIBXS_DATATYPE_F64, errors[kind], relative);
+    const size_t nwords = libxs_vpack(packed, x, LIBXS_DATATYPE_F64, N, maxbits, 0);
+    if (0 == nwords || nwords != libxs_vunpack(y, packed, nwords, LIBXS_DATATYPE_F64, N)) {
+      fprintf(stderr, "maxbits: no round trip (error %g, relative %i)\n", errors[kind], relative);
+      result = EXIT_FAILURE;
+    }
+    for (i = 0; i < N && EXIT_SUCCESS == result; ++i) {
+      if (fabs(y[i] - x[i]) > errors[kind] * (0 != relative ? fabs(x[i]) : 1.0)) {
+        fprintf(stderr, "maxbits: %.17g, not %.17g (error %g, relative %i)\n", y[i], x[i], errors[kind], relative);
+        result = EXIT_FAILURE;
+      }
+    }
+  }
+  return result;
+}
+
+
 int main(int argc, char* argv[])
 {
   static const libxs_data_t types[] = {
@@ -379,8 +426,11 @@ int main(int argc, char* argv[])
     }
     if (EXIT_SUCCESS == result) result = check_lanes(types[i]);
   }
-  if (EXIT_SUCCESS == result) result = check_reals(LIBXS_DATATYPE_F64);
-  if (EXIT_SUCCESS == result) result = check_reals(LIBXS_DATATYPE_F32);
+  if (EXIT_SUCCESS == result) result = check_maxbits();
+  for (i = 0; i < 2 && EXIT_SUCCESS == result; ++i) { /* twice: other values (sizes near the bound) */
+    result = check_reals(LIBXS_DATATYPE_F64);
+    if (EXIT_SUCCESS == result) result = check_reals(LIBXS_DATATYPE_F32);
+  }
   libxs_finalize();
   return result;
 }

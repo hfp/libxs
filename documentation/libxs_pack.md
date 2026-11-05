@@ -28,6 +28,7 @@ with n > 0.
 size_t libxs_vpack(void* packed, const void* values,
   libxs_data_t type, size_t n, int maxbits, int level);
 size_t libxs_vpack_bound(size_t n, int maxbits);
+int libxs_vpack_maxbits(libxs_data_t type, double value, int relative);
 size_t libxs_vunpack(void* values, const void* packed, size_t npacked,
   libxs_data_t type, size_t n);
 ```
@@ -59,11 +60,18 @@ of words consumed. Both return zero for invalid arguments (including NULL
 pointers); `libxs_vunpack` also returns zero for an empty stream (`npacked` of
 zero) and leaves the values untouched.
 
+`libxs_vpack_maxbits` gives the `maxbits` for a value: for integer types, the
+bits that magnitudes up to `value` need (a sign bit more for signed types); for
+floating-point types, the `maxbits` that keep the error within `value`, absolute
+(`relative` of zero) or relative to each value (not for subnormal values), and
+lossless for a `value` of zero or less. It returns zero for other types.
+
 From Fortran (`USE libxs`), `libxs_vpack(packed, values, maxbits[, level])`
 and `libxs_vunpack(values, packed)` take contiguous `INTEGER(C_LONG_LONG)`,
 `REAL(C_DOUBLE)`, or `REAL(C_FLOAT)` values (and `INTEGER(C_LONG_LONG)` words)
 and return the number of words as `INTEGER(C_SIZE_T)`;
-`libxs_vpack_bound(n, maxbits)` is bound directly.
+`libxs_vpack_bound(n, maxbits)` and `libxs_vpack_maxbits(datatype, value,
+relative)` are bound directly.
 
 The [pack sample](samples/libxs_pack.md) measures the trade-offs on synthetic
 data or on MHD files.

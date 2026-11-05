@@ -50,6 +50,14 @@ LIBXS_API size_t libxs_vpack(void* packed, const void* values,
 /** Number of 64-bit words libxs_vpack writes at most (any level). */
 LIBXS_API size_t libxs_vpack_bound(size_t n, int maxbits);
 /**
+ * The maxbits of libxs_vpack for a value: for integer types the bits that
+ * magnitudes up to value need (with a sign bit for signed types); for F64 and
+ * F32 the bits that keep the error within value, absolute (relative = 0) or
+ * relative to each value (relative != 0; not for subnormal values), a value
+ * of zero or less meaning lossless. Zero for other types.
+ */
+LIBXS_API int libxs_vpack_maxbits(libxs_data_t type, double value, int relative);
+/**
  * Unpacks n integers written by libxs_vpack from npacked 64-bit words, which
  * have to hold the stream (checked in debug code only). Returns the number of
  * 64-bit words consumed, or zero for invalid arguments, n of zero, or npacked

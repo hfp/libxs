@@ -398,6 +398,11 @@ libxs_utf8_size
 libxs_version
 libxs_vpack
 libxs_vpack_bound
+libxs_vpack_f32
+libxs_vpack_f64
 libxs_vpack_i64
+libxs_vpack_maxbits
 libxs_vunpack
+libxs_vunpack_f32
+libxs_vunpack_f64
 libxs_vunpack_i64

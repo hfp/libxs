@@ -80,6 +80,7 @@
         PUBLIC :: libxs_memcmp
         PUBLIC :: libxs_mhd_write, libxs_png_write
         PUBLIC :: libxs_vpack, libxs_vunpack, libxs_vpack_bound
+        PUBLIC :: libxs_vpack_maxbits
         PUBLIC :: libxs_aligned
         PUBLIC :: libxs_matcopy, libxs_matcopy_task
         PUBLIC :: libxs_otrans, libxs_otrans_task
@@ -1584,6 +1585,16 @@
             INTEGER(C_SIZE_T), INTENT(IN), VALUE :: n
             INTEGER(C_INT), INTENT(IN), VALUE :: maxbits
             INTEGER(C_SIZE_T) :: libxs_vpack_bound
+          END FUNCTION
+
+          !> The maxbits of libxs_vpack for a value (libxs_pack.h):
+          !> integers up to it, or REAL within it (relative /= 0).
+          PURE FUNCTION libxs_vpack_maxbits(datatype, value, relative)  &
+     &    BIND(C)
+            IMPORT :: C_INT, C_DOUBLE
+            INTEGER(C_INT), INTENT(IN), VALUE :: datatype, relative
+            REAL(C_DOUBLE), INTENT(IN), VALUE :: value
+            INTEGER(C_INT) :: libxs_vpack_maxbits
           END FUNCTION
 
           ! internal (use libxs_vpack)

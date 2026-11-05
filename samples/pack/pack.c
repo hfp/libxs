@@ -1497,7 +1497,7 @@ static int run_files(int nfiles, char* files[], double eps)
     if (0 != st.nreals) { /* floating-point data as is: lossless, relative, absolute (eps/2 or less) */
       const double nr = (double)st.nreals;
       int modes[] = { 64, 52, 32, 0 }, im;
-      modes[3] = (int)floor(log2(0.5 * st.eps)); /* a power of two up to eps/2 */
+      modes[3] = libxs_vpack_maxbits(LIBXS_DATATYPE_F64, 0.5 * st.eps, 0); /* within eps/2 */
       for (im = 0; im < (int)(sizeof(modes) / sizeof(*modes)); ++im) {
         char label[32];
         bits = vpack_reals(st.reals, st.nreals, modes[im], 0, &seconds, &useconds, &ok);
