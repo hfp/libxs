@@ -146,6 +146,12 @@ Finding = Tuple[str, int, str]
 # smaller scale: LIBXSTREAM_CPU has to be defined before libxstream_vectors.h,
 # which selects the host mapping by it, and 36 macros and 2 includes are all
 # the file holds at depth zero.
+#
+# The ozaki sample compiles one source twice, once per precision, and maps its
+# lowercase implementation names onto precision-specific symbols with object-like
+# macros (gemm_original -> dgemm_original or sgemm_original). The macro IS the
+# lowercase name at every use, and capitalizing it would rename hundreds of uses
+# for nothing, so every macro-name finding in those files is such an alias.
 EXEMPT = (
     ("macro-name", "libxs/libxs_macros.h"),
     ("macro-name", "src/libxs_crc32.h"),
@@ -156,6 +162,11 @@ EXEMPT = (
     ("stacked-comments", "libxstream/libxstream_dbcsr.h"),
     ("section-order", "libxs/libxs_macros.h"),
     ("section-order", "libxstream/opencl/libxstream_cpu_begin.h"),
+    ("macro-name", "samples/ozaki/ozaki.h"),
+    ("macro-name", "samples/ozaki/gemm.h"),
+    ("macro-name", "samples/ozaki/ozaki1_int8.c"),
+    ("macro-name", "samples/ozaki/ozaki2_int8.c"),
+    ("macro-name", "samples/ozaki/wrap3m.c"),
 )
 # The backlog is not here: it is per-project state, and this script is a
 # policy file that "make documentation" copies into dependent projects, which

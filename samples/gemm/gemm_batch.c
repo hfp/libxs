@@ -77,105 +77,105 @@ int main(int argc, char* argv[])
     fprintf(stderr, "ERROR: memory allocation failed\n");
     free(a_data); free(b_data); free(c_data);
     free(a_ptrs); free(b_ptrs); free(c_ptrs);
-    return EXIT_FAILURE;
-  }
+    result = EXIT_FAILURE;
+  } else {
+    LIBXS_MATRNG(int, double, 0, a_data, m, (size_t)k * nunique, lda, 1.0);
+    LIBXS_MATRNG(int, double, 0, b_data, k, (size_t)n * nunique, ldb, 1.0);
+    LIBXS_MATRNG(int, double, 0, c_data, m, (size_t)n * nunique, ldc, 1.0);
 
-  LIBXS_MATRNG(int, double, 0, a_data, m, (size_t)k * nunique, lda, 1.0);
-  LIBXS_MATRNG(int, double, 0, b_data, k, (size_t)n * nunique, ldb, 1.0);
-  LIBXS_MATRNG(int, double, 0, c_data, m, (size_t)n * nunique, ldc, 1.0);
-
-  { int i;
-    for (i = 0; i < batchsize; ++i) {
-      const int idx = i % nunique;
-      a_ptrs[i] = a_data + idx * asize;
-      b_ptrs[i] = b_data + idx * bsize;
-      c_ptrs[i] = c_data + idx * csize;
+    { int i;
+      for (i = 0; i < batchsize; ++i) {
+        const int idx = i % nunique;
+        a_ptrs[i] = a_data + idx * asize;
+        b_ptrs[i] = b_data + idx * bsize;
+        c_ptrs[i] = c_data + idx * csize;
+      }
     }
-  }
 
-  /* shuffle C-pointers to stress the lock-forward path */
-  if (2 <= dup_mode) {
-    SHUFFLE_PTRS(c_ptrs, (size_t)batchsize);
-    printf("  C-pointers shuffled (lock-forward stress test)\n");
-  }
-  else if (1 <= dup_mode) {
-    printf("  C-pointers sorted (duplicates are consecutive)\n");
-  }
-
-  /* configure locking: enable locks when duplicates exist */
-  { cfg = libxs_gemm_dispatch(
-      LIBXS_DATATYPE(double), 'N', 'N', m, n, k, lda, ldb, ldc,
-      &alpha, &beta, NULL);
-    if (NULL != cfg) {
-      config = *cfg;
-      printf("  JIT kernel dispatched\n");
+    /* shuffle C-pointers to stress the lock-forward path */
+    if (2 <= dup_mode) {
+      SHUFFLE_PTRS(c_ptrs, (size_t)batchsize);
+      printf("  C-pointers shuffled (lock-forward stress test)\n");
     }
-    else {
-      memset(&config, 0, sizeof(config));
+    else if (1 <= dup_mode) {
+      printf("  C-pointers sorted (duplicates are consecutive)\n");
     }
-    config.flags = (0 < dup_mode)
-      ? LIBXS_GEMM_FLAGS_DEFAULT : LIBXS_GEMM_FLAG_NOLOCK;
-  }
 
-  /* warmup */
-  libxs_gemm_batch(
-    a_ptrs, b_ptrs, c_ptrs,
-    batchsize, &config);
-
-  t0 = libxs_timer_tick();
-  for (r = 0; r < nrepeat; ++r) {
-#if defined(_OPENMP)
-#   pragma omp parallel
-    { const int tid = omp_get_thread_num();
-      const int nthreads = omp_get_num_threads();
-      libxs_gemm_batch_task(
-        a_ptrs, b_ptrs, c_ptrs,
-        batchsize, &config, tid, nthreads);
+    /* configure locking: enable locks when duplicates exist */
+    { cfg = libxs_gemm_dispatch(
+        LIBXS_DATATYPE(double), 'N', 'N', m, n, k, lda, ldb, ldc,
+        &alpha, &beta, NULL);
+      if (NULL != cfg) {
+        config = *cfg;
+        printf("  JIT kernel dispatched\n");
+      }
+      else {
+        memset(&config, 0, sizeof(config));
+      }
+      config.flags = (0 < dup_mode)
+        ? LIBXS_GEMM_FLAGS_DEFAULT : LIBXS_GEMM_FLAG_NOLOCK;
     }
-#else
+
+    /* warmup */
     libxs_gemm_batch(
       a_ptrs, b_ptrs, c_ptrs,
       batchsize, &config);
+
+    t0 = libxs_timer_tick();
+    for (r = 0; r < nrepeat; ++r) {
+#if defined(_OPENMP)
+#   pragma omp parallel
+      { const int tid = omp_get_thread_num();
+        const int nthreads = omp_get_num_threads();
+        libxs_gemm_batch_task(
+          a_ptrs, b_ptrs, c_ptrs,
+          batchsize, &config, tid, nthreads);
+      }
+#else
+      libxs_gemm_batch(
+        a_ptrs, b_ptrs, c_ptrs,
+        batchsize, &config);
 #endif
-  }
-  t1 = libxs_timer_tick();
-  duration = libxs_timer_duration(t0, t1);
+    }
+    t1 = libxs_timer_tick();
+    duration = libxs_timer_duration(t0, t1);
 
-  if (0 < duration) {
-    printf("Total time : %.3f s (%d repeats)\n", duration, nrepeat);
-    printf("Performance: %.1f GFLOPS/s\n",
-      gflops_per_op * batchsize * nrepeat / duration);
-  }
+    if (0 < duration) {
+      printf("Total time : %.3f s (%d repeats)\n", duration, nrepeat);
+      printf("Performance: %.1f GFLOPS/s\n",
+        gflops_per_op * batchsize * nrepeat / duration);
+    }
 
-  if (0 != check) {
-    /* verify ld-padding in first C-matrix is untouched */
-    if (ldc > m) {
-      int ci, cj;
-      for (ci = 0; ci < n && EXIT_SUCCESS == result; ++ci) {
-        for (cj = m; cj < ldc; ++cj) {
-          if (0 != c_data[(size_t)ci * ldc + cj]) {
-            fprintf(stderr, "FAILED: C ld-padding overwritten"
-              " (col=%d row=%d)\n", ci, cj);
-            result = EXIT_FAILURE;
+    if (0 != check) {
+      /* verify ld-padding in first C-matrix is untouched */
+      if (ldc > m) {
+        int ci, cj;
+        for (ci = 0; ci < n && EXIT_SUCCESS == result; ++ci) {
+          for (cj = m; cj < ldc; ++cj) {
+            if (0 != c_data[(size_t)ci * ldc + cj]) {
+              fprintf(stderr, "FAILED: C ld-padding overwritten"
+                " (col=%d row=%d)\n", ci, cj);
+              result = EXIT_FAILURE;
+            }
           }
         }
       }
+      libxs_matdiff(&check_diff, LIBXS_DATATYPE(double),
+        m, n, NULL/*ref*/, c_data, NULL/*ldref*/, &ldc);
+      if (1 < nunique) {
+        libxs_matdiff_t d;
+        libxs_matdiff(&d, LIBXS_DATATYPE(double),
+          m, n, NULL/*ref*/, c_data + (nunique - 1) * csize,
+          NULL/*ldref*/, &ldc);
+        libxs_matdiff_combine(&check_diff, &d);
+      }
+      printf("checksum=%.6e\n", check_diff.l1_ref + check_diff.l1_tst);
     }
-    libxs_matdiff(&check_diff, LIBXS_DATATYPE(double),
-      m, n, NULL/*ref*/, c_data, NULL/*ldref*/, &ldc);
-    if (1 < nunique) {
-      libxs_matdiff_t d;
-      libxs_matdiff(&d, LIBXS_DATATYPE(double),
-        m, n, NULL/*ref*/, c_data + (nunique - 1) * csize,
-        NULL/*ldref*/, &ldc);
-      libxs_matdiff_combine(&check_diff, &d);
-    }
-    printf("checksum=%.6e\n", check_diff.l1_ref + check_diff.l1_tst);
-  }
 
-  libxs_gemm_release(cfg); /* registry-owned config */
-  free(a_data); free(b_data); free(c_data);
-  free(a_ptrs); free(b_ptrs); free(c_ptrs);
-  libxs_finalize();
+    libxs_gemm_release(cfg); /* registry-owned config */
+    free(a_data); free(b_data); free(c_data);
+    free(a_ptrs); free(b_ptrs); free(c_ptrs);
+    libxs_finalize();
+  }
   return result;
 }

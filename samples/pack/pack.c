@@ -31,6 +31,8 @@
 #define NORDERS 6 /* traversal orders of a block's axes (innermost first) */
 
 
+#define KD_MASK(N) (64 > (N) ? ((((uint64_t)1) << (N)) - 1) : ~((uint64_t)0))
+
 typedef struct stream_t {
   int64_t* q;
   size_t n, cap;
@@ -58,6 +60,35 @@ typedef size_t (*vpack_fn)(void*, const void*, libxs_data_t, size_t, int, int);
 typedef size_t (*vunpack_fn)(void*, const void*, size_t, libxs_data_t, size_t);
 
 #if defined(PACK_FORTRAN)
+typedef struct kd_ctx_t {
+  const uint64_t* z;
+  int *left, *right; /* scratch */
+  int axes, dbits, exc; /* axes that may split (bit mask), bits to name one, exceptions */
+} kd_ctx_t;
+
+typedef struct kd_bits_t {
+  uint64_t* out; /* zeroed */
+  size_t nbits;
+} kd_bits_t;
+
+/* A box of whole rows (s0 values) over [a1,b1) x [a2,b2) of axes 1 and 2. */
+typedef struct kd_box_t {
+  size_t s0, s1;
+  int a1, b1, a2, b2;
+} kd_box_t;
+
+typedef struct kd_leaf_t {
+  size_t count;
+  double bits;
+  int w, v, e, list, lg;
+} kd_leaf_t;
+
+/* A leaf as phase 1 of the decoder finds it: box, widths, positions (0: none, 1: list, 2: bitmap). */
+typedef struct kd_node_t {
+  int a1, b1, a2, b2, v, w, mode;
+  size_t e;
+} kd_node_t;
+
 /* vpack.f: a group of 8 in the format libxs_vpack writes at level 1 */
 size_t vpack_f(int64_t* packed, const int64_t* values, size_t n, int maxbits);
 size_t vunpack_f(int64_t* values, const int64_t* packed, size_t n);
@@ -270,12 +301,6 @@ static double leaf_cost(const uint64_t* z, const int* idx, int count, int exc)
   return result;
 }
 
-
-typedef struct kd_ctx_t {
-  const uint64_t* z;
-  int *left, *right; /* scratch */
-  int axes, dbits, exc; /* axes that may split (bit mask), bits to name one, exceptions */
-} kd_ctx_t;
 
 /* Splits a box at the middle of the allowed axis that lowers the bits most (both halves as leaves,
  * the axis and their flags counted), else a leaf. */
@@ -915,26 +940,6 @@ static double vpack_reals(const double* x, size_t n, int maxbits, int level, dou
 }
 
 
-#define KD_MASK(N) (64 > (N) ? ((((uint64_t)1) << (N)) - 1) : ~((uint64_t)0))
-
-typedef struct kd_bits_t {
-  uint64_t* out; /* zeroed */
-  size_t nbits;
-} kd_bits_t;
-
-/* A box of whole rows (s0 values) over [a1,b1) x [a2,b2) of axes 1 and 2. */
-typedef struct kd_box_t {
-  size_t s0, s1;
-  int a1, b1, a2, b2;
-} kd_box_t;
-
-typedef struct kd_leaf_t {
-  size_t count;
-  double bits;
-  int w, v, e, list, lg;
-} kd_leaf_t;
-
-
 /* Appends the n low bits of v (no higher bits set). */
 static void kd_put(kd_bits_t* bw, uint64_t v, int n)
 {
@@ -1062,8 +1067,10 @@ static size_t kd_patch_run(int64_t* dst, size_t n, const uint64_t* bitmap, size_
     const __m512i h = _mm512_maskz_expandloadu_epi64(m, high + j);
     __m512i x = _mm512_maskz_loadu_epi64(store, dst + i);
     if (0 < v) x = _mm512_xor_si512(x, _mm512_sll_epi64(h, sv));
-    else x = _mm512_mask_mov_epi64(x, m, _mm512_xor_si512(_mm512_srli_epi64(h, 1),
-      _mm512_sub_epi64(zero, _mm512_and_si512(h, one))));
+    else {
+      x = _mm512_mask_mov_epi64(x, m, _mm512_xor_si512(_mm512_srli_epi64(h, 1),
+        _mm512_sub_epi64(zero, _mm512_and_si512(h, one))));
+    }
     _mm512_mask_storeu_epi64(dst + i, store, x);
     j += (size_t)PACK_POPCOUNT64(m);
   }
@@ -1129,13 +1136,6 @@ static void kd_leaf(kd_leaf_t* lf, const uint64_t* z, const kd_box_t* b)
     }
   }
 }
-
-
-/* A leaf as phase 1 of the decoder finds it: box, widths, positions (0: none, 1: list, 2: bitmap). */
-typedef struct kd_node_t {
-  int a1, b1, a2, b2, v, w, mode;
-  size_t e;
-} kd_node_t;
 
 
 /* The header bytes of a leaf go to bh, its data (positions, values, high parts) to bp. */

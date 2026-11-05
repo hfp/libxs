@@ -54,25 +54,28 @@ static const char* field_names[NFIELDS] = {
 };
 
 
-static void separator(void) {
-  printf("--------------------------------------------------\n");
-}
-
-
 static int artifact_path(char path[ROSETTA_PATH_MAX], const char name[]);
+
 static void artifact_open(void);
+
 static void artifact_close(void);
+
 static void artifact_write_matrix(const char name[], const void* data,
   libxs_data_t dtype, size_t nrows, int stride);
+
 static void artifact_write_field_image(const char name[], const void* data,
   libxs_data_t dtype, size_t nrows, int stride);
+
 static int field_image_handler(void* dst,
   const libxs_mhd_element_handler_info_t* dst_info, libxs_data_t src_type,
   const void* src, const void* src_min, const void* src_max,
   size_t index, void* context);
+
 static void generate_table(double table[NROWS][NFIELDS]);
+
 /* Level 0: flat 1-D probe - expected to be inconclusive. */
 static libxs_data_t flat_probe(const void* blob, size_t nbytes);
+
 /**
  * Stride sweep: for each candidate element width and record stride,
  * fingerprint down the columns and find the (width, stride) pair
@@ -80,22 +83,32 @@ static libxs_data_t flat_probe(const void* blob, size_t nbytes);
  */
 static int stride_sweep(const void* blob, size_t nbytes,
   libxs_data_t* out_type);
+
 /* Shuffle stability on the discovered column structure. */
 static void shuffle_test(const void* blob, size_t nbytes,
   libxs_data_t dtype, int stride);
+
 /* Per-field decay analysis - the payoff. */
 static void field_analysis(const void* blob, size_t nbytes,
   libxs_data_t dtype, int stride);
+
 /* GREEDY sort test. */
 static void sort_test(const void* blob, size_t nbytes,
   libxs_data_t dtype, int stride);
+
 /* Setdiff verification: compare blob against original. */
 static void verify(const void* table,
   const void* blob, size_t nbytes, libxs_data_t dtype);
 
+static void separator(void)
+{
+  printf("--------------------------------------------------\n");
+}
+
 
 int main(void)
 {
+  int result;
   double table[NROWS][NFIELDS];
   const size_t nbytes = sizeof(table);
   void* blob;
@@ -107,46 +120,48 @@ int main(void)
   blob = malloc(nbytes);
   if (NULL == blob) {
     libxs_finalize();
-    return EXIT_FAILURE;
+    result = EXIT_FAILURE;
+  } else {
+    memcpy(blob, table, nbytes);
+    artifact_open();
+
+    printf("ROSETTA: Recovering structure from opaque bytes\n");
+    separator();
+    printf("Ground truth (hidden from the analysis):\n");
+    printf("  %i records x %i fields = %i doubles (%i bytes)\n",
+      NROWS, NFIELDS, NROWS * NFIELDS, (int)nbytes);
+    printf("  Data: harmonic series H_n and derived quantities.\n");
+    printf("  Field [5] converges to Euler-Mascheroni gamma.\n");
+    separator();
+
+    flat_probe(blob, nbytes);
+    separator();
+
+    stride = stride_sweep(blob, nbytes, &discovered);
+    artifact_write_matrix("rosetta_original.mhd", blob, discovered,
+      (size_t)(nbytes / (LIBXS_TYPESIZE(discovered) * stride)), stride);
+    artifact_write_field_image("rosetta_fields.png", blob, discovered,
+      (size_t)(nbytes / (LIBXS_TYPESIZE(discovered) * stride)), stride);
+    separator();
+
+    shuffle_test(blob, nbytes, discovered, stride);
+    separator();
+
+    field_analysis(blob, nbytes, discovered, stride);
+    separator();
+
+    sort_test(blob, nbytes, discovered, stride);
+    separator();
+
+    verify(table, blob, nbytes, discovered);
+    separator();
+
+    artifact_close();
+    free(blob);
+    libxs_finalize();
+    result = EXIT_SUCCESS;
   }
-  memcpy(blob, table, nbytes);
-  artifact_open();
-
-  printf("ROSETTA: Recovering structure from opaque bytes\n");
-  separator();
-  printf("Ground truth (hidden from the analysis):\n");
-  printf("  %i records x %i fields = %i doubles (%i bytes)\n",
-    NROWS, NFIELDS, NROWS * NFIELDS, (int)nbytes);
-  printf("  Data: harmonic series H_n and derived quantities.\n");
-  printf("  Field [5] converges to Euler-Mascheroni gamma.\n");
-  separator();
-
-  flat_probe(blob, nbytes);
-  separator();
-
-  stride = stride_sweep(blob, nbytes, &discovered);
-  artifact_write_matrix("rosetta_original.mhd", blob, discovered,
-    (size_t)(nbytes / (LIBXS_TYPESIZE(discovered) * stride)), stride);
-  artifact_write_field_image("rosetta_fields.png", blob, discovered,
-    (size_t)(nbytes / (LIBXS_TYPESIZE(discovered) * stride)), stride);
-  separator();
-
-  shuffle_test(blob, nbytes, discovered, stride);
-  separator();
-
-  field_analysis(blob, nbytes, discovered, stride);
-  separator();
-
-  sort_test(blob, nbytes, discovered, stride);
-  separator();
-
-  verify(table, blob, nbytes, discovered);
-  separator();
-
-  artifact_close();
-  free(blob);
-  libxs_finalize();
-  return EXIT_SUCCESS;
+  return result;
 }
 
 
@@ -303,6 +318,7 @@ static void generate_table(double table[NROWS][NFIELDS])
 /* Level 0: flat 1-D probe - expected to be inconclusive. */
 static libxs_data_t flat_probe(const void* blob, size_t nbytes)
 {
+  libxs_data_t result;
   libxs_fprint_t fp;
   int r;
   double decay = -1;
@@ -322,16 +338,18 @@ static libxs_data_t flat_probe(const void* blob, size_t nbytes)
       fprintf(artifact_file, "flat,,type,%s\n", libxs_typename(fp.datatype));
       fprintf(artifact_file, "flat,,accepted,1\n");
     }
-    return fp.datatype;
+    result = fp.datatype;
+  } else {
+    printf("  No type has decay < 1 -- flat stream is not smooth.\n");
+    printf("  This is expected: interleaved fields of different\n");
+    printf("  scales look like noise when read sequentially.\n");
+    if (NULL != artifact_file) {
+      fprintf(artifact_file, "flat,,type,unknown\n");
+      fprintf(artifact_file, "flat,,accepted,0\n");
+    }
+    result = LIBXS_DATATYPE_UNKNOWN;
   }
-  printf("  No type has decay < 1 -- flat stream is not smooth.\n");
-  printf("  This is expected: interleaved fields of different\n");
-  printf("  scales look like noise when read sequentially.\n");
-  if (NULL != artifact_file) {
-    fprintf(artifact_file, "flat,,type,unknown\n");
-    fprintf(artifact_file, "flat,,accepted,0\n");
-  }
-  return LIBXS_DATATYPE_UNKNOWN;
+  return result;
 }
 
 
@@ -525,8 +543,9 @@ static void sort_test(const void* blob, size_t nbytes,
       int r, c;
       const double* rowmaj = (const double*)blob;
       for (r = 0; r < nrows; ++r)
-        for (c = 0; c < stride; ++c)
+        for (c = 0; c < stride; ++c) {
           colmaj[c * nrows + r] = rowmaj[r * stride + c];
+        }
       libxs_sort_smooth(LIBXS_SORT_GREEDY, nrows, stride,
         colmaj, nrows, dtype, perm);
       free(colmaj);
@@ -541,8 +560,9 @@ static void sort_test(const void* blob, size_t nbytes,
     }
     if (0 == is_identity) {
       printf("  Permutation (first 16): ");
-      for (i = 0; i < LIBXS_MIN(nrows, 16); ++i)
+      for (i = 0; i < LIBXS_MIN(nrows, 16); ++i) {
         printf("%i ", perm[i]);
+      }
       printf("...\n");
     }
     free(perm);

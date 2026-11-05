@@ -111,10 +111,10 @@
     DIFF_FN(transa, transb, m, n, k, alpha, a, lda, b, ldb, beta, c, ldc, NULL); \
   } \
   else { \
-    libxs_matdiff_t diff; \
-    libxs_matdiff_clear(&diff); \
-    DIFF_FN(transa, transb, m, n, k, alpha, a, lda, b, ldb, beta, c, ldc, &diff); \
-    ozaki_post_diff(GEMM_ARGPASS, LABEL, NCOMP, &diff); \
+    libxs_matdiff_t diff_; \
+    libxs_matdiff_clear(&diff_); \
+    DIFF_FN(transa, transb, m, n, k, alpha, a, lda, b, ldb, beta, c, ldc, &diff_); \
+    ozaki_post_diff(GEMM_ARGPASS, LABEL, NCOMP, &diff_); \
   }
 
 /* Schedule eventually impacting run-to-run reproducible results */
@@ -245,6 +245,9 @@
 /** Function type for complex GEMM (precision-specific). */
 LIBXS_EXTERN_C typedef void (*zgemm_function_t)(GEMM_ARGDECL);
 
+extern LIBXS_TLS int gemm_nozaki; /* not precision-prefixed: bypass must cover all precisions */
+extern LIBXS_TLS int gemm_dump_inhibit;
+
 #if defined(__LIBXSMM)
 /** LIBXSMM int8 kernels for one K extent: full and edge row tiles, indexed by beta (0 or 1). */
 typedef struct ozaki_xsmm_t {
@@ -334,9 +337,6 @@ LIBXS_INLINE int ozaki_flags_eff(GEMM_INT_TYPE m, GEMM_INT_TYPE n, GEMM_INT_TYPE
 
 
 LIBXS_INLINE void ozaki_post_diff(GEMM_ARGDECL, const char* label, size_t ncomponents, libxs_matdiff_t* diff);
-
-extern LIBXS_TLS int gemm_nozaki; /* not precision-prefixed: bypass must cover all precisions */
-extern LIBXS_TLS int gemm_dump_inhibit;
 
 #if defined(__LIBXSTREAM)
 /** Opaque OpenCL handle (bridge to LIBXSTREAM Ozaki). */

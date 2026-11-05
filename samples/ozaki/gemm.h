@@ -83,12 +83,21 @@
 /* Size of the serialized settings block */
 #define GEMM_MHD_SETTINGS_SIZE (5 * (int)sizeof(int))
 
+/** Original (unwrapped) real GEMM. */
+#define GEMM_REAL LIBXS_CONCATENATE(__real_, GEMM)
+
+/** Ozaki settings stored in MHD extension (optional). */
+typedef struct gemm_mhd_settings_t {
+  int ozaki, ozn, ozflags, oztrim, ldc;
+} gemm_mhd_settings_t;
+
+/** Function type for GEMM (precision-specific). */
+LIBXS_EXTERN_C typedef void (*gemm_function_t)(GEMM_ARGDECL);
+
 /** Real GEMM entry point (dgemm_ or sgemm_). */
 LIBXS_EXTERN void GEMM(GEMM_ARGDECL);
 /** Complex GEMM entry point (zgemm_ or cgemm_). */
 LIBXS_EXTERN void ZGEMM(GEMM_ARGDECL);
-/** Original (unwrapped) real GEMM. */
-#define GEMM_REAL LIBXS_CONCATENATE(__real_, GEMM)
 LIBXS_EXTERN void GEMM_REAL(GEMM_ARGDECL);
 /**
  * Original (unwrapped) complex GEMM, whether reached by --wrap or by dlsym.
@@ -102,10 +111,6 @@ OZAKI_API void print_gemm(FILE* ostream, int compact, GEMM_ARGDECL);
 /** Print statistics (label = "DGEMM", "ZGEMM", etc.). */
 OZAKI_API void print_diff(FILE* ostream, const char* label, int detail, const libxs_matdiff_t* diff);
 
-/** Ozaki settings stored in MHD extension (optional). */
-typedef struct gemm_mhd_settings_t {
-  int ozaki, ozn, ozflags, oztrim, ldc;
-} gemm_mhd_settings_t;
 
 /**
  * Read a GEMM matrix from an MHD file.
@@ -230,8 +235,6 @@ LIBXS_INLINE int gemm_mhd_write(const char* filename, const GEMM_REAL_TYPE* data
   }
 }
 
-/** Function type for GEMM (precision-specific). */
-LIBXS_EXTERN_C typedef void (*gemm_function_t)(GEMM_ARGDECL);
 
 OZAKI_APIVAR_PUBLIC(gemm_function_t gemm_original);
 OZAKI_APIVAR_PUBLIC(libxs_matdiff_t gemm_diff);

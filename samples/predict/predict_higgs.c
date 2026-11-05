@@ -169,7 +169,10 @@ int main(int argc, char* argv[])
             libxs_predict_query(model, &q);
             if (LIBXS_PREDICT_RF == q.decompose
               && EXIT_SUCCESS == libxs_predict_probability(
-                model, 0, 0.5, &probability)) calibrated = 1;
+                model, 0, 0.5, &probability))
+            {
+              calibrated = 1;
+            }
             tick = libxs_timer_tick();
             for (t = test_begin; t < total; ++t) {
               double pred[1];

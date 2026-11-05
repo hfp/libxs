@@ -563,33 +563,35 @@ static void count_pairs_dual(const paircnt_tree_t* tree,
   const paircnt_node_t* b = &tree->nodes[node_b];
   double mindist2 = min_dist2_between_boxes(a->lo, a->hi, b->lo, b->hi);
   double maxdist2;
-  if (mindist2 >= bins->edges2[bins->nbins]) return;
-  maxdist2 = max_dist2_between_boxes(a->lo, a->hi, b->lo, b->hi);
-  if (maxdist2 < bins->edges2[0]) return;
-  if (-1 == a->left && -1 == b->left) {
-    if (node_a == node_b) {
-      count_pairs_leaf_self(tree->pts, tree->idx,
-        a->begin, a->end, bins, counts);
+  if (!(mindist2 >= bins->edges2[bins->nbins])) {
+    maxdist2 = max_dist2_between_boxes(a->lo, a->hi, b->lo, b->hi);
+    if (!(maxdist2 < bins->edges2[0])) {
+      if (-1 == a->left && -1 == b->left) {
+        if (node_a == node_b) {
+          count_pairs_leaf_self(tree->pts, tree->idx,
+            a->begin, a->end, bins, counts);
+        }
+        else {
+          count_pairs_leaf(tree->pts, tree->idx,
+            a->begin, a->end, b->begin, b->end, bins, counts);
+        }
+      } else {
+        if (node_a == node_b) {
+          count_pairs_dual(tree, a->left, a->left, bins, counts);
+          count_pairs_dual(tree, a->left, a->right, bins, counts);
+          count_pairs_dual(tree, a->right, a->right, bins, counts);
+        }
+        else if (-1 != a->left && (-1 == b->left
+          || (a->end - a->begin) >= (b->end - b->begin)))
+        {
+          count_pairs_dual(tree, a->left, node_b, bins, counts);
+          count_pairs_dual(tree, a->right, node_b, bins, counts);
+        }
+        else {
+          count_pairs_dual(tree, node_a, b->left, bins, counts);
+          count_pairs_dual(tree, node_a, b->right, bins, counts);
+        }
+      }
     }
-    else {
-      count_pairs_leaf(tree->pts, tree->idx,
-        a->begin, a->end, b->begin, b->end, bins, counts);
-    }
-    return;
-  }
-  if (node_a == node_b) {
-    count_pairs_dual(tree, a->left, a->left, bins, counts);
-    count_pairs_dual(tree, a->left, a->right, bins, counts);
-    count_pairs_dual(tree, a->right, a->right, bins, counts);
-  }
-  else if (-1 != a->left && (-1 == b->left
-    || (a->end - a->begin) >= (b->end - b->begin)))
-  {
-    count_pairs_dual(tree, a->left, node_b, bins, counts);
-    count_pairs_dual(tree, a->right, node_b, bins, counts);
-  }
-  else {
-    count_pairs_dual(tree, node_a, b->left, bins, counts);
-    count_pairs_dual(tree, node_a, b->right, bins, counts);
   }
 }

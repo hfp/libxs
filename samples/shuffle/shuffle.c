@@ -29,15 +29,15 @@
 
 /* Fisher-Yates shuffle */
 #define SHUFFLE(INOUT, ELEMSIZE, COUNT, NSWAPS) do { \
-  char *const data = (char*)(INOUT); \
-  size_t i = 0; \
-  for (; i < ((COUNT) - 1); ++i) { \
-    const size_t j = i + libxs_rng_u32((unsigned int)((COUNT) - i)); \
-    LIBXS_ASSERT(i <= j && j < (COUNT)); \
-    if (i != j) { \
+  char *const data_ = (char*)(INOUT); \
+  size_t i_ = 0; \
+  for (; i_ < ((COUNT) - 1); ++i_) { \
+    const size_t j_ = i_ + libxs_rng_u32((unsigned int)((COUNT) - i_)); \
+    LIBXS_ASSERT(i_ <= j_ && j_ < (COUNT)); \
+    if (i_ != j_) { \
       LIBXS_MEMSWP( \
-        data + (ELEMSIZE) * i, \
-        data + (ELEMSIZE) * j, \
+        data_ + (ELEMSIZE) * i_, \
+        data_ + (ELEMSIZE) * j_, \
         ELEMSIZE); \
       ++(NSWAPS); \
      } \
@@ -45,10 +45,10 @@
 } while(0)
 
 #define REDUCE_ADD(TYPE, INPUT, M, N, LO, HI) do { \
-  const TYPE *const data = (const TYPE*)(INPUT); \
-  size_t i = 0; LIBXS_ASSERT((M) < (N)); \
-  for (; i < (M); ++i) (LO) += data[i]; \
-  for (; i < (N); ++i) (HI) += data[i]; \
+  const TYPE *const data_ = (const TYPE*)(INPUT); \
+  size_t i_ = 0; LIBXS_ASSERT((M) < (N)); \
+  for (; i_ < (M); ++i_) (LO) += data_[i_]; \
+  for (; i_ < (N); ++i_) (HI) += data_[i_]; \
 } while(0)
 
 
@@ -248,8 +248,10 @@ static int shuffle_benchmark(int argc, char* argv[])
           }
         }
         /* bandwidth: 2*n*elsize approximation (RNG skips ~37% of swaps) */
-        if (0 < d0) printf("RNG-shuffle: %.8f s (%i MB/s)\n", d0,
-          (int)LIBXS_ROUND((2.0 * nbytes) / ((1024.0 * 1024.0) * d0)));
+        if (0 < d0) {
+          printf("RNG-shuffle: %.8f s (%i MB/s)\n", d0,
+            (int)LIBXS_ROUND((2.0 * nbytes) / ((1024.0 * 1024.0) * d0)));
+        }
         if (0 < i) d1 += d0; /* ignore first iteration */
       }
 
@@ -281,8 +283,10 @@ static int shuffle_benchmark(int argc, char* argv[])
               elemtypes[elemtype], data2, &mhd_winfo);
           }
         }
-        if (0 < d0) printf("DS1-shuffle: %.8f s (%i MB/s)\n", d0,
-          (int)LIBXS_ROUND((2.0 * nbytes) / ((1024.0 * 1024.0) * d0)));
+        if (0 < d0) {
+          printf("DS1-shuffle: %.8f s (%i MB/s)\n", d0,
+            (int)LIBXS_ROUND((2.0 * nbytes) / ((1024.0 * 1024.0) * d0)));
+        }
         if (0 < i) d2 += d0; /* ignore first iteration */
       }
 
@@ -314,8 +318,10 @@ static int shuffle_benchmark(int argc, char* argv[])
               elemtypes[elemtype], data2, &mhd_winfo);
           }
         }
-        if (0 < d0) printf("DS2-shuffle: %.8f s (%i MB/s)\n", d0,
-          (int)LIBXS_ROUND((2.0 * nbytes) / ((1024.0 * 1024.0) * d0)));
+        if (0 < d0) {
+          printf("DS2-shuffle: %.8f s (%i MB/s)\n", d0,
+            (int)LIBXS_ROUND((2.0 * nbytes) / ((1024.0 * 1024.0) * d0)));
+        }
         if (0 < i) d3 += d0; /* ignore first iteration */
       }
     }
@@ -842,9 +848,10 @@ static int uint_energy_report(const void* original, void* scratch,
         const size_t h = energy_lags[lag];
         if (h < count) {
           const double energy = uint_energy(scratch, elemsize, count, h);
-          if (0 == method) printf("energy,%s,%llu,%.12g,%.12g\n",
-            names[method], (unsigned long long)h, energy, energy / reference);
-          else {
+          if (0 == method) {
+            printf("energy,%s,%llu,%.12g,%.12g\n",
+              names[method], (unsigned long long)h, energy, energy / reference);
+          } else {
             const size_t d = (size_t)((uint64_t)coefficient * h % count);
             const double expected = (double)d * (double)(count - d);
             printf("energy,%s,%llu,%.12g,%.12g,analytic=%.12g\n",
@@ -864,7 +871,8 @@ static int uint_energy_report(const void* original, void* scratch,
 }
 
 
-size_t shuffle(void* inout, size_t elemsize, size_t count) {
+size_t shuffle(void* inout, size_t elemsize, size_t count)
+{
   size_t result = 0;
   if (1 < count) {
     switch (elemsize) {
@@ -945,7 +953,8 @@ double uint_displacement(const void* input, size_t elemsize, size_t count)
 
 
 #if defined(BUBBLE_SORT)
-size_t uint_bsort_asc(void* inout, size_t elemsize, size_t count) {
+size_t uint_bsort_asc(void* inout, size_t elemsize, size_t count)
+{
   size_t nswaps = 0; /* count number of swaps */
   if (0 != count) {
     unsigned char *const data = (unsigned char*)inout;
@@ -975,50 +984,55 @@ size_t uint_bsort_asc(void* inout, size_t elemsize, size_t count) {
 static size_t msort_inv(unsigned char* data, unsigned char* scratch,
   size_t elemsize, size_t count)
 {
+  size_t result;
   size_t inv = 0, mid, il, ir, nl, nr;
-  if (count <= 1) return 0;
-  mid = count / 2;
-  inv += msort_inv(data, scratch, elemsize, mid);
-  inv += msort_inv(data + elemsize * mid, scratch + elemsize * mid,
-    elemsize, count - mid);
-  /* merge two sorted halves into scratch, counting split inversions */
-  nl = mid; nr = count - mid; il = 0; ir = 0;
-  while (il < nl && ir < nr) {
-    const unsigned char *a = data + elemsize * il;
-    const unsigned char *b = data + elemsize * (mid + ir);
-    size_t k = elemsize;
-    int cmp = 0;
-    for (; 0 < k; --k) {
-      if (a[k - 1] != b[k - 1]) {
-        cmp = (a[k - 1] > b[k - 1]) ? 1 : -1;
-        break;
+  if (count <= 1) result = 0;
+  else {
+    mid = count / 2;
+    inv += msort_inv(data, scratch, elemsize, mid);
+    inv += msort_inv(data + elemsize * mid, scratch + elemsize * mid,
+      elemsize, count - mid);
+    /* merge two sorted halves into scratch, counting split inversions */
+    nl = mid; nr = count - mid; il = 0; ir = 0;
+    while (il < nl && ir < nr) {
+      const unsigned char *a = data + elemsize * il;
+      const unsigned char *b = data + elemsize * (mid + ir);
+      size_t k = elemsize;
+      int cmp = 0;
+      for (; 0 < k; --k) {
+        if (a[k - 1] != b[k - 1]) {
+          cmp = (a[k - 1] > b[k - 1]) ? 1 : -1;
+          break;
+        }
+      }
+      if (cmp <= 0) {
+        memcpy(scratch + elemsize * (il + ir), a, elemsize);
+        ++il;
+      }
+      else {
+        memcpy(scratch + elemsize * (il + ir), b, elemsize);
+        ++ir;
+        inv += nl - il;
       }
     }
-    if (cmp <= 0) {
-      memcpy(scratch + elemsize * (il + ir), a, elemsize);
+    while (il < nl) {
+      memcpy(scratch + elemsize * (il + ir), data + elemsize * il, elemsize);
       ++il;
     }
-    else {
-      memcpy(scratch + elemsize * (il + ir), b, elemsize);
+    while (ir < nr) {
+      memcpy(scratch + elemsize * (il + ir),
+        data + elemsize * (mid + ir), elemsize);
       ++ir;
-      inv += nl - il;
     }
+    memcpy(data, scratch, elemsize * count);
+    result = inv;
   }
-  while (il < nl) {
-    memcpy(scratch + elemsize * (il + ir), data + elemsize * il, elemsize);
-    ++il;
-  }
-  while (ir < nr) {
-    memcpy(scratch + elemsize * (il + ir),
-      data + elemsize * (mid + ir), elemsize);
-    ++ir;
-  }
-  memcpy(data, scratch, elemsize * count);
-  return inv;
+  return result;
 }
 
 
-size_t uint_msort_inversions(void* inout, size_t elemsize, size_t count) {
+size_t uint_msort_inversions(void* inout, size_t elemsize, size_t count)
+{
   size_t result = 0;
   void* scratch = malloc(elemsize * count);
   if (NULL != scratch) {

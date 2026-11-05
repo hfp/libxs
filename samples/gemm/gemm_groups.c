@@ -88,100 +88,100 @@ int main(int argc, char* argv[])
   if (NULL == a_ptrs || NULL == b_ptrs || NULL == c_ptrs || NULL == storage) {
     fprintf(stderr, "ERROR: memory allocation failed\n");
     free(a_ptrs); free(b_ptrs); free(c_ptrs); free(storage);
-    return EXIT_FAILURE;
-  }
-
-  /* distribute storage across groups and set up pointer arrays */
-  { size_t offset = 0, pidx = 0;
-    for (g = 0; g < ng; ++g) {
-      const size_t asize = (size_t)lda_array[g] * k_array[g];
-      const size_t bsize = (size_t)ldb_array[g] * n_array[g];
-      const size_t csize = (size_t)ldc_array[g] * n_array[g];
-      int i;
-      for (i = 0; i < batchsize[g]; ++i) {
-        double *pa = storage + offset;
-        double *pb, *pc;
-        LIBXS_MATRNG(int, double, 0,
-          pa, m_array[g], k_array[g], lda_array[g], 1.0);
-        a_ptrs[pidx] = pa; offset += asize;
-        pb = storage + offset;
-        LIBXS_MATRNG(int, double, 0,
-          pb, k_array[g], n_array[g], ldb_array[g], 1.0);
-        b_ptrs[pidx] = pb; offset += bsize;
-        pc = storage + offset;
-        LIBXS_MATRNG(int, double, 0,
-          pc, m_array[g], n_array[g], ldc_array[g], 1.0);
-        c_ptrs[pidx] = pc; offset += csize;
-        ++pidx;
+    result = EXIT_FAILURE;
+  } else {
+    /* distribute storage across groups and set up pointer arrays */
+    { size_t offset = 0, pidx = 0;
+      for (g = 0; g < ng; ++g) {
+        const size_t asize = (size_t)lda_array[g] * k_array[g];
+        const size_t bsize = (size_t)ldb_array[g] * n_array[g];
+        const size_t csize = (size_t)ldc_array[g] * n_array[g];
+        int i;
+        for (i = 0; i < batchsize[g]; ++i) {
+          double *pa = storage + offset;
+          double *pb, *pc;
+          LIBXS_MATRNG(int, double, 0,
+            pa, m_array[g], k_array[g], lda_array[g], 1.0);
+          a_ptrs[pidx] = pa; offset += asize;
+          pb = storage + offset;
+          LIBXS_MATRNG(int, double, 0,
+            pb, k_array[g], n_array[g], ldb_array[g], 1.0);
+          b_ptrs[pidx] = pb; offset += bsize;
+          pc = storage + offset;
+          LIBXS_MATRNG(int, double, 0,
+            pc, m_array[g], n_array[g], ldc_array[g], 1.0);
+          c_ptrs[pidx] = pc; offset += csize;
+          ++pidx;
+        }
       }
     }
-  }
 
-  /* warmup: loop over groups, call batch per group */
-  { size_t j = 0;
-    for (g = 0; g < ng; ++g) {
-      libxs_gemm_batch(a_ptrs + j, b_ptrs + j, c_ptrs + j,
-        batchsize[g], configs + g);
-      j += (size_t)batchsize[g];
+    /* warmup: loop over groups, call batch per group */
+    { size_t j = 0;
+      for (g = 0; g < ng; ++g) {
+        libxs_gemm_batch(a_ptrs + j, b_ptrs + j, c_ptrs + j,
+          batchsize[g], configs + g);
+        j += (size_t)batchsize[g];
+      }
     }
-  }
 
-  t0 = libxs_timer_tick();
-  for (r = 0; r < nrepeat; ++r) {
-    size_t j = 0;
-    for (g = 0; g < ng; ++g) {
-      libxs_gemm_batch(a_ptrs + j, b_ptrs + j, c_ptrs + j,
-        batchsize[g], configs + g);
-      j += (size_t)batchsize[g];
+    t0 = libxs_timer_tick();
+    for (r = 0; r < nrepeat; ++r) {
+      size_t j = 0;
+      for (g = 0; g < ng; ++g) {
+        libxs_gemm_batch(a_ptrs + j, b_ptrs + j, c_ptrs + j,
+          batchsize[g], configs + g);
+        j += (size_t)batchsize[g];
+      }
     }
-  }
-  t1 = libxs_timer_tick();
-  duration = libxs_timer_duration(t0, t1);
+    t1 = libxs_timer_tick();
+    duration = libxs_timer_duration(t0, t1);
 
-  if (0 < duration) {
-    printf("Total time : %.3f s (%d repeats)\n", duration, nrepeat);
-    printf("Performance: %.1f GFLOPS/s\n",
-      total_gflops * nrepeat / duration);
-  }
+    if (0 < duration) {
+      printf("Total time : %.3f s (%d repeats)\n", duration, nrepeat);
+      printf("Performance: %.1f GFLOPS/s\n",
+        total_gflops * nrepeat / duration);
+    }
 
-  if (0 != check) {
-    /* verify ld-padding in first C-matrix per group */
-    { size_t pidx = 0;
-      for (g = 0; g < ng && EXIT_SUCCESS == result; ++g) {
-        if (ldc_array[g] > m_array[g]) {
-          const double *cm = (const double*)c_ptrs[pidx];
-          int ci, cj;
-          for (ci = 0; ci < n_array[g] && EXIT_SUCCESS == result; ++ci) {
-            for (cj = m_array[g]; cj < ldc_array[g]; ++cj) {
-              if (0 != cm[(size_t)ci * ldc_array[g] + cj]) {
-                fprintf(stderr, "FAILED: C ld-padding overwritten"
-                  " (group=%d col=%d row=%d)\n", g, ci, cj);
-                result = EXIT_FAILURE;
+    if (0 != check) {
+      /* verify ld-padding in first C-matrix per group */
+      { size_t pidx = 0;
+        for (g = 0; g < ng && EXIT_SUCCESS == result; ++g) {
+          if (ldc_array[g] > m_array[g]) {
+            const double *cm = (const double*)c_ptrs[pidx];
+            int ci, cj;
+            for (ci = 0; ci < n_array[g] && EXIT_SUCCESS == result; ++ci) {
+              for (cj = m_array[g]; cj < ldc_array[g]; ++cj) {
+                if (0 != cm[(size_t)ci * ldc_array[g] + cj]) {
+                  fprintf(stderr, "FAILED: C ld-padding overwritten"
+                    " (group=%d col=%d row=%d)\n", g, ci, cj);
+                  result = EXIT_FAILURE;
+                }
               }
             }
           }
+          pidx += (size_t)batchsize[g];
         }
-        pidx += (size_t)batchsize[g];
       }
+      libxs_matdiff(&check_diff, LIBXS_DATATYPE(double),
+        m_array[0], n_array[0], NULL/*ref*/,
+        c_ptrs[0], NULL/*ldref*/, ldc_array);
+      if (1 < ng) {
+        libxs_matdiff_t d;
+        size_t pidx = 0;
+        for (g = 0; g < ng - 1; ++g) pidx += (size_t)batchsize[g];
+        libxs_matdiff(&d, LIBXS_DATATYPE(double),
+          m_array[ng - 1], n_array[ng - 1], NULL/*ref*/,
+          c_ptrs[pidx], NULL/*ldref*/, ldc_array + ng - 1);
+        libxs_matdiff_combine(&check_diff, &d);
+      }
+      printf("checksum=%.6e\n", check_diff.l1_ref + check_diff.l1_tst);
     }
-    libxs_matdiff(&check_diff, LIBXS_DATATYPE(double),
-      m_array[0], n_array[0], NULL/*ref*/,
-      c_ptrs[0], NULL/*ldref*/, ldc_array);
-    if (1 < ng) {
-      libxs_matdiff_t d;
-      size_t pidx = 0;
-      for (g = 0; g < ng - 1; ++g) pidx += (size_t)batchsize[g];
-      libxs_matdiff(&d, LIBXS_DATATYPE(double),
-        m_array[ng - 1], n_array[ng - 1], NULL/*ref*/,
-        c_ptrs[pidx], NULL/*ldref*/, ldc_array + ng - 1);
-      libxs_matdiff_combine(&check_diff, &d);
-    }
-    printf("checksum=%.6e\n", check_diff.l1_ref + check_diff.l1_tst);
-  }
 
-  /* registry-owned configs: releasing an alias is a no-op */
-  for (g = 0; g < ng; ++g) libxs_gemm_release(cfgs[g]);
-  free(a_ptrs); free(b_ptrs); free(c_ptrs); free(storage);
-  libxs_finalize();
+    /* registry-owned configs: releasing an alias is a no-op */
+    for (g = 0; g < ng; ++g) libxs_gemm_release(cfgs[g]);
+    free(a_ptrs); free(b_ptrs); free(c_ptrs); free(storage);
+    libxs_finalize();
+  }
   return result;
 }

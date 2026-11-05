@@ -102,17 +102,17 @@ int main(int argc, char* argv[])
 static int check_itrans(ELEM_TYPE* inout, const ELEM_TYPE* ref,
   int m, int n, int ldi, int ldo)
 {
-  int r, c;
-  for (c = 0; c < m; ++c) {
-    for (r = 0; r < n; ++r) {
+  int r, c, result = EXIT_SUCCESS;
+  for (c = 0; c < m && EXIT_SUCCESS == result; ++c) {
+    for (r = 0; r < n && EXIT_SUCCESS == result; ++r) {
       const ELEM_TYPE expected = ref[(size_t)ldi * r + c];
       const ELEM_TYPE actual = inout[(size_t)ldo * c + r];
       if (expected != actual) {
         fprintf(stderr, "ERROR: mismatch at (r=%i,c=%i): expected=%g actual=%g\n",
           r, c, (double)expected, (double)actual);
-        return EXIT_FAILURE;
+        result = EXIT_FAILURE;
       }
     }
   }
-  return EXIT_SUCCESS;
+  return result;
 }

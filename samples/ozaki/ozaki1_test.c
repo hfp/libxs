@@ -28,6 +28,7 @@ static short ozt_EA[N], ozt_EB[N], ozt_ESUM[N];
 
 static ozaki_test_status_t ozt_acc_dp(double* pres, element64* Ain, element64* Bin)
 {
+  ozaki_test_status_t result;
   int i, max_Exp_P, max_Exp_A, max_Exp_B, scale;
   SINT64 sum[10], lsum, lsum_h, ldpres;
   UINT64 lsum_l;
@@ -42,96 +43,101 @@ static ozaki_test_status_t ozt_acc_dp(double* pres, element64* Ain, element64* B
   }
   max_Exp_P = ozt_ESUM[0];
   for (i = 1; i < N; i++) max_Exp_P = LIBXS_MAX(max_Exp_P, (int)ozt_ESUM[i]);
-  if (max_Exp_P & 0x8000) return OZT_INF_NAN;
-  if (!max_Exp_P) { *pres = 0; return OZT_SUCCESS; }
+  if (max_Exp_P & 0x8000) result = OZT_INF_NAN;
+  else {
+    if (!max_Exp_P) { *pres = 0; result = OZT_SUCCESS; }
+    else {
+      max_Exp_A = max_Exp_P >> 1;
+      max_Exp_B = (max_Exp_P + 1) >> 1;
+      for (i = 0; i < N; i++) {
+        SINT64 sgn = ((SINT64)Ain[i].w) >> 63;
+        SINT64 ltmp = (Ain[i].w & 0x000fffffffffffffll) | 0x0010000000000000ll;
+        int expon, shift;
+        ltmp = (Ain[i].w & 0x7ff0000000000000ll) ? ltmp : 0ll;
+        ltmp = ltmp << 10;
+        expon = (ozt_ESUM[i] + 0) >> 1;
+        shift = max_Exp_A - expon;
+        ltmp = (expon == 0) ? 0 : ltmp;
+        shift = LIBXS_MIN(shift, 63);
+        ltmp = ltmp >> shift;
+        ozt_A[i].w = (UINT64)((ltmp + sgn) ^ sgn);
+      }
+      for (i = 0; i < N; i++) {
+        SINT64 sgn = ((SINT64)Bin[i].w) >> 63;
+        SINT64 ltmp = (Bin[i].w & 0x000fffffffffffffll) | 0x0010000000000000ll;
+        int expon, shift;
+        ltmp = (Bin[i].w & 0x7ff0000000000000ll) ? ltmp : 0ll;
+        ltmp = ltmp << 10;
+        expon = (ozt_ESUM[i] + 1) >> 1;
+        shift = max_Exp_B - expon;
+        ltmp = (expon == 0) ? 0 : ltmp;
+        shift = LIBXS_MIN(shift, 63);
+        ltmp = ltmp >> shift;
+        ozt_B[i].w = (UINT64)((ltmp + sgn) ^ sgn);
+      }
 
-  max_Exp_A = max_Exp_P >> 1;
-  max_Exp_B = (max_Exp_P + 1) >> 1;
-  for (i = 0; i < N; i++) {
-    SINT64 sgn = ((SINT64)Ain[i].w) >> 63;
-    SINT64 ltmp = (Ain[i].w & 0x000fffffffffffffll) | 0x0010000000000000ll;
-    int expon, shift;
-    ltmp = (Ain[i].w & 0x7ff0000000000000ll) ? ltmp : 0ll;
-    ltmp = ltmp << 10;
-    expon = (ozt_ESUM[i] + 0) >> 1;
-    shift = max_Exp_A - expon;
-    ltmp = (expon == 0) ? 0 : ltmp;
-    shift = LIBXS_MIN(shift, 63);
-    ltmp = ltmp >> shift;
-    ozt_A[i].w = (UINT64)((ltmp + sgn) ^ sgn);
+      for (i = 0; i < 9; i++) sum[i] = 0;
+      lsum = lsum_h = 0;
+
+#define OZT_S8U8(R, X, XI, Y, YI) { int j_; (R) = 0; for (j_ = 0; j_ < N; j_++) (R) += (SINT8)X[j_].w8[XI] * (UINT8)Y[j_].w8[YI]; }
+#define OZT_U8U8(R, X, XI, Y, YI) { int j_; (R) = 0; for (j_ = 0; j_ < N; j_++) (R) += (UINT8)X[j_].w8[XI] * (UINT8)Y[j_].w8[YI]; }
+#define OZT_S8S8(R, X, XI, Y, YI) { int j_; (R) = 0; for (j_ = 0; j_ < N; j_++) (R) += (SINT8)X[j_].w8[XI] * (SINT8)Y[j_].w8[YI]; }
+
+      OZT_S8U8(sum[7], ozt_A, 7, ozt_B, 0); OZT_S8U8(ldpres, ozt_B, 7, ozt_A, 0); sum[7] += ldpres;
+      OZT_U8U8(ldpres, ozt_A, 6, ozt_B, 1); sum[7] += ldpres; OZT_U8U8(ldpres, ozt_A, 5, ozt_B, 2); sum[7] += ldpres;
+      OZT_U8U8(ldpres, ozt_A, 4, ozt_B, 3); sum[7] += ldpres; OZT_U8U8(ldpres, ozt_A, 3, ozt_B, 4); sum[7] += ldpres;
+      OZT_U8U8(ldpres, ozt_A, 2, ozt_B, 5); sum[7] += ldpres; OZT_U8U8(ldpres, ozt_A, 1, ozt_B, 6); sum[7] += ldpres;
+      lsum += (sum[7] << 8);
+
+      OZT_S8U8(sum[6], ozt_A, 7, ozt_B, 1); OZT_S8U8(ldpres, ozt_B, 7, ozt_A, 1); sum[6] += ldpres;
+      OZT_U8U8(ldpres, ozt_A, 6, ozt_B, 2); sum[6] += ldpres; OZT_U8U8(ldpres, ozt_A, 5, ozt_B, 3); sum[6] += ldpres;
+      OZT_U8U8(ldpres, ozt_A, 4, ozt_B, 4); sum[6] += ldpres; OZT_U8U8(ldpres, ozt_A, 3, ozt_B, 5); sum[6] += ldpres;
+      OZT_U8U8(ldpres, ozt_A, 2, ozt_B, 6); sum[6] += ldpres;
+      lsum += (sum[6] << 16);
+
+      OZT_S8U8(sum[5], ozt_A, 7, ozt_B, 2); OZT_S8U8(ldpres, ozt_B, 7, ozt_A, 2); sum[5] += ldpres;
+      OZT_U8U8(ldpres, ozt_A, 6, ozt_B, 3); sum[5] += ldpres; OZT_U8U8(ldpres, ozt_A, 5, ozt_B, 4); sum[5] += ldpres;
+      OZT_U8U8(ldpres, ozt_A, 4, ozt_B, 5); sum[5] += ldpres; OZT_U8U8(ldpres, ozt_A, 3, ozt_B, 6); sum[5] += ldpres;
+      lsum += (sum[5] << 24);
+      lsum_l = lsum & 0xfffffffffffffull;
+      lsum_h = lsum >> 52;
+
+      OZT_S8U8(sum[4], ozt_A, 7, ozt_B, 3); OZT_S8U8(ldpres, ozt_B, 7, ozt_A, 3); sum[4] += ldpres;
+      OZT_U8U8(ldpres, ozt_A, 6, ozt_B, 4); sum[4] += ldpres; OZT_U8U8(ldpres, ozt_A, 5, ozt_B, 5); sum[4] += ldpres;
+      OZT_U8U8(ldpres, ozt_A, 4, ozt_B, 6); sum[4] += ldpres;
+      lsum_l += ((UINT64)(sum[4] & 0xfffff) << 32);
+      lsum_h += (sum[4] >> 20);
+
+      OZT_S8U8(sum[3], ozt_A, 7, ozt_B, 4); OZT_S8U8(ldpres, ozt_B, 7, ozt_A, 4); sum[3] += ldpres;
+      OZT_U8U8(ldpres, ozt_A, 6, ozt_B, 5); sum[3] += ldpres; OZT_U8U8(ldpres, ozt_A, 5, ozt_B, 6); sum[3] += ldpres;
+      lsum_l += ((UINT64)(sum[3] & 0xfff) << 40);
+      lsum_h += (sum[3] >> 12);
+
+      OZT_S8U8(sum[2], ozt_A, 7, ozt_B, 5); OZT_S8U8(ldpres, ozt_B, 7, ozt_A, 5); sum[2] += ldpres;
+      OZT_U8U8(ldpres, ozt_A, 6, ozt_B, 6); sum[2] += ldpres;
+      lsum_l += ((UINT64)(sum[2] & 0xf) << 48);
+      lsum_h += (sum[2] >> 4);
+
+      OZT_S8U8(sum[1], ozt_A, 7, ozt_B, 6); OZT_S8U8(ldpres, ozt_B, 7, ozt_A, 6); sum[1] += ldpres;
+      lsum_h += (sum[1] << 4);
+
+      OZT_S8S8(sum[0], ozt_A, 7, ozt_B, 7);
+      lsum_h += (sum[0] << 12);
+
+      dres = (double)lsum_l; dres_h = (double)lsum_h;
+      dres += dres_h * 0x1p+52;
+      scale = max_Exp_P - 60 - 16 - 0x3ff * 2;
+      *pres = ldexp(dres, scale);
+      result = OZT_SUCCESS;
+    }
   }
-  for (i = 0; i < N; i++) {
-    SINT64 sgn = ((SINT64)Bin[i].w) >> 63;
-    SINT64 ltmp = (Bin[i].w & 0x000fffffffffffffll) | 0x0010000000000000ll;
-    int expon, shift;
-    ltmp = (Bin[i].w & 0x7ff0000000000000ll) ? ltmp : 0ll;
-    ltmp = ltmp << 10;
-    expon = (ozt_ESUM[i] + 1) >> 1;
-    shift = max_Exp_B - expon;
-    ltmp = (expon == 0) ? 0 : ltmp;
-    shift = LIBXS_MIN(shift, 63);
-    ltmp = ltmp >> shift;
-    ozt_B[i].w = (UINT64)((ltmp + sgn) ^ sgn);
-  }
-
-  for (i = 0; i < 9; i++) sum[i] = 0;
-  lsum = lsum_h = 0;
-
-#define OZT_S8U8(R, X, xi, Y, yi) { int j_; (R) = 0; for (j_ = 0; j_ < N; j_++) (R) += (SINT8)X[j_].w8[xi] * (UINT8)Y[j_].w8[yi]; }
-#define OZT_U8U8(R, X, xi, Y, yi) { int j_; (R) = 0; for (j_ = 0; j_ < N; j_++) (R) += (UINT8)X[j_].w8[xi] * (UINT8)Y[j_].w8[yi]; }
-#define OZT_S8S8(R, X, xi, Y, yi) { int j_; (R) = 0; for (j_ = 0; j_ < N; j_++) (R) += (SINT8)X[j_].w8[xi] * (SINT8)Y[j_].w8[yi]; }
-
-  OZT_S8U8(sum[7], ozt_A, 7, ozt_B, 0); OZT_S8U8(ldpres, ozt_B, 7, ozt_A, 0); sum[7] += ldpres;
-  OZT_U8U8(ldpres, ozt_A, 6, ozt_B, 1); sum[7] += ldpres; OZT_U8U8(ldpres, ozt_A, 5, ozt_B, 2); sum[7] += ldpres;
-  OZT_U8U8(ldpres, ozt_A, 4, ozt_B, 3); sum[7] += ldpres; OZT_U8U8(ldpres, ozt_A, 3, ozt_B, 4); sum[7] += ldpres;
-  OZT_U8U8(ldpres, ozt_A, 2, ozt_B, 5); sum[7] += ldpres; OZT_U8U8(ldpres, ozt_A, 1, ozt_B, 6); sum[7] += ldpres;
-  lsum += (sum[7] << 8);
-
-  OZT_S8U8(sum[6], ozt_A, 7, ozt_B, 1); OZT_S8U8(ldpres, ozt_B, 7, ozt_A, 1); sum[6] += ldpres;
-  OZT_U8U8(ldpres, ozt_A, 6, ozt_B, 2); sum[6] += ldpres; OZT_U8U8(ldpres, ozt_A, 5, ozt_B, 3); sum[6] += ldpres;
-  OZT_U8U8(ldpres, ozt_A, 4, ozt_B, 4); sum[6] += ldpres; OZT_U8U8(ldpres, ozt_A, 3, ozt_B, 5); sum[6] += ldpres;
-  OZT_U8U8(ldpres, ozt_A, 2, ozt_B, 6); sum[6] += ldpres;
-  lsum += (sum[6] << 16);
-
-  OZT_S8U8(sum[5], ozt_A, 7, ozt_B, 2); OZT_S8U8(ldpres, ozt_B, 7, ozt_A, 2); sum[5] += ldpres;
-  OZT_U8U8(ldpres, ozt_A, 6, ozt_B, 3); sum[5] += ldpres; OZT_U8U8(ldpres, ozt_A, 5, ozt_B, 4); sum[5] += ldpres;
-  OZT_U8U8(ldpres, ozt_A, 4, ozt_B, 5); sum[5] += ldpres; OZT_U8U8(ldpres, ozt_A, 3, ozt_B, 6); sum[5] += ldpres;
-  lsum += (sum[5] << 24);
-  lsum_l = lsum & 0xfffffffffffffull;
-  lsum_h = lsum >> 52;
-
-  OZT_S8U8(sum[4], ozt_A, 7, ozt_B, 3); OZT_S8U8(ldpres, ozt_B, 7, ozt_A, 3); sum[4] += ldpres;
-  OZT_U8U8(ldpres, ozt_A, 6, ozt_B, 4); sum[4] += ldpres; OZT_U8U8(ldpres, ozt_A, 5, ozt_B, 5); sum[4] += ldpres;
-  OZT_U8U8(ldpres, ozt_A, 4, ozt_B, 6); sum[4] += ldpres;
-  lsum_l += ((UINT64)(sum[4] & 0xfffff) << 32);
-  lsum_h += (sum[4] >> 20);
-
-  OZT_S8U8(sum[3], ozt_A, 7, ozt_B, 4); OZT_S8U8(ldpres, ozt_B, 7, ozt_A, 4); sum[3] += ldpres;
-  OZT_U8U8(ldpres, ozt_A, 6, ozt_B, 5); sum[3] += ldpres; OZT_U8U8(ldpres, ozt_A, 5, ozt_B, 6); sum[3] += ldpres;
-  lsum_l += ((UINT64)(sum[3] & 0xfff) << 40);
-  lsum_h += (sum[3] >> 12);
-
-  OZT_S8U8(sum[2], ozt_A, 7, ozt_B, 5); OZT_S8U8(ldpres, ozt_B, 7, ozt_A, 5); sum[2] += ldpres;
-  OZT_U8U8(ldpres, ozt_A, 6, ozt_B, 6); sum[2] += ldpres;
-  lsum_l += ((UINT64)(sum[2] & 0xf) << 48);
-  lsum_h += (sum[2] >> 4);
-
-  OZT_S8U8(sum[1], ozt_A, 7, ozt_B, 6); OZT_S8U8(ldpres, ozt_B, 7, ozt_A, 6); sum[1] += ldpres;
-  lsum_h += (sum[1] << 4);
-
-  OZT_S8S8(sum[0], ozt_A, 7, ozt_B, 7);
-  lsum_h += (sum[0] << 12);
-
-  dres = (double)lsum_l; dres_h = (double)lsum_h;
-  dres += dres_h * 0x1p+52;
-  scale = max_Exp_P - 60 - 16 - 0x3ff * 2;
-  *pres = ldexp(dres, scale);
-  return OZT_SUCCESS;
+  return result;
 }
 
 
 static ozaki_test_status_t ozt_dp(double* pres, element64* Ain, element64* Bin)
 {
+  ozaki_test_status_t result;
   int i, max_Exp_A, max_Exp_B, min_Exp_A, min_Exp_B, scale;
   SINT64 sum[10], lsum, lsum_h, lsum_l, ldpres;
   double dres, dres_h;
@@ -155,90 +161,95 @@ static ozaki_test_status_t ozt_dp(double* pres, element64* Ain, element64* Bin)
   }
   max_Exp_B = (int)(ltmp >> 52); min_Exp_B = (int)(ltmp2 >> 52);
 
-  if (((max_Exp_A + 1) | (max_Exp_B + 1)) & 0x800) return OZT_INF_NAN;
-  if (((max_Exp_A - 1) | (max_Exp_B - 1)) & 0x800) { *pres = 0; return OZT_SUCCESS; }
+  if (((max_Exp_A + 1) | (max_Exp_B + 1)) & 0x800) result = OZT_INF_NAN;
+  else {
+    if (((max_Exp_A - 1) | (max_Exp_B - 1)) & 0x800) { *pres = 0; result = OZT_SUCCESS; }
+    else {
+      if ((max_Exp_A - min_Exp_A > OZT_EXP_RANGE) || (max_Exp_B - min_Exp_B > OZT_EXP_RANGE)) {
+        result = ozt_acc_dp(pres, Ain, Bin);
+      } else {
+        for (i = 0; i < N; i++) {
+          SINT64 sgn = ((SINT64)Ain[i].w) >> 63;
+          SINT64 m = (Ain[i].w & 0x000fffffffffffffll) | 0x0010000000000000ll;
+          int expon, shift;
+          m = (Ain[i].w & 0x7ff0000000000000ll) ? m : 0ll;
+          m = (m + sgn) ^ sgn;
+          m = m << 10;
+          expon = ((Ain[i].w >> 52) & 0x7ff);
+          shift = max_Exp_A - expon;
+          m = (expon == 0) ? 0 : m;
+          shift = (expon == 0) ? 0 : shift;
+          shift = LIBXS_MIN(shift, 63);
+          ozt_A[i].w = (UINT64)(m >> shift);
+        }
+        for (i = 0; i < N; i++) {
+          SINT64 sgn = ((SINT64)Bin[i].w) >> 63;
+          SINT64 m = (Bin[i].w & 0x000fffffffffffffll) | 0x0010000000000000ll;
+          int expon, shift;
+          m = (Bin[i].w & 0x7ff0000000000000ll) ? m : 0ll;
+          m = (m + sgn) ^ sgn;
+          m = m << 10;
+          expon = ((Bin[i].w >> 52) & 0x7ff);
+          shift = max_Exp_B - expon;
+          m = (expon == 0) ? 0 : m;
+          shift = (expon == 0) ? 0 : shift;
+          shift = LIBXS_MIN(shift, 63);
+          ozt_B[i].w = (UINT64)(m >> shift);
+        }
 
-  if ((max_Exp_A - min_Exp_A > OZT_EXP_RANGE) || (max_Exp_B - min_Exp_B > OZT_EXP_RANGE))
-    return ozt_acc_dp(pres, Ain, Bin);
+        for (i = 0; i < 8; i++) sum[i] = 0;
+        lsum = lsum_h = 0;
 
-  for (i = 0; i < N; i++) {
-    SINT64 sgn = ((SINT64)Ain[i].w) >> 63;
-    SINT64 m = (Ain[i].w & 0x000fffffffffffffll) | 0x0010000000000000ll;
-    int expon, shift;
-    m = (Ain[i].w & 0x7ff0000000000000ll) ? m : 0ll;
-    m = (m + sgn) ^ sgn;
-    m = m << 10;
-    expon = ((Ain[i].w >> 52) & 0x7ff);
-    shift = max_Exp_A - expon;
-    m = (expon == 0) ? 0 : m;
-    shift = (expon == 0) ? 0 : shift;
-    shift = LIBXS_MIN(shift, 63);
-    ozt_A[i].w = (UINT64)(m >> shift);
+        OZT_S8U8(sum[7], ozt_A, 7, ozt_B, 0); OZT_S8U8(ldpres, ozt_B, 7, ozt_A, 0); sum[7] += ldpres;
+        OZT_U8U8(ldpres, ozt_A, 6, ozt_B, 1); sum[7] += ldpres; OZT_U8U8(ldpres, ozt_A, 5, ozt_B, 2); sum[7] += ldpres;
+        OZT_U8U8(ldpres, ozt_A, 4, ozt_B, 3); sum[7] += ldpres; OZT_U8U8(ldpres, ozt_A, 3, ozt_B, 4); sum[7] += ldpres;
+        OZT_U8U8(ldpres, ozt_A, 2, ozt_B, 5); sum[7] += ldpres; OZT_U8U8(ldpres, ozt_A, 1, ozt_B, 6); sum[7] += ldpres;
+        lsum += sum[7];
+
+        OZT_S8U8(sum[6], ozt_A, 7, ozt_B, 1); OZT_S8U8(ldpres, ozt_B, 7, ozt_A, 1); sum[6] += ldpres;
+        OZT_U8U8(ldpres, ozt_A, 6, ozt_B, 2); sum[6] += ldpres; OZT_U8U8(ldpres, ozt_A, 5, ozt_B, 3); sum[6] += ldpres;
+        OZT_U8U8(ldpres, ozt_A, 4, ozt_B, 4); sum[6] += ldpres; OZT_U8U8(ldpres, ozt_A, 3, ozt_B, 5); sum[6] += ldpres;
+        OZT_U8U8(ldpres, ozt_A, 2, ozt_B, 6); sum[6] += ldpres;
+        lsum += (sum[6] << 8);
+
+        OZT_S8U8(sum[5], ozt_A, 7, ozt_B, 2); OZT_S8U8(ldpres, ozt_B, 7, ozt_A, 2); sum[5] += ldpres;
+        OZT_U8U8(ldpres, ozt_A, 6, ozt_B, 3); sum[5] += ldpres; OZT_U8U8(ldpres, ozt_A, 5, ozt_B, 4); sum[5] += ldpres;
+        OZT_U8U8(ldpres, ozt_A, 4, ozt_B, 5); sum[5] += ldpres; OZT_U8U8(ldpres, ozt_A, 3, ozt_B, 6); sum[5] += ldpres;
+        lsum += (sum[5] << 16);
+
+        OZT_S8U8(sum[4], ozt_A, 7, ozt_B, 3); OZT_S8U8(ldpres, ozt_B, 7, ozt_A, 3); sum[4] += ldpres;
+        OZT_U8U8(ldpres, ozt_A, 6, ozt_B, 4); sum[4] += ldpres; OZT_U8U8(ldpres, ozt_A, 5, ozt_B, 5); sum[4] += ldpres;
+        OZT_U8U8(ldpres, ozt_A, 4, ozt_B, 6); sum[4] += ldpres;
+        lsum += (sum[4] << 24);
+        lsum_l = lsum & 0xfffffffffffffll;
+        lsum_h = lsum >> 52;
+
+        OZT_S8U8(sum[3], ozt_A, 7, ozt_B, 4); OZT_S8U8(ldpres, ozt_B, 7, ozt_A, 4); sum[3] += ldpres;
+        OZT_U8U8(ldpres, ozt_A, 6, ozt_B, 5); sum[3] += ldpres; OZT_U8U8(ldpres, ozt_A, 5, ozt_B, 6); sum[3] += ldpres;
+        lsum_l += ((sum[3] & 0xfffff) << 32);
+        lsum_h += (sum[3] >> 20);
+
+        OZT_S8U8(sum[2], ozt_A, 7, ozt_B, 5); OZT_S8U8(ldpres, ozt_B, 7, ozt_A, 5); sum[2] += ldpres;
+        OZT_U8U8(ldpres, ozt_A, 6, ozt_B, 6); sum[2] += ldpres;
+        lsum_l += ((sum[2] & 0xfff) << 40);
+        lsum_h += (sum[2] >> 12);
+
+        OZT_S8U8(sum[1], ozt_A, 7, ozt_B, 6); OZT_S8U8(ldpres, ozt_B, 7, ozt_A, 6); sum[1] += ldpres;
+        lsum_l += ((sum[1] & 0xf) << 48);
+        lsum_h += (sum[1] >> 4);
+
+        OZT_S8S8(sum[0], ozt_A, 7, ozt_B, 7);
+        lsum_h += (sum[0] << 4);
+
+        dres = (double)lsum_l; dres_h = (double)lsum_h;
+        dres += dres_h * 0x1p+52;
+        scale = max_Exp_A + max_Exp_B - 60 - 8 - 0x3ff * 2;
+        *pres = ldexp(dres, scale);
+        result = OZT_SUCCESS;
+      }
+    }
   }
-  for (i = 0; i < N; i++) {
-    SINT64 sgn = ((SINT64)Bin[i].w) >> 63;
-    SINT64 m = (Bin[i].w & 0x000fffffffffffffll) | 0x0010000000000000ll;
-    int expon, shift;
-    m = (Bin[i].w & 0x7ff0000000000000ll) ? m : 0ll;
-    m = (m + sgn) ^ sgn;
-    m = m << 10;
-    expon = ((Bin[i].w >> 52) & 0x7ff);
-    shift = max_Exp_B - expon;
-    m = (expon == 0) ? 0 : m;
-    shift = (expon == 0) ? 0 : shift;
-    shift = LIBXS_MIN(shift, 63);
-    ozt_B[i].w = (UINT64)(m >> shift);
-  }
-
-  for (i = 0; i < 8; i++) sum[i] = 0;
-  lsum = lsum_h = 0;
-
-  OZT_S8U8(sum[7], ozt_A, 7, ozt_B, 0); OZT_S8U8(ldpres, ozt_B, 7, ozt_A, 0); sum[7] += ldpres;
-  OZT_U8U8(ldpres, ozt_A, 6, ozt_B, 1); sum[7] += ldpres; OZT_U8U8(ldpres, ozt_A, 5, ozt_B, 2); sum[7] += ldpres;
-  OZT_U8U8(ldpres, ozt_A, 4, ozt_B, 3); sum[7] += ldpres; OZT_U8U8(ldpres, ozt_A, 3, ozt_B, 4); sum[7] += ldpres;
-  OZT_U8U8(ldpres, ozt_A, 2, ozt_B, 5); sum[7] += ldpres; OZT_U8U8(ldpres, ozt_A, 1, ozt_B, 6); sum[7] += ldpres;
-  lsum += sum[7];
-
-  OZT_S8U8(sum[6], ozt_A, 7, ozt_B, 1); OZT_S8U8(ldpres, ozt_B, 7, ozt_A, 1); sum[6] += ldpres;
-  OZT_U8U8(ldpres, ozt_A, 6, ozt_B, 2); sum[6] += ldpres; OZT_U8U8(ldpres, ozt_A, 5, ozt_B, 3); sum[6] += ldpres;
-  OZT_U8U8(ldpres, ozt_A, 4, ozt_B, 4); sum[6] += ldpres; OZT_U8U8(ldpres, ozt_A, 3, ozt_B, 5); sum[6] += ldpres;
-  OZT_U8U8(ldpres, ozt_A, 2, ozt_B, 6); sum[6] += ldpres;
-  lsum += (sum[6] << 8);
-
-  OZT_S8U8(sum[5], ozt_A, 7, ozt_B, 2); OZT_S8U8(ldpres, ozt_B, 7, ozt_A, 2); sum[5] += ldpres;
-  OZT_U8U8(ldpres, ozt_A, 6, ozt_B, 3); sum[5] += ldpres; OZT_U8U8(ldpres, ozt_A, 5, ozt_B, 4); sum[5] += ldpres;
-  OZT_U8U8(ldpres, ozt_A, 4, ozt_B, 5); sum[5] += ldpres; OZT_U8U8(ldpres, ozt_A, 3, ozt_B, 6); sum[5] += ldpres;
-  lsum += (sum[5] << 16);
-
-  OZT_S8U8(sum[4], ozt_A, 7, ozt_B, 3); OZT_S8U8(ldpres, ozt_B, 7, ozt_A, 3); sum[4] += ldpres;
-  OZT_U8U8(ldpres, ozt_A, 6, ozt_B, 4); sum[4] += ldpres; OZT_U8U8(ldpres, ozt_A, 5, ozt_B, 5); sum[4] += ldpres;
-  OZT_U8U8(ldpres, ozt_A, 4, ozt_B, 6); sum[4] += ldpres;
-  lsum += (sum[4] << 24);
-  lsum_l = lsum & 0xfffffffffffffll;
-  lsum_h = lsum >> 52;
-
-  OZT_S8U8(sum[3], ozt_A, 7, ozt_B, 4); OZT_S8U8(ldpres, ozt_B, 7, ozt_A, 4); sum[3] += ldpres;
-  OZT_U8U8(ldpres, ozt_A, 6, ozt_B, 5); sum[3] += ldpres; OZT_U8U8(ldpres, ozt_A, 5, ozt_B, 6); sum[3] += ldpres;
-  lsum_l += ((sum[3] & 0xfffff) << 32);
-  lsum_h += (sum[3] >> 20);
-
-  OZT_S8U8(sum[2], ozt_A, 7, ozt_B, 5); OZT_S8U8(ldpres, ozt_B, 7, ozt_A, 5); sum[2] += ldpres;
-  OZT_U8U8(ldpres, ozt_A, 6, ozt_B, 6); sum[2] += ldpres;
-  lsum_l += ((sum[2] & 0xfff) << 40);
-  lsum_h += (sum[2] >> 12);
-
-  OZT_S8U8(sum[1], ozt_A, 7, ozt_B, 6); OZT_S8U8(ldpres, ozt_B, 7, ozt_A, 6); sum[1] += ldpres;
-  lsum_l += ((sum[1] & 0xf) << 48);
-  lsum_h += (sum[1] >> 4);
-
-  OZT_S8S8(sum[0], ozt_A, 7, ozt_B, 7);
-  lsum_h += (sum[0] << 4);
-
-  dres = (double)lsum_l; dres_h = (double)lsum_h;
-  dres += dres_h * 0x1p+52;
-  scale = max_Exp_A + max_Exp_B - 60 - 8 - 0x3ff * 2;
-  *pres = ldexp(dres, scale);
-  return OZT_SUCCESS;
+  return result;
 }
 
 #undef OZT_S8U8

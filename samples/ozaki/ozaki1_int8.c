@@ -350,16 +350,21 @@ LIBXS_INLINE void gemm_oz1_diff(const char* transa, const char* transb, const GE
           fp_n.n = LIBXS_MAX(fp_n.n, fp.n);
         }
         fprintf(stderr, "OZ1[%dx%dx%d] Delta-K:", (int)M, (int)N, (int)K_len);
-        for (dd = 1; dd <= fp_k.order; ++dd)
+        for (dd = 1; dd <= fp_k.order; ++dd) {
           fprintf(stderr, " d%d=%.0f", dd, libxs_fprint_raw(&fp_k, dd, fp_k.linf[dd]));
+        }
         fprintf(stderr, "\nOZ1[%dx%dx%d] Delta-M:", (int)M, (int)N, (int)K_len);
-        if (M > 1) { for (dd = 1; dd <= fp_m.order; ++dd)
-          fprintf(stderr, " d%d=%.0f", dd, libxs_fprint_raw(&fp_m, dd, fp_m.linf[dd]));
+        if (M > 1) {
+          for (dd = 1; dd <= fp_m.order; ++dd) {
+            fprintf(stderr, " d%d=%.0f", dd, libxs_fprint_raw(&fp_m, dd, fp_m.linf[dd]));
+          }
         }
         else fprintf(stderr, " (M<=1, skipped)");
         fprintf(stderr, "\nOZ1[%dx%dx%d] Delta-N:", (int)M, (int)N, (int)K_len);
-        if (N > 1) { for (dd = 1; dd <= fp_n.order; ++dd)
-          fprintf(stderr, " d%d=%.0f", dd, libxs_fprint_raw(&fp_n, dd, fp_n.linf[dd]));
+        if (N > 1) {
+          for (dd = 1; dd <= fp_n.order; ++dd) {
+            fprintf(stderr, " d%d=%.0f", dd, libxs_fprint_raw(&fp_n, dd, fp_n.linf[dd]));
+          }
         }
         else fprintf(stderr, " (N<=1, skipped)");
         fprintf(stderr, "\n");

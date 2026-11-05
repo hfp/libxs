@@ -17,11 +17,11 @@
 /* measure non-contended latency of RO-lock */
 #define MEASURE_LATENCY_RO(LOCK_KIND, LOCKPTR, NREPEAT) do { \
   const int nops_ = 4 * ((NREPEAT) / 4); \
-  libxs_timer_tick_t latency = 0; \
-  double duration; \
-  int i; \
-  for (i = 0; i < (NREPEAT) / 4; ++i) { \
-    const libxs_timer_tick_t tick = libxs_timer_tick(); \
+  libxs_timer_tick_t latency_ = 0; \
+  double duration_; \
+  int i_; \
+  for (i_ = 0; i_ < (NREPEAT) / 4; ++i_) { \
+    const libxs_timer_tick_t tick_ = libxs_timer_tick(); \
     LIBXS_LOCK_ACQREAD(LOCK_KIND, LOCKPTR); \
     LIBXS_LOCK_RELREAD(LOCK_KIND, LOCKPTR); \
     LIBXS_LOCK_ACQREAD(LOCK_KIND, LOCKPTR); \
@@ -30,24 +30,24 @@
     LIBXS_LOCK_RELREAD(LOCK_KIND, LOCKPTR); \
     LIBXS_LOCK_ACQREAD(LOCK_KIND, LOCKPTR); \
     LIBXS_LOCK_RELREAD(LOCK_KIND, LOCKPTR); \
-    latency += libxs_timer_ncycles(tick, libxs_timer_tick()); \
+    latency_ += libxs_timer_ncycles(tick_, libxs_timer_tick()); \
   } \
-  duration = libxs_timer_duration(0, latency); \
-  if (0 < duration && 0 < nops_) { \
+  duration_ = libxs_timer_duration(0, latency_); \
+  if (0 < duration_ && 0 < nops_) { \
     printf("\t%s ro-latency: %.0f ns (call/s %.0f MHz, %.0f cycles)\n", \
       LIBXS_STRINGIFY(LOCK_KIND), \
-      duration / nops_ * 1e9, nops_ / (1e6 * duration), (double)latency / nops_); \
+      duration_ / nops_ * 1e9, nops_ / (1e6 * duration_), (double)latency_ / nops_); \
   } \
 } while(0)
 
 /* measure non-contended latency of RW-lock */
 #define MEASURE_LATENCY_RW(LOCK_KIND, LOCKPTR, NREPEAT) do { \
   const int nops_ = 4 * ((NREPEAT) / 4); \
-  libxs_timer_tick_t latency = 0; \
-  double duration; \
-  int i; \
-  for (i = 0; i < (NREPEAT) / 4; ++i) { \
-    const libxs_timer_tick_t tick = libxs_timer_tick(); \
+  libxs_timer_tick_t latency_ = 0; \
+  double duration_; \
+  int i_; \
+  for (i_ = 0; i_ < (NREPEAT) / 4; ++i_) { \
+    const libxs_timer_tick_t tick_ = libxs_timer_tick(); \
     LIBXS_LOCK_ACQUIRE(LOCK_KIND, LOCKPTR); \
     LIBXS_LOCK_RELEASE(LOCK_KIND, LOCKPTR); \
     LIBXS_LOCK_ACQUIRE(LOCK_KIND, LOCKPTR); \
@@ -56,13 +56,13 @@
     LIBXS_LOCK_RELEASE(LOCK_KIND, LOCKPTR); \
     LIBXS_LOCK_ACQUIRE(LOCK_KIND, LOCKPTR); \
     LIBXS_LOCK_RELEASE(LOCK_KIND, LOCKPTR); \
-    latency += libxs_timer_ncycles(tick, libxs_timer_tick()); \
+    latency_ += libxs_timer_ncycles(tick_, libxs_timer_tick()); \
   } \
-  duration = libxs_timer_duration(0, latency); \
-  if (0 < duration && 0 < nops_) { \
+  duration_ = libxs_timer_duration(0, latency_); \
+  if (0 < duration_ && 0 < nops_) { \
     printf("\t%s rw-latency: %.0f ns (call/s %.0f MHz, %.0f cycles)\n", \
       LIBXS_STRINGIFY(LOCK_KIND), \
-      duration / nops_ * 1e9, nops_ / (1e6 * duration), (double)latency / nops_); \
+      duration_ / nops_ * 1e9, nops_ / (1e6 * duration_), (double)latency_ / nops_); \
   } \
 } while(0)
 
@@ -75,8 +75,8 @@
 #endif
 
 #define MEASURE_THROUGHPUT(LOCK_KIND, LOCKPTR, NREPEAT, NTHREADS, WORK_R, WORK_W, NW, NT) do { \
-  libxs_timer_tick_t throughput = 0; \
-  double duration; \
+  libxs_timer_tick_t throughput_ = 0; \
+  double duration_; \
   /* Warmup: spawn threads and exercise lock paths (untimed). */ \
   MEASURE_THROUGHPUT_PARALLEL(NTHREADS) \
   { \
@@ -90,64 +90,64 @@
   } \
   MEASURE_THROUGHPUT_PARALLEL(NTHREADS) \
   { \
-    int n, nn; \
-    libxs_timer_tick_t t1, t2, d = 0; \
-    const libxs_timer_tick_t t0 = libxs_timer_tick(); \
-    for (n = 0; n < (NREPEAT); n = nn) { \
-      nn = n + 1; \
-      if (0 != (nn % (NW))) { /* read */ \
+    int n_, nn_; \
+    libxs_timer_tick_t t1_, t2_, d_ = 0; \
+    const libxs_timer_tick_t t0_ = libxs_timer_tick(); \
+    for (n_ = 0; n_ < (NREPEAT); n_ = nn_) { \
+      nn_ = n_ + 1; \
+      if (0 != (nn_ % (NW))) { /* read */ \
         LIBXS_LOCK_ACQREAD(LOCK_KIND, LOCKPTR); \
-        t1 = libxs_timer_tick(); \
-        t2 = work(t1, WORK_R); \
+        t1_ = libxs_timer_tick(); \
+        t2_ = work(t1_, WORK_R); \
         LIBXS_LOCK_RELREAD(LOCK_KIND, LOCKPTR); \
-        d += libxs_timer_ncycles(t1, t2); \
+        d_ += libxs_timer_ncycles(t1_, t2_); \
       } \
       else { /* write */ \
         LIBXS_LOCK_ACQUIRE(LOCK_KIND, LOCKPTR); \
-        t1 = libxs_timer_tick(); \
-        t2 = work(t1, WORK_W); \
+        t1_ = libxs_timer_tick(); \
+        t2_ = work(t1_, WORK_W); \
         LIBXS_LOCK_RELEASE(LOCK_KIND, LOCKPTR); \
-        d += libxs_timer_ncycles(t1, t2); \
+        d_ += libxs_timer_ncycles(t1_, t2_); \
       } \
     } \
-    t1 = libxs_timer_ncycles(t0, libxs_timer_tick()); \
+    t1_ = libxs_timer_ncycles(t0_, libxs_timer_tick()); \
     MEASURE_THROUGHPUT_ATOMIC \
-    throughput += t1 - d; \
+    throughput_ += t1_ - d_; \
   } \
-  duration = libxs_timer_duration(0, throughput); \
-  if (0 < duration) { \
-    const double r = 1.0 / (NT); \
+  duration_ = libxs_timer_duration(0, throughput_); \
+  if (0 < duration_) { \
+    const double r_ = 1.0 / (NT); \
     printf("\t%s throughput: %.0f us (call/s %.0f kHz, %.0f cycles)\n", \
       LIBXS_STRINGIFY(LOCK_KIND), \
-      duration * r * 1e6, (NT) / (1e3 * duration), throughput * r); \
+      duration_ * r_ * 1e6, (NT) / (1e3 * duration_), throughput_ * r_); \
   } \
 } while(0)
 
 #define BENCHMARK(LOCK_KIND, IMPL, NTHREADS, WORK_R, WORK_W, WRATIOPERC, NREPEAT_LAT, NREPEAT_TPT) do { \
-  const int nw = 0 < (WRATIOPERC) ? (100 / (WRATIOPERC)) : ((NREPEAT_TPT) + 1); \
-  const double nt = (double)(NREPEAT_TPT) * (NTHREADS); \
-  LIBXS_LOCK_ATTR_TYPE(LOCK_KIND) attr; \
-  LIBXS_LOCK_TYPE(LOCK_KIND) lock; \
-  LIBXS_ASSERT(0 < nt); \
+  const int nw_ = 0 < (WRATIOPERC) ? (100 / (WRATIOPERC)) : ((NREPEAT_TPT) + 1); \
+  const double nt_ = (double)(NREPEAT_TPT) * (NTHREADS); \
+  LIBXS_LOCK_ATTR_TYPE(LOCK_KIND) attr_; \
+  LIBXS_LOCK_TYPE(LOCK_KIND) lock_; \
+  LIBXS_ASSERT(0 < nt_); \
   printf("Latency and throughput of \"%s\" (%s) for nthreads=%i wratio=%i%% work_r=%i work_w=%i nlat=%i ntpt=%i\n", \
     LIBXS_STRINGIFY(LOCK_KIND), IMPL, NTHREADS, WRATIOPERC, WORK_R, WORK_W, NREPEAT_LAT, NREPEAT_TPT); \
-  LIBXS_LOCK_ATTR_INIT(LOCK_KIND, &attr); \
-  LIBXS_LOCK_INIT(LOCK_KIND, &lock, &attr); \
-  LIBXS_LOCK_ATTR_DESTROY(LOCK_KIND, &attr); \
+  LIBXS_LOCK_ATTR_INIT(LOCK_KIND, &attr_); \
+  LIBXS_LOCK_INIT(LOCK_KIND, &lock_, &attr_); \
+  LIBXS_LOCK_ATTR_DESTROY(LOCK_KIND, &attr_); \
   /* warmup: exercise both lock paths so the first timed measurement */ \
   /* does not include cold cache, branch predictor or lazy-init costs */ \
   { int w_; \
     for (w_ = 0; w_ < LIBXS_MIN(NREPEAT_LAT, 1024); ++w_) { \
-      LIBXS_LOCK_ACQREAD(LOCK_KIND, &lock); \
-      LIBXS_LOCK_RELREAD(LOCK_KIND, &lock); \
-      LIBXS_LOCK_ACQUIRE(LOCK_KIND, &lock); \
-      LIBXS_LOCK_RELEASE(LOCK_KIND, &lock); \
+      LIBXS_LOCK_ACQREAD(LOCK_KIND, &lock_); \
+      LIBXS_LOCK_RELREAD(LOCK_KIND, &lock_); \
+      LIBXS_LOCK_ACQUIRE(LOCK_KIND, &lock_); \
+      LIBXS_LOCK_RELEASE(LOCK_KIND, &lock_); \
     } \
   } \
-  MEASURE_LATENCY_RO(LOCK_KIND, &lock, NREPEAT_LAT); \
-  MEASURE_LATENCY_RW(LOCK_KIND, &lock, NREPEAT_LAT); \
-  MEASURE_THROUGHPUT(LOCK_KIND, &lock, NREPEAT_TPT, NTHREADS, WORK_R, WORK_W, nw, nt); \
-  LIBXS_LOCK_DESTROY(LOCK_KIND, &lock); \
+  MEASURE_LATENCY_RO(LOCK_KIND, &lock_, NREPEAT_LAT); \
+  MEASURE_LATENCY_RW(LOCK_KIND, &lock_, NREPEAT_LAT); \
+  MEASURE_THROUGHPUT(LOCK_KIND, &lock_, NREPEAT_TPT, NTHREADS, WORK_R, WORK_W, nw_, nt_); \
+  LIBXS_LOCK_DESTROY(LOCK_KIND, &lock_); \
 } while(0)
 
 

@@ -91,8 +91,10 @@ int main(int argc, char* argv[])
           }
         }
         d0 = libxs_timer_duration(start, libxs_timer_tick());
-        if (0 < d0) printf("libxs_diff:\t\t%.8f s (%i MB/s)\n", d0,
-          (int)LIBXS_ROUND((2.0 * nbytes) / ((1024.0 * 1024.0) * d0)));
+        if (0 < d0) {
+          printf("libxs_diff:\t\t%.8f s (%i MB/s)\n", d0,
+            (int)LIBXS_ROUND((2.0 * nbytes) / ((1024.0 * 1024.0) * d0)));
+        }
         t1[i] = d0;
       }
       else if (0 == i) {
@@ -123,8 +125,10 @@ int main(int argc, char* argv[])
           }
         }
         d0 = libxs_timer_duration(start, libxs_timer_tick());
-        if (0 < d0) printf("libxs_memcmp:\t\t%.8f s (%i MB/s)\n", d0,
-          (int)LIBXS_ROUND((2.0 * nbytes) / ((1024.0 * 1024.0) * d0)));
+        if (0 < d0) {
+          printf("libxs_memcmp:\t\t%.8f s (%i MB/s)\n", d0,
+            (int)LIBXS_ROUND((2.0 * nbytes) / ((1024.0 * 1024.0) * d0)));
+        }
         t2[i] = d0;
       }
 
@@ -166,8 +170,10 @@ int main(int argc, char* argv[])
           }
         }
         d0 = libxs_timer_duration(start, libxs_timer_tick());
-        if (0 < d0) printf("stdlib memcmp:\t\t%.8f s (%i MB/s)\n", d0,
-          (int)LIBXS_ROUND((2.0 * nbytes) / ((1024.0 * 1024.0) * d0)));
+        if (0 < d0) {
+          printf("stdlib memcmp:\t\t%.8f s (%i MB/s)\n", d0,
+            (int)LIBXS_ROUND((2.0 * nbytes) / ((1024.0 * 1024.0) * d0)));
+        }
         t3[i] = d0;
       }
     }
@@ -271,9 +277,13 @@ static int dbl_cmp(const void* x, const void* y)
 
 static double dbl_median(double* v, size_t n)
 {
+  double result;
   qsort(v, n, sizeof(double), dbl_cmp);
-  if (0 != (n & 1)) return v[n / 2];
-  return 0.5 * (v[n / 2 - 1] + v[n / 2]);
+  if (0 != (n & 1)) result = v[n / 2];
+  else {
+    result = 0.5 * (v[n / 2 - 1] + v[n / 2]);
+  }
+  return result;
 }
 
 

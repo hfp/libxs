@@ -42,6 +42,15 @@
 # define OZ2_BUUD
 #endif
 
+/**
+ * Hierarchical CRT: two-level Garner reconstruction.
+ * Level 1: HIER_GS moduli per group (small Garner, 32-bit).
+ * Level 2: Garner over HIER_NGROUPS group-moduli (32-bit, 64-bit Barrett).
+ */
+#define HIER_GS 4
+#define HIER_NGROUPS_MAX ((OZ2_NMODULI_MAX + HIER_GS - 1) / HIER_GS)
+#define HIER_L2_HORNER_GROUP 2
+
 /** Sign folding for residue storage: additive inverse (p - r) for negatives. */
 #define OZ2_SIGN_FOLD(SIGN, RES, PIDX) ((oz2_res_t)(((SIGN) < 0 && 0 != (RES)) ? (oz2_moduli[(PIDX)] - (RES)) : (RES)))
 
@@ -155,15 +164,6 @@ LIBXS_INLINE void oz2_reduce(uint64_t mantissa, int delta, uint8_t residues[OZ2_
 }
 
 
-/**
- * Hierarchical CRT: two-level Garner reconstruction.
- * Level 1: HIER_GS moduli per group (small Garner, 32-bit).
- * Level 2: Garner over HIER_NGROUPS group-moduli (32-bit, 64-bit Barrett).
- */
-#define HIER_GS 4
-#define HIER_NGROUPS_MAX ((OZ2_NMODULI_MAX + HIER_GS - 1) / HIER_GS)
-#define HIER_L2_HORNER_GROUP 2
-
 LIBXS_INLINE unsigned int oz2_mod_l2(uint64_t x, uint32_t m, uint64_t barrett)
 {
 #if defined(__SIZEOF_INT128__)
@@ -177,6 +177,7 @@ LIBXS_INLINE unsigned int oz2_mod_l2(uint64_t x, uint32_t m, uint64_t barrett)
     return (r >= m) ? (r - m) : r;
   }
 }
+
 
 LIBXS_INLINE unsigned int oz2_hier_l1_garner(const unsigned int group_residues[], int g,
   uint8_t garner_inv[OZ2_NMODULI_MAX][OZ2_NMODULI_MAX], int nmoduli)
@@ -210,6 +211,7 @@ LIBXS_INLINE unsigned int oz2_hier_l1_garner(const unsigned int group_residues[]
   }
   return (uint32_t)hval;
 }
+
 
 LIBXS_INLINE int oz2_hier_l2_garner(const unsigned int gval[], unsigned int d[],
   const uint32_t* l2_garner_inv, const uint32_t* gprod, const uint64_t* l2_barrett, int ngroups)
@@ -251,6 +253,7 @@ LIBXS_INLINE int oz2_hier_l2_garner(const unsigned int gval[], unsigned int d[],
   return is_negative;
 }
 
+
 LIBXS_INLINE double oz2_hier_horner(const unsigned int d[], const uint32_t* gprod, int ngroups)
 {
   const int nsuper = LIBXS_UPDIV(ngroups, HIER_L2_HORNER_GROUP);
@@ -279,6 +282,7 @@ LIBXS_INLINE double oz2_hier_horner(const unsigned int d[], const uint32_t* gpro
 
   return result;
 }
+
 
 /* Residue of batch element bi for modulus p is res[p * ldr + bi] (modulus-major). */
 LIBXS_INLINE void oz2_reconstruct_batch(const uint8_t* res, size_t ldr,
@@ -309,6 +313,7 @@ LIBXS_INLINE void oz2_reconstruct_batch(const uint8_t* res, size_t ldr,
     result[bi] = (0 != is_negative) ? -r : r;
   }
 }
+
 
 /**
  * AVX-512 batched CRT reconstruction via Garner's algorithm.

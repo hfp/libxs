@@ -47,82 +47,82 @@ int main(int argc, char* argv[])
   if (NULL == a || NULL == b || NULL == c) {
     fprintf(stderr, "ERROR: memory allocation failed\n");
     free(a); free(b); free(c);
-    return EXIT_FAILURE;
-  }
+    result = EXIT_FAILURE;
+  } else {
+    LIBXS_MATRNG(int, double, 0, a, m, (size_t)k * batchsize, lda, 1.0);
+    LIBXS_MATRNG(int, double, 0, b, k, (size_t)n * batchsize, ldb, 1.0);
+    LIBXS_MATRNG(int, double, 0, c, m, (size_t)n * batchsize, ldc, 1.0);
 
-  LIBXS_MATRNG(int, double, 0, a, m, (size_t)k * batchsize, lda, 1.0);
-  LIBXS_MATRNG(int, double, 0, b, k, (size_t)n * batchsize, ldb, 1.0);
-  LIBXS_MATRNG(int, double, 0, c, m, (size_t)n * batchsize, ldc, 1.0);
-
-  { cfg = libxs_gemm_dispatch(
-      LIBXS_DATATYPE(double), 'N', 'N', m, n, k, lda, ldb, ldc,
-      &alpha, &beta, NULL);
-    if (NULL != cfg) {
-      config = *cfg;
-      printf("  JIT kernel dispatched\n");
+    { cfg = libxs_gemm_dispatch(
+        LIBXS_DATATYPE(double), 'N', 'N', m, n, k, lda, ldb, ldc,
+        &alpha, &beta, NULL);
+      if (NULL != cfg) {
+        config = *cfg;
+        printf("  JIT kernel dispatched\n");
+      }
+      else {
+        memset(&config, 0, sizeof(config));
+      }
+      config.flags = LIBXS_GEMM_FLAG_NOLOCK;
     }
-    else {
-      memset(&config, 0, sizeof(config));
-    }
-    config.flags = LIBXS_GEMM_FLAG_NOLOCK;
-  }
 
-  /* warmup: index_stride=0 selects constant-stride mode */
-  libxs_gemm_index(a, &stride_a, b, &stride_b, c, &stride_c,
-    0/*index_stride*/, 0/*index_base*/, batchsize, &config);
-
-  t0 = libxs_timer_tick();
-  for (r = 0; r < nrepeat; ++r) {
-#if defined(_OPENMP)
-#   pragma omp parallel
-    { const int tid = omp_get_thread_num();
-      const int nthreads = omp_get_num_threads();
-      libxs_gemm_index_task(a, &stride_a, b, &stride_b, c, &stride_c,
-        0/*index_stride*/, 0/*index_base*/,
-        batchsize, &config, tid, nthreads);
-    }
-#else
+    /* warmup: index_stride=0 selects constant-stride mode */
     libxs_gemm_index(a, &stride_a, b, &stride_b, c, &stride_c,
       0/*index_stride*/, 0/*index_base*/, batchsize, &config);
+
+    t0 = libxs_timer_tick();
+    for (r = 0; r < nrepeat; ++r) {
+#if defined(_OPENMP)
+#   pragma omp parallel
+      { const int tid = omp_get_thread_num();
+        const int nthreads = omp_get_num_threads();
+        libxs_gemm_index_task(a, &stride_a, b, &stride_b, c, &stride_c,
+          0/*index_stride*/, 0/*index_base*/,
+          batchsize, &config, tid, nthreads);
+      }
+#else
+      libxs_gemm_index(a, &stride_a, b, &stride_b, c, &stride_c,
+        0/*index_stride*/, 0/*index_base*/, batchsize, &config);
 #endif
-  }
-  t1 = libxs_timer_tick();
-  duration = libxs_timer_duration(t0, t1);
+    }
+    t1 = libxs_timer_tick();
+    duration = libxs_timer_duration(t0, t1);
 
-  if (0 < duration) {
-    printf("Total time : %.3f s (%d repeats)\n", duration, nrepeat);
-    printf("Performance: %.1f GFLOPS/s\n",
-      gflops_per_op * batchsize * nrepeat / duration);
-  }
+    if (0 < duration) {
+      printf("Total time : %.3f s (%d repeats)\n", duration, nrepeat);
+      printf("Performance: %.1f GFLOPS/s\n",
+        gflops_per_op * batchsize * nrepeat / duration);
+    }
 
-  if (0 != check) {
-    /* verify ld-padding in first C-matrix is untouched */
-    if (ldc > m) {
-      int ci, cj;
-      for (ci = 0; ci < n && EXIT_SUCCESS == result; ++ci) {
-        for (cj = m; cj < ldc; ++cj) {
-          if (0 != c[(size_t)ci * ldc + cj]) {
-            fprintf(stderr, "FAILED: C ld-padding overwritten"
-              " (col=%d row=%d)\n", ci, cj);
-            result = EXIT_FAILURE;
+    if (0 != check) {
+      /* verify ld-padding in first C-matrix is untouched */
+      if (ldc > m) {
+        int ci, cj;
+        for (ci = 0; ci < n && EXIT_SUCCESS == result; ++ci) {
+          for (cj = m; cj < ldc; ++cj) {
+            if (0 != c[(size_t)ci * ldc + cj]) {
+              fprintf(stderr, "FAILED: C ld-padding overwritten"
+                " (col=%d row=%d)\n", ci, cj);
+              result = EXIT_FAILURE;
+            }
           }
         }
       }
+      libxs_matdiff(&check_diff, LIBXS_DATATYPE(double),
+        m, n, NULL/*ref*/, c, NULL/*ldref*/, &ldc);
+      if (1 < batchsize) {
+        libxs_matdiff_t d;
+        libxs_matdiff(&d, LIBXS_DATATYPE(double),
+          m, n, NULL/*ref*/, c + (size_t)(batchsize - 1) * stride_c,
+          NULL/*ldref*/, &ldc);
+        libxs_matdiff_combine(&check_diff, &d);
+      }
+      printf("checksum=%.6e\n", check_diff.l1_ref + check_diff.l1_tst);
     }
-    libxs_matdiff(&check_diff, LIBXS_DATATYPE(double),
-      m, n, NULL/*ref*/, c, NULL/*ldref*/, &ldc);
-    if (1 < batchsize) {
-      libxs_matdiff_t d;
-      libxs_matdiff(&d, LIBXS_DATATYPE(double),
-        m, n, NULL/*ref*/, c + (size_t)(batchsize - 1) * stride_c,
-        NULL/*ldref*/, &ldc);
-      libxs_matdiff_combine(&check_diff, &d);
-    }
-    printf("checksum=%.6e\n", check_diff.l1_ref + check_diff.l1_tst);
-  }
 
-  libxs_gemm_release(cfg); /* registry-owned config */
-  free(a); free(b); free(c);
-  libxs_finalize();
+    libxs_gemm_release(cfg); /* registry-owned config */
+    free(a); free(b); free(c);
+    libxs_finalize();
+  }
   return result;
 }

@@ -41,6 +41,7 @@
 
 int main(int argc, char* argv[])
 {
+  int result;
 #if defined(_OPENMP)
   const int max_nthreads = omp_get_max_threads();
 #else
@@ -189,8 +190,9 @@ int main(int argc, char* argv[])
 
   if (0 != nerrors0 || 0 != nerrors1) {
     fprintf(stdout, "FAILED (errors: malloc=%u libxs=%u)\n", nerrors0, nerrors1);
-    return EXIT_FAILURE;
+    result = EXIT_FAILURE;
+  } else {
+    result = EXIT_SUCCESS;
   }
-
-  return EXIT_SUCCESS;
+  return result;
 }

@@ -345,7 +345,10 @@ static int bench_threaded(size_t key_size, int size_total, int nrepeat,
         for (i = 0; i < size_total; ++i) {
           const size_t j = (shuffle * (size_t)i) % (size_t)size_total;
           if (NULL == libxs_registry_get(registry, keys + j * key_size,
-            key_size, libxs_registry_lock(registry))) ++nerr;
+            key_size, libxs_registry_lock(registry)))
+          {
+            ++nerr;
+          }
         }
 #       pragma omp master
         total_cycles += libxs_timer_ncycles(start, libxs_timer_tick());
@@ -373,7 +376,10 @@ static int bench_threaded(size_t key_size, int size_total, int nrepeat,
         for (i = 0; i < size_total; ++i) {
           if (NULL == libxs_registry_set(registry, keys + (size_t)i * key_size,
             key_size, vals + i, sizeof(bench_value_t),
-            libxs_registry_lock(registry))) ++nerr;
+            libxs_registry_lock(registry)))
+          {
+            ++nerr;
+          }
         }
       }
       total_cycles = libxs_timer_ncycles(start, libxs_timer_tick());
@@ -417,7 +423,10 @@ static int bench_threaded(size_t key_size, int size_total, int nrepeat,
           for (w = half; w < size_total; ++w) {
             if (NULL == libxs_registry_set(registry, keys + (size_t)w * key_size,
               key_size, vals + w, sizeof(bench_value_t),
-              libxs_registry_lock(registry))) result = EXIT_FAILURE;
+              libxs_registry_lock(registry)))
+            {
+              result = EXIT_FAILURE;
+            }
           }
         }
         else { /* readers: look up the pre-populated keys */

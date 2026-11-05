@@ -79,8 +79,7 @@ void* ozaki_ocl_create(int use_double, int kind, int verbosity, int tm, int tn, 
       h = NULL;
       reason = "FP64 requested but the device supports FP32 only";
     }
-    else if (EXIT_SUCCESS != libxstream_stream_create(&h->stream, "ozaki_wrap", LIBXSTREAM_STREAM_DEFAULT))
-    {
+    else if (EXIT_SUCCESS != libxstream_stream_create(&h->stream, "ozaki_wrap", LIBXSTREAM_STREAM_DEFAULT)) {
       ozaki_destroy(&h->ctx);
       free(h);
       h = NULL;
