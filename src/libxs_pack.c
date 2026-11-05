@@ -1625,14 +1625,14 @@ LIBXS_API_INLINE size_t internal_libxs_vpack_reals(void* packed, const void* val
     uint64_t *const out = (uint64_t*)packed;
     int transform = -1, keep = LIBXS_MIN(LIBXS_MAX(maxbits, 2 + expbits), width), t = 0; /* a mantissa bit */
     size_t i, nwords;
-    if (0 >= maxbits) { /* quantized, if every value can be */
-      const int e = LIBXS_MAX(maxbits, 0 != f64 ? -1023 : -127); /* the step is a normal number */
+    if (0 >= maxbits) { /* quantized, if every value can be (a subnormal flushed to zero stays within 2^e) */
+      const int lowest = (0 != f64 ? -1022 : -126), e = LIBXS_MAX(maxbits, lowest);
       const double scale = internal_libxs_reals_pow2(-(e + 1)), big = internal_libxs_reals_pow2(62);
       const double exact = internal_libxs_reals_pow2(52); /* from here on, every double is an integer */
-      int ok = 1;
+      int ok = (lowest <= maxbits ? 1 : 0); /* else lossless: an error below the normal numbers */
       for (i = 0; i < n && 0 != ok; ++i) {
         const double x = (0 != f64 ? ((const double*)values)[i] : (double)((const float*)values)[i]), v = x * scale;
-        if (-big < v && v < big) { /* finite and in range (NaN is not) */
+        if (expall != (internal_libxs_reals_bits(values, f64, i) & expall) && -big < v && v < big) {
           u[i] = (uint64_t)((-exact < v && v < exact) ? (int64_t)(v + (0 <= v ? 0.5 : -0.5)) : (int64_t)v);
         }
         else ok = 0;
@@ -1648,8 +1648,9 @@ LIBXS_API_INLINE size_t internal_libxs_vpack_reals(void* packed, const void* val
       int ok = 1;
       for (i = 0; i < n && 0 != ok; ++i) {
         const double x = (0 != f64 ? ((const double*)values)[i] : (double)((const float*)values)[i]);
-        if (-limit <= x && x <= limit && (double)(int64_t)x == x
-          && (0 != x || 0 == (internal_libxs_reals_bits(values, f64, i) & smask)))
+        const uint64_t b = internal_libxs_reals_bits(values, f64, i);
+        if ((0 == b || (0 != (b & expall) && expall != (b & expall))) /* +0 or normal: no -0, subnormal, NaN, Inf */
+          && -limit <= x && x <= limit && (double)(int64_t)x == x)
         {
           u[i] = (uint64_t)(int64_t)x;
         }
@@ -1784,15 +1785,17 @@ LIBXS_API int libxs_vpack_maxbits(libxs_data_t type, double value, int relative)
     }
     result = LIBXS_MIN(LIBXS_MAX(nbits, 1), 8 * typesize);
   }
-  else if (LIBXS_DATATYPE_F64 == type || LIBXS_DATATYPE_F32 == type) {
+  else if (LIBXS_DATATYPE_F64 == type || LIBXS_DATATYPE_F32 == type) { /* by bits: subnormals may be flushed */
     const int width = (LIBXS_DATATYPE_F64 == type ? 64 : 32), expbits = (LIBXS_DATATYPE_F64 == type ? 11 : 8);
-    if (!(0 < value)) result = width; /* no error (or NaN): lossless */
-    else if (0 == relative) { /* the largest power of two up to value */
-      result = (value < 1.0 ? internal_libxs_reals_log2(value) : 0);
-    }
-    else { /* m mantissa bits round to within 2^-(m+1) of a value: m = ceil(-log2(value)) - 1 */
-      const int m = (value < 1.0 ? -internal_libxs_reals_log2(value) - 1 : 1);
-      result = LIBXS_MIN(1 + expbits + LIBXS_MAX(m, 1), width);
+    uint64_t bits;
+    memcpy(&bits, &value, sizeof(bits));
+    if (0 != (bits >> 63) || 0 == bits || 0x7FF0000000000000ULL < bits) result = width; /* <= 0 or NaN: lossless */
+    else {
+      const int e = (0x7FF0000000000000ULL != bits ? internal_libxs_reals_log2(value) : 1024);
+      if (0 == relative) result = LIBXS_MIN(e, 0); /* the largest power of two up to value */
+      else { /* m mantissa bits round to within 2^-(m+1) of a value: m = ceil(-log2(value)) - 1 */
+        result = LIBXS_MIN(1 + expbits + LIBXS_MAX(-e - 1, 1), width);
+      }
     }
   }
   return result;

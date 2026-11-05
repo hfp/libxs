@@ -261,6 +261,16 @@ static int check_lanes(libxs_data_t type)
 }
 
 
+/** 1 for Inf, 2 for NaN, else 0: by bits, as a fast floating-point model may assume neither exists. */
+static int nonfinite(double v)
+{
+  uint64_t bits;
+  memcpy(&bits, &v, sizeof(bits));
+  bits &= 0x7FFFFFFFFFFFFFFFULL;
+  return (0x7FF0000000000000ULL > bits ? 0 : (0x7FF0000000000000ULL == bits ? 1 : 2));
+}
+
+
 /** Floating-point data: lossless (bit-exact), relative (maxbits leading bits, rounded), absolute (2^maxbits),
  * with integral values, zeros of either sign, Inf, NaN, subnormals, and large values among them. */
 static int check_reals(libxs_data_t type)
@@ -311,10 +321,12 @@ static int check_reals(libxs_data_t type)
           nread = libxs_vunpack(0 != f64 ? (void*)y : (void*)yf, packed, nwords, type, n);
           for (k = 0; k < n; ++k) {
             const double v = (0 != f64 ? x[k] : (double)xf[k]);
-            if (!(v == v) || v - v != 0) special = 1; /* NaN or Inf */
-            if (0 != f64 && 0 != v && fabs(v) * ldexp(1.0, -(maxbits + 1)) >= ldexp(1.0, 62)) special = 1;
+            if (0 != nonfinite(v)) special = 1;
+            if (0 != f64 && 0 != v && fabs(v) * ldexp(1.0, -(LIBXS_MAX(maxbits, -1022) + 1)) >= ldexp(1.0, 62)) {
+              special = 1;
+            }
           }
-          if (0 >= maxbits && 0 != special) exact = 1; /* not quantized: lossless */
+          if (0 >= maxbits && (0 != special || (0 != f64 ? -1022 : -126) > maxbits)) exact = 1; /* lossless */
           if (0 == nwords || nwords > bound || nread != nwords) {
             fprintf(stderr, "reals: %i words (bound %i, read %i) for type %i, kind %i, maxbits %i, level %i, n %i\n",
               (int)nwords, (int)bound, (int)nread, (int)type, kind, maxbits, level, (int)n);
@@ -332,10 +344,10 @@ static int check_reals(libxs_data_t type)
               ok = (0 != f64 ? (0 == memcmp(x + k, y + k, sizeof(double)))
                 : (0 == memcmp(xf + k, yf + k, sizeof(float))));
             }
-            else if (!(v == v)) ok = !(w == w); /* NaN stays NaN */
-            else if (v - v != 0) ok = (v == w); /* Inf stays Inf */
+            else if (2 == nonfinite(v)) ok = (2 == nonfinite(w)); /* NaN stays NaN */
+            else if (0 != nonfinite(v)) ok = (0 == memcmp(&v, &w, sizeof(v))); /* Inf stays Inf */
             else if (0 >= maxbits) {
-              ok = (fabs(w - v) <= ldexp(1.0, LIBXS_MAX(maxbits, 0 != f64 ? -1023 : -127)));
+              ok = (fabs(w - v) <= ldexp(1.0, maxbits));
             }
             else { /* relative, or absolute below the normal numbers */
               const double tiny = ldexp(1.0, (0 != f64 ? -1022 : -126) - mbits);

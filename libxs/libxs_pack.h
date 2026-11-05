@@ -38,7 +38,8 @@ LIBXS_API int libxs_unpack(void* values, const void* packed,
  * width of the type (or more) is lossless, fewer bits keep that many leading
  * bits of each value (at least sign, exponent, and a bit: a relative error),
  * and zero or less bounds the absolute error by 2^maxbits (values that cannot
- * be held to it, such as Inf or NaN, are kept exactly). The level selects a
+ * be held to it, such as Inf or NaN, are kept exactly, as are all values for
+ * an error below the smallest normal number). The level selects a
  * trade-off: 1 packs and unpacks fastest, 2 takes less space, 3 (or more) the
  * least; 0 (or less) takes the default (2, or LIBXS_PACK in the environment).
  * The stream is internal and may change between versions; only n has to be

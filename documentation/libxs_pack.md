@@ -41,7 +41,8 @@ floating-point types, `maxbits` sets the accuracy: the width of the type (64 or
 32, or more) is lossless; fewer bits keep that many leading bits of every value
 (at least sign, exponent, and one bit), which bounds the error relative to the
 value; zero or less bounds the absolute error by 2^`maxbits`, and values that
-cannot be held to it (Inf, NaN, or too large) are kept exactly.
+cannot be held to it (Inf, NaN, or too large) are kept exactly, as are all
+values for an error below the smallest normal number.
 
 The `level` selects a trade-off: 1 packs and unpacks fastest, 2 takes less
 space, and 3 (or more) the least; each step takes more time to pack and to
