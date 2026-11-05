@@ -1,3 +1,12 @@
+/******************************************************************************
+* Copyright (c) 2009-2026 Hans Pabst                                          *
+* Copyright (c) 2009-2026 Intel Corporation                                   *
+* This file is part of the LIBXS library.                                     *
+*                                                                             *
+* For information on the license, see the LICENSE file.                       *
+* Further information: https://github.com/hfp/libxs/                          *
+* SPDX-License-Identifier: BSD-3-Clause                                       *
+******************************************************************************/
 #include <libxs/libxs_predict.h>
 #include <libxs/libxs_token.h>
 #include <libxs/libxs_ngram.h>
@@ -54,6 +63,9 @@
 #define RERANK_RELIABILITY 32.0
 #define RERANK_LIFT_MAX 8.0
 
+/* the typed hole in an abstracted context, see the slot coverage probe */
+#define SLOT_HOLE_ID 0xFFFFFFFEu
+
 
 typedef libxs_ngram_succ_t ngram_succ_t;
 typedef libxs_ngram_entry_t ngram_entry_t;
@@ -97,9 +109,6 @@ typedef struct ngram_expert_t {
  * merely exist. The asymmetry is deliberate: it makes coverage a claim about
  * useful evidence rather than about pattern frequency.
  */
-#define SLOT_HOLE_ID 0xFFFFFFFEu
-
-
 typedef struct slot_key_t {
   unsigned int context[NGRAM_ORDER_MAX];
   unsigned int next;
@@ -359,6 +368,7 @@ static const ngram_entry_t* ngramk_lookup(libxs_registry_t* model,
   return libxs_ngram_lookup(converse_ngram_handle(), hist, hlen, n);
 }
 
+
 /**
  * Cost in bits of emitting one word as the pieces implied by a cut mask, scored
  * against the trained store. Bit i of mask means "cut before letter i+1".
@@ -409,6 +419,7 @@ static double ngram_syllable_cost(libxs_registry_t* model,
   return bits;
 }
 
+
 /**
  * Per-word split ORACLE: the cheapest cut set over all candidates, which bounds
  * what ANY cut rule - hand-written or learned - can achieve on this corpus.
@@ -445,7 +456,10 @@ static void ngram_syllable_oracle(libxs_registry_t* model,
         if (0 == ngram_is_wordchar((unsigned char)text[pos])) { ++pos; continue; }
         { int wlen = 0;
           while (pos + wlen < entry->text_len
-            && 0 != ngram_is_wordchar((unsigned char)text[pos + wlen])) ++wlen;
+            && 0 != ngram_is_wordchar((unsigned char)text[pos + wlen]))
+          {
+            ++wlen;
+          }
           if (1 < wlen && ORACLE_MAXLEN >= wlen) {
             int begin[LIBXS_LEXEME_MAXBYTES], plen[LIBXS_LEXEME_MAXBYTES];
             const int np = ngram_syllable_split(text + pos, wlen, begin, plen,
@@ -489,6 +503,7 @@ static void ngram_syllable_oracle(libxs_registry_t* model,
   }
 }
 
+
 /**
  * Report, per position, the cost of every fixed-order expert and of an oracle
  * that picks the cheapest. A measurement, not a mechanism: the oracle reads the
@@ -500,6 +515,7 @@ static int ngram_oracle_probe(void)
   const char* env = getenv("CONVERSE_NGRAM_ORACLE");
   return (NULL != env && '0' != env[0] && '\0' != env[0]) ? 1 : 0;
 }
+
 
 /**
  * Which fixed-order expert the achievable selector falls back to. The best
@@ -517,6 +533,7 @@ static int ngram_select_order(void)
   }
   return result;
 }
+
 
 /**
  * Word-level expert bank: mix the fixed-order experts with causally updated
@@ -566,6 +583,7 @@ static double ngram_bank_share(void)
   return result;
 }
 
+
 /**
  * One causal fixed-share step over the expert slots. Multiplicative log-loss
  * update toward the experts that beat the mixture, then a share of the mass
@@ -584,8 +602,7 @@ static double ngram_bank_share(void)
  * A merely tiny ratio needs no floor - it decays steeply but stays positive,
  * and clamping it would perturb the order-only weights that are otherwise
  * bit-exact to the pre-slot bank.
- */
-/**
+ *
  * Spread the slot-indexed experts into the parallel arrays libxs_mix takes. Slot
  * 0 is unused here and holds weight zero, so the shared primitive skips it on
  * the same weight>0 test the local loop used.
@@ -619,6 +636,7 @@ static void ngram_bank_update(double weight[], const ngram_expert_t expert[],
    * applies; recomputing it here would drop that floor */
   libxs_mix_update(&mix, prob, active, mixture);
 }
+
 
 /**
  * Which extra slots the bank carries beyond the fixed orders, as a mask over
@@ -668,6 +686,7 @@ static const char* ngram_bank_slotname(int slot)
   else sprintf(name, "o%d", slot);
   return result;
 }
+
 
 /**
  * Fill the per-position expert set. The fixed-order experts are the SAME
@@ -812,6 +831,7 @@ static void ngram_bank_experts(const unsigned int hist[], int hlen,
   }
 }
 
+
 /**
  * Which pooling rule the bank uses: 0 = linear (default, bit-exact), 1 =
  * geometric (log-linear).
@@ -827,6 +847,7 @@ static int ngram_bank_geometric(void)
   const char* env = getenv("CONVERSE_NGRAM_BANK_GEO");
   return (NULL != env && '0' != env[0] && '\0' != env[0]) ? 1 : 0;
 }
+
 
 /**
  * Collect the union of successor ids reachable from this history, which is the
@@ -859,6 +880,7 @@ static int ngram_bank_support(libxs_registry_t* model, const unsigned int hist[]
   return result;
 }
 
+
 /**
  * Geometric (log-linear) pool, normalized EXACTLY rather than approximately.
  * An unnormalized log-linear score is not a code length, so a BPC taken from
@@ -881,6 +903,7 @@ static double ngram_bank_pool_geo(libxs_registry_t* model,
   const unsigned int hist[], int hlen, int maxorder, unsigned int cur,
   const double weight[], const ngram_expert_t expert[])
 {
+  double result;
   unsigned int support[NGRAM_ORDER_MAX * NGRAM_SUCC_MAX];
   double logprod[NGRAM_ORDER_MAX * NGRAM_SUCC_MAX];
   double prior_sum = 0.0, tail_log = 0.0, wtotal = 0.0;
@@ -895,45 +918,51 @@ static double ngram_bank_pool_geo(libxs_registry_t* model,
       wtotal += weight[slot];
     }
   }
-  if (!(wtotal > 0.0)) return 1e-12;
-  for (i = 0; i < nsupport; ++i) {
-    logprod[i] = 0.0;
-    prior_sum += ngramk_prob_exact(hist, 0, support[i]);
-    if (support[i] == cur) cur_index = i;
-  }
-  if (prior_sum >= 1.0) prior_sum = 1.0;
-  for (slot = 1; slot <= NGRAM_BANK_LAST; ++slot) {
-    if (weight[slot] > 0.0 && 0 != expert[slot].active
-      && expert[slot].probability > 0.0)
-    {
-      const double w = weight[slot] / wtotal;
-      const int k = (slot <= NGRAM_ORDER_MAX) ? slot : 0;
-      double mass = 0.0, backoff;
-      for (i = 0; i < nsupport; ++i) {
-        const double pk = (k > 0)
-          ? ngramk_prob_exact(hist + (hlen - k), k, support[i])
-          : ngramk_prob_exact(hist, 0, support[i]);
-        logprod[i] += w * log((pk > 0.0) ? pk : 1e-300);
-        mass += pk;
+  if (!(wtotal > 0.0)) result = 1e-12;
+  else {
+    for (i = 0; i < nsupport; ++i) {
+      logprod[i] = 0.0;
+      prior_sum += ngramk_prob_exact(hist, 0, support[i]);
+      if (support[i] == cur) cur_index = i;
+    }
+    if (prior_sum >= 1.0) prior_sum = 1.0;
+    for (slot = 1; slot <= NGRAM_BANK_LAST; ++slot) {
+      if (weight[slot] > 0.0 && 0 != expert[slot].active
+        && expert[slot].probability > 0.0)
+      {
+        const double w = weight[slot] / wtotal;
+        const int k = (slot <= NGRAM_ORDER_MAX) ? slot : 0;
+        double mass = 0.0, backoff;
+        for (i = 0; i < nsupport; ++i) {
+          const double pk = (k > 0)
+            ? ngramk_prob_exact(hist + (hlen - k), k, support[i])
+            : ngramk_prob_exact(hist, 0, support[i]);
+          logprod[i] += w * log((pk > 0.0) ? pk : 1e-300);
+          mass += pk;
+        }
+        /* Backoff mass left for the tail, from this expert summing to one. */
+        backoff = (prior_sum < 1.0) ? (1.0 - mass) / (1.0 - prior_sum) : 0.0;
+        tail_log += w * log((backoff > 0.0) ? backoff : 1e-300);
       }
-      /* Backoff mass left for the tail, from this expert summing to one. */
-      backoff = (prior_sum < 1.0) ? (1.0 - mass) / (1.0 - prior_sum) : 0.0;
-      tail_log += w * log((backoff > 0.0) ? backoff : 1e-300);
+    }
+    for (i = 0; i < nsupport; ++i) zsum += exp(logprod[i]);
+    zsum += exp(tail_log) * (1.0 - prior_sum);
+    /**
+     * The target is scored through the same partition, not added to the support:
+     * the tail form is exact for any id outside it, so the normalizer stays
+     * independent of which target is being scored.
+     */
+    numerator = (cur_index >= 0) ? exp(logprod[cur_index])
+      : exp(tail_log) * ngramk_prob_exact(hist, 0, cur);
+    if (!(zsum > 0.0)) result = 1e-12;
+    else {
+      numerator /= zsum;
+      result = (numerator > 0.0) ? numerator : 1e-12;
     }
   }
-  for (i = 0; i < nsupport; ++i) zsum += exp(logprod[i]);
-  zsum += exp(tail_log) * (1.0 - prior_sum);
-  /**
-   * The target is scored through the same partition, not added to the support:
-   * the tail form is exact for any id outside it, so the normalizer stays
-   * independent of which target is being scored.
-   */
-  numerator = (cur_index >= 0) ? exp(logprod[cur_index])
-    : exp(tail_log) * ngramk_prob_exact(hist, 0, cur);
-  if (!(zsum > 0.0)) return 1e-12;
-  numerator /= zsum;
-  return (numerator > 0.0) ? numerator : 1e-12;
+  return result;
 }
+
 
 /**
  * Score one position under the bank: a linear pool over the active slots,
@@ -970,6 +999,7 @@ static int predict_eval_stride(void)
   }
   return result;
 }
+
 
 /**
  * Rank the successors of a single record by count (converse's legacy order-2
@@ -1032,6 +1062,7 @@ static double ngram_pair_relfreq(libxs_registry_t* model, unsigned int ctx_a,
   return result;
 }
 
+
 /**
  * How many tokens of history the successor distribution conditions on (1 = the
  * immediate predecessor only, which is where this expert started).
@@ -1083,6 +1114,7 @@ static int token_input_vector(unsigned int prev2, unsigned int prev1,
   return result;
 }
 
+
 /**
  * Number of context tokens summarized into a kNN-LM query vector (>=2; 2 is
  * the historical prev2/prev1 pair, bit-exact). Wider context = longer reach.
@@ -1098,6 +1130,7 @@ static int knnlm_ctxlen(void)
   return result;
 }
 
+
 /* Geometric decay applied to older context tokens in the summarized half. */
 static double knnlm_decay(void)
 {
@@ -1110,14 +1143,14 @@ static double knnlm_decay(void)
   return result;
 }
 
+
 /**
  * Build a kNN-LM query vector from a rolling history (most-recent last). The
  * prev1 half is the embedding of the most recent token; the prev2 half is a
  * decayed, L2-normalized sum of the preceding ctxlen-1 tokens. With ctxlen==2
  * this reproduces token_input_vector(prev2, prev1, 1, .) exactly, so the
  * default path is byte-identical to the two-token model.
- */
-/**
+ *
  * Per-position weights for the summarized half, replacing the geometric decay
  * when CONVERSE_KNNLM_WEIGHTS is set (comma-separated, nearest position first).
  * Returns the number parsed, or 0 to keep the geometric profile. A weight
@@ -1181,6 +1214,7 @@ static double knnlm_cosine(const double* a, const double* b, int n)
   }
   return (na > 0.0 && nb > 0.0) ? (dot / (sqrt(na) * sqrt(nb))) : 0.0;
 }
+
 
 /**
  * Quantify how much word order survives in a query vector: for each evaluated
@@ -1288,6 +1322,7 @@ static void ngram_last_context(libxs_lexicon_t* lexicon,
   if (NULL != prev1) *prev1 = p1;
 }
 
+
 /**
  * Whether gen-eval keeps scoring after the first wrong token instead of ending
  * the sentence there.
@@ -1315,6 +1350,7 @@ static int ngram_gen_full(void)
   return cached;
 }
 
+
 /**
  * Whether gen-eval also ranks the truth by the successor-side embedding, over the
  * WHOLE vocabulary and independently of what the count model proposed.
@@ -1335,6 +1371,7 @@ static int ngram_gen_embrank(void)
   }
   return cached;
 }
+
 
 /**
  * How many embedding-proposed successors join the candidate set per step, 0 =
@@ -1365,6 +1402,7 @@ static int ngram_gen_embcand(void)
   return cached;
 }
 
+
 /** Text of the first n ids, as scoring context for the byte model. */
 static int ngram_gen_join(libxs_lexicon_t* lexicon,
   const unsigned int ids[], int n, char* out, size_t out_size)
@@ -1380,14 +1418,14 @@ static int ngram_gen_join(libxs_lexicon_t* lexicon,
   return (int)pos;
 }
 
+
 /**
  * Held-out generation quality: seed each test sentence with its first GEN_SEED
  * content tokens, greedily extend, and count how many of the sentence's actual
  * remaining tokens the generator reproduces before diverging. A gradient-free,
  * generation-native counterpart to BPC (which only scores one-step prediction).
  * Also reports the mean grounding order over generated tokens.
- */
-/**
+ *
  * Reorder generative candidates by the expert bank instead of by raw count
  * rank. Generation is where a slot has to earn its keep for real: BPC scores a
  * distribution against a known target, whereas here the model must put the
@@ -1422,6 +1460,7 @@ static int ngram_gen_bank_rank(libxs_registry_t* model,
   }
   return result;
 }
+
 
 /**
  * One bucket of the per-position generation report.
@@ -1508,369 +1547,370 @@ static int ngram_gen_eval(libxs_registry_t* model,
   size_t cursor = 0;
   corpus_entry_t scratch;
   void* value;
-  if (NULL == model || NULL == corpus || NULL == lexicon) return EXIT_FAILURE;
-  { int k, nslot = 0;
-    for (k = 1; k <= NGRAM_BANK_LAST; ++k) {
-      if (0 != ngram_bank_enabled(bank_slots, k)) ++nslot;
-    }
-    for (k = 0; k < NGRAM_BANK_MAX; ++k) {
-      bank_weight[k] = (k >= 1 && k <= NGRAM_BANK_LAST
-        && 0 != ngram_bank_enabled(bank_slots, k)) ? 1.0 / (double)nslot : 0.0;
-    }
-  }
-  if (0 != gen_bank && 0 != (bank_slots & (1u << NGRAM_BANK_PREDICT))
-    && NULL != store)
-  {
-    gen_context = libxs_predict_prob_create(store);
-  }
-
-  value = corpus_iterx_begin(corpus, &key, &cursor);
-  while (NULL != value) {
-    const corpus_entry_t* entry = corpus_entry_scan(value, &scratch);
-    int is_test = (0 == holdout || 0 != predict_is_test(index, holdout));
-    libxs_lexeme_stream_t stream;
-    const int native = ngram_native_mode();
-    libxs_lexeme_stream_init(&stream);
-    /**
-     * The truth tokens must come from the SAME unit the model was trained on.
-     * Reading word lexemes while the model holds syllable or byte-pair ids makes
-     * every prediction a miss and reports a reproduction of zero, which reads as
-     * a catastrophically bad generator rather than as a unit mismatch.
-     */
-    if (0 != is_test && entry->text_len > 0
-      && (0 != native || EXIT_SUCCESS == libxs_lexeme_stream_encode(lexicon,
-        &stream, (const unsigned char*)entry->text, (size_t)entry->text_len,
-        rules, nrules, converse_lexnorms(), converse_lexnorms_size(), 0)))
-    {
-      unsigned int truth[GEN_SEED + GEN_LOOK];
-      libxs_lexeme_t nat[COMPOSE_MAXTEXT];
-      int ntruth = 0;
-      int ntok, ti;
-      ntok = (0 != native)
-        ? ngram_native_tokens(lexicon, entry->text, entry->text_len, nat,
-          NULL, COMPOSE_MAXTEXT, 0)
-        : (int)stream.size;
-      for (ti = 0; ti < ntok && ntruth < GEN_SEED + GEN_LOOK; ++ti) {
-        if (0 != native) {
-          if (0 != nat[ti].id) truth[ntruth++] = nat[ti].id;
-        }
-        else {
-          const libxs_lexeme_t* lex = stream.data + ti;
-          if (0 != (lex->flags & (LIBXS_LEXEME_WORD | LIBXS_LEXEME_NUMBER))
-            && 0 != lex->id)
-          {
-            truth[ntruth++] = lex->id;
-          }
-        }
+  if (NULL == model || NULL == corpus || NULL == lexicon) result = EXIT_FAILURE;
+  else {
+    { int k, nslot = 0;
+      for (k = 1; k <= NGRAM_BANK_LAST; ++k) {
+        if (0 != ngram_bank_enabled(bank_slots, k)) ++nslot;
       }
-      if (ntruth > GEN_SEED) {
-        unsigned int hist[NGRAM_ORDER_MAX];
-        const int seedcap = (GEN_SEED < maxorder) ? GEN_SEED : maxorder;
-        int hlen = 0, t, repro = 0, diverged = 0, seed_attested = -1;
-        int stop = 0, spoke = 0, hit = 0, abst = 0, ordsum = 0, inl = 0;
-        double rrsum = 0.0;
-        for (t = 0; t < GEN_SEED; ++t) hist[hlen++] = truth[t];
-        for (t = GEN_SEED; t < ntruth && 0 == stop; ++t) {
-          unsigned int ids[GEN_CAND_MAX];
-          unsigned int embids[GEN_CAND_MAX];
-          int got_order = 0;
-          int ctxatt = 0, nemb = 0, cdecl;
-          int n = ngramk_predict_order(model, hist, hlen, maxorder, ids,
-            (0 < gen_embcand && gen_ncand > gen_ncand_cnt)
-              ? gen_ncand_cnt : gen_ncand, &got_order);
-          /* Proposals join BEFORE the bank so the pool arbitrates the union
-           * rather than being handed a decision already made. */
-          if (0 < gen_embcand) {
-            const int nctx = (gen_embctx < hlen) ? gen_embctx : hlen;
-            int k;
-            nemb = token_emb_succ_append(hist + (hlen - nctx), nctx,
-              (unsigned int)gen_vocab, ngram_emb_temp(), ids, n, GEN_CAND_MAX,
-              gen_embcand);
-            for (k = 0; k < nemb; ++k) embids[k] = ids[n + k];
-            n += nemb;
-            pos_embadd += nemb;
-          }
-          if (1 < n && 0 != converse_judge_active()) {
-            char context[COMPOSE_MAXTEXT];
-            const int context_len = ngram_gen_join(lexicon, truth, t,
-              context, sizeof(context));
-            const int pick = ngram_gen_select(lexicon, ids, n, context,
-              context_len);
-            if (0 != pick) {
-              const unsigned int chosen = ids[pick];
-              ids[pick] = ids[0];
-              ids[0] = chosen;
-            }
-          }
-          if (0 != gen_bank && 1 < n) {
-            const int pick = ngram_gen_bank_rank(model, hist, hlen, maxorder,
-              ids, n, bank_slots, store, gen_context, use_emb, gen_vocab,
-              bank_weight);
-            ++gen_ranked;
-            if (0 != pick) ++gen_reordered;
-            if (0 != pick) {
-              const unsigned int chosen = ids[pick];
-              ids[pick] = ids[0];
-              ids[0] = chosen;
-            }
-            /* Adapt on the CHOSEN token: no target may enter generation. */
-            { ngram_expert_t expert[NGRAM_BANK_MAX];
-              double pooled;
-              ngram_bank_experts(hist, hlen, maxorder, ids[0], bank_slots,
-                store, gen_context, use_emb, gen_vocab, expert);
-              pooled = ngram_bank_pool(bank_weight, expert);
-              ngram_bank_update(bank_weight, expert, pooled,
-                ngram_bank_rate(), ngram_bank_share());
-            }
-          }
-          /**
-           * Classify the sentence by its SEED context only, before any token is
-           * generated, so the split cannot be influenced by how far generation
-           * then runs: was the whole seed attested as a context in training?
-           */
-          if (seed_attested < 0) {
-            seed_attested = (n > 0 && got_order >= seedcap) ? 1 : 0;
-          }
-          /**
-           * Abstention is a position the model declined, not a wrong answer, so
-           * it is counted apart from accuracy rather than folded in as a miss.
-           * Under the prefix definition it also ends the sentence, which is why
-           * the old scan could report a short run without saying why it stopped.
-           */
-          /**
-           * Second split, per POSITION rather than per seed: did the FULL-ORDER
-           * context of THIS position recur in training. That is the definition
-           * ngram_eval's attested/novel BPC split already uses, so the two
-           * instruments become readable together; the seed split classifies a
-           * whole sentence by its first three words and stops discriminating
-           * once true history is fed back.
-           */
-          ctxatt = (got_order >= maxorder) ? 1 : 0;
-          /**
-           * Whether the COUNTS declined, judged on the count-supplied part of the
-           * list only. With no proposals nemb is zero and this is exactly the
-           * historical condition, which is what keeps the knob-off path
-           * bit-exact; with proposals it separates "counts had nothing" from
-           * "nobody had anything".
-           */
-          cdecl = ((n - nemb) <= 0 || got_order < minorder) ? 1 : 0;
-          /**
-           * Scored at EVERY visited position, including the ones the count model
-           * declined: a total scorer must be judged where the partial one was
-           * silent, or the comparison quietly excludes the positions the whole
-           * mechanism is for.
-           */
-          if (0 != gen_embrank) {
-            const int nctx = (gen_embctx < hlen) ? gen_embctx : hlen;
-            const int erank = token_emb_succ_rank(hist + (hlen - nctx), nctx,
-              truth[t], (unsigned int)gen_vocab);
-            /**
-             * The control that decides whether a total scorer is worth anything:
-             * its accuracy ON THE POSITIONS THE COUNT MODEL DECLINED. Averaged
-             * over all positions it could earn its score entirely where counts
-             * already speak, which would make it a redundant expert rather than a
-             * reach into the bucket that has no evidence at all.
-             */
-            if (0 <= erank) {
-              if (0 != cdecl) {
-                ++emb_n_dec;
-                if (0 == erank) ++emb_top1_dec;
-                if (10 > erank) ++emb_top10_dec;
-                emb_rr_dec += 1.0 / (double)(erank + 1);
-              }
-              else {
-                ++emb_n_spk;
-                if (0 == erank) ++emb_top1_spk;
-                if (10 > erank) ++emb_top10_spk;
-                emb_rr_spk += 1.0 / (double)(erank + 1);
-              }
-              if (0 != ctxatt) {
-                ++emb_n_att;
-                if (0 == erank) ++emb_top1_att;
-                if (10 > erank) ++emb_top10_att;
-                emb_rr_att += 1.0 / (double)(erank + 1);
-              }
-              else {
-                ++emb_n_nov;
-                if (0 == erank) ++emb_top1_nov;
-                if (10 > erank) ++emb_top10_nov;
-                emb_rr_nov += 1.0 / (double)(erank + 1);
-              }
-            }
-          }
-          if (0 != cdecl && 0 == nemb) {
-            ++abst;
-            if (0 != ctxatt) ++ctx_abst_att;
-            else ++ctx_abst_nov;
-            /**
-             * The prefix definition ends the run here, so the prefix metrics
-             * must stop accumulating even when the scan continues - otherwise
-             * positions past an abstention extend mean-reproduced and the two
-             * readings stop being comparable (measured: 7.48 -> 7.68 bpc).
-             */
-            diverged = 1;
-            if (0 == gen_full) stop = 1;
+      for (k = 0; k < NGRAM_BANK_MAX; ++k) {
+        bank_weight[k] = (k >= 1 && k <= NGRAM_BANK_LAST
+          && 0 != ngram_bank_enabled(bank_slots, k)) ? 1.0 / (double)nslot : 0.0;
+      }
+    }
+    if (0 != gen_bank && 0 != (bank_slots & (1u << NGRAM_BANK_PREDICT))
+      && NULL != store)
+    {
+      gen_context = libxs_predict_prob_create(store);
+    }
+
+    value = corpus_iterx_begin(corpus, &key, &cursor);
+    while (NULL != value) {
+      const corpus_entry_t* entry = corpus_entry_scan(value, &scratch);
+      int is_test = (0 == holdout || 0 != predict_is_test(index, holdout));
+      libxs_lexeme_stream_t stream;
+      const int native = ngram_native_mode();
+      libxs_lexeme_stream_init(&stream);
+      /**
+       * The truth tokens must come from the SAME unit the model was trained on.
+       * Reading word lexemes while the model holds syllable or byte-pair ids makes
+       * every prediction a miss and reports a reproduction of zero, which reads as
+       * a catastrophically bad generator rather than as a unit mismatch.
+       */
+      if (0 != is_test && entry->text_len > 0
+        && (0 != native || EXIT_SUCCESS == libxs_lexeme_stream_encode(lexicon,
+          &stream, (const unsigned char*)entry->text, (size_t)entry->text_len,
+          rules, nrules, converse_lexnorms(), converse_lexnorms_size(), 0)))
+      {
+        unsigned int truth[GEN_SEED + GEN_LOOK];
+        libxs_lexeme_t nat[COMPOSE_MAXTEXT];
+        int ntruth = 0;
+        int ntok, ti;
+        ntok = (0 != native)
+          ? ngram_native_tokens(lexicon, entry->text, entry->text_len, nat,
+            NULL, COMPOSE_MAXTEXT, 0)
+          : (int)stream.size;
+        for (ti = 0; ti < ntok && ntruth < GEN_SEED + GEN_LOOK; ++ti) {
+          if (0 != native) {
+            if (0 != nat[ti].id) truth[ntruth++] = nat[ti].id;
           }
           else {
+            const libxs_lexeme_t* lex = stream.data + ti;
+            if (0 != (lex->flags & (LIBXS_LEXEME_WORD | LIBXS_LEXEME_NUMBER))
+              && 0 != lex->id)
+            {
+              truth[ntruth++] = lex->id;
+            }
+          }
+        }
+        if (ntruth > GEN_SEED) {
+          unsigned int hist[NGRAM_ORDER_MAX];
+          const int seedcap = (GEN_SEED < maxorder) ? GEN_SEED : maxorder;
+          int hlen = 0, t, repro = 0, diverged = 0, seed_attested = -1;
+          int stop = 0, spoke = 0, hit = 0, abst = 0, ordsum = 0, inl = 0;
+          double rrsum = 0.0;
+          for (t = 0; t < GEN_SEED; ++t) hist[hlen++] = truth[t];
+          for (t = GEN_SEED; t < ntruth && 0 == stop; ++t) {
+            unsigned int ids[GEN_CAND_MAX];
+            unsigned int embids[GEN_CAND_MAX];
+            int got_order = 0;
+            int ctxatt = 0, nemb = 0, cdecl;
+            int n = ngramk_predict_order(model, hist, hlen, maxorder, ids,
+              (0 < gen_embcand && gen_ncand > gen_ncand_cnt)
+                ? gen_ncand_cnt : gen_ncand, &got_order);
+            /* Proposals join BEFORE the bank so the pool arbitrates the union
+             * rather than being handed a decision already made. */
+            if (0 < gen_embcand) {
+              const int nctx = (gen_embctx < hlen) ? gen_embctx : hlen;
+              int k;
+              nemb = token_emb_succ_append(hist + (hlen - nctx), nctx,
+                (unsigned int)gen_vocab, ngram_emb_temp(), ids, n, GEN_CAND_MAX,
+                gen_embcand);
+              for (k = 0; k < nemb; ++k) embids[k] = ids[n + k];
+              n += nemb;
+              pos_embadd += nemb;
+            }
+            if (1 < n && 0 != converse_judge_active()) {
+              char context[COMPOSE_MAXTEXT];
+              const int context_len = ngram_gen_join(lexicon, truth, t,
+                context, sizeof(context));
+              const int pick = ngram_gen_select(lexicon, ids, n, context,
+                context_len);
+              if (0 != pick) {
+                const unsigned int chosen = ids[pick];
+                ids[pick] = ids[0];
+                ids[0] = chosen;
+              }
+            }
+            if (0 != gen_bank && 1 < n) {
+              const int pick = ngram_gen_bank_rank(model, hist, hlen, maxorder,
+                ids, n, bank_slots, store, gen_context, use_emb, gen_vocab,
+                bank_weight);
+              ++gen_ranked;
+              if (0 != pick) ++gen_reordered;
+              if (0 != pick) {
+                const unsigned int chosen = ids[pick];
+                ids[pick] = ids[0];
+                ids[0] = chosen;
+              }
+              /* Adapt on the CHOSEN token: no target may enter generation. */
+              { ngram_expert_t expert[NGRAM_BANK_MAX];
+                double pooled;
+                ngram_bank_experts(hist, hlen, maxorder, ids[0], bank_slots,
+                  store, gen_context, use_emb, gen_vocab, expert);
+                pooled = ngram_bank_pool(bank_weight, expert);
+                ngram_bank_update(bank_weight, expert, pooled,
+                  ngram_bank_rate(), ngram_bank_share());
+              }
+            }
             /**
-             * Rank of the truth within the offered candidates, AFTER every
-             * reranking, so it scores the ranking the model actually produces.
-             * It is -1 when the truth was not offered at all: the count model
-             * proposes only attested successors, so on novel contexts that is
-             * the common case and it must not contribute to the reciprocal rank.
+             * Classify the sentence by its SEED context only, before any token is
+             * generated, so the split cannot be influenced by how far generation
+             * then runs: was the whole seed attested as a context in training?
              */
-            int rank = -1, c;
-            for (c = 0; c < n && rank < 0; ++c) {
-              if (ids[c] == truth[t]) rank = c;
+            if (seed_attested < 0) {
+              seed_attested = (n > 0 && got_order >= seedcap) ? 1 : 0;
             }
-            if (0 != cdecl) ++pos_resc;
-            /* Whether what generation actually EMITTED is a successor no count
-             * context attested here - the share of output that is synthesized
-             * rather than selected, which is the cost side of this mode. */
-            { int fromemb = 0, k;
-              for (k = 0; k < nemb && 0 == fromemb; ++k) {
-                if (embids[k] == ids[0]) fromemb = 1;
+            /**
+             * Abstention is a position the model declined, not a wrong answer, so
+             * it is counted apart from accuracy rather than folded in as a miss.
+             * Under the prefix definition it also ends the sentence, which is why
+             * the old scan could report a short run without saying why it stopped.
+             *
+             * Second split, per POSITION rather than per seed: did the FULL-ORDER
+             * context of THIS position recur in training. That is the definition
+             * ngram_eval's attested/novel BPC split already uses, so the two
+             * instruments become readable together; the seed split classifies a
+             * whole sentence by its first three words and stops discriminating
+             * once true history is fed back.
+             */
+            ctxatt = (got_order >= maxorder) ? 1 : 0;
+            /**
+             * Whether the COUNTS declined, judged on the count-supplied part of the
+             * list only. With no proposals nemb is zero and this is exactly the
+             * historical condition, which is what keeps the knob-off path
+             * bit-exact; with proposals it separates "counts had nothing" from
+             * "nobody had anything".
+             */
+            cdecl = ((n - nemb) <= 0 || got_order < minorder) ? 1 : 0;
+            /**
+             * Scored at EVERY visited position, including the ones the count model
+             * declined: a total scorer must be judged where the partial one was
+             * silent, or the comparison quietly excludes the positions the whole
+             * mechanism is for.
+             */
+            if (0 != gen_embrank) {
+              const int nctx = (gen_embctx < hlen) ? gen_embctx : hlen;
+              const int erank = token_emb_succ_rank(hist + (hlen - nctx), nctx,
+                truth[t], (unsigned int)gen_vocab);
+              /**
+               * The control that decides whether a total scorer is worth anything:
+               * its accuracy ON THE POSITIONS THE COUNT MODEL DECLINED. Averaged
+               * over all positions it could earn its score entirely where counts
+               * already speak, which would make it a redundant expert rather than a
+               * reach into the bucket that has no evidence at all.
+               */
+              if (0 <= erank) {
+                if (0 != cdecl) {
+                  ++emb_n_dec;
+                  if (0 == erank) ++emb_top1_dec;
+                  if (10 > erank) ++emb_top10_dec;
+                  emb_rr_dec += 1.0 / (double)(erank + 1);
+                }
+                else {
+                  ++emb_n_spk;
+                  if (0 == erank) ++emb_top1_spk;
+                  if (10 > erank) ++emb_top10_spk;
+                  emb_rr_spk += 1.0 / (double)(erank + 1);
+                }
+                if (0 != ctxatt) {
+                  ++emb_n_att;
+                  if (0 == erank) ++emb_top1_att;
+                  if (10 > erank) ++emb_top10_att;
+                  emb_rr_att += 1.0 / (double)(erank + 1);
+                }
+                else {
+                  ++emb_n_nov;
+                  if (0 == erank) ++emb_top1_nov;
+                  if (10 > erank) ++emb_top10_nov;
+                  emb_rr_nov += 1.0 / (double)(erank + 1);
+                }
               }
-              if (0 != fromemb) {
-                ++pos_embpick;
-                if (0 == ctxatt) ++pos_embpick_nov;
-              }
             }
-            if (0 == diverged) {
-              ++gen_tokens;
-              order_sum += got_order;
-              if (0 == rank) ++repro;
-              else diverged = 1;
-            }
-            ++spoke;
-            ordsum += got_order;
-            if (0 == rank) ++hit;
-            if (0 <= rank) {
-              ++inl;
-              rrsum += 1.0 / (double)(rank + 1);
-            }
-            if (0 != ctxatt) {
-              ++ctx_n_att;
-              if (0 == rank) ++ctx_top1_att;
-              if (0 <= rank) {
-                ++ctx_inl_att;
-                ctx_rr_att += 1.0 / (double)(rank + 1);
-              }
+            if (0 != cdecl && 0 == nemb) {
+              ++abst;
+              if (0 != ctxatt) ++ctx_abst_att;
+              else ++ctx_abst_nov;
+              /**
+               * The prefix definition ends the run here, so the prefix metrics
+               * must stop accumulating even when the scan continues - otherwise
+               * positions past an abstention extend mean-reproduced and the two
+               * readings stop being comparable (measured: 7.48 -> 7.68 bpc).
+               */
+              diverged = 1;
+              if (0 == gen_full) stop = 1;
             }
             else {
-              ++ctx_n_nov;
-              if (0 == rank) ++ctx_top1_nov;
+              /**
+               * Rank of the truth within the offered candidates, AFTER every
+               * reranking, so it scores the ranking the model actually produces.
+               * It is -1 when the truth was not offered at all: the count model
+               * proposes only attested successors, so on novel contexts that is
+               * the common case and it must not contribute to the reciprocal rank.
+               */
+              int rank = -1, c;
+              for (c = 0; c < n && rank < 0; ++c) {
+                if (ids[c] == truth[t]) rank = c;
+              }
+              if (0 != cdecl) ++pos_resc;
+              /* Whether what generation actually EMITTED is a successor no count
+               * context attested here - the share of output that is synthesized
+               * rather than selected, which is the cost side of this mode. */
+              { int fromemb = 0, k;
+                for (k = 0; k < nemb && 0 == fromemb; ++k) {
+                  if (embids[k] == ids[0]) fromemb = 1;
+                }
+                if (0 != fromemb) {
+                  ++pos_embpick;
+                  if (0 == ctxatt) ++pos_embpick_nov;
+                }
+              }
+              if (0 == diverged) {
+                ++gen_tokens;
+                order_sum += got_order;
+                if (0 == rank) ++repro;
+                else diverged = 1;
+              }
+              ++spoke;
+              ordsum += got_order;
+              if (0 == rank) ++hit;
               if (0 <= rank) {
-                ++ctx_inl_nov;
-                ctx_rr_nov += 1.0 / (double)(rank + 1);
+                ++inl;
+                rrsum += 1.0 / (double)(rank + 1);
+              }
+              if (0 != ctxatt) {
+                ++ctx_n_att;
+                if (0 == rank) ++ctx_top1_att;
+                if (0 <= rank) {
+                  ++ctx_inl_att;
+                  ctx_rr_att += 1.0 / (double)(rank + 1);
+                }
+              }
+              else {
+                ++ctx_n_nov;
+                if (0 == rank) ++ctx_top1_nov;
+                if (0 <= rank) {
+                  ++ctx_inl_nov;
+                  ctx_rr_nov += 1.0 / (double)(rank + 1);
+                }
+              }
+              if (0 == gen_full) stop = diverged;
+            }
+            if (0 == stop) {
+              if (hlen < NGRAM_ORDER_MAX) hist[hlen++] = truth[t];
+              else {
+                int s;
+                for (s = 1; s < NGRAM_ORDER_MAX; ++s) hist[s - 1] = hist[s];
+                hist[NGRAM_ORDER_MAX - 1] = truth[t];
               }
             }
-            if (0 == gen_full) stop = diverged;
           }
-          if (0 == stop) {
-            if (hlen < NGRAM_ORDER_MAX) hist[hlen++] = truth[t];
-            else {
-              int s;
-              for (s = 1; s < NGRAM_ORDER_MAX; ++s) hist[s - 1] = hist[s];
-              hist[NGRAM_ORDER_MAX - 1] = truth[t];
-            }
+          sum_repro += repro;
+          ++nsent;
+          pos_n += spoke;
+          pos_top1 += hit;
+          pos_abst += abst;
+          pos_order += ordsum;
+          pos_inl += inl;
+          pos_rr += rrsum;
+          if (1 == seed_attested) {
+            sum_repro_att += repro;
+            ++nsent_att;
+            pos_n_att += spoke;
+            pos_top1_att += hit;
+            pos_abst_att += abst;
+            pos_inl_att += inl;
+            pos_rr_att += rrsum;
           }
-        }
-        sum_repro += repro;
-        ++nsent;
-        pos_n += spoke;
-        pos_top1 += hit;
-        pos_abst += abst;
-        pos_order += ordsum;
-        pos_inl += inl;
-        pos_rr += rrsum;
-        if (1 == seed_attested) {
-          sum_repro_att += repro;
-          ++nsent_att;
-          pos_n_att += spoke;
-          pos_top1_att += hit;
-          pos_abst_att += abst;
-          pos_inl_att += inl;
-          pos_rr_att += rrsum;
-        }
-        else {
-          sum_repro_nov += repro;
-          ++nsent_nov;
-          pos_n_nov += spoke;
-          pos_top1_nov += hit;
-          pos_abst_nov += abst;
-          pos_inl_nov += inl;
-          pos_rr_nov += rrsum;
+          else {
+            sum_repro_nov += repro;
+            ++nsent_nov;
+            pos_n_nov += spoke;
+            pos_top1_nov += hit;
+            pos_abst_nov += abst;
+            pos_inl_nov += inl;
+            pos_rr_nov += rrsum;
+          }
         }
       }
+      libxs_lexeme_stream_release(&stream);
+      ++index;
+      value = corpus_iterx_next(corpus, &key, &cursor);
     }
-    libxs_lexeme_stream_release(&stream);
-    ++index;
-    value = corpus_iterx_next(corpus, &key, &cursor);
-  }
-  libxs_predict_prob_destroy(gen_context);
-  if (nsent > 0) {
-    fprintf(stdout,
-      "gen-eval[%s%s]: sentences=%ld mean-reproduced=%.2f "
-      "mean-order=%.2f minorder=%d%s\n",
-      kind, (holdout > 0) ? ":heldout" : "", nsent,
-      (double)sum_repro / (double)nsent,
-      (gen_tokens > 0) ? (double)order_sum / (double)gen_tokens : 0.0,
-      minorder, (0 != gen_bank) ? " bank" : "");
-    if (0 != gen_bank) {
-      fprintf(stderr, "  bank rerank: %ld of %ld positions reordered"
-        " (%.1f%%)\n", gen_reordered, gen_ranked,
-        (gen_ranked > 0) ? 100.0 * (double)gen_reordered / (double)gen_ranked
-          : 0.0);
+    libxs_predict_prob_destroy(gen_context);
+    if (nsent > 0) {
+      fprintf(stdout,
+        "gen-eval[%s%s]: sentences=%ld mean-reproduced=%.2f "
+        "mean-order=%.2f minorder=%d%s\n",
+        kind, (holdout > 0) ? ":heldout" : "", nsent,
+        (double)sum_repro / (double)nsent,
+        (gen_tokens > 0) ? (double)order_sum / (double)gen_tokens : 0.0,
+        minorder, (0 != gen_bank) ? " bank" : "");
+      if (0 != gen_bank) {
+        fprintf(stderr, "  bank rerank: %ld of %ld positions reordered"
+          " (%.1f%%)\n", gen_reordered, gen_ranked,
+          (gen_ranked > 0) ? 100.0 * (double)gen_reordered / (double)gen_ranked
+            : 0.0);
+      }
+      fprintf(stderr, "  seed split: attested %.1f%% of sentences"
+        " (mean-reproduced=%.2f) | novel %.1f%% (mean-reproduced=%.2f)\n",
+        100.0 * (double)nsent_att / (double)nsent,
+        (nsent_att > 0) ? (double)sum_repro_att / (double)nsent_att : 0.0,
+        100.0 * (double)nsent_nov / (double)nsent,
+        (nsent_nov > 0) ? (double)sum_repro_nov / (double)nsent_nov : 0.0);
+      /**
+       * mrr is the mean reciprocal rank of the truth over the offered candidates,
+       * so at ncand=1 (the default) it equals top1 and carries no extra
+       * information: widen CONVERSE_GEN_NCAND to give it range. ncand is printed
+       * because it decides how to read the column.
+       */
+      fprintf(stderr, "  per-position[%s]: order=%.2f ncand=%d\n",
+        (0 != gen_full) ? "full" : "prefix",
+        (pos_n > 0) ? (double)pos_order / (double)pos_n : 0.0, gen_ncand);
+      gen_bucket_report("    all:            ", pos_n, pos_top1, pos_inl,
+        pos_abst, pos_rr);
+      gen_bucket_report("    seed attested:  ", pos_n_att, pos_top1_att,
+        pos_inl_att, pos_abst_att, pos_rr_att);
+      gen_bucket_report("    seed novel:     ", pos_n_nov, pos_top1_nov,
+        pos_inl_nov, pos_abst_nov, pos_rr_nov);
+      gen_bucket_report("    ctx attested:   ", ctx_n_att, ctx_top1_att,
+        ctx_inl_att, ctx_abst_att, ctx_rr_att);
+      gen_bucket_report("    ctx novel:      ", ctx_n_nov, ctx_top1_nov,
+        ctx_inl_nov, ctx_abst_nov, ctx_rr_nov);
+      if (0 < gen_embcand) {
+        fprintf(stderr, "  emb proposals[ncand=%d]: added=%ld rescued=%ld"
+          " of %ld scored | EMITTED an unattested successor %.2f%% of scored"
+          " (ctx-novel %.2f%%)\n", gen_embcand, pos_embadd, pos_resc, pos_n,
+          (pos_n > 0) ? 100.0 * (double)pos_embpick / (double)pos_n : 0.0,
+          (ctx_n_nov > 0)
+            ? 100.0 * (double)pos_embpick_nov / (double)ctx_n_nov : 0.0);
+      }
+      if (0 != gen_embrank && 0 < emb_n_att + emb_n_nov) {
+        fprintf(stderr, "  embedding rank of truth over vocab=%d"
+          " (directed=%d, chance top1=%.4f%%):\n", gen_vocab,
+          token_emb_directed(),
+          (gen_vocab > 0) ? 100.0 / (double)gen_vocab : 0.0);
+        gen_embrank_report("    ctx attested:   ", emb_n_att, emb_top1_att,
+          emb_top10_att, emb_rr_att);
+        gen_embrank_report("    ctx novel:      ", emb_n_nov, emb_top1_nov,
+          emb_top10_nov, emb_rr_nov);
+        gen_embrank_report("    counts spoke:   ", emb_n_spk, emb_top1_spk,
+          emb_top10_spk, emb_rr_spk);
+        gen_embrank_report("    counts DECLINED:", emb_n_dec, emb_top1_dec,
+          emb_top10_dec, emb_rr_dec);
+      }
+      result = EXIT_SUCCESS;
     }
-    fprintf(stderr, "  seed split: attested %.1f%% of sentences"
-      " (mean-reproduced=%.2f) | novel %.1f%% (mean-reproduced=%.2f)\n",
-      100.0 * (double)nsent_att / (double)nsent,
-      (nsent_att > 0) ? (double)sum_repro_att / (double)nsent_att : 0.0,
-      100.0 * (double)nsent_nov / (double)nsent,
-      (nsent_nov > 0) ? (double)sum_repro_nov / (double)nsent_nov : 0.0);
-    /**
-     * mrr is the mean reciprocal rank of the truth over the offered candidates,
-     * so at ncand=1 (the default) it equals top1 and carries no extra
-     * information: widen CONVERSE_GEN_NCAND to give it range. ncand is printed
-     * because it decides how to read the column.
-     */
-    fprintf(stderr, "  per-position[%s]: order=%.2f ncand=%d\n",
-      (0 != gen_full) ? "full" : "prefix",
-      (pos_n > 0) ? (double)pos_order / (double)pos_n : 0.0, gen_ncand);
-    gen_bucket_report("    all:            ", pos_n, pos_top1, pos_inl,
-      pos_abst, pos_rr);
-    gen_bucket_report("    seed attested:  ", pos_n_att, pos_top1_att,
-      pos_inl_att, pos_abst_att, pos_rr_att);
-    gen_bucket_report("    seed novel:     ", pos_n_nov, pos_top1_nov,
-      pos_inl_nov, pos_abst_nov, pos_rr_nov);
-    gen_bucket_report("    ctx attested:   ", ctx_n_att, ctx_top1_att,
-      ctx_inl_att, ctx_abst_att, ctx_rr_att);
-    gen_bucket_report("    ctx novel:      ", ctx_n_nov, ctx_top1_nov,
-      ctx_inl_nov, ctx_abst_nov, ctx_rr_nov);
-    if (0 < gen_embcand) {
-      fprintf(stderr, "  emb proposals[ncand=%d]: added=%ld rescued=%ld"
-        " of %ld scored | EMITTED an unattested successor %.2f%% of scored"
-        " (ctx-novel %.2f%%)\n", gen_embcand, pos_embadd, pos_resc, pos_n,
-        (pos_n > 0) ? 100.0 * (double)pos_embpick / (double)pos_n : 0.0,
-        (ctx_n_nov > 0)
-          ? 100.0 * (double)pos_embpick_nov / (double)ctx_n_nov : 0.0);
-    }
-    if (0 != gen_embrank && 0 < emb_n_att + emb_n_nov) {
-      fprintf(stderr, "  embedding rank of truth over vocab=%d"
-        " (directed=%d, chance top1=%.4f%%):\n", gen_vocab,
-        token_emb_directed(),
-        (gen_vocab > 0) ? 100.0 / (double)gen_vocab : 0.0);
-      gen_embrank_report("    ctx attested:   ", emb_n_att, emb_top1_att,
-        emb_top10_att, emb_rr_att);
-      gen_embrank_report("    ctx novel:      ", emb_n_nov, emb_top1_nov,
-        emb_top10_nov, emb_rr_nov);
-      gen_embrank_report("    counts spoke:   ", emb_n_spk, emb_top1_spk,
-        emb_top10_spk, emb_rr_spk);
-      gen_embrank_report("    counts DECLINED:", emb_n_dec, emb_top1_dec,
-        emb_top10_dec, emb_rr_dec);
-    }
-    result = EXIT_SUCCESS;
   }
   return result;
 }
@@ -1900,6 +1940,7 @@ static void slot_key_build(slot_key_t* key, const unsigned int hist[],
     key->context[pos] = (pos == hole) ? SLOT_HOLE_ID : id;
   }
 }
+
 
 /**
  * One pass over the corpus, calling back with every (history, successor) pair at
@@ -2018,27 +2059,29 @@ static void slot_test_visit(const unsigned int hist[], int hlen,
   slot_key_t key;
   slot_ctx_key_t ctx;
   int hole, nslots = 0, covered = 0, pos;
-  if (hlen < order) return;
-  memset(&ctx, 0, sizeof(ctx));
-  ctx.order = order;
-  for (pos = 0; pos < order; ++pos) ctx.context[pos] = hist[hlen - order + pos];
-  if (NULL != libxs_registry_get(probe->contexts, &ctx, sizeof(ctx), NULL)) {
-    ++probe->nexact;
-    return;
-  }
-  ++probe->nnovel;
-  for (hole = 0; hole < order; ++hole) {
-    if (slot_freq_of(probe, hist[hlen - order + hole]) <= slot_maxfreq()) {
-      ++nslots;
-      slot_key_build(&key, hist, hlen, order, next, hole);
-      if (NULL != libxs_registry_get(probe->patterns, &key, sizeof(key), NULL)) {
-        covered = 1;
+  if (!(hlen < order)) {
+    memset(&ctx, 0, sizeof(ctx));
+    ctx.order = order;
+    for (pos = 0; pos < order; ++pos) ctx.context[pos] = hist[hlen - order + pos];
+    if (NULL != libxs_registry_get(probe->contexts, &ctx, sizeof(ctx), NULL)) {
+      ++probe->nexact;
+    } else {
+      ++probe->nnovel;
+      for (hole = 0; hole < order; ++hole) {
+        if (slot_freq_of(probe, hist[hlen - order + hole]) <= slot_maxfreq()) {
+          ++nslots;
+          slot_key_build(&key, hist, hlen, order, next, hole);
+          if (NULL != libxs_registry_get(probe->patterns, &key, sizeof(key), NULL)) {
+            covered = 1;
+          }
+        }
       }
+      if (0 == nslots) ++probe->nslotless;
+      if (0 != covered) ++probe->ncovered;
     }
   }
-  if (0 == nslots) ++probe->nslotless;
-  if (0 != covered) ++probe->ncovered;
 }
+
 
 /**
  * Report what fraction of novel-context positions a one-hole abstraction would
@@ -2082,6 +2125,7 @@ static void slot_probe_run(const libxs_registry_t* corpus,
   libxs_registry_destroy(probe.freq);
 }
 
+
 /**
  * Which scoring mode the predict slot uses: 0 = adaptive (default), 1 = warm up
  * over the training entries, commit the converged weights, then score FROZEN.
@@ -2098,6 +2142,7 @@ static int ngram_bank_frozen(void)
   const char* env = getenv("CONVERSE_NGRAM_BANK_FROZEN");
   return (NULL != env && 0 != atoi(env)) ? 1 : 0;
 }
+
 
 /**
  * Converge the escape bank on the TRAINING data, then publish the weights so
@@ -2256,578 +2301,580 @@ static int ngram_eval(libxs_registry_t* model, const libxs_registry_t* corpus,
   corpus_entry_t scratch;
   void* value;
   FILE* file;
-  if (NULL == model || NULL == corpus || NULL == lexicon) return EXIT_FAILURE;
-  memset(expert_bits, 0, sizeof(expert_bits));
-  memset(expert_bytes, 0, sizeof(expert_bytes));
-  memset(oracle_pick, 0, sizeof(oracle_pick));
-  if (0 != bank && 0 != (bank_slots & (1u << NGRAM_BANK_PREDICT))
-    && NULL != store && 0 == bank_frozen)
-  {
-    /**
-     * NULL means the model cannot be scored, which is a different situation
-     * from passing NULL as the context (that selects frozen scoring on a model
-     * that is fine), so the slot abstains rather than silently freezing.
-     */
-    bank_context = libxs_predict_prob_create(store);
-    if (NULL == bank_context) {
-      fprintf(stderr, "predict slot: model cannot be scored, slot abstains\n");
-    }
-  }
-  memset(bank_wsum, 0, sizeof(bank_wsum));
-  memset(bank_active, 0, sizeof(bank_active));
-  memset(bank_slot_bits, 0, sizeof(bank_slot_bits));
-  memset(bank_slot_bytes, 0, sizeof(bank_slot_bytes));
-  { int k;
-    /**
-     * Uniform prior over the ENABLED slots; the update is what differentiates
-     * them. A disabled slot starts at zero and stays there, which is what makes
-     * the order-only bank bit-exact to the pre-slot version.
-     */
-    int nslot = 0;
-    for (k = 1; k <= NGRAM_BANK_LAST; ++k) {
-      if (0 != ngram_bank_enabled(bank_slots, k)) ++nslot;
-    }
-    for (k = 0; k < NGRAM_BANK_MAX; ++k) {
-      bank_weight[k] = (k >= 1 && k <= NGRAM_BANK_LAST
-        && 0 != ngram_bank_enabled(bank_slots, k)) ? 1.0 / (double)nslot : 0.0;
-    }
-  }
-  memset(sel_total, 0, sizeof(sel_total));
-  memset(sel_mixed, 0, sizeof(sel_mixed));
-  memset(sel_low, 0, sizeof(sel_low));
-  memset(sel_extra, 0, sizeof(sel_extra));
-  memset(novel_match, 0, sizeof(novel_match));
-  memset(novel_match_bits, 0, sizeof(novel_match_bits));
-  memset(novel_match_bytes, 0, sizeof(novel_match_bytes));
-  value = corpus_iterx_begin(corpus, &key, &cursor);
-  while (NULL != value) {
-    const corpus_entry_t* entry = corpus_entry_scan(value, &scratch);
-    libxs_lexeme_stream_t stream;
-    int is_test = (0 == holdout || 0 != predict_is_test(index, holdout));
-    int native = ngram_native_mode();
-    libxs_lexeme_stream_init(&stream);
-    { const int ds = ngram_dedup_scale();
-      const int want = (2 == ds) ? SCALE_PARAGRAPH : SCALE_SENTENCE;
-      /**
-       * Each source byte must be counted once, or BPC is not comparable across
-       * granularities - which is the one job the metric exists to do. Clause
-       * fragments are stored at sentence scale ALONGSIDE their parent sentence,
-       * so keeping both scored ~3x the real text.
-       */
-      if (0 != ds && (want != entry->scale
-        || 0 != (entry->lexical_flags & ENTRY_LEX_FRAGMENT)))
-      {
-        is_test = 0;
-      }
-    }
-    if (0 != is_test && entry->text_len > 0
-      && (0 != native || EXIT_SUCCESS == libxs_lexeme_stream_encode(
-      lexicon, &stream, (const unsigned char*)entry->text,
-      (size_t)entry->text_len, rules, nrules, converse_lexnorms(), converse_lexnorms_size(), 0)))
+  if (NULL == model || NULL == corpus || NULL == lexicon) result = EXIT_FAILURE;
+  else {
+    memset(expert_bits, 0, sizeof(expert_bits));
+    memset(expert_bytes, 0, sizeof(expert_bytes));
+    memset(oracle_pick, 0, sizeof(oracle_pick));
+    if (0 != bank && 0 != (bank_slots & (1u << NGRAM_BANK_PREDICT))
+      && NULL != store && 0 == bank_frozen)
     {
-      int wctx = ngram_wordctx();
-      libxs_lexeme_t nat[COMPOSE_MAXTEXT];
-      unsigned int word_ids[COMPOSE_MAXTEXT];
-      int ntok = (0 != native)
-        ? ngram_native_tokens(lexicon, entry->text, entry->text_len,
-          nat, (0 != wctx) ? word_ids : NULL, COMPOSE_MAXTEXT, 0)
-        : (int)stream.size;
-      int ti;
-      unsigned int hist[NGRAM_ORDER_MAX];
-      int hlen = 0;
-      int maxorder = ngram_maxorder();
-      /* Source bytes this entry contributes, whether or not every token in it
-       * is scored - the ceiling the denominator should approach. */
-      entry_bytes += (double)entry->text_len;
-      for (ti = 0; ti < ntok; ++ti) {
-        unsigned int cur;
-        unsigned short curlen;
-        int is_content;
-        if (0 != wctx) {
-          hlen = ngram_wordctx_hist(nat, word_ids, ti, wctx, hist,
-            NGRAM_ORDER_MAX);
-        }
-        if (0 != native) {
-          cur = nat[ti].id;
-          curlen = nat[ti].length;
-          is_content = (0 != cur) ? 1 : 0;
-        }
-        else {
-          const libxs_lexeme_t* lex = stream.data + ti;
-          cur = lex->id;
-          curlen = lex->length;
-          is_content = (0 != (lex->flags
-            & (LIBXS_LEXEME_WORD | LIBXS_LEXEME_NUMBER)) && 0 != cur) ? 1 : 0;
-        }
-        if (0 != is_content) {
-          if (hlen > 0) {
-            unsigned int ids[NGRAM_TOPK];
-            int matched = 0;
-            int n = ngramk_predict_order(model, hist, hlen, maxorder, ids,
-              NGRAM_TOPK, &matched);
-            double p = ngramk_prob(model, hist, hlen, maxorder, cur);
-            double bits = -log(p) * inv_log2;
-            int rank, top1 = 0;
-            int deep = (matched >= maxorder && hlen >= maxorder) ? 1 : 0;
-            /**
-             * Per-position order selection, bounded from above. Each expert is
-             * the SAME interpolated model given only its last k words of
-             * history, so expert k is what a model capped at order k would say.
-             * The oracle takes the cheapest expert per position: not achievable
-             * (it reads the answer), but it bounds what ANY per-position mixture
-             * of these predictors can win. The byte side found local order
-             * selection worth 0.5-0.8 bits cross-document, and this asks whether
-             * the same headroom exists at the word level before anything is
-             * built to exploit it.
-             */
-            if (0 != oracle) {
-              int k;
-              double best = bits;
-              int bestk = 0, best_extra = 0;
-              const double w = (curlen > 0) ? (double)curlen : 1.0;
-              for (k = 1; k <= maxorder && k <= hlen; ++k) {
-                double pk = ngramk_prob(model, hist + (hlen - k), k, k, cur);
-                double bk = -log((pk > 0.0) ? pk : 1e-12) * inv_log2;
-                /**
-                 * Per-expert byte denominator: expert k only exists where the
-                 * history reaches k, so dividing its bits by the TOTAL bytes
-                 * would flatter every high order by omitting the positions it
-                 * cannot score. That artifact made order 6 look like the best
-                 * expert when it had simply skipped the hard short-history
-                 * positions.
-                 */
-                expert_bits[k] += bk;
-                expert_bytes[k] += w;
-                if (bk < best) {
-                  best = bk;
-                  bestk = k;
-                }
-              }
-              /**
-               * The bank: linear pool over the expert slots, with weights
-               * carried across positions and updated causally (score first,
-               * then update), so no target information enters the score. The
-               * slots are the fixed orders plus, when enabled, experts of a
-               * different KIND - the 2.018 oracle below says order selection
-               * alone cannot reach the target, so mixing kinds is the only
-               * direction with measured room.
-               */
-              if (0 != bank) {
-                ngram_expert_t expert[NGRAM_BANK_MAX];
-                double pooled, pbits;
-                int b;
-                ngram_bank_experts(hist, hlen, maxorder, cur, bank_slots,
-                  store, bank_context, use_emb, bank_vocab, expert);
-                pooled = (0 != bank_geo)
-                  ? ngram_bank_pool_geo(model, hist, hlen, maxorder, cur,
-                    bank_weight, expert)
-                  : ngram_bank_pool(bank_weight, expert);
-                pbits = -log(pooled) * inv_log2;
-                bank_bits += pbits;
-                if (0 != deep) bank_deep_bits += pbits;
-                else bank_shallow_bits += pbits;
-                ++bank_n;
-                for (b = 1; b <= NGRAM_BANK_LAST; ++b) {
-                  bank_wsum[b] += bank_weight[b];
-                  if (0 != expert[b].active) {
-                    const double pb = expert[b].probability;
-                    ++bank_active[b];
-                    bank_slot_bits[b] += -log((pb > 0.0) ? pb : 1e-12)
-                      * inv_log2;
-                    bank_slot_bytes[b] += w;
-                  }
-                }
-                /**
-                 * Extend the bound to the WHOLE pool, not just the fixed orders.
-                 * Any per-position reweighting can at best put all its mass on
-                 * the cheapest member available at that position, so taking the
-                 * minimum over every active slot - including the ones that
-                 * differ in kind - bounds what ANY mixing rule over this
-                 * evidence could reach. Without the extra slots the bound would
-                 * flatter a pool it does not cover.
-                 */
-                for (b = NGRAM_ORDER_MAX + 1; b <= NGRAM_BANK_LAST; ++b) {
-                  if (0 != expert[b].active) {
-                    const double pb = expert[b].probability;
-                    const double bb = -log((pb > 0.0) ? pb : 1e-12) * inv_log2;
-                    if (bb < best) {
-                      best = bb;
-                      best_extra = 1;
-                      ++oracle_extra;
-                    }
-                  }
-                }
-                ngram_bank_update(bank_weight, expert, pooled, bank_rate,
-                  bank_share);
-              }
-              oracle_bits += best;
-              if (0 != deep) oracle_deep_bits += best;
-              else oracle_shallow_bits += best;
-              /* bestk==0 means no single-order expert beat the mixture. */
-              if (0 == bestk) ++oracle_mixed;
-              else ++oracle_pick[bestk];
-              /**
-               * Can an OBSERVABLE feature separate "o1 wins" from "the mixture
-               * wins"? The natural candidate costs nothing: the matched context
-               * length, which the predictor already reports and which does not
-               * read the target. Accumulate the oracle's choice against it, so
-               * the confusion is visible rather than assumed. Secs 16/19/20 each
-               * found a signal that separated classes in hindsight and died when
-               * computed without the answer, so this is checked before any
-               * chooser is written.
-               */
-              { const int mm = (matched < 0) ? 0
-                  : ((matched > NGRAM_ORDER_MAX) ? NGRAM_ORDER_MAX : matched);
-                ++sel_total[mm];
-                if (0 != best_extra) ++sel_extra[mm];
-                if (0 == bestk) ++sel_mixed[mm];
-                else if (1 == bestk) ++sel_low[mm];
-                /**
-                 * The ACHIEVABLE rule the confusion above suggests: take the
-                 * order-1 expert when a short context matched (matched >= 2),
-                 * otherwise keep the mixture. Uses only the reported match
-                 * length, never the target, so unlike the oracle this is a
-                 * mechanism and its bits are honest.
-                 */
-                if (mm >= 2 && hlen >= sel_order) {
-                  double ps = ngramk_prob(model, hist + (hlen - sel_order),
-                    sel_order, sel_order, cur);
-                  sel_bits += -log((ps > 0.0) ? ps : 1e-12) * inv_log2;
-                }
-                else sel_bits += bits;
-              }
-            }
-            ++npairs;
-            sum_bits += bits;
-            sum_bytes += (curlen > 0) ? (double)curlen : 1.0;
-            for (rank = 0; rank < n; ++rank) {
-              if (ids[rank] == cur) {
-                if (0 == rank) {
-                  ++ntop1;
-                  top1 = 1;
-                }
-                ++ntopk;
-                break;
-              }
-            }
-            /**
-             * Split by whether the FULL-ORDER context was attested in training.
-             * The store is built from non-test entries only, so a match at the
-             * maximum order means this exact context recurs verbatim; those
-             * positions are recall, not generalization. Reported separately so
-             * the depth result cannot be read as generalization it is not.
-             */
-            if (0 != deep) {
-              ++ndeep;
-              ndeep_top1 += top1;
-              deep_bits += bits;
-              deep_bytes += (curlen > 0) ? (double)curlen : 1.0;
-            }
-            else {
-              /**
-               * Decompose the novel bucket by how much context DID match. The
-               * predictor already reports that length, so this costs no extra
-               * lookup. It bounds what a total function can buy: mass at
-               * matched==0 is scored by the unigram prior alone and is the only
-               * part where no count evidence exists at any order, while mass at
-               * matched>0 is already carried by a shorter attested context.
-               */
-              const int m = (matched < 0) ? 0
-                : ((matched > NGRAM_ORDER_MAX) ? NGRAM_ORDER_MAX : matched);
-              ++nshallow;
-              nshallow_top1 += top1;
-              shallow_bits += bits;
-              shallow_bytes += (curlen > 0) ? (double)curlen : 1.0;
-              ++novel_match[m];
-              novel_match_bits[m] += bits;
-              novel_match_bytes[m] += (curlen > 0) ? (double)curlen : 1.0;
-              /**
-               * A position whose history is shorter than the order cannot be
-               * full-order attested, so it lands in the novel bucket by sentence
-               * position rather than by unattested context. Counted separately:
-               * without this the short-context mass reads as weak evidence when
-               * part of it is merely an early position with nothing to look up.
-               */
-              if (hlen < maxorder) {
-                ++novel_short;
-                novel_short_bits += bits;
-              }
-              /**
-               * The distinction that decides how to read the short-context mass.
-               * SATURATED means the model matched ALL the history that existed,
-               * so nothing was unattested and the only remedy is more history -
-               * an early sentence position. TRUNCATED means history was
-               * available and the longer context was not in the store, which is
-               * the genuinely unattested case. Lumping them reads a young
-               * sentence as weak evidence.
-               */
-              { const int avail = (hlen < maxorder) ? hlen : maxorder;
-                if (m >= avail) {
-                  ++novel_sat;
-                  novel_sat_bits += bits;
-                }
-                /**
-                 * The REPAIRED generalization bucket: a full-order history was
-                 * available AND the full-order context was not attested. This is
-                 * the only set where the model was asked something its evidence
-                 * could have covered and did not. The wider novel bucket mixes
-                 * these with early-sentence positions that had nothing longer to
-                 * look up, so a mechanism can move it without generalizing.
-                 */
-                else if (hlen >= maxorder) {
-                  ++ntrunc;
-                  ntrunc_top1 += top1;
-                  trunc_bits += bits;
-                  trunc_bytes += (curlen > 0) ? (double)curlen : 1.0;
-                }
-              }
-            }
-          }
-          if (0 == wctx) ngram_hist_push(hist, &hlen, NGRAM_ORDER_MAX, cur);
-        }
-        if (0 == native && 0 == wctx) {
-          const libxs_lexeme_t* lex = stream.data + ti;
-          if (0 != (lex->flags & LIBXS_LEXEME_SENTENCE)) hlen = 0;
-        }
+      /**
+       * NULL means the model cannot be scored, which is a different situation
+       * from passing NULL as the context (that selects frozen scoring on a model
+       * that is fine), so the slot abstains rather than silently freezing.
+       */
+      bank_context = libxs_predict_prob_create(store);
+      if (NULL == bank_context) {
+        fprintf(stderr, "predict slot: model cannot be scored, slot abstains\n");
       }
     }
-    libxs_lexeme_stream_release(&stream);
-    ++index;
-    value = corpus_iterx_next(corpus, &key, &cursor);
-  }
-  if (npairs > 0) {
-    fprintf(stdout,
-      "predict-ngram[%s%s]: top1=%.1f%% top%d=%.1f%% n=%ld bpc=%.3f\n",
-      kind, (holdout > 0) ? ":heldout" : "",
-      100.0 * (double)ntop1 / (double)npairs, NGRAM_TOPK,
-      100.0 * (double)ntopk / (double)npairs, npairs,
-      (sum_bytes > 0.0) ? sum_bits / sum_bytes : 0.0);
-    /**
-     * The BPC denominator, printed because it is the only thing that makes the
-     * number comparable ACROSS granularities: the same test text must yield the
-     * same byte count whatever the unit. A zero-length token (a sub-word
-     * continuation carries the whole word's bytes on its first piece) falls back
-     * to 1.0, which would silently inflate the denominator and understate BPC
-     * for the finer units, so the count is reported rather than trusted.
-     */
-    fprintf(stderr, "  bpc denominator: %.0f source bytes of %.0f in scored"
-      " entries (%.1f%% covered, %.2f bytes/position)\n", sum_bytes,
-      entry_bytes, (entry_bytes > 0.0) ? 100.0 * sum_bytes / entry_bytes : 0.0,
-      (npairs > 0) ? sum_bytes / (double)npairs : 0.0);
-    fprintf(stderr, "  attested-context split: verbatim %.1f%% of positions"
-      " (top1=%.1f%% bpc=%.3f) | novel %.1f%% (top1=%.1f%% bpc=%.3f)\n",
-      100.0 * (double)ndeep / (double)npairs,
-      (ndeep > 0) ? 100.0 * (double)ndeep_top1 / (double)ndeep : 0.0,
-      (deep_bytes > 0.0) ? deep_bits / deep_bytes : 0.0,
-      100.0 * (double)nshallow / (double)npairs,
-      (nshallow > 0) ? 100.0 * (double)nshallow_top1 / (double)nshallow : 0.0,
-      (shallow_bytes > 0.0) ? shallow_bits / shallow_bytes : 0.0);
-    if (0 != oracle) {
-      int k;
-      fprintf(stderr, "  order experts (bpc):");
-      for (k = 1; k <= NGRAM_ORDER_MAX; ++k) {
-        if (expert_bytes[k] > 0.0) {
-          fprintf(stderr, " o%d=%.3f", k,
-            expert_bits[k] / expert_bytes[k]);
-        }
-      }
-      fprintf(stderr, " | ORACLE=%.3f (mixed=%.3f)\n",
-        (sum_bytes > 0.0) ? oracle_bits / sum_bytes : 0.0,
-        (sum_bytes > 0.0) ? sum_bits / sum_bytes : 0.0);
+    memset(bank_wsum, 0, sizeof(bank_wsum));
+    memset(bank_active, 0, sizeof(bank_active));
+    memset(bank_slot_bits, 0, sizeof(bank_slot_bits));
+    memset(bank_slot_bytes, 0, sizeof(bank_slot_bytes));
+    { int k;
       /**
-       * The bound where it matters. A mechanism that only improves the attested
-       * side cannot help generation on unseen material, and the novel column is
-       * what any reweighting of this evidence could reach there.
+       * Uniform prior over the ENABLED slots; the update is what differentiates
+       * them. A disabled slot starts at zero and stays there, which is what makes
+       * the order-only bank bit-exact to the pre-slot version.
        */
-      fprintf(stderr, "  ORACLE split: attested=%.3f (of %.3f) |"
-        " novel=%.3f (of %.3f) | extra-slot wins=%ld\n",
-        (deep_bytes > 0.0) ? oracle_deep_bits / deep_bytes : 0.0,
-        (deep_bytes > 0.0) ? deep_bits / deep_bytes : 0.0,
-        (shallow_bytes > 0.0) ? oracle_shallow_bits / shallow_bytes : 0.0,
-        (shallow_bytes > 0.0) ? shallow_bits / shallow_bytes : 0.0,
-        oracle_extra);
-      fprintf(stderr, "  oracle picks:");
-      for (k = 1; k <= NGRAM_ORDER_MAX; ++k) {
-        if (oracle_pick[k] > 0) {
-          fprintf(stderr, " o%d=%.1f%%", k,
-            100.0 * (double)oracle_pick[k] / (double)npairs);
-        }
+      int nslot = 0;
+      for (k = 1; k <= NGRAM_BANK_LAST; ++k) {
+        if (0 != ngram_bank_enabled(bank_slots, k)) ++nslot;
       }
-      fprintf(stderr, " mixed=%.1f%%\n",
-        100.0 * (double)oracle_mixed / (double)npairs);
-      fprintf(stderr, "  oracle choice vs matched context (o1-wins%%/mixed%%):");
-      for (k = 0; k <= NGRAM_ORDER_MAX; ++k) {
-        if (sel_total[k] > 0) {
-          fprintf(stderr, " m%d=%.0f/%.0f", k,
-            100.0 * (double)sel_low[k] / (double)sel_total[k],
-            100.0 * (double)sel_mixed[k] / (double)sel_total[k]);
-        }
+      for (k = 0; k < NGRAM_BANK_MAX; ++k) {
+        bank_weight[k] = (k >= 1 && k <= NGRAM_BANK_LAST
+          && 0 != ngram_bank_enabled(bank_slots, k)) ? 1.0 / (double)nslot : 0.0;
       }
-      /**
-       * The reachability test for the oracle's remaining headroom. A share that
-       * varies across buckets is a selector waiting to be written; a flat share
-       * means this feature cannot tell those positions apart and the headroom
-       * stays with the oracle.
-       */
-      if (0 < oracle_extra) {
-        fprintf(stderr, "\n  kind-different slot cheapest, by matched context:");
-        for (k = 0; k <= NGRAM_ORDER_MAX; ++k) {
-          if (sel_total[k] > 0) {
-            fprintf(stderr, " m%d=%.0f%%(n=%ld)", k,
-              100.0 * (double)sel_extra[k] / (double)sel_total[k],
-              sel_total[k]);
-          }
-        }
-      }
-      if (0 != bank && bank_n > 0) {
-        int b, nslot = 0;
-        for (b = 1; b <= NGRAM_BANK_LAST; ++b) {
-          if (0 != ngram_bank_enabled(bank_slots, b)) ++nslot;
-        }
-        fprintf(stderr, "  BANK(%s rate=%.2f share=%.3f slots=%d)=%.3f"
-          " | attested %.3f novel %.3f | mean weight (active%%):",
-          (0 != bank_geo) ? "geo" : "linear", bank_rate, bank_share, nslot,
-          (sum_bytes > 0.0) ? bank_bits / sum_bytes : 0.0,
-          (deep_bytes > 0.0) ? bank_deep_bits / deep_bytes : 0.0,
-          (shallow_bytes > 0.0) ? bank_shallow_bits / shallow_bytes : 0.0);
+    }
+    memset(sel_total, 0, sizeof(sel_total));
+    memset(sel_mixed, 0, sizeof(sel_mixed));
+    memset(sel_low, 0, sizeof(sel_low));
+    memset(sel_extra, 0, sizeof(sel_extra));
+    memset(novel_match, 0, sizeof(novel_match));
+    memset(novel_match_bits, 0, sizeof(novel_match_bits));
+    memset(novel_match_bytes, 0, sizeof(novel_match_bytes));
+    value = corpus_iterx_begin(corpus, &key, &cursor);
+    while (NULL != value) {
+      const corpus_entry_t* entry = corpus_entry_scan(value, &scratch);
+      libxs_lexeme_stream_t stream;
+      int is_test = (0 == holdout || 0 != predict_is_test(index, holdout));
+      int native = ngram_native_mode();
+      libxs_lexeme_stream_init(&stream);
+      { const int ds = ngram_dedup_scale();
+        const int want = (2 == ds) ? SCALE_PARAGRAPH : SCALE_SENTENCE;
         /**
-         * Mean weight alone cannot be read without the active share: a slot
-         * that abstains often keeps its weight while contributing nothing, so a
-         * healthy-looking weight can belong to an expert that almost never
-         * spoke.
+         * Each source byte must be counted once, or BPC is not comparable across
+         * granularities - which is the one job the metric exists to do. Clause
+         * fragments are stored at sentence scale ALONGSIDE their parent sentence,
+         * so keeping both scored ~3x the real text.
          */
-        for (b = 1; b <= NGRAM_BANK_LAST; ++b) {
-          if (bank_wsum[b] > 0.0) {
-            fprintf(stderr, " %s=%.3f(%.0f%%)", ngram_bank_slotname(b),
-              bank_wsum[b] / (double)bank_n,
-              100.0 * (double)bank_active[b] / (double)bank_n);
-          }
+        if (0 != ds && (want != entry->scale
+          || 0 != (entry->lexical_flags & ENTRY_LEX_FRAGMENT)))
+        {
+          is_test = 0;
         }
-        if (predict_nscored > 0) {
-          /**
-           * Frozen scoring reports no entropy: info aliases the context and
-           * there is none, so the point query cannot return it. Saying FROZEN
-           * rather than printing 0.000 keeps a missing diagnostic from reading
-           * as a converged one.
-           */
-          if (0 != bank_frozen) {
-            fprintf(stderr, "\n  predict slot: vocab=%d scored=%ld FROZEN"
-              " (order-independent)", bank_vocab, predict_nscored);
+      }
+      if (0 != is_test && entry->text_len > 0
+        && (0 != native || EXIT_SUCCESS == libxs_lexeme_stream_encode(
+        lexicon, &stream, (const unsigned char*)entry->text,
+        (size_t)entry->text_len, rules, nrules, converse_lexnorms(), converse_lexnorms_size(), 0)))
+      {
+        int wctx = ngram_wordctx();
+        libxs_lexeme_t nat[COMPOSE_MAXTEXT];
+        unsigned int word_ids[COMPOSE_MAXTEXT];
+        int ntok = (0 != native)
+          ? ngram_native_tokens(lexicon, entry->text, entry->text_len,
+            nat, (0 != wctx) ? word_ids : NULL, COMPOSE_MAXTEXT, 0)
+          : (int)stream.size;
+        int ti;
+        unsigned int hist[NGRAM_ORDER_MAX];
+        int hlen = 0;
+        int maxorder = ngram_maxorder();
+        /* Source bytes this entry contributes, whether or not every token in it
+         * is scored - the ceiling the denominator should approach. */
+        entry_bytes += (double)entry->text_len;
+        for (ti = 0; ti < ntok; ++ti) {
+          unsigned int cur;
+          unsigned short curlen;
+          int is_content;
+          if (0 != wctx) {
+            hlen = ngram_wordctx_hist(nat, word_ids, ti, wctx, hist,
+              NGRAM_ORDER_MAX);
+          }
+          if (0 != native) {
+            cur = nat[ti].id;
+            curlen = nat[ti].length;
+            is_content = (0 != cur) ? 1 : 0;
           }
           else {
-            const double ent = predict_entropy_sum / (double)predict_nscored;
-            fprintf(stderr, "\n  predict slot: support=%d vocab=%d scored=%ld"
-              " escape entropy=%.3f%s", predict_support_last, bank_vocab,
-              predict_nscored, ent,
-              (ent > NGRAM_PREDICT_ENTROPY_MAX) ? " (UNSETTLED)" : "");
+            const libxs_lexeme_t* lex = stream.data + ti;
+            cur = lex->id;
+            curlen = lex->length;
+            is_content = (0 != (lex->flags
+              & (LIBXS_LEXEME_WORD | LIBXS_LEXEME_NUMBER)) && 0 != cur) ? 1 : 0;
           }
-          /**
-           * How much of the slot is the kNN vote. Bits are per position, not per
-           * byte, so they compare only with each other - the question is
-           * whether the positions the vote reached are cheaper than the rest and
-           * how many there are.
-           */
-          if (0 < predict_att_n + predict_unatt_n) {
-            const long tot = predict_att_n + predict_unatt_n;
-            fprintf(stderr, "\n  predict slot local evidence: attested %.1f%%"
-              " (%.3f bits/pos) | none %.1f%% (%.3f bits/pos)",
-              100.0 * (double)predict_att_n / (double)tot,
-              (0 < predict_att_n)
-                ? predict_att_bits / (double)predict_att_n : 0.0,
-              100.0 * (double)predict_unatt_n / (double)tot,
-              (0 < predict_unatt_n)
-                ? predict_unatt_bits / (double)predict_unatt_n : 0.0);
+          if (0 != is_content) {
+            if (hlen > 0) {
+              unsigned int ids[NGRAM_TOPK];
+              int matched = 0;
+              int n = ngramk_predict_order(model, hist, hlen, maxorder, ids,
+                NGRAM_TOPK, &matched);
+              double p = ngramk_prob(model, hist, hlen, maxorder, cur);
+              double bits = -log(p) * inv_log2;
+              int rank, top1 = 0;
+              int deep = (matched >= maxorder && hlen >= maxorder) ? 1 : 0;
+              /**
+               * Per-position order selection, bounded from above. Each expert is
+               * the SAME interpolated model given only its last k words of
+               * history, so expert k is what a model capped at order k would say.
+               * The oracle takes the cheapest expert per position: not achievable
+               * (it reads the answer), but it bounds what ANY per-position mixture
+               * of these predictors can win. The byte side found local order
+               * selection worth 0.5-0.8 bits cross-document, and this asks whether
+               * the same headroom exists at the word level before anything is
+               * built to exploit it.
+               */
+              if (0 != oracle) {
+                int k;
+                double best = bits;
+                int bestk = 0, best_extra = 0;
+                const double w = (curlen > 0) ? (double)curlen : 1.0;
+                for (k = 1; k <= maxorder && k <= hlen; ++k) {
+                  double pk = ngramk_prob(model, hist + (hlen - k), k, k, cur);
+                  double bk = -log((pk > 0.0) ? pk : 1e-12) * inv_log2;
+                  /**
+                   * Per-expert byte denominator: expert k only exists where the
+                   * history reaches k, so dividing its bits by the TOTAL bytes
+                   * would flatter every high order by omitting the positions it
+                   * cannot score. That artifact made order 6 look like the best
+                   * expert when it had simply skipped the hard short-history
+                   * positions.
+                   */
+                  expert_bits[k] += bk;
+                  expert_bytes[k] += w;
+                  if (bk < best) {
+                    best = bk;
+                    bestk = k;
+                  }
+                }
+                /**
+                 * The bank: linear pool over the expert slots, with weights
+                 * carried across positions and updated causally (score first,
+                 * then update), so no target information enters the score. The
+                 * slots are the fixed orders plus, when enabled, experts of a
+                 * different KIND - the 2.018 oracle below says order selection
+                 * alone cannot reach the target, so mixing kinds is the only
+                 * direction with measured room.
+                 */
+                if (0 != bank) {
+                  ngram_expert_t expert[NGRAM_BANK_MAX];
+                  double pooled, pbits;
+                  int b;
+                  ngram_bank_experts(hist, hlen, maxorder, cur, bank_slots,
+                    store, bank_context, use_emb, bank_vocab, expert);
+                  pooled = (0 != bank_geo)
+                    ? ngram_bank_pool_geo(model, hist, hlen, maxorder, cur,
+                      bank_weight, expert)
+                    : ngram_bank_pool(bank_weight, expert);
+                  pbits = -log(pooled) * inv_log2;
+                  bank_bits += pbits;
+                  if (0 != deep) bank_deep_bits += pbits;
+                  else bank_shallow_bits += pbits;
+                  ++bank_n;
+                  for (b = 1; b <= NGRAM_BANK_LAST; ++b) {
+                    bank_wsum[b] += bank_weight[b];
+                    if (0 != expert[b].active) {
+                      const double pb = expert[b].probability;
+                      ++bank_active[b];
+                      bank_slot_bits[b] += -log((pb > 0.0) ? pb : 1e-12)
+                        * inv_log2;
+                      bank_slot_bytes[b] += w;
+                    }
+                  }
+                  /**
+                   * Extend the bound to the WHOLE pool, not just the fixed orders.
+                   * Any per-position reweighting can at best put all its mass on
+                   * the cheapest member available at that position, so taking the
+                   * minimum over every active slot - including the ones that
+                   * differ in kind - bounds what ANY mixing rule over this
+                   * evidence could reach. Without the extra slots the bound would
+                   * flatter a pool it does not cover.
+                   */
+                  for (b = NGRAM_ORDER_MAX + 1; b <= NGRAM_BANK_LAST; ++b) {
+                    if (0 != expert[b].active) {
+                      const double pb = expert[b].probability;
+                      const double bb = -log((pb > 0.0) ? pb : 1e-12) * inv_log2;
+                      if (bb < best) {
+                        best = bb;
+                        best_extra = 1;
+                        ++oracle_extra;
+                      }
+                    }
+                  }
+                  ngram_bank_update(bank_weight, expert, pooled, bank_rate,
+                    bank_share);
+                }
+                oracle_bits += best;
+                if (0 != deep) oracle_deep_bits += best;
+                else oracle_shallow_bits += best;
+                /* bestk==0 means no single-order expert beat the mixture. */
+                if (0 == bestk) ++oracle_mixed;
+                else ++oracle_pick[bestk];
+                /**
+                 * Can an OBSERVABLE feature separate "o1 wins" from "the mixture
+                 * wins"? The natural candidate costs nothing: the matched context
+                 * length, which the predictor already reports and which does not
+                 * read the target. Accumulate the oracle's choice against it, so
+                 * the confusion is visible rather than assumed. Secs 16/19/20 each
+                 * found a signal that separated classes in hindsight and died when
+                 * computed without the answer, so this is checked before any
+                 * chooser is written.
+                 */
+                { const int mm = (matched < 0) ? 0
+                    : ((matched > NGRAM_ORDER_MAX) ? NGRAM_ORDER_MAX : matched);
+                  ++sel_total[mm];
+                  if (0 != best_extra) ++sel_extra[mm];
+                  if (0 == bestk) ++sel_mixed[mm];
+                  else if (1 == bestk) ++sel_low[mm];
+                  /**
+                   * The ACHIEVABLE rule the confusion above suggests: take the
+                   * order-1 expert when a short context matched (matched >= 2),
+                   * otherwise keep the mixture. Uses only the reported match
+                   * length, never the target, so unlike the oracle this is a
+                   * mechanism and its bits are honest.
+                   */
+                  if (mm >= 2 && hlen >= sel_order) {
+                    double ps = ngramk_prob(model, hist + (hlen - sel_order),
+                      sel_order, sel_order, cur);
+                    sel_bits += -log((ps > 0.0) ? ps : 1e-12) * inv_log2;
+                  }
+                  else sel_bits += bits;
+                }
+              }
+              ++npairs;
+              sum_bits += bits;
+              sum_bytes += (curlen > 0) ? (double)curlen : 1.0;
+              for (rank = 0; rank < n; ++rank) {
+                if (ids[rank] == cur) {
+                  if (0 == rank) {
+                    ++ntop1;
+                    top1 = 1;
+                  }
+                  ++ntopk;
+                  break;
+                }
+              }
+              /**
+               * Split by whether the FULL-ORDER context was attested in training.
+               * The store is built from non-test entries only, so a match at the
+               * maximum order means this exact context recurs verbatim; those
+               * positions are recall, not generalization. Reported separately so
+               * the depth result cannot be read as generalization it is not.
+               */
+              if (0 != deep) {
+                ++ndeep;
+                ndeep_top1 += top1;
+                deep_bits += bits;
+                deep_bytes += (curlen > 0) ? (double)curlen : 1.0;
+              }
+              else {
+                /**
+                 * Decompose the novel bucket by how much context DID match. The
+                 * predictor already reports that length, so this costs no extra
+                 * lookup. It bounds what a total function can buy: mass at
+                 * matched==0 is scored by the unigram prior alone and is the only
+                 * part where no count evidence exists at any order, while mass at
+                 * matched>0 is already carried by a shorter attested context.
+                 */
+                const int m = (matched < 0) ? 0
+                  : ((matched > NGRAM_ORDER_MAX) ? NGRAM_ORDER_MAX : matched);
+                ++nshallow;
+                nshallow_top1 += top1;
+                shallow_bits += bits;
+                shallow_bytes += (curlen > 0) ? (double)curlen : 1.0;
+                ++novel_match[m];
+                novel_match_bits[m] += bits;
+                novel_match_bytes[m] += (curlen > 0) ? (double)curlen : 1.0;
+                /**
+                 * A position whose history is shorter than the order cannot be
+                 * full-order attested, so it lands in the novel bucket by sentence
+                 * position rather than by unattested context. Counted separately:
+                 * without this the short-context mass reads as weak evidence when
+                 * part of it is merely an early position with nothing to look up.
+                 */
+                if (hlen < maxorder) {
+                  ++novel_short;
+                  novel_short_bits += bits;
+                }
+                /**
+                 * The distinction that decides how to read the short-context mass.
+                 * SATURATED means the model matched ALL the history that existed,
+                 * so nothing was unattested and the only remedy is more history -
+                 * an early sentence position. TRUNCATED means history was
+                 * available and the longer context was not in the store, which is
+                 * the genuinely unattested case. Lumping them reads a young
+                 * sentence as weak evidence.
+                 */
+                { const int avail = (hlen < maxorder) ? hlen : maxorder;
+                  if (m >= avail) {
+                    ++novel_sat;
+                    novel_sat_bits += bits;
+                  }
+                  /**
+                   * The REPAIRED generalization bucket: a full-order history was
+                   * available AND the full-order context was not attested. This is
+                   * the only set where the model was asked something its evidence
+                   * could have covered and did not. The wider novel bucket mixes
+                   * these with early-sentence positions that had nothing longer to
+                   * look up, so a mechanism can move it without generalizing.
+                   */
+                  else if (hlen >= maxorder) {
+                    ++ntrunc;
+                    ntrunc_top1 += top1;
+                    trunc_bits += bits;
+                    trunc_bytes += (curlen > 0) ? (double)curlen : 1.0;
+                  }
+                }
+              }
+            }
+            if (0 == wctx) ngram_hist_push(hist, &hlen, NGRAM_ORDER_MAX, cur);
+          }
+          if (0 == native && 0 == wctx) {
+            const libxs_lexeme_t* lex = stream.data + ti;
+            if (0 != (lex->flags & LIBXS_LEXEME_SENTENCE)) hlen = 0;
           }
         }
-        fprintf(stderr, "\n  bank slots standalone (bpc where active):");
-        for (b = 1; b <= NGRAM_BANK_LAST; ++b) {
-          if (bank_slot_bytes[b] > 0.0) {
-            fprintf(stderr, " %s=%.3f", ngram_bank_slotname(b),
-              bank_slot_bits[b] / bank_slot_bytes[b]);
-          }
-        }
-        fprintf(stderr, "\n");
       }
-      fprintf(stderr, " | RULE(m>=2 -> o%d)=%.3f\n", sel_order,
-        (sum_bytes > 0.0) ? sel_bits / sum_bytes : 0.0);
+      libxs_lexeme_stream_release(&stream);
+      ++index;
+      value = corpus_iterx_next(corpus, &key, &cursor);
     }
-    if (nshallow > 0) {
-      int m;
-      fprintf(stderr, "  novel bucket by matched context:");
-      for (m = 0; m <= NGRAM_ORDER_MAX; ++m) {
-        if (novel_match[m] > 0) {
-          fprintf(stderr, " n%d=%.1f%%/bpc=%.3f/bits=%.1f%%", m,
-            100.0 * (double)novel_match[m] / (double)nshallow,
-            (novel_match_bytes[m] > 0.0)
-              ? novel_match_bits[m] / novel_match_bytes[m] : 0.0,
-            (shallow_bits > 0.0)
-              ? 100.0 * novel_match_bits[m] / shallow_bits : 0.0);
-        }
-      }
-      fprintf(stderr, " | truncated %.1f%% of all (top1=%.1f%% bpc=%.3f)\n",
-        100.0 * (double)ntrunc / (double)npairs,
-        (ntrunc > 0) ? 100.0 * (double)ntrunc_top1 / (double)ntrunc : 0.0,
-        (trunc_bytes > 0.0) ? trunc_bits / trunc_bytes : 0.0);
-      fprintf(stderr, "  novel bucket composition:"
-        " short-history %.1f%%/bits=%.1f%%"
-        " saturated %.1f%%/bits=%.1f%% (n=%ld)\n",
-        100.0 * (double)novel_short / (double)nshallow,
-        (shallow_bits > 0.0) ? 100.0 * novel_short_bits / shallow_bits : 0.0,
-        100.0 * (double)novel_sat / (double)nshallow,
-        (shallow_bits > 0.0) ? 100.0 * novel_sat_bits / shallow_bits : 0.0,
-        nshallow);
-    }
-    result = EXIT_SUCCESS;
-  }
-  file = fopen(converse_predict_eval_path(), "r");
-  if (NULL != file) {
-    long hnpairs = 0, htop1 = 0, htopk = 0;
-    char line[EVAL_LINE_MAX];
-    while (NULL != fgets(line, (int)sizeof(line), file)) {
-      char* context;
-      char* expected;
-      char* sep;
-      unsigned int prev2 = 0, prev1 = 0;
-      unsigned int ids[NGRAM_TOPK];
-      int n, rank;
-      context = eval_trim(line);
-      if ('\0' == *context || '#' == *context) continue;
-      sep = strchr(context, '|');
-      if (NULL == sep) continue;
-      *sep = '\0';
-      expected = eval_trim(sep + 1);
-      context = eval_trim(context);
-      if ('\0' == *context || '\0' == *expected) continue;
-      ngram_last_context(lexicon, rules, nrules, context,
-        (int)strlen(context), &prev2, &prev1);
-      n = ngram_predict(model, prev2, prev1, order, ids, NGRAM_TOPK);
-      ++hnpairs;
-      for (rank = 0; rank < n; ++rank) {
-        char word[LIBXS_LEXEME_MAXBYTES + 1];
-        int len = 0;
-        const char* text = libxs_lexicon_text(lexicon, ids[rank], &len, NULL);
-        if (NULL != text && len > 0 && len < (int)sizeof(word)) {
-          memcpy(word, text, (size_t)len);
-          word[len] = '\0';
-          if (0 != text_contains_word_ci(expected, (int)strlen(expected),
-            word))
-          {
-            if (0 == rank) ++htop1;
-            ++htopk;
-            break;
-          }
-        }
-      }
-    }
-    if (hnpairs > 0) {
+    if (npairs > 0) {
       fprintf(stdout,
-        "predict-ngram[%s-fixture]: top1=%.1f%% top%d=%.1f%% n=%ld\n",
-        kind, 100.0 * (double)htop1 / (double)hnpairs, NGRAM_TOPK,
-        100.0 * (double)htopk / (double)hnpairs, hnpairs);
+        "predict-ngram[%s%s]: top1=%.1f%% top%d=%.1f%% n=%ld bpc=%.3f\n",
+        kind, (holdout > 0) ? ":heldout" : "",
+        100.0 * (double)ntop1 / (double)npairs, NGRAM_TOPK,
+        100.0 * (double)ntopk / (double)npairs, npairs,
+        (sum_bytes > 0.0) ? sum_bits / sum_bytes : 0.0);
+      /**
+       * The BPC denominator, printed because it is the only thing that makes the
+       * number comparable ACROSS granularities: the same test text must yield the
+       * same byte count whatever the unit. A zero-length token (a sub-word
+       * continuation carries the whole word's bytes on its first piece) falls back
+       * to 1.0, which would silently inflate the denominator and understate BPC
+       * for the finer units, so the count is reported rather than trusted.
+       */
+      fprintf(stderr, "  bpc denominator: %.0f source bytes of %.0f in scored"
+        " entries (%.1f%% covered, %.2f bytes/position)\n", sum_bytes,
+        entry_bytes, (entry_bytes > 0.0) ? 100.0 * sum_bytes / entry_bytes : 0.0,
+        (npairs > 0) ? sum_bytes / (double)npairs : 0.0);
+      fprintf(stderr, "  attested-context split: verbatim %.1f%% of positions"
+        " (top1=%.1f%% bpc=%.3f) | novel %.1f%% (top1=%.1f%% bpc=%.3f)\n",
+        100.0 * (double)ndeep / (double)npairs,
+        (ndeep > 0) ? 100.0 * (double)ndeep_top1 / (double)ndeep : 0.0,
+        (deep_bytes > 0.0) ? deep_bits / deep_bytes : 0.0,
+        100.0 * (double)nshallow / (double)npairs,
+        (nshallow > 0) ? 100.0 * (double)nshallow_top1 / (double)nshallow : 0.0,
+        (shallow_bytes > 0.0) ? shallow_bits / shallow_bytes : 0.0);
+      if (0 != oracle) {
+        int k;
+        fprintf(stderr, "  order experts (bpc):");
+        for (k = 1; k <= NGRAM_ORDER_MAX; ++k) {
+          if (expert_bytes[k] > 0.0) {
+            fprintf(stderr, " o%d=%.3f", k,
+              expert_bits[k] / expert_bytes[k]);
+          }
+        }
+        fprintf(stderr, " | ORACLE=%.3f (mixed=%.3f)\n",
+          (sum_bytes > 0.0) ? oracle_bits / sum_bytes : 0.0,
+          (sum_bytes > 0.0) ? sum_bits / sum_bytes : 0.0);
+        /**
+         * The bound where it matters. A mechanism that only improves the attested
+         * side cannot help generation on unseen material, and the novel column is
+         * what any reweighting of this evidence could reach there.
+         */
+        fprintf(stderr, "  ORACLE split: attested=%.3f (of %.3f) |"
+          " novel=%.3f (of %.3f) | extra-slot wins=%ld\n",
+          (deep_bytes > 0.0) ? oracle_deep_bits / deep_bytes : 0.0,
+          (deep_bytes > 0.0) ? deep_bits / deep_bytes : 0.0,
+          (shallow_bytes > 0.0) ? oracle_shallow_bits / shallow_bytes : 0.0,
+          (shallow_bytes > 0.0) ? shallow_bits / shallow_bytes : 0.0,
+          oracle_extra);
+        fprintf(stderr, "  oracle picks:");
+        for (k = 1; k <= NGRAM_ORDER_MAX; ++k) {
+          if (oracle_pick[k] > 0) {
+            fprintf(stderr, " o%d=%.1f%%", k,
+              100.0 * (double)oracle_pick[k] / (double)npairs);
+          }
+        }
+        fprintf(stderr, " mixed=%.1f%%\n",
+          100.0 * (double)oracle_mixed / (double)npairs);
+        fprintf(stderr, "  oracle choice vs matched context (o1-wins%%/mixed%%):");
+        for (k = 0; k <= NGRAM_ORDER_MAX; ++k) {
+          if (sel_total[k] > 0) {
+            fprintf(stderr, " m%d=%.0f/%.0f", k,
+              100.0 * (double)sel_low[k] / (double)sel_total[k],
+              100.0 * (double)sel_mixed[k] / (double)sel_total[k]);
+          }
+        }
+        /**
+         * The reachability test for the oracle's remaining headroom. A share that
+         * varies across buckets is a selector waiting to be written; a flat share
+         * means this feature cannot tell those positions apart and the headroom
+         * stays with the oracle.
+         */
+        if (0 < oracle_extra) {
+          fprintf(stderr, "\n  kind-different slot cheapest, by matched context:");
+          for (k = 0; k <= NGRAM_ORDER_MAX; ++k) {
+            if (sel_total[k] > 0) {
+              fprintf(stderr, " m%d=%.0f%%(n=%ld)", k,
+                100.0 * (double)sel_extra[k] / (double)sel_total[k],
+                sel_total[k]);
+            }
+          }
+        }
+        if (0 != bank && bank_n > 0) {
+          int b, nslot = 0;
+          for (b = 1; b <= NGRAM_BANK_LAST; ++b) {
+            if (0 != ngram_bank_enabled(bank_slots, b)) ++nslot;
+          }
+          fprintf(stderr, "  BANK(%s rate=%.2f share=%.3f slots=%d)=%.3f"
+            " | attested %.3f novel %.3f | mean weight (active%%):",
+            (0 != bank_geo) ? "geo" : "linear", bank_rate, bank_share, nslot,
+            (sum_bytes > 0.0) ? bank_bits / sum_bytes : 0.0,
+            (deep_bytes > 0.0) ? bank_deep_bits / deep_bytes : 0.0,
+            (shallow_bytes > 0.0) ? bank_shallow_bits / shallow_bytes : 0.0);
+          /**
+           * Mean weight alone cannot be read without the active share: a slot
+           * that abstains often keeps its weight while contributing nothing, so a
+           * healthy-looking weight can belong to an expert that almost never
+           * spoke.
+           */
+          for (b = 1; b <= NGRAM_BANK_LAST; ++b) {
+            if (bank_wsum[b] > 0.0) {
+              fprintf(stderr, " %s=%.3f(%.0f%%)", ngram_bank_slotname(b),
+                bank_wsum[b] / (double)bank_n,
+                100.0 * (double)bank_active[b] / (double)bank_n);
+            }
+          }
+          if (predict_nscored > 0) {
+            /**
+             * Frozen scoring reports no entropy: info aliases the context and
+             * there is none, so the point query cannot return it. Saying FROZEN
+             * rather than printing 0.000 keeps a missing diagnostic from reading
+             * as a converged one.
+             */
+            if (0 != bank_frozen) {
+              fprintf(stderr, "\n  predict slot: vocab=%d scored=%ld FROZEN"
+                " (order-independent)", bank_vocab, predict_nscored);
+            }
+            else {
+              const double ent = predict_entropy_sum / (double)predict_nscored;
+              fprintf(stderr, "\n  predict slot: support=%d vocab=%d scored=%ld"
+                " escape entropy=%.3f%s", predict_support_last, bank_vocab,
+                predict_nscored, ent,
+                (ent > NGRAM_PREDICT_ENTROPY_MAX) ? " (UNSETTLED)" : "");
+            }
+            /**
+             * How much of the slot is the kNN vote. Bits are per position, not per
+             * byte, so they compare only with each other - the question is
+             * whether the positions the vote reached are cheaper than the rest and
+             * how many there are.
+             */
+            if (0 < predict_att_n + predict_unatt_n) {
+              const long tot = predict_att_n + predict_unatt_n;
+              fprintf(stderr, "\n  predict slot local evidence: attested %.1f%%"
+                " (%.3f bits/pos) | none %.1f%% (%.3f bits/pos)",
+                100.0 * (double)predict_att_n / (double)tot,
+                (0 < predict_att_n)
+                  ? predict_att_bits / (double)predict_att_n : 0.0,
+                100.0 * (double)predict_unatt_n / (double)tot,
+                (0 < predict_unatt_n)
+                  ? predict_unatt_bits / (double)predict_unatt_n : 0.0);
+            }
+          }
+          fprintf(stderr, "\n  bank slots standalone (bpc where active):");
+          for (b = 1; b <= NGRAM_BANK_LAST; ++b) {
+            if (bank_slot_bytes[b] > 0.0) {
+              fprintf(stderr, " %s=%.3f", ngram_bank_slotname(b),
+                bank_slot_bits[b] / bank_slot_bytes[b]);
+            }
+          }
+          fprintf(stderr, "\n");
+        }
+        fprintf(stderr, " | RULE(m>=2 -> o%d)=%.3f\n", sel_order,
+          (sum_bytes > 0.0) ? sel_bits / sum_bytes : 0.0);
+      }
+      if (nshallow > 0) {
+        int m;
+        fprintf(stderr, "  novel bucket by matched context:");
+        for (m = 0; m <= NGRAM_ORDER_MAX; ++m) {
+          if (novel_match[m] > 0) {
+            fprintf(stderr, " n%d=%.1f%%/bpc=%.3f/bits=%.1f%%", m,
+              100.0 * (double)novel_match[m] / (double)nshallow,
+              (novel_match_bytes[m] > 0.0)
+                ? novel_match_bits[m] / novel_match_bytes[m] : 0.0,
+              (shallow_bits > 0.0)
+                ? 100.0 * novel_match_bits[m] / shallow_bits : 0.0);
+          }
+        }
+        fprintf(stderr, " | truncated %.1f%% of all (top1=%.1f%% bpc=%.3f)\n",
+          100.0 * (double)ntrunc / (double)npairs,
+          (ntrunc > 0) ? 100.0 * (double)ntrunc_top1 / (double)ntrunc : 0.0,
+          (trunc_bytes > 0.0) ? trunc_bits / trunc_bytes : 0.0);
+        fprintf(stderr, "  novel bucket composition:"
+          " short-history %.1f%%/bits=%.1f%%"
+          " saturated %.1f%%/bits=%.1f%% (n=%ld)\n",
+          100.0 * (double)novel_short / (double)nshallow,
+          (shallow_bits > 0.0) ? 100.0 * novel_short_bits / shallow_bits : 0.0,
+          100.0 * (double)novel_sat / (double)nshallow,
+          (shallow_bits > 0.0) ? 100.0 * novel_sat_bits / shallow_bits : 0.0,
+          nshallow);
+      }
+      result = EXIT_SUCCESS;
     }
-    fclose(file);
+    file = fopen(converse_predict_eval_path(), "r");
+    if (NULL != file) {
+      long hnpairs = 0, htop1 = 0, htopk = 0;
+      char line[EVAL_LINE_MAX];
+      while (NULL != fgets(line, (int)sizeof(line), file)) {
+        char* context;
+        char* expected;
+        char* sep;
+        unsigned int prev2 = 0, prev1 = 0;
+        unsigned int ids[NGRAM_TOPK];
+        int n, rank;
+        context = eval_trim(line);
+        if ('\0' == *context || '#' == *context) continue;
+        sep = strchr(context, '|');
+        if (NULL == sep) continue;
+        *sep = '\0';
+        expected = eval_trim(sep + 1);
+        context = eval_trim(context);
+        if ('\0' == *context || '\0' == *expected) continue;
+        ngram_last_context(lexicon, rules, nrules, context,
+          (int)strlen(context), &prev2, &prev1);
+        n = ngram_predict(model, prev2, prev1, order, ids, NGRAM_TOPK);
+        ++hnpairs;
+        for (rank = 0; rank < n; ++rank) {
+          char word[LIBXS_LEXEME_MAXBYTES + 1];
+          int len = 0;
+          const char* text = libxs_lexicon_text(lexicon, ids[rank], &len, NULL);
+          if (NULL != text && len > 0 && len < (int)sizeof(word)) {
+            memcpy(word, text, (size_t)len);
+            word[len] = '\0';
+            if (0 != text_contains_word_ci(expected, (int)strlen(expected),
+              word))
+            {
+              if (0 == rank) ++htop1;
+              ++htopk;
+              break;
+            }
+          }
+        }
+      }
+      if (hnpairs > 0) {
+        fprintf(stdout,
+          "predict-ngram[%s-fixture]: top1=%.1f%% top%d=%.1f%% n=%ld\n",
+          kind, 100.0 * (double)htop1 / (double)hnpairs, NGRAM_TOPK,
+          100.0 * (double)htopk / (double)hnpairs, hnpairs);
+      }
+      fclose(file);
+    }
+    libxs_predict_prob_destroy(bank_context);
   }
-  libxs_predict_prob_destroy(bank_context);
   return result;
 }
 
@@ -2947,53 +2994,55 @@ static int token_predict_eval(const libxs_predict_t* model,
   size_t cursor = 0;
   corpus_entry_t scratch;
   void* value;
-  if (NULL == model || NULL == corpus || NULL == lexicon) return EXIT_FAILURE;
-  value = corpus_iterx_begin(corpus, &key, &cursor);
-  while (NULL != value) {
-    const corpus_entry_t* entry = corpus_entry_scan(value, &scratch);
-    libxs_lexeme_stream_t stream;
-    int is_test = (0 == holdout || 0 != predict_is_test(index, holdout));
-    libxs_lexeme_stream_init(&stream);
-    if (0 != is_test && entry->text_len > 0
-      && EXIT_SUCCESS == libxs_lexeme_stream_encode(
-      lexicon, &stream, (const unsigned char*)entry->text,
-      (size_t)entry->text_len, rules, nrules, converse_lexnorms(), converse_lexnorms_size(), 0))
-    {
-      size_t pos;
-      unsigned int prev1 = 0, prev2 = 0;
-      for (pos = 0; pos < stream.size; ++pos) {
-        const libxs_lexeme_t* lex = stream.data + pos;
-        if (0 != (lex->flags & (LIBXS_LEXEME_WORD | LIBXS_LEXEME_NUMBER))
-          && 0 != lex->id)
-        {
-          if (0 != prev1) {
-            if (0 == (seen % stride)) {
-              unsigned int pred = token_predict_next(model, prev2, prev1,
-                use_emb);
-              ++npairs;
-              if (pred == lex->id) ++ntop1;
+  if (NULL == model || NULL == corpus || NULL == lexicon) result = EXIT_FAILURE;
+  else {
+    value = corpus_iterx_begin(corpus, &key, &cursor);
+    while (NULL != value) {
+      const corpus_entry_t* entry = corpus_entry_scan(value, &scratch);
+      libxs_lexeme_stream_t stream;
+      int is_test = (0 == holdout || 0 != predict_is_test(index, holdout));
+      libxs_lexeme_stream_init(&stream);
+      if (0 != is_test && entry->text_len > 0
+        && EXIT_SUCCESS == libxs_lexeme_stream_encode(
+        lexicon, &stream, (const unsigned char*)entry->text,
+        (size_t)entry->text_len, rules, nrules, converse_lexnorms(), converse_lexnorms_size(), 0))
+      {
+        size_t pos;
+        unsigned int prev1 = 0, prev2 = 0;
+        for (pos = 0; pos < stream.size; ++pos) {
+          const libxs_lexeme_t* lex = stream.data + pos;
+          if (0 != (lex->flags & (LIBXS_LEXEME_WORD | LIBXS_LEXEME_NUMBER))
+            && 0 != lex->id)
+          {
+            if (0 != prev1) {
+              if (0 == (seen % stride)) {
+                unsigned int pred = token_predict_next(model, prev2, prev1,
+                  use_emb);
+                ++npairs;
+                if (pred == lex->id) ++ntop1;
+              }
+              ++seen;
             }
-            ++seen;
+            prev2 = prev1;
+            prev1 = lex->id;
           }
-          prev2 = prev1;
-          prev1 = lex->id;
-        }
-        if (0 != (lex->flags & LIBXS_LEXEME_SENTENCE)) {
-          prev1 = 0;
-          prev2 = 0;
+          if (0 != (lex->flags & LIBXS_LEXEME_SENTENCE)) {
+            prev1 = 0;
+            prev2 = 0;
+          }
         }
       }
+      libxs_lexeme_stream_release(&stream);
+      ++index;
+      value = corpus_iterx_next(corpus, &key, &cursor);
     }
-    libxs_lexeme_stream_release(&stream);
-    ++index;
-    value = corpus_iterx_next(corpus, &key, &cursor);
-  }
-  if (npairs > 0) {
-    fprintf(stdout, "predict-%s%s: top1=%.1f%% n=%ld (stride=%d)\n",
-      kind, (holdout > 0) ? ":heldout" : "",
-      100.0 * (double)ntop1 / (double)npairs, npairs,
-      stride);
-    result = EXIT_SUCCESS;
+    if (npairs > 0) {
+      fprintf(stdout, "predict-%s%s: top1=%.1f%% n=%ld (stride=%d)\n",
+        kind, (holdout > 0) ? ":heldout" : "",
+        100.0 * (double)ntop1 / (double)npairs, npairs,
+        stride);
+      result = EXIT_SUCCESS;
+    }
   }
   return result;
 }
@@ -3140,8 +3189,10 @@ static libxs_predict_t* rerank_build(const libxs_registry_t* corpus,
     libxs_predict_set_mode(model, profile->mode);
     libxs_predict_set_decompose(model, profile->decompose);
     libxs_predict_set_weights(model, weights);
-    if (0.0 != profile->smooth) libxs_predict_set_smooth(model,
-      profile->smooth);
+    if (0.0 != profile->smooth) {
+      libxs_predict_set_smooth(model,
+        profile->smooth);
+    }
     value = corpus_iterx_begin(corpus, &key, &cursor);
     while (NULL != value && pushed < TOKEN_PREDICT_TRAIN_MAX) {
       const corpus_entry_t* entry = corpus_entry_scan(value, &scratch);
@@ -3264,64 +3315,65 @@ static int rerank_eval(libxs_registry_t* ngram,
   corpus_entry_t scratch;
   void* value;
   if (NULL == ngram || NULL == reranker || NULL == corpus || NULL == lexicon) {
-    return EXIT_FAILURE;
-  }
-  value = corpus_iterx_begin(corpus, &key, &cursor);
-  while (NULL != value) {
-    const corpus_entry_t* entry = corpus_entry_scan(value, &scratch);
-    libxs_lexeme_stream_t stream;
-    int is_test = (0 == holdout || 0 != predict_is_test(index, holdout));
-    libxs_lexeme_stream_init(&stream);
-    if (0 != is_test && entry->text_len > 0
-      && EXIT_SUCCESS == libxs_lexeme_stream_encode(
-      lexicon, &stream, (const unsigned char*)entry->text,
-      (size_t)entry->text_len, rules, nrules, converse_lexnorms(), converse_lexnorms_size(), 0))
-    {
-      size_t pos;
-      unsigned int prev1 = 0, prev2 = 0;
-      for (pos = 0; pos < stream.size; ++pos) {
-        const libxs_lexeme_t* lex = stream.data + pos;
-        if (0 != (lex->flags & (LIBXS_LEXEME_WORD | LIBXS_LEXEME_NUMBER))
-          && 0 != lex->id)
-        {
-          if (0 != prev1) {
-            if (0 == (seen % stride)) {
-              unsigned int ids[NGRAM_TOPK];
-              int n = rerank_topk(ngram, reranker, lexicon, prev2, prev1,
-                order, ids, NGRAM_TOPK);
-              int rank;
-              ++npairs;
-              for (rank = 0; rank < n; ++rank) {
-                if (ids[rank] == lex->id) {
-                  if (0 == rank) ++ntop1;
-                  ++ntopk;
-                  break;
+    result = EXIT_FAILURE;
+  } else {
+    value = corpus_iterx_begin(corpus, &key, &cursor);
+    while (NULL != value) {
+      const corpus_entry_t* entry = corpus_entry_scan(value, &scratch);
+      libxs_lexeme_stream_t stream;
+      int is_test = (0 == holdout || 0 != predict_is_test(index, holdout));
+      libxs_lexeme_stream_init(&stream);
+      if (0 != is_test && entry->text_len > 0
+        && EXIT_SUCCESS == libxs_lexeme_stream_encode(
+        lexicon, &stream, (const unsigned char*)entry->text,
+        (size_t)entry->text_len, rules, nrules, converse_lexnorms(), converse_lexnorms_size(), 0))
+      {
+        size_t pos;
+        unsigned int prev1 = 0, prev2 = 0;
+        for (pos = 0; pos < stream.size; ++pos) {
+          const libxs_lexeme_t* lex = stream.data + pos;
+          if (0 != (lex->flags & (LIBXS_LEXEME_WORD | LIBXS_LEXEME_NUMBER))
+            && 0 != lex->id)
+          {
+            if (0 != prev1) {
+              if (0 == (seen % stride)) {
+                unsigned int ids[NGRAM_TOPK];
+                int n = rerank_topk(ngram, reranker, lexicon, prev2, prev1,
+                  order, ids, NGRAM_TOPK);
+                int rank;
+                ++npairs;
+                for (rank = 0; rank < n; ++rank) {
+                  if (ids[rank] == lex->id) {
+                    if (0 == rank) ++ntop1;
+                    ++ntopk;
+                    break;
+                  }
                 }
               }
+              ++seen;
             }
-            ++seen;
+            prev2 = prev1;
+            prev1 = lex->id;
           }
-          prev2 = prev1;
-          prev1 = lex->id;
-        }
-        if (0 != (lex->flags & LIBXS_LEXEME_SENTENCE)) {
-          prev1 = 0;
-          prev2 = 0;
+          if (0 != (lex->flags & LIBXS_LEXEME_SENTENCE)) {
+            prev1 = 0;
+            prev2 = 0;
+          }
         }
       }
+      libxs_lexeme_stream_release(&stream);
+      ++index;
+      value = corpus_iterx_next(corpus, &key, &cursor);
     }
-    libxs_lexeme_stream_release(&stream);
-    ++index;
-    value = corpus_iterx_next(corpus, &key, &cursor);
-  }
-  if (npairs > 0) {
-    fprintf(stdout,
-      "predict-%s%s: top1=%.1f%% top%d=%.1f%% n=%ld (stride=%d)\n",
-      kind, (holdout > 0) ? ":heldout" : "",
-      100.0 * (double)ntop1 / (double)npairs, NGRAM_TOPK,
-      100.0 * (double)ntopk / (double)npairs, npairs,
-      stride);
-    result = EXIT_SUCCESS;
+    if (npairs > 0) {
+      fprintf(stdout,
+        "predict-%s%s: top1=%.1f%% top%d=%.1f%% n=%ld (stride=%d)\n",
+        kind, (holdout > 0) ? ":heldout" : "",
+        100.0 * (double)ntop1 / (double)npairs, NGRAM_TOPK,
+        100.0 * (double)ntopk / (double)npairs, npairs,
+        stride);
+      result = EXIT_SUCCESS;
+    }
   }
   return result;
 }
@@ -3357,7 +3409,10 @@ static void rerank_complete(libxs_registry_t* ngram,
       int len = 0;
       const char* word;
       if (0 == rerank_topk(ngram, reranker, lexicon, step2, step1, order,
-        step_ids, 1)) break;
+        step_ids, 1))
+      {
+        break;
+      }
       word = libxs_lexicon_text(lexicon, step_ids[0], &len, NULL);
       if (NULL == word || len <= 0) break;
       printf(" %.*s", len, word);
@@ -3390,6 +3445,7 @@ static void knnlm_cache_free(void)
   knnlm_cache_model = NULL;
 }
 
+
 /**
  * Approximate NN over the static datastore is enabled by CONVERSE_KNNLM_ANN;
  * default off keeps the exact brute-force scan (bit-identical results).
@@ -3399,6 +3455,7 @@ static int knnlm_ann_mode(void)
   const char* env = getenv("CONVERSE_KNNLM_ANN");
   return (NULL != env && '0' != env[0] && '\0' != env[0]) ? 1 : 0;
 }
+
 
 /**
  * Quantize a context vector's leading dims to a Hilbert code: locality in the
@@ -3425,12 +3482,19 @@ static uint64_t knnlm_ann_encode(const double* in)
 
 static int knnlm_ann_cmp(const void* a, const void* b)
 {
+  int result;
   int ia = *(const int*)a, ib = *(const int*)b;
   uint64_t ca = knnlm_ann_code[ia], cb = knnlm_ann_code[ib];
-  if (ca < cb) return -1;
-  if (ca > cb) return 1;
-  return 0;
+  if (ca < cb) result = -1;
+  else {
+    if (ca > cb) result = 1;
+    else {
+      result = 0;
+    }
+  }
+  return result;
 }
+
 
 /* Build the sorted Hilbert index over the current static cache. */
 static void knnlm_ann_build(void)
@@ -3465,6 +3529,7 @@ static void knnlm_ann_build(void)
   }
 }
 
+
 /**
  * Exact-distance rerank of one candidate against the query into the running
  * top-K (same metric and heap discipline as knnlm_scan).
@@ -3496,6 +3561,7 @@ static void knnlm_ann_consider(const double* in, int idx,
     if (*nnear < KNNLM_K) ++*nnear;
   }
 }
+
 
 /**
  * Retrieve the static-cache neighbors of the query from a window around its
@@ -3573,12 +3639,15 @@ static void knnlm_dyn_insert(const unsigned int hist[], int hlen, int ctxlen,
       knnlm_ctx_vector(hist, hlen, ctxlen, knnlm_decay(),
         knnlm_dyn_in + (size_t)knnlm_dyn_size * 2 * TOKEN_EMB_DIM);
     }
-    else token_input_vector(prev2, prev1, 1,
-      knnlm_dyn_in + (size_t)knnlm_dyn_size * 2 * TOKEN_EMB_DIM);
+    else {
+      token_input_vector(prev2, prev1, 1,
+        knnlm_dyn_in + (size_t)knnlm_dyn_size * 2 * TOKEN_EMB_DIM);
+    }
     knnlm_dyn_next[knnlm_dyn_size] = next;
     ++knnlm_dyn_size;
   }
 }
+
 
 /**
  * Number of retrieval heads (CONVERSE_KNNLM_HEADS, default 1 = bit-exact). With
@@ -3654,107 +3723,111 @@ static void token_proj_build(const libxs_predict_t* store)
   const int dims = 2 * TOKEN_EMB_DIM;
   libxs_predict_query_t stats;
   token_proj_ready = 0;
-  if (0 == token_proj_mode() || NULL == store) return;
-  libxs_predict_query(store, &stats);
-  if (stats.nentries < PROJ_CLASS_MAX) return;
-  { /* two passes: class means, then scatter about them */
-    static double mean[PROJ_CLASS_MAX][2 * TOKEN_EMB_DIM];
-    static double grand[2 * TOKEN_EMB_DIM];
-    static double between[2 * TOKEN_EMB_DIM], within[2 * TOKEN_EMB_DIM];
-    unsigned int class_id[PROJ_CLASS_MAX];
-    long count[PROJ_CLASS_MAX];
-    long freq_total = 0;
-    int nclasses = 0, ci, d, i;
-    /**
-     * Class granularity: a next token becomes its own class only once it recurs
-     * often enough to estimate a mean; everything rarer is pooled into class 0.
-     * With thousands of distinct next tokens over tens of thousands of pairs the
-     * within-class scatter would otherwise be estimated from single members and
-     * be degenerate.
-     */
-    memset(mean, 0, sizeof(mean));
-    memset(grand, 0, sizeof(grand));
-    memset(between, 0, sizeof(between));
-    memset(within, 0, sizeof(within));
-    memset(count, 0, sizeof(count));
-    class_id[0] = 0; /* pooled rare-token class */
-    nclasses = 1;
-    for (i = 0; i < stats.nentries; ++i) {
-      double in[2 * TOKEN_EMB_DIM], out[1] = { 0 };
-      unsigned int next;
-      long seen;
-      libxs_predict_get(store, i, in, out);
-      next = (out[0] > 0.0) ? (unsigned int)(out[0] + 0.5) : 0;
-      if (0 == next) continue;
-      seen = (long)(ngram_unigram_prior(next) * (double)stats.nentries);
-      ci = 0;
-      if (seen >= PROJ_MINCOUNT) {
-        int found = 0;
-        for (ci = 1; ci < nclasses; ++ci) {
-          if (class_id[ci] == next) { found = 1; break; }
-        }
-        if (0 == found) {
-          if (nclasses < PROJ_CLASS_MAX) {
-            class_id[nclasses] = next;
-            ci = nclasses++;
+  if (0 != token_proj_mode() && NULL != store) {
+    libxs_predict_query(store, &stats);
+    if (stats.nentries >= PROJ_CLASS_MAX) {
+      { /* two passes: class means, then scatter about them */
+        static double mean[PROJ_CLASS_MAX][2 * TOKEN_EMB_DIM];
+        static double grand[2 * TOKEN_EMB_DIM];
+        static double between[2 * TOKEN_EMB_DIM], within[2 * TOKEN_EMB_DIM];
+        unsigned int class_id[PROJ_CLASS_MAX];
+        long count[PROJ_CLASS_MAX];
+        long freq_total = 0;
+        int nclasses = 0, ci, d, i;
+        /**
+         * Class granularity: a next token becomes its own class only once it recurs
+         * often enough to estimate a mean; everything rarer is pooled into class 0.
+         * With thousands of distinct next tokens over tens of thousands of pairs the
+         * within-class scatter would otherwise be estimated from single members and
+         * be degenerate.
+         */
+        memset(mean, 0, sizeof(mean));
+        memset(grand, 0, sizeof(grand));
+        memset(between, 0, sizeof(between));
+        memset(within, 0, sizeof(within));
+        memset(count, 0, sizeof(count));
+        class_id[0] = 0; /* pooled rare-token class */
+        nclasses = 1;
+        for (i = 0; i < stats.nentries; ++i) {
+          double in[2 * TOKEN_EMB_DIM], out[1] = { 0 };
+          unsigned int next;
+          long seen;
+          libxs_predict_get(store, i, in, out);
+          next = (out[0] > 0.0) ? (unsigned int)(out[0] + 0.5) : 0;
+          if (0 == next) continue;
+          seen = (long)(ngram_unigram_prior(next) * (double)stats.nentries);
+          ci = 0;
+          if (seen >= PROJ_MINCOUNT) {
+            int found = 0;
+            for (ci = 1; ci < nclasses; ++ci) {
+              if (class_id[ci] == next) { found = 1; break; }
+            }
+            if (0 == found) {
+              if (nclasses < PROJ_CLASS_MAX) {
+                class_id[nclasses] = next;
+                ci = nclasses++;
+              }
+              else ci = 0;
+            }
           }
-          else ci = 0;
+          ++count[ci];
+          ++freq_total;
+          for (d = 0; d < dims; ++d) {
+            mean[ci][d] += in[d];
+            grand[d] += in[d];
+          }
+        }
+        if (freq_total >= PROJ_CLASS_MAX && nclasses >= 2) {
+          for (ci = 0; ci < nclasses; ++ci) {
+            if (count[ci] > 0) {
+              for (d = 0; d < dims; ++d) mean[ci][d] /= (double)count[ci];
+            }
+          }
+          for (d = 0; d < dims; ++d) grand[d] /= (double)freq_total;
+          for (ci = 0; ci < nclasses; ++ci) {
+            for (d = 0; d < dims; ++d) {
+              const double diff = mean[ci][d] - grand[d];
+              between[d] += (double)count[ci] * diff * diff;
+            }
+          }
+          for (i = 0; i < stats.nentries; ++i) {
+            double in[2 * TOKEN_EMB_DIM], out[1] = { 0 };
+            unsigned int next;
+            long seen;
+            libxs_predict_get(store, i, in, out);
+            next = (out[0] > 0.0) ? (unsigned int)(out[0] + 0.5) : 0;
+            if (0 == next) continue;
+            seen = (long)(ngram_unigram_prior(next) * (double)stats.nentries);
+            ci = 0;
+            if (seen >= PROJ_MINCOUNT) {
+              for (ci = 1; ci < nclasses; ++ci) {
+                if (class_id[ci] == next) break;
+              }
+              if (ci >= nclasses) ci = 0;
+            }
+            for (d = 0; d < dims; ++d) {
+              const double diff = in[d] - mean[ci][d];
+              within[d] += diff * diff;
+            }
+          }
+          { double wmax = 0.0;
+            for (d = 0; d < dims; ++d) {
+              const double ratio = (within[d] > 0.0) ? (between[d] / within[d]) : 0.0;
+              token_proj[d] = sqrt(ratio);
+              if (token_proj[d] > wmax) wmax = token_proj[d];
+            }
+            if (wmax > 0.0) {
+              for (d = 0; d < dims; ++d) token_proj[d] /= wmax;
+              token_proj_ready = 1;
+              fprintf(stderr, "projection: %d classes, weights", nclasses);
+              for (d = 0; d < dims; d += TOKEN_EMB_DIM / 4) {
+                fprintf(stderr, " %.2f", token_proj[d]);
+              }
+              fprintf(stderr, " (every %d dims)\n", TOKEN_EMB_DIM / 4);
+            }
+          }
         }
       }
-      ++count[ci];
-      ++freq_total;
-      for (d = 0; d < dims; ++d) {
-        mean[ci][d] += in[d];
-        grand[d] += in[d];
-      }
-    }
-    if (freq_total < PROJ_CLASS_MAX || nclasses < 2) return;
-    for (ci = 0; ci < nclasses; ++ci) {
-      if (count[ci] > 0) {
-        for (d = 0; d < dims; ++d) mean[ci][d] /= (double)count[ci];
-      }
-    }
-    for (d = 0; d < dims; ++d) grand[d] /= (double)freq_total;
-    for (ci = 0; ci < nclasses; ++ci) {
-      for (d = 0; d < dims; ++d) {
-        const double diff = mean[ci][d] - grand[d];
-        between[d] += (double)count[ci] * diff * diff;
-      }
-    }
-    for (i = 0; i < stats.nentries; ++i) {
-      double in[2 * TOKEN_EMB_DIM], out[1] = { 0 };
-      unsigned int next;
-      long seen;
-      libxs_predict_get(store, i, in, out);
-      next = (out[0] > 0.0) ? (unsigned int)(out[0] + 0.5) : 0;
-      if (0 == next) continue;
-      seen = (long)(ngram_unigram_prior(next) * (double)stats.nentries);
-      ci = 0;
-      if (seen >= PROJ_MINCOUNT) {
-        for (ci = 1; ci < nclasses; ++ci) {
-          if (class_id[ci] == next) break;
-        }
-        if (ci >= nclasses) ci = 0;
-      }
-      for (d = 0; d < dims; ++d) {
-        const double diff = in[d] - mean[ci][d];
-        within[d] += diff * diff;
-      }
-    }
-    { double wmax = 0.0;
-      for (d = 0; d < dims; ++d) {
-        const double ratio = (within[d] > 0.0) ? (between[d] / within[d]) : 0.0;
-        token_proj[d] = sqrt(ratio);
-        if (token_proj[d] > wmax) wmax = token_proj[d];
-      }
-      if (wmax <= 0.0) return;
-      for (d = 0; d < dims; ++d) token_proj[d] /= wmax;
-      token_proj_ready = 1;
-      fprintf(stderr, "projection: %d classes, weights", nclasses);
-      for (d = 0; d < dims; d += TOKEN_EMB_DIM / 4) {
-        fprintf(stderr, " %.2f", token_proj[d]);
-      }
-      fprintf(stderr, " (every %d dims)\n", TOKEN_EMB_DIM / 4);
     }
   }
 }
@@ -3794,6 +3867,7 @@ static void knnlm_cache_build(const libxs_predict_t* store)
   }
 }
 
+
 /**
  * Control distributions replacing the retrieved vote, to test whether the
  * kNN-LM gain comes from the learned metric or merely from interpolating some
@@ -3802,8 +3876,7 @@ static void knnlm_cache_build(const libxs_predict_t* store)
  * 2 = K neighbors drawn by a coprime stride over the datastore (retrieval
  *     machinery and vote arithmetic intact, metric replaced by an arbitrary
  *     but reproducible selection).
- */
-/**
+ *
  * Softmax temperature for the retrieval vote (CONVERSE_KNNLM_TEMP). Zero keeps
  * the historical inverse-distance kernel 1/(eps+d), bit-exact. A positive value
  * weights neighbor i by exp(-d_i/T) after subtracting the minimum distance for
@@ -4115,140 +4188,141 @@ static int knnlm_eval(libxs_registry_t* ngram, const libxs_predict_t* store,
   corpus_entry_t scratch;
   void* value;
   if (NULL == ngram || NULL == store || NULL == corpus || NULL == lexicon) {
-    return EXIT_FAILURE;
-  }
-  if (0 != dynamic) knnlm_dyn_reset();
-  value = corpus_iterx_begin(corpus, &key, &cursor);
-  while (NULL != value) {
-    const corpus_entry_t* entry = corpus_entry_scan(value, &scratch);
-    libxs_lexeme_stream_t stream;
-    int is_test = (0 == holdout || 0 != predict_is_test(index, holdout));
-    libxs_lexeme_stream_init(&stream);
-    if (0 != ngram_dedup_scale() && (SCALE_SENTENCE != entry->scale
-      || 0 != (entry->lexical_flags & ENTRY_LEX_FRAGMENT)))
-    {
-      is_test = 0;
-    }
-    if (0 != is_test && entry->text_len > 0
-      && EXIT_SUCCESS == libxs_lexeme_stream_encode(
-      lexicon, &stream, (const unsigned char*)entry->text,
-      (size_t)entry->text_len, rules, nrules, converse_lexnorms(), converse_lexnorms_size(), 0))
-    {
-      size_t pos;
-      unsigned int hist[TOKEN_CTX_MAX];
-      int hlen = 0;
-      for (pos = 0; pos < stream.size; ++pos) {
-        const libxs_lexeme_t* lex = stream.data + pos;
-        if (0 != (lex->flags & (LIBXS_LEXEME_WORD | LIBXS_LEXEME_NUMBER))
-          && 0 != lex->id)
-        {
-          if (hlen > 0) {
-            if (0 == (seen % stride)) {
-              unsigned int ids[NGRAM_TOPK];
-              double p = 0.0;
-              int n = knnlm_topk(ngram, store, hist, hlen, ctxlen, order, ids,
-                NGRAM_TOPK, lex->id, &p);
-              int rank, top1 = 0;
-              /**
-               * Whether the FULL-order context recurred in training, by the same
-               * definition ngram_eval uses, so the two models' buckets are the
-               * same set of positions. Retrieval has only ever been reported as
-               * a top-k delta over all positions; the project's own criterion is
-               * that a mechanism moving only the verbatim bucket has achieved
-               * nothing, and that criterion had never been applied here.
-               */
-              int matched = 0;
-              double bits;
-              int deep;
-              ngramk_predict_order(ngram, hist, hlen, ngram_maxorder(), NULL, 0,
-                &matched);
-              deep = (matched >= ngram_maxorder()
-                && hlen >= ngram_maxorder()) ? 1 : 0;
-              if (!(p > 0.0)) p = 1e-12;
-              bits = -log(p) * inv_log2;
-              ++npairs;
-              sum_bits += bits;
-              sum_bytes += (lex->length > 0) ? (double)lex->length : 1.0;
-              if (0 != token_emb_isnull(hist[hlen - 1])) ++nnullq;
-              if (0 != token_emb_isnull(lex->id)) ++nnulltgt;
-              if (0 != order_probe) {
-                knnlm_order_probe(hist, hlen, ctxlen, knnlm_decay(),
-                  &ord_inner, &ord_cross, &nord_inner, &nord_cross);
-              }
-              for (rank = 0; rank < n; ++rank) {
-                if (ids[rank] == lex->id) {
-                  if (0 == rank) {
-                    ++ntop1;
-                    top1 = 1;
-                  }
-                  ++ntopk;
-                  break;
-                }
-              }
-              if (0 != deep) {
-                ++ndeep;
-                ndeep_top1 += top1;
-                deep_bits += bits;
-                deep_bytes += (lex->length > 0) ? (double)lex->length : 1.0;
-              }
-              else {
-                const int mo = ngram_maxorder();
-                const int avail = (hlen < mo) ? hlen : mo;
-                ++nshallow;
-                nshallow_top1 += top1;
-                shallow_bits += bits;
-                shallow_bytes += (lex->length > 0) ? (double)lex->length : 1.0;
-                /* The repaired generalization bucket; see ngram_eval. */
-                if (matched < avail && hlen >= mo) {
-                  ++ntrunc;
-                  ntrunc_top1 += top1;
-                  trunc_bits += bits;
-                  trunc_bytes += (lex->length > 0) ? (double)lex->length : 1.0;
-                }
-              }
-            }
-            ++seen;
-            if (0 != dynamic) knnlm_dyn_insert(hist, hlen, ctxlen, lex->id);
-          }
-          ngram_hist_push(hist, &hlen, TOKEN_CTX_MAX, lex->id);
-        }
-        if (0 != (lex->flags & LIBXS_LEXEME_SENTENCE)) hlen = 0;
+    result = EXIT_FAILURE;
+  } else {
+    if (0 != dynamic) knnlm_dyn_reset();
+    value = corpus_iterx_begin(corpus, &key, &cursor);
+    while (NULL != value) {
+      const corpus_entry_t* entry = corpus_entry_scan(value, &scratch);
+      libxs_lexeme_stream_t stream;
+      int is_test = (0 == holdout || 0 != predict_is_test(index, holdout));
+      libxs_lexeme_stream_init(&stream);
+      if (0 != ngram_dedup_scale() && (SCALE_SENTENCE != entry->scale
+        || 0 != (entry->lexical_flags & ENTRY_LEX_FRAGMENT)))
+      {
+        is_test = 0;
       }
+      if (0 != is_test && entry->text_len > 0
+        && EXIT_SUCCESS == libxs_lexeme_stream_encode(
+        lexicon, &stream, (const unsigned char*)entry->text,
+        (size_t)entry->text_len, rules, nrules, converse_lexnorms(), converse_lexnorms_size(), 0))
+      {
+        size_t pos;
+        unsigned int hist[TOKEN_CTX_MAX];
+        int hlen = 0;
+        for (pos = 0; pos < stream.size; ++pos) {
+          const libxs_lexeme_t* lex = stream.data + pos;
+          if (0 != (lex->flags & (LIBXS_LEXEME_WORD | LIBXS_LEXEME_NUMBER))
+            && 0 != lex->id)
+          {
+            if (hlen > 0) {
+              if (0 == (seen % stride)) {
+                unsigned int ids[NGRAM_TOPK];
+                double p = 0.0;
+                int n = knnlm_topk(ngram, store, hist, hlen, ctxlen, order, ids,
+                  NGRAM_TOPK, lex->id, &p);
+                int rank, top1 = 0;
+                /**
+                 * Whether the FULL-order context recurred in training, by the same
+                 * definition ngram_eval uses, so the two models' buckets are the
+                 * same set of positions. Retrieval has only ever been reported as
+                 * a top-k delta over all positions; the project's own criterion is
+                 * that a mechanism moving only the verbatim bucket has achieved
+                 * nothing, and that criterion had never been applied here.
+                 */
+                int matched = 0;
+                double bits;
+                int deep;
+                ngramk_predict_order(ngram, hist, hlen, ngram_maxorder(), NULL, 0,
+                  &matched);
+                deep = (matched >= ngram_maxorder()
+                  && hlen >= ngram_maxorder()) ? 1 : 0;
+                if (!(p > 0.0)) p = 1e-12;
+                bits = -log(p) * inv_log2;
+                ++npairs;
+                sum_bits += bits;
+                sum_bytes += (lex->length > 0) ? (double)lex->length : 1.0;
+                if (0 != token_emb_isnull(hist[hlen - 1])) ++nnullq;
+                if (0 != token_emb_isnull(lex->id)) ++nnulltgt;
+                if (0 != order_probe) {
+                  knnlm_order_probe(hist, hlen, ctxlen, knnlm_decay(),
+                    &ord_inner, &ord_cross, &nord_inner, &nord_cross);
+                }
+                for (rank = 0; rank < n; ++rank) {
+                  if (ids[rank] == lex->id) {
+                    if (0 == rank) {
+                      ++ntop1;
+                      top1 = 1;
+                    }
+                    ++ntopk;
+                    break;
+                  }
+                }
+                if (0 != deep) {
+                  ++ndeep;
+                  ndeep_top1 += top1;
+                  deep_bits += bits;
+                  deep_bytes += (lex->length > 0) ? (double)lex->length : 1.0;
+                }
+                else {
+                  const int mo = ngram_maxorder();
+                  const int avail = (hlen < mo) ? hlen : mo;
+                  ++nshallow;
+                  nshallow_top1 += top1;
+                  shallow_bits += bits;
+                  shallow_bytes += (lex->length > 0) ? (double)lex->length : 1.0;
+                  /* The repaired generalization bucket; see ngram_eval. */
+                  if (matched < avail && hlen >= mo) {
+                    ++ntrunc;
+                    ntrunc_top1 += top1;
+                    trunc_bits += bits;
+                    trunc_bytes += (lex->length > 0) ? (double)lex->length : 1.0;
+                  }
+                }
+              }
+              ++seen;
+              if (0 != dynamic) knnlm_dyn_insert(hist, hlen, ctxlen, lex->id);
+            }
+            ngram_hist_push(hist, &hlen, TOKEN_CTX_MAX, lex->id);
+          }
+          if (0 != (lex->flags & LIBXS_LEXEME_SENTENCE)) hlen = 0;
+        }
+      }
+      libxs_lexeme_stream_release(&stream);
+      ++index;
+      value = corpus_iterx_next(corpus, &key, &cursor);
     }
-    libxs_lexeme_stream_release(&stream);
-    ++index;
-    value = corpus_iterx_next(corpus, &key, &cursor);
-  }
-  if (npairs > 0) {
-    fprintf(stdout,
-      "predict-%s%s%s: top1=%.1f%% top%d=%.1f%% n=%ld (stride=%d) bpc=%.3f\n",
-      kind, (0 != dynamic) ? ":dyn" : "", (holdout > 0) ? ":heldout" : "",
-      100.0 * (double)ntop1 / (double)npairs, NGRAM_TOPK,
-      100.0 * (double)ntopk / (double)npairs, npairs,
-      stride, (sum_bytes > 0.0) ? sum_bits / sum_bytes : 0.0);
-    fprintf(stderr, "  attested-context split: verbatim %.1f%% of positions"
-      " (top1=%.1f%% bpc=%.3f) | novel %.1f%% (top1=%.1f%% bpc=%.3f)\n",
-      100.0 * (double)ndeep / (double)npairs,
-      (ndeep > 0) ? 100.0 * (double)ndeep_top1 / (double)ndeep : 0.0,
-      (deep_bytes > 0.0) ? deep_bits / deep_bytes : 0.0,
-      100.0 * (double)nshallow / (double)npairs,
-      (nshallow > 0) ? 100.0 * (double)nshallow_top1 / (double)nshallow : 0.0,
-      (shallow_bytes > 0.0) ? shallow_bits / shallow_bytes : 0.0);
-    fprintf(stderr, "  truncated %.1f%% of all (top1=%.1f%% bpc=%.3f)\n",
-      100.0 * (double)ntrunc / (double)npairs,
-      (ntrunc > 0) ? 100.0 * (double)ntrunc_top1 / (double)ntrunc : 0.0,
-      (trunc_bytes > 0.0) ? trunc_bits / trunc_bytes : 0.0);
-    fprintf(stderr, "embedding coverage: null query vectors %.2f%%,"
-      " null targets %.2f%% (n=%ld)\n",
-      100.0 * (double)nnullq / (double)npairs,
-      100.0 * (double)nnulltgt / (double)npairs, npairs);
-    if (0 != order_probe && nord_cross > 0) {
-      fprintf(stderr, "order sensitivity (cosine of swapped context, 1.0 ="
-        " order discarded): inner=%.4f (n=%ld) cross=%.4f (n=%ld)\n",
-        (nord_inner > 0) ? (ord_inner / (double)nord_inner) : 1.0, nord_inner,
-        ord_cross / (double)nord_cross, nord_cross);
+    if (npairs > 0) {
+      fprintf(stdout,
+        "predict-%s%s%s: top1=%.1f%% top%d=%.1f%% n=%ld (stride=%d) bpc=%.3f\n",
+        kind, (0 != dynamic) ? ":dyn" : "", (holdout > 0) ? ":heldout" : "",
+        100.0 * (double)ntop1 / (double)npairs, NGRAM_TOPK,
+        100.0 * (double)ntopk / (double)npairs, npairs,
+        stride, (sum_bytes > 0.0) ? sum_bits / sum_bytes : 0.0);
+      fprintf(stderr, "  attested-context split: verbatim %.1f%% of positions"
+        " (top1=%.1f%% bpc=%.3f) | novel %.1f%% (top1=%.1f%% bpc=%.3f)\n",
+        100.0 * (double)ndeep / (double)npairs,
+        (ndeep > 0) ? 100.0 * (double)ndeep_top1 / (double)ndeep : 0.0,
+        (deep_bytes > 0.0) ? deep_bits / deep_bytes : 0.0,
+        100.0 * (double)nshallow / (double)npairs,
+        (nshallow > 0) ? 100.0 * (double)nshallow_top1 / (double)nshallow : 0.0,
+        (shallow_bytes > 0.0) ? shallow_bits / shallow_bytes : 0.0);
+      fprintf(stderr, "  truncated %.1f%% of all (top1=%.1f%% bpc=%.3f)\n",
+        100.0 * (double)ntrunc / (double)npairs,
+        (ntrunc > 0) ? 100.0 * (double)ntrunc_top1 / (double)ntrunc : 0.0,
+        (trunc_bytes > 0.0) ? trunc_bits / trunc_bytes : 0.0);
+      fprintf(stderr, "embedding coverage: null query vectors %.2f%%,"
+        " null targets %.2f%% (n=%ld)\n",
+        100.0 * (double)nnullq / (double)npairs,
+        100.0 * (double)nnulltgt / (double)npairs, npairs);
+      if (0 != order_probe && nord_cross > 0) {
+        fprintf(stderr, "order sensitivity (cosine of swapped context, 1.0 ="
+          " order discarded): inner=%.4f (n=%ld) cross=%.4f (n=%ld)\n",
+          (nord_inner > 0) ? (ord_inner / (double)nord_inner) : 1.0, nord_inner,
+          ord_cross / (double)nord_cross, nord_cross);
+      }
+      result = EXIT_SUCCESS;
     }
-    result = EXIT_SUCCESS;
   }
   return result;
 }
@@ -4411,8 +4485,10 @@ static void converse_lm_complete(converse_run_t* run,
         knnlm_complete(ngram_model, token_model, run->lexicon, run->rules,
           run->nrules, run->ngram_order, line, (int)len);
       }
-      else ngram_complete(ngram_model, run->lexicon, run->rules, run->nrules,
-        run->ngram_order, line, (int)len);
+      else {
+        ngram_complete(ngram_model, run->lexicon, run->rules, run->nrules,
+          run->ngram_order, line, (int)len);
+      }
     }
     printf("> ");
     fflush(stdout);

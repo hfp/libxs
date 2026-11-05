@@ -1,3 +1,12 @@
+/******************************************************************************
+* Copyright (c) 2009-2026 Hans Pabst                                          *
+* Copyright (c) 2009-2026 Intel Corporation                                   *
+* This file is part of the LIBXS library.                                     *
+*                                                                             *
+* For information on the license, see the LICENSE file.                       *
+* Further information: https://github.com/hfp/libxs/                          *
+* SPDX-License-Identifier: BSD-3-Clause                                       *
+******************************************************************************/
 #include <libxs/libxs.h>
 #include <libxs/libxs_token.h>
 #include <libxs/libxs_hash.h>
@@ -6,25 +15,6 @@
 
 #include "converse.h"
 #include "converse_recomb.h"
-
-
-/**
- * The seam judge and the host callbacks for the current probe run.
- *
- * These are set once by converse_recomb_probe_run and read by the gates below.
- * They are translation-unit state rather than parameters threaded through every
- * gate because the gates are called from inside three nested loops whose shape is
- * the measurement: adding a context argument to each would obscure that the
- * capacity count, the dedup and the gate order are what the numbers depend on.
- */
-static const converse_recomb_host_t* recomb_host = NULL;
-
-
-/** Whether the caller supplied a seam-bits diagnostic. */
-static int recomb_have_judge(void)
-{
-  return (NULL != recomb_host && NULL != recomb_host->seam_bits) ? 1 : 0;
-}
 
 
 /**
@@ -47,6 +37,14 @@ static int recomb_have_judge(void)
 #define RECOMB_MIN_WORDS 4
 #define RECOMB_MAX_CAND 64
 
+/**
+ * Referent-probe accumulators, at translation-unit scope for the same reason the
+ * judge and the host callbacks are: the joins they summarize are enumerated deep
+ * inside three nested loops whose signature already carries thirteen arguments,
+ * and eight more would bury the loop structure that the measurement depends on.
+ * Reset by recomb_referent_build so a second run cannot inherit the first's counts.
+ */
+#define RECOMB_REF_MAX 16384
 
 typedef struct recomb_word_t {
   int begin;
@@ -54,6 +52,227 @@ typedef struct recomb_word_t {
   unsigned int id;
   unsigned short flags;
 } recomb_word_t;
+
+/**
+ * Inverted index from a content-word id to the sentence entries containing it.
+ *
+ * Donor selection is a pivot lookup, but it was written as a corpus scan: every
+ * host re-read every entry and re-tokenized it to discover whether the two shared
+ * a content word. The index answers the same question directly, so the scan
+ * disappears and the tokenization is paid once per entry at build time rather than
+ * once per (host, entry) pair.
+ *
+ * Postings used to be CAPPED, because the registry copies a value and the value
+ * was the whole list: a fixed array per key, paid in full for every key however
+ * few donors it had. The cap bought that back and cost a silent truncation of the
+ * frequent pivots - exactly the ones a scan would have reached. Now the value is
+ * a HEADER and the list hangs off it, so memory is proportional to the postings
+ * that exist and no pivot is cut short.
+ *
+ * The ordinal is carried beside the pointer because donor selection is defined to
+ * take an entry LATER in corpus order than the host. That constraint is what makes
+ * the probe's output independent of how a candidate was reached, so dropping it
+ * while replacing the scan would silently change which donor wins and move every
+ * reported number.
+ */
+typedef struct recomb_posting_t {
+  long ordinal;
+  const corpus_entry_t* entry;
+} recomb_posting_t;
+
+typedef struct recomb_postings_t {
+  int n;
+  int cap;
+  recomb_posting_t* at;
+} recomb_postings_t;
+
+/**
+ * Signals emitted AT the join, rather than reconstructed from the result.
+ *
+ * The three numbers the gates already compute are near-orthogonal on this data
+ * (seam bits against content overlap correlate 0.006), so combining them is worth
+ * doing rather than redundant. But they are only the signals that happened to be
+ * printed; several more are free at the moment of splicing and expensive or
+ * impossible afterwards - above all WHICH occurrence of the pivot was used, which
+ * is the raw material for the referent question and is lost once the sentence is a
+ * flat string.
+ *
+ * Signals are kept as a vector rather than folded here. Weights are one way to
+ * reach a single number, but they are not the only one and they are the most
+ * assumption-laden: a perfect overlap can mask a badly broken clause, and a sweep
+ * of six weightings picked the same damaged candidate five times. The vector keeps
+ * that decision at the selection site, where a Pareto front, a fingerprint
+ * distance, or a hierarchy of prerequisites can be applied instead.
+ */
+typedef struct recomb_signal_t {
+  double seam_bits;      /* byte-model fluency at the junction (lower better) */
+  double overlap;        /* content-word agreement beyond the pivot (higher) */
+  double gram;           /* relative attestation of the seam span (lower) */
+  double balance;        /* prefix/suffix word-count symmetry, 0..1 (higher) */
+  double flag_agree;     /* lexical-class agreement of the two halves (higher) */
+  double fpjoin;         /* junction anomaly vs predicted merge (lower) */
+  int pivot_host_pos;    /* word index of the pivot in the host */
+  int pivot_donor_pos;   /* word index of the pivot in the donor */
+  int nwords;            /* words in the composed sentence */
+  int truncated;         /* donor suffix was cut at a clause boundary */
+  int cross_source;      /* halves come from different source files */
+  /**
+   * Whether the composite ends a sentence. This belongs with the prerequisites and
+   * not among the trade-offs: left to compete, the balance objective rewards
+   * prefix/suffix symmetry and so favours mid-sentence truncations, which measured
+   * WORSE than no selection at all (54% of survivors ended properly against 66% of
+   * the rejected). A property that selection can trade away is not a property that
+   * survives selection.
+   */
+  int ends_sentence;
+  /**
+   * Referent probe. `pmi` is the candidate SIGNAL (minimum association across the
+   * seam, in bits) and `crossing` is the manufactured LABEL (-1 when neither class
+   * applies). They are deliberately adjacent and deliberately not combined: the
+   * label exists to test the signal, so reading either as the other would make the
+   * measurement circular. See recomb_referent_build.
+   */
+  double pmi;
+  int crossing;
+} recomb_signal_t;
+
+/**
+ * Referent probe: does a shared pivot DENOTE the same thing in both halves?
+ *
+ * This is the one question none of the four gates can ask. The pivot is a word
+ * type, so two documents using one term for different things splice as readily as
+ * two describing the same one, and the specimen that motivates this probe passes
+ * every gate and the whole selection objective. Every other signal here is a
+ * property of surfaces; a search driven by them would produce more fluent,
+ * coherent, attributable falsehoods, which is why this is measured before any
+ * search is built.
+ *
+ * TWO CLASSES, MANUFACTURED RATHER THAN DETECTED. There is no labelled set of
+ * crossings: the proper-noun detector found four positives in 137 joins, which
+ * cannot separate anything, and this file's own warning is not to tune a threshold
+ * against an unmeasured rate. So the classes are built the way the fluency ceiling
+ * and floor already are - by construction:
+ *
+ *  - CROSSING (y=1): host and donor come from different sources AND each carries a
+ *    proper noun exclusive to its own source. Different casts, so the referents
+ *    differ by construction rather than by judgement.
+ *  - SAME (y=0): host and donor come from one source, so a shared term has one
+ *    cast behind it.
+ *
+ * Neither class is a quality label and neither is the signal being tested. That
+ * matters because the oracle is available as a signal already - cross_source is
+ * in the vector - and it is a poor test on its own: 40-42% of accepted joins are
+ * cross-source while crossings are a few percent, so rejecting on it alone would
+ * discard two fifths of the output at very low precision. The probe therefore
+ * prints that baseline next to the measured signal; a signal that cannot beat it
+ * has bought nothing.
+ */
+typedef struct recomb_referent_t {
+  /** Sources in which this lexeme occurs, and how many distinct ones. */
+  unsigned short source[4];
+  int nsources;
+  /** Sentence-scale occurrences, for the marginal in the association score. */
+  long count;
+} recomb_referent_t;
+
+typedef struct recomb_pair_key_t {
+  unsigned int lo;
+  unsigned int hi;
+} recomb_pair_key_t;
+
+/**
+ * The seam judge and the host callbacks for the current probe run.
+ *
+ * These are set once by converse_recomb_probe_run and read by the gates below.
+ * They are translation-unit state rather than parameters threaded through every
+ * gate because the gates are called from inside three nested loops whose shape is
+ * the measurement: adding a context argument to each would obscure that the
+ * capacity count, the dedup and the gate order are what the numbers depend on.
+ */
+static const converse_recomb_host_t* recomb_host = NULL;
+
+
+static libxs_registry_t* recomb_index = NULL;
+static long recomb_index_nkeys = 0;
+static long recomb_index_nposts = 0;
+
+/**
+ * Predicate-like pivot suppression: constrain the OPERATOR instead of filtering
+ * its output.
+ *
+ * Every truth failure observed so far splices on a predicate-like pivot ("made"
+ * joining "made fat" to "made in his whole kingdom"), while the join that was true
+ * and useful pivoted on an argument-like word ("children"). Four separate gate
+ * ideas were measured and none separates those two cases: both seam trigrams occur
+ * exactly ONCE, 79% of content bigrams occur once, and clause-scale recurrence only
+ * reaches 6.6% at 27x the corpus. So there is no attestation to test against, and a
+ * gate that cannot be built can still be avoided - by not generating the failure.
+ *
+ * The proxy is derived from counts, not from a word list, so no language vocabulary
+ * enters the sample: a lexeme is predicate-like when it frequently FOLLOWS one of
+ * the function words the rules already declare skippable. Measured on the
+ * reference corpus: predicate-like pivots dominate, while concrete nouns score 0.
+ * It costs 58% of pivot tokens,
+ * which is the honest price of removing a failure class by construction.
+ *
+ * This is a probe. It is off by default because it trades reachable set for
+ * precision and that trade has not been measured on more than one corpus.
+ */
+static libxs_registry_t* recomb_predicate = NULL;
+static long recomb_predicate_nkeys = 0;
+static libxs_registry_t* recomb_cast = NULL;
+static libxs_registry_t* recomb_pair = NULL;
+static long recomb_cast_nkeys = 0;
+static long recomb_pair_nkeys = 0;
+static long recomb_pair_total = 0;
+
+/**
+ * Sentences scanned. The marginals count sentences containing a term while the
+ * joint counts sentences containing both, so both probabilities must be taken over
+ * this same base. Normalizing the marginals by the number of PAIRS instead is off
+ * by the mean pairs-per-sentence - a constant, but a large one, and it shifts
+ * every PMI positive by log2 of it.
+ */
+static long recomb_nsentences = 0;
+static long ref_nsame = 0;
+static long ref_ncross = 0;
+static long ref_nunlabelled = 0;
+static double ref_pmi_same = 0.0;
+static double ref_pmi_cross = 0.0;
+static long ref_xsrc = 0;
+static long ref_xsrc_cross = 0;
+
+/**
+ * Retained per-class values, so the two classes can be compared by their overlap
+ * rather than only by their means. Capped, and the cap is REPORTED when reached:
+ * a truncated sample looks exactly like a small one, which is the same failure the
+ * postings cap produced before it was printed.
+ */
+static double ref_same[RECOMB_REF_MAX];
+static double ref_cross[RECOMB_REF_MAX];
+static int ref_nsame_kept = 0;
+static int ref_ncross_kept = 0;
+static int ref_capped = 0;
+
+/**
+ * The contrast class that makes the test non-trivial: joins that ARE cross-source
+ * but carry no exclusive cast on both sides, so they are not crossings.
+ *
+ * Comparing crossings against SAME-source joins would be circular - the y=0 class
+ * is same-source by construction, so cross_source separates it perfectly for free
+ * and any signal correlated with source difference inherits that. Within
+ * cross-source joins, cross_source is constant and therefore worthless, so a
+ * signal that separates here has genuinely added something the vector did not
+ * already contain.
+ */
+static double ref_xnon[RECOMB_REF_MAX];
+static int ref_nxnon_kept = 0;
+
+/** Whether the caller supplied a seam-bits diagnostic. */
+static int recomb_have_judge(void)
+{
+  return (NULL != recomb_host && NULL != recomb_host->seam_bits) ? 1 : 0;
+}
 
 
 /**
@@ -63,8 +282,7 @@ typedef struct recomb_word_t {
  * corpus the gap between a real junction and an arbitrary splice is 0.709 bits at 4
  * bytes, 0.252 at 8, 0.008 at 24, and inverts at 48 - so a wide window does not
  * merely dilute the signal, it destroys it.
- */
-/**
+ *
  * Minimum shared content words (beyond the pivot) a donor must have with the
  * host, as a percentage of the smaller content set. 0 accepts any pivot match,
  * which is what exposed that a fluent seam does not imply a coherent sentence.
@@ -120,8 +338,7 @@ static int recomb_balance_on(void)
  * A seam is rejected when it is worse than what it displaced by more than a
  * tolerance, which asks "did the join make this less like the corpus" rather than
  * "is this exact sequence present".
- */
-/**
+ *
  * Zero when the host supplies no word probability, which makes the seam penalty
  * zero and so leaves the grammar gate permissive rather than crashing on a NULL
  * callback. That is the intended behaviour for a build without the n-gram: the
@@ -260,7 +477,10 @@ static int recomb_words(libxs_lexicon_t* lexicon, const char* text,
       int end = pos;
       while (end < text_len
         && 0 != recomb_host->is_wordchar((const unsigned char*)text + end,
-             (size_t)(text_len - end), &span)) end += span;
+             (size_t)(text_len - end), &span))
+      {
+        end += span;
+      }
       words[result].begin = pos;
       words[result].end = end;
       words[result].id = libxs_lexicon_id(lexicon, text + pos, end - pos,
@@ -284,8 +504,7 @@ static int recomb_words(libxs_lexicon_t* lexicon, const char* text,
  * Splice at the given pivot positions: everything of A through pivot word a,
  * then everything of B after pivot word b. Returns the composed length, or 0 if
  * it does not fit or either side would be degenerate.
- */
-/**
+ *
  * Whether the grafted tail may begin anywhere, or only at a clause boundary.
  *
  * Six seam signals have now been refuted, the last of them by 50x in the WRONG
@@ -460,7 +679,10 @@ static double recomb_overlap(const corpus_entry_t* a, const corpus_entry_t* b,
   for (bi = 0; bi < (int)b->ntokens && bi < ENTRY_TOKEN_MAX; ++bi) {
     const unsigned int id = b->token_ids[bi];
     if (0 != id && id != pivot
-      && 0 == (b->token_flags[bi] & LIBXS_LEXEME_STOP)) ++nb;
+      && 0 == (b->token_flags[bi] & LIBXS_LEXEME_STOP))
+    {
+      ++nb;
+    }
   }
   { const int smaller = (na < nb) ? na : nb;
     if (0 < smaller) result = (double)shared / (double)smaller;
@@ -525,73 +747,6 @@ static int recomb_is_verbatim(const libxs_registry_t* corpus,
 }
 
 
-/**
- * Inverted index from a content-word id to the sentence entries containing it.
- *
- * Donor selection is a pivot lookup, but it was written as a corpus scan: every
- * host re-read every entry and re-tokenized it to discover whether the two shared
- * a content word. The index answers the same question directly, so the scan
- * disappears and the tokenization is paid once per entry at build time rather than
- * once per (host, entry) pair.
- *
- * Postings used to be CAPPED, because the registry copies a value and the value
- * was the whole list: a fixed array per key, paid in full for every key however
- * few donors it had. The cap bought that back and cost a silent truncation of the
- * frequent pivots - exactly the ones a scan would have reached. Now the value is
- * a HEADER and the list hangs off it, so memory is proportional to the postings
- * that exist and no pivot is cut short.
- */
-
-/**
- * The ordinal is carried beside the pointer because donor selection is defined to
- * take an entry LATER in corpus order than the host. That constraint is what makes
- * the probe's output independent of how a candidate was reached, so dropping it
- * while replacing the scan would silently change which donor wins and move every
- * reported number.
- */
-typedef struct recomb_posting_t {
-  long ordinal;
-  const corpus_entry_t* entry;
-} recomb_posting_t;
-
-typedef struct recomb_postings_t {
-  int n;
-  int cap;
-  recomb_posting_t* at;
-} recomb_postings_t;
-
-
-static libxs_registry_t* recomb_index = NULL;
-static long recomb_index_nkeys = 0;
-static long recomb_index_nposts = 0;
-
-
-/**
- * Predicate-like pivot suppression: constrain the OPERATOR instead of filtering
- * its output.
- *
- * Every truth failure observed so far splices on a predicate-like pivot ("made"
- * joining "made fat" to "made in his whole kingdom"), while the join that was true
- * and useful pivoted on an argument-like word ("children"). Four separate gate
- * ideas were measured and none separates those two cases: both seam trigrams occur
- * exactly ONCE, 79% of content bigrams occur once, and clause-scale recurrence only
- * reaches 6.6% at 27x the corpus. So there is no attestation to test against, and a
- * gate that cannot be built can still be avoided - by not generating the failure.
- *
- * The proxy is derived from counts, not from a word list, so no language vocabulary
- * enters the sample: a lexeme is predicate-like when it frequently FOLLOWS one of
- * the function words the rules already declare skippable. Measured on the
- * reference corpus: predicate-like pivots dominate, while concrete nouns score 0.
- * It costs 58% of pivot tokens,
- * which is the honest price of removing a failure class by construction.
- *
- * This is a probe. It is off by default because it trades reachable set for
- * precision and that trade has not been measured on more than one corpus.
- */
-static libxs_registry_t* recomb_predicate = NULL;
-static long recomb_predicate_nkeys = 0;
-
-
 static int recomb_nopredicate_on(void)
 {
   static int cached = -1;
@@ -649,7 +804,10 @@ static int recomb_predicate_build(const libxs_registry_t* corpus,
           else {
             const long fresh = 1;
             if (NULL != libxs_registry_set(recomb_predicate, &id, sizeof(id),
-              &fresh, sizeof(fresh), NULL)) ++recomb_predicate_nkeys;
+              &fresh, sizeof(fresh), NULL))
+            {
+              ++recomb_predicate_nkeys;
+            }
           }
         }
       }
@@ -662,12 +820,16 @@ static int recomb_predicate_build(const libxs_registry_t* corpus,
 
 static int recomb_is_predicate(unsigned int id)
 {
+  int result;
   const long* count;
   const int threshold = recomb_nopredicate_on();
-  if (0 >= threshold || NULL == recomb_predicate) return 0;
-  count = (const long*)libxs_registry_get(recomb_predicate, &id, sizeof(id),
-    NULL);
-  return (NULL != count && *count >= (long)threshold) ? 1 : 0;
+  if (0 >= threshold || NULL == recomb_predicate) result = 0;
+  else {
+    count = (const long*)libxs_registry_get(recomb_predicate, &id, sizeof(id),
+      NULL);
+    result = (NULL != count && *count >= (long)threshold) ? 1 : 0;
+  }
+  return result;
 }
 
 
@@ -759,160 +921,6 @@ static int recomb_index_build(const libxs_registry_t* corpus,
 }
 
 
-/**
- * Signals emitted AT the join, rather than reconstructed from the result.
- *
- * The three numbers the gates already compute are near-orthogonal on this data
- * (seam bits against content overlap correlate 0.006), so combining them is worth
- * doing rather than redundant. But they are only the signals that happened to be
- * printed; several more are free at the moment of splicing and expensive or
- * impossible afterwards - above all WHICH occurrence of the pivot was used, which
- * is the raw material for the referent question and is lost once the sentence is a
- * flat string.
- *
- * Signals are kept as a vector rather than folded here. Weights are one way to
- * reach a single number, but they are not the only one and they are the most
- * assumption-laden: a perfect overlap can mask a badly broken clause, and a sweep
- * of six weightings picked the same damaged candidate five times. The vector keeps
- * that decision at the selection site, where a Pareto front, a fingerprint
- * distance, or a hierarchy of prerequisites can be applied instead.
- */
-typedef struct recomb_signal_t {
-  double seam_bits;      /* byte-model fluency at the junction (lower better) */
-  double overlap;        /* content-word agreement beyond the pivot (higher) */
-  double gram;           /* relative attestation of the seam span (lower) */
-  double balance;        /* prefix/suffix word-count symmetry, 0..1 (higher) */
-  double flag_agree;     /* lexical-class agreement of the two halves (higher) */
-  double fpjoin;         /* junction anomaly vs predicted merge (lower) */
-  int pivot_host_pos;    /* word index of the pivot in the host */
-  int pivot_donor_pos;   /* word index of the pivot in the donor */
-  int nwords;            /* words in the composed sentence */
-  int truncated;         /* donor suffix was cut at a clause boundary */
-  int cross_source;      /* halves come from different source files */
-  /**
-   * Whether the composite ends a sentence. This belongs with the prerequisites and
-   * not among the trade-offs: left to compete, the balance objective rewards
-   * prefix/suffix symmetry and so favours mid-sentence truncations, which measured
-   * WORSE than no selection at all (54% of survivors ended properly against 66% of
-   * the rejected). A property that selection can trade away is not a property that
-   * survives selection.
-   */
-  int ends_sentence;
-  /**
-   * Referent probe. `pmi` is the candidate SIGNAL (minimum association across the
-   * seam, in bits) and `crossing` is the manufactured LABEL (-1 when neither class
-   * applies). They are deliberately adjacent and deliberately not combined: the
-   * label exists to test the signal, so reading either as the other would make the
-   * measurement circular. See recomb_referent_build.
-   */
-  double pmi;
-  int crossing;
-} recomb_signal_t;
-
-
-/**
- * Referent probe: does a shared pivot DENOTE the same thing in both halves?
- *
- * This is the one question none of the four gates can ask. The pivot is a word
- * type, so two documents using one term for different things splice as readily as
- * two describing the same one, and the specimen that motivates this probe passes
- * every gate and the whole selection objective. Every other signal here is a
- * property of surfaces; a search driven by them would produce more fluent,
- * coherent, attributable falsehoods, which is why this is measured before any
- * search is built.
- *
- * TWO CLASSES, MANUFACTURED RATHER THAN DETECTED. There is no labelled set of
- * crossings: the proper-noun detector found four positives in 137 joins, which
- * cannot separate anything, and this file's own warning is not to tune a threshold
- * against an unmeasured rate. So the classes are built the way the fluency ceiling
- * and floor already are - by construction:
- *
- *  - CROSSING (y=1): host and donor come from different sources AND each carries a
- *    proper noun exclusive to its own source. Different casts, so the referents
- *    differ by construction rather than by judgement.
- *  - SAME (y=0): host and donor come from one source, so a shared term has one
- *    cast behind it.
- *
- * Neither class is a quality label and neither is the signal being tested. That
- * matters because the oracle is available as a signal already - cross_source is
- * in the vector - and it is a poor test on its own: 40-42% of accepted joins are
- * cross-source while crossings are a few percent, so rejecting on it alone would
- * discard two fifths of the output at very low precision. The probe therefore
- * prints that baseline next to the measured signal; a signal that cannot beat it
- * has bought nothing.
- */
-typedef struct recomb_referent_t {
-  /** Sources in which this lexeme occurs, and how many distinct ones. */
-  unsigned short source[4];
-  int nsources;
-  /** Sentence-scale occurrences, for the marginal in the association score. */
-  long count;
-} recomb_referent_t;
-
-
-static libxs_registry_t* recomb_cast = NULL;
-static libxs_registry_t* recomb_pair = NULL;
-static long recomb_cast_nkeys = 0;
-static long recomb_pair_nkeys = 0;
-static long recomb_pair_total = 0;
-/**
- * Sentences scanned. The marginals count sentences containing a term while the
- * joint counts sentences containing both, so both probabilities must be taken over
- * this same base. Normalizing the marginals by the number of PAIRS instead is off
- * by the mean pairs-per-sentence - a constant, but a large one, and it shifts
- * every PMI positive by log2 of it.
- */
-static long recomb_nsentences = 0;
-
-
-/**
- * Referent-probe accumulators, at translation-unit scope for the same reason the
- * judge and the host callbacks are: the joins they summarize are enumerated deep
- * inside three nested loops whose signature already carries thirteen arguments,
- * and eight more would bury the loop structure that the measurement depends on.
- * Reset by recomb_referent_build so a second run cannot inherit the first's counts.
- */
-#define RECOMB_REF_MAX 16384
-
-static long ref_nsame = 0;
-static long ref_ncross = 0;
-static long ref_nunlabelled = 0;
-static double ref_pmi_same = 0.0;
-static double ref_pmi_cross = 0.0;
-static long ref_xsrc = 0;
-static long ref_xsrc_cross = 0;
-/**
- * Retained per-class values, so the two classes can be compared by their overlap
- * rather than only by their means. Capped, and the cap is REPORTED when reached:
- * a truncated sample looks exactly like a small one, which is the same failure the
- * postings cap produced before it was printed.
- */
-static double ref_same[RECOMB_REF_MAX];
-static double ref_cross[RECOMB_REF_MAX];
-static int ref_nsame_kept = 0;
-static int ref_ncross_kept = 0;
-static int ref_capped = 0;
-/**
- * The contrast class that makes the test non-trivial: joins that ARE cross-source
- * but carry no exclusive cast on both sides, so they are not crossings.
- *
- * Comparing crossings against SAME-source joins would be circular - the y=0 class
- * is same-source by construction, so cross_source separates it perfectly for free
- * and any signal correlated with source difference inherits that. Within
- * cross-source joins, cross_source is constant and therefore worthless, so a
- * signal that separates here has genuinely added something the vector did not
- * already contain.
- */
-static double ref_xnon[RECOMB_REF_MAX];
-static int ref_nxnon_kept = 0;
-
-
-typedef struct recomb_pair_key_t {
-  unsigned int lo;
-  unsigned int hi;
-} recomb_pair_key_t;
-
-
 static int recomb_referent_on(void)
 {
   static int cached = -1;
@@ -956,8 +964,7 @@ static void recomb_referent_free(void)
  * the composer's first acceptance, because the classes are rare and the composer
  * stops early: sampling one join per host would give a handful of crossings, which
  * is the small-sample problem this probe exists to escape.
- */
-/**
+ *
  * Best threshold on `pos` against `neg`, by Youden's J. Rates are within-class, so
  * they stay readable under the 50:1 imbalance between the two classes here; raw
  * precision would report a couple of percent for a signal that ranks perfectly.
@@ -1038,7 +1045,10 @@ static void recomb_pair_observe(unsigned int a, unsigned int b)
   else {
     const long fresh = 1;
     if (NULL != libxs_registry_set(recomb_pair, &key, sizeof(key), &fresh,
-      sizeof(fresh), NULL)) ++recomb_pair_nkeys;
+      sizeof(fresh), NULL))
+    {
+      ++recomb_pair_nkeys;
+    }
   }
   ++recomb_pair_total;
 }
@@ -1046,13 +1056,17 @@ static void recomb_pair_observe(unsigned int a, unsigned int b)
 
 static long recomb_pair_count(unsigned int a, unsigned int b)
 {
+  long result;
   recomb_pair_key_t key;
   const long* count;
-  if (a == b || 0 == a || 0 == b) return 0;
-  key.lo = (a < b) ? a : b;
-  key.hi = (a < b) ? b : a;
-  count = (const long*)libxs_registry_get(recomb_pair, &key, sizeof(key), NULL);
-  return (NULL != count) ? *count : 0;
+  if (a == b || 0 == a || 0 == b) result = 0;
+  else {
+    key.lo = (a < b) ? a : b;
+    key.hi = (a < b) ? b : a;
+    count = (const long*)libxs_registry_get(recomb_pair, &key, sizeof(key), NULL);
+    result = (NULL != count) ? *count : 0;
+  }
+  return result;
 }
 
 
@@ -1106,7 +1120,10 @@ static int recomb_referent_build(const libxs_registry_t* corpus,
             fresh.source[0] = entry->source;
             fresh.count = 1;
             if (NULL != libxs_registry_set(recomb_cast, &id, sizeof(id),
-              &fresh, sizeof(fresh), NULL)) ++recomb_cast_nkeys;
+              &fresh, sizeof(fresh), NULL))
+            {
+              ++recomb_cast_nkeys;
+            }
           }
           else {
             int seen = 0, s;
@@ -1174,18 +1191,20 @@ static int recomb_referent_label(const corpus_entry_t* a,
   const corpus_entry_t* b, const recomb_word_t bwords[], int nbwords, int bi)
 {
   int result = -1;
-  if (NULL == recomb_cast) return -1;
-  if (0 != a->source && a->source == b->source) result = 0;
-  else if (0 != a->source && 0 != b->source) {
-    int host_cast = 0, donor_cast = 0;
-    int at;
-    for (at = 0; at <= ai && at < nawords; ++at) {
-      if (0 != recomb_is_cast(awords[at].id, a->source)) host_cast = 1;
+  if (NULL == recomb_cast) result = -1;
+  else {
+    if (0 != a->source && a->source == b->source) result = 0;
+    else if (0 != a->source && 0 != b->source) {
+      int host_cast = 0, donor_cast = 0;
+      int at;
+      for (at = 0; at <= ai && at < nawords; ++at) {
+        if (0 != recomb_is_cast(awords[at].id, a->source)) host_cast = 1;
+      }
+      for (at = bi + 1; at < nbwords; ++at) {
+        if (0 != recomb_is_cast(bwords[at].id, b->source)) donor_cast = 1;
+      }
+      if (0 != host_cast && 0 != donor_cast) result = 1;
     }
-    for (at = bi + 1; at < nbwords; ++at) {
-      if (0 != recomb_is_cast(bwords[at].id, b->source)) donor_cast = 1;
-    }
-    if (0 != host_cast && 0 != donor_cast) result = 1;
   }
   return result;
 }
@@ -1217,38 +1236,39 @@ static double recomb_referent_pmi(const recomb_word_t awords[], int nawords,
   double result = 0.0;
   int found = 0;
   int ah, dh;
-  if (NULL == recomb_pair || 0 >= recomb_nsentences) return 0.0;
-  for (ah = 0; ah <= ai && ah < nawords; ++ah) {
-    const unsigned int ida = awords[ah].id;
-    const recomb_referent_t* ra;
-    if (0 == ida || ida == pivot) continue;
-    if (0 != (awords[ah].flags & LIBXS_LEXEME_STOP)) continue;
-    ra = (const recomb_referent_t*)libxs_registry_get(recomb_cast, &ida,
-      sizeof(ida), NULL);
-    if (NULL == ra || 0 >= ra->count) continue;
-    for (dh = bi + 1; dh < nbwords; ++dh) {
-      const unsigned int idb = bwords[dh].id;
-      const recomb_referent_t* rb;
-      if (0 == idb || idb == pivot || idb == ida) continue;
-      if (0 != (bwords[dh].flags & LIBXS_LEXEME_STOP)) continue;
-      rb = (const recomb_referent_t*)libxs_registry_get(recomb_cast, &idb,
-        sizeof(idb), NULL);
-      if (NULL == rb || 0 >= rb->count) continue;
-      { /**
-         * Unseen pairs are floored at half an observation rather than dropped.
-         * Dropping them would silently exclude the strongest evidence a crossing
-         * can offer (two terms the corpus never once pairs), and an exact zero
-         * has no logarithm.
-         */
-        const double joint = (double)recomb_pair_count(ida, idb);
-        const double base = (double)recomb_nsentences;
-        const double pj = ((0.0 < joint) ? joint : 0.5) / base;
-        const double pa = (double)ra->count / base;
-        const double pb = (double)rb->count / base;
-        if (0.0 < pa && 0.0 < pb && 0.0 < pj) {
-          const double pmi = log(pj / (pa * pb)) / log(2.0);
-          if (0 == found || pmi < result) result = pmi;
-          found = 1;
+  if (NULL != recomb_pair && 0 < recomb_nsentences) {
+    for (ah = 0; ah <= ai && ah < nawords; ++ah) {
+      const unsigned int ida = awords[ah].id;
+      const recomb_referent_t* ra;
+      if (0 == ida || ida == pivot) continue;
+      if (0 != (awords[ah].flags & LIBXS_LEXEME_STOP)) continue;
+      ra = (const recomb_referent_t*)libxs_registry_get(recomb_cast, &ida,
+        sizeof(ida), NULL);
+      if (NULL == ra || 0 >= ra->count) continue;
+      for (dh = bi + 1; dh < nbwords; ++dh) {
+        const unsigned int idb = bwords[dh].id;
+        const recomb_referent_t* rb;
+        if (0 == idb || idb == pivot || idb == ida) continue;
+        if (0 != (bwords[dh].flags & LIBXS_LEXEME_STOP)) continue;
+        rb = (const recomb_referent_t*)libxs_registry_get(recomb_cast, &idb,
+          sizeof(idb), NULL);
+        if (NULL == rb || 0 >= rb->count) continue;
+        { /**
+           * Unseen pairs are floored at half an observation rather than dropped.
+           * Dropping them would silently exclude the strongest evidence a crossing
+           * can offer (two terms the corpus never once pairs), and an exact zero
+           * has no logarithm.
+           */
+          const double joint = (double)recomb_pair_count(ida, idb);
+          const double base = (double)recomb_nsentences;
+          const double pj = ((0.0 < joint) ? joint : 0.5) / base;
+          const double pa = (double)ra->count / base;
+          const double pb = (double)rb->count / base;
+          if (0.0 < pa && 0.0 < pb && 0.0 < pj) {
+            const double pmi = log(pj / (pa * pb)) / log(2.0);
+            if (0 == found || pmi < result) result = pmi;
+            found = 1;
+          }
         }
       }
     }
@@ -1329,78 +1349,80 @@ static int recomb_signals(recomb_signal_t* sig, libxs_lexicon_t* lexicon,
 {
   int result = EXIT_FAILURE;
   double bits = 0.0;
-  if (NULL == sig) return EXIT_FAILURE;
-  memset(sig, 0, sizeof(*sig));
-  if (EXIT_SUCCESS == recomb_host->seam_bits(text, seam,
-    text + seam, len - seam, window, &bits))
-  {
-    const int nprefix = ai + 1;
-    const int nsuffix = nbwords - bi - 1;
-    const unsigned int shared = (unsigned int)(a->lexical_flags
-      & b->lexical_flags);
-    const unsigned int either = (unsigned int)(a->lexical_flags
-      | b->lexical_flags);
-    int nshared = 0, neither = 0, bit;
-    for (bit = 0; bit < 16; ++bit) {
-      if (0 != (shared & (1u << bit))) ++nshared;
-      if (0 != (either & (1u << bit))) ++neither;
-    }
-    sig->seam_bits = bits;
-    sig->overlap = recomb_overlap(a, b, awords[ai].id);
-    sig->gram = recomb_seam_penalty(lexicon, awords, nawords, ai, bwords,
-      nbwords, bi);
-    sig->balance = (0 < nprefix + nsuffix)
-      ? 1.0 - fabs((double)(nprefix - nsuffix)) / (double)(nprefix + nsuffix)
-      : 0.0;
-    sig->flag_agree = (0 < neither) ? (double)nshared / (double)neither : 1.0;
-    /**
-     * Junction anomaly, and the one signal here that needs no labels.
-     *
-     * libxs_fprint_join merges two finalized fingerprints from their accumulators
-     * and explicitly does NOT recompute derivatives at the junction, so it predicts
-     * what the composite would look like if the seam were unremarkable. Comparing
-     * that prediction against the composite's actual fingerprint therefore isolates
-     * exactly what the merge omits: the discontinuity the splice introduced. Unlike
-     * the seam byte score it is computed over the whole sentence rather than a
-     * four-byte window, so it does not inherit that window's tie problem.
-     */
-    { libxs_fprint_t fa, fb, predicted, actual;
-      const size_t na = (size_t)seam;
-      const size_t nb = (size_t)(len - seam);
-      const size_t nall = (size_t)len;
-      if (0 < na && 0 < nb
-        && EXIT_SUCCESS == libxs_fprint(&fa, LIBXS_DATATYPE_U8, text, 1, &na,
-          NULL, FPRINT_ORDER, 0, 0, 0)
-        && EXIT_SUCCESS == libxs_fprint(&fb, LIBXS_DATATYPE_U8, text + seam, 1,
-          &nb, NULL, FPRINT_ORDER, 0, 0, 0)
-        && EXIT_SUCCESS == libxs_fprint(&actual, LIBXS_DATATYPE_U8, text, 1,
-          &nall, NULL, FPRINT_ORDER, 0, 0, 0)
-        && EXIT_SUCCESS == libxs_fprint_join(&predicted, &fa, &fb))
-      {
-        /**
-         * Normalized by the actual fingerprint's own magnitude. The raw distance
-         * scales with the data, so it correlated 0.799 with sentence length and was
-         * measuring size rather than the junction. The ratio asks what FRACTION of
-         * the composite's own scale the merge failed to predict, which is the
-         * length-free question.
-         */
-        const double scale = libxs_fprint_diff(&actual, &fa, NULL)
-          + libxs_fprint_diff(&actual, &fb, NULL);
-        const double raw = libxs_fprint_diff(&predicted, &actual, NULL);
-        sig->fpjoin = (1e-30 < scale) ? raw / scale : 0.0;
+  if (NULL == sig) result = EXIT_FAILURE;
+  else {
+    memset(sig, 0, sizeof(*sig));
+    if (EXIT_SUCCESS == recomb_host->seam_bits(text, seam,
+      text + seam, len - seam, window, &bits))
+    {
+      const int nprefix = ai + 1;
+      const int nsuffix = nbwords - bi - 1;
+      const unsigned int shared = (unsigned int)(a->lexical_flags
+        & b->lexical_flags);
+      const unsigned int either = (unsigned int)(a->lexical_flags
+        | b->lexical_flags);
+      int nshared = 0, neither = 0, bit;
+      for (bit = 0; bit < 16; ++bit) {
+        if (0 != (shared & (1u << bit))) ++nshared;
+        if (0 != (either & (1u << bit))) ++neither;
       }
+      sig->seam_bits = bits;
+      sig->overlap = recomb_overlap(a, b, awords[ai].id);
+      sig->gram = recomb_seam_penalty(lexicon, awords, nawords, ai, bwords,
+        nbwords, bi);
+      sig->balance = (0 < nprefix + nsuffix)
+        ? 1.0 - fabs((double)(nprefix - nsuffix)) / (double)(nprefix + nsuffix)
+        : 0.0;
+      sig->flag_agree = (0 < neither) ? (double)nshared / (double)neither : 1.0;
+      /**
+       * Junction anomaly, and the one signal here that needs no labels.
+       *
+       * libxs_fprint_join merges two finalized fingerprints from their accumulators
+       * and explicitly does NOT recompute derivatives at the junction, so it predicts
+       * what the composite would look like if the seam were unremarkable. Comparing
+       * that prediction against the composite's actual fingerprint therefore isolates
+       * exactly what the merge omits: the discontinuity the splice introduced. Unlike
+       * the seam byte score it is computed over the whole sentence rather than a
+       * four-byte window, so it does not inherit that window's tie problem.
+       */
+      { libxs_fprint_t fa, fb, predicted, actual;
+        const size_t na = (size_t)seam;
+        const size_t nb = (size_t)(len - seam);
+        const size_t nall = (size_t)len;
+        if (0 < na && 0 < nb
+          && EXIT_SUCCESS == libxs_fprint(&fa, LIBXS_DATATYPE_U8, text, 1, &na,
+            NULL, FPRINT_ORDER, 0, 0, 0)
+          && EXIT_SUCCESS == libxs_fprint(&fb, LIBXS_DATATYPE_U8, text + seam, 1,
+            &nb, NULL, FPRINT_ORDER, 0, 0, 0)
+          && EXIT_SUCCESS == libxs_fprint(&actual, LIBXS_DATATYPE_U8, text, 1,
+            &nall, NULL, FPRINT_ORDER, 0, 0, 0)
+          && EXIT_SUCCESS == libxs_fprint_join(&predicted, &fa, &fb))
+        {
+          /**
+           * Normalized by the actual fingerprint's own magnitude. The raw distance
+           * scales with the data, so it correlated 0.799 with sentence length and was
+           * measuring size rather than the junction. The ratio asks what FRACTION of
+           * the composite's own scale the merge failed to predict, which is the
+           * length-free question.
+           */
+          const double scale = libxs_fprint_diff(&actual, &fa, NULL)
+            + libxs_fprint_diff(&actual, &fb, NULL);
+          const double raw = libxs_fprint_diff(&predicted, &actual, NULL);
+          sig->fpjoin = (1e-30 < scale) ? raw / scale : 0.0;
+        }
+      }
+      sig->pivot_host_pos = ai;
+      sig->pivot_donor_pos = bi;
+      sig->nwords = nprefix + nsuffix;
+      sig->truncated = (suffix_end < b->text_len) ? 1 : 0;
+      sig->cross_source = (0 != a->source && a->source != b->source) ? 1 : 0;
+      sig->ends_sentence = recomb_host->ends_sentence(text, len);
+      sig->pmi = recomb_referent_pmi(awords, nawords, ai, bwords, nbwords, bi,
+        awords[ai].id);
+      sig->crossing = recomb_referent_label(a, awords, nawords, ai, b, bwords,
+        nbwords, bi);
+      result = EXIT_SUCCESS;
     }
-    sig->pivot_host_pos = ai;
-    sig->pivot_donor_pos = bi;
-    sig->nwords = nprefix + nsuffix;
-    sig->truncated = (suffix_end < b->text_len) ? 1 : 0;
-    sig->cross_source = (0 != a->source && a->source != b->source) ? 1 : 0;
-    sig->ends_sentence = recomb_host->ends_sentence(text, len);
-    sig->pmi = recomb_referent_pmi(awords, nawords, ai, bwords, nbwords, bi,
-      awords[ai].id);
-    sig->crossing = recomb_referent_label(a, awords, nawords, ai, b, bwords,
-      nbwords, bi);
-    result = EXIT_SUCCESS;
   }
   return result;
 }
@@ -1570,103 +1592,112 @@ static long recomb_capacity(const libxs_registry_t* corpus,
         nends = recomb_suffix_ends(b->text, b->text_len, bwords[bi].end, ends,
           (ntrunc < nmax) ? ntrunc : nmax);
         for (ei = 0; ei < nends; ++ei) {
-        const int suffix_end = ends[ei];
-        int len;
-        len = recomb_splice(a->text, a->text_len, awords[at].end,
-          b->text, suffix_end, bwords[bi].end, candidate, sizeof(candidate));
-        if (0 != len) {
-          const int minovl = recomb_min_overlap();
-          const double gramtol = recomb_grammar_tol();
-          int ok = 1;
-          /**
-           * Duplicate candidates are discarded FIRST, because the output is
-           * determined by (prefix, suffix) and many donors share a suffix: on the
-           * folk tales one text was reached 26 times, and half of all candidates
-           * were repeats of another. Testing identity before the gates means a
-           * repeat costs a hash lookup rather than a corpus scan, and it makes the
-           * counted total the number of distinct sentences rather than the number
-           * of ways to reach one. The duplicate share is corpus-dependent (53% on
-           * folk tales against 37% on multi-author prose), so it measures how much
-           * the corpus repeats itself, not a property of composition.
-           */
-          if (0 == recomb_seen_add(seen, candidate, len)) ok = -1;
-          else if (0 != recomb_balance_on()
-            && (0 == recomb_balanced(candidate, len)
-              || 0 == recomb_host->ends_sentence(candidate, len))) ok = 0;
-          else if (0 < minovl && 100.0 * recomb_overlap(a, b,
-            pivot) < (double)minovl) ok = 0;
-          else if (0.0 < gramtol && recomb_seam_penalty(lexicon, awords,
-            nawords, at, bwords, nbwords, bi) > gramtol) ok = 0;
-          else if (0 != recomb_is_verbatim(corpus, candidate, len)) ok = 0;
-          if (0 < ok) {
-            ++result;
-            pivot_used = 1;
-            ++ndistinct;
+          const int suffix_end = ends[ei];
+          int len;
+          len = recomb_splice(a->text, a->text_len, awords[at].end,
+            b->text, suffix_end, bwords[bi].end, candidate, sizeof(candidate));
+          if (0 != len) {
+            const int minovl = recomb_min_overlap();
+            const double gramtol = recomb_grammar_tol();
+            int ok = 1;
             /**
-             * Depth 2: treat the accepted join as a host and compose again. The
-             * question is not only how large the reachable set becomes but whether
-             * a second hop is coherent at all - the syntax gate compares the seam
-             * against the span it displaced in the host, and once the host is
-             * itself composite that baseline is no longer corpus text.
+             * Duplicate candidates are discarded FIRST, because the output is
+             * determined by (prefix, suffix) and many donors share a suffix: on the
+             * folk tales one text was reached 26 times, and half of all candidates
+             * were repeats of another. Testing identity before the gates means a
+             * repeat costs a hash lookup rather than a corpus scan, and it makes the
+             * counted total the number of distinct sentences rather than the number
+             * of ways to reach one. The duplicate share is corpus-dependent (53% on
+             * folk tales against 37% on multi-author prose), so it measures how much
+             * the corpus repeats itself, not a property of composition.
              */
-            if (1 < depth && NULL != out_hop2) {
-              /**
-               * The composite is the host of the second hop, so it needs its own
-               * entry: overlap and the seam penalty are both computed against the
-               * host, and passing the original sentence would score the wrong text.
-               * Only the fields those two gates read are needed.
-               */
-              corpus_entry_t host2;
-              recomb_word_t cwords[COMPOSE_MAXTEXT / 2];
-              int ncwords, nsub_pivots = 0, sub_capped = 0;
-              if (EXIT_SUCCESS == recomb_host->entry_build(&host2,
-                (const unsigned char*)candidate, len, SCALE_SENTENCE, lexicon,
-                rules, nrules, 0))
-              {
-                ncwords = recomb_words(lexicon, host2.text, host2.text_len,
-                  cwords, (int)(sizeof(cwords) / sizeof(*cwords)));
-                *out_hop2 += recomb_capacity(corpus, lexicon, rules, nrules,
-                  &host2, cwords, ncwords, &nsub_pivots, &sub_capped,
-                  out_hop2_distinct, seen2, 1, NULL, NULL, NULL);
-              }
+            if (0 == recomb_seen_add(seen, candidate, len)) ok = -1;
+            else if (0 != recomb_balance_on()
+              && (0 == recomb_balanced(candidate, len)
+                || 0 == recomb_host->ends_sentence(candidate, len)))
+            {
+              ok = 0;
             }
-            if (0 != rank_probe || 0 != recomb_referent_on()) {
-              recomb_signal_t sig;
-              const int seam = awords[at].end;
-              if (EXIT_SUCCESS == recomb_signals(&sig, lexicon, a, awords,
-                nawords, at, b, bwords, nbwords, bi, candidate, len, seam,
-                suffix_end, window))
-              {
-                if (0 != rank_probe) recomb_signal_print(&sig, candidate, len, 1);
-                if (0 != recomb_referent_on()) recomb_referent_record(&sig);
+            else if (0 < minovl && 100.0 * recomb_overlap(a, b,
+              pivot) < (double)minovl)
+            {
+              ok = 0;
+            }
+            else if (0.0 < gramtol && recomb_seam_penalty(lexicon, awords,
+              nawords, at, bwords, nbwords, bi) > gramtol)
+            {
+              ok = 0;
+            }
+            else if (0 != recomb_is_verbatim(corpus, candidate, len)) ok = 0;
+            if (0 < ok) {
+              ++result;
+              pivot_used = 1;
+              ++ndistinct;
+              /**
+               * Depth 2: treat the accepted join as a host and compose again. The
+               * question is not only how large the reachable set becomes but whether
+               * a second hop is coherent at all - the syntax gate compares the seam
+               * against the span it displaced in the host, and once the host is
+               * itself composite that baseline is no longer corpus text.
+               */
+              if (1 < depth && NULL != out_hop2) {
+                /**
+                 * The composite is the host of the second hop, so it needs its own
+                 * entry: overlap and the seam penalty are both computed against the
+                 * host, and passing the original sentence would score the wrong text.
+                 * Only the fields those two gates read are needed.
+                 */
+                corpus_entry_t host2;
+                recomb_word_t cwords[COMPOSE_MAXTEXT / 2];
+                int ncwords, nsub_pivots = 0, sub_capped = 0;
+                if (EXIT_SUCCESS == recomb_host->entry_build(&host2,
+                  (const unsigned char*)candidate, len, SCALE_SENTENCE, lexicon,
+                  rules, nrules, 0))
+                {
+                  ncwords = recomb_words(lexicon, host2.text, host2.text_len,
+                    cwords, (int)(sizeof(cwords) / sizeof(*cwords)));
+                  *out_hop2 += recomb_capacity(corpus, lexicon, rules, nrules,
+                    &host2, cwords, ncwords, &nsub_pivots, &sub_capped,
+                    out_hop2_distinct, seen2, 1, NULL, NULL, NULL);
+                }
               }
-              /* One floor example per accepted join keeps the classes balanced. */
-              if (0 != floor_probe) {
-                char fl[COMPOSE_MAXTEXT];
-                const corpus_entry_t* fdonor = NULL;
-                const int flen = recomb_floor_join(corpus, a, awords[at].end,
-                  (long)at, &fdonor, fl, sizeof(fl));
-                if (0 != flen && NULL != fdonor) {
-                  recomb_word_t fwords[COMPOSE_MAXTEXT / 2];
-                  const int nfwords = recomb_words(lexicon, fdonor->text,
-                    fdonor->text_len, fwords,
-                    (int)(sizeof(fwords) / sizeof(*fwords)));
-                  recomb_signal_t fsig;
-                  int fbi = 0, fw;
-                  for (fw = 1; fw < nfwords - 1; ++fw) {
-                    if (fwords[fw].end >= fdonor->text_len / 2) { fbi = fw; break; }
-                  }
-                  if (0 < fbi && EXIT_SUCCESS == recomb_signals(&fsig, lexicon,
-                    a, awords, nawords, at, fdonor, fwords, nfwords, fbi, fl,
-                    flen, seam, fdonor->text_len, window))
-                  {
-                    recomb_signal_print(&fsig, fl, flen, 0);
+              if (0 != rank_probe || 0 != recomb_referent_on()) {
+                recomb_signal_t sig;
+                const int seam = awords[at].end;
+                if (EXIT_SUCCESS == recomb_signals(&sig, lexicon, a, awords,
+                  nawords, at, b, bwords, nbwords, bi, candidate, len, seam,
+                  suffix_end, window))
+                {
+                  if (0 != rank_probe) recomb_signal_print(&sig, candidate, len, 1);
+                  if (0 != recomb_referent_on()) recomb_referent_record(&sig);
+                }
+                /* One floor example per accepted join keeps the classes balanced. */
+                if (0 != floor_probe) {
+                  char fl[COMPOSE_MAXTEXT];
+                  const corpus_entry_t* fdonor = NULL;
+                  const int flen = recomb_floor_join(corpus, a, awords[at].end,
+                    (long)at, &fdonor, fl, sizeof(fl));
+                  if (0 != flen && NULL != fdonor) {
+                    recomb_word_t fwords[COMPOSE_MAXTEXT / 2];
+                    const int nfwords = recomb_words(lexicon, fdonor->text,
+                      fdonor->text_len, fwords,
+                      (int)(sizeof(fwords) / sizeof(*fwords)));
+                    recomb_signal_t fsig;
+                    int fbi = 0, fw;
+                    for (fw = 1; fw < nfwords - 1; ++fw) {
+                      if (fwords[fw].end >= fdonor->text_len / 2) { fbi = fw; break; }
+                    }
+                    if (0 < fbi && EXIT_SUCCESS == recomb_signals(&fsig, lexicon,
+                      a, awords, nawords, at, fdonor, fwords, nfwords, fbi, fl,
+                      flen, seam, fdonor->text_len, window))
+                    {
+                      recomb_signal_print(&fsig, fl, flen, 0);
+                    }
                   }
                 }
               }
             }
           }
-        }
         }
       }
     }
@@ -1738,11 +1769,20 @@ static int recomb_compose(const libxs_registry_t* corpus,
           int ok = 1;
           if (0 != recomb_balance_on()
             && (0 == recomb_balanced(candidate, len)
-              || 0 == recomb_host->ends_sentence(candidate, len))) ok = 0;
+              || 0 == recomb_host->ends_sentence(candidate, len)))
+          {
+            ok = 0;
+          }
           else if (0 < minovl && 100.0 * recomb_overlap(a, b,
-            pivot) < (double)minovl) ok = 0;
+            pivot) < (double)minovl)
+          {
+            ok = 0;
+          }
           else if (0.0 < gramtol && recomb_seam_penalty(lexicon, awords,
-            nawords, at, bwords, nbwords, bi) > gramtol) ok = 0;
+            nawords, at, bwords, nbwords, bi) > gramtol)
+          {
+            ok = 0;
+          }
           else if (0 != recomb_is_verbatim(corpus, candidate, len)) ok = 0;
           if (0 != ok && (long)len <= (long)out_size) {
             best_ordinal = ordinal;
@@ -1810,257 +1850,260 @@ void converse_recomb_probe_run(const libxs_registry_t* corpus,
   recomb_host = host;
   if (EXIT_SUCCESS != recomb_index_build(corpus, lexicon)) {
     fprintf(stderr, "recomb: pivot index could not be built\n");
-    return;
-  }
-  if (0 != recomb_nopredicate_on()
-    && EXIT_SUCCESS != recomb_predicate_build(corpus, lexicon))
-  {
-    fprintf(stderr, "recomb: predicate store could not be built\n");
-    recomb_index_free();
-    return;
-  }
-  if (0 != recomb_referent_on()
-    && EXIT_SUCCESS != recomb_referent_build(corpus, lexicon))
-  {
-    fprintf(stderr, "recomb: referent stores could not be built\n");
-    recomb_index_free();
-    return;
-  }
-  value = corpus_iterx_begin(corpus, &key, &cursor);
-  while (NULL != value && nmade < limit) {
-    const corpus_entry_t* a = corpus_entry_view(value);
-    if (SCALE_SENTENCE == a->scale && a->text_len > 0) {
-      recomb_word_t awords[COMPOSE_MAXTEXT / 2];
-      const int nawords = recomb_words(lexicon, a->text, a->text_len, awords,
-        (int)(sizeof(awords) / sizeof(*awords)));
-      char out[COMPOSE_MAXTEXT];
-      int pivot_id = 0;
-      const corpus_entry_t* donor = NULL;
-      double penalty = 0.0;
-      int len;
-      ++ntried;
-      if (0 != capacity_on) {
-        int npivots = 0, capped = 0;
-        long ncap;
-        /**
-         * The distinct-text set is per host: two hosts producing the same sentence
-         * are two reachable ways to say it, whereas one host reaching it twice is
-         * one candidate counted twice.
-         */
-        if (EXIT_SUCCESS == recomb_seen_reset(&cap_seen)
-          && (1 >= cap_depth || EXIT_SUCCESS == recomb_seen_reset(&cap_seen2)))
-        {
-          ncap = recomb_capacity(corpus, lexicon, rules, nrules, a, awords,
-            nawords, &npivots, &capped, &cap_distinct, cap_seen, cap_depth,
-            (1 < cap_depth) ? &cap_hop2 : NULL,
-            (1 < cap_depth) ? &cap_hop2_distinct : NULL, cap_seen2);
-          ++cap_hosts;
-          cap_total += ncap;
-          cap_pivots += npivots;
-          if (0 != capped) ++cap_capped;
+  } else {
+    if (0 != recomb_nopredicate_on()
+      && EXIT_SUCCESS != recomb_predicate_build(corpus, lexicon))
+    {
+      fprintf(stderr, "recomb: predicate store could not be built\n");
+      recomb_index_free();
+    } else {
+      if (0 != recomb_referent_on()
+        && EXIT_SUCCESS != recomb_referent_build(corpus, lexicon))
+      {
+        fprintf(stderr, "recomb: referent stores could not be built\n");
+        recomb_index_free();
+      } else {
+        value = corpus_iterx_begin(corpus, &key, &cursor);
+        while (NULL != value && nmade < limit) {
+          const corpus_entry_t* a = corpus_entry_view(value);
+          if (SCALE_SENTENCE == a->scale && a->text_len > 0) {
+            recomb_word_t awords[COMPOSE_MAXTEXT / 2];
+            const int nawords = recomb_words(lexicon, a->text, a->text_len, awords,
+              (int)(sizeof(awords) / sizeof(*awords)));
+            char out[COMPOSE_MAXTEXT];
+            int pivot_id = 0;
+            const corpus_entry_t* donor = NULL;
+            double penalty = 0.0;
+            int len;
+            ++ntried;
+            if (0 != capacity_on) {
+              int npivots = 0, capped = 0;
+              long ncap;
+              /**
+               * The distinct-text set is per host: two hosts producing the same sentence
+               * are two reachable ways to say it, whereas one host reaching it twice is
+               * one candidate counted twice.
+               */
+              if (EXIT_SUCCESS == recomb_seen_reset(&cap_seen)
+                && (1 >= cap_depth || EXIT_SUCCESS == recomb_seen_reset(&cap_seen2)))
+              {
+                ncap = recomb_capacity(corpus, lexicon, rules, nrules, a, awords,
+                  nawords, &npivots, &capped, &cap_distinct, cap_seen, cap_depth,
+                  (1 < cap_depth) ? &cap_hop2 : NULL,
+                  (1 < cap_depth) ? &cap_hop2_distinct : NULL, cap_seen2);
+                ++cap_hosts;
+                cap_total += ncap;
+                cap_pivots += npivots;
+                if (0 != capped) ++cap_capped;
+              }
+            }
+            len = recomb_compose(corpus, lexicon, a, awords, nawords, index + 1,
+              out, sizeof(out), &pivot_id, &donor, &penalty);
+            if (0 < len) {
+              double bits = 0.0;
+              int seam = 0, have_bits = 0;
+              int wi;
+              for (wi = 1; wi < nawords; ++wi) {
+                if ((int)awords[wi].id == pivot_id) seam = awords[wi].end;
+              }
+              /**
+               * With a judge present this is exactly the historical condition, so the
+               * figures stay bit-identical. Without one the candidate still COUNTS -
+               * folding the accounting into the diagnostic's success is how a run
+               * reports made=0 and reads as "no result" when it means "no instrument".
+               */
+              have_bits = (0 < seam && seam < len && recomb_have_judge()
+                && EXIT_SUCCESS == recomb_host->seam_bits(out,
+                  seam, out + seam, len - seam, window, &bits)) ? 1 : 0;
+              if (0 < seam && seam < len
+                && (0 != have_bits || 0 == recomb_have_judge()))
+              {
+                const double overlap = (NULL != donor)
+                  ? recomb_overlap(a, donor, (unsigned int)pivot_id) : 0.0;
+                /**
+                 * Same source is a stronger claim than same section, and on the
+                 * documentation the two disagree: "Usage" and "Example" head many
+                 * different pages, so equal section text does not mean one document.
+                 * A cross-source join is the one that combines two sources about one
+                 * subject - the interesting case - so it is reported separately
+                 * rather than folded into the section count.
+                 */
+                const int same_src = (NULL != donor && 0 != a->source
+                  && a->source == donor->source) ? 1 : 0;
+                const int same = (NULL != donor && 0 < a->section_len
+                  && a->section_len == donor->section_len
+                  && 0 == memcmp(a->section, donor->section,
+                    (size_t)a->section_len)) ? 1 : 0;
+                ++nmade;
+                if (0 != have_bits) {
+                  ++nbits;
+                  sum_pivot += bits;
+                }
+                sum_overlap += overlap;
+                sum_penalty += penalty;
+                if (0 != same) ++nsection;
+                if (0 != same_src) ++nsource;
+                if (overlap <= 0.0) ++noverlap0;
+                if (0 != verbose) {
+                  fprintf(stderr, "  recomb[%s%.3f bpc ovl=%.2f gram%+.2f %s%s] %.*s\n",
+                    (0 != have_bits) ? "" : "no-judge ", bits, overlap, penalty,
+                    (0 != same) ? "same-section" : "CROSS-SECTION",
+                    (NULL != donor && 0 != a->source)
+                      ? ((0 != same_src) ? " same-source" : " CROSS-SOURCE") : "",
+                    len, out);
+                }
+              }
+              /* Ceiling: the same offset inside a real corpus sentence. */
+              if (0 < seam && seam < a->text_len && recomb_have_judge()
+                && EXIT_SUCCESS == recomb_host->seam_bits(
+                  a->text, seam, a->text + seam, a->text_len - seam, window, &bits))
+              {
+                ++nceiling;
+                sum_ceiling += bits;
+              }
+              /* Floor: same prefix, but a suffix taken with no shared pivot. */
+              if (0 < seam && nawords > 2 && recomb_have_judge()) {
+                const corpus_entry_t* b = NULL;
+                const void* fkey = NULL;
+                size_t fcursor = 0;
+                long fi = 0;
+                void* fval = corpus_iterx_begin(corpus, &fkey, &fcursor);
+                while (NULL != fval && NULL == b) {
+                  const corpus_entry_t* cand = corpus_entry_view(fval);
+                  if (fi++ > index + 7 && SCALE_SENTENCE == cand->scale
+                    && cand->text_len > seam + 8)
+                  {
+                    b = cand;
+                  }
+                  fval = corpus_iterx_next(corpus, &fkey, &fcursor);
+                }
+                if (NULL != b && EXIT_SUCCESS == recomb_host->seam_bits(
+                  out, seam, b->text + seam / 2,
+                  b->text_len - seam / 2, window, &bits))
+                {
+                  ++nfloor;
+                  sum_floor += bits;
+                }
+              }
+            }
+          }
+          ++index;
+          value = corpus_iterx_next(corpus, &key, &cursor);
         }
-      }
-      len = recomb_compose(corpus, lexicon, a, awords, nawords, index + 1,
-        out, sizeof(out), &pivot_id, &donor, &penalty);
-      if (0 < len) {
-        double bits = 0.0;
-        int seam = 0, have_bits = 0;
-        int wi;
-        for (wi = 1; wi < nawords; ++wi) {
-          if ((int)awords[wi].id == pivot_id) seam = awords[wi].end;
-        }
+        fprintf(stdout, "recomb[window=%d]: made=%ld of %ld tried"
+          " | seam bpc: pivot=%.3f ceiling=%.3f floor=%.3f\n",
+          window, nmade, ntried,
+          (0 < nbits) ? sum_pivot / (double)nbits : 0.0,
+          (0 < nceiling) ? sum_ceiling / (double)nceiling : 0.0,
+          (0 < nfloor) ? sum_floor / (double)nfloor : 0.0);
         /**
-         * With a judge present this is exactly the historical condition, so the
-         * figures stay bit-identical. Without one the candidate still COUNTS -
-         * folding the accounting into the diagnostic's success is how a run
-         * reports made=0 and reads as "no result" when it means "no instrument".
+         * Coherence, reported separately because it is a different claim from fluency
+         * and the two can disagree: same-section says the halves come from one tale,
+         * overlap says they share content words beyond the pivot. A high fluency score
+         * with low coherence is the failure mode this measures - a well-formed
+         * sentence about two unrelated things.
          */
-        have_bits = (0 < seam && seam < len && recomb_have_judge()
-          && EXIT_SUCCESS == recomb_host->seam_bits(out,
-            seam, out + seam, len - seam, window, &bits)) ? 1 : 0;
-        if (0 < seam && seam < len
-          && (0 != have_bits || 0 == recomb_have_judge()))
-        {
-          const double overlap = (NULL != donor)
-            ? recomb_overlap(a, donor, (unsigned int)pivot_id) : 0.0;
+        fprintf(stdout, "  coherence: same-section=%.1f%% same-source=%.1f%%"
+          " mean-overlap=%.2f pivot-only=%.1f%%\n",
+          (0 < nmade) ? 100.0 * (double)nsection / (double)nmade : 0.0,
+          (0 < nmade) ? 100.0 * (double)nsource / (double)nmade : 0.0,
+          (0 < nmade) ? sum_overlap / (double)nmade : 0.0,
+          (0 < nmade) ? 100.0 * (double)noverlap0 / (double)nmade : 0.0);
+        fprintf(stdout, "  seam grammar: mean word-bits penalty=%+.3f (tol=%.2f)\n",
+          (0 < nmade) ? sum_penalty / (double)nmade : 0.0, recomb_grammar_tol());
+        /**
+         * Truncated postings are reported rather than silently capped: a pivot whose
+         * donor list was cut looks exactly like a pivot with few donors, and a bound on
+         * coverage that is not printed reads as full coverage.
+         */
+        fprintf(stdout, "  pivot index: keys=%ld postings=%ld\n",
+          recomb_index_nkeys, recomb_index_nposts);
+        if (0 != capacity_on) {
+          fprintf(stdout, "  capacity: hosts=%ld joins/host=%.1f distinct/host=%.1f"
+            " pivots/host=%.2f capped-hosts=%ld (capmax=%d)\n", cap_hosts,
+            (0 < cap_hosts) ? (double)cap_total / (double)cap_hosts : 0.0,
+            (0 < cap_hosts) ? (double)cap_distinct / (double)cap_hosts : 0.0,
+            (0 < cap_hosts) ? (double)cap_pivots / (double)cap_hosts : 0.0,
+            cap_capped, recomb_capacity_max());
+          if (1 < cap_depth) {
+            fprintf(stdout, "  capacity depth2: joins/host=%.1f distinct/host=%.1f"
+              " (depth1 distinct=%.1f)\n",
+              (0 < cap_hosts) ? (double)cap_hop2 / (double)cap_hosts : 0.0,
+              (0 < cap_hosts) ? (double)cap_hop2_distinct / (double)cap_hosts : 0.0,
+              (0 < cap_hosts) ? (double)cap_distinct / (double)cap_hosts : 0.0);
+          }
+        }
+        if (0 != recomb_referent_on()) {
           /**
-           * Same source is a stronger claim than same section, and on the
-           * documentation the two disagree: "Usage" and "Example" head many
-           * different pages, so equal section text does not mean one document.
-           * A cross-source join is the one that combines two sources about one
-           * subject - the interesting case - so it is reported separately
-           * rather than folded into the section count.
+           * The separation, and the baseline it has to beat. Class means alone would
+           * overstate the case, so the overlap is reported too: a signal whose classes
+           * differ in mean but interleave cannot gate anything. `xsrc` is printed
+           * because it is the oracle already in the vector - if PMI does not separate
+           * better than "reject every cross-source join", it has bought nothing.
            */
-          const int same_src = (NULL != donor && 0 != a->source
-            && a->source == donor->source) ? 1 : 0;
-          const int same = (NULL != donor && 0 < a->section_len
-            && a->section_len == donor->section_len
-            && 0 == memcmp(a->section, donor->section,
-              (size_t)a->section_len)) ? 1 : 0;
-          ++nmade;
-          if (0 != have_bits) {
-            ++nbits;
-            sum_pivot += bits;
+          fprintf(stdout, "  referent: cast-keys=%ld pair-keys=%ld pairs=%ld"
+            " | labelled same=%ld crossing=%ld unlabelled=%ld\n",
+            recomb_cast_nkeys, recomb_pair_nkeys, recomb_pair_total,
+            ref_nsame, ref_ncross, ref_nunlabelled);
+          if (0 < ref_nsame && 0 < ref_ncross) {
+            const double same_mean = ref_pmi_same / (double)ref_nsame;
+            const double cross_mean = ref_pmi_cross / (double)ref_ncross;
+            /**
+             * SEPARATION, not a distance between the classes.
+             *
+             * libxs_setdiff_min was the obvious instrument and is the wrong one here: it
+             * counts elements that cannot be paired, so with 4617 same against 88
+             * crossings it reports the class-size gap (4529) no matter how the values
+             * fall. That number looks like a strong negative result and is arithmetic.
+             *
+             * What a gate would actually do is threshold, so that is what is measured:
+             * sweep the crossing values as candidate cutoffs and keep the best AUC-style
+             * trade-off. Both rates are expressed WITHIN their own class, which is what
+             * makes them readable under a 50:1 imbalance - raw precision cannot be, and
+             * would report 2% for a signal that ranks perfectly.
+             */
+            double cut = 0.0, tpr = 0.0, fpr = 0.0;
+            const double youden = recomb_referent_sweep(ref_cross, ref_ncross_kept,
+              ref_same, ref_nsame_kept, &cut, &tpr, &fpr);
+            fprintf(stdout, "  referent pmi: same=%+.3f crossing=%+.3f"
+              " (crossing-same=%+.3f) | n=%d/%d%s\n",
+              same_mean, cross_mean, cross_mean - same_mean,
+              ref_nsame_kept, ref_ncross_kept,
+              (0 != ref_capped) ? " CAPPED" : "");
+            fprintf(stdout, "  referent vs same-source: cut=%+.2f bits catches"
+              " %.1f%% of crossings at %.1f%% cost (youden=%+.3f) CIRCULAR\n",
+              cut, 100.0 * tpr, 100.0 * fpr, youden);
+            if (0 < ref_nxnon_kept) {
+              /**
+               * The test that counts. Both classes are cross-source, so cross_source is
+               * constant and cannot contribute; whatever separation remains is the
+               * referent signal's own.
+               */
+              const double yj = recomb_referent_sweep(ref_cross, ref_ncross_kept,
+                ref_xnon, ref_nxnon_kept, &cut, &tpr, &fpr);
+              fprintf(stdout, "  referent within cross-source: cut=%+.2f bits catches"
+                " %.1f%% of crossings at %.1f%% cost (youden=%+.3f) n=%d/%d\n",
+                cut, 100.0 * tpr, 100.0 * fpr, yj, ref_nxnon_kept, ref_ncross_kept);
+            }
+            fprintf(stdout, "  referent baseline xsrc: crossings %ld of %ld"
+              " cross-source joins (precision %.1f%%), recall %ld of %ld\n",
+              ref_xsrc_cross, ref_xsrc, (0 < ref_xsrc)
+                ? 100.0 * (double)ref_xsrc_cross / (double)ref_xsrc : 0.0,
+              ref_xsrc_cross, ref_ncross);
           }
-          sum_overlap += overlap;
-          sum_penalty += penalty;
-          if (0 != same) ++nsection;
-          if (0 != same_src) ++nsource;
-          if (overlap <= 0.0) ++noverlap0;
-          if (0 != verbose) {
-            fprintf(stderr, "  recomb[%s%.3f bpc ovl=%.2f gram%+.2f %s%s] %.*s\n",
-              (0 != have_bits) ? "" : "no-judge ", bits, overlap, penalty,
-              (0 != same) ? "same-section" : "CROSS-SECTION",
-              (NULL != donor && 0 != a->source)
-                ? ((0 != same_src) ? " same-source" : " CROSS-SOURCE") : "",
-              len, out);
+          else {
+            fprintf(stdout, "  referent: one class empty, no separation measurable"
+              " (needs a multi-source corpus with disjoint casts)\n");
           }
         }
-        /* Ceiling: the same offset inside a real corpus sentence. */
-        if (0 < seam && seam < a->text_len && recomb_have_judge()
-          && EXIT_SUCCESS == recomb_host->seam_bits(
-            a->text, seam, a->text + seam, a->text_len - seam, window, &bits))
-        {
-          ++nceiling;
-          sum_ceiling += bits;
-        }
-        /* Floor: same prefix, but a suffix taken with no shared pivot. */
-        if (0 < seam && nawords > 2 && recomb_have_judge()) {
-          const corpus_entry_t* b = NULL;
-          const void* fkey = NULL;
-          size_t fcursor = 0;
-          long fi = 0;
-          void* fval = corpus_iterx_begin(corpus, &fkey, &fcursor);
-          while (NULL != fval && NULL == b) {
-            const corpus_entry_t* cand = corpus_entry_view(fval);
-            if (fi++ > index + 7 && SCALE_SENTENCE == cand->scale
-              && cand->text_len > seam + 8) b = cand;
-            fval = corpus_iterx_next(corpus, &fkey, &fcursor);
-          }
-          if (NULL != b && EXIT_SUCCESS == recomb_host->seam_bits(
-            out, seam, b->text + seam / 2,
-            b->text_len - seam / 2, window, &bits))
-          {
-            ++nfloor;
-            sum_floor += bits;
-          }
-        }
+        if (NULL != cap_seen) libxs_registry_destroy(cap_seen);
+        if (NULL != cap_seen2) libxs_registry_destroy(cap_seen2);
+        recomb_referent_free();
+        recomb_predicate_free();
+        recomb_index_free();
       }
     }
-    ++index;
-    value = corpus_iterx_next(corpus, &key, &cursor);
   }
-  fprintf(stdout, "recomb[window=%d]: made=%ld of %ld tried"
-    " | seam bpc: pivot=%.3f ceiling=%.3f floor=%.3f\n",
-    window, nmade, ntried,
-    (0 < nbits) ? sum_pivot / (double)nbits : 0.0,
-    (0 < nceiling) ? sum_ceiling / (double)nceiling : 0.0,
-    (0 < nfloor) ? sum_floor / (double)nfloor : 0.0);
-  /**
-   * Coherence, reported separately because it is a different claim from fluency
-   * and the two can disagree: same-section says the halves come from one tale,
-   * overlap says they share content words beyond the pivot. A high fluency score
-   * with low coherence is the failure mode this measures - a well-formed
-   * sentence about two unrelated things.
-   */
-  fprintf(stdout, "  coherence: same-section=%.1f%% same-source=%.1f%%"
-    " mean-overlap=%.2f pivot-only=%.1f%%\n",
-    (0 < nmade) ? 100.0 * (double)nsection / (double)nmade : 0.0,
-    (0 < nmade) ? 100.0 * (double)nsource / (double)nmade : 0.0,
-    (0 < nmade) ? sum_overlap / (double)nmade : 0.0,
-    (0 < nmade) ? 100.0 * (double)noverlap0 / (double)nmade : 0.0);
-  fprintf(stdout, "  seam grammar: mean word-bits penalty=%+.3f (tol=%.2f)\n",
-    (0 < nmade) ? sum_penalty / (double)nmade : 0.0, recomb_grammar_tol());
-  /**
-   * Truncated postings are reported rather than silently capped: a pivot whose
-   * donor list was cut looks exactly like a pivot with few donors, and a bound on
-   * coverage that is not printed reads as full coverage.
-   */
-  fprintf(stdout, "  pivot index: keys=%ld postings=%ld\n",
-    recomb_index_nkeys, recomb_index_nposts);
-  if (0 != capacity_on) {
-    fprintf(stdout, "  capacity: hosts=%ld joins/host=%.1f distinct/host=%.1f"
-      " pivots/host=%.2f capped-hosts=%ld (capmax=%d)\n", cap_hosts,
-      (0 < cap_hosts) ? (double)cap_total / (double)cap_hosts : 0.0,
-      (0 < cap_hosts) ? (double)cap_distinct / (double)cap_hosts : 0.0,
-      (0 < cap_hosts) ? (double)cap_pivots / (double)cap_hosts : 0.0,
-      cap_capped, recomb_capacity_max());
-    if (1 < cap_depth) {
-      fprintf(stdout, "  capacity depth2: joins/host=%.1f distinct/host=%.1f"
-        " (depth1 distinct=%.1f)\n",
-        (0 < cap_hosts) ? (double)cap_hop2 / (double)cap_hosts : 0.0,
-        (0 < cap_hosts) ? (double)cap_hop2_distinct / (double)cap_hosts : 0.0,
-        (0 < cap_hosts) ? (double)cap_distinct / (double)cap_hosts : 0.0);
-    }
-  }
-  if (0 != recomb_referent_on()) {
-    /**
-     * The separation, and the baseline it has to beat. Class means alone would
-     * overstate the case, so the overlap is reported too: a signal whose classes
-     * differ in mean but interleave cannot gate anything. `xsrc` is printed
-     * because it is the oracle already in the vector - if PMI does not separate
-     * better than "reject every cross-source join", it has bought nothing.
-     */
-    fprintf(stdout, "  referent: cast-keys=%ld pair-keys=%ld pairs=%ld"
-      " | labelled same=%ld crossing=%ld unlabelled=%ld\n",
-      recomb_cast_nkeys, recomb_pair_nkeys, recomb_pair_total,
-      ref_nsame, ref_ncross, ref_nunlabelled);
-    if (0 < ref_nsame && 0 < ref_ncross) {
-      const double same_mean = ref_pmi_same / (double)ref_nsame;
-      const double cross_mean = ref_pmi_cross / (double)ref_ncross;
-      /**
-       * SEPARATION, not a distance between the classes.
-       *
-       * libxs_setdiff_min was the obvious instrument and is the wrong one here: it
-       * counts elements that cannot be paired, so with 4617 same against 88
-       * crossings it reports the class-size gap (4529) no matter how the values
-       * fall. That number looks like a strong negative result and is arithmetic.
-       *
-       * What a gate would actually do is threshold, so that is what is measured:
-       * sweep the crossing values as candidate cutoffs and keep the best AUC-style
-       * trade-off. Both rates are expressed WITHIN their own class, which is what
-       * makes them readable under a 50:1 imbalance - raw precision cannot be, and
-       * would report 2% for a signal that ranks perfectly.
-       */
-      double cut = 0.0, tpr = 0.0, fpr = 0.0;
-      const double youden = recomb_referent_sweep(ref_cross, ref_ncross_kept,
-        ref_same, ref_nsame_kept, &cut, &tpr, &fpr);
-      fprintf(stdout, "  referent pmi: same=%+.3f crossing=%+.3f"
-        " (crossing-same=%+.3f) | n=%d/%d%s\n",
-        same_mean, cross_mean, cross_mean - same_mean,
-        ref_nsame_kept, ref_ncross_kept,
-        (0 != ref_capped) ? " CAPPED" : "");
-      fprintf(stdout, "  referent vs same-source: cut=%+.2f bits catches"
-        " %.1f%% of crossings at %.1f%% cost (youden=%+.3f) CIRCULAR\n",
-        cut, 100.0 * tpr, 100.0 * fpr, youden);
-      if (0 < ref_nxnon_kept) {
-        /**
-         * The test that counts. Both classes are cross-source, so cross_source is
-         * constant and cannot contribute; whatever separation remains is the
-         * referent signal's own.
-         */
-        const double yj = recomb_referent_sweep(ref_cross, ref_ncross_kept,
-          ref_xnon, ref_nxnon_kept, &cut, &tpr, &fpr);
-        fprintf(stdout, "  referent within cross-source: cut=%+.2f bits catches"
-          " %.1f%% of crossings at %.1f%% cost (youden=%+.3f) n=%d/%d\n",
-          cut, 100.0 * tpr, 100.0 * fpr, yj, ref_nxnon_kept, ref_ncross_kept);
-      }
-      fprintf(stdout, "  referent baseline xsrc: crossings %ld of %ld"
-        " cross-source joins (precision %.1f%%), recall %ld of %ld\n",
-        ref_xsrc_cross, ref_xsrc, (0 < ref_xsrc)
-          ? 100.0 * (double)ref_xsrc_cross / (double)ref_xsrc : 0.0,
-        ref_xsrc_cross, ref_ncross);
-    }
-    else {
-      fprintf(stdout, "  referent: one class empty, no separation measurable"
-        " (needs a multi-source corpus with disjoint casts)\n");
-    }
-  }
-  if (NULL != cap_seen) libxs_registry_destroy(cap_seen);
-  if (NULL != cap_seen2) libxs_registry_destroy(cap_seen2);
-  recomb_referent_free();
-  recomb_predicate_free();
-  recomb_index_free();
 }
 
 
@@ -2093,8 +2136,7 @@ void converse_recomb_close(void)
  * Axes are ordered so that LOWER is better, which is why the coherence overlap is
  * negated by the caller: mixing directions here is the mistake a weighted sum
  * hides and a Pareto test exposes as a silent inversion.
- */
-/**
+ *
  * Does the donor's word sequence CONTAIN the host's, as lexeme ids?
  *
  * Compared over ids rather than bytes because the host is the retrieved answer,
@@ -2116,14 +2158,16 @@ static int recomb_contains_words(const recomb_word_t hay[], int nhay,
    * corpus sentences start with a capital, so this is the common case.
    */
   while (from < nneedle && 0 == needle[from].id) ++from;
-  if (from >= nneedle || (nneedle - from) > nhay) return 0;
-  for (at = 0; at <= nhay - (nneedle - from) && 0 == result; ++at) {
-    int k, same = 1;
-    for (k = 0; k < nneedle - from && 0 != same; ++k) {
-      if (0 == needle[from + k].id) continue;
-      if (hay[at + k].id != needle[from + k].id) same = 0;
+  if (from >= nneedle || (nneedle - from) > nhay) result = 0;
+  else {
+    for (at = 0; at <= nhay - (nneedle - from) && 0 == result; ++at) {
+      int k, same = 1;
+      for (k = 0; k < nneedle - from && 0 != same; ++k) {
+        if (0 == needle[from + k].id) continue;
+        if (hay[at + k].id != needle[from + k].id) same = 0;
+      }
+      if (0 != same) result = 1;
     }
-    if (0 != same) result = 1;
   }
   return result;
 }
@@ -2134,11 +2178,12 @@ static int recomb_dominates(const double a[], const double b[], int n)
   int result = 0;
   int strictly_better = 0;
   int at;
-  for (at = 0; at < n; ++at) {
-    if (a[at] > b[at]) return 0;
-    if (a[at] < b[at]) strictly_better = 1;
+  int dominated = 1;
+  for (at = 0; at < n && 0 != dominated; ++at) {
+    if (a[at] > b[at]) dominated = 0;
+    else if (a[at] < b[at]) strictly_better = 1;
   }
-  if (0 != strictly_better) result = 1;
+  if (0 != dominated && 0 != strictly_better) result = 1;
   return result;
 }
 
@@ -2162,119 +2207,121 @@ int converse_recomb_compose_best(const libxs_registry_t* corpus,
   if (NULL == recomb_index || NULL == recomb_host || NULL == host_text
     || 0 >= host_len)
   {
-    return 0;
-  }
-  /**
-   * The host is re-encoded rather than looked up: it is the retrieved answer text,
-   * which may not be a corpus entry at all (a fact reply is synthesized from the
-   * rules). Overlap and the seam penalty are both computed against the host entry,
-   * so scoring the wrong text here would silently misrank every candidate.
-   */
-  if (EXIT_SUCCESS != recomb_host->entry_build(&a,
-    (const unsigned char*)host_text, host_len, SCALE_SENTENCE, lexicon, rules,
-    nrules, 0))
-  {
-    return 0;
-  }
-  nawords = recomb_words(lexicon, a.text, a.text_len, awords,
-    (int)(sizeof(awords) / sizeof(*awords)));
-  for (at = 1; at < nawords - 1 && ncand < RECOMB_KEEP; ++at) {
-    const unsigned int pivot = awords[at].id;
-    const recomb_postings_t* postings;
-    int pi;
-    if (0 == pivot || 0 != (awords[at].flags & LIBXS_LEXEME_STOP)) continue;
-    if (at + 1 < RECOMB_MIN_WORDS) continue;
-    if (0 != recomb_is_predicate(pivot)) continue;
-    postings = (const recomb_postings_t*)libxs_registry_get(recomb_index,
-      &pivot, sizeof(pivot), NULL);
-    if (NULL == postings) continue;
-    for (pi = 0; pi < postings->n && ncand < RECOMB_KEEP; ++pi) {
-      const corpus_entry_t* b = postings->at[pi].entry;
-      recomb_word_t bwords[COMPOSE_MAXTEXT / 2];
-      char candidate[COMPOSE_MAXTEXT];
-      int nbwords, bi;
-      /**
-       * The host cannot donate to itself, and equality is not a strong enough
-       * test. The host here is the retrieved ANSWER, which for a fact reply is a
-       * rewritten prefix of the sentence it came from - so a donor that CONTAINS
-       * the host produces a splice that merely restores the original text. That
-       * happened and was reported as a successful composition: the two halves
-       * rejoined one corpus sentence which the source file had split across two
-       * lines, and `recomb_is_verbatim` could not catch it because the rejoined
-       * text (without the line break) occurs nowhere.
-       */
-      if (NULL == b) continue;
-      nbwords = recomb_words(lexicon, b->text, b->text_len, bwords,
-        (int)(sizeof(bwords) / sizeof(*bwords)));
-      if (0 != recomb_contains_words(bwords, nbwords, awords, nawords)) continue;
-      for (bi = 1; bi < nbwords - 1 && ncand < RECOMB_KEEP; ++bi) {
-        int len;
-        if (pivot != bwords[bi].id) continue;
-        if (nbwords - bi - 1 < RECOMB_MIN_WORDS) continue;
-        len = recomb_splice(a.text, a.text_len, awords[at].end,
-          b->text, b->text_len, bwords[bi].end, candidate, sizeof(candidate));
-        if (0 != len && (size_t)len < out_size) {
-          recomb_signal_t sig;
-          const int seam = awords[at].end;
-          if (EXIT_SUCCESS != recomb_signals(&sig, lexicon, &a, awords,
-            nawords, at, b, bwords, nbwords, bi, candidate, len, seam,
-            bwords[bi].end, recomb_seam_window()))
-          {
-            continue;
-          }
+    result = 0;
+  } else {
+    /**
+     * The host is re-encoded rather than looked up: it is the retrieved answer text,
+     * which may not be a corpus entry at all (a fact reply is synthesized from the
+     * rules). Overlap and the seam penalty are both computed against the host entry,
+     * so scoring the wrong text here would silently misrank every candidate.
+     */
+    if (EXIT_SUCCESS != recomb_host->entry_build(&a,
+      (const unsigned char*)host_text, host_len, SCALE_SENTENCE, lexicon, rules,
+      nrules, 0))
+    {
+      result = 0;
+    } else {
+      nawords = recomb_words(lexicon, a.text, a.text_len, awords,
+        (int)(sizeof(awords) / sizeof(*awords)));
+      for (at = 1; at < nawords - 1 && ncand < RECOMB_KEEP; ++at) {
+        const unsigned int pivot = awords[at].id;
+        const recomb_postings_t* postings;
+        int pi;
+        if (0 == pivot || 0 != (awords[at].flags & LIBXS_LEXEME_STOP)) continue;
+        if (at + 1 < RECOMB_MIN_WORDS) continue;
+        if (0 != recomb_is_predicate(pivot)) continue;
+        postings = (const recomb_postings_t*)libxs_registry_get(recomb_index,
+          &pivot, sizeof(pivot), NULL);
+        if (NULL == postings) continue;
+        for (pi = 0; pi < postings->n && ncand < RECOMB_KEEP; ++pi) {
+          const corpus_entry_t* b = postings->at[pi].entry;
+          recomb_word_t bwords[COMPOSE_MAXTEXT / 2];
+          char candidate[COMPOSE_MAXTEXT];
+          int nbwords, bi;
           /**
-           * PREREQUISITES, not trade-offs. Measured: leaving ends-a-sentence to
-           * compete rewards prefix/suffix symmetry, so selection sought
-           * mid-sentence cuts and produced MORE dangling fragments than no
-           * selection at all. A property selection can trade away does not survive
-           * selection.
+           * The host cannot donate to itself, and equality is not a strong enough
+           * test. The host here is the retrieved ANSWER, which for a fact reply is a
+           * rewritten prefix of the sentence it came from - so a donor that CONTAINS
+           * the host produces a splice that merely restores the original text. That
+           * happened and was reported as a successful composition: the two halves
+           * rejoined one corpus sentence which the source file had split across two
+           * lines, and `recomb_is_verbatim` could not catch it because the rejoined
+           * text (without the line break) occurs nowhere.
            */
-          if (0 == sig.ends_sentence) continue;
-          if (sig.gram > recomb_grammar_tol()) continue;
-          if (0 == recomb_balanced(candidate, len)) continue;
-          if (0 != recomb_is_verbatim(corpus, candidate, len)) continue;
-          /* Trade-offs, all as lower-is-better; overlap is negated. */
-          cand_axes[ncand][0] = sig.seam_bits;
-          cand_axes[ncand][1] = -sig.overlap;
-          cand_axes[ncand][2] = sig.fpjoin;
-          memcpy(cand_text[ncand], candidate, (size_t)len);
-          cand_text[ncand][len] = '\0';
-          cand_len[ncand] = len;
-          ++ncand;
+          if (NULL == b) continue;
+          nbwords = recomb_words(lexicon, b->text, b->text_len, bwords,
+            (int)(sizeof(bwords) / sizeof(*bwords)));
+          if (0 != recomb_contains_words(bwords, nbwords, awords, nawords)) continue;
+          for (bi = 1; bi < nbwords - 1 && ncand < RECOMB_KEEP; ++bi) {
+            int len;
+            if (pivot != bwords[bi].id) continue;
+            if (nbwords - bi - 1 < RECOMB_MIN_WORDS) continue;
+            len = recomb_splice(a.text, a.text_len, awords[at].end,
+              b->text, b->text_len, bwords[bi].end, candidate, sizeof(candidate));
+            if (0 != len && (size_t)len < out_size) {
+              recomb_signal_t sig;
+              const int seam = awords[at].end;
+              if (EXIT_SUCCESS != recomb_signals(&sig, lexicon, &a, awords,
+                nawords, at, b, bwords, nbwords, bi, candidate, len, seam,
+                bwords[bi].end, recomb_seam_window()))
+              {
+                continue;
+              }
+              /**
+               * PREREQUISITES, not trade-offs. Measured: leaving ends-a-sentence to
+               * compete rewards prefix/suffix symmetry, so selection sought
+               * mid-sentence cuts and produced MORE dangling fragments than no
+               * selection at all. A property selection can trade away does not survive
+               * selection.
+               */
+              if (0 == sig.ends_sentence) continue;
+              if (sig.gram > recomb_grammar_tol()) continue;
+              if (0 == recomb_balanced(candidate, len)) continue;
+              if (0 != recomb_is_verbatim(corpus, candidate, len)) continue;
+              /* Trade-offs, all as lower-is-better; overlap is negated. */
+              cand_axes[ncand][0] = sig.seam_bits;
+              cand_axes[ncand][1] = -sig.overlap;
+              cand_axes[ncand][2] = sig.fpjoin;
+              memcpy(cand_text[ncand], candidate, (size_t)len);
+              cand_text[ncand][len] = '\0';
+              cand_len[ncand] = len;
+              ++ncand;
+            }
+          }
         }
       }
-    }
-  }
-  if (0 < ncand) {
-    int best = -1;
-    int i, j;
-    for (i = 0; i < ncand; ++i) {
-      int dominated = 0;
-      for (j = 0; j < ncand && 0 == dominated; ++j) {
-        if (i != j && 0 != recomb_dominates(cand_axes[j], cand_axes[i],
-          RECOMB_AXES))
-        {
-          dominated = 1;
+      if (0 < ncand) {
+        int best = -1;
+        int i, j;
+        for (i = 0; i < ncand; ++i) {
+          int dominated = 0;
+          for (j = 0; j < ncand && 0 == dominated; ++j) {
+            if (i != j && 0 != recomb_dominates(cand_axes[j], cand_axes[i],
+              RECOMB_AXES))
+            {
+              dominated = 1;
+            }
+          }
+          if (0 == dominated) {
+            ++nfront;
+            /**
+             * Within the front the objective is indifferent by construction, so the
+             * pick cannot be justified by the objective. Taking the first keeps it
+             * deterministic and corpus-ordered; the front size is reported so the
+             * caller can say that a choice was arbitrary rather than imply it was not.
+             */
+            if (best < 0) best = i;
+          }
+        }
+        if (0 <= best) {
+          memcpy(out, cand_text[best], (size_t)cand_len[best]);
+          out[cand_len[best]] = '\0';
+          result = cand_len[best];
         }
       }
-      if (0 == dominated) {
-        ++nfront;
-        /**
-         * Within the front the objective is indifferent by construction, so the
-         * pick cannot be justified by the objective. Taking the first keeps it
-         * deterministic and corpus-ordered; the front size is reported so the
-         * caller can say that a choice was arbitrary rather than imply it was not.
-         */
-        if (best < 0) best = i;
-      }
-    }
-    if (0 <= best) {
-      memcpy(out, cand_text[best], (size_t)cand_len[best]);
-      out[cand_len[best]] = '\0';
-      result = cand_len[best];
+      if (NULL != out_nfront) *out_nfront = nfront;
+      if (NULL != out_ncand) *out_ncand = ncand;
     }
   }
-  if (NULL != out_nfront) *out_nfront = nfront;
-  if (NULL != out_ncand) *out_ncand = ncand;
   return result;
 }

@@ -10,10 +10,3 @@
 # samples/converse is a live sample with its own to-do list; the three rules the
 # "structure-anywhere" hook applies tree-wide are deferred there rather than
 # scrubbed under someone else's work in progress.
-closer-nesting      1  samples/converse/converse_recomb.c
-stacked-comments    8  samples/converse/converse.c
-stacked-comments    1  samples/converse/converse.h
-stacked-comments    2  samples/converse/converse_hier.c
-stacked-comments    5  samples/converse/converse_lm.c
-stacked-comments   12  samples/converse/converse_qa.c
-stacked-comments    6  samples/converse/converse_recomb.c

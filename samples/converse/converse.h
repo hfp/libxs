@@ -1,3 +1,12 @@
+/******************************************************************************
+* Copyright (c) 2009-2026 Hans Pabst                                          *
+* Copyright (c) 2009-2026 Intel Corporation                                   *
+* This file is part of the LIBXS library.                                     *
+*                                                                             *
+* For information on the license, see the LICENSE file.                       *
+* Further information: https://github.com/hfp/libxs/                          *
+* SPDX-License-Identifier: BSD-3-Clause                                       *
+******************************************************************************/
 #ifndef CONVERSE_H
 #define CONVERSE_H
 
@@ -99,8 +108,7 @@ enum { SCALE_PHRASE = 0, SCALE_SENTENCE = 1, SCALE_PARAGRAPH = 2 };
  * offset, so readers are unaffected. The registry stores variable-size values
  * and readers already consult libxs_registry_value_size, which is why the
  * section helpers take an entry_size.
- */
-/**
+ *
  * The stored projection of a fingerprint. libxs_fprint_t is 624 B because its
  * eight arrays are sized to LIBXS_FPRINT_MAXORDER (8) and three of them are
  * streaming accumulators used only while building. Converse needs exactly four

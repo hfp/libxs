@@ -1,3 +1,12 @@
+/******************************************************************************
+* Copyright (c) 2009-2026 Hans Pabst                                          *
+* Copyright (c) 2009-2026 Intel Corporation                                   *
+* This file is part of the LIBXS library.                                     *
+*                                                                             *
+* For information on the license, see the LICENSE file.                       *
+* Further information: https://github.com/hfp/libxs/                          *
+* SPDX-License-Identifier: BSD-3-Clause                                       *
+******************************************************************************/
 #include <libxs/libxs.h>
 #include <libxs/libxs_token.h>
 #include <libxs/libxs_ngram.h>
@@ -186,8 +195,7 @@ static void hier_ppm_dist(const hier_ppm_t* model,
  * normalized; D is the usual choice on text because it charges a novel symbol
  * half a count instead of a whole one. Exclusion is unaffected: the escaped mass
  * is still redistributed over symbols unseen at this order via backoff_norm.
- */
-/**
+ *
  * Logarithmic (logit-domain) pooling of the expert distributions instead of the
  * linear pool. A linear pool cannot be more confident than its most confident
  * expert; a logarithmic pool compounds independent agreement, which is what the
@@ -424,37 +432,39 @@ static double hier_ppm_prob_order(const hier_ppm_t* model,
   int order)
 {
   double result;
-  if (order <= 0) return hier_ppm_unigram(model, next);
-  { hier_ppm_key_t key;
-    hier_ppm_pair_t pair;
-    const hier_ppm_stats_t* stats;
-    const unsigned int* count;
-    const double lower = hier_ppm_prob_order(model, history, history_length,
-      next, order - 1);
-    hier_ppm_key(&key, history, history_length, order);
-    pair.key = key;
-    pair.next = next;
-    stats = (const hier_ppm_stats_t*)libxs_registry_get(model->contexts,
-      &key, sizeof(key), NULL);
-    count = (const unsigned int*)libxs_registry_get(model->pairs,
-      &pair, sizeof(pair), NULL);
-    if (NULL != stats && stats->total > 0) {
-      const int method_d = hier_ppm_escape_d();
-      const double denom = (0 != method_d)
-        ? (2.0 * (double)stats->total)
-        : ((double)stats->total + (double)stats->distinct);
-      if (NULL != count) {
-        result = (0 != method_d)
-          ? ((2.0 * (double)*count - 1.0) / denom)
-          : ((double)*count / denom);
-      }
-      else if (stats->backoff_norm > 0.0) {
-        result = ((double)stats->distinct / denom)
-          * lower / stats->backoff_norm;
+  if (order <= 0) result = hier_ppm_unigram(model, next);
+  else {
+    { hier_ppm_key_t key;
+      hier_ppm_pair_t pair;
+      const hier_ppm_stats_t* stats;
+      const unsigned int* count;
+      const double lower = hier_ppm_prob_order(model, history, history_length,
+        next, order - 1);
+      hier_ppm_key(&key, history, history_length, order);
+      pair.key = key;
+      pair.next = next;
+      stats = (const hier_ppm_stats_t*)libxs_registry_get(model->contexts,
+        &key, sizeof(key), NULL);
+      count = (const unsigned int*)libxs_registry_get(model->pairs,
+        &pair, sizeof(pair), NULL);
+      if (NULL != stats && stats->total > 0) {
+        const int method_d = hier_ppm_escape_d();
+        const double denom = (0 != method_d)
+          ? (2.0 * (double)stats->total)
+          : ((double)stats->total + (double)stats->distinct);
+        if (NULL != count) {
+          result = (0 != method_d)
+            ? ((2.0 * (double)*count - 1.0) / denom)
+            : ((double)*count / denom);
+        }
+        else if (stats->backoff_norm > 0.0) {
+          result = ((double)stats->distinct / denom)
+            * lower / stats->backoff_norm;
+        }
+        else result = lower;
       }
       else result = lower;
     }
-    else result = lower;
   }
   return result;
 }
@@ -501,11 +511,15 @@ static void hier_ppm_finalize(hier_ppm_t* model)
 static double hier_ppm_prob(const hier_ppm_t* model,
   const unsigned int history[], int history_length, unsigned int next)
 {
+  double result;
   int order;
-  if (NULL == model || NULL == history || next < 1 || next > 256) return 0.0;
-  order = model->maxorder;
-  if (order > history_length) order = history_length;
-  return hier_ppm_prob_order(model, history, history_length, next, order);
+  if (NULL == model || NULL == history || next < 1 || next > 256) result = 0.0;
+  else {
+    order = model->maxorder;
+    if (order > history_length) order = history_length;
+    result = hier_ppm_prob_order(model, history, history_length, next, order);
+  }
+  return result;
 }
 
 
@@ -515,27 +529,29 @@ static double hier_ppm_interp_prob_order(const hier_ppm_t* model,
 {
   double result;
   int order;
-  if (NULL == model || NULL == history || next < 1 || next > 256) return 0.0;
-  result = hier_ppm_unigram(model, next);
-  if (maxorder > model->maxorder) maxorder = model->maxorder;
-  for (order = 1; order <= maxorder && order <= history_length;
-    ++order)
-  {
-    hier_ppm_key_t key;
-    hier_ppm_pair_t pair;
-    const hier_ppm_stats_t* stats;
-    const unsigned int* count;
-    hier_ppm_key(&key, history, history_length, order);
-    pair.key = key;
-    pair.next = next;
-    stats = (const hier_ppm_stats_t*)libxs_registry_get(model->contexts,
-      &key, sizeof(key), NULL);
-    count = (const unsigned int*)libxs_registry_get(model->pairs,
-      &pair, sizeof(pair), NULL);
-    if (NULL != stats && stats->total > 0) {
-      const double denom = (double)stats->total + (double)stats->distinct;
-      const double observed = (NULL != count) ? (double)*count : 0.0;
-      result = observed / denom + (double)stats->distinct / denom * result;
+  if (NULL == model || NULL == history || next < 1 || next > 256) result = 0.0;
+  else {
+    result = hier_ppm_unigram(model, next);
+    if (maxorder > model->maxorder) maxorder = model->maxorder;
+    for (order = 1; order <= maxorder && order <= history_length;
+      ++order)
+    {
+      hier_ppm_key_t key;
+      hier_ppm_pair_t pair;
+      const hier_ppm_stats_t* stats;
+      const unsigned int* count;
+      hier_ppm_key(&key, history, history_length, order);
+      pair.key = key;
+      pair.next = next;
+      stats = (const hier_ppm_stats_t*)libxs_registry_get(model->contexts,
+        &key, sizeof(key), NULL);
+      count = (const unsigned int*)libxs_registry_get(model->pairs,
+        &pair, sizeof(pair), NULL);
+      if (NULL != stats && stats->total > 0) {
+        const double denom = (double)stats->total + (double)stats->distinct;
+        const double observed = (NULL != count) ? (double)*count : 0.0;
+        result = observed / denom + (double)stats->distinct / denom * result;
+      }
     }
   }
   return result;
@@ -1950,8 +1966,7 @@ int converse_hier_rescore(const converse_hier_t* model,
  * continuations of one fixed context, which is the question a language model is
  * actually built to answer, so its own preference is the signal. Returns -1 when
  * no candidate could be scored.
- */
-/**
+ *
  * Conditional code length of the first score_length bytes of suffix[] given
  * prefix[] as history (0 = whole suffix), in bits per scored byte.
  *

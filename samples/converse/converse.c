@@ -1,3 +1,12 @@
+/******************************************************************************
+* Copyright (c) 2009-2026 Hans Pabst                                          *
+* Copyright (c) 2009-2026 Intel Corporation                                   *
+* This file is part of the LIBXS library.                                     *
+*                                                                             *
+* For information on the license, see the LICENSE file.                       *
+* Further information: https://github.com/hfp/libxs/                          *
+* SPDX-License-Identifier: BSD-3-Clause                                       *
+******************************************************************************/
 #include <libxs/libxs_predict.h>
 #include <libxs/libxs_token.h>
 #include <libxs/libxs_ngram.h>
@@ -288,42 +297,6 @@ static libxs_lexicon_t* corpus_view_lexicon = NULL;
 static const libxs_lexrule_t* corpus_view_rules = NULL;
 static int corpus_view_nrules = 0;
 static long corpus_view_count = 0;
-/**
- * Whether to store clause fragments cut from a long PARAGRAPH. They are 99.7% of
- * all fragments and 71% of all entries, and unlike the fragments of an over-long
- * SENTENCE their bytes are already covered by the paragraph entry - so the
- * question of whether they earn their metadata is answerable by measurement.
- */
-/**
- * Verify at ingest that a window REBUILDS to the entry it replaces, byte for byte.
- *
- * The claim a derived pool rests on is that materialization is a pure function of
- * the parent bytes, so this compares the two at the one moment both exist. Off by
- * default because it doubles the tokenizer work of ingest; it is the instrument that
- * settles whether a moved figure is a materialization bug or something else.
- */
-static int corpus_span_check(void)
-{
-  static int cached = -1;
-  if (cached < 0) {
-    const char* env = getenv("CONVERSE_SPAN_CHECK");
-    cached = (NULL != env && '\0' != *env) ? atoi(env) : 0;
-    if (cached < 0) cached = 0;
-  }
-  return cached;
-}
-
-
-static int corpus_fragments_para(void)
-{
-  static int cached = -1;
-  if (cached < 0) {
-    const char* env = getenv("CONVERSE_FRAGMENTS");
-    cached = (NULL != env && '\0' != *env) ? atoi(env) : 1;
-  }
-  return cached;
-}
-
 
 /**
  * The installed judge and the model it opened. Held here rather than in either
@@ -334,7 +307,6 @@ static int corpus_fragments_para(void)
  */
 static const converse_judge_t* converse_judge_vtable = NULL;
 static void* converse_judge_opened = NULL;
-
 
 static void corpus_fixup(void* value, const void* key,
   size_t key_size, size_t value_size, void* udata);
@@ -490,6 +462,43 @@ static int corpus_ingest_markdown(libxs_registry_t* corpus,
   libxs_lexicon_t* lexicon, const libxs_lexrule_t* rules, int nrules);
 static int corpus_ingest_file(libxs_registry_t* corpus, const char* path,
   libxs_lexicon_t* lexicon, const libxs_lexrule_t* rules, int nrules);
+
+
+/**
+ * Verify at ingest that a window REBUILDS to the entry it replaces, byte for byte.
+ *
+ * The claim a derived pool rests on is that materialization is a pure function of
+ * the parent bytes, so this compares the two at the one moment both exist. Off by
+ * default because it doubles the tokenizer work of ingest; it is the instrument that
+ * settles whether a moved figure is a materialization bug or something else.
+ */
+static int corpus_span_check(void)
+{
+  static int cached = -1;
+  if (cached < 0) {
+    const char* env = getenv("CONVERSE_SPAN_CHECK");
+    cached = (NULL != env && '\0' != *env) ? atoi(env) : 0;
+    if (cached < 0) cached = 0;
+  }
+  return cached;
+}
+
+
+/**
+ * Whether to store clause fragments cut from a long PARAGRAPH. They are 99.7% of
+ * all fragments and 71% of all entries, and unlike the fragments of an over-long
+ * SENTENCE their bytes are already covered by the paragraph entry - so the
+ * question of whether they earn their metadata is answerable by measurement.
+ */
+static int corpus_fragments_para(void)
+{
+  static int cached = -1;
+  if (cached < 0) {
+    const char* env = getenv("CONVERSE_FRAGMENTS");
+    cached = (NULL != env && '\0' != *env) ? atoi(env) : 1;
+  }
+  return cached;
+}
 
 
 /**
@@ -831,34 +840,36 @@ static int answer_relation_rule_parse_line(char* line)
   char* fields[3];
   char* cursor;
   int field_pos;
-  if (NULL == line) return EXIT_FAILURE;
-  cursor = answer_relation_rule_trim(line);
-  for (field_pos = 0; field_pos < 3; ++field_pos) fields[field_pos] = NULL;
-  for (field_pos = 0; field_pos < 3 && NULL != cursor; ++field_pos) {
-    char* sep = strchr(cursor, '|');
-    if (NULL != sep) {
-      *sep = '\0';
-      fields[field_pos] = answer_relation_rule_trim(cursor);
-      cursor = sep + 1;
+  if (NULL == line) result = EXIT_FAILURE;
+  else {
+    cursor = answer_relation_rule_trim(line);
+    for (field_pos = 0; field_pos < 3; ++field_pos) fields[field_pos] = NULL;
+    for (field_pos = 0; field_pos < 3 && NULL != cursor; ++field_pos) {
+      char* sep = strchr(cursor, '|');
+      if (NULL != sep) {
+        *sep = '\0';
+        fields[field_pos] = answer_relation_rule_trim(cursor);
+        cursor = sep + 1;
+      }
+      else {
+        fields[field_pos] = answer_relation_rule_trim(cursor);
+        cursor = NULL;
+      }
     }
-    else {
-      fields[field_pos] = answer_relation_rule_trim(cursor);
-      cursor = NULL;
-    }
-  }
-  if (NULL != fields[0] && NULL != fields[1]) {
-    int kind = answer_relation_rule_kind(fields[0]);
-    if ((RELATION_RULE_ALIAS == kind || RELATION_RULE_NORM == kind
-      || RELATION_RULE_ASK == kind) && NULL != fields[2])
-    {
-      result = answer_relation_rule_append(kind, fields[1], fields[2],
-        RELATION_RULE_ASSERTED);
-    }
-    else if (RELATION_RULE_ALIAS != kind && RELATION_RULE_NORM != kind
-      && RELATION_RULE_ASK != kind)
-    {
-      result = answer_relation_rule_append(kind, NULL, fields[1],
-        RELATION_RULE_ASSERTED);
+    if (NULL != fields[0] && NULL != fields[1]) {
+      int kind = answer_relation_rule_kind(fields[0]);
+      if ((RELATION_RULE_ALIAS == kind || RELATION_RULE_NORM == kind
+        || RELATION_RULE_ASK == kind) && NULL != fields[2])
+      {
+        result = answer_relation_rule_append(kind, fields[1], fields[2],
+          RELATION_RULE_ASSERTED);
+      }
+      else if (RELATION_RULE_ALIAS != kind && RELATION_RULE_NORM != kind
+        && RELATION_RULE_ASK != kind)
+      {
+        result = answer_relation_rule_append(kind, NULL, fields[1],
+          RELATION_RULE_ASSERTED);
+      }
     }
   }
   return result;
@@ -869,27 +880,29 @@ static size_t answer_relation_rules_load_file(const char* path)
 {
   size_t result = 0;
   FILE* file;
-  if (NULL == path) return 0;
-  /* Appends: successive files layer (language rules, then per-corpus rules). */
-  file = fopen(path, "r");
-  if (NULL != file) {
-    char line[RELATION_LINE_MAX];
-    while (NULL != fgets(line, (int)sizeof(line), file)) {
-      size_t len = strlen(line);
-      char* begin;
-      while (len > 0 && ('\n' == line[len - 1] || '\r' == line[len - 1])) {
-        line[--len] = '\0';
+  if (NULL == path) result = 0;
+  else {
+    /* Appends: successive files layer (language rules, then per-corpus rules). */
+    file = fopen(path, "r");
+    if (NULL != file) {
+      char line[RELATION_LINE_MAX];
+      while (NULL != fgets(line, (int)sizeof(line), file)) {
+        size_t len = strlen(line);
+        char* begin;
+        while (len > 0 && ('\n' == line[len - 1] || '\r' == line[len - 1])) {
+          line[--len] = '\0';
+        }
+        begin = answer_relation_rule_trim(line);
+        if ('\0' != *begin && '#' != *begin
+          && EXIT_SUCCESS == answer_relation_rule_parse_line(begin))
+        {
+          ++result;
+        }
       }
-      begin = answer_relation_rule_trim(line);
-      if ('\0' != *begin && '#' != *begin
-        && EXIT_SUCCESS == answer_relation_rule_parse_line(begin))
-      {
-        ++result;
-      }
+      fclose(file);
     }
-    fclose(file);
+    answer_lexnorms_build();
   }
-  answer_lexnorms_build();
   return result;
 }
 
@@ -901,6 +914,7 @@ static void answer_relation_rules_report(FILE* stream)
       (unsigned long)answer_relation_rules_size);
   }
 }
+
 
 /**
  * Score named successions with the directed embedding: CONVERSE_EMB_PAIRS="a>b,c>d".
@@ -1258,8 +1272,7 @@ static size_t answer_relation_rules_learn(const libxs_registry_t* corpus,
      * whereas an interjection stands on its own - so the two positional counts
      * fail on different things, which is the whole reason for measuring both
      * before either is allowed to gate anything.
-     */
-    /**
+     *
      * WHICH sources a word occurs in, as a saturating bitmap of hashed section
      * identity rather than an exact set.
      *
@@ -1381,9 +1394,15 @@ static size_t answer_relation_rules_learn(const libxs_registry_t* corpus,
             {
               int trimmed = 0, end = token_len;
               while (end > trimmed
-                && 0 == corpus_word_byte(token, trimmed, token_len)) ++trimmed;
+                && 0 == corpus_word_byte(token, trimmed, token_len))
+              {
+                ++trimmed;
+              }
               while (end > trimmed
-                && 0 == corpus_word_byte(token, end - 1, token_len)) --end;
+                && 0 == corpus_word_byte(token, end - 1, token_len))
+              {
+                --end;
+              }
               if (end > trimmed) {
                 const unsigned int wid = corpus_word_id(lexicon,
                   token + trimmed, end - trimmed);
@@ -1478,9 +1497,10 @@ static size_t answer_relation_rules_learn(const libxs_registry_t* corpus,
         fprintf(stderr, "rule learning: %d seeds, %d source buckets of 64,"
           " accept>=%.2f speculate>=%.2f minsrc=%d minfreq=%d refine=%d\n",
           nseed, nbucket, accept, specul, minsrc, minfreq, refine);
-        /* The SEEDS are the known-good group: they are person nouns by
-         * assertion, so their head fraction is what a member looks like. */
         /**
+         * The SEEDS are the known-good group: they are person nouns by
+         * assertion, so their head fraction is what a member looks like.
+         *
          * An introducer is not simply a function word that was ever seen in
          * front of a member. Taken that way the set fills up with conjunctions,
          * which stand in front of everything, and the test it feeds then passes
@@ -1599,7 +1619,10 @@ static size_t answer_relation_rules_learn(const libxs_registry_t* corpus,
             int nnoun = 0;
             for (id = 1; id <= vocab; ++id) {
               if (freq[id] >= minfreq && nupper[id] == ncap[id]
-                && 0 != nfree[id]) ++nnoun;
+                && 0 != nfree[id])
+              {
+                ++nnoun;
+              }
             }
             fprintf(stderr, "  caps|nouns asserted: %d of the vocabulary are"
               " nouns by orthography\n", nnoun);
@@ -1729,9 +1752,10 @@ static size_t answer_relation_rules_learn(const libxs_registry_t* corpus,
             ++shown;
           }
         }
-        /* Both counts are labelled in replies: see the provenance comment in
-         * converse.h for why the accepted band is not trusted either. */
         /**
+         * Both counts are labelled in replies: see the provenance comment in
+         * converse.h for why the accepted band is not trusted either.
+         *
          * A cap that binds is REPORTED. `want` is a cap and never a target: E1
          * measured that precision at a fixed count cannot be improved, because
          * every term an exclusion removes is replaced by the next wrong one just
@@ -1770,6 +1794,7 @@ static size_t answer_relation_rules_learn(const libxs_registry_t* corpus,
   return result;
 }
 
+
 /**
  * Materialize the `norm|from|to` rules as a libxs_lexnorm_t table, which the
  * tokenizer applies during encoding. This is the library's data-only
@@ -1783,19 +1808,21 @@ static void answer_lexnorms_build(void)
   free(answer_lexnorms);
   answer_lexnorms = NULL;
   answer_lexnorms_size = 0;
-  if (0 == answer_relation_rules_size) return;
-  answer_lexnorms = (libxs_lexnorm_t*)calloc(answer_relation_rules_size,
-    sizeof(*answer_lexnorms));
-  if (NULL == answer_lexnorms) return;
-  for (rule_pos = 0; rule_pos < answer_relation_rules_size; ++rule_pos) {
-    const answer_relation_rule_t* rule = answer_relation_rules + rule_pos;
-    if (RELATION_RULE_NORM == rule->kind
-      && strlen(rule->relation) <= LIBXS_LEXEME_MAXBYTES
-      && strlen(rule->term) <= LIBXS_LEXEME_MAXBYTES)
-    {
-      strcpy(answer_lexnorms[answer_lexnorms_size].from, rule->relation);
-      strcpy(answer_lexnorms[answer_lexnorms_size].to, rule->term);
-      ++answer_lexnorms_size;
+  if (!(0 == answer_relation_rules_size)) {
+    answer_lexnorms = (libxs_lexnorm_t*)calloc(answer_relation_rules_size,
+      sizeof(*answer_lexnorms));
+    if (!(NULL == answer_lexnorms)) {
+      for (rule_pos = 0; rule_pos < answer_relation_rules_size; ++rule_pos) {
+        const answer_relation_rule_t* rule = answer_relation_rules + rule_pos;
+        if (RELATION_RULE_NORM == rule->kind
+          && strlen(rule->relation) <= LIBXS_LEXEME_MAXBYTES
+          && strlen(rule->term) <= LIBXS_LEXEME_MAXBYTES)
+        {
+          strcpy(answer_lexnorms[answer_lexnorms_size].from, rule->relation);
+          strcpy(answer_lexnorms[answer_lexnorms_size].to, rule->term);
+          ++answer_lexnorms_size;
+        }
+      }
     }
   }
 }
@@ -1805,8 +1832,9 @@ static void answer_lexnorms_build(void)
  * Whether text IS a term of this kind, as opposed to CONTAINING one. The
  * containment test is for sentences; a single token has to match whole or the
  * marker "in" would fire on "into" and on every word holding those two letters.
+ *
+ * The first declared term of a kind, or NULL: vocabulary a renderer may use.
  */
-/** The first declared term of a kind, or NULL: vocabulary a renderer may use. */
 const char* answer_relation_rule_first_term(int kind, int* term_len)
 {
   const char* result = NULL;
@@ -1925,6 +1953,7 @@ int answer_relation_rule_provenance(int kind, const char* text, int text_len)
   }
   return (RELATION_RULE_PROPOSED < result) ? RELATION_RULE_ASSERTED : result;
 }
+
 
 /**
  * Resolve the per-corpus namespace from the prefix: state and companion files
@@ -2086,18 +2115,20 @@ static int corpus_save_file(const libxs_registry_t* registry, const char* path)
 {
   int result = EXIT_FAILURE;
   size_t size = 0;
-  if (NULL == registry || NULL == path) return EXIT_FAILURE;
-  if (EXIT_SUCCESS == libxs_registry_save(registry, NULL, &size) && size > 0) {
-    void* buf = malloc(size);
-    if (NULL != buf) {
-      if (EXIT_SUCCESS == libxs_registry_save(registry, buf, &size)) {
-        FILE* f = fopen(path, "wb");
-        if (NULL != f) {
-          if (fwrite(buf, 1, size, f) == size) result = EXIT_SUCCESS;
-          fclose(f);
+  if (NULL == registry || NULL == path) result = EXIT_FAILURE;
+  else {
+    if (EXIT_SUCCESS == libxs_registry_save(registry, NULL, &size) && size > 0) {
+      void* buf = malloc(size);
+      if (NULL != buf) {
+        if (EXIT_SUCCESS == libxs_registry_save(registry, buf, &size)) {
+          FILE* f = fopen(path, "wb");
+          if (NULL != f) {
+            if (fwrite(buf, 1, size, f) == size) result = EXIT_SUCCESS;
+            fclose(f);
+          }
         }
+        free(buf);
       }
-      free(buf);
     }
   }
   return result;
@@ -2152,18 +2183,20 @@ static int converse_lexicon_save(const libxs_lexicon_t* lexicon)
 {
   int result = EXIT_FAILURE;
   size_t size = 0;
-  if (NULL == lexicon) return EXIT_FAILURE;
-  if (EXIT_SUCCESS == libxs_lexicon_save(lexicon, NULL, &size) && size > 0) {
-    void* buf = malloc(size);
-    if (NULL != buf) {
-      if (EXIT_SUCCESS == libxs_lexicon_save(lexicon, buf, &size)) {
-        FILE* file = fopen(converse_path_lexicon, "wb");
-        if (NULL != file) {
-          if (fwrite(buf, 1, size, file) == size) result = EXIT_SUCCESS;
-          fclose(file);
+  if (NULL == lexicon) result = EXIT_FAILURE;
+  else {
+    if (EXIT_SUCCESS == libxs_lexicon_save(lexicon, NULL, &size) && size > 0) {
+      void* buf = malloc(size);
+      if (NULL != buf) {
+        if (EXIT_SUCCESS == libxs_lexicon_save(lexicon, buf, &size)) {
+          FILE* file = fopen(converse_path_lexicon, "wb");
+          if (NULL != file) {
+            if (fwrite(buf, 1, size, file) == size) result = EXIT_SUCCESS;
+            fclose(file);
+          }
         }
+        free(buf);
       }
-      free(buf);
     }
   }
   return result;
@@ -2198,18 +2231,20 @@ static int converse_predict_save(const libxs_predict_t* model)
 {
   int result = EXIT_FAILURE;
   size_t size = 0;
-  if (NULL == model) return EXIT_FAILURE;
-  if (EXIT_SUCCESS == libxs_predict_save(model, NULL, &size) && size > 0) {
-    void* buf = malloc(size);
-    if (NULL != buf) {
-      if (EXIT_SUCCESS == libxs_predict_save(model, buf, &size)) {
-        FILE* file = fopen(converse_path_predict, "wb");
-        if (NULL != file) {
-          if (fwrite(buf, 1, size, file) == size) result = EXIT_SUCCESS;
-          fclose(file);
+  if (NULL == model) result = EXIT_FAILURE;
+  else {
+    if (EXIT_SUCCESS == libxs_predict_save(model, NULL, &size) && size > 0) {
+      void* buf = malloc(size);
+      if (NULL != buf) {
+        if (EXIT_SUCCESS == libxs_predict_save(model, buf, &size)) {
+          FILE* file = fopen(converse_path_predict, "wb");
+          if (NULL != file) {
+            if (fwrite(buf, 1, size, file) == size) result = EXIT_SUCCESS;
+            fclose(file);
+          }
         }
+        free(buf);
       }
-      free(buf);
     }
   }
   return result;
@@ -2271,23 +2306,25 @@ int text_ends_sentence(const char* text, int text_len)
 {
   int result = 0;
   int end = text_len;
-  if (NULL == text || text_len <= 0) return 0;
-  while (end > 0 && 0 != isspace((unsigned char)text[end - 1])) --end;
-  while (end > 0) {
-    const unsigned char* utext = (const unsigned char*)text;
-    unsigned char ch = utext[end - 1];
-    if ('"' == ch || '\'' == ch || ')' == ch || ']' == ch) --end;
-    else if (end >= 3 && 0xe2 == utext[end - 3]
-      && 0x80 == utext[end - 2]
-      && (0x99 == utext[end - 1] || 0x9d == utext[end - 1]))
-    {
-      end -= 3;
+  if (NULL == text || text_len <= 0) result = 0;
+  else {
+    while (end > 0 && 0 != isspace((unsigned char)text[end - 1])) --end;
+    while (end > 0) {
+      const unsigned char* utext = (const unsigned char*)text;
+      unsigned char ch = utext[end - 1];
+      if ('"' == ch || '\'' == ch || ')' == ch || ']' == ch) --end;
+      else if (end >= 3 && 0xe2 == utext[end - 3]
+        && 0x80 == utext[end - 2]
+        && (0x99 == utext[end - 1] || 0x9d == utext[end - 1]))
+      {
+        end -= 3;
+      }
+      else break;
     }
-    else break;
-  }
-  if (end > 0) {
-    unsigned char ch = (unsigned char)text[end - 1];
-    if ('.' == ch || '?' == ch || '!' == ch) result = 1;
+    if (end > 0) {
+      unsigned char ch = (unsigned char)text[end - 1];
+      if ('.' == ch || '?' == ch || '!' == ch) result = 1;
+    }
   }
   return result;
 }
@@ -2317,10 +2354,14 @@ int lexeme_text_is(const libxs_lexicon_t* lexicon,
   if (NULL != lexicon && NULL != lexeme && NULL != text) {
     stored = libxs_lexicon_text(lexicon, lexeme->id, &length, NULL);
     if (NULL != stored && (int)strlen(text) == length
-      && 0 == memcmp(stored, text, (size_t)length)) result = 1;
+      && 0 == memcmp(stored, text, (size_t)length))
+    {
+      result = 1;
+    }
   }
   return result;
 }
+
 
 /**
  * Destroy word order inside each sentence while keeping the multiset of words
@@ -2333,37 +2374,43 @@ int lexeme_text_is(const libxs_lexicon_t* lexicon,
  */
 static int corpus_shuffle_words(unsigned char* text, int len)
 {
+  int result;
   int begin[COMPOSE_MAXTEXT / 2], length[COMPOSE_MAXTEXT / 2];
   unsigned char copy[COMPOSE_MAXTEXT];
   int nwords = 0, pos = 0, out = 0, i;
   size_t stride;
-  if (len <= 0 || len > COMPOSE_MAXTEXT) return EXIT_FAILURE;
-  while (pos < len && nwords < (int)(sizeof(begin) / sizeof(*begin))) {
-    int wlen = 0;
-    while (pos + wlen < len && 0 == isspace(text[pos + wlen])) ++wlen;
-    if (wlen > 0) {
-      begin[nwords] = pos;
-      length[nwords] = wlen;
-      ++nwords;
+  if (len <= 0 || len > COMPOSE_MAXTEXT) result = EXIT_FAILURE;
+  else {
+    while (pos < len && nwords < (int)(sizeof(begin) / sizeof(*begin))) {
+      int wlen = 0;
+      while (pos + wlen < len && 0 == isspace(text[pos + wlen])) ++wlen;
+      if (wlen > 0) {
+        begin[nwords] = pos;
+        length[nwords] = wlen;
+        ++nwords;
+      }
+      pos += (wlen > 0) ? wlen : 1;
+      while (pos < len && 0 != isspace(text[pos])) ++pos;
     }
-    pos += (wlen > 0) ? wlen : 1;
-    while (pos < len && 0 != isspace(text[pos])) ++pos;
+    if (nwords < 2) result = EXIT_FAILURE;
+    else {
+      stride = libxs_coprime_bias((size_t)nwords, -1.0);
+      for (i = 0; i < nwords && out < len; ++i) {
+        const size_t pick = LIBXS_SHUFFLE_INDEX(i, (size_t)nwords, stride, 1);
+        const int w = (int)pick;
+        if (out > 0 && out < len) copy[out++] = ' ';
+        if (out + length[w] > len) break;
+        memcpy(copy + out, text + begin[w], (size_t)length[w]);
+        out += length[w];
+      }
+      if (out > 0) {
+        memcpy(text, copy, (size_t)out);
+        while (out < len) text[out++] = ' ';
+      }
+      result = (out > 0) ? EXIT_SUCCESS : EXIT_FAILURE;
+    }
   }
-  if (nwords < 2) return EXIT_FAILURE;
-  stride = libxs_coprime_bias((size_t)nwords, -1.0);
-  for (i = 0; i < nwords && out < len; ++i) {
-    const size_t pick = LIBXS_SHUFFLE_INDEX(i, (size_t)nwords, stride, 1);
-    const int w = (int)pick;
-    if (out > 0 && out < len) copy[out++] = ' ';
-    if (out + length[w] > len) break;
-    memcpy(copy + out, text + begin[w], (size_t)length[w]);
-    out += length[w];
-  }
-  if (out > 0) {
-    memcpy(text, copy, (size_t)out);
-    while (out < len) text[out++] = ' ';
-  }
-  return (out > 0) ? EXIT_SUCCESS : EXIT_FAILURE;
+  return result;
 }
 
 
@@ -2386,67 +2433,78 @@ int corpus_entry_build(corpus_entry_t* entry,
   unsigned char shuffled[COMPOSE_MAXTEXT];
   size_t lexeme_pos;
   libxs_lexeme_stream_init(&stream);
-  if (NULL == entry || NULL == text || len <= 0) return EXIT_FAILURE;
-  if (0 != corpus_shuffle_mode() && len <= COMPOSE_MAXTEXT) {
-    memcpy(shuffled, text, (size_t)len);
-    if (EXIT_SUCCESS == corpus_shuffle_words(shuffled, len)) text = shuffled;
-  }
-  memset(entry, 0, sizeof(*entry));
-  if (EXIT_SUCCESS == libxs_fprint(&full, LIBXS_DATATYPE_U8,
-    text, 1, &shape, NULL, FPRINT_ORDER, 0, 0, 0))
-  {
-    corpus_fprint_pack(&entry->fprint, &full);
-    entry->kind = ENTRY_KIND_FULL;
-    entry->text_len = len;
-    memcpy(entry->text, text, (size_t)len);
-    entry->connector = CONN_NEWLINE;
-    entry->scale = scale;
-    entry->source = corpus_source_id;
-    result = EXIT_SUCCESS;
-  }
-  if (EXIT_SUCCESS == result && NULL != lexicon && NULL != rules
-    && nrules > 0 && EXIT_SUCCESS == libxs_lexeme_stream_encode(lexicon,
-      &stream, text, (size_t)len, rules, nrules,
-      answer_lexnorms, answer_lexnorms_size, create))
-  {
-    for (lexeme_pos = 0; lexeme_pos < stream.size; ++lexeme_pos) {
-      const libxs_lexeme_t* lexeme = stream.data + lexeme_pos;
-      if (0 != (lexeme->flags & LIBXS_LEXEME_ENTITY)) {
-        entry->lexical_flags |= ENTRY_LEX_ENTITY;
-        ++entry->nentities;
-      }
-      if (0 != (lexeme->flags & LIBXS_LEXEME_NUMBER)) {
-        entry->lexical_flags |= ENTRY_LEX_NUMBER;
-        ++entry->nnumbers;
-      }
-      if (0 != (lexeme->flags & LIBXS_LEXEME_QUESTION)) {
-        entry->lexical_flags |= ENTRY_LEX_QUESTION;
-      }
-      { int marker_len = 0;
-        const char* marker = libxs_lexicon_text(lexicon, lexeme->id,
-          &marker_len, NULL);
-        if (NULL != marker && 0 < marker_len) {
-          if (0 != answer_relation_rule_is_term(RELATION_RULE_WHERE, marker,
-            marker_len)) entry->lexical_flags |= ENTRY_LEX_PLACE;
-          if (0 != answer_relation_rule_is_term(RELATION_RULE_WHY, marker,
-            marker_len)) entry->lexical_flags |= ENTRY_LEX_CAUSE;
-          if (0 != answer_relation_rule_is_term(RELATION_RULE_HOW, marker,
-            marker_len)) entry->lexical_flags |= ENTRY_LEX_METHOD;
+  if (NULL == entry || NULL == text || len <= 0) result = EXIT_FAILURE;
+  else {
+    if (0 != corpus_shuffle_mode() && len <= COMPOSE_MAXTEXT) {
+      memcpy(shuffled, text, (size_t)len);
+      if (EXIT_SUCCESS == corpus_shuffle_words(shuffled, len)) text = shuffled;
+    }
+    memset(entry, 0, sizeof(*entry));
+    if (EXIT_SUCCESS == libxs_fprint(&full, LIBXS_DATATYPE_U8,
+      text, 1, &shape, NULL, FPRINT_ORDER, 0, 0, 0))
+    {
+      corpus_fprint_pack(&entry->fprint, &full);
+      entry->kind = ENTRY_KIND_FULL;
+      entry->text_len = len;
+      memcpy(entry->text, text, (size_t)len);
+      entry->connector = CONN_NEWLINE;
+      entry->scale = scale;
+      entry->source = corpus_source_id;
+      result = EXIT_SUCCESS;
+    }
+    if (EXIT_SUCCESS == result && NULL != lexicon && NULL != rules
+      && nrules > 0 && EXIT_SUCCESS == libxs_lexeme_stream_encode(lexicon,
+        &stream, text, (size_t)len, rules, nrules,
+        answer_lexnorms, answer_lexnorms_size, create))
+    {
+      for (lexeme_pos = 0; lexeme_pos < stream.size; ++lexeme_pos) {
+        const libxs_lexeme_t* lexeme = stream.data + lexeme_pos;
+        if (0 != (lexeme->flags & LIBXS_LEXEME_ENTITY)) {
+          entry->lexical_flags |= ENTRY_LEX_ENTITY;
+          ++entry->nentities;
+        }
+        if (0 != (lexeme->flags & LIBXS_LEXEME_NUMBER)) {
+          entry->lexical_flags |= ENTRY_LEX_NUMBER;
+          ++entry->nnumbers;
+        }
+        if (0 != (lexeme->flags & LIBXS_LEXEME_QUESTION)) {
+          entry->lexical_flags |= ENTRY_LEX_QUESTION;
+        }
+        { int marker_len = 0;
+          const char* marker = libxs_lexicon_text(lexicon, lexeme->id,
+            &marker_len, NULL);
+          if (NULL != marker && 0 < marker_len) {
+            if (0 != answer_relation_rule_is_term(RELATION_RULE_WHERE, marker,
+              marker_len))
+            {
+              entry->lexical_flags |= ENTRY_LEX_PLACE;
+            }
+            if (0 != answer_relation_rule_is_term(RELATION_RULE_WHY, marker,
+              marker_len))
+            {
+              entry->lexical_flags |= ENTRY_LEX_CAUSE;
+            }
+            if (0 != answer_relation_rule_is_term(RELATION_RULE_HOW, marker,
+              marker_len))
+            {
+              entry->lexical_flags |= ENTRY_LEX_METHOD;
+            }
+          }
+        }
+        if (entry->ntokens < ENTRY_TOKEN_MAX
+          && 0 != (lexeme->flags & (LIBXS_LEXEME_WORD | LIBXS_LEXEME_NUMBER))
+          && 0 == (lexeme->flags & LIBXS_LEXEME_STOP)
+          && 0 == entry_sketch_has_id(entry, lexeme->id))
+        {
+          entry->token_ids[entry->ntokens] = lexeme->id;
+          entry->token_flags[entry->ntokens] = lexeme->flags;
+          ++entry->ntokens;
+          ++entry->ncontent;
         }
       }
-      if (entry->ntokens < ENTRY_TOKEN_MAX
-        && 0 != (lexeme->flags & (LIBXS_LEXEME_WORD | LIBXS_LEXEME_NUMBER))
-        && 0 == (lexeme->flags & LIBXS_LEXEME_STOP)
-        && 0 == entry_sketch_has_id(entry, lexeme->id))
-      {
-        entry->token_ids[entry->ntokens] = lexeme->id;
-        entry->token_flags[entry->ntokens] = lexeme->flags;
-        ++entry->ntokens;
-        ++entry->ncontent;
-      }
     }
+    libxs_lexeme_stream_release(&stream);
   }
-  libxs_lexeme_stream_release(&stream);
   return result;
 }
 
@@ -2648,7 +2706,10 @@ int corpus_line_markup(const char* text, int len)
           while (scan < len && scan < at + 9 && 0 == result) {
             if (';' == text[scan]) result = 1;
             else if (0 == isalnum((unsigned char)text[scan])
-              && '#' != text[scan]) break;
+              && '#' != text[scan])
+            {
+              break;
+            }
             ++scan;
           }
         }
@@ -2940,8 +3001,7 @@ static void corpus_sections_build(const unsigned char* text, size_t size)
            * isotropy) is the property of being ". A title that cannot be stored
            * whole cannot be a citation either, so the storage bound is the honest
            * one to test here.
-           */
-          /**
+           *
            * And the line must hold NO LOWER-CASE LETTER, which is the definition
            * corpus_title_len already used for a heading inside an entry - so there
            * is one definition of "heading" in this file instead of two that
@@ -3021,6 +3081,7 @@ static unsigned int corpus_chain_max(void)
   }
   return result;
 }
+
 
 /**
  * Registry key = IDENTITY of the entry's content, not its fingerprint. The two
@@ -3346,8 +3407,7 @@ const corpus_entry_t* corpus_entry_view(const void* value)
     if (NULL != cached) result = *cached;
     else if (NULL != corpus_views) {
       corpus_entry_t entry;
-      if (EXIT_SUCCESS == corpus_span_build((const corpus_span_t*)value, &entry))
-      {
+      if (EXIT_SUCCESS == corpus_span_build((const corpus_span_t*)value, &entry)) {
         const size_t size = corpus_entry_size(&entry);
         corpus_entry_t* made = (corpus_entry_t*)malloc(size);
         if (NULL != made) {
@@ -3382,75 +3442,77 @@ static int corpus_store_record(libxs_registry_t* corpus,
   size_t key_size = 0;
   unsigned int seq;
   int matched = 0;
-  if (NULL == corpus || NULL == entry) return 0;
-  corpus_key_from_text(entry, key, &key_size);
-  /**
-   * The sequence walk is a linear probe over every entry sharing a quantized
-   * fingerprint, and it re-reads each one to compare text. On prose the chains
-   * are short, but the key quantizes to COMPOSE_NDIMS x COMPOSE_BITS, so a
-   * corpus of many near-identical short texts (wiki markup, code) collides
-   * heavily and ingest becomes quadratic: 2x the enwik8 text cost 10.8x the
-   * ingest CPU. The cap bounds the walk so ingest stays linear; a text beyond it
-   * is dropped rather than stored, which is reported so a silent truncation
-   * cannot be mistaken for a rare fingerprint (the same discipline as the
-   * recomb postings cap).
-   */
-  for (seq = 0; seq < corpus_chain_max(); ++seq) {
-    void* existing;
-    if (0 < seq) {
-      const unsigned short seq_key = (unsigned short)seq;
-      memcpy(key + 16, &seq_key, 2);
-      key_size = 18;
-    }
-    existing = libxs_registry_get(corpus, key, key_size, NULL);
-    if (NULL == existing) {
-      if (0 == matched) {
-        if (NULL != span) {
-          libxs_registry_set(corpus, key, key_size, span, sizeof(*span), NULL);
-        }
-        else {
-          libxs_registry_set(corpus, key, key_size,
-            entry, corpus_entry_size(entry), NULL);
-        }
-        result = 1;
+  if (NULL == corpus || NULL == entry) result = 0;
+  else {
+    corpus_key_from_text(entry, key, &key_size);
+    /**
+     * The sequence walk is a linear probe over every entry sharing a quantized
+     * fingerprint, and it re-reads each one to compare text. On prose the chains
+     * are short, but the key quantizes to COMPOSE_NDIMS x COMPOSE_BITS, so a
+     * corpus of many near-identical short texts (wiki markup, code) collides
+     * heavily and ingest becomes quadratic: 2x the enwik8 text cost 10.8x the
+     * ingest CPU. The cap bounds the walk so ingest stays linear; a text beyond it
+     * is dropped rather than stored, which is reported so a silent truncation
+     * cannot be mistaken for a rare fingerprint (the same discipline as the
+     * recomb postings cap).
+     */
+    for (seq = 0; seq < corpus_chain_max(); ++seq) {
+      void* existing;
+      if (0 < seq) {
+        const unsigned short seq_key = (unsigned short)seq;
+        memcpy(key + 16, &seq_key, 2);
+        key_size = 18;
       }
-      break;
-    }
-    else {
-      const char* old_text = NULL;
-      const char* old_section = NULL;
-      int old_len = 0, old_section_len = 0;
-      size_t old_size = libxs_registry_value_size(corpus, key,
-        key_size, NULL);
-      if (EXIT_SUCCESS == corpus_record_text(existing, old_size,
-          &old_text, &old_len, &old_section, &old_section_len)
-        && old_len == entry->text_len
-        && 0 == libxs_memcmp(old_text, entry->text, (size_t)entry->text_len)
-        && old_section_len == (int)entry->section_len
-        && (0 == old_section_len || 0 == libxs_memcmp(old_section,
-          entry->section, (size_t)old_section_len)))
-      {
-        const corpus_entry_t* old_entry = (ENTRY_KIND_FULL
-          == corpus_value_kind(existing))
-          ? (const corpus_entry_t*)existing : NULL;
-        matched = 1;
-        /* Replace only to gain token metadata; sizes now vary by text
-         * length, so an unequal size is no longer evidence of anything.
-         * A span was built from the same text as this entry, so it has the
-         * same tokens and there is nothing to gain from replacing it. */
-        if (NULL != old_entry) {
-          if (0 == old_entry->ntokens && entry->ntokens > 0) {
+      existing = libxs_registry_get(corpus, key, key_size, NULL);
+      if (NULL == existing) {
+        if (0 == matched) {
+          if (NULL != span) {
+            libxs_registry_set(corpus, key, key_size, span, sizeof(*span), NULL);
+          }
+          else {
             libxs_registry_set(corpus, key, key_size,
               entry, corpus_entry_size(entry), NULL);
           }
-          if (old_entry->ntokens > 0) break;
+          result = 1;
         }
-        else break;
+        break;
+      }
+      else {
+        const char* old_text = NULL;
+        const char* old_section = NULL;
+        int old_len = 0, old_section_len = 0;
+        size_t old_size = libxs_registry_value_size(corpus, key,
+          key_size, NULL);
+        if (EXIT_SUCCESS == corpus_record_text(existing, old_size,
+            &old_text, &old_len, &old_section, &old_section_len)
+          && old_len == entry->text_len
+          && 0 == libxs_memcmp(old_text, entry->text, (size_t)entry->text_len)
+          && old_section_len == (int)entry->section_len
+          && (0 == old_section_len || 0 == libxs_memcmp(old_section,
+            entry->section, (size_t)old_section_len)))
+        {
+          const corpus_entry_t* old_entry = (ENTRY_KIND_FULL
+            == corpus_value_kind(existing))
+            ? (const corpus_entry_t*)existing : NULL;
+          matched = 1;
+          /* Replace only to gain token metadata; sizes now vary by text
+           * length, so an unequal size is no longer evidence of anything.
+           * A span was built from the same text as this entry, so it has the
+           * same tokens and there is nothing to gain from replacing it. */
+          if (NULL != old_entry) {
+            if (0 == old_entry->ntokens && entry->ntokens > 0) {
+              libxs_registry_set(corpus, key, key_size,
+                entry, corpus_entry_size(entry), NULL);
+            }
+            if (old_entry->ntokens > 0) break;
+          }
+          else break;
+        }
       }
     }
+    /* Chain exhausted without placing or matching: the text is dropped. */
+    if (0 == result && 0 == matched) ++corpus_chain_dropped;
   }
-  /* Chain exhausted without placing or matching: the text is dropped. */
-  if (0 == result && 0 == matched) ++corpus_chain_dropped;
   return result;
 }
 
@@ -3469,61 +3531,65 @@ int answer_relation_reply(const answer_relation_match_t* match,
   size_t pos = 0;
   const char* copula;
   if (NULL == match || NULL == output || 0 == output_size
-    || match->answer_len <= 0 || match->relation_len <= 0) return EXIT_FAILURE;
-  copula = (0 != match->plural) ? " were " : " was ";
-  /**
-   * The ACTIVE shape is re-emitted in the voice the corpus used, which is what
-   * makes it grammatical without consulting morphology. A passive rendering needs
-   * the relation word to be a PARTICIPLE, and the active shape reads the SURFACE
-   * form of the clause: "Gretel laid the spit" passivizes, but "Frederick walked
-   * the fastest" and "Lily let the nut fall" do not, and nothing in the extractor
-   * knows which is which. Stating what the corpus stated cannot be ungrammatical.
-   */
-  if (0 != match->active) {
-    if (match->actor_len > 0 && (size_t)match->actor_len
-      + (size_t)match->relation_len + (size_t)match->answer_len + 4
+    || match->answer_len <= 0 || match->relation_len <= 0)
+  {
+    result = EXIT_FAILURE;
+  } else {
+    copula = (0 != match->plural) ? " were " : " was ";
+    /**
+     * The ACTIVE shape is re-emitted in the voice the corpus used, which is what
+     * makes it grammatical without consulting morphology. A passive rendering needs
+     * the relation word to be a PARTICIPLE, and the active shape reads the SURFACE
+     * form of the clause: "Gretel laid the spit" passivizes, but "Frederick walked
+     * the fastest" and "Lily let the nut fall" do not, and nothing in the extractor
+     * knows which is which. Stating what the corpus stated cannot be ungrammatical.
+     */
+    if (0 != match->active) {
+      if (match->actor_len > 0 && (size_t)match->actor_len
+        + (size_t)match->relation_len + (size_t)match->answer_len + 4
+        < output_size)
+      {
+        memcpy(output + pos, match->actor, (size_t)match->actor_len);
+        pos += (size_t)match->actor_len;
+        output[pos++] = ' ';
+        memcpy(output + pos, match->relation, (size_t)match->relation_len);
+        pos += (size_t)match->relation_len;
+        output[pos++] = ' ';
+        memcpy(output + pos, match->answer, (size_t)match->answer_len);
+        pos += (size_t)match->answer_len;
+        output[pos++] = '.';
+        output[pos] = '\0';
+        result = EXIT_SUCCESS;
+      }
+    }
+    else if ((size_t)match->answer_len + strlen(copula)
+      + (size_t)match->relation_len + (size_t)match->actor_len + 8
       < output_size)
     {
-      memcpy(output + pos, match->actor, (size_t)match->actor_len);
-      pos += (size_t)match->actor_len;
-      output[pos++] = ' ';
-      memcpy(output + pos, match->relation, (size_t)match->relation_len);
-      pos += (size_t)match->relation_len;
-      output[pos++] = ' ';
       memcpy(output + pos, match->answer, (size_t)match->answer_len);
       pos += (size_t)match->answer_len;
+      if (0 != match->made) {
+        static const char made_text[] = " is to be made ";
+        memcpy(output + pos, made_text, sizeof(made_text) - 1);
+        pos += sizeof(made_text) - 1;
+      }
+      else {
+        memcpy(output + pos, copula, strlen(copula));
+        pos += strlen(copula);
+      }
+      memcpy(output + pos, match->relation, (size_t)match->relation_len);
+      pos += (size_t)match->relation_len;
+      if (match->actor_len > 0) {
+        static const char by_text[] = " by ";
+        memcpy(output + pos, by_text, sizeof(by_text) - 1);
+        pos += sizeof(by_text) - 1;
+        memcpy(output + pos, match->actor, (size_t)match->actor_len);
+        pos += (size_t)match->actor_len;
+      }
       output[pos++] = '.';
       output[pos] = '\0';
       result = EXIT_SUCCESS;
     }
-  }
-  else if ((size_t)match->answer_len + strlen(copula)
-    + (size_t)match->relation_len + (size_t)match->actor_len + 8
-    < output_size)
-  {
-    memcpy(output + pos, match->answer, (size_t)match->answer_len);
-    pos += (size_t)match->answer_len;
-    if (0 != match->made) {
-      static const char made_text[] = " is to be made ";
-      memcpy(output + pos, made_text, sizeof(made_text) - 1);
-      pos += sizeof(made_text) - 1;
-    }
-    else {
-      memcpy(output + pos, copula, strlen(copula));
-      pos += strlen(copula);
-    }
-    memcpy(output + pos, match->relation, (size_t)match->relation_len);
-    pos += (size_t)match->relation_len;
-    if (match->actor_len > 0) {
-      static const char by_text[] = " by ";
-      memcpy(output + pos, by_text, sizeof(by_text) - 1);
-      pos += sizeof(by_text) - 1;
-      memcpy(output + pos, match->actor, (size_t)match->actor_len);
-      pos += (size_t)match->actor_len;
-    }
-    output[pos++] = '.';
-    output[pos] = '\0';
-    result = EXIT_SUCCESS;
   }
   return result;
 }
@@ -3540,24 +3606,28 @@ int answer_features_fill(const corpus_entry_t* entry,
   for (input_pos = 0; input_pos < ANSWER_PREDICT_INPUTS; ++input_pos) {
     inputs[input_pos] = 0.0;
   }
-  if (NULL == entry || NULL == inputs) return EXIT_FAILURE;
-  if (entry_size >= CORPUS_ENTRY_META_SIZE && entry->ntokens > 0) use_sketch = 1;
-  if (0 == use_sketch) return EXIT_FAILURE;
-  if (overlap < 0.0) overlap = 0.0;
-  if (overlap > 1.0) overlap = 1.0;
-  entry_words = count_words((const unsigned char*)entry->text, entry->text_len);
-  inputs[0] = overlap;
-  inputs[1] = (double)query_type / (double)QUERY_YESNO;
-  inputs[2] = (SCALE_SENTENCE == entry->scale) ? 1.0 : 0.0;
-  inputs[3] = (0 != (entry->lexical_flags & ENTRY_LEX_ENTITY)) ? 1.0 : 0.0;
-  inputs[4] = (0 != (entry->lexical_flags & ENTRY_LEX_NUMBER)) ? 1.0 : 0.0;
-  inputs[5] = (0 != (entry->lexical_flags & ENTRY_LEX_PLACE)) ? 1.0 : 0.0;
-  inputs[6] = (0 != (entry->lexical_flags & ENTRY_LEX_CAUSE)) ? 1.0 : 0.0;
-  inputs[7] = (0 != (entry->lexical_flags & ENTRY_LEX_METHOD)) ? 1.0 : 0.0;
-  inputs[8] = (entry_words > 0) ? (double)entry->ncontent / entry_words : 0.0;
-  inputs[9] = (entry->text_len > COMPOSE_MAXTEXT)
-    ? 1.0 : (double)entry->text_len / (double)COMPOSE_MAXTEXT;
-  result = EXIT_SUCCESS;
+  if (NULL == entry || NULL == inputs) result = EXIT_FAILURE;
+  else {
+    if (entry_size >= CORPUS_ENTRY_META_SIZE && entry->ntokens > 0) use_sketch = 1;
+    if (0 == use_sketch) result = EXIT_FAILURE;
+    else {
+      if (overlap < 0.0) overlap = 0.0;
+      if (overlap > 1.0) overlap = 1.0;
+      entry_words = count_words((const unsigned char*)entry->text, entry->text_len);
+      inputs[0] = overlap;
+      inputs[1] = (double)query_type / (double)QUERY_YESNO;
+      inputs[2] = (SCALE_SENTENCE == entry->scale) ? 1.0 : 0.0;
+      inputs[3] = (0 != (entry->lexical_flags & ENTRY_LEX_ENTITY)) ? 1.0 : 0.0;
+      inputs[4] = (0 != (entry->lexical_flags & ENTRY_LEX_NUMBER)) ? 1.0 : 0.0;
+      inputs[5] = (0 != (entry->lexical_flags & ENTRY_LEX_PLACE)) ? 1.0 : 0.0;
+      inputs[6] = (0 != (entry->lexical_flags & ENTRY_LEX_CAUSE)) ? 1.0 : 0.0;
+      inputs[7] = (0 != (entry->lexical_flags & ENTRY_LEX_METHOD)) ? 1.0 : 0.0;
+      inputs[8] = (entry_words > 0) ? (double)entry->ncontent / entry_words : 0.0;
+      inputs[9] = (entry->text_len > COMPOSE_MAXTEXT)
+        ? 1.0 : (double)entry->text_len / (double)COMPOSE_MAXTEXT;
+      result = EXIT_SUCCESS;
+    }
+  }
   return result;
 }
 
@@ -3606,14 +3676,18 @@ libxs_predict_t* answer_predict_create(
     libxs_predict_set_mode(result, profile->mode);
     libxs_predict_set_decompose(result, profile->decompose);
     libxs_predict_set_weights(result, weights);
-    if (0.0 != profile->smooth) libxs_predict_set_smooth(result,
-      profile->smooth);
+    if (0.0 != profile->smooth) {
+      libxs_predict_set_smooth(result,
+        profile->smooth);
+    }
     if (0 < profile->nseries && 0 < profile->window) {
       libxs_predict_set_series(result, profile->nseries, profile->window);
       libxs_predict_set_target(result, profile->target);
     }
-    if (0 != profile->diff_order) libxs_predict_set_diff(result,
-      profile->diff_order);
+    if (0 != profile->diff_order) {
+      libxs_predict_set_diff(result,
+        profile->diff_order);
+    }
   }
   return result;
 }
@@ -3659,43 +3733,47 @@ static libxs_predict_t* converse_predict_train(const libxs_registry_t* corpus,
   size_t cursor = 0, key_size = 0;
   void* value;
   int ntrain = 0;
-  if (NULL == corpus) return NULL;
-  model = answer_predict_create(profile);
-  if (NULL == model) return NULL;
-  value = corpus_iter_begin_length(corpus, &key, &key_size, &cursor);
-  while (NULL != value) {
-    const corpus_entry_t* entry = (const corpus_entry_t*)value;
-    /* Key size from the iterator: see the note in answer_relation_reply. */
-    size_t entry_size = (NULL != key)
-      ? libxs_registry_value_size(corpus, key, key_size, NULL)
-      : sizeof(*entry);
-    if (entry_size >= CORPUS_ENTRY_META_SIZE && entry->ntokens > 0
-      && entry->text_len >= 16)
-    {
-      int query_type;
-      for (query_type = QUERY_WHO; query_type <= QUERY_HOW; ++query_type) {
-        double label = answer_weak_label(entry, query_type);
-        double overlap = (label >= 0.5) ? 1.0 : 0.0;
-        double inputs[ANSWER_PREDICT_INPUTS];
-        if (QUERY_WHAT == query_type && label > 0.0) overlap = 0.65;
-        if (EXIT_SUCCESS == answer_features_fill(entry, entry_size,
-          overlap, query_type, inputs)
-          && EXIT_SUCCESS == libxs_predict_push(NULL, model, inputs, &label))
+  if (NULL == corpus) result = NULL;
+  else {
+    model = answer_predict_create(profile);
+    if (NULL == model) result = NULL;
+    else {
+      value = corpus_iter_begin_length(corpus, &key, &key_size, &cursor);
+      while (NULL != value) {
+        const corpus_entry_t* entry = (const corpus_entry_t*)value;
+        /* Key size from the iterator: see the note in answer_relation_reply. */
+        size_t entry_size = (NULL != key)
+          ? libxs_registry_value_size(corpus, key, key_size, NULL)
+          : sizeof(*entry);
+        if (entry_size >= CORPUS_ENTRY_META_SIZE && entry->ntokens > 0
+          && entry->text_len >= 16)
         {
-          ++ntrain;
+          int query_type;
+          for (query_type = QUERY_WHO; query_type <= QUERY_HOW; ++query_type) {
+            double label = answer_weak_label(entry, query_type);
+            double overlap = (label >= 0.5) ? 1.0 : 0.0;
+            double inputs[ANSWER_PREDICT_INPUTS];
+            if (QUERY_WHAT == query_type && label > 0.0) overlap = 0.65;
+            if (EXIT_SUCCESS == answer_features_fill(entry, entry_size,
+              overlap, query_type, inputs)
+              && EXIT_SUCCESS == libxs_predict_push(NULL, model, inputs, &label))
+            {
+              ++ntrain;
+            }
+          }
         }
+        value = corpus_iter_next_length(corpus, &key, &key_size, &cursor);
+      }
+      if (ntrain >= 8 && EXIT_SUCCESS == answer_predict_build_model(model,
+        profile))
+      {
+        answer_predict_report("persistent", model, ntrain, profile);
+        result = model;
+      }
+      else {
+        libxs_predict_destroy(model);
       }
     }
-    value = corpus_iter_next_length(corpus, &key, &key_size, &cursor);
-  }
-  if (ntrain >= 8 && EXIT_SUCCESS == answer_predict_build_model(model,
-    profile))
-  {
-    answer_predict_report("persistent", model, ntrain, profile);
-    result = model;
-  }
-  else {
-    libxs_predict_destroy(model);
   }
   return result;
 }
@@ -3719,20 +3797,24 @@ int text_contains_word_ci(const char* text, int text_len,
   int result = 0;
   int term_len;
   int pos = 0;
-  if (NULL == text || NULL == term || text_len <= 0) return 0;
-  term_len = (int)strlen(term);
-  if (term_len <= 0 || term_len > text_len) return 0;
-  while (pos <= text_len - term_len && 0 == result) {
-    int found = text_find_ci(text + pos, text_len - pos, term);
-    if (found < 0) break;
-    pos += found;
-    if ((0 == pos || 0 == isalnum((unsigned char)text[pos - 1]))
-      && (pos + term_len >= text_len
-        || 0 == isalnum((unsigned char)text[pos + term_len])))
-    {
-      result = 1;
+  if (NULL == text || NULL == term || text_len <= 0) result = 0;
+  else {
+    term_len = (int)strlen(term);
+    if (term_len <= 0 || term_len > text_len) result = 0;
+    else {
+      while (pos <= text_len - term_len && 0 == result) {
+        int found = text_find_ci(text + pos, text_len - pos, term);
+        if (found < 0) break;
+        pos += found;
+        if ((0 == pos || 0 == isalnum((unsigned char)text[pos - 1]))
+          && (pos + term_len >= text_len
+            || 0 == isalnum((unsigned char)text[pos + term_len])))
+        {
+          result = 1;
+        }
+        pos += term_len;
+      }
     }
-    pos += term_len;
   }
   return result;
 }
@@ -3751,6 +3833,7 @@ char* eval_trim(char* text)
   return result;
 }
 
+
 /**
  * The variable-order n-gram engine now lives in libxs_ngram; the wrappers
  * below adapt converse's call sites (which thread the model's registry and an
@@ -3763,6 +3846,7 @@ static void ngramk_observe(libxs_registry_t* model, const unsigned int hist[],
   LIBXS_UNUSED(model); LIBXS_UNUSED(maxorder);
   libxs_ngram_observe(&converse_ngram, hist, hlen, succ_id);
 }
+
 
 /**
  * The pure count-based estimate: interpolated backoff with NO skip tier folded
@@ -3792,6 +3876,7 @@ double ngramk_prob(libxs_registry_t* model, const unsigned int hist[],
   return p;
 }
 
+
 /**
  * Adapter matching converse_recomb_prob_t. The recombination syntax gate needs a
  * word-scale backoff probability and nothing more, so the model handle, the
@@ -3816,16 +3901,17 @@ int ngramk_predict_order(libxs_registry_t* model,
 
 static int ngram_gran_mode(void)
 {
+  int result = GRAN_WORD;
   const char* env = getenv("CONVERSE_GRAN");
   if (NULL != env) {
-    if (0 == strcmp(env, "native")) return GRAN_NATIVE;
-    if (0 == strcmp(env, "syllable")) return GRAN_SYLLABLE;
-    if (0 == strcmp(env, "bpe")) return GRAN_BPE;
-    if (0 == strcmp(env, "meta-native")) return GRAN_META_NATIVE;
-    if (0 == strcmp(env, "meta-word")) return GRAN_META_WORD;
-    if (0 == strcmp(env, "meta-syllable")) return GRAN_META_SYLLABLE;
+    if (0 == strcmp(env, "native")) result = GRAN_NATIVE;
+    else if (0 == strcmp(env, "syllable")) result = GRAN_SYLLABLE;
+    else if (0 == strcmp(env, "bpe")) result = GRAN_BPE;
+    else if (0 == strcmp(env, "meta-native")) result = GRAN_META_NATIVE;
+    else if (0 == strcmp(env, "meta-word")) result = GRAN_META_WORD;
+    else if (0 == strcmp(env, "meta-syllable")) result = GRAN_META_SYLLABLE;
   }
-  return GRAN_WORD;
+  return result;
 }
 
 
@@ -3833,6 +3919,7 @@ int ngram_native_mode(void)
 {
   return (GRAN_WORD != ngram_gran_mode()) ? 1 : 0;
 }
+
 
 /**
  * Number of prior whole words to carry as sub-word prediction context, or 0
@@ -3862,6 +3949,7 @@ static int ngram_is_vowel(unsigned char c)
     || 'y' == c) ? 1 : 0;
 }
 
+
 /**
  * Signed-length adapter over libxs_utf8_decode, which is the strict form: an
  * invalid or truncated sequence reports width 1, so scanning always advances and
@@ -3871,6 +3959,7 @@ static unsigned long ngram_utf8_decode(const char* text, int len, int* width)
 {
   return libxs_utf8_decode((const unsigned char*)text, (size_t)len, width);
 }
+
 
 /**
  * Vowel test over CODE POINTS rather than bytes.  The byte test cannot see an
@@ -3902,6 +3991,7 @@ static int ngram_is_vowel_cp(unsigned long cp)
   }
   return result;
 }
+
 
 /**
  * A UTF-8 continuation or lead byte counts as a word character so that a pivot
@@ -3955,6 +4045,7 @@ static void bpe_free(void)
   bpe_merges = NULL;
 }
 
+
 /**
  * Learn byte-pair merges from the training split only. Words are byte runs
  * split on whitespace (a leading-space marker keeps word starts distinct);
@@ -3995,7 +4086,10 @@ static void bpe_build(const libxs_registry_t* corpus, int holdout)
           int wlen = 0, marker;
           bpe_word_t w;
           while (pos + wlen < entry->text_len
-            && 0 == isspace((unsigned char)entry->text[pos + wlen])) ++wlen;
+            && 0 == isspace((unsigned char)entry->text[pos + wlen]))
+          {
+            ++wlen;
+          }
           if (wlen > 0) {
             int i;
             w.count = 1;
@@ -4020,7 +4114,10 @@ static void bpe_build(const libxs_registry_t* corpus, int holdout)
             pos += wlen;
           }
           while (pos < entry->text_len
-            && 0 != isspace((unsigned char)entry->text[pos])) ++pos;
+            && 0 != isspace((unsigned char)entry->text[pos]))
+          {
+            ++pos;
+          }
         }
       }
       ++index;
@@ -4048,8 +4145,10 @@ static void bpe_build(const libxs_registry_t* corpus, int holdout)
         slot = (long*)libxs_registry_get(counts, &pair, sizeof(pair), NULL);
         acc = (NULL != slot) ? *slot + words[w].count : words[w].count;
         if (NULL != slot) *slot = acc;
-        else libxs_registry_set(counts, &pair, sizeof(pair), &acc,
-          sizeof(acc), NULL);
+        else {
+          libxs_registry_set(counts, &pair, sizeof(pair), &acc,
+            sizeof(acc), NULL);
+        }
         if (acc > best_count) {
           best_count = acc;
           best = pair;
@@ -4089,6 +4188,7 @@ static void bpe_build(const libxs_registry_t* corpus, int holdout)
   fprintf(stderr, "  bpe: %d symbols (%d merges) from %ld words\n",
     bpe_nsymbols, bpe_nsymbols - 256, nwords);
 }
+
 
 /**
  * Encode one whitespace-delimited byte run [text,len) into BPE pieces by
@@ -4142,12 +4242,12 @@ static int bpe_encode_run(const char* text, int len, libxs_lexeme_t tokens[],
   return result;
 }
 
+
 /**
  * Split a word [text,wlen) into syllable pieces by a simple VC|CV heuristic:
  * cut before a consonant that is followed by a vowel, once the current piece
  * already contains a vowel. Caps piece length; always ends at word end.
- */
-/**
+ *
  * Whether the consonant run text[a,b) is a legal syllable ONSET, i.e. may begin
  * a syllable in this orthography.
  *
@@ -4201,6 +4301,7 @@ static int ngram_onset_legal(const char* text, int a, int b)
   }
   return result;
 }
+
 
 /**
  * Split a word into syllable-like pieces by maximal onset.
@@ -4357,6 +4458,7 @@ static int ngram_metatoken_tokens(libxs_lexicon_t* lexicon,
   return result;
 }
 
+
 /**
  * Emits LIBXS_LEXEME_BREAK on a token preceded by whitespace in the source, so
  * libxs_lexeme_word_next groups the pieces of one word. Native granularity cuts
@@ -4375,10 +4477,9 @@ int ngram_native_tokens(libxs_lexicon_t* lexicon, const char* text,
   int mode = ngram_gran_mode();
   int meta_granularity = ngram_metatoken_granularity(mode);
   if (meta_granularity >= 0) {
-    return ngram_metatoken_tokens(lexicon, text, text_len, tokens, word_ids,
+    result = ngram_metatoken_tokens(lexicon, text, text_len, tokens, word_ids,
       max, create, meta_granularity);
-  }
-  if (GRAN_BPE == mode) {
+  } else if (GRAN_BPE == mode) {
     while (pos < text_len && result < max) {
       int wlen = 0;
       int run_start = pos;
@@ -4387,10 +4488,16 @@ int ngram_native_tokens(libxs_lexicon_t* lexicon, const char* text,
       int run_len = 0;
       int prev = result;
       while (pos + wlen < text_len
-        && 0 == isspace((unsigned char)text[pos + wlen])) ++wlen;
+        && 0 == isspace((unsigned char)text[pos + wlen]))
+      {
+        ++wlen;
+      }
       if (0 == wlen) {
         while (pos < text_len
-          && 0 != isspace((unsigned char)text[pos])) ++pos;
+          && 0 != isspace((unsigned char)text[pos]))
+        {
+          ++pos;
+        }
         continue;
       }
       if (0 != marker && run_len < BPE_WORD_MAX) run[run_len++] = ' ';
@@ -4410,9 +4517,7 @@ int ngram_native_tokens(libxs_lexicon_t* lexicon, const char* text,
       pos = run_start + wlen;
       while (pos < text_len && 0 != isspace((unsigned char)text[pos])) ++pos;
     }
-    return result;
-  }
-  if (GRAN_SYLLABLE != mode) {
+  } else if (GRAN_SYLLABLE != mode) {
     while (pos < text_len && result < max) {
       int len = text_len - pos;
       unsigned int id;
@@ -4435,73 +4540,76 @@ int ngram_native_tokens(libxs_lexicon_t* lexicon, const char* text,
       ++result;
       pos += len;
     }
-    return result;
-  }
-  while (pos < text_len && result < max) {
-    unsigned char c = (unsigned char)text[pos];
-    if (0 == ngram_is_wordchar(c)) {
-      char buf[3];
-      int off = 0;
-      unsigned int id;
-      /**
-       * Whitespace is NOT emitted as a piece: the boundary it marks is already
-       * carried by the leading space baked into the next piece's text (below,
-       * and the same convention the byte-pair encoder uses). Emitting it here
-       * too would represent one space twice, so concatenating the pieces would
-       * render "to  the" and no such text occurs in any corpus.
-       */
-      if (0 != isspace(c)) {
-        have_break = 1;
-        ++pos;
-        continue;
-      }
-      if (0 != have_break) buf[off++] = ' ';
-      buf[off] = (char)c;
-      id = libxs_lexicon_id(lexicon, buf, off + 1, LIBXS_LEXEME_PUNCT, create);
-      if (0 == id) break;
-      tokens[result].id = id;
-      tokens[result].length = 1;
-      tokens[result].flags = (unsigned short)(LIBXS_LEXEME_PUNCT
-        | ((0 != have_break) ? LIBXS_LEXEME_BREAK : 0));
-      if (NULL != word_ids) word_ids[result] = id;
-      ++result;
-      have_break = 0;
-      ++pos;
-    }
-    else {
-      int wlen = 0;
-      int piece_begin[COMPOSE_MAXTEXT / 2];
-      int piece_len[COMPOSE_MAXTEXT / 2];
-      int np, pi;
-      unsigned int wid = 0;
-      while (pos + wlen < text_len
-        && 0 != ngram_is_wordchar((unsigned char)text[pos + wlen])) ++wlen;
-      if (NULL != word_ids) {
-        wid = libxs_lexicon_id(lexicon, text + pos, wlen,
-          LIBXS_LEXEME_WORD, create);
-      }
-      np = ngram_syllable_split(text + pos, wlen, piece_begin, piece_len,
-        (int)(sizeof(piece_len) / sizeof(*piece_len)));
-      for (pi = 0; pi < np && result < max; ++pi) {
-        char buf[LIBXS_LEXEME_MAXBYTES + 1];
-        int plen = piece_len[pi];
+  } else {
+    while (pos < text_len && result < max) {
+      unsigned char c = (unsigned char)text[pos];
+      if (0 == ngram_is_wordchar(c)) {
+        char buf[3];
         int off = 0;
         unsigned int id;
-        if (0 == pi && 0 != have_break) buf[off++] = ' ';
-        if (plen > (int)sizeof(buf) - 1 - off) plen = (int)sizeof(buf) - 1 - off;
-        memcpy(buf + off, text + pos + piece_begin[pi], (size_t)plen);
-        id = libxs_lexicon_id(lexicon, buf, off + plen,
-          LIBXS_LEXEME_WORD, create);
+        /**
+         * Whitespace is NOT emitted as a piece: the boundary it marks is already
+         * carried by the leading space baked into the next piece's text (below,
+         * and the same convention the byte-pair encoder uses). Emitting it here
+         * too would represent one space twice, so concatenating the pieces would
+         * render "to  the" and no such text occurs in any corpus.
+         */
+        if (0 != isspace(c)) {
+          have_break = 1;
+          ++pos;
+          continue;
+        }
+        if (0 != have_break) buf[off++] = ' ';
+        buf[off] = (char)c;
+        id = libxs_lexicon_id(lexicon, buf, off + 1, LIBXS_LEXEME_PUNCT, create);
         if (0 == id) break;
         tokens[result].id = id;
-        tokens[result].length = (unsigned short)piece_len[pi];
-        tokens[result].flags = (unsigned short)(LIBXS_LEXEME_WORD
-          | ((0 == pi && 0 != have_break) ? LIBXS_LEXEME_BREAK : 0));
-        if (NULL != word_ids) word_ids[result] = wid;
+        tokens[result].length = 1;
+        tokens[result].flags = (unsigned short)(LIBXS_LEXEME_PUNCT
+          | ((0 != have_break) ? LIBXS_LEXEME_BREAK : 0));
+        if (NULL != word_ids) word_ids[result] = id;
         ++result;
+        have_break = 0;
+        ++pos;
       }
-      have_break = 0;
-      pos += wlen;
+      else {
+        int wlen = 0;
+        int piece_begin[COMPOSE_MAXTEXT / 2];
+        int piece_len[COMPOSE_MAXTEXT / 2];
+        int np, pi;
+        unsigned int wid = 0;
+        while (pos + wlen < text_len
+          && 0 != ngram_is_wordchar((unsigned char)text[pos + wlen]))
+        {
+          ++wlen;
+        }
+        if (NULL != word_ids) {
+          wid = libxs_lexicon_id(lexicon, text + pos, wlen,
+            LIBXS_LEXEME_WORD, create);
+        }
+        np = ngram_syllable_split(text + pos, wlen, piece_begin, piece_len,
+          (int)(sizeof(piece_len) / sizeof(*piece_len)));
+        for (pi = 0; pi < np && result < max; ++pi) {
+          char buf[LIBXS_LEXEME_MAXBYTES + 1];
+          int plen = piece_len[pi];
+          int off = 0;
+          unsigned int id;
+          if (0 == pi && 0 != have_break) buf[off++] = ' ';
+          if (plen > (int)sizeof(buf) - 1 - off) plen = (int)sizeof(buf) - 1 - off;
+          memcpy(buf + off, text + pos + piece_begin[pi], (size_t)plen);
+          id = libxs_lexicon_id(lexicon, buf, off + plen,
+            LIBXS_LEXEME_WORD, create);
+          if (0 == id) break;
+          tokens[result].id = id;
+          tokens[result].length = (unsigned short)piece_len[pi];
+          tokens[result].flags = (unsigned short)(LIBXS_LEXEME_WORD
+            | ((0 == pi && 0 != have_break) ? LIBXS_LEXEME_BREAK : 0));
+          if (NULL != word_ids) word_ids[result] = wid;
+          ++result;
+        }
+        have_break = 0;
+        pos += wlen;
+      }
     }
   }
   return result;
@@ -4518,6 +4626,7 @@ int ngram_maxorder(void)
   }
   return result;
 }
+
 
 /**
  * Score (and train on) each text at ONE scale only. The corpus holds every text
@@ -4543,13 +4652,13 @@ int ngram_dedup_scale(void)
   return result;
 }
 
+
 /**
  * Wall-clock per startup stage, so a slow run is attributed rather than guessed
  * at. Sec 23 blamed the hierarchy for a stall that was actually
  * converse_predict_train and lost the measurement; the fix is to make the
  * attribution a printed number instead of an inference.
- */
-/**
+ *
  * The answer ranker trains OFF by default. Measured: it is 40% of wall time on a
  * 2 MB corpus, leaves BPC identical to three decimals, and leaves QA at 9/9 and
  * 14/14 - its only consumer (answer_predict_score) degrades to the unmodified
@@ -4558,9 +4667,13 @@ int ngram_dedup_scale(void)
  */
 static int converse_predict_on(void)
 {
+  int result;
   const char* env = getenv("CONVERSE_PREDICT");
-  if (NULL != env) return ('0' != env[0] && '\0' != env[0]) ? 1 : 0;
-  return 0;
+  if (NULL != env) result = ('0' != env[0] && '\0' != env[0]) ? 1 : 0;
+  else {
+    result = 0;
+  }
+  return result;
 }
 
 
@@ -4607,6 +4720,7 @@ void converse_stage_report(void)
   }
 }
 
+
 /**
  * Skip-gram tier: an auxiliary store keyed by the pair (w[-3], w[-1]) that
  * abstracts over the varying middle slot, so an unseen exact context can still
@@ -4619,6 +4733,7 @@ static int ngram_skip(void)
   return (NULL != env && '0' != env[0] && '\0' != env[0]) ? 1 : 0;
 }
 
+
 /* Interpolation weight for the skip tier (0..1). */
 static double ngram_skip_mu(void)
 {
@@ -4630,6 +4745,7 @@ static double ngram_skip_mu(void)
   }
   return result;
 }
+
 
 /**
  * Record a skip-gram observation from a rolling history: keys the pair
@@ -4647,6 +4763,7 @@ static void ngram_skip_observe(const unsigned int hist[], int hlen,
     }
   }
 }
+
 
 /**
  * Skip-tier probability of succ given the rolling history, or 0 when the tier
@@ -4676,6 +4793,7 @@ double ngram_skip_prob(const unsigned int hist[], int hlen,
   }
   return result;
 }
+
 
 /**
  * Whether the skip tier can speak for this context at all: the pair exists and
@@ -4710,6 +4828,7 @@ void ngram_hist_push(unsigned int hist[], int* hlen, int cap,
   }
 }
 
+
 /**
  * Word-span context for predicting sub-word token i: the whole-word ids of the
  * preceding wctx words followed by the pieces of the current word emitted so
@@ -4735,6 +4854,7 @@ int ngram_wordctx_hist(const libxs_lexeme_t nat[],
   for (k = wstart; k < i; ++k) ngram_hist_push(hist, &hlen, cap, nat[k].id);
   return hlen;
 }
+
 
 /* Per-order footprint of the n-gram store (gated by CONVERSE_NGRAM_STATS). */
 void ngram_stats(const libxs_registry_t* model)
@@ -4786,21 +4906,20 @@ static void ngram_train_text(libxs_registry_t* model,
       (0 != wctx) ? word_ids : NULL, COMPOSE_MAXTEXT, 0);
     unsigned int hist[NGRAM_ORDER_MAX];
     int hlen = 0, i;
-    if (NULL == model) return;
-    for (i = 0; i < ntok; ++i) {
-      if (0 != wctx) {
-        hlen = ngram_wordctx_hist(nat, word_ids, i, wctx, hist,
-          NGRAM_ORDER_MAX);
-        if (hlen > 0) ngramk_observe(model, hist, hlen, nat[i].id, maxorder);
-      }
-      else {
-        if (hlen > 0) ngramk_observe(model, hist, hlen, nat[i].id, maxorder);
-        ngram_hist_push(hist, &hlen, NGRAM_ORDER_MAX, nat[i].id);
+    if (NULL != model) {
+      for (i = 0; i < ntok; ++i) {
+        if (0 != wctx) {
+          hlen = ngram_wordctx_hist(nat, word_ids, i, wctx, hist,
+            NGRAM_ORDER_MAX);
+          if (hlen > 0) ngramk_observe(model, hist, hlen, nat[i].id, maxorder);
+        }
+        else {
+          if (hlen > 0) ngramk_observe(model, hist, hlen, nat[i].id, maxorder);
+          ngram_hist_push(hist, &hlen, NGRAM_ORDER_MAX, nat[i].id);
+        }
       }
     }
-    return;
-  }
-  { libxs_lexeme_stream_t stream;
+  } else { libxs_lexeme_stream_t stream;
     libxs_lexeme_stream_init(&stream);
     if (NULL != model && NULL != lexicon && NULL != rules && nrules > 0
       && text_len > 0 && EXIT_SUCCESS == libxs_lexeme_stream_encode(lexicon,
@@ -4834,14 +4953,19 @@ static void ngram_train_text(libxs_registry_t* model,
 
 int predict_is_test(long index, int holdout)
 {
+  int result;
   const char* tail;
-  if (holdout <= 0) return 0;
-  tail = getenv("CONVERSE_HOLDOUT_TAIL");
-  if (NULL != tail && '0' != tail[0] && predict_ntotal > 0) {
-    long split = predict_ntotal - predict_ntotal / (long)holdout;
-    return (index >= split) ? 1 : 0;
+  if (holdout <= 0) result = 0;
+  else {
+    tail = getenv("CONVERSE_HOLDOUT_TAIL");
+    if (NULL != tail && '0' != tail[0] && predict_ntotal > 0) {
+      long split = predict_ntotal - predict_ntotal / (long)holdout;
+      result = (index >= split) ? 1 : 0;
+    } else {
+      result = (0 == (index % (long)holdout)) ? 1 : 0;
+    }
   }
-  return (0 == (index % (long)holdout)) ? 1 : 0;
+  return result;
 }
 
 
@@ -4849,40 +4973,43 @@ libxs_registry_t* ngram_build(const libxs_registry_t* corpus,
   libxs_lexicon_t* lexicon, const libxs_lexrule_t* rules, int nrules,
   int holdout)
 {
+  libxs_registry_t* result;
   libxs_ngram_destroy(&converse_ngram);
   if (0 != converse_skip_on) libxs_ngram_destroy(&converse_skip);
   converse_skip_on = ngram_skip();
   if (EXIT_SUCCESS != libxs_ngram_create(&converse_ngram, ngram_maxorder())) {
-    return NULL;
-  }
-  if (0 != converse_skip_on
-    && EXIT_SUCCESS != libxs_ngram_create(&converse_skip, 2))
-  {
-    converse_skip_on = 0;
-  }
-  if (NULL != corpus) {
-    const void* key = NULL;
-    size_t cursor = 0;
-    corpus_entry_t scratch;
-    long index = 0;
-    const int onescale = ngram_dedup_scale();
-    void* value = corpus_iterx_begin(corpus, &key, &cursor);
-    while (NULL != value) {
-      const corpus_entry_t* entry = corpus_entry_scan(value, &scratch);
-      if (0 == predict_is_test(index, holdout)
-        && (0 == onescale
-          || (((2 == onescale) ? SCALE_PARAGRAPH : SCALE_SENTENCE)
-              == entry->scale
-            && 0 == (entry->lexical_flags & ENTRY_LEX_FRAGMENT))))
-      {
-        ngram_train_text(converse_ngram.store, lexicon, rules, nrules,
-          entry->text, entry->text_len);
-      }
-      ++index;
-      value = corpus_iterx_next(corpus, &key, &cursor);
+    result = NULL;
+  } else {
+    if (0 != converse_skip_on
+      && EXIT_SUCCESS != libxs_ngram_create(&converse_skip, 2))
+    {
+      converse_skip_on = 0;
     }
+    if (NULL != corpus) {
+      const void* key = NULL;
+      size_t cursor = 0;
+      corpus_entry_t scratch;
+      long index = 0;
+      const int onescale = ngram_dedup_scale();
+      void* value = corpus_iterx_begin(corpus, &key, &cursor);
+      while (NULL != value) {
+        const corpus_entry_t* entry = corpus_entry_scan(value, &scratch);
+        if (0 == predict_is_test(index, holdout)
+          && (0 == onescale
+            || (((2 == onescale) ? SCALE_PARAGRAPH : SCALE_SENTENCE)
+                == entry->scale
+              && 0 == (entry->lexical_flags & ENTRY_LEX_FRAGMENT))))
+        {
+          ngram_train_text(converse_ngram.store, lexicon, rules, nrules,
+            entry->text, entry->text_len);
+        }
+        ++index;
+        value = corpus_iterx_next(corpus, &key, &cursor);
+      }
+    }
+    result = converse_ngram.store;
   }
-  return converse_ngram.store;
+  return result;
 }
 
 
@@ -4910,6 +5037,7 @@ static void token_emb_free(void)
   token_emb_zvalid = 0;
 }
 
+
 /**
  * Maximum FORWARD distance at which a co-occurrence is counted, or 0 for the
  * historical symmetric window.
@@ -4935,6 +5063,7 @@ int token_emb_directed(void)
   }
   return cached;
 }
+
 
 /**
  * Count ONLY forward distance exactly CONVERSE_EMB_DIRECTED, instead of pooling
@@ -4965,25 +5094,33 @@ static int token_emb_ready(void)
   return (NULL != token_emb && 0 != token_emb_size) ? 1 : 0;
 }
 
+
 /** Successor-side row of V: the geometry of what PRECEDES this token. */
 static const double* token_semb_get(unsigned int id)
 {
+  const double* result;
   static const double zero[TOKEN_EMB_DIM] = { 0 };
   if (NULL != token_semb && 0 != id && id <= token_emb_size) {
-    return token_semb + (size_t)id * TOKEN_EMB_DIM;
+    result = token_semb + (size_t)id * TOKEN_EMB_DIM;
+  } else {
+    result = zero;
   }
-  return zero;
+  return result;
 }
 
 
 const double* token_emb_get(unsigned int id)
 {
+  const double* result;
   static const double zero[TOKEN_EMB_DIM] = { 0 };
   if (NULL != token_emb && 0 != id && id <= token_emb_size) {
-    return token_emb + (size_t)id * TOKEN_EMB_DIM;
+    result = token_emb + (size_t)id * TOKEN_EMB_DIM;
+  } else {
+    result = zero;
   }
-  return zero;
+  return result;
 }
+
 
 /**
  * Non-zero if the id has no usable embedding: out of range, or an all-zero row
@@ -5015,6 +5152,7 @@ double ngram_emb_temp(void)
   return cached;
 }
 
+
 /** Per-position weight decay, oldest token weighted decay^(distance-1). */
 static double ngram_emb_decay(void)
 {
@@ -5028,6 +5166,7 @@ static double ngram_emb_decay(void)
   }
   return cached;
 }
+
 
 /**
  * P(cand | ctx) from the successor score, as a proper distribution over the
@@ -5114,6 +5253,7 @@ double token_emb_succ_prob(const unsigned int ctx[], int nctx,
   return result;
 }
 
+
 /**
  * Append up to want embedding-proposed successors to the candidate list, best
  * first, skipping ids already offered by the counts.
@@ -5161,6 +5301,7 @@ int token_emb_succ_append(const unsigned int ctx[], int nctx,
   }
   return result;
 }
+
 
 /**
  * Rank of cand among all vocabulary ids by the successor score, 0 = best. No
@@ -5270,6 +5411,7 @@ static void token_emb_cooc_text(libxs_registry_t* pairs, double* rowcnt,
   libxs_lexeme_stream_release(&stream);
 }
 
+
 /* Multiply the sparse PPMI matrix (CSR) by a dense (vocab+1) x DIM block:
  * out = A * in when transpose is zero, out = A^T * in otherwise. */
 static void token_emb_spmm(const size_t* rowptr, const unsigned int* colidx,
@@ -5294,6 +5436,7 @@ static void token_emb_spmm(const size_t* rowptr, const unsigned int* colidx,
     }
   }
 }
+
 
 /* Gram-Schmidt orthonormalization of the DIM columns of a (vocab+1) x DIM
  * block, in place. */
@@ -5320,6 +5463,7 @@ static void token_emb_orthonormalize(double* block, unsigned int vocab)
     for (i = 0; i < rows; ++i) block[i * TOKEN_EMB_DIM + d] *= norm;
   }
 }
+
 
 /**
  * Truncated SVD of the sparse PPMI matrix by subspace iteration on A^T A,
@@ -5445,6 +5589,7 @@ static void token_emb_backfill(libxs_lexicon_t* lexicon,
     }
   }
 }
+
 
 /**
  * Print the split of comma-separated words, so the splitter can be inspected on
@@ -5646,6 +5791,7 @@ void token_emb_build(const libxs_registry_t* corpus,
   }
 }
 
+
 /**
  * Fill hist[] with the trailing content-token ids of the prompt (at most
  * NGRAM_ORDER_MAX), returning the count. Mirrors ngram_last_context but keeps
@@ -5693,6 +5839,7 @@ static int ngram_history(libxs_lexicon_t* lexicon, const libxs_lexrule_t* rules,
   return hlen;
 }
 
+
 /**
  * Successors offered to the hierarchical model at each generation step (1 = the
  * count-ranked winner, i.e. plain greedy decoding). Widening this is what gives
@@ -5712,6 +5859,7 @@ int ngram_gen_ncand(void)
   return cached;
 }
 
+
 /**
  * Whether rendering has to supply the word separator itself.
  *
@@ -5727,6 +5875,7 @@ static int ngram_render_separated(void)
 {
   return (0 == ngram_native_mode()) ? 1 : 0;
 }
+
 
 /**
  * Append one piece's text at pos, inserting the separator first when the view
@@ -5747,6 +5896,7 @@ size_t ngram_render_append(char* out, size_t out_size, size_t pos,
   }
   return result;
 }
+
 
 /**
  * Choose among the count-ranked successors with the byte model, returning the
@@ -5791,6 +5941,7 @@ int ngram_gen_minorder(void)
   return result;
 }
 
+
 /**
  * Grounded greedy generation over the deep k-context store. Each step takes
  * the top successor from the longest attested context and reports that
@@ -5798,8 +5949,7 @@ int ngram_gen_minorder(void)
  * floor (the generative form of "abstain rather than invent"), at a repeat,
  * or at the length budget. Prints the continuation plus the mean/min order
  * that quantifies how well grounded it was.
- */
-/**
+ *
  * Greedy grounded continuation of the prompt into out[] (space-joined words).
  * Returns the number of generated tokens (0 = nothing cleared the grounding
  * floor). Optional order_mean/order_min report how attested the run was.
@@ -5904,6 +6054,7 @@ static int corpus_profile_for_path(const char* path)
   return result;
 }
 
+
 /**
  * Store the clause windows of a span as sentence-scale fragments; returns how
  * many were stored.
@@ -5952,7 +6103,10 @@ static int corpus_store_clauses(libxs_registry_t* corpus,
       size_t trim_start = frag_start;
       int frag_len;
       while (trim_start < frag_end
-        && 0 != isspace(text[trim_start])) ++trim_start;
+        && 0 != isspace(text[trim_start]))
+      {
+        ++trim_start;
+      }
       frag_len = (int)(frag_end - trim_start);
       while (frag_len > 0
         && 0 != isspace(text[trim_start + frag_len - 1]))
@@ -5991,17 +6145,26 @@ static int corpus_store_clauses(libxs_registry_t* corpus,
             }
           }
           if (0 != corpus_store_record(corpus, &entry,
-            (0 != parent) ? &span : NULL)) ++result;
+            (0 != parent) ? &span : NULL))
+          {
+            ++result;
+          }
         }
       }
     }
     while (frag_start < end && ',' != text[frag_start]
       && ';' != text[frag_start] && ':' != text[frag_start]
       && '.' != text[frag_start] && '?' != text[frag_start]
-      && '!' != text[frag_start]) ++frag_start;
+      && '!' != text[frag_start])
+    {
+      ++frag_start;
+    }
     if (frag_start < end) ++frag_start;
     while (frag_start < end
-      && 0 != isspace(text[frag_start])) ++frag_start;
+      && 0 != isspace(text[frag_start]))
+    {
+      ++frag_start;
+    }
   }
   /**
    * A parent whose every window turned out to be a duplicate is unreferenced, and
@@ -6089,7 +6252,10 @@ static int corpus_md_store(libxs_registry_t* corpus,
             --span;
           }
           while (0 < span
-            && 0 != isspace((unsigned char)text[begin + span - 1])) --span;
+            && 0 != isspace((unsigned char)text[begin + span - 1]))
+          {
+            --span;
+          }
           /* A block that is one sentence is already stored above. */
           if (8 < span && span < len && 3 <= count_words(text + begin, span)
             && EXIT_SUCCESS == corpus_entry_build(&entry, text + begin, span,
@@ -6242,153 +6408,156 @@ static int corpus_ingest_file(libxs_registry_t* corpus, const char* path,
   FILE* f;
   unsigned char* text = NULL;
   size_t text_size = 0;
-  if (NULL == corpus || NULL == path) return EXIT_FAILURE;
-  profile = corpus_profile_for_path(path);
-  f = fopen(path, "rb");
-  if (NULL != f) {
-    fseek(f, 0, SEEK_END);
-    text_size = (size_t)ftell(f);
-    fseek(f, 0, SEEK_SET);
-    if (text_size > 0) {
-      text = (unsigned char*)malloc(text_size + 1);
-      if (NULL != text) {
-        if (fread(text, 1, text_size, f) == text_size) {
-          text[text_size] = 0;
-          /* The id is spent only on a file that was actually read, so it stands for
-           * a name a citation can print: -b probes many candidates that do not
-           * exist, and numbering those left the table mostly empty. */
-          if (corpus_source_id < 0xffff) ++corpus_source_id;
-          corpus_source_path_set((int)corpus_source_id, path);
-          result = EXIT_SUCCESS;
+  if (NULL == corpus || NULL == path) result = EXIT_FAILURE;
+  else {
+    profile = corpus_profile_for_path(path);
+    f = fopen(path, "rb");
+    if (NULL != f) {
+      fseek(f, 0, SEEK_END);
+      text_size = (size_t)ftell(f);
+      fseek(f, 0, SEEK_SET);
+      if (text_size > 0) {
+        text = (unsigned char*)malloc(text_size + 1);
+        if (NULL != text) {
+          if (fread(text, 1, text_size, f) == text_size) {
+            text[text_size] = 0;
+            /* The id is spent only on a file that was actually read, so it stands for
+             * a name a citation can print: -b probes many candidates that do not
+             * exist, and numbering those left the table mostly empty. */
+            if (corpus_source_id < 0xffff) ++corpus_source_id;
+            corpus_source_path_set((int)corpus_source_id, path);
+            result = EXIT_SUCCESS;
+          }
         }
       }
+      fclose(f);
     }
-    fclose(f);
-  }
-  if (EXIT_SUCCESS == result && NULL != text && text_size > 0
-    && PROFILE_MARKDOWN != profile)
-  {
-    unsigned char* reflowed = NULL;
-    size_t reflowed_size = 0;
-    /* The map comes from the same pass, because a line of the reflowed text is
-     * not a line of the file a reader opens. */
-    if (EXIT_SUCCESS == libxs_text_reflow_map(text, text_size,
-      &reflowed, &reflowed_size, &corpus_ingest_lines, &corpus_ingest_nlines))
+    if (EXIT_SUCCESS == result && NULL != text && text_size > 0
+      && PROFILE_MARKDOWN != profile)
     {
-      free(text);
-      text = reflowed;
-      text_size = reflowed_size;
-    }
-  }
-  if (EXIT_SUCCESS == result && NULL != text && text_size > 0
-    && PROFILE_MARKDOWN == profile)
-  {
-    corpus_lines_index(text, text_size);
-    result = corpus_ingest_markdown(corpus, text, text_size, path,
-      lexicon, rules, nrules);
-  }
-  else if (EXIT_SUCCESS == result && NULL != text && text_size > 0) {
-    size_t sent_start = 0;
-    int nsentences = 0, nparagraphs = 0, nfragsent = 0, nfragpara = 0;
-    const char* current_section = NULL;
-    int current_section_len = 0;
-    size_t i;
-    corpus_sections_build(text, text_size);
-    for (i = 0; i <= text_size; ++i) {
-      int is_sent_end = (i == text_size)
-        ? 1 : is_sentence_end_text(text, text_size, i);
-      if (0 != is_sent_end && i > sent_start) {
-          size_t sent_end = (i < text_size) ? i + 1 : i;
-          int len = (int)(sent_end - sent_start);
-          while (sent_end < text_size) {
-            size_t close_size = text_closer_size(text, text_size, sent_end);
-            if (0 == close_size) break;
-            sent_end += close_size;
-          }
-          len = (int)(sent_end - sent_start);
-          while (len > 0 && 0 != isspace(text[sent_start + len - 1])) --len;
-          current_section_len = corpus_section_at(sent_start,
-            &current_section);
-          if (len >= COMPOSE_MAXTEXT) {
-            const int made = corpus_store_clauses(corpus, text,
-              sent_start, sent_end, current_section, current_section_len,
-              lexicon, rules, nrules, 0);
-            nfragsent += made;
-            nsentences += made;
-          }
-          if (len > 8 && len < COMPOSE_MAXTEXT) {
-            int nwords = count_words(text + sent_start, len);
-            if (nwords >= 3) {
-              corpus_entry_t entry;
-              if (EXIT_SUCCESS == corpus_entry_build(&entry,
-                text + sent_start, len, SCALE_SENTENCE,
-                lexicon, rules, nrules, 1))
-              {
-                entry.line = corpus_line_at(text, text_size, sent_start);
-                corpus_entry_set_section(&entry, current_section,
-                  current_section_len);
-                if (0 != corpus_store_entry(corpus, &entry)) ++nsentences;
-              }
-            }
-          }
-          sent_start = sent_end;
-          while (sent_start < text_size && 0 != isspace(text[sent_start])) {
-            ++sent_start;
-          }
-          i = (sent_start > 0) ? sent_start - 1 : 0;
+      unsigned char* reflowed = NULL;
+      size_t reflowed_size = 0;
+      /* The map comes from the same pass, because a line of the reflowed text is
+       * not a line of the file a reader opens. */
+      if (EXIT_SUCCESS == libxs_text_reflow_map(text, text_size,
+        &reflowed, &reflowed_size, &corpus_ingest_lines, &corpus_ingest_nlines))
+      {
+        free(text);
+        text = reflowed;
+        text_size = reflowed_size;
       }
     }
-    { size_t para_start = 0, p;
-      const char* para_section = NULL;
-      int para_section_len = 0;
-      for (p = 0; p < text_size; ++p) {
-        if ('\n' == text[p] && p + 1 < text_size && '\n' == text[p + 1]) {
-          int plen = (int)(p - para_start);
-          while (plen > 0 && 0 != isspace(text[para_start + plen - 1]))
-            --plen;
-          para_section_len = corpus_section_at(para_start, &para_section);
-          if (plen >= COMPOSE_MAXTEXT && 0 != corpus_fragments_para()) {
-            const int made = corpus_store_clauses(corpus, text,
-              para_start, para_start + (size_t)plen, para_section,
-              para_section_len, lexicon, rules, nrules, 1);
-            nfragpara += made;
-            nsentences += made;
-          }
-          if (plen > 40 && plen < COMPOSE_MAXTEXT) {
-            int nwords = count_words(text + para_start, plen);
-            if (nwords >= 8) {
-              corpus_entry_t entry;
-              if (EXIT_SUCCESS == corpus_entry_build(&entry,
-                text + para_start, plen, SCALE_PARAGRAPH,
-                lexicon, rules, nrules, 1))
-              {
-                entry.line = corpus_line_at(text, text_size, para_start);
-                corpus_entry_set_section(&entry, para_section,
-                  para_section_len);
-                if (0 != corpus_store_entry(corpus, &entry)) ++nparagraphs;
+    if (EXIT_SUCCESS == result && NULL != text && text_size > 0
+      && PROFILE_MARKDOWN == profile)
+    {
+      corpus_lines_index(text, text_size);
+      result = corpus_ingest_markdown(corpus, text, text_size, path,
+        lexicon, rules, nrules);
+    }
+    else if (EXIT_SUCCESS == result && NULL != text && text_size > 0) {
+      size_t sent_start = 0;
+      int nsentences = 0, nparagraphs = 0, nfragsent = 0, nfragpara = 0;
+      const char* current_section = NULL;
+      int current_section_len = 0;
+      size_t i;
+      corpus_sections_build(text, text_size);
+      for (i = 0; i <= text_size; ++i) {
+        int is_sent_end = (i == text_size)
+          ? 1 : is_sentence_end_text(text, text_size, i);
+        if (0 != is_sent_end && i > sent_start) {
+            size_t sent_end = (i < text_size) ? i + 1 : i;
+            int len = (int)(sent_end - sent_start);
+            while (sent_end < text_size) {
+              size_t close_size = text_closer_size(text, text_size, sent_end);
+              if (0 == close_size) break;
+              sent_end += close_size;
+            }
+            len = (int)(sent_end - sent_start);
+            while (len > 0 && 0 != isspace(text[sent_start + len - 1])) --len;
+            current_section_len = corpus_section_at(sent_start,
+              &current_section);
+            if (len >= COMPOSE_MAXTEXT) {
+              const int made = corpus_store_clauses(corpus, text,
+                sent_start, sent_end, current_section, current_section_len,
+                lexicon, rules, nrules, 0);
+              nfragsent += made;
+              nsentences += made;
+            }
+            if (len > 8 && len < COMPOSE_MAXTEXT) {
+              int nwords = count_words(text + sent_start, len);
+              if (nwords >= 3) {
+                corpus_entry_t entry;
+                if (EXIT_SUCCESS == corpus_entry_build(&entry,
+                  text + sent_start, len, SCALE_SENTENCE,
+                  lexicon, rules, nrules, 1))
+                {
+                  entry.line = corpus_line_at(text, text_size, sent_start);
+                  corpus_entry_set_section(&entry, current_section,
+                    current_section_len);
+                  if (0 != corpus_store_entry(corpus, &entry)) ++nsentences;
+                }
               }
             }
-          }
-          while (p + 1 < text_size && '\n' == text[p + 1]) ++p;
-          para_start = p + 1;
+            sent_start = sent_end;
+            while (sent_start < text_size && 0 != isspace(text[sent_start])) {
+              ++sent_start;
+            }
+            i = (sent_start > 0) ? sent_start - 1 : 0;
         }
       }
+      { size_t para_start = 0, p;
+        const char* para_section = NULL;
+        int para_section_len = 0;
+        for (p = 0; p < text_size; ++p) {
+          if ('\n' == text[p] && p + 1 < text_size && '\n' == text[p + 1]) {
+            int plen = (int)(p - para_start);
+            while (plen > 0 && 0 != isspace(text[para_start + plen - 1])) {
+              --plen;
+            }
+            para_section_len = corpus_section_at(para_start, &para_section);
+            if (plen >= COMPOSE_MAXTEXT && 0 != corpus_fragments_para()) {
+              const int made = corpus_store_clauses(corpus, text,
+                para_start, para_start + (size_t)plen, para_section,
+                para_section_len, lexicon, rules, nrules, 1);
+              nfragpara += made;
+              nsentences += made;
+            }
+            if (plen > 40 && plen < COMPOSE_MAXTEXT) {
+              int nwords = count_words(text + para_start, plen);
+              if (nwords >= 8) {
+                corpus_entry_t entry;
+                if (EXIT_SUCCESS == corpus_entry_build(&entry,
+                  text + para_start, plen, SCALE_PARAGRAPH,
+                  lexicon, rules, nrules, 1))
+                {
+                  entry.line = corpus_line_at(text, text_size, para_start);
+                  corpus_entry_set_section(&entry, para_section,
+                    para_section_len);
+                  if (0 != corpus_store_entry(corpus, &entry)) ++nparagraphs;
+                }
+              }
+            }
+            while (p + 1 < text_size && '\n' == text[p + 1]) ++p;
+            para_start = p + 1;
+          }
+        }
+      }
+      /* Sections are reported because attribution rests on them and a heading the
+       * scan misses is invisible in every other figure. */
+      fprintf(stderr, "  fragments: %d from over-long sentences (the only copy),"
+        " %d from long paragraphs (covered twice)\n", nfragsent, nfragpara);
+      if (0 != corpus_span_check()) {
+        fprintf(stderr, "  windows rebuilt: %ld of %d differ from the entry"
+          " they replace\n", corpus_span_mismatch, nfragpara);
+      }
+      fprintf(stderr, "  ingested %s: %d sentences, %d paragraphs, %d sections\n",
+        path, nsentences, nparagraphs, corpus_sections_size);
     }
-    /* Sections are reported because attribution rests on them and a heading the
-     * scan misses is invisible in every other figure. */
-    fprintf(stderr, "  fragments: %d from over-long sentences (the only copy),"
-      " %d from long paragraphs (covered twice)\n", nfragsent, nfragpara);
-    if (0 != corpus_span_check()) {
-      fprintf(stderr, "  windows rebuilt: %ld of %d differ from the entry"
-        " they replace\n", corpus_span_mismatch, nfragpara);
-    }
-    fprintf(stderr, "  ingested %s: %d sentences, %d paragraphs, %d sections\n",
-      path, nsentences, nparagraphs, corpus_sections_size);
+    free(text);
+    free(corpus_ingest_lines);
+    corpus_ingest_lines = NULL;
+    corpus_ingest_nlines = 0;
   }
-  free(text);
-  free(corpus_ingest_lines);
-  corpus_ingest_lines = NULL;
-  corpus_ingest_nlines = 0;
   return result;
 }
 
@@ -6404,47 +6573,61 @@ int corpus_ingest_basename(libxs_registry_t* corpus,
   int sep_index;
   int result = EXIT_SUCCESS;
   if (NULL == corpus || NULL == basename || '\0' == basename[0]) {
-    return EXIT_FAILURE;
-  }
-  basename_len = strlen(basename);
-  { char* path = (char*)malloc(basename_len + 5);
-    if (NULL == path) return EXIT_FAILURE;
-    sprintf(path, "%s", basename);
-    if (EXIT_SUCCESS == corpus_ingest_file(corpus, path, lexicon,
-      rules, nrules)) ++ningested;
-    sprintf(path, "%s.txt", basename);
-    if (EXIT_SUCCESS == corpus_ingest_file(corpus, path, lexicon,
-      rules, nrules)) ++ningested;
-    free(path);
-  }
-  for (part = 1; part <= CORPUS_BASENAME_PART_MAX; ++part) {
-    for (sep_index = 0; sep_index < 3; ++sep_index) {
-      char digits[16];
-      char* path;
-      size_t path_size;
-      sprintf(digits, "%u", part);
-      path_size = basename_len + strlen(separators[sep_index])
-        + strlen(digits) + 5;
-      path = (char*)malloc(path_size);
-      if (NULL == path) {
-        result = EXIT_FAILURE;
-        part = CORPUS_BASENAME_PART_MAX;
-        break;
-      }
-      sprintf(path, "%s%s%s.txt", basename, separators[sep_index], digits);
-      if (EXIT_SUCCESS == corpus_ingest_file(corpus, path, lexicon,
-        rules, nrules)) ++ningested;
-      free(path);
-    }
-  }
-  if (0 == ningested && EXIT_SUCCESS == result) {
-    fprintf(stderr, "basename %s: no companion text files (name only)\n",
-      basename);
     result = EXIT_FAILURE;
-  }
-  else if (EXIT_SUCCESS == result) {
-    fprintf(stderr, "basename %s: %lu files\n", basename,
-      (unsigned long)ningested);
+  } else {
+    basename_len = strlen(basename);
+    { char* path = (char*)malloc(basename_len + 5);
+      if (NULL == path) result = EXIT_FAILURE;
+      else {
+        sprintf(path, "%s", basename);
+        if (EXIT_SUCCESS == corpus_ingest_file(corpus, path, lexicon,
+          rules, nrules))
+        {
+          ++ningested;
+        }
+        sprintf(path, "%s.txt", basename);
+        if (EXIT_SUCCESS == corpus_ingest_file(corpus, path, lexicon,
+          rules, nrules))
+        {
+          ++ningested;
+        }
+        free(path);
+      }
+    }
+    if (EXIT_SUCCESS == result) {
+      for (part = 1; part <= CORPUS_BASENAME_PART_MAX; ++part) {
+        for (sep_index = 0; sep_index < 3; ++sep_index) {
+          char digits[16];
+          char* path;
+          size_t path_size;
+          sprintf(digits, "%u", part);
+          path_size = basename_len + strlen(separators[sep_index])
+            + strlen(digits) + 5;
+          path = (char*)malloc(path_size);
+          if (NULL == path) {
+            result = EXIT_FAILURE;
+            part = CORPUS_BASENAME_PART_MAX;
+            break;
+          }
+          sprintf(path, "%s%s%s.txt", basename, separators[sep_index], digits);
+          if (EXIT_SUCCESS == corpus_ingest_file(corpus, path, lexicon,
+            rules, nrules))
+          {
+            ++ningested;
+          }
+          free(path);
+        }
+      }
+      if (0 == ningested && EXIT_SUCCESS == result) {
+        fprintf(stderr, "basename %s: no companion text files (name only)\n",
+          basename);
+        result = EXIT_FAILURE;
+      }
+      else if (EXIT_SUCCESS == result) {
+        fprintf(stderr, "basename %s: %lu files\n", basename,
+          (unsigned long)ningested);
+      }
+    }
   }
   return result;
 }
