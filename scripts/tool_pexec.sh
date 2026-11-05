@@ -365,10 +365,10 @@ if [ "${MKTEMP}" ] && [ "${XARGS}" ] && [ "${FILE}" ] && [ "${SED}" ] && [ "${CA
   TIME=$(which time)  # !command
   if [ "0" != "${PEXEC_IL}" ]; then
     if [ "${TIME}" ] && [ -e "${TIME}" ]; then
-      echo -e "${COUNTED}" | ${TIME} -p -o "${NAME}.txt" "${XARGS}" >"${LOG_OUTER}" -P${NP} -I{} bash -c "${PEXEC_INLINE}" "{}"
+      echo -e "${COUNTED}" | ${TIME} -p -o "${NAME}.txt" "${XARGS}" >"${LOG_OUTER}" -P"${NP}" -I{} bash -c "${PEXEC_INLINE}" "{}"
       RESULT=$?
     else
-      echo -e "${COUNTED}" | ${XARGS} >"${LOG_OUTER}" -P${NP} -I{} bash -c "${PEXEC_INLINE}" "{}"
+      echo -e "${COUNTED}" | ${XARGS} >"${LOG_OUTER}" -P"${NP}" -I{} bash -c "${PEXEC_INLINE}" "{}"
       RESULT=$?
     fi
   else
@@ -376,10 +376,10 @@ if [ "${MKTEMP}" ] && [ "${XARGS}" ] && [ "${FILE}" ] && [ "${SED}" ] && [ "${CA
     echo "${PEXEC_INLINE}"    >>"${PEXEC_SCRIPT}"
     chmod +x "${PEXEC_SCRIPT}"
     if [ "${TIME}" ] && [ -e "${TIME}" ]; then
-      echo -e "${COUNTED}" | ${TIME} -p -o "${NAME}.txt" "${XARGS}" >"${LOG_OUTER}" -P${NP} -I{} "${PEXEC_SCRIPT}" "{}"
+      echo -e "${COUNTED}" | ${TIME} -p -o "${NAME}.txt" "${XARGS}" >"${LOG_OUTER}" -P"${NP}" -I{} "${PEXEC_SCRIPT}" "{}"
       RESULT=$?
     else
-      echo -e "${COUNTED}" | ${XARGS} >"${LOG_OUTER}" -P${NP} -I{} "${PEXEC_SCRIPT}" "{}"
+      echo -e "${COUNTED}" | ${XARGS} >"${LOG_OUTER}" -P"${NP}" -I{} "${PEXEC_SCRIPT}" "{}"
       RESULT=$?
     fi
   fi

@@ -1,3 +1,13 @@
+/******************************************************************************
+* Copyright (c) 2009-2026 Hans Pabst                                          *
+* Copyright (c) 2009-2026 Intel Corporation                                   *
+* This file is part of the LIBXS library.                                     *
+*                                                                             *
+* For information on the license, see the LICENSE file.                       *
+* Further information: https://github.com/hfp/libxs/                          *
+* SPDX-License-Identifier: BSD-3-Clause                                       *
+******************************************************************************/
+
 /* bins per input for split finding; one byte holds the index */
 #if !defined(LIBXS_PREDICT_RF_NBINS)
 #  define LIBXS_PREDICT_RF_NBINS 256

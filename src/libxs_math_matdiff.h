@@ -1,3 +1,13 @@
+/******************************************************************************
+* Copyright (c) 2009-2026 Hans Pabst                                          *
+* Copyright (c) 2009-2026 Intel Corporation                                   *
+* This file is part of the LIBXS library.                                     *
+*                                                                             *
+* For information on the license, see the LICENSE file.                       *
+* Further information: https://github.com/hfp/libxs/                          *
+* SPDX-License-Identifier: BSD-3-Clause                                       *
+******************************************************************************/
+
 LIBXS_API int libxs_matdiff(libxs_matdiff_t* info,
   libxs_data_t datatype, int m, int n, const void* ref, const void* tst,
   const int* ldref, const int* ldtst)

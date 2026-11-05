@@ -23,9 +23,6 @@ per file, so a return in #if and another in #else are one exit, not two.
 
   tool_checkstruct.py FILE...   report violations, exit 1 if any
   tool_checkstruct.py --list    name the checks and exit
-  tool_checkstruct.py --strict FILE...
-                                ignore the to-do list, and add the checks
-                                that the pattern hooks otherwise own
 """
 
 import os
@@ -152,6 +149,14 @@ Finding = Tuple[str, int, str]
 # macros (gemm_original -> dgemm_original or sgemm_original). The macro IS the
 # lowercase name at every use, and capitalizing it would rename hundreds of uses
 # for nothing, so every macro-name finding in those files is such an alias.
+#
+# The same holds for LIBXSTREAM: stencil_hostmem.h stands the lowercase libxstream
+# entry points in for a host-only build, and stencil_cpu_instance.h names a kernel.
+# Those two, the CPU stencil driver, and the kernel shims in tests/ are the
+# generate-by-include pattern: macros configure a kernel source or an instance
+# header, then it is included, so the macro has to precede the include and the
+# include follows code. An instance header is included once per instance and has
+# no guard on purpose. Ordering them by section would change what they generate.
 EXEMPT = (
     ("macro-name", "libxs/libxs_macros.h"),
     ("macro-name", "src/libxs_crc32.h"),
@@ -167,6 +172,20 @@ EXEMPT = (
     ("macro-name", "samples/ozaki/ozaki1_int8.c"),
     ("macro-name", "samples/ozaki/ozaki2_int8.c"),
     ("macro-name", "samples/ozaki/wrap3m.c"),
+    ("macro-name", "samples/stencil/stencil_hostmem.h"),
+    ("macro-name", "samples/stencil/stencil_cpu_instance.h"),
+    ("section-order", "samples/stencil/stencil_cpu.c"),
+    ("section-order", "tests/shim_ozaki2.h"),
+    ("section-order", "tests/shim_ozaki2_fp32.c"),
+    ("section-order", "tests/shim_ozaki2_fp32f.c"),
+    ("section-order", "tests/shim_ozaki2_fp64.c"),
+    ("section-order", "tests/shim_ozaki2_fp64f.c"),
+    ("section-order", "tests/shim_ozaki2_kgrp.c"),
+    ("section-order", "tests/shim_ozaki2_sym.c"),
+    ("section-order", "tests/shim_smm_fp32.c"),
+    ("section-order", "tests/shim_smm_fp64.c"),
+    ("section-order", "tests/shim_smm_instance.h"),
+    ("section-order", "tests/shim_smm_trans_instance.h"),
 )
 # The backlog is not here: it is per-project state, and this script is a
 # policy file that "make documentation" copies into dependent projects, which
@@ -191,10 +210,6 @@ CHECKS = (
     "section-order",
     "comment-shape",
 )
-# Only with --strict: the pre-commit hooks of the same names carry exclusions
-# (an open backlog), and this is the way to see past them.
-STRICT = ("spdx-header", "triple-blank", "double-hyphen")
-HYPHEN = re.compile(r"(/\*|^[ \t]*\*)[^*/]*[^-] -- ")
 
 
 def header(path: str) -> bool:
@@ -386,21 +401,6 @@ def check(path: str, enabled: Sequence[str]) -> List[Finding]:
                             % (gap, " or ".join(str(w) for w in want)),
                         )
                     )
-    if "spdx-header" in enabled and "SPDX-License-Identifier:" not in text:
-        report.append(("spdx-header", 1, "no SPDX-License-Identifier"))
-    if "triple-blank" in enabled:
-        for number in range(len(lines) - 3):
-            if not "".join(lines[number : number + 3]).strip():
-                report.append(
-                    ("triple-blank", number + 1, "three blank lines or more")
-                )
-                break
-    if "double-hyphen" in enabled:
-        for number, line in enumerate(lines, 1):
-            if HYPHEN.search(line):
-                report.append(
-                    ("double-hyphen", number, 'no " -- " in a comment')
-                )
     if "stacked-comments" in enabled:
         report += stacked(text, lines)
     if "closer-nesting" in enabled:
@@ -1304,7 +1304,6 @@ def main(argv: Sequence[str]) -> int:
         only: List[str] = []
         names = []
         counts = "--counts" in argv
-        strict = "--strict" in argv
         for argument in argv[1:]:
             if argument.startswith("--no-"):
                 skip[argument[5:]] = True
@@ -1314,10 +1313,10 @@ def main(argv: Sequence[str]) -> int:
                 names.append(argument)
         enabled = [
             check
-            for check in CHECKS + (STRICT if strict else ())
+            for check in CHECKS
             if check not in skip and (not only or check in only)
         ]
-        listed = {} if strict else backlog()
+        listed = backlog()
         observed: Dict[Tuple[str, str], int] = {}
         for path in names:
             report = check(path, enabled)
@@ -1330,7 +1329,7 @@ def main(argv: Sequence[str]) -> int:
             if violations or complaints:
                 print("\n".join(violations + complaints))
                 result = 1
-        if not counts and not strict:
+        if not counts:
             for said in lower(listed, observed, names, enabled):
                 print(said)
                 result = 1

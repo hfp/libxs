@@ -1,3 +1,12 @@
+!=======================================================================!
+! Copyright (c) 2009-2026 Hans Pabst                                    !
+! Copyright (c) 2009-2026 Intel Corporation                             !
+! This file is part of the LIBXS library.                               !
+!                                                                       !
+! For information on the license, see the LICENSE file.                 !
+! Further information: https://github.com/hfp/libxs/                    !
+! SPDX-License-Identifier: BSD-3-Clause                                 !
+!=======================================================================!
         USE, INTRINSIC :: ISO_C_BINDING, ONLY:                          &
      &    C_DOUBLE, C_FLOAT, C_LONG_LONG, C_INT, C_INT64_T,             &
      &    C_CHAR, C_NULL_CHAR, C_INT8_T, C_SIZE_T, C_PTR, C_NULL_PTR,   &

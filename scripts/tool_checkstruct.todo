@@ -7,6 +7,3 @@
 # Per project, and deliberately not a policy file: "make documentation" copies
 # tool_checkstruct.py from LIBXS and would revert a count lowered here.
 # Regenerate with: scripts/tool_checkstruct.py --counts $(git ls-files)
-# samples/converse is a live sample with its own to-do list; the three rules the
-# "structure-anywhere" hook applies tree-wide are deferred there rather than
-# scrubbed under someone else's work in progress.
