@@ -59,7 +59,6 @@ typedef struct header_t {
 typedef size_t (*vpack_fn)(void*, const void*, libxs_data_t, size_t, int, int);
 typedef size_t (*vunpack_fn)(void*, const void*, size_t, libxs_data_t, size_t);
 
-#if defined(PACK_FORTRAN)
 typedef struct kd_ctx_t {
   const uint64_t* z;
   int *left, *right; /* scratch */
@@ -89,6 +88,7 @@ typedef struct kd_node_t {
   size_t e;
 } kd_node_t;
 
+#if defined(PACK_FORTRAN)
 /* vpack.f: a group of 8 in the format libxs_vpack writes at level 1 */
 size_t vpack_f(int64_t* packed, const int64_t* values, size_t n, int maxbits);
 size_t vunpack_f(int64_t* values, const int64_t* packed, size_t n);
