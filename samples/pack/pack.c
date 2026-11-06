@@ -611,9 +611,13 @@ static int add_file(stats_t* st, const char* filename, double eps)
     int32_t nblk = 0;
     double* x = NULL;
     int64_t* q = NULL;
-    if (12 <= extsize) { /* CP2K: REAL(8) eps, INT32 number of blocks, INT32 shape(3) per block */
+    if (12 <= extsize) { /* CP2K/DBCSR: REAL(8) eps (if positive), INT32 number of blocks, INT32 shape(3) per block */
       memcpy(&nblk, ext + 8, sizeof(nblk));
-      if (0 < nblk && (size_t)extsize == 12 + 12 * (size_t)nblk) memcpy(&eps, ext, sizeof(eps));
+      if (0 < nblk && (size_t)extsize == 12 + 12 * (size_t)nblk) {
+        double ext_eps;
+        memcpy(&ext_eps, ext, sizeof(ext_eps));
+        if (0 < ext_eps) eps = ext_eps;
+      }
       else nblk = 0;
     }
     if (0 != is_float) {
