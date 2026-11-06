@@ -35,8 +35,9 @@ and summed over all files. Integer data is packed as it is. Floating-point
 data is quantized to multiples of `eps` (values not above `eps` become zero),
 and each block gets the width its largest value needs. A file whose MHD
 extension holds a REAL(8) eps, an INT32 number of blocks, and an INT32 shape(3)
-per block provides eps and the blocks itself, so a dump of the data to analyze
-can carry its own blocking.
+per block provides the blocks itself, and eps unless it is zero (then the
+command line's eps counts), so a dump of the data to analyze can carry its own
+blocking.
 
 The output compares the fixed width with the levels of `libxs_vpack`, with
 deltas between neighbors, and for floating-point data with a quantization step

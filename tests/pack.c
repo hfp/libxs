@@ -286,14 +286,18 @@ static int check_reals(libxs_data_t type)
   float *const xf = (float*)malloc(nmax * sizeof(float)), *const yf = (float*)malloc(nmax * sizeof(float));
   uint64_t *const packed = (uint64_t*)malloc((2 * nmax + 64) * sizeof(uint64_t));
   int result = (NULL != x && NULL != y && NULL != xf && NULL != yf && NULL != packed) ? EXIT_SUCCESS : EXIT_FAILURE;
-  int kind, im, level;
+  int kind, im, level, nzruns = 0;
   size_t ic, i;
-  for (kind = 0; kind < 3 && EXIT_SUCCESS == result; ++kind) { /* full mantissas, integral, specials among them */
-    for (i = 0; i < nmax; ++i) {
+  for (kind = 0; kind < 5 && EXIT_SUCCESS == result; ++kind) { /* full mantissas, integral, specials among them, */
+    for (i = 0; i < nmax; ++i) { /* zeros in runs (leading and trailing ones), almost only zeros */
       const double r = (double)(rng_next() >> 11) / 9007199254740992.0 - 0.5;
-      x[i] = (0 == kind ? ldexp(r, (int)(rng_next() % 40) - 20)
+      x[i] = ((0 == kind || 3 <= kind) ? ldexp(r, (int)(rng_next() % 40) - 20)
         : (double)((int64_t)(rng_next() % 2001) - 1000));
-      if (0 == (rng_next() % 5)) x[i] = 0;
+      if (3 > kind ? (0 == (rng_next() % 5)) : (3 == kind ? (i < 5 || 4090 <= i || 2 > (i / 3) % 5)
+        : (0 != (rng_next() % 50))))
+      {
+        x[i] = 0;
+      }
     }
     if (2 == kind) { /* specials */
       const uint64_t inf = 0x7FF0000000000000ULL, nan = 0x7FF8000000000001ULL;
@@ -318,6 +322,7 @@ static int check_reals(libxs_data_t type)
           memset(y, 0xFF, nmax * sizeof(double));
           memset(yf, 0xFF, nmax * sizeof(float));
           nwords = libxs_vpack(packed, 0 != f64 ? (const void*)x : (const void*)xf, type, n, maxbits, level);
+          if (0 != nwords && 0 != ((packed[0] >> 48) & 1)) ++nzruns; /* zeros as runs */
           nread = libxs_vunpack(0 != f64 ? (void*)y : (void*)yf, packed, nwords, type, n);
           for (k = 0; k < n; ++k) {
             const double v = (0 != f64 ? x[k] : (double)xf[k]);
@@ -362,6 +367,10 @@ static int check_reals(libxs_data_t type)
         }
       }
     }
+  }
+  if (EXIT_SUCCESS == result && 0 == nzruns) {
+    fprintf(stderr, "reals: zeros never as runs (type %i)\n", (int)type);
+    result = EXIT_FAILURE;
   }
   free(x);
   free(y);
