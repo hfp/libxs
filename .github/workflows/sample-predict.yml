@@ -5,7 +5,10 @@ permissions:
 
 # Manual only: predict_params.x on the server-class CPUs runners happen to land on,
 # with the tuning data of LIBXSTREAM unless a CSV is given. Runners differ per job,
-# hence several of them: compare timings within a job, not across jobs.
+# hence several of them: compare timings within a job, not across jobs. A driver
+# (script_url) replaces the direct run; it is called as
+#   driver.py --samples DIR --params-dir DIR --binary predict_params.x --out DIR [script_args]
+# and only runs if its SHA-256 matches script_sha256.
 on:
   workflow_dispatch:
     inputs:
@@ -18,13 +21,28 @@ on:
       holdout_url:
         description: "URL of a test CSV file (HTTPS), requires file_url"
         default: ""
+      script_url:
+        description: "URL of a Python driver (HTTPS), run instead of predict_params.x"
+        default: ""
+      script_sha256:
+        description: "SHA-256 the driver must have, requires script_url"
+        default: ""
+      script_args:
+        description: "Further arguments of the driver"
+        default: ""
+      libxstream_ref:
+        description: "LIBXSTREAM branch, tag or commit (tuning data)"
+        default: ""
+      xgboost:
+        description: "XGBoost version (Python package and headers of the same tag)"
+        default: "3.4.1"
       env:
         description: "Environment for all steps, e.g., OMP_NUM_THREADS=8"
         default: ""
 
 jobs:
   Predict:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 60
     strategy:
       fail-fast: false
@@ -34,13 +52,24 @@ jobs:
       PREDICT_ARGS: ${{ github.event.inputs.args }}
       FILE_URL: ${{ github.event.inputs.file_url }}
       HOLDOUT_URL: ${{ github.event.inputs.holdout_url }}
+      SCRIPT_URL: ${{ github.event.inputs.script_url }}
+      SCRIPT_SHA256: ${{ github.event.inputs.script_sha256 }}
+      SCRIPT_ARGS: ${{ github.event.inputs.script_args }}
+      XGB_VERSION: ${{ github.event.inputs.xgboost }}
       LIBXSTREAM_ROOT: ${{ github.workspace }}/libxstream
+      BUILD_FLAGS: DBG=0 FORTRAN=0 SSE=4 XGB=1
     steps:
     - uses: actions/checkout@v5
 
     - name: System Information
-      run: lscpu
+      run: |
+        lscpu
+        MODEL=$(lscpu --extended=MODELNAME 2>/dev/null | tail -n1)
+        ISA=$(grep -qw avx512f /proc/cpuinfo && echo "AVX-512" || echo "AVX2 or less")
+        echo "### ${MODEL} (${ISA}, $(nproc) CPUs)" >> "$GITHUB_STEP_SUMMARY"
 
+    # Space-separated NAME=VALUE pairs given when launching manually. They come
+    # in through the environment rather than the script, so no value is executed.
     - name: Setup environment
       if: github.event.inputs.env != ''
       env:
@@ -57,22 +86,34 @@ jobs:
       uses: actions/checkout@v5
       with:
         repository: hfp/libxstream
+        ref: ${{ github.event.inputs.libxstream_ref }}
         path: libxstream
 
+    # The library the Python package ships, as a comparison at one version needs;
+    # the headers come from the same tag, and the build links the package's library.
     - name: Install XGBoost
       run: |
-        sudo apt update -y
-        sudo apt install -y libxgboost-dev
+        if ! echo "${XGB_VERSION}" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+$'; then
+          echo "ERROR: \"${XGB_VERSION}\" is not a version"; exit 1
+        fi
+        python3 -m venv "${RUNNER_TEMP}/venv"
+        "${RUNNER_TEMP}/venv/bin/pip" install --quiet "xgboost==${XGB_VERSION}"
+        git clone --quiet --depth 1 --branch "v${XGB_VERSION}" \
+          https://github.com/dmlc/xgboost "${RUNNER_TEMP}/xgboost"
+        echo "${RUNNER_TEMP}/venv/bin" >> "$GITHUB_PATH"
+        echo "XGBOOST_ROOT=${RUNNER_TEMP}/xgboost" >> "$GITHUB_ENV"
 
     - name: Build
       working-directory: samples/predict
-      run: make -j "$(nproc)" DBG=0 FORTRAN=0 SSE=4 XGB=1 predict_params.x
+      run: |
+        make -j "$(nproc)" ${BUILD_FLAGS} predict_params.x
+        if ! ldd predict_params.x | grep -q libxgboost; then
+          echo "ERROR: predict_params.x is not linked against XGBoost"; exit 1
+        fi
 
     - name: Run
       working-directory: samples/predict
       shell: bash
-      env:
-        BUILD_FLAGS: DBG=0 FORTRAN=0 SSE=4 XGB=1
       run: |
         mkdir -p output
         export OMP_NUM_THREADS=${OMP_NUM_THREADS:-$(nproc)}
@@ -80,44 +121,66 @@ jobs:
         if [ "" != "${HOLDOUT_URL}" ] && [ "" = "${FILE_URL}" ]; then
           echo "ERROR: holdout_url requires file_url"; exit 1
         fi
-        if [ "" != "${FILE_URL}" ]; then
-          curl -fsSL --proto '=https' --proto-redir '=https' \
-            -o output/input.csv "${FILE_URL}"
-          FILES=(output/input.csv)
-        else
-          FILES=("${LIBXSTREAM_ROOT}"/samples/smm/params/tune_multiply_*.csv)
-        fi
-        if [ "" != "${HOLDOUT_URL}" ]; then
-          curl -fsSL --proto '=https' --proto-redir '=https' \
-            -o output/holdout.csv "${HOLDOUT_URL}"
-          export HOLDOUT="${PWD}/output/holdout.csv"
-        fi
         {
           lscpu
           "${CC:-cc}" --version
           git rev-parse HEAD
           git -C "${LIBXSTREAM_ROOT}" rev-parse HEAD
-          echo "BUILD_FLAGS=${BUILD_FLAGS}"
+          echo "BUILD_FLAGS=${BUILD_FLAGS} XGBOOST=${XGB_VERSION}"
           echo "OMP_NUM_THREADS=${OMP_NUM_THREADS} XGB_NTHREAD=${XGB_NTHREAD}"
           ldd predict_params.x
           sha256sum predict_params.x
         } > output/system.txt
-        read -r -a ARGS <<< "${PREDICT_ARGS}"
-        for CSV in "${FILES[@]}"; do
-          if [ ! -f "${CSV}" ]; then
-            echo "ERROR: no input CSV: ${CSV}"; exit 1
+        if [ "" != "${SCRIPT_URL}" ]; then
+          if ! echo "${SCRIPT_SHA256}" | grep -qE '^[0-9a-f]{64}$'; then
+            echo "ERROR: script_url requires script_sha256"; exit 1
           fi
-          BASE=$(basename "${CSV}" .csv)
-          sha256sum "${CSV}" >> output/system.txt
-          DUMP="${PWD}/output/${BASE}.dump" DUMP_ALL=1 \
-            ./predict_params.x "${ARGS[@]}" "${CSV}" "output/${BASE}.bin" \
-            2>&1 | tee "output/${BASE}.log"
-        done
+          curl -fsSL --proto '=https' --proto-redir '=https' \
+            -o "${RUNNER_TEMP}/driver.py" "${SCRIPT_URL}"
+          echo "${SCRIPT_SHA256}  ${RUNNER_TEMP}/driver.py" | sha256sum -c -
+          read -r -a ARGS <<< "${SCRIPT_ARGS}"
+          python3 "${RUNNER_TEMP}/driver.py" --samples "${PWD}" \
+            --params-dir "${LIBXSTREAM_ROOT}/samples/smm/params" \
+            --binary "${PWD}/predict_params.x" --out "${PWD}/output/run" "${ARGS[@]}" \
+            2>&1 | tee output/driver.log
+        else
+          if [ "" != "${FILE_URL}" ]; then
+            curl -fsSL --proto '=https' --proto-redir '=https' \
+              -o output/input.csv "${FILE_URL}"
+            FILES=(output/input.csv)
+          else
+            FILES=("${LIBXSTREAM_ROOT}"/samples/smm/params/tune_multiply_*.csv)
+          fi
+          if [ "" != "${HOLDOUT_URL}" ]; then
+            curl -fsSL --proto '=https' --proto-redir '=https' \
+              -o output/holdout.csv "${HOLDOUT_URL}"
+            export HOLDOUT="${PWD}/output/holdout.csv"
+          fi
+          read -r -a ARGS <<< "${PREDICT_ARGS}"
+          for CSV in "${FILES[@]}"; do
+            if [ ! -f "${CSV}" ]; then
+              echo "ERROR: no input CSV: ${CSV}"; exit 1
+            fi
+            BASE=$(basename "${CSV}" .csv)
+            sha256sum "${CSV}" >> output/system.txt
+            DUMP="${PWD}/output/${BASE}.dump" DUMP_ALL=1 \
+              ./predict_params.x "${ARGS[@]}" "${CSV}" "output/${BASE}.bin" \
+              2>&1 | tee "output/${BASE}.log"
+          done
+        fi
+        # one digest over every model and prediction: equal across jobs = same answers
+        cd output
+        RESULTS=$(find . -name '*.bin' -o -name '*.dump' | LC_ALL=C sort)
         {
           echo '### predict_params.x'
           echo "OMP_NUM_THREADS=${OMP_NUM_THREADS}"
           echo '```'
-          grep -hE '^(Loaded|Built|Eval|Decomposition|XGBoost head-to-head)' output/*.log
+          if [ "" != "${RESULTS}" ]; then
+            echo "results: $(echo "${RESULTS}" | wc -l) files," \
+              "sha256 $(echo "${RESULTS}" | xargs sha256sum | sha256sum | cut -c1-16)"
+          fi
+          grep -hE '^(Loaded|Built|Eval|Decomposition|XGBoost head-to-head|Completed)' \
+            $(find . -name '*.log' -o -name '*.txt' | LC_ALL=C sort) 2>/dev/null || true
           echo '```'
         } >> "$GITHUB_STEP_SUMMARY"
 
