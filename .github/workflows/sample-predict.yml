@@ -57,7 +57,8 @@ jobs:
       SCRIPT_ARGS: ${{ github.event.inputs.script_args }}
       XGB_VERSION: ${{ github.event.inputs.xgboost }}
       LIBXSTREAM_ROOT: ${{ github.workspace }}/libxstream
-      BUILD_FLAGS: DBG=0 FORTRAN=0 SSE=4 XGB=1
+      # the sample's own SSE=0: each runner builds for its CPU (-march=native)
+      BUILD_FLAGS: DBG=0 FORTRAN=0 XGB=1
     steps:
     - uses: actions/checkout@v5
 
@@ -182,10 +183,11 @@ jobs:
           grep -hE '^(Loaded|Built|Eval|Decomposition|XGBoost head-to-head|Completed)' \
             $(find . -name '*.log' -o -name '*.txt' | LC_ALL=C sort) 2>/dev/null || true
           echo '```'
-        } >> "$GITHUB_STEP_SUMMARY"
+        } | tee -a "$GITHUB_STEP_SUMMARY"
 
     - uses: actions/upload-artifact@v5
-      if: always() && env.UPLOAD != '0'
+      # format() keeps an unset UPLOAD a string: null != '0' is false (both coerce to 0)
+      if: always() && format('{0}', env.UPLOAD) != '0'
       with:
         name: predict-${{ matrix.job }}
         path: samples/predict/output/

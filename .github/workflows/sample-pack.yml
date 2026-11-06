@@ -156,7 +156,8 @@ jobs:
         } >> "$GITHUB_STEP_SUMMARY"
 
     - uses: actions/upload-artifact@v5
-      if: always() && env.UPLOAD != '0'
+      # format() keeps an unset UPLOAD a string: null != '0' is false (both coerce to 0)
+      if: always() && format('{0}', env.UPLOAD) != '0'
       with:
         name: pack-${{ matrix.job }}
         path: samples/pack/pack-${{ matrix.job }}.log
