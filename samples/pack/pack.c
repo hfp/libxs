@@ -776,21 +776,23 @@ static void fixed_seconds(const stream_t* s, double* seconds, double* useconds, 
           best = LIBXS_MIN(best, d);
         }
         *seconds += best;
-        for (rep = 0; rep < nrepeat; ++rep) {
-          double d = 0;
+        for (rep = 0; rep < nrepeat; ++rep) { /* the loop as a whole (no timer per record) */
+          const libxs_timer_tick_t t1 = libxs_timer_tick();
           for (k = 0; k < nrec; ++k) {
-            const size_t m = LIBXS_MIN(r, n - k * r);
-            uint64_t *const dst = (0 != record ? tmp : back);
-            const libxs_timer_tick_t t1 = libxs_timer_tick();
-            libxs_unpack(dst, packed + k * rwords, LIBXS_DATATYPE_U64, m, nbits);
-            d += libxs_timer_duration(t1, libxs_timer_tick());
-            for (i = 0; i < m; ++i) {
-              if (dst[i] != (uint64_t)s[nbits].q[k * r + i] + offset) *ok = 0;
-            }
+            libxs_unpack(0 != record ? tmp : back + k * r, packed + k * rwords, LIBXS_DATATYPE_U64,
+              LIBXS_MIN(r, n - k * r), nbits);
           }
-          ubest = LIBXS_MIN(ubest, d);
+          ubest = LIBXS_MIN(ubest, libxs_timer_duration(t1, libxs_timer_tick()));
         }
         *useconds += ubest;
+        for (k = 0; k < nrec; ++k) { /* checked apart from the timing */
+          const size_t m = LIBXS_MIN(r, n - k * r);
+          uint64_t *const dst = (0 != record ? tmp : back + k * r);
+          if (0 != record) libxs_unpack(dst, packed + k * rwords, LIBXS_DATATYPE_U64, m, nbits);
+          for (i = 0; i < m; ++i) {
+            if (dst[i] != (uint64_t)s[nbits].q[k * r + i] + offset) *ok = 0;
+          }
+        }
       }
       else *ok = 0;
       free(packed);
@@ -858,21 +860,22 @@ static double vpack_bits(const stream_t* s, int level, vpack_fn pack, vunpack_fn
           best = LIBXS_MIN(best, d);
         }
         *seconds += best;
-        for (rep = 0; rep < nrepeat; ++rep) {
-          double d = 0;
+        for (rep = 0; rep < nrepeat; ++rep) { /* the loop as a whole (no timer per record) */
+          const libxs_timer_tick_t t1 = libxs_timer_tick();
           for (k = 0, off = 0; k < nrec; ++k) {
-            const size_t m = LIBXS_MIN(r, n - k * r);
-            int64_t *const dst = (0 != record ? tmp : back);
-            const libxs_timer_tick_t t1 = libxs_timer_tick();
-            const size_t nread = unpack(dst, packed + off, len[k], LIBXS_DATATYPE_I64, m);
-            d += libxs_timer_duration(t1, libxs_timer_tick());
-            if (nread != len[k]) *ok = 0;
-            if (dst != back) memcpy(back + k * r, dst, m * sizeof(int64_t));
+            unpack(0 != record ? tmp : back + k * r, packed + off, len[k], LIBXS_DATATYPE_I64, LIBXS_MIN(r, n - k * r));
             off += len[k];
           }
-          ubest = LIBXS_MIN(ubest, d);
+          ubest = LIBXS_MIN(ubest, libxs_timer_duration(t1, libxs_timer_tick()));
         }
         *useconds += ubest;
+        for (k = 0, off = 0; k < nrec; ++k) { /* checked apart from the timing */
+          const size_t m = LIBXS_MIN(r, n - k * r);
+          int64_t *const dst = (0 != record ? tmp : back + k * r);
+          if (len[k] != unpack(dst, packed + off, len[k], LIBXS_DATATYPE_I64, m)) *ok = 0;
+          if (dst != back + k * r) memcpy(back + k * r, dst, m * sizeof(int64_t));
+          off += len[k];
+        }
         if (0 != memcmp(back, s[nbits].q, n * sizeof(int64_t))) *ok = 0;
         bits += 64.0 * (double)(off + (0 != record ? nrec : 0));
       }
@@ -898,15 +901,17 @@ static double vpack_reals(const double* x, size_t n, int maxbits, int level, dou
   const size_t bound = nrec * libxs_vpack_bound(r, maxbits);
   uint64_t *const packed = (uint64_t*)malloc(LIBXS_MAX(bound, 1) * sizeof(uint64_t));
   double *const back = (double*)malloc(LIBXS_MAX(n, 1) * sizeof(double));
+  double *const tmp = (double*)malloc(LIBXS_MAX(r, 1) * sizeof(double));
   size_t *const len = (size_t*)malloc(LIBXS_MAX(nrec, 1) * sizeof(size_t));
   double bits = 0;
   *seconds = *useconds = 0;
-  if (NULL != packed && NULL != back && NULL != len && 0 < n) {
+  if (NULL != packed && NULL != back && NULL != tmp && NULL != len && 0 < n) {
     double best = DBL_MAX, ubest = DBL_MAX;
     size_t k, i, off = 0;
     int rep;
     first_touch(packed, bound * sizeof(uint64_t));
     first_touch(back, n * sizeof(double));
+    first_touch(tmp, r * sizeof(double));
     for (rep = 0; rep < nrepeat; ++rep) {
       const libxs_timer_tick_t t0 = libxs_timer_tick();
       for (k = 0, off = 0; k < nrec; ++k) {
@@ -915,16 +920,22 @@ static double vpack_reals(const double* x, size_t n, int maxbits, int level, dou
       }
       best = LIBXS_MIN(best, libxs_timer_duration(t0, libxs_timer_tick()));
     }
-    for (rep = 0; rep < nrepeat; ++rep) {
+    for (rep = 0; rep < nrepeat; ++rep) { /* records into a reused buffer (as the integer rows) */
       const libxs_timer_tick_t t1 = libxs_timer_tick();
       size_t at = 0;
       for (k = 0; k < nrec; ++k) {
-        if (len[k] != libxs_vunpack(back + k * r, packed + at, len[k], LIBXS_DATATYPE_F64, LIBXS_MIN(r, n - k * r))) {
-          *ok = 0;
-        }
+        libxs_vunpack(0 != record ? tmp : back + k * r, packed + at, len[k], LIBXS_DATATYPE_F64,
+          LIBXS_MIN(r, n - k * r));
         at += len[k];
       }
       ubest = LIBXS_MIN(ubest, libxs_timer_duration(t1, libxs_timer_tick()));
+    }
+    for (k = 0, off = 0; k < nrec; ++k) { /* checked apart from the timing */
+      const size_t m = LIBXS_MIN(r, n - k * r);
+      double *const dst = (0 != record ? tmp : back + k * r);
+      if (len[k] != libxs_vunpack(dst, packed + off, len[k], LIBXS_DATATYPE_F64, m)) *ok = 0;
+      if (dst != back + k * r) memcpy(back + k * r, dst, m * sizeof(double));
+      off += len[k];
     }
     for (i = 0; i < n && 0 != *ok; ++i) {
       const double e = fabs(back[i] - x[i]);
@@ -939,6 +950,7 @@ static double vpack_reals(const double* x, size_t n, int maxbits, int level, dou
   else if (0 < n) *ok = 0;
   free(packed);
   free(back);
+  free(tmp);
   free(len);
   return bits;
 }

@@ -276,8 +276,8 @@ static int nonfinite(double v)
 static int check_reals(libxs_data_t type)
 {
   static const size_t counts[] = { 1, 7, 8, 9, 63, 333, 1024, 4099 };
-  static const int modes64[] = { 64, 40, 20, 5, 0, -10, -30, -60, -2000 };
-  static const int modes32[] = { 32, 20, 12, 3, 0, -5, -20, -200 };
+  static const int modes64[] = { 64, 40, 20, 5, 0, -10, -30, -40, -60, -2000 };
+  static const int modes32[] = { 32, 20, 12, 3, 0, -5, -20, -40, -200 };
   const int f64 = (LIBXS_DATATYPE_F64 == type), width = (0 != f64 ? 64 : 32), expbits = (0 != f64 ? 11 : 8);
   const int* const modes = (0 != f64 ? modes64 : modes32);
   const int nmodes = (0 != f64 ? (int)(sizeof(modes64) / sizeof(*modes64)) : (int)(sizeof(modes32) / sizeof(*modes32)));
@@ -286,7 +286,7 @@ static int check_reals(libxs_data_t type)
   float *const xf = (float*)malloc(nmax * sizeof(float)), *const yf = (float*)malloc(nmax * sizeof(float));
   uint64_t *const packed = (uint64_t*)malloc((2 * nmax + 64) * sizeof(uint64_t));
   int result = (NULL != x && NULL != y && NULL != xf && NULL != yf && NULL != packed) ? EXIT_SUCCESS : EXIT_FAILURE;
-  int kind, im, level, nzruns = 0;
+  int kind, im, level, nzruns = 0, nfast = 0, nwide = 0;
   size_t ic, i;
   for (kind = 0; kind < 5 && EXIT_SUCCESS == result; ++kind) { /* full mantissas, integral, specials among them, */
     for (i = 0; i < nmax; ++i) { /* zeros in runs (leading and trailing ones), almost only zeros */
@@ -323,6 +323,10 @@ static int check_reals(libxs_data_t type)
           memset(yf, 0xFF, nmax * sizeof(float));
           nwords = libxs_vpack(packed, 0 != f64 ? (const void*)x : (const void*)xf, type, n, maxbits, level);
           if (0 != nwords && 0 != ((packed[0] >> 48) & 1)) ++nzruns; /* zeros as runs */
+          if (0 != nwords && 3 == ((packed[0] >> 16) & 0xFF)) { /* quantized: integers below 2^51, or not */
+            if (0 != ((packed[0] >> 49) & 1)) ++nfast;
+            else ++nwide;
+          }
           nread = libxs_vunpack(0 != f64 ? (void*)y : (void*)yf, packed, nwords, type, n);
           for (k = 0; k < n; ++k) {
             const double v = (0 != f64 ? x[k] : (double)xf[k]);
@@ -368,8 +372,9 @@ static int check_reals(libxs_data_t type)
       }
     }
   }
-  if (EXIT_SUCCESS == result && 0 == nzruns) {
-    fprintf(stderr, "reals: zeros never as runs (type %i)\n", (int)type);
+  if (EXIT_SUCCESS == result && (0 == nzruns || 0 == nfast || 0 == nwide)) {
+    fprintf(stderr, "reals: zeros as runs %i, integers below 2^51 %i, above %i times (type %i)\n",
+      nzruns, nfast, nwide, (int)type);
     result = EXIT_FAILURE;
   }
   free(x);
