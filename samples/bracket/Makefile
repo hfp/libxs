@@ -14,6 +14,7 @@ BLAS_STATIC = 0
 BLAS = 1
 OMP = 0
 SYM = 1
+SSE = 0
 
 # setup XGBoost as an optional dependency
 XGB ?= 1

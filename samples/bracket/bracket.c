@@ -55,8 +55,9 @@ typedef struct train_t {
 } train_t;
 
 typedef struct setup_t {
+  const char* target;
   double angle;
-  int units, samples, width, run2d, pixel, rank;
+  int units, samples, width, run2d, predict, pixel, rank;
 } setup_t;
 
 typedef struct model1_t {
@@ -164,6 +165,7 @@ static double edge_error(const double y[], size_t n, const target1_t* target);
 static int fprint_field(libxs_fprint_t* info, const double data[], int ndims, size_t n,
   int order);
 static int env_int(const char name[], int value, int lo, int hi);
+static int selected(const setup_t* setup, const char target[]);
 static int run_1d(const train_t* train, const setup_t* setup, unsigned int seed);
 static int run_2d(const train_t* train, const setup_t* setup, unsigned int seed);
 static int run_checker(const train_t* train, const setup_t* setup, unsigned int seed,
@@ -177,6 +179,7 @@ int main(void)
   const char *const env_wd = getenv("BRACKET_WD");
   const char *const env_seed = getenv("BRACKET_SEED");
   const char *const env_angle = getenv("BRACKET_ANGLE");
+  const char *const env_target = getenv("BRACKET_TARGET");
   int result = EXIT_SUCCESS;
   train_t train;
   setup_t setup;
@@ -185,9 +188,11 @@ int main(void)
   setup.samples = env_int("BRACKET_SAMPLES", BRACKET_N1, 4, BRACKET_N1MAX);
   setup.width = env_int("BRACKET_WIDTH", BRACKET_H2, 1, 1024);
   setup.run2d = env_int("BRACKET_2D", 1, 0, 1);
+  setup.predict = env_int("BRACKET_PREDICT", 1, 0, 1);
   setup.pixel = env_int("BRACKET_PIXEL", 1, 0, 1);
   setup.rank = env_int("BRACKET_RANK", BRACKET_RANKMAX, 1, BRACKET_RANKMAX);
   setup.angle = (NULL != env_angle && 0 != *env_angle ? atof(env_angle) : BRACKET_ANGLE);
+  setup.target = env_target;
   train.nsteps = (NULL != env_nsteps ? atoi(env_nsteps) : 0);
   if (0 >= train.nsteps) train.nsteps = 20000;
   train.wd = (NULL != env_wd ? atof(env_wd) : 1e-2);
@@ -217,6 +222,12 @@ static int env_int(const char name[], int value, int lo, int hi)
   const char *const env = getenv(name);
   const int result = (NULL != env && 0 != *env ? atoi(env) : value);
   return LIBXS_CLMP(result, lo, hi);
+}
+
+
+static int selected(const setup_t* setup, const char target[])
+{
+  return (NULL == setup->target || 0 == *setup->target || 0 == strcmp(setup->target, target));
 }
 
 
@@ -1908,6 +1919,7 @@ static int run_1d(const train_t* train, const setup_t* setup, unsigned int seed)
   for (t = 0; t < 3 && EXIT_SUCCESS == result; ++t) {
     const target1_t *const target = targets + t;
     char name[64];
+    if (0 == selected(setup, target->name)) continue;
     study.row = target;
     study.sumjsq = 0;
     for (i = 0; i < target->nedges; ++i) {
@@ -1978,14 +1990,14 @@ static int run_2d(const train_t* train, const setup_t* setup, unsigned int seed)
   double *const work = (double*)malloc(sizeof(double)
     * (n * n + 3 * nc * nc + 2 * ni * ni + nbuffer));
   int result = (NULL != work ? EXIT_SUCCESS : EXIT_FAILURE);
-  if (EXIT_SUCCESS == result) {
+  if (EXIT_SUCCESS == result && 0 != selected(setup, "checker")) {
     result = run_checker(train, setup, seed, "checker", checker_value, 0, work);
   }
-  if (EXIT_SUCCESS == result) {
+  if (EXIT_SUCCESS == result && 0 != selected(setup, "turned")) {
     result = run_checker(train, setup, seed, "turned", checker_value,
       setup->angle * BRACKET_PI / 180, work);
   }
-  if (EXIT_SUCCESS == result) {
+  if (EXIT_SUCCESS == result && 0 != selected(setup, "disc")) {
     result = run_checker(train, setup, seed, "disc", disc_value, 0, work);
   }
   free(work);
@@ -2184,7 +2196,7 @@ static int run_checker(const train_t* train, const setup_t* setup, unsigned int 
     free(mlp.param);
     free(tensor.param);
   }
-  if (EXIT_SUCCESS == result) {
+  if (EXIT_SUCCESS == result && 0 != setup->predict) {
     result = bracket_predict(&study, target, data, n, lo, h, pixel, model_image);
   }
   return result;

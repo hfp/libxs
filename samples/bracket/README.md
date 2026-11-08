@@ -84,6 +84,8 @@ confident 50% and 80%, and, for libxs_predict, its number of coordinates (`ncoor
 | `BRACKET_SAMPLES` | 64      | Training samples of the 1-D targets (4 to 256).            |
 | `BRACKET_WIDTH`   | 64      | Hidden width of the 2-D networks (at most 1024).           |
 | `BRACKET_2D`      | 1       | Set to 0 to skip the 2-D targets.                          |
+| `BRACKET_PREDICT` | 1       | Set to 0 to skip the classifiers (`knn` to `xgb`).         |
+| `BRACKET_TARGET`  | none    | Name of the only target to run, e.g., `turned`.            |
 | `BRACKET_PIXEL`   | 1       | Set to 0 for point samples instead of cell averages.       |
 | `BRACKET_RANK`    | 4       | Largest number of products in `sep` and `sep_int`.         |
 | `BRACKET_ANGLE`   | 30      | Angle of the turned checkerboard in degrees.               |
