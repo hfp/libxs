@@ -2527,6 +2527,20 @@ else ifneq (0,$(BLAS)) # generic
     ifeq (,$(BLASLIBFILE)) # newer distributions symlink non-decorated library to threaded OpenBLAS
       BLASLIBFILE := $(call libpath,$(LD),$(BLASTEST),openblas$(BLAS_BITS))
     endif
+    # such a distribution installs each variant into a directory of its own, and the plain name follows the system's choice
+    ifneq (,$(BLASLIBFILE))
+      ifeq (1,$(BLAS))
+        BLASVARIANT := serial
+      else ifneq (0,$(OMP))
+        BLASVARIANT := openmp pthread
+      else
+        BLASVARIANT := pthread openmp
+      endif
+      BLASVARFILE := $(firstword $(wildcard $(patsubst %,$(dir $(BLASLIBFILE))openblas$(BLAS_BITS)-%/libopenblas$(BLAS_BITS).$(DLIBEXT),$(BLASVARIANT))))
+      ifneq (,$(BLASVARFILE))
+        BLASLIBFILE := $(BLASVARFILE)
+      endif
+    endif
     # most people expect to pickup OpenBLAS (if available) even when libblas/liblapack are available; use OPENBLAS=0 to avoid this
     ifeq (0,$(PGI))
       OPENBLAS := $(if $(BLASLIBFILE),1,0)
