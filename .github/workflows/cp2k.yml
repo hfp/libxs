@@ -40,7 +40,7 @@ jobs:
       # MPICH's UCX otherwise probes RDMA devices some runners expose (unusable)
       UCX_TLS: self,sm,tcp
     steps:
-    - uses: actions/checkout@v5
+    - uses: actions/checkout@v7
 
     - name: System Information
       run: lscpu --extended=MODELNAME 2>/dev/null | tail -n1
@@ -104,7 +104,7 @@ jobs:
       REF_DBCSR: ${{ github.event.inputs.ref_dbcsr || 'develop' }}
       UCX_TLS: self,sm,tcp
     steps:
-    - uses: actions/checkout@v5
+    - uses: actions/checkout@v7
 
     - name: Setup environment
       if: github.event.inputs.env != ''

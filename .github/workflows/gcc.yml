@@ -52,7 +52,7 @@ jobs:
       # faults on an aligned access (reported as SEGV without an address).
       ASAN_OPTIONS: detect_leaks=0:detect_stack_use_after_return=0
     steps:
-    - uses: actions/checkout@v5
+    - uses: actions/checkout@v7
 
     - name: System Information
       run: lscpu --extended=MODELNAME 2>/dev/null | tail -n1
@@ -154,7 +154,7 @@ jobs:
       if: always() && contains(matrix.flags, 'UPLOAD=1')
       run: make clean
     - if: always() && contains(matrix.flags, 'UPLOAD=1')
-      uses: actions/upload-artifact@v5
+      uses: actions/upload-artifact@v7
       with:
         name: libxs-dbg
         path: |
@@ -165,7 +165,7 @@ jobs:
   Debian:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v5
+    - uses: actions/checkout@v7
 
     - name: Install dependencies
       run: |
@@ -187,7 +187,7 @@ jobs:
       run: cp ../*.deb .
 
     - name: Upload packages
-      uses: actions/upload-artifact@v5
+      uses: actions/upload-artifact@v7
       with:
         name: libxs-deb
         path: "*.deb"
@@ -204,7 +204,7 @@ jobs:
       CXX: g++-${{ matrix.gcc }}
       FC: gfortran-${{ matrix.gcc }}
     steps:
-    - uses: actions/checkout@v5
+    - uses: actions/checkout@v7
 
     - name: Install GCC ${{ matrix.gcc }} and other tools
       run: |

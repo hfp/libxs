@@ -25,7 +25,7 @@ jobs:
       FLAGS: DBG=0 PEDANTIC=2 MKL=1
 
     steps:
-    - uses: actions/checkout@v5
+    - uses: actions/checkout@v7
 
     - name: System Information
       run: lscpu --extended=MODELNAME 2>/dev/null | tail -n1

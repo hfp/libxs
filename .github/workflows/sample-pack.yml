@@ -40,7 +40,7 @@ jobs:
       BASELINE: ${{ github.event.inputs.baseline }}
       FORMATS: ${{ github.event.inputs.formats }}
     steps:
-    - uses: actions/checkout@v5
+    - uses: actions/checkout@v7
 
     - name: System Information
       run: |
@@ -155,7 +155,7 @@ jobs:
           echo '```'
         } >> "$GITHUB_STEP_SUMMARY"
 
-    - uses: actions/upload-artifact@v5
+    - uses: actions/upload-artifact@v7
       # format() keeps an unset UPLOAD a string: null != '0' is false (both coerce to 0)
       if: always() && format('{0}', env.UPLOAD) != '0'
       with:
