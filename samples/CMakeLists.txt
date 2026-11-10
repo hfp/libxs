@@ -237,7 +237,7 @@ foreach(
   libxs_sample_c_openmp("libxs_sample_${name}")
 endforeach()
 
-foreach(name IN ITEMS gemm_strided gemm_batch gemm_groups gemm_index)
+foreach(name IN ITEMS gemm_strided gemm_batch gemm_groups gemm_index gemm_tas)
   libxs_add_c_program("libxs_sample_${name}" samples/gemm "${name}"
                       "${PROJECT_SOURCE_DIR}/samples/gemm/${name}.c"
   )

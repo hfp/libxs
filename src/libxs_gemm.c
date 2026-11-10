@@ -68,6 +68,9 @@
 #define INTERNAL_GEMM_WARMUP_SLOT(TAG, STATE) \
   (((unsigned int)(TAG) << 8) | (unsigned int)(STATE))
 #define INTERNAL_GEMM_WARMUP_STATE(SLOT) ((SLOT) & 0xFF)
+/* LIBXS_GEMM_FLAG_STREAM can change the verdict, hence it settles in a slot of its own */
+#define INTERNAL_GEMM_WARMUP_HASH(HASH, STREAM) \
+  (0 != (STREAM) ? ((HASH) ^ 0x9E3779B9u) : (HASH))
 
 #define INTERNAL_GEMM_BACKEND_AUTO 0
 #define INTERNAL_GEMM_BACKEND_MKL_JIT 1
@@ -655,7 +658,8 @@ LIBXS_API_INLINE void internal_libxs_gemm_blas_init(
  * warm-up aside; KERNEL tells whether generating one pays (LIBXS_GEMM_JIT_MAX).
  * A NULL shape selects what any shape may receive.
  */
-LIBXS_API_INLINE int internal_libxs_gemm_select(const libxs_gemm_shape_t* kernel_shape)
+LIBXS_API_INLINE int internal_libxs_gemm_select(
+  const libxs_gemm_shape_t* kernel_shape, int stream)
 {
   const int gemm_backend = internal_libxs_gemm_backend;
   int strided = 0, xgemm_ok = 1, kernel_ok = (0 < internal_libxs_gemm_jit_max);
@@ -670,9 +674,10 @@ LIBXS_API_INLINE int internal_libxs_gemm_select(const libxs_gemm_shape_t* kernel
       ((size_t)km * kk + (size_t)kk * kn + (size_t)km * kn);
     /* a leading dimension beyond the operand's own extent means a window
      * into a larger matrix: generated kernels neither pack nor prefetch
-     * and then lose to BLAS, whereas resident operands are their domain */
-    strided = (kernel_shape->lda > (0 != ta ? kk : km)
-      || kernel_shape->ldb > (0 != tb ? kn : kk));
+     * and then lose to BLAS, whereas resident operands are their domain;
+     * a caller streaming such windows on purpose says so (stream) */
+    strided = (0 == stream && (kernel_shape->lda > (0 != ta ? kk : km)
+      || kernel_shape->ldb > (0 != tb ? kn : kk)));
     xgemm_ok = (1.0 == kernel_shape->alpha
       && (0.0 == kernel_shape->beta || 1.0 == kernel_shape->beta));
     kernel_ok = (0 != kernel_ok
@@ -703,7 +708,7 @@ LIBXS_API libxs_gemm_kind_t libxs_gemm_backend_kind(
   if (0 != f64 || 0 != f32) {
     int select;
     internal_libxs_gemm_init();
-    select = internal_libxs_gemm_select(shape);
+    select = internal_libxs_gemm_select(shape, 0/*stream*/);
     { const libxs_jit_create_dgemm_t jcd = (NULL != backend && NULL != backend->jit_create_dgemm)
         ? backend->jit_create_dgemm : internal_libxs_jit_create_dgemm;
       const libxs_jit_get_dgemm_t jgd = (NULL != backend && NULL != backend->jit_get_dgemm)
@@ -751,7 +756,11 @@ LIBXS_API_INTERN libxs_gemm_config_t* internal_libxs_gemm_dispatch(
   libxs_gemm_config_t* result = NULL;
   libxs_registry_t* reg = NULL;
   libxs_gemm_shape_t key, kkey;
-  unsigned int whash = 0, khash = 0, wstate = 0;
+  unsigned int whash = 0, shash = 0, khash = 0, wstate = 0;
+  /* hints arrive in the caller's config, which dispatch then overwrites */
+  const int hint = (NULL != own ? (int)own->flags : 0);
+  const int stream = (0 != (LIBXS_GEMM_FLAG_STREAM & hint));
+  const int reuse = (0 != (LIBXS_GEMM_FLAG_REUSE & hint));
   int jit_due = 0;
   LIBXS_ASSERT(NULL != shape);
   LIBXS_MEMZERO(&key);
@@ -784,9 +793,10 @@ LIBXS_API_INTERN libxs_gemm_config_t* internal_libxs_gemm_dispatch(
       /* one hash per dispatch, shared by the registry and the warm-up table */
       whash = libxs_registry_hash(
         (const libxs_registry_t*)reg, shape, sizeof(*shape));
+      shash = INTERNAL_GEMM_WARMUP_HASH(whash, stream);
       /* a NOJIT shape owns no entry when the caller owns the config */
       if (NULL == own || INTERNAL_GEMM_WARMUP_NOJIT
-        != internal_libxs_gemm_warmup_state(whash))
+        != internal_libxs_gemm_warmup_state(shash))
       {
         result = (libxs_gemm_config_t*)libxs_registry_get_hashed(
           (const libxs_registry_t*)reg, shape, sizeof(*shape),
@@ -798,7 +808,13 @@ LIBXS_API_INTERN libxs_gemm_config_t* internal_libxs_gemm_dispatch(
       || (NULL == result->dgemm_jit && NULL == result->sgemm_jit
         && NULL == result->xgemm)))
     {
-      jit_due = internal_libxs_gemm_warmup_due(whash, &wstate);
+      jit_due = internal_libxs_gemm_warmup_due(shash, &wstate);
+      /* a caller vouching for reuse needs no warm-up, but a settled verdict stands */
+      if (0 == jit_due && 0 != reuse && INTERNAL_GEMM_WARMUP_DONE != wstate
+        && INTERNAL_GEMM_WARMUP_NOJIT != wstate)
+      {
+        jit_due = 1;
+      }
       if (0 != jit_due) result = NULL;
     }
     if (NULL == result && NULL != reg) {
@@ -839,7 +855,7 @@ LIBXS_API_INTERN libxs_gemm_config_t* internal_libxs_gemm_dispatch(
         const int km = kernel_shape->m, kn = kernel_shape->n, kk = kernel_shape->k;
         const int klda = kernel_shape->lda, kldb = kernel_shape->ldb;
         const int kldc = kernel_shape->ldc;
-        const int select = internal_libxs_gemm_select(kernel_shape);
+        const int select = internal_libxs_gemm_select(kernel_shape, stream);
         const int use_jit = (0 != (INTERNAL_GEMM_SELECT_JIT & select));
         const int use_xgemm = (0 != (INTERNAL_GEMM_SELECT_XGEMM & select));
         const int use_blas = (0 != (INTERNAL_GEMM_SELECT_BLAS & select));
@@ -955,7 +971,7 @@ LIBXS_API_INTERN libxs_gemm_config_t* internal_libxs_gemm_dispatch(
           const unsigned int term = (0 == kernel_ok
             && NULL == kernel && 0 == gate)
             ? INTERNAL_GEMM_WARMUP_NOJIT : INTERNAL_GEMM_WARMUP_DONE;
-          internal_libxs_gemm_warmup_term(whash, term);
+          internal_libxs_gemm_warmup_term(shash, term);
         }
         if (0 == kernel_ok && NULL != own) {
           *own = config; /* caller-owned, hence not registered */

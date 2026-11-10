@@ -503,6 +503,40 @@ LIBXS_API_INTERN size_t internal_libxs_parse_nbytes(const char* nbytes, size_t n
 }
 
 
+#if defined(LIBXS_INTERCEPT_DYNAMIC)
+/**
+ * A sequential OpenBLAS called from several threads corrupts results silently,
+ * unless it was built with USE_LOCKING=1, which no symbol or configuration
+ * string reveals. Global scope finds a provider loaded before this library,
+ * but not a static one that exports nothing. The OpenMP runtime is looked up
+ * but not called: as a constructor, this may run before the runtime set up
+ * its thread count, which then reads as one.
+ */
+LIBXS_API_INTERN void internal_libxs_openblas_check(void);
+LIBXS_API_INTERN void internal_libxs_openblas_check(void)
+{
+  typedef int (*internal_libxs_query_t)(void);
+  const char *const env_nthreads = getenv("OMP_NUM_THREADS");
+  internal_libxs_query_t parallel = NULL;
+  void* dl;
+  dlerror();
+  dl = dlsym(LIBXS_RTLD_DEFAULT, "openblas_get_parallel");
+  if (NULL == dlerror() && NULL != dl) {
+    LIBXS_FPTR_FROM_VPTR(internal_libxs_query_t, parallel, dl);
+  }
+  if (NULL != parallel && 0 == parallel()
+    && (NULL == env_nthreads || 0 == *env_nthreads || 1 < atoi(env_nthreads)))
+  {
+    dl = dlsym(LIBXS_RTLD_DEFAULT, "omp_get_max_threads");
+    if (NULL == dlerror() && NULL != dl) {
+      fprintf(stderr, "LIBXS WARNING: sequential OpenBLAS with OpenMP may be unsafe"
+        " to call from several threads (unless built with USE_LOCKING=1)!\n");
+    }
+  }
+}
+#endif
+
+
 LIBXS_API_INTERN LIBXS_ATTRIBUTE_NO_TRACE void internal_libxs_init(void);
 LIBXS_API_INTERN void internal_libxs_init(void)
 {
@@ -555,6 +589,10 @@ LIBXS_API_INTERN void internal_libxs_init(void)
   internal_libxs_memory_init(libxs_cpuid(NULL));
   internal_libxs_gemm_init();
   internal_libxs_default_pool = libxs_malloc_pool(NULL, NULL);
+#if defined(LIBXS_INTERCEPT_DYNAMIC)
+  /* printed by default, since the defect is silent; only LIBXS_VERBOSE=0 mutes it */
+  if (NULL == env_verbose || 0 != libxs_verbosity) internal_libxs_openblas_check();
+#endif
 }
 
 

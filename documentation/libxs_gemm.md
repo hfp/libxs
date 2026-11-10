@@ -103,7 +103,9 @@ dispatch (see LIBXS_GEMM_JIT_WARMUP).
 typedef enum libxs_gemm_flags_t {
   LIBXS_GEMM_FLAGS_DEFAULT = 0,
   LIBXS_GEMM_FLAG_NOLOCK = 1,
-  LIBXS_GEMM_FLAG_OWNJIT = 2
+  LIBXS_GEMM_FLAG_OWNJIT = 2,
+  LIBXS_GEMM_FLAG_STREAM = 4,
+  LIBXS_GEMM_FLAG_REUSE = 8
 } libxs_gemm_flags_t;
 ```
 
@@ -112,6 +114,18 @@ when no duplicate C pointers exist across the batch.
 LIBXS_GEMM_FLAG_OWNJIT is set by dispatch and marks the single config
 owning `jitter`; aliasing configs (double-dispatch, and every caller
 copy) leave it clear so the handle is released exactly once.
+
+LIBXS_GEMM_FLAG_STREAM and LIBXS_GEMM_FLAG_REUSE are dispatch hints.
+The copy flavors (`_cpy`) read them from the caller's config before
+populating it, and do not keep them:
+
+| Hint | Effect |
+| :--- | :--- |
+| STREAM | a generated kernel may serve operands that are windows into larger matrices (leading dimension beyond the kernel's extent), which the automatic backend otherwise leaves to BLAS |
+| REUSE | the JIT warm-up is skipped, since the caller calls the kernel often (e.g., a batch) |
+
+A kernel is shared per shape, whichever hints generated it: a later
+dispatch of the same shape receives it with or without hints.
 
 ```C
 typedef enum libxs_gemm_kind_t {

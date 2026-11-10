@@ -15,7 +15,9 @@ make
 The C programs build header-only when LIBXS is not built yet; only
 `gemm_indexf.x` (Fortran) needs LIBXS built first from the repository
 root. BLAS is linked dynamically and sequential by default (`BLAS=1`,
-`BLAS_STATIC=0`). `make MKL=1` (sequential) or `make MKL=2` (threaded) links MKL and
+`BLAS_STATIC=0`), except that OpenBLAS is taken in its OpenMP (or pthread)
+build where available, since the serial build may be unsafe to call from
+several threads. `make MKL=1` (sequential) or `make MKL=2` (threaded) links MKL and
 enables MKL's JIT kernels; `make LIBXSMM=1` enables LIBXSMM kernels and
 needs a built sibling `libxsmm` directory.
 
@@ -91,6 +93,30 @@ Per-group dimensions grow by 4 starting from base_m.
 Defaults: ngroups=2 (max 4), batch_per_group=30000, nrepeat=3,
 base_m=8, beta=1.0, pad=0.
 
+### gemm_tas
+
+Tall-and-skinny DGEMM: one column-major GEMM whose longest dimension
+is cut into panels, run as a constant-stride `libxs_gemm_index` batch
+plus one remainder call. Along K, each chunk writes its own partial C,
+and the partial results are summed in a fixed order, so the result is
+the same for any number of threads. The program times one BLAS call
+of the full shape against the batch, and reports both in GB/s
+(the bytes a GEMM must move at least) and GFLOPS/s.
+
+```bash
+./gemm_tas.x [M [N [K [panel [nrepeat [beta [hint]]]]]]]
+```
+
+Defaults: M=1000000, N=16, K=N, panel=0, nrepeat=3, beta=1.0, hint=1.
+The panel is the width along the longest dimension; zero takes 256
+rows or columns, or a chunk of 4096 along K. Each panel reports
+whether a generated kernel or BLAS serves it. hint=1 dispatches with
+`LIBXS_GEMM_FLAG_STREAM` and `LIBXS_GEMM_FLAG_REUSE`, i.e., a panel
+that is a window into a larger matrix (along M, or a chunk along K)
+may take a generated kernel, without JIT warm-up. hint=0 leaves the
+choice to the automatic backend, which serves such windows with BLAS.
+Compare against a threaded BLAS with `make MKL=2`.
+
 ## Validation
 
 Set the CHECK environment variable to any non-zero value to print a
@@ -101,7 +127,11 @@ CHECK=1 ./gemm_strided.x
 CHECK=1 ./gemm_batch.x 23 23 23 1000 1 2
 CHECK=1 ./gemm_index.x
 CHECK=1 ./gemm_groups.x
+CHECK=1 ./gemm_tas.x
 ```
+
+`gemm_tas` also compares its result with the BLAS call and fails if the
+relative difference (Frobenius norm) exceeds 1E-12.
 
 When padding is enabled (pad>0), the check also verifies that
 leading-dimension padding in C-matrices has not been overwritten.

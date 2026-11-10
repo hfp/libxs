@@ -62,7 +62,7 @@ OBJECTS := $(COBJCTS)
 FTNOBJS := $(F77OBJS) $(JITOBJ)
 XFILES := $(OUTDIR)/gemm_strided.x $(OUTDIR)/gemm_batch.x \
           $(OUTDIR)/gemm_groups.x $(OUTDIR)/gemm_index.x \
-          $(OUTDIR)/gemm_indexf.x
+          $(OUTDIR)/gemm_tas.x $(OUTDIR)/gemm_indexf.x
 
 .PHONY: all
 all: $(XFILES)
@@ -81,6 +81,9 @@ $(OUTDIR)/gemm_groups.x: $(OUTDIR)/.make $(BLDDIR)/gemm_groups-c.o $(XLIB) $(XSM
 
 $(OUTDIR)/gemm_index.x: $(OUTDIR)/.make $(BLDDIR)/gemm_index-c.o $(XLIB) $(XSMM_LIB)
 	$(LD) -o $@ $(BLDDIR)/gemm_index-c.o $(XLIB) $(XSMM_LIB) $(SLDFLAGS) $(LDFLAGS) $(CLDFLAGS)
+
+$(OUTDIR)/gemm_tas.x: $(OUTDIR)/.make $(BLDDIR)/gemm_tas-c.o $(XLIB) $(XSMM_LIB)
+	$(LD) -o $@ $(BLDDIR)/gemm_tas-c.o $(XLIB) $(XSMM_LIB) $(SLDFLAGS) $(LDFLAGS) $(CLDFLAGS)
 
 ifneq (1,$(HEADERONLY))
 ifneq (,$(strip $(FC)))

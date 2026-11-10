@@ -38,6 +38,12 @@ void libxs_set_verbosity(int level);
 The initial level comes from `LIBXS_VERBOSE` (an empty value means 1), and is
 the maximum in debug builds when the variable is unset.
 
+One warning is printed by `libxs_init` even when `LIBXS_VERBOSE` is unset: a
+sequential OpenBLAS together with an OpenMP runtime (unless `OMP_NUM_THREADS=1`),
+since such an OpenBLAS may corrupt results when called from several threads
+(unless it was built with `USE_LOCKING=1`). Link the OpenMP or pthread build of
+OpenBLAS, or set `LIBXS_VERBOSE=0` to mute the warning.
+
 ## Element Types
 
 ```C

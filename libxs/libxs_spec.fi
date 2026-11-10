@@ -108,7 +108,8 @@
         PUBLIC :: libxs_gemm_backend_t
         PUBLIC :: libxs_gemm_shape_t, libxs_gemm_config_t
         PUBLIC :: LIBXS_GEMM_FLAGS_DEFAULT, LIBXS_GEMM_FLAG_NOLOCK
-        PUBLIC :: LIBXS_GEMM_FLAG_OWNJIT
+        PUBLIC :: LIBXS_GEMM_FLAG_OWNJIT, LIBXS_GEMM_FLAG_STREAM
+        PUBLIC :: LIBXS_GEMM_FLAG_REUSE
         PUBLIC :: LIBXS_GEMM_KIND_DEFAULT, LIBXS_GEMM_KIND_BLAS
         PUBLIC :: LIBXS_GEMM_KIND_JIT
         PUBLIC :: libxs_gemm_call
@@ -192,10 +193,13 @@
 
         !> GEMM batch flags (bitfield).
         !> LIBXS_GEMM_FLAG_OWNJIT marks the config owning the JIT handle.
+        !> STREAM and REUSE are dispatch hints (see libxs_gemm_flags_t).
         INTEGER(C_INT), PARAMETER ::                                    &
      &    LIBXS_GEMM_FLAGS_DEFAULT = 0,                                 &
      &    LIBXS_GEMM_FLAG_NOLOCK   = 1,                                 &
-     &    LIBXS_GEMM_FLAG_OWNJIT   = 2
+     &    LIBXS_GEMM_FLAG_OWNJIT   = 2,                                 &
+     &    LIBXS_GEMM_FLAG_STREAM   = 4,                                 &
+     &    LIBXS_GEMM_FLAG_REUSE    = 8
 
         !> Kind of kernel serving a GEMM (libxs_gemm_backend_kind):
         !> built-in, external BLAS, or generated (MKL JIT, LIBXSMM).

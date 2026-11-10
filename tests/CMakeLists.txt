@@ -5,6 +5,7 @@ set(
   LIBXS_C_TESTS
   fprint
   gemm_dispatch
+  gemm_threads
   hash
   headeronly
   hist

@@ -2529,8 +2529,11 @@ else ifneq (0,$(BLAS)) # generic
     endif
     # such a distribution installs each variant into a directory of its own, and the plain name follows the system's choice
     ifneq (,$(BLASLIBFILE))
-      ifeq (1,$(BLAS))
+      # a serial OpenBLAS may be unsafe to call from several threads, which OMP does
+      ifeq (1,$(BLAS)$(filter-out 0,$(OMP)))
         BLASVARIANT := serial
+      else ifeq (1,$(BLAS))
+        BLASVARIANT := openmp pthread serial
       else ifneq (0,$(OMP))
         BLASVARIANT := openmp pthread
       else

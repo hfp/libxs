@@ -136,11 +136,20 @@ typedef struct libxs_gemm_backend_t {
  * Flags controlling GEMM batch synchronization (bitfield).
  * LIBXS_GEMM_FLAG_OWNJIT is set by dispatch and marks the single
  * config owning config->jitter (other configs alias the handle).
+ * LIBXS_GEMM_FLAG_STREAM and LIBXS_GEMM_FLAG_REUSE are dispatch hints,
+ * read from the caller-owned config of the _cpy flavors before it is
+ * populated (and not kept in it): STREAM admits a generated kernel for
+ * operands that are windows into larger matrices (leading dimension
+ * beyond the kernel's extent), REUSE skips the JIT warm-up since the
+ * caller calls the kernel often (e.g., a batch). Kernels are shared
+ * per shape regardless of the hints that generated them.
  */
 typedef enum libxs_gemm_flags_t {
   LIBXS_GEMM_FLAGS_DEFAULT = 0,
   LIBXS_GEMM_FLAG_NOLOCK = 1,
-  LIBXS_GEMM_FLAG_OWNJIT = 2
+  LIBXS_GEMM_FLAG_OWNJIT = 2,
+  LIBXS_GEMM_FLAG_STREAM = 4,
+  LIBXS_GEMM_FLAG_REUSE = 8
 } libxs_gemm_flags_t;
 
 /** Kind of kernel serving a GEMM (libxs_gemm_backend_kind). */
@@ -219,6 +228,8 @@ LIBXS_API libxs_gemm_config_t* libxs_gemm_dispatch_rt(
 
 /**
  * libxs_gemm_dispatch_rt populating a caller-owned config.
+ * Hints (LIBXS_GEMM_FLAG_STREAM, LIBXS_GEMM_FLAG_REUSE) are taken from
+ * config->flags on entry, hence zero-initialize config before setting them.
  * Returns non-zero if config was populated, zero otherwise.
  * A config without kernel is NOT entered into the registry here: the caller
  * owns the storage and the warm-up counters live outside the registry, so
@@ -428,7 +439,8 @@ LIBXS_API_INLINE int libxs_gemm_config_cpy(
 /**
  * Like libxs_gemm_dispatch, but populates a caller-owned config.
  * Returns non-zero if config was populated, zero otherwise (config is
- * left untouched, hence zero-initialize it before the call).
+ * left untouched, hence zero-initialize it before the call). Hints set
+ * in config->flags beforehand apply (see libxs_gemm_flags_t).
  */
 LIBXS_API_INLINE int libxs_gemm_dispatch_cpy(
   libxs_gemm_config_t* config,

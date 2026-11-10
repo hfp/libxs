@@ -90,6 +90,7 @@ nav:
 - Tests:
   - Fprint: tests/fprint.md
   - GEMM Dispatch: tests/gemm_dispatch.md
+  - GEMM Threads: tests/gemm_threads.md
   - Hash: tests/hash.md
   - Headeronly: tests/headeronly.md
   - Hist: tests/hist.md
