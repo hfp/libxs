@@ -22,7 +22,9 @@ of [LIBXSMM](https://github.com/libxsmm/libxsmm).
 | [CPUID][dcpu]    | `libxs_cpuid.h`    | CPU feature detection (x86-64, AArch64, RISC-V)                                  |
 | [Utils][dutil]   | `libxs_utils.h`    | ISA gates, bit-scan, SIMD helpers                                                |
 | [Sync][dsync]    | `libxs_sync.h`     | Atomics, locks, TLS, barrier, ring buffer, singleton                             |
-| [GEMM][dgemm]    | `libxs_gemm.h`     | GEMM batches (pointer, index, strided), SYRK/SYR2K                               |
+| [GEMM][dgemm]    | `libxs_gemm.h`     | GEMM dispatch and batches (pointer, index, strided)                              |
+| [SYRK][dsyrk]    | `libxs_syrk.h`     | Symmetric rank-k and rank-2k updates (SYRK/SYR2K)                                |
+| [TAS][dtas]      | `libxs_tas.h`      | Tall-and-skinny GEMM as a batch of panels                                        |
 | [Math][dmath]    | `libxs_math.h`     | Matrix compare, fingerprints, setdiff, compensated sums, modular math, FP16/BF16 |
 | [Hash][dhash]    | `libxs_hash.h`     | CRC32, Adler-32, string hashing                                                  |
 | [Pack][dpack]    | `libxs_pack.h`     | Bit packing at fixed or per-group widths                                         |
@@ -45,6 +47,8 @@ of [LIBXSMM](https://github.com/libxsmm/libxsmm).
 [dutil]: libxs_utils.md
 [dsync]: libxs_sync.md
 [dgemm]: libxs_gemm.md
+[dsyrk]: libxs_syrk.md
+[dtas]: libxs_tas.md
 [dmath]: libxs_math.md
 [dhash]: libxs_hash.md
 [dpack]: libxs_pack.md

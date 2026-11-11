@@ -94,7 +94,7 @@ Here `libxs_syrk=1`, i.e., the update is not split (see above).
   panel), `LIBXS_SYRK_BLAS` (BLAS SYRK for diagonal blocks, default
   on), and the tile sizes `LIBXS_GEMM_BM`, `LIBXS_GEMM_BN`,
   `LIBXS_GEMM_BK` (default 192x32x48); see
-  `documentation/libxs_gemm.md`.
+  `documentation/libxs_syrk.md`.
 
 - Tasks need no synchronization. Scratch memory is thread-local and
   drawn from the LIBXS memory pool, so it appears in the pool

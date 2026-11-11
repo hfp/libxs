@@ -61,6 +61,8 @@ nav:
   - Utils: libxs_utils.md
   - Sync: libxs_sync.md
   - GEMM: libxs_gemm.md
+  - SYRK: libxs_syrk.md
+  - TAS: libxs_tas.md
   - Math: libxs_math.md
   - Hash: libxs_hash.md
   - Pack: libxs_pack.md

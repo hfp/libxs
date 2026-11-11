@@ -7,7 +7,7 @@
 * Further information: https://github.com/hfp/libxs/                          *
 * SPDX-License-Identifier: BSD-3-Clause                                       *
 ******************************************************************************/
-#include <libxs/libxs_gemm.h>
+#include <libxs/libxs_syrk.h>
 
 /** Upper bound on LIBXS_GEMM_JIT_WARMUP (default: 8) taken by this test. */
 #define TEST_MAXWARMUP 64

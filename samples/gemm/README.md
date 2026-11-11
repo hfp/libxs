@@ -95,27 +95,23 @@ base_m=8, beta=1.0, pad=0.
 
 ### gemm_tas
 
-Tall-and-skinny DGEMM: one column-major GEMM whose longest dimension
-is cut into panels, run as a constant-stride `libxs_gemm_index` batch
-plus one remainder call. Along K, each chunk writes its own partial C,
-and the partial results are summed in a fixed order, so the result is
-the same for any number of threads. The program times one BLAS call
-of the full shape against the batch, and reports both in GB/s
-(the bytes a GEMM must move at least) and GFLOPS/s.
+Tall-and-skinny GEMM (`libxs_tas.h`, see `documentation/libxs_tas.md`):
+one column-major GEMM planned along its longest dimension as a batch of
+panels, and run over an OpenMP team sized by `libxs_tas_ntasks`. The program times one BLAS call of the whole GEMM
+against the plan, and reports both in GB/s (the bytes a GEMM must move
+at least) and GFLOPS/s.
 
 ```bash
-./gemm_tas.x [M [N [K [panel [nrepeat [beta [hint]]]]]]]
+./gemm_tas.x [M [N [K [panel [nrepeat [beta [type [transa [transb]]]]]]]]]
 ```
 
-Defaults: M=1000000, N=16, K=N, panel=0, nrepeat=3, beta=1.0, hint=1.
-The panel is the width along the longest dimension; zero takes 256
-rows or columns, or a chunk of 4096 along K. Each panel reports
-whether a generated kernel or BLAS serves it. hint=1 dispatches with
-`LIBXS_GEMM_FLAG_STREAM` and `LIBXS_GEMM_FLAG_REUSE`, i.e., a panel
-that is a window into a larger matrix (along M, or a chunk along K)
-may take a generated kernel, without JIT warm-up. hint=0 leaves the
-choice to the automatic backend, which serves such windows with BLAS.
-Compare against a threaded BLAS with `make MKL=2`.
+Defaults: M=1000000, N=16, K=N, panel=0, nrepeat=3, beta=1.0, type=d,
+transa=N, transb=N. The panel is the extent along the longest dimension
+(zero takes `LIBXS_TAS_PANEL` or `LIBXS_TAS_CHUNK`), type is d (F64) or
+s (F32), and transa/transb are N or T. The plan reports the dimension it
+runs along and whether a generated kernel or BLAS serves a panel, or that
+the GEMM is not tall and skinny (one call). Compare against a threaded
+BLAS with `make MKL=2`.
 
 ## Validation
 
@@ -131,7 +127,7 @@ CHECK=1 ./gemm_tas.x
 ```
 
 `gemm_tas` also compares its result with the BLAS call and fails if the
-relative difference (Frobenius norm) exceeds 1E-12.
+relative difference (Frobenius norm) exceeds 1E-12 (F64) or 1E-4 (F32).
 
 When padding is enabled (pad>0), the check also verifies that
 leading-dimension padding in C-matrices has not been overwritten.

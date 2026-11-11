@@ -158,6 +158,8 @@ HEADERS_MAIN := \
           $(ROOTINC)/$(PROJECT)_rng.h \
           $(ROOTINC)/$(PROJECT)_str.h \
           $(ROOTINC)/$(PROJECT)_sync.h \
+          $(ROOTINC)/$(PROJECT)_syrk.h \
+          $(ROOTINC)/$(PROJECT)_tas.h \
           $(ROOTINC)/$(PROJECT)_timer.h \
           $(ROOTINC)/$(PROJECT)_token.h \
           $(ROOTINC)/$(PROJECT)_utils.h \
@@ -170,7 +172,8 @@ SRCFILES := $(patsubst %,$(ROOTSRC)/%, \
           $(PROJECT)_gemm.c $(PROJECT)_math.c $(PROJECT)_mem.c $(PROJECT)_mhd.c \
           $(PROJECT)_mix.c $(PROJECT)_ngram.c $(PROJECT)_pack.c $(PROJECT)_perm.c \
           $(PROJECT)_predict.c $(PROJECT)_reg.c $(PROJECT)_rng.c $(PROJECT)_str.c \
-          $(PROJECT)_sync.c $(PROJECT)_textrule.c $(PROJECT)_timer.c $(PROJECT)_token.c $(PROJECT)_utils.c)
+          $(PROJECT)_sync.c $(PROJECT)_syrk.c $(PROJECT)_tas.c $(PROJECT)_textrule.c \
+          $(PROJECT)_timer.c $(PROJECT)_token.c $(PROJECT)_utils.c)
 
 OBJFILES := $(patsubst %,$(BLDDIR)/intel64/%.o,$(basename $(notdir $(SRCFILES))))
 
