@@ -18,36 +18,48 @@
 #if !defined(LIBXS_TAS_CHUNK)
 # define LIBXS_TAS_CHUNK 4096
 #endif
-/* FLOPs per Byte below which a GEMM is planned along its longest dimension (as LIBXS_GEMM_JIT_MAX) */
+/* FLOPs per Byte below which a GEMM runs along its longest dimension (as LIBXS_GEMM_JIT_MAX) */
 #if !defined(LIBXS_TAS_MAX)
 # define LIBXS_TAS_MAX 7
 #endif
 
 #define INTERNAL_TAS_NOTRANS(C) ('N' == (C) || 'n' == (C))
-/* the count of finished tasks takes a cache line of its own in front of the partial C */
-#define INTERNAL_TAS_HEAD LIBXS_CACHELINE
+/* the merge counts, one per node of the tree over the chunks, take whole cache lines */
+#define INTERNAL_TAS_HEAD(NSCRATCH) LIBXS_UP2((size_t)(NSCRATCH) * sizeof(int), LIBXS_CACHELINE)
 
-#define INTERNAL_TAS_REDUCE(TYPE, PLAN, TILES, C) do { \
-  const int internal_tas_m_ = (PLAN)->shape.m, internal_tas_n_ = (PLAN)->shape.n; \
-  const int internal_tas_ldc_ = (PLAN)->shape.ldc; \
-  const size_t internal_tas_tile_ = (size_t)internal_tas_m_ * internal_tas_n_; \
-  const TYPE internal_tas_alpha_ = (TYPE)(PLAN)->shape.alpha; \
-  const TYPE internal_tas_beta_ = (TYPE)(PLAN)->shape.beta; \
-  const TYPE *const internal_tas_p_ = (const TYPE*)(TILES); \
-  TYPE *const internal_tas_c_ = (TYPE*)(C); \
-  int internal_tas_i_, internal_tas_j_, internal_tas_t_; \
-  for (internal_tas_j_ = 0; internal_tas_j_ < internal_tas_n_; ++internal_tas_j_) { \
-    for (internal_tas_i_ = 0; internal_tas_i_ < internal_tas_m_; ++internal_tas_i_) { \
-      const size_t internal_tas_ij_ = (size_t)internal_tas_j_ * internal_tas_m_ + internal_tas_i_; \
-      const size_t internal_tas_cij_ = (size_t)internal_tas_j_ * internal_tas_ldc_ + internal_tas_i_; \
-      TYPE internal_tas_sum_ = internal_tas_p_[internal_tas_ij_]; \
-      for (internal_tas_t_ = 1; internal_tas_t_ < (PLAN)->nscratch; ++internal_tas_t_) { \
-        internal_tas_sum_ += internal_tas_p_[internal_tas_t_ * internal_tas_tile_ + internal_tas_ij_]; \
-      } \
+/* the left child takes the sum of a node */
+#define INTERNAL_TAS_ADD(TYPE, DST, SRC, SIZE) do { \
+  TYPE *const internal_tas_add_d_ = (TYPE*)(DST); \
+  const TYPE *const internal_tas_add_s_ = (const TYPE*)(SRC); \
+  size_t internal_tas_add_i_; \
+  for (internal_tas_add_i_ = 0; internal_tas_add_i_ < (SIZE); ++internal_tas_add_i_) { \
+    internal_tas_add_d_[internal_tas_add_i_] += internal_tas_add_s_[internal_tas_add_i_]; \
+  } \
+} while(0)
+
+#define INTERNAL_TAS_FINAL(TYPE, PLAN, TILE, C) do { \
+  const int internal_tas_final_m_ = (PLAN)->shape.m, internal_tas_final_n_ = (PLAN)->shape.n; \
+  const int internal_tas_final_ldc_ = (PLAN)->shape.ldc; \
+  const TYPE internal_tas_final_alpha_ = (TYPE)(PLAN)->shape.alpha; \
+  const TYPE internal_tas_final_beta_ = (TYPE)(PLAN)->shape.beta; \
+  const TYPE *const internal_tas_final_t_ = (const TYPE*)(TILE); \
+  TYPE *const internal_tas_final_c_ = (TYPE*)(C); \
+  int internal_tas_final_i_, internal_tas_final_j_; \
+  for (internal_tas_final_j_ = 0; internal_tas_final_j_ < internal_tas_final_n_; \
+    ++internal_tas_final_j_) \
+  { \
+    for (internal_tas_final_i_ = 0; internal_tas_final_i_ < internal_tas_final_m_; \
+      ++internal_tas_final_i_) \
+    { \
+      const TYPE internal_tas_final_sum_ = internal_tas_final_t_[ \
+        (size_t)internal_tas_final_j_ * internal_tas_final_m_ + internal_tas_final_i_]; \
+      TYPE *const internal_tas_final_cij_ = internal_tas_final_c_ \
+        + (size_t)internal_tas_final_j_ * internal_tas_final_ldc_ + internal_tas_final_i_; \
       /* BLAS does not read C when beta is zero (C may hold NaN, e.g., fresh memory) */ \
-      internal_tas_c_[internal_tas_cij_] = ((TYPE)0 == internal_tas_beta_ \
-        ? internal_tas_alpha_ * internal_tas_sum_ \
-        : internal_tas_alpha_ * internal_tas_sum_ + internal_tas_beta_ * internal_tas_c_[internal_tas_cij_]); \
+      *internal_tas_final_cij_ = ((TYPE)0 == internal_tas_final_beta_ \
+        ? internal_tas_final_alpha_ * internal_tas_final_sum_ \
+        : internal_tas_final_alpha_ * internal_tas_final_sum_ \
+          + internal_tas_final_beta_ * *internal_tas_final_cij_); \
     } \
   } \
 } while(0)
@@ -109,7 +121,8 @@ LIBXS_API_INLINE void internal_libxs_tas_plan(libxs_tas_t* plan,
     if (m >= n && m >= k) { dim = 'M'; extent = m; }
     else if (n >= k) { dim = 'N'; extent = n; }
     else { dim = 'K'; extent = k; }
-    w = (0 < panel ? panel : ('K' == dim ? internal_libxs_tas_chunk : internal_libxs_tas_panel));
+    w = (0 < panel ? panel
+      : ('K' == dim ? internal_libxs_tas_chunk : internal_libxs_tas_panel));
     w = LIBXS_MIN(w, extent);
   }
   if ('M' == dim) {
@@ -146,15 +159,54 @@ LIBXS_API_INLINE void internal_libxs_tas_plan(libxs_tas_t* plan,
 }
 
 
+/**
+ * Sums the partial C along a binary tree over the chunks, whose shape depends on
+ * the number of chunks alone: the task finishing the second child of a node adds
+ * the right child into the left, and the task completing the root writes C. The
+ * order of summation is fixed, hence the result does not depend on the tasks.
+ */
+LIBXS_API_INLINE void internal_libxs_tas_merge(const libxs_tas_t* plan,
+  char* tiles, size_t tsize, int leaf, void* c)
+{
+  int *const count = (int*)plan->scratch;
+  const int nscratch = plan->nscratch;
+  const int f64 = (LIBXS_DATATYPE_F64 == plan->shape.datatype);
+  const size_t nelems = tsize / LIBXS_TYPESIZE(plan->shape.datatype);
+  int node = leaf, span = 1, done = 0;
+  while (0 == done) {
+    if (nscratch <= span) { /* the root holds the whole sum in the first chunk */
+      if (0 != f64) INTERNAL_TAS_FINAL(double, plan, tiles, c);
+      else INTERNAL_TAS_FINAL(float, plan, tiles, c);
+      done = 1;
+    }
+    else if (nscratch <= (node ^ 1) * span) { /* no sibling: the node passes up as is */
+      node >>= 1; span <<= 1;
+    }
+    else { /* the first chunk of the right child identifies the node */
+      const int right = (node | 1) * span;
+      if (1 == LIBXS_ATOMIC_ADD_FETCH(count + right, 1, LIBXS_ATOMIC_SEQ_CST)) {
+        done = 1; /* the sibling is pending, and its task carries on */
+      }
+      else {
+        char *const left = tiles + (size_t)(node & ~1) * span * tsize;
+        if (0 != f64) INTERNAL_TAS_ADD(double, left, tiles + (size_t)right * tsize, nelems);
+        else INTERNAL_TAS_ADD(float, left, tiles + (size_t)right * tsize, nelems);
+        LIBXS_ATOMIC_STORE(count + right, 0, LIBXS_ATOMIC_SEQ_CST); /* next call */
+        node >>= 1; span <<= 1;
+      }
+    }
+  }
+}
+
+
 /* dispatches into config, whose shape the plan has set, hinted or not */
 LIBXS_API_INLINE int internal_libxs_tas_dispatch(libxs_gemm_config_t* config,
   int hint, const libxs_gemm_backend_t* backend, void* registry)
 {
   const libxs_gemm_shape_t shape = config->shape;
   LIBXS_MEMZERO(config);
-  if (0 != hint) {
-    config->flags = (libxs_gemm_flags_t)(LIBXS_GEMM_FLAG_STREAM | LIBXS_GEMM_FLAG_REUSE);
-  }
+  /* no STREAM hint: a window streams many strided columns, which BLAS packs */
+  if (0 != hint) config->flags = LIBXS_GEMM_FLAG_REUSE;
   return libxs_gemm_dispatch_cpy_rt(config, &shape, NULL, backend, registry);
 }
 
@@ -181,10 +233,11 @@ LIBXS_API int libxs_tas_dispatch_rt(libxs_tas_t* plan,
         result = internal_libxs_tas_dispatch(&plan->rest, 1, backend, registry);
       }
       if (0 != result && 0 != plan->nscratch) {
-        const size_t size = INTERNAL_TAS_HEAD + (size_t)plan->nscratch
+        const size_t head = INTERNAL_TAS_HEAD(plan->nscratch);
+        const size_t size = head + (size_t)plan->nscratch
           * shape->m * shape->n * LIBXS_TYPESIZE(shape->datatype);
         plan->scratch = libxs_malloc(libxs_default_pool(), size, LIBXS_CACHELINE);
-        if (NULL != plan->scratch) memset(plan->scratch, 0, INTERNAL_TAS_HEAD);
+        if (NULL != plan->scratch) memset(plan->scratch, 0, head);
         else result = 0;
       }
     }
@@ -207,30 +260,34 @@ LIBXS_API void libxs_tas_task(const libxs_tas_t* plan,
     if (0 == plan->dim) {
       if (0 == tid) libxs_gemm_call(&plan->panel, a, b, c);
     }
-    else {
+    else if (0 == plan->nscratch) {
       const size_t esize = LIBXS_TYPESIZE(plan->shape.datatype);
-      char *const cp = (0 != plan->nscratch
-        ? ((char*)plan->scratch + INTERNAL_TAS_HEAD) : (char*)c);
-      libxs_gemm_index_task(a, &plan->stride_a, b, &plan->stride_b, cp, &plan->stride_c,
+      libxs_gemm_index_task(a, &plan->stride_a, b, &plan->stride_b, c, &plan->stride_c,
         0/*index_stride*/, 0/*index_base*/, plan->npanels, &plan->panel, tid, ntasks);
       /* the last task takes the fewest panels (libxs_gemm_index_task), hence the remainder */
       if (0 < plan->rest.shape.m && ntasks - 1 == tid) {
         libxs_gemm_call(&plan->rest,
           (const char*)a + plan->rest_a * esize,
           (const char*)b + plan->rest_b * esize,
-          cp + plan->rest_c * esize);
+          (char*)c + plan->rest_c * esize);
       }
-      if (0 != plan->nscratch) {
-        int *const nfinished = (int*)plan->scratch;
-        /* the last task to finish sees every partial C, and resets the count for the next call */
-        if (ntasks == LIBXS_ATOMIC_ADD_FETCH(nfinished, 1, LIBXS_ATOMIC_SEQ_CST)) {
-          if (LIBXS_DATATYPE_F64 == plan->shape.datatype) {
-            INTERNAL_TAS_REDUCE(double, plan, cp, c);
-          }
-          else {
-            INTERNAL_TAS_REDUCE(float, plan, cp, c);
-          }
-          LIBXS_ATOMIC_STORE(nfinished, 0, LIBXS_ATOMIC_SEQ_CST);
+    }
+    else { /* along K: chunk by chunk, merging as the chunks complete */
+      const size_t esize = LIBXS_TYPESIZE(plan->shape.datatype);
+      const size_t tsize = (size_t)plan->shape.m * plan->shape.n * esize;
+      char *const tiles = (char*)plan->scratch + INTERNAL_TAS_HEAD(plan->nscratch);
+      const int nsplit = LIBXS_MIN(plan->nscratch, ntasks);
+      if (tid < nsplit) {
+        const int tasksize = LIBXS_UPDIV(plan->nscratch, nsplit);
+        const int begin = tid * tasksize;
+        const int end = LIBXS_MIN(begin + tasksize, plan->nscratch);
+        int i;
+        for (i = begin; i < end; ++i) { /* the remainder is the last chunk */
+          libxs_gemm_call(i < plan->npanels ? &plan->panel : &plan->rest,
+            (const char*)a + (size_t)plan->stride_a * i * esize,
+            (const char*)b + (size_t)plan->stride_b * i * esize,
+            tiles + i * tsize);
+          internal_libxs_tas_merge(plan, tiles, tsize, i, c);
         }
       }
     }

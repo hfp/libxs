@@ -14,15 +14,18 @@ remainder:
 | K       | chunks of the inner dimension            | none           |
 
 Along K, each chunk writes a partial C of its own, and the partial
-results are summed in a fixed order: the result is the same for any
-number of tasks. Any other GEMM is planned as one call of the whole
+results are summed pairwise along a binary tree over the chunks, by the
+tasks as their chunks complete. The order of summation depends on the
+number of chunks alone: the result is the same for any number of tasks. Any other GEMM is planned as one call of the whole
 GEMM. F64 and F32 are supported, with either operand transposed
 ('N' or 'T').
 
-Panels are dispatched with `LIBXS_GEMM_FLAG_STREAM` and
-`LIBXS_GEMM_FLAG_REUSE` (see [GEMM](libxs_gemm.md#types)): a panel is
-a window into a larger matrix, which a generated kernel may serve, and
-it is called often, which skips the JIT warm-up.
+Panels are dispatched with `LIBXS_GEMM_FLAG_REUSE` (see
+[GEMM](libxs_gemm.md#types)): a panel is called often, which skips the
+JIT warm-up. A panel that is a window into a larger matrix (along M, or
+a chunk along K) is served by BLAS under the automatic backend, which
+packs the strided columns such a panel streams; a resident panel (along
+N) may take a generated kernel.
 
 ## Plan
 
@@ -83,9 +86,36 @@ void libxs_tas_release(libxs_tas_t* plan);
 
 The operands are those of the whole GEMM. `libxs_tas_task` takes the
 share of one task: every tid in [0, ntasks) must call, since along K
-the last task to finish sums the partial results into C.
+the tasks completing the partial results also sum them into C.
 `libxs_tas_ntasks` tells how many tasks are worth it (one for a plan of
 one call), see [libxs_gemm_ntasks](libxs_gemm.md#indexstrided-batch).
+
+## Fortran
+
+```fortran
+USE :: LIBXS_JIT  ! auto-detected backends, or LIBXS with OPTIONAL ones
+TYPE(libxs_tas_t) :: plan
+
+IF (0 /= libxs_tas_dispatch(plan, LIBXS_DATATYPE_F64, 'N', 'N',
+     &  m, n, k, lda, ldb, ldc, alpha, beta)) THEN
+  DO i = 1, n_calls ! the plan serves every call of the same shape
+    CALL libxs_tas(plan, C_LOC(a), C_LOC(b), C_LOC(c))
+  END DO
+  CALL libxs_tas_release(plan)
+END IF
+
+! one-shot form: plan, call, and release
+CALL libxs_tas(LIBXS_DATATYPE_F64, 'N', 'N', m, n, k,
+     &  lda, ldb, ldc, alpha, beta, C_LOC(a), C_LOC(b), C_LOC(c))
+```
+
+Both forms take an OPTIONAL `panel` and `registry`. In module LIBXS,
+`libxs_tas_dispatch` also accepts the OPTIONAL backend function pointers
+of `libxs_gemm_dispatch`. When the module is compiled with OpenMP, both
+forms run over an OpenMP team sized by `libxs_tas_ntasks`, unless called
+from within a parallel region; `libxs_tas_task` remains for explicit
+splitting. Without LIBXS, the fallback of LIBXS_JIT plans every GEMM as
+one BLAS call.
 
 ## Compile-Time Tuning
 

@@ -61,6 +61,8 @@
 #define INTERNAL_GEMM_SELECT_XGEMM 2
 #define INTERNAL_GEMM_SELECT_BLAS 4
 #define INTERNAL_GEMM_SELECT_KERNEL 8
+/* MKL JIT addresses an operand with signed 32-bit byte offsets, and faults beyond */
+#define INTERNAL_GEMM_MKLJIT_MAXSPAN ((size_t)INT_MAX)
 
 #define INTERNAL_GEMM_NOTRANS(C) ('N' == (C) || 'n' == (C))
 
@@ -465,7 +467,7 @@ LIBXS_API_INLINE int internal_libxs_gemm_select(
 {
   const int gemm_backend = internal_libxs_gemm_backend;
   int strided = 0, xgemm_ok = 1, kernel_ok = (0 < internal_libxs_gemm_jit_max);
-  int result = 0;
+  int mkljit_ok = 1, result = 0;
   if (NULL != kernel_shape) {
     const int ta = ('N' != kernel_shape->transa && 'n' != kernel_shape->transa);
     const int tb = ('N' != kernel_shape->transb && 'n' != kernel_shape->transb);
@@ -474,6 +476,9 @@ LIBXS_API_INLINE int internal_libxs_gemm_select(
     const size_t kflops = (size_t)km * kn * kk * 2;
     const size_t kbytes = elemsize *
       ((size_t)km * kk + (size_t)kk * kn + (size_t)km * kn);
+    const size_t span_a = elemsize * kernel_shape->lda * (size_t)(0 != ta ? km : kk);
+    const size_t span_b = elemsize * kernel_shape->ldb * (size_t)(0 != tb ? kk : kn);
+    const size_t span_c = elemsize * kernel_shape->ldc * (size_t)kn;
     /* a leading dimension beyond the operand's own extent means a window
      * into a larger matrix: generated kernels neither pack nor prefetch
      * and then lose to BLAS, whereas resident operands are their domain;
@@ -484,9 +489,13 @@ LIBXS_API_INLINE int internal_libxs_gemm_select(
       && (0.0 == kernel_shape->beta || 1.0 == kernel_shape->beta));
     kernel_ok = (0 != kernel_ok
       && kflops < (size_t)internal_libxs_gemm_jit_max * kbytes);
+    /* even when requested (LIBXS_GEMM_BACKEND=1), since LIBXSMM or BLAS take over */
+    mkljit_ok = (INTERNAL_GEMM_MKLJIT_MAXSPAN >= span_a
+      && INTERNAL_GEMM_MKLJIT_MAXSPAN >= span_b
+      && INTERNAL_GEMM_MKLJIT_MAXSPAN >= span_c);
   }
-  if (INTERNAL_GEMM_BACKEND_MKL_JIT == gemm_backend
-    || (INTERNAL_GEMM_BACKEND_AUTO == gemm_backend && 0 == strided))
+  if (0 != mkljit_ok && (INTERNAL_GEMM_BACKEND_MKL_JIT == gemm_backend
+    || (INTERNAL_GEMM_BACKEND_AUTO == gemm_backend && 0 == strided)))
   {
     result |= INTERNAL_GEMM_SELECT_JIT;
   }

@@ -103,6 +103,7 @@
         PUBLIC :: libxs_gemm_backend_kind
         PUBLIC :: libxs_syrk_dispatch, libxs_syrk_dispatch_cpy
         PUBLIC :: libxs_syr2k_dispatch, libxs_syr2k_dispatch_cpy
+        PUBLIC :: libxs_tas_dispatch
 
         INTERFACE libxs_gemm_dispatch
           MODULE PROCEDURE libxs_gemm_dispatch_cpy_jit
@@ -128,6 +129,9 @@
         END INTERFACE
         INTERFACE libxs_syr2k_dispatch_cpy
           MODULE PROCEDURE libxs_syr2k_dispatch_cpy_jit
+        END INTERFACE
+        INTERFACE libxs_tas_dispatch
+          MODULE PROCEDURE libxs_tas_dispatch_jit
         END INTERFACE
 
       CONTAINS
@@ -429,10 +433,59 @@
      &      libxs_syr2k_dispatch_cpy_jit(config,                        &
      &      datatype, n, k, lda, lda, ldc, registry)
         END FUNCTION
+
+        !> Plan a tall-and-skinny GEMM with auto-detected backends.
+        FUNCTION libxs_tas_dispatch_jit(plan, datatype,                 &
+     &  transa, transb, m, n, k, lda, ldb, ldc, alpha, beta, panel,     &
+     &  registry)
+          TYPE(libxs_tas_t), INTENT(INOUT) :: plan
+          INTEGER(C_INT), INTENT(IN) :: datatype
+          CHARACTER(C_CHAR), INTENT(IN), VALUE :: transa, transb
+          INTEGER(C_INT), INTENT(IN) :: m, n, k, lda, ldb, ldc
+          REAL(C_DOUBLE), INTENT(IN) :: alpha, beta
+          INTEGER(C_INT), INTENT(IN), OPTIONAL :: panel
+          TYPE(C_PTR), INTENT(IN), OPTIONAL :: registry
+          INTEGER(C_INT) :: libxs_tas_dispatch_jit
+          TYPE(C_FUNPTR) :: dgemm_fp, sgemm_fp
+#if defined(__MKL)
+          TYPE(C_FUNPTR) :: jcd_fp, jgd_fp, jcs_fp, jgs_fp, bnt_fp
+#endif
+#if defined(__LIBXSMM)
+          TYPE(C_FUNPTR) :: xdisp_fp
+#endif
+          dgemm_fp = C_FUNLOC(dgemm_blas)
+          sgemm_fp = C_FUNLOC(sgemm_blas)
+#if defined(__MKL)
+          jcd_fp = C_FUNLOC(mkl_cblas_jit_create_dgemm)
+          jgd_fp = C_FUNLOC(mkl_jit_get_dgemm_ptr)
+          jcs_fp = C_FUNLOC(mkl_cblas_jit_create_sgemm)
+          jgs_fp = C_FUNLOC(mkl_jit_get_sgemm_ptr)
+          bnt_fp = C_FUNLOC(mkl_blas_nthreads)
+#endif
+#if defined(__LIBXSMM)
+          xdisp_fp = C_FUNLOC(libxsmm_dispatch_gemm)
+#endif
+          libxs_tas_dispatch_jit = libxs_tas_dispatch_base(plan,        &
+     &      datatype, transa, transb, m, n, k, lda, ldb, ldc,           &
+     &      alpha, beta, panel=panel,                                   &
+#if defined(__MKL)
+     &      jit_create_dgemm=jcd_fp,                                    &
+     &      jit_get_dgemm=jgd_fp,                                       &
+     &      jit_create_sgemm=jcs_fp,                                    &
+     &      jit_get_sgemm=jgs_fp,                                       &
+     &      blas_nthreads=bnt_fp,                                       &
+#endif
+#if defined(__LIBXSMM)
+     &      xgemm_dispatch=xdisp_fp,                                    &
+#endif
+     &      dgemm_blas=dgemm_fp,                                        &
+     &      sgemm_blas=sgemm_fp,                                        &
+     &      registry=registry)
+        END FUNCTION
 #else
 ! Fallback: BLAS-only (no LIBXS library required)
         USE, INTRINSIC :: ISO_C_BINDING, ONLY:                          &
-     &    C_DOUBLE, C_FLOAT, C_INT,                                     &
+     &    C_DOUBLE, C_FLOAT, C_INT, C_SIZE_T,                           &
      &    C_CHAR, C_NULL_CHAR, C_PTR, C_NULL_PTR,                       &
      &    C_FUNPTR, C_NULL_FUNPTR,                                      &
      &    C_F_POINTER, C_ASSOCIATED, C_LOC
@@ -464,15 +517,32 @@
           TYPE(libxs_gemm_shape_t) :: shape
         END TYPE
 
+        TYPE, PUBLIC, BIND(C) :: libxs_tas_t
+          TYPE(libxs_gemm_shape_t) :: shape
+          TYPE(libxs_gemm_config_t) :: panel, rest
+          INTEGER(C_INT) :: stride_a = 0, stride_b = 0, stride_c = 0
+          INTEGER(C_SIZE_T) :: rest_a = 0, rest_b = 0, rest_c = 0
+          INTEGER(C_INT) :: npanels = 0, nscratch = 0
+          CHARACTER(C_CHAR) :: dim = C_NULL_CHAR
+          TYPE(C_PTR) :: scratch = C_NULL_PTR
+        END TYPE
+
         INTERFACE libxs_gemm_call
           MODULE PROCEDURE libxs_gemm_call_config
           MODULE PROCEDURE libxs_gemm_call_direct
+        END INTERFACE
+
+        INTERFACE libxs_tas
+          MODULE PROCEDURE libxs_tas_plan
+          MODULE PROCEDURE libxs_tas_direct
         END INTERFACE
 
         PUBLIC :: libxs_init, libxs_finalize
         PUBLIC :: libxs_gemm_dispatch
         PUBLIC :: libxs_gemm_call
         PUBLIC :: libxs_syr2k, libxs_syrk
+        PUBLIC :: libxs_tas_dispatch, libxs_tas, libxs_tas_task
+        PUBLIC :: libxs_tas_ntasks, libxs_tas_release
         PUBLIC :: C_INT, C_DOUBLE, C_LOC
 
       CONTAINS
@@ -565,6 +635,104 @@
           CALL C_F_POINTER(c, pc, [ldc * n])
           CALL DSYRK(uplo, 'N', n, k,                                   &
      &      alpha, pa, lda, beta, pc, ldc)
+        END SUBROUTINE
+
+        ! the whole GEMM of a plan, i.e., one BLAS call
+        SUBROUTINE internal_tas_blas(s, a, b, c)
+          TYPE(libxs_gemm_shape_t), INTENT(IN) :: s
+          TYPE(C_PTR), INTENT(IN), VALUE :: a, b
+          TYPE(C_PTR), VALUE :: c
+          REAL(C_DOUBLE), POINTER :: da(:), db(:), dc(:)
+          REAL(C_FLOAT), POINTER :: sa(:), sb(:), sc(:)
+          INTEGER :: na, nb
+          IF ('N' .EQ. s%transa .OR. 'n' .EQ. s%transa) THEN
+            na = s%lda * s%k
+          ELSE; na = s%lda * s%m; END IF
+          IF ('N' .EQ. s%transb .OR. 'n' .EQ. s%transb) THEN
+            nb = s%ldb * s%n
+          ELSE; nb = s%ldb * s%k; END IF
+          IF (LIBXS_DATATYPE_F32 .EQ. s%datatype) THEN
+            CALL C_F_POINTER(a, sa, [na])
+            CALL C_F_POINTER(b, sb, [nb])
+            CALL C_F_POINTER(c, sc, [s%ldc * s%n])
+            CALL SGEMM(s%transa, s%transb, s%m, s%n, s%k,               &
+     &        REAL(s%alpha, C_FLOAT), sa, s%lda, sb, s%ldb,             &
+     &        REAL(s%beta, C_FLOAT), sc, s%ldc)
+          ELSE
+            CALL C_F_POINTER(a, da, [na])
+            CALL C_F_POINTER(b, db, [nb])
+            CALL C_F_POINTER(c, dc, [s%ldc * s%n])
+            CALL DGEMM(s%transa, s%transb, s%m, s%n, s%k,               &
+     &        s%alpha, da, s%lda, db, s%ldb, s%beta, dc, s%ldc)
+          END IF
+        END SUBROUTINE
+
+        ! without LIBXS, a plan is one call of the whole GEMM
+        FUNCTION libxs_tas_dispatch(plan, datatype,                     &
+     &  transa, transb, m, n, k, lda, ldb, ldc, alpha, beta, panel,     &
+     &  registry)
+          TYPE(libxs_tas_t), INTENT(INOUT) :: plan
+          INTEGER(C_INT), INTENT(IN) :: datatype
+          CHARACTER, INTENT(IN), VALUE :: transa, transb
+          INTEGER(C_INT), INTENT(IN) :: m, n, k, lda, ldb, ldc
+          REAL(C_DOUBLE), INTENT(IN) :: alpha, beta
+          INTEGER(C_INT), INTENT(IN), OPTIONAL :: panel
+          TYPE(C_PTR), INTENT(IN), OPTIONAL :: registry
+          INTEGER(C_INT) :: libxs_tas_dispatch
+          plan%shape%datatype = datatype
+          plan%shape%transa = transa; plan%shape%transb = transb
+          plan%shape%m = m; plan%shape%n = n; plan%shape%k = k
+          plan%shape%lda = lda; plan%shape%ldb = ldb
+          plan%shape%ldc = ldc
+          plan%shape%alpha = alpha; plan%shape%beta = beta
+          plan%dim = C_NULL_CHAR
+          libxs_tas_dispatch = 1
+        END FUNCTION
+
+        SUBROUTINE libxs_tas_plan(plan, a, b, c)
+          TYPE(libxs_tas_t), INTENT(IN) :: plan
+          TYPE(C_PTR), INTENT(IN), VALUE :: a, b
+          TYPE(C_PTR), VALUE :: c
+          CALL internal_tas_blas(plan%shape, a, b, c)
+        END SUBROUTINE
+
+        SUBROUTINE libxs_tas_direct(datatype, transa, transb,           &
+     &  m, n, k, lda, ldb, ldc, alpha, beta, a, b, c, panel, registry)
+          INTEGER(C_INT), INTENT(IN) :: datatype
+          CHARACTER, INTENT(IN), VALUE :: transa, transb
+          INTEGER(C_INT), INTENT(IN) :: m, n, k, lda, ldb, ldc
+          REAL(C_DOUBLE), INTENT(IN) :: alpha, beta
+          TYPE(C_PTR), INTENT(IN), VALUE :: a, b
+          TYPE(C_PTR), VALUE :: c
+          INTEGER(C_INT), INTENT(IN), OPTIONAL :: panel
+          TYPE(C_PTR), INTENT(IN), OPTIONAL :: registry
+          TYPE(libxs_tas_t) :: plan
+          IF (0 .NE. libxs_tas_dispatch(plan, datatype, transa, transb, &
+     &      m, n, k, lda, ldb, ldc, alpha, beta)) THEN
+            CALL internal_tas_blas(plan%shape, a, b, c)
+          END IF
+        END SUBROUTINE
+
+        SUBROUTINE libxs_tas_task(plan, a, b, c, tid, ntasks)
+          TYPE(libxs_tas_t), INTENT(IN) :: plan
+          TYPE(C_PTR), INTENT(IN), VALUE :: a, b
+          TYPE(C_PTR), VALUE :: c
+          INTEGER(C_INT), INTENT(IN), VALUE :: tid, ntasks
+          IF (0 .EQ. tid .AND. 0 .LT. ntasks) THEN
+            CALL internal_tas_blas(plan%shape, a, b, c)
+          END IF
+        END SUBROUTINE
+
+        FUNCTION libxs_tas_ntasks(plan, nthreads)
+          TYPE(libxs_tas_t), INTENT(IN) :: plan
+          INTEGER(C_INT), INTENT(IN), VALUE :: nthreads
+          INTEGER(C_INT) :: libxs_tas_ntasks
+          libxs_tas_ntasks = 1
+        END FUNCTION
+
+        SUBROUTINE libxs_tas_release(plan)
+          TYPE(libxs_tas_t), INTENT(INOUT) :: plan
+          plan%scratch = C_NULL_PTR
         END SUBROUTINE
 #endif
       END MODULE

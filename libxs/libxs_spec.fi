@@ -121,6 +121,8 @@
         PUBLIC :: libxs_syr2k_task, libxs_syrk_task
         PUBLIC :: libxs_syrk_ntasks, libxs_gemm_ntasks
         PUBLIC :: libxs_gemm_release_registry
+        PUBLIC :: libxs_tas_t, libxs_tas, libxs_tas_task
+        PUBLIC :: libxs_tas_ntasks, libxs_tas_release
 
         PUBLIC :: libxs_predict_info_t, libxs_predict_query_t
         PUBLIC :: LIBXS_PREDICT_AUTO, LIBXS_PREDICT_INTERPOLATE
@@ -413,6 +415,17 @@
           TYPE(libxs_gemm_shape_t) :: shape
         END TYPE
 
+        !> Tall-and-skinny GEMM plan (populated by libxs_tas_dispatch).
+        TYPE, BIND(C) :: libxs_tas_t
+          TYPE(libxs_gemm_shape_t) :: shape
+          TYPE(libxs_gemm_config_t) :: panel, rest
+          INTEGER(C_INT) :: stride_a = 0, stride_b = 0, stride_c = 0
+          INTEGER(C_SIZE_T) :: rest_a = 0, rest_b = 0, rest_c = 0
+          INTEGER(C_INT) :: npanels = 0, nscratch = 0
+          CHARACTER(C_CHAR) :: dim = C_NULL_CHAR
+          TYPE(C_PTR) :: scratch = C_NULL_PTR
+        END TYPE
+
         !> Prediction result with confidence and error estimates.
         TYPE, BIND(C) :: libxs_predict_info_t
           TYPE(C_PTR) :: values = C_NULL_PTR
@@ -455,6 +468,11 @@
         INTERFACE libxs_syrk
           MODULE PROCEDURE libxs_syrk_config
           MODULE PROCEDURE libxs_syrk_direct
+        END INTERFACE
+
+        INTERFACE libxs_tas
+          MODULE PROCEDURE libxs_tas_plan
+          MODULE PROCEDURE libxs_tas_direct
         END INTERFACE
 
         INTERFACE
@@ -1113,6 +1131,52 @@
             INTEGER(C_INT), INTENT(IN), VALUE :: nthreads
             INTEGER(C_INT) :: libxs_syrk_ntasks
           END FUNCTION
+
+          ! internal C binding
+          FUNCTION internal_tas_dispatch(plan, shape, panel,            &
+     &    backend, registry) BIND(C, NAME="libxs_tas_dispatch_rt")
+            IMPORT :: libxs_tas_t, libxs_gemm_shape_t,                  &
+     &        libxs_gemm_backend_t, C_PTR, C_INT
+            TYPE(libxs_tas_t), INTENT(INOUT) :: plan
+            TYPE(libxs_gemm_shape_t), INTENT(IN) :: shape
+            INTEGER(C_INT), INTENT(IN), VALUE :: panel
+            TYPE(libxs_gemm_backend_t), INTENT(IN) :: backend
+            TYPE(C_PTR), INTENT(IN), VALUE :: registry
+            INTEGER(C_INT) :: internal_tas_dispatch
+          END FUNCTION
+
+          ! internal C binding
+          SUBROUTINE internal_tas(plan, a, b, c)                        &
+     &    BIND(C, NAME="libxs_tas")
+            IMPORT :: libxs_tas_t, C_PTR
+            TYPE(libxs_tas_t), INTENT(IN) :: plan
+            TYPE(C_PTR), INTENT(IN), VALUE :: a, b
+            TYPE(C_PTR), VALUE :: c
+          END SUBROUTINE
+
+          !> Tall-and-skinny GEMM (per-thread): every tid must call.
+          SUBROUTINE libxs_tas_task(plan, a, b, c, tid, ntasks)         &
+     &    BIND(C)
+            IMPORT :: libxs_tas_t, C_PTR, C_INT
+            TYPE(libxs_tas_t), INTENT(IN) :: plan
+            TYPE(C_PTR), INTENT(IN), VALUE :: a, b
+            TYPE(C_PTR), VALUE :: c
+            INTEGER(C_INT), INTENT(IN), VALUE :: tid, ntasks
+          END SUBROUTINE
+
+          !> Tasks worth splitting a TAS plan into (1: unsplit).
+          FUNCTION libxs_tas_ntasks(plan, nthreads) BIND(C)
+            IMPORT :: libxs_tas_t, C_INT
+            TYPE(libxs_tas_t), INTENT(IN) :: plan
+            INTEGER(C_INT), INTENT(IN), VALUE :: nthreads
+            INTEGER(C_INT) :: libxs_tas_ntasks
+          END FUNCTION
+
+          !> Release the scratch held by a TAS plan.
+          SUBROUTINE libxs_tas_release(plan) BIND(C)
+            IMPORT :: libxs_tas_t
+            TYPE(libxs_tas_t), INTENT(INOUT) :: plan
+          END SUBROUTINE
 
           !> Release all GEMM configs cached in a registry,
           !> then destroy the registry itself.

@@ -14,6 +14,7 @@
         PUBLIC :: libxs_gemm_backend_kind
         PUBLIC :: libxs_syrk_dispatch, libxs_syrk_dispatch_cpy
         PUBLIC :: libxs_syr2k_dispatch, libxs_syr2k_dispatch_cpy
+        PUBLIC :: libxs_tas_dispatch
         INTERFACE libxs_gemm_dispatch
           MODULE PROCEDURE libxs_gemm_dispatch_base
           MODULE PROCEDURE libxs_gemm_dispatch_ptr_base
@@ -38,6 +39,9 @@
         END INTERFACE
         INTERFACE libxs_syr2k_dispatch_cpy
           MODULE PROCEDURE libxs_syr2k_dispatch_cpy_base
+        END INTERFACE
+        INTERFACE libxs_tas_dispatch
+          MODULE PROCEDURE libxs_tas_dispatch_base
         END INTERFACE
       CONTAINS
         INCLUDE 'libxs_procs.fi'

@@ -420,6 +420,55 @@ static int test_warmup_sticky(void)
 }
 
 
+static int test_mkljit_span(void)
+{
+  libxs_gemm_backend_t backend;
+  libxs_gemm_shape_t shape;
+  libxs_gemm_config_t config;
+  libxs_registry_t* registry;
+
+  LIBXS_MEMZERO(&backend);
+  backend.jit_create_dgemm = test_jit_create_dgemm;
+  backend.jit_get_dgemm = test_jit_get_dgemm;
+  registry = libxs_registry_create();
+  TEST_CHECK(NULL != registry);
+  LIBXS_MEMZERO(&shape);
+  shape.datatype = LIBXS_DATATYPE_F64;
+  shape.transa = 'N'; shape.transb = 'N';
+  shape.alpha = 1.0;
+
+  /* a window (STREAM) called often (REUSE) is due for MKL JIT: A spans 2.048E9 Byte */
+  shape.m = 8; shape.n = 8; shape.k = 256;
+  shape.lda = 1000000; shape.ldb = 256; shape.ldc = 8;
+  jit_create_dgemm_calls = 0;
+  LIBXS_MEMZERO(&config);
+  config.flags = (libxs_gemm_flags_t)(LIBXS_GEMM_FLAG_STREAM | LIBXS_GEMM_FLAG_REUSE);
+  TEST_CHECK(0 != libxs_gemm_dispatch_cpy_rt(&config, &shape, NULL, &backend, registry));
+  TEST_CHECK(1 == jit_create_dgemm_calls);
+
+  /* A spans 2.4E9 Byte, which MKL JIT cannot address (signed 32-bit offsets) */
+  shape.k = 300; shape.ldb = 300;
+  jit_create_dgemm_calls = 0;
+  LIBXS_MEMZERO(&config);
+  config.flags = (libxs_gemm_flags_t)(LIBXS_GEMM_FLAG_STREAM | LIBXS_GEMM_FLAG_REUSE);
+  TEST_CHECK(0 != libxs_gemm_dispatch_cpy_rt(&config, &shape, NULL, &backend, registry));
+  TEST_CHECK(0 == jit_create_dgemm_calls);
+  TEST_CHECK(NULL != config.dgemm_blas);
+
+  /* the same holds for C, i.e., resident A and B do not suffice */
+  shape.m = 8; shape.n = 300; shape.k = 8;
+  shape.lda = 8; shape.ldb = 8; shape.ldc = 1000000;
+  jit_create_dgemm_calls = 0;
+  LIBXS_MEMZERO(&config);
+  config.flags = LIBXS_GEMM_FLAG_REUSE;
+  TEST_CHECK(0 != libxs_gemm_dispatch_cpy_rt(&config, &shape, NULL, &backend, registry));
+  TEST_CHECK(0 == jit_create_dgemm_calls);
+
+  libxs_gemm_release_registry(registry);
+  return EXIT_SUCCESS;
+}
+
+
 static int test_registry_no_warmup_entries(void)
 {
   libxs_gemm_backend_t backend;
@@ -682,6 +731,7 @@ int main(void)
   if (EXIT_SUCCESS == result) result = test_release_ownership();
   if (EXIT_SUCCESS == result) result = test_config_cpy();
   if (EXIT_SUCCESS == result) result = test_warmup_sticky();
+  if (EXIT_SUCCESS == result) result = test_mkljit_span();
   if (EXIT_SUCCESS == result) result = test_registry_no_warmup_entries();
   if (EXIT_SUCCESS == result) result = test_registry_no_blas_entries();
   if (EXIT_SUCCESS == result) result = test_registry_no_syrk_entries();

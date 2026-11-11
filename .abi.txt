@@ -363,8 +363,11 @@ libxs_syrk_dispatch_rt
 libxs_syrk_ntasks
 libxs_syrk_task
 libxs_tas
+libxs_tas_direct
+libxs_tas_dispatch_base
 libxs_tas_dispatch_rt
 libxs_tas_ntasks
+libxs_tas_plan
 libxs_tas_release
 libxs_tas_task
 libxs_text_reflow

@@ -35,7 +35,7 @@ typedef struct libxs_tas_t {
   int npanels, nscratch;
   /** Dimension the plan runs along ('M', 'N', or 'K'), zero for one call. */
   char dim;
-  /** Count of finished tasks followed by the partial C (along K), NULL otherwise. */
+  /** Merge counts followed by the partial C (along K), NULL otherwise. */
   void* scratch;
 } libxs_tas_t;
 
@@ -46,8 +46,8 @@ typedef struct libxs_tas_t {
  * LIBXS_TAS_PANEL or LIBXS_TAS_CHUNK. A GEMM is planned along its longest
  * dimension if its arithmetic intensity (FLOPs per Byte) is below LIBXS_TAS_MAX,
  * and if this yields at least two panels. Panels are dispatched with
- * LIBXS_GEMM_FLAG_STREAM and LIBXS_GEMM_FLAG_REUSE, a plan of one call without
- * hints. Returns nonzero if plan was populated, zero otherwise.
+ * LIBXS_GEMM_FLAG_REUSE, a plan of one call without hints. Returns nonzero if
+ * plan was populated, zero otherwise.
  */
 LIBXS_API int libxs_tas_dispatch_rt(libxs_tas_t* plan,
   const libxs_gemm_shape_t* shape, int panel,
@@ -88,7 +88,7 @@ LIBXS_API void libxs_tas(const libxs_tas_t* plan,
 
 /**
  * Per-thread form of libxs_tas. Every tid in [0, ntasks) must call, since
- * along K the last task to finish sums the partial results into C.
+ * along K the tasks completing the partial results also sum them into C.
  */
 LIBXS_API void libxs_tas_task(const libxs_tas_t* plan,
   const void* a, const void* b, void* c,

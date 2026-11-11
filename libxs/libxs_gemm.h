@@ -216,7 +216,9 @@ typedef struct libxs_gemm_config_t {
  *   operands, i.e. leading dimensions matching the kernel's own extent.
  *   A larger leading dimension means a window into a larger matrix, which
  *   streams and is served better by BLAS, since neither generator packs.
- *   1 and 2 request the respective generator regardless.
+ *   1 and 2 request the respective generator regardless, except that MKL JIT
+ *   is never taken for an operand spanning more than 2 GB (INT_MAX Bytes),
+ *   which its kernels cannot address; LIBXSMM or BLAS serve such a shape.
  * LIBXS_GEMM_PRINT=0 prints a registry summary when a registry is released.
  * Returns pointer to cached config (registry-owned), NULL on failure.
  */

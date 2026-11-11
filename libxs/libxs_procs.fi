@@ -1264,6 +1264,49 @@
      &      registry)
         END FUNCTION
 
+        !> Plan a tall-and-skinny GEMM and populate plan (see
+        !> libxs_tas_dispatch_rt); panel defaults to zero.
+        FUNCTION libxs_tas_dispatch_base(plan, datatype,                &
+     &  transa, transb, m, n, k, lda, ldb, ldc, alpha, beta, panel,     &
+     &  jit_create_dgemm, jit_get_dgemm,                                &
+     &  jit_create_sgemm, jit_get_sgemm,                                &
+     &  xgemm_dispatch, dgemm_blas, sgemm_blas, blas_nthreads,          &
+     &  registry)
+          TYPE(libxs_tas_t), INTENT(INOUT) :: plan
+          INTEGER(C_INT), INTENT(IN) :: datatype
+          CHARACTER(C_CHAR), INTENT(IN), VALUE :: transa, transb
+          INTEGER(C_INT), INTENT(IN) :: m, n, k, lda, ldb, ldc
+          REAL(C_DOUBLE), INTENT(IN) :: alpha, beta
+          INTEGER(C_INT), INTENT(IN), OPTIONAL :: panel
+          TYPE(C_FUNPTR), INTENT(IN), OPTIONAL ::                       &
+     &      jit_create_dgemm, jit_get_dgemm,                            &
+     &      jit_create_sgemm, jit_get_sgemm,                            &
+     &      xgemm_dispatch, dgemm_blas, sgemm_blas, blas_nthreads
+          TYPE(C_PTR), INTENT(IN), OPTIONAL :: registry
+          INTEGER(C_INT) :: libxs_tas_dispatch_base
+          TYPE(libxs_gemm_shape_t) :: shape
+          TYPE(libxs_gemm_backend_t) :: be
+          TYPE(C_PTR) :: preg
+          INTEGER(C_INT) :: w
+          shape%datatype = datatype
+          shape%transa = transa; shape%transb = transb
+          shape%m = m; shape%n = n; shape%k = k
+          shape%lda = lda; shape%ldb = ldb; shape%ldc = ldc
+          shape%alpha = alpha; shape%beta = beta
+          CALL internal_gemm_backend(be,                                &
+     &      jit_create_dgemm, jit_get_dgemm,                            &
+     &      jit_create_sgemm, jit_get_sgemm,                            &
+     &      xgemm_dispatch, dgemm_blas, sgemm_blas, blas_nthreads)
+          IF (PRESENT(registry)) THEN
+            preg = registry
+          ELSE; preg = C_NULL_PTR; END IF
+          IF (PRESENT(panel)) THEN
+            w = panel
+          ELSE; w = 0; END IF
+          libxs_tas_dispatch_base = internal_tas_dispatch(plan,         &
+     &      shape, w, be, preg)
+        END FUNCTION
+
         !> Pointer-array GEMM batch, split over an OpenMP team unless
         !> the application is serial or already in a parallel region.
         SUBROUTINE libxs_gemm_batch(a_array, b_array, c_array,          &
@@ -1452,6 +1495,60 @@
           IF (0 .NE. libxs_syrk_dispatch_cpy_base(cfg, datatype,        &
      &      n, k, lda, ldc, registry=preg)) THEN
             CALL internal_syrk_run(cfg, uplo, alpha, beta, a, c)
+          END IF
+        END SUBROUTINE
+
+        ! TAS split over an OpenMP team unless the application
+        ! is serial or already inside a parallel region
+        SUBROUTINE internal_tas_run(plan, a, b, c)
+!$        USE OMP_LIB, ONLY: omp_in_parallel, omp_get_max_threads,      &
+!$   &      omp_get_thread_num, omp_get_num_threads
+          TYPE(libxs_tas_t), INTENT(IN) :: plan
+          TYPE(C_PTR), INTENT(IN), VALUE :: a, b
+          TYPE(C_PTR), VALUE :: c
+          INTEGER(C_INT) :: ntasks
+          ntasks = 1
+!$        IF (.NOT. omp_in_parallel()) THEN
+!$          ntasks = libxs_tas_ntasks(plan,                             &
+!$   &        INT(omp_get_max_threads(), C_INT))
+!$        END IF
+          IF (1 .LT. ntasks) THEN
+!$OMP PARALLEL NUM_THREADS(ntasks) DEFAULT(NONE)                        &
+!$OMP&  SHARED(plan, a, b, c)
+!$          CALL libxs_tas_task(plan, a, b, c,                          &
+!$   &        INT(omp_get_thread_num(), C_INT),                         &
+!$   &        INT(omp_get_num_threads(), C_INT))
+!$OMP END PARALLEL
+          ELSE
+            CALL internal_tas(plan, a, b, c)
+          END IF
+        END SUBROUTINE
+
+        !> Tall-and-skinny GEMM with a plan (libxs_tas_dispatch).
+        SUBROUTINE libxs_tas_plan(plan, a, b, c)
+          TYPE(libxs_tas_t), INTENT(IN), TARGET :: plan
+          TYPE(C_PTR), INTENT(IN), VALUE :: a, b
+          TYPE(C_PTR), VALUE :: c
+          CALL internal_tas_run(plan, a, b, c)
+        END SUBROUTINE
+
+        !> Tall-and-skinny GEMM direct (plan, call, and release).
+        SUBROUTINE libxs_tas_direct(datatype, transa, transb,           &
+     &  m, n, k, lda, ldb, ldc, alpha, beta, a, b, c, panel, registry)
+          INTEGER(C_INT), INTENT(IN) :: datatype
+          CHARACTER(C_CHAR), INTENT(IN), VALUE :: transa, transb
+          INTEGER(C_INT), INTENT(IN) :: m, n, k, lda, ldb, ldc
+          REAL(C_DOUBLE), INTENT(IN) :: alpha, beta
+          TYPE(C_PTR), INTENT(IN), VALUE :: a, b
+          TYPE(C_PTR), VALUE :: c
+          INTEGER(C_INT), INTENT(IN), OPTIONAL :: panel
+          TYPE(C_PTR), INTENT(IN), OPTIONAL :: registry
+          TYPE(libxs_tas_t) :: plan
+          IF (0 .NE. libxs_tas_dispatch_base(plan, datatype,            &
+     &      transa, transb, m, n, k, lda, ldb, ldc, alpha, beta,        &
+     &      panel=panel, registry=registry)) THEN
+            CALL internal_tas_run(plan, a, b, c)
+            CALL libxs_tas_release(plan)
           END IF
         END SUBROUTINE
 

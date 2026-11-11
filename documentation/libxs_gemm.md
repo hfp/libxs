@@ -562,7 +562,11 @@ never yield a wrong kernel.
                             2 LIBXSMM, 3 BLAS, 4 built-in fallback.
                             Auto takes a generator only for resident
                             operands, the MKL JIT before LIBXSMM;
-                            1 and 2 take the respective one always.
+                            1 and 2 take the respective one always,
+                            except that MKL JIT is never taken for an
+                            operand spanning more than 2 GB (its
+                            kernels cannot address it); LIBXSMM or
+                            BLAS serve such a shape instead.
     LIBXS_GEMM_JIT_MAX=N    Arithmetic-intensity threshold for JIT
                             dispatch. JIT/LIBXSMM kernels are only
                             generated when the kernel shape's AI
