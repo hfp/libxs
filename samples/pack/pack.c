@@ -19,7 +19,7 @@
 #endif
 
 #define BLOCK 512
-#define NGROUPS 5
+#define NGRP 5
 #define NLEVELS 3 /* levels of libxs_vpack */
 #define MAXBITS 64
 #define WIDTH_HEADER 6 /* bits per block that record its width (CP2K: maxval stream) */
@@ -95,7 +95,7 @@ size_t vunpack_f(int64_t* values, const int64_t* packed, size_t n);
 #endif
 
 
-static const int groups[NGROUPS] = { 4, 8, 16, 32, 64 };
+static const int groups[NGRP] = { 4, 8, 16, 32, 64 };
 static uint64_t rng_state = 0x9E3779B97F4A7C15ULL;
 static size_t record; /* values per record (env. RECORD), 0: a stream at once */
 static int nrepeat = 1; /* timed passes per measurement, the fastest counts */
@@ -1469,7 +1469,7 @@ static int run_files(int nfiles, char* files[], double eps)
   for (i = 0; i < nfiles && EXIT_SUCCESS == result; ++i) result = add_file(&st, files[i], eps);
   if (EXIT_SUCCESS == result && 0 != st.nvalues) {
     const double hdr = (double)st.nblocks * WIDTH_HEADER, n = (double)st.nvalues;
-    header_t hd[NGROUPS];
+    header_t hd[NGRP];
     double seconds, useconds, bits;
     int ok = 1, ig, il;
     printf("files %i  blocks %lu  values %lu  zeros %.1f%%  eps %g  skipped %lu  record %lu\n", nfiles,
@@ -1527,11 +1527,11 @@ static int run_files(int nfiles, char* files[], double eps)
     printf("%-26s %10.2f %8.2f\n", "needed per value (bound)", (st.bits_needed + hdr) / n,
       st.bits_fixed / (st.bits_needed + hdr));
     printf("\n%-8s %9s %26s\n", "group", "payload", "+ header: bytes 7-bit base+3 base+2 entropy");
-    for (ig = 0; ig < NGROUPS; ++ig) {
+    for (ig = 0; ig < NGRP; ++ig) {
       memset(&hd[ig], 0, sizeof(hd[ig]));
       group_widths(st.plain, groups[ig], &hd[ig]);
     }
-    for (ig = 0; ig < NGROUPS; ++ig) {
+    for (ig = 0; ig < NGRP; ++ig) {
       const double nw = LIBXS_MAX(1.0, hd[ig].nwidths), pay = hd[ig].payload + hdr;
       double entropy = 0;
       int w;

@@ -683,7 +683,7 @@ static const char* ngram_bank_slotname(int slot)
   else if (NGRAM_BANK_PRIOR == slot) result = "uni";
   else if (NGRAM_BANK_PREDICT == slot) result = "prd";
   else if (NGRAM_BANK_EMB == slot) result = "emb";
-  else sprintf(name, "o%d", slot);
+  else LIBXS_SNPRINTF(name, sizeof(name), "o%d", slot);
   return result;
 }
 
@@ -4580,21 +4580,21 @@ int converse_lm_run(converse_run_t* run)
     }
     else if (0 != use_predict || 0 != use_embed) {
       char label[64];
-      sprintf(label, "%s:%s", use_embed ? "embed" : run->profile->name,
-        run->profile->name);
+      LIBXS_SNPRINTF(label, sizeof(label), "%s:%s",
+        use_embed ? "embed" : run->profile->name, run->profile->name);
       result = token_predict_eval(token_model, eval_corpus, run->lexicon,
         run->rules, run->nrules, use_embed, run->ngram_holdout,
         use_embed ? label : run->profile->name);
     }
     else if (0 != use_rerank) {
       char label[64];
-      sprintf(label, "rerank:%s", run->profile->name);
+      LIBXS_SNPRINTF(label, sizeof(label), "rerank:%s", run->profile->name);
       result = rerank_eval(ngram_model, token_model, eval_corpus, run->lexicon,
         run->rules, run->nrules, run->ngram_order, run->ngram_holdout, label);
     }
     else if (0 != use_knnlm) {
       char label[64];
-      sprintf(label, "knnlm:%s", run->profile->name);
+      LIBXS_SNPRINTF(label, sizeof(label), "knnlm:%s", run->profile->name);
       result = knnlm_eval(ngram_model, token_model, eval_corpus, run->lexicon,
         run->rules, run->nrules, run->ngram_order, run->ngram_holdout, label);
     }

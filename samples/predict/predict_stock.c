@@ -98,7 +98,9 @@ int main(int argc, char* argv[])
       { char* wp = inputs_spec;
         for (s = 0; s < nseries; ++s) {
           if (s > 0) *wp++ = ',';
-          wp += sprintf(wp, "%d", cols[s]);
+          LIBXS_SNPRINTF(wp, sizeof(inputs_spec) - (size_t)(wp - inputs_spec),
+            "%d", cols[s]);
+          wp += strlen(wp);
         }
         *wp = '\0';
       }

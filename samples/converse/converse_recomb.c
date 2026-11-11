@@ -219,7 +219,6 @@ static long recomb_index_nposts = 0;
  * precision and that trade has not been measured on more than one corpus.
  */
 static libxs_registry_t* recomb_predicate = NULL;
-static long recomb_predicate_nkeys = 0;
 static libxs_registry_t* recomb_cast = NULL;
 static libxs_registry_t* recomb_pair = NULL;
 static long recomb_cast_nkeys = 0;
@@ -765,7 +764,6 @@ static void recomb_predicate_free(void)
     libxs_registry_destroy(recomb_predicate);
     recomb_predicate = NULL;
   }
-  recomb_predicate_nkeys = 0;
 }
 
 
@@ -803,11 +801,8 @@ static int recomb_predicate_build(const libxs_registry_t* corpus,
           if (NULL != count) ++*count;
           else {
             const long fresh = 1;
-            if (NULL != libxs_registry_set(recomb_predicate, &id, sizeof(id),
-              &fresh, sizeof(fresh), NULL))
-            {
-              ++recomb_predicate_nkeys;
-            }
+            (void)libxs_registry_set(recomb_predicate, &id, sizeof(id),
+              &fresh, sizeof(fresh), NULL);
           }
         }
       }

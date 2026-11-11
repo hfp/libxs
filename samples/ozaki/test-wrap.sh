@@ -32,7 +32,7 @@ if [ "$1" ]; then
 else
   # Discover tests from built executables (*-wrap.x and *-blas.x)
   TESTS="$({ ls -1 "${HERE}"/*-wrap.x "${HERE}"/*-blas.x 2>/dev/null || true; } \
-    | xargs -I{} basename {} .x | sed 's/-wrap$//;s/-blas$//' | sort -u)"
+    | sed 's,.*/,,;s/\.x$//;s/-wrap$//;s/-blas$//' | sort -u)"
 fi
 if [ $# -gt 0 ]; then shift; fi
 

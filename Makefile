@@ -197,9 +197,11 @@ endif
 #ifneq (x86_64,$(MNAME))
 #  WERROR := 0
 #endif
-# no warning conversion
-ifneq (,$(filter-out 0 1,$(INTEL)))
-  WERROR := 0
+# warnings are not converted if the compiler rejects -Werror: say so
+ifneq (0,$(WERROR))
+ifeq (,$(strip $(WERROR_CFLAG)))
+  $(info WARNING: CC=$(CC) does not accept -Werror, warnings are not converted into errors!)
+endif
 endif
 
 information = \
@@ -304,7 +306,8 @@ endif
 # conditional compilation (!$ lines) and so compiles calls into the OpenMP runtime,
 # but links no runtime, which left the shared library with references nothing it
 # depends on resolves. The module carries no SIMD directive for it to serve.
-$(BLDDIR)/intel64/$(PROJECT)-mod.o: $(BLDDIR)/intel64/.make $(INCDIR)/$(PROJECT).f \
+$(BLDDIR)/intel64/$(PROJECT)-mod.o: $(BLDDIR)/intel64/.make $(DIRSTATE)/.state \
+  $(ROOTDIR)/Makefile $(ROOTDIR)/Makefile.inc $(INCDIR)/$(PROJECT).f \
   $(wildcard $(INCDIR)/$(PROJECT)*.fi)
 	$(FC) $(DFLAGS) $(IFLAGS) $(FCMTFLAGS) $(filter-out $(FFORM_FLAG) -fopenmp-simd -qopenmp-simd,$(FCFLAGS)) $(FTARGET) \
 		-c $(INCDIR)/$(PROJECT).f -o $@ $(if $(filter 0,$(WERROR)),,$(WERROR_FCFLAG)) $(FMFLAGS) $(INCDIR)

@@ -779,6 +779,10 @@ endif
 WCHECK ?= 0
 WERROR_CFLAG := $(call ctest,$(CC),-Werror)
 WERROR_FCFLAG := $(call ftest,$(FC),-Werror)
+ifeq (,$(WERROR_FCFLAG))
+  # ifx rejects -Werror (as a remark) and spells it differently
+  WERROR_FCFLAG := $(call ftest,$(FC),-warn errors)
+endif
 ifneq (0,$(WCHECK))
   WCHECK_CFLAG := $(call ctest,$(CC),-Wcheck)
   ifneq (,$(WCHECK_CFLAG))
@@ -800,6 +804,22 @@ ifneq (0,$(INTEL))
   ifneq (,$(strip $(FC)))
     NOLIMITS_FCFLAG := $(call ftest,$(FC),-qoverride-limits $(WERROR_FCFLAG))
   endif
+  endif
+endif
+endif
+
+# Tests and samples (they set PROJECT and DEPDIR) share the policy of the project's own Makefile:
+# warnings are errors except for a released version (WERROR=0 disables); the project's own
+# Makefile sets WERROR itself and does not define DEPDIR.
+ifneq (,$(DEPDIR))
+ifneq (,$(wildcard $(DEPDIR)/scripts/tool_version.sh))
+  VERSION_RELEASED ?= $(if $(filter-out 0,$(shell $(DEPDIR)/scripts/tool_version.sh $(PROJECT) 4)),0,1)
+  ifneq (0,$(VERSION_RELEASED))
+    WERROR := 0
+  endif
+  ifneq (0,$(WERROR))
+    CXXFLAGS += $(WERROR_CFLAG)
+    CFLAGS += $(WERROR_CFLAG)
   endif
 endif
 endif
@@ -1068,7 +1088,7 @@ abslibpath_force ?= $(NULL)
 
 libpath = $(call qapath,$(if $1,$(shell $(FLUSH) $1 $2 -l$(strip $3) $(call linkopt,$(XLNKVERBOSE)) 2>&1 \
   | $(GREP) "lib$3" | tr " " "\n" | $(SED) -n "/\//p" | $(SED) "s/[$(CHAR_OPEN)]\(..*\)[$(CHAR_CLOSE)]/\1/" \
-  | xargs -I {} sh -c "ls -pd {} 2>/dev/null || ls -pd {}.* 2>/dev/null" | $(GREP) -v /$$ | tail -n1)))
+  | while read -r P; do ls -pd "$$P" 2>/dev/null || ls -pd "$$P".* 2>/dev/null; done | $(GREP) -v /$$ | tail -n1)))
 
 ifneq (Windows_NT1,$(UNAME)$(STATIC))
   abslibfile = $(strip $(if $(findstring .$(ILIBEXT),$1), \
@@ -2580,7 +2600,7 @@ else ifneq (0,$(BLAS)) # generic
     else ifneq (,$(call ctest,$(LD),-framework Accelerate)) # macOS
       BLAS_INCFILE := $(shell $(LD) $(call linkopt,-v) 2>&1 \
                      | $(GREP) -i frameworks 2>/dev/null \
-                     | xargs -I {} find {} -name cblas.h 2>/dev/null \
+                     | while read -r P; do find "$$P" -name cblas.h 2>/dev/null; done \
                      | head -n1)
       ifneq (,$(BLAS_INCFILE))
         BLAS_FLAGS += -I$(call qapath,$(call qdir,$(BLAS_INCFILE)))

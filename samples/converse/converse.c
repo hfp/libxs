@@ -296,7 +296,6 @@ static libxs_registry_t* corpus_views = NULL;
 static libxs_lexicon_t* corpus_view_lexicon = NULL;
 static const libxs_lexrule_t* corpus_view_rules = NULL;
 static int corpus_view_nrules = 0;
-static long corpus_view_count = 0;
 
 /**
  * The installed judge and the model it opened. Held here rather than in either
@@ -1985,19 +1984,32 @@ static void converse_namespace_init(const char* prefix)
     base[base_len] = '\0';
   }
   if (base_len > 0 && 0 != strcmp(base, "converse")) {
-    sprintf(converse_path_corpus, "%s.dat", base);
-    sprintf(converse_path_parent, "%s.par", base);
-    sprintf(converse_path_source, "%s.src", base);
-    sprintf(converse_path_lexicon, "%s.lex", base);
-    sprintf(converse_path_predict, "%s.prd", base);
-    sprintf(converse_path_norm, "%s.norms", base);
-    sprintf(converse_path_bridge, "%s.bridges", base);
-    sprintf(converse_path_relation, "%s.relations", base);
-    sprintf(converse_path_language_own, "%s.rules", base);
-    sprintf(converse_path_eval, "%s.eval", base);
-    sprintf(converse_path_eval_learn, "%s.learn.eval", base);
-    sprintf(converse_path_predict_eval, "%s.predict", base);
-    sprintf(converse_path_facts, "%s.facts", base);
+    LIBXS_SNPRINTF(converse_path_corpus, sizeof(converse_path_corpus),
+      "%s.dat", base);
+    LIBXS_SNPRINTF(converse_path_parent, sizeof(converse_path_parent),
+      "%s.par", base);
+    LIBXS_SNPRINTF(converse_path_source, sizeof(converse_path_source),
+      "%s.src", base);
+    LIBXS_SNPRINTF(converse_path_lexicon, sizeof(converse_path_lexicon),
+      "%s.lex", base);
+    LIBXS_SNPRINTF(converse_path_predict, sizeof(converse_path_predict),
+      "%s.prd", base);
+    LIBXS_SNPRINTF(converse_path_norm, sizeof(converse_path_norm),
+      "%s.norms", base);
+    LIBXS_SNPRINTF(converse_path_bridge, sizeof(converse_path_bridge),
+      "%s.bridges", base);
+    LIBXS_SNPRINTF(converse_path_relation, sizeof(converse_path_relation),
+      "%s.relations", base);
+    LIBXS_SNPRINTF(converse_path_language_own, sizeof(converse_path_language_own),
+      "%s.rules", base);
+    LIBXS_SNPRINTF(converse_path_eval, sizeof(converse_path_eval),
+      "%s.eval", base);
+    LIBXS_SNPRINTF(converse_path_eval_learn, sizeof(converse_path_eval_learn),
+      "%s.learn.eval", base);
+    LIBXS_SNPRINTF(converse_path_predict_eval, sizeof(converse_path_predict_eval),
+      "%s.predict", base);
+    LIBXS_SNPRINTF(converse_path_facts, sizeof(converse_path_facts),
+      "%s.facts", base);
   }
 }
 
@@ -3310,7 +3322,6 @@ void corpus_view_free(void)
     libxs_registry_destroy(corpus_views);
     corpus_views = NULL;
   }
-  corpus_view_count = 0;
 }
 
 
@@ -3416,7 +3427,6 @@ const corpus_entry_t* corpus_entry_view(const void* value)
             &made, sizeof(made), NULL))
           {
             result = made;
-            ++corpus_view_count;
           }
           else free(made);
         }
@@ -6579,13 +6589,13 @@ int corpus_ingest_basename(libxs_registry_t* corpus,
     { char* path = (char*)malloc(basename_len + 5);
       if (NULL == path) result = EXIT_FAILURE;
       else {
-        sprintf(path, "%s", basename);
+        LIBXS_SNPRINTF(path, basename_len + 5, "%s", basename);
         if (EXIT_SUCCESS == corpus_ingest_file(corpus, path, lexicon,
           rules, nrules))
         {
           ++ningested;
         }
-        sprintf(path, "%s.txt", basename);
+        LIBXS_SNPRINTF(path, basename_len + 5, "%s.txt", basename);
         if (EXIT_SUCCESS == corpus_ingest_file(corpus, path, lexicon,
           rules, nrules))
         {
@@ -6600,7 +6610,7 @@ int corpus_ingest_basename(libxs_registry_t* corpus,
           char digits[16];
           char* path;
           size_t path_size;
-          sprintf(digits, "%u", part);
+          LIBXS_SNPRINTF(digits, sizeof(digits), "%u", part);
           path_size = basename_len + strlen(separators[sep_index])
             + strlen(digits) + 5;
           path = (char*)malloc(path_size);
@@ -6609,7 +6619,8 @@ int corpus_ingest_basename(libxs_registry_t* corpus,
             part = CORPUS_BASENAME_PART_MAX;
             break;
           }
-          sprintf(path, "%s%s%s.txt", basename, separators[sep_index], digits);
+          LIBXS_SNPRINTF(path, path_size, "%s%s%s.txt", basename,
+            separators[sep_index], digits);
           if (EXIT_SUCCESS == corpus_ingest_file(corpus, path, lexicon,
             rules, nrules))
           {

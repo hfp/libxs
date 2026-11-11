@@ -89,4 +89,8 @@ ifneq (0,$(XGB))
     DFLAGS += -D__XGBOOST
     XGBLDFLAGS := $(shell $(PKGCFG) --libs xgboost)
   endif
+  # headers of a foreign project are not held to the warning policy of this one
+  ifneq (,$(XGBLDFLAGS))
+    WERROR_CFLAG := $(NULL)
+  endif
 endif

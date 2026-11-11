@@ -23,8 +23,10 @@ if [ "$1" ]; then
   TESTS=$1
 else
   # Discover tests from built *-wrap.x executables
-  TESTS="$(ls -1 "${HERE}"/*gemm-wrap.x 2>/dev/null \
-    | xargs -I{} basename {} -wrap.x | sort -u)"
+  TESTS=""
+  for FILE in "${HERE}"/*gemm-wrap.x; do
+    if [ -e "${FILE}" ]; then TESTS="${TESTS} $(basename "${FILE}" -wrap.x)"; fi
+  done
   if [ ! "${TESTS}" ]; then TESTS=dgemm; fi
 fi
 if [ $# -gt 0 ]; then shift; fi

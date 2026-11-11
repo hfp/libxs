@@ -2481,7 +2481,7 @@ static int answer_relation_fact_extract_made(const corpus_entry_t* entry,
     {
       memcpy(relation, entry->text + rel_begin, (size_t)(rel_end - rel_begin));
       relation[rel_end - rel_begin] = '\0';
-      sprintf(query, "who is %s?", relation);
+      LIBXS_SNPRINTF(query, sizeof(query), "who is %s?", relation);
       if (0 != answer_relation_match_query(query, strlen(query), QUERY_WHO,
         entry, &match)
         && match.made != 0
@@ -3051,7 +3051,8 @@ static size_t answer_relation_facts_build(const libxs_registry_t* corpus)
           {
             char query[192];
             answer_relation_match_t match;
-            sprintf(query, "who was %s by %s?", rule->relation, actor);
+            LIBXS_SNPRINTF(query, sizeof(query), "who was %s by %s?",
+              rule->relation, actor);
             if (0 != answer_relation_match_query(query, strlen(query),
               QUERY_WHO, entry, &match)
               && EXIT_SUCCESS == answer_relation_fact_append(entry, &match))
@@ -4699,7 +4700,8 @@ static void answer_graph_report(FILE* stream)
             }
           }
           if (0 != adjacent) continue;
-          key_len = (size_t)sprintf(key, "%s|%s", neighbour[lo], neighbour[hi]);
+          LIBXS_SNPRINTF(key, sizeof(key), "%s|%s", neighbour[lo], neighbour[hi]);
+          key_len = strlen(key);
           if (NULL == libxs_registry_get(joined, key, key_len + 1, NULL)) {
             const long fresh = 1;
             if (NULL != libxs_registry_set(joined, key, key_len + 1, &fresh,
@@ -8788,12 +8790,13 @@ static int answer_citation_text(const char* section, int section_len,
       size_t range_len;
       if (NULL == path) continue;
       if (answer_origins[at].first != answer_origins[at].last) {
-        sprintf(range, "%s%s:%u-%u", (0 < nfiles) ? "; " : "", path,
+        LIBXS_SNPRINTF(range, sizeof(range), "%s%s:%u-%u",
+          (0 < nfiles) ? "; " : "", path,
           answer_origins[at].first, answer_origins[at].last);
       }
       else {
-        sprintf(range, "%s%s:%u", (0 < nfiles) ? "; " : "", path,
-          answer_origins[at].first);
+        LIBXS_SNPRINTF(range, sizeof(range), "%s%s:%u",
+          (0 < nfiles) ? "; " : "", path, answer_origins[at].first);
       }
       range_len = strlen(range);
       if (0 < pos && 0 == nfiles) {
@@ -8926,8 +8929,8 @@ static int answer_hier_reorder(const char* query_text, size_t query_len,
   int answer_count)
 {
   if (0 != converse_judge_active() && 1 < answer_count) {
-    const char* candidates[ANSWER_MAX];
-    int lengths[ANSWER_MAX];
+    const char* candidates[ANSWER_MAX] = { NULL };
+    int lengths[ANSWER_MAX] = { 0 };
     double bits[ANSWER_MAX];
     int slot, nvalid = 0;
     for (slot = 0; slot < answer_count; ++slot) {

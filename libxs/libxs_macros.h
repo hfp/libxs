@@ -449,8 +449,8 @@
 #if defined(__GNUC__) || defined(__clang__) || (defined(__INTEL_COMPILER) && !defined(_WIN32))
 # if !defined(__cplusplus) || !defined(__clang__)
 #   define LIBXS_ATTRIBUTE_COMMON LIBXS_ATTRIBUTE(common)
-# else
-#   define LIBXS_ATTRIBUTE_COMMON
+# else /* clang rejects "common" in C++: weak lets the linker merge the copies of header-only */
+#   define LIBXS_ATTRIBUTE_COMMON LIBXS_ATTRIBUTE(weak)
 # endif
 # define LIBXS_ATTRIBUTE_MALLOC LIBXS_ATTRIBUTE(malloc)
 # define LIBXS_ATTRIBUTE_UNUSED LIBXS_ATTRIBUTE(unused)

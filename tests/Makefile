@@ -102,9 +102,9 @@ ifneq (0,$(OZAKI))
 	@$(FLOCK) $(DEPDIR)/samples/ozaki "$(MAKE) --no-print-directory BLAS_STATIC=0"
 	@$(FLOCK) $(DEPDIR)/samples/ozaki "$(MAKE) --no-print-directory"
 endif
-	@for SAMPLE in $(SAMPLES); do \
-		$(FLOCK) $${SAMPLE} "$(MAKE) --no-print-directory"; \
-	done
+	@RESULT=0; for SAMPLE in $(SAMPLES); do \
+		$(FLOCK) $${SAMPLE} "$(MAKE) --no-print-directory" || RESULT=1; \
+	done; exit $${RESULT}
 
 .PHONY: compile
 compile: $(OBJECTS) $(FTNOBJS)
