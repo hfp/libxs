@@ -249,26 +249,25 @@ $(BLDDIR)/%-zc.o: $(SRCDIR)/%.c .state $(BLDDIR)/.make $(HEADERS) Makefile $(DEP
 $(BLDDIR)/%-cc.o: $(SRCDIR)/%.c .state $(BLDDIR)/.make $(HEADERS) Makefile $(DEPDIR)/Makefile.inc
 	$(CC) -DGEMM_COMPLEX -DGEMM_REAL_TYPE=float $(DFLAGS) $(IFLAGS) $(CFLAGS) $(CTARGET) -c $< -o $@
 
-# OpenCL sources need __OPENCL for LIBXSTREAM OpenCL headers
 ifneq (,$(OCLOBJS))
 # Generate embedded kernel header from .cl sources
 $(OCLGENHDR): $(OCLKERNELS) $(SCRDIR)/tool_opencl.sh
 	$(SCRDIR)/tool_opencl.sh -p "" $(OCLKERNELS) $@
 
 $(BLDDIR)/ozaki_ocl-c.o: $(SRCDIR)/ozaki_ocl.c .state $(BLDDIR)/.make $(HEADERS) Makefile $(DEPDIR)/Makefile.inc
-	$(CC) -D__OPENCL $(DFLAGS) $(IFLAGS) $(CFLAGS) $(CTARGET) -c $< -o $@
+	$(CC) $(DFLAGS) $(IFLAGS) $(CFLAGS) $(CTARGET) -c $< -o $@
 
 $(BLDDIR)/ozaki_opencl-c.o: $(LIBXSTREAMROOT)/samples/ozaki/ozaki_opencl.c \
     $(OCLGENHDR) .state $(BLDDIR)/.make $(HEADERS) Makefile $(DEPDIR)/Makefile.inc
-	$(CC) -D__OPENCL $(DFLAGS) $(IFLAGS) $(CFLAGS) $(CTARGET) -c $< -o $@
+	$(CC) $(DFLAGS) $(IFLAGS) $(CFLAGS) $(CTARGET) -c $< -o $@
 
 $(BLDDIR)/ozaki_gemm-c.o: $(LIBXSTREAMROOT)/samples/ozaki/ozaki_gemm.c \
     $(OCLGENHDR) .state $(BLDDIR)/.make $(HEADERS) Makefile $(DEPDIR)/Makefile.inc
-	$(CC) -D__OPENCL $(DFLAGS) $(IFLAGS) $(CFLAGS) $(CTARGET) -c $< -o $@
+	$(CC) $(DFLAGS) $(IFLAGS) $(CFLAGS) $(CTARGET) -c $< -o $@
 
 $(BLDDIR)/ozaki_zgemm-c.o: $(LIBXSTREAMROOT)/samples/ozaki/ozaki_gemm3m.c \
     $(OCLGENHDR) .state $(BLDDIR)/.make $(HEADERS) Makefile $(DEPDIR)/Makefile.inc
-	$(CC) -D__OPENCL $(DFLAGS) $(IFLAGS) $(CFLAGS) $(CTARGET) -c $< -o $@
+	$(CC) $(DFLAGS) $(IFLAGS) $(CFLAGS) $(CTARGET) -c $< -o $@
 endif
 
 $(BLDDIR)/%-d.o: $(SRCDIR)/%.c .state $(BLDDIR)/.make $(HEADERS) Makefile $(DEPDIR)/Makefile.inc

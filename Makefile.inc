@@ -492,11 +492,8 @@ ifneq (,$(filter-out 0,$(CUDA) $(OCL)))
 endif
 
 ifneq (,$(filter-out 0,$(OCL) $(CUDA) $(HIP)))
-  DFLAGS += -D__ACC -D__OPENCL
   ifneq (0,$(OCL))
-    ifneq (1,$(OCL))
-      DFLAGS += -D__OFFLOAD_OPENCL
-    endif
+    DFLAGS += -D__OPENCL
     ifeq (Darwin,$(UNAME))
       FLDFLAGS += -framework OpenCL
       LDFLAGS += -framework OpenCL
