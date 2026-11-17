@@ -59,6 +59,7 @@ ifneq (0,$(LIBXSTREAM))
                $(BLDDIR)/ozaki_opencl-c.o \
                $(BLDDIR)/ozaki_gemm-c.o \
                $(BLDDIR)/ozaki_zgemm-c.o \
+               $(BLDDIR)/ozaki_wgmma-c.o \
                $(NULL)
     SCRDIR := $(LIBXSTREAMROOT)/scripts
     OCLKERNELS := $(wildcard $(LIBXSTREAMROOT)/samples/ozaki/kernels/*.cl)
@@ -267,6 +268,10 @@ $(BLDDIR)/ozaki_gemm-c.o: $(LIBXSTREAMROOT)/samples/ozaki/ozaki_gemm.c \
 
 $(BLDDIR)/ozaki_zgemm-c.o: $(LIBXSTREAMROOT)/samples/ozaki/ozaki_gemm3m.c \
     $(OCLGENHDR) .state $(BLDDIR)/.make $(HEADERS) Makefile $(DEPDIR)/Makefile.inc
+	$(CC) $(DFLAGS) $(IFLAGS) $(CFLAGS) $(CTARGET) -c $< -o $@
+
+$(BLDDIR)/ozaki_wgmma-c.o: $(LIBXSTREAMROOT)/samples/ozaki/ozaki_wgmma.c \
+    .state $(BLDDIR)/.make $(HEADERS) Makefile $(DEPDIR)/Makefile.inc
 	$(CC) $(DFLAGS) $(IFLAGS) $(CFLAGS) $(CTARGET) -c $< -o $@
 endif
 
