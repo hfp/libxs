@@ -175,6 +175,8 @@ libxs_matdiff_reduce
 libxs_mem_info
 libxs_mem_ntasks
 libxs_memcmp
+libxs_memcpy_nt
+libxs_memcpy_nt_task
 libxs_mhd_element_comparison
 libxs_mhd_element_conversion
 libxs_mhd_read

@@ -109,6 +109,20 @@ int libxs_memcmp(const void* a, const void* b, size_t size);
 Boolean variant of the C memcmp. Returns zero when equal.
 Uses SSE/AVX2/AVX-512 when available.
 
+```C
+void libxs_memcpy_nt(void* dst, const void* src, size_t size);
+void libxs_memcpy_nt_task(void* dst, const void* src, size_t size,
+  int tid, int ntasks);
+```
+
+Copy like memcpy, but with streaming (non-temporal) stores: for a
+destination that is not read again soon, e.g., a buffer a device
+transfers from. The stores are visible on return, so the caller's own
+synchronization (a barrier, a flag) suffices. The _task variant copies
+every ntasks-th block of 32 KB starting at block tid, i.e., the caller's
+threads share the copy. Uses SSE/AVX2/AVX-512 when available and plain
+memcpy otherwise (including non-x86).
+
 ## Matrix Copy and Transposition
 
 ```C

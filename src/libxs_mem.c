@@ -36,6 +36,10 @@
 #if !defined(LIBXS_ITRANS_BLOCK)
 # define LIBXS_ITRANS_BLOCK 8
 #endif
+/* block of libxs_memcpy_nt_task, handed out round-robin; coarser measured slower */
+#if !defined(LIBXS_MEMCPY_NT_GRAIN)
+# define LIBXS_MEMCPY_NT_GRAIN (32 << 10)
+#endif
 
 /* xcopy kernel: consecutive loads and stores (matcopy) */
 #define LIBXS_MCOPY_KERNEL(TYPE, TS, OUT, IN, LDI, LDO, I, J, SRC, DST) \
@@ -303,6 +307,7 @@
 #if !defined(LIBXS_MEM_SW)
 LIBXS_APIVAR_DEFINE(unsigned char (*internal_libxs_diff_function)(const void*, const void*, unsigned char));
 LIBXS_APIVAR_DEFINE(int (*internal_libxs_memcmp_function)(const void*, const void*, size_t));
+LIBXS_APIVAR_DEFINE(void (*internal_libxs_memcpy_nt_function)(void*, const void*, size_t));
 LIBXS_APIVAR_DEFINE(void (*internal_libxs_mcopy_tile_function)(void*, const void*, unsigned int,
   unsigned int, unsigned int, unsigned int, unsigned int, unsigned int, unsigned int));
 LIBXS_APIVAR_DEFINE(void (*internal_libxs_tcopy_tile_function)(void*, const void*, unsigned int,
@@ -716,6 +721,103 @@ void internal_libxs_tcopy_tile_avx2(
 }
 
 
+LIBXS_API_INLINE void internal_libxs_memcpy_nt_sw(void* dst, const void* src, size_t size)
+{
+  memcpy(dst, src, size);
+}
+
+
+/* streaming stores need an aligned destination: memcpy reaches it and does the tail */
+LIBXS_API_INLINE LIBXS_INTRINSICS(LIBXS_X86_GENERIC)
+void internal_libxs_memcpy_nt_sse(void* dst, const void* src, size_t size)
+{
+#if defined(LIBXS_INTRINSICS_X86) && !defined(LIBXS_MEM_SW)
+  char *const d = (char*)dst;
+  const char *const s = (const char*)src;
+  size_t i = (size_t)((16 - ((uintptr_t)d & 15)) & 15);
+  if (size < i) i = size;
+  memcpy(d, s, i);
+  for (; (i + 16) <= size; i += 16) {
+    _mm_stream_si128((__m128i*)(d + i), _mm_loadu_si128((const __m128i*)(s + i)));
+  }
+  memcpy(d + i, s + i, size - i);
+#else
+  internal_libxs_memcpy_nt_sw(dst, src, size);
+#endif
+}
+
+
+LIBXS_API_INLINE LIBXS_INTRINSICS(LIBXS_X86_AVX2)
+void internal_libxs_memcpy_nt_avx2(void* dst, const void* src, size_t size)
+{
+#if defined(LIBXS_INTRINSICS_AVX2) && !defined(LIBXS_MEM_SW)
+  char *const d = (char*)dst;
+  const char *const s = (const char*)src;
+  size_t i = (size_t)((32 - ((uintptr_t)d & 31)) & 31);
+  if (size < i) i = size;
+  memcpy(d, s, i);
+  for (; (i + 32) <= size; i += 32) {
+    _mm256_stream_si256((__m256i*)(d + i), _mm256_loadu_si256((const __m256i*)(s + i)));
+  }
+  memcpy(d + i, s + i, size - i);
+#else
+  internal_libxs_memcpy_nt_sse(dst, src, size);
+#endif
+}
+
+
+LIBXS_API_INLINE LIBXS_INTRINSICS(LIBXS_X86_AVX512)
+void internal_libxs_memcpy_nt_avx512(void* dst, const void* src, size_t size)
+{
+#if defined(LIBXS_INTRINSICS_AVX512) && !defined(LIBXS_MEM_SW)
+  char *const d = (char*)dst;
+  const char *const s = (const char*)src;
+  size_t i = (size_t)((64 - ((uintptr_t)d & 63)) & 63);
+  if (size < i) i = size;
+  memcpy(d, s, i);
+  for (; (i + 64) <= size; i += 64) {
+    _mm512_stream_si512((__m512i*)(d + i), _mm512_loadu_si512((const void*)(s + i)));
+  }
+  memcpy(d + i, s + i, size - i);
+#else
+  internal_libxs_memcpy_nt_avx2(dst, src, size);
+#endif
+}
+
+
+/**
+ * Streaming stores are weakly ordered: a later plain store, which is all a release
+ * (C11, OpenMP, or a flag) compiles to on x86, can become visible before them. A
+ * consumer told "done" by such a store, e.g., a DMA engine started by another
+ * thread, would read stale bytes, and no timing would ever show it.
+ */
+LIBXS_API_INLINE LIBXS_INTRINSICS(LIBXS_X86_GENERIC)
+void internal_libxs_memcpy_nt_fence(void)
+{
+#if defined(LIBXS_INTRINSICS_X86) && !defined(LIBXS_MEM_SW)
+  _mm_sfence();
+#endif
+}
+
+
+/* the kernel without its fence, so that the per-thread form fences once */
+LIBXS_API_INLINE void internal_libxs_memcpy_nt(void* dst, const void* src, size_t size)
+{
+#if defined(LIBXS_MEM_SW) || defined(LIBXS_MEM_STDLIB)
+  internal_libxs_memcpy_nt_sw(dst, src, size);
+#elif (LIBXS_X86_AVX512 <= LIBXS_STATIC_TARGET_ARCH)
+  internal_libxs_memcpy_nt_avx512(dst, src, size);
+#elif (LIBXS_X86_GENERIC <= LIBXS_STATIC_TARGET_ARCH) && (LIBXS_X86_AVX2 > LIBXS_MAX_STATIC_TARGET_ARCH)
+  internal_libxs_memcpy_nt_sse(dst, src, size);
+#elif (LIBXS_X86_GENERIC <= LIBXS_STATIC_TARGET_ARCH) /* pointer based function call */
+  if (NULL != internal_libxs_memcpy_nt_function) internal_libxs_memcpy_nt_function(dst, src, size);
+  else internal_libxs_memcpy_nt_sse(dst, src, size);
+#else
+  internal_libxs_memcpy_nt_sw(dst, src, size);
+#endif
+}
+
+
 LIBXS_API_INTERN void internal_libxs_memory_init(int target_arch)
 {
   internal_libxs_hash_init(target_arch);
@@ -731,21 +833,26 @@ LIBXS_API_INTERN void internal_libxs_memory_init(int target_arch)
 # else
     internal_libxs_memcmp_function = internal_libxs_memcmp_avx2;
 # endif
+    internal_libxs_memcpy_nt_function = internal_libxs_memcpy_nt_avx512;
   }
   else if (LIBXS_X86_AVX2 <= target_arch) {
     internal_libxs_diff_function = internal_libxs_diff_avx2;
     internal_libxs_memcmp_function = internal_libxs_memcmp_avx2;
+    internal_libxs_memcpy_nt_function = internal_libxs_memcpy_nt_avx2;
   }
   else if (LIBXS_X86_GENERIC <= target_arch) {
     internal_libxs_diff_function = internal_libxs_diff_sse;
     internal_libxs_memcmp_function = internal_libxs_memcmp_sse;
+    internal_libxs_memcpy_nt_function = internal_libxs_memcpy_nt_sse;
   }
   else {
     internal_libxs_diff_function = internal_libxs_diff_sw;
     internal_libxs_memcmp_function = internal_libxs_memcmp_sw;
+    internal_libxs_memcpy_nt_function = internal_libxs_memcpy_nt_sw;
   }
   LIBXS_ASSERT(NULL != internal_libxs_diff_function);
   LIBXS_ASSERT(NULL != internal_libxs_memcmp_function);
+  LIBXS_ASSERT(NULL != internal_libxs_memcpy_nt_function);
 # if (LIBXS_X86_AVX2 <= LIBXS_STATIC_TARGET_ARCH)
   /* mcopy/tcopy: direct call, no pointer dispatch needed */
 # elif (LIBXS_X86_AVX2 > LIBXS_MAX_STATIC_TARGET_ARCH)
@@ -774,6 +881,7 @@ LIBXS_API_INTERN void internal_libxs_memory_finalize(void)
 #if !defined(NDEBUG) && !defined(LIBXS_MEM_SW) && 0
   internal_libxs_diff_function = NULL;
   internal_libxs_memcmp_function = NULL;
+  internal_libxs_memcpy_nt_function = NULL;
 #endif
 }
 
@@ -952,6 +1060,30 @@ LIBXS_API int libxs_memcmp(const void* a, const void* b, size_t size)
   return internal_libxs_memcmp_sw(a, b, size);
 # endif
 #endif
+}
+
+
+LIBXS_API void libxs_memcpy_nt(void* dst, const void* src, size_t size)
+{
+  if (NULL != dst && NULL != src) {
+    internal_libxs_memcpy_nt(dst, src, size);
+    internal_libxs_memcpy_nt_fence();
+  }
+}
+
+
+LIBXS_API void libxs_memcpy_nt_task(void* dst, const void* src, size_t size,
+  int tid, int ntasks)
+{
+  if (NULL != dst && NULL != src && 0 <= tid && tid < ntasks) {
+    const size_t stride = (size_t)(LIBXS_MEMCPY_NT_GRAIN) * (size_t)ntasks;
+    size_t offset = (size_t)(LIBXS_MEMCPY_NT_GRAIN) * (size_t)tid;
+    for (; offset < size; offset += stride) {
+      const size_t n = LIBXS_MIN(size - offset, (size_t)(LIBXS_MEMCPY_NT_GRAIN));
+      internal_libxs_memcpy_nt((char*)dst + offset, (const char*)src + offset, n);
+    }
+    internal_libxs_memcpy_nt_fence();
+  }
 }
 
 

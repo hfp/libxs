@@ -573,6 +573,45 @@ int main(int argc, char* argv[])
     }
   }
 
+  /* check libxs_memcpy_nt and its per-thread form: sizes, misalignment, no overrun */
+  if (EXIT_SUCCESS == result) {
+    static const size_t sizes[] = { 0, 1, 15, 63, 64, 100, 4099, 3 * (32 << 10) + 17 };
+    static const size_t skews[] = { 0, 1, 7, 33 };
+    const size_t nsizes = sizeof(sizes) / sizeof(*sizes), nskews = sizeof(skews) / sizeof(*skews);
+    const size_t guard = 64, maxsize = 3 * (32 << 10) + 17 + 64;
+    unsigned char *const src = (unsigned char*)malloc(maxsize);
+    unsigned char *const dst = (unsigned char*)malloc(maxsize + 2 * guard);
+    size_t i, j, k, b;
+    int ntasks, tid;
+    if (NULL == src || NULL == dst) result = EXIT_FAILURE;
+    for (i = 0; i < maxsize && EXIT_SUCCESS == result; ++i) src[i] = (unsigned char)(i * 131 + 7);
+    for (i = 0; i < nsizes && EXIT_SUCCESS == result; ++i) {
+      for (j = 0; j < nskews && EXIT_SUCCESS == result; ++j) {
+        for (ntasks = 0; ntasks <= 5 && EXIT_SUCCESS == result; ++ntasks) {
+          unsigned char *const d = dst + guard + skews[j];
+          const unsigned char *const s = src + skews[nskews - 1 - j];
+          memset(dst, 0xA5, maxsize + 2 * guard);
+          if (0 == ntasks) libxs_memcpy_nt(d, s, sizes[i]); /* 0: the plain form */
+          else for (tid = 0; tid < ntasks; ++tid) libxs_memcpy_nt_task(d, s, sizes[i], tid, ntasks);
+          if (0 != memcmp(d, s, sizes[i])) {
+            FPRINTF(stderr, "ERROR line #%i: memcpy_nt size=%u skew=%u ntasks=%i\n", __LINE__,
+              (unsigned int)sizes[i], (unsigned int)skews[j], ntasks);
+            result = EXIT_FAILURE;
+          }
+          for (k = 0, b = 0; k < guard + skews[j]; ++k) b |= (0xA5 != dst[k]);
+          for (k = guard + skews[j] + sizes[i]; k < maxsize + 2 * guard; ++k) b |= (0xA5 != dst[k]);
+          if (EXIT_SUCCESS == result && 0 != b) {
+            FPRINTF(stderr, "ERROR line #%i: memcpy_nt overrun size=%u skew=%u ntasks=%i\n", __LINE__,
+              (unsigned int)sizes[i], (unsigned int)skews[j], ntasks);
+            result = EXIT_FAILURE;
+          }
+        }
+      }
+    }
+    free(dst);
+    free(src);
+  }
+
   /* check libxs_stristrn (length-limited case-insensitive search) */
   if (EXIT_SUCCESS == result) {
     /* basic match within length limit */

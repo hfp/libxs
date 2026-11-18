@@ -120,6 +120,20 @@ LIBXS_API unsigned int libxs_diff_n(const void* a, const void* bn, unsigned char
 /** Similar to memcmp (C standard library) with the result conceptually boolean. */
 LIBXS_API int libxs_memcmp(const void* a, const void* b, size_t size);
 
+/**
+ * Copy (like memcpy) with streaming stores, for a destination not read again soon,
+ * e.g., a buffer a device transfers from. The stores are visible on return, so the
+ * caller's own synchronization suffices. Plain memcpy where no such stores exist.
+ */
+LIBXS_API void libxs_memcpy_nt(void* dst, const void* src, size_t size);
+
+/**
+ * Copy with streaming stores (per-thread form): task tid of ntasks copies every
+ * ntasks-th block of 32 KB (LIBXS_MEMCPY_NT_GRAIN at build time), from block tid.
+ */
+LIBXS_API void libxs_memcpy_nt_task(void* dst, const void* src, size_t size,
+  int tid, int ntasks);
+
 /** Matrix copy or zeroing; "in" can be NULL to zero the destination. */
 LIBXS_API void libxs_matcopy(void* out, const void* in, unsigned int typesize,
   int m, int n, int ldi, int ldo);
