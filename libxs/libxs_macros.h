@@ -759,7 +759,7 @@
 # define LIBXS_PRAGMA_VALIGNED_VAR(A) LIBXS_ASSUME_ALIGNED(A, LIBXS_ALIGNMENT);
 /*# define LIBXS_UNUSED(VARIABLE) LIBXS_PRAGMA(unused(VARIABLE))*/
 #else
-# if defined(__OPENMP_SIMD) && (201811/*v5.0*/ <= _OPENMP) && !defined(__PGLLVM__)
+# if defined(__OPENMP_SIMD) && defined(__INTEL_LLVM_COMPILER) /* GCC ignores it, Clang marks the pointer */
 #   define LIBXS_PRAGMA_NONTEMPORAL(...) LIBXS_PRAGMA(omp simd nontemporal(__VA_ARGS__))
 # else
 #   define LIBXS_PRAGMA_NONTEMPORAL(...)
