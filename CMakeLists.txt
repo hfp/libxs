@@ -97,7 +97,11 @@ if(NOT EXISTS "${LIBXS_VERSION_SCRIPT}")
   message(FATAL_ERROR "Missing ${LIBXS_VERSION_SCRIPT}")
 endif()
 
-find_program(SH_EXECUTABLE NAMES sh bash REQUIRED)
+# not REQUIRED: needs CMake 3.18
+find_program(SH_EXECUTABLE NAMES sh bash)
+if(NOT SH_EXECUTABLE)
+  message(FATAL_ERROR "No shell found (SH_EXECUTABLE)")
+endif()
 
 # -1 means "emit full C header" (see tool_version.sh)
 execute_process(
@@ -183,14 +187,25 @@ if(LIBXS_HAS_LIBRT)
   list(APPEND LIBXS_PUBLIC_LIBRARIES rt)
 endif()
 
+# C includes name the prefix (<libxs/...>); the directory itself is searched by
+# Fortran only (INCLUDE'd .fi files, libxs_jit.F compiled by consumers)
+function(libxs_install_path_ var path)
+  if(IS_ABSOLUTE "${path}")
+    set(${var} "${path}" PARENT_SCOPE)
+  else()
+    set(${var} "$<INSTALL_PREFIX>/${path}" PARENT_SCOPE)
+  endif()
+endfunction()
+libxs_install_path_(_libxs_install_incdir "${CMAKE_INSTALL_INCLUDEDIR}/libxs")
 set(
   LIBXS_PUBLIC_INCLUDE_DIRS
   $<BUILD_INTERFACE:${LIBXS_ROOT_DIR}>
-  $<BUILD_INTERFACE:${LIBXS_INCLUDE_DIR}>
   $<BUILD_INTERFACE:${PROJECT_BINARY_DIR}>
   $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
-  $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}/libxs>
+  $<$<COMPILE_LANGUAGE:Fortran>:$<BUILD_INTERFACE:${LIBXS_INCLUDE_DIR}>>
+  $<$<COMPILE_LANGUAGE:Fortran>:$<INSTALL_INTERFACE:${_libxs_install_incdir}>>
 )
+unset(_libxs_install_incdir)
 
 file(
   GLOB LIBXS_SRCS
@@ -260,12 +275,14 @@ if(LIBXS_FORTRAN)
     libxs
     PROPERTIES Fortran_MODULE_DIRECTORY "${LIBXS_Fortran_MODULE_DIR}"
   )
+  libxs_install_path_(_libxs_install_moddir "${CMAKE_INSTALL_Fortran_MODULES}")
   target_include_directories(
     libxs
     PUBLIC
-      $<BUILD_INTERFACE:${LIBXS_Fortran_MODULE_DIR}>
-      $<INSTALL_INTERFACE:${CMAKE_INSTALL_Fortran_MODULES}>
+      $<$<COMPILE_LANGUAGE:Fortran>:$<BUILD_INTERFACE:${LIBXS_Fortran_MODULE_DIR}>>
+      $<$<COMPILE_LANGUAGE:Fortran>:$<INSTALL_INTERFACE:${_libxs_install_moddir}>>
   )
+  unset(_libxs_install_moddir)
 endif()
 
 if(LIBXS_BUILD_SAMPLES)

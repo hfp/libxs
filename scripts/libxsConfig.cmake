@@ -49,17 +49,26 @@ find_path(
 if(LIBXS_LIBRARY AND LIBXS_INCLUDE_DIR)
   if(NOT TARGET libxs::libxs)
     find_package(Threads QUIET)
-    if(LIBXS_OPENMP)
-      find_package(OpenMP REQUIRED COMPONENTS C)
+    # LIBXS_OPENMP is the Fortran module's OpenMP: a C-only consumer needs none
+    get_property(_libxs_languages GLOBAL PROPERTY ENABLED_LANGUAGES)
+    list(FIND _libxs_languages Fortran _libxs_fortran)
+    if(LIBXS_OPENMP AND NOT _libxs_fortran EQUAL -1)
+      find_package(OpenMP REQUIRED COMPONENTS Fortran)
+    else()
+      set(LIBXS_OPENMP OFF)
     endif()
+    unset(_libxs_languages)
+    unset(_libxs_fortran)
+    # C includes name the prefix (<libxs/...>), the directory itself is for the
+    # module, the INCLUDE'd .fi files, and libxs_jit.F (consumers compile it)
     set(_incdirs "${LIBXS_INCLUDE_DIR}")
     if(EXISTS "${_libxs_libdir}/libxs.mod")
-      list(APPEND _incdirs "${_libxs_libdir}")
+      list(APPEND _incdirs "$<$<COMPILE_LANGUAGE:Fortran>:${_libxs_libdir}>")
     endif()
-    # Fortran sources consumers compile themselves (libxs_jit.F)
     if(EXISTS "${LIBXS_INCLUDE_DIR}/libxs/libxs.mod"
        OR EXISTS "${LIBXS_INCLUDE_DIR}/libxs/libxs_jit.F")
-      list(APPEND _incdirs "${LIBXS_INCLUDE_DIR}/libxs")
+      list(APPEND _incdirs
+           "$<$<COMPILE_LANGUAGE:Fortran>:${LIBXS_INCLUDE_DIR}/libxs>")
     endif()
     add_library(libxs::libxs UNKNOWN IMPORTED)
     set_target_properties(
@@ -75,7 +84,7 @@ if(LIBXS_LIBRARY AND LIBXS_INCLUDE_DIR)
       set_property(
         TARGET libxs::libxs
         APPEND
-        PROPERTY INTERFACE_LINK_LIBRARIES OpenMP::OpenMP_C)
+        PROPERTY INTERFACE_LINK_LIBRARIES OpenMP::OpenMP_Fortran)
     endif()
     # same link interface as the CMake-exported target, i.e. consumers of a GNU
     # Make build resolve sqrt/pow, dlopen, and clock_gettime alike
