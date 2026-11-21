@@ -6,6 +6,9 @@ Bit packing of integer arrays, at a fixed width or at a width chosen per group
 of values. Packed data is a stream of 64-bit words, so the packed buffer must
 be 8-byte aligned.
 
+The [pack sample](samples/libxs_pack.md) measures the trade-offs on synthetic
+data or on MHD files.
+
 ## Fixed Width
 
 ```C
@@ -53,7 +56,8 @@ Unpacking needs only `n` and the number of words available (`npacked`, checked
 against the stream in debug builds only), whatever the level. The stream does
 not record the type: unpack with a type of the same signedness as used for
 packing. The layout of the stream is internal and may change between versions:
-packed data is meant to be unpacked by the same library, not to be stored.
+packed data is meant to be unpacked by the same library, not to be stored. The
+exception is level 1 for integer types, whose format is fixed (see below).
 
 `libxs_vpack` returns the number of words written, at most
 `libxs_vpack_bound(n, maxbits)` for any level, and `libxs_vunpack` the number
@@ -74,5 +78,29 @@ and return the number of words as `INTEGER(C_SIZE_T)`;
 `libxs_vpack_bound(n, maxbits)` and `libxs_vpack_maxbits(datatype, value,
 relative)` are bound directly.
 
-The [pack sample](samples/libxs_pack.md) measures the trade-offs on synthetic
-data or on MHD files.
+### Format of Level 1
+
+For integer types, `libxs_vpack` at level 1 writes a stream whose format is
+fixed, so that it can be decoded elsewhere, for instance on a GPU. With `n`
+values, `maxbits`, and G = ⌈n/8⌉ groups:
+
+- **Codes.** Each value becomes an unsigned code: for unsigned types, its low
+  `maxbits` bits; for signed types, the value sign-extended from `maxbits` and
+  then folded (zig-zag: 0, -1, 1, -2, 2, ... become 0, 1, 2, 3, 4, ...).
+- **Groups.** Value i belongs to group ⌊i/8⌋ as lane i mod 8. A last group with
+  fewer than eight values is completed with codes of zero.
+- **Header.** ⌈(1 + G)/8⌉ words, read as bytes in memory order: byte 0 is 8 (the
+  group size, which identifies the format), byte 1 + g is the width w(g) of group
+  g, which is the number of bits of its largest code (0 to `maxbits`), and the
+  remaining bytes are zero.
+- **Payload.** The words after the header hold eight streams, interleaved: word k
+  of stream l is payload word 8k + l. The code of lane l in group g takes w(g)
+  bits of stream l, starting at bit P(g) = w(0) + ... + w(g-1) of the stream
+  (bits counted from the least significant bit of its first word). A code that
+  crosses the end of a word continues at bit 0 of the stream's next word. A group
+  of width 0 takes no bits.
+- **Size.** The payload has 8⌈P(G)/64⌉ words; header and payload together are
+  what `libxs_vpack` returns.
+
+Any group can be read on its own once P(g) is known, which is a prefix sum over
+the header: its lane l starts in payload word 8⌊P(g)/64⌋ + l at bit P(g) mod 64.

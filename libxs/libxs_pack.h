@@ -42,8 +42,10 @@ LIBXS_API int libxs_unpack(void* values, const void* packed,
  * an error below the smallest normal number). The level selects a
  * trade-off: 1 packs and unpacks fastest, 2 takes less space, 3 (or more) the
  * least; 0 (or less) takes the default (2, or LIBXS_PACK in the environment).
- * The stream is internal and may change between versions; only n has to be
- * known to unpack. Returns the number of 64-bit words written, at most
+ * For integer types, the stream of level 1 has a documented and stable format
+ * (documentation/libxs_pack.md), which may be decoded elsewhere (e.g., on a
+ * GPU); other streams are internal and may change between versions. Only n has
+ * to be known to unpack. Returns the number of 64-bit words written, at most
  * libxs_vpack_bound, or zero for invalid arguments or n of zero.
  */
 LIBXS_API size_t libxs_vpack(void* packed, const void* values,
