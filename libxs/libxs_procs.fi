@@ -966,7 +966,8 @@
         !> LIBXS_GEMM_FLAG_OWNJIT is cleared in the copy, i.e., the JIT
         !> handle stays owned by the registry and libxs_gemm_release is
         !> a no-op for the copy. A copy is a snapshot: it does not pick
-        !> up a kernel that a later JIT warm-up completes.
+        !> up a kernel that a later JIT warm-up completes. A copy is
+        !> never distributed (LIBXS_GEMM_FLAG_DIST is cleared as well).
         FUNCTION libxs_gemm_config_cpy(config, cached)
           TYPE(libxs_gemm_config_t), INTENT(INOUT) :: config
           TYPE(C_PTR), INTENT(IN) :: cached
@@ -976,7 +977,7 @@
             CALL C_F_POINTER(cached, src)
             config = src
             config%flags = IAND(config%flags,                           &
-     &        NOT(LIBXS_GEMM_FLAG_OWNJIT))
+     &        NOT(IOR(LIBXS_GEMM_FLAG_OWNJIT, LIBXS_GEMM_FLAG_DIST)))
             libxs_gemm_config_cpy = 1
           ELSE
             libxs_gemm_config_cpy = 0
@@ -1239,6 +1240,25 @@
      &      config, datatype, n, k, lda, ldb, ldc, be, preg)
         END FUNCTION
 
+        !> Dispatch a distributed SYRK over the ranks of a communicator
+        !> (fcomm, e.g., MPI_COMM_WORLD): every rank holds n x klocal
+        !> columns of A, C is distributed as cdist with the local leading
+        !> dimension ldc. Collective; zero means all ranks fall back.
+        FUNCTION libxs_syrk_dispatch_dist_base(dist, datatype,          &
+     &  n, klocal, lda, ldc, cdist, fcomm, dgemm_blas, sgemm_blas)
+          TYPE(libxs_syrk_dist_t), INTENT(INOUT) :: dist
+          INTEGER(C_INT), INTENT(IN) :: datatype, n, klocal
+          INTEGER(C_INT), INTENT(IN) :: lda, ldc, fcomm
+          TYPE(libxs_pdist_t), INTENT(IN) :: cdist
+          TYPE(C_FUNPTR), INTENT(IN), OPTIONAL :: dgemm_blas, sgemm_blas
+          INTEGER(C_INT) :: libxs_syrk_dispatch_dist_base
+          TYPE(libxs_gemm_backend_t) :: be
+          CALL internal_gemm_backend(be, dgemm_blas=dgemm_blas,         &
+     &      sgemm_blas=sgemm_blas)
+          libxs_syrk_dispatch_dist_base = internal_syrk_dispatch_dist(  &
+     &      dist, datatype, n, klocal, lda, ldc, cdist, fcomm, be)
+        END FUNCTION
+
         !> Dispatch a SYRK config and populate config.
         FUNCTION libxs_syrk_dispatch_cpy_base(config, datatype,         &
      &  n, k, lda, ldc,                                                 &
@@ -1462,6 +1482,18 @@
      &      n, k, lda, ldb, ldc, registry=preg)) THEN
             CALL internal_syr2k_run(cfg, uplo, alpha, beta, a, b, c)
           END IF
+        END SUBROUTINE
+
+        !> Distributed SYRK over the ranks of the dispatched communicator
+        !> (collective, see libxs_syrk_dispatch_dist_base).
+        SUBROUTINE libxs_syrk_dist(dist, uplo, alpha, beta, a, c)
+          TYPE(libxs_syrk_dist_t), INTENT(IN) :: dist
+          CHARACTER(C_CHAR), INTENT(IN), VALUE :: uplo
+          REAL(C_DOUBLE), INTENT(IN), VALUE :: alpha, beta
+          TYPE(C_PTR), INTENT(IN), VALUE :: a
+          TYPE(C_PTR), VALUE :: c
+          ! the config is the first component: C finds dist from it
+          CALL internal_syrk(dist%config, uplo, alpha, beta, a, c)
         END SUBROUTINE
 
         !> SYRK with pre-dispatched config.

@@ -29,6 +29,7 @@
         INTERFACE libxs_syrk_dispatch
           MODULE PROCEDURE libxs_syrk_dispatch_base
           MODULE PROCEDURE libxs_syrk_dispatch_cpy_base
+          MODULE PROCEDURE libxs_syrk_dispatch_dist_base
         END INTERFACE
         INTERFACE libxs_syrk_dispatch_cpy
           MODULE PROCEDURE libxs_syrk_dispatch_cpy_base

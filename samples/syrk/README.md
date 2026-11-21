@@ -23,10 +23,12 @@ Makefile.inc. BLAS is linked dynamically and sequential by default
 (`BLAS=1`, `BLAS_STATIC=0`). JIT-compiled kernels
 need `make MKL=1` (sequential) or `make MKL=2` (threaded) for MKL's
 JIT, or `make LIBXSMM=1` with a built sibling `libxsmm` directory.
+`make MPI=1` builds with the MPI wrapper of the Fortran compiler
+(`MPIFC`, default `mpif90`) and adds the distributed SYRK (see below).
 
 ## Run
 
-    ./syrk.x [N [K [nrepeat [direct [tasks]]]]]
+    ./syrk.x [N [K [nrepeat [direct [tasks [block]]]]]]
 
 Arguments (all optional, positional):
 
@@ -37,6 +39,7 @@ Arguments (all optional, positional):
                0 = config (dispatch + call separately)
                1 = direct (one-shot generic)
     tasks    Tasks per thread (OpenMP).       Default: 4
+    block    Block size of distributed C (MPI). Default: 32
 
 ## OpenMP
 
@@ -55,6 +58,19 @@ The performance section compares `DSYRK` with `LIBXS` (`libxs_syrk`).
 
 The `OMP` and `TASK` lines call `libxs_syrk_task` explicitly, as C code
 would: one task per thread, or `tasks` per thread over a dynamic DO.
+
+## MPI
+
+Built with `make MPI=1`, the sample also runs the distributed SYRK
+(`libxs_syrk_dispatch` with a `libxs_syrk_dist_t`): the ranks split K into
+stripes of columns, and C (lower triangle) is block-cyclic on a near-square
+grid of the ranks with blocks of `block` x `block`. Every rank computes the
+reference itself, and rank 0 prints the largest error of any rank and the
+time of the distributed update (`DIST`, GFLOPS/s over all ranks). The other
+sections run on every rank as well, and rank 0 prints them.
+
+    make MPI=1
+    mpiexec -n 4 ./syrk.x 2048 8192 5 0 4 64
 
 ## Example Output
 

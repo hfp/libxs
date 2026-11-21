@@ -119,6 +119,7 @@
         INTERFACE libxs_syrk_dispatch
           MODULE PROCEDURE libxs_syrk_dispatch_ptr_jit
           MODULE PROCEDURE libxs_syrk_dispatch_cpy_jit
+          MODULE PROCEDURE libxs_syrk_dispatch_dist_jit
         END INTERFACE
         INTERFACE libxs_syrk_dispatch_cpy
           MODULE PROCEDURE libxs_syrk_dispatch_cpy_jit
@@ -432,6 +433,22 @@
           libxs_syrk_dispatch_cpy_jit =                                 &
      &      libxs_syr2k_dispatch_cpy_jit(config,                        &
      &      datatype, n, k, lda, lda, ldc, registry)
+        END FUNCTION
+
+        !> Dispatch a distributed SYRK with the BLAS linked in.
+        FUNCTION libxs_syrk_dispatch_dist_jit(dist, datatype,           &
+     &  n, klocal, lda, ldc, cdist, fcomm)
+          TYPE(libxs_syrk_dist_t), INTENT(INOUT) :: dist
+          INTEGER(C_INT), INTENT(IN) :: datatype, n, klocal
+          INTEGER(C_INT), INTENT(IN) :: lda, ldc, fcomm
+          TYPE(libxs_pdist_t), INTENT(IN) :: cdist
+          INTEGER(C_INT) :: libxs_syrk_dispatch_dist_jit
+          TYPE(C_FUNPTR) :: dgemm_fp, sgemm_fp
+          dgemm_fp = C_FUNLOC(dgemm_blas)
+          sgemm_fp = C_FUNLOC(sgemm_blas)
+          libxs_syrk_dispatch_dist_jit = libxs_syrk_dispatch_dist_base( &
+     &      dist, datatype, n, klocal, lda, ldc, cdist, fcomm,          &
+     &      dgemm_blas=dgemm_fp, sgemm_blas=sgemm_fp)
         END FUNCTION
 
         !> Plan a tall-and-skinny GEMM with auto-detected backends.

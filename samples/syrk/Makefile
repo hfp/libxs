@@ -19,6 +19,15 @@ SSE = 0
 # include common Makefile artifacts
 include $(DEPDIR)/Makefile.inc
 
+# MPI=1: build with the MPI wrapper of the Fortran compiler (distributed SYRK)
+MPI ?= 0
+ifneq (0,$(MPI))
+  MPIFC ?= mpif90
+  FC := $(MPIFC)
+  FLD := $(MPIFC) $(XLIB_END)
+  DFLAGS += -D__MPI
+endif
+
 # root directory of LIBXSMM
 ifneq (0,$(LIBXSMM))
   LIBXSMMROOT := $(wildcard $(DEPDIR)/../libxsmm)
@@ -55,8 +64,8 @@ CSOURCS := $(wildcard $(SRCDIR)/*.c)
 COBJCTS := $(patsubst %,$(BLDDIR)/%,$(notdir $(CSOURCS:.c=-c.o)))
 ifneq (1,$(HEADERONLY))
 ifneq (,$(strip $(FC)))
-F77SRCS := $(wildcard $(SRCDIR)/*.f)
-F77OBJS := $(patsubst %,$(BLDDIR)/%,$(notdir $(F77SRCS:.f=-f77.o)))
+F77SRCS := $(wildcard $(SRCDIR)/*.f) $(wildcard $(SRCDIR)/*.F)
+F77OBJS := $(patsubst %,$(BLDDIR)/%,$(notdir $(patsubst %.F,%-f77.o,$(F77SRCS:.f=-f77.o))))
 JITOBJ := $(BLDDIR)/libxs_jit-f77.o
 endif
 endif
@@ -93,6 +102,9 @@ $(BLDDIR)/libxs_jit-f77.o: $(DEPDIR)/libxs/libxs_jit.F .state $(BLDDIR)/.make Ma
 	$(FC) $(FCMTFLAGS) $(DFLAGS) $(IFLAGS) $(FCFLAGS) $(FTARGET) -c $< -o $@ $(FMFLAGS) $(BLDDIR)
 
 $(BLDDIR)/%-f77.o: $(SRCDIR)/%.f .state $(BLDDIR)/.make $(JITOBJ) Makefile $(DEPDIR)/Makefile.inc
+	$(FC) $(FCMTFLAGS) $(DFLAGS) $(IFLAGS) $(FCFLAGS) $(FTARGET) -c $< -o $@ $(FMFLAGS) $(BLDDIR)
+
+$(BLDDIR)/%-f77.o: $(SRCDIR)/%.F .state $(BLDDIR)/.make $(JITOBJ) Makefile $(DEPDIR)/Makefile.inc
 	$(FC) $(FCMTFLAGS) $(DFLAGS) $(IFLAGS) $(FCFLAGS) $(FTARGET) -c $< -o $@ $(FMFLAGS) $(BLDDIR)
 
 .PHONY: clean

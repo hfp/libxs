@@ -86,8 +86,9 @@ LIBXS_API int libxs_syrk_dispatch_cpy_rt(
  * sums in a fixed order (reproducible). MPI is found at runtime: without
  * a (known) MPI, or with an unsupported layout, nothing is populated and
  * the caller falls back. No wildcard receive may be pending on the
- * communicator during the call. libxs_syrk_task takes a distributed
- * config only for a single task.
+ * communicator during the call. With a distributed config,
+ * libxs_syrk_task runs the update in task 0 (the other tasks return), and
+ * libxs_syrk_ntasks is 1.
  * Returns non-zero if dist was populated, zero otherwise.
  */
 LIBXS_API int libxs_syrk_dispatch_dist(libxs_syrk_dist_t* dist,

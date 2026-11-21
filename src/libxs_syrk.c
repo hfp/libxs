@@ -799,8 +799,7 @@ LIBXS_API void libxs_syrk_task(
   LIBXS_ASSERT_MSG(LIBXS_DATATYPE_F64 == config->shape.datatype
     || LIBXS_DATATYPE_F32 == config->shape.datatype, "unsupported datatype");
   if (0 != (LIBXS_GEMM_FLAG_DIST & config->flags)) { /* embedded in libxs_syrk_dist_t (first member) */
-    LIBXS_ASSERT_MSG(1 == ntasks, "distributed SYRK runs as a single task");
-    if (1 == ntasks) {
+    if (0 == tid) { /* collective, hence one task: the others return */
       internal_libxs_syrk_dist((const libxs_syrk_dist_t*)config, uplo, alpha, beta, a, c);
     }
   }
@@ -994,7 +993,7 @@ LIBXS_API void libxs_syrk(
 LIBXS_API int libxs_syrk_ntasks(const libxs_gemm_config_t* config, int nthreads)
 {
   int result = 1;
-  if (NULL != config && 1 < nthreads) {
+  if (NULL != config && 1 < nthreads && 0 == (LIBXS_GEMM_FLAG_DIST & config->flags)) {
     const int n = config->shape.m, k = config->shape.k;
     internal_libxs_gemm_init(); /* a caller-built config may precede any dispatch */
     if (n > internal_libxs_gemm_bm || n > internal_libxs_gemm_bn

@@ -165,8 +165,8 @@ handle (`MPI_Comm_c2f`) and MPI is found in the process (see
 `LIBXS_MPI`). Without a known MPI, or for an unsupported layout, nothing
 is populated (zero is returned) and the caller falls back, e.g., to
 ScaLAPACK. No wildcard receive may be pending on the communicator during
-the call. `libxs_syrk_task` takes a distributed config only for a single
-task.
+the call. With a distributed config, `libxs_syrk_task` runs the update
+in task 0 (the other tasks return), and `libxs_syrk_ntasks` is 1.
 
 ```C
 libxs_syrk_dist_t dist;
@@ -177,6 +177,23 @@ if (0 != libxs_syrk_dispatch_dist(&dist, LIBXS_DATATYPE_F64,
 }
 else { /* fall back */ }
 ```
+
+In Fortran, the generic `libxs_syrk_dispatch` takes a `libxs_syrk_dist_t`
+(LIBXS_JIT passes the linked BLAS), and the generic `libxs_syrk` the
+dispatched `dist`. The ranks are `C_LOC` of an `INTEGER(C_INT)` array, and
+the communicator is the Fortran handle as is:
+
+```fortran
+TYPE(libxs_syrk_dist_t) :: dist
+TYPE(libxs_pdist_t) :: cdist
+cdist%ranks = C_LOC(ranks)  ! with m, n, mb, nb, nprow, npcol, rsrc, csrc
+IF (0 .NE. libxs_syrk_dispatch(dist, LIBXS_DATATYPE_F64,
+     &  n, klocal, lda, ldc, cdist, MPI_COMM_WORLD)) THEN
+  CALL libxs_syrk(dist, 'L', alpha, beta, C_LOC(a), C_LOC(c))
+END IF
+```
+
+The [SYRK sample](samples/libxs_syrk.md) runs it when built with `make MPI=1`.
 
 ## Compile-Time Tuning
 
