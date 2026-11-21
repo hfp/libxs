@@ -35,6 +35,10 @@ typedef struct internal_libxs_mpi_comm_t {
  * LIBXS_MPI=0 disables the layer, LIBXS_MPI=mpich or LIBXS_MPI=ompi forces a family.
  */
 LIBXS_API_INTERN int internal_libxs_mpi_family(void);
+#if defined(LIBXS_INTERCEPT_DYNAMIC)
+/** Symbol in global scope (MPI is loaded by the application, possibly before this library), or NULL. */
+LIBXS_API_INTERN void* internal_libxs_mpi_dlsym(const char name[]);
+#endif
 /** Family named by a version string (MPI_Get_library_version), or INTERNAL_LIBXS_MPI_NONE if unknown. */
 LIBXS_API_INTERN int internal_libxs_mpi_classify(const char version[]);
 /**
@@ -45,7 +49,8 @@ LIBXS_API_INTERN int internal_libxs_mpi_comm(internal_libxs_mpi_comm_t* comm, in
 /**
  * Blocking exchange of bytes (a ring step): send to dst and receive from src, either of which may be
  * the caller. The traffic uses the caller's communicator with a reserved tag, i.e., no wildcard receive
- * may be pending on that communicator meanwhile. Both sides must agree on the sizes.
+ * may be pending on that communicator meanwhile. Both sides must agree on the sizes. Beyond INT_MAX bytes,
+ * an exchange is split into messages of equal size.
  */
 LIBXS_API_INTERN int internal_libxs_mpi_sendrecv(const internal_libxs_mpi_comm_t* comm,
   const void* sbuf, size_t nsend, int dst, void* rbuf, size_t nrecv, int src);

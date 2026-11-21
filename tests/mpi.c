@@ -80,6 +80,14 @@ int main(int argc, char* argv[])
     FPRINTF(stderr, "ERROR line #%i: classification of version strings\n", __LINE__);
     result = EXIT_FAILURE;
   }
+  if (EXIT_SUCCESS == result /* pieces of an exchange, at most 4096 bytes in this test */
+    && (0 != internal_libxs_mpi_piece(0) || 100 != internal_libxs_mpi_piece(100)
+    || 4096 != internal_libxs_mpi_piece(4096) || 2112 != internal_libxs_mpi_piece(4097)
+    || 4096 != internal_libxs_mpi_piece(3 * 4096) || 3136 != internal_libxs_mpi_piece(3 * 4096 + 1)))
+  {
+    FPRINTF(stderr, "ERROR line #%i: size of a piece\n", __LINE__);
+    result = EXIT_FAILURE;
+  }
 
 #if defined(__MPI)
   if (EXIT_SUCCESS == result && MPI_SUCCESS != MPI_Init(&argc, &argv)) result = EXIT_FAILURE;
@@ -91,7 +99,11 @@ int main(int argc, char* argv[])
   if (EXIT_SUCCESS == result) {
     const int fcomm = (int)MPI_Comm_c2f(MPI_COMM_WORLD);
     const int expected = (0 == disabled ? EXIT_SUCCESS : EXIT_FAILURE);
-    if (expected != internal_libxs_mpi_comm(&comm, fcomm)) {
+    if ((0 == disabled) == (INTERNAL_LIBXS_MPI_NONE == family)) {
+      FPRINTF(stderr, "ERROR line #%i: family %i\n", __LINE__, family);
+      result = EXIT_FAILURE;
+    }
+    else if (expected != internal_libxs_mpi_comm(&comm, fcomm)) {
       FPRINTF(stderr, "ERROR line #%i: communicator (family %i)\n", __LINE__, family);
       result = EXIT_FAILURE;
     }

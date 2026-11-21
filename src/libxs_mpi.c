@@ -14,8 +14,10 @@
 # define INTERNAL_LIBXS_MPI_TAG 22611 /* reserved for the layer (MPI_TAG_UB is at least 32767) */
 #endif
 #if !defined(INTERNAL_LIBXS_MPI_CHUNK)
-# define INTERNAL_LIBXS_MPI_CHUNK INT_MAX /* bytes per message: MPI counts are int */
+# define INTERNAL_LIBXS_MPI_CHUNK INT_MAX /* most bytes per message: MPI counts are int */
 #endif
+/* a larger exchange is split into equal pieces (cache-line multiples but the last) */
+#define INTERNAL_LIBXS_MPI_PIECE_MAX LIBXS_LO2(INTERNAL_LIBXS_MPI_CHUNK, LIBXS_CACHELINE)
 /* MPI_MAX_LIBRARY_VERSION_STRING: 8192 (MPICH), 256 (Open MPI) */
 #define INTERNAL_LIBXS_MPI_VERSION_MAX 8192
 /* MPICH ABI (MPICH, Intel MPI, MVAPICH, Cray MPICH): mpi.h of MPICH 4.2 */
@@ -54,8 +56,7 @@ LIBXS_APIVAR_DEFINE(internal_libxs_mpi_t internal_libxs_mpi);
 
 
 #if defined(LIBXS_INTERCEPT_DYNAMIC)
-/* Global scope: MPI is loaded by the application, possibly before this library. */
-LIBXS_API_INLINE void* internal_libxs_mpi_dlsym(const char name[])
+LIBXS_API_INTERN void* internal_libxs_mpi_dlsym(const char name[])
 {
   void* result;
   dlerror();
@@ -227,16 +228,26 @@ LIBXS_API_INTERN int internal_libxs_mpi_comm(internal_libxs_mpi_comm_t* comm, in
 }
 
 
+/* Bytes per message: equal pieces, i.e., no small tail after INT_MAX-sized messages. Both sides of an
+ * exchange derive the pieces from the same size, hence agree. */
+LIBXS_API_INLINE size_t internal_libxs_mpi_piece(size_t nbytes)
+{
+  const size_t npieces = LIBXS_UPDIV(nbytes, (size_t)INTERNAL_LIBXS_MPI_PIECE_MAX);
+  return (1 >= npieces ? nbytes : LIBXS_UP2(LIBXS_UPDIV(nbytes, npieces), (size_t)LIBXS_CACHELINE));
+}
+
+
 LIBXS_API_INTERN int internal_libxs_mpi_sendrecv(const internal_libxs_mpi_comm_t* comm,
   const void* sbuf, size_t nsend, int dst, void* rbuf, size_t nrecv, int src)
 {
+  const size_t psend = internal_libxs_mpi_piece(nsend), precv = internal_libxs_mpi_piece(nrecv);
   const int family = internal_libxs_mpi.family;
   size_t soff = 0, roff = 0;
   int result = ((NULL != comm && INTERNAL_LIBXS_MPI_NONE != family
     && (0 == nsend || NULL != sbuf) && (0 == nrecv || NULL != rbuf)) ? EXIT_SUCCESS : EXIT_FAILURE);
   while (EXIT_SUCCESS == result && (soff < nsend || roff < nrecv)) {
-    const int ns = (int)LIBXS_MIN(nsend - soff, (size_t)INTERNAL_LIBXS_MPI_CHUNK);
-    const int nr = (int)LIBXS_MIN(nrecv - roff, (size_t)INTERNAL_LIBXS_MPI_CHUNK);
+    const int ns = (int)LIBXS_MIN(nsend - soff, psend);
+    const int nr = (int)LIBXS_MIN(nrecv - roff, precv);
     const char *const s = (const char*)sbuf + soff;
     char *const r = (char*)rbuf + roff;
     internal_libxs_mpi_handle_t sreq, rreq;
