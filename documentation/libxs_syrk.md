@@ -129,6 +129,55 @@ When the Fortran module is compiled with OpenMP, both forms run over an
 OpenMP team sized by `libxs_syrk_ntasks`, unless called from within a
 parallel region.
 
+## Distributed
+
+```C
+typedef struct libxs_pdist_t {
+  int m, n, mb, nb;    /* global size and block size */
+  int nprow, npcol;    /* process grid */
+  int rsrc, csrc;      /* grid position of the first block */
+  const int* ranks;    /* rank of every grid position (column-major) */
+} libxs_pdist_t;
+
+typedef struct libxs_syrk_dist_t {
+  libxs_gemm_config_t config;  /* first member */
+  libxs_pdist_t cdist;
+  int fcomm;
+} libxs_syrk_dist_t;
+
+int libxs_syrk_dispatch_dist(libxs_syrk_dist_t* dist,
+  libxs_data_t datatype, int n, int klocal, int lda, int ldc,
+  const libxs_pdist_t* cdist, int fcomm,
+  const libxs_gemm_backend_t* backend /* = NULL */);
+```
+
+C := alpha*A*A^T + beta*C over the ranks of an MPI communicator, where
+every rank holds n x klocal columns of A (its share of k, all rows) and
+C is block-cyclic as described by `cdist` (the values of a ScaLAPACK
+descriptor, plus the rank of every grid position, e.g., BLACS' mapping);
+`ldc` is the leading dimension of the local part of C. The update runs
+underneath the regular call, `libxs_syrk(&dist.config, uplo, alpha,
+beta, a, c)`, which is collective, writes only the triangle `uplo`, and
+sums in a fixed order (the same result in every run).
+
+LIBXS does not link MPI: the communicator is passed as its Fortran
+handle (`MPI_Comm_c2f`) and MPI is found in the process (see
+`LIBXS_MPI`). Without a known MPI, or for an unsupported layout, nothing
+is populated (zero is returned) and the caller falls back, e.g., to
+ScaLAPACK. No wildcard receive may be pending on the communicator during
+the call. `libxs_syrk_task` takes a distributed config only for a single
+task.
+
+```C
+libxs_syrk_dist_t dist;
+if (0 != libxs_syrk_dispatch_dist(&dist, LIBXS_DATATYPE_F64,
+  n, klocal, lda, ldc, &cdist, MPI_Comm_c2f(comm), NULL))
+{
+  libxs_syrk(&dist.config, 'U', 1.0, 0.0, a, c);
+}
+else { /* fall back */ }
+```
+
 ## Compile-Time Tuning
 
 The block sizes used for tiled SYRK/SYR2K can be overridden at
@@ -146,6 +195,8 @@ the kernel shape that LIBXS_GEMM_JIT_MAX is applied to.
                          (default: 0, i.e., LIBXS_GEMM_BN)
     LIBXS_SYRK_MINTASKS  Fewest threads that split a SYRK/SYR2K
                          against a sequential BLAS SYRK (default: 4)
+    LIBXS_SYRK_DIST_NP   Columns of C per step of the distributed
+                         SYRK (default: 256)
 
 ## Environment Variables
 

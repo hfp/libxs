@@ -42,6 +42,7 @@ set(
   sync_barrier
   sync_ring
   sync_singleton
+  syrk_dist
   timer
   token
 )
@@ -59,6 +60,7 @@ set(
   sync_barrier
   sync_ring
   sync_singleton
+  syrk_dist
 )
 if(LIBXS_BUILD_SAMPLES)
   set(

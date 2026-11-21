@@ -8,6 +8,7 @@
 * SPDX-License-Identifier: BSD-3-Clause                                       *
 ******************************************************************************/
 #include "libxs_main.h"
+#include "libxs_mpi.h"
 #include <libxs/libxs_cpuid.h>
 #include <libxs/libxs_malloc.h>
 
@@ -541,10 +542,7 @@ LIBXS_API_INTERN LIBXS_ATTRIBUTE_NO_TRACE void internal_libxs_init(void);
 LIBXS_API_INTERN void internal_libxs_init(void)
 {
 #if defined(LIBXS_INTERCEPT_DYNAMIC) && defined(LIBXS_AUTOPIN)
-  /* clear error status (dummy condition: it does not matter if MPI_Init or MPI_Abort) */
-  const char *const dlsymname = (NULL == dlerror() ? "MPI_Init" : "MPI_Abort");
-  const void *const dlsymbol = dlsym(LIBXS_RTLD_NEXT, dlsymname);
-  const void *const dlmpi = (NULL == dlerror() ? dlsymbol : NULL);
+  const void *const dlmpi = internal_libxs_mpi_dlsym("MPI_Init");
 #endif
   const char *const env_verbose = getenv("LIBXS_VERBOSE");
   /* setup verbosity as early as possible since below code may rely on verbose output */

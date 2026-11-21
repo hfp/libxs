@@ -143,13 +143,16 @@ typedef struct libxs_gemm_backend_t {
  * beyond the kernel's extent), REUSE skips the JIT warm-up since the
  * caller calls the kernel often (e.g., a batch). Kernels are shared
  * per shape regardless of the hints that generated them.
+ * LIBXS_GEMM_FLAG_DIST is set by libxs_syrk_dispatch_dist and marks a
+ * config embedded in a libxs_syrk_dist_t (cleared in a copy).
  */
 typedef enum libxs_gemm_flags_t {
   LIBXS_GEMM_FLAGS_DEFAULT = 0,
   LIBXS_GEMM_FLAG_NOLOCK = 1,
   LIBXS_GEMM_FLAG_OWNJIT = 2,
   LIBXS_GEMM_FLAG_STREAM = 4,
-  LIBXS_GEMM_FLAG_REUSE = 8
+  LIBXS_GEMM_FLAG_REUSE = 8,
+  LIBXS_GEMM_FLAG_DIST = 16
 } libxs_gemm_flags_t;
 
 /** Kind of kernel serving a GEMM (libxs_gemm_backend_kind). */
@@ -432,7 +435,7 @@ LIBXS_API_INLINE int libxs_gemm_config_cpy(
   if (NULL != config && NULL != cached) {
     *config = *cached;
     config->flags = (libxs_gemm_flags_t)
-      (config->flags & ~LIBXS_GEMM_FLAG_OWNJIT);
+      (config->flags & ~(LIBXS_GEMM_FLAG_OWNJIT | LIBXS_GEMM_FLAG_DIST));
     result = 1;
   }
   return result;

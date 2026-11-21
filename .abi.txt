@@ -361,6 +361,7 @@ libxs_syrk_direct
 libxs_syrk_dispatch_base
 libxs_syrk_dispatch_cpy_base
 libxs_syrk_dispatch_cpy_rt
+libxs_syrk_dispatch_dist
 libxs_syrk_dispatch_rt
 libxs_syrk_ntasks
 libxs_syrk_task

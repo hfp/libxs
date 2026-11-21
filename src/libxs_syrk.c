@@ -11,6 +11,7 @@
 #include <libxs/libxs_math.h>
 #include <libxs/libxs_malloc.h>
 #include "libxs_gemm_internal.h"
+#include "libxs_mpi.h"
 
 /* A panel narrower than this is served better by the k-blocking than by one call
  * of full k. The two libraries disagree: MKL falls off a cliff at a width of 128
@@ -24,6 +25,13 @@
 #if !defined(LIBXS_SYRK_MINTASKS)
 # define LIBXS_SYRK_MINTASKS 4
 #endif
+/* columns of C per step of the distributed SYRK (partial sums of a panel are reduced at once) */
+#if !defined(LIBXS_SYRK_DIST_NP)
+# define LIBXS_SYRK_DIST_NP 256
+#endif
+#define INTERNAL_SYRK_DIST_COUNT 0
+#define INTERNAL_SYRK_DIST_PACK 1
+#define INTERNAL_SYRK_DIST_UNPACK 2
 
 #define INTERNAL_SYRK_IRANGE(UPPER, JJ, IB, JB, CM, ISTART, IEND) \
   do { \
@@ -104,6 +112,12 @@ typedef void (*internal_libxs_dsyr2k_t)(const char*, const char*, const int*, co
 typedef void (*internal_libxs_ssyr2k_t)(const char*, const char*, const int*, const int*,
   const float*, const float*, const int*, const float*, const int*,
   const float*, float*, const int*, size_t, size_t);
+
+/* Panel of the distributed SYRK: columns c0 to c0+pw of C, rows r0 to r0+nrows (the triangle's part) */
+typedef struct internal_libxs_syrk_panel_t {
+  const libxs_pdist_t* cdist;
+  int upper, c0, pw, r0, nrows, ldc;
+} internal_libxs_syrk_panel_t;
 
 
 LIBXS_APIVAR_DEFINE(internal_libxs_dsyrk_t internal_libxs_dsyrk_blas);
@@ -272,6 +286,65 @@ LIBXS_API int libxs_syrk_dispatch_cpy_rt(
 }
 
 
+/* Rows of the block-cyclic distribution held by grid row (or column) iproc (as ScaLAPACK's NUMROC). */
+LIBXS_API_INLINE int internal_libxs_syrk_numroc(int n, int nb, int iproc, int isrc, int nprocs)
+{
+  const int nblocks = n / nb, mydist = (nprocs + iproc - isrc) % nprocs, extra = nblocks % nprocs;
+  int result = (nblocks / nprocs) * nb;
+  if (mydist < extra) result += nb;
+  else if (mydist == extra) result += n % nb;
+  return result;
+}
+
+
+LIBXS_API int libxs_syrk_dispatch_dist(libxs_syrk_dist_t* dist,
+  libxs_data_t datatype, int n, int klocal, int lda, int ldc,
+  const libxs_pdist_t* cdist, int fcomm,
+  const libxs_gemm_backend_t* backend)
+{
+  internal_libxs_mpi_comm_t comm;
+  int result = (NULL != dist && NULL != cdist && NULL != cdist->ranks && 0 < n && 0 <= klocal
+    && (0 == klocal || n <= lda) && n == cdist->m && n == cdist->n && 0 < cdist->mb && 0 < cdist->nb
+    && 0 < cdist->nprow && 0 < cdist->npcol && 0 <= cdist->rsrc && cdist->rsrc < cdist->nprow
+    && 0 <= cdist->csrc && cdist->csrc < cdist->npcol
+    && (LIBXS_DATATYPE_F64 == datatype || LIBXS_DATATYPE_F32 == datatype));
+  comm.rank = comm.size = 0;
+  if (0 != result) result = (EXIT_SUCCESS == internal_libxs_mpi_comm(&comm, fcomm));
+  if (0 != result) { /* every grid position names a rank, and the local part of C fits ldc */
+    const int ngrid = cdist->nprow * cdist->npcol;
+    int i, nlocal = 0;
+    for (i = 0; i < ngrid && 0 != result; ++i) {
+      const int rank = cdist->ranks[i];
+      if (0 > rank || comm.size <= rank) result = 0;
+      else if (comm.rank == rank) {
+        nlocal = internal_libxs_syrk_numroc(n, cdist->mb, i % cdist->nprow, cdist->rsrc, cdist->nprow);
+      }
+    }
+    if (ldc < LIBXS_MAX(nlocal, 1)) result = 0;
+  }
+  if (0 != result) {
+    internal_libxs_gemm_init();
+    LIBXS_MEMZERO(&dist->config);
+    dist->config.shape.datatype = datatype;
+    dist->config.shape.transa = 'N';
+    dist->config.shape.transb = 'T';
+    dist->config.shape.m = n;
+    dist->config.shape.n = n;
+    dist->config.shape.k = klocal;
+    dist->config.shape.lda = lda;
+    dist->config.shape.ldb = lda;
+    dist->config.shape.ldc = ldc;
+    dist->config.shape.alpha = 1.0;
+    internal_libxs_gemm_blas_init(&dist->config, backend,
+      INTERNAL_GEMM_BACKEND_BLAS >= internal_libxs_gemm_backend);
+    dist->config.flags = LIBXS_GEMM_FLAG_DIST;
+    dist->cdist = *cdist;
+    dist->fcomm = fcomm;
+  }
+  return result;
+}
+
+
 LIBXS_API_INTERN void* internal_libxs_syrk_scratch(size_t need);
 LIBXS_API_INTERN void* internal_libxs_syrk_scratch(size_t need)
 {
@@ -333,6 +406,155 @@ LIBXS_API_INLINE void internal_libxs_syrk_partition(
     *begin = nb - internal_libxs_syrk_partition_lower(ntasks - tid, nb, ntasks);
     *end = nb - internal_libxs_syrk_partition_lower(ntasks - (tid + 1), nb, ntasks);
   }
+}
+
+
+/**
+ * Walks the elements e0 to e1 of a panel (column-major, the triangle only) in runs of one block of C,
+ * and treats those owned by rank who: counts them, packs them from the panel into buf, or adds buf
+ * into the local C. Packing and unpacking walk in the same order, hence agree on the stream.
+ */
+LIBXS_API_INLINE size_t internal_libxs_syrk_dist_runs(const internal_libxs_syrk_panel_t* panel,
+  size_t e0, size_t e1, int who, int mode, libxs_data_t datatype, const void* pbuf, void* buf,
+  void* c, double alpha, double beta)
+{
+  const libxs_pdist_t *const cdist = panel->cdist;
+  const size_t elemsize = LIBXS_TYPESIZE(datatype), nrows = (size_t)panel->nrows;
+  size_t e = e0, result = 0;
+  while (e < e1) {
+    const size_t jj = e / nrows, cend = LIBXS_MIN(e1, (jj + 1) * nrows);
+    const int j = panel->c0 + (int)jj, d = j - panel->r0;
+    const int lo = (0 != panel->upper ? 0 : d), hi = (0 != panel->upper ? (d + 1) : panel->nrows);
+    int a = LIBXS_MAX((int)(e - jj * nrows), lo);
+    const int b = LIBXS_MIN((int)(cend - jj * nrows), hi);
+    while (a < b) {
+      const int i = panel->r0 + a, bi = i / cdist->mb, bj = j / cdist->nb;
+      const int run = LIBXS_MIN(b, (bi + 1) * cdist->mb - panel->r0) - a;
+      const int owner = cdist->ranks[(bi + cdist->rsrc) % cdist->nprow
+        + ((bj + cdist->csrc) % cdist->npcol) * cdist->nprow];
+      if (who == owner) {
+        if (INTERNAL_SYRK_DIST_PACK == mode) {
+          memcpy((char*)buf + result * elemsize, (const char*)pbuf + (jj * nrows + a) * elemsize,
+            (size_t)run * elemsize);
+        }
+        else if (INTERNAL_SYRK_DIST_UNPACK == mode) { /* as INDXG2L: the source process is irrelevant */
+          const size_t li = (size_t)(bi / cdist->nprow) * cdist->mb + (size_t)(i % cdist->mb);
+          const size_t lj = (size_t)(bj / cdist->npcol) * cdist->nb + (size_t)(j % cdist->nb);
+          const size_t off = li + lj * panel->ldc;
+          int x;
+          if (LIBXS_DATATYPE_F64 == datatype) {
+            double *const cc = (double*)c + off;
+            const double *const bb = (const double*)buf + result;
+            if (0 != beta) for (x = 0; x < run; ++x) cc[x] = beta * cc[x] + alpha * bb[x];
+            else for (x = 0; x < run; ++x) cc[x] = alpha * bb[x];
+          }
+          else {
+            float *const cc = (float*)c + off;
+            const float *const bb = (const float*)buf + result;
+            const float fa = (float)alpha, fb = (float)beta;
+            if (0 != beta) for (x = 0; x < run; ++x) cc[x] = fb * cc[x] + fa * bb[x];
+            else for (x = 0; x < run; ++x) cc[x] = fa * bb[x];
+          }
+        }
+        result += (size_t)run;
+      }
+      a += run;
+    }
+    e = cend;
+  }
+  return result;
+}
+
+
+/**
+ * One panel of the distributed SYRK: the local partial sum, a ring reduce-scatter of equal chunks
+ * (every chunk summed in the same rank order, hence reproducible), then every rank sends the
+ * elements of its chunk to their owners in C, one peer per step.
+ */
+LIBXS_API_INLINE int internal_libxs_syrk_dist_panel(const libxs_syrk_dist_t* dist,
+  const internal_libxs_mpi_comm_t* comm, const internal_libxs_syrk_panel_t* panel,
+  double alpha, double beta, const void* a, void* c, void* pbuf, void* tbuf, void* sbuf)
+{
+  const libxs_gemm_config_t *const config = &dist->config;
+  const libxs_data_t datatype = config->shape.datatype;
+  const size_t elemsize = LIBXS_TYPESIZE(datatype);
+  const size_t ntotal = (size_t)panel->nrows * panel->pw;
+  const int nranks = comm->size, me = comm->rank;
+  const int next = (me + 1) % nranks, prev = (me + nranks - 1) % nranks;
+  int result = EXIT_SUCCESS, t;
+  if (0 < config->shape.k) {
+    internal_libxs_gemm_blas(config, (const char*)a + (size_t)panel->r0 * elemsize,
+      (const char*)a + (size_t)panel->c0 * elemsize, pbuf, panel->nrows, panel->pw,
+      config->shape.k, config->shape.lda, config->shape.lda, panel->nrows, 1.0, 0.0);
+  }
+  else memset(pbuf, 0, ntotal * elemsize);
+  for (t = 0; t < nranks - 1 && EXIT_SUCCESS == result; ++t) {
+    const int cs = (me + 2 * nranks - t - 1) % nranks, cr = (me + 2 * nranks - t - 2) % nranks;
+    const size_t s0 = ntotal * cs / nranks, s1 = ntotal * (cs + 1) / nranks;
+    const size_t r0 = ntotal * cr / nranks, r1 = ntotal * (cr + 1) / nranks;
+    result = internal_libxs_mpi_sendrecv(comm, (const char*)pbuf + s0 * elemsize,
+      (s1 - s0) * elemsize, next, tbuf, (r1 - r0) * elemsize, prev);
+    if (EXIT_SUCCESS == result) {
+      size_t x;
+      if (LIBXS_DATATYPE_F64 == datatype) {
+        double *const p = (double*)pbuf + r0;
+        for (x = 0; x < r1 - r0; ++x) p[x] += ((const double*)tbuf)[x];
+      }
+      else {
+        float *const p = (float*)pbuf + r0;
+        for (x = 0; x < r1 - r0; ++x) p[x] += ((const float*)tbuf)[x];
+      }
+    }
+  }
+  for (t = 0; t < nranks && EXIT_SUCCESS == result; ++t) {
+    const int dst = (me + t) % nranks, src = (me + nranks - t) % nranks;
+    const size_t m0 = ntotal * me / nranks, m1 = ntotal * (me + 1) / nranks;
+    const size_t q0 = ntotal * src / nranks, q1 = ntotal * (src + 1) / nranks;
+    const size_t nsend = internal_libxs_syrk_dist_runs(panel, m0, m1, dst,
+      INTERNAL_SYRK_DIST_PACK, datatype, pbuf, sbuf, NULL, 0, 0);
+    const size_t nrecv = (0 != t ? internal_libxs_syrk_dist_runs(panel, q0, q1, me,
+      INTERNAL_SYRK_DIST_COUNT, datatype, NULL, NULL, NULL, 0, 0) : nsend);
+    if (0 != t) {
+      result = internal_libxs_mpi_sendrecv(comm, sbuf, nsend * elemsize, dst,
+        tbuf, nrecv * elemsize, src);
+    }
+    if (EXIT_SUCCESS == result) {
+      internal_libxs_syrk_dist_runs(panel, q0, q1, me, INTERNAL_SYRK_DIST_UNPACK, datatype,
+        NULL, 0 != t ? tbuf : sbuf, c, alpha, beta);
+    }
+  }
+  return result;
+}
+
+
+/* Collective over the ranks of the dispatched communicator: C(local) := alpha * sum(A*A^T) + beta * C. */
+LIBXS_API_INLINE void internal_libxs_syrk_dist(const libxs_syrk_dist_t* dist, char uplo,
+  double alpha, double beta, const void* a, void* c)
+{
+  internal_libxs_mpi_comm_t comm;
+  int result = internal_libxs_mpi_comm(&comm, dist->fcomm);
+  if (EXIT_SUCCESS == result) {
+    const libxs_data_t datatype = dist->config.shape.datatype;
+    const size_t elemsize = LIBXS_TYPESIZE(datatype);
+    const int n = dist->config.shape.m, pw = LIBXS_MIN(LIBXS_SYRK_DIST_NP, n);
+    const size_t npanel = (size_t)n * pw, nchunk = LIBXS_UPDIV(npanel, (size_t)comm.size);
+    char *const pbuf = (char*)internal_libxs_syrk_scratch((npanel + 2 * nchunk) * elemsize);
+    internal_libxs_syrk_panel_t panel;
+    panel.cdist = &dist->cdist;
+    panel.upper = ('U' == uplo || 'u' == uplo);
+    panel.ldc = dist->config.shape.ldc;
+    LIBXS_ASSERT_MSG(NULL != pbuf, "distributed SYRK: scratch");
+    if (NULL != pbuf) {
+      for (panel.c0 = 0; panel.c0 < n && EXIT_SUCCESS == result; panel.c0 += pw) {
+        panel.pw = LIBXS_MIN(pw, n - panel.c0);
+        panel.r0 = (0 != panel.upper ? 0 : panel.c0);
+        panel.nrows = (0 != panel.upper ? (panel.c0 + panel.pw) : (n - panel.c0));
+        result = internal_libxs_syrk_dist_panel(dist, &comm, &panel, alpha, beta, a, c,
+          pbuf, pbuf + npanel * elemsize, pbuf + (npanel + nchunk) * elemsize);
+      }
+    }
+  }
+  LIBXS_ASSERT_MSG(EXIT_SUCCESS == result, "distributed SYRK: MPI");
 }
 
 
@@ -571,7 +793,13 @@ LIBXS_API void libxs_syrk_task(
   LIBXS_ASSERT(0 <= tid && tid < ntasks);
   LIBXS_ASSERT_MSG(LIBXS_DATATYPE_F64 == config->shape.datatype
     || LIBXS_DATATYPE_F32 == config->shape.datatype, "unsupported datatype");
-  {
+  if (0 != (LIBXS_GEMM_FLAG_DIST & config->flags)) { /* embedded in libxs_syrk_dist_t (first member) */
+    LIBXS_ASSERT_MSG(1 == ntasks, "distributed SYRK runs as a single task");
+    if (1 == ntasks) {
+      internal_libxs_syrk_dist((const libxs_syrk_dist_t*)config, uplo, alpha, beta, a, c);
+    }
+  }
+  else {
     const int n = config->shape.m;
     const int k = config->shape.k;
     const int lda = config->shape.lda;

@@ -14,6 +14,31 @@
 
 
 /**
+ * Block-cyclic layout of a distributed matrix: the values of a ScaLAPACK
+ * descriptor (global size, block size, grid position of the first block)
+ * plus the rank of every grid position in the communicator (column-major,
+ * e.g., BLACS' mapping). The array of ranks is the caller's and must
+ * outlive the config it is dispatched into.
+ */
+typedef struct libxs_pdist_t {
+  int m, n, mb, nb;
+  int nprow, npcol;
+  int rsrc, csrc;
+  const int* ranks;
+} libxs_pdist_t;
+
+/**
+ * Distributed SYRK: the GEMM config is the first member, hence
+ * libxs_syrk(&dist->config, ...) runs the update over the ranks.
+ */
+typedef struct libxs_syrk_dist_t {
+  libxs_gemm_config_t config;
+  libxs_pdist_t cdist;
+  int fcomm;
+} libxs_syrk_dist_t;
+
+
+/**
  * Dispatch a GEMM config suitable for libxs_syr2k (runtime, explicit
  * backend selection). The kernel shape is the SYRK tile, hence the
  * blocking (LIBXS_GEMM_BM/BN/BK) is applied inside. A shape wider than
@@ -52,6 +77,23 @@ LIBXS_API int libxs_syrk_dispatch_cpy_rt(
   libxs_data_t datatype, int n, int k, int lda, int ldc,
   const libxs_gemm_backend_t* LIBXS_ARGDEF(backend, NULL),
   void* LIBXS_ARGDEF(registry, NULL));
+
+/**
+ * Distributed SYRK over the ranks of a communicator (fcomm: Fortran handle,
+ * see MPI_Comm_c2f): every rank holds n x klocal columns of A (its share
+ * of k, all rows), and C (n x n) is distributed as cdist with the local
+ * leading dimension ldc. libxs_syrk(&dist->config, ...) is collective and
+ * sums in a fixed order (reproducible). MPI is found at runtime: without
+ * a (known) MPI, or with an unsupported layout, nothing is populated and
+ * the caller falls back. No wildcard receive may be pending on the
+ * communicator during the call. libxs_syrk_task takes a distributed
+ * config only for a single task.
+ * Returns non-zero if dist was populated, zero otherwise.
+ */
+LIBXS_API int libxs_syrk_dispatch_dist(libxs_syrk_dist_t* dist,
+  libxs_data_t datatype, int n, int klocal, int lda, int ldc,
+  const libxs_pdist_t* cdist, int fcomm,
+  const libxs_gemm_backend_t* LIBXS_ARGDEF(backend, NULL));
 
 /**
  * Dispatch a GEMM config suitable for libxs_syr2k, with the backend
