@@ -59,6 +59,13 @@ cmake_dependent_option(
   "BUILD_TESTING OR LIBXS_BUILD_SAMPLES"
   OFF
 )
+cmake_dependent_option(
+  LIBXS_SAMPLES_MPI
+  "Build the SYRK sample with MPI (distributed SYRK, as make MPI=1)"
+  OFF
+  "LIBXS_FORTRAN AND LIBXS_BUILD_SAMPLES"
+  OFF
+)
 
 if(LIBXS_FORTRAN)
   if(NOT CMAKE_Fortran_COMPILER)

@@ -312,9 +312,14 @@ endforeach()
 
 if(LIBXS_FORTRAN)
   libxs_add_fortran_program(libxs_sample_syrk samples/syrk syrk
-                            "${PROJECT_SOURCE_DIR}/samples/syrk/syrk.f"
+                            "${PROJECT_SOURCE_DIR}/samples/syrk/syrk.F"
   )
   target_link_libraries(libxs_sample_syrk PRIVATE libxs_sample_jit)
+  if(LIBXS_SAMPLES_MPI)
+    find_package(MPI REQUIRED COMPONENTS Fortran)
+    target_link_libraries(libxs_sample_syrk PRIVATE MPI::MPI_Fortran)
+    target_compile_definitions(libxs_sample_syrk PRIVATE __MPI)
+  endif()
 endif()
 
 # Ozaki wrappers are currently built only on non-Apple platforms.
