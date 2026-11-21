@@ -20,6 +20,7 @@ set(
   mhd
   mhd_png
   mix
+  mpi
   ngram
   pack
   perm
@@ -51,6 +52,7 @@ set(
   matdiff
   memory
   mix
+  mpi
   pack
   str
   sync_atomics

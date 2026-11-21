@@ -37,6 +37,7 @@
 #include "../src/libxs_mem.c"
 #include "../src/libxs_mhd.c"
 #include "../src/libxs_mix.c"
+#include "../src/libxs_mpi.c"
 #include "../src/libxs_ngram.c"
 #include "../src/libxs_pack.c"
 #include "../src/libxs_perm.c"
