@@ -16,6 +16,9 @@
 #if !defined(INTERNAL_LIBXS_MPI_CHUNK)
 # define INTERNAL_LIBXS_MPI_CHUNK INT_MAX /* most bytes per message: MPI counts are int */
 #endif
+#if (INTERNAL_LIBXS_MPI_CHUNK < LIBXS_CACHELINE)
+# error "INTERNAL_LIBXS_MPI_CHUNK must hold a cache line"
+#endif
 /* a larger exchange is split into equal pieces (cache-line multiples but the last) */
 #define INTERNAL_LIBXS_MPI_PIECE_MAX LIBXS_LO2(INTERNAL_LIBXS_MPI_CHUNK, LIBXS_CACHELINE)
 /* MPI_MAX_LIBRARY_VERSION_STRING: 8192 (MPICH), 256 (Open MPI) */
@@ -269,4 +272,21 @@ LIBXS_API_INTERN int internal_libxs_mpi_sendrecv(const internal_libxs_mpi_comm_t
     roff += (size_t)nr;
   }
   return (EXIT_SUCCESS == result ? EXIT_SUCCESS : EXIT_FAILURE);
+}
+
+
+LIBXS_API_INTERN int internal_libxs_mpi_and(const internal_libxs_mpi_comm_t* comm, int* flag)
+{
+  int result = ((NULL != comm && NULL != flag) ? EXIT_SUCCESS : EXIT_FAILURE);
+  if (EXIT_SUCCESS == result) {
+    const int next = (comm->rank + 1) % comm->size, prev = (comm->rank + comm->size - 1) % comm->size;
+    int value = (0 != *flag), step;
+    for (step = 1; step < comm->size && EXIT_SUCCESS == result; ++step) { /* value: AND of step ranks */
+      int other = 0;
+      result = internal_libxs_mpi_sendrecv(comm, &value, sizeof(int), next, &other, sizeof(int), prev);
+      value = (0 != value && 0 != other);
+    }
+    *flag = value;
+  }
+  return result;
 }

@@ -303,24 +303,29 @@ LIBXS_API int libxs_syrk_dispatch_dist(libxs_syrk_dist_t* dist,
   const libxs_gemm_backend_t* backend)
 {
   internal_libxs_mpi_comm_t comm;
-  int result = (NULL != dist && NULL != cdist && NULL != cdist->ranks && 0 < n && 0 <= klocal
+  int valid = (NULL != dist && NULL != cdist && NULL != cdist->ranks && 0 < n && 0 <= klocal
     && (0 == klocal || n <= lda) && n == cdist->m && n == cdist->n && 0 < cdist->mb && 0 < cdist->nb
     && 0 < cdist->nprow && 0 < cdist->npcol && 0 <= cdist->rsrc && cdist->rsrc < cdist->nprow
     && 0 <= cdist->csrc && cdist->csrc < cdist->npcol
     && (LIBXS_DATATYPE_F64 == datatype || LIBXS_DATATYPE_F32 == datatype));
-  comm.rank = comm.size = 0;
-  if (0 != result) result = (EXIT_SUCCESS == internal_libxs_mpi_comm(&comm, fcomm));
-  if (0 != result) { /* every grid position names a rank, and the local part of C fits ldc */
-    const int ngrid = cdist->nprow * cdist->npcol;
-    int i, nlocal = 0;
-    for (i = 0; i < ngrid && 0 != result; ++i) {
-      const int rank = cdist->ranks[i];
-      if (0 > rank || comm.size <= rank) result = 0;
-      else if (comm.rank == rank) {
-        nlocal = internal_libxs_syrk_numroc(n, cdist->mb, i % cdist->nprow, cdist->rsrc, cdist->nprow);
+  /* without (known) MPI, every rank refuses alike */
+  int result = (EXIT_SUCCESS == internal_libxs_mpi_comm(&comm, fcomm));
+  if (0 != result) {
+    if (0 != valid) { /* every grid position names a rank, and the local part of C fits ldc */
+      const int ngrid = cdist->nprow * cdist->npcol;
+      int i, nlocal = 0;
+      for (i = 0; i < ngrid && 0 != valid; ++i) {
+        const int rank = cdist->ranks[i];
+        if (0 > rank || comm.size <= rank) valid = 0;
+        else if (comm.rank == rank) {
+          nlocal = internal_libxs_syrk_numroc(n, cdist->mb, i % cdist->nprow, cdist->rsrc, cdist->nprow);
+        }
       }
+      if (ldc < LIBXS_MAX(nlocal, 1)) valid = 0;
     }
-    if (ldc < LIBXS_MAX(nlocal, 1)) result = 0;
+    /* one rank refusing alone would leave the others waiting in the collective call */
+    if (EXIT_SUCCESS != internal_libxs_mpi_and(&comm, &valid)) valid = 0;
+    result = valid;
   }
   if (0 != result) {
     internal_libxs_gemm_init();

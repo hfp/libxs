@@ -54,5 +54,7 @@ LIBXS_API_INTERN int internal_libxs_mpi_comm(internal_libxs_mpi_comm_t* comm, in
  */
 LIBXS_API_INTERN int internal_libxs_mpi_sendrecv(const internal_libxs_mpi_comm_t* comm,
   const void* sbuf, size_t nsend, int dst, void* rbuf, size_t nrecv, int src);
+/** Collective logical AND of flag over the ranks (a ring), e.g., to agree on a decision. */
+LIBXS_API_INTERN int internal_libxs_mpi_and(const internal_libxs_mpi_comm_t* comm, int* flag);
 
 #endif /*LIBXS_MPI_H*/
