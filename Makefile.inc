@@ -2490,6 +2490,12 @@ else ifneq (0,$(MKL)) # multi-threaded
   endif
 endif
 
+# MKL link line: $1 directory, $2 interface (e.g., intel_lp64), $3 threading (e.g., sequential), $4 static if not 0
+mkl_ldflags = $(if $(filter 0,$4), \
+  $(call abslibpath,$1) $(call abslibfile,libmkl_$2.$(ILIBEXT)) $(call abslibfile,libmkl_core.$(ILIBEXT)) \
+    $(call abslibfile,libmkl_$3.$(ILIBEXT)), \
+  $(XGROUP_BEGIN) $1/libmkl_$2.$(SLIBEXT) $1/libmkl_core.$(SLIBEXT) $1/libmkl_$3.$(SLIBEXT) $(XGROUP_END))
+
 ifneq (0,$(MKL))
   ifeq (,$(BLAS_INCFILE))
     BLAS_IFLAGS += -I$(call quote,$(MKLROOT)/include)
@@ -2497,19 +2503,8 @@ ifneq (0,$(MKL))
     BLAS_IFLAGS += -I$(call qdir,$(BLAS_INCFILE))
   endif
   BLAS_LDFLAGS += $(call abslibpath_force,$(MKLROOT)/lib/$(MKL_ARCH))
-  ifeq (0,$(BLAS_STATIC)) # shared
-    BLAS_LDFLAGS := $(call abslibpath,$(MKLROOT)/lib/$(MKL_ARCH)) \
-      $(call abslibfile,libmkl_$(MKL_FCRTL)_$(MKL_BITS).$(ILIBEXT)) \
-      $(call abslibfile,libmkl_core.$(ILIBEXT)) \
-      $(call abslibfile,libmkl_$(MKL_THREADS).$(ILIBEXT)) \
-      $(BLAS_LDFLAGS)
-  else # static
-    BLAS_LDFLAGS := $(XGROUP_BEGIN) \
-      $(MKLROOT)/lib/$(MKL_ARCH)/libmkl_$(MKL_FCRTL)_$(MKL_BITS).$(SLIBEXT) \
-      $(MKLROOT)/lib/$(MKL_ARCH)/libmkl_core.$(SLIBEXT) \
-      $(MKLROOT)/lib/$(MKL_ARCH)/libmkl_$(MKL_THREADS).$(SLIBEXT) \
-    $(XGROUP_END) $(BLAS_LDFLAGS)
-  endif
+  BLAS_LDFLAGS := $(call mkl_ldflags,$(MKLROOT)/lib/$(MKL_ARCH),$(MKL_FCRTL)_$(MKL_BITS),$(MKL_THREADS),$(BLAS_STATIC)) \
+    $(BLAS_LDFLAGS)
 else ifneq (0,$(BLAS)) # generic
   ifneq (,$(AOCL_ROOT))
     ifeq (0,$(BLAS_STATIC)) # shared
