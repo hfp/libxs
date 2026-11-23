@@ -8,6 +8,7 @@
 * SPDX-License-Identifier: BSD-3-Clause                                       *
 ******************************************************************************/
 #include <libxs/libxs_source.h>
+#include "syrk_device.h"
 #if defined(_OPENMP)
 # include <omp.h>
 #endif
@@ -137,8 +138,11 @@ static int run(const libxs_syrk_t* plan, double alpha, const void* a, const void
 }
 
 
-/* All variants of one size against the definition, and the same bits for any number of tasks. */
-static int check(libxs_data_t datatype, char uplo, char trans, int twok, int n, int k)
+/**
+ * All variants of one size against the definition, and the same bits for any number of tasks.
+ * device: 0 (host), 1 (device), or 2 (a device that declines every other panel).
+ */
+static int check(libxs_data_t datatype, char uplo, char trans, int twok, int n, int k, int device)
 {
   const double alphas[] = { 1.5, 1.5, 1.0, 0.0, 0.0, 0.0 };
   const double betas[] = { 0.0, 0.5, 1.0, 0.0, 0.5, 1.0 };
@@ -152,8 +156,11 @@ static int check(libxs_data_t datatype, char uplo, char trans, int twok, int n, 
   void *const c = malloc(nc * elemsize), *const d = malloc(nc * elemsize);
   double *const sum = (double*)calloc((size_t)n * n + 1, sizeof(double));
   libxs_syrk_shape_t shape;
+  libxs_syrk_device_t ops;
+  test_device_t dev;
   libxs_syrk_t plan;
   int result = EXIT_SUCCESS, i, j, p, v;
+  test_device_init(&dev, &ops, 2 == device);
   TEST_CHECK(NULL != a && NULL != b && NULL != c && NULL != d && NULL != sum);
   if (EXIT_SUCCESS == result) {
     for (j = 0; j < cols; ++j) {
@@ -174,11 +181,15 @@ static int check(libxs_data_t datatype, char uplo, char trans, int twok, int n, 
         }
       }
     }
+    LIBXS_MEMZERO(&shape);
     shape.datatype = datatype;
     shape.uplo = uplo; shape.trans = trans;
     shape.n = n; shape.k = k;
     shape.lda = lda; shape.ldb = (0 != twok ? ldb : 0); shape.ldc = ldc;
-    TEST_CHECK(0 != libxs_syrk_dispatch(&plan, &shape, NULL));
+    if (0 != device) shape.device = &ops;
+    TEST_CHECK(0 != libxs_syrk_dispatch(&plan, &shape));
+    TEST_CHECK(NULL == plan.shape.device && NULL == plan.shape.dist);
+    if (0 != device) TEST_CHECK(1 == libxs_syrk_ntasks(&plan, 8));
   }
   for (v = 0; v < (int)(sizeof(alphas) / sizeof(*alphas)) && EXIT_SUCCESS == result; ++v) {
     const double alpha = alphas[v], beta = betas[v];
@@ -197,10 +208,17 @@ static int check(libxs_data_t datatype, char uplo, char trans, int twok, int n, 
           for (i = (0 != upper ? 0 : j); i < end; ++i) put(out, datatype, i + (size_t)j * ldc, not_a_number());
         }
       }
-      if (0 == run_i) TEST_CHECK(EXIT_SUCCESS == libxs_syrk(&plan, alpha, pa, pb, beta, out));
-      else {
-        TEST_CHECK(EXIT_SUCCESS == run(&plan, alpha, pa, pb, beta, out, tasks[run_i]));
-        TEST_CHECK(0 == memcmp(c, d, nc * elemsize));
+      { const int npanels = (0 != reads ? LIBXS_UPDIV(n, LIBXS_MAX(plan.width, 1)) : 0);
+        const int nbefore = dev.nsubmit + dev.ndecline;
+        if (0 == run_i) TEST_CHECK(EXIT_SUCCESS == libxs_syrk(&plan, alpha, pa, pb, beta, out));
+        else {
+          TEST_CHECK(EXIT_SUCCESS == run(&plan, alpha, pa, pb, beta, out, tasks[run_i]));
+          TEST_CHECK(0 == memcmp(c, d, nc * elemsize));
+        }
+        if (0 != device) { /* every panel went to the device, which was used as specified */
+          TEST_CHECK(npanels == dev.nsubmit + dev.ndecline - nbefore);
+          TEST_CHECK(0 == dev.wrong && 0 == dev.inflight && dev.nsubmit == dev.nwait);
+        }
       }
     }
     for (x = 0; x < nc && EXIT_SUCCESS == result; ++x) {
@@ -245,6 +263,7 @@ static int check_registry(int syrk_first, int ldc)
   gshape.m = gshape.n = gshape.lda = gshape.ldb = N;
   gshape.k = K; gshape.ldc = ldc;
   gshape.alpha = 1;
+  LIBXS_MEMZERO(&shape);
   shape.datatype = LIBXS_DATATYPE_F64;
   shape.uplo = 'L'; shape.trans = 'N';
   shape.n = shape.lda = N;
@@ -252,7 +271,7 @@ static int check_registry(int syrk_first, int ldc)
   for (round = 0; round < 2 && EXIT_SUCCESS == result; ++round) {
     for (i = 0; i < 64; ++i) { /* past the warm-up */
       if (round == (0 != syrk_first ? 0 : 1)) {
-        TEST_CHECK(0 != libxs_syrk_dispatch_rt(&plan, &shape, NULL, &backend, registry));
+        TEST_CHECK(0 != libxs_syrk_dispatch_rt(&plan, &shape, &backend, registry));
       }
       else {
         gemm = libxs_gemm_dispatch_rt(&gshape, NULL, &backend, registry);
@@ -295,11 +314,12 @@ static int check_arguments(void)
   int result = EXIT_SUCCESS;
   memset(a, 0, sizeof(a));
   memset(c, 0, sizeof(c));
+  LIBXS_MEMZERO(&shape);
   shape.datatype = LIBXS_DATATYPE_F64;
   shape.uplo = 'l'; shape.trans = 'c';
   shape.n = 4; shape.k = 4;
   shape.lda = 4; shape.ldb = 0; shape.ldc = 4;
-  TEST_CHECK(0 != libxs_syrk_dispatch(&plan, &shape, NULL));
+  TEST_CHECK(0 != libxs_syrk_dispatch(&plan, &shape));
   TEST_CHECK('L' == plan.shape.uplo && 'T' == plan.shape.trans);
   TEST_CHECK(EXIT_SUCCESS == libxs_syrk(&plan, 1.0, a, NULL, 0.0, c));
   TEST_CHECK(EXIT_SUCCESS == libxs_syrk(&plan, 1.0, a, a, 0.0, c));
@@ -309,21 +329,46 @@ static int check_arguments(void)
   TEST_CHECK(EXIT_SUCCESS != libxs_syrk_task(&plan, 1.0, a, NULL, 0.0, c, 2, 2));
   TEST_CHECK(1 == libxs_syrk_ntasks(&plan, 8)); /* a single tile */
   shape.ldb = 4;
-  TEST_CHECK(0 != libxs_syrk_dispatch(&plan, &shape, NULL));
+  TEST_CHECK(0 != libxs_syrk_dispatch(&plan, &shape));
   TEST_CHECK(EXIT_SUCCESS != libxs_syrk(&plan, 1.0, a, NULL, 0.0, c)); /* no B for a plan of SYR2K */
   shape.ldb = 3;
-  TEST_CHECK(0 == libxs_syrk_dispatch(&plan, &shape, NULL));
+  TEST_CHECK(0 == libxs_syrk_dispatch(&plan, &shape));
   TEST_CHECK(EXIT_SUCCESS != libxs_syrk(&plan, 1.0, a, a, 0.0, c)); /* a failed dispatch */
   shape.ldb = 0; shape.ldc = 3;
-  TEST_CHECK(0 == libxs_syrk_dispatch(&plan, &shape, NULL));
+  TEST_CHECK(0 == libxs_syrk_dispatch(&plan, &shape));
   shape.ldc = 4; shape.uplo = 'X';
-  TEST_CHECK(0 == libxs_syrk_dispatch(&plan, &shape, NULL));
+  TEST_CHECK(0 == libxs_syrk_dispatch(&plan, &shape));
   shape.uplo = 'U'; shape.trans = 'X';
-  TEST_CHECK(0 == libxs_syrk_dispatch(&plan, &shape, NULL));
-  TEST_CHECK(0 == libxs_syrk_dispatch(&plan, NULL, NULL));
+  TEST_CHECK(0 == libxs_syrk_dispatch(&plan, &shape));
+  TEST_CHECK(0 == libxs_syrk_dispatch(&plan, NULL));
   libxs_syrk_release(&plan);
   libxs_syrk_release(&plan);
   libxs_syrk_release(NULL);
+  return result;
+}
+
+
+/* A device needs both functions, and the plan keeps no pointer of the shape. */
+static int check_device_arguments(void)
+{
+  libxs_syrk_shape_t shape;
+  libxs_syrk_device_t ops;
+  test_device_t dev;
+  libxs_syrk_t plan;
+  int result = EXIT_SUCCESS;
+  test_device_init(&dev, &ops, 0);
+  LIBXS_MEMZERO(&shape);
+  shape.datatype = LIBXS_DATATYPE_F64;
+  shape.uplo = 'U'; shape.trans = 'N';
+  shape.n = 4; shape.k = 4;
+  shape.lda = 4; shape.ldb = 0; shape.ldc = 4;
+  shape.device = &ops;
+  TEST_CHECK(0 != libxs_syrk_dispatch(&plan, &shape));
+  TEST_CHECK(NULL == plan.shape.device && &dev == plan.device.ctx);
+  ops.wait = NULL;
+  TEST_CHECK(0 == libxs_syrk_dispatch(&plan, &shape));
+  ops.wait = test_device_wait; ops.submit = NULL;
+  TEST_CHECK(0 == libxs_syrk_dispatch(&plan, &shape));
   return result;
 }
 
@@ -346,6 +391,7 @@ int main(void)
   omp_set_num_threads(1); /* bits are compared: no threaded BLAS in the serial calls */
 #endif
   TEST_CHECK(EXIT_SUCCESS == check_arguments());
+  TEST_CHECK(EXIT_SUCCESS == check_device_arguments());
   TEST_CHECK(EXIT_SUCCESS == check_registry(1, 16));
   TEST_CHECK(EXIT_SUCCESS == check_registry(0, 16));
   TEST_CHECK(EXIT_SUCCESS == check_registry(1, 64));
@@ -355,8 +401,11 @@ int main(void)
   }
   for (s = 0; s < (int)(sizeof(sizes) / sizeof(*sizes)) && EXIT_SUCCESS == result; ++s) {
     for (v = 0; v < 16 && EXIT_SUCCESS == result; ++v) {
-      result = check(types[v >> 3], (char)(0 != (v & 1) ? 'U' : 'L'), (char)(0 != (v & 2) ? 'T' : 'N'),
-        0 != (v & 4), sizes[s][0], sizes[s][1]);
+      int device;
+      for (device = 0; device < 3 && EXIT_SUCCESS == result; ++device) {
+        result = check(types[v >> 3], (char)(0 != (v & 1) ? 'U' : 'L'), (char)(0 != (v & 2) ? 'T' : 'N'),
+          0 != (v & 4), sizes[s][0], sizes[s][1], device);
+      }
     }
   }
   return result;

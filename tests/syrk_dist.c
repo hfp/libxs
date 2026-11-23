@@ -15,6 +15,7 @@
 #endif
 #include <libxs/libxs_source.h>
 #if defined(__MPI)
+# include "syrk_device.h"
 # include <mpi.h>
 #endif
 #if defined(_OPENMP)
@@ -137,11 +138,16 @@ static int run(int how, const libxs_syrk_t* plan, double alpha, const void* a, c
 }
 
 
+/**
+ * One variant (0-15) on every rank. From 16 on, the even ranks have a device, which declines every
+ * other panel from 32 on: a device may differ between ranks.
+ */
 static int check(int variant, const libxs_pdist_t* dist, int rank, int nranks, int myprow, int mypcol)
 {
-  const libxs_data_t datatype = (8 > variant ? LIBXS_DATATYPE_F64 : LIBXS_DATATYPE_F32);
-  const int upper = (0 != (variant & 1)), notrans = (0 == (variant & 2)), twok = (0 != (variant & 4));
-  const double alpha = 1.5, beta = (0 != ((variant + (variant >> 2)) & 1) ? 0.5 : 0.0);
+  const int base = variant % 16, device = (16 <= variant && 0 == rank % 2);
+  const libxs_data_t datatype = (8 > base ? LIBXS_DATATYPE_F64 : LIBXS_DATATYPE_F32);
+  const int upper = (0 != (base & 1)), notrans = (0 == (base & 2)), twok = (0 != (base & 4));
+  const double alpha = 1.5, beta = (0 != ((base + (base >> 2)) & 1) ? 0.5 : 0.0);
   const int n = test_n, k = klocal(rank);
   const int rows = (0 != notrans ? n : k), cols = (0 != notrans ? k : n);
   const int lda = rows + 3, ldb = rows + 5;
@@ -157,8 +163,11 @@ static int check(int variant, const libxs_pdist_t* dist, int rank, int nranks, i
   const void *const pa = (0 != k ? a : NULL), *const pb = ((0 != k && 0 != twok) ? b : NULL);
   const int empty = (0 == lrows || 0 == lcols);
   libxs_syrk_shape_t shape;
+  libxs_syrk_device_t ops;
+  test_device_t dev;
   libxs_syrk_t plan;
   int result = EXIT_SUCCESS, i, j, x, r, how;
+  test_device_init(&dev, &ops, 32 <= variant);
   TEST_CHECK(NULL != a && NULL != b && NULL != c && NULL != c2);
   for (j = 0; j < cols && EXIT_SUCCESS == result; ++j) {
     for (i = 0; i < lda; ++i) { /* padding must not be read */
@@ -170,12 +179,15 @@ static int check(int variant, const libxs_pdist_t* dist, int rank, int nranks, i
         ? (0 != notrans ? value(2, rank, i, j) : value(2, rank, j, i)) : 1E30);
     }
   }
+  LIBXS_MEMZERO(&shape);
+  shape.dist = dist;
   shape.datatype = datatype;
   shape.uplo = (char)(0 != upper ? 'U' : 'L');
   shape.trans = (char)(0 != notrans ? 'N' : 'T');
   shape.n = n; shape.k = k;
   shape.lda = lda; shape.ldb = (0 != twok ? ldb : 0); shape.ldc = ldc;
-  if (EXIT_SUCCESS != result || 0 == libxs_syrk_dispatch(&plan, &shape, dist)) {
+  if (0 != device) shape.device = &ops;
+  if (EXIT_SUCCESS != result || 0 == libxs_syrk_dispatch(&plan, &shape)) {
     FPRINTF(stderr, "ERROR line #%i: dispatch\n", __LINE__);
     result = EXIT_FAILURE;
   }
@@ -190,8 +202,14 @@ static int check(int variant, const libxs_pdist_t* dist, int rank, int nranks, i
           put(cc, datatype, i + (size_t)j * ldc, (0 != inside && 0 == beta) ? not_a_number() : cinit(ig, jg));
         }
       }
-      TEST_CHECK(EXIT_SUCCESS == run(how, &plan, alpha, pa, pb, beta, 0 != empty ? NULL : cc));
-      if (0 < how) TEST_CHECK(0 == memcmp(c, c2, nc * es));
+      { const int npanels = (0 != k ? LIBXS_UPDIV(n, plan.width) : 0), nbefore = dev.nsubmit + dev.ndecline;
+        TEST_CHECK(EXIT_SUCCESS == run(how, &plan, alpha, pa, pb, beta, 0 != empty ? NULL : cc));
+        if (0 < how) TEST_CHECK(0 == memcmp(c, c2, nc * es));
+        if (0 != device) { /* every panel went to the device, which was used as specified */
+          TEST_CHECK(npanels == dev.nsubmit + dev.ndecline - nbefore);
+          TEST_CHECK(0 == dev.wrong && 0 == dev.inflight && dev.nsubmit == dev.nwait);
+        }
+      }
     }
     for (j = 0; j < lcols && EXIT_SUCCESS == result; ++j) {
       const int jg = l2g(j, test_nb, mypcol, dist->csrc, dist->npcol);
@@ -242,6 +260,8 @@ static int check_verdict(const libxs_pdist_t* dist, int rank, int nranks)
     libxs_pdist_t layout = *dist;
     libxs_syrk_t plan;
     int differs = 1, populated;
+    LIBXS_MEMZERO(&shape);
+    shape.dist = &layout;
     shape.datatype = LIBXS_DATATYPE_F64;
     shape.uplo = 'L'; shape.trans = 'N';
     shape.n = n; shape.k = 1;
@@ -262,7 +282,7 @@ static int check_verdict(const libxs_pdist_t* dist, int rank, int nranks)
     if (0 == what || 10 == what || (1 == nranks && 1 != what && 8 != what) || (9 == what && 1 == ngrid)) {
       differs = 0;
     }
-    populated = libxs_syrk_dispatch(&plan, &shape, &layout);
+    populated = libxs_syrk_dispatch(&plan, &shape);
     TEST_CHECK((0 == differs) == (0 != populated));
     if (0 != populated && (0 == what || 10 == what)) { /* a single rank also populates the others */
       if (10 == what) { /* one rank lacks A: it reports, and nobody hangs */
@@ -330,7 +350,7 @@ int main(int argc, char* argv[])
       dist.rsrc = 1 % dist.nprow;
       dist.csrc = 1 % dist.npcol;
       dist.ranks = ranks;
-      for (variant = 0; variant < 16; ++variant) { /* every rank runs every case */
+      for (variant = 0; variant < 48; ++variant) { /* every rank runs every case */
         if (EXIT_SUCCESS != check(variant, &dist, rank, nranks, myprow, mypcol)) result = EXIT_FAILURE;
       }
       if (EXIT_SUCCESS != check_verdict(&dist, rank, nranks)) result = EXIT_FAILURE;
@@ -343,6 +363,8 @@ int main(int argc, char* argv[])
     libxs_syrk_shape_t shape;
     libxs_pdist_t dist;
     libxs_syrk_t plan;
+    LIBXS_MEMZERO(&shape);
+    shape.dist = &dist;
     shape.datatype = LIBXS_DATATYPE_F64;
     shape.uplo = 'L'; shape.trans = 'N';
     shape.n = N; shape.k = 1;
@@ -354,7 +376,7 @@ int main(int argc, char* argv[])
     dist.ranks = ranks;
     LIBXS_UNUSED(argc);
     LIBXS_UNUSED(argv);
-    TEST_CHECK(0 == libxs_syrk_dispatch(&plan, &shape, &dist)); /* no MPI */
+    TEST_CHECK(0 == libxs_syrk_dispatch(&plan, &shape)); /* no MPI */
   }
 #endif
   return result;

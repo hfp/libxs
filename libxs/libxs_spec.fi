@@ -108,6 +108,7 @@
         PUBLIC :: libxs_gemm_backend_t
         PUBLIC :: libxs_gemm_shape_t, libxs_gemm_config_t
         PUBLIC :: libxs_syrk_shape_t, libxs_pdist_t, libxs_syrk_t
+        PUBLIC :: libxs_syrk_device_t
         PUBLIC :: LIBXS_GEMM_FLAGS_DEFAULT, LIBXS_GEMM_FLAG_NOLOCK
         PUBLIC :: LIBXS_GEMM_FLAG_OWNJIT, LIBXS_GEMM_FLAG_STREAM
         PUBLIC :: LIBXS_GEMM_FLAG_REUSE
@@ -415,15 +416,25 @@
           TYPE(libxs_gemm_shape_t) :: shape
         END TYPE
 
+        !> Compute of panels, e.g., by a device (see libxs_syrk_device_t
+        !> in C), provided by the implementation, e.g., LIBXSTREAM.
+        TYPE, BIND(C) :: libxs_syrk_device_t
+          TYPE(C_FUNPTR) :: submit = C_NULL_FUNPTR
+          TYPE(C_FUNPTR) :: wait = C_NULL_FUNPTR
+          TYPE(C_PTR)    :: ctx = C_NULL_PTR
+        END TYPE
+
         !> Shape of SYRK (ldb=0) or SYR2K, see libxs_syrk_shape_t in C.
         !> If distributed, k is the share of this rank, and ldc belongs
-        !> to the rank's part of C.
+        !> to the rank's part of C. dist and device are C_LOC or NULL.
         TYPE, BIND(C) :: libxs_syrk_shape_t
           INTEGER(C_INT)    :: datatype = 0
           CHARACTER(C_CHAR) :: uplo = C_NULL_CHAR
           CHARACTER(C_CHAR) :: trans = C_NULL_CHAR
           INTEGER(C_INT)    :: n = 0, k = 0
           INTEGER(C_INT)    :: lda = 0, ldb = 0, ldc = 0
+          TYPE(C_PTR)       :: dist = C_NULL_PTR
+          TYPE(C_PTR)       :: device = C_NULL_PTR
         END TYPE
 
         !> Block-cyclic layout of C: communicator, ScaLAPACK descriptor
@@ -441,6 +452,7 @@
         TYPE, BIND(C) :: libxs_syrk_t
           TYPE(libxs_syrk_shape_t)  :: shape
           TYPE(libxs_gemm_config_t) :: gemm
+          TYPE(libxs_syrk_device_t) :: device
           INTEGER(C_INT) :: width = 0, height = 0, ntiles = 0
           TYPE(C_PTR)    :: dist = C_NULL_PTR
         END TYPE
@@ -1331,14 +1343,13 @@
      &        batchsize, tid, ntasks
           END SUBROUTINE
 
-          FUNCTION internal_syrk_dispatch(plan, shape, dist,            &
+          FUNCTION internal_syrk_dispatch(plan, shape,                  &
      &    backend, registry)                                            &
      &    BIND(C, NAME="libxs_syrk_dispatch_rt")
             IMPORT :: libxs_syrk_t, libxs_syrk_shape_t,                 &
      &        libxs_gemm_backend_t, C_PTR, C_INT
             TYPE(libxs_syrk_t), INTENT(INOUT) :: plan
             TYPE(libxs_syrk_shape_t), INTENT(IN) :: shape
-            TYPE(C_PTR), INTENT(IN), VALUE :: dist
             TYPE(libxs_gemm_backend_t), INTENT(IN) :: backend
             TYPE(C_PTR), INTENT(IN), VALUE :: registry
             INTEGER(C_INT) :: internal_syrk_dispatch

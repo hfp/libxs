@@ -350,7 +350,7 @@ static int test_config_cpy(void)
   sshape.uplo = 'U'; sshape.trans = 'N';
   sshape.n = 32; sshape.k = 8; sshape.lda = 32; sshape.ldc = 32;
   libxs_gemm_backend_init(&backend);
-  TEST_CHECK(0 != libxs_syrk_dispatch_rt(&plan, &sshape, NULL, &backend, registry));
+  TEST_CHECK(0 != libxs_syrk_dispatch_rt(&plan, &sshape, &backend, registry));
   cfg = libxs_gemm_dispatch(LIBXS_DATATYPE_F64, 'N', 'T', 32, 32, 8, 32, 32, 32, NULL, NULL, registry);
   TEST_CHECK(NULL != cfg);
   TEST_CHECK(cfg->shape.datatype == plan.gemm.shape.datatype);
@@ -629,7 +629,7 @@ static int test_registry_syrk_entries(void)
   TEST_CHECK(NULL != registry);
   /* spend the first-shape shortcut on a throwaway (see above) */
   shape.n = 9; shape.k = 4; shape.lda = 9; shape.ldc = 9;
-  TEST_CHECK(0 != libxs_syrk_dispatch_rt(&plan, &shape, NULL, &backend, registry));
+  TEST_CHECK(0 != libxs_syrk_dispatch_rt(&plan, &shape, &backend, registry));
   test_disown_jitters(registry);
   libxs_gemm_release_registry(registry);
 
@@ -639,7 +639,7 @@ static int test_registry_syrk_entries(void)
   /* a small shape runs the kernel of its full square, which warms up like any GEMM */
   shape.n = 16; shape.k = 8; shape.lda = 16; shape.ldc = 16;
   for (i = 0; i < TEST_MAXWARMUP && 0 == jit_create_handle_calls; ++i) {
-    TEST_CHECK(0 != libxs_syrk_dispatch_rt(&plan, &shape, NULL, &backend, registry));
+    TEST_CHECK(0 != libxs_syrk_dispatch_rt(&plan, &shape, &backend, registry));
     if (0 == jit_create_handle_calls) {
       TEST_CHECK(0 == libxs_registry_size(registry));
       TEST_CHECK(NULL != plan.gemm.dgemm_blas);
@@ -659,7 +659,7 @@ static int test_registry_syrk_entries(void)
   /* a larger shape runs BLAS: a kernel nothing calls is neither built nor entered */
   shape.n = 890; shape.k = 54; shape.lda = 890; shape.ldc = 890;
   for (i = 0; i < TEST_MAXWARMUP; ++i) {
-    TEST_CHECK(0 != libxs_syrk_dispatch_rt(&plan, &shape, NULL, &backend, registry));
+    TEST_CHECK(0 != libxs_syrk_dispatch_rt(&plan, &shape, &backend, registry));
   }
   TEST_CHECK(0 == jit_create_handle_calls);
   TEST_CHECK(0 == libxs_registry_size(registry));

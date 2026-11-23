@@ -316,12 +316,14 @@
         !> Plan SYRK/SYR2K (see libxs_syrk_dispatch_base) with the BLAS
         !> linked in, and auto-detected backends.
         FUNCTION libxs_syrk_dispatch_jit(plan, datatype, uplo, trans,   &
-     &  n, k, lda, ldb, ldc, dist, registry)
+     &  n, k, lda, ldb, ldc, dist, device, registry)
           TYPE(libxs_syrk_t), INTENT(INOUT) :: plan
           INTEGER(C_INT), INTENT(IN) :: datatype, n, k
           CHARACTER(C_CHAR), INTENT(IN), VALUE :: uplo, trans
           INTEGER(C_INT), INTENT(IN) :: lda, ldb, ldc
           TYPE(libxs_pdist_t), INTENT(IN), OPTIONAL, TARGET :: dist
+          TYPE(libxs_syrk_device_t), INTENT(IN), OPTIONAL, TARGET ::    &
+     &      device
           TYPE(C_PTR), INTENT(IN), OPTIONAL :: registry
           INTEGER(C_INT) :: libxs_syrk_dispatch_jit
           TYPE(C_FUNPTR) :: dgemm_fp, sgemm_fp
@@ -344,7 +346,7 @@
           xdisp_fp = C_FUNLOC(libxsmm_dispatch_gemm)
 #endif
           libxs_syrk_dispatch_jit = libxs_syrk_dispatch_base(plan,      &
-     &      datatype, uplo, trans, n, k, lda, ldb, ldc, dist,           &
+     &      datatype, uplo, trans, n, k, lda, ldb, ldc, dist, device,   &
 #if defined(__MKL)
      &      jit_create_dgemm=jcd_fp,                                    &
      &      jit_get_dgemm=jgd_fp,                                       &

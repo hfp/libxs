@@ -138,6 +138,7 @@ typedef struct internal_libxs_syrk_state_t {
   volatile int* done;
   int* first;
   char *panel[INTERNAL_SYRK_WINDOW], *recvbuf, *sendbuf;
+  int ticket[INTERNAL_SYRK_WINDOW];
   int npanels, nwindow, serialized;
 } internal_libxs_syrk_state_t;
 
@@ -219,6 +220,17 @@ LIBXS_API_INLINE void internal_libxs_syrk_tile(const libxs_syrk_t* plan, int p, 
     tile->r0 = begin + (i - 1) * plan->height;
     tile->m = LIBXS_MIN(plan->height, end - tile->r0);
   }
+}
+
+
+/* Panel p as a device computes it: its columns, and the rows of its part of the triangle. */
+LIBXS_API_INLINE void internal_libxs_syrk_panel(const libxs_syrk_t* plan, int p, libxs_syrk_panel_t* panel)
+{
+  const int n = plan->shape.n, upper = ('U' == plan->shape.uplo);
+  panel->c0 = p * plan->width;
+  panel->w = LIBXS_MIN(plan->width, n - panel->c0);
+  panel->r0 = (0 != upper ? 0 : panel->c0);
+  panel->m = (0 != upper ? (panel->c0 + panel->w) : (n - panel->c0));
 }
 
 
@@ -402,6 +414,50 @@ LIBXS_API_INLINE void internal_libxs_syrk_local(const internal_libxs_syrk_args_t
 }
 
 
+/* Tiles of panel p on the host, e.g., declined by a device. */
+LIBXS_API_INLINE void internal_libxs_syrk_local_panel(const internal_libxs_syrk_args_t* args, int p)
+{
+  const libxs_syrk_t *const plan = args->plan;
+  const int count = internal_libxs_syrk_panel_ntiles(plan, p), ldc = plan->shape.ldc;
+  const size_t elemsize = LIBXS_TYPESIZE(plan->shape.datatype);
+  int i;
+  for (i = 0; i < count; ++i) {
+    internal_libxs_syrk_tile_t tile;
+    internal_libxs_syrk_tile(plan, p, i, &tile);
+    internal_libxs_syrk_compute(args, &tile, args->alpha, args->beta,
+      (char*)args->c + ((size_t)tile.c0 * ldc + tile.r0) * elemsize, ldc);
+  }
+}
+
+
+/* Local plan on a device: panel p is submitted while the one before is still in flight. */
+LIBXS_API_INLINE int internal_libxs_syrk_local_device(const internal_libxs_syrk_args_t* args)
+{
+  const libxs_syrk_t *const plan = args->plan;
+  const libxs_syrk_device_t *const device = &plan->device;
+  const int npanels = LIBXS_UPDIV(plan->shape.n, plan->width), ldc = plan->shape.ldc;
+  const size_t elemsize = LIBXS_TYPESIZE(plan->shape.datatype);
+  int ticket[INTERNAL_SYRK_WINDOW], result = EXIT_SUCCESS, p;
+  for (p = 0; p < INTERNAL_SYRK_WINDOW; ++p) ticket[p] = -1;
+  for (p = 0; p < npanels + INTERNAL_SYRK_WINDOW; ++p) {
+    const int slot = p % INTERNAL_SYRK_WINDOW;
+    if (0 <= ticket[slot] && EXIT_SUCCESS != device->wait(device->ctx, ticket[slot])) result = EXIT_FAILURE;
+    ticket[slot] = -1;
+    if (p < npanels) {
+      libxs_syrk_panel_t panel;
+      internal_libxs_syrk_panel(plan, p, &panel);
+      panel.out = (char*)args->c + ((size_t)panel.c0 * ldc + panel.r0) * elemsize;
+      panel.ldo = ldc;
+      panel.alpha = args->alpha;
+      panel.beta = args->beta;
+      ticket[slot] = device->submit(device->ctx, plan, args->a, args->b, &panel);
+      if (0 > ticket[slot]) internal_libxs_syrk_local_panel(args, p);
+    }
+  }
+  return result;
+}
+
+
 /**
  * Walks the elements e0 to e1 of a panel (column-major, the triangle only) in runs of one block of C,
  * and treats those owned by rank who: counts them, packs them from the panel into buf, or adds buf
@@ -502,6 +558,41 @@ LIBXS_API_INLINE void internal_libxs_syrk_dist_tile(const internal_libxs_syrk_ar
 
 
 /**
+ * Submits the panels up to end (exclusive) to the device. A device writes only the triangle of the
+ * block on the diagonal, and the other one travels with the chunks (never delivered): it is cleared
+ * so that nothing uninitialized is summed or sent.
+ */
+LIBXS_API_INLINE void internal_libxs_syrk_dist_submit(const internal_libxs_syrk_args_t* args,
+  internal_libxs_syrk_state_t* state, int end)
+{
+  const libxs_syrk_t *const plan = args->plan;
+  const libxs_syrk_device_t *const device = &plan->device;
+  const size_t elemsize = LIBXS_TYPESIZE(plan->shape.datatype);
+  int q;
+  for (q = LIBXS_ATOMIC_LOAD(&state->next.i, LIBXS_ATOMIC_SEQ_CST); q < end; ++q) {
+    char *const buffer = state->panel[q % state->nwindow];
+    libxs_syrk_panel_t panel;
+    int j;
+    internal_libxs_syrk_panel(plan, q, &panel);
+    for (j = 0; j < panel.w; ++j) {
+      memset(buffer + ((size_t)j * panel.m + (panel.c0 - panel.r0)) * elemsize, 0, (size_t)panel.w * elemsize);
+    }
+    panel.out = buffer;
+    panel.ldo = panel.m;
+    panel.alpha = 1.0;
+    panel.beta = 0.0;
+    state->ticket[q % state->nwindow] = device->submit(device->ctx, plan, args->a, args->b, &panel);
+    if (0 > state->ticket[q % state->nwindow]) {
+      const int count = internal_libxs_syrk_panel_ntiles(plan, q);
+      int i;
+      for (i = 0; i < count; ++i) internal_libxs_syrk_dist_tile(args, state, q, i);
+    }
+    LIBXS_ATOMIC_STORE(&state->next.i, q + 1, LIBXS_ATOMIC_SEQ_CST);
+  }
+}
+
+
+/**
  * One panel: a ring reduce-scatter of equal chunks (every chunk summed in the same rank order, hence
  * reproducible), then every rank sends the elements of its chunk to their owners in C.
  */
@@ -570,12 +661,38 @@ LIBXS_API_INLINE int internal_libxs_syrk_dist(const internal_libxs_syrk_args_t* 
   const int *const first = state->first;
   const int npanels = state->npanels;
   const int communicates = (0 != state->serialized || 0 != internal_libxs_mpi_main_thread());
+  /* with valid operands, the device computes; it is driven by whoever reduces, one task at a time */
+  const int device = (NULL != plan->device.submit && 0 != plan->shape.k && 0 != args->alpha
+    && NULL != args->a && (0 == plan->shape.ldb || NULL != args->b));
   int result = EXIT_SUCCESS, npause = 0, current;
   if (0 == communicates && 1 == ntasks) result = EXIT_FAILURE; /* nobody else could communicate */
   else {
     while (npanels > (current = LIBXS_ATOMIC_LOAD(&state->reduced.i, LIBXS_ATOMIC_SEQ_CST))) {
       int progress = 0;
-      if (0 != communicates && first[current + 1] - first[current]
+      if (0 != device) {
+        int idle = 0;
+        if (0 != communicates && LIBXS_ATOMIC_CMPSWP(&state->busy.i, idle, 1, LIBXS_ATOMIC_SEQ_CST)) {
+          const int p = LIBXS_ATOMIC_LOAD(&state->reduced.i, LIBXS_ATOMIC_SEQ_CST);
+          if (p < npanels) {
+            const int slot = p % state->nwindow;
+            internal_libxs_syrk_dist_submit(args, state, LIBXS_MIN(p + state->nwindow, npanels));
+            if (0 <= state->ticket[slot]
+              && EXIT_SUCCESS != plan->device.wait(plan->device.ctx, state->ticket[slot]))
+            {
+              LIBXS_ATOMIC_STORE(&state->failed.i, 1, LIBXS_ATOMIC_SEQ_CST);
+            }
+            state->ticket[slot] = -1;
+            /* the next panel (submitted above) is in flight while this one is reduced */
+            if (EXIT_SUCCESS != internal_libxs_syrk_dist_reduce(args, state, p)) {
+              LIBXS_ATOMIC_STORE(&state->failed.i, 1, LIBXS_ATOMIC_SEQ_CST);
+            }
+            LIBXS_ATOMIC_STORE(&state->reduced.i, p + 1, LIBXS_ATOMIC_SEQ_CST);
+            progress = 1;
+          }
+          LIBXS_ATOMIC_STORE(&state->busy.i, 0, LIBXS_ATOMIC_SEQ_CST);
+        }
+      }
+      else if (0 != communicates && first[current + 1] - first[current]
         == (int)LIBXS_ATOMIC_LOAD(state->done + current, LIBXS_ATOMIC_SEQ_CST))
       {
         int idle = 0;
@@ -594,7 +711,7 @@ LIBXS_API_INLINE int internal_libxs_syrk_dist(const internal_libxs_syrk_args_t* 
           LIBXS_ATOMIC_STORE(&state->busy.i, 0, LIBXS_ATOMIC_SEQ_CST);
         }
       }
-      if (0 == progress) { /* claim the next tile within the window */
+      if (0 == progress && 0 == device) { /* claim the next tile within the window */
         int t = LIBXS_ATOMIC_LOAD(&state->next.i, LIBXS_ATOMIC_SEQ_CST);
         const int end = first[LIBXS_MIN(current + state->nwindow, npanels)];
         if (t < end) {
@@ -690,7 +807,10 @@ LIBXS_API_INLINE internal_libxs_syrk_state_t* internal_libxs_syrk_state(const li
     memset(result, 0, hsize);
     for (i = 0; i < npanels; ++i) first[i + 1] = first[i] + internal_libxs_syrk_panel_ntiles(plan, i);
     memcpy(ranks, layout->ranks, sizeof(int) * ngrid);
-    for (i = 0; i < nwindow; ++i) result->panel[i] = buffers + i * psize;
+    for (i = 0; i < nwindow; ++i) {
+      result->panel[i] = buffers + i * psize;
+      result->ticket[i] = -1;
+    }
     result->recvbuf = buffers + nwindow * psize;
     result->sendbuf = result->recvbuf + csize;
     result->comm = *comm;
@@ -763,12 +883,14 @@ LIBXS_API_INLINE int internal_libxs_syrk_dispatch_dist(libxs_syrk_t* plan, int v
 }
 
 
-LIBXS_API int libxs_syrk_dispatch_rt(libxs_syrk_t* plan,
-  const libxs_syrk_shape_t* shape, const libxs_pdist_t* dist,
+LIBXS_API int libxs_syrk_dispatch_rt(libxs_syrk_t* plan, const libxs_syrk_shape_t* shape,
   const libxs_gemm_backend_t* backend, void* registry)
 {
+  const libxs_pdist_t *const dist = (NULL != shape ? shape->dist : NULL);
+  const libxs_syrk_device_t *const device = (NULL != shape ? shape->device : NULL);
   libxs_syrk_t local;
-  int result = (NULL != plan && NULL != shape);
+  int result = (NULL != plan && NULL != shape
+    && (NULL == device || (NULL != device->submit && NULL != device->wait)));
   LIBXS_MEMZERO(&local);
   if (0 != result) {
     const char u = shape->uplo, t = shape->trans;
@@ -787,6 +909,9 @@ LIBXS_API int libxs_syrk_dispatch_rt(libxs_syrk_t* plan,
     int p, npanels;
     internal_libxs_gemm_init();
     local.shape = *shape;
+    local.shape.dist = NULL; /* not kept: the layout is copied, and the device is held by value */
+    local.shape.device = NULL;
+    if (NULL != device) local.device = *device;
     local.shape.uplo = (char)(('U' == shape->uplo || 'u' == shape->uplo) ? 'U' : 'L');
     local.shape.trans = (char)(('N' == shape->trans || 'n' == shape->trans) ? 'N' : 'T');
     internal_libxs_syrk_tiling(n, &local.width, &local.height);
@@ -802,7 +927,7 @@ LIBXS_API int libxs_syrk_dispatch_rt(libxs_syrk_t* plan,
     gemm.ldc = n;
     gemm.alpha = 1.0;
     /* a GEMM of exactly this shape, hence it shares the registry's entry of that GEMM rightfully */
-    if (NULL != dist || 1 != local.ntiles || 0 == shape->k
+    if (NULL != dist || NULL != device || 1 != local.ntiles || 0 == shape->k
       || LIBXS_SYRK_KERNEL_N < n || LIBXS_SYRK_KERNEL_K < shape->k || LIBXS_SYRK_KERNEL_NK < n * shape->k
       || 0 == libxs_gemm_dispatch_cpy_rt(&local.gemm, &gemm, NULL, backend, registry))
     {
@@ -845,8 +970,12 @@ LIBXS_API int libxs_syrk_task(const libxs_syrk_t* plan,
     else if (NULL != c && 0 == misplaced
       && (0 == reads || (NULL != a && (0 == twok || NULL != b))))
     {
-      internal_libxs_syrk_local(&args, tid, ntasks);
-      result = EXIT_SUCCESS;
+      if (0 == reads || NULL == plan->device.submit) {
+        internal_libxs_syrk_local(&args, tid, ntasks);
+        result = EXIT_SUCCESS;
+      }
+      else if (0 == tid) result = internal_libxs_syrk_local_device(&args); /* one task drives */
+      else result = EXIT_SUCCESS;
     }
   }
   return result;
@@ -869,7 +998,7 @@ LIBXS_API int libxs_syrk_ntasks(const libxs_syrk_t* plan, int nthreads)
     if (NULL == internal_libxs_openblas_parallel || NULL == internal_libxs_openblas_nthreads
       || 1 != internal_libxs_openblas_parallel() || 1 >= internal_libxs_openblas_nthreads())
     {
-      result = (NULL != plan->dist ? nthreads : plan->ntiles);
+      result = (NULL != plan->device.submit ? 1 : (NULL != plan->dist ? nthreads : plan->ntiles));
     }
   }
   return result;

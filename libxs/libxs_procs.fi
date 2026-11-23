@@ -1159,10 +1159,11 @@
           END IF
         END SUBROUTINE
 
-        !> Plan SYRK (ldb=0) or SYR2K, distributed if dist is present.
+        !> Plan SYRK (ldb=0) or SYR2K, distributed if dist is present,
+        !> and computed by device if present (which must outlive plan).
         !> Nonzero if populated; if distributed, all ranks get the same.
         FUNCTION libxs_syrk_dispatch_base(plan, datatype, uplo, trans,  &
-     &  n, k, lda, ldb, ldc, dist,                                      &
+     &  n, k, lda, ldb, ldc, dist, device,                              &
      &  jit_create_dgemm, jit_get_dgemm,                                &
      &  jit_create_sgemm, jit_get_sgemm,                                &
      &  xgemm_dispatch, dgemm_blas, sgemm_blas, blas_nthreads,          &
@@ -1172,6 +1173,8 @@
           CHARACTER(C_CHAR), INTENT(IN), VALUE :: uplo, trans
           INTEGER(C_INT), INTENT(IN) :: lda, ldb, ldc
           TYPE(libxs_pdist_t), INTENT(IN), OPTIONAL, TARGET :: dist
+          TYPE(libxs_syrk_device_t), INTENT(IN), OPTIONAL, TARGET ::    &
+     &      device
           TYPE(C_FUNPTR), INTENT(IN), OPTIONAL ::                       &
      &      jit_create_dgemm, jit_get_dgemm,                            &
      &      jit_create_sgemm, jit_get_sgemm,                            &
@@ -1180,7 +1183,7 @@
           INTEGER(C_INT) :: libxs_syrk_dispatch_base
           TYPE(libxs_syrk_shape_t) :: shape
           TYPE(libxs_gemm_backend_t) :: be
-          TYPE(C_PTR) :: preg, pdist
+          TYPE(C_PTR) :: preg
           shape%datatype = datatype
           shape%uplo = uplo; shape%trans = trans
           shape%n = n; shape%k = k
@@ -1192,11 +1195,10 @@
           IF (PRESENT(registry)) THEN
             preg = registry
           ELSE; preg = C_NULL_PTR; END IF
-          IF (PRESENT(dist)) THEN
-            pdist = C_LOC(dist)
-          ELSE; pdist = C_NULL_PTR; END IF
+          IF (PRESENT(dist)) shape%dist = C_LOC(dist)
+          IF (PRESENT(device)) shape%device = C_LOC(device)
           libxs_syrk_dispatch_base = internal_syrk_dispatch(plan,       &
-     &      shape, pdist, be, preg)
+     &      shape, be, preg)
         END FUNCTION
 
         !> Plan a tall-and-skinny GEMM and populate plan (see

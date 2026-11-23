@@ -15,21 +15,21 @@ typedef struct libxs_syrk_shape_t {
   char uplo, trans;       /* 'U' or 'L'; 'N': A is n x k, 'T': A is k x n */
   int n, k;               /* k: this rank's share if distributed */
   int lda, ldb, ldc;      /* ldb=0: SYRK, else SYR2K; ldc: local part of C */
+  const libxs_pdist_t* dist;          /* NULL: local (see Distributed) */
+  const libxs_syrk_device_t* device;  /* NULL: host (see Device) */
 } libxs_syrk_shape_t;
 
-int libxs_syrk_dispatch(libxs_syrk_t* plan,
-  const libxs_syrk_shape_t* shape,
-  const libxs_pdist_t* dist /* = NULL */);
+int libxs_syrk_dispatch(libxs_syrk_t* plan, const libxs_syrk_shape_t* shape);
 
-int libxs_syrk_dispatch_rt(libxs_syrk_t* plan,
-  const libxs_syrk_shape_t* shape, const libxs_pdist_t* dist,
+int libxs_syrk_dispatch_rt(libxs_syrk_t* plan, const libxs_syrk_shape_t* shape,
   const libxs_gemm_backend_t* backend, void* registry);
 ```
 
 A dispatch returns nonzero if the plan was populated. `libxs_syrk_dispatch` is an inline that detects the backend at the caller's compile time like [libxs_gemm_dispatch](libxs_gemm.md#dispatch), and `libxs_syrk_dispatch_rt` takes explicit backends and a registry (NULL for the default).
 
 - **Tiles:** the plan splits the triangle into tiles, which depend on n alone. A small shape (one tile, n <= 32, k <= 48, n\*k <= 768) runs a generated kernel if a backend provides one. It occupies the registry entry of the GEMM of its full square (n x n x k), which a GEMM of that shape shares. Larger shapes run BLAS and take no registry entry.
-- **Ownership:** a local plan holds no memory, needs no release, and can serve any number of calls at a time. A distributed plan owns a communicator and buffers, serves one call at a time, and is released collectively.
+- **Ownership:** a local plan holds no memory, needs no release, and can serve any number of calls at a time (unless it computes on a device). A distributed plan owns a communicator and buffers, serves one call at a time, and is released collectively.
+- **Lifetimes:** the shape is read at dispatch and can be reused or discarded right away. The plan copies the layout (`dist`) and the device's functions, and keeps no pointer of the shape. Only the device's context must outlive the plan.
 
 ## Call
 
@@ -52,10 +52,10 @@ void libxs_syrk_release(libxs_syrk_t* plan);
 - **Release:** `libxs_syrk_release` accepts NULL, a local plan, a failed dispatch, and a plan released before.
 
 ```C
-libxs_syrk_shape_t shape = { LIBXS_DATATYPE_F64, 'L', 'N', 0, 0, 0, 0, 0 };
+libxs_syrk_shape_t shape = { LIBXS_DATATYPE_F64, 'L', 'N' };  /* the rest zero */
 libxs_syrk_t plan;
 shape.n = n; shape.k = k; shape.lda = n; shape.ldc = n;
-if (0 != libxs_syrk_dispatch(&plan, &shape, NULL)) {
+if (0 != libxs_syrk_dispatch(&plan, &shape)) {
   const int ntasks = libxs_syrk_ntasks(&plan, omp_get_max_threads());
   int t;
 #pragma omp parallel for schedule(dynamic)
@@ -85,20 +85,47 @@ libxs_pdist_t dist = { 0 };
 dist.fcomm = MPI_Comm_c2f(comm);
 dist.mb = mb; dist.nb = nb; dist.nprow = nprow; dist.npcol = npcol;
 dist.ranks = ranks;
-shape.k = klocal; shape.ldc = ldc_local;
-if (0 != libxs_syrk_dispatch(&plan, &shape, &dist)) {
+shape.k = klocal; shape.ldc = ldc_local; shape.dist = &dist;
+if (0 != libxs_syrk_dispatch(&plan, &shape)) {
   libxs_syrk(&plan, 1.0, a, NULL, 0.0, c);  /* collective */
   libxs_syrk_release(&plan);                /* collective */
 }
 else { /* fall back */ }
 ```
 
+## Device
+
+```C
+typedef struct libxs_syrk_panel_t {
+  int c0, w, r0, m;   /* columns c0..c0+w-1, rows r0..r0+m-1 (incl. the diagonal block) */
+  void* out; int ldo; /* host memory: C (local plan), or partial sums (distributed) */
+  double alpha, beta; /* out := alpha*result + beta*out; distributed: 1 and 0 */
+} libxs_syrk_panel_t;
+
+typedef struct libxs_syrk_device_t {
+  int (*submit)(void* ctx, const libxs_syrk_t* plan,
+    const void* a, const void* b, const libxs_syrk_panel_t* panel);
+  int (*wait)(void* ctx, int ticket);
+  void* ctx;
+} libxs_syrk_device_t;
+```
+
+A device computes the plan's panels in place of the host's BLAS, while LIBXS keeps the algorithm, including the distributed reduction. The device is an implementation of these two functions, e.g., in [LIBXSTREAM](https://github.com/hfp/libxstream).
+
+- **submit:** starts a panel and returns a ticket (>= 0). It may decline (< 0), and then the host computes the panel. Like BLAS, beta=0 does not read `out`, and only the triangle of the diagonal block is written.
+- **wait:** completes the panel of a ticket, and returns `EXIT_SUCCESS` or `EXIT_FAILURE`.
+- **Calls:** never concurrent, and panels are submitted in order. A local plan keeps two panels in flight. A distributed plan submits the next panel before it reduces the current one, so the device computes while the host communicates.
+- **Operands:** `a` and `b` arrive as the caller passed them. What the context makes of them, e.g., copies resident on a device, or a scaling of the columns between calls, is up to the context.
+- **Tasks:** one task drives the device, and `libxs_syrk_ntasks` returns 1. The device computes every panel it accepts, hence the result does not depend on a schedule. With k=0 or alpha=0, the host scales C without the device.
+- **Distributed:** the device may differ between ranks, or be absent on some of them.
+
 ## Fortran
 
 ```fortran
 TYPE(libxs_syrk_t) :: plan
 rc = libxs_syrk_dispatch(plan, LIBXS_DATATYPE_F64, uplo, trans,
-     &  n, k, lda, ldb, ldc [, dist] [, backends] [, registry])
+     &  n, k, lda, ldb, ldc [, dist] [, device] [, backends]
+     &  [, registry])
 CALL libxs_syrk(plan, alpha, a, beta, c [, info])
 CALL libxs_syrk(plan, alpha, a, b, beta, c [, info])
 CALL libxs_syrk_task(plan, alpha, a, [b,] beta, c, tid, ntasks
@@ -110,6 +137,7 @@ CALL libxs_syrk_release(plan)
 - **OpenMP:** compiled with OpenMP, `libxs_syrk` runs over a team sized by `libxs_syrk_ntasks`, unless it is called from within a parallel region.
 - **Errors:** without `info`, an error goes to stderr.
 - **Distributed:** `dist` is a `TYPE(libxs_pdist_t)` with the Fortran handle of the communicator as is, and `ranks = C_LOC` of an `INTEGER(C_INT)` array.
+- **Device:** `device` is a `TYPE(libxs_syrk_device_t)` as an implementation provides it (`C_FUNPTR` and `C_PTR` members).
 
 The direct form dispatches and calls in one step, with the arguments in the order of BLAS:
 
