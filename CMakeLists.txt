@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.14 FATAL_ERROR)
+cmake_minimum_required(VERSION 3.18 FATAL_ERROR)
 
 set(LIBXS_VERSION_FILE "${CMAKE_CURRENT_SOURCE_DIR}/version.txt")
 if(NOT EXISTS "${LIBXS_VERSION_FILE}")
@@ -104,11 +104,7 @@ if(NOT EXISTS "${LIBXS_VERSION_SCRIPT}")
   message(FATAL_ERROR "Missing ${LIBXS_VERSION_SCRIPT}")
 endif()
 
-# not REQUIRED: needs CMake 3.18
-find_program(SH_EXECUTABLE NAMES sh bash)
-if(NOT SH_EXECUTABLE)
-  message(FATAL_ERROR "No shell found (SH_EXECUTABLE)")
-endif()
+find_program(SH_EXECUTABLE NAMES sh bash REQUIRED)
 
 # -1 means "emit full C header" (see tool_version.sh)
 execute_process(

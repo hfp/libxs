@@ -1,8 +1,5 @@
 # Use the GNU Make suite's shell runner with executables built by CMake.
-find_program(LIBXS_TEST_SHELL NAMES bash)
-if(NOT LIBXS_TEST_SHELL)
-  message(FATAL_ERROR "No shell found (LIBXS_TEST_SHELL)")
-endif()
+find_program(LIBXS_TEST_SHELL NAMES bash REQUIRED)
 
 set(
   LIBXS_C_TESTS
