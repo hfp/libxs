@@ -1,13 +1,14 @@
 # SYRK / SYR2K Sample
 
-Demonstrates symmetric rank-k and rank-2k updates using the
-LIBXS dispatch-and-call model. The sample validates correctness
+Demonstrates symmetric rank-k and rank-2k updates with LIBXS plans
+(dispatch once, call many times). The sample validates correctness
 against a plain Fortran reference and reports performance.
 
 ## Operations
 
 SYRK:   C := alpha * A * A^T + beta * C  (lower triangle)
 SYR2K:  C := alpha * (A * B^T + B * A^T) + beta * C  (upper triangle)
+SYRK:   C := alpha * A^T * A + beta * C  (transposed, upper triangle)
 
 Only the specified triangle of C is written; the other triangle
 is left untouched.
@@ -23,10 +24,12 @@ Makefile.inc. BLAS is linked dynamically and sequential by default
 (`BLAS=1`, `BLAS_STATIC=0`). JIT-compiled kernels
 need `make MKL=1` (sequential) or `make MKL=2` (threaded) for MKL's
 JIT, or `make LIBXSMM=1` with a built sibling `libxsmm` directory.
+`make MPI=1` builds with the MPI wrapper of the Fortran compiler
+(`MPIFC`, default `mpif90`) and adds the distributed SYRK (see below).
 
 ## Run
 
-    ./syrk.x [N [K [nrepeat [direct [tasks]]]]]
+    ./syrk.x [N [K [nrepeat [direct [tasks [block]]]]]]
 
 Arguments (all optional, positional):
 
@@ -34,18 +37,19 @@ Arguments (all optional, positional):
     K        Inner dimension (columns of A).  Default: N
     nrepeat  Number of timed repetitions.     Default: 100
     direct   Interface selection.             Default: 0
-               0 = config (dispatch + call separately)
-               1 = direct (one-shot generic)
+               0 = plan (dispatch + call separately)
+               1 = direct (one step, arguments as in BLAS)
     tasks    Tasks per thread (OpenMP).       Default: 4
+    block    Block size of distributed C (MPI). Default: 32
 
 ## OpenMP
 
 When the Fortran module is compiled with OpenMP (the sample's default),
-`libxs_syrk` and `libxs_syr2k` run over an OpenMP team, unless called
-from within a parallel region. The team size comes from
-`libxs_syrk_ntasks`, which returns 1 (no split) for small shapes, with
-a threaded BLAS, or with too few threads against a sequential BLAS. The
-sample prints this count as `libxs_syrk=`.
+`libxs_syrk` runs over an OpenMP team, unless called from within a
+parallel region. The number of tasks comes from `libxs_syrk_ntasks`,
+which returns the tiles of the triangle (1 for small shapes, no split),
+or 1 with a pthread-based OpenBLAS. The sample prints this count as
+`libxs_syrk=`. The result is the same for any number of threads.
 
 The performance section compares `DSYRK` with `LIBXS` (`libxs_syrk`).
 `DSYRK` is threaded only with a threaded BLAS, e.g., `make MKL=2`:
@@ -56,15 +60,32 @@ The performance section compares `DSYRK` with `LIBXS` (`libxs_syrk`).
 The `OMP` and `TASK` lines call `libxs_syrk_task` explicitly, as C code
 would: one task per thread, or `tasks` per thread over a dynamic DO.
 
+## MPI
+
+Built with `make MPI=1`, the sample also runs the distributed SYRK
+(`libxs_syrk_dispatch` with a `libxs_pdist_t`): the ranks split K into
+stripes of columns, and C (lower triangle) is block-cyclic on a near-square
+grid of the ranks with blocks of `block` x `block`. Every rank computes the
+reference itself, and rank 0 prints the largest error of any rank and the
+time of the distributed update (`DIST`, GFLOPS/s over all ranks), run by
+the thread team as tasks. The other sections run on every rank as well, and
+rank 0 prints them.
+
+    make MPI=1
+    mpiexec -n 4 ./syrk.x 2048 8192 5 0 4 64
+
 ## Example Output
 
     SYRK: N=64 K=64 nrepeat=100 direct=0
 
-    --- libxs_syrk (lower) ---
-      max error (lower): 0.00000E+00
+    --- SYRK (lower) ---
+      max error (lower):  0.00000E+00
 
-    --- libxs_syr2k (upper) ---
-      max error (upper): 0.00000E+00
+    --- SYR2K (upper) ---
+      max error (upper):  0.00000E+00
+
+    --- SYRK (transposed, upper) ---
+      max error (transposed):  0.00000E+00
 
     --- libxs_syrk_task (OpenMP) ---
       threads=8 ntasks=32 libxs_syrk=1
@@ -81,21 +102,12 @@ would: one task per thread, or `tasks` per thread over a dynamic DO.
       TASK:      <time> s (100 calls)
                      <rate> GFLOPS/s
 
-Here `libxs_syrk=1`, i.e., the update is not split (see above).
+Here `libxs_syrk=1`, i.e., the update is a single tile (see above).
 
 ## Notes
 
-- The dispatch step (libxs_syrk_dispatch / libxs_syr2k_dispatch)
-  returns a pointer to a registry-owned config. This pointer
-  remains valid until libxs_finalize or the registry is destroyed.
-  There is no need to release it manually.
-
-- Splitting is controlled by `LIBXS_GEMM_PANEL` (smallest column
-  panel), `LIBXS_SYRK_BLAS` (BLAS SYRK for diagonal blocks, default
-  on), and the tile sizes `LIBXS_GEMM_BM`, `LIBXS_GEMM_BN`,
-  `LIBXS_GEMM_BK` (default 192x32x48); see
-  `documentation/libxs_syrk.md`.
-
-- Tasks need no synchronization. Scratch memory is thread-local and
-  drawn from the LIBXS memory pool, so it appears in the pool
-  statistics.
+- A plan is a plain value: a local plan holds no memory and needs no
+  release, whereas a distributed plan is released collectively
+  (`libxs_syrk_release`).
+- `LIBXS_SYRK_BLAS=0` computes the blocks on the diagonal as GEMM
+  squares instead of BLAS SYRK/SYR2K; see `documentation/libxs_syrk.md`.

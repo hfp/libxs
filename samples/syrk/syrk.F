@@ -11,21 +11,17 @@
       PROGRAM syrk_sample
         USE :: LIBXS_JIT, ONLY: LIBXS_DATATYPE_F64,                     &
      &    LIBXS_TIMER_TICK_KIND,                                        &
-     &    libxs_gemm_config_t,                                          &
-     &    libxs_syrk_dispatch, libxs_syrk, libxs_syrk_task,             &
-     &    libxs_syrk_ntasks,                                            &
-     &    libxs_syr2k_dispatch, libxs_syr2k,                            &
+     &    libxs_syrk_t, libxs_syrk_dispatch, libxs_syrk_release,        &
+     &    libxs_syrk, libxs_syrk_task, libxs_syrk_ntasks,               &
      &    libxs_matdiff_t, libxs_matdiff, libxs_matdiff_clear,          &
      &    libxs_timer_tick, libxs_timer_duration,                       &
      &    libxs_init, libxs_finalize,                                   &
-     &    C_LOC, C_PTR, C_NULL_PTR, C_ASSOCIATED,                       &
-     &    C_F_POINTER, C_INT
+     &    C_LOC, C_PTR, C_NULL_PTR, C_INT
         USE, INTRINSIC :: ISO_FORTRAN_ENV, ONLY: OUTPUT_UNIT
 #if defined(__MPI)
-        USE :: LIBXS_JIT, ONLY: libxs_syrk_dist_t, libxs_pdist_t
+        USE :: LIBXS_JIT, ONLY: libxs_pdist_t
 #endif
-!$      USE :: OMP_LIB, ONLY: omp_get_thread_num,                       &
-!$   &    omp_get_num_threads, omp_get_max_threads
+!$      USE :: OMP_LIB, ONLY: omp_get_max_threads
         IMPLICIT NONE
 #if defined(__MPI)
         INCLUDE 'mpif.h'
@@ -36,27 +32,27 @@
 
         INTEGER, PARAMETER :: T = KIND(0D0)
         INTEGER :: n, k, argc, r, nrepeat, direct
-        INTEGER :: i, tid, nt, tasks, ntasks, nthreads, nsyrk
+        INTEGER :: i, tasks, ntasks, nthreads, nsyrk
         CHARACTER(32) :: argv
-        REAL(T), ALLOCATABLE, TARGET :: a(:,:), b(:,:)
+        REAL(T), ALLOCATABLE, TARGET :: a(:,:), b(:,:), at(:,:)
         REAL(T), ALLOCATABLE, TARGET :: c(:,:), cref(:,:)
-        !DIR$ ATTRIBUTES ALIGN:64 :: a, b, c, cref
+        !DIR$ ATTRIBUTES ALIGN:64 :: a, b, at, c, cref
         REAL(T) :: alpha, beta
-        TYPE(libxs_gemm_config_t), POINTER :: config
-        TYPE(C_PTR) :: ptr
+        TYPE(libxs_syrk_t) :: plan, plan2k, plant
         TYPE(libxs_matdiff_t) :: diff
         INTEGER(LIBXS_TIMER_TICK_KIND) :: t0, t1
-        DOUBLE PRECISION :: duration, gflops
+        DOUBLE PRECISION :: gflops
         INTEGER :: iout
 #if defined(__MPI)
         INTEGER(C_INT), ALLOCATABLE, TARGET :: ranks(:)
-        REAL(T), ALLOCATABLE, TARGET :: cd(:,:)
-        TYPE(libxs_syrk_dist_t) :: dist
-        TYPE(libxs_pdist_t) :: cdist
+        REAL(T), ALLOCATABLE, TARGET :: cd(:,:), ct(:,:)
+        TYPE(libxs_syrk_t) :: pland
+        TYPE(libxs_pdist_t) :: dist
         TYPE(C_PTR) :: aptr
-        REAL(T) :: derr, dmax
-        INTEGER :: ierr, myrank, nranks, nprow, npcol, myprow, mypcol
-        INTEGER :: block, kstart, kloc, lrows, lcols, ldc, j
+        REAL(T) :: derr(2), dmax(2)
+        INTEGER :: ierr, level, myrank, nranks
+        INTEGER :: nprow, npcol, myprow, mypcol
+        INTEGER :: block, kstart, kloc, lrows, lcols, ldc, j, ig, jg
 #endif
 
         argc = COMMAND_ARGUMENT_COUNT()
@@ -99,7 +95,8 @@
         ELSE
           block = 32
         END IF
-        CALL MPI_INIT(ierr)
+        ! any task may communicate from MPI_THREAD_SERIALIZED on
+        CALL MPI_INIT_THREAD(MPI_THREAD_MULTIPLE, level, ierr)
         CALL MPI_COMM_RANK(MPI_COMM_WORLD, myrank, ierr)
         CALL MPI_COMM_SIZE(MPI_COMM_WORLD, nranks, ierr)
         ! the output of rank 0 (every rank runs the local sections)
@@ -111,6 +108,8 @@
         ntasks = nthreads * MAX(tasks, 1)
 
         alpha = 1D0; beta = 1D0
+        ! one triangle: an addition and a multiplication per element
+        gflops = DBLE(n) * DBLE(n + 1) * DBLE(k) * 1D-9
 
         WRITE(iout, "(A,I0,A,I0,A,I0,A,I0)")                            &
      &    "SYRK: N=", n, " K=", k, " nrepeat=", nrepeat,                &
@@ -118,81 +117,68 @@
 
         CALL libxs_init()
 
-        ALLOCATE(a(n, k), b(n, k), c(n, n), cref(n, n))
+        ALLOCATE(a(n, k), b(n, k), at(k, n), c(n, n), cref(n, n))
 
         CALL RANDOM_NUMBER(a)
         CALL RANDOM_NUMBER(b)
-        c = 0D0; cref = 0D0
+        at = TRANSPOSE(a)
 
-        WRITE(iout, "(A)") ""
-        WRITE(iout, "(A)") "--- libxs_syrk (lower) ---"
-
-        IF (0 .EQ. direct) THEN
-          ptr = libxs_syrk_dispatch(LIBXS_DATATYPE_F64, n, k, n, n)
-          IF (.NOT. C_ASSOCIATED(ptr)) THEN
-            WRITE(*, "(A)") "FAILED: libxs_syrk_dispatch returned NULL"
-            ERROR STOP 1
-          END IF
-          CALL C_F_POINTER(ptr, config)
+        IF (0 .EQ. libxs_syrk_dispatch(plan, LIBXS_DATATYPE_F64,        &
+     &    'L', 'N', n, k, n, 0, n)                                      &
+     &    .OR. 0 .EQ. libxs_syrk_dispatch(plan2k, LIBXS_DATATYPE_F64,   &
+     &    'U', 'N', n, k, n, n, n)                                      &
+     &    .OR. 0 .EQ. libxs_syrk_dispatch(plant, LIBXS_DATATYPE_F64,    &
+     &    'U', 'T', n, k, k, 0, n))                                     &
+     &  THEN
+          WRITE(*, "(A)") "FAILED: libxs_syrk_dispatch"
+          ERROR STOP 1
         END IF
 
+        WRITE(iout, "(A)") ""
+        WRITE(iout, "(A)") "--- SYRK (lower) ---"
+
+        c = 0D0; cref = 0D0
         CALL DSYRK('L', 'N', n, k, alpha, a, n, beta, cref, n)
         IF (0 .EQ. direct) THEN
-          CALL libxs_syrk(config, 'L', alpha, beta,                     &
-     &      C_LOC(a), C_LOC(c))
+          CALL libxs_syrk(plan, alpha, C_LOC(a), beta, C_LOC(c))
         ELSE
-          CALL libxs_syrk(LIBXS_DATATYPE_F64, n, k, n, n,               &
-     &      'L', alpha, beta, C_LOC(a), C_LOC(c))
+          CALL libxs_syrk(LIBXS_DATATYPE_F64, 'L', 'N', n, k,           &
+     &      alpha, C_LOC(a), n, beta, C_LOC(c), n)
         END IF
-
-        CALL libxs_matdiff_clear(diff)
-        CALL libxs_matdiff(diff, LIBXS_DATATYPE_F64, n, n,              &
-     &    C_LOC(cref), C_LOC(c))
-        WRITE(iout, "(A,E12.5)")                                        &
-     &    "  max error (lower): ", diff%linf_abs
+        CALL report("lower")
 
         WRITE(iout, "(A)") ""
-        WRITE(iout, "(A)") "--- libxs_syr2k (upper) ---"
+        WRITE(iout, "(A)") "--- SYR2K (upper) ---"
 
         c = 0D0; cref = 0D0
-
-        IF (0 .EQ. direct) THEN
-          ptr = libxs_syr2k_dispatch(LIBXS_DATATYPE_F64,                &
-     &      n, k, n, n, n)
-          IF (.NOT. C_ASSOCIATED(ptr)) THEN
-            WRITE(*, "(A)")                                             &
-     &        "FAILED: libxs_syr2k_dispatch returned NULL"
-            ERROR STOP 1
-          END IF
-          CALL C_F_POINTER(ptr, config)
-        END IF
-
         CALL DSYR2K('U', 'N', n, k, alpha, a, n, b, n, beta, cref, n)
         IF (0 .EQ. direct) THEN
-          CALL libxs_syr2k(config, 'U', alpha, beta,                    &
-     &      C_LOC(a), C_LOC(b), C_LOC(c))
+          CALL libxs_syrk(plan2k, alpha, C_LOC(a), C_LOC(b),            &
+     &      beta, C_LOC(c))
         ELSE
-          CALL libxs_syr2k(LIBXS_DATATYPE_F64, n, k, n, n, n,           &
-     &      'U', alpha, beta, C_LOC(a), C_LOC(b), C_LOC(c))
+          CALL libxs_syrk(LIBXS_DATATYPE_F64, 'U', 'N', n, k,           &
+     &      alpha, C_LOC(a), n, C_LOC(b), n, beta, C_LOC(c), n)
         END IF
+        CALL report("upper")
 
-        CALL libxs_matdiff_clear(diff)
-        CALL libxs_matdiff(diff, LIBXS_DATATYPE_F64, n, n,              &
-     &    C_LOC(cref), C_LOC(c))
-        WRITE(iout, "(A,E12.5)")                                        &
-     &    "  max error (upper): ", diff%linf_abs
+        WRITE(iout, "(A)") ""
+        WRITE(iout, "(A)") "--- SYRK (transposed, upper) ---"
+
+        c = 0D0; cref = 0D0
+        CALL DSYRK('U', 'T', n, k, alpha, at, k, beta, cref, n)
+        IF (0 .EQ. direct) THEN
+          CALL libxs_syrk(plant, alpha, C_LOC(at), beta, C_LOC(c))
+        ELSE
+          CALL libxs_syrk(LIBXS_DATATYPE_F64, 'U', 'T', n, k,           &
+     &      alpha, C_LOC(at), k, beta, C_LOC(c), n)
+        END IF
+        CALL report("transposed")
 
         WRITE(iout, "(A)") ""
         WRITE(iout, "(A)") "--- libxs_syrk_task (OpenMP) ---"
 
-        ptr = libxs_syrk_dispatch(LIBXS_DATATYPE_F64, n, k, n, n)
-        IF (.NOT. C_ASSOCIATED(ptr)) THEN
-          WRITE(*, "(A)") "FAILED: libxs_syrk_dispatch returned NULL"
-          ERROR STOP 1
-        END IF
-        CALL C_F_POINTER(ptr, config)
         nsyrk = 1
-!$      nsyrk = libxs_syrk_ntasks(config, INT(nthreads, C_INT))
+!$      nsyrk = libxs_syrk_ntasks(plan, INT(nthreads, C_INT))
         WRITE(iout, "(A,I0,A,I0,A,I0)")                                 &
      &    "  threads=", nthreads, " ntasks=", ntasks,                   &
      &    " libxs_syrk=", nsyrk
@@ -201,41 +187,18 @@
         CALL DSYRK('L', 'N', n, k, alpha, a, n, beta, cref, n)
 
         c = 0D0
-!$OMP PARALLEL DEFAULT(NONE) PRIVATE(tid, nt)                           &
-!$OMP&  SHARED(config, alpha, beta, a, c)
-        tid = 0
-        nt = 1
-!$      tid = omp_get_thread_num()
-!$      nt = omp_get_num_threads()
-        CALL libxs_syrk_task(config, 'L', alpha, beta,                  &
-     &    C_LOC(a), C_LOC(c), tid, nt)
-!$OMP END PARALLEL
-
-        CALL libxs_matdiff_clear(diff)
-        CALL libxs_matdiff(diff, LIBXS_DATATYPE_F64, n, n,              &
-     &    C_LOC(cref), C_LOC(c))
-        WRITE(iout, "(A,E12.5)")                                        &
-     &    "  max error (omp): ", diff%linf_abs
+        CALL run_tasks(nthreads)
+        CALL report("omp")
 
         c = 0D0
-!$OMP PARALLEL DO DEFAULT(NONE) SCHEDULE(DYNAMIC) PRIVATE(i)            &
-!$OMP&  SHARED(config, alpha, beta, a, c, ntasks)
-        DO i = 0, ntasks - 1
-          CALL libxs_syrk_task(config, 'L', alpha, beta,                &
-     &      C_LOC(a), C_LOC(c), i, ntasks)
-        END DO
-!$OMP END PARALLEL DO
-
-        CALL libxs_matdiff_clear(diff)
-        CALL libxs_matdiff(diff, LIBXS_DATATYPE_F64, n, n,              &
-     &    C_LOC(cref), C_LOC(c))
-        WRITE(iout, "(A,E12.5)")                                        &
-     &    "  max error (omp tasks): ", diff%linf_abs
+        CALL run_tasks(ntasks)
+        CALL report("omp tasks")
 
 #if defined(__MPI)
         WRITE(iout, "(A)") ""
-        WRITE(iout, "(A,I0,A,I0,A,I0)")                                 &
-     &    "--- libxs_syrk (distributed) --- ranks=", nranks,            &
+        WRITE(iout, "(A,I0,A,I0,A,I0,A,I0)")                            &
+     &    "--- SYRK (distributed) --- ranks=", nranks,                  &
+     &    " threads=", nthreads,                                        &
      &    " block=", block, " K/rank=", k / nranks
 
         ! every rank: the same A and the full reference
@@ -259,66 +222,69 @@
         lrows = numroc(n, block, myprow, nprow)
         lcols = numroc(n, block, mypcol, npcol)
         ldc = MAX(lrows, 1)
-        ALLOCATE(cd(ldc, MAX(lcols, 1)))
-        cd = 0D0
+        ALLOCATE(cd(ldc, MAX(lcols, 1)), ct(ldc, MAX(lcols, 1)))
+        cd = 0D0; ct = 0D0
         kstart = myrank * k / nranks + 1
         kloc = (myrank + 1) * k / nranks - kstart + 1
-        aptr = C_LOC(a)
+        aptr = C_NULL_PTR
         IF (0 .LT. kloc) aptr = C_LOC(a(1, kstart))
-        cdist%m = n; cdist%n = n
-        cdist%mb = block; cdist%nb = block
-        cdist%nprow = nprow; cdist%npcol = npcol
-        cdist%rsrc = 0; cdist%csrc = 0
-        cdist%ranks = C_LOC(ranks)
+        dist%fcomm = MPI_COMM_WORLD
+        dist%mb = block; dist%nb = block
+        dist%nprow = nprow; dist%npcol = npcol
+        dist%rsrc = 0; dist%csrc = 0
+        dist%ranks = C_LOC(ranks)
 
-        IF (0 .EQ. libxs_syrk_dispatch(dist, LIBXS_DATATYPE_F64,        &
-     &    n, kloc, n, ldc, cdist, MPI_COMM_WORLD))                      &
+        IF (0 .EQ. libxs_syrk_dispatch(pland, LIBXS_DATATYPE_F64,       &
+     &    'L', 'N', n, kloc, n, 0, ldc, dist))                          &
      &  THEN
           WRITE(*, "(A)") "FAILED: libxs_syrk_dispatch (distributed)"
           ERROR STOP 1
         END IF
-        CALL libxs_syrk(dist, 'L', alpha, 0D0, aptr, C_LOC(cd))
+        CALL libxs_syrk(pland, alpha, aptr, 0D0, C_LOC(cd))
+
+        ! the same bits with more tasks than threads
+!$OMP PARALLEL DO SCHEDULE(DYNAMIC) DEFAULT(NONE) PRIVATE(i)            &
+!$OMP&  SHARED(pland, alpha, aptr, ct, ntasks)
+        DO i = 0, ntasks - 1
+          CALL libxs_syrk_task(pland, alpha, aptr, 0D0, C_LOC(ct),      &
+     &      i, ntasks)
+        END DO
+!$OMP END PARALLEL DO
 
         derr = 0D0
         DO j = 1, lcols
+          jg = l2g(j, block, mypcol, npcol)
           DO i = 1, lrows
-            IF (l2g(i, block, myprow, nprow) .GE.                       &
-     &          l2g(j, block, mypcol, npcol))                           &
-     &      THEN
-              derr = MAX(derr, ABS(cd(i, j)                             &
-     &          - cref(l2g(i, block, myprow, nprow),                    &
-     &                 l2g(j, block, mypcol, npcol))))
+            ig = l2g(i, block, myprow, nprow)
+            derr(2) = MAX(derr(2), ABS(cd(i, j) - ct(i, j)))
+            IF (ig .GE. jg) THEN
+              derr(1) = MAX(derr(1), ABS(cd(i, j) - cref(ig, jg)))
+            ELSE
+              derr(1) = MAX(derr(1), ABS(cd(i, j)))
             END IF
           END DO
         END DO
-        CALL MPI_REDUCE(derr, dmax, 1, MPI_DOUBLE_PRECISION, MPI_MAX,   &
+        CALL MPI_REDUCE(derr, dmax, 2, MPI_DOUBLE_PRECISION, MPI_MAX,   &
      &    0, MPI_COMM_WORLD, ierr)
-        WRITE(iout, "(A,E12.5)")                                        &
-     &    "  max error (dist): ", dmax
+        IF (0 .EQ. myrank) THEN
+          WRITE(iout, "(A,E12.5)") "  max error (dist): ", dmax(1)
+          WRITE(iout, "(A,E12.5)") "  max error (dist tasks): ", dmax(2)
+        END IF
 
-        gflops = DBLE(n) * DBLE(n) * DBLE(k) * 2D-9
         CALL MPI_BARRIER(MPI_COMM_WORLD, ierr)
         t0 = libxs_timer_tick()
         DO r = 1, nrepeat
-          CALL libxs_syrk(dist, 'L', alpha, 0D0, aptr, C_LOC(cd))
+          CALL libxs_syrk(pland, alpha, aptr, 0D0, C_LOC(cd))
         END DO
         CALL MPI_BARRIER(MPI_COMM_WORLD, ierr)
         t1 = libxs_timer_tick()
-        duration = libxs_timer_duration(t0, t1)
-        IF (0D0 < duration) THEN
-          WRITE(iout, "(A,F10.3,A,I0,A)")                               &
-     &      "  DIST: ", duration, " s (", nrepeat, " calls)"
-          WRITE(iout, "(A,F10.1,A)")                                    &
-     &      "        ", gflops * DBLE(nrepeat) / duration,              &
-     &      " GFLOPS/s"
-        END IF
-        DEALLOCATE(ranks, cd)
+        CALL timing("DIST: ")
+        CALL libxs_syrk_release(pland)
+        DEALLOCATE(ranks, cd, ct)
 #endif
 
         WRITE(iout, "(A)") ""
         WRITE(iout, "(A)") "--- SYRK performance ---"
-
-        gflops = DBLE(n) * DBLE(n) * DBLE(k) * 2D-9
 
         cref = 0D0
         CALL DSYRK('L', 'N', n, k, alpha, a, n, beta, cref, n)
@@ -327,82 +293,78 @@
           CALL DSYRK('L', 'N', n, k, alpha, a, n, beta, cref, n)
         END DO
         t1 = libxs_timer_tick()
-        duration = libxs_timer_duration(t0, t1)
-        IF (0D0 < duration) THEN
-          WRITE(iout, "(A,F10.3,A,I0,A)")                               &
-     &      "  DSYRK:", duration, " s (", nrepeat, " calls)"
-          WRITE(iout, "(A,F10.1,A)")                                    &
-     &      "        ", gflops * DBLE(nrepeat) / duration,              &
-     &      " GFLOPS/s"
-        END IF
+        CALL timing("DSYRK:")
 
         c = 0D0
-        CALL libxs_syrk(config, 'L', alpha, beta, C_LOC(a), C_LOC(c))
+        CALL libxs_syrk(plan, alpha, C_LOC(a), beta, C_LOC(c))
         t0 = libxs_timer_tick()
         DO r = 1, nrepeat
-          CALL libxs_syrk(config, 'L', alpha, beta,                     &
-     &      C_LOC(a), C_LOC(c))
+          CALL libxs_syrk(plan, alpha, C_LOC(a), beta, C_LOC(c))
         END DO
         t1 = libxs_timer_tick()
-        duration = libxs_timer_duration(t0, t1)
-        IF (0D0 < duration) THEN
-          WRITE(iout, "(A,F10.3,A,I0,A)")                               &
-     &      "  LIBXS:", duration, " s (", nrepeat, " calls)"
-          WRITE(iout, "(A,F10.1,A)")                                    &
-     &      "        ", gflops * DBLE(nrepeat) / duration,              &
-     &      " GFLOPS/s"
-        END IF
+        CALL timing("LIBXS:")
 
         c = 0D0
         t0 = libxs_timer_tick()
         DO r = 1, nrepeat
-!$OMP PARALLEL DEFAULT(NONE) PRIVATE(tid, nt)                           &
-!$OMP&  SHARED(config, alpha, beta, a, c)
-          tid = 0
-          nt = 1
-!$        tid = omp_get_thread_num()
-!$        nt = omp_get_num_threads()
-          CALL libxs_syrk_task(config, 'L', alpha, beta,                &
-     &      C_LOC(a), C_LOC(c), tid, nt)
-!$OMP END PARALLEL
+          CALL run_tasks(nthreads)
         END DO
         t1 = libxs_timer_tick()
-        duration = libxs_timer_duration(t0, t1)
-        IF (0D0 < duration) THEN
-          WRITE(iout, "(A,F10.3,A,I0,A)")                               &
-     &      "  OMP:  ", duration, " s (", nrepeat, " calls)"
-          WRITE(iout, "(A,F10.1,A)")                                    &
-     &      "        ", gflops * DBLE(nrepeat) / duration,              &
-     &      " GFLOPS/s"
-        END IF
+        CALL timing("OMP:  ")
 
         c = 0D0
         t0 = libxs_timer_tick()
         DO r = 1, nrepeat
-!$OMP PARALLEL DO DEFAULT(NONE) SCHEDULE(DYNAMIC) PRIVATE(i)            &
-!$OMP&  SHARED(config, alpha, beta, a, c, ntasks)
-          DO i = 0, ntasks - 1
-            CALL libxs_syrk_task(config, 'L', alpha, beta,              &
-     &        C_LOC(a), C_LOC(c), i, ntasks)
-          END DO
-!$OMP END PARALLEL DO
+          CALL run_tasks(ntasks)
         END DO
         t1 = libxs_timer_tick()
-        duration = libxs_timer_duration(t0, t1)
-        IF (0D0 < duration) THEN
-          WRITE(iout, "(A,F10.3,A,I0,A)")                               &
-     &      "  TASK: ", duration, " s (", nrepeat, " calls)"
-          WRITE(iout, "(A,F10.1,A)")                                    &
-     &      "        ", gflops * DBLE(nrepeat) / duration,              &
-     &      " GFLOPS/s"
-        END IF
+        CALL timing("TASK: ")
 
-        DEALLOCATE(a, b, c, cref)
+        DEALLOCATE(a, b, at, c, cref)
         CALL libxs_finalize()
 #if defined(__MPI)
         CALL MPI_FINALIZE(ierr)
+#endif
 
       CONTAINS
+        ! the local SYRK as count tasks, which are handed out on demand
+        SUBROUTINE run_tasks(count)
+          INTEGER, INTENT(IN) :: count
+          INTEGER :: task
+!$OMP PARALLEL DO SCHEDULE(DYNAMIC) DEFAULT(NONE) PRIVATE(task)         &
+!$OMP&  SHARED(plan, alpha, beta, a, c, count)
+          DO task = 0, count - 1
+            CALL libxs_syrk_task(plan, alpha, C_LOC(a), beta,           &
+     &        C_LOC(c), task, count)
+          END DO
+!$OMP END PARALLEL DO
+        END SUBROUTINE
+
+        ! largest difference to the reference
+        SUBROUTINE report(title)
+          CHARACTER(*), INTENT(IN) :: title
+          CALL libxs_matdiff_clear(diff)
+          CALL libxs_matdiff(diff, LIBXS_DATATYPE_F64, n, n,            &
+     &      C_LOC(cref), C_LOC(c))
+          WRITE(iout, "(A,E12.5)")                                      &
+     &      "  max error (" // title // "): ", diff%linf_abs
+        END SUBROUTINE
+
+        ! time and rate of nrepeat calls between t0 and t1
+        SUBROUTINE timing(title)
+          CHARACTER(*), INTENT(IN) :: title
+          DOUBLE PRECISION :: duration
+          duration = libxs_timer_duration(t0, t1)
+          IF (0D0 < duration) THEN
+            WRITE(iout, "(A,F10.3,A,I0,A)")                             &
+     &        "  " // title, duration, " s (", nrepeat, " calls)"
+            WRITE(iout, "(A,F10.1,A)")                                  &
+     &        "        ", gflops * DBLE(nrepeat) / duration,            &
+     &        " GFLOPS/s"
+          END IF
+        END SUBROUTINE
+
+#if defined(__MPI)
         ! rows (or columns) of a block-cyclic distribution with block
         ! size nb that grid row (or column) iproc holds (as NUMROC)
         PURE INTEGER FUNCTION numroc(nglobal, nb, iproc, nprocs)

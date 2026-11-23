@@ -311,6 +311,9 @@ static int test_config_cpy(void)
 {
   libxs_gemm_config_t src, dst;
   const libxs_gemm_config_t* cfg;
+  libxs_gemm_backend_t backend;
+  libxs_syrk_shape_t sshape;
+  libxs_syrk_t plan;
   libxs_registry_t* registry;
 
   LIBXS_MEMZERO(&src);
@@ -341,23 +344,27 @@ static int test_config_cpy(void)
 
   registry = libxs_registry_create();
   TEST_CHECK(NULL != registry);
-  LIBXS_MEMZERO(&dst);
-  TEST_CHECK(0 != libxs_syrk_dispatch_cpy(&dst, LIBXS_DATATYPE_F64,
-    32, 8, 32, 32, registry));
-  cfg = libxs_syrk_dispatch(LIBXS_DATATYPE_F64, 32, 8, 32, 32, registry);
+  /* a small SYRK plan holds a copy of the GEMM config of its full square (n x n x k) */
+  LIBXS_MEMZERO(&sshape);
+  sshape.datatype = LIBXS_DATATYPE_F64;
+  sshape.uplo = 'U'; sshape.trans = 'N';
+  sshape.n = 32; sshape.k = 8; sshape.lda = 32; sshape.ldc = 32;
+  libxs_gemm_backend_init(&backend);
+  TEST_CHECK(0 != libxs_syrk_dispatch_rt(&plan, &sshape, NULL, &backend, registry));
+  cfg = libxs_gemm_dispatch(LIBXS_DATATYPE_F64, 'N', 'T', 32, 32, 8, 32, 32, 32, NULL, NULL, registry);
   TEST_CHECK(NULL != cfg);
-  /* the copy carries the same shape as the registry-owned config */
-  TEST_CHECK(cfg->shape.datatype == dst.shape.datatype);
-  TEST_CHECK(cfg->shape.transa == dst.shape.transa);
-  TEST_CHECK(cfg->shape.transb == dst.shape.transb);
-  TEST_CHECK(cfg->shape.m == dst.shape.m);
-  TEST_CHECK(cfg->shape.n == dst.shape.n);
-  TEST_CHECK(cfg->shape.k == dst.shape.k);
-  TEST_CHECK(cfg->shape.lda == dst.shape.lda);
-  TEST_CHECK(cfg->shape.ldb == dst.shape.ldb);
-  TEST_CHECK(cfg->shape.ldc == dst.shape.ldc);
-  TEST_CHECK(cfg->dgemm_blas == dst.dgemm_blas);
-  TEST_CHECK(0 == (LIBXS_GEMM_FLAG_OWNJIT & dst.flags));
+  TEST_CHECK(cfg->shape.datatype == plan.gemm.shape.datatype);
+  TEST_CHECK(cfg->shape.transa == plan.gemm.shape.transa);
+  TEST_CHECK(cfg->shape.transb == plan.gemm.shape.transb);
+  TEST_CHECK(cfg->shape.m == plan.gemm.shape.m);
+  TEST_CHECK(cfg->shape.n == plan.gemm.shape.n);
+  TEST_CHECK(cfg->shape.k == plan.gemm.shape.k);
+  TEST_CHECK(cfg->shape.lda == plan.gemm.shape.lda);
+  TEST_CHECK(cfg->shape.ldb == plan.gemm.shape.ldb);
+  TEST_CHECK(cfg->shape.ldc == plan.gemm.shape.ldc);
+  TEST_CHECK(cfg->dgemm_blas == plan.gemm.dgemm_blas);
+  TEST_CHECK(0 == (LIBXS_GEMM_FLAG_OWNJIT & plan.gemm.flags));
+  libxs_syrk_release(&plan);
 
   LIBXS_MEMZERO(&dst);
   TEST_CHECK(0 != libxs_gemm_dispatch_cpy(&dst, LIBXS_DATATYPE_F64,
@@ -604,69 +611,59 @@ static void test_disown_jitters(libxs_registry_t* registry)
 }
 
 
-static int test_registry_no_syrk_entries(void)
+static int test_registry_syrk_entries(void)
 {
   libxs_gemm_backend_t backend;
-  libxs_gemm_config_t config;
+  libxs_syrk_shape_t shape;
+  libxs_syrk_t plan;
   libxs_registry_t* registry;
   int i;
 
   LIBXS_MEMZERO(&backend);
   backend.jit_create_dgemm = test_jit_create_handle;
   backend.jit_get_dgemm = test_jit_get_handle;
+  LIBXS_MEMZERO(&shape);
+  shape.datatype = LIBXS_DATATYPE_F64;
+  shape.uplo = 'L'; shape.trans = 'N';
   registry = libxs_registry_create();
   TEST_CHECK(NULL != registry);
   /* spend the first-shape shortcut on a throwaway (see above) */
-  TEST_CHECK(NULL != libxs_syrk_dispatch_rt(
-    LIBXS_DATATYPE_F64, 9, 4, 9, 9, &backend, registry));
+  shape.n = 9; shape.k = 4; shape.lda = 9; shape.ldc = 9;
+  TEST_CHECK(0 != libxs_syrk_dispatch_rt(&plan, &shape, NULL, &backend, registry));
+  test_disown_jitters(registry);
   libxs_gemm_release_registry(registry);
 
   registry = libxs_registry_create();
   TEST_CHECK(NULL != registry);
   jit_create_handle_calls = 0;
-  /* a shape that fits one tile runs the kernel, hence it is dispatched: this
-   * double dispatch may enter neither the problem shape nor the tile while the
-   * shape is still proving reuse */
+  /* a small shape runs the kernel of its full square, which warms up like any GEMM */
+  shape.n = 16; shape.k = 8; shape.lda = 16; shape.ldc = 16;
   for (i = 0; i < TEST_MAXWARMUP && 0 == jit_create_handle_calls; ++i) {
-    LIBXS_MEMZERO(&config);
-    TEST_CHECK(0 != libxs_syrk_dispatch_cpy_rt(
-      &config, LIBXS_DATATYPE_F64, 16, 8, 16, 16, &backend, registry));
+    TEST_CHECK(0 != libxs_syrk_dispatch_rt(&plan, &shape, NULL, &backend, registry));
     if (0 == jit_create_handle_calls) {
       TEST_CHECK(0 == libxs_registry_size(registry));
-      TEST_CHECK(NULL != config.dgemm_blas);
+      TEST_CHECK(NULL != plan.gemm.dgemm_blas);
     }
   }
   TEST_CHECK(1 < i); /* warm-up was required */
   TEST_CHECK(1 == jit_create_handle_calls);
-  /* exactly two entries once the kernel exists: the shape and its tile */
-  TEST_CHECK(NULL != config.dgemm_jit);
-  TEST_CHECK(2 == libxs_registry_size(registry));
+  /* one entry, the GEMM of this shape: a SYRK has no key of its own */
+  TEST_CHECK(NULL != plan.gemm.dgemm_jit);
+  TEST_CHECK(1 == libxs_registry_size(registry));
   test_disown_jitters(registry);
   libxs_gemm_release_registry(registry);
 
   registry = libxs_registry_create();
   TEST_CHECK(NULL != registry);
   jit_create_handle_calls = 0;
-  /* a shape wider than one tile runs the BLAS SYRK wherever that entry point
-   * is available, and a kernel nothing calls is then neither built nor entered;
-   * without the entry point the same shape tiles like the case above */
-  for (i = 0; i < TEST_MAXWARMUP && 0 == jit_create_handle_calls; ++i) {
-    LIBXS_MEMZERO(&config);
-    TEST_CHECK(0 != libxs_syrk_dispatch_cpy_rt(
-      &config, LIBXS_DATATYPE_F64, 890, 54, 890, 890, &backend, registry));
+  /* a larger shape runs BLAS: a kernel nothing calls is neither built nor entered */
+  shape.n = 890; shape.k = 54; shape.lda = 890; shape.ldc = 890;
+  for (i = 0; i < TEST_MAXWARMUP; ++i) {
+    TEST_CHECK(0 != libxs_syrk_dispatch_rt(&plan, &shape, NULL, &backend, registry));
   }
-  if (0 == jit_create_handle_calls) {
-    TEST_CHECK(TEST_MAXWARMUP == i); /* no warm-up was ever due */
-    TEST_CHECK(0 == libxs_registry_size(registry));
-    TEST_CHECK(NULL == config.dgemm_jit);
-    TEST_CHECK(NULL != config.dgemm_blas);
-  }
-  else {
-    TEST_CHECK(1 == jit_create_handle_calls);
-    TEST_CHECK(NULL != config.dgemm_jit);
-    TEST_CHECK(2 == libxs_registry_size(registry));
-  }
-  test_disown_jitters(registry);
+  TEST_CHECK(0 == jit_create_handle_calls);
+  TEST_CHECK(0 == libxs_registry_size(registry));
+  TEST_CHECK(NULL == plan.gemm.dgemm_jit);
   libxs_gemm_release_registry(registry);
   return EXIT_SUCCESS;
 }
@@ -734,7 +731,7 @@ int main(void)
   if (EXIT_SUCCESS == result) result = test_mkljit_span();
   if (EXIT_SUCCESS == result) result = test_registry_no_warmup_entries();
   if (EXIT_SUCCESS == result) result = test_registry_no_blas_entries();
-  if (EXIT_SUCCESS == result) result = test_registry_no_syrk_entries();
+  if (EXIT_SUCCESS == result) result = test_registry_syrk_entries();
   if (EXIT_SUCCESS == result) result = test_backend_kind();
   return result;
 }

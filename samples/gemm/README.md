@@ -134,12 +134,6 @@ leading-dimension padding in C-matrices has not been overwritten.
 
 ## Runtime Controls
 
-`LIBXS_GEMM_PANEL=N` sets the smallest column panel a split SYRK/SYR2K
-uses; zero (the default) takes `LIBXS_GEMM_BN`. A larger value yields
-fewer and wider panels, i.e., fewer tasks. `LIBXS_GEMM_BM`,
-`LIBXS_GEMM_BN` and `LIBXS_GEMM_BK` size the tiles of a panel's diagonal
-block when no BLAS SYRK is available.
-
 Set `LIBXS_GEMM_PRINT=0` to print a compact GEMM registry summary at
 termination. The first line reports registry size, capacity, memory,
 and the selected `LIBXS_GEMM_BACKEND` policy; the second line reports

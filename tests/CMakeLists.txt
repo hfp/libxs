@@ -43,6 +43,7 @@ set(
   sync_ring
   sync_singleton
   syrk_dist
+  syrk_local
   timer
   token
 )
@@ -61,6 +62,7 @@ set(
   sync_ring
   sync_singleton
   syrk_dist
+  syrk_local
 )
 if(LIBXS_BUILD_SAMPLES)
   set(

@@ -1,260 +1,142 @@
 # SYRK: Symmetric Rank-k Updates
 
-Symmetric rank-2k and rank-k updates (`libxs_syrk.h`) built on top of
-[GEMM](libxs_gemm.md) dispatch, i.e., the config, backend selection,
-and registry are those of GEMM.
+Symmetric rank-k and rank-2k updates (`libxs_syrk.h`) of one triangle of C (n x n), in double or single precision:
 
-For small problems (n within LIBXS_GEMM_BM and LIBXS_GEMM_BN, and
-k <= LIBXS_GEMM_BK), the dispatched kernel handles the full GEMM in one
-call. Larger problems are split into column panels (see
-LIBXS_GEMM_PANEL and LIBXS_SYRK_BLAS). Scratch memory is thread-local.
+- SYRK: C := alpha\*op(A)\*op(A)^T + beta\*C
+- SYR2K: C := alpha\*(op(A)\*op(B)^T + op(B)\*op(A)^T) + beta\*C
 
-## Dispatch
+One plan type serves both, on one rank or distributed over the ranks of an MPI communicator. Backends and registry are those of [GEMM](libxs_gemm.md).
+
+## Plan
 
 ```C
-libxs_gemm_config_t* libxs_syr2k_dispatch(
-  libxs_data_t datatype, int n, int k, int lda, int ldb, int ldc,
-  void* registry /* = NULL */);
+typedef struct libxs_syrk_shape_t {
+  libxs_data_t datatype;  /* LIBXS_DATATYPE_F64 or LIBXS_DATATYPE_F32 */
+  char uplo, trans;       /* 'U' or 'L'; 'N': A is n x k, 'T': A is k x n */
+  int n, k;               /* k: this rank's share if distributed */
+  int lda, ldb, ldc;      /* ldb=0: SYRK, else SYR2K; ldc: local part of C */
+} libxs_syrk_shape_t;
 
-libxs_gemm_config_t* libxs_syrk_dispatch(
-  libxs_data_t datatype, int n, int k, int lda, int ldc,
-  void* registry /* = NULL */);
+int libxs_syrk_dispatch(libxs_syrk_t* plan,
+  const libxs_syrk_shape_t* shape,
+  const libxs_pdist_t* dist /* = NULL */);
 
-int libxs_syr2k_dispatch_cpy(
-  libxs_gemm_config_t* config,
-  libxs_data_t datatype, int n, int k, int lda, int ldb, int ldc,
-  void* registry /* = NULL */);
-
-int libxs_syrk_dispatch_cpy(
-  libxs_gemm_config_t* config,
-  libxs_data_t datatype, int n, int k, int lda, int ldc,
-  void* registry /* = NULL */);
+int libxs_syrk_dispatch_rt(libxs_syrk_t* plan,
+  const libxs_syrk_shape_t* shape, const libxs_pdist_t* dist,
+  const libxs_gemm_backend_t* backend, void* registry);
 ```
 
-Dispatch a GEMM config for SYR2K/SYRK. The problem shape (n, k, lda,
-ldb, ldc) is stored in the config and used by the call functions,
-while the dispatched kernel is the SYRK tile, i.e., the blocking
-(LIBXS_GEMM_BM/BN/BK) is applied inside. These are inlines and detect
-the backend at the caller's compile time, exactly like
-[libxs_gemm_dispatch](libxs_gemm.md#dispatch). The `_cpy` flavors populate a caller-owned config
-(see [Config ownership](libxs_gemm.md#config-ownership-registry-pointer-or-caller-copy)).
+A dispatch returns nonzero if the plan was populated. `libxs_syrk_dispatch` is an inline that detects the backend at the caller's compile time like [libxs_gemm_dispatch](libxs_gemm.md#dispatch), and `libxs_syrk_dispatch_rt` takes explicit backends and a registry (NULL for the default).
 
-To pass backend pointers explicitly, use the runtime forms:
-
-```C
-libxs_gemm_config_t* libxs_syr2k_dispatch_rt(
-  libxs_data_t datatype, int n, int k, int lda, int ldb, int ldc,
-  const libxs_gemm_backend_t* backend /* = NULL */,
-  void* registry /* = NULL */);
-
-libxs_gemm_config_t* libxs_syrk_dispatch_rt(
-  libxs_data_t datatype, int n, int k, int lda, int ldc,
-  const libxs_gemm_backend_t* backend /* = NULL */,
-  void* registry /* = NULL */);
-```
-
-Fortran mirrors both: LIBXS_JIT auto-detects, module LIBXS accepts
-OPTIONAL backend function pointers.
-
-```fortran
-ptr = libxs_syrk_dispatch(LIBXS_DATATYPE_F64, n, k, lda, ldc,
-     &  jit_create_dgemm=C_FUNLOC(mkl_cblas_jit_create_dgemm),
-     &  jit_get_dgemm=C_FUNLOC(mkl_jit_get_dgemm_ptr),
-     &  dgemm_blas=C_FUNLOC(DGEMM))
-
-rc = libxs_syrk_dispatch_cpy(config, LIBXS_DATATYPE_F64,
-     &  n, k, lda, ldc)
-```
+- **Tiles:** the plan splits the triangle into tiles, which depend on n alone. A small shape (one tile, n <= 32, k <= 48, n\*k <= 768) runs a generated kernel if a backend provides one. It occupies the registry entry of the GEMM of its full square (n x n x k), which a GEMM of that shape shares. Larger shapes run BLAS and take no registry entry.
+- **Ownership:** a local plan holds no memory, needs no release, and can serve any number of calls at a time. A distributed plan owns a communicator and buffers, serves one call at a time, and is released collectively.
 
 ## Call
 
 ```C
-void libxs_syr2k(
-  const libxs_gemm_config_t* config, char uplo,
-  double alpha, double beta,
-  const void* a, const void* b, void* c);
+int libxs_syrk(const libxs_syrk_t* plan,
+  double alpha, const void* a, const void* b, double beta, void* c);
 
-void libxs_syr2k_task(
-  const libxs_gemm_config_t* config, char uplo,
-  double alpha, double beta,
-  const void* a, const void* b, void* c,
+int libxs_syrk_task(const libxs_syrk_t* plan,
+  double alpha, const void* a, const void* b, double beta, void* c,
   int tid, int ntasks);
+
+int libxs_syrk_ntasks(const libxs_syrk_t* plan, int nthreads);
+
+void libxs_syrk_release(libxs_syrk_t* plan);
 ```
 
-C := alpha*(A*B^T + B*A^T) + beta*C. Only the triangle specified
-by uplo ('U' or 'L') is written. All dimensions and leading
-dimensions come from the dispatched config.
+- **Arguments:** b is NULL for SYRK. Like BLAS, beta=0 does not read C, and k=0 or alpha=0 does not read A or B (which may then be NULL). The functions return `EXIT_SUCCESS` or `EXIT_FAILURE`.
+- **Tasks:** every tid in [0, ntasks) calls `libxs_syrk_task` once per update, from any thread and in any order, and C is complete when all of them have returned. `libxs_syrk_ntasks` returns the number of tasks worth running with nthreads threads: the tiles of a local plan (hand them out dynamically, the team balances itself), nthreads for a distributed plan, and 1 if a split does not pay (e.g., a pthread-based OpenBLAS).
+- **Reproducibility:** the result does not depend on the threads, the tasks, or the schedule, given the ranks and a BLAS that is sequential within a task. MKL is sequential inside a parallel region by default; with `MKL_DYNAMIC=FALSE`, its threads split the work of a task, and the bits change with the number of threads.
+- **Release:** `libxs_syrk_release` accepts NULL, a local plan, a failed dispatch, and a plan released before.
 
 ```C
-void libxs_syrk(
-  const libxs_gemm_config_t* config, char uplo,
-  double alpha, double beta,
-  const void* a, void* c);
-
-void libxs_syrk_task(
-  const libxs_gemm_config_t* config, char uplo,
-  double alpha, double beta,
-  const void* a, void* c,
-  int tid, int ntasks);
+libxs_syrk_shape_t shape = { LIBXS_DATATYPE_F64, 'L', 'N', 0, 0, 0, 0, 0 };
+libxs_syrk_t plan;
+shape.n = n; shape.k = k; shape.lda = n; shape.ldc = n;
+if (0 != libxs_syrk_dispatch(&plan, &shape, NULL)) {
+  const int ntasks = libxs_syrk_ntasks(&plan, omp_get_max_threads());
+  int t;
+#pragma omp parallel for schedule(dynamic)
+  for (t = 0; t < ntasks; ++t) libxs_syrk_task(&plan, 1.0, a, NULL, 0.0, c, t, ntasks);
+}
 ```
-
-C := alpha*A*A^T + beta*C. Only the triangle specified by uplo
-('U' or 'L') is written.
-
-The _task variants partition work across ntasks threads. Each
-thread operates on independent output blocks; no locking is
-required. Thread-local scratch buffers are used internally.
-
-```C
-int libxs_syrk_ntasks(const libxs_gemm_config_t* config, int nthreads);
-```
-
-Number of tasks worth splitting `libxs_syrk_task` or
-`libxs_syr2k_task` into, given nthreads (1 means unsplit). Fortran:
-`libxs_syrk_ntasks(config, nthreads)`.
-
-In Fortran, `libxs_syrk` and `libxs_syr2k` also have a direct form that
-dispatches and calls in one step:
-
-```fortran
-CALL libxs_syrk(config, uplo, alpha, beta, a, c)
-CALL libxs_syrk(datatype, n, k, lda, ldc, uplo, alpha, beta, a, c)
-CALL libxs_syr2k(config, uplo, alpha, beta, a, b, c)
-CALL libxs_syr2k(datatype, n, k, lda, ldb, ldc, uplo, alpha, beta,
-     &  a, b, c)
-```
-
-The direct form takes an OPTIONAL `registry` but no backend arguments.
-When the Fortran module is compiled with OpenMP, both forms run over an
-OpenMP team sized by `libxs_syrk_ntasks`, unless called from within a
-parallel region.
 
 ## Distributed
 
 ```C
 typedef struct libxs_pdist_t {
-  int m, n, mb, nb;    /* global size and block size */
-  int nprow, npcol;    /* process grid */
-  int rsrc, csrc;      /* grid position of the first block */
-  const int* ranks;    /* rank of every grid position (column-major) */
+  int fcomm;               /* communicator as Fortran handle (MPI_Comm_c2f) */
+  int mb, nb, nprow, npcol;
+  int rsrc, csrc;
+  const int* ranks;        /* rank of every grid position (column-major) */
 } libxs_pdist_t;
-
-typedef struct libxs_syrk_dist_t {
-  libxs_gemm_config_t config;  /* first member */
-  libxs_pdist_t cdist;
-  int fcomm;
-} libxs_syrk_dist_t;
-
-int libxs_syrk_dispatch_dist(libxs_syrk_dist_t* dist,
-  libxs_data_t datatype, int n, int klocal, int lda, int ldc,
-  const libxs_pdist_t* cdist, int fcomm,
-  const libxs_gemm_backend_t* backend /* = NULL */);
 ```
 
-C := alpha*A*A^T + beta*C over the ranks of an MPI communicator, where
-every rank holds n x klocal columns of A (its share of k, all rows) and
-C is block-cyclic as described by `cdist` (the values of a ScaLAPACK
-descriptor, plus the rank of every grid position, e.g., BLACS' mapping);
-`ldc` is the leading dimension of the local part of C. The update runs
-underneath the regular call, `libxs_syrk(&dist.config, uplo, alpha,
-beta, a, c)`, which is collective, writes only the triangle `uplo`, and
-sums in a fixed order (the same result in every run).
-
-LIBXS does not link MPI: the communicator is passed as its Fortran
-handle (`MPI_Comm_c2f`) and MPI is found in the process (see
-`LIBXS_MPI`). Without a known MPI, or for an unsupported layout, nothing
-is populated (zero is returned) and the caller falls back, e.g., to
-ScaLAPACK. No wildcard receive may be pending on the communicator during
-the call. With a distributed config, `libxs_syrk_task` runs the update
-in task 0 (the other tasks return), and `libxs_syrk_ntasks` is 1.
+- **Operands:** every rank holds all n rows (or columns) of A and B with its share of k. C is block-cyclic as described by the values of a ScaLAPACK descriptor and the rank of every grid position, e.g., BLACS' mapping. Ranks outside the grid own no part of C and pass NULL. The dispatch copies the ranks.
+- **Collective dispatch:** all ranks agree on the outcome. Either every rank has a plan, or none has, and the caller falls back, e.g., to ScaLAPACK. That is the case without a known MPI, for shapes or layouts that differ between ranks, or if one rank has invalid arguments.
+- **MPI:** LIBXS does not link MPI. It finds MPI in the process (see `LIBXS_MPI`) and duplicates the communicator.
+- **Algorithm:** the partial sums of each panel of columns are reduced in a ring of fixed order and delivered to the owners of C. The buffers of two panels (n x 256 elements at most) are allocated at dispatch.
+- **Threads:** with `MPI_THREAD_SERIALIZED` or higher, any thread communicates. Below that level, the main thread must run one of the tasks.
 
 ```C
-libxs_syrk_dist_t dist;
-if (0 != libxs_syrk_dispatch_dist(&dist, LIBXS_DATATYPE_F64,
-  n, klocal, lda, ldc, &cdist, MPI_Comm_c2f(comm), NULL))
-{
-  libxs_syrk(&dist.config, 'U', 1.0, 0.0, a, c);
+libxs_pdist_t dist = { 0 };
+dist.fcomm = MPI_Comm_c2f(comm);
+dist.mb = mb; dist.nb = nb; dist.nprow = nprow; dist.npcol = npcol;
+dist.ranks = ranks;
+shape.k = klocal; shape.ldc = ldc_local;
+if (0 != libxs_syrk_dispatch(&plan, &shape, &dist)) {
+  libxs_syrk(&plan, 1.0, a, NULL, 0.0, c);  /* collective */
+  libxs_syrk_release(&plan);                /* collective */
 }
 else { /* fall back */ }
 ```
 
-In Fortran, the generic `libxs_syrk_dispatch` takes a `libxs_syrk_dist_t`
-(LIBXS_JIT passes the linked BLAS), and the generic `libxs_syrk` the
-dispatched `dist`. The ranks are `C_LOC` of an `INTEGER(C_INT)` array, and
-the communicator is the Fortran handle as is:
+## Fortran
 
 ```fortran
-TYPE(libxs_syrk_dist_t) :: dist
-TYPE(libxs_pdist_t) :: cdist
-cdist%ranks = C_LOC(ranks)  ! with m, n, mb, nb, nprow, npcol, rsrc, csrc
-IF (0 .NE. libxs_syrk_dispatch(dist, LIBXS_DATATYPE_F64,
-     &  n, klocal, lda, ldc, cdist, MPI_COMM_WORLD)) THEN
-  CALL libxs_syrk(dist, 'L', alpha, beta, C_LOC(a), C_LOC(c))
-END IF
+TYPE(libxs_syrk_t) :: plan
+rc = libxs_syrk_dispatch(plan, LIBXS_DATATYPE_F64, uplo, trans,
+     &  n, k, lda, ldb, ldc [, dist] [, backends] [, registry])
+CALL libxs_syrk(plan, alpha, a, beta, c [, info])
+CALL libxs_syrk(plan, alpha, a, b, beta, c [, info])
+CALL libxs_syrk_task(plan, alpha, a, [b,] beta, c, tid, ntasks
+     &  [, info])
+CALL libxs_syrk_release(plan)
 ```
 
-The [SYRK sample](samples/libxs_syrk.md) runs it when built with `make MPI=1`.
+- **Arguments:** a, b, and c are `C_LOC` pointers. ldb=0 selects SYRK, as in C. The backends (module LIBXS) are OPTIONAL function pointers, and module LIBXS_JIT fills them in.
+- **OpenMP:** compiled with OpenMP, `libxs_syrk` runs over a team sized by `libxs_syrk_ntasks`, unless it is called from within a parallel region.
+- **Errors:** without `info`, an error goes to stderr.
+- **Distributed:** `dist` is a `TYPE(libxs_pdist_t)` with the Fortran handle of the communicator as is, and `ranks = C_LOC` of an `INTEGER(C_INT)` array.
+
+The direct form dispatches and calls in one step, with the arguments in the order of BLAS:
+
+```fortran
+CALL libxs_syrk(datatype, uplo, trans, n, k, alpha, a, lda,
+     &  beta, c, ldc [, info])
+CALL libxs_syrk(datatype, uplo, trans, n, k, alpha, a, lda,
+     &  b, ldb, beta, c, ldc [, info])
+```
+
+Without `-D__LIBXS`, `libxs_jit.F` compiles to a BLAS-only module, whose direct form calls DSYRK or DSYR2K.
+
+The [SYRK sample](samples/libxs_syrk.md) covers plans, tasks, and the distributed update (`make MPI=1`).
 
 ## Compile-Time Tuning
 
-The block sizes used for tiled SYRK/SYR2K can be overridden at
-compile time via preprocessor defines:
-
-    LIBXS_GEMM_BM        Row block size    (default: 192)
-    LIBXS_GEMM_BN        Column block size (default: 32)
-    LIBXS_GEMM_BK        K-direction block (default: 48)
-
-Problems fitting within these limits use a single specialized
-kernel call (MKL JIT or LIBXSMM when available). The same values form
-the kernel shape that LIBXS_GEMM_JIT_MAX is applied to.
-
-    LIBXS_GEMM_PANEL     Smallest SYRK/SYR2K column panel
-                         (default: 0, i.e., LIBXS_GEMM_BN)
-    LIBXS_SYRK_MINTASKS  Fewest threads that split a SYRK/SYR2K
-                         against a sequential BLAS SYRK (default: 4)
-    LIBXS_SYRK_DIST_NP   Columns of C per step of the distributed
-                         SYRK (default: 256)
+    LIBXS_SYRK_WIDTH      Width of the widest tiles (default: 256)
+    LIBXS_SYRK_KERNEL_N   Largest n served by a kernel (default: 32)
+    LIBXS_SYRK_KERNEL_K   Largest k served by a kernel (default: 48)
+    LIBXS_SYRK_KERNEL_NK  Largest n*k served by a kernel (default: 768)
 
 ## Environment Variables
 
-    LIBXS_GEMM_BM=N         Row block size for tiled SYRK/SYR2K
-                            (default: 192).
-    LIBXS_GEMM_BN=N         Column block size (default: 32).
-    LIBXS_GEMM_BK=N         K-direction block size (default: 48).
-    LIBXS_GEMM_PANEL=N      Smallest column panel of a split SYRK or
-                            SYR2K; zero (default) takes
-                            LIBXS_GEMM_BN. A larger value yields
-                            fewer and wider panels (fewer tasks).
-                            The tile sizes above then apply to the
-                            diagonal block alone, and only where no
-                            BLAS SYRK is available.
-    LIBXS_SYRK_PRINT=1      Print every double-precision BLAS SYR2K
-                            call taken (see LIBXS_SYRK_BLAS) to stderr
-                            (compile-time gate, enabled by default).
-    LIBXS_SYRK_BLAS=0|1     Resolve the BLAS SYRK/SYR2K entry points
-                            (double and single precision) and prefer them for any shape wider than
-                            one tile; such a shape then compiles no
-                            kernel and takes no registry entry. Set to
-                            0 to tile (default: 1).
+    LIBXS_SYRK_BLAS=0|1   Use the BLAS SYRK/SYR2K for blocks on the
+                          diagonal (default: 1). With 0, or without
+                          these entry points, the blocks are computed
+                          as GEMM squares and scattered.
+    LIBXS_MPI=0|mpich|ompi  MPI of the distributed update (see README).
 
-The GEMM variables (LIBXS_GEMM_BACKEND, LIBXS_GEMM_JIT_MAX, etc.) apply
-as well, see [GEMM](libxs_gemm.md#environment-variables).
-
-## Example
-
-```C
-#include <libxs/libxs_syrk.h>
-
-libxs_registry_t* reg = libxs_registry_create();
-
-/* dispatch once per unique shape */
-const libxs_gemm_config_t* cfg = libxs_syr2k_dispatch(
-  LIBXS_DATATYPE_F64, n, k, lda, ldb, ldc, reg);
-
-/* call many times (registry hit = hash probe only) */
-for (batch = 0; batch < nbatches; ++batch) {
-  libxs_syr2k(cfg, 'U', 0.5, 0.0, a[batch], b[batch], c[batch]);
-}
-
-libxs_gemm_release_registry(reg);
-```
+The GEMM variables (LIBXS_GEMM_BACKEND, LIBXS_GEMM_JIT_MAX, etc.) apply as well, see [GEMM](libxs_gemm.md#environment-variables).

@@ -13,20 +13,6 @@
 #include "libxs_gemm_internal.h"
 #include "libxs_crc32.h"
 
-#if !defined(LIBXS_GEMM_BM)
-# define LIBXS_GEMM_BM 192
-#endif
-#if !defined(LIBXS_GEMM_BN)
-# define LIBXS_GEMM_BN 32
-#endif
-#if !defined(LIBXS_GEMM_BK)
-# define LIBXS_GEMM_BK 48
-#endif
-/* narrower panels give more tasks, at the cost of the GEMM they leave behind;
- * zero takes the column block size, which is the finest the tiles ever were */
-#if !defined(LIBXS_GEMM_PANEL)
-# define LIBXS_GEMM_PANEL 0
-#endif
 #if !defined(INTERNAL_GEMM_NLOCKS)
 # define INTERNAL_GEMM_NLOCKS 16
 #endif
@@ -99,10 +85,6 @@
 LIBXS_APIVAR_DEFINE(LIBXS_LOCK_TYPE(LIBXS_LOCK) internal_libxs_gemm_locks[INTERNAL_GEMM_NLOCKS]);
 LIBXS_APIVAR_DEFINE(libxs_registry_t* internal_libxs_gemm_registry);
 
-LIBXS_APIVAR_DEFINE(int internal_libxs_gemm_bm);
-LIBXS_APIVAR_DEFINE(int internal_libxs_gemm_bn);
-LIBXS_APIVAR_DEFINE(int internal_libxs_gemm_bk);
-LIBXS_APIVAR_DEFINE(int internal_libxs_gemm_panel);
 LIBXS_APIVAR_DEFINE(int internal_libxs_gemm_jit_max);
 LIBXS_APIVAR_DEFINE(int internal_libxs_gemm_jit_warmup);
 LIBXS_APIVAR_DEFINE(int internal_libxs_gemm_backend);
@@ -129,10 +111,6 @@ LIBXS_API_INTERN void internal_libxs_gemm_init(void)
 {
   static int internal_libxs_gemm_init_once = 0;
   if (0 == internal_libxs_gemm_init_once) {
-    const char *const gemm_bm_env = getenv("LIBXS_GEMM_BM");
-    const char *const gemm_bn_env = getenv("LIBXS_GEMM_BN");
-    const char *const gemm_bk_env = getenv("LIBXS_GEMM_BK");
-    const char *const gemm_panel_env = getenv("LIBXS_GEMM_PANEL");
     const char *const gemm_jit_max_env = getenv("LIBXS_GEMM_JIT_MAX");
     const char *const gemm_jit_warmup_env = getenv("LIBXS_GEMM_JIT_WARMUP");
     const char *const gemm_backend_env = getenv("LIBXS_GEMM_BACKEND");
@@ -198,14 +176,6 @@ LIBXS_API_INTERN void internal_libxs_gemm_init(void)
       LIBXS_FPTR_FROM_VPTR(libxs_xgemm_dispatch_t, internal_libxs_xgemm_dispatch, dl);
     }
 #endif
-    internal_libxs_gemm_bm = (NULL == gemm_bm_env ? LIBXS_GEMM_BM : atoi(gemm_bm_env));
-    internal_libxs_gemm_bn = (NULL == gemm_bn_env ? LIBXS_GEMM_BN : atoi(gemm_bn_env));
-    internal_libxs_gemm_bk = (NULL == gemm_bk_env ? LIBXS_GEMM_BK : atoi(gemm_bk_env));
-    internal_libxs_gemm_panel = (NULL == gemm_panel_env
-      ? LIBXS_GEMM_PANEL : atoi(gemm_panel_env));
-    if (internal_libxs_gemm_panel <= 0) { /* zero means unspecified */
-      internal_libxs_gemm_panel = internal_libxs_gemm_bn;
-    }
     internal_libxs_gemm_jit_max = (NULL == gemm_jit_max_env
       ? 7 /*default: AI of ~80x80x80*/ : atoi(gemm_jit_max_env));
     internal_libxs_gemm_jit_warmup = (NULL == gemm_jit_warmup_env

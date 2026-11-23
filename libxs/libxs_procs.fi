@@ -966,8 +966,7 @@
         !> LIBXS_GEMM_FLAG_OWNJIT is cleared in the copy, i.e., the JIT
         !> handle stays owned by the registry and libxs_gemm_release is
         !> a no-op for the copy. A copy is a snapshot: it does not pick
-        !> up a kernel that a later JIT warm-up completes. A copy is
-        !> never distributed (LIBXS_GEMM_FLAG_DIST is cleared as well).
+        !> up a kernel that a later JIT warm-up completes.
         FUNCTION libxs_gemm_config_cpy(config, cached)
           TYPE(libxs_gemm_config_t), INTENT(INOUT) :: config
           TYPE(C_PTR), INTENT(IN) :: cached
@@ -977,7 +976,7 @@
             CALL C_F_POINTER(cached, src)
             config = src
             config%flags = IAND(config%flags,                           &
-     &        NOT(IOR(LIBXS_GEMM_FLAG_OWNJIT, LIBXS_GEMM_FLAG_DIST)))
+     &        NOT(LIBXS_GEMM_FLAG_OWNJIT))
             libxs_gemm_config_cpy = 1
           ELSE
             libxs_gemm_config_cpy = 0
@@ -1160,23 +1159,32 @@
           END IF
         END SUBROUTINE
 
-        !> Dispatch a GEMM config for SYR2K.
-        FUNCTION libxs_syr2k_dispatch_base(datatype,                    &
-     &  n, k, lda, ldb, ldc,                                            &
+        !> Plan SYRK (ldb=0) or SYR2K, distributed if dist is present.
+        !> Nonzero if populated; if distributed, all ranks get the same.
+        FUNCTION libxs_syrk_dispatch_base(plan, datatype, uplo, trans,  &
+     &  n, k, lda, ldb, ldc, dist,                                      &
      &  jit_create_dgemm, jit_get_dgemm,                                &
      &  jit_create_sgemm, jit_get_sgemm,                                &
      &  xgemm_dispatch, dgemm_blas, sgemm_blas, blas_nthreads,          &
      &  registry)
+          TYPE(libxs_syrk_t), INTENT(INOUT) :: plan
           INTEGER(C_INT), INTENT(IN) :: datatype, n, k
+          CHARACTER(C_CHAR), INTENT(IN), VALUE :: uplo, trans
           INTEGER(C_INT), INTENT(IN) :: lda, ldb, ldc
+          TYPE(libxs_pdist_t), INTENT(IN), OPTIONAL, TARGET :: dist
           TYPE(C_FUNPTR), INTENT(IN), OPTIONAL ::                       &
      &      jit_create_dgemm, jit_get_dgemm,                            &
      &      jit_create_sgemm, jit_get_sgemm,                            &
      &      xgemm_dispatch, dgemm_blas, sgemm_blas, blas_nthreads
           TYPE(C_PTR), INTENT(IN), OPTIONAL :: registry
-          TYPE(C_PTR) :: libxs_syr2k_dispatch_base
+          INTEGER(C_INT) :: libxs_syrk_dispatch_base
+          TYPE(libxs_syrk_shape_t) :: shape
           TYPE(libxs_gemm_backend_t) :: be
-          TYPE(C_PTR) :: preg
+          TYPE(C_PTR) :: preg, pdist
+          shape%datatype = datatype
+          shape%uplo = uplo; shape%trans = trans
+          shape%n = n; shape%k = k
+          shape%lda = lda; shape%ldb = ldb; shape%ldc = ldc
           CALL internal_gemm_backend(be,                                &
      &      jit_create_dgemm, jit_get_dgemm,                            &
      &      jit_create_sgemm, jit_get_sgemm,                            &
@@ -1184,104 +1192,11 @@
           IF (PRESENT(registry)) THEN
             preg = registry
           ELSE; preg = C_NULL_PTR; END IF
-          libxs_syr2k_dispatch_base = internal_syr2k_dispatch(          &
-     &      datatype, n, k, lda, ldb, ldc, be, preg)
-        END FUNCTION
-
-        !> Dispatch a GEMM config for SYRK.
-        FUNCTION libxs_syrk_dispatch_base(datatype,                     &
-     &  n, k, lda, ldc,                                                 &
-     &  jit_create_dgemm, jit_get_dgemm,                                &
-     &  jit_create_sgemm, jit_get_sgemm,                                &
-     &  xgemm_dispatch, dgemm_blas, sgemm_blas, blas_nthreads,          &
-     &  registry)
-          INTEGER(C_INT), INTENT(IN) :: datatype, n, k
-          INTEGER(C_INT), INTENT(IN) :: lda, ldc
-          TYPE(C_FUNPTR), INTENT(IN), OPTIONAL ::                       &
-     &      jit_create_dgemm, jit_get_dgemm,                            &
-     &      jit_create_sgemm, jit_get_sgemm,                            &
-     &      xgemm_dispatch, dgemm_blas, sgemm_blas, blas_nthreads
-          TYPE(C_PTR), INTENT(IN), OPTIONAL :: registry
-          TYPE(C_PTR) :: libxs_syrk_dispatch_base
-          libxs_syrk_dispatch_base = libxs_syr2k_dispatch_base(datatype,&
-     &      n, k, lda, lda, ldc,                                        &
-     &      jit_create_dgemm, jit_get_dgemm,                            &
-     &      jit_create_sgemm, jit_get_sgemm,                            &
-     &      xgemm_dispatch, dgemm_blas, sgemm_blas, blas_nthreads,      &
-     &      registry)
-        END FUNCTION
-
-        !> Dispatch a SYR2K config and populate config.
-        FUNCTION libxs_syr2k_dispatch_cpy_base(config, datatype,        &
-     &  n, k, lda, ldb, ldc,                                            &
-     &  jit_create_dgemm, jit_get_dgemm,                                &
-     &  jit_create_sgemm, jit_get_sgemm,                                &
-     &  xgemm_dispatch, dgemm_blas, sgemm_blas, blas_nthreads,          &
-     &  registry)
-          TYPE(libxs_gemm_config_t), INTENT(INOUT) :: config
-          INTEGER(C_INT), INTENT(IN) :: datatype, n, k
-          INTEGER(C_INT), INTENT(IN) :: lda, ldb, ldc
-          TYPE(C_FUNPTR), INTENT(IN), OPTIONAL ::                       &
-     &      jit_create_dgemm, jit_get_dgemm,                            &
-     &      jit_create_sgemm, jit_get_sgemm,                            &
-     &      xgemm_dispatch, dgemm_blas, sgemm_blas, blas_nthreads
-          TYPE(C_PTR), INTENT(IN), OPTIONAL :: registry
-          INTEGER(C_INT) :: libxs_syr2k_dispatch_cpy_base
-          TYPE(libxs_gemm_backend_t) :: be
-          TYPE(C_PTR) :: preg
-          CALL internal_gemm_backend(be,                                &
-     &      jit_create_dgemm, jit_get_dgemm,                            &
-     &      jit_create_sgemm, jit_get_sgemm,                            &
-     &      xgemm_dispatch, dgemm_blas, sgemm_blas, blas_nthreads)
-          IF (PRESENT(registry)) THEN
-            preg = registry
-          ELSE; preg = C_NULL_PTR; END IF
-          libxs_syr2k_dispatch_cpy_base = internal_syr2k_dispatch_cpy(  &
-     &      config, datatype, n, k, lda, ldb, ldc, be, preg)
-        END FUNCTION
-
-        !> Dispatch a distributed SYRK over the ranks of a communicator
-        !> (fcomm, e.g., MPI_COMM_WORLD): every rank holds n x klocal
-        !> columns of A, C is distributed as cdist with the local leading
-        !> dimension ldc. Collective; zero means all ranks fall back.
-        FUNCTION libxs_syrk_dispatch_dist_base(dist, datatype,          &
-     &  n, klocal, lda, ldc, cdist, fcomm, dgemm_blas, sgemm_blas)
-          TYPE(libxs_syrk_dist_t), INTENT(INOUT) :: dist
-          INTEGER(C_INT), INTENT(IN) :: datatype, n, klocal
-          INTEGER(C_INT), INTENT(IN) :: lda, ldc, fcomm
-          TYPE(libxs_pdist_t), INTENT(IN) :: cdist
-          TYPE(C_FUNPTR), INTENT(IN), OPTIONAL :: dgemm_blas, sgemm_blas
-          INTEGER(C_INT) :: libxs_syrk_dispatch_dist_base
-          TYPE(libxs_gemm_backend_t) :: be
-          CALL internal_gemm_backend(be, dgemm_blas=dgemm_blas,         &
-     &      sgemm_blas=sgemm_blas)
-          libxs_syrk_dispatch_dist_base = internal_syrk_dispatch_dist(  &
-     &      dist, datatype, n, klocal, lda, ldc, cdist, fcomm, be)
-        END FUNCTION
-
-        !> Dispatch a SYRK config and populate config.
-        FUNCTION libxs_syrk_dispatch_cpy_base(config, datatype,         &
-     &  n, k, lda, ldc,                                                 &
-     &  jit_create_dgemm, jit_get_dgemm,                                &
-     &  jit_create_sgemm, jit_get_sgemm,                                &
-     &  xgemm_dispatch, dgemm_blas, sgemm_blas, blas_nthreads,          &
-     &  registry)
-          TYPE(libxs_gemm_config_t), INTENT(INOUT) :: config
-          INTEGER(C_INT), INTENT(IN) :: datatype, n, k
-          INTEGER(C_INT), INTENT(IN) :: lda, ldc
-          TYPE(C_FUNPTR), INTENT(IN), OPTIONAL ::                       &
-     &      jit_create_dgemm, jit_get_dgemm,                            &
-     &      jit_create_sgemm, jit_get_sgemm,                            &
-     &      xgemm_dispatch, dgemm_blas, sgemm_blas, blas_nthreads
-          TYPE(C_PTR), INTENT(IN), OPTIONAL :: registry
-          INTEGER(C_INT) :: libxs_syrk_dispatch_cpy_base
-          libxs_syrk_dispatch_cpy_base =                                &
-     &      libxs_syr2k_dispatch_cpy_base(config, datatype,             &
-     &      n, k, lda, lda, ldc,                                        &
-     &      jit_create_dgemm, jit_get_dgemm,                            &
-     &      jit_create_sgemm, jit_get_sgemm,                            &
-     &      xgemm_dispatch, dgemm_blas, sgemm_blas, blas_nthreads,      &
-     &      registry)
+          IF (PRESENT(dist)) THEN
+            pdist = C_LOC(dist)
+          ELSE; pdist = C_NULL_PTR; END IF
+          libxs_syrk_dispatch_base = internal_syrk_dispatch(plan,       &
+     &      shape, pdist, be, preg)
         END FUNCTION
 
         !> Plan a tall-and-skinny GEMM and populate plan (see
@@ -1392,142 +1307,97 @@
           END IF
         END SUBROUTINE
 
-        ! SYR2K split over an OpenMP team unless the application
-        ! is serial or already inside a parallel region
-        SUBROUTINE internal_syr2k_run(config, uplo,                     &
-     &  alpha, beta, a, b, c)
-!$        USE OMP_LIB, ONLY: omp_in_parallel, omp_get_max_threads,      &
-!$   &      omp_get_thread_num, omp_get_num_threads
-          TYPE(libxs_gemm_config_t), INTENT(IN) :: config
-          CHARACTER(C_CHAR), INTENT(IN), VALUE :: uplo
+        ! without info, an error is reported rather than lost
+        SUBROUTINE internal_syrk_status(status, info)
+          USE, INTRINSIC :: ISO_FORTRAN_ENV, ONLY: ERROR_UNIT
+          INTEGER(C_INT), INTENT(IN) :: status
+          INTEGER(C_INT), INTENT(OUT), OPTIONAL :: info
+          IF (PRESENT(info)) THEN
+            info = status
+          ELSE IF (0 .NE. status) THEN
+            WRITE(ERROR_UNIT, "(A)")                                    &
+     &        "LIBXS ERROR: invalid or failed SYRK/SYR2K"
+          END IF
+        END SUBROUTINE
+
+        ! SYRK/SYR2K over an OpenMP team which balances itself, unless
+        ! the application is serial or already inside a parallel region
+        SUBROUTINE internal_syrk_run(plan, alpha, a, b, beta, c, info)
+!$        USE OMP_LIB, ONLY: omp_in_parallel, omp_get_max_threads
+          TYPE(libxs_syrk_t), INTENT(IN) :: plan
           REAL(C_DOUBLE), INTENT(IN), VALUE :: alpha, beta
           TYPE(C_PTR), INTENT(IN), VALUE :: a, b
           TYPE(C_PTR), VALUE :: c
-          INTEGER(C_INT) :: ntasks
+          INTEGER(C_INT), INTENT(OUT), OPTIONAL :: info
+          INTEGER(C_INT) :: ntasks, nteam, status, task
           ntasks = 1
+          nteam = 1
 !$        IF (.NOT. omp_in_parallel()) THEN
-!$          ntasks = libxs_syrk_ntasks(config,                          &
-!$   &        INT(omp_get_max_threads(), C_INT))
+!$          nteam = INT(omp_get_max_threads(), C_INT)
+!$          ntasks = libxs_syrk_ntasks(plan, nteam)
 !$        END IF
           IF (1 .LT. ntasks) THEN
-!$OMP PARALLEL NUM_THREADS(ntasks) DEFAULT(NONE)                        &
-!$OMP&  SHARED(config, uplo, alpha, beta, a, b, c)
-!$          CALL libxs_syr2k_task(config, uplo, alpha, beta, a, b, c,   &
-!$   &        INT(omp_get_thread_num(), C_INT),                         &
-!$   &        INT(omp_get_num_threads(), C_INT))
-!$OMP END PARALLEL
+            status = 0
+            nteam = MIN(nteam, ntasks)
+!$OMP PARALLEL DO SCHEDULE(DYNAMIC) NUM_THREADS(nteam)                  &
+!$OMP&  DEFAULT(NONE) PRIVATE(task) REDUCTION(MAX:status)               &
+!$OMP&  SHARED(plan, alpha, a, b, beta, c, ntasks)
+            DO task = 0, ntasks - 1
+              status = MAX(status, internal_syrk_task(plan,             &
+     &          alpha, a, b, beta, c, task, ntasks))
+            END DO
+!$OMP END PARALLEL DO
           ELSE
-            CALL internal_syr2k(config, uplo, alpha, beta, a, b, c)
+            status = internal_syrk(plan, alpha, a, b, beta, c)
           END IF
+          CALL internal_syrk_status(status, info)
         END SUBROUTINE
 
-        ! SYRK split over an OpenMP team unless the application
-        ! is serial or already inside a parallel region
-        SUBROUTINE internal_syrk_run(config, uplo,                      &
-     &  alpha, beta, a, c)
-!$        USE OMP_LIB, ONLY: omp_in_parallel, omp_get_max_threads,      &
-!$   &      omp_get_thread_num, omp_get_num_threads
-          TYPE(libxs_gemm_config_t), INTENT(IN) :: config
-          CHARACTER(C_CHAR), INTENT(IN), VALUE :: uplo
+        !> SYRK of a plan (collective if distributed).
+        SUBROUTINE libxs_syrk_plan(plan, alpha, a, beta, c, info)
+          TYPE(libxs_syrk_t), INTENT(IN) :: plan
           REAL(C_DOUBLE), INTENT(IN), VALUE :: alpha, beta
           TYPE(C_PTR), INTENT(IN), VALUE :: a
           TYPE(C_PTR), VALUE :: c
-          INTEGER(C_INT) :: ntasks
-          ntasks = 1
-!$        IF (.NOT. omp_in_parallel()) THEN
-!$          ntasks = libxs_syrk_ntasks(config,                          &
-!$   &        INT(omp_get_max_threads(), C_INT))
-!$        END IF
-          IF (1 .LT. ntasks) THEN
-!$OMP PARALLEL NUM_THREADS(ntasks) DEFAULT(NONE)                        &
-!$OMP&  SHARED(config, uplo, alpha, beta, a, c)
-!$          CALL libxs_syrk_task(config, uplo, alpha, beta, a, c,       &
-!$   &        INT(omp_get_thread_num(), C_INT),                         &
-!$   &        INT(omp_get_num_threads(), C_INT))
-!$OMP END PARALLEL
-          ELSE
-            CALL internal_syrk(config, uplo, alpha, beta, a, c)
-          END IF
+          INTEGER(C_INT), INTENT(OUT), OPTIONAL :: info
+          CALL internal_syrk_run(plan,                                  &
+     &      alpha, a, C_NULL_PTR, beta, c, info)
         END SUBROUTINE
 
-        !> SYR2K with pre-dispatched config.
-        SUBROUTINE libxs_syr2k_config(config, uplo,                     &
-     &  alpha, beta, a, b, c)
-          TYPE(libxs_gemm_config_t), INTENT(IN), TARGET :: config
-          CHARACTER(C_CHAR), INTENT(IN), VALUE :: uplo
+        !> SYR2K of a plan (collective if distributed).
+        SUBROUTINE libxs_syr2k_plan(plan, alpha, a, b, beta, c, info)
+          TYPE(libxs_syrk_t), INTENT(IN) :: plan
           REAL(C_DOUBLE), INTENT(IN), VALUE :: alpha, beta
           TYPE(C_PTR), INTENT(IN), VALUE :: a, b
           TYPE(C_PTR), VALUE :: c
-          CALL internal_syr2k_run(config, uplo, alpha, beta, a, b, c)
+          INTEGER(C_INT), INTENT(OUT), OPTIONAL :: info
+          CALL internal_syrk_run(plan, alpha, a, b, beta, c, info)
         END SUBROUTINE
 
-        !> SYR2K direct (dispatch + call).
-        SUBROUTINE libxs_syr2k_direct(datatype, n, k,                   &
-     &  lda, ldb, ldc, uplo, alpha, beta, a, b, c, registry)
-          INTEGER(C_INT), INTENT(IN) :: datatype, n, k
-          INTEGER(C_INT), INTENT(IN) :: lda, ldb, ldc
-          CHARACTER(C_CHAR), INTENT(IN), VALUE :: uplo
-          REAL(C_DOUBLE), INTENT(IN) :: alpha, beta
-          TYPE(C_PTR), INTENT(IN) :: a, b
-          TYPE(C_PTR) :: c
-          TYPE(C_PTR), INTENT(IN), OPTIONAL :: registry
-          TYPE(libxs_gemm_config_t) :: cfg
-          TYPE(C_PTR) :: preg
-          IF (PRESENT(registry)) THEN
-            preg = registry
-          ELSE; preg = C_NULL_PTR; END IF
-          ! the config stays in this frame, hence the copy flavor: a
-          ! shape without kernel then owns no registry entry
-          IF (0 .NE. libxs_syr2k_dispatch_cpy_base(cfg, datatype,       &
-     &      n, k, lda, ldb, ldc, registry=preg)) THEN
-            CALL internal_syr2k_run(cfg, uplo, alpha, beta, a, b, c)
-          END IF
-        END SUBROUTINE
-
-        !> Distributed SYRK over the ranks of the dispatched communicator
-        !> (collective, see libxs_syrk_dispatch_dist_base).
-        SUBROUTINE libxs_syrk_dist(dist, uplo, alpha, beta, a, c)
-          TYPE(libxs_syrk_dist_t), INTENT(IN) :: dist
-          CHARACTER(C_CHAR), INTENT(IN), VALUE :: uplo
+        !> One task of SYRK (see libxs_syrk_task).
+        SUBROUTINE libxs_syrk_plan_task(plan, alpha, a, beta, c,        &
+     &  tid, ntasks, info)
+          TYPE(libxs_syrk_t), INTENT(IN) :: plan
           REAL(C_DOUBLE), INTENT(IN), VALUE :: alpha, beta
           TYPE(C_PTR), INTENT(IN), VALUE :: a
           TYPE(C_PTR), VALUE :: c
-          ! the config is the first component: C finds dist from it
-          CALL internal_syrk(dist%config, uplo, alpha, beta, a, c)
+          INTEGER(C_INT), INTENT(IN), VALUE :: tid, ntasks
+          INTEGER(C_INT), INTENT(OUT), OPTIONAL :: info
+          CALL internal_syrk_status(internal_syrk_task(plan,            &
+     &      alpha, a, C_NULL_PTR, beta, c, tid, ntasks), info)
         END SUBROUTINE
 
-        !> SYRK with pre-dispatched config.
-        SUBROUTINE libxs_syrk_config(config, uplo,                      &
-     &  alpha, beta, a, c)
-          TYPE(libxs_gemm_config_t), INTENT(IN), TARGET :: config
-          CHARACTER(C_CHAR), INTENT(IN), VALUE :: uplo
+        !> One task of SYR2K (see libxs_syrk_task).
+        SUBROUTINE libxs_syr2k_plan_task(plan, alpha, a, b, beta, c,    &
+     &  tid, ntasks, info)
+          TYPE(libxs_syrk_t), INTENT(IN) :: plan
           REAL(C_DOUBLE), INTENT(IN), VALUE :: alpha, beta
-          TYPE(C_PTR), INTENT(IN), VALUE :: a
+          TYPE(C_PTR), INTENT(IN), VALUE :: a, b
           TYPE(C_PTR), VALUE :: c
-          CALL internal_syrk_run(config, uplo, alpha, beta, a, c)
-        END SUBROUTINE
-
-        !> SYRK direct (dispatch + call).
-        SUBROUTINE libxs_syrk_direct(datatype, n, k,                    &
-     &  lda, ldc, uplo, alpha, beta, a, c, registry)
-          INTEGER(C_INT), INTENT(IN) :: datatype, n, k
-          INTEGER(C_INT), INTENT(IN) :: lda, ldc
-          CHARACTER(C_CHAR), INTENT(IN), VALUE :: uplo
-          REAL(C_DOUBLE), INTENT(IN) :: alpha, beta
-          TYPE(C_PTR), INTENT(IN) :: a
-          TYPE(C_PTR) :: c
-          TYPE(C_PTR), INTENT(IN), OPTIONAL :: registry
-          TYPE(libxs_gemm_config_t) :: cfg
-          TYPE(C_PTR) :: preg
-          IF (PRESENT(registry)) THEN
-            preg = registry
-          ELSE; preg = C_NULL_PTR; END IF
-          ! the config stays in this frame, hence the copy flavor: a
-          ! shape without kernel then owns no registry entry
-          IF (0 .NE. libxs_syrk_dispatch_cpy_base(cfg, datatype,        &
-     &      n, k, lda, ldc, registry=preg)) THEN
-            CALL internal_syrk_run(cfg, uplo, alpha, beta, a, c)
-          END IF
+          INTEGER(C_INT), INTENT(IN), VALUE :: tid, ntasks
+          INTEGER(C_INT), INTENT(OUT), OPTIONAL :: info
+          CALL internal_syrk_status(internal_syrk_task(plan,            &
+     &      alpha, a, b, beta, c, tid, ntasks), info)
         END SUBROUTINE
 
         ! TAS split over an OpenMP team unless the application

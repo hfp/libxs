@@ -28,10 +28,6 @@ typedef int (*internal_libxs_blas_query_t)(void);
 
 
 /* GEMM settings and resolved entry points shared by SYRK and TAS (libxs_gemm.c) */
-LIBXS_APIVAR_PRIVATE(int internal_libxs_gemm_bm);
-LIBXS_APIVAR_PRIVATE(int internal_libxs_gemm_bn);
-LIBXS_APIVAR_PRIVATE(int internal_libxs_gemm_bk);
-LIBXS_APIVAR_PRIVATE(int internal_libxs_gemm_panel);
 LIBXS_APIVAR_PRIVATE(int internal_libxs_gemm_jit_max);
 LIBXS_APIVAR_PRIVATE(int internal_libxs_gemm_backend);
 LIBXS_APIVAR_PRIVATE(libxs_gemm_dblas_t internal_libxs_dgemm_blas);

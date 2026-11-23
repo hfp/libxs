@@ -46,11 +46,19 @@ LIBXS_API_INTERN int internal_libxs_mpi_classify(const char version[]);
  * EXIT_SUCCESS, or an error without (known) MPI, before MPI_Init, or after MPI_Finalize.
  */
 LIBXS_API_INTERN int internal_libxs_mpi_comm(internal_libxs_mpi_comm_t* comm, int fcomm);
+/** Replaces comm by a duplicate, which keeps the traffic apart (collective, see internal_libxs_mpi_free). */
+LIBXS_API_INTERN int internal_libxs_mpi_dup(internal_libxs_mpi_comm_t* comm);
+/** Frees a duplicate (collective), unless MPI is finalized. */
+LIBXS_API_INTERN void internal_libxs_mpi_free(internal_libxs_mpi_comm_t* comm);
+/** Non-zero if any thread may call MPI, one at a time (MPI_THREAD_SERIALIZED or higher). */
+LIBXS_API_INTERN int internal_libxs_mpi_serialized(void);
+/** Non-zero if the caller is the thread that initialized MPI. */
+LIBXS_API_INTERN int internal_libxs_mpi_main_thread(void);
 /**
  * Blocking exchange of bytes (a ring step): send to dst and receive from src, either of which may be
- * the caller. The traffic uses the caller's communicator with a reserved tag, i.e., no wildcard receive
- * may be pending on that communicator meanwhile. Both sides must agree on the sizes. Beyond INT_MAX bytes,
- * an exchange is split into messages of equal size.
+ * the caller. The traffic has a reserved tag, and a communicator of its own if that is a duplicate
+ * (internal_libxs_mpi_dup). Both sides must agree on the sizes. Beyond INT_MAX bytes, an exchange is
+ * split into messages of equal size.
  */
 LIBXS_API_INTERN int internal_libxs_mpi_sendrecv(const internal_libxs_mpi_comm_t* comm,
   const void* sbuf, size_t nsend, int dst, void* rbuf, size_t nrecv, int src);

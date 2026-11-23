@@ -26,6 +26,8 @@
 /* MPICH ABI (MPICH, Intel MPI, MVAPICH, Cray MPICH): mpi.h of MPICH 4.2 */
 #define INTERNAL_LIBXS_MPICH_BYTE 0x4c00010d
 #define INTERNAL_LIBXS_MPICH_STATUS_IGNORE ((void*)1)
+/* MPI_THREAD_SERIALIZED, the same value in either family */
+#define INTERNAL_LIBXS_MPI_SERIALIZED 2
 
 
 /* Prototypes of the MPI functions used: handles are int (MPICH family) or pointers (Open MPI) */
@@ -41,14 +43,20 @@ typedef int (*internal_libxs_mpi_irecv_i_t)(void*, int, int, int, int, int, int*
 typedef int (*internal_libxs_mpi_irecv_p_t)(void*, int, void*, int, int, void*, void**);
 typedef int (*internal_libxs_mpi_wait_i_t)(int*, void*);
 typedef int (*internal_libxs_mpi_wait_p_t)(void**, void*);
+typedef int (*internal_libxs_mpi_dup_i_t)(int, int*);
+typedef int (*internal_libxs_mpi_dup_p_t)(void*, void**);
+typedef int (*internal_libxs_mpi_free_i_t)(int*);
+typedef int (*internal_libxs_mpi_free_p_t)(void**);
 
 typedef struct internal_libxs_mpi_t {
-  internal_libxs_mpi_query_t initialized, finalized;
+  internal_libxs_mpi_query_t initialized, finalized, query_thread, is_main_thread;
   internal_libxs_mpi_f2c_t f2c;
   union { internal_libxs_mpi_info_i_t i; internal_libxs_mpi_info_p_t p; } rank, size;
   union { internal_libxs_mpi_isend_i_t i; internal_libxs_mpi_isend_p_t p; } isend;
   union { internal_libxs_mpi_irecv_i_t i; internal_libxs_mpi_irecv_p_t p; } irecv;
   union { internal_libxs_mpi_wait_i_t i; internal_libxs_mpi_wait_p_t p; } wait;
+  union { internal_libxs_mpi_dup_i_t i; internal_libxs_mpi_dup_p_t p; } dup;
+  union { internal_libxs_mpi_free_i_t i; internal_libxs_mpi_free_p_t p; } release;
   internal_libxs_mpi_handle_t byte;
   void* status_ignore;
   int family, resolved;
@@ -97,9 +105,14 @@ LIBXS_API_INLINE int internal_libxs_mpi_vote(const char* env, internal_libxs_mpi
   void *const visend = internal_libxs_mpi_dlsym("MPI_Isend");
   void *const virecv = internal_libxs_mpi_dlsym("MPI_Irecv");
   void *const vwait = internal_libxs_mpi_dlsym("MPI_Wait");
+  void *const vdup = internal_libxs_mpi_dlsym("MPI_Comm_dup");
+  void *const vfree = internal_libxs_mpi_dlsym("MPI_Comm_free");
+  void *const vquery = internal_libxs_mpi_dlsym("MPI_Query_thread");
+  void *const vmain = internal_libxs_mpi_dlsym("MPI_Is_thread_main");
   int result = INTERNAL_LIBXS_MPI_NONE;
   if (NULL != vinit && NULL != vfini && NULL != vversion && NULL != vrank && NULL != vsize
-    && NULL != visend && NULL != virecv && NULL != vwait)
+    && NULL != visend && NULL != virecv && NULL != vwait
+    && NULL != vdup && NULL != vfree && NULL != vquery && NULL != vmain)
   {
     void *const vabi = internal_libxs_mpi_dlsym("MPI_Abi_get_version");
     void *const vbyte = internal_libxs_mpi_dlsym("ompi_mpi_byte");
@@ -134,6 +147,8 @@ LIBXS_API_INLINE int internal_libxs_mpi_vote(const char* env, internal_libxs_mpi
     if (INTERNAL_LIBXS_MPI_NONE != result) {
       LIBXS_FPTR_FROM_VPTR(internal_libxs_mpi_query_t, mpi->initialized, vinit);
       LIBXS_FPTR_FROM_VPTR(internal_libxs_mpi_query_t, mpi->finalized, vfini);
+      LIBXS_FPTR_FROM_VPTR(internal_libxs_mpi_query_t, mpi->query_thread, vquery);
+      LIBXS_FPTR_FROM_VPTR(internal_libxs_mpi_query_t, mpi->is_main_thread, vmain);
     }
     if (INTERNAL_LIBXS_MPI_MPICH == result) {
       LIBXS_FPTR_FROM_VPTR(internal_libxs_mpi_info_i_t, mpi->rank.i, vrank);
@@ -141,6 +156,8 @@ LIBXS_API_INLINE int internal_libxs_mpi_vote(const char* env, internal_libxs_mpi
       LIBXS_FPTR_FROM_VPTR(internal_libxs_mpi_isend_i_t, mpi->isend.i, visend);
       LIBXS_FPTR_FROM_VPTR(internal_libxs_mpi_irecv_i_t, mpi->irecv.i, virecv);
       LIBXS_FPTR_FROM_VPTR(internal_libxs_mpi_wait_i_t, mpi->wait.i, vwait);
+      LIBXS_FPTR_FROM_VPTR(internal_libxs_mpi_dup_i_t, mpi->dup.i, vdup);
+      LIBXS_FPTR_FROM_VPTR(internal_libxs_mpi_free_i_t, mpi->release.i, vfree);
       mpi->byte.i = INTERNAL_LIBXS_MPICH_BYTE;
       mpi->status_ignore = INTERNAL_LIBXS_MPICH_STATUS_IGNORE;
     }
@@ -151,6 +168,8 @@ LIBXS_API_INLINE int internal_libxs_mpi_vote(const char* env, internal_libxs_mpi
       LIBXS_FPTR_FROM_VPTR(internal_libxs_mpi_isend_p_t, mpi->isend.p, visend);
       LIBXS_FPTR_FROM_VPTR(internal_libxs_mpi_irecv_p_t, mpi->irecv.p, virecv);
       LIBXS_FPTR_FROM_VPTR(internal_libxs_mpi_wait_p_t, mpi->wait.p, vwait);
+      LIBXS_FPTR_FROM_VPTR(internal_libxs_mpi_dup_p_t, mpi->dup.p, vdup);
+      LIBXS_FPTR_FROM_VPTR(internal_libxs_mpi_free_p_t, mpi->release.p, vfree);
       mpi->byte.p = vbyte;
       mpi->status_ignore = NULL;
     }
@@ -228,6 +247,53 @@ LIBXS_API_INTERN int internal_libxs_mpi_comm(internal_libxs_mpi_comm_t* comm, in
     }
   }
   return result;
+}
+
+
+LIBXS_API_INTERN int internal_libxs_mpi_dup(internal_libxs_mpi_comm_t* comm)
+{
+  const int family = internal_libxs_mpi.family;
+  int result = ((NULL != comm && INTERNAL_LIBXS_MPI_NONE != family) ? EXIT_SUCCESS : EXIT_FAILURE);
+  if (EXIT_SUCCESS == result) {
+    internal_libxs_mpi_handle_t own;
+    own.p = NULL;
+    if (INTERNAL_LIBXS_MPI_MPICH == family) {
+      if (0 != internal_libxs_mpi.dup.i(comm->comm.i, &own.i)) result = EXIT_FAILURE;
+    }
+    else if (0 != internal_libxs_mpi.dup.p(comm->comm.p, &own.p)) result = EXIT_FAILURE;
+    if (EXIT_SUCCESS == result) comm->comm = own;
+  }
+  return result;
+}
+
+
+LIBXS_API_INTERN void internal_libxs_mpi_free(internal_libxs_mpi_comm_t* comm)
+{
+  const int family = internal_libxs_mpi.family;
+  int finalized = 1;
+  if (NULL != comm && 0 < comm->size && INTERNAL_LIBXS_MPI_NONE != family
+    && 0 == internal_libxs_mpi.finalized(&finalized) && 0 == finalized)
+  {
+    if (INTERNAL_LIBXS_MPI_MPICH == family) internal_libxs_mpi.release.i(&comm->comm.i);
+    else internal_libxs_mpi.release.p(&comm->comm.p);
+    comm->size = 0;
+  }
+}
+
+
+LIBXS_API_INTERN int internal_libxs_mpi_serialized(void)
+{
+  int level = 0;
+  return (INTERNAL_LIBXS_MPI_NONE != internal_libxs_mpi.family
+    && 0 == internal_libxs_mpi.query_thread(&level) && INTERNAL_LIBXS_MPI_SERIALIZED <= level);
+}
+
+
+LIBXS_API_INTERN int internal_libxs_mpi_main_thread(void)
+{
+  int flag = 0;
+  return (INTERNAL_LIBXS_MPI_NONE != internal_libxs_mpi.family
+    && 0 == internal_libxs_mpi.is_main_thread(&flag) && 0 != flag);
 }
 
 

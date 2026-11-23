@@ -107,10 +107,10 @@
 
         PUBLIC :: libxs_gemm_backend_t
         PUBLIC :: libxs_gemm_shape_t, libxs_gemm_config_t
-        PUBLIC :: libxs_pdist_t, libxs_syrk_dist_t
+        PUBLIC :: libxs_syrk_shape_t, libxs_pdist_t, libxs_syrk_t
         PUBLIC :: LIBXS_GEMM_FLAGS_DEFAULT, LIBXS_GEMM_FLAG_NOLOCK
         PUBLIC :: LIBXS_GEMM_FLAG_OWNJIT, LIBXS_GEMM_FLAG_STREAM
-        PUBLIC :: LIBXS_GEMM_FLAG_REUSE, LIBXS_GEMM_FLAG_DIST
+        PUBLIC :: LIBXS_GEMM_FLAG_REUSE
         PUBLIC :: LIBXS_GEMM_KIND_DEFAULT, LIBXS_GEMM_KIND_BLAS
         PUBLIC :: LIBXS_GEMM_KIND_JIT
         PUBLIC :: libxs_gemm_call
@@ -118,8 +118,7 @@
         PUBLIC :: libxs_gemm_config_cpy
         PUBLIC :: libxs_gemm_batch, libxs_gemm_batch_task
         PUBLIC :: libxs_gemm_index, libxs_gemm_index_task
-        PUBLIC :: libxs_syr2k, libxs_syrk
-        PUBLIC :: libxs_syr2k_task, libxs_syrk_task
+        PUBLIC :: libxs_syrk, libxs_syrk_task, libxs_syrk_release
         PUBLIC :: libxs_syrk_ntasks, libxs_gemm_ntasks
         PUBLIC :: libxs_gemm_release_registry
         PUBLIC :: libxs_tas_t, libxs_tas, libxs_tas_task
@@ -197,14 +196,12 @@
         !> GEMM batch flags (bitfield).
         !> LIBXS_GEMM_FLAG_OWNJIT marks the config owning the JIT handle.
         !> STREAM and REUSE are dispatch hints (see libxs_gemm_flags_t).
-        !> DIST marks a config embedded in libxs_syrk_dist_t.
         INTEGER(C_INT), PARAMETER ::                                    &
      &    LIBXS_GEMM_FLAGS_DEFAULT = 0,                                 &
      &    LIBXS_GEMM_FLAG_NOLOCK   = 1,                                 &
      &    LIBXS_GEMM_FLAG_OWNJIT   = 2,                                 &
      &    LIBXS_GEMM_FLAG_STREAM   = 4,                                 &
-     &    LIBXS_GEMM_FLAG_REUSE    = 8,                                 &
-     &    LIBXS_GEMM_FLAG_DIST     = 16
+     &    LIBXS_GEMM_FLAG_REUSE    = 8
 
         !> Kind of kernel serving a GEMM (libxs_gemm_backend_kind):
         !> built-in, external BLAS, or generated (MKL JIT, LIBXSMM).
@@ -418,22 +415,34 @@
           TYPE(libxs_gemm_shape_t) :: shape
         END TYPE
 
-        !> Block-cyclic layout (libxs_syrk_dispatch): ScaLAPACK
-        !> descriptor values plus the rank of every grid position, i.e.,
-        !> C_LOC of an INTEGER(C_INT) array (column-major, e.g., BLACS'
-        !> mapping) that outlives the config dispatched with it.
+        !> Shape of SYRK (ldb=0) or SYR2K, see libxs_syrk_shape_t in C.
+        !> If distributed, k is the share of this rank, and ldc belongs
+        !> to the rank's part of C.
+        TYPE, BIND(C) :: libxs_syrk_shape_t
+          INTEGER(C_INT)    :: datatype = 0
+          CHARACTER(C_CHAR) :: uplo = C_NULL_CHAR
+          CHARACTER(C_CHAR) :: trans = C_NULL_CHAR
+          INTEGER(C_INT)    :: n = 0, k = 0
+          INTEGER(C_INT)    :: lda = 0, ldb = 0, ldc = 0
+        END TYPE
+
+        !> Block-cyclic layout of C: communicator, ScaLAPACK descriptor
+        !> values, and C_LOC of the INTEGER(C_INT) ranks of the grid
+        !> (column-major, e.g., BLACS' mapping), copied by dispatch.
         TYPE, BIND(C) :: libxs_pdist_t
-          INTEGER(C_INT) :: m = 0, n = 0, mb = 0, nb = 0
-          INTEGER(C_INT) :: nprow = 0, npcol = 0
+          INTEGER(C_INT) :: fcomm = 0
+          INTEGER(C_INT) :: mb = 0, nb = 0, nprow = 0, npcol = 0
           INTEGER(C_INT) :: rsrc = 0, csrc = 0
           TYPE(C_PTR)    :: ranks = C_NULL_PTR
         END TYPE
 
-        !> Distributed SYRK (libxs_syrk_dispatch, libxs_syrk).
-        TYPE, BIND(C) :: libxs_syrk_dist_t
-          TYPE(libxs_gemm_config_t) :: config
-          TYPE(libxs_pdist_t) :: cdist
-          INTEGER(C_INT) :: fcomm = 0
+        !> Plan of SYRK or SYR2K, local or distributed. A distributed
+        !> plan is released collectively (libxs_syrk_release).
+        TYPE, BIND(C) :: libxs_syrk_t
+          TYPE(libxs_syrk_shape_t)  :: shape
+          TYPE(libxs_gemm_config_t) :: gemm
+          INTEGER(C_INT) :: width = 0, height = 0, ntiles = 0
+          TYPE(C_PTR)    :: dist = C_NULL_PTR
         END TYPE
 
         !> Tall-and-skinny GEMM plan (populated by libxs_tas_dispatch).
@@ -481,15 +490,9 @@
           MODULE PROCEDURE libxs_gemm_call_direct
         END INTERFACE
 
-        INTERFACE libxs_syr2k
-          MODULE PROCEDURE libxs_syr2k_config
-          MODULE PROCEDURE libxs_syr2k_direct
-        END INTERFACE
-
-        INTERFACE libxs_syrk
-          MODULE PROCEDURE libxs_syrk_config
-          MODULE PROCEDURE libxs_syrk_dist
-          MODULE PROCEDURE libxs_syrk_direct
+        INTERFACE libxs_syrk_task
+          MODULE PROCEDURE libxs_syrk_plan_task
+          MODULE PROCEDURE libxs_syr2k_plan_task
         END INTERFACE
 
         INTERFACE libxs_tas
@@ -1076,65 +1079,33 @@
           END FUNCTION
 
           ! internal C binding
-          SUBROUTINE internal_syr2k(config, uplo,                       &
-     &    alpha, beta, a, b, c)                                         &
-     &    BIND(C, NAME="libxs_syr2k")
-            IMPORT :: libxs_gemm_config_t,                              &
-     &        C_PTR, C_DOUBLE, C_CHAR
-            TYPE(libxs_gemm_config_t), INTENT(IN) :: config
-            CHARACTER(C_CHAR), INTENT(IN), VALUE :: uplo
+          FUNCTION internal_syrk(plan, alpha, a, b, beta, c)            &
+     &    RESULT(status) BIND(C, NAME="libxs_syrk")
+            IMPORT :: libxs_syrk_t, C_PTR, C_DOUBLE, C_INT
+            TYPE(libxs_syrk_t), INTENT(IN) :: plan
             REAL(C_DOUBLE), INTENT(IN), VALUE :: alpha, beta
             TYPE(C_PTR), INTENT(IN), VALUE :: a, b
             TYPE(C_PTR), VALUE :: c
-          END SUBROUTINE
+            INTEGER(C_INT) :: status
+          END FUNCTION
 
           ! internal C binding
-          SUBROUTINE internal_syrk(config, uplo,                        &
-     &    alpha, beta, a, c)                                            &
-     &    BIND(C, NAME="libxs_syrk")
-            IMPORT :: libxs_gemm_config_t,                              &
-     &        C_PTR, C_DOUBLE, C_CHAR
-            TYPE(libxs_gemm_config_t), INTENT(IN) :: config
-            CHARACTER(C_CHAR), INTENT(IN), VALUE :: uplo
+          FUNCTION internal_syrk_task(plan, alpha, a, b, beta, c,       &
+     &    tid, ntasks) RESULT(status)                                   &
+     &    BIND(C, NAME="libxs_syrk_task")
+            IMPORT :: libxs_syrk_t, C_PTR, C_DOUBLE, C_INT
+            TYPE(libxs_syrk_t), INTENT(IN) :: plan
             REAL(C_DOUBLE), INTENT(IN), VALUE :: alpha, beta
-            TYPE(C_PTR), INTENT(IN), VALUE :: a
-            TYPE(C_PTR), VALUE :: c
-          END SUBROUTINE
-
-          !> Symmetric rank-2k update (per-thread).
-          SUBROUTINE libxs_syr2k_task(config, uplo,                     &
-     &    alpha, beta, a, b, c, tid, ntasks)                            &
-     &    BIND(C)
-            IMPORT :: libxs_gemm_config_t,                              &
-     &        C_PTR, C_DOUBLE, C_CHAR, C_INT
-            TYPE(libxs_gemm_config_t), INTENT(IN) ::                    &
-     &        config
-            CHARACTER(C_CHAR), INTENT(IN), VALUE ::                     &
-     &        uplo
-            REAL(C_DOUBLE), INTENT(IN), VALUE ::                        &
-     &        alpha, beta
             TYPE(C_PTR), INTENT(IN), VALUE :: a, b
             TYPE(C_PTR), VALUE :: c
-            INTEGER(C_INT), INTENT(IN), VALUE ::                        &
-     &        tid, ntasks
-          END SUBROUTINE
+            INTEGER(C_INT), INTENT(IN), VALUE :: tid, ntasks
+            INTEGER(C_INT) :: status
+          END FUNCTION
 
-          !> Symmetric rank-k update (per-thread).
-          SUBROUTINE libxs_syrk_task(config, uplo,                      &
-     &    alpha, beta, a, c, tid, ntasks)                               &
-     &    BIND(C)
-            IMPORT :: libxs_gemm_config_t,                              &
-     &        C_PTR, C_DOUBLE, C_CHAR, C_INT
-            TYPE(libxs_gemm_config_t), INTENT(IN) ::                    &
-     &        config
-            CHARACTER(C_CHAR), INTENT(IN), VALUE ::                     &
-     &        uplo
-            REAL(C_DOUBLE), INTENT(IN), VALUE ::                        &
-     &        alpha, beta
-            TYPE(C_PTR), INTENT(IN), VALUE :: a
-            TYPE(C_PTR), VALUE :: c
-            INTEGER(C_INT), INTENT(IN), VALUE ::                        &
-     &        tid, ntasks
+          !> Release a plan (collective if distributed).
+          SUBROUTINE libxs_syrk_release(plan) BIND(C)
+            IMPORT :: libxs_syrk_t
+            TYPE(libxs_syrk_t), INTENT(INOUT) :: plan
           END SUBROUTINE
 
           !> Tasks worth splitting a GEMM batch into (1: unsplit).
@@ -1146,10 +1117,10 @@
             INTEGER(C_INT) :: libxs_gemm_ntasks
           END FUNCTION
 
-          !> Tasks worth splitting SYRK/SYR2K into (1: unsplit).
-          FUNCTION libxs_syrk_ntasks(config, nthreads) BIND(C)
-            IMPORT :: libxs_gemm_config_t, C_INT
-            TYPE(libxs_gemm_config_t), INTENT(IN) :: config
+          !> Tasks worth running with nthreads (see libxs_syrk_ntasks).
+          FUNCTION libxs_syrk_ntasks(plan, nthreads) BIND(C)
+            IMPORT :: libxs_syrk_t, C_INT
+            TYPE(libxs_syrk_t), INTENT(IN) :: plan
             INTEGER(C_INT), INTENT(IN), VALUE :: nthreads
             INTEGER(C_INT) :: libxs_syrk_ntasks
           END FUNCTION
@@ -1360,39 +1331,17 @@
      &        batchsize, tid, ntasks
           END SUBROUTINE
 
-          FUNCTION internal_syr2k_dispatch_cpy(config, datatype,        &
-     &    n, k, lda, ldb, ldc, backend, registry)                       &
-     &    BIND(C, NAME="libxs_syr2k_dispatch_cpy_rt")
-            IMPORT :: libxs_gemm_config_t, libxs_gemm_backend_t,        &
-     &        C_PTR, C_INT
-            TYPE(libxs_gemm_config_t), INTENT(INOUT) :: config
-            INTEGER(C_INT), INTENT(IN), VALUE ::                        &
-     &        datatype, n, k, lda, ldb, ldc
+          FUNCTION internal_syrk_dispatch(plan, shape, dist,            &
+     &    backend, registry)                                            &
+     &    BIND(C, NAME="libxs_syrk_dispatch_rt")
+            IMPORT :: libxs_syrk_t, libxs_syrk_shape_t,                 &
+     &        libxs_gemm_backend_t, C_PTR, C_INT
+            TYPE(libxs_syrk_t), INTENT(INOUT) :: plan
+            TYPE(libxs_syrk_shape_t), INTENT(IN) :: shape
+            TYPE(C_PTR), INTENT(IN), VALUE :: dist
             TYPE(libxs_gemm_backend_t), INTENT(IN) :: backend
             TYPE(C_PTR), INTENT(IN), VALUE :: registry
-            INTEGER(C_INT) :: internal_syr2k_dispatch_cpy
-          END FUNCTION
-          FUNCTION internal_syrk_dispatch_dist(dist, datatype,          &
-     &    n, klocal, lda, ldc, cdist, fcomm, backend)                   &
-     &    BIND(C, NAME="libxs_syrk_dispatch_dist")
-            IMPORT :: libxs_syrk_dist_t, libxs_pdist_t,                 &
-     &        libxs_gemm_backend_t, C_INT
-            TYPE(libxs_syrk_dist_t), INTENT(INOUT) :: dist
-            INTEGER(C_INT), INTENT(IN), VALUE ::                        &
-     &        datatype, n, klocal, lda, ldc, fcomm
-            TYPE(libxs_pdist_t), INTENT(IN) :: cdist
-            TYPE(libxs_gemm_backend_t), INTENT(IN) :: backend
-            INTEGER(C_INT) :: internal_syrk_dispatch_dist
-          END FUNCTION
-          FUNCTION internal_syr2k_dispatch(datatype,                    &
-     &    n, k, lda, ldb, ldc, backend, registry)                       &
-     &    BIND(C, NAME="libxs_syr2k_dispatch_rt")
-            IMPORT :: libxs_gemm_backend_t, C_PTR, C_INT
-            INTEGER(C_INT), INTENT(IN), VALUE ::                        &
-     &        datatype, n, k, lda, ldb, ldc
-            TYPE(libxs_gemm_backend_t), INTENT(IN) :: backend
-            TYPE(C_PTR), INTENT(IN), VALUE :: registry
-            TYPE(C_PTR) :: internal_syr2k_dispatch
+            INTEGER(C_INT) :: internal_syrk_dispatch
           END FUNCTION
 
           FUNCTION libxs_predict_create(ninputs, noutputs)              &

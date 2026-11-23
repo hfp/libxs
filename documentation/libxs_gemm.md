@@ -252,15 +252,17 @@ name one flavor each, which is what C has to do throughout:
 | Operation | C pointer | C copy | Fortran (either) | Fortran pointer | Fortran copy |
 | :--- | :--- | :--- | :--- | :--- | :--- |
 | GEMM | `libxs_gemm_dispatch` | `libxs_gemm_dispatch_cpy` | `libxs_gemm_dispatch` | `libxs_gemm_dispatch_ptr` | `libxs_gemm_dispatch` |
-| SYR2K | `libxs_syr2k_dispatch` | `libxs_syr2k_dispatch_cpy` | `libxs_syr2k_dispatch` | `libxs_syr2k_dispatch` | `libxs_syr2k_dispatch_cpy` |
-| SYRK | `libxs_syrk_dispatch` | `libxs_syrk_dispatch_cpy` | `libxs_syrk_dispatch` | `libxs_syrk_dispatch` | `libxs_syrk_dispatch_cpy` |
 
 The result type follows the flavor, so the call tells which one ran:
 
 ```fortran
-ptr = libxs_syrk_dispatch(LIBXS_DATATYPE_F64, n, k, lda, ldc)
-rc = libxs_syrk_dispatch(config, LIBXS_DATATYPE_F64, n, k, lda, ldc)
+ptr = libxs_gemm_dispatch(LIBXS_DATATYPE_F64,
+     &  'N', 'N', m, n, k, lda, ldb, ldc, alpha, beta)
+rc = libxs_gemm_dispatch(config, LIBXS_DATATYPE_F64,
+     &  'N', 'N', m, n, k, lda, ldb, ldc, alpha, beta)
 ```
+
+A [SYRK](libxs_syrk.md) plan is a value, and has a single dispatch.
 
 All of the above are inlines (or Fortran wrappers) that detect the
 backend at the caller's compile time (see
@@ -271,8 +273,6 @@ exported by the library itself:
 | Operation | Explicit backend (library symbol) | Caller copy |
 | :--- | :--- | :--- |
 | GEMM | `libxs_gemm_dispatch_rt` (takes shape structs) | `libxs_gemm_dispatch_cpy_rt` |
-| SYR2K | `libxs_syr2k_dispatch_rt` | `libxs_syr2k_dispatch_cpy_rt` |
-| SYRK | `libxs_syrk_dispatch_rt` | `libxs_syrk_dispatch_cpy_rt` |
 
 The `_cpy_rt` forms take a config as first argument and return nonzero
 if it was populated, like the `_cpy` inlines.
@@ -368,14 +368,15 @@ itself (see [Kernel Providers](#kernel-providers)).
 **Without `-D__LIBXS`**, `libxs_jit.F` compiles to a BLAS-only module
 LIBXS_JIT that needs no LIBXS library. It offers `libxs_init`,
 `libxs_finalize`, `libxs_gemm_dispatch` (config flavor),
-`libxs_gemm_call` (config and one-shot form), `libxs_syrk`, and
-`libxs_syr2k`. These call DGEMM, DSYRK, and DSYR2K (double precision
-only), and the SYRK/SYR2K forms take the shape directly:
+`libxs_gemm_call` (config and one-shot form), and the direct form of
+`libxs_syrk`. These call DGEMM, DSYRK, and DSYR2K (double precision
+only), and `libxs_syrk` takes the arguments in the order of BLAS:
 
 ```fortran
-CALL libxs_syrk(datatype, n, k, lda, ldc, uplo, alpha, beta, a, c)
-CALL libxs_syr2k(datatype, n, k, lda, ldb, ldc,
-     &  uplo, alpha, beta, a, b, c)
+CALL libxs_syrk(datatype, uplo, trans, n, k, alpha, a, lda,
+     &  beta, c, ldc [, info])
+CALL libxs_syrk(datatype, uplo, trans, n, k, alpha, a, lda,
+     &  b, ldb, beta, c, ldc [, info])
 ```
 
 ### Fortran (LIBXS, explicit backends)

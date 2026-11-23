@@ -101,8 +101,7 @@
 
         PUBLIC :: libxs_gemm_dispatch, libxs_gemm_dispatch_ptr
         PUBLIC :: libxs_gemm_backend_kind
-        PUBLIC :: libxs_syrk_dispatch, libxs_syrk_dispatch_cpy
-        PUBLIC :: libxs_syr2k_dispatch, libxs_syr2k_dispatch_cpy
+        PUBLIC :: libxs_syrk_dispatch
         PUBLIC :: libxs_tas_dispatch
 
         INTERFACE libxs_gemm_dispatch
@@ -117,19 +116,13 @@
           MODULE PROCEDURE libxs_gemm_backend_kind_any_jit
         END INTERFACE
         INTERFACE libxs_syrk_dispatch
-          MODULE PROCEDURE libxs_syrk_dispatch_ptr_jit
-          MODULE PROCEDURE libxs_syrk_dispatch_cpy_jit
-          MODULE PROCEDURE libxs_syrk_dispatch_dist_jit
+          MODULE PROCEDURE libxs_syrk_dispatch_jit
         END INTERFACE
-        INTERFACE libxs_syrk_dispatch_cpy
-          MODULE PROCEDURE libxs_syrk_dispatch_cpy_jit
-        END INTERFACE
-        INTERFACE libxs_syr2k_dispatch
-          MODULE PROCEDURE libxs_syr2k_dispatch_ptr_jit
-          MODULE PROCEDURE libxs_syr2k_dispatch_cpy_jit
-        END INTERFACE
-        INTERFACE libxs_syr2k_dispatch_cpy
-          MODULE PROCEDURE libxs_syr2k_dispatch_cpy_jit
+        INTERFACE libxs_syrk
+          MODULE PROCEDURE libxs_syrk_plan
+          MODULE PROCEDURE libxs_syr2k_plan
+          MODULE PROCEDURE libxs_syrk_direct_jit
+          MODULE PROCEDURE libxs_syr2k_direct_jit
         END INTERFACE
         INTERFACE libxs_tas_dispatch
           MODULE PROCEDURE libxs_tas_dispatch_jit
@@ -320,13 +313,17 @@
      &      registry=registry)
         END FUNCTION
 
-        !> Dispatch a SYR2K config with auto-detected backends.
-        FUNCTION libxs_syr2k_dispatch_ptr_jit(datatype,                 &
-     &  n, k, lda, ldb, ldc, registry)
+        !> Plan SYRK/SYR2K (see libxs_syrk_dispatch_base) with the BLAS
+        !> linked in, and auto-detected backends.
+        FUNCTION libxs_syrk_dispatch_jit(plan, datatype, uplo, trans,   &
+     &  n, k, lda, ldb, ldc, dist, registry)
+          TYPE(libxs_syrk_t), INTENT(INOUT) :: plan
           INTEGER(C_INT), INTENT(IN) :: datatype, n, k
+          CHARACTER(C_CHAR), INTENT(IN), VALUE :: uplo, trans
           INTEGER(C_INT), INTENT(IN) :: lda, ldb, ldc
+          TYPE(libxs_pdist_t), INTENT(IN), OPTIONAL, TARGET :: dist
           TYPE(C_PTR), INTENT(IN), OPTIONAL :: registry
-          TYPE(C_PTR) :: libxs_syr2k_dispatch_ptr_jit
+          INTEGER(C_INT) :: libxs_syrk_dispatch_jit
           TYPE(C_FUNPTR) :: dgemm_fp, sgemm_fp
 #if defined(__MKL)
           TYPE(C_FUNPTR) :: jcd_fp, jgd_fp, jcs_fp, jgs_fp, bnt_fp
@@ -346,9 +343,8 @@
 #if defined(__LIBXSMM)
           xdisp_fp = C_FUNLOC(libxsmm_dispatch_gemm)
 #endif
-          libxs_syr2k_dispatch_ptr_jit =                                &
-     &      libxs_syr2k_dispatch_base(datatype,                         &
-     &      n, k, lda, ldb, ldc,                                        &
+          libxs_syrk_dispatch_jit = libxs_syrk_dispatch_base(plan,      &
+     &      datatype, uplo, trans, n, k, lda, ldb, ldc, dist,           &
 #if defined(__MKL)
      &      jit_create_dgemm=jcd_fp,                                    &
      &      jit_get_dgemm=jgd_fp,                                       &
@@ -364,92 +360,47 @@
      &      registry=registry)
         END FUNCTION
 
-        !> Dispatch a SYRK config with auto-detected backends.
-        FUNCTION libxs_syrk_dispatch_ptr_jit(datatype,                  &
-     &  n, k, lda, ldc, registry)
-          INTEGER(C_INT), INTENT(IN) :: datatype, n, k
-          INTEGER(C_INT), INTENT(IN) :: lda, ldc
-          TYPE(C_PTR), INTENT(IN), OPTIONAL :: registry
-          TYPE(C_PTR) :: libxs_syrk_dispatch_ptr_jit
-          libxs_syrk_dispatch_ptr_jit =                                 &
-     &      libxs_syr2k_dispatch_ptr_jit(datatype,                      &
-     &      n, k, lda, lda, ldc, registry)
-        END FUNCTION
+        !> SYRK in one step, the arguments in the order of BLAS.
+        SUBROUTINE libxs_syrk_direct_jit(datatype, uplo, trans,         &
+     &  n, k, alpha, a, lda, beta, c, ldc, info)
+          INTEGER(C_INT), INTENT(IN) :: datatype, n, k, lda, ldc
+          CHARACTER(C_CHAR), INTENT(IN), VALUE :: uplo, trans
+          REAL(C_DOUBLE), INTENT(IN), VALUE :: alpha, beta
+          TYPE(C_PTR), INTENT(IN), VALUE :: a
+          TYPE(C_PTR), VALUE :: c
+          INTEGER(C_INT), INTENT(OUT), OPTIONAL :: info
+          TYPE(libxs_syrk_t) :: plan
+          IF (0 .NE. libxs_syrk_dispatch_jit(plan, datatype,            &
+     &      uplo, trans, n, k, lda, 0_C_INT, ldc)) THEN
+            CALL internal_syrk_run(plan,                                &
+     &        alpha, a, C_NULL_PTR, beta, c, info)
+          ELSE
+            CALL internal_syrk_status(1_C_INT, info)
+          END IF
+        END SUBROUTINE
 
-        !> Dispatch a SYR2K config with auto-detected backends into a
-        !> caller-owned config.
-        FUNCTION libxs_syr2k_dispatch_cpy_jit(config, datatype,         &
-     &  n, k, lda, ldb, ldc, registry)
-          TYPE(libxs_gemm_config_t), INTENT(INOUT) :: config
-          INTEGER(C_INT), INTENT(IN) :: datatype, n, k
-          INTEGER(C_INT), INTENT(IN) :: lda, ldb, ldc
-          TYPE(C_PTR), INTENT(IN), OPTIONAL :: registry
-          INTEGER(C_INT) :: libxs_syr2k_dispatch_cpy_jit
-          TYPE(C_FUNPTR) :: dgemm_fp, sgemm_fp
-#if defined(__MKL)
-          TYPE(C_FUNPTR) :: jcd_fp, jgd_fp, jcs_fp, jgs_fp, bnt_fp
-#endif
-#if defined(__LIBXSMM)
-          TYPE(C_FUNPTR) :: xdisp_fp
-#endif
-          dgemm_fp = C_FUNLOC(dgemm_blas)
-          sgemm_fp = C_FUNLOC(sgemm_blas)
-#if defined(__MKL)
-          jcd_fp = C_FUNLOC(mkl_cblas_jit_create_dgemm)
-          jgd_fp = C_FUNLOC(mkl_jit_get_dgemm_ptr)
-          jcs_fp = C_FUNLOC(mkl_cblas_jit_create_sgemm)
-          jgs_fp = C_FUNLOC(mkl_jit_get_sgemm_ptr)
-          bnt_fp = C_FUNLOC(mkl_blas_nthreads)
-#endif
-#if defined(__LIBXSMM)
-          xdisp_fp = C_FUNLOC(libxsmm_dispatch_gemm)
-#endif
-          libxs_syr2k_dispatch_cpy_jit = libxs_syr2k_dispatch_cpy_base( &
-     &      config, datatype, n, k, lda, ldb, ldc,                      &
-#if defined(__MKL)
-     &      jit_create_dgemm=jcd_fp,                                    &
-     &      jit_get_dgemm=jgd_fp,                                       &
-     &      jit_create_sgemm=jcs_fp,                                    &
-     &      jit_get_sgemm=jgs_fp,                                       &
-     &      blas_nthreads=bnt_fp,                                       &
-#endif
-#if defined(__LIBXSMM)
-     &      xgemm_dispatch=xdisp_fp,                                    &
-#endif
-     &      dgemm_blas=dgemm_fp,                                        &
-     &      sgemm_blas=sgemm_fp,                                        &
-     &      registry=registry)
-        END FUNCTION
-
-        !> Dispatch a SYRK config with auto-detected backends into a
-        !> caller-owned config.
-        FUNCTION libxs_syrk_dispatch_cpy_jit(config, datatype,          &
-     &  n, k, lda, ldc, registry)
-          TYPE(libxs_gemm_config_t), INTENT(INOUT) :: config
-          INTEGER(C_INT), INTENT(IN) :: datatype, n, k
-          INTEGER(C_INT), INTENT(IN) :: lda, ldc
-          TYPE(C_PTR), INTENT(IN), OPTIONAL :: registry
-          INTEGER(C_INT) :: libxs_syrk_dispatch_cpy_jit
-          libxs_syrk_dispatch_cpy_jit =                                 &
-     &      libxs_syr2k_dispatch_cpy_jit(config,                        &
-     &      datatype, n, k, lda, lda, ldc, registry)
-        END FUNCTION
-
-        !> Dispatch a distributed SYRK with the BLAS linked in.
-        FUNCTION libxs_syrk_dispatch_dist_jit(dist, datatype,           &
-     &  n, klocal, lda, ldc, cdist, fcomm)
-          TYPE(libxs_syrk_dist_t), INTENT(INOUT) :: dist
-          INTEGER(C_INT), INTENT(IN) :: datatype, n, klocal
-          INTEGER(C_INT), INTENT(IN) :: lda, ldc, fcomm
-          TYPE(libxs_pdist_t), INTENT(IN) :: cdist
-          INTEGER(C_INT) :: libxs_syrk_dispatch_dist_jit
-          TYPE(C_FUNPTR) :: dgemm_fp, sgemm_fp
-          dgemm_fp = C_FUNLOC(dgemm_blas)
-          sgemm_fp = C_FUNLOC(sgemm_blas)
-          libxs_syrk_dispatch_dist_jit = libxs_syrk_dispatch_dist_base( &
-     &      dist, datatype, n, klocal, lda, ldc, cdist, fcomm,          &
-     &      dgemm_blas=dgemm_fp, sgemm_blas=sgemm_fp)
-        END FUNCTION
+        !> SYR2K in one step, the arguments in the order of BLAS.
+        SUBROUTINE libxs_syr2k_direct_jit(datatype, uplo, trans,        &
+     &  n, k, alpha, a, lda, b, ldb, beta, c, ldc, info)
+          INTEGER(C_INT), INTENT(IN) :: datatype, n, k, lda, ldb, ldc
+          CHARACTER(C_CHAR), INTENT(IN), VALUE :: uplo, trans
+          REAL(C_DOUBLE), INTENT(IN), VALUE :: alpha, beta
+          TYPE(C_PTR), INTENT(IN), VALUE :: a, b
+          TYPE(C_PTR), VALUE :: c
+          INTEGER(C_INT), INTENT(OUT), OPTIONAL :: info
+          TYPE(libxs_syrk_t) :: plan
+          ! ldb=0 would select SYRK, BLAS however demands at least one
+          IF (0 .LT. ldb) THEN
+            IF (0 .NE. libxs_syrk_dispatch_jit(plan, datatype,          &
+     &        uplo, trans, n, k, lda, ldb, ldc)) THEN
+              CALL internal_syrk_run(plan, alpha, a, b, beta, c, info)
+            ELSE
+              CALL internal_syrk_status(1_C_INT, info)
+            END IF
+          ELSE
+            CALL internal_syrk_status(1_C_INT, info)
+          END IF
+        END SUBROUTINE
 
         !> Plan a tall-and-skinny GEMM with auto-detected backends.
         FUNCTION libxs_tas_dispatch_jit(plan, datatype,                 &
@@ -554,10 +505,15 @@
           MODULE PROCEDURE libxs_tas_direct
         END INTERFACE
 
+        INTERFACE libxs_syrk
+          MODULE PROCEDURE libxs_syrk_direct
+          MODULE PROCEDURE libxs_syr2k_direct
+        END INTERFACE
+
         PUBLIC :: libxs_init, libxs_finalize
         PUBLIC :: libxs_gemm_dispatch
         PUBLIC :: libxs_gemm_call
-        PUBLIC :: libxs_syr2k, libxs_syrk
+        PUBLIC :: libxs_syrk
         PUBLIC :: libxs_tas_dispatch, libxs_tas, libxs_tas_task
         PUBLIC :: libxs_tas_ntasks, libxs_tas_release
         PUBLIC :: C_INT, C_DOUBLE, C_LOC
@@ -625,33 +581,69 @@
      &      alpha, pa, lda, pb, ldb, beta, pc, ldc)
         END SUBROUTINE
 
-        SUBROUTINE libxs_syr2k(datatype, n, k, lda, ldb, ldc,           &
-     &  uplo, alpha, beta, a, b, c)
-          INTEGER(C_INT), INTENT(IN) :: datatype, n, k, lda, ldb, ldc
-          CHARACTER, INTENT(IN), VALUE :: uplo
-          REAL(C_DOUBLE), INTENT(IN) :: alpha, beta
-          TYPE(C_PTR), INTENT(IN), VALUE :: a, b
-          TYPE(C_PTR), VALUE :: c
-          REAL(C_DOUBLE), POINTER :: pa(:), pb(:), pc(:)
-          CALL C_F_POINTER(a, pa, [lda * k])
-          CALL C_F_POINTER(b, pb, [ldb * k])
-          CALL C_F_POINTER(c, pc, [ldc * n])
-          CALL DSYR2K(uplo, 'N', n, k,                                  &
-     &      alpha, pa, lda, pb, ldb, beta, pc, ldc)
-        END SUBROUTINE
+        ! elements an operand spans
+        FUNCTION internal_syrk_extent(trans, n, k, ld)
+          CHARACTER, INTENT(IN) :: trans
+          INTEGER(C_INT), INTENT(IN) :: n, k, ld
+          INTEGER :: internal_syrk_extent
+          IF ('N' .EQ. trans .OR. 'n' .EQ. trans) THEN
+            internal_syrk_extent = ld * k
+          ELSE; internal_syrk_extent = ld * n; END IF
+        END FUNCTION
 
-        SUBROUTINE libxs_syrk(datatype, n, k, lda, ldc,                 &
-     &  uplo, alpha, beta, a, c)
+        SUBROUTINE libxs_syrk_direct(datatype, uplo, trans,             &
+     &  n, k, alpha, a, lda, beta, c, ldc, info)
           INTEGER(C_INT), INTENT(IN) :: datatype, n, k, lda, ldc
-          CHARACTER, INTENT(IN), VALUE :: uplo
-          REAL(C_DOUBLE), INTENT(IN) :: alpha, beta
+          CHARACTER, INTENT(IN), VALUE :: uplo, trans
+          REAL(C_DOUBLE), INTENT(IN), VALUE :: alpha, beta
           TYPE(C_PTR), INTENT(IN), VALUE :: a
           TYPE(C_PTR), VALUE :: c
-          REAL(C_DOUBLE), POINTER :: pa(:), pc(:)
-          CALL C_F_POINTER(a, pa, [lda * k])
-          CALL C_F_POINTER(c, pc, [ldc * n])
-          CALL DSYRK(uplo, 'N', n, k,                                   &
-     &      alpha, pa, lda, beta, pc, ldc)
+          INTEGER(C_INT), INTENT(OUT), OPTIONAL :: info
+          REAL(C_DOUBLE), POINTER :: da(:), dc(:)
+          REAL(C_FLOAT), POINTER :: sa(:), sc(:)
+          INTEGER :: na
+          na = internal_syrk_extent(trans, n, k, lda)
+          IF (LIBXS_DATATYPE_F32 .EQ. datatype) THEN
+            CALL C_F_POINTER(a, sa, [na])
+            CALL C_F_POINTER(c, sc, [ldc * n])
+            CALL SSYRK(uplo, trans, n, k, REAL(alpha, C_FLOAT),         &
+     &        sa, lda, REAL(beta, C_FLOAT), sc, ldc)
+          ELSE
+            CALL C_F_POINTER(a, da, [na])
+            CALL C_F_POINTER(c, dc, [ldc * n])
+            CALL DSYRK(uplo, trans, n, k,                               &
+     &        alpha, da, lda, beta, dc, ldc)
+          END IF
+          IF (PRESENT(info)) info = 0
+        END SUBROUTINE
+
+        SUBROUTINE libxs_syr2k_direct(datatype, uplo, trans,            &
+     &  n, k, alpha, a, lda, b, ldb, beta, c, ldc, info)
+          INTEGER(C_INT), INTENT(IN) :: datatype, n, k, lda, ldb, ldc
+          CHARACTER, INTENT(IN), VALUE :: uplo, trans
+          REAL(C_DOUBLE), INTENT(IN), VALUE :: alpha, beta
+          TYPE(C_PTR), INTENT(IN), VALUE :: a, b
+          TYPE(C_PTR), VALUE :: c
+          INTEGER(C_INT), INTENT(OUT), OPTIONAL :: info
+          REAL(C_DOUBLE), POINTER :: da(:), db(:), dc(:)
+          REAL(C_FLOAT), POINTER :: sa(:), sb(:), sc(:)
+          INTEGER :: na, nb
+          na = internal_syrk_extent(trans, n, k, lda)
+          nb = internal_syrk_extent(trans, n, k, ldb)
+          IF (LIBXS_DATATYPE_F32 .EQ. datatype) THEN
+            CALL C_F_POINTER(a, sa, [na])
+            CALL C_F_POINTER(b, sb, [nb])
+            CALL C_F_POINTER(c, sc, [ldc * n])
+            CALL SSYR2K(uplo, trans, n, k, REAL(alpha, C_FLOAT),        &
+     &        sa, lda, sb, ldb, REAL(beta, C_FLOAT), sc, ldc)
+          ELSE
+            CALL C_F_POINTER(a, da, [na])
+            CALL C_F_POINTER(b, db, [nb])
+            CALL C_F_POINTER(c, dc, [ldc * n])
+            CALL DSYR2K(uplo, trans, n, k,                              &
+     &        alpha, da, lda, db, ldb, beta, dc, ldc)
+          END IF
+          IF (PRESENT(info)) info = 0
         END SUBROUTINE
 
         ! the whole GEMM of a plan, i.e., one BLAS call

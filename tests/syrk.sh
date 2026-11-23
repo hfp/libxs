@@ -61,6 +61,10 @@ for LIBXS_GEMM_BACKEND in 0 1 2 3 4; do
     run_check 128 300 1
     run_check 300 50 1
 
+    # one step, i.e., dispatch and call (the arguments in the order of BLAS)
+    run_check 24 16 1 1
+    run_check 200 77 1 1
+
   done
 done
 
@@ -72,6 +76,8 @@ if ${PROG} 4 3 1 2>&1 | grep -q "(distributed)"; then
     export LIBXS_GEMM_BACKEND=0 LIBXS_SYRK_BLAS=1
     for NP in 2 3 4; do
       RUN=("${LAUNCH[@]}" -n "${NP}")
+      # ranks times threads, hence few threads
+      export OMP_NUM_THREADS=$((5 - NP))
       run_check 100 77 1 0 4 7
       run_check 200 200 1 0 4 32
       run_check 300 50 1 0 4 64
