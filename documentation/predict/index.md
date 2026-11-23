@@ -20,7 +20,7 @@ However, deployment sees new shapes between tuned points.
 | Predict everything | Silent slowdowns                |
 | Confidence-gated   | Override only with evidence     |
 
-<span style="opacity: 0.4; font-size: 50%;">Prior work predicted offline
+<span class="dim">Prior work predicted offline
 based on hardware-occupancy features using XGBoost \[Jakobovits 2019\].</span>
 
 ---
@@ -182,7 +182,7 @@ The interface is still prediction plus confidence.
 The sample is a mixed classification problem  
 where confidence decides whether to act.
 
-<span style="opacity: 0.4; font-size: 50%;">AFLOW: An Automatic Framework
+<span class="dim">AFLOW: An Automatic Framework
 for High-Throughput Materials Discovery \[Curtarolo 2012\].</span>
 
 Note: This is the key slide for computational chemistry audience.
@@ -313,11 +313,11 @@ Confidence separates dense-coverage domains from genuinely ambiguous
 ones.  Literature comparisons are orienting — different features, splits,
 metrics.  ETT is the exception: same dataset, same split, same horizon.
 
-<span style="opacity: 0.4; font-size: 50%;">Results for comparison
+<span class="dim">Results for comparison
 \[Dang2022\], \[Akkala2025\], \[Kratzert2018\], \[Kratzert2019\], \[Simatupang2025\],
 \[Ahmed2024\], \[Kaftan2025\], \[Nie2023\], \[Zeng2023\], \[Zhou2022\], \[Wu2021\]</span>
 
-<span style="opacity: 0.4; font-size: 50%;">\* SOI: Southern Oscillation Index,
+<span class="dim">\* SOI: Southern Oscillation Index,
 \*\* ETT: Electricity Transformer Temperature (ETTh1), standard timeseries
 benchmark; baselines are PatchTST, DLinear, FEDformer, Autoformer</span>
 

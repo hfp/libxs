@@ -456,6 +456,13 @@ mkslides:
 #	@mkslides build $(DOCDIR)/$(SLIDES) -d site/$(SLIDES)
 	@mkslides serve $(DOCDIR)/$(SLIDES)
 
+# The deck as a PDF with selectable text (scripts/deck2typst.py): it needs pandoc
+# and "pip install typst", not the reveal.js toolchain, and names what is missing.
+.PHONY: mkslides-pdf
+mkslides-pdf:
+	@$(PYTHON) $(ROOTDIR)/$(SCRDIR)/deck2typst.py $(ROOTDIR)/$(DOCDIR)/$(SLIDES)/index.md \
+		$(ROOTDIR)/$(DOCDIR)/$(PROJECT)_$(SLIDES).pdf
+
 .PHONY: mkdocs-tests
 mkdocs-tests: $(TSTMDS)
 

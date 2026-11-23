@@ -30,7 +30,7 @@
 
 ## Documentation
 
-**md2pptx.py** — Convert Markdown to PowerPoint. Splits on `---` rules or `##` headings (auto-detected). Requires `python-pptx` and `lxml`, optionally `Pillow` (`pip install -r requirements.txt`).
+**deck2typst.py** — Render a slide deck (`documentation/<topic>/index.md`, reveal.js Markdown as `make mkslides` serves it) to a landscape PDF with selectable text, through Pandoc and Typst. Figures come from the deck's `assets/`; a slide too dense to fit is scaled down and reported. Requires `pandoc` and `pip install typst` (or a `typst` executable via `--typst`).
 
 ## Development
 
