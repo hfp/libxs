@@ -77,7 +77,7 @@ typedef struct libxs_pdist_t {
 - **Operands:** every rank holds all n rows (or columns) of A and B with its share of k. C is block-cyclic as described by the values of a ScaLAPACK descriptor and the rank of every grid position, e.g., BLACS' mapping. Ranks outside the grid own no part of C and pass NULL. The dispatch copies the ranks.
 - **Collective dispatch:** all ranks agree on the outcome. Either every rank has a plan, or none has, and the caller falls back, e.g., to ScaLAPACK. That is the case without a known MPI, for shapes or layouts that differ between ranks, or if one rank has invalid arguments.
 - **MPI:** LIBXS does not link MPI. It finds MPI in the process (see `LIBXS_MPI`) and duplicates the communicator.
-- **Algorithm:** the partial sums of each panel of columns are reduced in a ring of fixed order and delivered to the owners of C. The buffers of two panels (n x 256 elements at most) are allocated at dispatch.
+- **Algorithm:** the partial sums of each panel of columns are reduced in a ring of fixed order and delivered to the owners of C. The buffers of the panels in flight (n x 256 elements each) are allocated at dispatch: as many as fit into `LIBXS_SYRK_WINDOW` bytes but at least two, and two with a device. The tasks claim the tiles of all panels in flight, while the panels are reduced in order.
 - **Threads:** with `MPI_THREAD_SERIALIZED` or higher, any thread communicates. Below that level, the main thread must run one of the tasks.
 
 ```C
@@ -158,6 +158,7 @@ The [SYRK sample](samples/libxs_syrk.md) covers plans, tasks, and the distribute
     LIBXS_SYRK_KERNEL_N   Largest n served by a kernel (default: 32)
     LIBXS_SYRK_KERNEL_K   Largest k served by a kernel (default: 48)
     LIBXS_SYRK_KERNEL_NK  Largest n*k served by a kernel (default: 768)
+    LIBXS_SYRK_WINDOW     Bytes of the panels in flight if distributed (default: 64 MB)
 
 ## Environment Variables
 

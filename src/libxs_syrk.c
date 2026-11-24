@@ -33,7 +33,11 @@
 #if (INTERNAL_SYRK_SQUARE < LIBXS_SYRK_KERNEL_N)
 # error "LIBXS_SYRK_KERNEL_N exceeds the square of the diagonal"
 #endif
-/* panels in flight of a distributed update: one is reduced while the next one is computed */
+/* bytes of the panels in flight of a distributed update on the host: more panels, more tiles to claim */
+#if !defined(LIBXS_SYRK_WINDOW)
+# define LIBXS_SYRK_WINDOW (64 << 20)
+#endif
+/* panels in flight at least, and with a device: one is reduced while the next one is computed */
 #define INTERNAL_SYRK_WINDOW 2
 /* pauses of a task without work before it yields the core */
 #define INTERNAL_SYRK_NPAUSE 64
@@ -136,9 +140,8 @@ typedef struct internal_libxs_syrk_state_t {
   internal_libxs_mpi_comm_t comm;
   libxs_pdist_t layout;
   volatile int* done;
-  int* first;
-  char *panel[INTERNAL_SYRK_WINDOW], *recvbuf, *sendbuf;
-  int ticket[INTERNAL_SYRK_WINDOW];
+  int *first, *ticket;
+  char **panel, *recvbuf, *sendbuf;
   int npanels, nwindow, serialized;
 } internal_libxs_syrk_state_t;
 
@@ -461,7 +464,8 @@ LIBXS_API_INLINE int internal_libxs_syrk_local_device(const internal_libxs_syrk_
 /**
  * Walks the elements e0 to e1 of a panel (column-major, the triangle only) in runs of one block of C,
  * and treats those owned by rank who: counts them, packs them from the panel into buf, or adds buf
- * into the local C. Packing and unpacking walk in the same order, hence agree on the stream.
+ * (or the panel itself if pbuf is given) into the local C. Packing and unpacking walk in the same
+ * order, hence agree on the stream.
  */
 LIBXS_API_INLINE size_t internal_libxs_syrk_dist_runs(const internal_libxs_syrk_panel_t* panel,
   size_t e0, size_t e1, int who, int mode, libxs_data_t datatype, const void* pbuf, void* buf,
@@ -490,16 +494,17 @@ LIBXS_API_INLINE size_t internal_libxs_syrk_dist_runs(const internal_libxs_syrk_
           const size_t li = (size_t)(bi / layout->nprow) * layout->mb + (size_t)(i % layout->mb);
           const size_t lj = (size_t)(bj / layout->npcol) * layout->nb + (size_t)(j % layout->nb);
           const size_t off = li + lj * panel->ldc;
+          const size_t at = (NULL != pbuf ? (jj * nrows + (size_t)a) : result);
           int x;
           if (LIBXS_DATATYPE_F64 == datatype) {
             double *const cc = (double*)c + off;
-            const double *const bb = (const double*)buf + result;
+            const double *const bb = (const double*)(NULL != pbuf ? pbuf : buf) + at;
             if (0 != beta) for (x = 0; x < run; ++x) cc[x] = beta * cc[x] + alpha * bb[x];
             else for (x = 0; x < run; ++x) cc[x] = alpha * bb[x];
           }
           else {
             float *const cc = (float*)c + off;
-            const float *const bb = (const float*)buf + result;
+            const float *const bb = (const float*)(NULL != pbuf ? pbuf : buf) + at;
             const float fa = (float)alpha, fb = (float)beta;
             if (0 != beta) for (x = 0; x < run; ++x) cc[x] = fb * cc[x] + fa * bb[x];
             else for (x = 0; x < run; ++x) cc[x] = fa * bb[x];
@@ -631,20 +636,20 @@ LIBXS_API_INLINE int internal_libxs_syrk_dist_reduce(const internal_libxs_syrk_a
   }
   for (t = 0; t < nranks && EXIT_SUCCESS == result; ++t) {
     const int dst = (me + t) % nranks, src = (me + nranks - t) % nranks;
-    const size_t m0 = ntotal * me / nranks, m1 = ntotal * (me + 1) / nranks;
     const size_t q0 = ntotal * src / nranks, q1 = ntotal * (src + 1) / nranks;
-    const size_t nsend = internal_libxs_syrk_dist_runs(&panel, m0, m1, dst,
-      INTERNAL_SYRK_DIST_PACK, datatype, pbuf, sbuf, NULL, 0, 0);
-    const size_t nrecv = (0 != t ? internal_libxs_syrk_dist_runs(&panel, q0, q1, me,
-      INTERNAL_SYRK_DIST_COUNT, datatype, NULL, NULL, NULL, 0, 0) : nsend);
+    const size_t nrecv = internal_libxs_syrk_dist_runs(&panel, q0, q1, me,
+      INTERNAL_SYRK_DIST_COUNT, datatype, NULL, NULL, NULL, 0, 0);
     if (0 != t) {
+      const size_t m0 = ntotal * me / nranks, m1 = ntotal * (me + 1) / nranks;
+      const size_t nsend = internal_libxs_syrk_dist_runs(&panel, m0, m1, dst,
+        INTERNAL_SYRK_DIST_PACK, datatype, pbuf, sbuf, NULL, 0, 0);
       result = internal_libxs_mpi_sendrecv(comm, sbuf, nsend * elemsize, dst,
         tbuf, nrecv * elemsize, src);
     }
     if (EXIT_SUCCESS == result && 0 != nrecv) {
-      if (NULL != args->c) {
+      if (NULL != args->c) { /* the own part of the chunk directly from the panel (t=0) */
         internal_libxs_syrk_dist_runs(&panel, q0, q1, me, INTERNAL_SYRK_DIST_UNPACK, datatype,
-          NULL, 0 != t ? tbuf : sbuf, args->c, args->alpha, args->beta);
+          0 != t ? NULL : pbuf, tbuf, args->c, args->alpha, args->beta);
       }
       else LIBXS_ATOMIC_STORE(&state->failed.i, 1, LIBXS_ATOMIC_SEQ_CST); /* the exchange goes on */
     }
@@ -791,22 +796,29 @@ LIBXS_API_INLINE internal_libxs_syrk_state_t* internal_libxs_syrk_state(const li
 {
   const size_t elemsize = LIBXS_TYPESIZE(plan->shape.datatype);
   const int npanels = LIBXS_UPDIV(plan->shape.n, plan->width), ngrid = layout->nprow * layout->npcol;
-  const int nwindow = LIBXS_CLMP(npanels, 1, INTERNAL_SYRK_WINDOW);
   const size_t nelems = (size_t)plan->shape.n * plan->width;
   const size_t psize = LIBXS_UP2(nelems * elemsize, (size_t)LIBXS_CACHELINE);
   const size_t csize = LIBXS_UP2(LIBXS_UPDIV(nelems, (size_t)comm->size) * elemsize, (size_t)LIBXS_CACHELINE);
-  const size_t hsize = LIBXS_UP2(sizeof(internal_libxs_syrk_state_t)
-    + sizeof(int) * (2 * ((size_t)npanels + 1) + ngrid), (size_t)LIBXS_CACHELINE);
+  /* a device takes the panels in order, the host claims the tiles of as many panels as fit */
+  const int nleast = LIBXS_CLMP(npanels, 1, INTERNAL_SYRK_WINDOW);
+  const int nfit = (0 != psize ? (int)LIBXS_MIN((size_t)LIBXS_SYRK_WINDOW / psize, (size_t)npanels) : 0);
+  const int nwindow = (NULL == plan->device.submit ? LIBXS_MAX(nfit, nleast) : nleast);
+  const size_t hsize = LIBXS_UP2(sizeof(internal_libxs_syrk_state_t) + sizeof(char*) * nwindow
+    + sizeof(int) * (2 * ((size_t)npanels + 1) + ngrid + nwindow), (size_t)LIBXS_CACHELINE);
   internal_libxs_syrk_state_t *const result = (internal_libxs_syrk_state_t*)libxs_malloc(
     libxs_default_pool(), hsize + nwindow * psize + 2 * csize, LIBXS_CACHELINE);
   if (NULL != result) {
     char *const buffers = (char*)result + hsize;
-    int *const done = (int*)(result + 1);
+    char **const panel = (char**)(result + 1);
+    int *const done = (int*)(panel + nwindow);
     int *const first = done + npanels + 1, *const ranks = first + npanels + 1;
+    int *const ticket = ranks + ngrid;
     int i;
     memset(result, 0, hsize);
     for (i = 0; i < npanels; ++i) first[i + 1] = first[i] + internal_libxs_syrk_panel_ntiles(plan, i);
     memcpy(ranks, layout->ranks, sizeof(int) * ngrid);
+    result->panel = panel;
+    result->ticket = ticket;
     for (i = 0; i < nwindow; ++i) {
       result->panel[i] = buffers + i * psize;
       result->ticket[i] = -1;
