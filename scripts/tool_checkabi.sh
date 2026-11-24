@@ -14,7 +14,8 @@ LIBS=${HERE}/../lib
 PROJECT=libxs
 # symbols a library carries without being part of the ABI (a dependency linked in, or names another API prescribes)
 FOREIGN=""
-#EXCLUDE="libxsf"
+# a plugin is loaded at runtime (dlopen): its ABI is a versioned table, and it may carry a dependency linked in
+EXCLUDE=""
 INCLUDE="*"
 ABINEW=.abi.log
 ABITMP=.abi.tmp
