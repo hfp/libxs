@@ -185,14 +185,15 @@ LIBXS_API_INTERN void internal_libxs_syrk_init(void)
 
 
 /**
- * Tiles depend on n alone: neither threads nor tasks move a boundary. Up to a medium n, the tiles are
- * square and about n/8 wide (but at least half of the widest), i.e., some 36 tiles to balance a team,
- * and a large n has the widest tiles, which are taller to pack less.
+ * Tiles depend on n alone (and a device): neither threads nor tasks move a boundary. Up to a medium
+ * n, the tiles are square and about n/8 wide (but at least half of the widest), i.e., some 36 tiles
+ * to balance a team, and a large n has the widest tiles, which are taller to pack less. A device
+ * takes a panel at once, and has the widest panels: fewer submits, and fewer reductions if distributed.
  */
-LIBXS_API_INLINE void internal_libxs_syrk_tiling(int n, int* width, int* height)
+LIBXS_API_INLINE void internal_libxs_syrk_tiling(int n, int device, int* width, int* height)
 {
   const int full = LIBXS_SYRK_WIDTH, step = LIBXS_MAX(full / 8, 1), eighth = n / 8;
-  const int w = LIBXS_CLMP(eighth - eighth % step, full / 2, full);
+  const int w = (0 == device ? LIBXS_CLMP(eighth - eighth % step, full / 2, full) : full);
   *width = LIBXS_MAX(w, 1);
   *height = (n < 12 * full ? *width : (2 * *width));
 }
@@ -927,7 +928,7 @@ LIBXS_API int libxs_syrk_dispatch_rt(libxs_syrk_t* plan, const libxs_syrk_shape_
     if (NULL != device) local.device = *device;
     local.shape.uplo = (char)(('U' == shape->uplo || 'u' == shape->uplo) ? 'U' : 'L');
     local.shape.trans = (char)(('N' == shape->trans || 'n' == shape->trans) ? 'N' : 'T');
-    internal_libxs_syrk_tiling(n, &local.width, &local.height);
+    internal_libxs_syrk_tiling(n, NULL != device, &local.width, &local.height);
     npanels = LIBXS_UPDIV(n, local.width);
     for (p = 0; p < npanels; ++p) local.ntiles += internal_libxs_syrk_panel_ntiles(&local, p);
     LIBXS_MEMZERO(&gemm);
