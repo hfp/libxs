@@ -208,6 +208,17 @@ LIBXS_API_INLINE int internal_libxs_syrk_panel_ntiles(const libxs_syrk_t* plan, 
 }
 
 
+/* Tiling of a plan (with a device or not), and its count of tiles. */
+LIBXS_API_INLINE void internal_libxs_syrk_tile_plan(libxs_syrk_t* plan, int device)
+{
+  int npanels, p;
+  internal_libxs_syrk_tiling(plan->shape.n, device, &plan->width, &plan->height);
+  npanels = LIBXS_UPDIV(plan->shape.n, plan->width);
+  plan->ntiles = 0;
+  for (p = 0; p < npanels; ++p) plan->ntiles += internal_libxs_syrk_panel_ntiles(plan, p);
+}
+
+
 LIBXS_API_INLINE void internal_libxs_syrk_tile(const libxs_syrk_t* plan, int p, int i,
   internal_libxs_syrk_tile_t* tile)
 {
@@ -856,6 +867,13 @@ LIBXS_API_INLINE int internal_libxs_syrk_dispatch_dist(libxs_syrk_t* plan, int v
     internal_libxs_syrk_state_t* state = NULL;
     int mine[INTERNAL_SYRK_NAGREE], other[INTERNAL_SYRK_NAGREE];
     memset(mine, 0, sizeof(mine));
+    { /* a device of any rank (not necessarily all) widens the panels of all, which must agree */
+      int nodevice = (NULL == plan->device.submit);
+      if (EXIT_SUCCESS != internal_libxs_mpi_and(&comm, &nodevice)) valid = 0;
+      else if (0 != valid && 0 == nodevice && NULL == plan->device.submit) {
+        internal_libxs_syrk_tile_plan(plan, 1);
+      }
+    }
     if (0 != valid) valid = internal_libxs_syrk_layout_valid(plan, layout, &comm);
     if (0 != valid) {
       const int ngrid = layout->nprow * layout->npcol;
@@ -920,7 +938,6 @@ LIBXS_API int libxs_syrk_dispatch_rt(libxs_syrk_t* plan, const libxs_syrk_shape_
   if (0 != result) {
     const int n = shape->n;
     libxs_gemm_shape_t gemm;
-    int p, npanels;
     internal_libxs_gemm_init();
     local.shape = *shape;
     local.shape.dist = NULL; /* not kept: the layout is copied, and the device is held by value */
@@ -928,9 +945,7 @@ LIBXS_API int libxs_syrk_dispatch_rt(libxs_syrk_t* plan, const libxs_syrk_shape_
     if (NULL != device) local.device = *device;
     local.shape.uplo = (char)(('U' == shape->uplo || 'u' == shape->uplo) ? 'U' : 'L');
     local.shape.trans = (char)(('N' == shape->trans || 'n' == shape->trans) ? 'N' : 'T');
-    internal_libxs_syrk_tiling(n, NULL != device, &local.width, &local.height);
-    npanels = LIBXS_UPDIV(n, local.width);
-    for (p = 0; p < npanels; ++p) local.ntiles += internal_libxs_syrk_panel_ntiles(&local, p);
+    internal_libxs_syrk_tile_plan(&local, NULL != device);
     LIBXS_MEMZERO(&gemm);
     gemm.datatype = shape->datatype;
     gemm.transa = local.shape.trans;

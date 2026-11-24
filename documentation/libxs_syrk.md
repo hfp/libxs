@@ -27,7 +27,7 @@ int libxs_syrk_dispatch_rt(libxs_syrk_t* plan, const libxs_syrk_shape_t* shape,
 
 A dispatch returns nonzero if the plan was populated. `libxs_syrk_dispatch` is an inline that detects the backend at the caller's compile time like [libxs_gemm_dispatch](libxs_gemm.md#dispatch), and `libxs_syrk_dispatch_rt` takes explicit backends and a registry (NULL for the default).
 
-- **Tiles:** the plan splits the triangle into tiles, which depend on n alone (and a device, which takes the widest panels). A small shape (one tile, n <= 32, k <= 48, n\*k <= 768) runs a generated kernel if a backend provides one. It occupies the registry entry of the GEMM of its full square (n x n x k), which a GEMM of that shape shares. Larger shapes run BLAS and take no registry entry.
+- **Tiles:** the plan splits the triangle into tiles, which depend on n alone (and a device, which takes the widest panels: if distributed, those of all ranks once a rank has a device). A small shape (one tile, n <= 32, k <= 48, n\*k <= 768) runs a generated kernel if a backend provides one. It occupies the registry entry of the GEMM of its full square (n x n x k), which a GEMM of that shape shares. Larger shapes run BLAS and take no registry entry.
 - **Ownership:** a local plan holds no memory, needs no release, and can serve any number of calls at a time (unless it computes on a device). A distributed plan owns a communicator and buffers, serves one call at a time, and is released collectively.
 - **Lifetimes:** the shape is read at dispatch and can be reused or discarded right away. The plan copies the layout (`dist`) and the device's functions, and keeps no pointer of the shape. Only the device's context must outlive the plan.
 
