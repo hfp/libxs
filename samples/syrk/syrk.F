@@ -31,7 +31,9 @@
         EXTERNAL :: DSYRK, DSYR2K
 
         INTEGER, PARAMETER :: T = KIND(0D0)
-        INTEGER :: n, k, argc, r, nrepeat, direct
+        ! seconds of a timed line unless nrepeat is given
+        DOUBLE PRECISION, PARAMETER :: tbudget = 1D0
+        INTEGER :: n, k, argc, nrepeat, direct, myrank
         INTEGER :: i, tasks, ntasks, nthreads, nsyrk
         CHARACTER(32) :: argv
         REAL(T), ALLOCATABLE, TARGET :: a(:,:), b(:,:), at(:,:)
@@ -50,7 +52,7 @@
         TYPE(libxs_pdist_t) :: dist
         TYPE(C_PTR) :: aptr
         REAL(T) :: derr(2), dmax(2)
-        INTEGER :: ierr, level, myrank, nranks
+        INTEGER :: ierr, level, nranks
         INTEGER :: nprow, npcol, myprow, mypcol
         INTEGER :: block, kstart, kloc, lrows, lcols, ldc, j, ig, jg
 #endif
@@ -72,7 +74,7 @@
           CALL GET_COMMAND_ARGUMENT(3, argv)
           READ(argv, "(I32)") nrepeat
         ELSE
-          nrepeat = 100
+          nrepeat = 0
         END IF
         IF (4 <= argc) THEN
           CALL GET_COMMAND_ARGUMENT(4, argv)
@@ -88,6 +90,7 @@
         END IF
 
         iout = OUTPUT_UNIT
+        myrank = 0
 #if defined(__MPI)
         IF (6 <= argc) THEN
           CALL GET_COMMAND_ARGUMENT(6, argv)
@@ -111,8 +114,13 @@
         ! one triangle: an addition and a multiplication per element
         gflops = DBLE(n) * DBLE(n + 1) * DBLE(k) * 1D-9
 
-        WRITE(iout, "(A,I0,A,I0,A,I0,A,I0)")                            &
-     &    "SYRK: N=", n, " K=", k, " nrepeat=", nrepeat,                &
+        IF (0 .LT. nrepeat) THEN
+          WRITE(argv, "(I0)") nrepeat
+        ELSE
+          argv = "auto"
+        END IF
+        WRITE(iout, "(A,I0,A,I0,A,A,A,I0)")                             &
+     &    "SYRK: N=", n, " K=", k, " nrepeat=", TRIM(argv),             &
      &    " direct=", direct
 
         CALL libxs_init()
@@ -270,55 +278,21 @@
           WRITE(iout, "(A,E12.5)") "  max error (dist): ", dmax(1)
           WRITE(iout, "(A,E12.5)") "  max error (dist tasks): ", dmax(2)
         END IF
-
-        CALL MPI_BARRIER(MPI_COMM_WORLD, ierr)
-        t0 = libxs_timer_tick()
-        DO r = 1, nrepeat
-          CALL libxs_syrk(pland, alpha, aptr, 0D0, C_LOC(cd))
-        END DO
-        CALL MPI_BARRIER(MPI_COMM_WORLD, ierr)
-        t1 = libxs_timer_tick()
-        CALL timing("DIST: ")
-        CALL libxs_syrk_release(pland)
-        DEALLOCATE(ranks, cd, ct)
 #endif
 
         WRITE(iout, "(A)") ""
         WRITE(iout, "(A)") "--- SYRK performance ---"
 
-        cref = 0D0
-        CALL DSYRK('L', 'N', n, k, alpha, a, n, beta, cref, n)
-        t0 = libxs_timer_tick()
-        DO r = 1, nrepeat
-          CALL DSYRK('L', 'N', n, k, alpha, a, n, beta, cref, n)
-        END DO
-        t1 = libxs_timer_tick()
-        CALL timing("DSYRK:")
-
-        c = 0D0
-        CALL libxs_syrk(plan, alpha, C_LOC(a), beta, C_LOC(c))
-        t0 = libxs_timer_tick()
-        DO r = 1, nrepeat
-          CALL libxs_syrk(plan, alpha, C_LOC(a), beta, C_LOC(c))
-        END DO
-        t1 = libxs_timer_tick()
-        CALL timing("LIBXS:")
-
-        c = 0D0
-        t0 = libxs_timer_tick()
-        DO r = 1, nrepeat
-          CALL run_tasks(nthreads)
-        END DO
-        t1 = libxs_timer_tick()
-        CALL timing("OMP:  ")
-
-        c = 0D0
-        t0 = libxs_timer_tick()
-        DO r = 1, nrepeat
-          CALL run_tasks(ntasks)
-        END DO
-        t1 = libxs_timer_tick()
-        CALL timing("TASK: ")
+        cref = 0D0; c = 0D0
+        CALL bench("DSYRK:")
+        CALL bench("LIBXS:")
+        CALL bench("OMP:  ")
+        CALL bench("TASK: ")
+#if defined(__MPI)
+        CALL bench("DIST: ")
+        CALL libxs_syrk_release(pland)
+        DEALLOCATE(ranks, cd, ct)
+#endif
 
         DEALLOCATE(a, b, at, c, cref)
         CALL libxs_finalize()
@@ -350,16 +324,74 @@
      &      "  max error (" // title // "): ", diff%linf_abs
         END SUBROUTINE
 
-        ! time and rate of nrepeat calls between t0 and t1
-        SUBROUTINE timing(title)
+        ! one call of the line title: the local lines on rank 0 only
+        ! (concurrent ranks would contend), the distributed on all ranks
+        SUBROUTINE run(title)
           CHARACTER(*), INTENT(IN) :: title
+          IF (0 .EQ. myrank .OR. "DIST: " .EQ. title) THEN
+            SELECT CASE (title)
+            CASE ("DSYRK:")
+              CALL DSYRK('L', 'N', n, k, alpha, a, n, beta, cref, n)
+            CASE ("LIBXS:")
+              CALL libxs_syrk(plan, alpha, C_LOC(a), beta, C_LOC(c))
+            CASE ("OMP:  ")
+              CALL run_tasks(nthreads)
+            CASE ("TASK: ")
+              CALL run_tasks(ntasks)
+#if defined(__MPI)
+            CASE ("DIST: ")
+              CALL libxs_syrk(pland, alpha, aptr, 0D0, C_LOC(cd))
+#endif
+            END SELECT
+          END IF
+        END SUBROUTINE
+
+        ! a warm-up call, then nrepeat calls or the calls of about
+        ! tbudget seconds (the same count on every rank)
+        SUBROUTINE bench(title)
+          CHARACTER(*), INTENT(IN) :: title
+          DOUBLE PRECISION :: duration
+          INTEGER :: nrep, r
+#if defined(__MPI)
+          CALL MPI_BARRIER(MPI_COMM_WORLD, ierr)
+#endif
+          t0 = libxs_timer_tick()
+          CALL run(title)
+          t1 = libxs_timer_tick()
+          duration = libxs_timer_duration(t0, t1)
+#if defined(__MPI)
+          CALL MPI_ALLREDUCE(MPI_IN_PLACE, duration, 1,                 &
+     &      MPI_DOUBLE_PRECISION, MPI_MAX, MPI_COMM_WORLD, ierr)
+#endif
+          IF (0 .LT. nrepeat) THEN
+            nrep = nrepeat
+          ELSE IF (tbudget .LT. duration * 1D6) THEN
+            nrep = MAX(NINT(tbudget / duration), 1)
+          ELSE
+            nrep = 1000000
+          END IF
+          t0 = libxs_timer_tick()
+          DO r = 1, nrep
+            CALL run(title)
+          END DO
+#if defined(__MPI)
+          CALL MPI_BARRIER(MPI_COMM_WORLD, ierr)
+#endif
+          t1 = libxs_timer_tick()
+          CALL timing(title, nrep)
+        END SUBROUTINE
+
+        ! time and rate of nrep calls between t0 and t1
+        SUBROUTINE timing(title, nrep)
+          CHARACTER(*), INTENT(IN) :: title
+          INTEGER, INTENT(IN) :: nrep
           DOUBLE PRECISION :: duration
           duration = libxs_timer_duration(t0, t1)
           IF (0D0 < duration) THEN
             WRITE(iout, "(A,F10.3,A,I0,A)")                             &
-     &        "  " // title, duration, " s (", nrepeat, " calls)"
+     &        "  " // title, duration, " s (", nrep, " calls)"
             WRITE(iout, "(A,F10.1,A)")                                  &
-     &        "        ", gflops * DBLE(nrepeat) / duration,            &
+     &        "        ", gflops * DBLE(nrep) / duration,               &
      &        " GFLOPS/s"
           END IF
         END SUBROUTINE
