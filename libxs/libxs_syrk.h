@@ -149,8 +149,8 @@ LIBXS_API int libxs_syrk_task(const libxs_syrk_t* plan,
  * Number of tasks worth running with nthreads threads, and 1 if a split does
  * not pay. A local plan returns its tiles, which can exceed the threads: hand
  * them out dynamically (omp parallel for schedule(dynamic)) for a team which
- * balances itself. A distributed plan balances itself and returns nthreads.
- * A plan with a device returns 1.
+ * balances itself. A distributed plan balances itself and returns nthreads,
+ * but at most a task per tile and one more. A plan with a device returns 1.
  */
 LIBXS_API int libxs_syrk_ntasks(const libxs_syrk_t* plan, int nthreads);
 

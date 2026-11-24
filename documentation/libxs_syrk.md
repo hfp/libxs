@@ -47,7 +47,7 @@ void libxs_syrk_release(libxs_syrk_t* plan);
 ```
 
 - **Arguments:** b is NULL for SYRK. Like BLAS, beta=0 does not read C, and k=0 or alpha=0 does not read A or B (which may then be NULL). The functions return `EXIT_SUCCESS` or `EXIT_FAILURE`.
-- **Tasks:** every tid in [0, ntasks) calls `libxs_syrk_task` once per update, from any thread and in any order, and C is complete when all of them have returned. `libxs_syrk_ntasks` returns the number of tasks worth running with nthreads threads: the tiles of a local plan (hand them out dynamically, the team balances itself), nthreads for a distributed plan, and 1 if a split does not pay (e.g., a pthread-based OpenBLAS).
+- **Tasks:** every tid in [0, ntasks) calls `libxs_syrk_task` once per update, from any thread and in any order, and C is complete when all of them have returned. `libxs_syrk_ntasks` returns the number of tasks worth running with nthreads threads: the tiles of a local plan (hand them out dynamically, the team balances itself), nthreads for a distributed plan (but at most a task per tile and one more, which reduces meanwhile), and 1 if a split does not pay (e.g., a pthread-based OpenBLAS).
 - **Reproducibility:** the result does not depend on the threads, the tasks, or the schedule, given the ranks and a BLAS that is sequential within a task. MKL is sequential inside a parallel region by default; with `MKL_DYNAMIC=FALSE`, its threads split the work of a task, and the bits change with the number of threads.
 - **Release:** `libxs_syrk_release` accepts NULL, a local plan, a failed dispatch, and a plan released before.
 

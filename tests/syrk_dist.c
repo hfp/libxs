@@ -13,6 +13,9 @@
 #if !defined(LIBXS_SYRK_WIDTH)
 # define LIBXS_SYRK_WIDTH 32 /* several panels, tiles and windows */
 #endif
+#if !defined(LIBXS_SYRK_WINDOW)
+# define LIBXS_SYRK_WINDOW 77568 /* panels of N=101 (F64): more than two in flight, and slots are reused */
+#endif
 #include <libxs/libxs_source.h>
 #if defined(__MPI)
 # include "syrk_device.h"

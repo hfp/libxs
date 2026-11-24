@@ -185,15 +185,16 @@ LIBXS_API_INTERN void internal_libxs_syrk_init(void)
 
 
 /**
- * Tiles depend on n alone: neither threads nor tasks move a boundary. A small n has narrower tiles
- * to split at all, a medium one square tiles to balance, and a large one taller tiles to pack less.
+ * Tiles depend on n alone: neither threads nor tasks move a boundary. Up to a medium n, the tiles are
+ * square and about n/8 wide (but at least half of the widest), i.e., some 36 tiles to balance a team,
+ * and a large n has the widest tiles, which are taller to pack less.
  */
 LIBXS_API_INLINE void internal_libxs_syrk_tiling(int n, int* width, int* height)
 {
-  const int full = LIBXS_SYRK_WIDTH;
-  const int w = (n <= full ? (full / 2) : (n < 3 * full ? (3 * full / 4) : full));
+  const int full = LIBXS_SYRK_WIDTH, step = LIBXS_MAX(full / 8, 1), eighth = n / 8;
+  const int w = LIBXS_CLMP(eighth - eighth % step, full / 2, full);
   *width = LIBXS_MAX(w, 1);
-  *height = (n < 6 * full ? *width : (2 * *width));
+  *height = (n < 12 * full ? *width : (2 * *width));
 }
 
 
@@ -1010,7 +1011,9 @@ LIBXS_API int libxs_syrk_ntasks(const libxs_syrk_t* plan, int nthreads)
     if (NULL == internal_libxs_openblas_parallel || NULL == internal_libxs_openblas_nthreads
       || 1 != internal_libxs_openblas_parallel() || 1 >= internal_libxs_openblas_nthreads())
     {
-      result = (NULL != plan->device.submit ? 1 : (NULL != plan->dist ? nthreads : plan->ntiles));
+      /* a distributed plan: a task per tile at most, and one more to reduce meanwhile */
+      result = (NULL != plan->device.submit ? 1 : (NULL != plan->dist
+        ? LIBXS_MIN(nthreads, plan->ntiles + 1) : plan->ntiles));
     }
   }
   return result;
