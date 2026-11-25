@@ -381,19 +381,20 @@ def slide_source(text, assets, root):
             fig = 'figside("%s")' % path
             text_open = "[\n```\n\n%s\n\n```{=typst}\n]" % body
             # The text's share follows its longest line (markup and the small
-            # dim runs aside): short points leave the figure room, long ones
-            # take up to the ~60% reveal gives them, since a wrapped line is
-            # worse than a smaller figure. ~28 characters per fr of text.
+            # dim runs aside; <br> breaks a line): short points leave the
+            # figure room, up to more than half of the width, long ones take
+            # up to the ~60% reveal gives them, since a wrapped line is worse
+            # than a smaller figure. ~28 characters per fr of text.
             plain = re.sub(r"`#dim\[`\{=typst\}.*?`\]`\{=typst\}", "", body)
             plain = re.sub(r"\*\*|__|`|\\$", "", plain, flags=re.M)
             longest = max(
                 (
                     len(ln.strip().lstrip("-*0123456789. "))
-                    for ln in plain.split("\n")
+                    for ln in re.split(r"\n|<br\s*/?>", plain)
                 ),
                 default=0,
             )
-            share = min(1.8, max(1.2, longest / 28.0))
+            share = min(1.8, max(1.0, longest / 28.0))
             cols = (
                 "(%.2ffr, 1fr)" % share
                 if "right" == side
