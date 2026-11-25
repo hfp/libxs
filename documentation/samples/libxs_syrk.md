@@ -35,7 +35,8 @@ Arguments (all optional, positional):
 
     N        Matrix dimension of C (N x N).  Default: 64
     K        Inner dimension (columns of A).  Default: N
-    nrepeat  Number of timed repetitions.     Default: 100
+    nrepeat  Timed calls per line.            Default: 0
+               0 = about one second per line (auto)
     direct   Interface selection.             Default: 0
                0 = plan (dispatch + call separately)
                1 = direct (one step, arguments as in BLAS)
@@ -52,6 +53,8 @@ or 1 with a pthread-based OpenBLAS. The sample prints this count as
 `libxs_syrk=`. The result is the same for any number of threads.
 
 The performance section compares `DSYRK` with `LIBXS` (`libxs_syrk`).
+Every line times one call first, which also warms up, and repeats the
+call for about one second unless `nrepeat` is given.
 `DSYRK` is threaded only with a threaded BLAS, e.g., `make MKL=2`:
 
     make MKL=2
@@ -66,17 +69,19 @@ Built with `make MPI=1`, the sample also runs the distributed SYRK
 (`libxs_syrk_dispatch` with a `libxs_pdist_t`): the ranks split K into
 stripes of columns, and C (lower triangle) is block-cyclic on a near-square
 grid of the ranks with blocks of `block` x `block`. Every rank computes the
-reference itself, and rank 0 prints the largest error of any rank and the
-time of the distributed update (`DIST`, GFLOPS/s over all ranks), run by
-the thread team as tasks. The other sections run on every rank as well, and
-rank 0 prints them.
+reference itself, and rank 0 prints the largest error of any rank. The other
+checks run on every rank as well, and rank 0 prints them. In the performance
+section, the local lines run on rank 0 only (concurrent ranks would contend
+for the cores) while the other ranks wait, and `DIST` times the distributed
+update on all ranks (GFLOPS/s over all ranks), run by the thread team. With
+several ranks per node, `OMP_NUM_THREADS` should split the cores among them.
 
     make MPI=1
     mpiexec -n 4 ./syrk.x 2048 8192 5 0 4 64
 
 ## Example Output
 
-    SYRK: N=64 K=64 nrepeat=100 direct=0
+    SYRK: N=64 K=64 nrepeat=auto direct=0
 
     --- SYRK (lower) ---
       max error (lower):  0.00000E+00
@@ -93,13 +98,13 @@ rank 0 prints them.
       max error (omp tasks):  0.00000E+00
 
     --- SYRK performance ---
-      DSYRK:     <time> s (100 calls)
+      DSYRK:     <time> s (<count> calls)
                      <rate> GFLOPS/s
-      LIBXS:     <time> s (100 calls)
+      LIBXS:     <time> s (<count> calls)
                      <rate> GFLOPS/s
-      OMP:       <time> s (100 calls)
+      OMP:       <time> s (<count> calls)
                      <rate> GFLOPS/s
-      TASK:      <time> s (100 calls)
+      TASK:      <time> s (<count> calls)
                      <rate> GFLOPS/s
 
 Here `libxs_syrk=1`, i.e., the update is a single tile (see above).
