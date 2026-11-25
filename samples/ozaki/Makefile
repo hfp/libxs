@@ -54,6 +54,8 @@ ifneq (0,$(LIBXSTREAM))
     DFLAGS += -D__LIBXSTREAM
     ifeq (,$(XSTREAM_LIB))
       DFLAGS += -DLIBXSTREAM_SOURCE
+      # header-only: LIBXSTREAM's embedded kernels are generated (not tracked)
+      XSTREAM_KERNELS := $(LIBXSTREAMROOT)/src/libxstream_syrk_kernels.h
     endif
     OCLOBJS := $(BLDDIR)/ozaki_ocl-c.o \
                $(BLDDIR)/ozaki_opencl-c.o \
@@ -129,7 +131,7 @@ endif
 OUTNAME := $(shell basename "$(ROOTDIR)")
 HEADERS := $(wildcard $(INCDIR)/*.h) $(wildcard $(SRCDIR)/*.h) \
            $(wildcard $(DEPDIR)/libxs/*.h) \
-           $(wildcard $(DEPDIR)/../libxstream/samples/ozaki/*.h)
+           $(wildcard $(DEPDIR)/../libxstream/samples/ozaki/*.h) $(XSTREAM_KERNELS)
 # Driver source (compiled for each precision)
 CSOURCS := $(SRCDIR)/gemm.c
 # Implementation sources: _WRAP + support (compiled for each precision)
@@ -249,6 +251,11 @@ $(BLDDIR)/%-zc.o: $(SRCDIR)/%.c .state $(BLDDIR)/.make $(HEADERS) Makefile $(DEP
 
 $(BLDDIR)/%-cc.o: $(SRCDIR)/%.c .state $(BLDDIR)/.make $(HEADERS) Makefile $(DEPDIR)/Makefile.inc
 	$(CC) -DGEMM_COMPLEX -DGEMM_REAL_TYPE=float $(DFLAGS) $(IFLAGS) $(CFLAGS) $(CTARGET) -c $< -o $@
+
+ifneq (,$(XSTREAM_KERNELS))
+$(XSTREAM_KERNELS): $(LIBXSTREAMROOT)/src/kernels/libxstream_syrk.cl
+	@$(MAKE) --no-print-directory -C $(LIBXSTREAMROOT) kernels
+endif
 
 ifneq (,$(OCLOBJS))
 # Generate embedded kernel header from .cl sources
