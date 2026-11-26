@@ -236,6 +236,103 @@ LIBXS_API_INLINE int internal_libxs_predict_parse_fields(
 }
 
 
+/* by value as equality reads it: -0 hashes as 0 and an absent value as one value */
+LIBXS_API_INLINE unsigned int internal_libxs_predict_seen_hash(
+  const double row[], int width)
+{
+  double canon[128];
+  int i;
+  LIBXS_ASSERT(width <= 128);
+  for (i = 0; i < width; ++i) {
+    canon[i] = (LIBXS_NOTNAN(row[i]) && LIBXS_NEQ(0, row[i])) ? row[i] : 0.0;
+  }
+  return libxs_hash(canon, (size_t)width * sizeof(double), 0);
+}
+
+
+LIBXS_API_INLINE int internal_libxs_predict_seen_equal(
+  const double a[], const double b[], int width)
+{
+  int i = 0;
+  while (i < width
+    && (LIBXS_FEQ(a[i], b[i]) || (LIBXS_ISNAN(a[i]) && LIBXS_ISNAN(b[i]))))
+  {
+    ++i;
+  }
+  return (i == width) ? 1 : 0;
+}
+
+
+/* room for one more row, the slots kept at most half full */
+LIBXS_API_INLINE int internal_libxs_predict_seen_grow(
+  internal_libxs_predict_seen_t* seen)
+{
+  int result = EXIT_SUCCESS;
+  if (seen->nrows == seen->cap) {
+    const int cap = (0 < seen->cap) ? (2 * seen->cap) : 1024;
+    double* rows = (double*)realloc(seen->rows,
+      (size_t)cap * (size_t)seen->width * sizeof(double));
+    unsigned int* hash = NULL;
+    if (NULL != rows) {
+      seen->rows = rows;
+      hash = (unsigned int*)realloc(seen->hash, (size_t)cap * sizeof(unsigned int));
+    }
+    if (NULL != hash) {
+      seen->hash = hash;
+      seen->cap = cap;
+    }
+    else result = EXIT_FAILURE;
+  }
+  if (EXIT_SUCCESS == result && seen->nslot < 2 * (seen->nrows + 1)) {
+    const int nslot = (0 < seen->nslot) ? (2 * seen->nslot) : 2048;
+    int* slot = (int*)malloc((size_t)nslot * sizeof(int));
+    if (NULL != slot) {
+      int i, s;
+      for (s = 0; s < nslot; ++s) slot[s] = -1;
+      for (i = 0; i < seen->nrows; ++i) {
+        s = (int)(seen->hash[i] & (unsigned int)(nslot - 1));
+        while (0 <= slot[s]) s = (s + 1) & (nslot - 1);
+        slot[s] = i;
+      }
+      free(seen->slot);
+      seen->slot = slot;
+      seen->nslot = nslot;
+    }
+    else result = EXIT_FAILURE;
+  }
+  return result;
+}
+
+
+/* 1 if the row is new and now recorded, 0 if an earlier row had it, -1 if out of memory */
+LIBXS_API_INLINE int internal_libxs_predict_seen_admit(
+  internal_libxs_predict_seen_t* seen, const double row[])
+{
+  const int width = seen->width;
+  const unsigned int h = internal_libxs_predict_seen_hash(row, width);
+  int result = (EXIT_SUCCESS == internal_libxs_predict_seen_grow(seen)) ? 1 : -1;
+  if (0 < result) {
+    int s = (int)(h & (unsigned int)(seen->nslot - 1));
+    while (0 <= seen->slot[s] && 0 < result) {
+      const int r = seen->slot[s];
+      if (h == seen->hash[r] && 0 != internal_libxs_predict_seen_equal(
+        seen->rows + (size_t)r * width, row, width))
+      {
+        result = 0;
+      }
+      else s = (s + 1) & (seen->nslot - 1);
+    }
+    if (0 < result) {
+      memcpy(seen->rows + (size_t)seen->nrows * width, row,
+        (size_t)width * sizeof(double));
+      seen->hash[seen->nrows] = h;
+      seen->slot[s] = seen->nrows++;
+    }
+  }
+  return result;
+}
+
+
 LIBXS_API_INLINE int internal_libxs_predict_tokenize(
   const char spec[], char buf[], const char* tokens[], int maxtokens)
 {
@@ -291,6 +388,7 @@ LIBXS_API int libxs_predict_load_csv_opts(libxs_predict_t* model,
   const int nrows = (NULL != opts) ? opts->nrows : 0;
   const int nskip = (NULL != opts && 0 < opts->offset) ? opts->offset : 0;
   const int stride = (NULL != opts && 1 < opts->stride) ? opts->stride : 1;
+  const int unique = (NULL != opts) ? opts->unique : 0;
   internal_libxs_predict_lines_t reader;
   LIBXS_ASSERT(NULL != model && NULL != filename);
   file = fopen(filename, "r");
@@ -403,24 +501,35 @@ LIBXS_API int libxs_predict_load_csv_opts(libxs_predict_t* model,
     if (NULL != delim_out) {
       *delim_out = sep[0];
     }
-    { int nadmit = 0; /* admissible rows seen, which stride/offset count */
-      while (0 != resolved && (0 >= nrows || result < nrows)
+    { internal_libxs_predict_seen_t seen;
+      int nadmit = 0; /* admissible rows seen, which stride/offset count */
+      memset(&seen, 0, sizeof(seen));
+      seen.width = ninputs + noutputs;
+      while (0 != resolved && 0 <= result && (0 >= nrows || result < nrows)
         && NULL != (line = internal_libxs_predict_lines_next(&reader)))
       {
         if ('#' == line[0]) continue;
         if (0 != internal_libxs_predict_parse_fields(line, delim, fast, first,
           nfirst, next, ninputs, noutputs, vals, model->missing_mode))
         {
-          const int taken = (nadmit >= nskip)
-            && (0 == ((nadmit - nskip) % stride));
-          ++nadmit;
-          if (0 != taken && EXIT_SUCCESS == libxs_predict_push(
-            NULL, model, vals, vals + ninputs))
-          {
-            ++result;
+          const int admit = (0 != unique)
+            ? internal_libxs_predict_seen_admit(&seen, vals) : 1;
+          if (0 < admit) {
+            const int taken = (nadmit >= nskip)
+              && (0 == ((nadmit - nskip) % stride));
+            ++nadmit;
+            if (0 != taken && EXIT_SUCCESS == libxs_predict_push(
+              NULL, model, vals, vals + ninputs))
+            {
+              ++result;
+            }
           }
+          else if (0 > admit) result = -1;
         }
       }
+      free(seen.rows);
+      free(seen.hash);
+      free(seen.slot);
     }
     if (local != first) LIBXS_PREDICT_FREE(first, first_pool);
     LIBXS_PREDICT_FREE(reader.buf, reader.pool);

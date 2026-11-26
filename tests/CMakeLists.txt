@@ -31,6 +31,7 @@ set(
   predict_prob
   predict_reach
   predict_serial
+  predict_unique
   predict_weights
   registry
   setdiff

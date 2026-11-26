@@ -197,6 +197,15 @@ typedef struct internal_libxs_predict_lines_t {
   int pool, eof;
 } internal_libxs_predict_lines_t;
 
+/** Rows a load admitted by value (libxs_predict_csv_t.unique): width doubles each. */
+typedef struct internal_libxs_predict_seen_t {
+  double* rows;
+  unsigned int* hash;
+  /* open addressing over row indices, -1 where empty; nslot is a power of two */
+  int* slot;
+  int width, nrows, cap, nslot;
+} internal_libxs_predict_seen_t;
+
 typedef struct internal_libxs_predict_entry_t {
   double* inputs;
   double* outputs;

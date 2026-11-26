@@ -613,6 +613,7 @@ typedef struct libxs_predict_csv_t {
   int nrows;
   int stride;
   int offset;
+  int unique;
 } libxs_predict_csv_t;
 ```
 
@@ -623,10 +624,14 @@ load_csv with every argument NULL or zero.
 - nrows: stop after that many entries were pushed (0: whole file).
 - stride: push every stride-th admissible row (0 or 1: every row).
 - offset: admissible rows to skip before the first one taken.
+- unique: non-zero drops a row whose inputs and outputs equal an
+  earlier row's (−0 equals 0, an absent input equals an absent one).
+  Rows that share only the inputs are kept.
 
 With stride and offset, one file splits into disjoint parts that
 each span the whole file. Unparsable and comment rows are not
-admissible and do not shift the selection.
+admissible and do not shift the selection, and neither is a
+repeat under unique, so no two parts hold the same row.
 
 ## Structures
 

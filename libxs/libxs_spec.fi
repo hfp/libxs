@@ -126,6 +126,7 @@
         PUBLIC :: libxs_tas_ntasks, libxs_tas_release
 
         PUBLIC :: libxs_predict_info_t, libxs_predict_query_t
+        PUBLIC :: libxs_predict_csv_t
         PUBLIC :: LIBXS_PREDICT_AUTO, LIBXS_PREDICT_INTERPOLATE
         PUBLIC :: LIBXS_PREDICT_CLASSIFY, LIBXS_PREDICT_TEMPORAL
         PUBLIC :: LIBXS_PREDICT_IDENTITY
@@ -167,6 +168,7 @@
         PUBLIC :: libxs_predict_eval_batch_task
         PUBLIC :: libxs_predict_save, libxs_predict_load
         PUBLIC :: libxs_predict_load_csv
+        PUBLIC :: libxs_predict_load_csv_opts
         PUBLIC :: libxs_strtoken
 
         PUBLIC :: C_DOUBLE, C_FLOAT, C_INT, C_LONG_LONG, C_INT64_T
@@ -485,9 +487,14 @@
         !> Model statistics (after build).
         TYPE, BIND(C) :: libxs_predict_query_t
           REAL(C_DOUBLE) :: compression = 0
+          INTEGER(C_INT) :: ninputs = 0
+          INTEGER(C_INT) :: noutputs = 0
+          INTEGER(C_INT) :: version = 0
+          INTEGER(C_INT) :: neighbors = 0
           INTEGER(C_INT) :: order = 0
           INTEGER(C_INT) :: nclusters = 0
           INTEGER(C_INT) :: nentries = 0
+          INTEGER(C_INT) :: corpus = 0
           INTEGER(C_INT) :: iterations = 0
           INTEGER(C_INT) :: diff_order = 0
           INTEGER(C_INT) :: window = 0
@@ -495,6 +502,22 @@
           INTEGER(C_INT) :: nscan = 0
           REAL(C_DOUBLE) :: escan = 0
           INTEGER(C_INT) :: decompose = 0
+          INTEGER(C_INT) :: coordinate = 0
+          INTEGER(C_INT) :: ncoord = 0
+          INTEGER(C_INT) :: reach = 0
+        END TYPE
+
+        !> Options of libxs_predict_load_csv_opts. A string is C_LOC
+        !> of a NUL-terminated CHARACTER(C_CHAR) array, or C_NULL_PTR.
+        TYPE, BIND(C) :: libxs_predict_csv_t
+          TYPE(C_PTR) :: delims = C_NULL_PTR
+          TYPE(C_PTR) :: inputs = C_NULL_PTR
+          TYPE(C_PTR) :: outputs = C_NULL_PTR
+          TYPE(C_PTR) :: header = C_NULL_PTR
+          INTEGER(C_INT) :: header_size = 0
+          TYPE(C_PTR) :: delim_out = C_NULL_PTR
+          INTEGER(C_INT) :: nrows = 0, stride = 0, offset = 0
+          INTEGER(C_INT) :: unique = 0
         END TYPE
 
         INTERFACE libxs_gemm_call
@@ -1638,6 +1661,15 @@
             INTEGER(C_INT), INTENT(IN), VALUE :: header_size
             TYPE(C_PTR), INTENT(IN), VALUE :: delim_out
             INTEGER(C_INT) :: libxs_predict_load_csv
+          END FUNCTION
+
+          FUNCTION libxs_predict_load_csv_opts(model, filename, opts)   &
+     &    BIND(C)
+            IMPORT :: C_PTR, C_INT, C_CHAR, libxs_predict_csv_t
+            TYPE(C_PTR), INTENT(IN), VALUE :: model
+            CHARACTER(C_CHAR), INTENT(IN) :: filename(*)
+            TYPE(libxs_predict_csv_t), INTENT(IN) :: opts
+            INTEGER(C_INT) :: libxs_predict_load_csv_opts
           END FUNCTION
 
           FUNCTION libxs_strtoken(str, delims, index, length)           &

@@ -36,7 +36,7 @@ int main(int argc, char* argv[])
   int order = 2, nclusters = 0;
   int decompose = LIBXS_PREDICT_AUTO_DECOMPOSE;
   int coordinate = LIBXS_PREDICT_AUTO_COORD;
-  int argi, npos = 0, use_xgb = 0, bad = 0, result = EXIT_FAILURE;
+  int argi, npos = 0, use_xgb = 0, unique = 0, bad = 0, result = EXIT_FAILURE;
 
   libxs_init();
 
@@ -66,6 +66,7 @@ int main(int argc, char* argv[])
     else if (0 != predict_iskey(arg, "none")) decompose = LIBXS_PREDICT_RAW;
     else if (0 != predict_iskey(arg, "pca")) decompose = LIBXS_PREDICT_PCA;
     else if (0 != predict_iskey(arg, "xgb")) use_xgb = 1;
+    else if (0 != predict_iskey(arg, "unique")) unique = 1;
     else if (0 != predict_iskey(arg, "rank")) coordinate = LIBXS_PREDICT_RANK;
     else if (0 != predict_iskey(arg, "score")) coordinate = LIBXS_PREDICT_SCORE;
     else bad = argi;
@@ -77,7 +78,7 @@ int main(int argc, char* argv[])
     fprintf(stdout,
       "Usage: %s <crystal_csv> [train_fraction] [order] [nclusters]"
       " [compress[Q]] [consist[C]] [fisher|hknn|setdiff|rf|pca|none] [rank|score]"
-      " [gaps[F]] [xgb]\n"
+      " [gaps[F]] [unique] [xgb]\n"
       "  Crystal system prediction from composition features.\n"
       "  consist: round-trip consistency penalty (C: 0..1, default 0.9)\n"
       "  xgb: also train XGBoost on the same split and compare.\n"
@@ -88,6 +89,8 @@ int main(int argc, char* argv[])
       "    absent-value path (libxs_predict_set_missing). Modes that cannot\n"
       "    carry a gap refuse to build rather than answer from a coordinate\n"
       "    they never had.\n"
+      "  unique: load a row that repeats an earlier one (features and label)\n"
+      "    once, so that no row is both trained on and tested.\n"
       "  Default: the decomposition and the neighbour count are selected at\n"
       "    build from data held back for the purpose, rather than configured.\n"
       "  Default train_fraction: 0.8\n", argv[0]);
@@ -101,13 +104,16 @@ int main(int argc, char* argv[])
   else {
     libxs_predict_t* source = libxs_predict_create(NFEAT, 1);
     if (NULL != source) {
-      const int total = libxs_predict_load_csv(source, filename, NULL,
-        NULL, NULL, NULL, 0, NULL);
+      libxs_predict_csv_t opts;
+      int total;
+      LIBXS_MEMZERO(&opts);
+      opts.unique = unique;
+      total = libxs_predict_load_csv_opts(source, filename, &opts);
       if (0 < total) {
         const int train_end = LIBXS_MAX((int)(total * split + 0.5), 2);
         libxs_predict_t* model = libxs_predict_create(NFEAT, 1);
-        fprintf(stdout, "Loaded %d entries (%d features) from %s\n",
-          total, NFEAT, filename);
+        fprintf(stdout, "Loaded %d %sentries (%d features) from %s\n",
+          total, (0 != unique) ? "unique " : "", NFEAT, filename);
         if (NULL != model) {
           libxs_timer_tick_t tick;
           int t, correct = 0, ntest = 0, gated = 0, gated_correct = 0;

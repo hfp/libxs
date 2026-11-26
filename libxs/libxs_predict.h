@@ -285,6 +285,14 @@ LIBXS_EXTERN_C typedef struct libxs_predict_csv_t {
   int stride;
   /** Admissible rows to skip before the first one taken (0: none). */
   int offset;
+  /**
+   * Non-zero: a row whose inputs and outputs equal those of an earlier row is
+   * not admissible. Values compare as numbers (-0 equals 0) and an absent input
+   * equals an absent one; rows that share the inputs but not the outputs are all
+   * kept. A repeat is judged against every earlier admissible row, not only the
+   * ones taken, so the parts a (stride, offset) split loads share no row.
+   */
+  int unique;
 } libxs_predict_csv_t;
 
 
@@ -1284,7 +1292,8 @@ LIBXS_API int libxs_predict_load_csv(libxs_predict_t* model,
  * Load delimited text as libxs_predict_load_csv, taking its arguments as a
  * struct so a subset of a large file can be requested (see nrows/stride).
  * opts may be NULL, which requests every row and sequential columns.
- * Returns the number of entries pushed, or -1 on I/O error.
+ * Returns the number of entries pushed, or -1 on I/O error (or, with unique,
+ * on allocation failure).
  */
 LIBXS_API int libxs_predict_load_csv_opts(libxs_predict_t* model,
   const char filename[], const libxs_predict_csv_t* opts);
