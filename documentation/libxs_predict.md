@@ -378,9 +378,11 @@ int libxs_predict_push_weighted(libxs_lock_t* lock,
 ```
 
 Push one entry whose kNN vote counts weight times (weight > 0;
-1 is exactly push). Only the vote reads the weight, not the
-polynomial fit, the partition or the probability API. In series
-mode only weight 1 is accepted. Weights are persisted.
+1 is exactly push). A forest draws its bootstraps by weight
+(rounded to whole units) and counts its calibration by weight.
+The polynomial fit, the partition and the probability API do
+not read it. In series mode only weight 1 is accepted. Weights
+are persisted.
 
 ```C
 int libxs_predict_build(libxs_predict_t* model,
@@ -390,6 +392,8 @@ int libxs_predict_build(libxs_predict_t* model,
 Build the model from pushed entries. nclusters=0 selects
 sqrt(n) clusters automatically. order>0 uses at most that
 order, order=0 auto-optimizes, order<0 scans up to |order|.
+Entries with equal inputs stay together in every hold-out the
+build draws (mode trial, forest bags, boosting, calibration).
 
 The quality parameter (0..1) controls model compression:
 
@@ -482,11 +486,15 @@ void libxs_predict_query(const libxs_predict_t* model,
 
 void libxs_predict_get(const libxs_predict_t* model,
   int index, double inputs[], double outputs[]);
+
+double libxs_predict_get_weight(const libxs_predict_t* model,
+  int index);
 ```
 
 query fills a statistics struct (see `libxs_predict_query_t`
 below).
-get retrieves the i-th pushed entry (0-based).
+get retrieves the i-th pushed entry (0-based), and get_weight
+its weight (1 unless set; 0 if there is no such entry).
 
 `nscan` is the number of candidates a query scans in the worst
 case (the largest cluster); a model built with a single cluster
@@ -624,14 +632,16 @@ load_csv with every argument NULL or zero.
 - nrows: stop after that many entries were pushed (0: whole file).
 - stride: push every stride-th admissible row (0 or 1: every row).
 - offset: admissible rows to skip before the first one taken.
-- unique: non-zero drops a row whose inputs and outputs equal an
-  earlier row's (−0 equals 0, an absent input equals an absent one).
-  Rows that share only the inputs are kept.
+- unique: 1 drops a row whose inputs and outputs equal an earlier
+  row's (−0 equals 0, an absent input equals an absent one); 2
+  adds one to the weight of the entry it repeats instead (a series
+  model drops it). Rows that share only the inputs are kept.
 
 With stride and offset, one file splits into disjoint parts that
 each span the whole file. Unparsable and comment rows are not
 admissible and do not shift the selection, and neither is a
-repeat under unique, so no two parts hold the same row.
+repeat under unique, so no two parts hold the same row (under 2,
+the part holding the first occurrence holds every copy).
 
 ## Structures
 

@@ -293,7 +293,7 @@ composition features.
 
 ### Usage
 
-    ./predict_crystal.x <crystal_csv> [train_fraction] [order] [nclusters] [compress[Q]] [consist[C]] [fisher|hknn|setdiff|rf|pca|none] [rank|score] [gaps[F]] [unique] [xgb]
+    ./predict_crystal.x <crystal_csv> [train_fraction] [order] [nclusters] [compress[Q]] [consist[C]] [fisher|hknn|setdiff|rf|pca|none] [rank|score] [gaps[F]] [unique|merge] [xgb]
 
     consist    Round-trip consistency penalty (C: 0..1, default 0.9).
     fisher     Fisher discriminant feature weighting.
@@ -310,6 +310,8 @@ composition features.
                the absent-value path (libxs_predict_set_missing).
     unique     Load a row that repeats an earlier one (features and label)
                once, so that no row is both trained on and tested.
+    merge      As unique, but a repeat adds to the weight of the row it
+               repeats; the test part counts each row once.
     xgb        Also train XGBoost on the same split and compare.
 
 ### Example

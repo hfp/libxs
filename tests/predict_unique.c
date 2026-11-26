@@ -99,6 +99,41 @@ int main(void)
     libxs_predict_destroy(even);
     libxs_predict_destroy(odd);
   }
+  /* merging keeps the distinct rows and counts the copies as weight */
+  if (EXIT_SUCCESS == result) {
+    static const double weight[NUNIQUE] = { 3, 1, 2, 1, 1 };
+    libxs_predict_t* model = libxs_predict_create(2, 1);
+    const int n = (NULL != model) ? load(model, 2, 0, 0) : -1;
+    int i;
+    if (NUNIQUE != n) {
+      fprintf(stderr, "merging load: %i rows, expected %i\n", n, NUNIQUE);
+      result = EXIT_FAILURE;
+    }
+    else result = check_rows(model, n, 0, 1, "merging load");
+    for (i = 0; i < n && EXIT_SUCCESS == result; ++i) {
+      const double w = libxs_predict_get_weight(model, i);
+      if (weight[i] != w) {
+        fprintf(stderr, "merging load: entry %i weighs %g, expected %g\n", i, w,
+          weight[i]);
+        result = EXIT_FAILURE;
+      }
+    }
+    libxs_predict_destroy(model);
+  }
+  /* a copy follows its first occurrence into the part that holds it */
+  if (EXIT_SUCCESS == result) {
+    libxs_predict_t* even = libxs_predict_create(2, 1);
+    const int neven = (NULL != even) ? load(even, 2, 2, 0) : -1;
+    if (3 != neven || EXIT_SUCCESS != check_rows(even, neven, 0, 2, "even merged")
+      || 3 != libxs_predict_get_weight(even, 0)
+      || 2 != libxs_predict_get_weight(even, 1)
+      || 1 != libxs_predict_get_weight(even, 2))
+    {
+      fprintf(stderr, "strided merging load: wrong rows or weights\n");
+      result = EXIT_FAILURE;
+    }
+    libxs_predict_destroy(even);
+  }
   /* an absent input equals an absent one */
   if (EXIT_SUCCESS == result) {
     out = fopen(CSVFILE, "w");

@@ -67,6 +67,7 @@ int main(int argc, char* argv[])
     else if (0 != predict_iskey(arg, "pca")) decompose = LIBXS_PREDICT_PCA;
     else if (0 != predict_iskey(arg, "xgb")) use_xgb = 1;
     else if (0 != predict_iskey(arg, "unique")) unique = 1;
+    else if (0 != predict_iskey(arg, "merge")) unique = 2;
     else if (0 != predict_iskey(arg, "rank")) coordinate = LIBXS_PREDICT_RANK;
     else if (0 != predict_iskey(arg, "score")) coordinate = LIBXS_PREDICT_SCORE;
     else bad = argi;
@@ -78,7 +79,7 @@ int main(int argc, char* argv[])
     fprintf(stdout,
       "Usage: %s <crystal_csv> [train_fraction] [order] [nclusters]"
       " [compress[Q]] [consist[C]] [fisher|hknn|setdiff|rf|pca|none] [rank|score]"
-      " [gaps[F]] [unique] [xgb]\n"
+      " [gaps[F]] [unique|merge] [xgb]\n"
       "  Crystal system prediction from composition features.\n"
       "  consist: round-trip consistency penalty (C: 0..1, default 0.9)\n"
       "  xgb: also train XGBoost on the same split and compare.\n"
@@ -91,6 +92,8 @@ int main(int argc, char* argv[])
       "    they never had.\n"
       "  unique: load a row that repeats an earlier one (features and label)\n"
       "    once, so that no row is both trained on and tested.\n"
+      "  merge: as unique, but a repeat adds to the weight of the row it\n"
+      "    repeats; the test part counts each row once.\n"
       "  Default: the decomposition and the neighbour count are selected at\n"
       "    build from data held back for the purpose, rather than configured.\n"
       "  Default train_fraction: 0.8\n", argv[0]);
@@ -113,7 +116,8 @@ int main(int argc, char* argv[])
         const int train_end = LIBXS_MAX((int)(total * split + 0.5), 2);
         libxs_predict_t* model = libxs_predict_create(NFEAT, 1);
         fprintf(stdout, "Loaded %d %sentries (%d features) from %s\n",
-          total, (0 != unique) ? "unique " : "", NFEAT, filename);
+          total, (1 == unique) ? "unique " : ((2 == unique) ? "merged " : ""),
+          NFEAT, filename);
         if (NULL != model) {
           libxs_timer_tick_t tick;
           int t, correct = 0, ntest = 0, gated = 0, gated_correct = 0;
@@ -132,7 +136,8 @@ int main(int argc, char* argv[])
             double inputs[NFEAT], output;
             libxs_predict_get(source, t, inputs, &output);
             if (0.0 < gaps) blank_inputs(inputs, NFEAT, gaps, (unsigned int)t);
-            libxs_predict_push(NULL, model, inputs, &output);
+            libxs_predict_push_weighted(NULL, model, inputs, &output,
+              libxs_predict_get_weight(source, t));
           }
           tick = libxs_timer_tick();
 #if defined(_OPENMP)

@@ -197,10 +197,12 @@ typedef struct internal_libxs_predict_lines_t {
   int pool, eof;
 } internal_libxs_predict_lines_t;
 
-/** Rows a load admitted by value (libxs_predict_csv_t.unique): width doubles each. */
+/** Distinct rows by value (a load's unique, a build's input groups): width doubles each. */
 typedef struct internal_libxs_predict_seen_t {
   double* rows;
   unsigned int* hash;
+  /* the caller's value per row: the entry it became, or -1 */
+  int* tag;
   /* open addressing over row indices, -1 where empty; nslot is a power of two */
   int* slot;
   int width, nrows, cap, nslot;
@@ -444,6 +446,13 @@ typedef struct internal_libxs_predict_rf_t {
   /** Build-only contexts where caller tasks outnumber trees. */
   internal_libxs_predict_rf_team_t* build_team;
   int build_nteams;
+  /**
+   * Build-only: a bootstrap draws nunits units of weight, and unit u lands on
+   * the first row whose unit_end exceeds u. NULL (nunits = rows) where every
+   * entry weighs one.
+   */
+  int* unit_end;
+  int nunits;
   int ntrees;
   int noutputs;
   /** Bins per input, zero where the corpus is too small for any node to reach
@@ -552,6 +561,12 @@ LIBXS_EXTERN_C struct libxs_predict_t {
   int missing_mode, has_missing;
   /** Non-zero once any pushed entry carries a weight other than 1. */
   int has_eweight;
+  /**
+   * Build-only: per entry the first entry with equal inputs, so that a hold-out
+   * takes or leaves every entry of one input together. NULL where no input
+   * repeats, which leaves every hold-out as it was.
+   */
+  int* input_rep;
   /** Requested forest size and depth (0: decide at build). */
   int rf_ntrees, rf_depth;
   /**
@@ -2551,8 +2566,10 @@ LIBXS_API void libxs_predict_destroy(libxs_predict_t* model)
       free(model->rf->depth);
       free(model->rf->calib);
       free(model->rf->build_team);
+      free(model->rf->unit_end);
       free(model->rf);
     }
+    free(model->input_rep);
     free(model);
   }
 }
@@ -3629,6 +3646,157 @@ LIBXS_API_INLINE int internal_libxs_predict_discrete_all(libxs_predict_t* model)
     model->discrete[j] = discrete;
   }
   return result;
+}
+
+
+/* by value as equality reads it: -0 hashes as 0 and an absent value as one value */
+LIBXS_API_INLINE unsigned int internal_libxs_predict_seen_hash(
+  const double row[], int width)
+{
+  double canon[128];
+  int i;
+  LIBXS_ASSERT(width <= 128);
+  for (i = 0; i < width; ++i) {
+    canon[i] = (LIBXS_NOTNAN(row[i]) && LIBXS_NEQ(0, row[i])) ? row[i] : 0.0;
+  }
+  return libxs_hash(canon, (size_t)width * sizeof(double), 0);
+}
+
+
+LIBXS_API_INLINE int internal_libxs_predict_seen_equal(
+  const double a[], const double b[], int width)
+{
+  int i = 0;
+  while (i < width
+    && (LIBXS_FEQ(a[i], b[i]) || (LIBXS_ISNAN(a[i]) && LIBXS_ISNAN(b[i]))))
+  {
+    ++i;
+  }
+  return (i == width) ? 1 : 0;
+}
+
+
+/* room for one more row, the slots kept at most half full */
+LIBXS_API_INLINE int internal_libxs_predict_seen_grow(
+  internal_libxs_predict_seen_t* seen)
+{
+  int result = EXIT_SUCCESS;
+  if (seen->nrows == seen->cap) {
+    const int cap = (0 < seen->cap) ? (2 * seen->cap) : 1024;
+    double* rows = (double*)realloc(seen->rows,
+      (size_t)cap * (size_t)seen->width * sizeof(double));
+    unsigned int* hash = NULL;
+    int* tag = NULL;
+    if (NULL != rows) {
+      seen->rows = rows;
+      hash = (unsigned int*)realloc(seen->hash, (size_t)cap * sizeof(unsigned int));
+    }
+    if (NULL != hash) {
+      seen->hash = hash;
+      tag = (int*)realloc(seen->tag, (size_t)cap * sizeof(int));
+    }
+    if (NULL != tag) {
+      seen->tag = tag;
+      seen->cap = cap;
+    }
+    else result = EXIT_FAILURE;
+  }
+  if (EXIT_SUCCESS == result && seen->nslot < 2 * (seen->nrows + 1)) {
+    const int nslot = (0 < seen->nslot) ? (2 * seen->nslot) : 2048;
+    int* slot = (int*)malloc((size_t)nslot * sizeof(int));
+    if (NULL != slot) {
+      int i, s;
+      for (s = 0; s < nslot; ++s) slot[s] = -1;
+      for (i = 0; i < seen->nrows; ++i) {
+        s = (int)(seen->hash[i] & (unsigned int)(nslot - 1));
+        while (0 <= slot[s]) s = (s + 1) & (nslot - 1);
+        slot[s] = i;
+      }
+      free(seen->slot);
+      seen->slot = slot;
+      seen->nslot = nslot;
+    }
+    else result = EXIT_FAILURE;
+  }
+  return result;
+}
+
+
+/**
+ * 1 if the row is new and now recorded, 0 if an earlier row had it, -1 if out of
+ * memory. at receives the index of the recorded row either way (its tag -1 when new).
+ */
+LIBXS_API_INLINE int internal_libxs_predict_seen_admit(
+  internal_libxs_predict_seen_t* seen, const double row[], int* at)
+{
+  const int width = seen->width;
+  const unsigned int h = internal_libxs_predict_seen_hash(row, width);
+  int result = (EXIT_SUCCESS == internal_libxs_predict_seen_grow(seen)) ? 1 : -1;
+  *at = -1;
+  if (0 < result) {
+    int s = (int)(h & (unsigned int)(seen->nslot - 1));
+    while (0 <= seen->slot[s] && 0 < result) {
+      const int r = seen->slot[s];
+      if (h == seen->hash[r] && 0 != internal_libxs_predict_seen_equal(
+        seen->rows + (size_t)r * width, row, width))
+      {
+        *at = r;
+        result = 0;
+      }
+      else s = (s + 1) & (seen->nslot - 1);
+    }
+    if (0 < result) {
+      memcpy(seen->rows + (size_t)seen->nrows * width, row,
+        (size_t)width * sizeof(double));
+      seen->hash[seen->nrows] = h;
+      seen->tag[seen->nrows] = -1;
+      *at = seen->nrows;
+      seen->slot[s] = seen->nrows++;
+    }
+  }
+  return result;
+}
+
+
+LIBXS_API_INLINE void internal_libxs_predict_seen_free(
+  internal_libxs_predict_seen_t* seen)
+{
+  free(seen->rows);
+  free(seen->hash);
+  free(seen->tag);
+  free(seen->slot);
+}
+
+
+/**
+ * Sets model->input_rep for a table whose inputs repeat (NULL otherwise, or for a
+ * series, whose windows overlap by construction). Absent inputs compare equal.
+ */
+LIBXS_API_INLINE void internal_libxs_predict_input_groups(libxs_predict_t* model)
+{
+  const int p = model->nentries;
+  free(model->input_rep);
+  model->input_rep = NULL;
+  if (1 < p && 0 >= model->nseries && 0 >= model->nts
+    && 128 >= model->ninputs)
+  {
+    int* rep = (int*)malloc((size_t)p * sizeof(int));
+    internal_libxs_predict_seen_t seen;
+    int i, nrep = 0, ok = (NULL != rep) ? 1 : 0;
+    memset(&seen, 0, sizeof(seen));
+    seen.width = model->ninputs;
+    for (i = 0; i < p && 0 != ok; ++i) {
+      int at;
+      const int admit = internal_libxs_predict_seen_admit(&seen,
+        model->entries[i].inputs, &at);
+      if (0 < admit) { seen.tag[at] = i; rep[i] = i; }
+      else if (0 == admit) { rep[i] = seen.tag[at]; ++nrep; }
+      else ok = 0;
+    }
+    internal_libxs_predict_seen_free(&seen);
+    if (0 != ok && 0 < nrep) model->input_rep = rep;
+    else free(rep);
+  }
 }
 
 
@@ -5127,12 +5295,17 @@ LIBXS_API int libxs_predict_build(libxs_predict_t* model,
     model->coord_sel = -1;
     /* as libxs_predict_build_task does: the corpus is scanned once per build */
     if (0 < model->nentries) internal_libxs_predict_missing_all(model);
+    internal_libxs_predict_input_groups(model);
   }
   /* one task, so no rendezvous is needed and none is required of the caller */
   result = internal_libxs_predict_build_impl(NULL, model, nclusters, order,
     quality, 0, 1);
   if (EXIT_SUCCESS == result) {
     result = internal_libxs_predict_rf_grow(NULL, model, 0, 1);
+  }
+  if (NULL != model) {
+    free(model->input_rep);
+    model->input_rep = NULL;
   }
   return result;
 }
@@ -5173,6 +5346,7 @@ LIBXS_API int libxs_predict_build_task(libxs_predict_t* model,
       internal_libxs_predict_ts_expand(model);
     }
     if (0 < model->nentries) internal_libxs_predict_missing_all(model);
+    internal_libxs_predict_input_groups(model);
     model->coord_sel = -1;
     model->coord_ok = internal_libxs_predict_score_classes(model, label);
   }
@@ -5197,6 +5371,11 @@ LIBXS_API int libxs_predict_build_task(libxs_predict_t* model,
   if (0 != tid) result = (0 != model->built) ? EXIT_SUCCESS : EXIT_FAILURE;
   if (EXIT_SUCCESS == result) {
     result = internal_libxs_predict_rf_grow(team, model, tid, ntasks);
+  }
+  /* past the stage's last rendezvous, so no task still reads the groups */
+  if (0 == tid) {
+    free(model->input_rep);
+    model->input_rep = NULL;
   }
   return result;
 }
@@ -8214,6 +8393,36 @@ LIBXS_API void libxs_predict_get(const libxs_predict_t* model, int index,
       offset += cl->nentries;
     }
   }
+}
+
+
+LIBXS_API double libxs_predict_get_weight(const libxs_predict_t* model,
+  int index)
+{
+  double result = 0;
+  if (NULL != model && 0 <= index && index < model->nentries) {
+    result = 1.0;
+    if (NULL != model->entries) result = model->entries[index].weight;
+    else { /* a loaded model: the entry found as libxs_predict_get finds it */
+      int c, offset = 0, found = 0;
+      for (c = 0; c < model->nclusters && 0 == found; ++c) {
+        const internal_libxs_predict_cluster_t* cl = &model->clusters[c];
+        int local = -1, k;
+        if (NULL != cl->sorted_idx) {
+          for (k = 0; k < cl->nentries && 0 > local; ++k) {
+            if (cl->sorted_idx[k] == index) local = k;
+          }
+        }
+        else if (index < offset + cl->nentries) local = index - offset;
+        if (0 <= local) {
+          found = 1;
+          if (NULL != cl->eweight) result = cl->eweight[local];
+        }
+        offset += cl->nentries;
+      }
+    }
+  }
+  return result;
 }
 
 

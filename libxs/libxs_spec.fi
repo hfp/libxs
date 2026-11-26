@@ -164,6 +164,7 @@
         PUBLIC :: libxs_predict_eval, libxs_predict_inverse
         PUBLIC :: libxs_predict_query
         PUBLIC :: libxs_predict_get
+        PUBLIC :: libxs_predict_get_weight
         PUBLIC :: libxs_predict_eval_batch
         PUBLIC :: libxs_predict_eval_batch_task
         PUBLIC :: libxs_predict_save, libxs_predict_load
@@ -1611,6 +1612,13 @@
             REAL(C_DOUBLE), INTENT(OUT) :: inputs(*)
             REAL(C_DOUBLE), INTENT(OUT) :: outputs(*)
           END SUBROUTINE
+
+          FUNCTION libxs_predict_get_weight(model, index) BIND(C)
+            IMPORT :: C_PTR, C_INT, C_DOUBLE
+            TYPE(C_PTR), INTENT(IN), VALUE :: model
+            INTEGER(C_INT), INTENT(IN), VALUE :: index
+            REAL(C_DOUBLE) :: libxs_predict_get_weight
+          END FUNCTION
 
           SUBROUTINE libxs_predict_eval_batch(model,                    &
      &    inputs_batch, outputs_batch, count, nblend) BIND(C)

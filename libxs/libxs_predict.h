@@ -291,6 +291,9 @@ LIBXS_EXTERN_C typedef struct libxs_predict_csv_t {
    * equals an absent one; rows that share the inputs but not the outputs are all
    * kept. A repeat is judged against every earlier admissible row, not only the
    * ones taken, so the parts a (stride, offset) split loads share no row.
+   * 1: a repeat is dropped. 2: a repeat adds one to the weight of the entry it
+   * repeats (libxs_predict_push_weighted), so the part holding the first
+   * occurrence holds every copy; a series model drops it as with 1.
    */
   int unique;
 } libxs_predict_csv_t;
@@ -800,7 +803,9 @@ LIBXS_API int libxs_predict_push(libxs_lock_t* lock,
  * are different questions and the corpus was already optimal for the second.
  * Decide which one is being reported before reaching for this.
  *
- * Scope: the vote only. The polynomial fit, the cluster partition and the
+ * Scope: the vote, and a forest, whose bootstraps draw by weight rounded to whole
+ * units (weight 3 is drawn as three copies would be) and whose calibration counts
+ * by weight. The polynomial fit, the cluster partition and the
  * probability API (libxs_predict_prob and friends) ignore the weights. The last
  * is deliberate rather than pending - reweighted evidence yields a different
  * quantity from P(y|x), and calling it that would misreport it.
@@ -1131,6 +1136,14 @@ LIBXS_API void libxs_predict_query(const libxs_predict_t* model,
  */
 LIBXS_API void libxs_predict_get(const libxs_predict_t* model, int index,
   double inputs[], double outputs[]);
+
+/**
+ * Weight of the i-th pushed entry (0-based): 1 unless libxs_predict_push_weighted
+ * or a merging load (libxs_predict_csv_t.unique = 2) set another; 0 if there is
+ * no such entry.
+ */
+LIBXS_API double libxs_predict_get_weight(const libxs_predict_t* model,
+  int index);
 
 /**
  * Predict output parameters for a batch of inputs.

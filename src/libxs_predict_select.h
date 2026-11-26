@@ -397,6 +397,10 @@ LIBXS_API_INLINE void internal_libxs_predict_decompose_score(
           role[LIBXS_SHUFFLE_INDEX(i, p, co, (unsigned)f)] =
             (char)((i < nfit) ? 0 : 1);
         }
+        /* an input is fitted or held back as a whole: its first entry decides */
+        if (NULL != model->input_rep) {
+          for (i = 0; i < p; ++i) role[i] = role[model->input_rep[i]];
+        }
         internal_libxs_predict_decompose_kind(model, role, kind, mad, buf);
         for (c = tid; c < LIBXS_PREDICT_NCAND; c += ntasks) {
           total[c] += (0 != internal_libxs_predict_cand_ok(model, c))
