@@ -4608,18 +4608,11 @@ LIBXS_API_INLINE int internal_libxs_predict_build_impl(libxs_barrier_t* barrier,
   if (EXIT_SUCCESS == result && NULL != model && 0 < model->nentries
     && LIBXS_PREDICT_RF == model->decompose && NULL == model->rf)
   {
+    /* the trees grow after the build (rf_grow), so a model does not depend on
+     * how many tasks built it: what follows here sees no tree either way */
     if (0 == tid) {
       internal_libxs_predict_rf_build(model);
       if (NULL == model->rf) result = EXIT_FAILURE;
-      else if (1 >= ntasks) {
-        internal_libxs_predict_rf_bins_tasks(model, 0, 1);
-        result = internal_libxs_predict_rf_build_tasks(model, 0, 1);
-        internal_libxs_predict_rf_bins_free(model);
-        if (EXIT_SUCCESS == result) {
-          internal_libxs_predict_rf_boost(model);
-          internal_libxs_predict_rf_calibrate_oob(model);
-        }
-      }
     }
   }
   /* as above: the test reads model->rf, which the stage itself sets */
@@ -5071,9 +5064,64 @@ LIBXS_API_INLINE int internal_libxs_predict_build_impl(libxs_barrier_t* barrier,
 }
 
 
+/**
+ * Grows the trees of a forest the build allocated, then boosts and calibrates
+ * them. A stage of its own after the build and for every team size, one task
+ * included: the build's later stages run before any tree exists, and growing
+ * the trees inside the build for a single task made its model differ from the
+ * model a team builds (same predictions, different bytes).
+ */
+LIBXS_API_INLINE int internal_libxs_predict_rf_grow(libxs_barrier_t* team,
+  libxs_predict_t* model, int tid, int ntasks)
+{
+  int result = EXIT_SUCCESS;
+  if (NULL != model->rf) {
+    if (0 == tid) {
+      model->sync_failed = 0;
+      internal_libxs_predict_rf_team_prepare(model, ntasks);
+    }
+    libxs_barrier_wait(team);
+    internal_libxs_predict_rf_bins_tasks(model, tid, ntasks);
+    /* every task reads every row of the bins, so the fill is a stage of its own
+     * rather than something a task does to the rows it happens to need */
+    libxs_barrier_wait(team);
+    if (EXIT_SUCCESS != internal_libxs_predict_rf_build_tasks(
+      model, tid, ntasks))
+    {
+      LIBXS_ATOMIC_STORE(&model->sync_failed, 1, LIBXS_ATOMIC_SEQ_CST);
+    }
+    /**
+     * The stages are sequential by construction - each fits what the previous
+     * one left - so this is the builder's alone, and it needs every tree to
+     * exist before the first residual can be taken.
+     */
+    libxs_barrier_wait(team);
+    if (0 == tid) {
+      internal_libxs_predict_rf_team_release(model);
+      internal_libxs_predict_rf_bins_free(model);
+      if (0 == LIBXS_ATOMIC_LOAD(
+        &model->sync_failed, LIBXS_ATOMIC_SEQ_CST))
+      {
+        internal_libxs_predict_rf_boost(model);
+        internal_libxs_predict_rf_calibrate_oob(model);
+      }
+      else model->built = 0;
+    }
+    libxs_barrier_wait(team);
+    if (0 != LIBXS_ATOMIC_LOAD(
+      &model->sync_failed, LIBXS_ATOMIC_SEQ_CST))
+    {
+      result = EXIT_FAILURE;
+    }
+  }
+  return result;
+}
+
+
 LIBXS_API int libxs_predict_build(libxs_predict_t* model,
   int nclusters, int order, double quality)
 {
+  int result;
   /* a build resolves the coordinate afresh; the order search inside it does not */
   if (NULL != model) {
     model->coord_sel = -1;
@@ -5081,8 +5129,12 @@ LIBXS_API int libxs_predict_build(libxs_predict_t* model,
     if (0 < model->nentries) internal_libxs_predict_missing_all(model);
   }
   /* one task, so no rendezvous is needed and none is required of the caller */
-  return internal_libxs_predict_build_impl(NULL, model, nclusters, order,
+  result = internal_libxs_predict_build_impl(NULL, model, nclusters, order,
     quality, 0, 1);
+  if (EXIT_SUCCESS == result) {
+    result = internal_libxs_predict_rf_grow(NULL, model, 0, 1);
+  }
+  return result;
 }
 
 
@@ -5143,44 +5195,8 @@ LIBXS_API int libxs_predict_build_task(libxs_predict_t* model,
     quality, tid, ntasks);
   libxs_barrier_wait(team);
   if (0 != tid) result = (0 != model->built) ? EXIT_SUCCESS : EXIT_FAILURE;
-  if (EXIT_SUCCESS == result && NULL != model->rf) {
-    if (0 == tid) {
-      model->sync_failed = 0;
-      internal_libxs_predict_rf_team_prepare(model, ntasks);
-    }
-    libxs_barrier_wait(team);
-    internal_libxs_predict_rf_bins_tasks(model, tid, ntasks);
-    /* every task reads every row of the bins, so the fill is a stage of its own
-     * rather than something a task does to the rows it happens to need */
-    libxs_barrier_wait(team);
-    if (EXIT_SUCCESS != internal_libxs_predict_rf_build_tasks(
-      model, tid, ntasks))
-    {
-      LIBXS_ATOMIC_STORE(&model->sync_failed, 1, LIBXS_ATOMIC_SEQ_CST);
-    }
-    /**
-     * The stages are sequential by construction - each fits what the previous
-     * one left - so this is the builder's alone, and it needs every tree to
-     * exist before the first residual can be taken.
-     */
-    libxs_barrier_wait(team);
-    if (0 == tid) {
-      internal_libxs_predict_rf_team_release(model);
-      internal_libxs_predict_rf_bins_free(model);
-      if (0 == LIBXS_ATOMIC_LOAD(
-        &model->sync_failed, LIBXS_ATOMIC_SEQ_CST))
-      {
-        internal_libxs_predict_rf_boost(model);
-        internal_libxs_predict_rf_calibrate_oob(model);
-      }
-      else model->built = 0;
-    }
-    libxs_barrier_wait(team);
-    if (0 != LIBXS_ATOMIC_LOAD(
-      &model->sync_failed, LIBXS_ATOMIC_SEQ_CST))
-    {
-      result = EXIT_FAILURE;
-    }
+  if (EXIT_SUCCESS == result) {
+    result = internal_libxs_predict_rf_grow(team, model, tid, ntasks);
   }
   return result;
 }
