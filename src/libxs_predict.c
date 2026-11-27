@@ -705,6 +705,18 @@ typedef struct internal_libxs_predict_ctx_t {
    * per-call dispatch buffers */
 } internal_libxs_predict_ctx_t;
 
+/**
+ * The dispatch buffers of one probability call (internal_libxs_predict_pbuf): in
+ * the context, or without one in a scratch block that also holds local, the
+ * distribution and its normalization scratch.
+ */
+typedef struct internal_libxs_predict_pbuf_t {
+  const internal_libxs_predict_cluster_t** src;
+  double *vals, *local, *evalbuf;
+  int *smode, *sout, *snout;
+  int pool;
+} internal_libxs_predict_pbuf_t;
+
 
 /** Candidate rates of the escape-rate bank; see LIBXS_PREDICT_NESCAPE. */
 static const double internal_libxs_predict_escape_rate[
@@ -6979,10 +6991,12 @@ LIBXS_API_INLINE int internal_libxs_predict_point(
 
 
 /**
- * The bank update given the local evidence AT THE TRUTH only. The dense form
- * below reads local[truth] and nothing else, so this is the same update with the
- * array replaced by the one value it uses - which is what lets the sparse
- * scoring path adapt without materializing a distribution.
+ * Score the observed value under every expert and advance the bank. Kept apart
+ * from the distribution so the reported probability is fully committed before
+ * any weight moves: the update is causal, and a caller that scores the same
+ * query twice must get the same answer the first time. Only the local evidence
+ * AT THE TRUTH is read, which is what lets the sparse scoring path adapt without
+ * materializing a distribution.
  */
 LIBXS_API_INLINE void internal_libxs_predict_dist_learn_at(
   const libxs_predict_t* model, double* weight, int j, double local_truth,
@@ -7003,42 +7017,6 @@ LIBXS_API_INLINE void internal_libxs_predict_dist_learn_at(
         const double esc = (0 < outside)
           ? ((sf[truth] * tot + 1.0) / den) : sf[truth];
         plik[e] = (1.0 - r) * local_truth + r * esc;
-      }
-      else {
-        plik[e] = (0 < outside) ? (r / den) : 0.0;
-      }
-      mix += weight[e] * plik[e];
-    }
-  }
-  internal_libxs_predict_escape_update(weight, plik, mix);
-}
-
-
-/**
- * Score the observed value under every expert and advance the bank. Kept apart
- * from the distribution so the reported probability is fully committed before
- * any weight moves: the update is causal, and a caller that scores the same
- * query twice must get the same answer the first time.
- */
-LIBXS_API_INLINE void internal_libxs_predict_dist_learn(
-  const libxs_predict_t* model, double* weight, int j, const double* local,
-  int truth, int vocabulary)
-{
-  const int ns = model->sup_n[j];
-  const double* sf = model->sup_freq[j];
-  const int outside = ((vocabulary > ns) ? vocabulary : ns) - ns;
-  double plik[LIBXS_PREDICT_NESCAPE];
-  double mix = 0;
-  int e;
-  { const int nvoc = (vocabulary > ns) ? vocabulary : ns;
-    const double tot = (double)model->sup_tot[j];
-    const double den = tot + (double)nvoc;
-    for (e = 0; e < LIBXS_PREDICT_NESCAPE; ++e) {
-      const double r = internal_libxs_predict_escape_rate[e];
-      if (0 <= truth && truth < ns) {
-        const double esc = (0 < outside)
-          ? ((sf[truth] * tot + 1.0) / den) : sf[truth];
-        plik[e] = (1.0 - r) * local[truth] + r * esc;
       }
       else {
         plik[e] = (0 < outside) ? (r / den) : 0.0;
@@ -7783,6 +7761,45 @@ LIBXS_API_INLINE double* internal_libxs_predict_ctx_eval(
 }
 
 
+/**
+ * Adaptive scoring takes every buffer from the context, so the path is
+ * allocation-free. Frozen scoring has no context and allocates once from the
+ * library pool rather than repeatedly from the system allocator; the block is
+ * released with LIBXS_PREDICT_FREE(b->src, b->pool). EXIT_FAILURE if it was not.
+ */
+LIBXS_API_INLINE int internal_libxs_predict_pbuf(internal_libxs_predict_pbuf_t* b,
+  internal_libxs_predict_ctx_t* ctx, int n, int stride)
+{
+  unsigned char* d;
+  memset(b, 0, sizeof(*b));
+  if (NULL != ctx) {
+    d = (unsigned char*)internal_libxs_predict_ctx_disp(ctx);
+    b->evalbuf = internal_libxs_predict_ctx_eval(ctx);
+  }
+  else {
+    const size_t na = (size_t)n * sizeof(void*)
+      + (size_t)n * sizeof(double)
+      + (size_t)3 * stride * sizeof(double)
+      + INTERNAL_LIBXS_PREDICT_NBINT(3 * n);
+    d = (unsigned char*)LIBXS_PREDICT_MALLOC(
+      na + INTERNAL_LIBXS_PREDICT_EVALBYTES(n), b->pool);
+    if (NULL != d) b->evalbuf = (double*)(d + na);
+  }
+  if (NULL != d) {
+    b->src = (const internal_libxs_predict_cluster_t**)d;
+    d += (size_t)n * sizeof(void*);
+    b->vals = (double*)d; d += (size_t)n * sizeof(double);
+    if (NULL == ctx) {
+      b->local = (double*)d; d += (size_t)3 * stride * sizeof(double);
+    }
+    b->smode = (int*)d; d += (size_t)n * sizeof(int);
+    b->sout = (int*)d; d += (size_t)n * sizeof(int);
+    b->snout = (int*)d;
+  }
+  return (NULL != d) ? EXIT_SUCCESS : EXIT_FAILURE;
+}
+
+
 LIBXS_API void* libxs_predict_prob_create(const libxs_predict_t* model)
 {
   void* result = NULL;
@@ -7873,48 +7890,14 @@ LIBXS_API void libxs_predict_prob(libxs_lock_t* lock,
     const int maxsup = internal_libxs_predict_maxsup(model);
     const int stride = maxsup + 2;
     double dflt[LIBXS_PREDICT_NESCAPE];
-    /**
-     * Adaptive scoring takes every buffer from the context, so the path is
-     * allocation-free. Frozen scoring has no context and allocates once from
-     * the library pool rather than repeatedly from the system allocator.
-     */
-    int scratch_pool = 0;
-    const internal_libxs_predict_cluster_t** src = NULL;
-    int *smode, *sout, *snout;
-    double *vals, *local = NULL, *evalbuf = NULL;
-    if (NULL != ctx) {
-      unsigned char* d = (unsigned char*)internal_libxs_predict_ctx_disp(ctx);
-      src = (const internal_libxs_predict_cluster_t**)d;
-      d += (size_t)n * sizeof(void*);
-      vals = (double*)d; d += (size_t)n * sizeof(double);
-      smode = (int*)d; d += (size_t)n * sizeof(int);
-      sout = (int*)d; d += (size_t)n * sizeof(int);
-      snout = (int*)d;
-      evalbuf = internal_libxs_predict_ctx_eval(ctx);
-    }
-    else {
-      const size_t na = (size_t)n * sizeof(void*)
-        + (size_t)n * sizeof(double)
-        + (size_t)3 * stride * sizeof(double)
-        + INTERNAL_LIBXS_PREDICT_NBINT(3 * n);
-      unsigned char* d = (unsigned char*)LIBXS_PREDICT_MALLOC(
-        na + INTERNAL_LIBXS_PREDICT_EVALBYTES(n), scratch_pool);
-      src = (const internal_libxs_predict_cluster_t**)d;
-      if (NULL != d) {
-        evalbuf = (double*)(d + na);
-        d += (size_t)n * sizeof(void*);
-        vals = (double*)d; d += (size_t)n * sizeof(double);
-        local = (double*)d; d += (size_t)3 * stride * sizeof(double);
-        smode = (int*)d; d += (size_t)n * sizeof(int);
-        sout = (int*)d; d += (size_t)n * sizeof(int);
-        snout = (int*)d;
-      }
-      else { smode = NULL; sout = NULL; snout = NULL; vals = NULL; }
-    }
+    internal_libxs_predict_pbuf_t b;
+    const int bres = internal_libxs_predict_pbuf(&b, ctx, n, stride);
+    const internal_libxs_predict_cluster_t** const src = b.src;
+    int *const smode = b.smode, *const sout = b.sout, *const snout = b.snout;
+    double *const vals = b.vals, *const local = b.local;
+    double* const evalbuf = b.evalbuf;
     if (NULL != lock) LIBXS_LOCK_ACQUIRE(LIBXS_LOCK, lock);
-    if (NULL != src && NULL != smode && NULL != sout && NULL != snout
-      && NULL != vals && (NULL != ctx || NULL != local))
-    {
+    if (EXIT_SUCCESS == bres) {
       double* base = (NULL != ctx)
         ? internal_libxs_predict_ctx_scratch(ctx) : local;
       double* p = base;
@@ -7989,8 +7972,8 @@ LIBXS_API void libxs_predict_prob(libxs_lock_t* lock,
             else if (0 < outside) pj = p[ns] / outside;
             lpj = (pj > 0) ? (log(pj) / log(2.0)) : -DBL_MAX;
             if (NULL != ctx) {
-              internal_libxs_predict_dist_learn(model, w, j, ev, si,
-                vocabulary);
+              internal_libxs_predict_dist_learn_at(model, w, j,
+                (0 <= si) ? ev[si] : 0.0, si, vocabulary);
             }
           }
         }
@@ -8038,7 +8021,7 @@ LIBXS_API void libxs_predict_prob(libxs_lock_t* lock,
       }
     }
     if (NULL != lock) LIBXS_LOCK_RELEASE(LIBXS_LOCK, lock);
-    if (NULL == ctx) LIBXS_PREDICT_FREE((void*)src, scratch_pool);
+    if (NULL == ctx) LIBXS_PREDICT_FREE((void*)b.src, b.pool);
   }
 }
 
@@ -8071,41 +8054,14 @@ LIBXS_API int libxs_predict_prob_observe(libxs_lock_t* lock,
       internal_libxs_predict_ctx(model, context);
     const int stride = internal_libxs_predict_maxsup(model) + 2;
     double dflt[LIBXS_PREDICT_NESCAPE];
-    int scratch_pool = 0;
-    const internal_libxs_predict_cluster_t** src = NULL;
-    int *smode, *sout, *snout;
-    double *local = NULL, *evalbuf = NULL;
-    if (NULL != ctx) {
-      unsigned char* d = (unsigned char*)internal_libxs_predict_ctx_disp(ctx);
-      src = (const internal_libxs_predict_cluster_t**)d;
-      /* the values slot is part of the layout even though nothing is reported */
-      d += (size_t)n * sizeof(void*) + (size_t)n * sizeof(double);
-      smode = (int*)d; d += (size_t)n * sizeof(int);
-      sout = (int*)d; d += (size_t)n * sizeof(int);
-      snout = (int*)d;
-      evalbuf = internal_libxs_predict_ctx_eval(ctx);
-    }
-    else {
-      const size_t na = (size_t)n * sizeof(void*)
-        + (size_t)3 * stride * sizeof(double)
-        + INTERNAL_LIBXS_PREDICT_NBINT(3 * n);
-      unsigned char* d = (unsigned char*)LIBXS_PREDICT_MALLOC(
-        na + INTERNAL_LIBXS_PREDICT_EVALBYTES(n), scratch_pool);
-      src = (const internal_libxs_predict_cluster_t**)d;
-      if (NULL != d) {
-        evalbuf = (double*)(d + na);
-        d += (size_t)n * sizeof(void*);
-        local = (double*)d; d += (size_t)3 * stride * sizeof(double);
-        smode = (int*)d; d += (size_t)n * sizeof(int);
-        sout = (int*)d; d += (size_t)n * sizeof(int);
-        snout = (int*)d;
-      }
-      else { smode = NULL; sout = NULL; snout = NULL; }
-    }
+    /* the values slot is carved too, although nothing is reported through it */
+    internal_libxs_predict_pbuf_t b;
+    const int bres = internal_libxs_predict_pbuf(&b, ctx, n, stride);
+    const internal_libxs_predict_cluster_t** const src = b.src;
+    int *const smode = b.smode, *const sout = b.sout, *const snout = b.snout;
+    double *const local = b.local, *const evalbuf = b.evalbuf;
     if (NULL != lock) LIBXS_LOCK_ACQUIRE(LIBXS_LOCK, lock);
-    if (NULL != src && NULL != smode && NULL != sout && NULL != snout
-      && (NULL != ctx || NULL != local))
-    {
+    if (EXIT_SUCCESS == bres) {
       double* p = (NULL != ctx)
         ? internal_libxs_predict_ctx_scratch(ctx) : local;
       double* scratch = p + stride;
@@ -8217,13 +8173,13 @@ LIBXS_API int libxs_predict_prob_observe(libxs_lock_t* lock,
         }
         /* only now may the weights move */
         if (NULL != candidate && NULL != ctx) {
-          internal_libxs_predict_dist_learn(model, w, output, ev, si,
-            vocabulary);
+          internal_libxs_predict_dist_learn_at(model, w, output,
+            (0 <= si) ? ev[si] : 0.0, si, vocabulary);
         }
       }
     }
     if (NULL != lock) LIBXS_LOCK_RELEASE(LIBXS_LOCK, lock);
-    if (NULL == ctx) LIBXS_PREDICT_FREE((void*)src, scratch_pool);
+    if (NULL == ctx) LIBXS_PREDICT_FREE((void*)b.src, b.pool);
   }
   return result;
 }
