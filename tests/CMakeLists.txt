@@ -26,6 +26,7 @@ set(
   predict_calib
   predict_coord
   predict_hknn_load
+  predict_inverse
   predict_missing
   predict_neighbors
   predict_prob

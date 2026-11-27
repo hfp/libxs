@@ -700,7 +700,7 @@ LIBXS_API_INLINE int internal_libxs_predict_hknn_build_po(
       int outs_pool = 0, gsz = 0, oi;
       int* const outs = (int*)LIBXS_PREDICT_MALLOC((size_t)n * sizeof(int), outs_pool);
       internal_libxs_predict_cluster_t* cls;
-      int c, i, k;
+      int c, i;
       /* the outputs of the group, the columns its clusters hold */
       for (oi = 0; oi < n && NULL != outs; ++oi) {
         if ((NULL != model->hknn_po_groups && model->hknn_po_groups[oi] == gi)
@@ -726,32 +726,10 @@ LIBXS_API_INLINE int internal_libxs_predict_hknn_build_po(
         cls[c].centroid = (double*)calloc((size_t)m, sizeof(double));
         if (NULL == cls[c].centroid) result = EXIT_FAILURE;
       }
+      /* a failure would otherwise leave the clusters empty, as if nothing were
+       * assigned */
       if (EXIT_SUCCESS == result) {
-        int norm_pool = 0, counts_pool = 0;
-        double* norm = (double*)LIBXS_PREDICT_MALLOC(
-          (size_t)m * sizeof(double), norm_pool);
-        int* counts = (int*)LIBXS_PREDICT_MALLOC(
-          (size_t)nc * sizeof(int), counts_pool);
-        if (NULL != norm && NULL != counts) {
-          memset(counts, 0, (size_t)nc * sizeof(int));
-          for (i = 0; i < p; ++i) {
-            const int ci = assign[i];
-            internal_libxs_predict_normalize(model,
-              model->entries[i].inputs, norm);
-            for (k = 0; k < m; ++k) cls[ci].centroid[k] += norm[k];
-            ++counts[ci];
-          }
-          for (c = 0; c < nc; ++c) {
-            cls[c].nentries = counts[c];
-            if (counts[c] > 0) {
-              for (k = 0; k < m; ++k) cls[c].centroid[k] /= counts[c];
-            }
-          }
-        }
-        /* the clusters would otherwise go on empty, as if nothing were assigned */
-        else result = EXIT_FAILURE;
-        LIBXS_PREDICT_FREE(counts, counts_pool);
-        LIBXS_PREDICT_FREE(norm, norm_pool);
+        result = internal_libxs_predict_centroids(model, cls, assign, nc, 1);
       }
       for (c = 0; c < nc && EXIT_SUCCESS == result; ++c) {
         const int nce = cls[c].nentries;

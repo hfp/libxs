@@ -1300,14 +1300,18 @@ LIBXS_API_INLINE int internal_libxs_predict_kdpart(libxs_predict_t* model,
 }
 
 
-/* the mean of a cluster's members, for a partition that assigned before it knew
- * where the clusters sit (the kd-tree ones; Lloyd carries its centroids along) */
-LIBXS_API_INLINE void internal_libxs_predict_centroids(
-  libxs_predict_t* model, int nclusters)
+/**
+ * The mean of each cluster's members, for a partition that assigned before it
+ * knew where the clusters sit (the kd-tree ones; Lloyd carries its centroids
+ * along). set_count also stores the member counts. EXIT_FAILURE without scratch.
+ */
+LIBXS_API_INLINE int internal_libxs_predict_centroids(libxs_predict_t* model,
+  internal_libxs_predict_cluster_t* clusters, const int* assign, int nclusters,
+  int set_count)
 {
   const int p = model->nentries;
   const int m = model->ncoord; /* coordinates, not inputs */
-  int counts_pool = 0, norm_pool = 0, i, c, j;
+  int counts_pool = 0, norm_pool = 0, i, c, j, result = EXIT_FAILURE;
   int* counts = (int*)LIBXS_PREDICT_MALLOC(
     (size_t)nclusters * sizeof(int), counts_pool);
   double* norm = (double*)LIBXS_PREDICT_MALLOC(
@@ -1315,27 +1319,25 @@ LIBXS_API_INLINE void internal_libxs_predict_centroids(
   if (NULL != counts && NULL != norm) {
     memset(counts, 0, (size_t)nclusters * sizeof(int));
     for (c = 0; c < nclusters; ++c) {
-      memset(model->clusters[c].centroid, 0, (size_t)m * sizeof(double));
+      memset(clusters[c].centroid, 0, (size_t)m * sizeof(double));
     }
     for (i = 0; i < p; ++i) {
-      const int ci = model->assignments[i];
-      internal_libxs_predict_normalize(model,
-        model->entries[i].inputs, norm);
-      for (j = 0; j < m; ++j) {
-        model->clusters[ci].centroid[j] += norm[j];
-      }
+      const int ci = assign[i];
+      internal_libxs_predict_normalize(model, model->entries[i].inputs, norm);
+      for (j = 0; j < m; ++j) clusters[ci].centroid[j] += norm[j];
       ++counts[ci];
     }
     for (c = 0; c < nclusters; ++c) {
+      if (0 != set_count) clusters[c].nentries = counts[c];
       if (counts[c] > 0) {
-        for (j = 0; j < m; ++j) {
-          model->clusters[c].centroid[j] /= counts[c];
-        }
+        for (j = 0; j < m; ++j) clusters[c].centroid[j] /= counts[c];
       }
     }
+    result = EXIT_SUCCESS;
   }
   LIBXS_PREDICT_FREE(norm, norm_pool);
   LIBXS_PREDICT_FREE(counts, counts_pool);
+  return result;
 }
 
 
@@ -1994,27 +1996,10 @@ LIBXS_API_INLINE void internal_libxs_predict_evidence(
     double d2;
     if (i == skip_local) continue;
     if (NULL != skip_set && 0 != skip_set[i]) continue;
-    d2 = internal_libxs_predict_dist2(inputs, kd_pts + (size_t)i * m, m,
-      missing);
-    if (NULL != view && view->w < view->full) {
-      /**
-       * A view reads only the most recent view_w lags of each series. Rather
-       * than pack a second copy of the points, the older lags are removed from
-       * the distance they already contributed: subtracting a coordinate's term
-       * is what a zero weight would have done, and it leaves the corpus, the
-       * partition and the neighbor index shared.
-       */
-      const double* row = kd_pts + (size_t)i * m;
-      int si, li;
-      for (si = 0; si < view->s; ++si) {
-        for (li = 0; li < view->full - view->w; ++li) {
-          const int c = si * view->full + li;
-          const double d = inputs[c] - row[c];
-          d2 -= d * d;
-        }
-      }
-      if (0 > d2) d2 = 0;
-    }
+    /* a view reads only the most recent lags of each series, and keeps the
+     * corpus, the partition and the neighbor index shared */
+    d2 = internal_libxs_predict_viewdist2(inputs, kd_pts + (size_t)i * m, m,
+      view, missing);
     if (0 != extrapolate && max_idx > 0) {
       const double age = 1.0 - (double)cl->sorted_idx[i] / (double)max_idx;
       d2 *= 1.0 + 0.5 * age;
@@ -4916,13 +4901,19 @@ LIBXS_API_INLINE int internal_libxs_predict_build_impl(libxs_barrier_t* barrier,
       /* the count the builder settled on, which the local one need not match */
       const int pnc = model->nclusters;
       if (LIBXS_PREDICT_HKNN == model->decompose) {
-        if (0 == tid) internal_libxs_predict_centroids(model, pnc);
+        if (0 == tid) {
+          internal_libxs_predict_centroids(model, model->clusters,
+            model->assignments, pnc, 0);
+        }
         libxs_barrier_wait(barrier);
         internal_libxs_predict_hknn_refine(barrier, model, pnc, tid, ntasks);
       }
       else if (LIBXS_PREDICT_RF == model->decompose) {
         /* the tree assigned above; what remains is where the clusters sit */
-        if (0 == tid) internal_libxs_predict_centroids(model, pnc);
+        if (0 == tid) {
+          internal_libxs_predict_centroids(model, model->clusters,
+            model->assignments, pnc, 0);
+        }
         libxs_barrier_wait(barrier);
       }
       else {
@@ -6495,75 +6486,70 @@ LIBXS_API void libxs_predict_eval_batch(
 }
 
 
+/**
+ * The entry whose outputs are closest to the target (squared distance in best).
+ * Strict: an entry is refused where a classified output differs, which needs the
+ * clusters to tell which outputs are classified. best is DBL_MAX if none qualified.
+ */
+LIBXS_API_INLINE int internal_libxs_predict_inverse_scan(
+  const libxs_predict_t* model, const double target_outputs[], int strict,
+  double* best)
+{
+  const int n = model->noutputs;
+  int result = 0, i, j;
+  *best = DBL_MAX;
+  for (i = 0; i < model->nentries; ++i) {
+    const double* eout = model->entries[i].outputs;
+    const internal_libxs_predict_cluster_t* cl = (0 != strict)
+      ? &model->clusters[model->assignments[i]] : NULL;
+    double score = 0;
+    int disqualified = 0;
+    for (j = 0; j < n && 0 == disqualified; ++j) {
+      const double target = (NULL != model->transforms)
+        ? internal_libxs_predict_fwd(model->transforms[j], target_outputs[j])
+        : target_outputs[j];
+      if (NULL != cl && 0 != cl->mode[j]) {
+        if (target != eout[j]) disqualified = 1;
+      }
+      else {
+        const double d = target - eout[j];
+        score += d * d;
+      }
+    }
+    if (0 == disqualified && score < *best) {
+      *best = score;
+      result = i;
+    }
+  }
+  return result;
+}
+
+
 LIBXS_API void libxs_predict_inverse(libxs_lock_t* lock,
   const libxs_predict_t* model,
   const double target_outputs[], double inputs[],
   libxs_predict_info_t* info)
 {
+  int cluster = -1;
+  double distance = DBL_MAX;
   LIBXS_ASSERT(NULL != model && 0 != model->built && NULL != target_outputs && NULL != inputs);
   if (NULL == model->entries) {
     memset(inputs, 0, (size_t)model->ninputs * sizeof(double));
-    if (NULL != info) {
-      info->noutputs = model->noutputs;
-      info->cluster = -1;
-      info->distance = DBL_MAX;
-      info->values = NULL;
-      info->error = NULL;
-      info->confidence = NULL;
-      info->lower = NULL;
-      info->upper = NULL;
-      info->interpolated = NULL;
-    }
   }
   else {
-    const int p = model->nentries;
     const int m = model->ninputs;
-    const int n = model->noutputs;
+    /* a forest whose method was named keeps no clusters, hence no output modes */
+    const int strict = (NULL != model->assignments && NULL != model->clusters);
     double best_score = DBL_MAX;
-    int best_i = 0, i, j;
+    int best_i = 0;
     if (NULL != lock) LIBXS_LOCK_ACQUIRE(LIBXS_LOCK, lock);
-    for (i = 0; i < p; ++i) {
-      const double* eout = model->entries[i].outputs;
-      double score = 0;
-      int disqualified = 0;
-      for (j = 0; j < n && 0 == disqualified; ++j) {
-        double target = target_outputs[j];
-        double actual = eout[j];
-        if (NULL != model->transforms) {
-          target = internal_libxs_predict_fwd(model->transforms[j], target);
-        }
-        { const int c = model->assignments[i];
-          const internal_libxs_predict_cluster_t* cl = &model->clusters[c];
-          if (0 != cl->mode[j]) {
-            if (target != actual) disqualified = 1;
-          }
-          else {
-            const double d = target - actual;
-            score += d * d;
-          }
-        }
-      }
-      if (0 == disqualified && score < best_score) {
-        best_score = score;
-        best_i = i;
-      }
+    if (0 != strict) {
+      best_i = internal_libxs_predict_inverse_scan(model, target_outputs, 1,
+        &best_score);
     }
     if (best_score >= DBL_MAX) {
-      for (i = 0; i < p; ++i) {
-        const double* eout = model->entries[i].outputs;
-        double score = 0;
-        for (j = 0; j < n; ++j) {
-          double target = target_outputs[j];
-          double actual = eout[j];
-          double d;
-          if (NULL != model->transforms) {
-            target = internal_libxs_predict_fwd(model->transforms[j], target);
-          }
-          d = target - actual;
-          score += d * d;
-        }
-        if (score < best_score) { best_score = score; best_i = i; }
-      }
+      best_i = internal_libxs_predict_inverse_scan(model, target_outputs, 0,
+        &best_score);
     }
     if (LIBXS_PREDICT_RAW != model->decompose
       && (model->nseries >= 2 || NULL != model->decompose_mat))
@@ -6577,18 +6563,20 @@ LIBXS_API void libxs_predict_inverse(libxs_lock_t* lock,
     else {
       memcpy(inputs, model->entries[best_i].inputs, (size_t)m * sizeof(double));
     }
-    if (NULL != info) {
-      info->noutputs = n;
-      info->cluster = (NULL != model->assignments) ? model->assignments[best_i] : -1;
-      info->distance = sqrt(best_score);
-      info->values = NULL;
-      info->error = NULL;
-      info->confidence = NULL;
-      info->lower = NULL;
-      info->upper = NULL;
-      info->interpolated = NULL;
-    }
+    if (NULL != model->assignments) cluster = model->assignments[best_i];
+    distance = sqrt(best_score);
     if (NULL != lock) LIBXS_LOCK_RELEASE(LIBXS_LOCK, lock);
+  }
+  if (NULL != info) {
+    info->noutputs = model->noutputs;
+    info->cluster = cluster;
+    info->distance = distance;
+    info->values = NULL;
+    info->error = NULL;
+    info->confidence = NULL;
+    info->lower = NULL;
+    info->upper = NULL;
+    info->interpolated = NULL;
   }
 }
 
