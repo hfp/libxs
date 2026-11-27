@@ -87,6 +87,7 @@ nav:
   - Memory: samples/libxs_memory.md
   - Ozaki: samples/libxs_ozaki.md
   - GEMM: samples/libxs_gemm.md
+  - Grid: samples/libxs_grid.md
   - SYRK: samples/libxs_syrk.md
   - Sync: samples/libxs_sync.md
 - Tests:

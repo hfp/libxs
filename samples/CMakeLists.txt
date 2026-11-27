@@ -517,3 +517,80 @@ if(NOT APPLE)
     )
   endif()
 endif()
+
+# CP2K's grid miniapp and unit test (samples/grid) from a CP2K source tree,
+# a sibling of LIBXS by default as with the Makefile, and LIBXSMM as kernel
+# provider of LIBXS if its library is found next to LIBXS (as well).
+set(
+  LIBXS_CP2K_ROOT
+  "${PROJECT_SOURCE_DIR}/../cp2k"
+  CACHE PATH
+  "CP2K source tree (grid sample)"
+)
+set(
+  LIBXS_LIBXSMM_ROOT
+  "${PROJECT_SOURCE_DIR}/../libxsmm"
+  CACHE PATH
+  "LIBXSMM as kernel provider of LIBXS (grid sample)"
+)
+if(EXISTS "${LIBXS_CP2K_ROOT}/src/grid/grid_miniapp.c")
+  set(LIBXS_GRID_SRCDIR "${LIBXS_CP2K_ROOT}/src")
+  file(
+    GLOB LIBXS_GRID_SRCS
+    "${LIBXS_GRID_SRCDIR}/grid/*.c"
+    "${LIBXS_GRID_SRCDIR}/grid/common/*.c"
+    "${LIBXS_GRID_SRCDIR}/grid/ref/*.c"
+    "${LIBXS_GRID_SRCDIR}/grid/cpu/*.c"
+    "${LIBXS_GRID_SRCDIR}/grid/dgemm/*.c"
+  )
+  list(FILTER LIBXS_GRID_SRCS EXCLUDE REGEX "/grid_(miniapp|unittest)\\.c$")
+  list(
+    APPEND LIBXS_GRID_SRCS
+    "${LIBXS_GRID_SRCDIR}/offload/offload_buffer.c"
+    "${LIBXS_GRID_SRCDIR}/offload/offload_library.c"
+    "${LIBXS_GRID_SRCDIR}/offload/offload_mempool.c"
+    "${LIBXS_GRID_SRCDIR}/mpiwrap/cp_mpi.c"
+  )
+  # CP2K's sources, compiled with CP2K's language level
+  add_library(libxs_grid_impl OBJECT ${LIBXS_GRID_SRCS})
+  set_target_properties(
+    libxs_grid_impl
+    PROPERTIES C_STANDARD 11 C_EXTENSIONS OFF
+  )
+  target_compile_definitions(libxs_grid_impl PRIVATE __LIBXS)
+  target_link_libraries(libxs_grid_impl PRIVATE libxs)
+  libxs_sample_c_openmp(libxs_grid_impl)
+  set(LIBXS_GRID_LIBXSMM "${LIBXS_LIBXSMM_ROOT}/lib/libxsmm.a")
+  if(EXISTS "${LIBXS_GRID_LIBXSMM}")
+    # CP2K's DGEMM backend includes libxsmm.h first, which lets LIBXS take its kernels
+    target_compile_definitions(libxs_grid_impl PRIVATE __LIBXSMM)
+    target_include_directories(
+      libxs_grid_impl
+      PRIVATE "${LIBXS_LIBXSMM_ROOT}/include"
+    )
+  else()
+    unset(LIBXS_GRID_LIBXSMM)
+  endif()
+  foreach(name IN ITEMS miniapp unittest)
+    libxs_add_c_program(
+      "libxs_sample_grid_${name}" samples/grid "grid_${name}"
+      "${LIBXS_GRID_SRCDIR}/grid/grid_${name}.c"
+    )
+    set_target_properties(
+      "libxs_sample_grid_${name}"
+      PROPERTIES C_STANDARD 11 C_EXTENSIONS OFF
+    )
+    target_link_libraries(
+      "libxs_sample_grid_${name}"
+      PRIVATE libxs_grid_impl ${LIBXS_GRID_LIBXSMM} ${BLAS_LIBRARIES} m
+    )
+    libxs_sample_c_openmp("libxs_sample_grid_${name}")
+  endforeach()
+  configure_file(
+    grid/grid_test.sh
+    "${LIBXS_SAMPLE_DIR}/grid/grid_test.sh"
+    COPYONLY
+  )
+else()
+  message(STATUS "CP2K not found (LIBXS_CP2K_ROOT); grid sample skipped")
+endif()
