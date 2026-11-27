@@ -142,6 +142,7 @@ typedef struct internal_libxs_syrk_state_t {
   volatile int* done;
   int *first, *ticket;
   char **panel, *recvbuf, *sendbuf;
+  size_t *owned, *offset; /* elements of a panel per owner, and their position in owner order */
   int npanels, nwindow, serialized;
 } internal_libxs_syrk_state_t;
 
@@ -478,11 +479,12 @@ LIBXS_API_INLINE int internal_libxs_syrk_local_device(const internal_libxs_syrk_
  * Walks the elements e0 to e1 of a panel (column-major, the triangle only) in runs of one block of C,
  * and treats those owned by rank who: counts them, packs them from the panel into buf, or adds buf
  * (or the panel itself if pbuf is given) into the local C. Packing and unpacking walk in the same
- * order, hence agree on the stream.
+ * order, hence agree on the stream. With who < 0, counting and packing treat every owner, each at
+ * its own position (cursor) in buf.
  */
 LIBXS_API_INLINE size_t internal_libxs_syrk_dist_runs(const internal_libxs_syrk_panel_t* panel,
   size_t e0, size_t e1, int who, int mode, libxs_data_t datatype, const void* pbuf, void* buf,
-  void* c, double alpha, double beta)
+  void* c, double alpha, double beta, size_t* cursor)
 {
   const libxs_pdist_t *const layout = panel->layout;
   const size_t elemsize = LIBXS_TYPESIZE(datatype), nrows = (size_t)panel->nrows;
@@ -498,7 +500,15 @@ LIBXS_API_INLINE size_t internal_libxs_syrk_dist_runs(const internal_libxs_syrk_
       const int run = LIBXS_MIN(b, (bi + 1) * layout->mb - panel->r0) - a;
       const int owner = layout->ranks[(bi + layout->rsrc) % layout->nprow
         + ((bj + layout->csrc) % layout->npcol) * layout->nprow];
-      if (who == owner) {
+      if (0 > who) { /* every owner */
+        if (INTERNAL_SYRK_DIST_PACK == mode) {
+          memcpy((char*)buf + cursor[owner] * elemsize, (const char*)pbuf + (jj * nrows + a) * elemsize,
+            (size_t)run * elemsize);
+        }
+        cursor[owner] += (size_t)run;
+        result += (size_t)run;
+      }
+      else if (who == owner) {
         if (INTERNAL_SYRK_DIST_PACK == mode) {
           memcpy((char*)buf + result * elemsize, (const char*)pbuf + (jj * nrows + a) * elemsize,
             (size_t)run * elemsize);
@@ -610,9 +620,25 @@ LIBXS_API_INLINE void internal_libxs_syrk_dist_submit(const internal_libxs_syrk_
 }
 
 
+/* Adds n elements of src to dst. */
+LIBXS_API_INLINE void internal_libxs_syrk_dist_add(libxs_data_t datatype, void* dst, const void* src,
+  size_t n)
+{
+  size_t x;
+  if (LIBXS_DATATYPE_F64 == datatype) {
+    for (x = 0; x < n; ++x) ((double*)dst)[x] += ((const double*)src)[x];
+  }
+  else {
+    for (x = 0; x < n; ++x) ((float*)dst)[x] += ((const float*)src)[x];
+  }
+}
+
+
 /**
- * One panel: a ring reduce-scatter of equal chunks (every chunk summed in the same rank order, hence
- * reproducible), then every rank sends the elements of its chunk to their owners in C.
+ * One panel: a ring reduce-scatter (every chunk summed in the same rank order, hence reproducible).
+ * If the owners of C hold the panel evenly enough, a chunk is what one owner holds (packed in owner
+ * order) and the reduce-scatter delivers it. Otherwise, the chunks are equal (contiguous parts of the
+ * panel), and every rank then sends the elements of its chunk to their owners in C.
  */
 LIBXS_API_INLINE int internal_libxs_syrk_dist_reduce(const internal_libxs_syrk_args_t* args,
   internal_libxs_syrk_state_t* state, int p)
@@ -626,43 +652,65 @@ LIBXS_API_INLINE int internal_libxs_syrk_dist_reduce(const internal_libxs_syrk_a
   char *const tbuf = state->recvbuf, *const sbuf = state->sendbuf;
   internal_libxs_syrk_panel_t panel;
   size_t ntotal;
-  int result = EXIT_SUCCESS, t;
+  int result = EXIT_SUCCESS, aligned = 0, t;
   internal_libxs_syrk_dist_panel(args->plan, p, &panel);
   ntotal = (size_t)panel.nrows * panel.pw;
-  for (t = 0; t < nranks - 1 && EXIT_SUCCESS == result; ++t) {
+  if (1 < nranks) { /* chunks by owner if the largest one does not hold up the ring (P-1 steps) */
+    size_t *const owned = state->owned, *const offset = state->offset, ntriangle, nmost = 0;
+    memset(owned, 0, sizeof(size_t) * nranks);
+    ntriangle = internal_libxs_syrk_dist_runs(&panel, 0, ntotal, -1, INTERNAL_SYRK_DIST_COUNT, datatype,
+      NULL, NULL, NULL, 0, 0, owned);
+    for (t = 0; t < nranks; ++t) {
+      offset[t] = (0 != t ? (offset[t - 1] + owned[t - 1]) : 0);
+      nmost = LIBXS_MAX(nmost, owned[t]);
+    }
+    if (nmost * (size_t)(nranks - 1) <= ntriangle) {
+      aligned = 1;
+      memcpy(owned, offset, sizeof(size_t) * nranks); /* cursors, which end where the next owner begins */
+      internal_libxs_syrk_dist_runs(&panel, 0, ntotal, -1, INTERNAL_SYRK_DIST_PACK, datatype,
+        pbuf, sbuf, NULL, 0, 0, owned);
+      for (t = 0; t < nranks; ++t) owned[t] -= offset[t];
+      for (t = 0; t < nranks - 1 && EXIT_SUCCESS == result; ++t) {
+        const int cs = (me + 2 * nranks - t - 1) % nranks, cr = (me + 2 * nranks - t - 2) % nranks;
+        result = internal_libxs_mpi_sendrecv(comm, sbuf + offset[cs] * elemsize,
+          owned[cs] * elemsize, next, tbuf, owned[cr] * elemsize, prev);
+        if (EXIT_SUCCESS == result) {
+          internal_libxs_syrk_dist_add(datatype, sbuf + offset[cr] * elemsize, tbuf, owned[cr]);
+        }
+      }
+      if (EXIT_SUCCESS == result && 0 != owned[me]) { /* the last chunk summed is the own one */
+        if (NULL != args->c) {
+          internal_libxs_syrk_dist_runs(&panel, 0, ntotal, me, INTERNAL_SYRK_DIST_UNPACK, datatype, NULL,
+            sbuf + offset[me] * elemsize, args->c, args->alpha, args->beta, NULL);
+        }
+        else LIBXS_ATOMIC_STORE(&state->failed.i, 1, LIBXS_ATOMIC_SEQ_CST);
+      }
+    }
+  }
+  for (t = 0; 0 == aligned && t < nranks - 1 && EXIT_SUCCESS == result; ++t) {
     const int cs = (me + 2 * nranks - t - 1) % nranks, cr = (me + 2 * nranks - t - 2) % nranks;
     const size_t s0 = ntotal * cs / nranks, s1 = ntotal * (cs + 1) / nranks;
     const size_t r0 = ntotal * cr / nranks, r1 = ntotal * (cr + 1) / nranks;
     result = internal_libxs_mpi_sendrecv(comm, pbuf + s0 * elemsize,
       (s1 - s0) * elemsize, next, tbuf, (r1 - r0) * elemsize, prev);
-    if (EXIT_SUCCESS == result) {
-      size_t x;
-      if (LIBXS_DATATYPE_F64 == datatype) {
-        double *const sum = (double*)(void*)pbuf + r0;
-        for (x = 0; x < r1 - r0; ++x) sum[x] += ((const double*)(const void*)tbuf)[x];
-      }
-      else {
-        float *const sum = (float*)(void*)pbuf + r0;
-        for (x = 0; x < r1 - r0; ++x) sum[x] += ((const float*)(const void*)tbuf)[x];
-      }
-    }
+    if (EXIT_SUCCESS == result) internal_libxs_syrk_dist_add(datatype, pbuf + r0 * elemsize, tbuf, r1 - r0);
   }
-  for (t = 0; t < nranks && EXIT_SUCCESS == result; ++t) {
+  for (t = 0; 0 == aligned && t < nranks && EXIT_SUCCESS == result; ++t) {
     const int dst = (me + t) % nranks, src = (me + nranks - t) % nranks;
     const size_t q0 = ntotal * src / nranks, q1 = ntotal * (src + 1) / nranks;
     const size_t nrecv = internal_libxs_syrk_dist_runs(&panel, q0, q1, me,
-      INTERNAL_SYRK_DIST_COUNT, datatype, NULL, NULL, NULL, 0, 0);
+      INTERNAL_SYRK_DIST_COUNT, datatype, NULL, NULL, NULL, 0, 0, NULL);
     if (0 != t) {
       const size_t m0 = ntotal * me / nranks, m1 = ntotal * (me + 1) / nranks;
       const size_t nsend = internal_libxs_syrk_dist_runs(&panel, m0, m1, dst,
-        INTERNAL_SYRK_DIST_PACK, datatype, pbuf, sbuf, NULL, 0, 0);
+        INTERNAL_SYRK_DIST_PACK, datatype, pbuf, sbuf, NULL, 0, 0, NULL);
       result = internal_libxs_mpi_sendrecv(comm, sbuf, nsend * elemsize, dst,
         tbuf, nrecv * elemsize, src);
     }
     if (EXIT_SUCCESS == result && 0 != nrecv) {
       if (NULL != args->c) { /* the own part of the chunk directly from the panel (t=0) */
         internal_libxs_syrk_dist_runs(&panel, q0, q1, me, INTERNAL_SYRK_DIST_UNPACK, datatype,
-          0 != t ? NULL : pbuf, tbuf, args->c, args->alpha, args->beta);
+          0 != t ? NULL : pbuf, tbuf, args->c, args->alpha, args->beta, NULL);
       }
       else LIBXS_ATOMIC_STORE(&state->failed.i, 1, LIBXS_ATOMIC_SEQ_CST); /* the exchange goes on */
     }
@@ -811,19 +859,22 @@ LIBXS_API_INLINE internal_libxs_syrk_state_t* internal_libxs_syrk_state(const li
   const int npanels = LIBXS_UPDIV(plan->shape.n, plan->width), ngrid = layout->nprow * layout->npcol;
   const size_t nelems = (size_t)plan->shape.n * plan->width;
   const size_t psize = LIBXS_UP2(nelems * elemsize, (size_t)LIBXS_CACHELINE);
-  const size_t csize = LIBXS_UP2(LIBXS_UPDIV(nelems, (size_t)comm->size) * elemsize, (size_t)LIBXS_CACHELINE);
+  /* an owner of C may hold a whole panel, which travels as one chunk (or is packed for it) */
+  const size_t csize = (1 < comm->size ? psize : 0);
   /* a device takes the panels in order, the host claims the tiles of as many panels as fit */
   const int nleast = LIBXS_CLMP(npanels, 1, INTERNAL_SYRK_WINDOW);
   const int nfit = (0 != psize ? (int)LIBXS_MIN((size_t)LIBXS_SYRK_WINDOW / psize, (size_t)npanels) : 0);
   const int nwindow = (NULL == plan->device.submit ? LIBXS_MAX(nfit, nleast) : nleast);
   const size_t hsize = LIBXS_UP2(sizeof(internal_libxs_syrk_state_t) + sizeof(char*) * nwindow
+    + sizeof(size_t) * 2 * (size_t)comm->size
     + sizeof(int) * (2 * ((size_t)npanels + 1) + ngrid + nwindow), (size_t)LIBXS_CACHELINE);
   internal_libxs_syrk_state_t *const result = (internal_libxs_syrk_state_t*)libxs_malloc(
     libxs_default_pool(), hsize + nwindow * psize + 2 * csize, LIBXS_CACHELINE);
   if (NULL != result) {
     char *const buffers = (char*)result + hsize;
     char **const panel = (char**)(result + 1);
-    int *const done = (int*)(panel + nwindow);
+    size_t *const owned = (size_t*)(panel + nwindow);
+    int *const done = (int*)(owned + 2 * (size_t)comm->size);
     int *const first = done + npanels + 1, *const ranks = first + npanels + 1;
     int *const ticket = ranks + ngrid;
     int i;
@@ -841,6 +892,8 @@ LIBXS_API_INLINE internal_libxs_syrk_state_t* internal_libxs_syrk_state(const li
     result->comm = *comm;
     result->layout = *layout;
     result->layout.ranks = ranks;
+    result->owned = owned;
+    result->offset = owned + comm->size;
     result->done = done;
     result->first = first;
     result->npanels = npanels;
