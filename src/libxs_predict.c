@@ -4281,14 +4281,19 @@ LIBXS_API_INLINE int internal_libxs_predict_ts_window(
 }
 
 
+/**
+ * Differences s series of n steps d times in place, element (step i, series si)
+ * at buf[i * ldt + si * lds]: each pass leaves one step fewer at the front.
+ */
 LIBXS_API_INLINE void internal_libxs_predict_ts_diff_apply(
-  double* buf, int n, int s, int d)
+  double* buf, int n, int s, int d, int ldt, int lds)
 {
   int dd, i, si;
   for (dd = 0; dd < d; ++dd) {
     for (i = 0; i < n - 1 - dd; ++i) {
       for (si = 0; si < s; ++si) {
-        buf[i * s + si] = buf[(i + 1) * s + si] - buf[i * s + si];
+        double* const v = buf + (size_t)i * ldt + (size_t)si * lds;
+        v[0] = v[ldt] - v[0];
       }
     }
   }
@@ -4321,7 +4326,7 @@ LIBXS_API_INLINE void internal_libxs_predict_ts_expand(libxs_predict_t* model)
   }
   diff_d = model->diff_order;
   if (diff_d > 0) {
-    internal_libxs_predict_ts_diff_apply(model->ts_buf, nts, s, diff_d);
+    internal_libxs_predict_ts_diff_apply(model->ts_buf, nts, s, diff_d, s, 1);
     nts -= diff_d;
     model->nts = nts;
   }
@@ -5422,20 +5427,13 @@ LIBXS_API_INLINE void internal_libxs_predict_eval_ex(libxs_lock_t* lock,
       const int s = model->nseries;
       const int raw_m = s * raw_w;
       const int dw = raw_w - diff_d;
-      int i, si, dd;
+      int i, si;
       diff_inputs = (double*)LIBXS_PREDICT_MALLOC(
         (size_t)raw_m * sizeof(double), diff_pool);
       if (NULL != diff_inputs) {
         memcpy(diff_inputs, inputs, (size_t)raw_m * sizeof(double));
-        for (dd = 0; dd < diff_d; ++dd) {
-          const int len = raw_w - dd;
-          for (si = 0; si < s; ++si) {
-            for (i = 0; i < len - 1; ++i) {
-              diff_inputs[si * raw_w + i] =
-                diff_inputs[si * raw_w + i + 1] - diff_inputs[si * raw_w + i];
-            }
-          }
-        }
+        internal_libxs_predict_ts_diff_apply(diff_inputs, raw_w, s, diff_d,
+          1, raw_w);
         for (si = 1; si < s; ++si) {
           for (i = 0; i < dw; ++i) {
             diff_inputs[si * dw + i] = diff_inputs[si * raw_w + i];

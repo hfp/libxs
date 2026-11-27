@@ -143,12 +143,10 @@ LIBXS_API_INLINE void internal_libxs_predict_hknn_feature(
     memset(sum2_all, 0, (size_t)n * sizeof(double));
     for (i = 0; i < count; ++i) {
       for (oi = node->oi_lo; oi < node->oi_hi; ++oi) {
-        if (NULL != node->output_groups
-          && node->output_groups[oi] != node->target_group)
+        if (NULL == node->output_groups
+          || node->output_groups[oi] == node->target_group)
         {
-          continue;
-        }
-        { const double v = model->entries[pairs[i].idx].outputs[oi];
+          const double v = model->entries[pairs[i].idx].outputs[oi];
           sum_all[oi] += v;
           sum2_all[oi] += v * v;
         }
@@ -159,12 +157,10 @@ LIBXS_API_INLINE void internal_libxs_predict_hknn_feature(
     for (i = 0; i < count - 1; ++i) {
       const int nleft = i + 1, nright = count - nleft;
       for (oi = node->oi_lo; oi < node->oi_hi; ++oi) {
-        if (NULL != node->output_groups
-          && node->output_groups[oi] != node->target_group)
+        if (NULL == node->output_groups
+          || node->output_groups[oi] == node->target_group)
         {
-          continue;
-        }
-        { const double v = model->entries[pairs[i].idx].outputs[oi];
+          const double v = model->entries[pairs[i].idx].outputs[oi];
           sum_left[oi] += v;
           sum2_left[oi] += v * v;
         }
@@ -176,12 +172,10 @@ LIBXS_API_INLINE void internal_libxs_predict_hknn_feature(
         const double penalty =
           1.0 + 4.0 * LIBXS_FABS((double)nleft / count - 0.5);
         for (oi = node->oi_lo; oi < node->oi_hi; ++oi) {
-          if (NULL != node->output_groups
-            && node->output_groups[oi] != node->target_group)
+          if (NULL == node->output_groups
+            || node->output_groups[oi] == node->target_group)
           {
-            continue;
-          }
-          { const double ml = sum_left[oi] / nleft;
+            const double ml = sum_left[oi] / nleft;
             const double mr = (sum_all[oi] - sum_left[oi]) / nright;
             const double vl = sum2_left[oi] / nleft - ml * ml;
             const double vr = (sum2_all[oi] - sum2_left[oi]) / nright
