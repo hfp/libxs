@@ -3649,23 +3649,6 @@ LIBXS_API_INLINE int internal_libxs_predict_discrete_all(libxs_predict_t* model)
 }
 
 
-/**
- * By value as equality reads it: -0 hashes as 0 and an absent value as one value.
- * libxs_hash64 rather than libxs_hash, whose software CRC needs libxs_init.
- */
-LIBXS_API_INLINE unsigned int internal_libxs_predict_seen_hash(
-  const double row[], int width)
-{
-  uint64_t result = 0;
-  int i;
-  for (i = 0; i < width; ++i) {
-    const double v = (LIBXS_NOTNAN(row[i]) && LIBXS_NEQ(0, row[i])) ? row[i] : 0.0;
-    result = libxs_hash64(&v, sizeof(v), result);
-  }
-  return (unsigned int)(result ^ (result >> 32));
-}
-
-
 LIBXS_API_INLINE int internal_libxs_predict_seen_equal(
   const double a[], const double b[], int width)
 {
@@ -3733,7 +3716,9 @@ LIBXS_API_INLINE int internal_libxs_predict_seen_admit(
   internal_libxs_predict_seen_t* seen, const double row[], int* at)
 {
   const int width = seen->width;
-  const unsigned int h = internal_libxs_predict_seen_hash(row, width);
+  /* hashed as equality reads it (internal_libxs_predict_ihash) */
+  const uint64_t h64 = internal_libxs_predict_ihash(row, width);
+  const unsigned int h = (unsigned int)(h64 ^ (h64 >> 32));
   int result = (EXIT_SUCCESS == internal_libxs_predict_seen_grow(seen)) ? 1 : -1;
   *at = -1;
   if (0 < result) {

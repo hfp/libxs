@@ -106,6 +106,25 @@ LIBXS_API_INLINE int internal_libxs_predict_crc(const void* buffer,
 
 
 /**
+ * The writers' primitives, local to the writers below (#undef after
+ * libxs_predict_save): each appends at dst + result, and with dst NULL nothing
+ * is written and only the size (result) grows, so one pass both sizes and
+ * writes a record.
+ */
+#define WRITE_BLK(PTR, SZ) do { \
+  if (NULL != dst) memcpy(dst + result, (PTR), (SZ)); \
+  result += (SZ); \
+} while (0)
+#define WRITE_U32(V) do { const uint32_t v_ = (uint32_t)(V); WRITE_BLK(&v_, 4); } while (0)
+#define WRITE_U16(V) do { const uint16_t v_ = (uint16_t)(V); WRITE_BLK(&v_, 2); } while (0)
+#define WRITE_U8(V) do { const uint8_t v_ = (uint8_t)(V); WRITE_BLK(&v_, 1); } while (0)
+#define WRITE_F64(V) do { const double v_ = (V); WRITE_BLK(&v_, 8); } while (0)
+/* an encoded column (internal_libxs_predict_denc_write) */
+#define WRITE_DENC(VALUES, COUNT, STRIDE) (result += internal_libxs_predict_denc_write( \
+  (NULL != dst) ? (dst + result) : NULL, (VALUES), (COUNT), (STRIDE)))
+
+
+/**
  * One cluster of an hKNN file, a flat cluster (nout outputs) and a per-output one
  * (the outputs of its group) alike, so a loaded per-output cluster carries what
  * the shared assembly built: centroid, radius, the fit of every column, the
@@ -117,10 +136,6 @@ LIBXS_API_INLINE int internal_libxs_predict_crc(const void* buffer,
  * two bytes each below 65536 entries: everything else an entry carries is in
  * the flat cluster holding it, and the reader takes it from there.
  */
-#define LIBXS_PREDICT_PUT(PTR, SZ) do { \
-  if (NULL != dst) memcpy(dst + result, (PTR), (SZ)); \
-  result += (SZ); \
-} while (0)
 LIBXS_API_INLINE size_t internal_libxs_predict_hknn_cluster_write(unsigned char* dst,
   const libxs_predict_t* model, const internal_libxs_predict_cluster_t* cl,
   int nout, int has_ih, int compact)
@@ -133,12 +148,12 @@ LIBXS_API_INLINE size_t internal_libxs_predict_hknn_cluster_write(unsigned char*
   const double zero = 0;
   size_t result = 0;
   int j, k;
-  if (NULL != cl->centroid) LIBXS_PREDICT_PUT(cl->centroid, (size_t)mc * sizeof(double));
-  else for (k = 0; k < mc; ++k) LIBXS_PREDICT_PUT(&zero, sizeof(double));
-  LIBXS_PREDICT_PUT(&cl->dmax, sizeof(double));
-  LIBXS_PREDICT_PUT(&n32, sizeof(n32));
-  LIBXS_PREDICT_PUT(&mo, 1);
-  LIBXS_PREDICT_PUT(&ke, 1);
+  if (NULL != cl->centroid) WRITE_BLK(cl->centroid, (size_t)mc * sizeof(double));
+  else for (k = 0; k < mc; ++k) WRITE_BLK(&zero, sizeof(double));
+  WRITE_BLK(&cl->dmax, sizeof(double));
+  WRITE_BLK(&n32, sizeof(n32));
+  WRITE_BLK(&mo, 1);
+  WRITE_BLK(&ke, 1);
   for (j = 0; j < nout; ++j) {
     const uint8_t order = (uint8_t)(0 != fit ? cl->order[j] : 0);
     const uint8_t interp = (uint8_t)((NULL != cl->interpolated) ? cl->interpolated[j] : 0);
@@ -146,14 +161,14 @@ LIBXS_API_INLINE size_t internal_libxs_predict_hknn_cluster_write(unsigned char*
     const uint32_t nd = (uint32_t)((NULL != cl->ndistinct) ? cl->ndistinct[j] : 0);
     const double err = (NULL != cl->errors) ? cl->errors[j] : 0;
     const double rms = (NULL != cl->out_rms) ? cl->out_rms[j] : 0;
-    LIBXS_PREDICT_PUT(&order, 1);
-    LIBXS_PREDICT_PUT(&interp, 1);
-    LIBXS_PREDICT_PUT(&mode, 1);
-    LIBXS_PREDICT_PUT(&nd, sizeof(nd));
-    LIBXS_PREDICT_PUT(&err, sizeof(double));
-    LIBXS_PREDICT_PUT(&rms, sizeof(double));
+    WRITE_BLK(&order, 1);
+    WRITE_BLK(&interp, 1);
+    WRITE_BLK(&mode, 1);
+    WRITE_BLK(&nd, sizeof(nd));
+    WRITE_BLK(&err, sizeof(double));
+    WRITE_BLK(&rms, sizeof(double));
     if (0 != fit) {
-      LIBXS_PREDICT_PUT(cl->coeffs + (size_t)j * (cl->maxorder + 1),
+      WRITE_BLK(cl->coeffs + (size_t)j * (cl->maxorder + 1),
         ((size_t)order + 1) * sizeof(double));
     }
   }
@@ -162,35 +177,33 @@ LIBXS_API_INLINE size_t internal_libxs_predict_hknn_cluster_write(unsigned char*
       const int idx = (NULL != cl->sorted_idx) ? cl->sorted_idx[k] : -1;
       if (65536 > model->nentries) {
         const uint16_t i16 = (uint16_t)idx;
-        LIBXS_PREDICT_PUT(&i16, sizeof(i16));
+        WRITE_BLK(&i16, sizeof(i16));
       }
       else {
         const uint32_t i32 = (uint32_t)idx;
-        LIBXS_PREDICT_PUT(&i32, sizeof(i32));
+        WRITE_BLK(&i32, sizeof(i32));
       }
     }
   }
   else if (0 < ne) {
-    LIBXS_PREDICT_PUT(cl->kd_pts, (size_t)ne * (size_t)mc * sizeof(double));
+    WRITE_BLK(cl->kd_pts, (size_t)ne * (size_t)mc * sizeof(double));
     for (j = 0; j < nout; ++j) { /* per column, where the cardinality is */
-      result += internal_libxs_predict_denc_write((NULL != dst) ? (dst + result) : NULL,
-        cl->raw_outputs + j, (size_t)ne, (size_t)nout);
+      WRITE_DENC(cl->raw_outputs + j, (size_t)ne, (size_t)nout);
     }
     if (0 != model->has_eweight) {
       for (k = 0; k < ne; ++k) {
         const double w = (NULL != cl->eweight) ? cl->eweight[k] : 1.0;
-        LIBXS_PREDICT_PUT(&w, sizeof(double));
+        WRITE_BLK(&w, sizeof(double));
       }
     }
-    if (0 != has_ih) LIBXS_PREDICT_PUT(cl->ihash, (size_t)ne * sizeof(uint64_t));
+    if (0 != has_ih) WRITE_BLK(cl->ihash, (size_t)ne * sizeof(uint64_t));
     for (k = 0; k < ne; ++k) {
       const uint32_t idx = (uint32_t)((NULL != cl->sorted_idx) ? cl->sorted_idx[k] : -1);
-      LIBXS_PREDICT_PUT(&idx, sizeof(idx));
+      WRITE_BLK(&idx, sizeof(idx));
     }
   }
   return result;
 }
-#undef LIBXS_PREDICT_PUT
 
 
 /**
@@ -205,19 +218,12 @@ LIBXS_API_INLINE size_t internal_libxs_predict_hknn_tree_write(unsigned char* ds
   const uint32_t nn = (uint32_t)((NULL != tree) ? tree->nnodes : 0);
   size_t result = 0;
   uint32_t k;
-  if (NULL != dst) memcpy(dst, &nn, sizeof(nn));
-  result += sizeof(nn);
+  WRITE_U32(nn);
   for (k = 0; k < nn; ++k) {
     const uint16_t f = (uint16_t)((0 <= tree->nodes[k].dim) ? tree->nodes[k].dim : UINT16_MAX);
-    const uint32_t next = (uint32_t)tree->nodes[k].next;
-    if (NULL != dst) memcpy(dst + result, &f, sizeof(f));
-    result += sizeof(f);
-    if (UINT16_MAX != f) {
-      if (NULL != dst) memcpy(dst + result, &tree->nodes[k].threshold, sizeof(double));
-      result += sizeof(double);
-    }
-    if (NULL != dst) memcpy(dst + result, &next, sizeof(next));
-    result += sizeof(next);
+    WRITE_U16(f);
+    if (UINT16_MAX != f) WRITE_F64(tree->nodes[k].threshold);
+    WRITE_U32(tree->nodes[k].next);
   }
   return result;
 }
@@ -238,30 +244,19 @@ LIBXS_API_INLINE size_t internal_libxs_predict_rf_tree_write(unsigned char* dst,
   int k, nleaf = 0;
   for (k = 0; k < tree->nnodes; ++k) {
     const internal_libxs_predict_rf_node_t* const nd = tree->nodes + k;
-    if (NULL != dst) {
-      const uint16_t f = nd->feature;
-      memcpy(dst + result, &f, 2);
-      dst[result + 2] = nd->label;
-    }
-    result += 3;
-    if (UINT16_MAX != nd->feature) { /* a split's jump, which a leaf has not */
-      if (NULL != dst) {
-        const int32_t r = (int32_t)nd->data.right;
-        memcpy(dst + result, &r, 4);
-      }
-      result += 4;
-    }
+    WRITE_U16(nd->feature);
+    WRITE_U8(nd->label);
+    /* a split's jump, which a leaf has not (int32 as stored) */
+    if (UINT16_MAX != nd->feature) WRITE_U32((int32_t)nd->data.right);
     scratch[k] = nd->value;
   }
-  result += internal_libxs_predict_denc_write(
-    (NULL != dst) ? (dst + result) : NULL, scratch, (size_t)tree->nnodes, 1);
+  WRITE_DENC(scratch, (size_t)tree->nnodes, 1);
   for (k = 0; k < tree->nnodes; ++k) {
     if (UINT16_MAX == tree->nodes[k].feature) {
       scratch[nleaf++] = tree->nodes[k].data.leafp;
     }
   }
-  result += internal_libxs_predict_denc_write(
-    (NULL != dst) ? (dst + result) : NULL, scratch, (size_t)nleaf, 1);
+  WRITE_DENC(scratch, (size_t)nleaf, 1);
   return result;
 }
 
@@ -449,192 +444,279 @@ LIBXS_API_INLINE int internal_libxs_predict_has_ihash(const libxs_predict_t* mod
 }
 
 
-LIBXS_API_INLINE int internal_libxs_predict_save_hknn(
-  const libxs_predict_t* model, void* buffer, size_t* size)
+/* the resolved neighbour counts, one byte each behind a flag, and the reach */
+LIBXS_API_INLINE size_t internal_libxs_predict_ksel_write(unsigned char* dst,
+  const libxs_predict_t* model)
 {
-  int result = EXIT_SUCCESS;
+  size_t result = 0;
+  int j;
+  /* version 2: an older file derives the count; one without bit 2 has no reach */
+  WRITE_U8((NULL != model->k_sel ? 1 : 0) | (0 < model->reach_eff ? 2 : 0));
+  if (NULL != model->k_sel) {
+    for (j = 0; j < model->noutputs; ++j) WRITE_U8(model->k_sel[j]);
+  }
+  if (0 < model->reach_eff) WRITE_U8(LIBXS_MIN(model->reach_eff, 255));
+  return result;
+}
+
+
+/** The block both file kinds share, from the coordinate flag to the input weights. */
+LIBXS_API_INLINE size_t internal_libxs_predict_common_write(unsigned char* dst,
+  const libxs_predict_t* model)
+{
   const int m = model->ninputs, n = model->noutputs;
-  const int has_ih = internal_libxs_predict_has_ihash(model);
-  size_t required = 0;
-  int c, j;
-  required += sizeof(uint32_t) + sizeof(uint16_t);
-  required += 5 * sizeof(uint16_t) + sizeof(double);
-  /* consistency, smooth, quantile and floor, written with version 2 */
-  required += 4 * sizeof(double);
-  required += sizeof(uint8_t); /* whether a conformal correction follows */
+  size_t result = 0;
+  int j;
+  /* introduced with version 2; an older file has no rank coordinate */
+  WRITE_U16((NULL != model->input_knot ? LIBXS_PREDICT_KNOTS : 0)
+    | (NULL != model->input_score ? LIBXS_PREDICT_SCOREFLAG : 0));
+  WRITE_F64(model->quality);
+  /**
+   * Introduced with version 2. These change how a model ANSWERS, not what it
+   * holds, and a file that lost them answered differently from the model that
+   * was saved: a confidence map rendered from a saved buffer could not show a
+   * consistency penalty at all. A version-1 file carries none and keeps the
+   * zero that create() gives, which is "off" for each of them.
+   */
+  WRITE_F64(model->consistency);
+  WRITE_F64(model->smooth);
+  WRITE_F64(model->quantile);
+  WRITE_F64(model->floor);
+  /* The conformal correction, behind a flag: a model that was never calibrated
+   * carries none, and a model that was answers with the interval it was
+   * measured to give rather than losing the fit across a save. */
+  WRITE_U8(0 != model->qconform_ok && NULL != model->qconform ? 1 : 0);
   if (0 != model->qconform_ok && NULL != model->qconform) {
-    required += (size_t)n * sizeof(double);
+    for (j = 0; j < n; ++j) WRITE_F64(model->qconform[j]);
   }
-  required += (size_t)m * 2 * sizeof(double);
-  if (NULL != model->input_knot) required += (size_t)m * LIBXS_PREDICT_KNOTS * sizeof(double);
+  WRITE_BLK(model->input_min, (size_t)m * sizeof(double));
+  WRITE_BLK(model->input_rng, (size_t)m * sizeof(double));
+  if (NULL != model->input_knot) {
+    WRITE_BLK(model->input_knot, (size_t)m * LIBXS_PREDICT_KNOTS * sizeof(double));
+  }
   if (NULL != model->input_score) {
-    required += (size_t)m * (sizeof(uint8_t) + LIBXS_PREDICT_SCORESIZE * sizeof(double));
+    for (j = 0; j < m; ++j) WRITE_U8(model->input_sdim[j]);
+    WRITE_BLK(model->input_score,
+      (size_t)m * LIBXS_PREDICT_SCORESIZE * sizeof(double));
   }
-  if (NULL != model->weights) required += (size_t)m * sizeof(double);
-  /* exact, as the record encodes the outputs by content */
+  if (NULL != model->weights) {
+    WRITE_BLK(model->weights, (size_t)m * sizeof(double));
+  }
+  return result;
+}
+
+
+/**
+ * Converged escape weights, when the probability API has been used. These
+ * are an optimization, not model state: a fresh bank re-learns them within a
+ * few hundred queries, at a measured cost of 0.004-0.03 bits. Carrying them
+ * means a rebuilt or reloaded model does not re-pay that transient. Written
+ * last and guarded by a presence flag so a reader that predates them, or a
+ * model that never scored a probability, is unaffected.
+ */
+LIBXS_API_INLINE size_t internal_libxs_predict_escape_write(unsigned char* dst,
+  const libxs_predict_t* model)
+{
+  size_t result = 0;
+  if (NULL != model->escape_w) {
+    WRITE_U8(1);
+    WRITE_U8(LIBXS_PREDICT_NESCAPE);
+    WRITE_BLK(model->escape_w,
+      (size_t)model->noutputs * LIBXS_PREDICT_NESCAPE * sizeof(double));
+  }
+  else WRITE_U8(0);
+  return result;
+}
+
+
+/** An hKNN file without its trailing CRC; with dst NULL the size is returned. */
+LIBXS_API_INLINE size_t internal_libxs_predict_hknn_write(unsigned char* dst,
+  const libxs_predict_t* model, int has_ih)
+{
+  const int n = model->noutputs;
+  size_t result = 0;
+  int c, j;
+  WRITE_U32(LIBXS_PREDICT_MAGIC_HKNN);
+  WRITE_U16(LIBXS_PREDICT_VERSION);
+  WRITE_U16(model->ninputs);
+  WRITE_U16(n);
+  WRITE_U16(model->nclusters);
+  WRITE_U16(NULL != model->weights ? 1 : 0);
+  /* introduced with version 2; an older file simply has no weights */
+  WRITE_U8(0 != model->has_eweight ? 1 : 0);
+  WRITE_U8(has_ih);
+  result += internal_libxs_predict_ksel_write(
+    (NULL != dst) ? (dst + result) : NULL, model);
+  result += internal_libxs_predict_common_write(
+    (NULL != dst) ? (dst + result) : NULL, model);
   for (c = 0; c < model->nclusters; ++c) {
-    required += internal_libxs_predict_hknn_cluster_write(NULL, model,
-      &model->clusters[c], n, has_ih, 0);
+    result += internal_libxs_predict_hknn_cluster_write(
+      (NULL != dst) ? (dst + result) : NULL, model, &model->clusters[c], n,
+      has_ih, 0);
   }
-  required += 1;
-  /* the entry-weight and input-hash flags, introduced with version 2 */
-  required += 2 * sizeof(uint8_t);
-  /* the resolved neighbour counts, one byte each behind a flag, and the reach */
-  required += sizeof(uint8_t);
-  if (NULL != model->k_sel) required += (size_t)n;
-  if (0 < model->reach_eff) required += sizeof(uint8_t);
   if (NULL != model->hknn_po_assignments && NULL != model->hknn_po_clusters) {
     const int ng = (model->hknn_ngroups > 0) ? model->hknn_ngroups : n;
-    required += sizeof(uint16_t) + (size_t)n * sizeof(uint16_t);
+    /**
+     * The group count is emitted because outputs may share a partition, in
+     * which case ng < n and a reader that assumed one group per output would
+     * consume the wrong number of assignment blocks and desynchronize for the
+     * remainder of the payload. The per-output group map follows for the
+     * same reason: eval indexes it to find an output's partition.
+     */
+    WRITE_U16(ng);
+    for (j = 0; j < n; ++j) {
+      WRITE_U16((NULL != model->hknn_po_groups) ? model->hknn_po_groups[j] : j);
+    }
+    /**
+     * No assignments since version 2: the members each per-output cluster
+     * lists are its assignment, and an entry's points, outputs, weight and
+     * hash are those of the flat cluster holding it. Storing them again per
+     * output made a file of n outputs carry its corpus n + 1 times.
+     */
+    WRITE_U8(1);
     for (j = 0; j < ng; ++j) {
-      const int po_nc = model->hknn_po_nclusters[j];
+      const int po_nc = (NULL != model->hknn_po_clusters[j])
+        ? model->hknn_po_nclusters[j] : 0;
       const int gsz = internal_libxs_predict_gsize(model->hknn_po_groups, n, j);
-      required += sizeof(uint16_t);
-      if (NULL != model->hknn_po_clusters[j]) {
-        for (c = 0; c < po_nc; ++c) {
-          required += internal_libxs_predict_hknn_cluster_write(NULL, model,
-            &model->hknn_po_clusters[j][c], gsz, has_ih, 1);
-        }
+      WRITE_U16(po_nc);
+      for (c = 0; c < po_nc; ++c) {
+        result += internal_libxs_predict_hknn_cluster_write(
+          (NULL != dst) ? (dst + result) : NULL, model,
+          &model->hknn_po_clusters[j][c], gsz, has_ih, 1);
       }
-      required += internal_libxs_predict_hknn_tree_write(NULL,
+      /* since version 2, the tree a query descends to its cluster by */
+      result += internal_libxs_predict_hknn_tree_write(
+        (NULL != dst) ? (dst + result) : NULL,
         (NULL != model->hknn_po_trees) ? (model->hknn_po_trees + j) : NULL);
     }
   }
-  /* converged escape weights, as in the flat path (see libxs_predict_save) */
-  if (NULL != model->escape_w) {
-    required += 2 * sizeof(uint8_t)
-      + (size_t)n * LIBXS_PREDICT_NESCAPE * sizeof(double);
+  else WRITE_U8(0);
+  result += internal_libxs_predict_escape_write(
+    (NULL != dst) ? (dst + result) : NULL, model);
+  return result;
+}
+
+
+/**
+ * A flat file without its trailing CRC; with dst NULL the size is returned.
+ * rf_scratch holds as many doubles as the largest tree has nodes.
+ */
+LIBXS_API_INLINE size_t internal_libxs_predict_flat_write(unsigned char* dst,
+  const libxs_predict_t* model, int has_sidx, int has_ih, double* rf_scratch)
+{
+  const int m = model->ninputs, n = model->noutputs;
+  const int has_ew = (0 != model->has_eweight) ? 1 : 0;
+  size_t result = 0;
+  int c, j;
+  WRITE_U32(LIBXS_PREDICT_MAGIC);
+  WRITE_U16(LIBXS_PREDICT_VERSION);
+  WRITE_U16(m);
+  WRITE_U16(n);
+  WRITE_U16(model->nclusters);
+  WRITE_U8(NULL != model->weights ? 1 : 0);
+  WRITE_U8(NULL != model->transforms ? 1 : 0);
+  WRITE_U16(model->nseries);
+  WRITE_U16(model->window);
+  WRITE_U16(model->target);
+  WRITE_U16(model->decompose);
+  WRITE_U16(model->naux);
+  WRITE_U16(model->nderiv);
+  WRITE_U8(model->eval_mode);
+  WRITE_U8(model->diff_order);
+  /**
+   * Biased by one so the unsigned field can carry -1 (confidence-gated).
+   * That also keeps a model saved before 0 meant "off" behaving as it did:
+   * every such file stored 0, which was the confidence-gated default at
+   * the time, and decodes to -1 rather than to the off that 0 means now.
+   */
+  WRITE_U8(LIBXS_CLMP(model->refine + 1, 0, 255));
+  WRITE_U8(NULL != model->decompose_mat ? 1 : 0);
+  WRITE_U8(has_sidx);
+  /* introduced with version 2; an older file simply has no weights */
+  WRITE_U8(has_ew);
+  WRITE_U8(has_ih);
+  result += internal_libxs_predict_ksel_write(
+    (NULL != dst) ? (dst + result) : NULL, model);
+  WRITE_U16(model->order);
+  WRITE_U8(model->iterations);
+  WRITE_U32(model->nentries);
+  result += internal_libxs_predict_common_write(
+    (NULL != dst) ? (dst + result) : NULL, model);
+  if (NULL != model->transforms) {
+    for (j = 0; j < n; ++j) WRITE_U8(model->transforms[j]);
   }
-  else required += sizeof(uint8_t);
-  required += sizeof(uint32_t); /* trailing CRC32 */
-  if (NULL == buffer) {
-    *size = required;
+  if (NULL != model->decompose_mat) {
+    WRITE_BLK(model->decompose_mat, (size_t)m * (size_t)m * sizeof(double));
   }
-  else if (*size < required) {
-    *size = required; result = EXIT_FAILURE;
-  }
-  else {
-    unsigned char* dst = (unsigned char*)buffer;
-#define WRITE_U32(V) do { const uint32_t v_=(uint32_t)(V); memcpy(dst,&v_,4); dst+=4; } while(0)
-#define WRITE_U16(V) do { const uint16_t v_=(uint16_t)(V); memcpy(dst,&v_,2); dst+=2; } while(0)
-#define WRITE_U8(V)  do { *dst++ = (unsigned char)(V); } while(0)
-#define WRITE_F64(V) do { const double v_=(V); memcpy(dst,&v_,8); dst+=8; } while(0)
-#define WRITE_BLK(PTR,SZ) do { memcpy(dst,(PTR),(SZ)); dst+=(SZ); } while(0)
-    WRITE_U32(LIBXS_PREDICT_MAGIC_HKNN);
-    WRITE_U16(LIBXS_PREDICT_VERSION);
-    WRITE_U16(m);
-    WRITE_U16(n);
-    WRITE_U16(model->nclusters);
-    WRITE_U16(NULL != model->weights ? 1 : 0);
-    /* introduced with version 2; an older file simply has no weights */
-    WRITE_U8(0 != model->has_eweight ? 1 : 0);
-    WRITE_U8(has_ih);
-    /* the flag's second bit, unset in an older version-2 file: a reach follows */
-    WRITE_U8((NULL != model->k_sel ? 1 : 0) | (0 < model->reach_eff ? 2 : 0));
-    if (NULL != model->k_sel) {
-      int ks;
-      for (ks = 0; ks < model->noutputs; ++ks) WRITE_U8(model->k_sel[ks]);
-    }
-    if (0 < model->reach_eff) WRITE_U8(LIBXS_MIN(model->reach_eff, 255));
-    /* introduced with version 2; an older file has no rank coordinate */
-    WRITE_U16((NULL != model->input_knot ? LIBXS_PREDICT_KNOTS : 0)
-      | (NULL != model->input_score ? LIBXS_PREDICT_SCOREFLAG : 0));
-    WRITE_F64(model->quality);
+  for (c = 0; c < model->nclusters; ++c) {
+    const internal_libxs_predict_cluster_t* cl = &model->clusters[c];
+    const size_t ne = (size_t)cl->nentries;
+    WRITE_BLK(cl->centroid, (size_t)model->ncoord * sizeof(double));
+    WRITE_F64(cl->dmax);
+    WRITE_U16(cl->nentries);
+    WRITE_U8(cl->maxorder);
+    WRITE_U8(cl->k_eff);
+    for (j = 0; j < n; ++j) WRITE_U8(cl->order[j]);
+    for (j = 0; j < n; ++j) WRITE_U8(cl->interpolated[j]);
+    for (j = 0; j < n; ++j) WRITE_U8(cl->mode[j]);
+    for (j = 0; j < n; ++j) WRITE_U16(cl->ndistinct[j]);
+    WRITE_BLK(cl->errors, (size_t)n * sizeof(double));
+    WRITE_BLK(cl->out_rms, (size_t)n * sizeof(double));
+    WRITE_BLK(cl->kd_pts, ne * (size_t)model->ncoord * sizeof(double));
+    /* per column and not per entry: the cardinality is a property of the
+     * parameter, and an entry mixes all of them together */
+    for (j = 0; j < n; ++j) WRITE_DENC(cl->raw_outputs + j, ne, (size_t)n);
+    if (0 != has_ew) WRITE_BLK(cl->eweight, ne * sizeof(double));
+    if (0 != has_ih && 0 < ne) WRITE_BLK(cl->ihash, ne * sizeof(uint64_t));
     /**
-     * Introduced with version 2. These change how a model ANSWERS, not what it
-     * holds, and a file that lost them answered differently from the model that
-     * was saved: a confidence map rendered from a saved buffer could not show a
-     * consistency penalty at all. A version-1 file carries none and keeps the
-     * zero that create() gives, which is "off" for each of them.
+     * sorted_idx is what recency weighting and the local-error diagnostic
+     * read; without it a loaded model silently takes a different path from
+     * the model it was saved from. U32 because it indexes the global entry
+     * set, which is not bounded by 64K like a per-cluster count.
      */
-    WRITE_F64(model->consistency);
-    WRITE_F64(model->smooth);
-    WRITE_F64(model->quantile);
-    WRITE_F64(model->floor);
-    /* The conformal correction, behind a flag: a model that was never calibrated
-     * carries none, and a model that was answers with the interval it was
-     * measured to give rather than losing the fit across a save. */
-    WRITE_U8(0 != model->qconform_ok && NULL != model->qconform ? 1 : 0);
-    if (0 != model->qconform_ok && NULL != model->qconform) {
-      int qi;
-      for (qi = 0; qi < n; ++qi) WRITE_F64(model->qconform[qi]);
+    if (0 != has_sidx) {
+      int si;
+      for (si = 0; si < cl->nentries; ++si) WRITE_U32(cl->sorted_idx[si]);
     }
-    WRITE_BLK(model->input_min, (size_t)m * sizeof(double));
-    WRITE_BLK(model->input_rng, (size_t)m * sizeof(double));
-    if (NULL != model->input_knot) {
-      WRITE_BLK(model->input_knot, (size_t)m * LIBXS_PREDICT_KNOTS * sizeof(double));
+    for (j = 0; j < n; ++j) {
+      WRITE_BLK(cl->coeffs + (size_t)j * (cl->maxorder + 1),
+        (size_t)(cl->order[j] + 1) * sizeof(double));
     }
-    if (NULL != model->input_score) {
-      for (j = 0; j < m; ++j) WRITE_U8(model->input_sdim[j]);
-      WRITE_BLK(model->input_score,
-        (size_t)m * LIBXS_PREDICT_SCORESIZE * sizeof(double));
-    }
-    if (NULL != model->weights) {
-      WRITE_BLK(model->weights, (size_t)m * sizeof(double));
-    }
-    for (c = 0; c < model->nclusters; ++c) {
-      dst += internal_libxs_predict_hknn_cluster_write(dst, model,
-        &model->clusters[c], n, has_ih, 0);
-    }
-    if (NULL != model->hknn_po_assignments
-      && NULL != model->hknn_po_clusters)
-    {
-      const int ng = (model->hknn_ngroups > 0) ? model->hknn_ngroups : n;
-      /**
-       * The group count is emitted because outputs may share a partition, in
-       * which case ng < n and a reader that assumed one group per output would
-       * consume the wrong number of assignment blocks and desynchronize for the
-       * remainder of the payload. The per-output group map follows for the
-       * same reason: eval indexes it to find an output's partition.
-       */
-      WRITE_U16(ng);
-      for (j = 0; j < n; ++j) {
-        WRITE_U16((NULL != model->hknn_po_groups) ? model->hknn_po_groups[j] : j);
-      }
-      /**
-       * No assignments since version 2: the members each per-output cluster
-       * lists are its assignment, and an entry's points, outputs, weight and
-       * hash are those of the flat cluster holding it. Storing them again per
-       * output made a file of n outputs carry its corpus n + 1 times.
-       */
-      WRITE_U8(1);
-      for (j = 0; j < ng; ++j) {
-        const int po_nc = (NULL != model->hknn_po_clusters[j])
-          ? model->hknn_po_nclusters[j] : 0;
-        const int gsz = internal_libxs_predict_gsize(model->hknn_po_groups, n, j);
-        int ci;
-        WRITE_U16(po_nc);
-        for (ci = 0; ci < po_nc; ++ci) {
-          dst += internal_libxs_predict_hknn_cluster_write(dst, model,
-            &model->hknn_po_clusters[j][ci], gsz, has_ih, 1);
-        }
-        /* since version 2, the tree a query descends to its cluster by */
-        dst += internal_libxs_predict_hknn_tree_write(dst,
-          (NULL != model->hknn_po_trees) ? (model->hknn_po_trees + j) : NULL);
-      }
-    }
-    else {
-      WRITE_U8(0);
-    }
-    if (NULL != model->escape_w) {
-      WRITE_U8(1);
-      WRITE_U8(LIBXS_PREDICT_NESCAPE);
-      WRITE_BLK(model->escape_w,
-        (size_t)n * LIBXS_PREDICT_NESCAPE * sizeof(double));
-    }
-    else WRITE_U8(0);
-    { uint32_t crc = 0;
-      result = internal_libxs_predict_crc(buffer,
-        (size_t)(dst - (unsigned char*)buffer), &crc);
-      if (EXIT_SUCCESS == result) WRITE_U32(crc);
-    }
-#undef WRITE_U32
-#undef WRITE_U16
-#undef WRITE_U8
-#undef WRITE_F64
-#undef WRITE_BLK
-    if (EXIT_SUCCESS == result) *size = (size_t)(dst - (unsigned char*)buffer);
   }
+  if (NULL != model->rf) {
+    const internal_libxs_predict_rf_t* const rf = model->rf;
+    const int total_trees = rf->ntrees * rf->noutputs;
+    WRITE_U16(rf->ntrees);
+    WRITE_U16(rf->noutputs);
+    for (j = 0; j < rf->noutputs; ++j) WRITE_U16((int16_t)rf->label_offset[j]);
+    for (j = 0; j < rf->noutputs; ++j) WRITE_U8(rf->regress[j]);
+    for (j = 0; j < rf->noutputs; ++j) WRITE_U8(rf->nclass[j]);
+    /**
+     * The bin count leads the curve rather than being implied by the build
+     * that reads it: a model outlives the value the library was compiled
+     * with, and a curve read at the wrong width is a confidence that is
+     * wrong rather than absent. Zero says the measurement was not made, and
+     * the share is then reported unchanged.
+     */
+    WRITE_U8(NULL != rf->calib ? LIBXS_PREDICT_RF_CALIB : 0);
+    if (NULL != rf->calib) {
+      const int ncal = rf->noutputs * LIBXS_PREDICT_RF_CALIB;
+      for (j = 0; j < ncal; ++j) WRITE_F64(rf->calib[j]);
+    }
+    for (c = 0; c < total_trees; ++c) {
+      const internal_libxs_predict_rf_tree_t* tree = &rf->trees[c];
+      WRITE_U32(tree->nnodes);
+      WRITE_U8(NULL != tree->incr ? 1 : 0);
+      result += internal_libxs_predict_rf_tree_write(
+        (NULL != dst) ? (dst + result) : NULL, tree, rf_scratch);
+      if (NULL != tree->incr) {
+        WRITE_BLK(tree->incr, (size_t)tree->nnodes
+          * (size_t)rf->nclass[c / rf->ntrees] * sizeof(double));
+      }
+    }
+  }
+  result += internal_libxs_predict_escape_write(
+    (NULL != dst) ? (dst + result) : NULL, model);
   return result;
 }
 
@@ -645,18 +727,12 @@ LIBXS_API int libxs_predict_save(const libxs_predict_t* model, void* buffer, siz
   if (NULL == model || 0 == model->built || NULL == size) {
     result = EXIT_FAILURE;
   }
-  else if (LIBXS_PREDICT_HKNN == model->decompose
-    && NULL != model->hknn_po_assignments)
-  {
-    result = internal_libxs_predict_save_hknn(model, buffer, size);
-  }
   else {
-    size_t required = 0;
-    int c, j, has_sidx = 1;
-    const int has_ew = (0 != model->has_eweight) ? 1 : 0;
+    const int hknn = (LIBXS_PREDICT_HKNN == model->decompose
+      && NULL != model->hknn_po_assignments) ? 1 : 0;
     const int has_ih = internal_libxs_predict_has_ihash(model);
     double* rf_scratch = NULL;
-    int rf_scratch_pool = 0;
+    int rf_scratch_pool = 0, has_sidx = 1, c;
     /**
      * A model loaded from a version-1 flat file has no sorted_idx to write, so
      * its presence is a flag rather than an invariant. Fabricating indices
@@ -666,303 +742,51 @@ LIBXS_API int libxs_predict_save(const libxs_predict_t* model, void* buffer, siz
       const internal_libxs_predict_cluster_t* cl = &model->clusters[c];
       if (0 < cl->nentries && NULL == cl->sorted_idx) has_sidx = 0;
     }
-    required += sizeof(uint32_t) + 4 * sizeof(uint16_t) + 2 * sizeof(uint8_t);
-    required += 8 * sizeof(uint16_t) + 8 * sizeof(uint8_t) + sizeof(uint32_t)
-      + sizeof(double);
-    /* consistency, smooth, quantile and floor, written with version 2 */
-    required += 4 * sizeof(double);
-    required += sizeof(uint8_t); /* whether a conformal correction follows */
-    if (0 != model->qconform_ok && NULL != model->qconform) {
-      required += (size_t)model->noutputs * sizeof(double);
+    if (0 == hknn && NULL != model->rf) { /* sizes the forest's columns */
+      const int total_trees = model->rf->ntrees * model->rf->noutputs;
+      int maxnodes = 1;
+      for (c = 0; c < total_trees; ++c) {
+        maxnodes = LIBXS_MAX(maxnodes, model->rf->trees[c].nnodes);
+      }
+      rf_scratch = (double*)LIBXS_PREDICT_MALLOC(
+        (size_t)maxnodes * sizeof(double), rf_scratch_pool);
+      if (NULL == rf_scratch) result = EXIT_FAILURE;
     }
-    required += sizeof(uint8_t); /* whether input hashes follow the clusters */
-    /* the resolved neighbour counts, one byte each behind a flag, and the reach */
-    if (NULL != model->k_sel) required += (size_t)model->noutputs;
-    if (0 < model->reach_eff) required += sizeof(uint8_t);
-    required += (size_t)model->ninputs * 2 * sizeof(double);
-    if (NULL != model->input_knot) {
-      required += (size_t)model->ninputs * LIBXS_PREDICT_KNOTS * sizeof(double);
-    }
-    if (NULL != model->input_score) {
-      required += (size_t)model->ninputs
-        * (sizeof(uint8_t) + LIBXS_PREDICT_SCORESIZE * sizeof(double));
-    }
-    if (NULL != model->weights) required += (size_t)model->ninputs * sizeof(double);
-    if (NULL != model->transforms) required += (size_t)model->noutputs * sizeof(uint8_t);
-    if (NULL != model->decompose_mat) {
-      required += (size_t)model->ninputs * (size_t)model->ninputs * sizeof(double);
-    }
-    for (c = 0; c < model->nclusters; ++c) {
-      const internal_libxs_predict_cluster_t* cl = &model->clusters[c];
-      required += (size_t)model->ncoord * sizeof(double);
-      required += sizeof(double);
-      required += sizeof(uint16_t) + 2 * sizeof(uint8_t);
-      required += (size_t)model->noutputs * 3;
-      required += (size_t)model->noutputs * sizeof(uint16_t);
-      required += (size_t)model->noutputs * sizeof(double);
-      required += (size_t)model->noutputs * sizeof(double);
-      required += (size_t)cl->nentries * (size_t)model->ncoord * sizeof(double);
-      required += (size_t)cl->nentries * (size_t)model->noutputs * sizeof(double);
-      /* one tag per column; the encoding never exceeds the verbatim form, so this
-       * bound holds without repeating the choice the writer makes */
-      required += (size_t)model->noutputs;
-      if (0 != has_sidx) required += (size_t)cl->nentries * sizeof(uint32_t);
-      if (0 != has_ew) required += (size_t)cl->nentries * sizeof(double);
-      if (0 != has_ih) required += (size_t)cl->nentries * sizeof(uint64_t);
-      for (j = 0; j < model->noutputs; ++j) {
-        required += (size_t)(cl->order[j] + 1) * sizeof(double);
+    if (EXIT_SUCCESS == result) {
+      /* exact, as the records encode their columns by content */
+      const size_t body = (0 != hknn)
+        ? internal_libxs_predict_hknn_write(NULL, model, has_ih)
+        : internal_libxs_predict_flat_write(NULL, model, has_sidx, has_ih,
+          rf_scratch);
+      const size_t required = body + sizeof(uint32_t); /* trailing CRC32 */
+      if (NULL == buffer) *size = required;
+      else if (*size < required) {
+        *size = required;
+        result = EXIT_FAILURE;
       }
-    }
-    if (NULL != model->rf) {
-      const int n = model->rf->noutputs;
-      const int total_trees = model->rf->ntrees * n;
-      required += sizeof(uint16_t) + sizeof(uint16_t);
-      required += (size_t)n * sizeof(int16_t);
-      /** One read-out kind and one score width per output, one leaf value per
-       *  node, and a correction per node and class where a stage was kept. */
-      required += (size_t)n * (sizeof(uint8_t) + sizeof(uint8_t));
-      required += sizeof(uint8_t);
-      if (NULL != model->rf->calib) {
-        required += (size_t)model->rf->noutputs
-          * LIBXS_PREDICT_RF_CALIB * sizeof(double);
-      }
-      { int maxnodes = 1;
-        for (c = 0; c < total_trees; ++c) {
-          maxnodes = LIBXS_MAX(maxnodes, model->rf->trees[c].nnodes);
-        }
-        rf_scratch = (double*)LIBXS_PREDICT_MALLOC(
-          (size_t)maxnodes * sizeof(double), rf_scratch_pool);
-        if (NULL == rf_scratch) result = EXIT_FAILURE;
-      }
-      for (c = 0; c < total_trees && EXIT_SUCCESS == result; ++c) {
-        required += sizeof(uint32_t) + sizeof(uint8_t);
-        /* exact rather than bounded, as the columns are encoded by content */
-        required += internal_libxs_predict_rf_tree_write(NULL,
-          &model->rf->trees[c], rf_scratch);
-        if (NULL != model->rf->trees[c].incr) {
-          required += (size_t)model->rf->trees[c].nnodes
-            * (size_t)model->rf->nclass[c / model->rf->ntrees]
-            * sizeof(double);
+      else {
+        unsigned char* const dst = (unsigned char*)buffer;
+        uint32_t crc = 0;
+        if (0 != hknn) internal_libxs_predict_hknn_write(dst, model, has_ih);
+        else internal_libxs_predict_flat_write(dst, model, has_sidx, has_ih,
+          rf_scratch);
+        result = internal_libxs_predict_crc(buffer, body, &crc);
+        if (EXIT_SUCCESS == result) {
+          memcpy(dst + body, &crc, sizeof(crc));
+          *size = required;
         }
       }
-    }
-    /**
-     * Converged escape weights, when the probability API has been used. These
-     * are an optimization, not model state: a fresh bank re-learns them within a
-     * few hundred queries, at a measured cost of 0.004-0.03 bits. Carrying them
-     * means a rebuilt or reloaded model does not re-pay that transient. Written
-     * last and guarded by a presence flag so a reader that predates them, or a
-     * model that never scored a probability, is unaffected.
-     */
-    if (NULL != model->escape_w) {
-      required += 2 * sizeof(uint8_t);
-      required += (size_t)model->noutputs * LIBXS_PREDICT_NESCAPE
-        * sizeof(double);
-    }
-    else required += sizeof(uint8_t);
-    required += sizeof(uint32_t); /* trailing CRC32 */
-    /* a failure here is the scratch the forest's columns are sized with */
-    if (EXIT_SUCCESS == result && NULL == buffer) {
-      *size = required;
-    }
-    else if (EXIT_SUCCESS == result && *size < required) {
-      *size = required;
-      result = EXIT_FAILURE;
-    }
-    else if (EXIT_SUCCESS == result) {
-      unsigned char* dst = (unsigned char*)buffer;
-#define WRITE_U32(V) do { const uint32_t v_=(uint32_t)(V); memcpy(dst,&v_,4); dst+=4; } while(0)
-#define WRITE_U16(V) do { const uint16_t v_=(uint16_t)(V); memcpy(dst,&v_,2); dst+=2; } while(0)
-#define WRITE_U8(V)  do { *dst++ = (unsigned char)(V); } while(0)
-#define WRITE_F64(V) do { const double v_=(V); memcpy(dst,&v_,8); dst+=8; } while(0)
-#define WRITE_BLK(PTR,SZ) do { memcpy(dst,(PTR),(SZ)); dst+=(SZ); } while(0)
-      WRITE_U32(LIBXS_PREDICT_MAGIC);
-      WRITE_U16(LIBXS_PREDICT_VERSION);
-      WRITE_U16(model->ninputs);
-      WRITE_U16(model->noutputs);
-      WRITE_U16(model->nclusters);
-      WRITE_U8(NULL != model->weights ? 1 : 0);
-      WRITE_U8(NULL != model->transforms ? 1 : 0);
-      WRITE_U16(model->nseries);
-      WRITE_U16(model->window);
-      WRITE_U16(model->target);
-      WRITE_U16(model->decompose);
-      WRITE_U16(model->naux);
-      WRITE_U16(model->nderiv);
-      WRITE_U8(model->eval_mode);
-      WRITE_U8(model->diff_order);
-      /**
-       * Biased by one so the unsigned field can carry -1 (confidence-gated).
-       * That also keeps a model saved before 0 meant "off" behaving as it did:
-       * every such file stored 0, which was the confidence-gated default at
-       * the time, and decodes to -1 rather than to the off that 0 means now.
-       */
-      WRITE_U8(LIBXS_CLMP(model->refine + 1, 0, 255));
-      WRITE_U8(NULL != model->decompose_mat ? 1 : 0);
-      WRITE_U8(has_sidx);
-      /* introduced with version 2; an older file simply has no weights */
-      WRITE_U8(has_ew);
-      WRITE_U8(has_ih);
-      /* version 2: an older file derives the count; one without bit 2 has no reach */
-      WRITE_U8((NULL != model->k_sel ? 1 : 0) | (0 < model->reach_eff ? 2 : 0));
-      if (NULL != model->k_sel) {
-        for (j = 0; j < model->noutputs; ++j) WRITE_U8(model->k_sel[j]);
-      }
-      if (0 < model->reach_eff) WRITE_U8(LIBXS_MIN(model->reach_eff, 255));
-      WRITE_U16(model->order);
-      WRITE_U8(model->iterations);
-      WRITE_U32(model->nentries);
-      /* introduced with version 2; an older file has no rank coordinate */
-      WRITE_U16((NULL != model->input_knot ? LIBXS_PREDICT_KNOTS : 0)
-        | (NULL != model->input_score ? LIBXS_PREDICT_SCOREFLAG : 0));
-      WRITE_F64(model->quality);
-      /**
-       * Introduced with version 2. These change how a model ANSWERS, not what it
-       * holds, and a file that lost them answered differently from the model that
-       * was saved: a confidence map rendered from a saved buffer could not show a
-       * consistency penalty at all. A version-1 file carries none and keeps the
-       * zero that create() gives, which is "off" for each of them.
-       */
-      WRITE_F64(model->consistency);
-      WRITE_F64(model->smooth);
-      WRITE_F64(model->quantile);
-      WRITE_F64(model->floor);
-      /* The conformal correction, behind a flag: a model that was never calibrated
-       * carries none, and a model that was answers with the interval it was
-       * measured to give rather than losing the fit across a save. */
-      WRITE_U8(0 != model->qconform_ok && NULL != model->qconform ? 1 : 0);
-      if (0 != model->qconform_ok && NULL != model->qconform) {
-        int qi;
-        for (qi = 0; qi < model->noutputs; ++qi) {
-          WRITE_F64(model->qconform[qi]);
-        }
-      }
-      WRITE_BLK(model->input_min, (size_t)model->ninputs * sizeof(double));
-      WRITE_BLK(model->input_rng, (size_t)model->ninputs * sizeof(double));
-      if (NULL != model->input_knot) {
-        WRITE_BLK(model->input_knot,
-          (size_t)model->ninputs * LIBXS_PREDICT_KNOTS * sizeof(double));
-      }
-      if (NULL != model->input_score) {
-        for (j = 0; j < model->ninputs; ++j) WRITE_U8(model->input_sdim[j]);
-        WRITE_BLK(model->input_score,
-          (size_t)model->ninputs * LIBXS_PREDICT_SCORESIZE * sizeof(double));
-      }
-      if (NULL != model->weights) {
-        WRITE_BLK(model->weights, (size_t)model->ninputs * sizeof(double));
-      }
-      if (NULL != model->transforms) {
-        for (j = 0; j < model->noutputs; ++j) WRITE_U8(model->transforms[j]);
-      }
-      if (NULL != model->decompose_mat) {
-        const size_t msz = (size_t)model->ninputs * (size_t)model->ninputs;
-        WRITE_BLK(model->decompose_mat, msz * sizeof(double));
-      }
-      for (c = 0; c < model->nclusters; ++c) {
-        const internal_libxs_predict_cluster_t* cl = &model->clusters[c];
-        WRITE_BLK(cl->centroid, (size_t)model->ncoord * sizeof(double));
-        WRITE_F64(cl->dmax);
-        WRITE_U16(cl->nentries);
-        WRITE_U8(cl->maxorder);
-        WRITE_U8(cl->k_eff);
-        for (j = 0; j < model->noutputs; ++j) WRITE_U8(cl->order[j]);
-        for (j = 0; j < model->noutputs; ++j) WRITE_U8(cl->interpolated[j]);
-        for (j = 0; j < model->noutputs; ++j) WRITE_U8(cl->mode[j]);
-        for (j = 0; j < model->noutputs; ++j) WRITE_U16(cl->ndistinct[j]);
-        WRITE_BLK(cl->errors, (size_t)model->noutputs * sizeof(double));
-        WRITE_BLK(cl->out_rms, (size_t)model->noutputs * sizeof(double));
-        WRITE_BLK(cl->kd_pts, (size_t)cl->nentries * (size_t)model->ncoord * sizeof(double));
-        /* per column and not per entry: the cardinality is a property of the
-         * parameter, and an entry mixes all of them together */
-        { int qj;
-          for (qj = 0; qj < model->noutputs; ++qj) {
-            dst += internal_libxs_predict_denc_write(dst,
-              cl->raw_outputs + qj, (size_t)cl->nentries,
-              (size_t)model->noutputs);
-          }
-        }
-        if (0 != has_ew) {
-          WRITE_BLK(cl->eweight, (size_t)cl->nentries * sizeof(double));
-        }
-        if (0 != has_ih && 0 < cl->nentries) {
-          WRITE_BLK(cl->ihash, (size_t)cl->nentries * sizeof(uint64_t));
-        }
-        /**
-         * sorted_idx is what recency weighting and the local-error diagnostic
-         * read; without it a loaded model silently takes a different path from
-         * the model it was saved from. U32 because it indexes the global entry
-         * set, which is not bounded by 64K like a per-cluster count.
-         */
-        if (0 != has_sidx) {
-          int si;
-          for (si = 0; si < cl->nentries; ++si) WRITE_U32(cl->sorted_idx[si]);
-        }
-        for (j = 0; j < model->noutputs; ++j) {
-          WRITE_BLK(cl->coeffs + (size_t)j * (cl->maxorder + 1),
-            (size_t)(cl->order[j] + 1) * sizeof(double));
-        }
-      }
-      if (NULL != model->rf) {
-        const int total_trees = model->rf->ntrees * model->rf->noutputs;
-        WRITE_U16(model->rf->ntrees);
-        WRITE_U16(model->rf->noutputs);
-        for (j = 0; j < model->rf->noutputs; ++j) {
-          const int16_t off = (int16_t)model->rf->label_offset[j];
-          memcpy(dst, &off, 2); dst += 2;
-        }
-        for (j = 0; j < model->rf->noutputs; ++j) {
-          WRITE_U8(model->rf->regress[j]);
-        }
-        for (j = 0; j < model->rf->noutputs; ++j) {
-          WRITE_U8(model->rf->nclass[j]);
-        }
-        /**
-         * The bin count leads the curve rather than being implied by the build
-         * that reads it: a model outlives the value the library was compiled
-         * with, and a curve read at the wrong width is a confidence that is
-         * wrong rather than absent. Zero says the measurement was not made, and
-         * the share is then reported unchanged.
-         */
-        WRITE_U8(NULL != model->rf->calib ? LIBXS_PREDICT_RF_CALIB : 0);
-        if (NULL != model->rf->calib) {
-          const int ncal = model->rf->noutputs * LIBXS_PREDICT_RF_CALIB;
-          for (j = 0; j < ncal; ++j) WRITE_F64(model->rf->calib[j]);
-        }
-        for (c = 0; c < total_trees; ++c) {
-          const internal_libxs_predict_rf_tree_t* tree = &model->rf->trees[c];
-          int k;
-          WRITE_U32(tree->nnodes);
-          WRITE_U8(NULL != tree->incr ? 1 : 0);
-          dst += internal_libxs_predict_rf_tree_write(dst, tree, rf_scratch);
-          if (NULL != tree->incr) {
-            const int nk = tree->nnodes * model->rf->nclass[c / model->rf->ntrees];
-            for (k = 0; k < nk; ++k) WRITE_F64(tree->incr[k]);
-          }
-        }
-      }
-      if (NULL != model->escape_w) {
-        WRITE_U8(1);
-        WRITE_U8(LIBXS_PREDICT_NESCAPE);
-        WRITE_BLK(model->escape_w,
-          (size_t)model->noutputs * LIBXS_PREDICT_NESCAPE * sizeof(double));
-      }
-      else WRITE_U8(0);
-      { uint32_t crc = 0;
-        result = internal_libxs_predict_crc(buffer,
-          (size_t)(dst - (unsigned char*)buffer), &crc);
-        if (EXIT_SUCCESS == result) WRITE_U32(crc);
-      }
-#undef WRITE_U32
-#undef WRITE_U16
-#undef WRITE_U8
-#undef WRITE_F64
-#undef WRITE_BLK
-      if (EXIT_SUCCESS == result) *size = (size_t)(dst - (unsigned char*)buffer);
     }
     LIBXS_PREDICT_FREE(rf_scratch, rf_scratch_pool);
   }
   return result;
 }
+#undef WRITE_DENC
+#undef WRITE_F64
+#undef WRITE_U8
+#undef WRITE_U16
+#undef WRITE_U32
+#undef WRITE_BLK
 
 
 LIBXS_API_INLINE int internal_libxs_predict_read(

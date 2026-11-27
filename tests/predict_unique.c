@@ -154,6 +154,26 @@ int main(void)
     }
     else result = EXIT_FAILURE;
   }
+  /**
+   * One input repeated throughout: its entries form one group, which takes the
+   * calibration fold of its first entry. At 73 rows that entry is drawn for
+   * calibration, and a fold holding every row left the forest's bootstraps
+   * nothing to draw (the build did not return).
+   */
+  if (EXIT_SUCCESS == result) {
+    libxs_predict_t* model = libxs_predict_create(2, 1);
+    int i;
+    for (i = 0; i < 73 && NULL != model; ++i) {
+      const double x[2] = { 1, 2 }, y = (double)(i % 3);
+      libxs_predict_push(NULL, model, x, &y);
+    }
+    if (NULL != model) libxs_predict_set_decompose(model, LIBXS_PREDICT_RF);
+    if (NULL == model || EXIT_SUCCESS != libxs_predict_build(model, 0, 1, 0)) {
+      fprintf(stderr, "forest over one repeated input: build failed\n");
+      result = EXIT_FAILURE;
+    }
+    libxs_predict_destroy(model);
+  }
   remove(CSVFILE);
   return result;
 }

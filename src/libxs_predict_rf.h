@@ -1026,12 +1026,12 @@ LIBXS_API_INLINE double internal_libxs_predict_rf_score(
     }
     for (i = ntrain; i < p; ++i) {
       const double* inputs = entries[i].inputs;
-      /* an input the fitted part holds is not held out */
-      if (NULL != input_rep && input_rep[i] < ntrain) continue;
       const int label =
         (LIBXS_ROUNDX(int, entries[i].outputs[output_idx]) + label_off) & 127;
       int votes[128], best_label = 0, best_count = 0, k, nvalid = 0;
       double sum = 0;
+      /* an input the fitted part holds is not held out */
+      if (NULL != input_rep && input_rep[i] < ntrain) continue;
       memset(votes, 0, sizeof(votes));
       for (t = 0; t < nt; ++t) {
         const internal_libxs_predict_rf_build_node_t* tn =
@@ -1327,8 +1327,19 @@ LIBXS_API_INLINE void internal_libxs_predict_rf_build(libxs_predict_t* model)
           }
         }
         if (NULL != rep) {
+          int count[LIBXS_PREDICT_RF_CALIB_FOLDS + 1] = { 0 };
           for (row = 0; row < p; ++row) {
             rf->calib_fold[row] = rf->calib_fold[rep[row]];
+            ++count[rf->calib_fold[row]];
+          }
+          /* a fold holding every row leaves its trees nothing to draw (the
+           * bootstraps skip the fold's rows), so such a fold is dropped */
+          for (ci = 1; ci <= LIBXS_PREDICT_RF_CALIB_FOLDS; ++ci) {
+            if (p <= count[ci]) {
+              for (row = 0; row < p; ++row) {
+                if (ci == rf->calib_fold[row]) rf->calib_fold[row] = 0;
+              }
+            }
           }
         }
       }
