@@ -95,6 +95,115 @@ jobs:
         mpiexec.mpich -n 2 ./dbm_miniapp.x 23x23x23 2>&1 | tee miniapp.log
         mpiexec.mpich -n 2 ./dbm_miniapp.x 5x13x7 2>&1 | tee -a miniapp.log
 
+  GRID:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    env:
+      # the scheduled run has no inputs, hence the defaults of the inputs again
+      OWNER_CP2K: ${{ github.event.inputs.owner_cp2k || 'hfp' }}
+      REF_CP2K: ${{ github.event.inputs.ref_cp2k || 'master' }}
+      OMP_NUM_THREADS: 2
+      # a kernel from the first call of a shape, since a replay calls each shape a few times
+      LIBXS_GEMM_JIT_WARMUP: 0
+    steps:
+    - uses: actions/checkout@v7
+
+    - name: System Information
+      run: lscpu --extended=MODELNAME 2>/dev/null | tail -n1
+
+    - name: Setup environment
+      if: github.event.inputs.env != ''
+      env:
+        INPUT_ENV: ${{ github.event.inputs.env }}
+      run: |
+        for NAME_VALUE in ${INPUT_ENV}; do
+          if ! echo "${NAME_VALUE}" | grep -qE '^[A-Za-z_][A-Za-z0-9_]*=[^[:space:]]*$'; then
+            echo "ERROR: \"${NAME_VALUE}\" is not NAME=VALUE"; exit 1
+          fi
+          echo "${NAME_VALUE}" >> $GITHUB_ENV
+          echo "${NAME_VALUE}"
+        done
+
+    - name: Install OpenBLAS
+      run: |
+        sudo apt update -y
+        sudo apt install -y libopenblas-openmp-dev
+
+    - name: Setup CP2K
+      run: |
+        CP2K_REPO="https://github.com/${OWNER_CP2K}/cp2k.git"
+        git clone --depth 1 --branch "${REF_CP2K}" "${CP2K_REPO}" ${{ github.workspace }}/../cp2k
+        echo "CP2K_ROOT=${{ github.workspace }}/../cp2k" >> $GITHUB_ENV
+        git -C ${{ github.workspace }}/../cp2k log -1 --format="CP2K %H %cs"
+
+    # LIBXS generates no kernel itself: without a provider, it hands every GEMM
+    # to BLAS, which the comparison below could not tell from BLAS.
+    - name: Setup LIBXSMM
+      run: |
+        git clone --depth 1 https://github.com/libxsmm/libxsmm.git ${{ github.workspace }}/../libxsmm
+        echo "LIBXSMMROOT=${{ github.workspace }}/../libxsmm" >> $GITHUB_ENV
+        git -C ${{ github.workspace }}/../libxsmm log -1 --format="LIBXSMM %H %cs"
+
+    - name: Build LIBXS
+      run: make -j $(nproc)
+
+    - name: Build LIBXSMM
+      run: make -j $(nproc) -C "${LIBXSMMROOT}" STATIC=1
+
+    # CP2K's DGEMM backend dispatches its GEMMs through LIBXS, which takes
+    # LIBXSMM's kernels since libxsmm.h comes first (grid_dgemm_utils.c).
+    - name: Build grid miniapp
+      run: |
+        make -j $(nproc) -C "${CP2K_ROOT}/src/grid" grid_miniapp.x grid_unittest.x \
+          CFLAGS="-fopenmp -O2 -march=native -Wall -Wextra -Wno-vla-parameter -D__LIBXS -D__LIBXSMM \
+            -I${{ github.workspace }} -I${{ github.workspace }}/include -I${LIBXSMMROOT}/include" \
+          LIBS="${{ github.workspace }}/lib/libxs.a ${LIBXSMMROOT}/lib/libxsmm.a -lopenblas -lm -ldl -lpthread"
+
+    # The unit test replays the sample tasks with the CPU backend, which uses
+    # LIBXS only for memory (CP2K's memory pool).
+    - name: Test grid unittest
+      run: cd "${CP2K_ROOT}/src/grid" && ./grid_unittest.x "${CP2K_ROOT}"
+
+    # Every sample with the DGEMM backend twice: LIBXSMM's kernels (through
+    # LIBXS) dump the task list with their results, and a replay of it with
+    # BLAS compares against them. The sample's own reference does not decide:
+    # it measures the DGEMM backend, which deviates on some synthetic samples.
+    - name: Test DGEMM backend
+      run: |
+        cd "${CP2K_ROOT}/src/grid"
+        FAILED=0; NJIT=0
+        for TASK in sample_tasks/*.task; do
+          # the DGEMM backend overflows on this synthetic sample whatever the GEMM
+          if [ "general_skewed.task" = "$(basename "${TASK}")" ]; then continue; fi
+          for MODE in collocate integrate; do
+            if [ "integrate" = "${MODE}" ]; then ARG=--integrate; else ARG=; fi
+            rm -rf replay && mkdir replay && cd replay
+            # exit code 2: a result deviates from the sample's own reference
+            LIBXSMM_VERBOSE=2 LIBXS_GEMM_BACKEND=2 ../grid_miniapp.x --backend dgemm \
+              --batch 1 ${ARG} --dump 1 1 "../${TASK}" > run_a.log 2>&1 && RESULT=0 || RESULT=$?
+            JIT=$(awk '/\/DP/ { table = 1; next } table && 5 == NF { n += $3 } END { print n + 0 }' run_a.log)
+            NJIT=$((NJIT + JIT))
+            if [ 0 != "${RESULT}" ] && [ 2 != "${RESULT}" ]; then
+              echo "ERROR: ${TASK} (${MODE}) failed with exit code ${RESULT}"; cat run_a.log; FAILED=1
+            elif ! ls *.tasklist > /dev/null 2>&1; then
+              echo "ERROR: ${TASK} (${MODE}) dumped no task list"; FAILED=1
+            fi
+            for LIST in *.tasklist; do
+              [ -e "${LIST}" ] || continue
+              if LIBXS_GEMM_BACKEND=3 ../grid_miniapp.x --backend dgemm 1 "${LIST}" > run_b.log 2>&1; then
+                echo "${TASK} ${MODE}: $(grep -o 'Max rel diff: [^ ]*' run_b.log) (${JIT} kernels)"
+              else
+                echo "ERROR: ${TASK} (${MODE}) differs from BLAS"; cat run_b.log; FAILED=1
+              fi
+            done
+            cd ..
+          done
+        done
+        if [ 0 = "${NJIT}" ]; then
+          echo "ERROR: LIBXSMM generated no kernel, i.e., LIBXS handed every GEMM to BLAS"; FAILED=1
+        fi
+        exit ${FAILED}
+
   DBCSR:
     runs-on: ubuntu-latest
     timeout-minutes: 60
