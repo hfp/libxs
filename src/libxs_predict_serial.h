@@ -768,8 +768,10 @@ LIBXS_API int libxs_predict_save(const libxs_predict_t* model, void* buffer, siz
         unsigned char* const dst = (unsigned char*)buffer;
         uint32_t crc = 0;
         if (0 != hknn) internal_libxs_predict_hknn_write(dst, model, has_ih);
-        else internal_libxs_predict_flat_write(dst, model, has_sidx, has_ih,
-          rf_scratch);
+        else {
+          internal_libxs_predict_flat_write(dst, model, has_sidx, has_ih,
+            rf_scratch);
+        }
         result = internal_libxs_predict_crc(buffer, body, &crc);
         if (EXIT_SUCCESS == result) {
           memcpy(dst + body, &crc, sizeof(crc));
@@ -946,6 +948,66 @@ LIBXS_API_INLINE int internal_libxs_predict_read_ihash(const unsigned char** src
 }
 
 
+/** n unsigned values of width 1 or 2 bytes into an int array. */
+LIBXS_API_INLINE int internal_libxs_predict_read_ints(const unsigned char** src,
+  const unsigned char* end, int dst[], int n, int width)
+{
+  int result = EXIT_SUCCESS, i;
+  for (i = 0; i < n && EXIT_SUCCESS == result; ++i) {
+    if (1 == width) {
+      uint8_t v = 0;
+      result = internal_libxs_predict_read(src, end, &v, 1);
+      dst[i] = (int)v;
+    }
+    else {
+      uint16_t v = 0;
+      result = internal_libxs_predict_read(src, end, &v, 2);
+      dst[i] = (int)v;
+    }
+  }
+  return result;
+}
+
+
+/**
+ * A cluster's points, its outputs (ncol per entry, as internal_libxs_predict_read_outputs
+ * reads them), its entry weights (has_ew) and its input hashes (has_ih, ne > 0).
+ */
+LIBXS_API_INLINE int internal_libxs_predict_points_read(const unsigned char** src,
+  const unsigned char* end, libxs_predict_t* model, internal_libxs_predict_cluster_t* cl,
+  int ne, int ncol, int version, int has_ew, int has_ih)
+{
+  const size_t npt = (size_t)ne * (size_t)model->ncoord;
+  int result = internal_libxs_predict_avail(*src, end, npt, sizeof(double));
+  if (EXIT_SUCCESS == result) {
+    cl->kd_pts = (double*)malloc(npt * sizeof(double));
+    result = (NULL != cl->kd_pts) ? internal_libxs_predict_read(src, end,
+      cl->kd_pts, npt * sizeof(double)) : EXIT_FAILURE;
+  }
+  /* no size check ahead of the read: an encoded block is smaller than the
+   * verbatim one by an amount only its tags reveal, and read_outputs bounds
+   * every value it takes either way */
+  if (EXIT_SUCCESS == result) {
+    cl->raw_outputs = (double*)malloc((size_t)ne * (size_t)ncol * sizeof(double));
+    result = (NULL != cl->raw_outputs) ? internal_libxs_predict_read_outputs(
+      src, end, cl->raw_outputs, (size_t)ne, (size_t)ncol, version) : EXIT_FAILURE;
+  }
+  if (EXIT_SUCCESS == result && 0 != has_ew) {
+    result = internal_libxs_predict_avail(*src, end, (size_t)ne, sizeof(double));
+    if (EXIT_SUCCESS == result) {
+      cl->eweight = (double*)malloc((size_t)ne * sizeof(double));
+      result = (NULL != cl->eweight) ? internal_libxs_predict_read(src, end,
+        cl->eweight, (size_t)ne * sizeof(double)) : EXIT_FAILURE;
+      if (EXIT_SUCCESS == result) model->has_eweight = 1;
+    }
+  }
+  if (EXIT_SUCCESS == result && 0 != has_ih && 0 < ne) {
+    result = internal_libxs_predict_read_ihash(src, end, ne, &cl->ihash);
+  }
+  return result;
+}
+
+
 /**
  * The tree of group g as internal_libxs_predict_hknn_tree_write stored it. Every
  * jump must lead forward, so a descent ends whatever the file holds, a split
@@ -1089,34 +1151,11 @@ LIBXS_API_INLINE int internal_libxs_predict_hknn_cluster_read(const unsigned cha
     }
   }
   else if (EXIT_SUCCESS == result && 0 < ne) {
-    result = internal_libxs_predict_avail(*src, end, (size_t)ne * (size_t)mc, sizeof(double));
+    result = internal_libxs_predict_points_read(src, end, model, cl, ne, nout,
+      LIBXS_PREDICT_VERSION, has_ew, has_ih);
     if (EXIT_SUCCESS == result) {
-      cl->kd_pts = (double*)malloc((size_t)ne * (size_t)mc * sizeof(double));
-      cl->raw_outputs = (double*)malloc((size_t)ne * (size_t)nout * sizeof(double));
       cl->sorted_idx = (int*)malloc((size_t)ne * sizeof(int));
-      if (NULL == cl->kd_pts || NULL == cl->raw_outputs || NULL == cl->sorted_idx) {
-        result = EXIT_FAILURE;
-      }
-    }
-    if (EXIT_SUCCESS == result) {
-      result = internal_libxs_predict_read(src, end, cl->kd_pts,
-        (size_t)ne * (size_t)mc * sizeof(double));
-    }
-    for (j = 0; j < nout && EXIT_SUCCESS == result; ++j) {
-      result = internal_libxs_predict_denc_read(src, end, cl->raw_outputs + j,
-        (size_t)ne, (size_t)nout);
-    }
-    if (EXIT_SUCCESS == result && 0 != has_ew) {
-      result = internal_libxs_predict_avail(*src, end, (size_t)ne, sizeof(double));
-      if (EXIT_SUCCESS == result) {
-        cl->eweight = (double*)malloc((size_t)ne * sizeof(double));
-        result = (NULL != cl->eweight) ? internal_libxs_predict_read(src, end,
-          cl->eweight, (size_t)ne * sizeof(double)) : EXIT_FAILURE;
-        if (EXIT_SUCCESS == result) model->has_eweight = 1;
-      }
-    }
-    if (EXIT_SUCCESS == result && 0 != has_ih) {
-      result = internal_libxs_predict_read_ihash(src, end, ne, &cl->ihash);
+      if (NULL == cl->sorted_idx) result = EXIT_FAILURE;
     }
     if (EXIT_SUCCESS == result) {
       result = internal_libxs_predict_avail(*src, end, (size_t)ne, sizeof(uint32_t));
@@ -1265,162 +1304,181 @@ LIBXS_API_INLINE int internal_libxs_predict_hknn_po_derive(libxs_predict_t* mode
 }
 
 
+/** Flag bytes a version-2 header carries, each read as zero or one (none before). */
+LIBXS_API_INLINE int internal_libxs_predict_flags_read(const unsigned char** src,
+  const unsigned char* end, int version, int flags[], int count)
+{
+  int result = EXIT_SUCCESS, i;
+  for (i = 0; i < count; ++i) flags[i] = 0;
+  for (i = 0; i < count && 1 < version && EXIT_SUCCESS == result; ++i) {
+    uint8_t v = 0;
+    result = internal_libxs_predict_read(src, end, &v, 1);
+    flags[i] = (0 != v) ? 1 : 0;
+  }
+  return result;
+}
+
+
+/** What internal_libxs_predict_ksel_write wrote (version 2): neighbour counts and reach. */
+LIBXS_API_INLINE int internal_libxs_predict_ksel_read(const unsigned char** src,
+  const unsigned char* end, libxs_predict_t* model)
+{
+  uint8_t v = 0, r = 0;
+  int result = internal_libxs_predict_read(src, end, &v, 1);
+  if (EXIT_SUCCESS == result && 0 != (v & 1)) {
+    model->k_sel = (int*)malloc((size_t)model->noutputs * sizeof(int));
+    if (NULL == model->k_sel) result = EXIT_FAILURE;
+    else {
+      int j;
+      for (j = 0; j < model->noutputs && EXIT_SUCCESS == result; ++j) {
+        uint8_t kv = 0;
+        result = internal_libxs_predict_read(src, end, &kv, 1);
+        model->k_sel[j] = (int)kv;
+      }
+    }
+  }
+  if (EXIT_SUCCESS == result && 0 != (v & 2)) {
+    result = internal_libxs_predict_read(src, end, &r, 1);
+  }
+  /* what the file holds is the reach in effect, kept without a trial to rerun */
+  if (EXIT_SUCCESS == result) {
+    libxs_predict_set_reach(model, (0 < r) ? (int)r : LIBXS_PREDICT_REACH_NONE);
+  }
+  return result;
+}
+
+
+/**
+ * What internal_libxs_predict_common_write wrote: settings, conformal correction,
+ * input extent, rank knots and score table, and input weights (has_weights).
+ */
+LIBXS_API_INLINE int internal_libxs_predict_common_read(const unsigned char** src,
+  const unsigned char* end, libxs_predict_t* model, int version, int has_weights)
+{
+  const int m = model->ninputs, n = model->noutputs;
+  uint16_t nknots = 0;
+  double v = 0;
+  int result = EXIT_SUCCESS;
+  if (1 < version) result = internal_libxs_predict_read(src, end, &nknots, 2);
+  if (EXIT_SUCCESS == result) result = internal_libxs_predict_read(src, end, &v, 8);
+  if (EXIT_SUCCESS == result) model->quality = v;
+  /* a version-1 file carries none of these and keeps create()'s zero, which is
+   * "off" for each, so it answers as such a file always did */
+  if (EXIT_SUCCESS == result && 1 < version) {
+    uint8_t has_q = 0;
+    result = internal_libxs_predict_read(src, end, &v, 8);
+    if (EXIT_SUCCESS == result) model->consistency = v;
+    if (EXIT_SUCCESS == result) result = internal_libxs_predict_read(src, end, &v, 8);
+    if (EXIT_SUCCESS == result) model->smooth = v;
+    if (EXIT_SUCCESS == result) result = internal_libxs_predict_read(src, end, &v, 8);
+    if (EXIT_SUCCESS == result) model->quantile = v;
+    if (EXIT_SUCCESS == result) result = internal_libxs_predict_read(src, end, &v, 8);
+    if (EXIT_SUCCESS == result) model->floor = v;
+    /* absent in a version-2 file that was never calibrated: the model then
+     * answers with its raw interval */
+    if (EXIT_SUCCESS == result) result = internal_libxs_predict_read(src, end, &has_q, 1);
+    if (EXIT_SUCCESS == result && 0 != has_q) {
+      model->qconform = (double*)malloc((size_t)n * sizeof(double));
+      if (NULL == model->qconform) result = EXIT_FAILURE;
+      else {
+        result = internal_libxs_predict_read(src, end, model->qconform,
+          (size_t)n * sizeof(double));
+        if (EXIT_SUCCESS == result) model->qconform_ok = 1;
+      }
+    }
+  }
+  if (EXIT_SUCCESS == result) {
+    model->input_min = (double*)malloc((size_t)m * sizeof(double));
+    model->input_rng = (double*)malloc((size_t)m * sizeof(double));
+    if (NULL == model->input_min || NULL == model->input_rng) result = EXIT_FAILURE;
+  }
+  if (EXIT_SUCCESS == result) {
+    result = internal_libxs_predict_read(src, end,
+      model->input_min, (size_t)m * sizeof(double));
+  }
+  if (EXIT_SUCCESS == result) {
+    result = internal_libxs_predict_read(src, end,
+      model->input_rng, (size_t)m * sizeof(double));
+  }
+  /* a score table rides on the knots, flagged in their count */
+  if (EXIT_SUCCESS == result && 0 != nknots
+    && LIBXS_PREDICT_KNOTS != (nknots & ~LIBXS_PREDICT_SCOREFLAG))
+  {
+    result = EXIT_FAILURE;
+  }
+  else if (EXIT_SUCCESS == result && 0 != nknots) {
+    model->input_knot = (double*)malloc(
+      (size_t)m * LIBXS_PREDICT_KNOTS * sizeof(double));
+    if (NULL == model->input_knot) result = EXIT_FAILURE;
+    else {
+      result = internal_libxs_predict_read(src, end, model->input_knot,
+        (size_t)m * LIBXS_PREDICT_KNOTS * sizeof(double));
+    }
+    if (EXIT_SUCCESS == result && 0 != (nknots & LIBXS_PREDICT_SCOREFLAG)) {
+      model->input_score = (double*)malloc(
+        (size_t)m * LIBXS_PREDICT_SCORESIZE * sizeof(double));
+      model->input_sdim = (int*)malloc((size_t)m * sizeof(int));
+      if (NULL == model->input_score || NULL == model->input_sdim) {
+        result = EXIT_FAILURE;
+      }
+      else {
+        int j;
+        for (j = 0; j < m && EXIT_SUCCESS == result; ++j) {
+          uint8_t width = 0;
+          result = internal_libxs_predict_read(src, end, &width, 1);
+          model->input_sdim[j] = LIBXS_MIN((int)width, LIBXS_PREDICT_SCOREDIMS);
+        }
+        if (EXIT_SUCCESS == result) {
+          result = internal_libxs_predict_read(src, end, model->input_score,
+            (size_t)m * LIBXS_PREDICT_SCORESIZE * sizeof(double));
+        }
+        /* the clusters are read at the width this settles */
+        if (EXIT_SUCCESS == result) internal_libxs_predict_coords(model);
+      }
+    }
+  }
+  if (EXIT_SUCCESS == result && 0 != has_weights) {
+    model->weights = (double*)malloc((size_t)m * sizeof(double));
+    if (NULL != model->weights) {
+      result = internal_libxs_predict_read(src, end,
+        model->weights, (size_t)m * sizeof(double));
+    }
+    else result = EXIT_FAILURE;
+  }
+  return result;
+}
+
+
 LIBXS_API_INLINE libxs_predict_t* internal_libxs_predict_load_hknn(
   const unsigned char* src, const unsigned char* end, int version)
 {
   libxs_predict_t* model = NULL;
-  uint16_t ninp = 0, nout = 0, nclust = 0, has_weights = 0, nknots = 0;
+  uint16_t ninp = 0, nout = 0, nclust = 0, has_weights = 0;
   int ok = EXIT_SUCCESS, c, j, has_ew = 0, has_ih = 0;
-  uint8_t* ksel = NULL;
-  int ksel_pool = 0, reach = 0;
   ok = internal_libxs_predict_read(&src, end, &ninp, 2);
   if (EXIT_SUCCESS == ok) ok = internal_libxs_predict_read(&src, end, &nout, 2);
   if (EXIT_SUCCESS == ok) ok = internal_libxs_predict_read(&src, end, &nclust, 2);
   if (EXIT_SUCCESS == ok) ok = internal_libxs_predict_read(&src, end, &has_weights, 2);
-  if (EXIT_SUCCESS == ok && 1 < version) {
-    uint8_t v = 0;
-    ok = internal_libxs_predict_read(&src, end, &v, 1);
-    if (EXIT_SUCCESS == ok) has_ew = (0 != v);
-  }
-  if (EXIT_SUCCESS == ok && 1 < version) {
-    uint8_t v = 0;
-    ok = internal_libxs_predict_read(&src, end, &v, 1);
-    if (EXIT_SUCCESS == ok) has_ih = (0 != v);
-  }
-  if (EXIT_SUCCESS == ok && 1 < version) {
-    uint8_t v = 0;
-    ok = internal_libxs_predict_read(&src, end, &v, 1);
-    if (EXIT_SUCCESS == ok && 0 != (v & 1)) {
-      ksel = (uint8_t*)LIBXS_PREDICT_MALLOC((size_t)nout, ksel_pool);
-      if (NULL == ksel) {
-        ok = EXIT_FAILURE;
-      }
-      else {
-        for (j = 0; j < (int)nout && EXIT_SUCCESS == ok; ++j) {
-          ok = internal_libxs_predict_read(&src, end, ksel + j, 1);
-        }
-      }
-    }
-    if (EXIT_SUCCESS == ok && 0 != (v & 2)) {
-      uint8_t r = 0;
-      ok = internal_libxs_predict_read(&src, end, &r, 1);
-      reach = r;
-    }
-  }
   if (EXIT_SUCCESS == ok) {
     model = libxs_predict_create((int)ninp, (int)nout);
     if (NULL == model) ok = EXIT_FAILURE;
     /* create() stamps the current version; this one came from a file */
     else model->version = (int)version;
   }
-  /* what the file holds is the reach in effect, kept without a trial to rerun */
   if (EXIT_SUCCESS == ok) {
-    libxs_predict_set_reach(model, (0 < reach) ? reach : LIBXS_PREDICT_REACH_NONE);
+    int flags[2];
+    ok = internal_libxs_predict_flags_read(&src, end, version, flags, 2);
+    has_ew = flags[0];
+    has_ih = flags[1];
   }
-  if (EXIT_SUCCESS == ok && NULL != ksel) {
-    model->k_sel = (int*)malloc((size_t)nout * sizeof(int));
-    if (NULL == model->k_sel) {
-      ok = EXIT_FAILURE;
-    }
-    else {
-      for (j = 0; j < (int)nout; ++j) model->k_sel[j] = (int)ksel[j];
-    }
+  if (EXIT_SUCCESS == ok) {
+    if (1 < version) ok = internal_libxs_predict_ksel_read(&src, end, model);
+    else libxs_predict_set_reach(model, LIBXS_PREDICT_REACH_NONE);
   }
-  LIBXS_PREDICT_FREE(ksel, ksel_pool);
   if (EXIT_SUCCESS == ok) {
     model->decompose = LIBXS_PREDICT_HKNN;
-    model->input_min = (double*)malloc((size_t)ninp * sizeof(double));
-    model->input_rng = (double*)malloc((size_t)ninp * sizeof(double));
-    if (NULL == model->input_min || NULL == model->input_rng) ok = EXIT_FAILURE;
-  }
-  if (EXIT_SUCCESS == ok && 1 < version) {
-    ok = internal_libxs_predict_read(&src, end, &nknots, 2);
-  }
-  { double quality = 0;
-    if (EXIT_SUCCESS == ok) ok = internal_libxs_predict_read(&src, end, &quality, 8);
-    if (EXIT_SUCCESS == ok) model->quality = quality;
-  }
-  /* a version-1 file carries none of these and keeps create()'s zero, which is
-   * "off" for each, so it answers as such a file always did */
-  if (EXIT_SUCCESS == ok && 1 < version) {
-    double v = 0;
-    ok = internal_libxs_predict_read(&src, end, &v, 8);
-    if (EXIT_SUCCESS == ok) model->consistency = v;
-    if (EXIT_SUCCESS == ok) ok = internal_libxs_predict_read(&src, end, &v, 8);
-    if (EXIT_SUCCESS == ok) model->smooth = v;
-    if (EXIT_SUCCESS == ok) ok = internal_libxs_predict_read(&src, end, &v, 8);
-    if (EXIT_SUCCESS == ok) model->quantile = v;
-    if (EXIT_SUCCESS == ok) ok = internal_libxs_predict_read(&src, end, &v, 8);
-    if (EXIT_SUCCESS == ok) model->floor = v;
-    /* absent in a version-1 file, and absent in a version-2 file that was never
-     * calibrated: either way the model answers with its raw interval */
-    if (EXIT_SUCCESS == ok) {
-      uint8_t has_q = 0;
-      ok = internal_libxs_predict_read(&src, end, &has_q, 1);
-      if (EXIT_SUCCESS == ok && 0 != has_q) {
-        model->qconform = (double*)malloc((size_t)nout * sizeof(double));
-        if (NULL == model->qconform) ok = EXIT_FAILURE;
-        else {
-          int qi;
-          for (qi = 0; qi < (int)nout && EXIT_SUCCESS == ok; ++qi) {
-            ok = internal_libxs_predict_read(&src, end,
-              model->qconform + qi, 8);
-          }
-          if (EXIT_SUCCESS == ok) model->qconform_ok = 1;
-        }
-      }
-    }
-  }
-  if (EXIT_SUCCESS == ok) {
-    ok = internal_libxs_predict_read(&src, end,
-      model->input_min, (size_t)ninp * sizeof(double));
-  }
-  if (EXIT_SUCCESS == ok) {
-    ok = internal_libxs_predict_read(&src, end,
-      model->input_rng, (size_t)ninp * sizeof(double));
-  }
-  if (EXIT_SUCCESS == ok && 0 != nknots) {
-    /* a score table rides on the knots, flagged in their count */
-    if (LIBXS_PREDICT_KNOTS == (nknots & ~LIBXS_PREDICT_SCOREFLAG)) {
-      model->input_knot = (double*)malloc(
-        (size_t)ninp * LIBXS_PREDICT_KNOTS * sizeof(double));
-      if (NULL == model->input_knot) ok = EXIT_FAILURE;
-      else {
-        ok = internal_libxs_predict_read(&src, end, model->input_knot,
-          (size_t)ninp * LIBXS_PREDICT_KNOTS * sizeof(double));
-      }
-      if (EXIT_SUCCESS == ok && 0 != (nknots & LIBXS_PREDICT_SCOREFLAG)) {
-        model->input_score = (double*)malloc(
-          (size_t)ninp * LIBXS_PREDICT_SCORESIZE * sizeof(double));
-        model->input_sdim = (int*)malloc((size_t)ninp * sizeof(int));
-        if (NULL == model->input_score || NULL == model->input_sdim) {
-          ok = EXIT_FAILURE;
-        }
-        else {
-          int sj;
-          for (sj = 0; sj < (int)ninp && EXIT_SUCCESS == ok; ++sj) {
-            uint8_t width = 0;
-            ok = internal_libxs_predict_read(&src, end, &width, 1);
-            model->input_sdim[sj] = LIBXS_MIN((int)width, LIBXS_PREDICT_SCOREDIMS);
-          }
-          if (EXIT_SUCCESS == ok) {
-            ok = internal_libxs_predict_read(&src, end, model->input_score,
-              (size_t)ninp * LIBXS_PREDICT_SCORESIZE * sizeof(double));
-          }
-          /* the clusters below are read at the width this settles */
-          if (EXIT_SUCCESS == ok) internal_libxs_predict_coords(model);
-        }
-      }
-    }
-    else ok = EXIT_FAILURE;
-  }
-  if (EXIT_SUCCESS == ok && 0 != has_weights) {
-    model->weights = (double*)malloc((size_t)ninp * sizeof(double));
-    if (NULL != model->weights) {
-      ok = internal_libxs_predict_read(&src, end,
-        model->weights, (size_t)ninp * sizeof(double));
-    }
-    else ok = EXIT_FAILURE;
+    ok = internal_libxs_predict_common_read(&src, end, model, version,
+      (int)has_weights);
   }
   if (EXIT_SUCCESS == ok) {
     model->nclusters = (int)nclust;
@@ -1440,7 +1498,6 @@ LIBXS_API_INLINE libxs_predict_t* internal_libxs_predict_load_hknn(
     else {
       uint16_t ne = 0;
       uint8_t ke = 0;
-      int k;
       cl->centroid = (double*)malloc((size_t)model->ncoord * sizeof(double));
       cl->mode = (int*)malloc((size_t)nout * sizeof(int));
       cl->ndistinct = (int*)malloc((size_t)nout * sizeof(int));
@@ -1461,55 +1518,15 @@ LIBXS_API_INLINE libxs_predict_t* internal_libxs_predict_load_hknn(
         cl->k_eff = (int)ke;
         if (EXIT_SUCCESS == ok && cl->k_eff > LIBXS_PREDICT_KNN) ok = EXIT_FAILURE;
       }
-      for (j = 0; j < (int)nout && EXIT_SUCCESS == ok; ++j) {
-        uint8_t v = 0;
-        ok = internal_libxs_predict_read(&src, end, &v, 1);
-        cl->mode[j] = (int)v;
-      }
-      for (j = 0; j < (int)nout && EXIT_SUCCESS == ok; ++j) {
-        uint16_t v = 0;
-        ok = internal_libxs_predict_read(&src, end, &v, 2);
-        cl->ndistinct[j] = (int)v;
+      if (EXIT_SUCCESS == ok) {
+        ok = internal_libxs_predict_read_ints(&src, end, cl->mode, (int)nout, 1);
       }
       if (EXIT_SUCCESS == ok) {
-        ok = internal_libxs_predict_avail(src, end,
-          (size_t)ne * (size_t)model->ncoord, sizeof(double));
+        ok = internal_libxs_predict_read_ints(&src, end, cl->ndistinct, (int)nout, 2);
       }
       if (EXIT_SUCCESS == ok) {
-        cl->kd_pts = (double*)malloc(
-          (size_t)ne * (size_t)model->ncoord * sizeof(double));
-        if (NULL == cl->kd_pts) ok = EXIT_FAILURE;
-        else {
-          ok = internal_libxs_predict_read(&src, end,
-            cl->kd_pts, (size_t)ne * (size_t)model->ncoord * sizeof(double));
-        }
-      }
-      /* no size check ahead of the read: the encoded form is smaller than the
-       * verbatim one by an amount only the tags reveal, and denc_read bounds every
-       * value it takes */
-      if (EXIT_SUCCESS == ok) {
-        cl->raw_outputs = (double*)malloc(
-          (size_t)ne * (size_t)nout * sizeof(double));
-        if (NULL == cl->raw_outputs) ok = EXIT_FAILURE;
-        else {
-          ok = internal_libxs_predict_read_outputs(&src, end, cl->raw_outputs,
-            (size_t)ne, (size_t)nout, version);
-        }
-      }
-      if (EXIT_SUCCESS == ok && 0 != has_ew) {
-        ok = internal_libxs_predict_avail(src, end, (size_t)ne, sizeof(double));
-      }
-      if (EXIT_SUCCESS == ok && 0 != has_ew) {
-        cl->eweight = (double*)malloc((size_t)ne * sizeof(double));
-        if (NULL == cl->eweight) ok = EXIT_FAILURE;
-        else {
-          ok = internal_libxs_predict_read(&src, end, cl->eweight,
-            (size_t)ne * sizeof(double));
-          if (EXIT_SUCCESS == ok) model->has_eweight = 1;
-        }
-      }
-      if (EXIT_SUCCESS == ok && 0 != has_ih && 0 < ne) {
-        ok = internal_libxs_predict_read_ihash(&src, end, ne, &cl->ihash);
+        ok = internal_libxs_predict_points_read(&src, end, model, cl, ne,
+          (int)nout, version, has_ew, has_ih);
       }
       /**
        * A version-1 file carries no fit residual, and every consumer reads a zero
@@ -1529,10 +1546,8 @@ LIBXS_API_INLINE libxs_predict_t* internal_libxs_predict_load_hknn(
         cl->sorted_idx = (int*)malloc((size_t)ne * sizeof(int));
         if (NULL == cl->sorted_idx) ok = EXIT_FAILURE;
         else {
-          for (k = 0; k < (int)ne && EXIT_SUCCESS == ok; ++k) {
-            uint16_t v = 0;
-            ok = internal_libxs_predict_read(&src, end, &v, 2);
-            cl->sorted_idx[k] = (int)v;
+          if (EXIT_SUCCESS == ok) {
+            ok = internal_libxs_predict_read_ints(&src, end, cl->sorted_idx, (int)ne, 2);
           }
         }
       }
@@ -1604,10 +1619,9 @@ LIBXS_API_INLINE libxs_predict_t* internal_libxs_predict_load_hknn(
           if (NULL == model->hknn_po_assignments[j]) ok = EXIT_FAILURE;
         }
         if (EXIT_SUCCESS == ok) {
-          for (i = 0; i < p && EXIT_SUCCESS == ok; ++i) {
-            uint16_t v = 0;
-            ok = internal_libxs_predict_read(&src, end, &v, 2);
-            model->hknn_po_assignments[j][i] = (int)v;
+          if (EXIT_SUCCESS == ok) {
+            ok = internal_libxs_predict_read_ints(&src, end,
+              model->hknn_po_assignments[j], p, 2);
           }
         }
       }
@@ -1664,7 +1678,6 @@ LIBXS_API_INLINE libxs_predict_t* internal_libxs_predict_load_hknn(
             else {
               uint16_t ne = 0;
               uint8_t ke = 0;
-              int gi;
               ok = internal_libxs_predict_read(&src, end, &ne, 2);
               if (EXIT_SUCCESS == ok) ok = internal_libxs_predict_read(&src, end, &ke, 1);
               if (EXIT_SUCCESS == ok && ke > LIBXS_PREDICT_KNN) ok = EXIT_FAILURE;
@@ -1678,15 +1691,11 @@ LIBXS_API_INLINE libxs_predict_t* internal_libxs_predict_load_hknn(
                   ok = EXIT_FAILURE;
                 }
               }
-              for (gi = 0; gi < gsz && EXIT_SUCCESS == ok; ++gi) {
-                uint8_t v = 0;
-                ok = internal_libxs_predict_read(&src, end, &v, 1);
-                if (EXIT_SUCCESS == ok) cls[ci].mode[gi] = (int)v;
+              if (EXIT_SUCCESS == ok) {
+                ok = internal_libxs_predict_read_ints(&src, end, cls[ci].mode, gsz, 1);
               }
-              for (gi = 0; gi < gsz && EXIT_SUCCESS == ok; ++gi) {
-                uint16_t v = 0;
-                ok = internal_libxs_predict_read(&src, end, &v, 2);
-                if (EXIT_SUCCESS == ok) cls[ci].ndistinct[gi] = (int)v;
+              if (EXIT_SUCCESS == ok) {
+                ok = internal_libxs_predict_read_ints(&src, end, cls[ci].ndistinct, gsz, 2);
               }
               if (EXIT_SUCCESS == ok) ok = internal_libxs_predict_read(&src, end, &cls[ci].dmax, 8);
               if (EXIT_SUCCESS == ok) {
@@ -1916,7 +1925,7 @@ LIBXS_API libxs_predict_t* libxs_predict_load(const void* buffer, size_t size)
       uint8_t eval_mode = 0, diff_order = 0, refine = 0, iterations = 0;
       uint16_t ts_nseries = 0, ts_window = 0, ts_target = 0, ts_decompose = 0;
       uint16_t ts_naux = 0, ts_nderiv = 0;
-      uint16_t order = 0, nknots = 0;
+      uint16_t order = 0;
       ok = internal_libxs_predict_read(&src, end, &has_weights, 1);
       if (EXIT_SUCCESS == ok) ok = internal_libxs_predict_read(&src, end, &has_transforms, 1);
       if (EXIT_SUCCESS == ok) ok = internal_libxs_predict_read(&src, end, &ts_nseries, 2);
@@ -1932,85 +1941,23 @@ LIBXS_API libxs_predict_t* libxs_predict_load(const void* buffer, size_t size)
       if (EXIT_SUCCESS == ok) ok = internal_libxs_predict_read(&src, end, &diff_order, 1);
       if (EXIT_SUCCESS == ok) ok = internal_libxs_predict_read(&src, end, &refine, 1);
       if (EXIT_SUCCESS == ok) ok = internal_libxs_predict_read(&src, end, &has_dmat, 1);
-      if (EXIT_SUCCESS == ok && 1 < version) {
-        uint8_t v = 0;
-        ok = internal_libxs_predict_read(&src, end, &v, 1);
-        if (EXIT_SUCCESS == ok) has_sidx = (0 != v);
+      if (EXIT_SUCCESS == ok) {
+        int flags[3];
+        ok = internal_libxs_predict_flags_read(&src, end, version, flags, 3);
+        has_sidx = flags[0];
+        has_ew = flags[1];
+        has_ih = flags[2];
       }
       if (EXIT_SUCCESS == ok && 1 < version) {
-        uint8_t v = 0;
-        ok = internal_libxs_predict_read(&src, end, &v, 1);
-        if (EXIT_SUCCESS == ok) has_ew = (0 != v);
-      }
-      if (EXIT_SUCCESS == ok && 1 < version) {
-        uint8_t v = 0;
-        ok = internal_libxs_predict_read(&src, end, &v, 1);
-        if (EXIT_SUCCESS == ok) has_ih = (0 != v);
-      }
-      if (EXIT_SUCCESS == ok && 1 < version) {
-        uint8_t v = 0;
-        ok = internal_libxs_predict_read(&src, end, &v, 1);
-        if (EXIT_SUCCESS == ok && 0 != (v & 1)) {
-          model->k_sel = (int*)malloc((size_t)model->noutputs * sizeof(int));
-          if (NULL == model->k_sel) ok = EXIT_FAILURE;
-          else {
-            int ks;
-            for (ks = 0; ks < model->noutputs && EXIT_SUCCESS == ok; ++ks) {
-              uint8_t kv = 0;
-              ok = internal_libxs_predict_read(&src, end, &kv, 1);
-              model->k_sel[ks] = (int)kv;
-            }
-          }
-        }
-        if (EXIT_SUCCESS == ok) {
-          uint8_t r = 0;
-          if (0 != (v & 2)) ok = internal_libxs_predict_read(&src, end, &r, 1);
-          /* what the file holds is the reach in effect, kept without a trial to rerun */
-          libxs_predict_set_reach(model, (0 < r) ? (int)r : LIBXS_PREDICT_REACH_NONE);
-        }
+        ok = internal_libxs_predict_ksel_read(&src, end, model);
       }
       if (EXIT_SUCCESS == ok) ok = internal_libxs_predict_read(&src, end, &order, 2);
       if (EXIT_SUCCESS == ok) ok = internal_libxs_predict_read(&src, end, &iterations, 1);
       { uint32_t nentries = 0;
-        double quality = 0;
         if (EXIT_SUCCESS == ok) ok = internal_libxs_predict_read(&src, end, &nentries, 4);
-        if (EXIT_SUCCESS == ok && 1 < version) {
-          ok = internal_libxs_predict_read(&src, end, &nknots, 2);
-        }
-        if (EXIT_SUCCESS == ok) ok = internal_libxs_predict_read(&src, end, &quality, 8);
         if (EXIT_SUCCESS == ok) model->nentries = (int)nentries;
-        if (EXIT_SUCCESS == ok) model->quality = quality;
       }
-      /* as above: absent in a version-1 file, which keeps create()'s zero */
-      if (EXIT_SUCCESS == ok && 1 < version) {
-        double v = 0;
-        ok = internal_libxs_predict_read(&src, end, &v, 8);
-        if (EXIT_SUCCESS == ok) model->consistency = v;
-        if (EXIT_SUCCESS == ok) ok = internal_libxs_predict_read(&src, end, &v, 8);
-        if (EXIT_SUCCESS == ok) model->smooth = v;
-        if (EXIT_SUCCESS == ok) ok = internal_libxs_predict_read(&src, end, &v, 8);
-        if (EXIT_SUCCESS == ok) model->quantile = v;
-        if (EXIT_SUCCESS == ok) ok = internal_libxs_predict_read(&src, end, &v, 8);
-        if (EXIT_SUCCESS == ok) model->floor = v;
-        /* absent in a version-1 file, and absent in a version-2 file that was never
-         * calibrated: either way the model answers with its raw interval */
-        if (EXIT_SUCCESS == ok) {
-          uint8_t has_q = 0;
-          ok = internal_libxs_predict_read(&src, end, &has_q, 1);
-          if (EXIT_SUCCESS == ok && 0 != has_q) {
-            model->qconform = (double*)malloc((size_t)nout * sizeof(double));
-            if (NULL == model->qconform) ok = EXIT_FAILURE;
-            else {
-              int qi;
-              for (qi = 0; qi < (int)nout && EXIT_SUCCESS == ok; ++qi) {
-                ok = internal_libxs_predict_read(&src, end,
-                  model->qconform + qi, 8);
-              }
-              if (EXIT_SUCCESS == ok) model->qconform_ok = 1;
-            }
-          }
-        }
-      }
+      /* ahead of the shared block: its score table settles the coordinate width */
       if (EXIT_SUCCESS == ok) {
         model->nseries = (int)ts_nseries;
         model->window = (int)ts_window;
@@ -2024,69 +1971,15 @@ LIBXS_API libxs_predict_t* libxs_predict_load(const void* buffer, size_t size)
         model->order = (int)order;
         model->iterations = (int)iterations;
         if (0 != diff_order) model->diff_mode = (int)diff_order;
-      }
-      model->input_min = (double*)malloc((size_t)ninp * sizeof(double));
-      model->input_rng = (double*)malloc((size_t)ninp * sizeof(double));
-      if (NULL == model->input_min || NULL == model->input_rng) ok = EXIT_FAILURE;
-      if (EXIT_SUCCESS == ok) {
-        ok = internal_libxs_predict_read(&src, end,
-          model->input_min, (size_t)ninp * sizeof(double));
-      }
-      if (EXIT_SUCCESS == ok) {
-        ok = internal_libxs_predict_read(&src, end,
-          model->input_rng, (size_t)ninp * sizeof(double));
-      }
-      if (EXIT_SUCCESS == ok && 0 != nknots) {
-        /* a score table rides on the knots, flagged in their count */
-        if (LIBXS_PREDICT_KNOTS == (nknots & ~LIBXS_PREDICT_SCOREFLAG)) {
-          model->input_knot = (double*)malloc(
-            (size_t)ninp * LIBXS_PREDICT_KNOTS * sizeof(double));
-          if (NULL == model->input_knot) ok = EXIT_FAILURE;
-          else {
-            ok = internal_libxs_predict_read(&src, end, model->input_knot,
-              (size_t)ninp * LIBXS_PREDICT_KNOTS * sizeof(double));
-          }
-          if (EXIT_SUCCESS == ok && 0 != (nknots & LIBXS_PREDICT_SCOREFLAG)) {
-            model->input_score = (double*)malloc(
-              (size_t)ninp * LIBXS_PREDICT_SCORESIZE * sizeof(double));
-            model->input_sdim = (int*)malloc((size_t)ninp * sizeof(int));
-            if (NULL == model->input_score || NULL == model->input_sdim) {
-              ok = EXIT_FAILURE;
-            }
-            else {
-              int sj;
-              for (sj = 0; sj < (int)ninp && EXIT_SUCCESS == ok; ++sj) {
-                uint8_t width = 0;
-                ok = internal_libxs_predict_read(&src, end, &width, 1);
-                model->input_sdim[sj] = LIBXS_MIN((int)width, LIBXS_PREDICT_SCOREDIMS);
-              }
-              if (EXIT_SUCCESS == ok) {
-                ok = internal_libxs_predict_read(&src, end, model->input_score,
-                  (size_t)ninp * LIBXS_PREDICT_SCORESIZE * sizeof(double));
-              }
-              /* the clusters below are read at the width this settles */
-              if (EXIT_SUCCESS == ok) internal_libxs_predict_coords(model);
-            }
-          }
-        }
-        else ok = EXIT_FAILURE;
-      }
-      if (EXIT_SUCCESS == ok && 0 != has_weights) {
-        model->weights = (double*)malloc((size_t)ninp * sizeof(double));
-        if (NULL != model->weights) {
-          ok = internal_libxs_predict_read(&src, end,
-            model->weights, (size_t)ninp * sizeof(double));
-        }
-        else ok = EXIT_FAILURE;
+        ok = internal_libxs_predict_common_read(&src, end, model, version,
+          (int)has_weights);
       }
       if (EXIT_SUCCESS == ok && 0 != has_transforms) {
-        int j;
         model->transforms = (int*)calloc((size_t)nout, sizeof(int));
         if (NULL != model->transforms) {
-          for (j = 0; j < (int)nout && EXIT_SUCCESS == ok; ++j) {
-            uint8_t v = 0;
-            ok = internal_libxs_predict_read(&src, end, &v, 1);
-            model->transforms[j] = (int)v;
+          if (EXIT_SUCCESS == ok) {
+            ok = internal_libxs_predict_read_ints(&src, end,
+              model->transforms, (int)nout, 1);
           }
         }
         else ok = EXIT_FAILURE;
@@ -2157,20 +2050,14 @@ LIBXS_API libxs_predict_t* libxs_predict_load(const void* buffer, size_t size)
           if (EXIT_SUCCESS == ok && (int)v > cl->maxorder) ok = EXIT_FAILURE;
           if (EXIT_SUCCESS == ok) cl->order[j] = (int)v;
         }
-        for (j = 0; j < (int)nout && EXIT_SUCCESS == ok; ++j) {
-          uint8_t v = 0;
-          ok = internal_libxs_predict_read(&src, end, &v, 1);
-          cl->interpolated[j] = (int)v;
+        if (EXIT_SUCCESS == ok) {
+          ok = internal_libxs_predict_read_ints(&src, end, cl->interpolated, (int)nout, 1);
         }
-        for (j = 0; j < (int)nout && EXIT_SUCCESS == ok; ++j) {
-          uint8_t v = 0;
-          ok = internal_libxs_predict_read(&src, end, &v, 1);
-          cl->mode[j] = (int)v;
+        if (EXIT_SUCCESS == ok) {
+          ok = internal_libxs_predict_read_ints(&src, end, cl->mode, (int)nout, 1);
         }
-        for (j = 0; j < (int)nout && EXIT_SUCCESS == ok; ++j) {
-          uint16_t v = 0;
-          ok = internal_libxs_predict_read(&src, end, &v, 2);
-          cl->ndistinct[j] = (int)v;
+        if (EXIT_SUCCESS == ok) {
+          ok = internal_libxs_predict_read_ints(&src, end, cl->ndistinct, (int)nout, 2);
         }
         if (EXIT_SUCCESS == ok) {
           ok = internal_libxs_predict_read(&src, end,
@@ -2192,46 +2079,8 @@ LIBXS_API libxs_predict_t* libxs_predict_load(const void* buffer, size_t size)
           }
         }
         if (EXIT_SUCCESS == ok) {
-          ok = internal_libxs_predict_avail(src, end,
-            (size_t)cl->nentries * (size_t)model->ncoord, sizeof(double));
-        }
-        if (EXIT_SUCCESS == ok) {
-          cl->kd_pts = (double*)malloc(
-            (size_t)cl->nentries * (size_t)model->ncoord * sizeof(double));
-          if (NULL == cl->kd_pts) ok = EXIT_FAILURE;
-          if (EXIT_SUCCESS == ok) {
-            ok = internal_libxs_predict_read(&src, end,
-              cl->kd_pts, (size_t)cl->nentries * (size_t)model->ncoord * sizeof(double));
-          }
-        }
-        /* no size check ahead of the read: an encoded block is smaller than the
-         * verbatim one by an amount only its tags reveal, and read_outputs bounds
-         * every value it takes either way */
-        if (EXIT_SUCCESS == ok) {
-          cl->raw_outputs = (double*)malloc(
-            (size_t)cl->nentries * (size_t)nout * sizeof(double));
-          if (NULL == cl->raw_outputs) ok = EXIT_FAILURE;
-          if (EXIT_SUCCESS == ok) {
-            ok = internal_libxs_predict_read_outputs(&src, end,
-              cl->raw_outputs, (size_t)cl->nentries, (size_t)nout,
-              (int)version);
-          }
-        }
-        if (EXIT_SUCCESS == ok && 0 != has_ew) {
-          ok = internal_libxs_predict_avail(src, end,
-            (size_t)cl->nentries, sizeof(double));
-        }
-        if (EXIT_SUCCESS == ok && 0 != has_ew) {
-          cl->eweight = (double*)malloc((size_t)cl->nentries * sizeof(double));
-          if (NULL == cl->eweight) ok = EXIT_FAILURE;
-          else {
-            ok = internal_libxs_predict_read(&src, end, cl->eweight,
-              (size_t)cl->nentries * sizeof(double));
-            if (EXIT_SUCCESS == ok) model->has_eweight = 1;
-          }
-        }
-        if (EXIT_SUCCESS == ok && 0 != has_ih && 0 < cl->nentries) {
-          ok = internal_libxs_predict_read_ihash(&src, end, cl->nentries, &cl->ihash);
+          ok = internal_libxs_predict_points_read(&src, end, model, cl,
+            cl->nentries, (int)nout, (int)version, has_ew, has_ih);
         }
         /**
          * A version-1 flat file has no sorted_idx, and so has no global order to
