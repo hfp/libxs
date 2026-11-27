@@ -236,6 +236,7 @@ libxs_predict_eval_batch
 libxs_predict_eval_batch_task
 libxs_predict_eval_flat
 libxs_predict_get
+libxs_predict_get_weight
 libxs_predict_interval
 libxs_predict_inverse
 libxs_predict_load

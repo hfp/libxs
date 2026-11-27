@@ -3649,17 +3649,20 @@ LIBXS_API_INLINE int internal_libxs_predict_discrete_all(libxs_predict_t* model)
 }
 
 
-/* by value as equality reads it: -0 hashes as 0 and an absent value as one value */
+/**
+ * By value as equality reads it: -0 hashes as 0 and an absent value as one value.
+ * libxs_hash64 rather than libxs_hash, whose software CRC needs libxs_init.
+ */
 LIBXS_API_INLINE unsigned int internal_libxs_predict_seen_hash(
   const double row[], int width)
 {
-  double canon[128];
+  uint64_t result = 0;
   int i;
-  LIBXS_ASSERT(width <= 128);
   for (i = 0; i < width; ++i) {
-    canon[i] = (LIBXS_NOTNAN(row[i]) && LIBXS_NEQ(0, row[i])) ? row[i] : 0.0;
+    const double v = (LIBXS_NOTNAN(row[i]) && LIBXS_NEQ(0, row[i])) ? row[i] : 0.0;
+    result = libxs_hash64(&v, sizeof(v), result);
   }
-  return libxs_hash(canon, (size_t)width * sizeof(double), 0);
+  return (unsigned int)(result ^ (result >> 32));
 }
 
 
@@ -3777,9 +3780,7 @@ LIBXS_API_INLINE void internal_libxs_predict_input_groups(libxs_predict_t* model
   const int p = model->nentries;
   free(model->input_rep);
   model->input_rep = NULL;
-  if (1 < p && 0 >= model->nseries && 0 >= model->nts
-    && 128 >= model->ninputs)
-  {
+  if (1 < p && 0 >= model->nseries && 0 >= model->nts) {
     int* rep = (int*)malloc((size_t)p * sizeof(int));
     internal_libxs_predict_seen_t seen;
     int i, nrep = 0, ok = (NULL != rep) ? 1 : 0;
@@ -5242,8 +5243,16 @@ LIBXS_API_INLINE int internal_libxs_predict_build_impl(libxs_barrier_t* barrier,
 LIBXS_API_INLINE int internal_libxs_predict_rf_grow(libxs_barrier_t* team,
   libxs_predict_t* model, int tid, int ntasks)
 {
-  int result = EXIT_SUCCESS;
-  if (NULL != model->rf) {
+  int result = EXIT_SUCCESS, ungrown = 0;
+  /* a forest a file brought (all trees grown, no bins) is not grown again */
+  if (NULL != model->rf && NULL != model->rf->trees) {
+    const int total = model->rf->ntrees * model->rf->noutputs;
+    int t;
+    for (t = 0; t < total && 0 == ungrown; ++t) {
+      if (NULL == model->rf->trees[t].nodes) ungrown = 1;
+    }
+  }
+  if (0 != ungrown) {
     if (0 == tid) {
       model->sync_failed = 0;
       internal_libxs_predict_rf_team_prepare(model, ntasks);
