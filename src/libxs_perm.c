@@ -662,6 +662,20 @@ LIBXS_API int libxs_sort_smooth(libxs_sort_t method, int m, int n,
 #       undef LIBXS_SORT_TEMPLATE_ELEM_TYPE
 #       undef LIBXS_SORT_TEMPLATE_TYPE2FP64
         } break;
+        case LIBXS_DATATYPE_I64: {
+#       define LIBXS_SORT_TEMPLATE_TYPE2FP64(VALUE) ((double)(VALUE))
+#       define LIBXS_SORT_TEMPLATE_ELEM_TYPE long long
+#       include "libxs_sort.h"
+#       undef LIBXS_SORT_TEMPLATE_ELEM_TYPE
+#       undef LIBXS_SORT_TEMPLATE_TYPE2FP64
+        } break;
+        case LIBXS_DATATYPE_U64: {
+#       define LIBXS_SORT_TEMPLATE_TYPE2FP64(VALUE) ((double)(VALUE))
+#       define LIBXS_SORT_TEMPLATE_ELEM_TYPE unsigned long long
+#       include "libxs_sort.h"
+#       undef LIBXS_SORT_TEMPLATE_ELEM_TYPE
+#       undef LIBXS_SORT_TEMPLATE_TYPE2FP64
+        } break;
         case LIBXS_DATATYPE_I32: {
 #       define LIBXS_SORT_TEMPLATE_TYPE2FP64(VALUE) ((double)(VALUE))
 #       define LIBXS_SORT_TEMPLATE_ELEM_TYPE int

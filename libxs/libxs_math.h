@@ -166,8 +166,10 @@ LIBXS_API int libxs_matdiff(libxs_matdiff_t* info,
  * A grade is a maximum over per-element ratios, so it cannot be recovered afterwards from
  * separately reduced scalars, which is why the bound is taken here rather than later.
  * libxs_matdiff_reduce carries the grade like any other member; libxs_matdiff_combine zeroes
- * it along with the other element-wise members. F64 and F32 only, and a datatype that cannot
- * be graded is reported rather than silently left ungraded.
+ * it along with the other element-wise members. F64, F32, C64, and C32: for complex data, the
+ * difference is the modulus of the complex difference, and bound is real (of the same precision,
+ * ldbnd in its elements). A datatype that cannot be graded is reported rather than silently left
+ * ungraded.
  */
 LIBXS_API int libxs_matdiff_grade(libxs_matdiff_t* info,
   libxs_data_t datatype, int m, int n, const void* ref, const void* tst, const void* bound,

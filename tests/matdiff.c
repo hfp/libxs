@@ -444,5 +444,73 @@ int main(void)
     }
   }
 
+  /* complex (interleaved): the largest difference is the modulus of the complex difference */
+  if (EXIT_SUCCESS == result) {
+    const double zref[] = { 1.0, 0.0, 0.0, 2.0, 3.0, 4.0 }, ztst[] = { 1.0, 0.0, 0.0, 2.0, 3.3, 4.4 };
+    const float cref[] = { 1.0f, 0.0f, 0.0f, 2.0f, 3.0f, 4.0f }, ctst[] = { 1.0f, 0.0f, 0.0f, 2.0f, 3.3f, 4.4f };
+    libxs_matdiff_t dz;
+    if (EXIT_SUCCESS != libxs_matdiff(&dz, LIBXS_DATATYPE_C64, 3, 1, zref, ztst, NULL, NULL)
+      || 1E-12 < LIBXS_ABS(dz.linf_abs - 0.5))
+    {
+      result = EXIT_FAILURE;
+    }
+    if (EXIT_SUCCESS == result
+      && (EXIT_SUCCESS != libxs_matdiff(&dz, LIBXS_DATATYPE_C64, 3, 1, zref, zref, NULL, NULL)
+       || 0 != dz.linf_abs))
+    {
+      result = EXIT_FAILURE;
+    }
+    if (EXIT_SUCCESS == result
+      && (EXIT_SUCCESS != libxs_matdiff(&dz, LIBXS_DATATYPE_C32, 3, 1, cref, ctst, NULL, NULL)
+       || 1E-6 < LIBXS_ABS(dz.linf_abs - 0.5)))
+    {
+      result = EXIT_FAILURE;
+    }
+  }
+
+  /* unsigned integers of 64 and 8 bits, as the other integer types */
+  if (EXIT_SUCCESS == result) {
+    const unsigned long long uref[] = { 1, 2, 3 }, utst[] = { 1, 2, 5 };
+    const unsigned char bref[] = { 1, 2, 3 }, btst[] = { 1, 2, 5 };
+    libxs_matdiff_t du;
+    if (EXIT_SUCCESS != libxs_matdiff(&du, LIBXS_DATATYPE_U64, 3, 1, uref, utst, NULL, NULL)
+      || 2 != du.linf_abs)
+    {
+      result = EXIT_FAILURE;
+    }
+    if (EXIT_SUCCESS == result
+      && (EXIT_SUCCESS != libxs_matdiff(&du, LIBXS_DATATYPE_U8, 3, 1, bref, btst, NULL, NULL)
+       || 2 != du.linf_abs))
+    {
+      result = EXIT_FAILURE;
+    }
+  }
+
+  /* the grade of complex data: the modulus of the difference against a real bound */
+  if (EXIT_SUCCESS == result) {
+    const double unit = 0.5 * 2.2204460492503131E-16, unitf = 0.5 * 1.1920928955078125E-07;
+    const double zref[] = { 0.0, 0.0, 1.0, 1.0 }, zbnd[] = { 1.0, 1.0 };
+    const float cref[] = { 0.0f, 0.0f, 1.0f, 1.0f }, cbnd[] = { 1.0f, 1.0f };
+    double ztst[] = { 0.0, 0.0, 1.0, 1.0 };
+    float ctst[] = { 0.0f, 0.0f, 1.0f, 1.0f };
+    libxs_matdiff_t dg;
+    /* an error of 3 + 4i units of roundoff grades five */
+    ztst[0] = 3.0 * unit;
+    ztst[1] = 4.0 * unit;
+    if (EXIT_SUCCESS != libxs_matdiff_grade(&dg, LIBXS_DATATYPE_C64, 2, 1, zref, ztst, zbnd, NULL, NULL, NULL)
+      || 1E-9 < LIBXS_ABS(dg.grade - 5.0))
+    {
+      result = EXIT_FAILURE;
+    }
+    ctst[0] = (float)(3.0 * unitf);
+    ctst[1] = (float)(4.0 * unitf);
+    if (EXIT_SUCCESS == result
+      && (EXIT_SUCCESS != libxs_matdiff_grade(&dg, LIBXS_DATATYPE_C32, 2, 1, cref, ctst, cbnd, NULL, NULL, NULL)
+       || 1E-5 < LIBXS_ABS(dg.grade - 5.0)))
+    {
+      result = EXIT_FAILURE;
+    }
+  }
+
   return result;
 }

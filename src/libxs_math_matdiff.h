@@ -42,6 +42,20 @@ LIBXS_API int libxs_matdiff(libxs_matdiff_t* info,
 #       undef LIBXS_MATDIFF_TEMPLATE_ELEM_TYPE
 #       undef LIBXS_MATDIFF_TEMPLATE_TYPE2FP64
       } break;
+      case LIBXS_DATATYPE_U64: {
+#       define LIBXS_MATDIFF_TEMPLATE_TYPE2FP64(VALUE) ((double)(VALUE))
+#       define LIBXS_MATDIFF_TEMPLATE_ELEM_TYPE unsigned long long
+        if (0 == matdiff_shuffle) {
+#         include "libxs_matdiff.h"
+        }
+        else {
+#         define LIBXS_MATDIFF_SHUFFLE
+#         include "libxs_matdiff.h"
+#         undef LIBXS_MATDIFF_SHUFFLE
+        }
+#       undef LIBXS_MATDIFF_TEMPLATE_ELEM_TYPE
+#       undef LIBXS_MATDIFF_TEMPLATE_TYPE2FP64
+      } break;
       case LIBXS_DATATYPE_I32: {
 #       define LIBXS_MATDIFF_TEMPLATE_TYPE2FP64(VALUE) ((double)(VALUE))
 #       define LIBXS_MATDIFF_TEMPLATE_ELEM_TYPE int
@@ -101,6 +115,20 @@ LIBXS_API int libxs_matdiff(libxs_matdiff_t* info,
       case LIBXS_DATATYPE_I8: {
 #       define LIBXS_MATDIFF_TEMPLATE_TYPE2FP64(VALUE) ((double)(VALUE))
 #       define LIBXS_MATDIFF_TEMPLATE_ELEM_TYPE signed char
+        if (0 == matdiff_shuffle) {
+#         include "libxs_matdiff.h"
+        }
+        else {
+#         define LIBXS_MATDIFF_SHUFFLE
+#         include "libxs_matdiff.h"
+#         undef LIBXS_MATDIFF_SHUFFLE
+        }
+#       undef LIBXS_MATDIFF_TEMPLATE_ELEM_TYPE
+#       undef LIBXS_MATDIFF_TEMPLATE_TYPE2FP64
+      } break;
+      case LIBXS_DATATYPE_U8: {
+#       define LIBXS_MATDIFF_TEMPLATE_TYPE2FP64(VALUE) ((double)(VALUE))
+#       define LIBXS_MATDIFF_TEMPLATE_ELEM_TYPE unsigned char
         if (0 == matdiff_shuffle) {
 #         include "libxs_matdiff.h"
         }
@@ -305,10 +333,11 @@ LIBXS_API int libxs_matdiff_grade(libxs_matdiff_t* info,
   const int ldr = (NULL == ldref ? m : *ldref);
   const int ldt = (NULL == ldtst ? m : *ldtst);
   const int ldb = (NULL == ldbnd ? m : *ldbnd);
-  const int f64 = (LIBXS_DATATYPE_F64 == (int)datatype);
+  const int cplx = (LIBXS_DATATYPE_C64 == (int)datatype || LIBXS_DATATYPE_C32 == (int)datatype);
+  const int f64 = (LIBXS_DATATYPE_F64 == (int)datatype || LIBXS_DATATYPE_C64 == (int)datatype);
   if (NULL != info && NULL != ref && NULL != tst && NULL != bound
     && m <= ldr && m <= ldt && m <= ldb
-    && (0 != f64 || LIBXS_DATATYPE_F32 == (int)datatype))
+    && (0 != f64 || 0 != cplx || LIBXS_DATATYPE_F32 == (int)datatype))
   {
     /* The other members come from the regular driver, which clears the info first. */
     result = libxs_matdiff(info, datatype, m, n, ref, tst, ldref, ldtst);
@@ -321,13 +350,21 @@ LIBXS_API int libxs_matdiff_grade(libxs_matdiff_t* info,
     int i, j;
     for (j = 0; j < n; ++j) {
       for (i = 0; i < m; ++i) {
+        /* complex: interleaved pairs, the bound is real (of the same precision) */
         const size_t ir = (size_t)j * ldr + i, it = (size_t)j * ldt + i, ib = (size_t)j * ldb + i;
-        const double r = (0 != f64 ? ((const double*)ref)[ir] : (double)((const float*)ref)[ir]);
-        const double t = (0 != f64 ? ((const double*)tst)[it] : (double)((const float*)tst)[it]);
+        const size_t ur = (0 != cplx ? 2 * ir : ir), ut = (0 != cplx ? 2 * it : it);
+        const double r = (0 != f64 ? ((const double*)ref)[ur] : (double)((const float*)ref)[ur]);
+        const double t = (0 != f64 ? ((const double*)tst)[ut] : (double)((const float*)tst)[ut]);
         const double b = (0 != f64 ? ((const double*)bound)[ib] : (double)((const float*)bound)[ib]);
-        const double delta = fabs(r - t), limit = unit * fabs(b);
+        const double limit = unit * fabs(b);
+        double delta = fabs(r - t), ratio;
+        if (0 != cplx) { /* modulus of the complex difference */
+          const double ri = (0 != f64 ? ((const double*)ref)[ur + 1] : (double)((const float*)ref)[ur + 1]);
+          const double ti = (0 != f64 ? ((const double*)tst)[ut + 1] : (double)((const float*)tst)[ut + 1]);
+          delta = sqrt((r - t) * (r - t) + (ri - ti) * (ri - ti));
+        }
         /* A nonzero difference where the bound vanishes is unbounded, not a small ratio. */
-        const double ratio = (0 < limit) ? (delta / limit) : (0 < delta ? HUGE_VAL : 0);
+        ratio = (0 < limit) ? (delta / limit) : (0 < delta ? HUGE_VAL : 0);
         if (ratio > worst) worst = ratio;
       }
     }

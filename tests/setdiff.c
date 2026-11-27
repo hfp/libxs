@@ -172,6 +172,18 @@ int main(void)
     }
   }
 
+  /* U64 */
+  { unsigned long long a[] = {10, 20, 30}, b[] = {11, 21, 31};
+    if (3 != libxs_setdiff(LIBXS_DATATYPE_U64, a, 3, b, 3, 0.0)) {
+      FPRINTF(stderr, "ERROR line #%i: U64 all differ\n", __LINE__);
+      exit(EXIT_FAILURE);
+    }
+    if (0 != libxs_setdiff(LIBXS_DATATYPE_U64, a, 3, b, 3, 1.0)) {
+      FPRINTF(stderr, "ERROR line #%i: U64 tolerance\n", __LINE__);
+      exit(EXIT_FAILURE);
+    }
+  }
+
   /* I16 */
   { short a[] = {-100, 0, 100}, b[] = {100, -100, 0};
     if (0 != libxs_setdiff(LIBXS_DATATYPE_I16, a, 3, b, 3, 0.0)) {

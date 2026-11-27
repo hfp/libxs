@@ -86,6 +86,7 @@ LIBXS_API_INTERN int internal_libxs_fprint_load(
     case LIBXS_DATATYPE_F64: LIBXS_FPRINT_LOAD(double, data, stride, n, dst) break;
     case LIBXS_DATATYPE_F32: LIBXS_FPRINT_LOAD(float, data, stride, n, dst) break;
     case LIBXS_DATATYPE_I64: LIBXS_FPRINT_LOAD(long long, data, stride, n, dst) break;
+    case LIBXS_DATATYPE_U64: LIBXS_FPRINT_LOAD(unsigned long long, data, stride, n, dst) break;
     case LIBXS_DATATYPE_I32: LIBXS_FPRINT_LOAD(int, data, stride, n, dst) break;
     case LIBXS_DATATYPE_U32: LIBXS_FPRINT_LOAD(unsigned int, data, stride, n, dst) break;
     case LIBXS_DATATYPE_I16: LIBXS_FPRINT_LOAD(short, data, stride, n, dst) break;

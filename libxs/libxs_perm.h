@@ -95,7 +95,7 @@ LIBXS_EXTERN_C typedef struct libxs_spatial_t {
  * m, n:     matrix dimensions (m rows, n columns)
  * mat:      column-major matrix data (const, not modified)
  * ld:       leading dimension (ld >= m)
- * datatype: element type (F64, F32, I32, U32, I16, U16, I8, U8)
+ * datatype: element type (F64, F32, and all integer types)
  * perm:     output array of m ints; perm[i] = source row for position i
  *
  * Returns EXIT_SUCCESS or EXIT_FAILURE.

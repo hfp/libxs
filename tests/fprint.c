@@ -614,5 +614,25 @@ int main(void)
     }
   }
 
+  /* U64: the same fingerprint as the same values in F64 (integer types are promoted) */
+  { const unsigned long long u[] = {1, 4, 9, 16, 25, 36};
+    const double d[] = {1, 4, 9, 16, 25, 36};
+    const size_t shape[] = {6};
+    libxs_fprint_t fu, fd;
+    int k;
+    if (EXIT_SUCCESS != libxs_fprint(&fu, LIBXS_DATATYPE_U64, u, 1, shape, NULL, 3, 0, 0, 0)
+      || EXIT_SUCCESS != libxs_fprint(&fd, LIBXS_DATATYPE_F64, d, 1, shape, NULL, 3, 0, 0, 0))
+    {
+      FPRINTF(stderr, "ERROR line #%i: U64 fprint failed\n", __LINE__);
+      exit(EXIT_FAILURE);
+    }
+    for (k = 0; k <= fd.order; ++k) {
+      if (fu.l2[k] != fd.l2[k] || fu.l1[k] != fd.l1[k] || fu.linf[k] != fd.linf[k]) {
+        FPRINTF(stderr, "ERROR line #%i: U64 order %i differs\n", __LINE__, k);
+        exit(EXIT_FAILURE);
+      }
+    }
+  }
+
   return EXIT_SUCCESS;
 }

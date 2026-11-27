@@ -159,5 +159,28 @@ int main(void)
     free(iperm); free(ikeys);
     free(seen); free(perm); free(keys); free(src); free(want); free(data);
   }
+  /* libxs_sort_smooth: 64-bit integers order as the same values in F64 (promoted to double) */
+  if (EXIT_SUCCESS == result) {
+    const long long imat[] = { 9, 1, 5, 3, 7, 90, 10, 50, 30, 70 }; /* 5 rows, 2 columns */
+    const unsigned long long umat[] = { 9, 1, 5, 3, 7, 90, 10, 50, 30, 70 };
+    const double dmat[] = { 9, 1, 5, 3, 7, 90, 10, 50, 30, 70 };
+    int pd[5], pi[5], pu[5], method, i;
+    for (method = LIBXS_SORT_IDENTITY; method <= LIBXS_SORT_HILBERT && EXIT_SUCCESS == result; ++method) {
+      int mask = 0;
+      if (EXIT_SUCCESS != libxs_sort_smooth((libxs_sort_t)method, 5, 2, dmat, 5, LIBXS_DATATYPE_F64, pd)
+        || EXIT_SUCCESS != libxs_sort_smooth((libxs_sort_t)method, 5, 2, imat, 5, LIBXS_DATATYPE_I64, pi)
+        || EXIT_SUCCESS != libxs_sort_smooth((libxs_sort_t)method, 5, 2, umat, 5, LIBXS_DATATYPE_U64, pu))
+      {
+        FPRINTF(stderr, "sort_smooth method=%i failed\n", method);
+        result = EXIT_FAILURE;
+      }
+      for (i = 0; i < 5 && EXIT_SUCCESS == result; ++i) {
+        if (0 > pd[i] || 5 <= pd[i] || 0 != (mask & (1 << pd[i]))) result = EXIT_FAILURE; /* a permutation */
+        else mask |= 1 << pd[i];
+        if (pd[i] != pi[i] || pd[i] != pu[i]) result = EXIT_FAILURE;
+        if (EXIT_SUCCESS != result) FPRINTF(stderr, "sort_smooth method=%i differs at %i\n", method, i);
+      }
+    }
+  }
   return result;
 }

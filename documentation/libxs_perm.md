@@ -407,7 +407,7 @@ differences between consecutive rows).
 | `m`, `n`   | Matrix dimensions (m rows, n columns)                |
 | `mat`      | Column-major matrix data (read-only)                 |
 | `ld`       | Leading dimension (ld ≥ m)                           |
-| `datatype` | Element type (F64, F32, I32, U32, I16, U16, I8, U8)  |
+| `datatype` | Element type (F64, F32, and all integer types)       |
 | `perm`     | Output array of m ints; perm[i] = source row for position i after reordering |
 
 | Method     | Description                                          |

@@ -36,10 +36,9 @@ int libxs_matdiff(libxs_matdiff_t* info,
   const int* ldref, const int* ldtst);
 ```
 
-Compute scalar differences between two matrices. Supports `F64`, `F32`, `I64`,
-`I32`, `U32`, `I16`, `U16`, and `I8`, plus `LIBXS_DATATYPE_C64` and
-`LIBXS_DATATYPE_C32` (interleaved complex; dimensions refer to complex
-elements). Any other type (`U8`, `U64`) returns `EXIT_FAILURE`.
+Compute scalar differences between two matrices. Supports `F64`, `F32`, all
+integer types, and `LIBXS_DATATYPE_C64` and `LIBXS_DATATYPE_C32` (interleaved
+complex; dimensions refer to complex elements).
 
 ```C
 int libxs_matdiff_grade(libxs_matdiff_t* info,
@@ -53,8 +52,10 @@ leaves zero. The caller supplies `bound`, the elementwise upper bound on the
 exact result (for a GEMM: `|alpha||A||B| + |beta||C|`). The grade is
 dimensionless (units of roundoff), so the threshold stays with the caller:
 a componentwise-stable implementation stays at or below a modest multiple
-of the number of terms summed. `LIBXS_DATATYPE_F64` and `F32` only; any
-other type is reported rather than silently left ungraded.
+of the number of terms summed. `F64`, `F32`, `C64`, and `C32`: for complex
+data, the difference is the modulus of the complex difference, and `bound`
+is real (of the same precision; `ldbnd` counts its elements). Any other type
+is reported rather than silently left ungraded.
 
 ```C
 double libxs_matdiff_epsilon(const libxs_matdiff_t* input);
@@ -127,7 +128,7 @@ int libxs_setdiff(libxs_data_t datatype,
   const void* b, int nb, double tol);
 ```
 
-Supports all `libxs_data_t` types except `U64`. Returns the number of
+Supports all `libxs_data_t` types. Returns the number of
 unmatched elements, or -1 for unsupported types. The distance is at least
 abs(na - nb) when the vector lengths differ.
 
@@ -271,7 +272,7 @@ the 2*smooth+1 nearest input samples (clamped at boundaries).
 For 1-D data without LIBXS_FPRINT_PERAXIS, axis is ignored.
 
 Supported types: F64, F32, and all integer libxs_data_t types
-(I64, I32, U32, I16, U16, I8, U8 — promoted to double internally).
+(I64, U64, I32, U32, I16, U16, I8, U8 — promoted to double internally).
 
 With datatype LIBXS_DATATYPE_UNKNOWN, the element type is discovered
 (see Type Discovery below).
