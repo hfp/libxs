@@ -753,29 +753,65 @@ LIBXS_API_INLINE int internal_libxs_predict_build_impl(libxs_barrier_t* barrier,
 LIBXS_API_INLINE void internal_libxs_predict_bank_all(libxs_predict_t* model);
 
 
+/** Releases what one cluster holds (not the cluster itself). */
+LIBXS_API_INLINE void internal_libxs_predict_cluster_free(
+  internal_libxs_predict_cluster_t* cl)
+{
+  free(cl->centroid);
+  free(cl->coeffs);
+  free(cl->errors);
+  free(cl->out_rms);
+  free(cl->kd_pts);
+  free(cl->raw_outputs);
+  free(cl->out_mean);
+  free(cl->out_var);
+  free(cl->order);
+  free(cl->interpolated);
+  free(cl->mode);
+  free(cl->ndistinct);
+  free(cl->k_out);
+  free(cl->eweight);
+  free(cl->ihash);
+  free(cl->sorted_idx);
+  free(cl->sorted_dist);
+}
+
+
+/** Releases a forest and everything it holds; NULL is accepted. */
+LIBXS_API_INLINE void internal_libxs_predict_rf_free(internal_libxs_predict_rf_t* rf)
+{
+  if (NULL != rf) {
+    if (NULL != rf->trees) {
+      const int total_trees = rf->ntrees * rf->noutputs;
+      int ti;
+      for (ti = 0; ti < total_trees; ++ti) {
+        free(rf->trees[ti].nodes);
+        free(rf->trees[ti].incr);
+      }
+      free(rf->trees);
+    }
+    LIBXS_PREDICT_FREE(rf->calib_fold, rf->fold_pool);
+    /* normally released with the last tree; here for a build that gave up */
+    LIBXS_PREDICT_FREE(rf->bins, rf->bins_pool);
+    LIBXS_PREDICT_FREE(rf->bin_edge, rf->edge_pool);
+    free(rf->label_offset);
+    free(rf->regress);
+    free(rf->nclass);
+    free(rf->depth);
+    free(rf->calib);
+    free(rf->build_team);
+    free(rf->unit_end);
+    free(rf);
+  }
+}
+
+
 LIBXS_API_INLINE void internal_libxs_predict_free_clusters(libxs_predict_t* model)
 {
   if (NULL != model->clusters) {
     int c;
     for (c = 0; c < model->nclusters; ++c) {
-      internal_libxs_predict_cluster_t* cl = &model->clusters[c];
-      free(cl->centroid);
-      free(cl->coeffs);
-      free(cl->errors);
-      free(cl->out_rms);
-      free(cl->kd_pts);
-      free(cl->raw_outputs);
-      free(cl->out_mean);
-      free(cl->out_var);
-      free(cl->order);
-      free(cl->interpolated);
-      free(cl->mode);
-      free(cl->ndistinct);
-      free(cl->k_out);
-      free(cl->eweight);
-      free(cl->ihash);
-      free(cl->sorted_idx);
-      free(cl->sorted_dist);
+      internal_libxs_predict_cluster_free(&model->clusters[c]);
     }
     free(model->clusters);
     model->clusters = NULL;
@@ -1848,19 +1884,29 @@ LIBXS_API_INLINE int internal_libxs_predict_coincide(const libxs_predict_t* mode
 
 
 /**
- * Hash of m inputs (libxs_hash64). Zero has one sign and an absent input one
- * pattern, so inputs that compare equal hash equal.
+ * The bits a value hashes and compares by: zero has one sign and an absent value
+ * one pattern. Decided on the bits, as a fast floating-point model may fold a
+ * comparison that tells -0 from 0 or a NaN from a number.
  */
+LIBXS_API_INLINE uint64_t internal_libxs_predict_canon(double value)
+{
+  uint64_t result;
+  memcpy(&result, &value, sizeof(result));
+  if (0 == (result << 1)) result = 0;
+  else if (0x7FF0000000000000uLL < (result & 0x7FFFFFFFFFFFFFFFuLL)) {
+    result = 0x7FF8000000000000uLL;
+  }
+  return result;
+}
+
+
+/** Hash of m inputs (libxs_hash64): inputs that compare equal hash equal. */
 LIBXS_API_INLINE uint64_t internal_libxs_predict_ihash(const double* inputs, int m)
 {
   uint64_t result = 0;
   int i;
   for (i = 0; i < m; ++i) {
-    uint64_t bits = 0x7FF8000000000000uLL;
-    if (LIBXS_NOTNAN(inputs[i])) {
-      const double v = (0 != inputs[i] ? inputs[i] : 0.0);
-      memcpy(&bits, &v, sizeof(bits));
-    }
+    const uint64_t bits = internal_libxs_predict_canon(inputs[i]);
     result = libxs_hash64(&bits, sizeof(bits), result);
   }
   return result;
@@ -2450,33 +2496,14 @@ LIBXS_API libxs_predict_t* libxs_predict_create(int ninputs, int noutputs)
 LIBXS_API void libxs_predict_destroy(libxs_predict_t* model)
 {
   if (NULL != model) {
-    if (NULL != model->sup_vals) {
-      int j;
-      for (j = 0; j < model->noutputs; ++j) {
-        free(model->sup_vals[j]);
-        free(model->sup_freq[j]);
-      }
-    }
-    free(model->sup_vals);
-    free(model->sup_freq);
-    free(model->sup_n);
-    free(model->sup_tot);
+    const int ng = (model->hknn_ngroups > 0) ? model->hknn_ngroups : model->noutputs;
+    int gi;
     free(model->escape_w);
-    free(model->central_out);
     /* the trial's partials, which only a build that failed mid-tail still holds */
     LIBXS_PREDICT_FREE(model->sync_partial, model->sync_partial_pool);
-    model->sync_partial = NULL;
     internal_libxs_predict_neighbors_free(model->sync_ktrial);
-    model->sync_ktrial = NULL;
     internal_libxs_predict_hknn_team_free(model);
-    model->central_out = NULL;
-    model->sup_vals = NULL;
-    model->sup_freq = NULL;
-    model->sup_n = NULL;
-    model->sup_tot = NULL;
-    model->escape_w = NULL;
-  }
-  if (NULL != model) {
+    /* also the support cache and the central outputs derived from the clusters */
     internal_libxs_predict_free_clusters(model);
     free(model->discrete);
     /* the entries address the arena and own nothing of their own */
@@ -2496,50 +2523,21 @@ LIBXS_API void libxs_predict_destroy(libxs_predict_t* model)
     free(model->decompose_mat);
     free(model->hknn_assignments);
     if (NULL != model->hknn_po_assignments) {
-      const int ng = (model->hknn_ngroups > 0)
-        ? model->hknn_ngroups : model->noutputs;
-      int gi;
-      for (gi = 0; gi < ng; ++gi) {
-        free(model->hknn_po_assignments[gi]);
-      }
+      for (gi = 0; gi < ng; ++gi) free(model->hknn_po_assignments[gi]);
       free(model->hknn_po_assignments);
     }
     if (NULL != model->hknn_po_trees) {
-      const int ng = (model->hknn_ngroups > 0)
-        ? model->hknn_ngroups : model->noutputs;
-      int gi;
       for (gi = 0; gi < ng; ++gi) free(model->hknn_po_trees[gi].nodes);
       free(model->hknn_po_trees);
     }
     if (NULL != model->hknn_po_clusters) {
-      const int ng = (model->hknn_ngroups > 0)
-        ? model->hknn_ngroups : model->noutputs;
-      int gi;
       for (gi = 0; gi < ng; ++gi) {
         if (NULL != model->hknn_po_clusters[gi]) {
           const int nc = (NULL != model->hknn_po_nclusters)
             ? model->hknn_po_nclusters[gi] : 0;
           int ci;
           for (ci = 0; ci < nc; ++ci) {
-            internal_libxs_predict_cluster_t* cl =
-              &model->hknn_po_clusters[gi][ci];
-            free(cl->centroid);
-            free(cl->kd_pts);
-            free(cl->raw_outputs);
-            free(cl->sorted_idx);
-            free(cl->sorted_dist);
-            free(cl->order);
-            free(cl->mode);
-            free(cl->ndistinct);
-            free(cl->k_out);
-            free(cl->eweight);
-            free(cl->ihash);
-            free(cl->interpolated);
-            free(cl->coeffs);
-            free(cl->errors);
-            free(cl->out_rms);
-            free(cl->out_mean);
-            free(cl->out_var);
+            internal_libxs_predict_cluster_free(&model->hknn_po_clusters[gi][ci]);
           }
           free(model->hknn_po_clusters[gi]);
         }
@@ -2548,27 +2546,7 @@ LIBXS_API void libxs_predict_destroy(libxs_predict_t* model)
     }
     free(model->hknn_po_nclusters);
     free(model->hknn_po_groups);
-    if (NULL != model->rf) {
-      int ti;
-      const int total_trees = model->rf->ntrees * model->rf->noutputs;
-      for (ti = 0; ti < total_trees; ++ti) {
-        free(model->rf->trees[ti].nodes);
-        free(model->rf->trees[ti].incr);
-      }
-      free(model->rf->trees);
-      LIBXS_PREDICT_FREE(model->rf->calib_fold, model->rf->fold_pool);
-      /* normally released with the last tree; here for a build that gave up */
-      LIBXS_PREDICT_FREE(model->rf->bins, model->rf->bins_pool);
-      LIBXS_PREDICT_FREE(model->rf->bin_edge, model->rf->edge_pool);
-      free(model->rf->label_offset);
-      free(model->rf->regress);
-      free(model->rf->nclass);
-      free(model->rf->depth);
-      free(model->rf->calib);
-      free(model->rf->build_team);
-      free(model->rf->unit_end);
-      free(model->rf);
-    }
+    internal_libxs_predict_rf_free(model->rf);
     free(model->input_rep);
     free(model);
   }
@@ -3654,7 +3632,7 @@ LIBXS_API_INLINE int internal_libxs_predict_seen_equal(
 {
   int i = 0;
   while (i < width
-    && (LIBXS_FEQ(a[i], b[i]) || (LIBXS_ISNAN(a[i]) && LIBXS_ISNAN(b[i]))))
+    && internal_libxs_predict_canon(a[i]) == internal_libxs_predict_canon(b[i]))
   {
     ++i;
   }
@@ -6621,9 +6599,18 @@ LIBXS_API_INLINE int internal_libxs_predict_support(libxs_predict_t* model,
     model->sup_freq = (double**)calloc((size_t)n, sizeof(double*));
     model->sup_n = (int*)calloc((size_t)n, sizeof(int));
     model->sup_tot = (int*)calloc((size_t)n, sizeof(int));
+    /* all four or none: the release and the lookups test sup_vals alone */
     if (NULL == model->sup_vals || NULL == model->sup_freq
       || NULL == model->sup_n || NULL == model->sup_tot)
     {
+      free(model->sup_vals);
+      free(model->sup_freq);
+      free(model->sup_n);
+      free(model->sup_tot);
+      model->sup_vals = NULL;
+      model->sup_freq = NULL;
+      model->sup_n = NULL;
+      model->sup_tot = NULL;
       result = EXIT_FAILURE;
     }
   }

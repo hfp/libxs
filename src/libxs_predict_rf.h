@@ -1367,14 +1367,7 @@ LIBXS_API_INLINE void internal_libxs_predict_rf_build(libxs_predict_t* model)
        * exactly, and the bins are read by the trees the tasks grow */
       internal_libxs_predict_rf_edges(model);
     }
-    else {
-      free(rf->trees);
-      free(rf->label_offset);
-      free(rf->regress);
-      free(rf->nclass);
-      free(rf->depth);
-      free(rf);
-    }
+    else internal_libxs_predict_rf_free(rf);
   }
 }
 

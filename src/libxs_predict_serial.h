@@ -2241,20 +2241,7 @@ LIBXS_API libxs_predict_t* libxs_predict_load(const void* buffer, size_t size)
           }
           else ok = EXIT_FAILURE;
           if (EXIT_SUCCESS == ok) model->rf = rf;
-          else {
-            if (NULL != rf->trees) {
-              int ti;
-              for (ti = 0; ti < total_trees; ++ti) {
-                free(rf->trees[ti].nodes);
-                free(rf->trees[ti].incr);
-              }
-              free(rf->trees);
-            }
-            free(rf->label_offset);
-            free(rf->regress);
-            free(rf->nclass);
-            free(rf);
-          }
+          else internal_libxs_predict_rf_free(rf);
         }
       }
     }
