@@ -933,17 +933,6 @@ LIBXS_API_INLINE int internal_libxs_predict_gaps_ok(int mode)
 }
 
 
-LIBXS_API_INLINE int internal_libxs_predict_cmpval(const void* a, const void* b)
-{
-  const double x = *(const double*)a, y = *(const double*)b;
-  int result;
-  if (x < y) result = -1;
-  else if (x > y) result = 1;
-  else result = 0;
-  return result;
-}
-
-
 /**
  * Position of a value in its own axis distribution: the empirical CDF, sampled
  * at LIBXS_PREDICT_KNOTS uniform probabilities and interpolated between them.
@@ -1146,10 +1135,8 @@ LIBXS_API_INLINE int internal_libxs_predict_fit_knots(libxs_predict_t* model)
         const double v = model->entries[i].inputs[j];
         if (LIBXS_NOTNAN(v)) scratch[nval++] = v;
       }
-      if (1 < nval) {
-        qsort(scratch, (size_t)nval, sizeof(double),
-          internal_libxs_predict_cmpval);
-      }
+      /* ties order freely: a knot between -0 and +0 comes out +0 either way */
+      libxs_sort(scratch, nval, sizeof(double), libxs_cmp_f64, NULL);
       if (1 < nval && scratch[nval - 1] > scratch[0]) {
         for (k = 0; k <= last; ++k) {
           const double t = (double)k * (nval - 1) / last;

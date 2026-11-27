@@ -712,36 +712,25 @@ LIBXS_API_INLINE int internal_libxs_predict_rf_build_part(
        * run-to-run differences in RF results. The parent's own read-out is
        * the correct fallback, being what a leaf at this point would predict.
        */
-      nodes[ni].left = nnodes;
-      nodes[nnodes].feature = -1;
-      nodes[nnodes].left = -1;
-      nodes[nnodes].right = -1;
-      nodes[nnodes].label = best_label;
-      nodes[nnodes].value = mean;
-      /* a node that stays a leaf is never given one, and it is written out */
-      nodes[nnodes].threshold = 0;
-      nodes[nnodes].leafp = nodes[ni].leafp;
-      if (sp < 64) {
-        stack[sp].si = si; stack[sp].nc = nleft;
-        stack[sp].depth = depth + 1; stack[sp].node = nnodes;
-        ++sp;
+      for (k = 0; k < 2; ++k) { /* the left child, then the right */
+        if (0 == k) nodes[ni].left = nnodes;
+        else nodes[ni].right = nnodes;
+        nodes[nnodes].feature = -1;
+        nodes[nnodes].left = -1;
+        nodes[nnodes].right = -1;
+        nodes[nnodes].label = best_label;
+        nodes[nnodes].value = mean;
+        /* a node that stays a leaf is never given one, and it is written out */
+        nodes[nnodes].threshold = 0;
+        nodes[nnodes].leafp = nodes[ni].leafp;
+        if (sp < 64) {
+          stack[sp].si = (0 == k) ? si : (si + nleft);
+          stack[sp].nc = (0 == k) ? nleft : nright;
+          stack[sp].depth = depth + 1; stack[sp].node = nnodes;
+          ++sp;
+        }
+        ++nnodes;
       }
-      ++nnodes;
-      nodes[ni].right = nnodes;
-      nodes[nnodes].feature = -1;
-      nodes[nnodes].left = -1;
-      nodes[nnodes].right = -1;
-      nodes[nnodes].label = best_label;
-      nodes[nnodes].value = mean;
-      /* a node that stays a leaf is never given one, and it is written out */
-      nodes[nnodes].threshold = 0;
-      nodes[nnodes].leafp = nodes[ni].leafp;
-      if (sp < 64) {
-        stack[sp].si = si + nleft; stack[sp].nc = nright;
-        stack[sp].depth = depth + 1; stack[sp].node = nnodes;
-        ++sp;
-      }
-      ++nnodes;
     }
   }
   /* what is left pending is the frontier: nodes that exist and are not grown */
@@ -945,6 +934,49 @@ LIBXS_API_INLINE int internal_libxs_predict_rf_boot_draw(
 
 
 /**
+ * The row of a tree's i-th draw, moved past the rows of the tree's calibration
+ * fold (rf->calib_fold), or -1 where that fold holds every row.
+ */
+LIBXS_API_INLINE int internal_libxs_predict_rf_boot_row(
+  const internal_libxs_predict_rf_t* rf, size_t i, size_t boot_n,
+  size_t coprime, int tree, int p)
+{
+  int result = internal_libxs_predict_rf_boot_draw(rf, i, boot_n, coprime,
+    (size_t)tree, p);
+  if (NULL != rf->calib_fold) {
+    const int fold = tree % LIBXS_PREDICT_RF_CALIB_FOLDS;
+    int probed = 0;
+    while (probed < p && 1 + fold == rf->calib_fold[result]) {
+      result = (result + 1 < p) ? (result + 1) : 0;
+      ++probed;
+    }
+    if (p <= probed) result = -1;
+  }
+  return result;
+}
+
+
+/**
+ * Marks oob (p bytes) with the rows a tree's bootstrap left out. The bootstrap
+ * is regenerated rather than stored: it is a pure function of the tree index,
+ * and holding p indices per tree to avoid recomputing them would cost more
+ * than the forest. An input is in bag or out as a whole (rep, may be NULL).
+ */
+LIBXS_API_INLINE void internal_libxs_predict_rf_oob(
+  const internal_libxs_predict_rf_t* rf, unsigned char* oob, const int* rep,
+  int tree, size_t boot_n, size_t coprime, int nb, int p)
+{
+  int i;
+  memset(oob, 1, (size_t)p);
+  for (i = 0; i < nb; ++i) {
+    const int row = internal_libxs_predict_rf_boot_row(rf, (size_t)i, boot_n,
+      coprime, tree, p);
+    if (0 <= row) oob[(NULL != rep) ? rep[row] : row] = 0;
+  }
+}
+
+
+/**
  * Puts a bootstrap in row order, counting into `count` (p entries). The draw
  * decides which rows a tree sees and how often; the order decides nothing a split
  * counts, and the partition is stable, so every node's rows become a rising run of
@@ -1007,8 +1039,8 @@ LIBXS_API_INLINE double internal_libxs_predict_rf_score(
     double err = 0;
     for (t = 0; t < nt; ++t) {
       for (i = 0; i < ntrain; ++i) {
-        bootstrap[i] = (int)(LIBXS_SHUFFLE_INDEX(i, boot_n, boot_coprime,
-          (size_t)t * 7 + 13) % (size_t)ntrain);
+        bootstrap[i] = internal_libxs_predict_rf_draw((size_t)i, boot_n,
+          boot_coprime, (size_t)t * 7 + 13, ntrain);
       }
       /* the probe splits exactly: it runs before the bins are filled, and it
        * ranks depths against each other rather than reporting an error */
@@ -1453,13 +1485,6 @@ LIBXS_API_INLINE int internal_libxs_predict_rf_pack_tree(
 }
 
 
-LIBXS_API_INLINE void internal_libxs_predict_rf_team_bounds(
-  int ntasks, int nteams, int team, int* begin, int* end)
-{
-  internal_libxs_predict_split(ntasks, team, nteams, begin, end);
-}
-
-
 LIBXS_API_INLINE int internal_libxs_predict_rf_team_prepare(
   libxs_predict_t* model, int ntasks)
 {
@@ -1478,8 +1503,7 @@ LIBXS_API_INLINE int internal_libxs_predict_rf_team_prepare(
         rf->build_nteams = nteams;
         for (team = 0; team < nteams; ++team) {
           int begin, end;
-          internal_libxs_predict_rf_team_bounds(
-            ntasks, nteams, team, &begin, &end);
+          internal_libxs_predict_split(ntasks, team, nteams, &begin, &end);
           libxs_barrier_init(&rf->build_team[team].barrier, end - begin);
         }
       }
@@ -1522,6 +1546,30 @@ LIBXS_API_INLINE void internal_libxs_predict_rf_grow_init(
 }
 
 
+LIBXS_API_INLINE size_t internal_libxs_predict_rf_values_count(
+  const internal_libxs_predict_rf_t* rf, int output, int nfeat, int nrows)
+{
+  size_t result = (NULL != rf->bins)
+    ? LIBXS_PREDICT_RF_BINMIN : (size_t)nrows;
+  if (NULL != rf->bins) {
+    const int ncls = (0 != rf->regress[output]) ? 1
+      : ((0 < rf->nclass[output] && 128 >= rf->nclass[output])
+        ? rf->nclass[output] : 128);
+    const int width = (0 != rf->regress[output]) ? 3 : ncls;
+    const size_t per = (size_t)rf->nbins * width;
+    int nfused = (int)(LIBXS_PREDICT_RF_HISTMAX
+      / (per * sizeof(double)));
+    const int nfeatsub = internal_libxs_predict_rf_nfeatsub(nfeat);
+    size_t needed;
+    if (1 > nfused) nfused = 1;
+    nfused = LIBXS_MIN(nfused, nfeatsub);
+    needed = (size_t)nfused * per;
+    if (result < needed) result = needed;
+  }
+  return result;
+}
+
+
 LIBXS_API_INLINE int internal_libxs_predict_rf_build_tasks_independent(
   libxs_predict_t* model, int tid, int ntasks)
 {
@@ -1558,22 +1606,9 @@ LIBXS_API_INLINE int internal_libxs_predict_rf_build_tasks_independent(
     double* values_scratch = NULL;
     int* index_scratch = NULL;
     int output;
-    if (NULL != rf->bins) {
-      for (output = 0; output < n; ++output) {
-        const int ncls = (0 != rf->regress[output]) ? 1
-          : ((0 < rf->nclass[output] && 128 >= rf->nclass[output])
-            ? rf->nclass[output] : 128);
-        const int width = (0 != rf->regress[output]) ? 3 : ncls;
-        const size_t per = (size_t)rf->nbins * width;
-        int nfused = (int)(LIBXS_PREDICT_RF_HISTMAX
-          / (per * sizeof(double)));
-        size_t needed;
-        if (1 > nfused) nfused = 1;
-        nfused = LIBXS_MIN(nfused,
-          internal_libxs_predict_rf_nfeatsub(m));
-        needed = (size_t)nfused * per;
-        if (values_count < needed) values_count = needed;
-      }
+    for (output = 0; output < n; ++output) { /* the widest output's need */
+      values_count = LIBXS_MAX(values_count,
+        internal_libxs_predict_rf_values_count(rf, output, m, nscratch));
     }
     internal_libxs_predict_split(total_trees, tid, ntasks, &begin, &end);
     result = EXIT_SUCCESS;
@@ -1603,14 +1638,11 @@ LIBXS_API_INLINE int internal_libxs_predict_rf_build_tasks_independent(
             (size_t)max_nodes
               * sizeof(internal_libxs_predict_rf_build_node_t), nodes_pool);
         for (i = 0; i < nb; ++i) {
-          bootstrap[i] = internal_libxs_predict_rf_boot_draw(rf, (size_t)i,
-            boot_n, boot_coprime, (size_t)ti, p);
-          if (NULL != rf->calib_fold) {
-            const int fold = ti % LIBXS_PREDICT_RF_CALIB_FOLDS;
-            while (1 + fold == rf->calib_fold[bootstrap[i]]) {
-              bootstrap[i] = (bootstrap[i] + 1 < p)
-                ? (bootstrap[i] + 1) : 0;
-            }
+          bootstrap[i] = internal_libxs_predict_rf_boot_row(rf, (size_t)i,
+            boot_n, boot_coprime, ti, p);
+          if (0 > bootstrap[i]) { /* nothing left to draw */
+            bootstrap[i] = 0;
+            result = EXIT_FAILURE;
           }
         }
         internal_libxs_predict_rf_boot_sort(bootstrap, nb, p, index_scratch);
@@ -1639,30 +1671,6 @@ LIBXS_API_INLINE int internal_libxs_predict_rf_build_tasks_independent(
     LIBXS_PREDICT_FREE(index_scratch, index_pool);
     LIBXS_PREDICT_FREE(values_scratch, values_pool);
     LIBXS_PREDICT_FREE(bootstrap, bootstrap_pool);
-  }
-  return result;
-}
-
-
-LIBXS_API_INLINE size_t internal_libxs_predict_rf_values_count(
-  const internal_libxs_predict_rf_t* rf, int output, int nfeat, int nrows)
-{
-  size_t result = (NULL != rf->bins)
-    ? LIBXS_PREDICT_RF_BINMIN : (size_t)nrows;
-  if (NULL != rf->bins) {
-    const int ncls = (0 != rf->regress[output]) ? 1
-      : ((0 < rf->nclass[output] && 128 >= rf->nclass[output])
-        ? rf->nclass[output] : 128);
-    const int width = (0 != rf->regress[output]) ? 3 : ncls;
-    const size_t per = (size_t)rf->nbins * width;
-    int nfused = (int)(LIBXS_PREDICT_RF_HISTMAX
-      / (per * sizeof(double)));
-    const int nfeatsub = internal_libxs_predict_rf_nfeatsub(nfeat);
-    size_t needed;
-    if (1 > nfused) nfused = 1;
-    nfused = LIBXS_MIN(nfused, nfeatsub);
-    needed = (size_t)nfused * per;
-    if (result < needed) result = needed;
   }
   return result;
 }
@@ -1727,21 +1735,11 @@ LIBXS_API_INLINE int internal_libxs_predict_rf_build_tree_team(
     int begin, end, i;
     internal_libxs_predict_split(nb, rank, team_size, &begin, &end);
     for (i = begin; i < end; ++i) {
-      int probed = 0;
-      ctx->bootstrap[i] = internal_libxs_predict_rf_boot_draw(rf, (size_t)i,
-        boot_n, boot_coprime, (size_t)tree, p);
-      if (NULL != rf->calib_fold) {
-        const int fold = tree % LIBXS_PREDICT_RF_CALIB_FOLDS;
-        while (probed < p
-          && 1 + fold == rf->calib_fold[ctx->bootstrap[i]])
-        {
-          ctx->bootstrap[i] = (ctx->bootstrap[i] + 1 < p)
-            ? (ctx->bootstrap[i] + 1) : 0;
-          ++probed;
-        }
-        if (p <= probed) {
-          LIBXS_ATOMIC_STORE(&ctx->failed, 1, LIBXS_ATOMIC_SEQ_CST);
-        }
+      ctx->bootstrap[i] = internal_libxs_predict_rf_boot_row(rf, (size_t)i,
+        boot_n, boot_coprime, tree, p);
+      if (0 > ctx->bootstrap[i]) { /* nothing left to draw */
+        ctx->bootstrap[i] = 0;
+        LIBXS_ATOMIC_STORE(&ctx->failed, 1, LIBXS_ATOMIC_SEQ_CST);
       }
     }
   }
@@ -1876,8 +1874,8 @@ LIBXS_API_INLINE int internal_libxs_predict_rf_build_tasks_team(
   int team = 0, task_begin = 0, task_end = 0;
   int rank, team_size, tree, result = EXIT_SUCCESS;
   while (team < rf->build_nteams) {
-    internal_libxs_predict_rf_team_bounds(ntasks, rf->build_nteams,
-      team, &task_begin, &task_end);
+    internal_libxs_predict_split(ntasks, team, rf->build_nteams,
+      &task_begin, &task_end);
     if (task_begin <= tid && tid < task_end) break;
     ++team;
   }
@@ -1998,10 +1996,8 @@ LIBXS_API_INLINE void internal_libxs_predict_rf_hold_score(
  */
 LIBXS_API_INLINE int internal_libxs_predict_rf_calib_bin(double score, int nbin)
 {
-  int result = (int)(score * nbin);
-  if (result >= nbin) result = nbin - 1;
-  if (0 > result) result = 0;
-  return result;
+  const int bin = (int)(score * nbin);
+  return LIBXS_CLMP(bin, 0, nbin - 1);
 }
 
 
@@ -2150,18 +2146,8 @@ LIBXS_API_INLINE void internal_libxs_predict_rf_boost(libxs_predict_t* model)
           for (t = 0; t < ntrees; ++t) {
             const internal_libxs_predict_rf_tree_t* tr = &rf->trees[tbase + t];
             if (NULL == tr->nodes || 0 == tr->nnodes) continue;
-            memset(oob, 1, (size_t)p);
-            for (i = 0; i < nb; ++i) {
-              int row = internal_libxs_predict_rf_boot_draw(rf, (size_t)i,
-                boot_n, boot_coprime, (size_t)(tbase + t), p);
-              if (NULL != rf->calib_fold) {
-                const int fold = (tbase + t) % LIBXS_PREDICT_RF_CALIB_FOLDS;
-                while (1 + fold == rf->calib_fold[row]) {
-                  row = (row + 1 < p) ? (row + 1) : 0;
-                }
-              }
-              oob[(NULL != rep) ? rep[row] : row] = 0;
-            }
+            internal_libxs_predict_rf_oob(rf, oob, rep, tbase + t, boot_n,
+              boot_coprime, nb, p);
             for (i = 0; i < p; ++i) {
               if (0 != oob[(NULL != rep) ? rep[i] : i]) {
                 const int li = internal_libxs_predict_rf_leafof(tr,
@@ -2185,21 +2171,8 @@ LIBXS_API_INLINE void internal_libxs_predict_rf_boost(libxs_predict_t* model)
           for (t = 0; t < ntrees; ++t) {
             internal_libxs_predict_rf_tree_t* tr = &rf->trees[tbase + t];
             if (NULL == tr->nodes || 0 == tr->nnodes) continue;
-            /** The bootstrap is regenerated rather than stored: it is a pure
-             *  function of the tree index, and holding p indices per tree to
-             *  avoid recomputing them would cost more than the forest. */
-            memset(oob, 1, (size_t)p);
-            for (i = 0; i < nb; ++i) {
-              int row = internal_libxs_predict_rf_boot_draw(rf, (size_t)i,
-                boot_n, boot_coprime, (size_t)(tbase + t), p);
-              if (NULL != rf->calib_fold) {
-                const int fold = (tbase + t) % LIBXS_PREDICT_RF_CALIB_FOLDS;
-                while (1 + fold == rf->calib_fold[row]) {
-                  row = (row + 1 < p) ? (row + 1) : 0;
-                }
-              }
-              oob[(NULL != rep) ? rep[row] : row] = 0;
-            }
+            internal_libxs_predict_rf_oob(rf, oob, rep, tbase + t, boot_n,
+              boot_coprime, nb, p);
             /**
              * Judged on the held-back rows alone. Judging on this tree's
              * out-of-bag rows instead looks natural and is worthless: those
