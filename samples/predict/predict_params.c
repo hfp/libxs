@@ -300,7 +300,12 @@ int main(int argc, char* argv[])
               libxs_predict_destroy(val_model);
               free(trained);
             }
-            if (EXIT_SUCCESS == validation_ok) { size_t size = 0;
+            /* the deployed model is built from every row, so it is saved even
+             * where the validation model (a part of them) could not be scored */
+            if (EXIT_SUCCESS != validation_ok) {
+              fprintf(stderr, "Validation failed, saving the model anyway\n");
+            }
+            { size_t size = 0;
               void* buffer;
               libxs_predict_save(model, NULL, &size);
               buffer = malloc(size);
@@ -313,9 +318,10 @@ int main(int argc, char* argv[])
                     if (size == written && 0 == closed) {
                       fprintf(stdout, "Saved model to %s (%lu bytes)\n",
                         modelfile, (unsigned long)size);
-                      if (NULL == confidence_prefix || EXIT_SUCCESS ==
+                      /* the exit code still reports a failed validation */
+                      if ((NULL == confidence_prefix || EXIT_SUCCESS ==
                         write_confidence_maps(confidence_prefix, buffer, size,
-                          source, ntotal))
+                          source, ntotal)) && EXIT_SUCCESS == validation_ok)
                       {
                         result = EXIT_SUCCESS;
                       }
